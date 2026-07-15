@@ -38,6 +38,7 @@ const NOW = '2026-06-08T10:00:00.000Z';
 type Outcome =
   | 'passed'
   | 'blocked_gap_only'
+  | 'passed_gaps_only'
   | 'schema_failed'
   | 'empty_binding_set'
   | 'missing_challenge'
@@ -90,8 +91,21 @@ class StubEvidenceBoardCurationAgentOrchestrator {
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'empty_binding_set') {
+      // Genuinely empty set: no bindings AND no gaps — stays fail-closed.
       return invocationResult(evidenceBoardRoleOutput({
         binding_candidate_proposals: [],
+        gap_candidate_proposals: [],
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'passed_gaps_only') {
+      // gs001-lora-live-005 shape: the sole evidence unit is already bound to
+      // every target assertion, so no NEW viable binding is proposable. The
+      // honest role output is role_status=passed with empty binding candidates
+      // plus non-empty gap candidates. This must NOT fail closed as an empty set.
+      return invocationResult(evidenceBoardRoleOutput({
+        role_status: 'passed',
+        binding_candidate_proposals: [],
+        gap_candidate_proposals: [gapCandidateProposal('gap_missing_locator')],
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'missing_challenge') {
@@ -259,6 +273,38 @@ test('evidence-board curation runtime records blocked gap-only output as admitte
     (result.final_runtime_artifact?.artifact_payload.runtime_control as { terminal_code?: string } | undefined)
       ?.terminal_code,
     'admitted_blocked',
+  );
+});
+
+test('evidence-board curation runtime admits a passed gaps-only output instead of failing the empty binding-set check (S3 收口 gs-001 run 005)', async () => {
+  // gs001-lora-live-005 root cause: the material carried exactly one evidence
+  // unit already bound to all three target assertions, so no NEW viable binding
+  // was proposable and the honest role_status=passed output carried empty binding
+  // candidates plus gap candidates. The old empty-set check ran only on
+  // role_status=passed and unconditionally failed an empty binding set, turning a
+  // legitimate gaps-only pass into a failed_runtime dead-end. A gaps-only pass now
+  // lands as an admitted, reviewable blocked final (no viable binding), never
+  // failed_runtime / CANDIDATE_SET_EMPTY.
+  const { service, orchestrator } = serviceFixture(['passed_gaps_only']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_passed_gaps_only_run_001',
+  });
+
+  assert.equal(orchestrator.calls.length, 1);
+  assert.notEqual(result.status, 'failed_runtime');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code, null);
+  assert.equal(
+    result.final_runtime_artifact?.blocker_codes.includes('EVIDENCE_BOARD_CURATION_BINDING_CANDIDATE_SET_EMPTY'),
+    false,
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  // No viable binding + gap findings present → honest reviewable blocked final.
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(
+    (result.final_runtime_artifact?.artifact_payload as { gap_candidate_proposals?: unknown[] } | undefined)
+      ?.gap_candidate_proposals?.length,
+    1,
   );
 });
 

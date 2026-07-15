@@ -746,6 +746,64 @@ test('motive evolution runtime maps run_mode identically to sibling slot service
   }
 });
 
+test('motive evolution runtime accepts option refs that echo allowed inputs with schema-materialized optional keys (S3 收口 gs-001 run 005)', async () => {
+  // gs001-lora-live-005 root cause: this service was the sole slot keying ref
+  // identity on full-shape stableStringify. The provider echoes allowed input
+  // refs through the output schema, which materializes the optional `legacy_ref`
+  // as explicit `null`; the old refKey then read that (and null-vs-absent
+  // version_id) as drift and raised MOTIVE_EVOLUTION_REF_MISMATCH on semantically
+  // identical refs. The semantic refKey now accepts absent-vs-null optional keys.
+  const withOptionalKeyEcho = (base: TopicSelectionFunctionalRef): TopicSelectionFunctionalRef => ({
+    ...base,
+    legacy_ref: null,
+  });
+  const supportingRefs = [
+    withOptionalKeyEcho(ref('core_motive_version', 'core_motive_version_001')),
+    withOptionalKeyEcho(ref('motive_evidence_board_version', 'board_version_001')),
+    withOptionalKeyEcho(ref('evidence_binding', 'evidence_binding_001')),
+  ];
+  const challengingRefs = [
+    withOptionalKeyEcho(ref('motive_challenge', 'challenge_001')),
+    withOptionalKeyEcho(ref('trace_manifest', 'trace_manifest_001')),
+  ];
+  const prior = {
+    designer_role_artifact_ref: ref('motive_evolution_role_artifact', 'designer_role_001'),
+    designer_role_artifact_hash: hash('designer-role-001'),
+    option_set_hash: OPTION_SET_HASH,
+  };
+  const { service } = serviceFixture();
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_optional_key_echo_run_001',
+    run_mode: 'mock',
+    execution_mode: 'mocked_llm',
+    model_profile_id: null,
+    model_option_id: null,
+    mocked_role_outputs: {
+      [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: designerRoleOutput({
+        cited_source_refs: [withOptionalKeyEcho(ref('source', 'source_001'))],
+        designed_options: designedOptionsByKey('evolution_option_001', {
+          supporting_refs: supportingRefs,
+          challenging_refs: challengingRefs,
+        }),
+      }),
+      [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: challengerRoleOutput(prior, {
+        cited_source_refs: [withOptionalKeyEcho(ref('source', 'source_001'))],
+        decision_options: decisionOptionsByKey('evolution_option_001', {
+          supporting_refs: supportingRefs,
+          challenging_refs: challengingRefs,
+        }),
+      }),
+    },
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.runtime_failure_code ?? null, null);
+  for (const artifact of result.runtime_artifacts) {
+    assert.notEqual(artifact.runtime_failure_code, 'MOTIVE_EVOLUTION_REF_MISMATCH');
+  }
+});
+
 test('motive evolution runtime rejects product fixture modes, provider fixtures, model drift, and harness primary refs', async () => {
   const { service, orchestrator } = serviceFixture();
 

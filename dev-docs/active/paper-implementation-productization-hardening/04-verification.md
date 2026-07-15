@@ -74,6 +74,12 @@
 
 ## Log
 
+### 2026-07-15 S3 闭合（gs-001 v3 三评 + run 006 全链 + 全门复跑）
+- **gs-001 v3**：素材修订（自包含探针判据+5 warning 吸收+§GT-8）后 live 两跑——run 005 暴露 S3 硬化×真实 LLM 输出三处相互作用（可选键 `legacy_ref:null` 形状等值误判×2 + gaps-only 空集误伤×1，根因与修法详 03）；修后 **run 006：lane A 首次全链 completed（四槽全 passed）+ 受理桥双物化**（TechnicalRouteCandidate + FeasibilityProbe created），curation/evolution 转诚实语义 blocked，failed_run_review 技术死路清零。
+- **v3 代评审**（run 006，AI 代评审人工可覆盖，留档 run 目录 `rubric-scored.md`）：四维 **4.9/4.9/4.9/5.0**（vs v2 4.8/5.0/4.8/5.0，候选↑ 追溯↑ 约束= 批判微降非放行错误）。连续第三评不劣化。
+- **收口证据**：ref 语义等值修复后全量 runtime-stress `t114-paper-implementation-runtime-stress-1784078240326` **passed**；prisma smoke **37/0/15**；**near-prod gate（L6）`t114-paper-implementation-near-prod-runtime-gate-1784074155740` passed**（P1/result-analysis wire 编码真 provider 路径首验）；backend tsc 本包面零错。
+- S3 全部验收项闭合；移交项见 03（evolution 槽内内容注入 / disposition 语义形式化 / blocked 队列分类 / 素材 v4）。
+
 ### 2026-07-15 S3 落地 + 复审修复轮收口（gs-001 v3 与 near-prod 另记）
 - **S3-α**（D9 resume/契约加深/admission 真实现/echo 扩面）+ **S3-β**（evolution wire 根因/N7 dossier 项目级对账）合流后，8 角度 code review（finder→verify 两段）产出 ~20 条去重候选：**10 项 CONFIRMED 级修复**（F1 resume 共享引擎+run 归属精确化+model option 继承+幂等版本语义+断链 409+仓储 run 过滤；F2 runtime 全 section 扫描+disposition 谓词单源+admission 复核补齐+prompt 措辞；F3 `__proto__` 双污染点+prompt 按模式分支+blocked 漂移门三服务补齐+echo 收敛；F4 dossier 豁免实校验+ref_type 过滤；F5 P1/result-analysis wire 编码+gateway strict 降解 fail-closed 护栏——根治 OpenAI 模式三链空心 final 物化率恒 0 的 P0），4 项 REFUTED 留档（03 号文档）。
 - **收口证据（代码态）**：全量 runtime-stress `t114-paper-implementation-runtime-stress-1784073185367` **passed**；prisma smoke **37/0/15**；backend+shared tsc 零错（工作树中并行 T-132 会话的 experiment-foundation 测试文件有其在途报错，非本包面）。L5 必检新增：resume×2（前缀复用零重发/漂移拒续）、evolution wire×2（全链/legacy 复现 run 004 签名）、P1 wire 全链、degenerate schema gateway fail-closed。

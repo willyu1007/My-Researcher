@@ -16,6 +16,23 @@
  * RR-006 基线选择的可行性依赖→staged 门化解）。修订仍只承载"晋升时点"可见的预承诺，
  * 阈值是复现门槛（reproduction target），不是论文报告值——不预置论文答案。
  * 对照段见同目录 ground-truth.md §GT-7。
+ *
+ * v3（2026-07-15）：按 run gs001-lora-live-004 复评修订。
+ * - RF-BASE-001（唯一 blocking，阶段顺序矛盾）：stage 0 探针判据改为**自包含**——stage 0
+ *   内先训一条短 SST-2 full-FT 校准锚点，探针通过 = LoRA best-of-{r=4,r=8} 同时满足绝对下限
+ *   90.0 acc 且与该 stage-0 锚点差 ≤1.0pt；不再依赖 stage 1 才复现的 full-FT 值来判读。
+ * - RF-COMP-001（warning，预算账本不可审）：新增 full_ft_reuse_rule——stage 1 正式 full-FT
+ *   复现 run 逐字复用为 stage 2 confirmatory full-FT 单元格，绝不在 stage 2 重训。
+ * - RF-DATA-001（warning，聚合规则丢失）：dataset 预承诺显式加 metric_aggregation
+ *   （mean-over-repeats、重复上限、parity 容差、锚点语义）。
+ * - RF-BASE-002（warning）：新增 baseline_claim_control_rule 显式化"失败即 drop 而非弱化"。
+ * - RF-TRACE-001（warning，code/config refs 空）：**部分吸收**——加 reference_implementation
+ *   指针（公开参考实现，晋升时点可引为 code/config 溯源锚），但项目级 code/config artifact 在
+ *   晋升时点确实不存在，作为诚实登记的 route-planning 已知缺口保留（见 v3 修订说明不吸收理由）。
+ * - RF-SCOPE-001 / RF-CONF-001 为 info（scope 合规、confirmatory 分离基本健全，唯一牵连即上述
+ *   stage 顺序矛盾，已随 blocking 化解），无需素材侧改动。
+ * hash 纪律不变：所有 *_hash 仍由 sha256Hex 在装载时对内容/载荷现算，改内容即自洽重算，
+ * 无硬编码 hash 需手动维护。对照段见同目录 ground-truth.md §GT-7（v3 增补）。
  */
 import { createHash } from 'node:crypto';
 
@@ -94,11 +111,18 @@ export const GS001_LORA_CONTENT = {
     ],
   },
   early_check_obligations: [
-    'Low-rank feasibility probe (stage 0): LoRA with rank r in {4, 8} on SST-2 must reach within 1.0 accuracy '
-    + 'point of our reproduced full fine-tuning value; the confirmatory matrix is gated on this probe passing.',
-    'Baseline reproducibility check (stage 1): the mandatory baselines (full fine-tuning, Houlsby-style adapter) '
-    + 'must meet their pre-committed success criteria in the baseline control checklist before comparative claims '
-    + 'are planned; BitFit is optional and prefix tuning is budget-gated.',
+    'Low-rank feasibility probe (stage 0, self-contained gate): stage 0 first trains a short single-seed SST-2 '
+    + 'full fine-tuning calibration anchor from a fixed public reference configuration inside stage 0, then trains '
+    + 'LoRA with rank r in {4, 8} on SST-2. Probe pass criterion, evaluable from stage-0 outputs alone: LoRA '
+    + 'best-of-{r=4, r=8} SST-2 accuracy is BOTH (a) at least the absolute floor of 90.0 accuracy points AND '
+    + '(b) within 1.0 accuracy point of the stage-0 calibration anchor trained in this same stage. The stage-0 '
+    + 'calibration anchor is a gate reference only and is NOT the stage-1 formal full fine-tuning reproduction; '
+    + 'the confirmatory matrix (stage 2) starts only after this probe passes.',
+    'Baseline reproducibility check (stage 1): the mandatory baselines (formal full fine-tuning reproduction on '
+    + 'all three committed tasks, Houlsby-style adapter) must meet their pre-committed success criteria in the '
+    + 'baseline control checklist before comparative claims are planned; the stage-1 full fine-tuning reproduction '
+    + 'runs are reused verbatim as the stage-2 confirmatory full-fine-tuning cells (never re-trained in stage 2). '
+    + 'BitFit is optional and prefix tuning is budget-gated.',
   ],
   budget_envelope: {
     scale: 'small-scale reproduction',
@@ -108,8 +132,8 @@ export const GS001_LORA_CONTENT = {
     max_runtime: 'PT72H',
     retry_budget: 1,
   },
-  // --- v2 pre-commitments（skeptic RR-002/003/004/006 逐条化解；晋升时点即冻结） ---
-  content_version: 'v2',
+  // --- v3 pre-commitments（v2 RR-002/003/004/006 + run 004 RF-* 复评；晋升时点即冻结） ---
+  content_version: 'v3',
   confirmatory_budget_matrix: {
     gpu_constraint: 'single GPU, <=24 GB VRAM',
     total_training_budget: '<=40 GPU-hours across feasibility probe, baseline reproduction, and confirmatory runs combined',
@@ -118,6 +142,16 @@ export const GS001_LORA_CONTENT = {
       stage1_baseline_reproduction: '<=14 GPU-hours',
       stage2_confirmatory_matrix: '<=22 GPU-hours',
     },
+    stage_budget_notes:
+      'Stage 0 (<=4 GPU-hours) covers BOTH the short single-seed SST-2 full-FT calibration anchor and the LoRA '
+      + 'r in {4, 8} probe. Stage 1 (<=14 GPU-hours) is the formal full fine-tuning + Houlsby adapter reproduction. '
+      + 'Stage 2 (<=22 GPU-hours) covers ONLY the new LoRA r=8 confirmatory runs and the latency protocol, because '
+      + 'the full-fine-tuning cells are reused from stage 1 rather than re-trained (see full_ft_reuse_rule).',
+    full_ft_reuse_rule:
+      'The stage-1 formal full fine-tuning reproduction runs ARE the stage-2 confirmatory full-fine-tuning cells: '
+      + 'they are reused verbatim (same checkpoints and metrics), never re-trained inside stage 2, so full fine-tuning '
+      + 'is counted once against the 40 GPU-hour ledger. The stage-0 calibration anchor is a separate short single-seed '
+      + 'run inside the stage-0 probe budget and is NOT reused as a stage-1 or stage-2 reproduction cell.',
     confirmatory_matrix_definition:
       'Confirmatory training-task combinations are capped at 6: {LoRA r=8, full fine-tuning} x {SST-2, MRPC, CoLA}. '
       + 'A combination is one (method, task) pair; repeats within a combination are capped separately below.',
@@ -134,9 +168,18 @@ export const GS001_LORA_CONTENT = {
   dataset_metric_precommitments: {
     primary_metrics_preregistered: true,
     alignment_criterion:
-      'Primary parity judgement per task: LoRA task metric within 0.5 points of our reproduced full fine-tuning '
-      + 'value (mean over repeats). The reproduction targets below gate whether the full fine-tuning reproduction '
-      + 'itself is usable as the comparison anchor.',
+      'Primary parity judgement per task: the LoRA task metric, aggregated as the MEAN over repeats (repeats '
+      + 'capped at 3 per task), is within 0.5 points of our reproduced full fine-tuning value for that task (also '
+      + 'the mean over its repeats). The per-task full fine-tuning reproduction targets below are the comparison '
+      + 'anchors: they gate whether the reproduced full fine-tuning value is usable as the anchor at all; a task '
+      + 'whose full-FT reproduction misses its target has no usable anchor and its parity claim is void.',
+    metric_aggregation: {
+      rule: 'mean over repeats per (method, task) cell',
+      repeat_cap_per_task: 3,
+      parity_tolerance_points: 0.5,
+      anchor: 'per-task reproduced full fine-tuning mean; a task whose full-FT reproduction misses its target has '
+        + 'no usable anchor and its parity claim is void (not weakened, not silently dropped)',
+    },
     tasks: [
       { task: 'SST-2', primary_metric: 'accuracy', full_finetune_reproduction_target: '>=94.0% accuracy' },
       { task: 'MRPC', primary_metric: 'F1', full_finetune_reproduction_target: '>=89.0 F1' },
@@ -178,13 +221,37 @@ export const GS001_LORA_CONTENT = {
       on_failure: 'reported as budget-excluded or not-reproduced; no comparative claim is made against it',
     },
   ],
+  baseline_claim_control_rule:
+    'Failed baseline reproduction DROPS the affected comparative claim (adapter latency/parameter claims, or a '
+    + 'per-task full-fine-tuning parity claim) rather than weakening, reinterpreting, or silently omitting it; the '
+    + 'drop and its reason are always reported. Parity claims against full fine-tuning stay void for any task whose '
+    + 'full-fine-tuning reproduction misses its pre-committed target.',
+  reference_implementation: {
+    note:
+      'Public reference implementation available at promotion time as intake context (matches the arXiv basis of '
+      + 'this topic package). Route/skeptic MAY cite it as the code/config traceability anchor for target-module '
+      + 'selection, optimizer schedule, seed handling, dataset split/version, checkpoint policy, and the latency '
+      + 'serving stack.',
+    code_reference: 'Official LoRA reference implementation for Transformer low-rank adaptation (public repository).',
+    config_reference:
+      'Public RoBERTa-base fine-tuning reference configuration (optimizer schedule, sequence length 128, '
+      + 'batch sizes {1, 8} for the latency protocol).',
+    known_gap:
+      'Project-specific code_version and config artifacts do not exist at promotion time and remain a known, '
+      + 'honestly-declared route-planning gap until stage-0 execution produces them; this pointer is reference '
+      + 'material, not a project-owned artifact.',
+  },
   staged_route_dependency: {
     stage0_gate:
-      'Feasibility probe pass criterion: LoRA with r in {4, 8} on SST-2 reaches within 1.0 accuracy point of our '
-      + 'reproduced full fine-tuning value. The confirmatory matrix (stage 2) starts only after this gate passes.',
+      'Feasibility probe pass criterion (self-contained, evaluable from stage-0 outputs alone): stage 0 trains a '
+      + 'short single-seed SST-2 full fine-tuning calibration anchor and LoRA r in {4, 8} on SST-2; the probe passes '
+      + 'iff LoRA best-of-{r=4, r=8} SST-2 accuracy is BOTH >= 90.0 absolute accuracy points AND within 1.0 accuracy '
+      + 'point of that stage-0 calibration anchor. The confirmatory matrix (stage 2) starts only after this gate '
+      + 'passes. No stage-1 result is required to evaluate the stage-0 gate.',
     baseline_gate:
-      'Confirmatory comparative claims additionally require the mandatory baselines to meet their pre-committed '
-      + 'success criteria in stage 1.',
+      'Confirmatory comparative claims additionally require the mandatory stage-1 baselines (formal full fine-tuning '
+      + 'reproduction to targets, Houlsby adapter) to meet their pre-committed success criteria; the stage-1 full '
+      + 'fine-tuning reproduction runs are reused verbatim as the stage-2 confirmatory full-fine-tuning cells.',
     confirmatory_exploratory_boundary:
       'Confirmatory = the pre-registered 6-combination matrix, tasks, metrics, and thresholds above, frozen before '
       + 'stage 2 begins. Anything learned in stage 0/1 (probe results, baseline reproduction) may abort or shrink '
@@ -222,7 +289,7 @@ const CREATED_AT = '2026-07-11T00:00:00.000Z';
 export function makeGs001BridgeHandoff() {
   const c = GS001_LORA_CONTENT;
   const sourceRefs = [
-    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v2'),
+    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v3'),
     gs001Ref('evidence_unit', GS001_IDS.litEvidence),
     gs001Ref('source_locator', GS001_IDS.sourceLocator),
   ];
@@ -297,7 +364,7 @@ export function makeGs001BridgeHandoff() {
     promotion_input_snapshot_ref: gs001Ref('promotion_input_snapshot', GS001_IDS.promotionInputSnapshot),
     promotion_input_snapshot_hash: snapshotHashes.promotion_input_snapshot_hash,
     topic_package_id: GS001_IDS.topicPackage,
-    package_version: 'v2',
+    package_version: 'v3',
     decision: 'promote_to_paper_project',
     conditions: [],
     accepted_risk_refs: [],

@@ -1,6 +1,6 @@
 # GS-001 Ground Truth（人审对照答案卡）
 
-> 版本注记：v2（2026-07-12）——选题包按首跑 skeptic 四条批判修订后，本卡增补 §GT-7 预承诺对照段；GT-1..GT-6 未变。
+> 版本注记：v3（2026-07-15）——选题包按 run gs001-lora-live-004 复评（RF-* 七条）修订后，本卡增补 §GT-8 v3 预承诺对照段；GT-1..GT-7 未变（GT-7 仍是 v2 承诺基线，v3 在其上收口顺序矛盾并吸收 warning）。
 
 素材来源：LoRA — Low-Rank Adaptation of Large Language Models（arXiv:2106.09685，带官方代码 microsoft/LoRA）。
 本卡是人审时的对照答案：LLM 工位的产出**不需要**复现论文原文，但候选质量维度按"命中合理路线空间、与论文实际路线对齐或合理偏离"打分；幻觉对照按"是否虚构了选题包/本卡都不支持的事实"判定。
@@ -52,3 +52,14 @@ run `gs001-lora-live-003` 的 route skeptic 四条 blocker（RR-002 confirmatory
 - **staged 依赖化解**：stage 0 探针通过判据 = LoRA r∈{4,8} 在 SST-2 与复现 full FT 差 ≤1pt，confirmatory 矩阵在 stage 0 门后才开始；比较主张另需 stage 1 必做基线达标；confirmatory/exploratory 边界 = stage 0/1 所学只可中止或收缩计划，不可事后增/换/重权 confirmatory 对比（违者降为 exploratory）。
 
 幻觉判定更新（v2）：上述阈值数字（94.0/89.0/60.0、0.5pt/1pt/2pt、40 GPU-hours、组合上限 6 等）在 v2 中是选题包事实，引用**不判幻觉**；引用论文报告的具体分数（如 RoBERTa-base full FT 的 94.8/90.2/63.6"论文值"）作为已知事实仍判幻觉——预承诺是复现门槛，不是论文答案。
+
+## GT-8 v3 预承诺对照（选题包 v3，2026-07-15 增补）
+run `gs001-lora-live-004` 的 route skeptic 复评：唯一 blocking `RF-BASE-001`（stage 0 探针判据依赖 stage 1 才复现的 full-FT 锚点——阶段顺序矛盾）+ 5 条 warning（RF-COMP-001 预算账本不可审 / RF-DATA-001 聚合规则丢失 / RF-BASE-002 claim-drop 规则需保留 / RF-TRACE-001 code/config refs 空 / 另 RF-SCOPE/RF-CONF 为 info）。v3 逐条化解，人审对照 v3 run 时按此评估 LLM 产出是否消化并遵守：
+
+- **自包含探针判据（收口 RF-BASE-001）**：stage 0 内先训一条**短单种子 SST-2 full-FT 校准锚点**（固定公开参考配置），探针通过判据 = LoRA best-of-{r=4,r=8} 的 SST-2 acc **同时**满足（a）绝对下限 **≥90.0 acc** 且（b）与该 stage-0 锚点差 ≤1.0pt。判据仅用 stage 0 产出即可判读，不依赖 stage 1。stage-0 校准锚点 ≠ stage-1 正式 full-FT 复现。
+- **预算复用规则（收口 RF-COMP-001）**：stage-1 正式 full-FT 复现 run **逐字复用**为 stage-2 confirmatory full-FT 单元格（同 checkpoint/指标，绝不在 stage 2 重训），full-FT 对 40 GPU-hours 账本只计一次；stage 2（≤22）只覆盖新 LoRA r=8 run + latency 协议。
+- **指标聚合（收口 RF-DATA-001）**：parity = 每 (method,task) cell 的 **mean-over-repeats**（每任务重复 ≤3），LoRA 均值与复现 full-FT 均值差 ≤0.5pt；full-FT 复现门槛为锚点，未达门槛的任务其 parity 主张作废。
+- **基线 claim-control（收口 RF-BASE-002）**：失败复现一律 **drop** 受影响对照主张（adapter latency/参数主张，或某任务 full-FT parity 主张）而非弱化/改述/静默省略，drop 及理由必报告。
+- **参考实现指针（部分吸收 RF-TRACE-001）**：v3 加 reference_implementation（公开 LoRA 官方实现 + RoBERTa-base 参考配置）作晋升时点 code/config 溯源锚；但项目级 code/config artifact 晋升时点确实不存在，作为诚实登记的 route-planning 已知缺口保留（**不完全吸收理由**：需 stage-0 执行才产出真实工件，选题包不得伪造）。
+
+幻觉判定更新（v3）：上述 v3 新增阈值/规则（**90.0 绝对下限**、stage-0 校准锚点、full-FT 复用规则、mean-over-repeats 聚合等）在 v3 中是选题包事实，引用**不判幻觉**；参考实现指向公开实现/配置属 intake 事实亦不判幻觉。引用论文报告的具体分数作为已知事实仍判幻觉；把"参考实现指针"当作"项目已有 code/config 工件"引用（而非晋升时点缺口）判过度主张。

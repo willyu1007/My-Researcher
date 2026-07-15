@@ -13,8 +13,6 @@
 
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
-import { stableStringify } from './literature-content-processing-utils.js';
-
 export function hasText(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -101,15 +99,45 @@ export function roleSlotEchoMismatchCode(
 }
 
 /**
- * T-124 S3 复审 F3-6: single-source functional-ref equality for the route /
- * validation-cycle / feasibility planning services (previously three identical
- * private copies). Null/undefined on either side is never equal.
+ * T-124 S3 收口 (gs-001 run 005 root-cause): canonical *semantic* identity key
+ * for a functional ref. Identity is carried by `ref_type` + `ref_id` plus the
+ * two identity-bearing optional keys (`title_card_id`, `version_id`), with
+ * `absent` and `null` collapsed to the same empty token so a model echo that
+ * follows the output schema (which materializes optional keys as explicit
+ * `null`, e.g. `legacy_ref: null`) is not spuriously judged as drift against a
+ * request ref that simply omits those keys.
+ *
+ * This is the semantics eight of the nine paper-implementation slot services
+ * already used for their private `refKey`; only the route/cycle/feasibility echo
+ * checks (via `functionalRefEquals`) and the motive-evolution `refKey` still used
+ * full-shape `stableStringify` equality, which the run-005 live chain exposed as
+ * over-strict (present-but-null `legacy_ref` failed the shape compare while the
+ * ref was semantically identical). `legacy_ref` is a non-identifying back-compat
+ * field and is deliberately excluded from the key; real drift on
+ * `ref_type`/`ref_id`/`version_id`/`title_card_id` is still caught.
+ */
+export function semanticRefKey(ref: TopicSelectionFunctionalRef): string {
+  return [
+    ref.ref_type,
+    ref.ref_id,
+    ref.title_card_id ?? '',
+    ref.version_id ?? '',
+  ].join(':');
+}
+
+/**
+ * T-124 S3 复审 F3-6 / S3 收口: single-source functional-ref equality for the
+ * route / validation-cycle / feasibility planning echo reconciliation
+ * (previously three identical private copies). Compares by `semanticRefKey`, so
+ * `absent`-vs-`null` optional keys are equal but a genuine `ref_type` / `ref_id`
+ * / `version_id` / `title_card_id` drift still fails closed. Null/undefined on
+ * either side is never equal.
  */
 export function functionalRefEquals(
   left: TopicSelectionFunctionalRef | null | undefined,
   right: TopicSelectionFunctionalRef | null | undefined,
 ): boolean {
-  return Boolean(left && right && stableStringify(left) === stableStringify(right));
+  return Boolean(left && right && semanticRefKey(left) === semanticRefKey(right));
 }
 
 /**

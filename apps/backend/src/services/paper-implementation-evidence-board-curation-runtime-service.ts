@@ -10,6 +10,7 @@ import {
   PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
   paperImplementationEvidenceBoardCurationRoleOutputSchema,
   type PaperImplementationEvidenceBoardBindingCandidateProposal,
+  type PaperImplementationEvidenceBoardGapCandidateProposal,
   type PaperImplementationEvidenceBoardCurationArtifact,
   type PaperImplementationEvidenceBoardCurationRoleOutput,
   type PaperImplementationEvidenceBoardCurationRoleSlotId,
@@ -1428,15 +1429,33 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
     ) {
       return 'EVIDENCE_BOARD_CURATION_SIDE_EFFECT_GUARD_MISSING';
     }
-    return this.bindingCandidateFailureCode(request, output.binding_candidate_proposals);
+    return this.bindingCandidateFailureCode(
+      request,
+      output.binding_candidate_proposals,
+      output.gap_candidate_proposals ?? [],
+    );
   }
 
   private bindingCandidateFailureCode(
     request: RunPaperImplementationEvidenceBoardCurationRuntimeRequest,
     candidates: PaperImplementationEvidenceBoardBindingCandidateProposal[],
+    gapCandidates: PaperImplementationEvidenceBoardGapCandidateProposal[],
   ): string | null {
     if (candidates.length === 0) {
-      return 'EVIDENCE_BOARD_CURATION_BINDING_CANDIDATE_SET_EMPTY';
+      // T-124 S3 收口 (gs-001 run 005 root-cause): a gaps-only pass is a legitimate
+      // curation outcome, not an empty set. run 005's material carried exactly one
+      // evidence unit already bound to all three target assertions (the request's
+      // existing_bound_evidence_refs + three existing_evidence_binding_refs), so no
+      // NEW viable binding is proposable — any would fail closed as
+      // DUPLICATE_EXISTING_BINDING. The honest output is empty binding candidates
+      // plus non-empty gap candidates describing the missing independent evidence.
+      // Only both-empty (no bindings AND no gaps) is a genuinely empty / low-quality
+      // set that still fails closed. This mirrors the trace N2 "blocked-with-findings"
+      // semantics: an empty candidate set is admissible when substantive findings
+      // (here gap candidates) are present.
+      return gapCandidates.length === 0
+        ? 'EVIDENCE_BOARD_CURATION_BINDING_CANDIDATE_SET_EMPTY'
+        : null;
     }
     const assertionKeys = new Set(request.target_assertion_refs.map((ref) => this.refKey(ref)));
     const sourceLocatorKeys = new Set(request.source_locator_refs.map((ref) => this.refKey(ref)));

@@ -998,3 +998,57 @@ test('route skeptic runtime fails a drifted reviewed_candidate_keys echo as retr
   assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'ROUTE_SKEPTIC_CANDIDATE_KEY_MISMATCH');
   assert.equal(result.final_runtime_artifact, null);
 });
+
+// T-124 S3 收口 (gs-001 run 005 root-cause): the live chain echoed the admitted
+// upstream ref through the output schema, which materializes the optional
+// `legacy_ref` as explicit `null` while the request-injected ref simply omits it.
+// The old full-shape `stableStringify` echo compare read that as drift and raised
+// ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH on a semantically identical ref. The echo
+// reconciliation now keys on the semantic identity (ref_type/ref_id + version_id
+// + title_card_id), so an absent-vs-null optional-key echo passes.
+test('route skeptic runtime accepts a semantically identical echo whose optional keys differ only by present-null legacy_ref / null-vs-absent (S3 收口 gs-001 run 005)', async () => {
+  const { service, seedLineage, orchestrator } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    // Same ref_type/ref_id/title_card_id/version_id as the injected admitted
+    // proposal, but with the schema-materialized optional key the model emits.
+    reviewed_route_proposal_ref: {
+      ...lineage.routeProposalRef,
+      legacy_ref: null,
+    },
+    reviewed_route_proposal_hash: lineage.routeProposalHash,
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_optional_key_echo_run_001'),
+  );
+
+  assert.equal(orchestrator.calls.length, 1);
+  assert.notEqual(result.runtime_artifacts[0]?.runtime_failure_code, 'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH');
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, null);
+  assert.notEqual(result.final_runtime_artifact, null);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+// T-124 S3 收口: the semantic-key relaxation must NOT weaken the drift-rejection
+// surface — a genuine version_id drift on the echoed ref still fails closed.
+test('route skeptic runtime still rejects a real version_id drift on the echoed route proposal (S3 收口 gs-001 run 005)', async () => {
+  const { service, seedLineage, orchestrator } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: {
+      ...lineage.routeProposalRef,
+      version_id: `${lineage.routeProposalRef.version_id ?? ''}_tampered`,
+    },
+    reviewed_route_proposal_hash: lineage.routeProposalHash,
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_version_drift_run_001'),
+  );
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 1);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'ROUTE_SKEPTIC_ROUTE_PROPOSAL_MISMATCH');
+  assert.equal(result.final_runtime_artifact, null);
+});

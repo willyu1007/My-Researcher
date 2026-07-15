@@ -63,6 +63,7 @@ import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   roleSlotEchoMismatchCode,
+  semanticRefKey,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
@@ -2181,7 +2182,16 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
   }
 
   private refKey(ref: TopicSelectionFunctionalRef): string {
-    return stableStringify(ref);
+    // T-124 S3 收口 (gs-001 run 005 root-cause): this service was the sole
+    // outlier using full-shape `stableStringify` ref identity while every sibling
+    // slot service keyed on the semantic `ref_type:ref_id:title_card_id:version_id`
+    // form. The live chain's model output echoes request refs through the output
+    // schema, which materializes the optional `legacy_ref` as explicit `null`;
+    // full-shape equality then read `legacy_ref: null` (present) vs the request's
+    // omitted key as drift and raised MOTIVE_EVOLUTION_REF_MISMATCH on
+    // semantically identical refs. Converge on the shared semantic key so
+    // absent-vs-null optional keys are equal but real ref drift still fails closed.
+    return semanticRefKey(ref);
   }
 
   private ref(

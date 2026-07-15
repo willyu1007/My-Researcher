@@ -19,3 +19,6 @@
 
 ## 收口（D7）
 α/β 完成后：全量 runtime-stress（新增必检先注册）+ prisma smoke + tsc；gs-001 **v3** 素材修订（自包含探针判据 + 吸收 v2 五条 warning）+ live 重跑（预期 skeptic proceed 或更少 blocking，evolution 完链）+ 代评审对比留档；near-prod gate；提交。无新表/列则无迁移。
+
+## 完成注记（2026-07-15）
+S3 全项闭合：α1-α4 / β1-β2 落地 + 复审修复轮 F1-F5（10 CONFIRMED，4 REFUTED 留档）+ run 005 三槽根因修复（语义 ref 键 / gaps-only 合法化）。收口证据：stress `1784078240326` passed、smoke 37/0/15、near-prod `1784074155740` passed；gs-001 v3 run 006 lane A 全链 completed + 受理桥双物化，代评审 4.9/4.9/4.9/5.0。提交：`752e6a34`（S3 代码态）+ 收口尾轮 commit。预期偏离："skeptic proceed / evolution 完链"部分达成——skeptic passed 且 lane A 完链；evolution 越过技术死路后落真实语义 blocker（槽内 designer→challenger 内容交接缺口），如实停驻并移交（03 移交项）。无迁移。

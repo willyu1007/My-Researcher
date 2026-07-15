@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
 const RUNNER_ID = 'paper-implementation-golden-scenario';
-const RUNNER_VERSION = 't124-s5-gs001-lora-v2';
+const RUNNER_VERSION = 't124-s5-gs001-lora-v3';
 const SCENARIO_ID = 'gs-001-lora';
 
 if (process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE !== '1') {
@@ -403,7 +403,7 @@ function motiveDraftPayload() {
       ],
       claim_types_allowed: ['analysis_claim'],
     },
-    source_refs: [ref('topic_package', T.topicPackage, 'v2')],
+    source_refs: [ref('topic_package', T.topicPackage, 'v3')],
     assertions: [
       {
         assertion_id: T.assertionMotivationPressure,
@@ -782,26 +782,36 @@ function laneAContextPackets(kindFacts) {
         `Budget envelope: ${LORA.budget_envelope.scale}; model scale ${LORA.budget_envelope.model_scale}; `
         + `evaluation ${LORA.budget_envelope.evaluation_scale}; ${LORA.budget_envelope.max_compute}; `
         + `max runtime ${LORA.budget_envelope.max_runtime}; retry budget ${LORA.budget_envelope.retry_budget}.`,
-        // v2 pre-commitments（选题包 v2：skeptic RR-002/003/004/006 逐条化解，内容取自内容核）
-        `Confirmatory budget matrix (pre-committed, v2): ${LORA.confirmatory_budget_matrix.gpu_constraint}; `
+        // v3 pre-commitments（选题包 v3：v2 RR-002/003/004/006 + run 004 RF-* 复评，内容取自内容核）
+        `Confirmatory budget matrix (pre-committed, v3): ${LORA.confirmatory_budget_matrix.gpu_constraint}; `
         + `${LORA.confirmatory_budget_matrix.total_training_budget}; stage budgets: probe `
         + `${LORA.confirmatory_budget_matrix.stage_budgets.stage0_feasibility_probe}, baseline reproduction `
         + `${LORA.confirmatory_budget_matrix.stage_budgets.stage1_baseline_reproduction}, confirmatory `
         + `${LORA.confirmatory_budget_matrix.stage_budgets.stage2_confirmatory_matrix}. `
+        + `${LORA.confirmatory_budget_matrix.stage_budget_notes} `
+        + `${LORA.confirmatory_budget_matrix.full_ft_reuse_rule} `
         + `${LORA.confirmatory_budget_matrix.confirmatory_matrix_definition} `
         + `Max repeats per task: ${LORA.confirmatory_budget_matrix.max_repeats_per_task}. `
         + `${LORA.confirmatory_budget_matrix.hyperparameter_policy} ${LORA.confirmatory_budget_matrix.rank_policy} `
         + `Latency protocol: ${LORA.confirmatory_budget_matrix.latency_protocol} `
         + `Checkpoint policy: ${LORA.confirmatory_budget_matrix.checkpoint_policy}`,
-        `Dataset/metric pre-commitments (pre-registered, v2): ${LORA.dataset_metric_precommitments.alignment_criterion} `
+        `Dataset/metric pre-commitments (pre-registered, v3): ${LORA.dataset_metric_precommitments.alignment_criterion} `
+        + `Metric aggregation: ${LORA.dataset_metric_precommitments.metric_aggregation.rule}; repeat cap per task `
+        + `${LORA.dataset_metric_precommitments.metric_aggregation.repeat_cap_per_task}; parity tolerance `
+        + `${LORA.dataset_metric_precommitments.metric_aggregation.parity_tolerance_points} points; anchor: `
+        + `${LORA.dataset_metric_precommitments.metric_aggregation.anchor}. `
         + `Committed tasks: ${LORA.dataset_metric_precommitments.tasks
           .map((t) => `${t.task} (${t.primary_metric}; full FT reproduction target ${t.full_finetune_reproduction_target})`)
           .join('; ')}. `
         + `Secondary metrics: ${LORA.dataset_metric_precommitments.secondary_metrics.join('; ')}.`,
-        `Baseline control checklist (v2): ${LORA.baseline_control_checklist
+        `Baseline control checklist (v3): ${LORA.baseline_control_checklist
           .map((b) => `${b.baseline} [${b.obligation}] success: ${b.success_criterion}; on failure: ${b.on_failure}`)
-          .join(' | ')}`,
-        `Staged route dependency (v2): ${LORA.staged_route_dependency.stage0_gate} `
+          .join(' | ')}. Claim-control rule: ${LORA.baseline_claim_control_rule}`,
+        `Reference implementation (intake context, v3): ${LORA.reference_implementation.note} `
+        + `Code reference: ${LORA.reference_implementation.code_reference} `
+        + `Config reference: ${LORA.reference_implementation.config_reference} `
+        + `Known gap: ${LORA.reference_implementation.known_gap}`,
+        `Staged route dependency (v3): ${LORA.staged_route_dependency.stage0_gate} `
         + `${LORA.staged_route_dependency.baseline_gate} `
         + `Confirmatory/exploratory boundary: ${LORA.staged_route_dependency.confirmatory_exploratory_boundary}`,
         ...kindFacts,
@@ -1339,7 +1349,7 @@ async function writeReviewPacket(artifactsById) {
   lines.push(`- run id: ${runId}；日期: ${state.started_at}`);
   lines.push(`- provider: ${providerId}；run_mode: ${RUN_MODE}（全 lane 一致，orchestrator 侧统一映射 acceptance 实跑）；`
     + `execution_mode: ${EXECUTION_MODE}`);
-  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/gs-001-lora/（topic-package.mjs **v2**（按首跑 skeptic 四条批判修订）/ ground-truth.md（含 §GT-7 v2 预承诺对照）/ rubric.md）`);
+  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/gs-001-lora/（topic-package.mjs **v3**（run 004 复评 RF-* 修订：自包含探针判据 + 吸收 warning）/ ground-truth.md（含 §GT-7 v3 预承诺对照）/ rubric.md）`);
   lines.push(`- 入链: 真实 POST /paper-implementation/projects/bootstrap（bridge ${T.bridge}，hash 校验通过）`);
   lines.push('');
   lines.push('## 逐节点产出与对照');
