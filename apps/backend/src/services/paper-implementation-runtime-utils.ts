@@ -11,7 +11,16 @@
  *   services).
  */
 
+import type {
+  PaperImplementationAgentExecutionMode,
+  PaperImplementationDebateComplexityTier,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-telemetry-contracts';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+
+import type {
+  PaperImplementationRuntimeProviderCallProvenance,
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
 
 export function hasText(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -71,6 +80,56 @@ export const PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE 
   'RUNTIME_ROLE_FINDING_DISPOSITION_INVALID';
 export const PAPER_IMPLEMENTATION_ROLE_COVERAGE_INCOMPLETE_FAILURE_CODE =
   'RUNTIME_ROLE_COVERAGE_INCOMPLETE';
+
+/**
+ * T-124 S3 复审 F5-1 / S4 复审 FA-2: wire-transport decode failure — a provider
+ * output whose wire-encoded JSON-string field (domain-gate request / scenario
+ * outputs) fails to parse back into the canonical object shape. Used by the P1
+ * review and result-analysis slots; single-sourced here so the S4-A retry_kind
+ * classifier and the per-slot RETRYABLE sets cannot drift.
+ */
+export const PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE =
+  'RUNTIME_WIRE_JSON_DECODE_FAILED';
+
+/**
+ * T-124 S3-β1 / S4 复审 FA-2: duplicate `option_key` inside a motive-evolution
+ * wire entry array — a provider-output quality defect at the transport layer
+ * (schema-shaped), documented as a technical retry cause.
+ */
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE =
+  'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE';
+
+/**
+ * S4-A retry_kind classification (record-only telemetry). Provider-transport
+ * and schema/echo-shaped retry causes are `technical`; every other retryable
+ * failure — the debate/slot semantic-completeness codes — is `semantic`.
+ *
+ * S4 复审 FA-2: `RUNTIME_WIRE_JSON_DECODE_FAILED` and
+ * `MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE` are registered here because both are
+ * documented transport/schema-shaped defects (wire JSON string fails to decode /
+ * wire entry array carries a duplicate key); before this registration the
+ * classifier mislabeled them `semantic`. The remaining slot-specific retryable
+ * codes (`*_REVIEW_SET_MISMATCH`, `*_COVERAGE_*`, `*_CANDIDATE_SET_*`, …) are
+ * genuine semantic-completeness defects and stay `semantic`.
+ */
+export const PAPER_IMPLEMENTATION_TECHNICAL_RETRY_FAILURE_CODES = [
+  ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE,
+] as const;
+
+export function paperImplementationRetryKind(
+  failureCode: string | null | undefined,
+): 'technical' | 'semantic' | null {
+  if (!failureCode) {
+    return null;
+  }
+  return (PAPER_IMPLEMENTATION_TECHNICAL_RETRY_FAILURE_CODES as readonly string[]).includes(failureCode)
+    ? 'technical'
+    : 'semantic';
+}
 
 /** Retryable set for the multi-role debate services (trace-integrity + P1). */
 export const PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES = [
@@ -154,4 +213,78 @@ export function sameStringSet(
     return false;
   }
   return [...leftSet].every((item) => rightSet.has(item));
+}
+
+/**
+ * Minimal structural view of an orchestrator invocation result needed by the
+ * shared telemetry recording helper: the collector's provenance/telemetry face
+ * plus the two compression provenance markers. The real
+ * `TopicSelectionAgentInvocationResult` is structurally assignable.
+ */
+export interface PaperImplementationSlotProviderCallResultLike {
+  provenance: PaperImplementationRuntimeProviderCallProvenance & {
+    compression_report_ref?: unknown;
+    compressed_context_hash?: string | null;
+  };
+}
+
+export interface RecordSlotProviderCallTelemetryInput {
+  implementationProjectId: string;
+  runId: string;
+  slotId: string;
+  roleSlotId: string | null;
+  /**
+   * 0-based technical/semantic retry attempt ordinal of THIS provider attempt
+   * within one (run, slot, role_slot) invocation sequence. The helper derives
+   * the telemetry `call_index` as `retryAttemptIndex + 1`, which is the single
+   * repo-wide call_index semantics (S4 复审 FA-3): every provider attempt —
+   * including same-profile retries — gets a unique call_index, so a duplicate
+   * (slot, role, call_index) key within one run_id can only come from a true
+   * cross-execution replay (D9 resume re-running a partially recorded role),
+   * which is exactly what the accounting counts as repaid.
+   */
+  retryAttemptIndex: number;
+  executionMode: PaperImplementationAgentExecutionMode;
+  result: PaperImplementationSlotProviderCallResultLike;
+  /** The slot's own bounded-retry decision for this attempt. */
+  shouldRetry: boolean;
+  /** The classified runtime failure code of this attempt (null when passed). */
+  runtimeFailureCode: string | null;
+  shadowTier: PaperImplementationDebateComplexityTier | null;
+}
+
+/**
+ * S4 复审 FA-1: single-source, fail-open provider-call telemetry recording for
+ * the eleven runtime slot services (replaces eleven pasted blocks). Derives at
+ * ONE point:
+ * - `outcome`: `retried` when the slot will retry, `failed` on a terminal
+ *   failure code, `passed` otherwise;
+ * - `retry_kind`: always via `paperImplementationRetryKind` on the retried
+ *   attempt's failure code (kills the `shouldRetry ? 'technical' : null`
+ *   hardcoding that mislabeled semantic retries);
+ * - `compression_applied`: from the invocation's compression provenance;
+ * - `call_index`: see `RecordSlotProviderCallTelemetryInput.retryAttemptIndex`.
+ * A null/undefined collector is a no-op (telemetry never changes run semantics).
+ */
+export async function recordSlotProviderCallTelemetry(
+  collector: PaperImplementationRuntimeTelemetryCollector | null | undefined,
+  input: RecordSlotProviderCallTelemetryInput,
+): Promise<void> {
+  if (!collector) {
+    return;
+  }
+  await collector.recordProviderCall({
+    implementationProjectId: input.implementationProjectId,
+    runId: input.runId,
+    slotId: input.slotId,
+    roleSlotId: input.roleSlotId,
+    callIndex: input.retryAttemptIndex + 1,
+    executionMode: input.executionMode,
+    result: input.result,
+    outcome: input.shouldRetry ? 'retried' : input.runtimeFailureCode ? 'failed' : 'passed',
+    retryKind: paperImplementationRetryKind(input.shouldRetry ? input.runtimeFailureCode : null),
+    compressionApplied: input.result.provenance.compression_report_ref != null
+      || input.result.provenance.compressed_context_hash != null,
+    shadowTier: input.shadowTier,
+  });
 }

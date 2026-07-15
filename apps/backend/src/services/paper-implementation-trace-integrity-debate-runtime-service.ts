@@ -63,7 +63,15 @@ import {
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  recordSlotProviderCallTelemetry,
 } from './paper-implementation-runtime-utils.js';
+import type {
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
+import {
+  assessPaperImplementationDebateComplexityShadow,
+  type PaperImplementationDebateComplexityTier,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
 import {
   evaluatePaperImplementationTraceIntegrityRoleSemantics,
 } from './paper-implementation-trace-debate-semantics.js';
@@ -99,6 +107,7 @@ interface RuntimeServiceOptions {
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationTraceIntegrityAgentOrchestrator;
   retrievalService?: PaperImplementationTraceIntegrityRetrievalService;
+  telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -155,6 +164,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationTraceIntegrityAgentOrchestrator;
   private readonly retrievalService: PaperImplementationTraceIntegrityRetrievalService;
+  private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -163,6 +173,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
     this.retrievalService = options.retrievalService ?? new PaperImplementationTraceIntegrityRetrievalService();
+    this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${cryptoId()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -344,6 +355,21 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
+      // S4 复审 FA-3: the telemetry call_index is the per-(role, attempt)
+      // ordinal — NOT the artifact-level role call ordinal (`callIndex`) that
+      // retries used to share, which double-counted one retry as repaid twice.
+      await recordSlotProviderCallTelemetry(this.telemetryCollector, {
+        implementationProjectId: runtimeBase.implementationProjectId,
+        runId: runtimeBase.runId,
+        slotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
+        roleSlotId: spec.slotId,
+        retryAttemptIndex,
+        executionMode: request.execution_mode,
+        result,
+        shouldRetry,
+        runtimeFailureCode,
+        shadowTier: runtimeBase.shadowTier,
+      });
       if (!shouldRetry) {
         return {
           result,
@@ -966,6 +992,16 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         store_rendered_prompt: false,
       }),
       compressionPolicyProfileHash: this.hash(contextPolicyProfile.compression_policy),
+      // S4 复审 FA-5 shadow inputs: prior_blocker_density is a known degraded
+      // axis, constant 0 (zero variance) until D2 wires coordinator context —
+      // see the shadow contract header. The other two axes are real request
+      // signals (statement refs / source refs).
+      shadowTier: assessPaperImplementationDebateComplexityShadow({
+        reviewed_statement_count: request.reviewed_statement_refs.length,
+        retrieval_packet_ref_count: request.source_refs.length,
+        prior_blocker_density: 0,
+        target_kind: 'trace_integrity',
+      }).recommended_tier,
     };
   }
 
@@ -1558,6 +1594,8 @@ interface RuntimeBase {
   cachePolicyProfileHash: string;
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
+  // S4-C record-only shadow tier (zero execution-path effect).
+  shadowTier: PaperImplementationDebateComplexityTier;
 }
 
 interface BuildArtifactInput {

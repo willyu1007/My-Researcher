@@ -32,6 +32,7 @@ import { InMemoryPaperImplementationMotiveRepository } from './repositories/in-m
 import { InMemoryPaperImplementationResultClaimDossierRepository } from './repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from './repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationCoordinatorRepository } from './repositories/in-memory-paper-implementation-coordinator-repository.js';
+import { InMemoryPaperImplementationRuntimeTelemetryRepository } from './repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
 import { InMemoryPaperImplementationHumanConfirmationRepository } from './repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from './repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from './repositories/in-memory-paper-implementation-validation-repository.js';
@@ -70,6 +71,7 @@ import { PrismaPaperImplementationMotiveRepository } from './repositories/prisma
 import { PrismaPaperImplementationResultClaimDossierRepository } from './repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.js';
 import { PrismaPaperImplementationRuntimeRepository } from './repositories/prisma/prisma-paper-implementation-runtime-repository.js';
 import { PrismaPaperImplementationCoordinatorRepository } from './repositories/prisma/prisma-paper-implementation-coordinator-repository.js';
+import { PrismaPaperImplementationRuntimeTelemetryRepository } from './repositories/prisma/prisma-paper-implementation-runtime-telemetry-repository.js';
 import { PrismaPaperImplementationHumanConfirmationRepository } from './repositories/prisma/prisma-paper-implementation-human-confirmation-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
@@ -126,6 +128,8 @@ import type { PaperImplementationMotiveRepository } from './repositories/paper-i
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
 import type { PaperImplementationRuntimeRepository } from './repositories/paper-implementation-runtime.repository.js';
 import type { PaperImplementationCoordinatorRepository } from './repositories/paper-implementation-coordinator.repository.js';
+import type { PaperImplementationRuntimeTelemetryRepository } from './repositories/paper-implementation-runtime-telemetry.repository.js';
+import { PaperImplementationRuntimeTelemetryService } from './services/paper-implementation-runtime-telemetry-service.js';
 import type { PaperImplementationHumanConfirmationRepository } from './repositories/paper-implementation-human-confirmation.repository.js';
 import type {
   ExperimentFoundationExperimentSpineV2Repository,
@@ -293,6 +297,7 @@ export type BuildAppOptions = {
   paperImplementationAiWorkflowHarnessRepository?: PaperImplementationAiWorkflowHarnessRepository;
   paperImplementationRuntimeRepository?: PaperImplementationRuntimeRepository;
   paperImplementationCoordinatorRepository?: PaperImplementationCoordinatorRepository;
+  paperImplementationRuntimeTelemetryRepository?: PaperImplementationRuntimeTelemetryRepository;
   paperImplementationHumanConfirmationRepository?: PaperImplementationHumanConfirmationRepository;
   paperImplementationExperimentSpineV2Repository?: PaperImplementationExperimentSpineV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
@@ -473,6 +478,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationHumanConfirmationRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationCoordinatorRepository = options.paperImplementationCoordinatorRepository
     ?? createPaperImplementationCoordinatorRepository(storeConfig.paperImplementationStrategy);
+  const paperImplementationRuntimeTelemetryRepository = options.paperImplementationRuntimeTelemetryRepository
+    ?? createPaperImplementationRuntimeTelemetryRepository(storeConfig.paperImplementationStrategy);
+  // S4-A: single write-side collector + read-model service. Injected as the
+  // narrow `telemetryCollector` handle into every runtime slot service and as
+  // the query service into the controller.
+  const paperImplementationRuntimeTelemetryService = new PaperImplementationRuntimeTelemetryService({
+    repository: paperImplementationRuntimeTelemetryRepository,
+  });
   const auditStore = new FileGovernanceDeliveryAuditStore({
     filePath: process.env.GOVERNANCE_DELIVERY_AUDIT_LOG_PATH,
   });
@@ -874,6 +887,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationTraceIntegrityDebateAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
       retrievalService: paperImplementationTraceIntegrityRetrievalService,
     });
   const paperImplementationP1RuntimeReviewAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
@@ -888,6 +902,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationP1RuntimeReviewAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationResultAnalysisAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
     controlPlane: topicSelectionControlPlaneService,
@@ -902,6 +917,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationResultAnalysisAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationRoutePlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
     controlPlane: topicSelectionControlPlaneService,
@@ -917,6 +933,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationRoutePlanningAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationValidationCyclePlanningAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -934,6 +951,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationValidationCyclePlanningAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationFeasibilityPlanningAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -952,6 +970,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationFeasibilityPlanningAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationCrossBoardSynthesisAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -971,6 +990,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationCrossBoardSynthesisAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationEvidenceBoardCurationAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -991,6 +1011,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationEvidenceBoardCurationAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationMotiveDecompositionAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -1012,6 +1033,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationMotiveDecompositionAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationMotiveEvolutionAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
@@ -1034,6 +1056,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationMotiveEvolutionAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationExperimentPlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({
     controlPlane: topicSelectionControlPlaneService,
@@ -1056,6 +1079,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationExperimentPlanningAgentOrchestratorService,
+      telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationRuntimeDomainGateService =
     new PaperImplementationRuntimeDomainGateService({
@@ -1111,6 +1135,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     motiveEvolutionRuntime: paperImplementationMotiveEvolutionRuntimeService,
     runtimeDomainGate: paperImplementationRuntimeDomainGateService,
     runCoordinator: paperImplementationRunCoordinatorService,
+    runtimeTelemetry: paperImplementationRuntimeTelemetryService,
     humanConfirmation: paperImplementationHumanConfirmationService,
     liveExperimentAdapter: paperImplementationLiveExperimentAdapterService,
     providerVarianceEvaluation: paperImplementationProviderVarianceEvaluationService,
@@ -1275,7 +1300,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerPaperImplementationRoutes(
       instance,
       paperImplementationController,
-      { cutoverCommitted: experimentV2CutoverCommitted },
+      {
+        cutoverCommitted: experimentV2CutoverCommitted,
+        // S4 复审 FA-6: enables the merged runtime-telemetry/overview endpoint.
+        runtimeTelemetry: paperImplementationRuntimeTelemetryService,
+      },
     );
     await registerPaperImplementationExperimentV2Routes(
       instance,
@@ -1704,7 +1733,9 @@ function createPaperImplementationExperimentV2ScopeReader(
       }
       return {
         implementation_project_id: implementationProjectId,
+        implementation_project_lifecycle_status: project.lifecycle_status,
         validation_cycle_id: validationCycleId,
+        validation_cycle_lifecycle_status: validationCycle.lifecycle_status,
       };
     },
   };
@@ -1774,6 +1805,17 @@ function createPaperImplementationCoordinatorRepository(
   }
 
   return new InMemoryPaperImplementationCoordinatorRepository();
+}
+
+function createPaperImplementationRuntimeTelemetryRepository(
+  strategy: RepositoryStrategy,
+): PaperImplementationRuntimeTelemetryRepository {
+  if (strategy === 'prisma') {
+    const prisma = getPrismaClient();
+    return new PrismaPaperImplementationRuntimeTelemetryRepository(prisma);
+  }
+
+  return new InMemoryPaperImplementationRuntimeTelemetryRepository();
 }
 
 function createAutoPullScheduler(service: AutoPullService): AutoPullScheduler | null {

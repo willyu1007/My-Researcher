@@ -1469,6 +1469,100 @@ test('PaperImplementation coordinator routes create, advance, and get a run thro
   }
 });
 
+test('PaperImplementation coordinator-runs list route returns project run projections without steps', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubEvidenceBoardCurationGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const {
+      run_id: _runId,
+      run_mode: _runMode,
+      execution_mode: _executionMode,
+      ...slotPayload
+    } = evidenceBoardCurationRunPayload();
+    const createBody = (coordinatorRunId: string) => ({
+      coordinator_run_id: coordinatorRunId,
+      lane_id: 'evidence-board-curation',
+      run_mode: 'product',
+      execution_mode: 'provider_llm',
+      budget_envelope: { max_steps: 2, max_provider_calls: 4 },
+      slot_request_payloads: {
+        [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]: slotPayload,
+      },
+    });
+
+    // Empty project: the list route returns an empty projection, not a 404.
+    // Prisma reuses a persistent dev schema, so coordinator runs from other
+    // tests in this process accumulate under the shared PROJECT_ID — the
+    // whole-table emptiness/exact-count assertions hold only for the fresh
+    // in-memory store (same isolation pattern as the queue fixture above).
+    const empty = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs`,
+    });
+    assert.equal(empty.statusCode, 200);
+    if (process.env.PAPER_IMPLEMENTATION_REPOSITORY !== 'prisma') {
+      assert.deepEqual((empty.json() as { runs: unknown[] }).runs, []);
+    }
+
+    // Process-unique ids: the persistent prisma dev schema keeps runs across
+    // smoke invocations, so fixed ids would 409 on the second run.
+    const listRunIdA = `coordinator-run-list-a-${PROJECT_ID}`;
+    const listRunIdB = `coordinator-run-list-b-${PROJECT_ID}`;
+    for (const coordinatorRunId of [listRunIdA, listRunIdB]) {
+      const created = await app.inject({
+        method: 'POST',
+        url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs`,
+        payload: createBody(coordinatorRunId),
+      });
+      assert.equal(created.statusCode, 201);
+    }
+
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/coordinator-runs`,
+    });
+    assert.equal(listed.statusCode, 200);
+    const body = listed.json() as {
+      runs: Array<{
+        coordinator_run_id: string;
+        run_status: string;
+        lane_id: string;
+        budget_envelope?: unknown;
+        steps?: unknown;
+        slot_request_payloads?: unknown;
+      }>;
+    };
+    if (process.env.PAPER_IMPLEMENTATION_REPOSITORY !== 'prisma') {
+      assert.equal(body.runs.length, 2);
+    }
+    const ids = new Set(body.runs.map((run) => run.coordinator_run_id));
+    assert.ok(ids.has(listRunIdA));
+    assert.ok(ids.has(listRunIdB));
+    // Projection shape holds for EVERY listed run (prisma may include runs
+    // from earlier tests in this process); state assertions only for the two
+    // runs this test created.
+    for (const run of body.runs) {
+      // Run projection only — the list route never carries the step timeline.
+      assert.equal(run.steps, undefined);
+      // S4 slim projection: the heavy per-slot request payload map is stripped
+      // from the list; the single-run GET still carries it in full.
+      assert.equal(run.slot_request_payloads, undefined);
+      // Lightweight run-row fields are retained for the list view.
+      assert.ok(run.budget_envelope);
+    }
+    for (const run of body.runs.filter((entry) => entry.coordinator_run_id === listRunIdA || entry.coordinator_run_id === listRunIdB)) {
+      assert.equal(run.run_status, 'created');
+      assert.equal(run.lane_id, 'evidence-board-curation');
+    }
+  } finally {
+    await app.close();
+  }
+});
+
 interface CoordinatorQueueHttpFixture {
   coordinatorRunId: string;
   queueItemId: string;
@@ -1896,6 +1990,67 @@ test('queue resolve re-advance rejects terminal coordinator runs before resolvin
     }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
     assert.equal(item?.status, 'open');
     assert.equal(item?.resolved_at, null);
+  } finally {
+    await app.close();
+  }
+});
+
+test('queue resolve re-advance is rejected for a non-resolved status before any side-effect', async () => {
+  // re_advance drives a real coordinator advance (LLM consumption). A
+  // `dismissed`/`superseded` resolution abandons the breakpoint, so pairing it
+  // with re_advance would burn provider budget re-running an abandoned slot.
+  // The controller rejects it with a clear 400 INVALID_PAYLOAD BEFORE any
+  // resolve or advance side-effect: the item stays open and zero advances run.
+  const gateway = new FlakyEvidenceBoardCurationGateway(2);
+  const app = buildApp({
+    paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
+    paperImplementationEvidenceBoardCurationLlmGateway: gateway,
+  });
+  try {
+    const fixture = await createBlockedCoordinatorQueueFixture(app, {
+      max_steps: 4,
+      max_provider_calls: 8,
+    });
+    // The fixture's blocked step already consumed the two seeded failures.
+    assert.equal(gateway.calls.length, 2);
+
+    for (const status of ['dismissed', 'superseded'] as const) {
+      const rejected = await app.inject({
+        method: 'POST',
+        url: resolveQueueItemUrl(fixture.queueItemId),
+        payload: { status, resolved_by: 'human', re_advance: true },
+      });
+      assert.equal(rejected.statusCode, 400);
+      const rejectedBody = rejected.json() as {
+        error: { code: string; message: string; details?: { status?: string } };
+      };
+      assert.equal(rejectedBody.error.code, 'INVALID_PAYLOAD');
+      assert.match(rejectedBody.error.message, /re_advance requires status 'resolved'/);
+      assert.equal(rejectedBody.error.details?.status, status);
+    }
+
+    // No resolve happened and no coordinator advance ran (zero new provider
+    // calls beyond the fixture's blocked step).
+    assert.equal(gateway.calls.length, 2);
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/decision-work-queue`,
+    });
+    const item = (listed.json() as {
+      items: Array<{ queue_item_id: string; status: string; resolved_at: string | null }>;
+    }).items.find((entry) => entry.queue_item_id === fixture.queueItemId);
+    assert.equal(item?.status, 'open');
+    assert.equal(item?.resolved_at, null);
+
+    // Control: a plain dismiss (no re_advance) is still accepted and resolves.
+    const dismissed = await app.inject({
+      method: 'POST',
+      url: resolveQueueItemUrl(fixture.queueItemId),
+      payload: { status: 'dismissed', resolved_by: 'human' },
+    });
+    assert.equal(dismissed.statusCode, 200);
+    assert.equal((dismissed.json() as { status: string }).status, 'dismissed');
+    assert.equal(gateway.calls.length, 2);
   } finally {
     await app.close();
   }

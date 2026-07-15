@@ -91,6 +91,8 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
+import { AppError } from '../errors/app-error.js';
+import type { PaperImplementationRuntimeTelemetryService } from '../services/paper-implementation-runtime-telemetry-service.js';
 import {
   legacyExperimentMutationOnRequest,
   type LegacyExperimentMutationRouteOptions,
@@ -173,6 +175,10 @@ const coordinatorRunParams = paramsSchema({
   implementation_project_id: stringId,
   coordinator_run_id: stringId,
 });
+const runtimeTelemetryRunParams = paramsSchema({
+  implementation_project_id: stringId,
+  run_id: stringId,
+});
 
 type ImplementationProjectRouteParams = {
   implementation_project_id: string;
@@ -186,10 +192,21 @@ type LiveExperimentRunRouteParams = ResearchWorkOrderRouteParams & {
   external_job_id: string;
 };
 
+/**
+ * S4 复审 FA-6: optional read-only runtime-telemetry service handle. When
+ * provided, the merged `runtime-telemetry/overview` endpoint is registered
+ * alongside the legacy `runs` / `repaid-rate` endpoints (both preserved).
+ * Passed through route options (not the controller) so the additive endpoint
+ * needs no controller surface change.
+ */
+export type PaperImplementationRouteOptions = LegacyExperimentMutationRouteOptions & {
+  runtimeTelemetry?: Pick<PaperImplementationRuntimeTelemetryService, 'getProjectTelemetryOverview'> | null;
+};
+
 export async function registerPaperImplementationRoutes(
   fastify: FastifyInstance,
   controller: PaperImplementationController,
-  options: LegacyExperimentMutationRouteOptions = {},
+  options: PaperImplementationRouteOptions = {},
 ): Promise<void> {
   const legacyMutationOnRequest = legacyExperimentMutationOnRequest(options);
 
@@ -295,6 +312,11 @@ export async function registerPaperImplementationRoutes(
     },
     controller.createCoordinatorRun,
   );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/coordinator-runs',
+    { schema: implementationProjectParams },
+    controller.listCoordinatorRunsByProject,
+  );
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/coordinator-runs/:coordinator_run_id/advance',
     {
@@ -310,6 +332,51 @@ export async function registerPaperImplementationRoutes(
     { schema: coordinatorRunParams },
     controller.getCoordinatorRun,
   );
+  // S4-A runtime telemetry read model.
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/runtime-telemetry/runs',
+    { schema: implementationProjectParams },
+    controller.listRuntimeTelemetryRunSummaries,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/runtime-telemetry/runs/:run_id',
+    { schema: runtimeTelemetryRunParams },
+    controller.getRuntimeTelemetryRunDetail,
+  );
+  fastify.get(
+    '/paper-implementation/projects/:implementation_project_id/runtime-telemetry/repaid-rate',
+    { schema: implementationProjectParams },
+    controller.getRuntimeTelemetryProjectRepaidRate,
+  );
+  // S4 复审 FA-6: merged single-fetch overview ({runs, project_repaid_rate,
+  // per_slot}) so desktop/runner consumers stop chaining the two endpoints
+  // above. Additive; registered only when the telemetry service is wired.
+  const runtimeTelemetry = options.runtimeTelemetry ?? null;
+  if (runtimeTelemetry) {
+    fastify.get(
+      '/paper-implementation/projects/:implementation_project_id/runtime-telemetry/overview',
+      { schema: implementationProjectParams },
+      async (request, reply) => {
+        try {
+          const params = request.params as ImplementationProjectRouteParams;
+          const overview = await runtimeTelemetry.getProjectTelemetryOverview(
+            params.implementation_project_id,
+          );
+          return await reply.send(overview);
+        } catch (error) {
+          if (error instanceof AppError) {
+            return reply.status(error.statusCode).send({
+              error: { code: error.errorCode, message: error.message, details: error.details },
+            });
+          }
+          request.log.error(error, 'paper-implementation runtime-telemetry overview error');
+          return reply.status(500).send({
+            error: { code: 'INTERNAL_ERROR', message: 'Unexpected paper-implementation failure.' },
+          });
+        }
+      },
+    );
+  }
   fastify.post(
     '/paper-implementation/projects/:implementation_project_id/runtime-slots/trace-integrity-boundary-debate/run',
     {

@@ -287,6 +287,20 @@ const REQUIRED_L5_CASES = [
     key: 'p1_schema_invalid_provider_output_retry_exhausted_no_domain_gate_payload',
     subtest: 'L5 P1 schema-invalid provider output retries once and does not create final or domain-gate payloads',
   },
+  {
+    // S4-C: the record-only shadow ComplexityAssessment is deterministic.
+    key: 'shadow_complexity_assessment_replayable',
+    subtest: 'L5 shadow complexity assessment is replayable for the same inputs',
+  },
+  {
+    // S4-C: collecting shadow telemetry has zero effect on run artifacts.
+    key: 'shadow_collection_does_not_change_run_artifact_hash',
+    subtest: 'L5 shadow telemetry collection does not change run artifact hashes',
+  },
+  {
+    key: 'coordinator_queue_classification_exhaustive_no_unclassified',
+    subtest: 'L5 coordinator queue classification is exhaustive over blocked-lane trusted codes and outcomes with unclassified reachable only via an unregistered trusted code',
+  },
 ];
 
 const REQUIRED_RUNTIME_REGRESSION_CASES = [

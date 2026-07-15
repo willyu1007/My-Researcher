@@ -1,104 +1,25 @@
 import type {
-  TopicSelectionFunctionalRef,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+  DecisionWorkQueueItem,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-ai-workflow-harness-contracts';
 import type {
   PaperImplementationQueueItem,
 } from './types';
 import { usePaperImplementationWorkbenchController } from './usePaperImplementationWorkbenchController';
+import { RuntimeLanePanel } from './RuntimeLanePanel';
+import { ConfirmationPanel } from './ConfirmationPanel';
+import {
+  JsonViewer,
+  MetricTile,
+  RefList,
+  StatusBadge,
+  StatusLine,
+} from './presentational';
 import {
   compactList,
+  decisionQueueTypeLabel,
   formatRef,
-  prettyJson,
-  statusTone,
+  truncateHash,
 } from './utils';
-
-function StatusBadge({ value }: { value: string | null | undefined }) {
-  const label = value ?? '--';
-  switch (statusTone(value)) {
-    case 'success':
-      return <span data-ui="badge" data-variant="subtle" data-tone="success">{label}</span>;
-    case 'warning':
-      return <span data-ui="badge" data-variant="subtle" data-tone="warning">{label}</span>;
-    case 'danger':
-      return <span data-ui="badge" data-variant="subtle" data-tone="danger">{label}</span>;
-    case 'info':
-      return <span data-ui="badge" data-variant="subtle" data-tone="info">{label}</span>;
-    case 'neutral':
-      return <span data-ui="badge" data-variant="subtle" data-tone="neutral">{label}</span>;
-  }
-}
-
-function StatusLine({
-  status,
-  message,
-}: {
-  status: string;
-  message?: string | null;
-}) {
-  if (!message) {
-    return null;
-  }
-  if (status === 'error') {
-    return <p data-ui="text" data-variant="caption" data-tone="danger">{message}</p>;
-  }
-  if (status === 'success') {
-    return <p data-ui="text" data-variant="caption" data-tone="secondary">{message}</p>;
-  }
-  return <p data-ui="text" data-variant="caption" data-tone="muted">{message}</p>;
-}
-
-function MetricTile({
-  label,
-  value,
-  status,
-}: {
-  label: string;
-  value: number | string;
-  status?: string;
-}) {
-  return (
-    <article data-ui="card" data-padding="sm">
-      <div data-ui="stack" data-direction="col" data-gap="1">
-        <p data-ui="text" data-variant="label" data-tone="muted">{label}</p>
-        <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-          <p data-ui="text" data-variant="h3" data-tone="primary">{value}</p>
-          {status ? <StatusBadge value={status} /> : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function RefList({ refs }: { refs: TopicSelectionFunctionalRef[] }) {
-  if (refs.length === 0) {
-    return <p data-ui="text" data-variant="caption" data-tone="muted">--</p>;
-  }
-  return (
-    <div data-ui="stack" data-direction="col" data-gap="0">
-      {refs.map((ref, index) => (
-        <p key={`${ref.ref_type}-${ref.ref_id}-${ref.version_id ?? 'none'}-${index}`} data-ui="text" data-variant="caption" data-tone="muted">
-          {formatRef(ref)}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function JsonViewer({ label, value, rows = 10 }: { label: string; value: unknown; rows?: number }) {
-  return (
-    <label data-ui="field">
-      <span data-slot="label">{label}</span>
-      <textarea
-        data-ui="textarea"
-        data-size="sm"
-        rows={rows}
-        readOnly
-        spellCheck={false}
-        value={prettyJson(value)}
-      />
-    </label>
-  );
-}
 
 function QueueSourceLabel({ source }: { source: PaperImplementationQueueItem['source'] }) {
   const labels: Record<PaperImplementationQueueItem['source'], string> = {
@@ -161,6 +82,46 @@ function QueueList({
         </button>
       ))}
     </div>
+  );
+}
+
+function DecisionQueueMeta({ raw }: { raw: DecisionWorkQueueItem }) {
+  const inCooldown = raw.cooldown_until ? Date.parse(raw.cooldown_until) > Date.now() : false;
+  return (
+    <section data-ui="section" data-padding="none">
+      <div data-ui="stack" data-direction="col" data-gap="2">
+        <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+          <p data-ui="text" data-variant="label" data-tone="primary">DecisionWorkQueue 明细</p>
+          <span data-ui="badge" data-variant="subtle" data-tone="info">{decisionQueueTypeLabel(raw.queue_type)}</span>
+        </div>
+        <div data-ui="grid" data-cols="3" data-gap="2">
+          <MetricTile
+            label="retry (count/budget)"
+            value={`${raw.retry_count} / ${raw.retry_budget}`}
+            status={raw.retry_count >= raw.retry_budget ? 'blocked' : undefined}
+          />
+          <MetricTile
+            label="cooldown_until"
+            value={raw.cooldown_until ? truncateHash(raw.cooldown_until, 19) : '--'}
+            status={inCooldown ? 'warning' : undefined}
+          />
+          <MetricTile label="queue_type" value={raw.queue_type} />
+        </div>
+        <p data-ui="text" data-variant="caption" data-tone="muted">dedup_key: {raw.dedup_key}</p>
+        <p data-ui="text" data-variant="caption" data-tone="muted">
+          来源 coordinator run:{' '}
+          {raw.source_coordinator_run_ref ? formatRef(raw.source_coordinator_run_ref) : '--'}
+          {raw.source_step_index !== null && raw.source_step_index !== undefined
+            ? ` · step #${raw.source_step_index}`
+            : ''}
+        </p>
+        {inCooldown ? (
+          <p data-ui="text" data-variant="caption" data-tone="danger">
+            该项处于 cooldown，re_advance 会被冷却窗口拦截（后端 409）。
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -244,6 +205,10 @@ function QueueDetail({
             </div>
           </section>
         </div>
+
+        {item.source === 'decision_work_queue' ? (
+          <DecisionQueueMeta raw={item.raw as DecisionWorkQueueItem} />
+        ) : null}
 
         <JsonViewer label="raw backend item" value={item.raw} rows={12} />
       </div>
@@ -348,6 +313,10 @@ function CommandPanel({
   controller: ReturnType<typeof usePaperImplementationWorkbenchController>;
 }) {
   const selected = controller.selectedQueueItem;
+  // re_advance / retry_budget_override only apply to a `resolved` resolution
+  // (they trigger real coordinator advance = real LLM consumption); disable them
+  // for dismiss / supersede so the controls can never mislead.
+  const decisionReAdvanceEnabled = controller.decisionResolutionStatus === 'resolved';
   return (
     <section data-ui="section" data-padding="none">
       <div data-ui="stack" data-direction="col" data-gap="3">
@@ -360,6 +329,36 @@ function CommandPanel({
         {selected?.source === 'decision_work_queue' ? (
           <section data-ui="section" data-padding="none">
             <div data-ui="stack" data-direction="col" data-gap="2">
+              <div data-ui="grid" data-cols="2" data-gap="2">
+                <label data-ui="field">
+                  <span data-slot="label">resolution status</span>
+                  <select
+                    data-ui="select"
+                    data-size="sm"
+                    value={controller.decisionResolutionStatus}
+                    onChange={(event) =>
+                      controller.setDecisionResolutionStatus(
+                        event.target.value as 'resolved' | 'dismissed' | 'superseded',
+                      )
+                    }
+                  >
+                    <option value="resolved">resolved</option>
+                    <option value="dismissed">dismissed</option>
+                    <option value="superseded">superseded</option>
+                  </select>
+                </label>
+                <label data-ui="field">
+                  <span data-slot="label">retry_budget_override（可选，≥ 1）</span>
+                  <input
+                    data-ui="input"
+                    data-size="sm"
+                    inputMode="numeric"
+                    disabled={!decisionReAdvanceEnabled}
+                    value={decisionReAdvanceEnabled ? controller.decisionRetryBudgetOverride : ''}
+                    onChange={(event) => controller.setDecisionRetryBudgetOverride(event.target.value)}
+                  />
+                </label>
+              </div>
               <label data-ui="field">
                 <span data-slot="label">DecisionWorkQueue resolution note</span>
                 <textarea
@@ -370,15 +369,33 @@ function CommandPanel({
                   onChange={(event) => controller.setDecisionResolutionNote(event.target.value)}
                 />
               </label>
+              <label data-ui="field">
+                <span data-slot="label">
+                  <input
+                    type="checkbox"
+                    disabled={!decisionReAdvanceEnabled}
+                    checked={decisionReAdvanceEnabled && controller.decisionReAdvance}
+                    onChange={(event) => controller.setDecisionReAdvance(event.target.checked)}
+                  />
+                  {' '}re_advance（resolve 后触发一次 coordinator advance）
+                </span>
+              </label>
+              <p data-ui="text" data-variant="caption" data-tone="muted">
+                {decisionReAdvanceEnabled
+                  ? 're_advance 仅在该项带 source_coordinator_run_ref 时生效，并受 retry_budget/cooldown 门控（超限返回 409，错误信息如实展示）。'
+                  : 'dismiss / supersede 不触发 coordinator advance——re_advance 与 retry_budget_override 已禁用，不会产生真实 LLM 消费。'}
+              </p>
               <div data-ui="toolbar" data-wrap="wrap">
-                <button data-ui="button" data-variant="primary" data-size="sm" type="button" onClick={() => void controller.resolveSelectedDecisionQueueItem('resolved')}>
-                  resolve
-                </button>
-                <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void controller.resolveSelectedDecisionQueueItem('dismissed')}>
-                  dismiss
-                </button>
-                <button data-ui="button" data-variant="secondary" data-size="sm" type="button" onClick={() => void controller.resolveSelectedDecisionQueueItem('superseded')}>
-                  supersede
+                <button
+                  data-ui="button"
+                  data-variant="primary"
+                  data-size="sm"
+                  type="button"
+                  onClick={() =>
+                    void controller.resolveSelectedDecisionQueueItem(controller.decisionResolutionStatus)
+                  }
+                >
+                  提交 resolution（{controller.decisionResolutionStatus}）
                 </button>
               </div>
             </div>
@@ -593,6 +610,8 @@ export function PaperImplementationWorkbench() {
       <ProjectLocator controller={controller} />
       <ProjectSummary controller={controller} />
 
+      <RuntimeLanePanel controller={controller} />
+
       <div data-ui="grid" data-cols="2" data-gap="4">
         <section data-ui="section" data-padding="none">
           <div data-ui="stack" data-direction="col" data-gap="2">
@@ -622,6 +641,7 @@ export function PaperImplementationWorkbench() {
       </div>
 
       <CommandPanel controller={controller} />
+      <ConfirmationPanel controller={controller} />
       <ReadModelPanels controller={controller} />
       <JsonViewer label="project + intake snapshot" value={controller.snapshot.projectResponse} rows={16} />
     </div>

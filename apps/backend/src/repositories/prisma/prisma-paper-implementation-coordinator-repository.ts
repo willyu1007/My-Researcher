@@ -12,8 +12,9 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
 import { AppError } from '../../errors/app-error.js';
-import type {
-  PaperImplementationCoordinatorRepository,
+import {
+  PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT,
+  type PaperImplementationCoordinatorRepository,
 } from '../paper-implementation-coordinator.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -90,6 +91,17 @@ implements PaperImplementationCoordinatorRepository {
       },
     });
     return row ? toCoordinatorRun(row) : null;
+  }
+
+  async listCoordinatorRunsByProject(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationCoordinatorRun[]> {
+    const rows = await this.prisma.paperImplementationCoordinatorRun.findMany({
+      where: { implementationProjectId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT,
+    });
+    return rows.map(toCoordinatorRun);
   }
 
   async updateCoordinatorRun(

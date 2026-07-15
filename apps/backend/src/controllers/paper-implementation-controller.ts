@@ -105,6 +105,7 @@ import { PaperImplementationMotiveDecompositionRuntimeService } from '../service
 import { PaperImplementationMotiveEvolutionRuntimeService } from '../services/paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRuntimeDomainGateService } from '../services/paper-implementation-runtime-domain-gate-service.js';
 import { PaperImplementationRunCoordinatorService } from '../services/paper-implementation-run-coordinator-service.js';
+import { PaperImplementationRuntimeTelemetryService } from '../services/paper-implementation-runtime-telemetry-service.js';
 import { PaperImplementationHumanConfirmationService } from '../services/paper-implementation-human-confirmation-service.js';
 import type {
   CreateHumanConfirmationRecordRequest,
@@ -160,6 +161,7 @@ export interface PaperImplementationControllerDependencies {
   motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
   runCoordinator?: PaperImplementationRunCoordinatorService;
+  runtimeTelemetry?: PaperImplementationRuntimeTelemetryService;
   humanConfirmation: PaperImplementationHumanConfirmationService;
   liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
@@ -187,6 +189,7 @@ export class PaperImplementationController {
   private readonly motiveEvolutionRuntime: PaperImplementationMotiveEvolutionRuntimeService;
   private readonly runtimeDomainGate: PaperImplementationRuntimeDomainGateService;
   private readonly runCoordinator?: PaperImplementationRunCoordinatorService;
+  private readonly runtimeTelemetry?: PaperImplementationRuntimeTelemetryService;
   private readonly humanConfirmation: PaperImplementationHumanConfirmationService;
   private readonly liveExperimentAdapter?: PaperImplementationLiveExperimentAdapterService;
   private readonly providerVarianceEvaluation?: PaperImplementationProviderVarianceEvaluationService;
@@ -213,6 +216,7 @@ export class PaperImplementationController {
     this.motiveEvolutionRuntime = dependencies.motiveEvolutionRuntime;
     this.runtimeDomainGate = dependencies.runtimeDomainGate;
     this.runCoordinator = dependencies.runCoordinator;
+    this.runtimeTelemetry = dependencies.runtimeTelemetry;
     this.humanConfirmation = dependencies.humanConfirmation;
     this.liveExperimentAdapter = dependencies.liveExperimentAdapter;
     this.providerVarianceEvaluation = dependencies.providerVarianceEvaluation;
@@ -1154,6 +1158,57 @@ export class PaperImplementationController {
     return this.liveExperimentAdapter;
   }
 
+  private requireRuntimeTelemetry(): PaperImplementationRuntimeTelemetryService {
+    if (!this.runtimeTelemetry) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation runtime telemetry service is not configured.');
+    }
+    return this.runtimeTelemetry;
+  }
+
+  // S4-A read-model routes: project run summaries, single-run detail, project repaid-rate.
+  listRuntimeTelemetryRunSummaries = async (
+    request: ParamsRequest<{ implementation_project_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const runs = await this.requireRuntimeTelemetry().listProjectRunSummaries(
+        request.params.implementation_project_id,
+      );
+      return reply.send({ runs });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getRuntimeTelemetryRunDetail = async (
+    request: ParamsRequest<{ implementation_project_id: string; run_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const detail = await this.requireRuntimeTelemetry().getRunDetail(
+        request.params.implementation_project_id,
+        request.params.run_id,
+      );
+      return reply.send(detail);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getRuntimeTelemetryProjectRepaidRate = async (
+    request: ParamsRequest<{ implementation_project_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const aggregate = await this.requireRuntimeTelemetry().getProjectRepaidRate(
+        request.params.implementation_project_id,
+      );
+      return reply.send(aggregate);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   listRunEvidenceUnits = async (
     request: ParamsRequest<{ implementation_project_id: string }>,
     reply: FastifyReply,
@@ -1696,6 +1751,25 @@ export class PaperImplementationController {
     }
   };
 
+  // Additive read-only project-level coordinator-run list: run projections only
+  // (no steps, slot_request_payloads stripped), aligned with the single-run
+  // GET's `run` field shape. Routed through the coordinator SERVICE (never a
+  // controller-held repository) so the coordinator's zero-authority structural
+  // fence covers this read too.
+  listCoordinatorRunsByProject = async (
+    request: ParamsRequest<{ implementation_project_id: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const runs = await this.requireRunCoordinator().listCoordinatorRunsByProject(
+        request.params.implementation_project_id,
+      );
+      return reply.send({ runs });
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   runValidationCyclePlanningRuntime = async (
     request: FastifyRequest<{
       Params: { implementation_project_id: string };
@@ -1923,6 +1997,21 @@ export class PaperImplementationController {
     try {
       const implementationProjectId = request.params.implementation_project_id;
       const queueItemId = request.params.queue_item_id;
+      // re_advance drives a real coordinator advance (LLM consumption) — it is
+      // only meaningful when the breakpoint is genuinely RESOLVED. A
+      // `dismissed`/`superseded` resolution parks the item without a fix, so a
+      // re_advance would burn provider budget re-running a slot the operator
+      // just abandoned. Reject BEFORE any resolve/advance side-effect with a
+      // clear, actionable message.
+      if (request.body.re_advance === true && request.body.status !== 'resolved') {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `re_advance requires status 'resolved'; got '${request.body.status}'. `
+          + 'Dismissed/superseded items abandon the breakpoint and cannot trigger a coordinator advance.',
+          { status: request.body.status, re_advance: true },
+        );
+      }
       let reAdvanceCoordinatorRunId: string | null = null;
       if (request.body.re_advance === true) {
         const item = await this.aiWorkflowHarness.getDecisionWorkQueueItem(

@@ -1,5 +1,22 @@
 # 03 Implementation Notes
 
+## 2026-07-15 T-132 formal Pack B product seam update
+
+- The exact Run/head acknowledgement produced from formal PaperProject `P313` completed Pack B E1-E5 on the reviewed named-local target through the normal product route and production Prisma worker.
+- Final state is 2 payloads, 2 succeeded Attempts, 12 immutable events, 8 succeeded commands, 2 collected Collections and 2 diagnostic-only outputs. PI received no new writer; 88 protected source/PI/Pack A/legacy/scientific table digests were unchanged.
+- The simulation window is closed. `workflow_simulation_passed` remains control-plane evidence only; scientific execution is `not_started`, evidence eligibility is false, and T-124 D-16/D-17/D-18 acceptance remains open. Canonical evidence stays owned by T-132 `artifacts/product-pack-b-local-20260715/05-product-execution-closure.md`.
+
+## 2026-07-15 S4 落地 + 复审修复轮（观测面/产品面/档位影子，T-124）
+
+- **用户裁定**：S4 与 D2 不捆绑——S4 纯观测/产品面零 runtime 语义变更，D2 独立成片紧随其后（排序理由：风险隔离、先测量后调档、D10 终验收须在带档位真实形态下进行）；shadow 档位（只记录不生效）随 S4 白拿校准数据。工单 `11-s4-workorder.md`。
+- **S4-A 遥测 sink**：`PaperImplementationRuntimeTelemetryRecord@v1`（shared 新契约文件+dual 注册）+ 仓储三层 + 迁移 `20260715120000`（**用户审批后已 apply**，纯加性单表+2 索引）。采集=11 slot 服务在 provider 调用收敛缝经共享 collector 单点写入（fail-open：写失败仅 warn 不影响 run；gateway 的 cost_usd 经 provenance.telemetry 本就透出，N9"成本全丢弃"就此闭合）。查询面 4 条 GET（run 摘要列表/单 run 明细/项目重付率/合并 overview）。**重付率口径**：run-local=outcome retried + 同 (slot,role,call_index) 跨执行重放（D9 resume 同 run 重录）；项目级额外含 coordinator re-advance 整 run 重付（识别 node_attempt_id 格式 `{run}.step-{i}.attempt-{n}`，n≥1 为重放——coordinator attempt 0-based 勘察实锤）。
+- **S4-B 桌面**：Workbench 增 runtime lane 四视图（coordinator run 列表[新项目级列表路由]/step 时间线/决策队列面板含 resolve+re_advance 操作/遥测摘要卡含 shadow_tier 标注"影子档位（未生效）"）+ HumanConfirmationRecord 入口（S0 移交）。零权威写入，全部操作经既有路由。
+- **S4-C shadow ComplexityAssessment@v0**：shared 纯函数（statement/packet/密度/target 四轴阈值常量化），4 debate 槽只算只记，L5 钉可复算+零行为影响（有无 shadow 采集 run 产物 hash 不变）。
+- **S4-D 队列分类**：blocked lane 穷举收窄——唯一真实空洞 trusted `INTERNAL_ERROR`→`failed_workflow`（只进 trusted 表）；无 trusted 码 blocked→`human_review`；`unclassified` 仅剩未登记 trusted 码唯一可达路径（unit+L5 双钉）。
+- **复审修复轮**（8 角度含零语义影响审计，跨角度互证 retry_kind×4/call_index 重付×5/P1 shadow×4 → 三路修复 FA/FB/FC）：**FA 遥测正确性**——采集块 11 处收敛 `recordSlotProviderCallTelemetry` 单源 helper（outcome/retry_kind/compressionApplied 单点推导，8 处 `'technical'` 硬编码消灭）；TECHNICAL 码补注册（RUNTIME_WIRE_JSON_DECODE_FAILED/MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE）；**call_index 统一为 attempt 序号**（debate 槽重试双计重付根修：一次重试 rate 0.4 非 1.0）；re-advance 重付约定实装；P1 shadow 停止双喂（statement 轴置 0 留 D2 重定义）+ evolution/density 近似与退化轴注释登记（换轴须 bump inputs_hash）；读模型单趟化+overview 合并端点；shared 测试 glob 修复（shadow 测试实证被执行）。**FB**——R4 零调用晋升加排除集（从分类表派生 `failed_workflow` 桶码，payload 回显 INTERNAL_ERROR 不再可 steering 终局桶）；re_advance 状态门（非 resolved → 400，dismiss 不再能触发真实 LLM 消费）；coordinator 列表读回归 service 层+投影剥 slot_request_payloads；runner 遥测失败归 observability_gaps 不降级终态（v5）。**FC 桌面**——dismiss/superseded 结构性不带 re_advance（状态下拉+单提交 UX）；遥测明细竞态守卫（当前选中 id ref）；re_advance 后三面板齐刷+loaded run 重载；切项目残留成员资格清理；formatter 复用 literature 版本。
+- **过程隔离修复**：新 list 路由集成测试在 prisma 持久库下的三层污染（固定 id 跨进程 409/全表断言/逐 run 状态断言）照 S1 惯例修（进程唯一 id+in-memory 才做全表断言+状态断言限本测试创建的 run）。
+- 收口证据与 run 007 遥测基线见 04。
+
 ## 2026-07-15 S3 收口尾轮：gs-001 v3 + run 005 三槽根因 + run 006 全链（T-124）
 
 - **gs-001 v3 素材修订**：修复 run 004 唯一 blocking `BASELINE_GATE_ORDER_AMBIGUOUS`——stage 0 探针判据自包含化（stage-0 内短单种子 full-FT 校准锚点；通过 = LoRA best-of-{r4,r8} ≥90.0 绝对下限 且 距锚点 ≤1.0pt，仅用 stage-0 产出可判读）；吸收 5 warning（full-FT 复用规则单计、metric_aggregation 预承诺、claim-drop 规则、reference_implementation 指针——RF-TRACE-001 部分吸收，项目级 code/config 工件晋升时点不存在属诚实缺口不伪造）；ground-truth 增 §GT-8。version v2→v3，hash 装载时现算自洽。

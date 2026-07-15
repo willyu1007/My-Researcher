@@ -51,13 +51,18 @@ import { PaperImplementationRuntimeAdmissionService } from './paper-implementati
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  recordSlotProviderCallTelemetry,
   roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
+import type {
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
 
 export interface PaperImplementationResultAnalysisRuntimeResult {
   run_id: string;
@@ -81,6 +86,7 @@ interface RuntimeServiceOptions {
   projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationResultAnalysisAgentOrchestrator;
+  telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -184,7 +190,9 @@ const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 // T-124 S3 复审 F5-1: a provider wire output whose domain_gate_request_json
 // carrier fails to parse into the canonical object is a retryable technical
 // failure, never an HTTP 400.
-const RUNTIME_WIRE_JSON_DECODE_FAILED = 'RUNTIME_WIRE_JSON_DECODE_FAILED';
+// S4 复审 FA-2: single-sourced from runtime-utils so the retry_kind classifier
+// registers it as `technical`.
+const RUNTIME_WIRE_JSON_DECODE_FAILED = PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
@@ -199,6 +207,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationResultAnalysisAgentOrchestrator;
+  private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -206,6 +215,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
+    this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -304,6 +314,18 @@ export class PaperImplementationResultAnalysisRuntimeService {
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
+      await recordSlotProviderCallTelemetry(this.telemetryCollector, {
+        implementationProjectId: runtimeBase.implementationProjectId,
+        runId: runtimeBase.runId,
+        slotId: SLOT_PROFILE.slotId,
+        roleSlotId: SLOT_PROFILE.roleSlotId,
+        retryAttemptIndex,
+        executionMode: request.execution_mode,
+        result,
+        shouldRetry,
+        runtimeFailureCode,
+        shadowTier: null,
+      });
       if (!shouldRetry) {
         return { result, retryAttemptIndex, providerCallCount };
       }

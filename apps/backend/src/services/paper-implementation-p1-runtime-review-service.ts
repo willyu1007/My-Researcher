@@ -65,7 +65,16 @@ import {
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
+  PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE,
+  recordSlotProviderCallTelemetry,
 } from './paper-implementation-runtime-utils.js';
+import type {
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
+import {
+  assessPaperImplementationDebateComplexityShadow,
+  type PaperImplementationDebateComplexityTier,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -93,6 +102,7 @@ interface RuntimeServiceOptions {
   projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationP1AgentOrchestrator;
+  telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -151,6 +161,8 @@ interface RuntimeBase {
   cachePolicyProfileHash: string;
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
+  // S4-C record-only shadow tier (zero execution-path effect).
+  shadowTier: PaperImplementationDebateComplexityTier;
 }
 
 interface BuildArtifactInput {
@@ -265,7 +277,9 @@ const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 // (domain_gate_request_json / scenario_output_jsons) fails to parse into the
 // canonical object shape is a retryable technical failure (SCHEMA_VALIDATION
 // semantics — one same-profile retry, then terminal), never an HTTP 400.
-const RUNTIME_WIRE_JSON_DECODE_FAILED = 'RUNTIME_WIRE_JSON_DECODE_FAILED';
+// S4 复审 FA-2: single-sourced from runtime-utils so the retry_kind classifier
+// registers it as `technical` (it previously mislabeled it `semantic`).
+const RUNTIME_WIRE_JSON_DECODE_FAILED = PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   RUNTIME_WIRE_JSON_DECODE_FAILED,
@@ -275,6 +289,7 @@ export class PaperImplementationP1RuntimeReviewService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationP1AgentOrchestrator;
+  private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -282,6 +297,7 @@ export class PaperImplementationP1RuntimeReviewService {
     this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
+    this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -462,6 +478,21 @@ export class PaperImplementationP1RuntimeReviewService {
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
+      // S4 复审 FA-3: the telemetry call_index is the per-(role, attempt)
+      // ordinal — NOT the artifact-level role call ordinal (`callIndex`) that
+      // retries used to share, which double-counted one retry as repaid twice.
+      await recordSlotProviderCallTelemetry(this.telemetryCollector, {
+        implementationProjectId: runtimeBase.implementationProjectId,
+        runId: runtimeBase.runId,
+        slotId: runtimeBase.profile.slotId,
+        roleSlotId: spec.slotId,
+        retryAttemptIndex,
+        executionMode: request.execution_mode,
+        result,
+        shouldRetry,
+        runtimeFailureCode,
+        shadowTier: runtimeBase.shadowTier,
+      });
       if (!shouldRetry) {
         return {
           result,
@@ -1134,6 +1165,27 @@ export class PaperImplementationP1RuntimeReviewService {
         store_rendered_prompt: false,
       }),
       compressionPolicyProfileHash: this.hash(contextPolicyProfile.compression_policy),
+      // S4 复审 FA-5 shadow inputs:
+      // - reviewed_statement_count: 0 — the P1 request carries NO statement
+      //   semantic field (only target_ref / input_snapshot_ref / source_refs),
+      //   and double-feeding source_refs.length into both axes made two
+      //   thresholds fire off one signal. Axis is zeroed and left for D2 to
+      //   re-define (a real statement signal requires a new input; changing
+      //   it bumps the inputs_hash version).
+      // - retrieval_packet_ref_count: source_refs.length is a REGISTERED
+      //   approximation — P1 has no bounded retrieval packet; the source
+      //   bundle refs are the material actually available to the debate.
+      // - prior_blocker_density: known degraded axis, constant 0 (zero
+      //   variance) until D2 wires coordinator context — see the shadow
+      //   contract header.
+      shadowTier: assessPaperImplementationDebateComplexityShadow({
+        reviewed_statement_count: 0,
+        retrieval_packet_ref_count: request.source_refs.length,
+        prior_blocker_density: 0,
+        target_kind: profile.workflowType === 'claim_boundary_review'
+          ? 'claim_boundary'
+          : 'dossier_readiness',
+      }).recommended_tier,
     };
   }
 

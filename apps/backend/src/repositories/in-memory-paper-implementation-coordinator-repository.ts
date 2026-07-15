@@ -6,8 +6,9 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
 import { AppError } from '../errors/app-error.js';
-import type {
-  PaperImplementationCoordinatorRepository,
+import {
+  PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT,
+  type PaperImplementationCoordinatorRepository,
 } from './paper-implementation-coordinator.repository.js';
 
 export class InMemoryPaperImplementationCoordinatorRepository
@@ -36,6 +37,19 @@ implements PaperImplementationCoordinatorRepository {
       return null;
     }
     return structuredClone(run);
+  }
+
+  async listCoordinatorRunsByProject(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationCoordinatorRun[]> {
+    return [...this.runs.values()]
+      .filter((run) => run.implementation_project_id === implementationProjectId)
+      // createdAt desc, coordinator_run_id desc tiebreak — deterministic and
+      // aligned with the Prisma orderBy.
+      .sort((left, right) => right.created_at.localeCompare(left.created_at)
+        || right.coordinator_run_id.localeCompare(left.coordinator_run_id))
+      .slice(0, PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT)
+      .map((run) => structuredClone(run));
   }
 
   async updateCoordinatorRun(

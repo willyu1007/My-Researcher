@@ -67,6 +67,7 @@ import {
   functionalRefEquals,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  recordSlotProviderCallTelemetry,
   roleSlotEchoMismatchCode,
   sameStringSet,
 } from './paper-implementation-runtime-utils.js';
@@ -74,6 +75,9 @@ import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
 } from './paper-implementation-runtime-operational-telemetry.js';
+import type {
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
 
 export interface PaperImplementationRoutePlanningRuntimeResult {
   run_id: string;
@@ -97,6 +101,7 @@ interface RuntimeServiceOptions {
   projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationRoutePlanningAgentOrchestrator;
+  telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -232,6 +237,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationRoutePlanningAgentOrchestrator;
+  private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -239,6 +245,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
     this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
+    this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -362,6 +369,18 @@ export class PaperImplementationRoutePlanningRuntimeService {
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
+      await recordSlotProviderCallTelemetry(this.telemetryCollector, {
+        implementationProjectId: runtimeBase.implementationProjectId,
+        runId: runtimeBase.runId,
+        slotId: runtimeBase.profile.slotId,
+        roleSlotId: runtimeBase.profile.roleSlotId,
+        retryAttemptIndex,
+        executionMode: request.execution_mode,
+        result,
+        shouldRetry,
+        runtimeFailureCode,
+        shadowTier: null,
+      });
       if (!shouldRetry) {
         return { result, retryAttemptIndex, providerCallCount };
       }

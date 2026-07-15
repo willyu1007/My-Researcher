@@ -116,6 +116,12 @@ import { PaperImplementationMotiveDecompositionRuntimeService } from './paper-im
 import { PaperImplementationMotiveEvolutionRuntimeService } from './paper-implementation-motive-evolution-runtime-service.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './paper-implementation-route-planning-runtime-service.js';
 import {
+  classifyPaperImplementationCoordinatorBlockedStep,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE,
+} from './paper-implementation-run-coordinator-service.js';
+import {
   seedAdmittedRoutePlanningLineage,
   seedAdmittedValidationPlanningLineage,
   type PaperImplementationSeededRouteLineage,
@@ -123,6 +129,9 @@ import {
 } from './paper-implementation-runtime-chain-lineage-fixtures.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { PaperImplementationRuntimeTelemetryService } from './paper-implementation-runtime-telemetry-service.js';
+import { InMemoryPaperImplementationRuntimeTelemetryRepository } from '../repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
+import { assessPaperImplementationDebateComplexityShadow } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
 import {
   PaperImplementationTraceIntegrityDebateRuntimeService,
 } from './paper-implementation-trace-integrity-debate-runtime-service.js';
@@ -4150,4 +4159,264 @@ test('L5 trace resume rejects identity drift with 409 before any provider call',
       && error.errorCode === 'VERSION_CONFLICT',
   );
   assert.equal(resumeGateway.calls.length, 0);
+});
+
+// T-124 S4-D: registered runtime-stress must-check case
+// (coordinator_queue_classification_exhaustive_no_unclassified). Pins the
+// retired blocked-lane `unclassified` fallback: every registered trusted code
+// (exact + prefix) and every LLM-sourced untrusted code classifies to a real
+// queue type across both reachable blocked-lane outcomes, and `unclassified`
+// is reachable on exactly one path — an unregistered TRUSTED code on a
+// `blocked` step.
+//
+// S4-D leak-fix interaction (upstream of this pure classifier): the R4
+// zero-provider-call promotion now EXCLUDES the infra-semantic terminal codes
+// (`INTERNAL_ERROR`, `SLOT_INVOCATION_FAILED`) — those reach the TRUSTED set
+// only through the coordinator's own invocation-boundary catch, never the
+// payload-author-controllable preflight echo. This does not weaken the
+// "unclassified reachable only via an unregistered trusted code" argument:
+// the excluded codes are REGISTERED (exact table → failed_workflow), so they
+// were never an unclassified source; the sole real-world producer of an
+// UNREGISTERED trusted code stays the R4 echo of an unknown preflight code,
+// which this test forges directly below.
+test('L5 coordinator queue classification is exhaustive over blocked-lane trusted codes and outcomes with unclassified reachable only via an unregistered trusted code', () => {
+  const outcomes = ['blocked', 'failed_runtime'] as const;
+
+  // Every registered exact trusted code → its mapped queue type, never unclassified.
+  for (const [code, expected] of Object.entries(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE)) {
+    for (const outcome of outcomes) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []);
+      assert.notEqual(result.queue_type, 'unclassified', `exact trusted ${code} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `exact trusted ${code} on ${outcome}`);
+      assert.equal(result.dedup_blocker, code);
+    }
+  }
+
+  // Every registered prefix family → its mapped queue type, never unclassified.
+  for (const [prefix, expected] of PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX) {
+    const code = `${prefix}L5_EXHAUSTIVE_PROBE`;
+    assert.equal(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[code], undefined);
+    for (const outcome of outcomes) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []);
+      assert.notEqual(result.queue_type, 'unclassified', `prefix ${prefix} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `prefix ${prefix} on ${outcome}`);
+    }
+  }
+
+  // The coordinator's own self-produced trusted code literals are all registered.
+  for (const code of ['COORDINATOR_NO_ELIGIBLE_CANDIDATE', 'SLOT_INVOCATION_FAILED', 'INTERNAL_ERROR', 'TIER_BUDGET_INSUFFICIENT']) {
+    for (const outcome of outcomes) {
+      assert.notEqual(
+        classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []).queue_type,
+        'unclassified',
+        `self-produced ${code} on ${outcome}`,
+      );
+    }
+  }
+
+  // LLM-sourced untrusted codes maintain the outcome fallback with zero unclassified.
+  for (const [code, expected] of Object.entries(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE)) {
+    for (const outcome of outcomes) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [], [code]);
+      assert.notEqual(result.queue_type, 'unclassified', `whitelist slot ${code} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `whitelist slot ${code} on ${outcome}`);
+      assert.equal(result.dedup_blocker, `outcome:${outcome}`);
+    }
+  }
+  for (const code of ['SOME_NOVEL_SLOT_BLOCKER', 'TIER_BUDGET_INSUFFICIENT', 'TRACE_REPAIR_FORGED', 'INTERNAL_ERROR']) {
+    assert.equal(
+      classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], [code]).queue_type,
+      'failed_run_review',
+    );
+    assert.equal(classifyPaperImplementationCoordinatorBlockedStep('blocked', [], [code]).queue_type, 'human_review');
+  }
+
+  // The SOLE reachable path to unclassified: an unregistered trusted code on a blocked step.
+  const forged = 'L5_FORGED_UNREGISTERED_TRUSTED_CODE';
+  assert.equal(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[forged], undefined);
+  assert.ok(!PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX.some(([prefix]) => forged.startsWith(prefix)));
+  assert.deepEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [forged], []),
+    { queue_type: 'unclassified', primary_blocker: forged, dedup_blocker: forged },
+  );
+  assert.equal(
+    classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [forged], []).queue_type,
+    'failed_run_review',
+  );
+  assert.equal(classifyPaperImplementationCoordinatorBlockedStep('blocked', [], [forged]).queue_type, 'human_review');
+});
+
+// S4-C L5 must-checks: shadow ComplexityAssessment is record-only.
+test('L5 shadow complexity assessment is replayable for the same inputs', () => {
+  const shadowInputs = {
+    reviewed_statement_count: 6,
+    retrieval_packet_ref_count: 4,
+    prior_blocker_density: 0.3,
+    target_kind: 'trace_integrity' as const,
+  };
+  const first = assessPaperImplementationDebateComplexityShadow(shadowInputs);
+  const second = assessPaperImplementationDebateComplexityShadow(shadowInputs);
+  assert.equal(first.recommended_tier, second.recommended_tier);
+  assert.equal(first.inputs_hash, second.inputs_hash);
+  assert.deepEqual(first.rationale_codes, second.rationale_codes);
+  // The tier is input-driven, not a constant: a heavier input escalates it.
+  const heavier = assessPaperImplementationDebateComplexityShadow({
+    ...shadowInputs,
+    reviewed_statement_count: 12,
+  });
+  assert.notEqual(heavier.inputs_hash, first.inputs_hash);
+  assert.equal(heavier.recommended_tier, 'full');
+});
+
+test('L5 shadow telemetry collection does not change run artifact hashes', async () => {
+  const runTrace = async (withCollector: boolean) => {
+    const gateway = new ScriptedLlmGateway((request) =>
+      traceRoleOutput(request.executionContext.operation));
+    const repository = new InMemoryPaperImplementationRuntimeRepository();
+    let sequence = 0;
+    const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+    let telemetrySequence = 0;
+    const telemetryIdFactory = (prefix: string) => `${prefix}_tel_${++telemetrySequence}`;
+    const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+      repository,
+      idFactory,
+      now: () => NOW,
+    });
+    const projectRepository = projectRepositoryFixture(implementationProjectFixture());
+    const controlPlane = new TopicSelectionControlPlaneService(
+      new InMemoryTopicSelectionControlPlaneRepository(),
+      { idFactory, now: () => NOW },
+    );
+    const orchestrator = new TopicSelectionAgentOrchestratorService({
+      controlPlane,
+      llmGateway: gateway,
+      now: () => NOW,
+    });
+    const telemetryRepository = new InMemoryPaperImplementationRuntimeTelemetryRepository();
+    const telemetryCollector = withCollector
+      ? new PaperImplementationRuntimeTelemetryService({
+        repository: telemetryRepository,
+        idFactory: telemetryIdFactory,
+        now: () => NOW,
+      })
+      : null;
+    const traceService = new PaperImplementationTraceIntegrityDebateRuntimeService({
+      projectRepository,
+      runtimeAdmission,
+      agentOrchestrator: orchestrator,
+      telemetryCollector,
+      idFactory,
+      now: () => NOW,
+    });
+    const result = await traceService.runBoundaryDebate(PROJECT_ID, traceRequest({
+      run_id: 'trace_l5_shadow_invariance_run_001',
+    }));
+    return { result, telemetryRepository };
+  };
+
+  const baseline = await runTrace(false);
+  const withShadow = await runTrace(true);
+
+  assert.equal(baseline.result.status, 'passed');
+  assert.equal(withShadow.result.status, 'passed');
+
+  const hashSignature = (artifacts: PaperImplementationRuntimeArtifactEnvelope[]) =>
+    artifacts.map((artifact) => ({
+      payload: artifact.artifact_payload_hash,
+      identity: artifact.runtime_identity_hash,
+    }));
+  assert.deepEqual(
+    hashSignature(withShadow.result.runtime_artifacts),
+    hashSignature(baseline.result.runtime_artifacts),
+  );
+
+  // The shadow path was genuinely exercised: every recorded provider call carries a shadow tier.
+  const records = await withShadow.telemetryRepository.listRuntimeTelemetryRecordsByProject(PROJECT_ID);
+  assert.ok(records.length > 0);
+  assert.equal(records.every((record) => record.shadow_tier !== null), true);
+  // The baseline (no collector) wrote no telemetry at all.
+  const baselineRecords = await baseline.telemetryRepository.listRuntimeTelemetryRecordsByProject(PROJECT_ID);
+  assert.equal(baselineRecords.length, 0);
+});
+
+// S4 复审 FA-3 regression (registered L5 must-check): a debate-slot technical
+// retry records a UNIQUE call_index per provider attempt, so the run's repaid
+// rate is the retried attempt's cost ratio — the pre-FA-3 shared call_index
+// made the replacement attempt a duplicate replay and double-counted the
+// retry as repaid.
+test('L5 debate slot technical retry records unique call_index per attempt and a cost-ratio repaid rate', async () => {
+  let skepticAttempts = 0;
+  const gateway: TopicSelectionAgentOrchestratorLlmGateway = {
+    async createStructuredOutput<T>(
+      request: LlmStructuredOutputRequest,
+    ): Promise<LlmStructuredOutputResponse<T>> {
+      const operation = request.executionContext.operation;
+      if (operation === 'trace_integrity_review.skeptic_challenge') {
+        skepticAttempts += 1;
+        if (skepticAttempts === 1) {
+          throw new LlmGatewayError('TimeoutError', 'fixture skeptic timeout', {
+            telemetry: { ...telemetry(request), cost_usd: 0.02 },
+          });
+        }
+      }
+      return {
+        parsed: traceRoleOutput(operation) as T,
+        raw: { redacted_stub: true },
+        telemetry: { ...telemetry(request), cost_usd: 0.03 },
+      };
+    },
+  };
+  const repository = new InMemoryPaperImplementationRuntimeRepository();
+  let sequence = 0;
+  const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
+  let telemetrySequence = 0;
+  const runtimeAdmission = new PaperImplementationRuntimeAdmissionService({
+    repository,
+    idFactory,
+    now: () => NOW,
+  });
+  const controlPlane = new TopicSelectionControlPlaneService(
+    new InMemoryTopicSelectionControlPlaneRepository(),
+    { idFactory, now: () => NOW },
+  );
+  const orchestrator = new TopicSelectionAgentOrchestratorService({
+    controlPlane,
+    llmGateway: gateway,
+    now: () => NOW,
+  });
+  const telemetryService = new PaperImplementationRuntimeTelemetryService({
+    repository: new InMemoryPaperImplementationRuntimeTelemetryRepository(),
+    idFactory: (prefix) => `${prefix}_tel_${++telemetrySequence}`,
+    now: () => NOW,
+  });
+  const traceService = new PaperImplementationTraceIntegrityDebateRuntimeService({
+    projectRepository: projectRepositoryFixture(implementationProjectFixture()),
+    runtimeAdmission,
+    agentOrchestrator: orchestrator,
+    telemetryCollector: telemetryService,
+    idFactory,
+    now: () => NOW,
+  });
+
+  const result = await traceService.runBoundaryDebate(PROJECT_ID, traceRequest({
+    run_id: 'trace_l5_retry_telemetry_run_001',
+  }));
+  assert.equal(result.status, 'passed');
+  assert.equal(skepticAttempts, 2);
+
+  const detail = await telemetryService.getRunDetail(PROJECT_ID, 'trace_l5_retry_telemetry_run_001');
+  // 5 provider attempts: map, skeptic (timeout), skeptic (retry), reconcile, arbiter.
+  assert.equal(detail.records.length, 5);
+  const skepticRecords = detail.records
+    .filter((record) => record.role_slot_id === 'trace_integrity_review.skeptic_challenge')
+    .sort((left, right) => left.call_index - right.call_index);
+  assert.deepEqual(skepticRecords.map((record) => record.call_index), [1, 2]);
+  assert.deepEqual(skepticRecords.map((record) => record.outcome), ['retried', 'passed']);
+  assert.deepEqual(skepticRecords.map((record) => record.retry_kind), ['technical', null]);
+
+  // Repaid = the retried attempt only (0.02 of 0.02 + 4 × 0.03) — a cost
+  // ratio, NOT 1.0-style double counting of retry + replacement.
+  assert.equal(detail.total_cost_usd, 0.14);
+  assert.equal(detail.repaid_cost_usd, 0.02);
+  assert.equal(detail.repaid_cost_rate, Math.round((0.02 / 0.14) * 1e6) / 1e6);
 });

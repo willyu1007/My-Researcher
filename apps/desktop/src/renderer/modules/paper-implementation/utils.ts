@@ -30,9 +30,69 @@ import type {
 import type {
   PaperImplementationWorkbenchReadModels,
 } from './api';
+import {
+  formatCurrency,
+  formatTimestamp as formatLocaleTimestamp,
+} from '../../literature/shared/formatters';
 
 export function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '操作失败。';
+}
+
+/**
+ * Readable Chinese labels for the full DecisionWorkQueue queue_type enum
+ * (S4-D narrowed the classification, `unclassified` is the explicit residual
+ * bucket for blocker codes outside the enum mapping tables).
+ */
+export const DECISION_QUEUE_TYPE_LABELS: Record<string, string> = {
+  human_review: '人工评审',
+  trace_repair: '溯源修复',
+  gate_blocker: '闸门阻断',
+  failed_workflow: '工作流失败',
+  failed_run_review: '失败 run 评审',
+  stale_evidence_recheck: '证据过期复检',
+  accepted_risk_expiry: '风险接受到期',
+  loop_budget_review: '循环预算评审',
+  unclassified: '未分类（残余）',
+};
+
+export function decisionQueueTypeLabel(queueType: string): string {
+  return DECISION_QUEUE_TYPE_LABELS[queueType] ?? queueType;
+}
+
+export function formatUsd(value: number | null | undefined): string {
+  // Reuse the literature-shared currency formatter for the actual rendering
+  // and `--` fallback; only normalize the extra undefined/NaN inputs this
+  // module's telemetry aggregates can surface (formatCurrency accepts number | null).
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return formatCurrency(null);
+  }
+  return formatCurrency(value);
+}
+
+/** Renders a 0..1 rate as a percentage string, e.g. 0.4 -> "40.0%". */
+export function formatRatePercent(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '--';
+  }
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+export function truncateHash(value: string | null | undefined, length = 16): string {
+  if (!value) {
+    return '--';
+  }
+  return value.length > length ? `${value.slice(0, length)}…` : value;
+}
+
+export function formatTimestamp(value: string | null | undefined): string {
+  // Use the literature-shared locale formatter so timestamp display matches the
+  // rest of the desktop (previously this rendered the raw ISO string). Tolerate
+  // the null/undefined inputs this module's records can carry before delegating.
+  if (!value) {
+    return '--';
+  }
+  return formatLocaleTimestamp(value);
 }
 
 export function prettyJson(value: unknown): string {
@@ -88,6 +148,7 @@ export function statusTone(value: string | null | undefined): 'neutral' | 'succe
     'blocked',
     'broken',
     'failed',
+    'failed_runtime',
     'cancelled',
     'aborted',
     'rejected',
@@ -101,6 +162,7 @@ export function statusTone(value: string | null | undefined): 'neutral' | 'succe
     'partial',
     'open',
     'in_progress',
+    'advancing',
     'needs_review',
     'needs_more_evidence',
     'trace_partial',
@@ -109,6 +171,8 @@ export function statusTone(value: string | null | undefined): 'neutral' | 'succe
     'warning',
     'inconclusive',
     'negative',
+    'waiting_review',
+    'budget_exhausted',
     'parked_with_reopen_condition',
   ].includes(value)) {
     return 'warning';

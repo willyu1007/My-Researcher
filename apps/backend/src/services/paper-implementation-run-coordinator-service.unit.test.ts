@@ -40,6 +40,7 @@ import type {
   PaperImplementationCoordinatorLaneId,
   PaperImplementationCoordinatorRun,
   PaperImplementationCoordinatorStep,
+  PaperImplementationCoordinatorStepOutcome,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 import type {
   ImplementationProject,
@@ -98,6 +99,9 @@ import {
 } from './paper-implementation-cross-board-synthesis-runtime-service.js';
 import {
   classifyPaperImplementationCoordinatorBlockedStep,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX,
+  PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE,
   PaperImplementationRunCoordinatorService,
   selectPaperImplementationCandidateV1,
   type PaperImplementationRunCoordinatorServiceOptions,
@@ -298,6 +302,9 @@ class CrashOnceCoordinatorRepository implements PaperImplementationCoordinatorRe
 
   findCoordinatorRunById: PaperImplementationCoordinatorRepository['findCoordinatorRunById'] =
     (projectId, runId) => this.inner.findCoordinatorRunById(projectId, runId);
+
+  listCoordinatorRunsByProject: PaperImplementationCoordinatorRepository['listCoordinatorRunsByProject'] =
+    (projectId) => this.inner.listCoordinatorRunsByProject(projectId);
 
   // R6: the wrapper must forward `options` — dropping it would silently
   // strip the holder fence from every guarded write under test.
@@ -648,6 +655,7 @@ test('coordinator budget raise is monotonic under interleaving and never shrinks
   const interleavingRepository: PaperImplementationCoordinatorRepository = {
     createCoordinatorRun: (record) => inner.createCoordinatorRun(record),
     findCoordinatorRunById: (projectId, runId) => inner.findCoordinatorRunById(projectId, runId),
+    listCoordinatorRunsByProject: (projectId) => inner.listCoordinatorRunsByProject(projectId),
     updateCoordinatorRun: (record, options) => inner.updateCoordinatorRun(record, options),
     createCoordinatorStep: (step) => inner.createCoordinatorStep(step),
     listCoordinatorSteps: (projectId, runId) => inner.listCoordinatorSteps(projectId, runId),
@@ -923,6 +931,30 @@ test('coordinator constructor dependency surface stays structurally zero-authori
   assert.deepEqual(Object.keys(reader), ['findRuntimeArtifactById']);
 });
 
+test('coordinator listCoordinatorRunsByProject returns the slim projection without slot_request_payloads', async () => {
+  // S4: the project-level list read now flows through the coordinator service
+  // (never a controller-held repository), and the list item is the run row
+  // with the heavy per-slot payload map stripped — the single-run GET keeps it.
+  const fixture = coordinatorFixture();
+  assert.deepEqual(await fixture.coordinator.listCoordinatorRunsByProject(PROJECT_ID), []);
+
+  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
+  const listed = await fixture.coordinator.listCoordinatorRunsByProject(PROJECT_ID);
+  assert.equal(listed.length, 1);
+  const item = listed[0]!;
+  assert.equal(item.coordinator_run_id, run.coordinator_run_id);
+  assert.equal(item.run_status, 'created');
+  assert.equal(item.lane_id, 'validation-planning');
+  // Lightweight run-row fields are retained for the list view.
+  assert.ok(item.budget_envelope);
+  assert.equal(item.consumed.provider_calls, 0);
+  // Slim projection: the heavy per-slot payload map is stripped from the list.
+  assert.equal((item as { slot_request_payloads?: unknown }).slot_request_payloads, undefined);
+  // The single-run read still carries the full payload map.
+  const full = await fixture.coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id);
+  assert.ok(full.run.slot_request_payloads[PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID]);
+});
+
 test('coordinator blocked step materializes a decision work queue item with dedup and retry accumulation', async () => {
   const fixture = coordinatorFixture();
   const createRequest = boardLaneCreateRequest('evidence-board-curation');
@@ -991,7 +1023,7 @@ test('coordinator blocked step materializes a decision work queue item with dedu
   assert.equal(afterThird[0]?.resolved_at, null);
 });
 
-test('coordinator queue classification maps unknown blockers to unclassified', () => {
+test('coordinator queue classification maps registered trusted codes and retires the blocked-lane unclassified fallback', () => {
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', ['TIER_BUDGET_INSUFFICIENT'], []),
     {
@@ -1016,24 +1048,37 @@ test('coordinator queue classification maps unknown blockers to unclassified', (
       dedup_blocker: 'SLOT_INVOCATION_FAILED',
     },
   );
-  // Unknown blocker codes land in the explicit `unclassified` bucket — the
-  // mapping is enum tables only, never string-includes heuristics. R3: a
-  // slot-sourced free string may stay informational (primary_blocker) but
-  // the dedup segment falls back to the outcome sentinel.
+  // S4-D: an INTERNAL_ERROR AppError caught at the slot-invocation boundary is
+  // an internal slot fault — a trusted code that routes to failed_workflow
+  // exactly like a non-AppError throw, never unclassified.
+  assert.deepEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', ['INTERNAL_ERROR'], []),
+    {
+      queue_type: 'failed_workflow',
+      primary_blocker: 'INTERNAL_ERROR',
+      dedup_blocker: 'INTERNAL_ERROR',
+    },
+  );
+  // S4-D: a novel slot-sourced (untrusted) code on a blocked step no longer
+  // falls to `unclassified` — with no trusted code to be "unknown" about it
+  // routes deterministically to the generic human_review bucket. R3: the
+  // slot-sourced string stays informational (primary_blocker) while the dedup
+  // segment holds the outcome sentinel.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['SOME_NOVEL_SLOT_BLOCKER']),
     {
-      queue_type: 'unclassified',
+      queue_type: 'human_review',
       primary_blocker: 'SOME_NOVEL_SLOT_BLOCKER',
       dedup_blocker: 'outcome:blocked',
     },
   );
+  // A bare blocked step with no codes at all is also human_review, not unclassified.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], []),
-    { queue_type: 'unclassified', primary_blocker: 'unclassified', dedup_blocker: 'outcome:blocked' },
+    { queue_type: 'human_review', primary_blocker: 'blocked', dedup_blocker: 'outcome:blocked' },
   );
-  // With no table hit the step outcome enum (not a string heuristic) still
-  // routes runtime failures to the failed-run bucket.
+  // With no table hit the step outcome enum (not a string heuristic) routes
+  // runtime failures to the failed-run bucket.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], ['SOME_NOVEL_RUNTIME_CODE']),
     {
@@ -1047,29 +1092,50 @@ test('coordinator queue classification maps unknown blockers to unclassified', (
 test('coordinator queue classification never trusts coordinator-owned codes from slot output', () => {
   // F5: coordinator-owned codes riding the slot result payload (potentially
   // LLM-influenced) must not classify through the trusted tables — no
-  // loop_budget_review, no trace_repair, no human_review from slot output.
-  // R3: nor may any slot-sourced string enter the dedup segment.
+  // loop_budget_review, no trace_repair, no failed_workflow from slot output.
+  // S4-D: such untrusted blocked steps route to the generic human_review
+  // fallback (the coordinator-owned code gains NO special routing power — it
+  // lands exactly where a codeless blocked step would). R3: no slot-sourced
+  // string enters the dedup segment.
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TIER_BUDGET_INSUFFICIENT']),
     {
-      queue_type: 'unclassified',
+      queue_type: 'human_review',
       primary_blocker: 'TIER_BUDGET_INSUFFICIENT',
       dedup_blocker: 'outcome:blocked',
     },
   );
+  assert.notEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TIER_BUDGET_INSUFFICIENT']).queue_type,
+    'loop_budget_review',
+  );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TRACE_REPAIR_FORGED']),
     {
-      queue_type: 'unclassified',
+      queue_type: 'human_review',
       primary_blocker: 'TRACE_REPAIR_FORGED',
       dedup_blocker: 'outcome:blocked',
     },
   );
+  assert.notEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['TRACE_REPAIR_FORGED']).queue_type,
+    'trace_repair',
+  );
   assert.deepEqual(
     classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['COORDINATOR_NO_ELIGIBLE_CANDIDATE']),
     {
-      queue_type: 'unclassified',
+      queue_type: 'human_review',
       primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+      dedup_blocker: 'outcome:blocked',
+    },
+  );
+  // INTERNAL_ERROR riding slot output stays untrusted — it never reaches the
+  // terminal failed_workflow bucket it earns as a trusted invocation code.
+  assert.deepEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [], ['INTERNAL_ERROR']),
+    {
+      queue_type: 'human_review',
+      primary_blocker: 'INTERNAL_ERROR',
       dedup_blocker: 'outcome:blocked',
     },
   );
@@ -1103,6 +1169,135 @@ test('coordinator queue classification never trusts coordinator-owned codes from
       primary_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
       dedup_blocker: 'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
     },
+  );
+});
+
+// S4-D: the two blocked-lane outcomes that reach the classifier. `passed` and
+// `waiting_review` never enqueue, so they never reach classification.
+const BLOCKED_LANE_OUTCOMES: readonly PaperImplementationCoordinatorStepOutcome[] = ['blocked', 'failed_runtime'];
+
+test('coordinator queue classification is exhaustive over trusted codes and outcomes with zero unclassified', () => {
+  // (a) Every registered EXACT trusted code, for every reachable outcome,
+  // classifies to its mapped queue type and never unclassified. R3: a trusted
+  // code IS the dedup segment.
+  for (const [code, expected] of Object.entries(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE)) {
+    for (const outcome of BLOCKED_LANE_OUTCOMES) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []);
+      assert.notEqual(result.queue_type, 'unclassified', `exact trusted ${code} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `exact trusted ${code} on ${outcome}`);
+      assert.equal(result.primary_blocker, code);
+      assert.equal(result.dedup_blocker, code);
+    }
+  }
+  // (b) Every registered PREFIX family classifies a representative trusted code
+  // to its mapped queue type and never unclassified.
+  for (const [prefix, expected] of PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX) {
+    const code = `${prefix}EXHAUSTIVE_PROBE`;
+    // The probe must not be shadowed by an exact-table entry (would defeat the
+    // prefix assertion).
+    assert.equal(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[code], undefined);
+    for (const outcome of BLOCKED_LANE_OUTCOMES) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []);
+      assert.notEqual(result.queue_type, 'unclassified', `prefix ${prefix} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `prefix ${prefix} on ${outcome}`);
+      assert.equal(result.dedup_blocker, code);
+    }
+  }
+  // (c) Every coordinator SELF-PRODUCED trusted code constant is registered —
+  // no orphan literal escapes the tables into unclassified. These are exactly
+  // the literals the advance loop can push into trustedBlockerCodes:
+  // COORDINATOR_NO_ELIGIBLE_CANDIDATE (empty selection), SLOT_INVOCATION_FAILED
+  // (non-AppError throw), INTERNAL_ERROR (AppError throw from slot invocation),
+  // and TIER_BUDGET_INSUFFICIENT (R4 zero-provider-call preflight echo).
+  const coordinatorSelfProducedTrustedCodes = [
+    'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+    'SLOT_INVOCATION_FAILED',
+    'INTERNAL_ERROR',
+    'TIER_BUDGET_INSUFFICIENT',
+  ];
+  for (const code of coordinatorSelfProducedTrustedCodes) {
+    for (const outcome of BLOCKED_LANE_OUTCOMES) {
+      assert.notEqual(
+        classifyPaperImplementationCoordinatorBlockedStep(outcome, [code], []).queue_type,
+        'unclassified',
+        `self-produced ${code} on ${outcome}`,
+      );
+    }
+  }
+});
+
+test('coordinator queue classification never lands unclassified for LLM-sourced untrusted codes', () => {
+  // Whitelisted slot codes classify to their mapped bucket for every outcome.
+  for (const [code, expected] of Object.entries(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE)) {
+    for (const outcome of BLOCKED_LANE_OUTCOMES) {
+      const result = classifyPaperImplementationCoordinatorBlockedStep(outcome, [], [code]);
+      assert.notEqual(result.queue_type, 'unclassified', `whitelist slot ${code} on ${outcome}`);
+      assert.equal(result.queue_type, expected, `whitelist slot ${code} on ${outcome}`);
+      // R3: a slot-sourced code never becomes the dedup segment.
+      assert.equal(result.dedup_blocker, `outcome:${outcome}`);
+    }
+  }
+  // Non-whitelisted (novel/LLM-influenced, or coordinator-owned codes forged
+  // into slot output) untrusted codes fall to the deterministic outcome
+  // fallback — failed_runtime→failed_run_review, blocked→human_review — never
+  // unclassified.
+  const untrustedCodes = [
+    'SOME_NOVEL_SLOT_BLOCKER',
+    'TIER_BUDGET_INSUFFICIENT',
+    'TRACE_REPAIR_FORGED',
+    'COORDINATOR_NO_ELIGIBLE_CANDIDATE',
+    'INTERNAL_ERROR',
+    'SLOT_INVOCATION_FAILED',
+  ];
+  for (const code of untrustedCodes) {
+    assert.equal(
+      classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], [code]).queue_type,
+      'failed_run_review',
+      `untrusted ${code} on failed_runtime`,
+    );
+    assert.equal(
+      classifyPaperImplementationCoordinatorBlockedStep('blocked', [], [code]).queue_type,
+      'human_review',
+      `untrusted ${code} on blocked`,
+    );
+  }
+  // Bare outcomes with no codes at all also avoid unclassified.
+  assert.equal(classifyPaperImplementationCoordinatorBlockedStep('blocked', [], []).queue_type, 'human_review');
+  assert.equal(
+    classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], []).queue_type,
+    'failed_run_review',
+  );
+});
+
+test('coordinator queue classification reserves unclassified for the single unregistered-trusted-code-on-blocked path', () => {
+  const forged = 'FORGED_UNREGISTERED_TRUSTED_CODE';
+  // The forged code is genuinely unregistered across every table and prefix.
+  assert.equal(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE[forged], undefined);
+  assert.equal(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE[forged], undefined);
+  assert.ok(
+    !PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX.some(([prefix]) => forged.startsWith(prefix)),
+  );
+
+  // THE unique reachable path to unclassified: an unregistered TRUSTED code on
+  // a `blocked` step. R3: the trusted code is the dedup segment.
+  assert.deepEqual(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [forged], []),
+    { queue_type: 'unclassified', primary_blocker: forged, dedup_blocker: forged },
+  );
+  // Every neighbouring combination of the SAME forged code escapes unclassified:
+  // on a failed_runtime step the outcome fallback wins,
+  assert.equal(
+    classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [forged], []).queue_type,
+    'failed_run_review',
+  );
+  // and carried as an untrusted slot code it lands the generic fallbacks.
+  assert.equal(
+    classifyPaperImplementationCoordinatorBlockedStep('blocked', [], [forged]).queue_type,
+    'human_review',
+  );
+  assert.equal(
+    classifyPaperImplementationCoordinatorBlockedStep('failed_runtime', [], [forged]).queue_type,
+    'failed_run_review',
   );
 });
 
@@ -1208,7 +1403,11 @@ test('coordinator distrusts slot-sourced budget and trace blocker codes for term
 
   const queueItems = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
   assert.equal(queueItems.length, 1);
-  assert.equal(queueItems[0]?.queue_type, 'unclassified');
+  // S4-D: a provider-call-carrying (untrusted) block with only slot-sourced
+  // codes routes to the generic human_review fallback — the forged coordinator
+  // codes gain NO trusted routing (not trace_repair, not loop_budget_review)
+  // and no longer land the retired unclassified bucket.
+  assert.equal(queueItems[0]?.queue_type, 'human_review');
   assert.notEqual(queueItems[0]?.queue_type, 'trace_repair');
   assert.notEqual(queueItems[0]?.queue_type, 'loop_budget_review');
   // R3: the slot-sourced strings never enter the dedup segment.
@@ -1258,6 +1457,92 @@ test('coordinator trusts blocker codes of zero-provider-call blocked finals (det
     run.coordinator_run_id,
     PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
     'TIER_BUDGET_INSUFFICIENT',
+  ].join(':'));
+});
+
+test('coordinator R4 zero-call promotion excludes infra-semantic terminal codes (S4-D leak fix)', async () => {
+  // S4-D leak fix: `preflight_blocker_codes` is a PAYLOAD-AUTHOR-CONTROLLABLE
+  // echo — a zero-provider-call blocked final echoes it verbatim into its
+  // blocker_codes. An `INTERNAL_ERROR` echoed this way must NOT be promoted
+  // into the trusted set: it stays untrusted (slot lane), so it can never
+  // forge the terminal `failed_workflow` classification the S4-D contract
+  // reserves for the coordinator's own invocation-boundary catch. The run
+  // stays a re-advanceable `blocked` with a generic human_review queue item.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest({
+    routePreflightBlockerCodes: ['INTERNAL_ERROR'],
+  }));
+
+  const advanced = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_zero_call_internal_error_echo',
+  });
+  // Not terminal — a payload echo cannot drive the run to `failed`.
+  assert.equal(advanced.run.run_status, 'blocked');
+  assert.notEqual(advanced.run.run_status, 'failed');
+  assert.equal(advanced.steps.length, 1);
+  assert.equal(advanced.steps[0]?.outcome, 'blocked');
+  assert.equal(advanced.steps[0]?.provider_call_count, 0);
+  // The echoed code is kept in the persisted audit union.
+  assert.ok(advanced.steps[0]?.blocker_codes.includes('INTERNAL_ERROR'));
+
+  const queueItems = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueItems.length, 1);
+  // Not failed_workflow — the echoed infra code earns NO trusted routing.
+  assert.equal(queueItems[0]?.queue_type, 'human_review');
+  assert.notEqual(queueItems[0]?.queue_type, 'failed_workflow');
+  // R3: the untrusted echoed string never enters the dedup segment.
+  assert.equal(queueItems[0]?.dedup_key, [
+    'coordinator',
+    run.coordinator_run_id,
+    PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    'outcome:blocked',
+  ].join(':'));
+});
+
+test('coordinator boundary-caught INTERNAL_ERROR still routes to failed_workflow (trusted invocation code)', async () => {
+  // The trusted counterpart of the leak-fix test: an `INTERNAL_ERROR` AppError
+  // thrown by the slot invocation itself is caught at the coordinator boundary
+  // and IS trusted — it routes to the terminal `failed_workflow` bucket. This
+  // boundary catch is the SOLE path to `failed_workflow` for this code (never
+  // a payload echo — see the S4-D leak-fix test above).
+  const fixture = coordinatorFixture();
+  const realRoute = fixture.routePlanningRuntime;
+  let threw = false;
+  const coordinator = fixture.buildCoordinator(undefined, {
+    routePlanningRuntime: {
+      runRouteArchitecture: async (projectId, request) => {
+        if (!threw) {
+          threw = true;
+          throw new AppError(500, 'INTERNAL_ERROR', 'Route architecture slot faulted internally.');
+        }
+        return realRoute.runRouteArchitecture(projectId, request);
+      },
+      runRouteSkepticReview: (projectId, request) => realRoute.runRouteSkepticReview(projectId, request),
+    },
+  });
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, laneACreateRequest());
+
+  const advanced = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_boundary_internal_error',
+  });
+  // Run stays re-advanceable blocked (failed_workflow is a QUEUE type, not a
+  // terminal run status); provider_call_count 0 — the throw preceded any call.
+  assert.equal(advanced.run.run_status, 'blocked');
+  assert.equal(advanced.steps.length, 1);
+  assert.equal(advanced.steps[0]?.outcome, 'blocked');
+  assert.equal(advanced.steps[0]?.provider_call_count, 0);
+  assert.ok(advanced.steps[0]?.blocker_codes.includes('INTERNAL_ERROR'));
+
+  const queueItems = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueItems.length, 1);
+  // Trusted invocation code → terminal failed_workflow bucket, and it IS the
+  // dedup segment.
+  assert.equal(queueItems[0]?.queue_type, 'failed_workflow');
+  assert.equal(queueItems[0]?.dedup_key, [
+    'coordinator',
+    run.coordinator_run_id,
+    PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
+    'INTERNAL_ERROR',
   ].join(':'));
 });
 
@@ -1403,6 +1688,7 @@ test('coordinator surfaces the terminal 409 when the run turns terminal between 
   const racingRepository: PaperImplementationCoordinatorRepository = {
     createCoordinatorRun: (record) => inner.createCoordinatorRun(record),
     findCoordinatorRunById: (projectId, runId) => inner.findCoordinatorRunById(projectId, runId),
+    listCoordinatorRunsByProject: (projectId) => inner.listCoordinatorRunsByProject(projectId),
     updateCoordinatorRun: (record, options) => inner.updateCoordinatorRun(record, options),
     createCoordinatorStep: (step) => inner.createCoordinatorStep(step),
     listCoordinatorSteps: (projectId, runId) => inner.listCoordinatorSteps(projectId, runId),

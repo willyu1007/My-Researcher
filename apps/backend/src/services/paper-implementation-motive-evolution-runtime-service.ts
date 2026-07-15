@@ -60,11 +60,20 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
+  recordSlotProviderCallTelemetry,
   roleSlotEchoMismatchCode,
   semanticRefKey,
 } from './paper-implementation-runtime-utils.js';
+import type {
+  PaperImplementationRuntimeTelemetryCollector,
+} from './paper-implementation-runtime-telemetry-service.js';
+import {
+  assessPaperImplementationDebateComplexityShadow,
+  type PaperImplementationDebateComplexityTier,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -92,6 +101,7 @@ interface RuntimeServiceOptions {
   projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationMotiveEvolutionAgentOrchestrator;
+  telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -151,6 +161,8 @@ interface RuntimeBase {
   cachePolicyProfileHash: string;
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
+  // S4-C record-only shadow tier (zero execution-path effect).
+  shadowTier: PaperImplementationDebateComplexityTier;
 }
 
 interface BuildArtifactInput {
@@ -252,7 +264,9 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   // T-124 S3-β1: a wire entry array with duplicate option_key values is a
   // provider-output quality defect at the transport layer — retried once on
   // the same profile like every other schema-shaped technical failure.
-  'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE',
+  // S4 复审 FA-2: single-sourced from runtime-utils so the retry_kind
+  // classifier registers it as `technical`.
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE,
   'MOTIVE_EVOLUTION_REQUIRED_REFS_MISSING',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_REF_MISMATCH',
   'MOTIVE_EVOLUTION_CONTEXT_PACKET_UNCOVERED',
@@ -320,6 +334,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationMotiveEvolutionAgentOrchestrator;
+  private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -327,6 +342,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
+    this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -469,6 +485,21 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
+      // S4 复审 FA-3: the telemetry call_index is the per-(role, attempt)
+      // ordinal — NOT the role ordinal (`priorRoleArtifacts.length + 1`) that
+      // retries used to share, which double-counted one retry as repaid twice.
+      await recordSlotProviderCallTelemetry(this.telemetryCollector, {
+        implementationProjectId: runtimeBase.implementationProjectId,
+        runId: runtimeBase.runId,
+        slotId: runtimeBase.profile.slotId,
+        roleSlotId: role.roleSlotId,
+        retryAttemptIndex,
+        executionMode: request.execution_mode,
+        result,
+        shouldRetry,
+        runtimeFailureCode,
+        shadowTier: runtimeBase.shadowTier,
+      });
       if (!shouldRetry) {
         return { result, retryAttemptIndex, providerCallCount };
       }
@@ -604,7 +635,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         return this.wireCanonicalizationFailure(result, 'SCHEMA_VALIDATION_FAILED');
       }
       if (Object.hasOwn(optionsByKey, entry.option_key)) {
-        return this.wireCanonicalizationFailure(result, 'MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE');
+        return this.wireCanonicalizationFailure(result, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE);
       }
       const { option_key: _optionKey, ...optionValue } = entry;
       optionsByKey[entry.option_key] = optionValue;
@@ -1259,6 +1290,24 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         store_rendered_prompt: false,
       }),
       compressionPolicyProfileHash: this.hash(contextPolicyProfile.compression_policy),
+      // S4 复审 FA-5 shadow inputs:
+      // - retrieval_packet_ref_count: challenge_refs.length is a REGISTERED
+      //   approximation of the contract axis ('retrieval packet refs
+      //   available') — motive-evolution has no bounded retrieval packet (its
+      //   debate context is the whole source bundle), and the challenge cards
+      //   are the adversarial material the risk challenger must cover, i.e.
+      //   the closest deterministic pressure signal available on the request.
+      //   D2 must either introduce a real packet-size signal or re-map this
+      //   axis (either change bumps the inputs_hash version).
+      // - prior_blocker_density: known degraded axis, constant 0 (zero
+      //   variance) until D2 wires coordinator context — see the shadow
+      //   contract header.
+      shadowTier: assessPaperImplementationDebateComplexityShadow({
+        reviewed_statement_count: request.target_motive_refs.length,
+        retrieval_packet_ref_count: request.challenge_refs.length,
+        prior_blocker_density: 0,
+        target_kind: 'motive_evolution',
+      }).recommended_tier,
     };
   }
 

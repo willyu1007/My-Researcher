@@ -1,5 +1,18 @@
 # 04 Verification
 
+## 2026-07-15 S4 闭合（观测面/产品面/档位影子 + 遥测基线）
+- **实施与复审**：S4-A/B/C/D 全落地 + 8 角度 code review（含零语义影响审计）→ FA/FB/FC 三路修复全收（详 03：retry_kind 单源、call_index 统一根修重付双计、re-advance 重付约定、R4 晋升排除集、re_advance 状态门、runner observability_gaps、桌面竞态/残留/红线修复）。
+- **收口证据**：全量 runtime-stress `t114-paper-implementation-runtime-stress-1784092748915` **passed**；迁移 `20260715120000_add_paper_implementation_s4_runtime_telemetry` **用户审批后已 apply**（pg_tables 确认），迁移后 prisma smoke **39/0/15**；backend+shared tsc 零错 + desktop typecheck 零错。L5 必检 +4（shadow 可复算/零行为影响/队列分类穷举/debate 重试 call_index 序）。
+- **gs-001 run 007 遥测基线**（素材 v3 与 runner v5 不动，live）：逐 lane 与 run 006 同构——lane A **completed** 四槽全 passed，motive/board 语义 blocked，observability_gaps 空。基线数：**总成本 $2.043、8 provider 调用、7 node_attempt run、重付率 0（本次零重试，干净全档位基线）**；per-slot top3=cycle $0.4625 / feasibility $0.4463 / decomposition $0.3134；shadow_tier 分布 none×6（单角色槽）+ **standard×2**（debate 槽）。基线留档 run 目录 `telemetry-baseline.json` + review-packet 遥测节。
+- S4 全部验收项闭合。下一切片 **D2 debate 档位**（独立成片，前置项=evolution 槽内内容注入 + disposition 语义形式化；校准以本基线为对照）。
+
+## 2026-07-15 — T-132 formal Pack B product evidence
+
+- Named-local apply `formal-pi-scope-packb-product-20260715-apply-r1` and simulation-off read-only verify `formal-pi-scope-packb-product-20260715-verify-r2` passed against the exact acknowledged formal Pack A Run.
+- Exact Pack B census is 2 payloads, 2 Attempts, 12 events, 8 commands, 2 Collections and 2 diagnostic outputs. Both cells are succeeded/collected; active real Attempts, fetch/provider/`CreateJob`, PI/Pack A/legacy/scientific writes and foreign lineage are zero.
+- `workflow_simulation_passed` grants no scientific/closure/UI acceptance: scientific state is `not_started`, evidence eligibility false, and D-16/D-17/D-18 remain open.
+- Regression passed shared 6/6 and backend targeted 67/67 plus shared/backend/script typechecks and Prisma validate. Canonical evidence is T-132 `artifacts/product-pack-b-local-20260715/05-product-execution-closure.md`.
+
 ## 2026-07-15 — T-132 formal PI scope → Pack A product evidence
 
 - Active PaperProject `P313` traversed the normal PI bootstrap/motive/trace-board/ValidationCycle routes and admitted exact WorkOrder revision `pi_experiment_revision_v2_fed4f563-4717-4bb3-89d6-1295a1b751db` with two ordered cells.
@@ -15,7 +28,7 @@
 - Disabled/enabled app-composition probes returned the exact capability/prerequisite errors and continued to reject legacy mutation. No network/provider transport was reachable.
 - Final run `packb-local-closure-20260714-r1` passed with Pack A 34/34 plus Pack B 6/6 tables, unchanged Pack A 208-row digest and legacy 257-row digest, zero cross-domain PI foreign keys and zero rows in every Pack B table.
 - Post-landing regression passed Pack B gate units 17/17, shared execution contracts 5/5, backend execution/cutover suites 43/43 with zero skips, shared/backend typechecks, Prisma validate and environment/database central suites.
-- At that historical checkpoint the target had no formal PI branch/revision/admission/head or EF Run/RunCell/TaskSpec/final acknowledgement. The 2026-07-15 formal-product evidence supersedes the missing-head state; E1-E5 and `workflow_simulation_passed` remain unclaimed, so no T-124 scientific/closure/UI acceptance receives credit.
+- At that historical checkpoint the target had no formal PI branch/revision/admission/head or EF Run/RunCell/TaskSpec/final acknowledgement. The 2026-07-15 formal-product sections supersede the missing-head/E1-E5 state; no T-124 scientific/closure/UI acceptance receives credit.
 - Canonical evidence: T-132 `artifacts/implementation/03-pack-b-local-landing-closure.md`.
 
 ## 2026-07-13 — T-132 Pack B same-payload simulation evidence

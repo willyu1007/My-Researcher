@@ -4,6 +4,13 @@ import type {
   PaperImplementationCoordinatorStep,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 
+/**
+ * Upper bound on the project-level coordinator-run list projection. The read
+ * model returns the most recent runs (createdAt desc); older runs beyond this
+ * cap are omitted from the additive list route.
+ */
+export const PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT = 100;
+
 export interface PaperImplementationCoordinatorRepository {
   createCoordinatorRun(
     run: PaperImplementationCoordinatorRun,
@@ -13,6 +20,15 @@ export interface PaperImplementationCoordinatorRepository {
     implementationProjectId: string,
     coordinatorRunId: string,
   ): Promise<PaperImplementationCoordinatorRun | null>;
+
+  /**
+   * Read-only project-level run projection list (no steps), ordered by
+   * `created_at` desc (id desc tiebreak) and capped at
+   * {@link PAPER_IMPLEMENTATION_COORDINATOR_RUN_LIST_LIMIT}.
+   */
+  listCoordinatorRunsByProject(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationCoordinatorRun[]>;
 
   /**
    * F3: when `options.expectedLeaseHolderId` is provided the update is

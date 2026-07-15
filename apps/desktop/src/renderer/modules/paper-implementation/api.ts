@@ -37,7 +37,21 @@ import type {
   DecisionWorkQueueItem,
   ImplementationProposalArtifact,
   ResolveDecisionWorkQueueItemRequest,
+  ResolveDecisionWorkQueueItemResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-ai-workflow-harness-contracts';
+import type {
+  PaperImplementationCoordinatorRun,
+  PaperImplementationCoordinatorRunWithSteps,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
+import type {
+  PaperImplementationRuntimeTelemetryProjectRepaidRate,
+  PaperImplementationRuntimeTelemetryRunDetail,
+  PaperImplementationRuntimeTelemetryRunSummary,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-telemetry-contracts';
+import type {
+  CreateHumanConfirmationRecordRequest,
+  HumanConfirmationRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-human-confirmation-contracts';
 
 import { requestGovernance } from '../../literature/shared/api';
 
@@ -206,8 +220,8 @@ export async function resolveDecisionWorkQueueItem(
   implementationProjectId: string,
   queueItemId: string,
   request: ResolveDecisionWorkQueueItemRequest,
-): Promise<DecisionWorkQueueItem> {
-  return requestGovernance<DecisionWorkQueueItem>({
+): Promise<ResolveDecisionWorkQueueItemResponse> {
+  return requestGovernance<ResolveDecisionWorkQueueItemResponse>({
     method: 'POST',
     path: projectPath(
       implementationProjectId,
@@ -254,6 +268,98 @@ export async function applyMotivePortfolioDecision(
   return requestGovernance<MotivePortfolioDecision>({
     method: 'POST',
     path: projectPath(implementationProjectId, '/motive-portfolio-decisions/apply'),
+    body: request,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S4-B runtime lane: coordinator run + step timeline (read-only).
+// The project-level list route returns run projections only (no steps);
+// a single run is then loaded by its coordinator_run_id via
+// GET .../coordinator-runs/:coordinator_run_id, which returns the run
+// projection together with its ordered steps.
+// ---------------------------------------------------------------------------
+
+export async function listCoordinatorRunsByProject(
+  implementationProjectId: string,
+): Promise<PaperImplementationCoordinatorRun[]> {
+  const response = await requestGovernance<{
+    runs: PaperImplementationCoordinatorRun[];
+  }>({
+    method: 'GET',
+    path: projectPath(implementationProjectId, '/coordinator-runs'),
+  });
+  return response.runs;
+}
+
+export async function getCoordinatorRun(
+  implementationProjectId: string,
+  coordinatorRunId: string,
+): Promise<PaperImplementationCoordinatorRunWithSteps> {
+  return requestGovernance<PaperImplementationCoordinatorRunWithSteps>({
+    method: 'GET',
+    path: projectPath(
+      implementationProjectId,
+      `/coordinator-runs/${encodeURIComponent(coordinatorRunId)}`,
+    ),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S4-A runtime telemetry read model (three GET routes).
+// ---------------------------------------------------------------------------
+
+export async function listRuntimeTelemetryRunSummaries(
+  implementationProjectId: string,
+): Promise<PaperImplementationRuntimeTelemetryRunSummary[]> {
+  const response = await requestGovernance<{
+    runs: PaperImplementationRuntimeTelemetryRunSummary[];
+  }>({
+    method: 'GET',
+    path: projectPath(implementationProjectId, '/runtime-telemetry/runs'),
+  });
+  return response.runs;
+}
+
+export async function getRuntimeTelemetryRunDetail(
+  implementationProjectId: string,
+  runId: string,
+): Promise<PaperImplementationRuntimeTelemetryRunDetail> {
+  return requestGovernance<PaperImplementationRuntimeTelemetryRunDetail>({
+    method: 'GET',
+    path: projectPath(
+      implementationProjectId,
+      `/runtime-telemetry/runs/${encodeURIComponent(runId)}`,
+    ),
+  });
+}
+
+export async function getRuntimeTelemetryProjectRepaidRate(
+  implementationProjectId: string,
+): Promise<PaperImplementationRuntimeTelemetryProjectRepaidRate> {
+  return requestGovernance<PaperImplementationRuntimeTelemetryProjectRepaidRate>({
+    method: 'GET',
+    path: projectPath(implementationProjectId, '/runtime-telemetry/repaid-rate'),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// S0 hand-off: HumanConfirmationRecord list + create (existing routes).
+// ---------------------------------------------------------------------------
+
+export async function listHumanConfirmationRecords(
+  implementationProjectId: string,
+): Promise<HumanConfirmationRecord[]> {
+  return listItems<HumanConfirmationRecord>(implementationProjectId, '/human-confirmations');
+}
+
+export async function createHumanConfirmationRecord(
+  implementationProjectId: string,
+  request: CreateHumanConfirmationRecordRequest,
+): Promise<HumanConfirmationRecord> {
+  return requestGovernance<HumanConfirmationRecord>({
+    method: 'POST',
+    path: projectPath(implementationProjectId, '/human-confirmations'),
     body: request,
   });
 }

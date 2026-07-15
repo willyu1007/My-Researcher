@@ -62,11 +62,13 @@
     "./research-lifecycle/paper-implementation-runtime-contracts": "./src/research-lifecycle/paper-implementation-runtime-contracts.ts",
     "./research-lifecycle/paper-implementation-provider-variance-contracts": "./src/research-lifecycle/paper-implementation-provider-variance-contracts.ts",
     "./research-lifecycle/paper-implementation-human-confirmation-contracts": "./src/research-lifecycle/paper-implementation-human-confirmation-contracts.ts",
-    "./research-lifecycle/paper-implementation-coordinator-contracts": "./src/research-lifecycle/paper-implementation-coordinator-contracts.ts"
+    "./research-lifecycle/paper-implementation-coordinator-contracts": "./src/research-lifecycle/paper-implementation-coordinator-contracts.ts",
+    "./research-lifecycle/paper-implementation-debate-complexity-shadow": "./src/research-lifecycle/paper-implementation-debate-complexity-shadow.ts",
+    "./research-lifecycle/paper-implementation-runtime-telemetry-contracts": "./src/research-lifecycle/paper-implementation-runtime-telemetry-contracts.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --loader ts-node/esm src/research-lifecycle/*.schema.test.ts"
+    "test": "node --test --loader ts-node/esm src/research-lifecycle/*.schema.test.ts src/research-lifecycle/*.unit.test.ts"
   },
   "devDependencies": {
     "fastify": "^4.29.1",

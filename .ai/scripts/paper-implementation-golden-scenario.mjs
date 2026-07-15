@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
 const RUNNER_ID = 'paper-implementation-golden-scenario';
-const RUNNER_VERSION = 't124-s5-gs001-lora-v3';
+const RUNNER_VERSION = 't124-s5-gs001-lora-v5';
 const SCENARIO_ID = 'gs-001-lora';
 
 if (process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE !== '1') {
@@ -253,6 +253,11 @@ const state = {
   lanes: {},
   acceptance_bridge: {},
   gaps: [],
+  // Observation-step gaps (fail-open telemetry/observability export failures).
+  // Kept OUT of the terminal `status` formula so an observation step can never
+  // change the terminal product — recorded here (and surfaced in the summary +
+  // review packet) for visibility only.
+  observability_gaps: [],
   stops: [],
   totals: { provider_calls: 0 },
 };
@@ -317,6 +322,27 @@ function registerGap(section, error, note) {
   };
   state.gaps.push(gap);
   console.error(`[golden-scenario] GAP in ${section}: ${JSON.stringify(gap.error).slice(0, 500)}`);
+}
+
+// Observation-step gap: an observability/telemetry export that failed
+// fail-open. Recorded in a SEPARATE bucket so it is surfaced (summary +
+// review packet) without inflating `state.gaps` — the terminal `status`
+// formula reads `state.gaps` only, so an observation step can never downgrade
+// a genuinely `completed` run to `partial` (fail-open: the observation step
+// must not change the terminal product it merely observes).
+function registerObservabilityGap(section, error, note) {
+  const gap = {
+    section,
+    note: note ?? null,
+    error: error instanceof StepFailure
+      ? { step_id: error.stepId, status_code: error.statusCode, body: error.body }
+      : { message: error instanceof Error ? `${error.name}: ${error.message}` : String(error) },
+  };
+  state.observability_gaps.push(gap);
+  console.error(
+    `[golden-scenario] OBSERVABILITY-GAP in ${section} (fail-open, does not affect status): `
+    + `${JSON.stringify(gap.error).slice(0, 500)}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1112,6 +1138,82 @@ async function fetchFinalArtifacts(app, projectId, label = 'main') {
   return byId;
 }
 
+/**
+ * 运行时遥测基线导出（观测收尾，不改任何执行语义）。
+ * 经 S4-A 三条只读遥测 GET 路由拉取本 run 遥测：
+ *   - GET /runtime-telemetry/repaid-rate       → 项目级重付率聚合（= 本 run，仓储隔离）
+ *   - GET /runtime-telemetry/runs              → 各 node_attempt run 概览
+ *   - GET /runtime-telemetry/runs/:run_id      → 各 node_attempt run 明细（per_slot + records）
+ * 写 telemetry-baseline.json 到 run 目录；调用方 fail-open（失败记 GAP 不阻断）。
+ */
+async function exportTelemetryBaseline(app, projectId) {
+  const projectRepaidRate = await inject(app, {
+    stepId: 'telemetry-repaid-rate',
+    method: 'GET',
+    url: projectUrl(projectId, '/runtime-telemetry/repaid-rate'),
+    expectedStatus: 200,
+  });
+  const runsList = await inject(app, {
+    stepId: 'telemetry-runs',
+    method: 'GET',
+    url: projectUrl(projectId, '/runtime-telemetry/runs'),
+    expectedStatus: 200,
+  });
+  const runSummaries = runsList.runs ?? [];
+  const runDetails = [];
+  for (const summary of runSummaries) {
+    const detail = await inject(app, {
+      stepId: `telemetry-run-detail-${summary.run_id}`,
+      method: 'GET',
+      url: projectUrl(projectId, `/runtime-telemetry/runs/${encodeURIComponent(summary.run_id)}`),
+      expectedStatus: 200,
+    });
+    runDetails.push(detail);
+  }
+
+  // shadow_tier 分布（record-only，不影响执行路径）：跨全部 record 计数，null 归入 'none'。
+  const shadowTierDistribution = {};
+  for (const detail of runDetails) {
+    for (const rec of detail.records ?? []) {
+      const key = rec.shadow_tier ?? 'none';
+      shadowTierDistribution[key] = (shadowTierDistribution[key] ?? 0) + 1;
+    }
+  }
+
+  const baseline = {
+    runner_id: RUNNER_ID,
+    runner_version: RUNNER_VERSION,
+    scenario_id: SCENARIO_ID,
+    run_id: runId,
+    fetched_at: new Date().toISOString(),
+    project_repaid_rate: projectRepaidRate,
+    runs: runDetails,
+    shadow_tier_distribution: shadowTierDistribution,
+  };
+  const baselinePath = path.join(ARTIFACT_DIR, 'telemetry-baseline.json');
+  await fs.writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+
+  // 人审包摘要用的紧凑投影（明细全量在 telemetry-baseline.json）。
+  state.telemetry_baseline = {
+    path: path.relative(REPO_ROOT, baselinePath),
+    total_cost_usd: projectRepaidRate.total_cost_usd,
+    repaid_cost_usd: projectRepaidRate.repaid_cost_usd,
+    repaid_cost_rate: projectRepaidRate.repaid_cost_rate,
+    provider_call_count: projectRepaidRate.provider_call_count,
+    run_count: projectRepaidRate.run_count,
+    per_slot: projectRepaidRate.per_slot ?? [],
+    shadow_tier_distribution: shadowTierDistribution,
+    runs: runDetails.map((detail) => ({
+      run_id: detail.run_id,
+      provider_call_count: detail.provider_call_count,
+      total_cost_usd: detail.total_cost_usd,
+      repaid_cost_usd: detail.repaid_cost_usd,
+      repaid_cost_rate: detail.repaid_cost_rate,
+    })),
+  };
+  return state.telemetry_baseline;
+}
+
 function findPassedStep(laneKey, slotId) {
   const lane = state.lanes[laneKey];
   if (!lane) {
@@ -1394,7 +1496,13 @@ async function writeReviewPacket(artifactsById) {
   lines.push('');
   lines.push('## 停驻与缺口（如实呈现，停驻本身是有效结果）');
   lines.push('');
-  lines.push(fenceJson({ stops: state.stops, gaps: state.gaps }));
+  lines.push('observability_gaps 为观测步（如遥测导出）fail-open 失败，独立记录，不参与终态 status 判定。');
+  lines.push('');
+  lines.push(fenceJson({
+    stops: state.stops,
+    gaps: state.gaps,
+    observability_gaps: state.observability_gaps,
+  }));
   lines.push('');
   lines.push('## S5 期间实证的产品侧发现（runner 未改产品语义）');
   lines.push('');
@@ -1416,6 +1524,34 @@ async function writeReviewPacket(artifactsById) {
     decision_work_queue_items: state.decision_work_queue ?? [],
     http_steps: state.steps.length,
   }));
+  lines.push('');
+  lines.push('## 运行时遥测基线（S4-A 三条只读遥测路由）');
+  lines.push('');
+  const telemetry = state.telemetry_baseline;
+  if (!telemetry) {
+    lines.push('- 遥测基线未采集（导出 fail-open 记 GAP，见上「停驻与缺口」节）；'
+      + '本次不阻断人审，明细缺失以 GAP 为准。');
+  } else {
+    lines.push(`- 明细落盘: \`${telemetry.path}\`（项目重付率聚合 + 各 node_attempt run 明细全量）`);
+    lines.push(`- total cost: ${telemetry.total_cost_usd} USD（provider 调用 ${telemetry.provider_call_count}，`
+      + `node_attempt run ${telemetry.run_count} 条）`);
+    lines.push(`- 重付成本: ${telemetry.repaid_cost_usd} USD；重付率: ${telemetry.repaid_cost_rate}`);
+    lines.push('- per-slot 成本分解（slot_id · 调用 · 成本 · 重付）:');
+    if ((telemetry.per_slot ?? []).length === 0) {
+      lines.push('  - （无 per-slot 记录）');
+    } else {
+      for (const slot of telemetry.per_slot) {
+        lines.push(`  - ${slot.slot_id}: ${slot.provider_call_count} 调用 · ${slot.total_cost_usd} USD · `
+          + `重付 ${slot.repaid_cost_usd} USD`);
+      }
+    }
+    const shadowKeys = Object.keys(telemetry.shadow_tier_distribution ?? {});
+    lines.push(`- shadow_tier 分布（record-only，不影响执行路径）: ${shadowKeys.length === 0
+      ? '无 record'
+      : shadowKeys.map((key) => `${key}=${telemetry.shadow_tier_distribution[key]}`).join(', ')}`);
+    lines.push('');
+    lines.push(fenceJson(telemetry));
+  }
   lines.push('');
   const packetPath = path.join(ARTIFACT_DIR, 'review-packet.md');
   await fs.writeFile(packetPath, `${lines.join('\n')}\n`);
@@ -1541,7 +1677,22 @@ async function main() {
       registerGap('fetch-decision-work-queue', error);
     }
 
-    // 7) review packet
+    // 7) 运行时遥测基线导出（观测收尾，fail-open）
+    // Observation step: a failed telemetry export is an OBSERVABILITY gap, not
+    // a substantive one — it must not downgrade the terminal status (fail-open:
+    // observing the run cannot change the run's product). Recorded in the
+    // separate observability bucket so status stays honest.
+    try {
+      await exportTelemetryBaseline(app, projectId);
+    } catch (error) {
+      registerObservabilityGap(
+        'telemetry-baseline',
+        error,
+        'Telemetry baseline export failed fail-open; run not blocked and terminal status unaffected.',
+      );
+    }
+
+    // 8) review packet
     try {
       state.review_packet_path = path.relative(REPO_ROOT, await writeReviewPacket(artifactsById));
     } catch (error) {
@@ -1552,6 +1703,11 @@ async function main() {
     const allCompleted = laneStatuses.length === 3 && laneStatuses.every((status) => status === 'completed');
     const bridgeCreated = state.acceptance_bridge.technical_route_candidate?.status === 'created'
       && state.acceptance_bridge.feasibility_probe?.status === 'created';
+    // Terminal status reads substantive gaps only (`state.gaps`).
+    // `state.observability_gaps` (fail-open telemetry/observation failures) is
+    // deliberately excluded — an observation step must not change the terminal
+    // product it observes, so a telemetry export failure alone keeps a
+    // genuinely completed run `completed`.
     state.status = state.gaps.length === 0 && allCompleted && bridgeCreated ? 'completed' : 'partial';
   } finally {
     await app.close();
@@ -1584,6 +1740,7 @@ try {
     },
     stops: state.stops,
     gaps: state.gaps,
+    observability_gaps: state.observability_gaps,
     review_packet: state.review_packet_path ?? null,
     artifact_dir: path.relative(REPO_ROOT, ARTIFACT_DIR),
     started_at: state.started_at,

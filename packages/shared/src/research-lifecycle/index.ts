@@ -50,6 +50,8 @@ export * from './paper-implementation-runtime-contracts.js';
 export * from './paper-implementation-provider-variance-contracts.js';
 export * from './paper-implementation-human-confirmation-contracts.js';
 export * from './paper-implementation-coordinator-contracts.js';
+export * from './paper-implementation-debate-complexity-shadow.js';
+export * from './paper-implementation-runtime-telemetry-contracts.js';
 export {
   type PaperImplementationWritingEntryPacket,
   paperImplementationWritingEntryPacketSchema,

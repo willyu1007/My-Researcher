@@ -180,6 +180,25 @@ const DEFAULT_LEASE_TTL_MS = 600_000;
 const TIER_BUDGET_BLOCKER_CODE = 'TIER_BUDGET_INSUFFICIENT';
 const NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE = 'COORDINATOR_NO_ELIGIBLE_CANDIDATE';
 const SLOT_INVOCATION_FAILED_BLOCKER_CODE = 'SLOT_INVOCATION_FAILED';
+/**
+ * S4-D: a slot invocation that escapes with an `INTERNAL_ERROR` AppError
+ * (e.g. a runtime retry loop that exhausts "unexpectedly", or a materialized
+ * final artifact missing its hash) is an internal slot fault — morally
+ * identical to a non-AppError throw (`SLOT_INVOCATION_FAILED`), which already
+ * routes to `failed_workflow`. It is a coordinator-TRUSTED code reachable
+ * ONLY through the coordinator's own invocation-boundary catch:
+ *   - it is deliberately absent from the slot whitelist, so a
+ *     provider-call-carrying slot result can never steer `failed_workflow`
+ *     (F5); AND
+ *   - (S4-D leak fix) it is in the R4 zero-call promotion exclusion set
+ *     (`R4_ZERO_CALL_PROMOTION_EXCLUDED_BLOCKER_CODES`), so a
+ *     zero-provider-call blocked result can't smuggle it into the trusted set
+ *     through the PAYLOAD-AUTHOR-CONTROLLABLE `preflight_blocker_codes` echo
+ *     channel either.
+ * So the terminal `failed_workflow` bucket is reachable for this code on
+ * exactly one path — the boundary catch — never from any slot output.
+ */
+const SLOT_INTERNAL_ERROR_BLOCKER_CODE = 'INTERNAL_ERROR';
 
 /**
  * W4 v1 default retry budget for coordinator-materialized queue items: two
@@ -221,8 +240,32 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE: Readon
   [TIER_BUDGET_BLOCKER_CODE]: 'loop_budget_review',
   [NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE]: 'human_review',
   [SLOT_INVOCATION_FAILED_BLOCKER_CODE]: 'failed_workflow',
+  [SLOT_INTERNAL_ERROR_BLOCKER_CODE]: 'failed_workflow',
   ...SHARED_RUNTIME_AND_GATE_QUEUE_TYPE_BY_BLOCKER_CODE,
 };
+
+/**
+ * S4-D leak fix — R4 zero-call promotion exclusion set. The R4 trust rule
+ * promotes a zero-provider-call blocked result's blocker codes into the
+ * coordinator-TRUSTED set, but those codes ride the
+ * PAYLOAD-AUTHOR-CONTROLLABLE `preflight_blocker_codes` echo channel
+ * (`request.preflight_blocker_codes` is echoed verbatim into the blocker
+ * codes of a deterministic preflight-blocked final). The infra-semantic
+ * codes that classify to the TERMINAL `failed_workflow` bucket must be
+ * reachable as trusted only through the coordinator's own invocation-boundary
+ * observation — never a payload echo — otherwise a hostile/buggy payload
+ * could forge a `failed_workflow` classification the S4-D contract calls
+ * boundary-only. Those codes are therefore excluded from zero-call promotion
+ * and stay in the untrusted slot lane (whose whitelist cannot classify them
+ * to `failed_workflow`; they land the generic `human_review` fallback). The
+ * set is DERIVED from the exact table (every code routing to `failed_workflow`)
+ * so any future terminal-bucket code is protected automatically.
+ */
+const R4_ZERO_CALL_PROMOTION_EXCLUDED_BLOCKER_CODES: ReadonlySet<string> = new Set(
+  Object.entries(PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE)
+    .filter(([, queueType]) => queueType === 'failed_workflow')
+    .map(([code]) => code),
+);
 
 /** Prefix classes for whole blocker-code families the coordinator owns. */
 export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX: ReadonlyArray<
@@ -254,12 +297,25 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE: R
  * F5 blocker-source split: `trustedBlockerCodes` are coordinator-observed
  * codes (its own codes, AppError codes it caught from slot invocation, and
  * — per the R4 trust rule — blocker codes of zero-provider-call blocked
- * results) and classify through the full exact + prefix tables;
+ * results EXCEPT the infra-semantic terminal codes excluded from zero-call
+ * promotion, `R4_ZERO_CALL_PROMOTION_EXCLUDED_BLOCKER_CODES`) and classify
+ * through the full exact + prefix tables;
  * `slotBlockerCodes` come from the slot result payload (potentially
  * LLM-influenced) and only classify through the exact slot whitelist —
- * never the coordinator-owned prefix families. With no table hit the step
- * outcome enum (never a string heuristic) picks between the failed-run
- * bucket and the explicit `unclassified` bucket.
+ * never the coordinator-owned prefix families.
+ *
+ * S4-D unclassified retirement: with no table hit the step outcome enum
+ * (never a string heuristic) drives a DETERMINISTIC fallback that reaches
+ * `unclassified` on exactly one path — an unregistered *trusted* code on a
+ * `blocked` step (a genuinely unknown coordinator/preflight code that missed
+ * table registration). Every other blocked-lane combination is bucketed:
+ *   - `failed_runtime`, any codes → `failed_run_review` (a runtime failure);
+ *   - `blocked` with no trusted code (a semantic block surfaced purely from
+ *     slot/LLM output, or a bare blocked) → `human_review`, the generic
+ *     blocked-lane review bucket — never `unclassified`.
+ * So slot-sourced (untrusted) codes and every registered trusted code always
+ * land a real queue type; `unclassified` is reserved for the last-resort
+ * unknown-trusted-code path, pinned by the exhaustive tests.
  *
  * R3 dedup poisoning fence: `dedup_blocker` (the dedup_key primary segment)
  * only ever carries a trusted code; when no trusted code classified, it is
@@ -303,6 +359,23 @@ export function classifyPaperImplementationCoordinatorBlockedStep(
       dedup_blocker: trustedBlockerCodes[0] ?? outcomeSentinel,
     };
   }
+  // outcome === 'blocked' with no exact/prefix/whitelist hit.
+  if (trustedBlockerCodes.length === 0) {
+    // A semantic block surfaced purely from slot (LLM-influenced) output, or a
+    // bare blocked with no codes at all: there is no coordinator-trusted code
+    // to be "unknown" about, so route deterministically to `human_review` —
+    // the generic blocked-lane review bucket — never `unclassified`. R3: the
+    // dedup segment stays the outcome sentinel; a slot string never enters it.
+    return {
+      queue_type: 'human_review',
+      primary_blocker: fallbackPrimary ?? 'blocked',
+      dedup_blocker: outcomeSentinel,
+    };
+  }
+  // A coordinator-trusted code that no exact/prefix table classifies — a
+  // genuinely unknown code (e.g. a future coordinator/preflight code that
+  // missed table registration). This is the SOLE reachable path to
+  // `unclassified`; the exhaustive tests forge exactly this to pin it.
   return {
     queue_type: 'unclassified',
     primary_blocker: fallbackPrimary ?? 'unclassified',
@@ -466,6 +539,15 @@ class CoordinatorPersistenceFailure extends Error {
   }
 }
 
+/**
+ * S4 list projection: the read-only project-level coordinator-run list omits
+ * the heavy `slot_request_payloads` map (a per-slot full request-body blob the
+ * list view never needs — the single-run GET still returns it in full).
+ * Everything else on the run row is lightweight and stays.
+ */
+export type PaperImplementationCoordinatorRunListItem =
+  Omit<PaperImplementationCoordinatorRun, 'slot_request_payloads'>;
+
 export class PaperImplementationRunCoordinatorService {
   private readonly coordinatorRepository: PaperImplementationCoordinatorRepository;
   private readonly projectRepository: PaperImplementationRepository;
@@ -564,6 +646,25 @@ export class PaperImplementationRunCoordinatorService {
       coordinatorRunId,
     );
     return { run, steps };
+  }
+
+  /**
+   * Read-only project-level coordinator-run list. Routes through the service
+   * (never a controller-held repository) so the coordinator's zero-authority
+   * structural fence covers this read path too. Returns the slimmed list
+   * projection — `slot_request_payloads` stripped (see
+   * {@link PaperImplementationCoordinatorRunListItem}); the single-run GET
+   * still carries the full payload map. No active-project guard: an
+   * empty/unknown project yields an empty list, matching the pure-read
+   * semantics of the single-run GET (a 200 empty projection, never a 404).
+   */
+  async listCoordinatorRunsByProject(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationCoordinatorRunListItem[]> {
+    const runs = await this.coordinatorRepository.listCoordinatorRunsByProject(
+      implementationProjectId,
+    );
+    return runs.map(({ slot_request_payloads: _slotRequestPayloads, ...rest }) => rest);
   }
 
   async advance(
@@ -814,8 +915,23 @@ export class PaperImplementationRunCoordinatorService {
       // codes are coordinator-trustworthy (this is how the D2 tier budget
       // code reaches terminal-state routing through the preflight echo
       // channel). Any provider-call-carrying blocked result stays untrusted.
+      //
+      // S4-D leak fix: the zero-call channel echoes the
+      // PAYLOAD-AUTHOR-CONTROLLABLE `request.preflight_blocker_codes` verbatim,
+      // so the infra-semantic codes that classify to the terminal
+      // `failed_workflow` bucket are excluded from promotion — they must earn
+      // trusted status only from the coordinator's own invocation-boundary
+      // catch above, never from a payload echo. Excluded codes stay in the
+      // untrusted `slotBlockerCodes` lane (still recorded in the step's blocker
+      // union; classified through the slot whitelist, which they miss → the
+      // generic `human_review` fallback), so a payload cannot forge a
+      // `failed_workflow` classification through this channel.
       if (result && result.status === 'blocked' && result.provider_call_count === 0) {
-        trustedBlockerCodes.push(...slotBlockerCodes);
+        trustedBlockerCodes.push(
+          ...slotBlockerCodes.filter(
+            (code) => !R4_ZERO_CALL_PROMOTION_EXCLUDED_BLOCKER_CODES.has(code),
+          ),
+        );
       }
       const noEligibleCandidate = decisionRecord !== null && decisionRecord.selected_candidate_key === null;
       if (noEligibleCandidate) {
