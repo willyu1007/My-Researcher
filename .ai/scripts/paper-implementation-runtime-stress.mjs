@@ -50,6 +50,23 @@ const REQUIRED_L5_CASES = [
     key: 'trace_resume_identity_drift_rejected',
     subtest: 'L5 trace resume rejects identity drift with 409 before any provider call',
   },
+  // T-124 D2-core: enforced debate tiering must-checks.
+  {
+    key: 'trace_debate_tier_decision_replayable',
+    subtest: 'L5 trace debate tier decision is enforced and replayable for the same inputs',
+  },
+  {
+    key: 'trace_debate_tier_identity_drift_rejected',
+    subtest: 'L5 trace debate resume rejects tier drift with 409 before any provider call',
+  },
+  {
+    key: 'trace_debate_light_upgrade_deterministic',
+    subtest: 'L5 trace debate light tier deterministically upgrades to standard when the skeptic finds issues',
+  },
+  {
+    key: 'trace_debate_tier_budget_insufficient_classified',
+    subtest: 'L5 trace debate tier budget insufficiency fails closed with zero provider calls and classifies to loop_budget_review',
+  },
   {
     key: 'p1_over_budget_zero_provider_calls',
     subtest: 'L5 P1 stress blocks over-budget source bundles before provider calls',
@@ -203,6 +220,14 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 evidence-board curation memo-like evidence ref blocks before provider calls',
   },
   {
+    // T-124 D2-pre2: gaps-only curation (no viable binding, gap findings
+    // present) derives recommended_disposition='revise' server-side and the
+    // coordinator board pipeline parks the run as waiting_review (semantic
+    // stop, no queue item) instead of a terminal blocked.
+    key: 'evidence_board_curation_gaps_only_disposition_waiting_review_full_chain',
+    subtest: 'L5 evidence-board curation gaps-only disposition parks the coordinator run as waiting_review across the full chain (D2-pre2)',
+  },
+  {
     key: 'motive_decomposition_over_budget_zero_provider_calls',
     subtest: 'L5 motive decomposition stress blocks over-budget assertion context before provider calls',
   },
@@ -278,6 +303,14 @@ const REQUIRED_L5_CASES = [
   {
     key: 'motive_evolution_memo_like_context_zero_provider_calls',
     subtest: 'L5 motive evolution memo-like motive context blocks before provider calls',
+  },
+  {
+    // T-124 D2-pre1 (gs001-lora-live-006/007 fix): the designer's full
+    // designed_options body threads into the challenger's call context, so the
+    // challenger challenges every option key on its substance instead of
+    // self-reporting MISSING_DESIGNER_OPTION_KEYS / MISSING_DESIGNER_ARTIFACT_CONTENT.
+    key: 'motive_evolution_challenger_receives_designer_designed_options_body_full_chain',
+    subtest: 'L5 motive evolution challenger receives the designer designed_options body and challenges every option key',
   },
   {
     key: 'p1_current_role_retry_no_prior_role_rerun',

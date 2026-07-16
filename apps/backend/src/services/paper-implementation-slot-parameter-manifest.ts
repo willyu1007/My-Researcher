@@ -80,6 +80,13 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_RUNTIME_RUN_REQUEST_SCHEMA_VERSION,
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import {
+  PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
+import {
+  PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY,
+  type PaperImplementationDebatePolicy,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-policy';
 import type {
   TopicSelectionModelOption,
   TopicSelectionModelProfile,
@@ -153,6 +160,13 @@ export interface PaperImplementationSlotManifestBinding {
   materialization_class: PaperImplementationSlotMaterializationClass;
   canary_env_flag: string;
   runtime_stress_required_case_keys: readonly string[];
+  /**
+   * T-124 D2-core: the enforced DebatePolicy@v1 id this slot executes; resolved
+   * against the shared PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY at export
+   * (unknown id refuses export). Omitted for slots that are not policy-driven
+   * (P1/evolution stay shadow-recorded in v1).
+   */
+  debate_policy_id?: string;
 }
 
 export interface PaperImplementationSlotManifestModelProfile {
@@ -190,8 +204,12 @@ export interface PaperImplementationSlotParameterManifestEntry {
   model_profile: PaperImplementationSlotManifestModelProfile;
   canary_env_flag: string;
   runtime_stress_required_case_keys: string[];
-  /** D2 debate kernel policy mount — null until D2 lands. */
-  debate_policy: null;
+  /**
+   * D2 debate kernel policy mount (T-124 D2-core): the full enforced
+   * DebatePolicy@v1 (tier role plans + budget parameters) for tier-driven
+   * slots; null for slots that are not policy-driven yet.
+   */
+  debate_policy: PaperImplementationDebatePolicy | null;
   /** D2/D4 candidate selection policy mount — null until it lands. */
   candidate_selection_policy: null;
   /** D4 memory family mount — null until D4 lands. */
@@ -250,7 +268,13 @@ export const PAPER_IMPLEMENTATION_SLOT_MANIFEST_BINDINGS: readonly PaperImplemen
       'trace_over_budget_zero_provider_calls',
       'trace_integrity_profile_and_model_option_drift_rejected_before_gateway',
       'trace_integrity_debate_inactive_project_rejected_before_orchestrator',
+      // T-124 D2-core tier must-checks (registered before implementation).
+      'trace_debate_tier_decision_replayable',
+      'trace_debate_tier_identity_drift_rejected',
+      'trace_debate_light_upgrade_deterministic',
+      'trace_debate_tier_budget_insufficient_classified',
     ],
+    debate_policy_id: 'paper-implementation.trace-integrity.boundary-debate.v1',
   },
   {
     slot_id: PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_SLOT_ID,
@@ -601,6 +625,18 @@ function manifestEntry(
   binding: PaperImplementationSlotManifestBinding,
   profile: TopicSelectionModelProfile,
 ): PaperImplementationSlotParameterManifestEntry {
+  // T-124 D2-core: resolve the enforced debate policy mount from the shared
+  // registry — an unknown id refuses export (same posture as a missing profile).
+  let debatePolicy: PaperImplementationDebatePolicy | null = null;
+  if (binding.debate_policy_id) {
+    const policy = PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY[binding.debate_policy_id];
+    if (!policy) {
+      throw new Error(
+        `SlotParameterManifest export refused: debate policy ${binding.debate_policy_id} for slot ${binding.slot_id} is missing from the shared debate policy registry.`,
+      );
+    }
+    debatePolicy = structuredClone(policy);
+  }
   return {
     slot_id: binding.slot_id,
     runtime_route_path: `${RUNTIME_SLOT_ROUTE_PREFIX}${binding.runtime_route_segment}/run`,
@@ -634,7 +670,7 @@ function manifestEntry(
     },
     canary_env_flag: binding.canary_env_flag,
     runtime_stress_required_case_keys: [...binding.runtime_stress_required_case_keys],
-    debate_policy: null,
+    debate_policy: debatePolicy,
     candidate_selection_policy: null,
     memory_families: null,
   };
@@ -648,7 +684,12 @@ export type PaperImplementationSlotParameterManifestCompletenessIssueCode =
   | 'STRESS_CASE_KEY_UNKNOWN'
   | 'MANIFEST_ENTRY_CANARY_FLAG_UNKNOWN'
   | 'CANARY_FLAG_MISSING_MANIFEST_ENTRY'
-  | 'DUPLICATE_MANIFEST_CANARY_FLAG';
+  | 'DUPLICATE_MANIFEST_CANARY_FLAG'
+  // T-124 D2-core tier dimension (manifest mounts ↔ shared policy registry ↔ tier set).
+  | 'DEBATE_POLICY_UNKNOWN_ID'
+  | 'DEBATE_POLICY_MISSING_MANIFEST_ENTRY'
+  | 'DUPLICATE_DEBATE_POLICY_MOUNT'
+  | 'DEBATE_POLICY_TIER_SET_INCOMPLETE';
 
 export interface PaperImplementationSlotParameterManifestCompletenessIssue {
   code: PaperImplementationSlotParameterManifestCompletenessIssueCode;
@@ -665,11 +706,19 @@ export interface PaperImplementationSlotParameterManifestCompletenessInput {
   canary_env_flags: readonly string[];
   /** flags that intentionally have no slot binding (default: fail-closed canary) */
   non_slot_canary_env_flags?: readonly string[];
+  /**
+   * T-124 D2-core: the enforced debate policy ids the shared registry declares
+   * (default: PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY keys). Every enforced
+   * registry policy must be mounted by exactly one manifest entry and every
+   * mount must resolve back to the registry with a complete tier set.
+   */
+  debate_policy_registry_ids?: readonly string[];
 }
 
 /**
- * Four-way completeness check:
- * runtime routes ↔ manifest entries ↔ runtime-stress must-check cases ↔ canary env flags.
+ * Four-way completeness check (extended with the D2 tier dimension):
+ * runtime routes ↔ manifest entries ↔ runtime-stress must-check cases ↔ canary env flags,
+ * plus manifest debate-policy mounts ↔ shared DebatePolicy@v1 registry ↔ tier set.
  * Pure so tests can also verify the negative direction (a removed manifest entry
  * or an unknown key must produce issues).
  */
@@ -758,6 +807,50 @@ export function verifyPaperImplementationSlotParameterManifestCompleteness(
       issues.push({
         code: 'CANARY_FLAG_MISSING_MANIFEST_ENTRY',
         detail: `canary env flag ${flag} has no manifest entry.`,
+      });
+    }
+  }
+
+  // T-124 D2-core tier dimension: debate-policy mounts ↔ registry ↔ tier set.
+  const registryPolicyIds = new Set(
+    input.debate_policy_registry_ids ?? Object.keys(PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY),
+  );
+  const mountedPolicyIds = new Map<string, number>();
+  for (const entry of input.manifest.slots) {
+    const policy = entry.debate_policy;
+    if (!policy) {
+      continue;
+    }
+    mountedPolicyIds.set(policy.debate_policy_id, (mountedPolicyIds.get(policy.debate_policy_id) ?? 0) + 1);
+    if (!registryPolicyIds.has(policy.debate_policy_id)) {
+      issues.push({
+        code: 'DEBATE_POLICY_UNKNOWN_ID',
+        detail: `manifest entry ${entry.slot_id} mounts debate policy ${policy.debate_policy_id} that is not in the shared debate policy registry.`,
+      });
+    }
+    const declaredTiers = new Set(Object.keys(policy.tiers ?? {}));
+    for (const tier of PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS) {
+      if (!declaredTiers.has(tier)) {
+        issues.push({
+          code: 'DEBATE_POLICY_TIER_SET_INCOMPLETE',
+          detail: `manifest entry ${entry.slot_id} debate policy ${policy.debate_policy_id} does not declare tier ${tier}.`,
+        });
+      }
+    }
+  }
+  for (const [policyId, count] of mountedPolicyIds) {
+    if (count > 1) {
+      issues.push({
+        code: 'DUPLICATE_DEBATE_POLICY_MOUNT',
+        detail: `debate policy ${policyId} is mounted by ${count} manifest entries.`,
+      });
+    }
+  }
+  for (const policyId of registryPolicyIds) {
+    if (!mountedPolicyIds.has(policyId)) {
+      issues.push({
+        code: 'DEBATE_POLICY_MISSING_MANIFEST_ENTRY',
+        detail: `registered debate policy ${policyId} is not mounted by any manifest entry.`,
       });
     }
   }

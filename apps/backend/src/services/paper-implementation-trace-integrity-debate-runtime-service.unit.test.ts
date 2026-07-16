@@ -386,8 +386,16 @@ function providerRequest(): RunPaperImplementationTraceIntegrityDebateRuntimeReq
       statement_text: 'Method A improves validation accuracy on benchmark B.',
       semantic_role: 'result_claim',
     }],
-    source_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-    source_hashes: [hash('run-evidence-unit')],
+    // D2-core: three source refs put the default fixture on the STANDARD tier
+    // (packet_ref_count >= 3), so the historical four-role assertions keep
+    // describing the enforced standard plan. Tier-specific behavior (light
+    // floor, upgrade, budget) has its own fixtures below.
+    source_refs: [
+      ref('run_evidence_unit', 'run_evidence_unit_001'),
+      ref('claim_trace_packet', 'claim_trace_packet_001'),
+      ref('result_interpretation_packet', 'result_packet_001'),
+    ],
+    source_hashes: [hash('run-evidence-unit'), hash('claim-trace-packet'), hash('result-packet')],
     source_packets: [{
       source_ref: ref('run_evidence_unit', 'run_evidence_unit_001'),
       source_hash: hash('run-evidence-unit'),
@@ -396,6 +404,22 @@ function providerRequest(): RunPaperImplementationTraceIntegrityDebateRuntimeReq
       evidence_role: 'primary_result',
       content_summary: 'Benchmark B run evidence reports the validation accuracy improvement.',
       source_excerpt: 'accuracy improved against the configured baseline',
+    }, {
+      source_ref: ref('claim_trace_packet', 'claim_trace_packet_001'),
+      source_hash: hash('claim-trace-packet'),
+      source_family: 'claim_trace_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'lineage',
+      content_summary: 'Claim trace packet carries the claim-to-run lineage.',
+      source_excerpt: 'claim lineage includes benchmark B validation runs',
+    }, {
+      source_ref: ref('result_interpretation_packet', 'result_packet_001'),
+      source_hash: hash('result-packet'),
+      source_family: 'result_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'non_primary_interpretation',
+      content_summary: 'Result interpretation packet, labeled non-primary evidence.',
+      source_excerpt: 'interpretation: accuracy gain is attributed to method A',
     }],
     preflight_blocker_codes: [],
   };
@@ -986,7 +1010,7 @@ test('trace integrity debate runtime resume rejects identity drift with 409 and 
       ...providerRequest(),
       run_id: null,
       resume_from_run_id: 'trace_debate_run_001',
-      source_hashes: [hash('drifted-run-evidence-unit')],
+      source_hashes: [hash('drifted-run-evidence-unit'), hash('claim-trace-packet'), hash('result-packet')],
       source_packets: undefined,
     }),
     (error: unknown) => error instanceof AppError
@@ -1099,6 +1123,56 @@ function resumeIssueCodes(error: unknown): string[] {
     return error.details.resume_issue_codes as string[];
   }
   return [];
+}
+
+/** The internal maps an interrupted-run simulation reaches into. */
+type RuntimeRepositoryInternals = {
+  runtimeArtifacts: Map<string, { runtime_artifact_id: string; runtime_identity_hash: string;
+    artifact_scope: string; artifact_payload_ref: { ref_id: string };
+    artifact_payload: Record<string, unknown>; }>;
+  runtimeArtifactIdsByIdentityHash: Map<string, string>;
+  admissionRecords: Map<string, { runtime_artifact_id: string }>;
+};
+
+function repositoryInternals(repository: InMemoryPaperImplementationRuntimeRepository): RuntimeRepositoryInternals {
+  return repository as unknown as RuntimeRepositoryInternals;
+}
+
+/**
+ * Simulate a run that was interrupted AFTER its last role was admitted but
+ * BEFORE its final artifact was recorded: drop the stored final artifact, its
+ * runtime-identity-hash index entry (so the resumed final can be re-recorded
+ * without a phantom uniqueness collision), and its admission record.
+ */
+function dropStoredFinal(repository: InMemoryPaperImplementationRuntimeRepository, runId: string): void {
+  const internals = repositoryInternals(repository);
+  const final = [...internals.runtimeArtifacts.values()].find(
+    (artifact) => artifact.artifact_scope === 'final' && artifact.artifact_payload_ref.ref_id === `${runId}.final`,
+  );
+  assert.ok(final, 'expected a stored final artifact to drop');
+  internals.runtimeArtifacts.delete(final.runtime_artifact_id);
+  internals.runtimeArtifactIdsByIdentityHash.delete(final.runtime_identity_hash);
+  for (const [id, record] of internals.admissionRecords) {
+    if (record.runtime_artifact_id === final.runtime_artifact_id) {
+      internals.admissionRecords.delete(id);
+    }
+  }
+}
+
+/**
+ * Simulate PRE-D2 artifacts: strip the recorded `debate_execution` tier decision
+ * from every stored artifact of a run, so the resume tier-drift facet sees no
+ * recorded decision (the state a run recorded before D2-core landed).
+ */
+function stripDebateExecution(repository: InMemoryPaperImplementationRuntimeRepository, runId: string): void {
+  let stripped = 0;
+  for (const artifact of repositoryInternals(repository).runtimeArtifacts.values()) {
+    if (artifact.artifact_payload_ref.ref_id.startsWith(`${runId}.`)) {
+      delete artifact.artifact_payload.debate_execution;
+      stripped += 1;
+    }
+  }
+  assert.ok(stripped > 0, 'expected at least one stored artifact to strip');
 }
 
 test('trace integrity debate runtime resume does not absorb a sibling run whose id extends this run id (S3 F1-1)', async () => {
@@ -1255,6 +1329,433 @@ test('trace integrity debate runtime resume of a completed run whose final chain
     (error: unknown) => error instanceof AppError
       && error.statusCode === 409
       && resumeIssueCodes(error).includes('RESUME_FINAL_CHAIN_BROKEN'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// T-124 D2-core: enforced debate tiering (DebatePolicy@v1)
+// ---------------------------------------------------------------------------
+
+/** Light-tier request: 1 statement + 1 source (below every standard threshold). */
+function lightProviderRequest(runId = 'trace_debate_light_run_001'): RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
+  const base = providerRequest();
+  return {
+    ...base,
+    run_id: runId,
+    source_refs: base.source_refs.slice(0, 1),
+    source_hashes: base.source_hashes.slice(0, 1),
+    source_packets: base.source_packets?.slice(0, 1),
+  };
+}
+
+/** Full-tier request: 8 source refs (packet_ref_count_full threshold). */
+function fullProviderRequest(runId = 'trace_debate_full_run_001'): RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
+  const base = providerRequest();
+  const extra = Array.from({ length: 5 }, (_, index) => {
+    const refId = `full_tier_evidence_${index + 1}`;
+    return {
+      source_ref: ref('run_evidence_unit', refId),
+      source_hash: hash(refId),
+      source_family: 'run_evidence' as const,
+      freshness_status: 'fresh' as const,
+      evidence_role: 'primary_result',
+      content_summary: `Supplementary run evidence ${index + 1}.`,
+      source_excerpt: `supplementary evidence ${index + 1} supports the result`,
+    };
+  });
+  return {
+    ...base,
+    run_id: runId,
+    source_refs: [...base.source_refs, ...extra.map((packet) => packet.source_ref)],
+    source_hashes: [...base.source_hashes, ...extra.map((packet) => packet.source_hash)],
+    source_packets: [...(base.source_packets ?? []), ...extra],
+  };
+}
+
+function debateExecutionOf(artifact: { artifact_payload: Record<string, unknown> } | null | undefined): Record<string, unknown> {
+  const value = artifact?.artifact_payload.debate_execution;
+  assert.ok(value && typeof value === 'object' && !Array.isArray(value), 'debate_execution recorded');
+  return value as Record<string, unknown>;
+}
+
+test('trace integrity debate runtime executes the light-tier three-role floor without reconcile (D2-core)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture(successScript);
+  const result = await service.runBoundaryDebate(PROJECT_ID, lightProviderRequest());
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 3);
+  assert.deepEqual(orchestrator.calls.map((call) => call.node_id), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  const roleArtifacts = result.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.equal(roleArtifacts.length, 3);
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 3]);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  const finalExecution = debateExecutionOf(result.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'light');
+  assert.equal(finalExecution.effective_tier, 'light');
+  assert.equal(finalExecution.tier_upgraded, false);
+  assert.equal(finalExecution.debate_policy_id, 'paper-implementation.trace-integrity.boundary-debate.v1');
+  assert.deepEqual(finalExecution.executed_role_plan, [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+});
+
+test('trace integrity debate runtime deterministically upgrades light to standard on skeptic findings (D2-core)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      output.role_status = 'blocked';
+      output.blocker_codes = ['semantic_support_gap'];
+      output.challenge_findings = [skepticFindingFixture()];
+    }
+    if (call.node_id === 'trace_integrity_review.support_mapper_reconcile') {
+      output.finding_dispositions = [{
+        finding_id: 'finding_001',
+        disposition: 'accepted_blocker',
+        cited_refs: [],
+      }];
+    }
+    if (call.node_id === 'trace_integrity_review.arbiter_final') {
+      output.role_status = 'blocked';
+      output.blocker_codes = ['semantic_support_gap'];
+      output.coverage = {
+        statement_refs: [ref('reviewed_statement', 'statement_001')],
+        finding_ids: ['finding_001'],
+      };
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  });
+  const result = await service.runBoundaryDebate(PROJECT_ID, lightProviderRequest('trace_debate_light_up_001'));
+
+  // The upgrade is a RULE (not a relaxation): reconcile re-enters the plan in
+  // the SAME run with the appended call index, and the blocked final is
+  // admitted with the accepted blocker carried through.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.provider_call_count, 4);
+  assert.deepEqual(orchestrator.calls.map((call) => call.node_id), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.support_mapper_reconcile',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  const roleArtifacts = result.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 3, 4]);
+  const finalExecution = debateExecutionOf(result.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'light');
+  assert.equal(finalExecution.effective_tier, 'standard');
+  assert.equal(finalExecution.tier_upgraded, true);
+  // Pre-upgrade prefix executed under light; post-upgrade roles under standard.
+  assert.equal(debateExecutionOf(roleArtifacts[0]).effective_tier, 'light');
+  assert.equal(debateExecutionOf(roleArtifacts[1]).effective_tier, 'light');
+  assert.equal(debateExecutionOf(roleArtifacts[2]).effective_tier, 'standard');
+  assert.equal(debateExecutionOf(roleArtifacts[3]).effective_tier, 'standard');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(result.blocker_codes.includes('semantic_support_gap'), true);
+});
+
+test('trace integrity debate runtime standard tier records the enforced decision in identity context (D2-core)', async () => {
+  const { service } = scriptedServiceFixture(successScript);
+  const result = await service.runBoundaryDebate(PROJECT_ID, providerRequest());
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 4);
+  const finalExecution = debateExecutionOf(result.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'standard');
+  assert.equal(finalExecution.effective_tier, 'standard');
+  assert.equal(finalExecution.tier_upgraded, false);
+  assert.equal(typeof finalExecution.tier_inputs_hash, 'string');
+  assert.deepEqual(finalExecution.tier_rationale_codes, ['PACKET_REF_COUNT_STANDARD']);
+  // Every role artifact carries the same pinned decision.
+  for (const artifact of result.runtime_artifacts) {
+    const execution = debateExecutionOf(artifact);
+    assert.equal(execution.base_tier, 'standard');
+    assert.equal(execution.tier_inputs_hash, finalExecution.tier_inputs_hash);
+  }
+});
+
+test('trace integrity debate runtime full tier grants the higher technical retry budget (D2-core)', async () => {
+  // The skeptic echoes a wrong role slot TWICE before correcting — recoverable
+  // only under full's max_technical_retry_attempts=2 (standard/light stop at 1).
+  let skepticAttempts = 0;
+  const script = (call: TraceInvocationCall): ReturnType<typeof successScript> => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      skepticAttempts += 1;
+      if (skepticAttempts <= 2) {
+        return invocationResult(
+          { ...output, role_slot_id: 'trace_integrity_review.arbiter_final' as const },
+          call.node_id,
+          call.execution_mode,
+        );
+      }
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  };
+
+  const fullFixture = scriptedServiceFixture(script);
+  const fullResult = await fullFixture.service.runBoundaryDebate(PROJECT_ID, fullProviderRequest());
+  assert.equal(fullResult.status, 'passed');
+  assert.equal(skepticAttempts, 3);
+  const fullSkeptic = fullResult.runtime_artifacts[1]!;
+  assert.equal(fullSkeptic.retry_attempt_index, 2);
+  assert.equal(fullSkeptic.provider_call_count, 3);
+  assert.equal(debateExecutionOf(fullResult.final_runtime_artifact).base_tier, 'full');
+
+  // Same failure shape at STANDARD tier exhausts after the single retry.
+  skepticAttempts = 0;
+  const standardFixture = scriptedServiceFixture(script, { idPrefix: 'std_' });
+  const standardResult = await standardFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'trace_debate_standard_retry_001',
+  });
+  assert.equal(standardResult.status, 'failed_runtime');
+  assert.equal(skepticAttempts, 2);
+});
+
+test('trace integrity debate runtime fails closed on insufficient tier budget with zero provider calls (D2-core)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture(successScript);
+
+  // Light reserves the UPGRADE-SAFE standard call count (4): budget 3 would
+  // cover the floor but not a skeptic-finding upgrade — fail closed, no
+  // silent downgrade, zero provider calls, R4-trusted blocked final.
+  const blocked = await service.runBoundaryDebate(PROJECT_ID, {
+    ...lightProviderRequest('trace_debate_budget_run_001'),
+    provider_call_budget: 3,
+  });
+  assert.equal(blocked.status, 'blocked');
+  assert.equal(blocked.provider_call_count, 0);
+  assert.equal(orchestrator.calls.length, 0);
+  assert.equal(blocked.blocker_codes.includes('TIER_BUDGET_INSUFFICIENT'), true);
+  assert.equal(blocked.final_admission_record?.admission_status, 'admitted');
+  assert.equal(blocked.final_runtime_artifact?.runtime_status, 'blocked');
+
+  // The upgrade-safe reservation (4) funds the run; the light floor spends 3.
+  const funded = await service.runBoundaryDebate(PROJECT_ID, {
+    ...lightProviderRequest('trace_debate_budget_run_002'),
+    provider_call_budget: 4,
+  });
+  assert.equal(funded.status, 'passed');
+  assert.equal(funded.provider_call_count, 3);
+
+  // Invalid budgets are 400s before any execution.
+  await assert.rejects(
+    () => service.runBoundaryDebate(PROJECT_ID, {
+      ...lightProviderRequest('trace_debate_budget_run_003'),
+      provider_call_budget: -1,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+});
+
+test('trace integrity debate runtime resume rejects tier drift with the dedicated issue code (D2-core)', async () => {
+  // Interrupt a LIGHT run at the skeptic.
+  let calls = 0;
+  const first = scriptedServiceFixture((call) => {
+    calls += 1;
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      return failedInvocationResult(call.node_id, 'UpstreamError');
+    }
+    return invocationResult(roleOutput(call.node_id), call.node_id, call.execution_mode);
+  });
+  const interrupted = await first.service.runBoundaryDebate(
+    PROJECT_ID,
+    lightProviderRequest('trace_debate_tier_drift_001'),
+  );
+  assert.equal(interrupted.status, 'failed_runtime');
+
+  // Resume with the 3-source request: the re-derived tier is STANDARD — the
+  // recorded light-run prefix is tier drift, rejected with the dedicated code.
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'tier_drift_resume_',
+  });
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_tier_drift_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && ((error.details as { resume_issue_codes?: string[] } | undefined)?.resume_issue_codes ?? [])
+        .includes('RESUME_DEBATE_TIER_DRIFT'),
+  );
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+});
+
+test('trace integrity debate runtime resumes a light run whose arbiter was admitted but final unrecorded, reusing all three roles with zero re-issue (D2-core resume light-gap)', async () => {
+  // A light-no-findings run runs the three-role floor; the arbiter is admitted.
+  const first = scriptedServiceFixture(successScript);
+  const run = await first.service.runBoundaryDebate(
+    PROJECT_ID,
+    lightProviderRequest('trace_debate_light_gap_001'),
+  );
+  assert.equal(run.status, 'passed');
+  assert.equal(first.orchestrator.calls.length, 3);
+  const roleArtifacts = run.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.role_slot_id), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  // Interrupt AFTER the arbiter admission but BEFORE the final was recorded.
+  dropStoredFinal(first.repository, 'trace_debate_light_gap_001');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'light_gap_resume_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...lightProviderRequest('trace_debate_light_gap_001'),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_light_gap_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  // The plan-aware reuse walk re-derives the 3-role light plan from the reused
+  // no-findings skeptic, so the admitted arbiter is reused rather than dropped at
+  // the (legitimately absent) reconcile position: ZERO provider re-issue, no repay,
+  // only the missing final is recorded.
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 3).map((artifact) => artifact.runtime_artifact_id),
+    roleArtifacts.map((artifact) => artifact.runtime_artifact_id),
+  );
+  const resumedRoles = resumed.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.equal(resumedRoles.length, 3);
+  assert.equal(resumed.final_runtime_artifact?.artifact_scope, 'final');
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(
+    resumed.final_runtime_artifact?.prior_role_artifact_hashes,
+    roleArtifacts.map((artifact) => artifact.artifact_payload_hash),
+  );
+});
+
+test('trace integrity debate runtime resumes an upgraded light run interrupted at the arbiter without regression (D2-core resume upgrade-gap)', async () => {
+  const findingScript = (call: TraceInvocationCall) => {
+    const output = roleOutput(call.node_id);
+    if (call.node_id === 'trace_integrity_review.skeptic_challenge') {
+      output.role_status = 'blocked';
+      output.blocker_codes = ['semantic_support_gap'];
+      output.challenge_findings = [skepticFindingFixture()];
+    }
+    if (call.node_id === 'trace_integrity_review.support_mapper_reconcile') {
+      output.finding_dispositions = [{
+        finding_id: 'finding_001',
+        disposition: 'accepted_blocker',
+        cited_refs: [],
+      }];
+    }
+    if (call.node_id === 'trace_integrity_review.arbiter_final') {
+      output.role_status = 'blocked';
+      output.blocker_codes = ['semantic_support_gap'];
+      output.coverage = {
+        statement_refs: [ref('reviewed_statement', 'statement_001')],
+        finding_ids: ['finding_001'],
+      };
+    }
+    return invocationResult(output, call.node_id, call.execution_mode);
+  };
+  // First run: findings upgrade light → standard (four roles); the arbiter fails
+  // both attempts, so map+skeptic+reconcile are admitted and no final is recorded.
+  const first = scriptedServiceFixture((call) => {
+    if (call.node_id === 'trace_integrity_review.arbiter_final') {
+      return failedInvocationResult(call.node_id, 'TimeoutError');
+    }
+    return findingScript(call);
+  });
+  const interrupted = await first.service.runBoundaryDebate(
+    PROJECT_ID,
+    lightProviderRequest('trace_debate_upgrade_gap_001'),
+  );
+  assert.equal(interrupted.status, 'failed_runtime');
+  const admittedRoles = interrupted.runtime_artifacts.filter(
+    (artifact) => artifact.artifact_scope === 'role' && artifact.runtime_status !== 'failed_runtime',
+  );
+  assert.deepEqual(admittedRoles.map((artifact) => artifact.role_slot_id), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.support_mapper_reconcile',
+  ]);
+
+  const resumeFixture = scriptedServiceFixture(findingScript, {
+    repository: first.repository,
+    idPrefix: 'upgrade_gap_resume_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...lightProviderRequest('trace_debate_upgrade_gap_001'),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_upgrade_gap_001',
+  });
+
+  // The four-role upgraded plan is re-derived from the reused skeptic findings, so
+  // only the arbiter re-runs — the findings path is unregressed by the light-gap fix.
+  assert.equal(resumed.status, 'blocked');
+  assert.deepEqual(resumeFixture.orchestrator.calls.map((call) => call.node_id), [
+    'trace_integrity_review.arbiter_final',
+  ]);
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  const finalExecution = debateExecutionOf(resumed.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'light');
+  assert.equal(finalExecution.effective_tier, 'standard');
+});
+
+test('trace integrity debate runtime replays a completed pre-D2 run idempotently despite the missing tier decision (D2-core F1-3)', async () => {
+  const first = scriptedServiceFixture(successScript);
+  const run = await first.service.runBoundaryDebate(PROJECT_ID, providerRequest());
+  assert.equal(run.status, 'passed');
+  // Simulate a run recorded BEFORE D2-core: no `debate_execution` tier decision.
+  stripDebateExecution(first.repository, 'trace_debate_run_001');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'pre_d2_idempotent_',
+  });
+  const resumed = await resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: null,
+    resume_from_run_id: 'trace_debate_run_001',
+  });
+
+  // The zero-execution idempotent replay tolerates the absent tier decision and
+  // returns the original final: a completed run's no-op replay must stay safe.
+  assert.equal(resumeFixture.orchestrator.calls.length, 0);
+  assert.equal(resumed.status, 'passed');
+  assert.equal(
+    resumed.final_runtime_artifact?.runtime_artifact_id,
+    run.final_runtime_artifact?.runtime_artifact_id,
+  );
+});
+
+test('trace integrity debate runtime rejects a pre-D2 role on the continue-execution path with tier drift (D2-core)', async () => {
+  // Interrupt a run at reconcile (map+skeptic admitted, no final), then strip the
+  // D2 tier decision to model pre-D2 role artifacts reused on the continue path.
+  const { first } = await interruptedRunFixture();
+  stripDebateExecution(first.repository, 'trace_debate_run_001');
+
+  const resumeFixture = scriptedServiceFixture(successScript, {
+    repository: first.repository,
+    idPrefix: 'pre_d2_continue_',
+  });
+  await assert.rejects(
+    () => resumeFixture.service.runBoundaryDebate(PROJECT_ID, {
+      ...providerRequest(),
+      run_id: null,
+      resume_from_run_id: 'trace_debate_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && resumeIssueCodes(error).includes('RESUME_DEBATE_TIER_DRIFT'),
   );
   assert.equal(resumeFixture.orchestrator.calls.length, 0);
 });

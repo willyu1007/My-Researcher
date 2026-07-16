@@ -2817,9 +2817,58 @@
       "runtime_stress_required_case_keys": [
         "trace_over_budget_zero_provider_calls",
         "trace_integrity_profile_and_model_option_drift_rejected_before_gateway",
-        "trace_integrity_debate_inactive_project_rejected_before_orchestrator"
+        "trace_integrity_debate_inactive_project_rejected_before_orchestrator",
+        "trace_debate_tier_decision_replayable",
+        "trace_debate_tier_identity_drift_rejected",
+        "trace_debate_light_upgrade_deterministic",
+        "trace_debate_tier_budget_insufficient_classified"
       ],
-      "debate_policy": null,
+      "debate_policy": {
+        "schema_version": "PaperImplementationDebatePolicy@v1",
+        "debate_policy_id": "paper-implementation.trace-integrity.boundary-debate.v1",
+        "debate_policy_version": "v1",
+        "target_kind": "trace_integrity",
+        "tiers": {
+          "light": {
+            "tier": "light",
+            "role_plan": [
+              "support_mapper_map",
+              "skeptic_challenge",
+              "arbiter_final"
+            ],
+            "conditional_upgrade": {
+              "when": "skeptic_findings_present",
+              "upgrade_to": "standard"
+            },
+            "role_output_token_budget_ceiling": 1800,
+            "max_technical_retry_attempts": 1
+          },
+          "standard": {
+            "tier": "standard",
+            "role_plan": [
+              "support_mapper_map",
+              "skeptic_challenge",
+              "support_mapper_reconcile",
+              "arbiter_final"
+            ],
+            "conditional_upgrade": null,
+            "role_output_token_budget_ceiling": 1800,
+            "max_technical_retry_attempts": 1
+          },
+          "full": {
+            "tier": "full",
+            "role_plan": [
+              "support_mapper_map",
+              "skeptic_challenge",
+              "support_mapper_reconcile",
+              "arbiter_final"
+            ],
+            "conditional_upgrade": null,
+            "role_output_token_budget_ceiling": 2600,
+            "max_technical_retry_attempts": 2
+          }
+        }
+      },
       "candidate_selection_policy": null,
       "memory_families": null
     },

@@ -561,8 +561,21 @@ function traceIntegrityRunPayload(providerId: 'openai' | 'dashscope') {
       statement_text: 'Near-prod live provider canary links runtime evidence to a bounded implementation result.',
       semantic_role: 'result_claim',
     }],
-    source_refs: [ref('run_evidence_unit', `${RUN_ID}-trace-evidence`)],
-    source_hashes: [hash(`${RUN_ID}-trace-evidence`)],
+    // D2-core: three source refs (incl. the live canary) pin this near-prod
+    // fixture to the STANDARD tier (packet_ref_count >= 3), matching the HTTP
+    // route fixture. A single-ref fixture judged LIGHT and issued only 3 provider
+    // calls whenever the live skeptic found nothing, which made the gate's
+    // provider-call-count bound non-deterministic.
+    source_refs: [
+      ref('run_evidence_unit', `${RUN_ID}-trace-evidence`),
+      ref('claim_trace_packet', `${RUN_ID}-trace-lineage`),
+      ref('result_interpretation_packet', `${RUN_ID}-trace-interpretation`),
+    ],
+    source_hashes: [
+      hash(`${RUN_ID}-trace-evidence`),
+      hash(`${RUN_ID}-trace-lineage`),
+      hash(`${RUN_ID}-trace-interpretation`),
+    ],
     source_packets: [{
       source_ref: ref('run_evidence_unit', `${RUN_ID}-trace-evidence`),
       source_hash: hash(`${RUN_ID}-trace-evidence`),
@@ -571,6 +584,22 @@ function traceIntegrityRunPayload(providerId: 'openai' | 'dashscope') {
       evidence_role: 'primary_result',
       content_summary: 'Near-prod route evidence supports the bounded runtime claim.',
       source_excerpt: 'near-prod route evidence supports the bounded runtime claim',
+    }, {
+      source_ref: ref('claim_trace_packet', `${RUN_ID}-trace-lineage`),
+      source_hash: hash(`${RUN_ID}-trace-lineage`),
+      source_family: 'claim_trace_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'lineage',
+      content_summary: 'Claim trace packet carries the claim-to-run lineage.',
+      source_excerpt: 'claim lineage links the near-prod result to its validation runs',
+    }, {
+      source_ref: ref('result_interpretation_packet', `${RUN_ID}-trace-interpretation`),
+      source_hash: hash(`${RUN_ID}-trace-interpretation`),
+      source_family: 'result_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'non_primary_interpretation',
+      content_summary: 'Result interpretation packet, labeled non-primary evidence.',
+      source_excerpt: 'interpretation: the near-prod gain is attributed to the method',
     }],
     preflight_blocker_codes: [],
   };

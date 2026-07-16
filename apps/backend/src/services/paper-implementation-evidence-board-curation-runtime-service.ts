@@ -12,6 +12,7 @@ import {
   type PaperImplementationEvidenceBoardBindingCandidateProposal,
   type PaperImplementationEvidenceBoardGapCandidateProposal,
   type PaperImplementationEvidenceBoardCurationArtifact,
+  type PaperImplementationEvidenceBoardCurationDisposition,
   type PaperImplementationEvidenceBoardCurationRoleOutput,
   type PaperImplementationEvidenceBoardCurationRoleSlotId,
   type PaperImplementationEvidenceBoardCurationSlotId,
@@ -215,6 +216,12 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   'EVIDENCE_BOARD_CURATION_AUTHORITY_FIELD_PRESENT',
 ]);
 
+// T-124 D2-pre2: recorded (as a warning, never a blocker) when a provider echo
+// carries `recommended_disposition` diverging from the deterministic server
+// derivation — the server value wins; the drift is surfaced for observability.
+const EVIDENCE_BOARD_CURATION_DISPOSITION_ECHO_DRIFT_WARNING_CODE =
+  'EVIDENCE_BOARD_CURATION_DISPOSITION_ECHO_DRIFT';
+
 const FORBIDDEN_AUTHORITY_FIELDS = [
   'motive_evidence_board_version_id',
   'board_draft',
@@ -292,6 +299,8 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
         providerCallCount: 0,
         blockerCodes: preflightBlockerCodes,
         warningCodes: [],
+        // Preflight is a technical block (missing required refs) — terminal.
+        recommendedDisposition: 'blocked',
       });
       artifacts.push(final.artifact);
       admissions.push(final.admission);
@@ -330,20 +339,24 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       ...(roleArtifact.output?.gap_candidate_proposals ?? []).flatMap((candidate) => candidate.warning_codes),
       ...roleArtifact.artifact.warning_codes,
     ]);
-    const hasViableBinding = (roleArtifact.output?.binding_candidate_proposals ?? [])
-      .some((candidate) => candidate.support_state === 'viable_binding');
-    const finalStatus = blockerCodes.length > 0
-      || roleArtifact.output?.role_status === 'blocked'
-      || !hasViableBinding
-      ? 'blocked'
-      : 'passed';
+    // T-124 D2 复审 (A#4 + simplify ×1): derive finalStatus and its disposition
+    // in ONE pass so the viable-binding predicate is computed a single time
+    // (previously it lived both here and in deriveRecommendedDisposition, which
+    // let the two derivations drift).
+    const { status: finalStatus, disposition: recommendedDisposition } =
+      this.deriveFinalStatusAndDisposition(blockerCodes, roleArtifact.output);
+    const dispositionWarningCodes = this.dispositionEchoDriftWarningCodes(
+      roleArtifact.output,
+      recommendedDisposition,
+    );
     const final = await this.recordFinalArtifact(runtimeBase, request, {
       roleArtifact,
       status: finalStatus,
       runtimeFailureCode: null,
       providerCallCount: roleArtifact.artifact.provider_call_count,
       blockerCodes,
-      warningCodes,
+      warningCodes: this.uniqueStrings([...warningCodes, ...dispositionWarningCodes]),
+      recommendedDisposition,
     });
     artifacts.push(final.artifact);
     admissions.push(final.admission);
@@ -586,6 +599,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       providerCallCount: number;
       blockerCodes: string[];
       warningCodes: string[];
+      recommendedDisposition: PaperImplementationEvidenceBoardCurationDisposition;
     },
   ): Promise<{ artifact: PaperImplementationRuntimeArtifactEnvelope; admission: PaperImplementationRuntimeAdmissionRecord }> {
     const finalPayload = this.finalPayload(runtimeBase, request, input);
@@ -796,6 +810,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       runtimeFailureCode: string | null;
       blockerCodes: string[];
       warningCodes: string[];
+      recommendedDisposition: PaperImplementationEvidenceBoardCurationDisposition;
     },
   ): PaperImplementationEvidenceBoardCurationArtifact {
     const roleArtifact = input.roleArtifact.artifact;
@@ -837,6 +852,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       reviewed_existing_evidence_binding_refs: roleOutput?.reviewed_existing_evidence_binding_refs ?? [],
       binding_candidate_proposals: roleOutput?.binding_candidate_proposals ?? [],
       gap_candidate_proposals: roleOutput?.gap_candidate_proposals ?? [],
+      recommended_disposition: input.recommendedDisposition,
       no_domain_gate_request: true,
       no_queue_side_effect: true,
       no_board_write_side_effect: true,
@@ -866,6 +882,81 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
       source_refs: [...request.source_refs],
       source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
     };
+  }
+
+  /**
+   * T-124 D2 复审 (A#4 + 对抗#3 + simplify ×1): a SINGLE deterministic pass over
+   * the same inputs that decides BOTH the final status and its disposition (no
+   * LLM discretion), so the viable-binding predicate is computed once and the two
+   * derivations can never drift.
+   *
+   * `status` (unchanged semantics): `blocked` when any deterministic blocker code
+   * is present, OR the honest role self-reported `blocked`, OR no viable binding
+   * was proposed; otherwise `passed`.
+   *
+   * `disposition` (the blocker-vs-disposition split):
+   *   - `proceed` iff status is `passed` (a viable binding, no blocker);
+   *   - `revise`  iff status is `blocked` AND the honest role PASSED
+   *     (`role_status='passed'`) AND gap findings are present — a gaps critique
+   *     is a valid product stop, not a dead-end, so the coordinator parks it as
+   *     reviewable `waiting_review`. A#4 REMOVED the earlier extra
+   *     `!hasViableBinding` gate: a run that produced a viable binding AND a gaps
+   *     critique carries MORE progress than a gaps-only pass, yet that gate
+   *     routed the former to a terminal block while the latter parked as
+   *     reviewable — a routing inversion. Both now park for review. The gap
+   *     candidates legitimately carry their own blocker codes (e.g.
+   *     missing_locator); those are the substance of the critique that drove
+   *     `status=blocked`, NOT a technical failure, so they do not disqualify
+   *     `revise`.
+   *   - `blocked` otherwise (role-blocked / preflight / technical / no gaps) —
+   *     the current terminal semantics, unchanged.
+   *
+   * 对抗#3 — `role_status` is an LLM-controlled field, so a dishonest `passed`
+   * must not silently promote a run, and it cannot: (1) the same admission /
+   * semantic pipeline (`roleInvocationFailureCode`) backstops the role output —
+   * a `passed` shape that fails structure / coverage / side-effect guards is
+   * reclassified `failed_runtime` and never reaches this derivation; (2) `revise`
+   * routes to `waiting_review`, a HUMAN-VISIBLE stop the coordinator never
+   * auto-advances, not a silent `proceed`. The worst a manipulated
+   * `role_status='passed'` can do here is park the run for human review — a
+   * strictly safe direction.
+   */
+  private deriveFinalStatusAndDisposition(
+    blockerCodes: string[],
+    roleOutput: PaperImplementationEvidenceBoardCurationRoleOutput | null | undefined,
+  ): {
+    status: 'passed' | 'blocked';
+    disposition: PaperImplementationEvidenceBoardCurationDisposition;
+  } {
+    const hasViableBinding = (roleOutput?.binding_candidate_proposals ?? [])
+      .some((candidate) => candidate.support_state === 'viable_binding');
+    const status = blockerCodes.length > 0
+      || roleOutput?.role_status === 'blocked'
+      || !hasViableBinding
+      ? 'blocked'
+      : 'passed';
+    if (status === 'passed') {
+      return { status, disposition: 'proceed' };
+    }
+    const hasGapFindings = (roleOutput?.gap_candidate_proposals?.length ?? 0) > 0;
+    const disposition = roleOutput?.role_status === 'passed' && hasGapFindings ? 'revise' : 'blocked';
+    return { status, disposition };
+  }
+
+  /**
+   * T-124 D2-pre2: the disposition is server-derived and the prompt does not
+   * request it, but if a provider still echoes `recommended_disposition` and it
+   * diverges from the deterministic derivation, the server value wins and the
+   * drift is surfaced as a warning (never a blocker) for observability.
+   */
+  private dispositionEchoDriftWarningCodes(
+    roleOutput: PaperImplementationEvidenceBoardCurationRoleOutput | null | undefined,
+    derived: PaperImplementationEvidenceBoardCurationDisposition,
+  ): string[] {
+    const echoed = roleOutput?.recommended_disposition;
+    return echoed && echoed !== derived
+      ? [EVIDENCE_BOARD_CURATION_DISPOSITION_ECHO_DRIFT_WARNING_CODE]
+      : [];
   }
 
   private async admit(

@@ -12,11 +12,13 @@ import {
   type PaperImplementationRuntimeTelemetryRunDetail,
   type PaperImplementationRuntimeTelemetryRunSummary,
   type PaperImplementationRuntimeTelemetrySlotBreakdown,
+  type PaperImplementationRuntimeTelemetryTierMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-telemetry-contracts';
 
 import type {
   PaperImplementationRuntimeTelemetryRepository,
 } from '../repositories/paper-implementation-runtime-telemetry.repository.js';
+import { derivePaperImplementationRuntimeTelemetryTierMode } from './paper-implementation-runtime-utils.js';
 
 /**
  * Minimal structural view of an orchestrator invocation result the collector
@@ -55,6 +57,11 @@ export interface RecordPaperImplementationRuntimeProviderCallInput {
   retryKind: PaperImplementationRuntimeTelemetryRetryKind | null;
   compressionApplied: boolean;
   shadowTier: PaperImplementationDebateComplexityTier | null;
+  /**
+   * D2 复审 (B#6/C#3): tier-context discriminator for `shadowTier`, decided once
+   * in the shared runtime telemetry helper. `null` when there is no tier context.
+   */
+  tierMode: PaperImplementationRuntimeTelemetryTierMode | null;
 }
 
 /**
@@ -142,6 +149,7 @@ implements PaperImplementationRuntimeTelemetryCollector {
       retry_kind: input.retryKind,
       compression_applied: input.compressionApplied,
       shadow_tier: input.shadowTier,
+      tier_mode: input.tierMode,
     };
   }
 
@@ -171,7 +179,17 @@ implements PaperImplementationRuntimeTelemetryCollector {
     return {
       ...runSummaryFromAccounting(implementationProjectId, runId, records, accounting),
       per_slot: accounting.perSlot,
-      records,
+      // D2 复审 (B#6/C#3) storage note: `tier_mode` is NOT a stored column — it
+      // is a total function of the persisted `slot_id` + `shadow_tier`, so no
+      // schema migration is needed. The write path stamps it (fail-open) and
+      // this read model reconstructs it for any record whose repository dropped
+      // it (a column-backed store persists only the mapped columns). `??`
+      // preserves an already-carried value and rebuilds a missing one.
+      records: records.map((record) => ({
+        ...record,
+        tier_mode: record.tier_mode
+          ?? derivePaperImplementationRuntimeTelemetryTierMode(record.slot_id, record.shadow_tier),
+      })),
     };
   }
 

@@ -39,6 +39,8 @@ type Outcome =
   | 'passed'
   | 'blocked_gap_only'
   | 'passed_gaps_only'
+  | 'passed_gaps_only_echo_drift'
+  | 'passed_viable_binding_with_gaps'
   | 'schema_failed'
   | 'empty_binding_set'
   | 'missing_challenge'
@@ -106,6 +108,29 @@ class StubEvidenceBoardCurationAgentOrchestrator {
         role_status: 'passed',
         binding_candidate_proposals: [],
         gap_candidate_proposals: [gapCandidateProposal('gap_missing_locator')],
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'passed_viable_binding_with_gaps') {
+      // D2 复审 A#4: an honest passed role output carrying BOTH a viable binding
+      // AND a gaps critique — MORE progress than a gaps-only pass. The gap's
+      // blocker code drives finalStatus=blocked; A#4 routes it to revise (the
+      // pre-A#4 !hasViableBinding gate wrongly routed it to a terminal block).
+      return invocationResult(evidenceBoardRoleOutput({
+        role_status: 'passed',
+        binding_candidate_proposals: [bindingCandidateProposal('binding_candidate_001')],
+        gap_candidate_proposals: [gapCandidateProposal('gap_missing_locator')],
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'passed_gaps_only_echo_drift') {
+      // D2-pre2: same gaps-only shape but the provider ALSO echoes a
+      // recommended_disposition that disagrees with the server derivation
+      // (server derives 'revise'; the echo says 'proceed'). The server value
+      // must win and an echo-drift warning must be recorded.
+      return invocationResult(evidenceBoardRoleOutput({
+        role_status: 'passed',
+        binding_candidate_proposals: [],
+        gap_candidate_proposals: [gapCandidateProposal('gap_missing_locator')],
+        recommended_disposition: 'proceed',
       }) as T, input.node_id, input.execution_mode);
     }
     if (outcome === 'missing_challenge') {
@@ -306,6 +331,102 @@ test('evidence-board curation runtime admits a passed gaps-only output instead o
       ?.gap_candidate_proposals?.length,
     1,
   );
+});
+
+// T-124 D2-pre2: the disposition is deterministically server-derived (never an
+// LLM slot). The three archetypes — viable binding → proceed, gaps-only pass →
+// revise, technical/preflight block → blocked — plus provider echo drift.
+test('D2-pre2 evidence-board curation derives recommended_disposition=proceed for a viable binding pass', async () => {
+  const { service } = serviceFixture(['passed']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_proceed_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'proceed');
+  // No echo drift warning for the clean derivation.
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('EVIDENCE_BOARD_CURATION_DISPOSITION_ECHO_DRIFT'),
+    false,
+  );
+});
+
+test('D2-pre2 evidence-board curation derives recommended_disposition=revise for a gaps-only pass (admitted blocked)', async () => {
+  const { service } = serviceFixture(['passed_gaps_only']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_revise_run_001',
+  });
+
+  // Status stays admitted-blocked (no viable binding) — admission unchanged —
+  // but the disposition marks it a semantically-valid critique the coordinator
+  // parks as waiting_review rather than a terminal block.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+});
+
+test('D2 复审 (A#4) evidence-board curation with a viable binding AND gaps derives revise, not a terminal block', async () => {
+  const { service } = serviceFixture(['passed_viable_binding_with_gaps']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_viable_binding_with_gaps_run_001',
+  });
+
+  // A gaps critique ALONGSIDE a viable binding is more progress than a gaps-only
+  // pass, yet the pre-A#4 `!hasViableBinding` gate routed the former to a
+  // terminal blocked disposition while gaps-only parked as reviewable revise —
+  // a routing inversion. Both now derive revise (finalStatus stays blocked
+  // because the gap carries a blocker code), so the coordinator parks
+  // waiting_review for either shape.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+});
+
+test('D2-pre2 evidence-board curation derives recommended_disposition=blocked for a role-blocked gap-only output', async () => {
+  const { service } = serviceFixture(['blocked_gap_only']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_blocked_run_001',
+  });
+
+  // role_status=blocked with a blocker code is technical/terminal, never revise.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'blocked');
+});
+
+test('D2-pre2 evidence-board curation derives recommended_disposition=blocked for a preflight-blocked final', async () => {
+  const { service } = serviceFixture(['passed']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_preflight_blocked_run_001',
+    // Missing source-locator refs park the run in the deterministic preflight
+    // block (zero provider calls) — a technical block, disposition=blocked.
+    source_locator_refs: [],
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'blocked');
+});
+
+test('D2-pre2 evidence-board curation ignores a divergent provider disposition echo and records echo drift', async () => {
+  const { service } = serviceFixture(['passed_gaps_only_echo_drift']);
+  const result = await service.runBindingGapCandidates(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'evidence_board_curation_disposition_echo_drift_run_001',
+  });
+
+  // Provider echoed 'proceed'; the server derivation ('revise') wins and the
+  // divergence is surfaced as a warning (never a blocker).
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('EVIDENCE_BOARD_CURATION_DISPOSITION_ECHO_DRIFT'),
+    true,
+  );
+  assert.equal(result.status, 'blocked');
 });
 
 test('evidence-board curation runtime preflight blocks memo-like and missing locator context before provider calls', async () => {

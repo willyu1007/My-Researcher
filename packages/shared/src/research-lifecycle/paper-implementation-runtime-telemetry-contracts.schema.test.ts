@@ -44,6 +44,7 @@ function validRecord(): Record<string, unknown> {
     retry_kind: null,
     compression_applied: false,
     shadow_tier: 'standard',
+    tier_mode: 'shadow',
   };
 }
 
@@ -70,6 +71,7 @@ test('non-provider record with nulled provider fields passes', async () => {
       cost_usd: null,
       role_slot_id: null,
       shadow_tier: null,
+      tier_mode: null,
     },
   );
   assert.equal(status, 200);
@@ -123,6 +125,31 @@ test('unknown shadow_tier is rejected', async () => {
     { ...validRecord(), shadow_tier: 'exhaustive' },
   );
   assert.equal(status, 400);
+});
+
+test('tier_mode enforced/shadow/null all pass and an unknown tier_mode is rejected', async () => {
+  for (const tierMode of ['enforced', 'shadow', null]) {
+    const status = await validateWithSchema(
+      telemetryContracts.paperImplementationRuntimeTelemetryRecordSchema,
+      { ...validRecord(), tier_mode: tierMode },
+    );
+    assert.equal(status, 200);
+  }
+  const rejected = await validateWithSchema(
+    telemetryContracts.paperImplementationRuntimeTelemetryRecordSchema,
+    { ...validRecord(), tier_mode: 'advisory' },
+  );
+  assert.equal(rejected, 400);
+});
+
+test('tier_mode is optional and additive — a record omitting it still passes', async () => {
+  const record = validRecord();
+  delete record.tier_mode;
+  const status = await validateWithSchema(
+    telemetryContracts.paperImplementationRuntimeTelemetryRecordSchema,
+    record,
+  );
+  assert.equal(status, 200);
 });
 
 test('additional property is rejected', async () => {

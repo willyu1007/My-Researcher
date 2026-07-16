@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-15T02:30:36.354Z",
+  "updatedAt": "2026-07-15T22:43:46.109Z",
   "artifacts": [
     {
       "id": "api-openapi",
@@ -175,8 +175,8 @@
         "llm",
         "model-profiles"
       ],
-      "checksumSha256": "cebc19534c70aca6e0683870cf08d176ff4103b69429e0c2d19f73eb704b2a11",
-      "lastUpdated": "2026-07-12T00:50:00.912Z",
+      "checksumSha256": "efac0d2a414b8e58e0d389de52523be1db61e3f4f6745b4a53b8c3f6ca731dde",
+      "lastUpdated": "2026-07-15T22:43:46.108Z",
       "source": {
         "kind": "command",
         "command": "node .ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs",

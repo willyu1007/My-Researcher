@@ -107,8 +107,20 @@ export const PAPER_IMPLEMENTATION_COORDINATOR_LANE_REGISTRY: Record<
   'cross-board-synthesis': [PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_SLOT_ID],
 };
 
-/** Request fields owned by the coordinator; payloads must not carry them. */
-const COORDINATOR_OWNED_REQUEST_FIELDS = ['run_id', 'resume_from_run_id', 'run_mode', 'execution_mode'] as const;
+/**
+ * Request fields owned by the coordinator; payloads must not carry them.
+ * `provider_call_budget` is owned pre-emptively: the debate-tier budget gate
+ * turns an insufficient budget into a `TIER_BUDGET_INSUFFICIENT` park, so a
+ * payload-set budget would be a DoS-park lever. The trace slot is not yet
+ * mounted on a coordinator lane (forward-looking guard, no current lane effect).
+ */
+const COORDINATOR_OWNED_REQUEST_FIELDS = [
+  'run_id',
+  'resume_from_run_id',
+  'run_mode',
+  'execution_mode',
+  'provider_call_budget',
+] as const;
 
 /** Chain-consumption fields the coordinator injects per lane-A slot. */
 const COORDINATOR_INJECTED_CHAIN_FIELDS: Record<string, readonly string[]> = {
@@ -171,11 +183,13 @@ const FIXTURE_OUTPUT_FIELDS = ['mocked_role_outputs', 'codex_role_outputs'] as c
 const TERMINAL_RUN_STATUSES = new Set<string>(PAPER_IMPLEMENTATION_COORDINATOR_TERMINAL_RUN_STATUSES);
 const DEFAULT_LEASE_TTL_MS = 600_000;
 /**
- * R4/D2: until the tier levels are wired up (D2), this code reaches the
- * coordinator through the deterministic preflight echo channel
- * (`preflight_blocker_codes` → zero-provider-call blocked final). Such
- * zero-call blocked results are LLM-free, so their blocker codes are merged
- * into the trusted set (see the R4 trust rule in `advanceLoop`).
+ * R4/D2: D2 has landed, so the trace-integrity slot now emits this code from a
+ * REAL path — its deterministic zero-provider-call budget gate produces a
+ * blocked final when `provider_call_budget` cannot reserve the decided tier's
+ * upgrade-safe completion count. It reaches the coordinator through the same
+ * zero-provider-call blocked-final channel (LLM-free), so its blocker codes are
+ * merged into the trusted set (see the R4 trust rule in `advanceLoop`) and
+ * classified to `loop_budget_review`.
  */
 const TIER_BUDGET_BLOCKER_CODE = 'TIER_BUDGET_INSUFFICIENT';
 const NO_ELIGIBLE_CANDIDATE_BLOCKER_CODE = 'COORDINATOR_NO_ELIGIBLE_CANDIDATE';
@@ -1516,6 +1530,28 @@ export class PaperImplementationRunCoordinatorService {
     }
     if (result.status === 'failed_runtime') {
       return 'failed_runtime';
+    }
+    // T-124 D2-pre2: a curation final admitted with disposition=revise is a
+    // semantically-valid gaps critique (the deterministic blocker-vs-disposition
+    // split) — it parks the run as waiting_review (override / re-advance
+    // resumes), aligned with the lane A skeptic non-proceed stop, rather than
+    // the terminal blocked its admitted-blocked status would otherwise land.
+    // disposition=blocked keeps the existing terminal block. This branch
+    // precedes the generic blocked check because a revise final still carries
+    // status='blocked', and it is server-derived — the coordinator only reads it.
+    //
+    // D2 复审 (A#3): the waiting_review park ALSO requires an ADMITTED final
+    // admission record. Under R9 the step's acceptance-bridge ref/hash (and
+    // runtime_artifact_id) materialize ONLY from an admitted final admission; a
+    // revise final whose final admission was rejected would park as
+    // waiting_review with null artifact ref/hash — nothing for a human to
+    // review. Such a final falls back to the terminal blocked semantics below.
+    if (
+      slotId === PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID
+      && result.final_runtime_artifact?.artifact_payload.recommended_disposition === 'revise'
+      && result.final_admission_record?.admission_status === 'admitted'
+    ) {
+      return 'waiting_review';
     }
     if (result.status === 'blocked') {
       return 'blocked';

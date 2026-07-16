@@ -1,13 +1,17 @@
 /**
- * S4-C shadow ComplexityAssessment (record-only, for D2 calibration).
+ * S4-C shadow ComplexityAssessment + D2-core enforced entry.
  *
  * `assessPaperImplementationDebateComplexityShadow` is a pure, deterministic
  * function that recommends a debate tier from a small set of recomputable
- * request statistics. It is wired into the four multi-role debate slots
- * (trace-integrity, P1 claim-boundary, P1 dossier-readiness, motive-evolution)
- * where the recommended tier is written ONLY into the runtime telemetry
- * `shadow_tier` field. It has ZERO effect on any execution path — no role
- * count, model option, retry policy, prompt, or budget changes because of it.
+ * request statistics. `assessPaperImplementationDebateComplexity` (T-124
+ * D2-core) is the ENFORCED entry point: byte-identical tier/inputs_hash/
+ * rationale computation, re-wrapped with the enforced schema version. The
+ * trace-integrity boundary debate now EXECUTES the tier this returns (role plan
+ * + budget via `PaperImplementationDebatePolicy@v1`); the P1 claim-boundary /
+ * dossier-readiness and motive-evolution slots keep calling the SHADOW alias and
+ * only record `shadow_tier` for one more observation window. Both names share
+ * one implementation so the shadow record and the enforced decision can never
+ * diverge for the same inputs.
  *
  * The thresholds below are intentionally constants pending D2 calibration:
  * D2 owns turning these shadow recommendations into an enforced tier policy,
@@ -28,6 +32,10 @@
 
 export const PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_SHADOW_SCHEMA_VERSION =
   'PaperImplementationDebateComplexityShadowAssessment@v0' as const;
+
+/** D2-core: enforced-decision schema version (same computation, enforced use). */
+export const PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_ASSESSMENT_SCHEMA_VERSION =
+  'PaperImplementationDebateComplexityAssessment@v1' as const;
 
 export const PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS = [
   'light',
@@ -179,6 +187,33 @@ export function assessPaperImplementationDebateComplexityShadow(
     recommended_tier: tier,
     inputs_hash: hashShadowInputs(normalized),
     rationale_codes: rationaleCodes,
+  };
+}
+
+export interface PaperImplementationDebateComplexityAssessment {
+  schema_version: typeof PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_ASSESSMENT_SCHEMA_VERSION;
+  recommended_tier: PaperImplementationDebateComplexityTier;
+  inputs_hash: string;
+  rationale_codes: PaperImplementationDebateComplexityRationaleCode[];
+}
+
+/**
+ * D2-core enforced tier decision. Byte-identical tier/inputs_hash/rationale to
+ * the shadow function (single shared implementation), re-tagged with the
+ * enforced schema version. The trace-integrity boundary debate consumes this to
+ * pick its role plan and budget; the decision (tier + inputs_hash +
+ * rationale_codes) is pinned into runtime identity, the runtime artifact
+ * execution context, and telemetry.
+ */
+export function assessPaperImplementationDebateComplexity(
+  inputs: PaperImplementationDebateComplexityShadowInputs,
+): PaperImplementationDebateComplexityAssessment {
+  const shadow = assessPaperImplementationDebateComplexityShadow(inputs);
+  return {
+    schema_version: PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_ASSESSMENT_SCHEMA_VERSION,
+    recommended_tier: shadow.recommended_tier,
+    inputs_hash: shadow.inputs_hash,
+    rationale_codes: shadow.rationale_codes,
   };
 }
 

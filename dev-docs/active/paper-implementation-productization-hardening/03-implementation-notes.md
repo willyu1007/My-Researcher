@@ -1,5 +1,14 @@
 # 03 Implementation Notes
 
+## 2026-07-15 D2 落地 + 复审修复轮（debate 确定性档位，T-124）
+
+- **D2-pre1 evolution 槽内内容注入**：run 006/007 的 `MISSING_DESIGNER_*` 实为 LLM 自报（非服务码）——challenger 语境只有 ref/hash 无 designer 正文。修：designed_options 全量正文+keys 注入 challenger user message（hash 围栏与覆盖检查零放松，no-relax 反例钉死；token 走既有单源估算，超预算 fail-closed 无静默截断）。
+- **D2-pre2 disposition 形式化**：curation 契约加性 `recommended_disposition`（proceed|revise|blocked，**纯服务端确定性推导**，LLM 回显被忽略仅记漂移 warning）；coordinator board pipeline 对 admitted+revise 停驻 waiting_review（与 skeptic 同构：语义停驻不入队、可 override 续跑）。
+- **D2-core 档位引擎（trace enforced，P1/evolution 继续 shadow）**：DebatePolicy@v1（light=3 角色地板+**skeptic 有 findings 确定性升档 standard 补跑 reconcile**；standard=4 角色现状；full=4 角色+更高 token/重试预算——第二轮 reconcile 无干净确定性条件，按工单预留条款放弃并入契约注释）；identity 纳 tier 四字段+artifact 记 debate_execution；resume 加 RESUME_DEBATE_TIER_DRIFT/ROLE_PLAN_DRIFT；升档同 run 追加 call 序（effective plan 是 (tier, admitted skeptic findings) 纯函数，与 D9 幂等兼容）；TIER_BUDGET_INSUFFICIENT 预留通道激活（R4 分类 loop_budget_review 零 coordinator 改动）；admission 按实际执行角色集参数化（findings 存在时 disposition 完备永不豁免）；manifest 增 tier 维+四向互查扩展。
+- **复审修复轮**（6 角度含对抗性档位审计→两路修复）：**修复-1**——resume 前缀走查改计划感知（`nextExpectedRoleSlotId` 回调按 (tier, 复用链 findings) 重derive，修 light 无 findings 时已 admitted arbiter 被静默丢弃重付→RESUME_ROLE_AMBIGUOUS 永久不可续，×3 互证）；pre-D2 artifact 零执行幂等重放宽容（无 debate_execution → 跳过 tier 断言，继续执行路径仍硬拒，对齐 F1-3 姿态）；near-prod trace fixture 重钉 standard（消掷硬币 flaky）；policy 死字段清除（inserts_role/手钉预留常量改派生/删装饰性 enforced 标志）+NaN fail-closed+预算注释改准确（预留检查非硬花费上限）；trace 类型单源收敛（删 as cast/角色↔slot-id 单映射/单计数器循环/executed_role_plan 滤 preflight 伪角色）；coordinator 保留字段加 provider_call_budget（防 payload 投毒 DoS-park，前瞻）。**修复-2**——revise 停驻加 final admission=admitted 门（被拒 final 落回 blocked）；viable-binding+gaps 倒挂修正（revise ⟺ passed∧gaps∧blocked，谓词合一 deriveFinalStatusAndDisposition）；遥测加 `tier_mode`（enforced|shadow|null，**slot_id+shadow_tier 纯函数派生零迁移**，写时打标+读时重derive）；桌面标签分档（生效档位 vs 影子档位）。
+- **对抗性审计通过面**：升档对 blocked skeptic 的 findings 同样触发（hollow-pass 关死）；skeptic prompt 档位无关（无"报零发现避升档"激励面）；tier-budget blocked final 被 passed-only 下游门拦截；不同 budget 不碰撞 identity。**已接受后果留档**：pre-D2 identity 不连续（S2-C 双提交守卫对旧 run 失效，dev-only 数据）；阈值未校准（构造输入可压 light 但升档规则兜底）；coordinator 路径预算门待 trace 挂 lane 时接 envelope（现未挂，字段已保留）。
+- **移交/后续**：纯 light 地板（零 findings 不升档）批判有效性未被 live 行使——D2 校准下一最高价值探针；designer 侧 bounded-ref prompt 硬化候选（run 008 designer ref 越界变异）；P1/evolution 扩档待 shadow 数据；prior_blocker_density 真值待 coordinator 语境接入（换轴 bump inputs_hash）。
+
 ## 2026-07-15 T-132 formal Pack B product seam update
 
 - The exact Run/head acknowledgement produced from formal PaperProject `P313` completed Pack B E1-E5 on the reviewed named-local target through the normal product route and production Prisma worker.

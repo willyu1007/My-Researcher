@@ -335,13 +335,20 @@ function TelemetryRunDetailCard({ controller }: { controller: Controller }) {
     );
   }
 
-  const shadowTiers = Array.from(
-    new Set(
-      detail.records
-        .map((entry) => entry.shadow_tier)
-        .filter((tier): tier is NonNullable<typeof tier> => tier !== null),
-    ),
-  );
+  // D2 复审 (C#3): split the debate-tier readout by `tier_mode` so the enforced
+  // (trace boundary-debate, in effect) rows and the record-only shadow rows are
+  // no longer mixed on one line.
+  const tiersForMode = (mode: 'enforced' | 'shadow') =>
+    Array.from(
+      new Set(
+        detail.records
+          .filter((entry) => entry.tier_mode === mode)
+          .map((entry) => entry.shadow_tier)
+          .filter((tier): tier is NonNullable<typeof tier> => tier !== null),
+      ),
+    );
+  const enforcedTiers = tiersForMode('enforced');
+  const shadowTiers = tiersForMode('shadow');
 
   return (
     <section data-ui="section" data-padding="none">
@@ -361,9 +368,13 @@ function TelemetryRunDetailCard({ controller }: { controller: Controller }) {
           />
         </div>
         <div data-ui="stack" data-direction="col" data-gap="1">
-          <p data-ui="text" data-variant="label" data-tone="primary">shadow 档位（未生效）</p>
+          <p data-ui="text" data-variant="label" data-tone="primary">debate 档位</p>
+          <p data-ui="text" data-variant="caption" data-tone="secondary">
+            生效档位（enforced）：{enforcedTiers.length > 0 ? enforcedTiers.join(', ') : '无'}
+            {enforcedTiers.length > 0 ? '（trace 边界辩论，实际生效）' : ''}
+          </p>
           <p data-ui="text" data-variant="caption" data-tone="muted">
-            {shadowTiers.length > 0 ? shadowTiers.join(', ') : '无 shadow 判定'}
+            影子档位（未生效）：{shadowTiers.length > 0 ? shadowTiers.join(', ') : '无'}
             {shadowTiers.length > 0 ? '（record-only，不影响执行路径）' : ''}
           </p>
         </div>

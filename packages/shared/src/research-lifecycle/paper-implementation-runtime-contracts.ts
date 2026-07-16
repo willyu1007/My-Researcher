@@ -32,6 +32,10 @@ import {
   PAPER_IMPLEMENTATION_MOTIVE_FRESHNESS_STATUSES,
   type PaperImplementationMotiveFreshnessStatus,
 } from './paper-implementation-motive-contracts.js';
+import {
+  PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS,
+  type PaperImplementationDebateComplexityTier,
+} from './paper-implementation-debate-complexity-shadow.js';
 
 export const PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION =
   'PaperImplementationRuntimeArtifactEnvelope@v1' as const;
@@ -707,6 +711,25 @@ export interface PaperImplementationTraceIntegrityRetrievalPacket {
   warning_codes: string[];
 }
 
+/**
+ * T-124 D2-core: the enforced debate-tier decision recorded into the runtime
+ * artifact execution context. `base_tier` is the deterministic preflight
+ * decision (pure function of recomputable inputs, identity-pinned via
+ * `tier_inputs_hash`); `effective_tier` is the tier actually in effect after
+ * any deterministic mid-run upgrade (light + skeptic findings → standard).
+ */
+export interface PaperImplementationDebateTierExecutionContext {
+  debate_policy_id: string;
+  debate_policy_version: string;
+  base_tier: PaperImplementationDebateComplexityTier;
+  effective_tier: PaperImplementationDebateComplexityTier;
+  tier_upgraded: boolean;
+  tier_inputs_hash: string;
+  tier_rationale_codes: string[];
+  /** Final artifacts additionally record the executed role slot ids in order. */
+  executed_role_plan?: string[];
+}
+
 export interface PaperImplementationTraceIntegrityDebateArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
   target_ref: TopicSelectionFunctionalRef;
@@ -734,6 +757,8 @@ export interface PaperImplementationTraceIntegrityDebateArtifact {
   cache_identity: Record<string, unknown>;
   source_refs: TopicSelectionFunctionalRef[];
   source_hash_bundle_hash: string;
+  /** T-124 D2-core (additive): the enforced tier decision + executed role plan. */
+  debate_execution?: PaperImplementationDebateTierExecutionContext | null;
 }
 
 export interface RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
@@ -765,6 +790,14 @@ export interface RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
   source_hashes: string[];
   source_packets?: PaperImplementationTraceIntegritySourcePacketInput[];
   preflight_blocker_codes?: string[];
+  /**
+   * D2-core debate-tier budget cap: the maximum provider calls this run may
+   * reserve. `null`/omitted = unbounded (the coordinator path never sets it, so
+   * coordinator-driven debates stay unbounded — coordinator zero-change). When
+   * set below the decided tier's upgrade-safe reservation, the debate fails
+   * closed at preflight with a zero-provider-call `TIER_BUDGET_INSUFFICIENT`.
+   */
+  provider_call_budget?: number | null;
   mocked_role_outputs?: Partial<Record<
     PaperImplementationTraceIntegrityDebateSemanticRoleSlotId,
     PaperImplementationTraceIntegrityRoleOutput
@@ -1823,6 +1856,32 @@ export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_RECOMMENDED_NEXT_GATES = [
 export type PaperImplementationEvidenceBoardRecommendedNextGate =
   (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_RECOMMENDED_NEXT_GATES)[number];
 
+// T-124 D2-pre2 / D2 复审 A#4: the deterministic disposition the curation SERVICE
+// derives over the reviewed board input — the blocker-vs-disposition split.
+// `blocker` codes mean the output itself is unusable/technical;
+// `recommended_disposition` is the verdict on a usable output. Named
+// isomorphically with the route-skeptic `recommended_disposition` so both stops
+// read the same in the coordinator:
+//   - proceed: a viable binding candidate with no blocker,
+//   - revise:  the honest role PASSED and produced gap findings while finalStatus
+//              is blocked — a semantically-valid critique the coordinator parks
+//              as waiting_review (override/re-advance resumes), NOT a terminal
+//              block. A#4: this holds WHETHER OR NOT a viable binding was also
+//              proposed (a viable binding + gaps is more progress than gaps-only,
+//              so it must not route worse); an ADMITTED final admission is
+//              additionally required for the park (A#3, enforced in the
+//              coordinator), else it falls back to blocked.
+//   - blocked: role-blocked / no gaps / technical / preflight — terminal semantics.
+// This is a pure server-side derivation (not an LLM slot); see the runtime
+// service `deriveFinalStatusAndDisposition`.
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_DISPOSITIONS = [
+  'proceed',
+  'revise',
+  'blocked',
+] as const;
+export type PaperImplementationEvidenceBoardCurationDisposition =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_DISPOSITIONS)[number];
+
 export interface PaperImplementationEvidenceBoardRuntimeControl {
   terminal_code: 'preflight_blocked' | 'runtime_retry_exhausted' | 'admission_rejected' | 'admitted_blocked';
   reason_kind: string;
@@ -1906,6 +1965,12 @@ export interface PaperImplementationEvidenceBoardCurationRoleOutput {
   gap_candidate_proposals?: PaperImplementationEvidenceBoardGapCandidateProposal[];
   blocker_codes: string[];
   warning_codes: string[];
+  // T-124 D2-pre2 (additive): the disposition is server-derived, never an LLM
+  // slot — the prompt does not request this field. It is tolerated on the role
+  // output only so a stray provider echo validates; the service ignores the
+  // echoed value and derives its own, recording an echo-drift warning on
+  // divergence (avoids introducing a hollow LLM-authored semantic slot).
+  recommended_disposition?: PaperImplementationEvidenceBoardCurationDisposition | null;
   no_domain_gate_request?: true;
   no_queue_side_effect?: true;
   no_board_write_side_effect?: true;
@@ -1941,6 +2006,10 @@ export interface PaperImplementationEvidenceBoardCurationArtifact {
   reviewed_existing_evidence_binding_refs: TopicSelectionFunctionalRef[];
   binding_candidate_proposals: PaperImplementationEvidenceBoardBindingCandidateProposal[];
   gap_candidate_proposals: PaperImplementationEvidenceBoardGapCandidateProposal[];
+  // T-124 D2-pre2 (additive): the deterministic server-derived disposition over
+  // the reviewed input. The coordinator board pipeline reads this to park a
+  // gaps-only `revise` final as waiting_review instead of a terminal block.
+  recommended_disposition?: PaperImplementationEvidenceBoardCurationDisposition | null;
   no_domain_gate_request: true;
   no_queue_side_effect: true;
   no_board_write_side_effect: true;
@@ -2798,6 +2867,9 @@ const crossBoardRecommendedNextGateSchema = {
 } as const;
 const evidenceBoardCurationModeSchema = {
   enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_MODES],
+} as const;
+const evidenceBoardCurationDispositionSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_DISPOSITIONS],
 } as const;
 const motiveDecompositionModeSchema = {
   enum: [...PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_MODES],
@@ -4237,6 +4309,33 @@ export const paperImplementationTraceIntegrityRetrievalPacketSchema = {
   },
 } as const;
 
+// T-124 D2-core: enforced tier decision recorded in the final debate artifact.
+// `tier_inputs_hash` is the portable fnv1a identity token of the complexity
+// inputs (NOT a sha256), hence stringId rather than hashString.
+const paperImplementationDebateTierExecutionContextSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'debate_policy_id',
+    'debate_policy_version',
+    'base_tier',
+    'effective_tier',
+    'tier_upgraded',
+    'tier_inputs_hash',
+    'tier_rationale_codes',
+  ],
+  properties: {
+    debate_policy_id: stringId,
+    debate_policy_version: stringId,
+    base_tier: { enum: [...PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS] },
+    effective_tier: { enum: [...PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS] },
+    tier_upgraded: { type: 'boolean' },
+    tier_inputs_hash: stringId,
+    tier_rationale_codes: stringArray,
+    executed_role_plan: stringArray,
+  },
+} as const;
+
 export const paperImplementationTraceIntegrityDebateArtifactSchema = {
   type: 'object',
   additionalProperties: false,
@@ -4295,6 +4394,10 @@ export const paperImplementationTraceIntegrityDebateArtifactSchema = {
     cache_identity: traceIntegrityIdentityObject,
     source_refs: nonEmptyNonLegacyFunctionalRefArray,
     source_hash_bundle_hash: hashString,
+    // T-124 D2-core (additive/optional): the enforced tier decision.
+    debate_execution: {
+      anyOf: [paperImplementationDebateTierExecutionContextSchema, { type: 'null' }],
+    },
   },
 } as const;
 
@@ -5272,6 +5375,11 @@ export const paperImplementationEvidenceBoardCurationRoleOutputSchema = {
     },
     blocker_codes: stringArray,
     warning_codes: stringArray,
+    // T-124 D2-pre2 (additive/optional): tolerated so a stray provider echo
+    // validates; the disposition is server-derived, never required here.
+    recommended_disposition: {
+      anyOf: [evidenceBoardCurationDispositionSchema, { type: 'null' }],
+    },
     no_domain_gate_request: { const: true },
     no_queue_side_effect: { const: true },
     no_board_write_side_effect: { const: true },
@@ -5396,6 +5504,11 @@ export const paperImplementationEvidenceBoardCurationArtifactSchema = {
     gap_candidate_proposals: {
       type: 'array',
       items: paperImplementationEvidenceBoardGapCandidateProposalSchema,
+    },
+    // T-124 D2-pre2 (additive/optional): server-derived disposition; the
+    // coordinator parks a gaps-only `revise` final as waiting_review.
+    recommended_disposition: {
+      anyOf: [evidenceBoardCurationDispositionSchema, { type: 'null' }],
     },
     no_domain_gate_request: { const: true },
     no_queue_side_effect: { const: true },
@@ -6292,6 +6405,8 @@ export const runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema = {
       items: paperImplementationTraceIntegritySourcePacketInputSchema,
     },
     preflight_blocker_codes: stringArray,
+    // T-124 D2-core: tier budget cap (null/omitted = unbounded).
+    provider_call_budget: { anyOf: [nonNegativeInteger, { type: 'null' }] },
     mocked_role_outputs: traceIntegrityRoleOutputsBySlotSchema,
     codex_role_outputs: traceIntegrityRoleOutputsBySlotSchema,
   },

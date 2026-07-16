@@ -1399,6 +1399,36 @@ test('trace integrity debate runtime request accepts only slot inputs, not runti
     }),
     false,
   );
+  // T-124 D2-core: provider_call_budget is an optional non-negative-integer
+  // (or null) tier budget cap; negatives and fractions fail the strict schema.
+  assert.equal(
+    await validatesBody(runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema, {
+      ...request,
+      provider_call_budget: 4,
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema, {
+      ...request,
+      provider_call_budget: null,
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema, {
+      ...request,
+      provider_call_budget: -1,
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema, {
+      ...request,
+      provider_call_budget: 3.5,
+    }),
+    false,
+  );
 });
 
 test('trace integrity debate runtime request requires role outputs for non-provider modes', async () => {
@@ -2717,6 +2747,27 @@ test('evidence-board curation role output requires challenge checks and side-eff
     })),
     true,
   );
+  // T-124 D2-pre2: recommended_disposition is additive/optional on the role
+  // output (a provider echo is tolerated; the value is server-derived), and
+  // only the proceed|revise|blocked enum validates.
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      recommended_disposition: 'revise',
+    })),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      recommended_disposition: null,
+    })),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationRoleOutputSchema, evidenceBoardCurationRoleOutput({
+      recommended_disposition: 'park' as unknown as 'revise',
+    })),
+    false,
+  );
 });
 
 test('evidence-board curation final artifact schema is append-only and no-domain-write', async () => {
@@ -2788,6 +2839,32 @@ test('evidence-board curation final artifact schema is append-only and no-domain
     await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
       ...artifact,
       create_evidence_binding_request: { must_not_exist: true },
+    }),
+    false,
+  );
+  // T-124 D2-pre2: recommended_disposition is additive/optional on the final
+  // artifact (server-derived proceed|revise|blocked); other values fail.
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      recommended_disposition: 'proceed',
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      status: 'blocked',
+      binding_candidate_proposals: [],
+      gap_candidate_proposals: [evidenceBoardGapCandidateProposal('gap_candidate_001')],
+      recommended_disposition: 'revise',
+    }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationEvidenceBoardCurationArtifactSchema, {
+      ...artifact,
+      recommended_disposition: 'abandon',
     }),
     false,
   );

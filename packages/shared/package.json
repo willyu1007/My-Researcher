@@ -64,6 +64,7 @@
     "./research-lifecycle/paper-implementation-human-confirmation-contracts": "./src/research-lifecycle/paper-implementation-human-confirmation-contracts.ts",
     "./research-lifecycle/paper-implementation-coordinator-contracts": "./src/research-lifecycle/paper-implementation-coordinator-contracts.ts",
     "./research-lifecycle/paper-implementation-debate-complexity-shadow": "./src/research-lifecycle/paper-implementation-debate-complexity-shadow.ts",
+    "./research-lifecycle/paper-implementation-debate-policy": "./src/research-lifecycle/paper-implementation-debate-policy.ts",
     "./research-lifecycle/paper-implementation-runtime-telemetry-contracts": "./src/research-lifecycle/paper-implementation-runtime-telemetry-contracts.ts"
   },
   "scripts": {

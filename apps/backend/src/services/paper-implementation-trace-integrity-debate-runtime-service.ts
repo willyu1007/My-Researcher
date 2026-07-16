@@ -10,6 +10,7 @@ import {
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_SEMANTIC_ROLE_SLOT_IDS,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_PREFLIGHT_ROLE_SLOT_ID,
   paperImplementationTraceIntegrityRoleOutputSchema,
+  type PaperImplementationDebateTierExecutionContext,
   type PaperImplementationRuntimeCacheStatus,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
@@ -69,9 +70,19 @@ import type {
   PaperImplementationRuntimeTelemetryCollector,
 } from './paper-implementation-runtime-telemetry-service.js';
 import {
-  assessPaperImplementationDebateComplexityShadow,
+  assessPaperImplementationDebateComplexity,
+  type PaperImplementationDebateComplexityAssessment,
   type PaperImplementationDebateComplexityTier,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
+import {
+  PAPER_IMPLEMENTATION_TIER_BUDGET_INSUFFICIENT_BLOCKER_CODE,
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_POLICY,
+  paperImplementationDebateTierBudgetSufficient,
+  paperImplementationDebateTierPlan,
+  paperImplementationEffectiveDebateRolePlan,
+  paperImplementationEffectiveDebateTier,
+  type PaperImplementationDebateRole,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-policy';
 import {
   evaluatePaperImplementationTraceIntegrityRoleSemantics,
 } from './paper-implementation-trace-debate-semantics.js';
@@ -126,6 +137,8 @@ interface RoleInvocationOutcome {
 }
 
 interface RoleSpec {
+  /** Slot-agnostic policy role name — the single source for role↔slot mapping. */
+  debateRole: PaperImplementationDebateRole;
   slotId: PaperImplementationTraceIntegrityDebateSemanticRoleSlotId;
   executorKind: PaperImplementationRuntimeExecutorKind;
   promptVariantId: string;
@@ -133,28 +146,80 @@ interface RoleSpec {
 
 const ROLE_SPECS: RoleSpec[] = [
   {
+    debateRole: 'support_mapper_map',
     slotId: 'trace_integrity_review.support_mapper_map',
     executorKind: 'semantic_support_mapper',
     promptVariantId: 'support-map.main',
   },
   {
+    debateRole: 'skeptic_challenge',
     slotId: 'trace_integrity_review.skeptic_challenge',
     executorKind: 'semantic_skeptic',
     promptVariantId: 'skeptic-challenge.main',
   },
   {
+    debateRole: 'support_mapper_reconcile',
     slotId: 'trace_integrity_review.support_mapper_reconcile',
     executorKind: 'semantic_reconcile',
     promptVariantId: 'support-map.reconcile',
   },
   {
+    debateRole: 'arbiter_final',
     slotId: 'trace_integrity_review.arbiter_final',
     executorKind: 'semantic_arbiter',
     promptVariantId: 'arbiter.final',
   },
 ];
 
-const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
+/**
+ * D2-core: ROLE_SPECS stays the full four-role chain; which roles actually run
+ * is decided by the enforced DebatePolicy@v1 role plan (light floor omits the
+ * reconcile role; a skeptic finding deterministically upgrades light → standard
+ * and inserts it back). Both directions of the policy-role ↔ slot-id mapping are
+ * DERIVED from each RoleSpec's colocated `debateRole`/`slotId` pair, so there is
+ * no string-strip cast or hand-rebuilt slot-id template that could drift.
+ */
+const ROLE_SPEC_BY_DEBATE_ROLE: Record<PaperImplementationDebateRole, RoleSpec> =
+  Object.fromEntries(ROLE_SPECS.map((spec) => [spec.debateRole, spec])) as Record<
+    PaperImplementationDebateRole,
+    RoleSpec
+  >;
+
+const ROLE_SLOT_ID_BY_DEBATE_ROLE: Record<
+  PaperImplementationDebateRole,
+  PaperImplementationTraceIntegrityDebateSemanticRoleSlotId
+> = Object.fromEntries(ROLE_SPECS.map((spec) => [spec.debateRole, spec.slotId])) as Record<
+  PaperImplementationDebateRole,
+  PaperImplementationTraceIntegrityDebateSemanticRoleSlotId
+>;
+
+/** Semantic (non-preflight) role slot ids, for filtering executed-plan records. */
+const SEMANTIC_ROLE_SLOT_ID_SET = new Set<string>(
+  PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_SEMANTIC_ROLE_SLOT_IDS,
+);
+
+/**
+ * D2-core: the deterministic light→standard upgrade trigger — true when any
+ * recorded skeptic role output carries at least one challenge finding. Single
+ * source for the skeptic slot id and the finding predicate, shared by the
+ * execution loop, the resume prefix guard, and the resume plan-aware walk.
+ */
+function traceSkepticFindingsPresent(
+  outputs: Iterable<PaperImplementationTraceIntegrityRoleOutput | null | undefined>,
+): boolean {
+  for (const output of outputs) {
+    if (
+      output?.role_slot_id === ROLE_SLOT_ID_BY_DEBATE_ROLE.skeptic_challenge
+      && (output.challenge_findings ?? []).length > 0
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const TRACE_DEBATE_POLICY = PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_POLICY;
+
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
 ]);
@@ -198,17 +263,35 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       request,
     );
     const runtimeBase = this.runtimeBase(implementationProjectId, request, runId, retrievalResult);
+    // D2-core: the enforced base tier is a pure function of recomputable request
+    // statistics — the single value that drives the budget gate, the resume
+    // plan-aware walk, and the plan-driven execution loop below.
+    const baseTier = runtimeBase.tierAssessment.recommended_tier;
     const artifacts: PaperImplementationRuntimeArtifactEnvelope[] = [];
     const admissions: PaperImplementationRuntimeAdmissionRecord[] = [];
+    // D2-core budget gate: the decided tier reserves its UPGRADE-SAFE provider
+    // call count (light reserves standard's, so a skeptic-finding upgrade can
+    // never hit a budget wall mid-run). An insufficient provider_call_budget
+    // fails closed HERE — a deterministic zero-provider-call preflight blocker
+    // (`TIER_BUDGET_INSUFFICIENT`) riding the existing blocked-final path, which
+    // is exactly the coordinator's R4-trusted zero-call channel
+    // (classification `loop_budget_review` is already registered — coordinator
+    // zero-change). Non-provider modes issue zero provider calls, so the gate
+    // only applies to provider_llm.
+    const tierBudgetBlockerCodes = request.execution_mode === 'provider_llm'
+      && !paperImplementationDebateTierBudgetSufficient(baseTier, request.provider_call_budget)
+      ? [PAPER_IMPLEMENTATION_TIER_BUDGET_INSUFFICIENT_BLOCKER_CODE]
+      : [];
     const preflightBlockerCodes = this.uniqueStrings([
       ...(request.preflight_blocker_codes ?? []),
       ...retrievalResult.blocker_codes,
+      ...tierBudgetBlockerCodes,
     ]);
     const preflightWarningCodes = this.uniqueStrings(retrievalResult.warning_codes);
 
     let resume: TraceResumeState | null = null;
     if (resumeRunId) {
-      const engine = this.resumeEngine();
+      const engine = this.resumeEngine(baseTier);
       const resumeIdentity = this.resumeIdentity(runtimeBase, request);
       const idempotent = await engine.idempotentResumeChain(resumeIdentity);
       if (idempotent) {
@@ -271,12 +354,25 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       admissions.push(reused.admission);
       roleArtifacts.push(reused);
     }
+    // D2-core plan-driven execution. The effective role plan is a pure function
+    // of (base tier, "skeptic produced findings") and is prefix-stable: the only
+    // v1 growth inserts the reconcile role immediately before the arbiter AFTER
+    // the skeptic completes, so already-executed positions never change. The
+    // deterministic light→standard upgrade therefore runs IN the same run as
+    // appended call indexes (D9-compatible: a resumed/idempotent replay
+    // re-derives the identical plan from the recorded skeptic output).
+    //
+    // The loop is single-counter: `roleArtifacts.length` IS the next plan
+    // position, `nextCallIndex` is the only carried counter, and the (findings →
+    // plan) derivation runs exactly once per round — the skeptic's findings
+    // become known when it is pushed and grow the plan on the very next check.
+    this.assertResumedPrefixMatchesRolePlan(runId, baseTier, roleArtifacts);
     let nextCallIndex = resume?.nextCallIndex ?? 1;
-    for (const [index, spec] of ROLE_SPECS.entries()) {
-      if (index < roleArtifacts.length) {
-        // Admitted prefix reused from the resumed run — no provider re-issue.
-        continue;
-      }
+    let skepticFindingsPresent = this.skepticFindingsPresent(roleArtifacts);
+    let plan = paperImplementationEffectiveDebateRolePlan(baseTier, skepticFindingsPresent);
+    while (roleArtifacts.length < plan.length) {
+      const effectiveTier = paperImplementationEffectiveDebateTier(baseTier, skepticFindingsPresent);
+      const spec = ROLE_SPEC_BY_DEBATE_ROLE[plan[roleArtifacts.length]!];
       const callIndex = nextCallIndex;
       nextCallIndex += 1;
       const roleInvocation = await this.invokeRoleWithBoundedRetry(
@@ -285,6 +381,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         spec,
         callIndex,
         roleArtifacts,
+        effectiveTier,
       );
       const recorded = await this.recordRoleArtifact(runtimeBase, request, spec, callIndex, roleArtifacts, roleInvocation);
       artifacts.push(recorded.artifact);
@@ -302,6 +399,11 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
           null,
         );
       }
+      // Recompute once per round: the just-pushed role may be the skeptic, whose
+      // findings deterministically upgrade the plan (light + findings → standard
+      // + reconcile) before the next position is chosen.
+      skepticFindingsPresent = this.skepticFindingsPresent(roleArtifacts);
+      plan = paperImplementationEffectiveDebateRolePlan(baseTier, skepticFindingsPresent);
     }
 
     const blockerCodes = this.uniqueStrings(roleArtifacts.flatMap((item) => item.output?.blocker_codes ?? []));
@@ -338,9 +440,13 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     spec: RoleSpec,
     callIndex: number,
     priorArtifacts: RecordedRuntimeArtifact[],
+    effectiveTier: PaperImplementationDebateComplexityTier,
   ): Promise<RoleInvocationOutcome> {
+    // D2-core: the bounded technical-retry attempt count is a tier plan
+    // parameter (full gets more headroom than light/standard).
+    const maxRetryAttemptIndex = paperImplementationDebateTierPlan(effectiveTier).max_technical_retry_attempts;
     let providerCallCount = 0;
-    for (let retryAttemptIndex = 0; retryAttemptIndex <= MAX_TECHNICAL_RETRY_ATTEMPT_INDEX; retryAttemptIndex += 1) {
+    for (let retryAttemptIndex = 0; retryAttemptIndex <= maxRetryAttemptIndex; retryAttemptIndex += 1) {
       const result = await this.invokeRole(
         runtimeBase,
         request,
@@ -352,12 +458,17 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       providerCallCount += this.providerCallCount(result);
       const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase, spec, result, priorArtifacts);
       const shouldRetry = request.execution_mode === 'provider_llm'
-        && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
+        && retryAttemptIndex < maxRetryAttemptIndex
         && runtimeFailureCode !== null
         && RETRYABLE_RUNTIME_FAILURE_CODES.has(runtimeFailureCode);
       // S4 复审 FA-3: the telemetry call_index is the per-(role, attempt)
       // ordinal — NOT the artifact-level role call ordinal (`callIndex`) that
       // retries used to share, which double-counted one retry as repaid twice.
+      //
+      // D2-core: for THIS slot the recorded tier is the ENFORCED tier in effect
+      // when the call was issued (the effective tier after any deterministic
+      // light→standard upgrade) — the telemetry field keeps its `shadow_tier`
+      // name for schema stability, but here it is no longer record-only.
       await recordSlotProviderCallTelemetry(this.telemetryCollector, {
         implementationProjectId: runtimeBase.implementationProjectId,
         runId: runtimeBase.runId,
@@ -368,7 +479,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         result,
         shouldRetry,
         runtimeFailureCode,
-        shadowTier: runtimeBase.shadowTier,
+        shadowTier: effectiveTier,
       });
       if (!shouldRetry) {
         return {
@@ -663,6 +774,14 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       model_option_id: input.modelOptionId ?? runtimeBase.modelOptionId,
       prior_role_artifact_hashes: input.priorRoleArtifacts.map((item) => item.artifact.artifact_payload_hash),
       source_hash_bundle_hash: sourceHashBundleHash,
+      // D2-core: the enforced tier decision is part of runtime identity —
+      // different tier (or drifted tier inputs) = different identity, so a
+      // tier-drifted replay/resume can never collide with or silently reuse
+      // artifacts recorded under another tier.
+      debate_policy_id: TRACE_DEBATE_POLICY.debate_policy_id,
+      debate_policy_version: TRACE_DEBATE_POLICY.debate_policy_version,
+      debate_tier: runtimeBase.tierAssessment.recommended_tier,
+      tier_inputs_hash: runtimeBase.tierAssessment.inputs_hash,
     };
     const runtimeIdentityHash = this.hash(runtimeIdentity);
     const artifactPayloadRef = this.ref(
@@ -871,6 +990,16 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       },
       source_refs: [...request.source_refs],
       source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+      // D2-core: final execution context — the effective tier here reflects the
+      // WHOLE chain (a light run whose skeptic found issues records the upgraded
+      // standard tier and the four-role executed plan). The executed role plan
+      // records only SEMANTIC debate roles: a preflight-blocked final's pseudo
+      // preflight role is filtered out (it is not part of the debate role plan).
+      debate_execution: {
+        ...this.debateExecutionContext(runtimeBase, input.roleArtifacts),
+        executed_role_plan: roleArtifacts.flatMap((item) =>
+          item.role_slot_id && SEMANTIC_ROLE_SLOT_ID_SET.has(item.role_slot_id) ? [item.role_slot_id] : []),
+      },
     };
   }
 
@@ -910,13 +1039,53 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   }
 
   /**
+   * D2-core: true when an already-recorded skeptic role output carries at least
+   * one challenge finding — the deterministic light→standard upgrade trigger.
+   */
+  private skepticFindingsPresent(roleArtifacts: RecordedRuntimeArtifact[]): boolean {
+    return traceSkepticFindingsPresent(roleArtifacts.map((item) => item.output));
+  }
+
+  /**
+   * D2-core resume guard: the reused admitted prefix must occupy exactly the
+   * positions the effective role plan derives for this run's tier (re-derived
+   * from the reused skeptic output). A prefix recorded under a different plan —
+   * e.g. a reconcile artifact inside a light-no-findings run — is deterministic
+   * plan drift and fails closed (409).
+   */
+  private assertResumedPrefixMatchesRolePlan(
+    runId: string,
+    baseTier: PaperImplementationDebateComplexityTier,
+    reusedPrefix: RecordedRuntimeArtifact[],
+  ): void {
+    let findingsKnown = false;
+    for (const [index, reused] of reusedPrefix.entries()) {
+      const plan = paperImplementationEffectiveDebateRolePlan(baseTier, findingsKnown);
+      const expectedRole = plan[index];
+      const expectedSlotId = expectedRole ? ROLE_SLOT_ID_BY_DEBATE_ROLE[expectedRole] : null;
+      if (!expectedSlotId || reused.artifact.role_slot_id !== expectedSlotId) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `Resume of run ${runId} rejected: reused role ${reused.artifact.role_slot_id ?? 'unknown'} at position ${index} does not match the ${baseTier}-tier role plan.`,
+          { resume_issue_codes: [RESUME_ISSUE_CODES.ROLE_PLAN_DRIFT] },
+        );
+      }
+      findingsKnown = findingsKnown || this.skepticFindingsPresent([reused]);
+    }
+  }
+
+  /**
    * D9 resume engine (T-124 S3 F1-0): the trace-integrity debate and P1 review
    * services share one implementation of idempotent replay, admitted prefix reuse,
    * and per-artifact identity pinning. This slot pins the boundary-debate slot
-   * identity and adds the two trace-only identity facets (retrieval packet hash,
-   * reviewed statement packet hash) via extraIdentityChecks.
+   * identity and adds the trace-only identity facets (retrieval packet hash,
+   * reviewed statement packet hash, and — D2-core — the enforced debate tier
+   * decision) via extraIdentityChecks.
    */
-  private resumeEngine(): PaperImplementationRuntimeResumeEngine<PaperImplementationTraceIntegrityRoleOutput> {
+  private resumeEngine(
+    baseTier: PaperImplementationDebateComplexityTier,
+  ): PaperImplementationRuntimeResumeEngine<PaperImplementationTraceIntegrityRoleOutput> {
     return new PaperImplementationRuntimeResumeEngine(this.runtimeAdmission, {
       slotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
       finalArtifactRefType: 'trace_integrity_debate_artifact',
@@ -924,7 +1093,20 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       promptTemplateVersion: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
       roleOutputSchemaId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_ROLE_OUTPUT_SCHEMA_ID,
       roleSlotIds: ROLE_SPECS.map((spec) => spec.slotId),
-      extraIdentityChecks: (artifact, facets) => {
+      // D2-core plan-aware reuse walk: the next reusable role is re-derived from
+      // the SAME (base tier, skeptic-findings-in-reused-chain) effective plan the
+      // execution loop uses. A light run whose skeptic found nothing has a 3-role
+      // plan, so the walk expects the arbiter at position 2 (not the reconcile the
+      // static list would look for) and never drops the admitted arbiter.
+      nextExpectedRoleSlotId: (reusedSoFar) => {
+        const findingsPresent = traceSkepticFindingsPresent(
+          reusedSoFar.map((item) => item.output as PaperImplementationTraceIntegrityRoleOutput | null),
+        );
+        const plan = paperImplementationEffectiveDebateRolePlan(baseTier, findingsPresent);
+        const role = plan[reusedSoFar.length];
+        return role ? ROLE_SLOT_ID_BY_DEBATE_ROLE[role] : null;
+      },
+      extraIdentityChecks: (artifact, facets, options) => {
         const issues: string[] = [];
         if (artifact.retrieval_packet_hash !== facets.retrievalPacketHash) {
           issues.push(RESUME_ISSUE_CODES.RETRIEVAL_PACKET_HASH_DRIFT);
@@ -932,9 +1114,53 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         if (artifact.reviewed_statement_packet_hash !== facets.reviewedStatementPacketHash) {
           issues.push(RESUME_ISSUE_CODES.REVIEWED_STATEMENT_PACKET_DRIFT);
         }
+        // D2-core: identity includes the enforced tier decision — a resumed
+        // artifact recorded under a different base tier (or a different tier
+        // inputs hash) is tier drift and never silently reused. The recorded
+        // decision is read from the artifact's self-contained debate_execution
+        // payload section.
+        const recorded = this.recordedDebateExecution(artifact);
+        if (recorded === null) {
+          // Pre-D2 artifact (no recorded tier decision). On the zero-execution
+          // idempotent replay path (`toleratePreD2Identity`) a completed run must
+          // still replay safely; the continue-execution path treats the absence as
+          // drift and fails closed.
+          if (!options.toleratePreD2Identity) {
+            issues.push(RESUME_ISSUE_CODES.DEBATE_TIER_DRIFT);
+          }
+        } else if (
+          recorded.base_tier !== facets.debateTier
+          || recorded.tier_inputs_hash !== facets.tierInputsHash
+          || recorded.debate_policy_id !== TRACE_DEBATE_POLICY.debate_policy_id
+        ) {
+          issues.push(RESUME_ISSUE_CODES.DEBATE_TIER_DRIFT);
+        }
         return issues;
       },
     });
+  }
+
+  /** Parse the recorded D2 debate-execution decision out of a stored artifact payload. */
+  private recordedDebateExecution(
+    artifact: PaperImplementationRuntimeArtifactEnvelope,
+  ): { debate_policy_id: string; base_tier: string; tier_inputs_hash: string } | null {
+    const value = artifact.artifact_payload.debate_execution;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.debate_policy_id !== 'string'
+      || typeof record.base_tier !== 'string'
+      || typeof record.tier_inputs_hash !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      debate_policy_id: record.debate_policy_id,
+      base_tier: record.base_tier,
+      tier_inputs_hash: record.tier_inputs_hash,
+    };
   }
 
   private resumeIdentity(
@@ -953,6 +1179,11 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       extraFacets: {
         retrievalPacketHash: runtimeBase.retrievalPacketHash,
         reviewedStatementPacketHash: request.reviewed_statement_packet_hash,
+        // D2-core: the tier decision is an identity facet — a resume request
+        // whose re-derived tier (or tier inputs) drifts from the recorded run
+        // is rejected, never silently continued under a different plan.
+        debateTier: runtimeBase.tierAssessment.recommended_tier,
+        tierInputsHash: runtimeBase.tierAssessment.inputs_hash,
       },
     };
   }
@@ -963,7 +1194,19 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     runId: string,
     retrievalResult: PaperImplementationTraceIntegrityRetrievalResult,
   ): RuntimeBase {
-    const contextPolicyProfile = this.contextPolicyProfile();
+    // D2-core ENFORCED tier decision (was S4-C shadow): a pure function of
+    // recomputable request statistics. `prior_blocker_density` stays the
+    // registered degraded axis fed as 0 — wiring the real density needs
+    // coordinator run context, which D2-core keeps zero-change; the axis
+    // semantics are unchanged so the inputs_hash version is NOT bumped (the
+    // shadow-era records stay identity-comparable).
+    const tierAssessment = assessPaperImplementationDebateComplexity({
+      reviewed_statement_count: request.reviewed_statement_refs.length,
+      retrieval_packet_ref_count: request.source_refs.length,
+      prior_blocker_density: 0,
+      target_kind: 'trace_integrity',
+    });
+    const contextPolicyProfile = this.tierContextPolicyProfile(tierAssessment.recommended_tier);
     const contextPolicyProfileHash = this.hash(contextPolicyProfile);
     const retrievalPacketHash = retrievalResult.packet_hash;
     const sourceHashBundleHash = this.hash({
@@ -992,16 +1235,7 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
         store_rendered_prompt: false,
       }),
       compressionPolicyProfileHash: this.hash(contextPolicyProfile.compression_policy),
-      // S4 复审 FA-5 shadow inputs: prior_blocker_density is a known degraded
-      // axis, constant 0 (zero variance) until D2 wires coordinator context —
-      // see the shadow contract header. The other two axes are real request
-      // signals (statement refs / source refs).
-      shadowTier: assessPaperImplementationDebateComplexityShadow({
-        reviewed_statement_count: request.reviewed_statement_refs.length,
-        retrieval_packet_ref_count: request.source_refs.length,
-        prior_blocker_density: 0,
-        target_kind: 'trace_integrity',
-      }).recommended_tier,
+      tierAssessment,
     };
   }
 
@@ -1117,6 +1351,38 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     };
   }
 
+  /**
+   * D2-core: the effective context policy profile for a decided tier — the base
+   * profile with the tier plan's role_output_token_budget_ceiling applied
+   * (light/standard equal the base 1_800; `full` raises it). The difference
+   * flows into context_policy_profile_hash, which is correct: the tier is a
+   * runtime-identity facet anyway. The base tier never changes mid-run (the
+   * light→standard upgrade target shares light's ceiling), so one profile per
+   * run stays exact.
+   */
+  private tierContextPolicyProfile(
+    tier: PaperImplementationDebateComplexityTier,
+  ): TopicSelectionContextPolicyProfile {
+    const base = this.contextPolicyProfile();
+    const ceiling = paperImplementationDebateTierPlan(tier).role_output_token_budget_ceiling;
+    if (ceiling === base.token_budget_policy.estimated_output_token_budget) {
+      return base;
+    }
+    return {
+      ...base,
+      token_budget_policy: {
+        ...base.token_budget_policy,
+        estimated_output_token_budget: ceiling,
+      },
+    };
+  }
+
+  /**
+   * Base (tier-independent) context policy profile. The values below are the
+   * slot's manifest-pinned base declaration; the per-tier output-token ceiling
+   * (a DebatePolicy@v1 plan parameter — only `full` differs in v1) is applied
+   * on top by `tierContextPolicyProfile`.
+   */
   private contextPolicyProfile(): TopicSelectionContextPolicyProfile {
     return {
       schema_version: TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_SCHEMA_VERSION,
@@ -1247,6 +1513,35 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
       prior_role_outputs: priorArtifacts.flatMap((item) => item.output ? [item.output] : []),
       prior_role_artifact_refs: priorArtifacts.map((item) => item.admission.admitted_artifact_ref),
       prior_role_artifact_hashes: priorArtifacts.map((item) => item.admission.admitted_artifact_hash),
+      debate_execution: this.debateExecutionContext(runtimeBase, priorArtifacts),
+    };
+  }
+
+  /**
+   * D2-core execution context recorded into every role/final artifact payload:
+   * the enforced tier decision (tier + inputs_hash + rationale_codes) plus the
+   * tier in effect at THIS point of the chain. `effective_tier` is the tier the
+   * role executed under — for roles issued before the skeptic's findings are
+   * known it equals the base tier; once a light run's skeptic produced findings
+   * the deterministic upgrade shows on every subsequent record.
+   */
+  private debateExecutionContext(
+    runtimeBase: RuntimeBase,
+    priorArtifacts: RecordedRuntimeArtifact[],
+  ): PaperImplementationDebateTierExecutionContext {
+    const baseTier = runtimeBase.tierAssessment.recommended_tier;
+    const effectiveTier = paperImplementationEffectiveDebateTier(
+      baseTier,
+      this.skepticFindingsPresent(priorArtifacts),
+    );
+    return {
+      debate_policy_id: TRACE_DEBATE_POLICY.debate_policy_id,
+      debate_policy_version: TRACE_DEBATE_POLICY.debate_policy_version,
+      base_tier: baseTier,
+      effective_tier: effectiveTier,
+      tier_upgraded: effectiveTier !== baseTier,
+      tier_inputs_hash: runtimeBase.tierAssessment.inputs_hash,
+      tier_rationale_codes: [...runtimeBase.tierAssessment.rationale_codes],
     };
   }
 
@@ -1304,6 +1599,13 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
   private assertRequest(request: RunPaperImplementationTraceIntegrityDebateRuntimeRequest): void {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
+    }
+    if (
+      request.provider_call_budget !== undefined
+      && request.provider_call_budget !== null
+      && (!Number.isInteger(request.provider_call_budget) || request.provider_call_budget < 0)
+    ) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'provider_call_budget must be a non-negative integer when present.');
     }
     assertResumeRunIdConsistency(
       request.run_id?.trim() || null,
@@ -1594,8 +1896,11 @@ interface RuntimeBase {
   cachePolicyProfileHash: string;
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
-  // S4-C record-only shadow tier (zero execution-path effect).
-  shadowTier: PaperImplementationDebateComplexityTier;
+  /**
+   * D2-core ENFORCED tier decision (tier + inputs_hash + rationale_codes):
+   * drives the executed role plan, budget gate, retry bound, and identity.
+   */
+  tierAssessment: PaperImplementationDebateComplexityAssessment;
 }
 
 interface BuildArtifactInput {

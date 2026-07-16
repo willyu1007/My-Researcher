@@ -1328,9 +1328,15 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const designerInstruction = isWireEncoding
       ? 'Propose evolution options as designed_option_entries: an array where every entry carries a unique runtime-local option_key (not a MotiveEvolutionDecision id) plus the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.'
       : 'Propose evolution options as designed_options: an object keyed by a unique runtime-local option_key (not a MotiveEvolutionDecision id) whose value carries the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.';
+    // T-124 D2-pre1: the designer's complete designed_options body is threaded
+    // verbatim into prior_role_artifacts[0].designed_options (keyed by option_key,
+    // enumerated in prior_role_artifacts[0].designed_option_keys). The challenger
+    // reads that full content and challenges each option on its substance — it
+    // must never block for missing designer option keys or missing designer
+    // option content, because both are supplied in the request.
     const challengerInstruction = isWireEncoding
-      ? 'Challenge every designer option key: echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_option_entries as an array with exactly one entry per challenged option key; each entry repeats its option_key and carries a complete challenge_check.'
-      : 'Challenge every designer option key: echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_options as an object keyed by option_key with exactly one entry per challenged option key; each entry carries a complete challenge_check.';
+      ? 'Challenge every designer option on its substance: the designer\'s complete option content is supplied verbatim in prior_role_artifacts[0].designed_options (enumerated in prior_role_artifacts[0].designed_option_keys), so never block for missing designer option keys or content. Echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_option_entries as an array with exactly one entry per challenged option key; each entry repeats its option_key and carries a complete challenge_check.'
+      : 'Challenge every designer option on its substance: the designer\'s complete option content is supplied verbatim in prior_role_artifacts[0].designed_options (enumerated in prior_role_artifacts[0].designed_option_keys), so never block for missing designer option keys or content. Echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_options as an object keyed by option_key with exactly one entry per challenged option key; each entry carries a complete challenge_check.';
     return [
       {
         role: 'system',
@@ -1375,26 +1381,61 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
             accepted_risk_refs: request.accepted_risk_refs ?? [],
             human_request_refs: request.human_request_refs ?? [],
           },
-          prior_role_artifacts: priorRoleArtifacts.map((item) => ({
-            role_slot_id: item.artifact.role_slot_id,
-            artifact_ref: item.artifact.artifact_payload_ref,
-            artifact_hash: item.artifact.artifact_payload_hash,
-            option_set_hash: this.optionSetHashFromOutput(item.output),
-          })),
+          prior_role_artifacts: priorRoleArtifacts.map((item) => this.priorRoleArtifactContext(item)),
           source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
         }),
       },
     ];
   }
 
+  /**
+   * T-124 D2-pre1 (gs001-lora-live-006/007 root cause): thread the designer's
+   * FULL canonical designed_options body verbatim into the challenger's call
+   * context. Before this, the challenger received only the designer artifact
+   * ref/hash + option_set_hash, so the challenger LLM self-reported
+   * MISSING_DESIGNER_OPTION_KEYS / MISSING_DESIGNER_ARTIFACT_CONTENT — it could
+   * not substantively challenge option content it never saw (same family as the
+   * run 003 skeptic RF-001 body-invisibility; B3 fixed the coordinator
+   * cross-step body thread, this is the in-slot designer→challenger handoff
+   * layer). The body is fenced by the same option_set_hash the challenger must
+   * echo back, with designed_option_keys as the explicit key list to challenge.
+   * The existing option_set_hash echo / challenged_option_keys / decision_options
+   * coverage checks in challengerOutputFailureCode are unchanged and now pass on
+   * a faithful echo — no semantic check is relaxed; a drifted echo still fails
+   * closed. The body rides the existing estimatedInputTokens({ messages }) budget
+   * channel (no compression path is wired for this slot — see runtimeTokenBudget),
+   * so an over-budget prompt fails closed (TOKEN_BUDGET_REQUIRES_COMPRESSION)
+   * rather than silently truncating option content.
+   */
+  private priorRoleArtifactContext(
+    item: RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionRoleOutput>,
+  ): Record<string, unknown> {
+    const context: Record<string, unknown> = {
+      role_slot_id: item.artifact.role_slot_id,
+      artifact_ref: item.artifact.artifact_payload_ref,
+      artifact_hash: item.artifact.artifact_payload_hash,
+      option_set_hash: this.optionSetHashFromOutput(item.output),
+    };
+    const output = item.output;
+    if (output && this.isDesignerOutput(output)) {
+      context.designed_option_keys = Object.keys(output.designed_options).sort();
+      context.designed_options = output.designed_options;
+    }
+    return context;
+  }
+
   // S2-A / PC-S4 boundary note: the motive slots are documented-as-within-budget —
   // their expected product inputs (portfolio refs + bounded motive context packets)
   // sit well inside the 36k input target, so the caller-side compression attempt
   // (PC-S1..S3) is deliberately NOT wired here. NOTE the request DOES carry a
-  // `motive_context_packets` body face; if product telemetry ever shows this slot
-  // hitting `TOKEN_BUDGET_REQUIRES_COMPRESSION`, wire the shared
-  // `buildPaperImplementationCompressionAttempt` builder exactly like the six packet
-  // slots. Until then over-budget stays fail-closed
+  // `motive_context_packets` body face, and (T-124 D2-pre1) the challenger message
+  // now also carries the designer's full designed_options body via
+  // priorRoleArtifactContext — that body is embedded verbatim in `messages`, so the
+  // single-source estimatedInputTokens({ messages }) count below already includes
+  // it (no separate compression channel, no silent truncation). If product
+  // telemetry ever shows this slot hitting `TOKEN_BUDGET_REQUIRES_COMPRESSION`, wire
+  // the shared `buildPaperImplementationCompressionAttempt` builder exactly like the
+  // six packet slots. Until then over-budget stays fail-closed
   // (L5 `motive_evolution_over_budget_zero_provider_calls`). The N3 token
   // double-count fix below applies here regardless.
   private runtimeTokenBudget(

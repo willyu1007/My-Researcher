@@ -1,5 +1,11 @@
 # 04 Verification
 
+## 2026-07-15 D2 闭合（debate 确定性档位 + live 双证据）
+- **实施与复审**：pre1/pre2/core 三路落地 + 6 角度 review（含对抗性档位审计）→ 两路修复全收（详 03）。收口门：全量 runtime-stress `t114-paper-implementation-runtime-stress-1784159862963` **passed**；prisma smoke **39/0/15**；三包 tsc/typecheck 零错；**near-prod gate `t114-paper-implementation-near-prod-runtime-gate-1784160628013` passed**（trace enforced standard 档确定性 4 调用首过 L6）。L5 必检新增 7（pre1×1/pre2×1/core×4/修复轮 light-gap resume×1）。无迁移（tier_mode 纯函数派生）。
+- **gs-001 v4（run 008，素材 v3 不动）**：**D2-pre2 live 实证**——curation gaps-only → `recommended_disposition=revise` → coordinator **waiting_review 停驻**（override 复跑再停驻，诚实语义终止）；lane A 仍 completed；motive lane 仍 blocked 但失败上移至 **designer ref 越界变异**（challenger 未运行，`MISSING_DESIGNER_*` 已消失——**D2-pre1 未获正向 live 验证**，如实留档待 v5）。遥测对比 007：9 调用/$2.075/**重付率 17.06% 全可归因**（override 重放 $0.272+designer 语义重试 $0.082——S4 指标在真实流程首次非零工作）。四维 rubric 代评审**延至 v5**（lane A 输出与 006/007 同构、motive 无新可评面；档位批判有效性已由专项探针覆盖）。
+- **档位对比探针（live，证据 `.ai/.tmp/paper-implementation-tier-comparison/d2-close-001/`）**：同一 overclaim 目标双跑——light 输入 base=light、skeptic 3 findings → **确定性升档真实发生**（effective=standard、reconcile 补跑、4 调用零技术重试）；standard 输入原生 4 调用。**批判有效性判读：light（升档后）≈ standard**——同三条实质缺陷（弱因果支持/无据泛化/无据 drop-in 声明），standard 仅粒度更细（4 findings vs 3，拆分复合缺陷），无覆盖缺口，两 arbiter 同判 blocked。**诚实边界**：纯 light 地板（零 findings 不升档 3 角色完链）未被行使——D2 校准下一探针；standard 形态多一条 lineage ref 非纯档深 A/B。
+- D2 全部验收项闭合（enforced 范围=trace；P1/evolution shadow 观察）。剩余：golden ×3（gs-002/003 素材）→ D4/D6 → D10 终验收。
+
 ## 2026-07-15 S4 闭合（观测面/产品面/档位影子 + 遥测基线）
 - **实施与复审**：S4-A/B/C/D 全落地 + 8 角度 code review（含零语义影响审计）→ FA/FB/FC 三路修复全收（详 03：retry_kind 单源、call_index 统一根修重付双计、re-advance 重付约定、R4 晋升排除集、re_advance 状态门、runner observability_gaps、桌面竞态/残留/红线修复）。
 - **收口证据**：全量 runtime-stress `t114-paper-implementation-runtime-stress-1784092748915` **passed**；迁移 `20260715120000_add_paper_implementation_s4_runtime_telemetry` **用户审批后已 apply**（pg_tables 确认），迁移后 prisma smoke **39/0/15**；backend+shared tsc 零错 + desktop typecheck 零错。L5 必检 +4（shadow 可复算/零行为影响/队列分类穷举/debate 重试 call_index 序）。

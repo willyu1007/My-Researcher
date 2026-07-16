@@ -32,6 +32,14 @@ export const RESUME_ISSUE_CODES = {
   MODEL_OPTION_DRIFT: 'RESUME_MODEL_OPTION_DRIFT',
   RETRIEVAL_PACKET_HASH_DRIFT: 'RESUME_RETRIEVAL_PACKET_HASH_DRIFT',
   REVIEWED_STATEMENT_PACKET_DRIFT: 'RESUME_REVIEWED_STATEMENT_PACKET_DRIFT',
+  // T-124 D2-core: the enforced debate-tier decision is an identity facet.
+  // DEBATE_TIER_DRIFT = the resume request re-derives a different base tier /
+  // tier inputs hash / policy id than the recorded artifacts carry (including
+  // pre-D2 artifacts with no recorded decision). ROLE_PLAN_DRIFT = the reused
+  // admitted prefix does not occupy the positions the tier's deterministic
+  // role plan derives (e.g. a reconcile artifact inside a light-no-findings run).
+  DEBATE_TIER_DRIFT: 'RESUME_DEBATE_TIER_DRIFT',
+  ROLE_PLAN_DRIFT: 'RESUME_ROLE_PLAN_DRIFT',
 } as const;
 
 export type ResumeIssueCode = (typeof RESUME_ISSUE_CODES)[keyof typeof RESUME_ISSUE_CODES];
@@ -48,12 +56,39 @@ export interface ResumeIdentityDescriptor {
   promptTemplateId: string;
   promptTemplateVersion: string;
   roleOutputSchemaId: string;
-  /** Ordered role slot ids forming the executed chain (reuse iteration order). */
+  /**
+   * Static ordered role slot ids forming the executed chain (reuse iteration
+   * order). Used by slots whose role plan does not depend on prior role OUTPUT.
+   * A slot whose effective plan IS output-dependent (e.g. the trace debate's
+   * deterministic light→standard skeptic-finding upgrade, which omits the
+   * reconcile role when the skeptic found nothing) supplies `nextExpectedRoleSlotId`
+   * instead — see below.
+   */
   roleSlotIds: readonly string[];
-  /** Slot-specific identity facets; returns the drift issue codes it detects. */
+  /**
+   * Plan-aware role walk (optional). Given the already-reused prefix in role
+   * order, return the role slot id the NEXT reuse position must occupy, or null
+   * when the plan is complete. This lets the reuse walk track a plan that grows
+   * or shrinks with prior role output, so it never breaks on a legitimately-absent
+   * role and silently drops the admitted roles that follow it (the light-tier
+   * arbiter after a skipped reconcile). When omitted the walk iterates the static
+   * `roleSlotIds` in order. Must use the SAME derivation the slot's continue-execution
+   * loop uses, so a resumed prefix and a fresh run agree position-for-position.
+   */
+  nextExpectedRoleSlotId?(
+    reusedSoFar: readonly ResumeReusedRoleArtifact<unknown>[],
+  ): string | null;
+  /**
+   * Slot-specific identity facets; returns the drift issue codes it detects.
+   * `options.toleratePreD2Identity` is true only on the zero-execution idempotent
+   * replay path, where an artifact recorded before a facet existed (e.g. a pre-D2
+   * artifact with no `debate_execution` tier decision) must not fail a completed
+   * run's safe no-op replay; the continue-execution path always passes false.
+   */
   extraIdentityChecks(
     artifact: PaperImplementationRuntimeArtifactEnvelope,
     facets: Readonly<Record<string, unknown>>,
+    options: { toleratePreD2Identity: boolean },
   ): string[];
 }
 
@@ -165,8 +200,15 @@ export class PaperImplementationRuntimeResumeEngine<TRoleOutput> {
     // F1-3: on the zero-execution idempotent path do NOT pin prompt identity to
     // the current constant — a run completed under an earlier prompt version must
     // still replay to its original final. Intra-run version consistency (below)
-    // replaces the current-constant pin here.
-    this.assertArtifactIdentity(finalArtifact, identity, { checkOutputSchema: false, pinPromptToCurrent: false });
+    // replaces the current-constant pin here. `toleratePreD2Identity` likewise
+    // lets a completed pre-D2 run (no recorded tier decision) replay safely: a
+    // finished run's no-op replay must never 409 on a facet that did not exist
+    // when it ran.
+    this.assertArtifactIdentity(finalArtifact, identity, {
+      checkOutputSchema: false,
+      pinPromptToCurrent: false,
+      toleratePreD2Identity: true,
+    });
     const finalAdmission = await this.admittedAdmissionRecord(identity.implementationProjectId, finalArtifact, 'final');
     if (!finalAdmission) {
       throw this.conflict(identity.runId, `a final artifact exists but was never admitted.`, [
@@ -283,7 +325,18 @@ export class PaperImplementationRuntimeResumeEngine<TRoleOutput> {
     // F1-5: resolve every candidate role admission in a single batched query.
     const admittedByArtifact = await this.admittedRoleAdmissionByArtifact(projectId, runArtifacts);
     const reused: ResumeReusedRoleArtifact<TRoleOutput>[] = [];
-    for (const slotId of this.descriptor.roleSlotIds) {
+    // Plan-aware role walk (D2-core): the expected role at each position is
+    // re-derived from the reused-so-far prefix (the trace debate's plan shrinks
+    // to 3 roles for a light run whose skeptic found nothing, so a static 4-role
+    // walk would break at the absent reconcile and drop the admitted arbiter that
+    // follows). Slots with an output-independent plan fall back to the static list.
+    for (;;) {
+      const slotId = this.descriptor.nextExpectedRoleSlotId
+        ? this.descriptor.nextExpectedRoleSlotId(reused)
+        : (this.descriptor.roleSlotIds[reused.length] ?? null);
+      if (slotId === null) {
+        break;
+      }
       const candidates = runArtifacts.filter((artifact) => artifact.role_slot_id === slotId);
       const admittedCandidates = candidates
         .map((artifact) => ({ artifact, admission: admittedByArtifact.get(artifact.runtime_artifact_id) ?? null }))
@@ -307,8 +360,13 @@ export class PaperImplementationRuntimeResumeEngine<TRoleOutput> {
       }
       const { artifact, admission } = admittedCandidates[0]!;
       // Continue-execution path pins prompt identity to the current constant so a
-      // v1-prefix + v2-suffix mixed chain is rejected (F1-3).
-      this.assertArtifactIdentity(artifact, identity, { checkOutputSchema: true, pinPromptToCurrent: true });
+      // v1-prefix + v2-suffix mixed chain is rejected (F1-3), and never tolerates a
+      // missing D2 tier decision — a reused role with no recorded decision is drift.
+      this.assertArtifactIdentity(artifact, identity, {
+        checkOutputSchema: true,
+        pinPromptToCurrent: true,
+        toleratePreD2Identity: false,
+      });
       const expectedPriorHashes = reused.map((item) => item.artifact.artifact_payload_hash);
       const priorHashesMatch = artifact.prior_role_artifact_hashes.length === expectedPriorHashes.length
         && artifact.prior_role_artifact_hashes.every((hash, index) => hash === expectedPriorHashes[index]);
@@ -346,7 +404,7 @@ export class PaperImplementationRuntimeResumeEngine<TRoleOutput> {
   private assertArtifactIdentity(
     artifact: PaperImplementationRuntimeArtifactEnvelope,
     identity: ResumeRequestIdentity,
-    options: { checkOutputSchema: boolean; pinPromptToCurrent: boolean },
+    options: { checkOutputSchema: boolean; pinPromptToCurrent: boolean; toleratePreD2Identity: boolean },
   ): void {
     const issues: string[] = [];
     if (artifact.source_hash_bundle_hash !== identity.sourceHashBundleHash) {
@@ -377,7 +435,9 @@ export class PaperImplementationRuntimeResumeEngine<TRoleOutput> {
     if (!this.modelOptionMatches(identity, artifact)) {
       issues.push(RESUME_ISSUE_CODES.MODEL_OPTION_DRIFT);
     }
-    issues.push(...this.descriptor.extraIdentityChecks(artifact, identity.extraFacets));
+    issues.push(...this.descriptor.extraIdentityChecks(artifact, identity.extraFacets, {
+      toleratePreD2Identity: options.toleratePreD2Identity,
+    }));
     if (issues.length > 0) {
       throw new AppError(
         409,

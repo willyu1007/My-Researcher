@@ -120,7 +120,14 @@ import {
   PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE,
   PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_PREFIX,
   PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_SLOT_BLOCKER_CODE,
+  PaperImplementationRunCoordinatorService,
 } from './paper-implementation-run-coordinator-service.js';
+import {
+  InMemoryPaperImplementationCoordinatorRepository,
+} from '../repositories/in-memory-paper-implementation-coordinator-repository.js';
+import {
+  InMemoryPaperImplementationAiWorkflowHarnessRepository,
+} from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import {
   seedAdmittedRoutePlanningLineage,
   seedAdmittedValidationPlanningLineage,
@@ -131,7 +138,10 @@ import { PaperImplementationValidationCyclePlanningRuntimeService } from './pape
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationRuntimeTelemetryService } from './paper-implementation-runtime-telemetry-service.js';
 import { InMemoryPaperImplementationRuntimeTelemetryRepository } from '../repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
-import { assessPaperImplementationDebateComplexityShadow } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
+import {
+  assessPaperImplementationDebateComplexity,
+  assessPaperImplementationDebateComplexityShadow,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-complexity-shadow';
 import {
   PaperImplementationTraceIntegrityDebateRuntimeService,
 } from './paper-implementation-trace-integrity-debate-runtime-service.js';
@@ -1583,6 +1593,96 @@ test('L5 evidence-board curation memo-like evidence ref blocks before provider c
   assertNoLeak(result, evidenceBoardForbiddenWriteFragments());
 });
 
+test('L5 evidence-board curation gaps-only disposition parks the coordinator run as waiting_review across the full chain (D2-pre2)', async () => {
+  // T-124 D2-pre2 full chain: a provider gaps-only curation output (no viable
+  // binding, gap findings present — the gs001 run 006/007 stop shape) flows
+  // runtime service → deterministic server-side disposition derivation →
+  // admitted-blocked final carrying recommended_disposition='revise' →
+  // coordinator board pipeline parks the run as waiting_review (a semantic
+  // stop aligned with the lane A skeptic non-proceed park: no decision-queue
+  // item, override/re-advance resumes), never the terminal blocked its
+  // admitted-blocked status alone would land.
+  const gateway = new ScriptedLlmGateway(() => evidenceBoardCurationRoleOutput({
+    binding_candidate_proposals: [],
+    gap_candidate_proposals: [{
+      gap_key: 'gap_duplicate_existing_binding_l5_001',
+      target_assertion_ref: ref('motive_assertion', 'assertion_evidence_board_l5_001'),
+      gap_kind: 'duplicate_existing_binding',
+      missing_evidence_need: 'Independent evidence beyond the already-bound unit is required before a new viable binding exists.',
+      source_locator_blockers: [],
+      citation_blockers: [],
+      freshness_blockers: [],
+      recommended_next_gate: 'citation_candidate_review',
+      blocker_codes: ['duplicate_existing_binding'],
+      warning_codes: [],
+    }],
+  }));
+  const fixture = realRuntimeFixture(gateway);
+  const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
+  const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
+  const coordinator = new PaperImplementationRunCoordinatorService({
+    coordinatorRepository,
+    projectRepository: fixture.projectRepository,
+    decisionQueueWriter: {
+      enqueueDecisionWorkQueueItem: (item) => harnessRepository.enqueueDecisionWorkQueueItem(item),
+    },
+    runtimeArtifactReader: {
+      findRuntimeArtifactById: (implementationProjectId, runtimeArtifactId) =>
+        fixture.repository.findRuntimeArtifactById(implementationProjectId, runtimeArtifactId),
+    },
+    routePlanningRuntime: fixture.routePlanningService,
+    validationCyclePlanningRuntime: fixture.validationCyclePlanningService,
+    feasibilityPlanningRuntime: fixture.feasibilityPlanningService,
+    motiveDecompositionRuntime: fixture.motiveDecompositionService,
+    motiveEvolutionRuntime: fixture.motiveEvolutionService,
+    evidenceBoardCurationRuntime: fixture.evidenceBoardCurationService,
+    crossBoardSynthesisRuntime: fixture.crossBoardSynthesisService,
+    idFactory: fixture.idFactory,
+    now: () => NOW,
+    leaseTtlMs: 60_000,
+  });
+
+  // Coordinator-owned fields (run_id / run_mode / execution_mode) stay off the
+  // slot payload; the rest is the real provider-shaped curation request.
+  const {
+    run_id: _runId,
+    run_mode: _runMode,
+    execution_mode: _executionMode,
+    ...curationSlotPayload
+  } = evidenceBoardCurationRequest();
+
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'evidence-board-curation',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 2, max_provider_calls: 4 },
+    slot_request_payloads: {
+      [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]:
+        curationSlotPayload as unknown as Record<string, unknown>,
+    },
+  });
+  const parked = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_l5_curation_gaps_only_revise',
+  });
+
+  assert.equal(gateway.calls.length, 1);
+  assert.equal(parked.run.run_status, 'waiting_review');
+  assert.equal(parked.steps.length, 1);
+  assert.equal(parked.steps[0]?.outcome, 'waiting_review');
+  assert.equal(parked.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+  // The curation final stays admitted-blocked (semantic checks are not
+  // loosened by the park) with the server-derived revise disposition.
+  const finals = await fixture.repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+    artifact_scope: 'final',
+  });
+  assert.equal(finals.length, 1);
+  assert.equal(finals[0]?.runtime_status, 'blocked');
+  assert.equal(finals[0]?.artifact_payload.recommended_disposition, 'revise');
+  // waiting_review is a semantic stop, not a blocker — no decision-queue item.
+  assert.equal((await harnessRepository.listDecisionWorkQueueItems(PROJECT_ID)).length, 0);
+});
+
 test('L5 motive decomposition stress blocks over-budget assertion context before provider calls', async () => {
   const gateway = new ScriptedLlmGateway(() => motiveDecompositionRoleOutput());
   const { motiveDecompositionService } = realRuntimeFixture(gateway);
@@ -2398,8 +2498,16 @@ function traceRequest(
       statement_text: 'Method A improves validation accuracy on benchmark B.',
       semantic_role: 'result_claim',
     }],
-    source_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
-    source_hashes: [sourceHash],
+    // D2-core: three source refs pin the default L5 trace fixture to the
+    // STANDARD tier (packet_ref_count >= 3) so the historical four-role
+    // assertions keep describing the enforced standard plan; tier-specific
+    // cases build their own light/budget fixtures.
+    source_refs: [
+      ref('run_evidence_unit', 'run_evidence_unit_l5_001'),
+      ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
+      ref('result_interpretation_packet', 'result_packet_l5_001'),
+    ],
+    source_hashes: [sourceHash, hash('claim-trace-packet-l5'), hash('result-packet-l5')],
     source_packets: [{
       source_ref: ref('run_evidence_unit', 'run_evidence_unit_l5_001'),
       source_hash: sourceHash,
@@ -2408,6 +2516,22 @@ function traceRequest(
       evidence_role: 'primary_result',
       content_summary: 'Benchmark B run evidence reports the validation accuracy improvement.',
       source_excerpt: sourceExcerpt,
+    }, {
+      source_ref: ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
+      source_hash: hash('claim-trace-packet-l5'),
+      source_family: 'claim_trace_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'lineage',
+      content_summary: 'Claim trace packet carries the claim-to-run lineage.',
+      source_excerpt: 'claim lineage includes benchmark B validation runs',
+    }, {
+      source_ref: ref('result_interpretation_packet', 'result_packet_l5_001'),
+      source_hash: hash('result-packet-l5'),
+      source_family: 'result_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'non_primary_interpretation',
+      content_summary: 'Result interpretation packet, labeled non-primary evidence.',
+      source_excerpt: 'interpretation: accuracy gain is attributed to method A',
     }],
     preflight_blocker_codes: [],
   };
@@ -4334,6 +4458,9 @@ test('L5 shadow telemetry collection does not change run artifact hashes', async
   const records = await withShadow.telemetryRepository.listRuntimeTelemetryRecordsByProject(PROJECT_ID);
   assert.ok(records.length > 0);
   assert.equal(records.every((record) => record.shadow_tier !== null), true);
+  // D2 复审 (B#6/C#3): the trace-integrity boundary debate is the ENFORCED-tier
+  // slot, so every recorded row carries tier_mode='enforced' (not shadow).
+  assert.equal(records.every((record) => record.tier_mode === 'enforced'), true);
   // The baseline (no collector) wrote no telemetry at all.
   const baselineRecords = await baseline.telemetryRepository.listRuntimeTelemetryRecordsByProject(PROJECT_ID);
   assert.equal(baselineRecords.length, 0);
@@ -4419,4 +4546,367 @@ test('L5 debate slot technical retry records unique call_index per attempt and a
   assert.equal(detail.total_cost_usd, 0.14);
   assert.equal(detail.repaid_cost_usd, 0.02);
   assert.equal(detail.repaid_cost_rate, Math.round((0.02 / 0.14) * 1e6) / 1e6);
+});
+
+// ── T-124 D2-pre1 (appended at file tail) ────────────────────────────────────
+// gs001-lora-live-006/007 root cause: the risk challenger received only the
+// designer artifact ref/hash + option_set_hash, never the designed_options body,
+// so it self-reported MISSING_DESIGNER_OPTION_KEYS / MISSING_DESIGNER_ARTIFACT_CONTENT
+// and blocked on content it never saw. This drives the REAL orchestrator with a
+// challenger fixture that reconstructs its full coverage purely from the
+// designed_options body it reads out of its own gateway user message — proving
+// the designer's complete option content (every key + its fields) reaches the
+// challenger's call context and the two-role chain passes end to end.
+test('L5 motive evolution challenger receives the designer designed_options body and challenges every option key', async () => {
+  const challengerDesignedOptionsSeen: Array<Record<string, Record<string, unknown>>> = [];
+  const gateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+      const userMessage = request.messages.find((message) => message.role === 'user')?.content ?? '{}';
+      const parsed = JSON.parse(userMessage) as {
+        prior_role_artifacts?: Array<{ designed_options?: Record<string, Record<string, unknown>> }>;
+      };
+      const designedOptions = parsed.prior_role_artifacts?.[0]?.designed_options ?? {};
+      challengerDesignedOptionsSeen.push(designedOptions);
+      // Coverage is derived ONLY from the designer body the challenger can see —
+      // before D2-pre1 this map was absent and no key could be challenged.
+      const seenKeys = Object.keys(designedOptions).sort();
+      const decisionOptions = Object.fromEntries(
+        seenKeys.map((key) => [key, motiveEvolutionDecisionOption()]),
+      );
+      return motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(
+        motiveEvolutionPriorFromGatewayRequest(request),
+        { challenged_option_keys: seenKeys, decision_options: decisionOptions },
+      ));
+    }
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput({
+      designed_options: {
+        ...motiveEvolutionDesignedOptionsByKey('evolution_option_l5_001'),
+        ...motiveEvolutionDesignedOptionsByKey('evolution_option_l5_002'),
+      },
+    }));
+  });
+  const { motiveEvolutionService } = realRuntimeFixture(gateway);
+
+  const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
+    run_id: 'motive_evolution_l5_designer_body_thread_run_001',
+  }));
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 2);
+  // The challenger's context carried the designer's FULL designed_options body —
+  // every option key and its fields, not just refs/hashes.
+  assert.equal(challengerDesignedOptionsSeen.length, 1);
+  const seenDesignedOptions = challengerDesignedOptionsSeen[0] ?? {};
+  assert.deepEqual(
+    Object.keys(seenDesignedOptions).sort(),
+    ['evolution_option_l5_001', 'evolution_option_l5_002'],
+  );
+  assert.equal(
+    (seenDesignedOptions.evolution_option_l5_001 as { option_kind?: string } | undefined)?.option_kind,
+    'repair_evidence_board_first',
+  );
+  const finalPayload = result.final_runtime_artifact?.artifact_payload as {
+    decision_options?: Record<string, Record<string, unknown>>;
+  };
+  assert.deepEqual(
+    Object.keys(finalPayload.decision_options ?? {}).sort(),
+    ['evolution_option_l5_001', 'evolution_option_l5_002'],
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
+  assertNoLeak(result, motiveEvolutionForbiddenWriteFragments());
+});
+
+// ---------------------------------------------------------------------------
+// T-124 D2-core: enforced debate tiering must-checks (registered in
+// .ai/scripts/paper-implementation-runtime-stress.mjs before implementation).
+// ---------------------------------------------------------------------------
+
+/** D2-core: light-tier trace request (1 statement, 1 source → light). */
+function lightTraceRequest(runId: string): RunPaperImplementationTraceIntegrityDebateRuntimeRequest {
+  const base = traceRequest({ run_id: runId });
+  return {
+    ...base,
+    source_refs: base.source_refs.slice(0, 1),
+    source_hashes: base.source_hashes.slice(0, 1),
+    source_packets: base.source_packets?.slice(0, 1),
+  };
+}
+
+/**
+ * Simulate a run interrupted AFTER its last role was admitted but BEFORE the
+ * final artifact was recorded: drop the stored final artifact, its
+ * runtime-identity-hash index entry, and its admission record so a resume can
+ * re-record the final without a phantom uniqueness collision.
+ */
+function dropStoredFinalArtifact(repository: InMemoryPaperImplementationRuntimeRepository, runId: string): void {
+  const internals = repository as unknown as {
+    runtimeArtifacts: Map<string, {
+      runtime_artifact_id: string;
+      runtime_identity_hash: string;
+      artifact_scope: string;
+      artifact_payload_ref: { ref_id: string };
+    }>;
+    runtimeArtifactIdsByIdentityHash: Map<string, string>;
+    admissionRecords: Map<string, { runtime_artifact_id: string }>;
+  };
+  const final = [...internals.runtimeArtifacts.values()].find(
+    (artifact) => artifact.artifact_scope === 'final' && artifact.artifact_payload_ref.ref_id === `${runId}.final`,
+  );
+  assert.ok(final, 'expected a stored final artifact to drop');
+  internals.runtimeArtifacts.delete(final.runtime_artifact_id);
+  internals.runtimeArtifactIdsByIdentityHash.delete(final.runtime_identity_hash);
+  for (const [id, record] of internals.admissionRecords) {
+    if (record.runtime_artifact_id === final.runtime_artifact_id) {
+      internals.admissionRecords.delete(id);
+    }
+  }
+}
+
+function tierSkepticFinding() {
+  return {
+    finding_id: 'finding_l5_tier_001',
+    severity: 'blocker' as const,
+    blocker_code: 'semantic_support_gap',
+    target_statement_ref: ref('reviewed_statement', 'statement_l5_001'),
+    cited_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
+  };
+}
+
+/** Scripted outputs for a light run whose skeptic finds one issue (upgrade path). */
+function upgradePathTraceRoleOutput(operation: string): PaperImplementationTraceIntegrityRoleOutput {
+  const output = traceRoleOutput(operation);
+  if (operation === 'trace_integrity_review.skeptic_challenge') {
+    output.role_status = 'blocked';
+    output.blocker_codes = ['semantic_support_gap'];
+    output.challenge_findings = [tierSkepticFinding()];
+  }
+  if (operation === 'trace_integrity_review.support_mapper_reconcile') {
+    output.finding_dispositions = [{
+      finding_id: 'finding_l5_tier_001',
+      disposition: 'accepted_blocker',
+      cited_refs: [],
+    }];
+  }
+  if (operation === 'trace_integrity_review.arbiter_final') {
+    output.role_status = 'blocked';
+    output.blocker_codes = ['semantic_support_gap'];
+    output.coverage = {
+      statement_refs: [ref('reviewed_statement', 'statement_l5_001')],
+      finding_ids: ['finding_l5_tier_001'],
+    };
+  }
+  return output;
+}
+
+function debateExecutionOf(
+  artifact: PaperImplementationRuntimeArtifactEnvelope | null,
+): Record<string, unknown> {
+  const value = artifact?.artifact_payload.debate_execution;
+  assert.ok(value && typeof value === 'object' && !Array.isArray(value), 'debate_execution recorded');
+  return value as Record<string, unknown>;
+}
+
+test('L5 trace debate tier decision is enforced and replayable for the same inputs', async () => {
+  // Pure decision replay: enforced entry = shadow computation, re-tagged.
+  const inputs = {
+    reviewed_statement_count: 1,
+    retrieval_packet_ref_count: 1,
+    prior_blocker_density: 0,
+    target_kind: 'trace_integrity' as const,
+  };
+  const first = assessPaperImplementationDebateComplexity(inputs);
+  const second = assessPaperImplementationDebateComplexity(inputs);
+  assert.equal(first.schema_version, 'PaperImplementationDebateComplexityAssessment@v1');
+  assert.deepEqual(first, second);
+  const shadow = assessPaperImplementationDebateComplexityShadow(inputs);
+  assert.equal(first.recommended_tier, shadow.recommended_tier);
+  assert.equal(first.inputs_hash, shadow.inputs_hash);
+  assert.deepEqual(first.rationale_codes, shadow.rationale_codes);
+  assert.equal(first.recommended_tier, 'light');
+
+  // The runtime EXECUTES the decision: a light request runs the 3-role floor
+  // (no reconcile) and records the decision into role/final execution context.
+  const gateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const { traceService } = realRuntimeFixture(gateway);
+  const result = await traceService.runBoundaryDebate(
+    PROJECT_ID,
+    lightTraceRequest('trace_l5_tier_replayable_run_001'),
+  );
+  assert.equal(result.status, 'passed');
+  assert.equal(result.provider_call_count, 3);
+  assert.deepEqual(gateway.calls.map((call) => call.executionContext.operation), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  const finalExecution = debateExecutionOf(result.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'light');
+  assert.equal(finalExecution.effective_tier, 'light');
+  assert.equal(finalExecution.tier_upgraded, false);
+  assert.equal(finalExecution.tier_inputs_hash, first.inputs_hash);
+  assert.deepEqual(finalExecution.executed_role_plan, [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  assert.equal(finalExecution.debate_policy_id, 'paper-implementation.trace-integrity.boundary-debate.v1');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('L5 trace debate light tier deterministically upgrades to standard when the skeptic finds issues', async () => {
+  const gateway = new ScriptedLlmGateway((request) =>
+    upgradePathTraceRoleOutput(request.executionContext.operation));
+  const { traceService } = realRuntimeFixture(gateway);
+  const result = await traceService.runBoundaryDebate(
+    PROJECT_ID,
+    lightTraceRequest('trace_l5_tier_upgrade_run_001'),
+  );
+
+  // Deterministic rule, not a relaxation: the reconcile role is re-inserted and
+  // the run completes as the FOUR-role standard plan inside the same run
+  // (appended call indexes), with an admitted blocked final.
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.provider_call_count, 4);
+  assert.deepEqual(gateway.calls.map((call) => call.executionContext.operation), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.support_mapper_reconcile',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  const roleArtifacts = result.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.call_index), [1, 2, 3, 4]);
+  const finalExecution = debateExecutionOf(result.final_runtime_artifact);
+  assert.equal(finalExecution.base_tier, 'light');
+  assert.equal(finalExecution.effective_tier, 'standard');
+  assert.equal(finalExecution.tier_upgraded, true);
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(result.blocker_codes.includes('semantic_support_gap'), true);
+
+  // Disposition completeness is never waived: post-upgrade roles record the
+  // upgraded tier while the pre-upgrade prefix records light.
+  assert.equal(debateExecutionOf(roleArtifacts[1]!).effective_tier, 'light');
+  assert.equal(debateExecutionOf(roleArtifacts[2]!).effective_tier, 'standard');
+});
+
+test('L5 trace resume of a light run with an admitted arbiter but no final reuses all three roles with zero provider re-issue', async () => {
+  // A light-no-findings run runs the three-role floor; its arbiter is admitted.
+  const gateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const fixture = realRuntimeFixture(gateway);
+  const run = await fixture.traceService.runBoundaryDebate(
+    PROJECT_ID,
+    lightTraceRequest('trace_l5_light_gap_run_001'),
+  );
+  assert.equal(run.status, 'passed');
+  assert.equal(run.provider_call_count, 3);
+  assert.equal(gateway.calls.length, 3);
+  const roleArtifacts = run.runtime_artifacts.filter((artifact) => artifact.artifact_scope === 'role');
+  assert.deepEqual(roleArtifacts.map((artifact) => artifact.role_slot_id), [
+    'trace_integrity_review.support_mapper_map',
+    'trace_integrity_review.skeptic_challenge',
+    'trace_integrity_review.arbiter_final',
+  ]);
+  // Interrupt AFTER the arbiter admission but BEFORE the final was recorded.
+  dropStoredFinalArtifact(fixture.repository, 'trace_l5_light_gap_run_001');
+
+  const resumeGateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const resumeService = resumeTraceServiceFixture(fixture, resumeGateway);
+  const resumed = await resumeService.runBoundaryDebate(PROJECT_ID, {
+    ...lightTraceRequest('trace_l5_light_gap_run_001'),
+    run_id: null,
+    resume_from_run_id: 'trace_l5_light_gap_run_001',
+  });
+
+  assert.equal(resumed.status, 'passed');
+  // The plan-aware reuse walk re-derives the 3-role light plan and keeps the
+  // admitted arbiter (a static 4-role walk would break at the absent reconcile
+  // and re-issue it): zero provider re-issue, no repay, only the final is recorded.
+  assert.equal(resumeGateway.calls.length, 0);
+  assert.deepEqual(
+    resumed.runtime_artifacts.slice(0, 3).map((artifact) => artifact.runtime_artifact_id),
+    roleArtifacts.map((artifact) => artifact.runtime_artifact_id),
+  );
+  assert.equal(resumed.final_admission_record?.admission_status, 'admitted');
+  assert.deepEqual(
+    resumed.final_runtime_artifact?.prior_role_artifact_hashes,
+    roleArtifacts.map((artifact) => artifact.artifact_payload_hash),
+  );
+  assertNoNonProviderRuntimeArtifacts(resumed.runtime_artifacts);
+});
+
+test('L5 trace debate resume rejects tier drift with 409 before any provider call', async () => {
+  const failingGateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === 'trace_integrity_review.skeptic_challenge') {
+      throw new LlmGatewayError('TimeoutError', 'fixture trace skeptic timeout', {
+        telemetry: telemetry(request),
+      });
+    }
+    return traceRoleOutput(request.executionContext.operation);
+  });
+  const fixture = realRuntimeFixture(failingGateway);
+  const interrupted = await fixture.traceService.runBoundaryDebate(
+    PROJECT_ID,
+    lightTraceRequest('trace_l5_tier_drift_run_001'),
+  );
+  assert.equal(interrupted.status, 'failed_runtime');
+
+  // Resume with three sources instead of one: the re-derived base tier drifts
+  // light → standard, so the resume fails closed with the DEBATE_TIER_DRIFT
+  // issue code (alongside the packet identity codes) and zero provider calls.
+  const resumeGateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const resumeService = resumeTraceServiceFixture(fixture, resumeGateway);
+  await assert.rejects(
+    () => resumeService.runBoundaryDebate(PROJECT_ID, {
+      ...traceRequest({ run_id: 'trace_l5_tier_drift_run_001' }),
+      run_id: null,
+      resume_from_run_id: 'trace_l5_tier_drift_run_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && Array.isArray((error.details as { resume_issue_codes?: string[] } | undefined)?.resume_issue_codes)
+      && ((error.details as { resume_issue_codes: string[] }).resume_issue_codes)
+        .includes('RESUME_DEBATE_TIER_DRIFT'),
+  );
+  assert.equal(resumeGateway.calls.length, 0);
+});
+
+test('L5 trace debate tier budget insufficiency fails closed with zero provider calls and classifies to loop_budget_review', async () => {
+  const gateway = new ScriptedLlmGateway((request) => traceRoleOutput(request.executionContext.operation));
+  const { traceService } = realRuntimeFixture(gateway);
+
+  // Light reserves the UPGRADE-SAFE standard call count (4): a budget of 3
+  // covers the light floor but not a skeptic-finding upgrade, so the run fails
+  // closed BEFORE any provider call — never a silent downgrade.
+  const result = await traceService.runBoundaryDebate(PROJECT_ID, {
+    ...lightTraceRequest('trace_l5_tier_budget_run_001'),
+    provider_call_budget: 3,
+  });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.provider_call_count, 0);
+  assert.equal(gateway.calls.length, 0);
+  assert.equal(result.blocker_codes.includes('TIER_BUDGET_INSUFFICIENT'), true);
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'blocked');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+
+  // Coordinator classification (R4 zero-call trusted channel, zero coordinator
+  // change): the code and its prefix family land loop_budget_review.
+  assert.equal(
+    PAPER_IMPLEMENTATION_COORDINATOR_QUEUE_TYPE_BY_BLOCKER_CODE.TIER_BUDGET_INSUFFICIENT,
+    'loop_budget_review',
+  );
+  const classified = classifyPaperImplementationCoordinatorBlockedStep(
+    'blocked',
+    ['TIER_BUDGET_INSUFFICIENT'],
+    [],
+  );
+  assert.equal(classified.queue_type, 'loop_budget_review');
+
+  // A sufficient budget (the upgrade-safe reservation) runs the light floor.
+  const funded = await traceService.runBoundaryDebate(PROJECT_ID, {
+    ...lightTraceRequest('trace_l5_tier_budget_run_002'),
+    provider_call_budget: 4,
+  });
+  assert.equal(funded.status, 'passed');
+  assert.equal(funded.provider_call_count, 3);
 });

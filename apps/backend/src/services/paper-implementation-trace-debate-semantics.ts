@@ -15,7 +15,11 @@
  *   findings present there must be exactly one disposition per finding, and
  *   resolved/rebutted dispositions cite non-empty refs;
  * - arbiter coverage spans every reviewed statement and every finding, and every
- *   accepted blocker finding lands in the final blocker set.
+ *   accepted blocker finding lands in the final blocker set;
+ * - (T-124 D2-core) the required role set follows the ACTUAL executed chain: a
+ *   light-tier debate omits the reconcile role only while the skeptic produced
+ *   zero findings; once findings exist the arbiter chain must carry a complete
+ *   reconcile disposition set — disposition completeness is never waived.
  *
  * Two consumers:
  * 1. The trace-integrity runtime service classifies violations as retryable
@@ -292,6 +296,30 @@ export function evaluatePaperImplementationTraceIntegrityRoleSemantics(
   }
   if (![...coveredFindingIds].every((id) => knownFindingIds.has(id))) {
     return PAPER_IMPLEMENTATION_ROLE_COVERAGE_INCOMPLETE_FAILURE_CODE;
+  }
+  // D2-core: the completeness requirement is parameterized by the ACTUAL
+  // executed role set, derived from the chain content itself — a light-tier
+  // debate legally omits the reconcile role ONLY while the skeptic produced
+  // zero findings (its section is then not required). The moment findings
+  // exist, the deterministic light→standard upgrade must have run reconcile,
+  // so an arbiter chaining findings WITHOUT a complete reconcile disposition
+  // set is invalid at every tier: disposition completeness is never waived.
+  // (Runs after the historical coverage checks so coverage violations keep
+  // their original failure code.)
+  if (findings.length > 0) {
+    const reconcileOutputs = input.priorOutputs.filter(
+      (prior) => prior.role_slot_id === 'trace_integrity_review.support_mapper_reconcile',
+    );
+    if (reconcileOutputs.length === 0) {
+      return PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE;
+    }
+    const chainDispositionsComplete = paperImplementationTraceIntegrityReconcileDispositionsComplete(
+      reconcileOutputs.flatMap((prior) => prior.finding_dispositions ?? []),
+      findings,
+    );
+    if (!chainDispositionsComplete) {
+      return PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE;
+    }
   }
   // Every accepted blocker (accepted_blocker / context_gap_blocker disposition)
   // must land in the final blocker set the arbiter carries forward.

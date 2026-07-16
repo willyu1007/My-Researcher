@@ -801,6 +801,128 @@ test('coordinator board slots run as single-step pipelines under the same state 
   assert.equal(synthesisAdvanced.steps[0]?.outcome, 'passed');
 });
 
+test('coordinator curation gaps-only disposition parks the run as waiting_review and override re-advance resumes', async () => {
+  // T-124 D2-pre2: a gaps-only curation final is admitted-blocked (no viable
+  // binding) with recommended_disposition='revise' — a semantically-valid
+  // critique. The board pipeline parks it as waiting_review (aligned with the
+  // lane A skeptic non-proceed stop), NOT a terminal block, and an override
+  // that supplies a viable-binding role output re-advances the same slot.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(
+    PROJECT_ID,
+    curationBoardCreateRequestWithRole(evidenceBoardCurationGapsOnlyRoleOutput()),
+  );
+
+  const parked = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_curation_revise',
+  });
+  assert.equal(parked.run.run_status, 'waiting_review');
+  assert.equal(parked.run.lease, null);
+  assert.equal(parked.steps.length, 1);
+  assert.equal(parked.steps[0]?.outcome, 'waiting_review');
+  assert.equal(parked.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+  // waiting_review is a semantic stop, not a blocker — no decision-queue item
+  // (same queue semantics as the skeptic waiting_review stop).
+  const queueAfterPark = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueAfterPark.length, 0);
+
+  // Human override: re-advance with a viable-binding role output — the same slot
+  // runs a new attempt and the run completes.
+  const resumed = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_curation_revise_override',
+    slot_request_payload_overrides: {
+      [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]: {
+        ...evidenceBoardCurationPayload(),
+        mocked_role_outputs: {
+          [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID]: evidenceBoardCurationRoleOutput(),
+        },
+      },
+    },
+  });
+  assert.equal(resumed.run.run_status, 'completed');
+  const curationAttempts = resumed.steps.filter(
+    (step) => step.slot_id === PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID,
+  );
+  assert.equal(curationAttempts.length, 2);
+  assert.deepEqual(curationAttempts.map((step) => step.outcome), ['waiting_review', 'passed']);
+  assert.notEqual(curationAttempts[0]?.node_attempt_id, curationAttempts[1]?.node_attempt_id);
+});
+
+test('coordinator curation role-blocked disposition stays a terminal blocked (never waiting_review)', async () => {
+  // T-124 D2-pre2 red line: only disposition=revise parks as waiting_review.
+  // A role-blocked curation (disposition=blocked) keeps the existing terminal
+  // blocked semantics and materializes a decision-queue item.
+  const fixture = coordinatorFixture();
+  const run = await fixture.coordinator.createCoordinatorRun(
+    PROJECT_ID,
+    curationBoardCreateRequestWithRole(evidenceBoardCurationRoleBlockedRoleOutput()),
+  );
+
+  const blocked = await fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_curation_blocked',
+  });
+  assert.equal(blocked.run.run_status, 'blocked');
+  assert.equal(blocked.steps.length, 1);
+  assert.equal(blocked.steps[0]?.outcome, 'blocked');
+  assert.equal(blocked.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+  const queueAfterBlock = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueAfterBlock.length, 1);
+});
+
+test('coordinator curation revise final with a REJECTED final admission falls back to terminal blocked (never waiting_review)', async () => {
+  // D2 复审 A#3: waiting_review parks ONLY an admitted revise final. Under R9 the
+  // step's acceptance-bridge ref/hash materialize solely from an ADMITTED final
+  // admission; a revise final whose final admission was rejected would park as
+  // waiting_review with null artifact ref/hash — nothing for a human to review.
+  // Such a final must fall back to the terminal blocked semantics + a queue item.
+  const fixture = coordinatorFixture();
+  const coordinator = fixture.buildCoordinator(undefined, {
+    evidenceBoardCurationRuntime: {
+      runBindingGapCandidates: async (implementationProjectId, request) => {
+        // Produce a genuine gaps-only revise final (disposition='revise',
+        // admitted) via the real service, then flip ONLY the final admission to
+        // rejected with its R9 acceptance-bridge fields nulled.
+        const real = await fixture.evidenceBoardCurationRuntime.runBindingGapCandidates(
+          implementationProjectId,
+          request,
+        );
+        assert.equal(real.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+        assert.equal(real.final_admission_record?.admission_status, 'admitted');
+        return {
+          ...real,
+          final_admission_record: real.final_admission_record
+            ? {
+              ...real.final_admission_record,
+              admission_status: 'rejected',
+              admitted_artifact_ref: null,
+              admitted_artifact_hash: null,
+            }
+            : null,
+        };
+      },
+    },
+  });
+  const run = await coordinator.createCoordinatorRun(
+    PROJECT_ID,
+    curationBoardCreateRequestWithRole(evidenceBoardCurationGapsOnlyRoleOutput()),
+  );
+
+  const result = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_curation_revise_rejected_admission',
+  });
+  assert.equal(result.run.run_status, 'blocked');
+  assert.equal(result.steps.length, 1);
+  assert.equal(result.steps[0]?.outcome, 'blocked');
+  assert.equal(result.steps[0]?.slot_id, PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID);
+  // Rejected final admission → null acceptance-bridge ref/hash: exactly the
+  // "nothing to review" state the admitted gate exists to keep out of
+  // waiting_review.
+  assert.equal(result.steps[0]?.runtime_artifact_ref, null);
+  assert.equal(result.steps[0]?.runtime_artifact_hash, null);
+  const queue = await fixture.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queue.length, 1);
+});
+
 test('coordinator product run_mode rejects fixture payloads and non-provider execution before creating the run', async () => {
   const fixture = coordinatorFixture();
 
@@ -847,6 +969,20 @@ test('coordinator create rejects coordinator-owned fields, missing slots, and un
       && error.statusCode === 400
       && error.errorCode === 'INVALID_PAYLOAD'
       && /resume_from_run_id/.test(error.message),
+  );
+
+  // T-124 D2: provider_call_budget is coordinator-owned — a slot payload must not
+  // set it (the debate-tier budget gate would otherwise be a payload-driven
+  // DoS-park lever). Forward-looking guard: trace is not yet on a lane.
+  const withBudgetField = laneACreateRequest();
+  (withBudgetField.slot_request_payloads[PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID] as Record<string, unknown>)
+    .provider_call_budget = 1;
+  await assert.rejects(
+    () => fixture.coordinator.createCoordinatorRun(PROJECT_ID, withBudgetField),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD'
+      && /provider_call_budget/.test(error.message),
   );
 
   const missingSlot = laneACreateRequest();
@@ -2826,6 +2962,58 @@ function evidenceBoardCurationRoleOutput(): PaperImplementationEvidenceBoardCura
     no_evidence_transfer_binding_side_effect: true,
     no_citation_candidate_side_effect: true,
     no_trace_repair_queue_side_effect: true,
+  };
+}
+
+// T-124 D2-pre2: a gaps-only curation pass (the run 006/007 duplicate/
+// missing-evidence shape) — the honest role passes with NO viable binding but
+// WITH gap findings, so the service derives recommended_disposition='revise'.
+function evidenceBoardCurationGapsOnlyRoleOutput(): PaperImplementationEvidenceBoardCurationRoleOutput {
+  return {
+    ...evidenceBoardCurationRoleOutput(),
+    role_status: 'passed',
+    binding_candidate_proposals: [],
+    gap_candidate_proposals: [{
+      gap_key: 'gap_missing_reproduced_baseline_evidence_001',
+      target_assertion_ref: ref('motive_assertion', 'assertion_001'),
+      gap_kind: 'missing_citation_candidate',
+      missing_evidence_need: 'No independent reproduced-baseline evidence is available to bind this assertion.',
+      source_locator_blockers: [],
+      citation_blockers: ['missing_reproduced_baseline_evidence'],
+      freshness_blockers: [],
+      recommended_next_gate: 'citation_candidate_review',
+      blocker_codes: ['missing_reproduced_baseline_evidence'],
+      warning_codes: [],
+    }],
+  };
+}
+
+// T-124 D2-pre2: a role-blocked curation output (technical block) — role_status
+// is 'blocked', so the service derives recommended_disposition='blocked' and the
+// coordinator keeps the existing terminal-blocked semantics (never waiting_review).
+function evidenceBoardCurationRoleBlockedRoleOutput(): PaperImplementationEvidenceBoardCurationRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID,
+    role_status: 'blocked',
+    summary: 'Evidence-board curation blocked before proposing binding/gap candidates.',
+    cited_source_refs: [ref('source_locator', 'source_locator_board_001')],
+    blocker_codes: ['EVIDENCE_BOARD_CURATION_ROLE_BLOCKED'],
+    warning_codes: [],
+  };
+}
+
+function curationBoardCreateRequestWithRole(roleOutput: PaperImplementationEvidenceBoardCurationRoleOutput) {
+  const base = boardLaneCreateRequest('evidence-board-curation');
+  return {
+    ...base,
+    slot_request_payloads: {
+      [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_SLOT_ID]: {
+        ...evidenceBoardCurationPayload(),
+        mocked_role_outputs: {
+          [PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_ROLE_SLOT_ID]: roleOutput,
+        },
+      },
+    } as Record<string, Record<string, unknown>>,
   };
 }
 

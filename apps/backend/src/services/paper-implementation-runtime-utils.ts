@@ -14,7 +14,9 @@
 import type {
   PaperImplementationAgentExecutionMode,
   PaperImplementationDebateComplexityTier,
+  PaperImplementationRuntimeTelemetryTierMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-telemetry-contracts';
+import { PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import type {
@@ -250,7 +252,44 @@ export interface RecordSlotProviderCallTelemetryInput {
   shouldRetry: boolean;
   /** The classified runtime failure code of this attempt (null when passed). */
   runtimeFailureCode: string | null;
+  /**
+   * Debate tier recorded on the telemetry row (field name kept for schema
+   * stability). D2-core semantics: the trace-integrity slot passes the
+   * ENFORCED tier in effect when the call was issued (effective tier after any
+   * deterministic light→standard upgrade); P1 and motive-evolution still pass
+   * the record-only SHADOW recommendation; null for non-debate slots.
+   */
   shadowTier: PaperImplementationDebateComplexityTier | null;
+}
+
+/**
+ * D2 复审 (B#6/C#3): the SINGLE point that derives the `tier_mode` telemetry
+ * discriminator, keyed only off `slot_id` + `shadow_tier` (both already carried
+ * by every provider-call telemetry row). The eleven slot services do not change:
+ * the shared recording helper below calls this, so the discriminator is computed
+ * in exactly one place and the slot call sites stay at zero-diff.
+ *
+ *   - `null`     when there is no tier context (`shadowTier` is null);
+ *   - `enforced` for the trace-integrity boundary debate (its `shadow_tier` is
+ *     the tier actually IN EFFECT after any deterministic light→standard upgrade);
+ *   - `shadow`   for every other slot carrying a tier (P1 claim-boundary /
+ *     dossier-readiness and motive-evolution), whose tier is a record-only
+ *     recommendation with no policy effect.
+ *
+ * Because `tier_mode` is a total function of two persisted columns, nothing is
+ * persisted for it (no storage migration): the write path stamps it here and the
+ * telemetry read model reconstructs it with this same function.
+ */
+export function derivePaperImplementationRuntimeTelemetryTierMode(
+  slotId: string,
+  shadowTier: PaperImplementationDebateComplexityTier | null,
+): PaperImplementationRuntimeTelemetryTierMode | null {
+  if (shadowTier === null) {
+    return null;
+  }
+  return slotId === PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID
+    ? 'enforced'
+    : 'shadow';
 }
 
 /**
@@ -286,5 +325,9 @@ export async function recordSlotProviderCallTelemetry(
     compressionApplied: input.result.provenance.compression_report_ref != null
       || input.result.provenance.compressed_context_hash != null,
     shadowTier: input.shadowTier,
+    // D2 复审 (B#6/C#3): the tier-context discriminator is decided here, at the
+    // single shared helper, from slot_id + shadow_tier — the 11 slot call sites
+    // pass neither and stay unchanged.
+    tierMode: derivePaperImplementationRuntimeTelemetryTierMode(input.slotId, input.shadowTier),
   });
 }

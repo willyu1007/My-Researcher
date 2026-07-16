@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import type { PaperImplementationRuntimeTelemetryRecord } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-telemetry-contracts';
+
 import { InMemoryPaperImplementationRuntimeTelemetryRepository } from '../repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
 import type { PaperImplementationRuntimeTelemetryRepository } from '../repositories/paper-implementation-runtime-telemetry.repository.js';
+import { derivePaperImplementationRuntimeTelemetryTierMode } from './paper-implementation-runtime-utils.js';
 import {
   PaperImplementationRuntimeTelemetryService,
   type PaperImplementationRuntimeProviderCallResultLike,
@@ -45,7 +49,7 @@ function serviceWith(repository: PaperImplementationRuntimeTelemetryRepository) 
 function call(
   overrides: Partial<RecordPaperImplementationRuntimeProviderCallInput>,
 ): RecordPaperImplementationRuntimeProviderCallInput {
-  return {
+  const merged: RecordPaperImplementationRuntimeProviderCallInput = {
     implementationProjectId: 'project_a',
     runId: 'run_1',
     slotId: 'route_architecture',
@@ -57,8 +61,15 @@ function call(
     retryKind: null,
     compressionApplied: false,
     shadowTier: null,
+    tierMode: null,
     ...overrides,
   };
+  // Mirror production: the shared helper derives tierMode from slotId +
+  // shadowTier, so a test that doesn't set it explicitly gets the same value.
+  if (!('tierMode' in overrides)) {
+    merged.tierMode = derivePaperImplementationRuntimeTelemetryTierMode(merged.slotId, merged.shadowTier);
+  }
+  return merged;
 }
 
 test('records a provider call, extracting cost/latency/tokens from the result', async () => {
@@ -176,6 +187,60 @@ test('project repaid rate aggregates across runs and slots', async () => {
   assert.equal(aggregate.repaid_cost_usd, 0.01);
   assert.equal(aggregate.repaid_cost_rate, 0.25);
   assert.equal(aggregate.per_slot.length, 2);
+});
+
+test('D2 复审 tier_mode discriminates enforced (trace boundary debate) from shadow (other slots) and null', async () => {
+  const repository = new InMemoryPaperImplementationRuntimeTelemetryRepository();
+  const service = serviceWith(repository);
+  // Trace-integrity boundary debate: shadow_tier is the ENFORCED tier in effect.
+  await service.recordProviderCall(call({
+    runId: 'run_enforced',
+    slotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
+    roleSlotId: `${PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID}.skeptic_challenge`,
+    shadowTier: 'standard',
+  }));
+  // A non-trace slot carrying a tier: a record-only shadow recommendation.
+  await service.recordProviderCall(call({
+    runId: 'run_shadow',
+    slotId: 'motive_evolution',
+    roleSlotId: null,
+    shadowTier: 'light',
+  }));
+  // A slot with no tier context at all.
+  await service.recordProviderCall(call({
+    runId: 'run_none',
+    slotId: 'route_architecture',
+    shadowTier: null,
+  }));
+
+  assert.equal((await service.getRunDetail('project_a', 'run_enforced')).records[0]?.tier_mode, 'enforced');
+  assert.equal((await service.getRunDetail('project_a', 'run_shadow')).records[0]?.tier_mode, 'shadow');
+  assert.equal((await service.getRunDetail('project_a', 'run_none')).records[0]?.tier_mode, null);
+});
+
+test('D2 复审 getRunDetail reconstructs tier_mode when the store dropped the (unpersisted) field', async () => {
+  // A column-backed store persists slot_id + shadow_tier but not the DERIVED
+  // tier_mode, so a read yields a record with no tier_mode (no migration path).
+  // The read model must reconstruct it from the two persisted columns.
+  const seedRepo = new InMemoryPaperImplementationRuntimeTelemetryRepository();
+  const seedService = serviceWith(seedRepo);
+  await seedService.recordProviderCall(call({
+    runId: 'run_x',
+    slotId: PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
+    shadowTier: 'standard',
+  }));
+  const [seeded] = await seedRepo.listRuntimeTelemetryRecordsByRun('project_a', 'run_x');
+  const { tier_mode: _dropped, ...withoutTierMode } = seeded as PaperImplementationRuntimeTelemetryRecord;
+  assert.equal('tier_mode' in withoutTierMode, false);
+
+  const droppingRepo: PaperImplementationRuntimeTelemetryRepository = {
+    appendRuntimeTelemetryRecord: async (record) => record,
+    listRuntimeTelemetryRecordsByProject: async () => [withoutTierMode],
+    listRuntimeTelemetryRecordsByRun: async () => [withoutTierMode],
+  };
+  const service = new PaperImplementationRuntimeTelemetryService({ repository: droppingRepo });
+  const detail = await service.getRunDetail('project_a', 'run_x');
+  assert.equal(detail.records[0]?.tier_mode, 'enforced');
 });
 
 test('zero-cost run reports a repaid rate of 0 (no division by zero)', async () => {

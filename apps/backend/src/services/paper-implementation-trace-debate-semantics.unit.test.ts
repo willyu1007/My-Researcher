@@ -333,3 +333,90 @@ test('F2-3 admission: non-trace / packet-less / non-terminal payloads raise no o
     [],
   );
 });
+
+// ---------------------------------------------------------------------------
+// T-124 D2-core: role-set completeness follows the ACTUAL executed chain.
+// A light-tier debate legally omits reconcile only while the skeptic produced
+// zero findings; with findings present the reconcile role (and a complete
+// disposition set) is required at every tier — never waived.
+// ---------------------------------------------------------------------------
+
+test('D2-core: arbiter over a light chain (no reconcile, zero findings) passes', () => {
+  const skeptic = baseOutput('trace_integrity_review.skeptic_challenge', {
+    challenge_findings: [],
+  });
+  const arbiter = baseOutput('trace_integrity_review.arbiter_final', {
+    coverage: { statement_refs: [STMT_1], finding_ids: [] },
+  });
+  // The absent reconcile role's section is NOT required: the executed role set
+  // is the light three-role floor.
+  assert.equal(
+    evaluate('trace_integrity_review.arbiter_final', arbiter, [VALID_SUPPORT_MAP, skeptic]),
+    null,
+  );
+  assert.deepEqual(
+    paperImplementationTraceIntegrityAdmissionIssueCodes(
+      rolePayload(arbiter, [VALID_SUPPORT_MAP, skeptic]),
+    ),
+    [],
+  );
+});
+
+test('D2-core: arbiter chaining findings WITHOUT a reconcile output is rejected (disposition never waived)', () => {
+  const skeptic = baseOutput('trace_integrity_review.skeptic_challenge', {
+    challenge_findings: [finding()],
+  });
+  // Coverage is complete, so the historical coverage checks pass — the D2 rule
+  // is what catches the missing reconcile role.
+  const arbiter = baseOutput('trace_integrity_review.arbiter_final', {
+    coverage: { statement_refs: [STMT_1], finding_ids: ['finding_001'] },
+  });
+  assert.equal(
+    evaluate('trace_integrity_review.arbiter_final', arbiter, [skeptic]),
+    PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE,
+  );
+  assert.deepEqual(
+    paperImplementationTraceIntegrityAdmissionIssueCodes(rolePayload(arbiter, [skeptic])),
+    [PAPER_IMPLEMENTATION_ADMISSION_FINDING_DISPOSITION_INCOMPLETE_ISSUE_CODE],
+  );
+});
+
+test('D2-core: arbiter chaining findings with an INCOMPLETE reconcile disposition set is rejected', () => {
+  const skeptic = baseOutput('trace_integrity_review.skeptic_challenge', {
+    challenge_findings: [finding()],
+  });
+  const reconcile = baseOutput('trace_integrity_review.support_mapper_reconcile', {
+    finding_dispositions: [],
+  });
+  const arbiter = baseOutput('trace_integrity_review.arbiter_final', {
+    coverage: { statement_refs: [STMT_1], finding_ids: ['finding_001'] },
+  });
+  assert.equal(
+    evaluate('trace_integrity_review.arbiter_final', arbiter, [skeptic, reconcile]),
+    PAPER_IMPLEMENTATION_ROLE_FINDING_DISPOSITION_INVALID_FAILURE_CODE,
+  );
+});
+
+test('D2-core: arbiter over an upgraded chain (findings + complete reconcile) passes', () => {
+  const skeptic = baseOutput('trace_integrity_review.skeptic_challenge', {
+    role_status: 'blocked',
+    blocker_codes: ['TRACE_UNSUPPORTED_STATEMENT'],
+    challenge_findings: [finding()],
+  });
+  const reconcile = baseOutput('trace_integrity_review.support_mapper_reconcile', {
+    finding_dispositions: [disposition({ disposition: 'accepted_blocker', cited_refs: [SRC_1] })],
+  });
+  const arbiter = baseOutput('trace_integrity_review.arbiter_final', {
+    role_status: 'blocked',
+    blocker_codes: ['TRACE_UNSUPPORTED_STATEMENT'],
+    coverage: { statement_refs: [STMT_1], finding_ids: ['finding_001'] },
+  });
+  assert.equal(
+    evaluate('trace_integrity_review.arbiter_final', arbiter, [skeptic, reconcile]),
+    null,
+  );
+  assert.deepEqual(
+    paperImplementationTraceIntegrityAdmissionIssueCodes(rolePayload(arbiter, [skeptic, reconcile])),
+    [],
+  );
+});

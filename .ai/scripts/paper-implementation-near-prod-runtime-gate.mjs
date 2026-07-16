@@ -383,6 +383,12 @@ export function validateRouteGateEvidence(results, evidence) {
     if (
       !['openai', 'dashscope'].includes(providerEvidence.provider_id)
       || providerEvidence.gateway_path !== 'TopicSelectionAgentOrchestratorService -> BackendLlmGateway'
+      // D2-core: the trace-integrity lower bound of 4 assumes the near-prod
+      // fixture pins the STANDARD tier (3 source refs → four-role plan). A
+      // LIGHT fixture (< 3 source refs) would issue 3 calls when the skeptic
+      // finds nothing and 4 when it does, making this bound non-deterministic;
+      // the fixture pins standard so the four-role floor holds. The upper bound
+      // of 8 absorbs bounded technical retries (max 2 attempts per role).
       || !isBoundedInteger(providerEvidence.trace_integrity_provider_call_count, 4, 8)
       || !isBoundedInteger(providerEvidence.claim_boundary_provider_call_count, 3, 6)
       || !isBoundedInteger(providerEvidence.dossier_readiness_provider_call_count, 3, 6)

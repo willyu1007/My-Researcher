@@ -31,6 +31,10 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 
 import {
+  PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-debate-policy';
+
+import {
   exportPaperImplementationSlotParameterManifest,
   PAPER_IMPLEMENTATION_NON_SLOT_CANARY_ENV_FLAGS,
   PAPER_IMPLEMENTATION_SLOT_MANIFEST_BINDINGS,
@@ -242,13 +246,88 @@ void test('materialization classes: exactly claim/dossier/result-analysis are do
   }
 });
 
-void test('D2/D4 mounts stay explicit null placeholders until those decisions land', () => {
+void test('D2 debate policy mounts on trace-integrity only; D4 mounts stay explicit null placeholders', () => {
   const manifest = exportPaperImplementationSlotParameterManifest();
   for (const slot of manifest.slots) {
-    assert.strictEqual(slot.debate_policy, null);
+    if (slot.slot_id === 'trace_integrity_review.boundary_debate') {
+      // T-124 D2-core: the enforced DebatePolicy@v1 mount, resolved from the
+      // shared registry (single source with the runtime slot service).
+      assert.deepStrictEqual(
+        JSON.parse(JSON.stringify(slot.debate_policy)),
+        JSON.parse(JSON.stringify(
+          PAPER_IMPLEMENTATION_DEBATE_POLICY_REGISTRY['paper-implementation.trace-integrity.boundary-debate.v1'],
+        )),
+      );
+      assert.strictEqual(slot.debate_policy?.debate_policy_version, 'v1');
+    } else {
+      // P1/evolution and every other slot stay shadow-recorded (not policy-driven).
+      assert.strictEqual(slot.debate_policy, null);
+    }
     assert.strictEqual(slot.candidate_selection_policy, null);
     assert.strictEqual(slot.memory_families, null);
   }
+});
+
+void test('D2 tier dimension completeness: mounts ↔ registry ↔ tier set (positive and negative)', () => {
+  const manifest = exportPaperImplementationSlotParameterManifest();
+
+  // Positive: the exported manifest has zero tier-dimension issues (covered by
+  // the main completeness test too; asserted here against the D2 codes only).
+  const clean = verifyPaperImplementationSlotParameterManifestCompleteness(completenessInput(manifest));
+  assert.deepStrictEqual(
+    clean.filter((issue) => issue.code.startsWith('DEBATE_POLICY') || issue.code === 'DUPLICATE_DEBATE_POLICY_MOUNT'),
+    [],
+  );
+
+  // Negative: unmounting the policy goes red (registry policy must be mounted).
+  const unmounted = structuredClone(manifest);
+  for (const slot of unmounted.slots) {
+    slot.debate_policy = null;
+  }
+  const unmountedIssues = verifyPaperImplementationSlotParameterManifestCompleteness(
+    completenessInput(unmounted),
+  );
+  assert.ok(unmountedIssues.some((issue) => issue.code === 'DEBATE_POLICY_MISSING_MANIFEST_ENTRY'));
+
+  // Negative: a mount pointing at an unregistered policy id goes red.
+  const unknownId = structuredClone(manifest);
+  const traceEntry = unknownId.slots.find((slot) => slot.slot_id === 'trace_integrity_review.boundary_debate');
+  assert.ok(traceEntry?.debate_policy);
+  traceEntry.debate_policy = {
+    ...traceEntry.debate_policy,
+    debate_policy_id: 'paper-implementation.nonexistent-policy.v9',
+  };
+  const unknownIssues = verifyPaperImplementationSlotParameterManifestCompleteness(
+    completenessInput(unknownId),
+  );
+  assert.ok(unknownIssues.some((issue) => issue.code === 'DEBATE_POLICY_UNKNOWN_ID'));
+  assert.ok(unknownIssues.some((issue) => issue.code === 'DEBATE_POLICY_MISSING_MANIFEST_ENTRY'));
+
+  // Negative: an incomplete tier set goes red.
+  const missingTier = structuredClone(manifest);
+  const missingTierEntry = missingTier.slots.find((slot) => slot.slot_id === 'trace_integrity_review.boundary_debate');
+  assert.ok(missingTierEntry?.debate_policy);
+  const prunedTiers = { ...missingTierEntry.debate_policy.tiers } as Record<string, unknown>;
+  delete prunedTiers.full;
+  missingTierEntry.debate_policy = {
+    ...missingTierEntry.debate_policy,
+    tiers: prunedTiers as typeof missingTierEntry.debate_policy.tiers,
+  };
+  const tierIssues = verifyPaperImplementationSlotParameterManifestCompleteness(
+    completenessInput(missingTier),
+  );
+  assert.ok(tierIssues.some((issue) => issue.code === 'DEBATE_POLICY_TIER_SET_INCOMPLETE'));
+
+  // Negative: a duplicate mount of the same policy goes red.
+  const duplicated = structuredClone(manifest);
+  const dupSource = duplicated.slots.find((slot) => slot.slot_id === 'trace_integrity_review.boundary_debate');
+  const dupTarget = duplicated.slots.find((slot) => slot.slot_id !== 'trace_integrity_review.boundary_debate');
+  assert.ok(dupSource?.debate_policy && dupTarget);
+  dupTarget.debate_policy = structuredClone(dupSource.debate_policy);
+  const dupIssues = verifyPaperImplementationSlotParameterManifestCompleteness(
+    completenessInput(duplicated),
+  );
+  assert.ok(dupIssues.some((issue) => issue.code === 'DUPLICATE_DEBATE_POLICY_MOUNT'));
 });
 
 // ---------------------------------------------------------------------------

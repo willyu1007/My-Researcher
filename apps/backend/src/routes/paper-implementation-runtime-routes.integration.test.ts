@@ -4385,8 +4385,18 @@ function traceIntegrityRunPayload(providerId: 'openai' | 'dashscope' = 'openai')
       statement_text: 'HTTP canary claim links benchmark evidence to the implementation result.',
       semantic_role: 'result_claim',
     }],
-    source_refs: [ref('run_evidence_unit', 'run-evidence-unit-http-1')],
-    source_hashes: [hash('run-evidence-unit-http-1')],
+    // D2-core: three source refs pin this HTTP fixture (incl. the live canary)
+    // to the STANDARD tier, keeping the historical four-role assertions exact.
+    source_refs: [
+      ref('run_evidence_unit', 'run-evidence-unit-http-1'),
+      ref('claim_trace_packet', 'claim-trace-packet-http-1'),
+      ref('result_interpretation_packet', 'result-packet-http-1'),
+    ],
+    source_hashes: [
+      hash('run-evidence-unit-http-1'),
+      hash('claim-trace-packet-http-1'),
+      hash('result-packet-http-1'),
+    ],
     source_packets: [{
       source_ref: ref('run_evidence_unit', 'run-evidence-unit-http-1'),
       source_hash: hash('run-evidence-unit-http-1'),
@@ -4395,6 +4405,22 @@ function traceIntegrityRunPayload(providerId: 'openai' | 'dashscope' = 'openai')
       evidence_role: 'primary_result',
       content_summary: 'HTTP route fixture evidence supports the benchmark result claim.',
       source_excerpt: 'benchmark evidence supports the result claim',
+    }, {
+      source_ref: ref('claim_trace_packet', 'claim-trace-packet-http-1'),
+      source_hash: hash('claim-trace-packet-http-1'),
+      source_family: 'claim_trace_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'lineage',
+      content_summary: 'Claim trace packet carries the claim-to-run lineage.',
+      source_excerpt: 'claim lineage includes the benchmark validation runs',
+    }, {
+      source_ref: ref('result_interpretation_packet', 'result-packet-http-1'),
+      source_hash: hash('result-packet-http-1'),
+      source_family: 'result_packet',
+      freshness_status: 'fresh',
+      evidence_role: 'non_primary_interpretation',
+      content_summary: 'Result interpretation packet, labeled non-primary evidence.',
+      source_excerpt: 'interpretation: the benchmark gain is attributed to the method',
     }],
     preflight_blocker_codes: [],
   };

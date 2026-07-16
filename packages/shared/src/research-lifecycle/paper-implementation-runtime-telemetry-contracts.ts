@@ -54,6 +54,24 @@ export const PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_RETRY_KINDS = [
 export type PaperImplementationRuntimeTelemetryRetryKind =
   (typeof PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_RETRY_KINDS)[number];
 
+/**
+ * D2 复审 (B#6/C#3): tier-context discriminator for `shadow_tier`. The
+ * `shadow_tier` column conflates two semantics on one field — the trace-integrity
+ * boundary debate records the ENFORCED tier actually in effect, while the P1
+ * claim-boundary and motive-evolution slots record a record-only SHADOW
+ * recommendation. `tier_mode` names which one a row carries so aggregations and
+ * the desktop runtime view stop mixing them on a single column:
+ *   - `enforced` — the tier was in effect (trace-integrity boundary debate);
+ *   - `shadow`   — a record-only recommendation (P1 / motive-evolution slots).
+ * A `null` `tier_mode` means "no tier context" (`shadow_tier` is null).
+ */
+export const PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_TIER_MODES = [
+  'enforced',
+  'shadow',
+] as const;
+export type PaperImplementationRuntimeTelemetryTierMode =
+  (typeof PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_TIER_MODES)[number];
+
 export interface PaperImplementationRuntimeTelemetryRecord {
   schema_version: typeof PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_RECORD_SCHEMA_VERSION;
   record_id: string;
@@ -89,8 +107,30 @@ export interface PaperImplementationRuntimeTelemetryRecord {
   outcome: PaperImplementationRuntimeTelemetryOutcome;
   retry_kind: PaperImplementationRuntimeTelemetryRetryKind | null;
   compression_applied: boolean;
-  /** S4-C record-only shadow tier; null when no shadow assessment applies. */
+  /**
+   * The debate tier recorded for the provider call; null when no assessment
+   * applies. Semantics by slot (D2-core): for the trace-integrity boundary
+   * debate this is the ENFORCED tier actually in effect (the effective tier
+   * after any deterministic light→standard upgrade), i.e. the field name is
+   * kept for schema stability but the value is no longer record-only there. For
+   * the P1 claim-boundary / dossier-readiness and motive-evolution slots it
+   * remains the record-only SHADOW recommendation (those slots are not yet
+   * policy-driven). Its enforced-vs-shadow semantics are named explicitly by
+   * the adjacent `tier_mode` discriminator (D2 复审 B#6/C#3).
+   */
   shadow_tier: PaperImplementationDebateComplexityTier | null;
+  /**
+   * D2 复审 (B#6/C#3): names whether `shadow_tier` on this row is the ENFORCED
+   * tier in effect (`enforced`, trace-integrity boundary debate) or a
+   * record-only SHADOW recommendation (`shadow`, P1 / motive-evolution); `null`
+   * when there is no tier context (`shadow_tier` is null). It is a pure
+   * function of `slot_id` + `shadow_tier` derived at ONE point in the runtime
+   * telemetry helper (`derivePaperImplementationRuntimeTelemetryTierMode`), so
+   * the field is OPTIONAL and additive: nothing is persisted for it, and the
+   * telemetry read model reconstructs it from the two persisted columns (no
+   * storage migration — see the S4 storage note in the read-model service).
+   */
+  tier_mode?: PaperImplementationRuntimeTelemetryTierMode | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +268,12 @@ export const paperImplementationRuntimeTelemetryRecordSchema = {
     compression_applied: { type: 'boolean' },
     shadow_tier: {
       anyOf: [{ enum: [...PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS] }, { type: 'null' }],
+    },
+    // Optional + additive (D2 复审 B#6/C#3): absent on pre-existing rows, and
+    // reconstructed from slot_id + shadow_tier by the read model — hence NOT in
+    // `required`.
+    tier_mode: {
+      anyOf: [{ enum: [...PAPER_IMPLEMENTATION_RUNTIME_TELEMETRY_TIER_MODES] }, { type: 'null' }],
     },
   },
 } as const;

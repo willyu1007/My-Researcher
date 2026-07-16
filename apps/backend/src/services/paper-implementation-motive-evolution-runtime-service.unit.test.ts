@@ -293,7 +293,7 @@ test('motive evolution runtime records two-role decision support without domain 
   assert.equal(orchestrator.calls[1]?.debate_extension?.round_index, 2);
   assert.equal(orchestrator.calls[1]?.debate_extension?.parent_invocation_attempt_ids?.length, 1);
   assert.match(orchestrator.calls[0]?.messages[0]?.content ?? '', /motive evolution decision support/);
-  assert.match(orchestrator.calls[1]?.messages[0]?.content ?? '', /Challenge every designer option key/);
+  assert.match(orchestrator.calls[1]?.messages[0]?.content ?? '', /Challenge every designer option on its substance/);
   assert.equal(includesRef(orchestrator.calls[0]?.input_refs ?? [], request.target_motive_refs[0]), true);
   assert.equal(includesRef(orchestrator.calls[0]?.input_refs ?? [], request.portfolio_snapshot_ref), true);
   assert.equal(includesRef(orchestrator.calls[0]?.input_refs ?? [], request.evidence_board_refs[0]), true);
@@ -1443,4 +1443,106 @@ test('motive evolution runtime token budget counts message-embedded context once
     // note on runtimeTokenBudget in the service).
     assert.equal(budget.compression_attempt ?? null, null);
   }
+});
+
+// ── T-124 D2-pre1: in-slot designer→challenger designed_options body thread ──
+// gs001-lora-live-006/007 root cause: the challenger received only the designer
+// artifact ref/hash + option_set_hash, never the designed_options body, so the
+// challenger LLM self-reported MISSING_DESIGNER_OPTION_KEYS /
+// MISSING_DESIGNER_ARTIFACT_CONTENT and could not challenge content it never saw.
+
+function parsePriorRoleArtifacts(call: StubCall | undefined): Array<{
+  role_slot_id?: string;
+  artifact_ref?: TopicSelectionFunctionalRef;
+  artifact_hash?: string;
+  option_set_hash?: string | null;
+  designed_option_keys?: string[];
+  designed_options?: Record<string, unknown>;
+}> {
+  const userMessage = call?.messages.find((message) => message.role === 'user')?.content ?? '{}';
+  const parsed = JSON.parse(userMessage) as {
+    prior_role_artifacts?: Array<{
+      role_slot_id?: string;
+      artifact_ref?: TopicSelectionFunctionalRef;
+      artifact_hash?: string;
+      option_set_hash?: string | null;
+      designed_option_keys?: string[];
+      designed_options?: Record<string, unknown>;
+    }>;
+  };
+  return parsed.prior_role_artifacts ?? [];
+}
+
+test('motive evolution runtime threads the designer designed_options body into the challenger context (D2-pre1, provider mode)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_designer_body_thread_provider_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+
+  // The designer call (no prior role) carries no injected designer body.
+  assert.deepEqual(parsePriorRoleArtifacts(orchestrator.calls[0]), []);
+
+  // The challenger call carries the designer's FULL canonical designed_options
+  // body verbatim, enumerated by designed_option_keys and fenced by option_set_hash.
+  const challengerPrior = parsePriorRoleArtifacts(orchestrator.calls[1]);
+  assert.equal(challengerPrior.length, 1);
+  const [prior] = challengerPrior;
+  assert.equal(prior?.role_slot_id, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID);
+  assert.equal(prior?.option_set_hash, OPTION_SET_HASH);
+  assert.deepEqual(prior?.designed_option_keys, ['evolution_option_001']);
+  assert.deepEqual(prior?.designed_options, designedOptionsByKey('evolution_option_001'));
+  // A designed-option field the challenger could only know from the body, not the refs.
+  assert.equal(
+    (prior?.designed_options?.evolution_option_001 as { option_kind?: string })?.option_kind,
+    'repair_evidence_board_first',
+  );
+});
+
+test('motive evolution runtime threads the designer designed_options body into the challenger context (D2-pre1, mocked mode)', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_designer_body_thread_mocked_run_001',
+    run_mode: 'mock',
+    execution_mode: 'mocked_llm',
+    model_option_id: null,
+    mocked_role_outputs: motiveRoleOutputs(),
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+  const challengerPrior = parsePriorRoleArtifacts(orchestrator.calls[1]);
+  assert.equal(challengerPrior.length, 1);
+  const [prior] = challengerPrior;
+  assert.deepEqual(prior?.designed_option_keys, ['evolution_option_001']);
+  assert.deepEqual(prior?.designed_options, designedOptionsByKey('evolution_option_001'));
+  assert.equal(prior?.option_set_hash, OPTION_SET_HASH);
+});
+
+test('motive evolution runtime keeps the option_set_hash echo check enforced after body injection (D2-pre1 no-relax)', async () => {
+  // The designer body is injected into the challenger context, yet the echo
+  // reconciliation is NOT relaxed: a challenger that drifts option_set_hash still
+  // fails closed with MOTIVE_EVOLUTION_OPTION_SET_MISMATCH on both attempts.
+  const { service, orchestrator } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: [
+      'challenger_option_set_mismatch',
+      'challenger_option_set_mismatch',
+    ],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_designer_body_thread_norelax_run_001',
+  });
+
+  // The challenger still received the full designer body (fix present)…
+  const challengerPrior = parsePriorRoleArtifacts(orchestrator.calls[1]);
+  assert.deepEqual(challengerPrior[0]?.designed_options, designedOptionsByKey('evolution_option_001'));
+  // …but the drifted echo is rejected — the semantic check is untouched.
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts.at(-1)?.runtime_failure_code, 'MOTIVE_EVOLUTION_OPTION_SET_MISMATCH');
 });
