@@ -1,67 +1,136 @@
 #!/usr/bin/env node
 /**
- * T-124 S5 golden scenario runner — GS-001 (LoRA, arXiv:2106.09685).
+ * T-124 golden scenario runner — 全链到 dossier ready（G1；S5 前半链 + G1 后半链）。
  *
- * 全链路径：真实 bootstrap 路由（gs001 bridge handoff，不开测试后门）→ 确定性脊柱
+ * 场景参数化（G1.1）：`--scenario <dir-name>`（或 env PAPER_IMPLEMENTATION_GOLDEN_SCENARIO，
+ * 默认 gs-001-lora 向后兼容）指向 .ai/golden-scenarios/paper-implementation/<dir>/。
+ * 素材导出契约（topic-package.mjs 必须导出，详见 gs-001 素材文件尾部注释）：
+ *   sha256Hex / SCENARIO_META / SCENARIO_IDS / SCENARIO_CONTENT / makeBridgeHandoff /
+ *   EXPERIMENT_RESULTS / CLAIM_GROUND_TRUTH / makeBackHalfFixtures(refs)。
+ *
+ * 前半链（S5，LIVE 专属）：真实 bootstrap 路由（bridge handoff，不开测试后门）→ 确定性脊柱
  * （CoreMotiveDraft → trace → admit → MotiveEvidenceBoardVersion）→ coordinator
  * lane `motive` / 单步 board pipeline / lane A（route→skeptic→cycle→feasibility），
- * 全部 execution_mode='provider_llm'（真 LLM）、run_mode='dry_run'（orchestrator 映射
- * acceptance）→ 受理桥物化（TechnicalRouteCandidate / FeasibilityProbe，带
- * source_proposal_artifact_ref 血缘）→ review-packet.md 人审包。
+ * execution_mode='provider_llm'、run_mode='dry_run'（orchestrator 映射 acceptance）
+ * → 受理桥物化（TechnicalRouteCandidate / FeasibilityProbe，带 source_proposal_artifact_ref 血缘）。
+ *
+ * 后半链（G1.2，live 与 smoke 共用）：ValidationCycle draft+admit → ExperimentPlanLight →
+ * ResearchWorkOrder draft → trace gate evaluate（enforced）→ admit → acceptance 假体实验
+ * （素材 EXPERIMENT_RESULTS 论文真实数字经 harness-run + run-monitor-intake 产出 trusted
+ * RunEvidenceUnit，不伪造 provider 调用）→ result_analysis slot → Domain Gate 物化
+ * ResultInterpretationPacket → ClaimTracePacket → 四点集停驻#2（强 claim 人工确认，
+ * override actor=gs 记录员，经真实 /human-confirmations 路由）→ claim_boundary debate →
+ * 物化 ClaimCandidate（产品消费确认记录）→ readiness trace gate → dossier_readiness debate
+ * → 物化 ImplementationDossier（产品侧 N7 项目级 REU 对账 enforced）→ **dossier ready =
+ * export 停驻（四点集#3，runner 终点，不产 WritingEntryPacket）** → 血缘断言节
+ * （dossier→claim→packet→REU→WO→probe→route 逐环 ref 机器回溯，失败=GAP）。
+ *
+ * 双模式：
+ * - LIVE（PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE=1）：全链 provider_llm（G4 验收面）。
+ * - SMOKE（PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_SMOKE=1）：脊柱 + 后半链结构冒烟，
+ *   三个后半链 slot 用素材 mocked_llm 夹具（run_mode='mock'），零 provider 调用零 key；
+ *   provider lanes 与受理桥如实跳过并在 summary/review packet 里声明。
  *
  * 接线模板：
  * - live provider 接线镜像 near-prod gate（buildApp + BackendLlmGateway + 注册 profile
- *   解析：TopicSelectionAgentOrchestratorService → BackendLlmGateway）；
+ *   解析：TopicSelectionAgentOrchestratorService → BackendLlmGateway；后半链三 slot 走
+ *   同一 gateway 注入点的回退链）；
  * - 领域播种镜像 v1-runnable-replay（in-memory 仓储 + 真实服务），StubBridgeService
- *   换成 gs001 handoff（.ai/golden-scenarios/paper-implementation/gs-001-lora/topic-package.mjs）。
+ *   换成场景 handoff（素材 makeBridgeHandoff()）。
  *
  * 失败处理：任何 step blocked/失败如实落盘并继续能继续的部分；summary.status ∈
  * completed|partial|failed，绝不静默吞。skeptic waiting_review 停驻如实记录；
  * （记录后）以一次不改载荷的 override re-advance 继续（override 含 actor 记录），
- * 仍停驻则如实终止该 lane——不伪造 disposition。
+ * 仍停驻则如实终止该 lane——不伪造 disposition。后半链 slot 非 passed=诚实停链
+ * （非四点集签核停驻，不 override）。
  *
- * 运行（仓库根）：
- *   PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE=1 \
- *   node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs \
- *     .ai/scripts/paper-implementation-golden-scenario.mjs
+ * (v8/G4.6 起后半链 domain_gate_request 为服务侧组装；历史注记) 后半链 slot 的 domain_gate_request
+ * 需 provider LLM 从 source_refs 逐字转写 runner 侧结构 id（trace manifest / gate result /
+ * claim trace packet / human confirmation）；转写漂移会被 Domain Gate 400/409 拒绝——
+ * 如实记 GAP，不改产品语义。
+ *
+ * 运行（仓库根）：不带 env gate 直接运行会打印 usage 后无副作用退出。
  */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
 const RUNNER_ID = 'paper-implementation-golden-scenario';
-const RUNNER_VERSION = 't124-s5-gs001-lora-v5';
-const SCENARIO_ID = 'gs-001-lora';
+// v7 (T-124 G4.5): back-half source-body injection (hash-fenced
+// source_context_packets + materialized packet/claim readback), experiment-v2
+// cutover pinned OFF inline, and front-half spine content moved to the
+// per-scenario SCENARIO_SPINE material export.
+// v8 (T-124 G4.6): the three back-half slots assemble their Domain Gate
+// requests SERVICE-SIDE from the request context — the runner now declares the
+// pre-authorized structural refs (result packet / claim candidate / trace
+// manifests / experiment plan / metrics) in source_refs, and the material
+// fixtures carry SEMANTIC content blocks instead of full Create*Requests.
+const RUNNER_VERSION = 't124-g1-golden-full-chain-v8';
 
-if (process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE !== '1') {
+// ---------------------------------------------------------------------------
+// args (scenario selection + run identity)
+// ---------------------------------------------------------------------------
+const args = process.argv.slice(2);
+let scenarioId = process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO?.trim() || 'gs-001-lora';
+let runIdArg = null;
+for (let i = 0; i < args.length; i += 1) {
+  if (args[i] === '--run-id' && args[i + 1]) {
+    runIdArg = args[i + 1];
+    i += 1;
+  } else if (args[i].startsWith('--run-id=')) {
+    runIdArg = args[i].slice('--run-id='.length);
+  } else if (args[i] === '--scenario' && args[i + 1]) {
+    scenarioId = args[i + 1];
+    i += 1;
+  } else if (args[i].startsWith('--scenario=')) {
+    scenarioId = args[i].slice('--scenario='.length);
+  }
+}
+if (!/^[A-Za-z0-9._-]+$/.test(scenarioId)) {
+  console.error('--scenario may only contain letters, numbers, dot, underscore, and hyphen.');
+  process.exit(1);
+}
+const SCENARIO_ID = scenarioId;
+const SCENARIO_DIR = path.join(REPO_ROOT, '.ai/golden-scenarios/paper-implementation', SCENARIO_ID);
+// runtime identifier prefix derived from the scenario (coordinator run ids, holder ids)
+const SCEN = SCENARIO_ID.replace(/[^A-Za-z0-9_]/g, '_');
+
+// ---------------------------------------------------------------------------
+// mode gate: smoke (mocked_llm, no provider key — structural冒烟) OR
+//            live (provider_llm, requires key — G4 full-chain live run).
+// Exactly one of the two env gates must be set; without either, exit clean.
+// ---------------------------------------------------------------------------
+const SMOKE = process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_SMOKE === '1';
+const LIVE = process.env.PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE === '1';
+if (!SMOKE && !LIVE) {
   console.log(`Usage (from repo root):
+
+  # Full-chain LIVE run (G4; provider_llm; front coordinator lanes + back half):
   PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE=1 \\
   node --env-file=.env.local --loader ./apps/backend/node_modules/ts-node/esm.mjs \\
-    .ai/scripts/paper-implementation-golden-scenario.mjs [--run-id <id>]
+    .ai/scripts/paper-implementation-golden-scenario.mjs [--scenario gs-001-lora] [--run-id <id>]
 
-Live gate PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_LIVE=1 is not set; exiting without side effects.
-Requires OPENAI_API_KEY (or DASHSCOPE_API_KEY with PAPER_IMPLEMENTATION_PROVIDER_CANARY_PROVIDER_ID=dashscope)
-in .env.local. Expected cost: ~8-10 provider calls per run.
+  # Structural SMOKE run (mocked_llm; no provider key; spine + full back half deterministically):
+  PAPER_IMPLEMENTATION_GOLDEN_SCENARIO_SMOKE=1 \\
+  node --loader ./apps/backend/node_modules/ts-node/esm.mjs \\
+    .ai/scripts/paper-implementation-golden-scenario.mjs [--scenario gs-001-lora] [--run-id <id>]
+
+Neither gate set; exiting without side effects.
+LIVE requires OPENAI_API_KEY (or DASHSCOPE_API_KEY with PAPER_IMPLEMENTATION_PROVIDER_CANARY_PROVIDER_ID=dashscope).
+SMOKE needs no key and issues zero provider calls (material-supplied mocked role outputs).
 Artifacts: .ai/.tmp/paper-implementation-golden-scenario/<run-id>/`);
   process.exit(0);
 }
+const MODE = SMOKE ? 'smoke' : 'live';
+// Live maps run_mode=dry_run→acceptance in the orchestrator; smoke uses mock→test
+// with mocked_llm role fixtures so the back half runs deterministically, no key.
+const RUN_MODE = SMOKE ? 'mock' : 'dry_run';
+const EXECUTION_MODE = SMOKE ? 'mocked_llm' : 'provider_llm';
 
-// ---------------------------------------------------------------------------
-// args / run identity
-// ---------------------------------------------------------------------------
-const args = process.argv.slice(2);
-let runId = `gs001-lora-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-for (let i = 0; i < args.length; i += 1) {
-  if (args[i] === '--run-id' && args[i + 1]) {
-    runId = args[i + 1];
-    i += 1;
-  } else if (args[i].startsWith('--run-id=')) {
-    runId = args[i].slice('--run-id='.length);
-  }
-}
+let runId = runIdArg ?? `${SCENARIO_ID}-${MODE}-${new Date().toISOString().replace(/[:.]/g, '-')}`;
 if (!/^[A-Za-z0-9._-]+$/.test(runId)) {
   console.error('--run-id may only contain letters, numbers, dot, underscore, and hyphen.');
   process.exit(1);
@@ -73,6 +142,13 @@ const ARTIFACT_DIR = path.join(REPO_ROOT, '.ai/.tmp/paper-implementation-golden-
 // ---------------------------------------------------------------------------
 process.env.AUTO_PULL_SCHEDULER_ENABLED = 'false';
 process.env.NODE_ENV = process.env.NODE_ENV ?? 'test';
+// T-124 G4.5 追加 A (user-decided environment isolation): pin the experiment v2
+// cutover OFF inline so the golden scenario always exercises the T-124 legacy
+// product back-half path, regardless of what .env.local carries for T-132 local
+// work. Inline assignment wins over --env-file (verified on run 010), and this
+// hermetic in-memory app never touches the developer's .env.local. Revisit
+// migrating the back half onto the v2 routing face once that surface stabilizes.
+process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'false';
 for (const key of [
   'RESEARCH_LIFECYCLE_REPOSITORY',
   'TITLE_CARD_REPOSITORY',
@@ -88,7 +164,8 @@ const providerId = process.env.PAPER_IMPLEMENTATION_PROVIDER_CANARY_PROVIDER_ID 
   ? 'dashscope'
   : 'openai';
 const providerKeyName = providerId === 'dashscope' ? 'DASHSCOPE_API_KEY' : 'OPENAI_API_KEY';
-if (!process.env[providerKeyName]?.trim()) {
+// The provider key is only required for LIVE runs; SMOKE issues zero provider calls.
+if (LIVE && !process.env[providerKeyName]?.trim()) {
   console.error(JSON.stringify({
     runner_id: RUNNER_ID,
     run_id: runId,
@@ -114,12 +191,20 @@ const { InMemoryPaperImplementationAiWorkflowHarnessRepository } = await import(
 const { InMemoryPaperImplementationRuntimeRepository } = await import('../../apps/backend/src/repositories/in-memory-paper-implementation-runtime-repository.ts');
 const { InMemoryPaperImplementationCoordinatorRepository } = await import('../../apps/backend/src/repositories/in-memory-paper-implementation-coordinator-repository.ts');
 const { InMemoryPaperImplementationHumanConfirmationRepository } = await import('../../apps/backend/src/repositories/in-memory-paper-implementation-human-confirmation-repository.ts');
+const material = await import(pathToFileURL(path.join(SCENARIO_DIR, 'topic-package.mjs')).href);
 const {
-  GS001_IDS: T,
-  GS001_LORA_CONTENT: LORA,
-  makeGs001BridgeHandoff,
+  SCENARIO_IDS: T,
+  SCENARIO_CONTENT: LORA,
+  SCENARIO_SPINE: SPINE,
+  SCENARIO_META,
+  makeBridgeHandoff,
+  makeBackHalfFixtures,
+  EXPERIMENT_RESULTS,
+  CLAIM_GROUND_TRUTH,
   sha256Hex,
-} = await import('../golden-scenarios/paper-implementation/gs-001-lora/topic-package.mjs');
+} = material;
+// Back-compat alias so the front-half payload builders below keep their names.
+const makeGs001BridgeHandoff = makeBridgeHandoff;
 
 // ---------------------------------------------------------------------------
 // constants (mirror shared runtime contracts; string literals keep this runner
@@ -146,11 +231,11 @@ const PROFILE = {
 const modelOptionId = (profileId) => providerId === 'dashscope'
   ? `${profileId}.dashscope-thinking-budget`
   : `${profileId}.openai-balanced`;
-// coordinator 非 product 实跑模式；全部 slot 服务统一映射为 'acceptance'。
-// （S2-B B2 已修复 motive-evolution 的 dry_run→test 映射分叉，motive lane 不再需要
-// 以 run_mode='replay' 绕行——全 lane 直接用 dry_run。）
-const RUN_MODE = 'dry_run';
-const EXECUTION_MODE = 'provider_llm';
+// RUN_MODE / EXECUTION_MODE are set at the top from MODE:
+//   live  → dry_run / provider_llm  (orchestrator maps dry_run→acceptance)
+//   smoke → mock    / mocked_llm    (material-supplied role fixtures, zero provider calls)
+// (S2-B B2 fixed the motive-evolution dry_run→test map divergence, so the motive
+// lane no longer needs a run_mode=replay workaround — every lane uses dry_run live.)
 
 /**
  * S5 首跑期间实证的产品侧发现（runner 不修产品语义，只在人审包里如实呈现；
@@ -349,7 +434,7 @@ function registerObservabilityGap(section, error, note) {
 // gs001 bridge stub (replaces the real topic-selection bridge provider; the
 // bootstrap HTTP route itself stays fully real — no test backdoor)
 // ---------------------------------------------------------------------------
-class Gs001BridgeService {
+class ScenarioBridgeService {
   handoff = makeGs001BridgeHandoff();
 
   async getPaperProjectBridgeHandoff(paperProjectBridgeId) {
@@ -368,34 +453,23 @@ const workingCopyHash = handoff.working_copy_payload_hash;
 
 function motiveDraftPayload() {
   const c = LORA;
+  const motivationPressure = SPINE.assertions.motivation_pressure;
+  const technicalOpportunity = SPINE.assertions.technical_opportunity;
+  const baselineGap = SPINE.assertions.baseline_gap;
   return {
     motive_id: T.motive,
     core_motive_version_id: T.motiveVersion,
     motive_contract: {
-      short_name: 'Low-rank adaptation of pretrained language models',
+      short_name: SPINE.motive_short_name,
       motivation_claim: c.motive_hypothesis,
-      problem_pressure:
-        'Per-task full fine-tuning of large pretrained language models is prohibitive in trainable parameters, '
-        + 'GPU memory, and per-task checkpoint storage as model scale grows.',
-      current_solution_insufficiency:
-        'Existing parameter-efficient methods trade away what they save: adapter layers add inference latency, '
-        + 'and prefix/prompt tuning consumes usable sequence length and optimizes unstably.',
-      unmet_or_failure_mechanism:
-        'No adaptation method simultaneously achieves drastically fewer trainable parameters, zero added '
-        + 'inference latency, and task performance parity with full fine-tuning.',
-      target_setting: 'Downstream adaptation of Transformer language models (NLU and NLG tasks).',
-      expected_contribution_path:
-        'If adaptation deltas have low intrinsic rank, constraining the per-task update to a low-rank '
-        + 'decomposition should retain task performance while training orders of magnitude fewer parameters.',
-      why_this_is_not_trivial:
-        'It is not obvious that a hard low-rank constraint on weight updates preserves task performance at '
-        + 'realistic model scales, nor which weight matrices must receive the update.',
-      why_existing_baselines_do_not_already_solve_it:
-        'Adapters solve parameter count but not latency; prefix tuning solves latency but not sequence budget '
-        + 'or optimization stability; full fine-tuning solves neither cost dimension.',
-      what_makes_this_researchable_now:
-        'Strong public pretrained checkpoints (RoBERTa class) and standard benchmarks (GLUE) make a '
-        + 'small-scale falsification probe affordable within a single-GPU budget.',
+      problem_pressure: SPINE.motive_contract.problem_pressure,
+      current_solution_insufficiency: SPINE.motive_contract.current_solution_insufficiency,
+      unmet_or_failure_mechanism: SPINE.motive_contract.unmet_or_failure_mechanism,
+      target_setting: SPINE.motive_contract.target_setting,
+      expected_contribution_path: SPINE.motive_contract.expected_contribution_path,
+      why_this_is_not_trivial: SPINE.motive_contract.why_this_is_not_trivial,
+      why_existing_baselines_do_not_already_solve_it: SPINE.motive_contract.why_existing_baselines_do_not_already_solve_it,
+      what_makes_this_researchable_now: SPINE.motive_contract.what_makes_this_researchable_now,
     },
     scope_contract: {
       included_scope: [...LORA.scope.included],
@@ -403,86 +477,64 @@ function motiveDraftPayload() {
       non_goals: [...LORA.scope.non_goals],
     },
     falsification_contract: {
-      invalidation_conditions: [
-        'Low-rank-constrained adaptation consistently loses significant task performance versus full '
-        + 'fine-tuning at the probed scale even with generous rank.',
-      ],
-      weakening_conditions: [
-        'Low-rank adaptation matches full fine-tuning only on a narrow subset of tasks or only at large rank.',
-      ],
-      minimum_evidence_to_continue: [
-        'At least one representative task where a low-rank probe recovers near full fine-tuning performance.',
-      ],
-      decisive_negative_conditions: [
-        'The required rank to match full fine-tuning grows to the same order as the weight dimensions.',
-      ],
+      invalidation_conditions: [...SPINE.falsification_contract.invalidation_conditions],
+      weakening_conditions: [...SPINE.falsification_contract.weakening_conditions],
+      minimum_evidence_to_continue: [...SPINE.falsification_contract.minimum_evidence_to_continue],
+      decisive_negative_conditions: [...SPINE.falsification_contract.decisive_negative_conditions],
     },
     claim_boundary: {
-      maximum_allowed_claim:
-        'Low-rank adaptation matches full fine-tuning task performance within the probed model scale and task '
-        + 'set while training a small fraction of parameters and adding no inference latency.',
-      minimum_defensible_contribution_claim:
-        'A measured characterization of the performance/parameter trade-off of low-rank-constrained adaptation.',
-      forbidden_overclaims: [
-        'Universal superiority over all adaptation methods on all tasks',
-        'Claims about model scales or modalities never probed',
-      ],
-      claim_types_allowed: ['analysis_claim'],
+      maximum_allowed_claim: SPINE.claim_boundary.maximum_allowed_claim,
+      minimum_defensible_contribution_claim: SPINE.claim_boundary.minimum_defensible_contribution_claim,
+      forbidden_overclaims: [...SPINE.claim_boundary.forbidden_overclaims],
+      claim_types_allowed: [...SPINE.claim_boundary.claim_types_allowed],
     },
     source_refs: [ref('topic_package', T.topicPackage, 'v3')],
     assertions: [
       {
         assertion_id: T.assertionMotivationPressure,
-        assertion_type: 'motivation_pressure',
-        assertion_text:
-          'Per-task full fine-tuning cost (trainable parameters, GPU memory, checkpoint storage) is the binding '
-          + 'constraint that makes large-model downstream adaptation impractical at scale.',
-        importance: { role: 'core', must_hold_for_motive_to_continue: true },
+        assertion_type: motivationPressure.assertion_type,
+        assertion_text: motivationPressure.assertion_text,
+        importance: { role: 'core', must_hold_for_motive_to_continue: motivationPressure.must_hold },
         validation_requirements: {
           minimum_support_level: 'weak',
           required_evidence_types: ['literature'],
           required_counter_evidence_check: true,
         },
         falsification: {
-          what_would_contradict_this: ['Deployment surveys showing per-task full fine-tuning cost is negligible in practice.'],
-          what_would_weaken_this: ['Cost pressure applies only to the very largest model class.'],
+          what_would_contradict_this: [...motivationPressure.contradict],
+          what_would_weaken_this: [...motivationPressure.weaken],
         },
         expected_initial_status: 'untested',
       },
       {
         assertion_id: T.assertionLowRankOpportunity,
-        assertion_type: 'technical_opportunity',
-        assertion_text:
-          'The adaptation delta over pretrained weights has low intrinsic rank, so a low-rank decomposition of '
-          + 'the update can approximate full fine-tuning without losing task performance.',
-        importance: { role: 'core', must_hold_for_motive_to_continue: true },
+        assertion_type: technicalOpportunity.assertion_type,
+        assertion_text: technicalOpportunity.assertion_text,
+        importance: { role: 'core', must_hold_for_motive_to_continue: technicalOpportunity.must_hold },
         validation_requirements: {
           minimum_support_level: 'weak',
           required_evidence_types: ['literature'],
           required_counter_evidence_check: true,
         },
         falsification: {
-          what_would_contradict_this: ['Low-rank-constrained updates consistently underperform full fine-tuning at any affordable rank.'],
-          what_would_weaken_this: ['The low-rank property holds only for some weight matrices or task families.'],
+          what_would_contradict_this: [...technicalOpportunity.contradict],
+          what_would_weaken_this: [...technicalOpportunity.weaken],
         },
         expected_initial_status: 'untested',
       },
       {
         assertion_id: T.assertionBaselineGap,
-        assertion_type: 'baseline_gap',
-        assertion_text:
-          'Existing parameter-efficient baselines leave a real gap: adapter layers add inference latency and '
-          + 'prefix/prompt tuning consumes sequence budget and optimizes unstably, so none achieves parameter '
-          + 'efficiency with zero added latency at parity performance.',
-        importance: { role: 'core', must_hold_for_motive_to_continue: false },
+        assertion_type: baselineGap.assertion_type,
+        assertion_text: baselineGap.assertion_text,
+        importance: { role: 'core', must_hold_for_motive_to_continue: baselineGap.must_hold },
         validation_requirements: {
           minimum_support_level: 'weak',
           required_evidence_types: ['literature'],
           required_counter_evidence_check: true,
         },
         falsification: {
-          what_would_contradict_this: ['A baseline reproduction showing adapters add no measurable latency and prefix tuning is stable at parity.'],
-          what_would_weaken_this: ['The latency penalty matters only in small-batch online inference.'],
+          what_would_contradict_this: [...baselineGap.contradict],
+          what_would_weaken_this: [...baselineGap.weaken],
         },
         expected_initial_status: 'untested',
       },
@@ -496,7 +548,7 @@ function boardPayload(boardTraceManifestId, bindingTraces) {
     assertion_id: assertionId,
     evidence_ref: ref('literature_evidence_unit', T.litEvidence),
     role: 'support',
-    scope: { dataset_scope: 'Transformer language model adaptation literature' },
+    scope: { dataset_scope: SPINE.board.binding_dataset_scope },
     strength: { directness: 'moderate', reliability: 'medium', reproducibility: 'unknown', freshness: 'fresh' },
     support_state: 'weak',
     challenge_status: 'none',
@@ -507,48 +559,42 @@ function boardPayload(boardTraceManifestId, bindingTraces) {
     },
     trace_manifest_id: bindingTraces[bindingId],
   });
+  const motivationPressure = SPINE.board.bindings.motivation_pressure;
+  const technicalOpportunity = SPINE.board.bindings.technical_opportunity;
+  const baselineGap = SPINE.board.bindings.baseline_gap;
   return {
     board_version_id: T.board,
     motive_id: T.motive,
     core_motive_version_id: T.motiveVersion,
     trace_manifest_id: boardTraceManifestId,
     board_summary: {
-      current_support_summary:
-        'Topic-package literature supports the cost-pressure motivation and gives an indirect low-intrinsic-'
-        + 'dimension signal for the low-rank hypothesis; no direct probe evidence yet.',
-      current_challenge_summary: 'No direct counter-evidence recorded at intake.',
+      current_support_summary: SPINE.board.summary.current_support_summary,
+      current_challenge_summary: SPINE.board.summary.current_challenge_summary,
       unresolved_conflicts: [],
-      board_gap_summary:
-        'The low-rank hypothesis needs a direct feasibility probe at the target model scale, and the baseline '
-        + 'gap assertion needs reproduced adapter/prefix baselines under the project budget.',
-      next_evidence_needed: [
-        'Low-rank feasibility probe on a representative task at RoBERTa-base scale.',
-        'Reproduced full fine-tuning / adapter / prefix baselines with latency and parameter measurements.',
-      ],
+      board_gap_summary: SPINE.board.summary.board_gap_summary,
+      next_evidence_needed: [...SPINE.board.summary.next_evidence_needed],
     },
     bindings: [
       bindingFor(
         T.bindingMotivationPressure,
         T.assertionMotivationPressure,
-        'Prior work reports that per-task full-model copies are prohibitive in storage and deployment as '
-        + 'pretrained model scale grows.',
-        'Directly supports the cost-pressure motivation.',
-        'Evidence is literature-level; project-scale cost was not re-measured at intake.',
+        motivationPressure.statement,
+        motivationPressure.relevance,
+        motivationPressure.limitation,
       ),
       bindingFor(
         T.bindingLowRankOpportunity,
         T.assertionLowRankOpportunity,
-        'Prior work reports learned over-parametrized models reside on a low intrinsic dimension.',
-        'Indirectly supports the hypothesis that adaptation updates may also be low-rank.',
-        'Intrinsic dimension of the model is not the same object as the rank of the adaptation delta.',
+        technicalOpportunity.statement,
+        technicalOpportunity.relevance,
+        technicalOpportunity.limitation,
       ),
       bindingFor(
         T.bindingBaselineGap,
         T.assertionBaselineGap,
-        'Prior work reports adapter latency overhead at small batch sizes and prefix-tuning optimization '
-        + 'instability with non-monotonic performance in tunable parameters.',
-        'Supports the claim that existing parameter-efficient baselines leave a latency/stability gap.',
-        'Reported measurements come from other model/serving configurations than this project budget.',
+        baselineGap.statement,
+        baselineGap.relevance,
+        baselineGap.limitation,
       ),
     ],
   };
@@ -601,20 +647,17 @@ function motiveDecompositionSlotPayload(spine, bundle) {
       assertionPacket(
         T.assertionMotivationPressure,
         draft.assertions[0].assertion_text,
-        'Cost pressure applies to downstream adaptation of large pretrained Transformer language models; '
-        + 'no new pretraining, no multimodal scope.',
+        SPINE.assertions.motivation_pressure.decomposition_scope_summary,
       ),
       assertionPacket(
         T.assertionLowRankOpportunity,
         draft.assertions[1].assertion_text,
-        'The low-rank hypothesis targets adaptation deltas over frozen pretrained weights within the probed '
-        + 'model scale (RoBERTa-base class) and budget (single-GPU, GLUE subset).',
+        SPINE.assertions.technical_opportunity.decomposition_scope_summary,
       ),
       assertionPacket(
         T.assertionBaselineGap,
         draft.assertions[2].assertion_text,
-        'Baseline gap covers full fine-tuning, adapter tuning, and prefix/prompt tuning as reproduction '
-        + 'targets under the project compute budget.',
+        SPINE.assertions.baseline_gap.decomposition_scope_summary,
       ),
     ],
     trace_manifest_refs: [ref('trace_manifest', spine.motiveTraceManifestId)],
@@ -1081,7 +1124,7 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody) {
     return result;
   };
 
-  let result = await advance('', { holder_id: `gs001_runner_${laneKey}` });
+  let result = await advance('', { holder_id: `${SCEN}_runner_${laneKey}` });
 
   for (;;) {
     if (result.run.run_status === 'waiting_review' && waitingResolves < 1) {
@@ -1094,11 +1137,11 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody) {
         slot_id: waitingStep?.slot_id ?? null,
         note: 'Semantic stop recorded honestly; one override re-advance follows (actor recorded, payload '
           + 'unchanged, new provider attempt — the disposition is never forged).',
-        override_actor: 'gs001_human_override_reviewer',
+        override_actor: `${SCEN}_human_override_reviewer`,
       });
       await record(`${laneKey}-waiting-review-stop`, { coordinator_run: result.run, waiting_step: waitingStep ?? null });
       waitingResolves += 1;
-      result = await advance('override', { holder_id: 'gs001_human_override_reviewer' });
+      result = await advance('override', { holder_id: `${SCEN}_human_override_reviewer` });
       continue;
     }
     if (result.run.run_status === 'waiting_review') {
@@ -1387,6 +1430,960 @@ async function materializeAcceptanceBridge(app, projectId, artifactsById) {
 }
 
 // ---------------------------------------------------------------------------
+// back half (G1): WO 创建/admit → acceptance 假体实验（trusted REU，产品通道，
+// 零 provider 伪造）→ result_analysis slot → Domain Gate 物化 packet →
+// claim_boundary debate → 强 claim 人工确认停驻（四点集 #2，actor=gs 记录员）→
+// 物化 ClaimCandidate → dossier_readiness debate → 物化 ImplementationDossier →
+// dossier ready = export 停驻（四点集 #3，runner 终点）。
+//
+// 真实路由逐步（勘察结论，无测试后门）：
+//   POST /validation-cycles/drafts + /trace-manifests + /validation-cycles/:id/admit
+//   POST /experiment-plan-lights
+//   POST /research-work-orders/drafts → POST /trace-gates/evaluate（enforced 档位）
+//     → POST /research-work-orders/:id/admit
+//   POST /research-work-orders/:id/harness-runs（登记假体 external job 身份，
+//     external_job_hash = sha256(EXPERIMENT_RESULTS)——身份与数据段绑定）
+//   POST /run-monitor-intakes（run_status=succeeded + 素材实验结果 ref/hash +
+//     REU trace manifest）→ trusted RunEvidenceUnit（工单要求的 acceptance 通道；
+//     实验本身不经 LLM，不伪造 provider 调用）
+//   POST /runtime-slots/result-analysis-scenarios/run →
+//     POST /runtime-artifacts/:id/materialize-domain-gate → ResultInterpretationPacket
+//   POST /claim-trace-packets（claim_status=supported 的前置授权物）
+//   停驻#2 → POST /human-confirmations（scope=strong_claim_acceptance，
+//     confirmed_by_actor_type=human，actor id=gs 记录员）
+//   POST /runtime-slots/claim-boundary-debate/run → materialize-domain-gate →
+//     ClaimCandidate（产品侧消费并燃烧确认记录）
+//   POST /trace-gates/evaluate（dossier readiness gate）
+//   POST /runtime-slots/dossier-readiness-audit/run → materialize-domain-gate →
+//     ImplementationDossier（ready_for_writing；产品侧 N7 项目级 REU 对账在此 enforced）
+//
+// T-124 G4.6：三个后半链 slot 的 domain_gate_request 改为服务侧确定性组装——
+// 结构 id（packet/claim/dossier id、trace manifest、gate result、claim trace
+// packet、human confirmation ref）全部由 runner 以 source_refs 声明、服务组装，
+// LLM 只产出语义内容块（interpretation/reliability/claim_implications 或
+// claim_proposal/dossier_proposal）。run 009/010/011 的信封回显失配面就此移除；
+// 语义内容缺失/不完整仍走既有语义失败重试通道，如实记录不 override。
+// ---------------------------------------------------------------------------
+
+function backHalfExperimentLineage(spine, kind) {
+  const lineage = emptyTraceLineage();
+  lineage.literature.literature_evidence_refs = [ref('literature_evidence_unit', T.litEvidence)];
+  lineage.literature.source_locator_refs = [ref('source_locator', T.sourceLocator)];
+  lineage.decision.validation_cycle_refs = [ref('validation_cycle', T.validationCycle)];
+  if (kind === 'experiment_plan' || kind === 'work_order' || kind === 'run_evidence') {
+    lineage.experiment.metric_refs = [
+      ref('metric', T.metricGlue),
+      ref('metric', T.metricTrainableParams),
+      ref('metric', T.metricInferenceLatency),
+    ];
+    lineage.artifact.dataset_refs = [ref('dataset_version', T.datasetGlueSubset)];
+    lineage.artifact.baseline_refs = [ref('baseline_version', T.baselineFullFinetune), ref('baseline_version', T.baselineAdapter)];
+    lineage.artifact.code_version_refs = [ref('code_version', T.codeHfRoberta)];
+    lineage.artifact.config_refs = [ref('config', T.configAdaptation)];
+  }
+  if (kind === 'work_order' || kind === 'run_evidence') {
+    lineage.experiment.experiment_plan_refs = [ref('experiment_plan_light', T.experimentPlan)];
+  }
+  if (kind === 'run_evidence') {
+    lineage.experiment.work_order_refs = [ref('research_work_order', T.workOrder)];
+    lineage.experiment.run_refs = [ref('external_training_job', T.externalJob)];
+    lineage.experiment.run_evidence_refs = [ref('run_evidence_unit', T.runEvidenceUnit)];
+  }
+  if (kind === 'claim' || kind === 'dossier') {
+    lineage.experiment.run_evidence_refs = [ref('run_evidence_unit', T.runEvidenceUnit)];
+    lineage.experiment.result_packet_refs = [ref('result_interpretation_packet', T.resultPacket)];
+    lineage.experiment.work_order_refs = [ref('research_work_order', T.workOrder)];
+  }
+  if (kind === 'result_packet') {
+    lineage.experiment.run_evidence_refs = [ref('run_evidence_unit', T.runEvidenceUnit)];
+    lineage.experiment.metric_refs = [ref('metric', T.metricGlue)];
+    lineage.experiment.work_order_refs = [ref('research_work_order', T.workOrder)];
+  }
+  return lineage;
+}
+
+async function createBackHalfTrace(app, projectId, stepId, targetRef, lineage) {
+  const created = await inject(app, {
+    stepId,
+    method: 'POST',
+    url: projectUrl(projectId, '/trace-manifests'),
+    payload: { target_ref: targetRef, lineage, integrity: {} },
+    expectedStatus: 201,
+  });
+  return created.trace_manifest_id;
+}
+
+async function evaluateTraceGate(app, projectId, stepId, traceManifestId) {
+  const gate = await inject(app, {
+    stepId,
+    method: 'POST',
+    url: projectUrl(projectId, '/trace-gates/evaluate'),
+    payload: { trace_manifest_id: traceManifestId },
+    expectedStatus: 200,
+  });
+  if (gate.gate_status !== 'passed') {
+    throw new StepFailure(stepId, 200, { gate_status: gate.gate_status, gate_result_id: gate.gate_result_id ?? null });
+  }
+  return gate.gate_result_id;
+}
+
+/** 1) 确定性授权脊柱：ValidationCycle draft+admit → ExperimentPlanLight → WO draft+gate+admit。 */
+async function runBackHalfWorkOrder(app, projectId, spine, bridgeInfo) {
+  const bh = state.back_half;
+  const cycleTrigger = bridgeInfo?.probeCreated
+    ? [ref('motive_evidence_board_version', T.board), ref('feasibility_probe', T.feasibilityProbe)]
+    : [ref('motive_evidence_board_version', T.board)];
+  const cycleRouteRefs = bridgeInfo?.routeCreated ? [ref('technical_route_candidate', T.routeCandidate)] : [];
+  await inject(app, {
+    stepId: 'bh-validation-cycle-draft',
+    method: 'POST',
+    url: projectUrl(projectId, '/validation-cycles/drafts'),
+    payload: {
+      validation_cycle_id: T.validationCycle,
+      target: { target_type: 'core_motive_version', target_id: T.motiveVersion, target_version_id: '1' },
+      trigger: { trigger_type: 'board_gap', trigger_refs: cycleTrigger },
+      cycle_type: 'route_feasibility',
+      validation_frame: {
+        validation_question:
+          'Does low-rank adaptation (r=8) reach task-metric parity with reproduced full fine-tuning on the '
+          + 'committed GLUE subset within the pre-registered tolerance, at the probed RoBERTa-base scale?',
+        assumptions_under_test: ['The adaptation delta has low intrinsic rank at the probed scale.'],
+        assertions_under_test: [
+          ref('motive_assertion', T.assertionLowRankOpportunity),
+          ref('motive_assertion', T.assertionBaselineGap),
+        ],
+        decision_if_pass: 'Materialize the bounded parity interpretation and draft the claim.',
+        decision_if_fail: 'Record the reproduction failure; parity claims for missed tasks are void.',
+        decision_if_inconclusive: 'Retain inconclusive evidence and narrow the follow-up cycle.',
+        expected_information_gain: 'high',
+        why_this_cycle_now: 'Stage-0 probe passed and stage-1 baselines reproduced to target; the confirmatory matrix is due.',
+      },
+      context: {
+        included_refs: {
+          motive_version_refs: [ref('core_motive_version', T.motiveVersion, '1')],
+          board_version_refs: [ref('motive_evidence_board_version', T.board)],
+          evidence_refs: [ref('literature_evidence_unit', T.litEvidence)],
+          route_refs: cycleRouteRefs,
+          work_order_refs: [],
+          result_packet_refs: [],
+          experiment_plan_light_refs: [],
+        },
+        excluded_context_notes: [],
+      },
+      criteria: {
+        pass_conditions: ['LoRA r=8 mean-over-repeats within 0.5 points of the reproduced full-FT anchor on all three committed tasks.'],
+        fail_conditions: ['Any committed task misses parity, or a full-FT reproduction misses its pre-committed target (anchor void).'],
+        inconclusive_conditions: ['Repeat variance prevents a stable mean within the repeat cap.'],
+        stop_conditions: ['Stop when the 40 GPU-hour training ledger is exhausted.'],
+        minimum_artifacts_required: ['trusted run evidence unit', 'result validation report'],
+      },
+      budget: {
+        budget_id: T.validationBudget,
+        max_runtime: LORA.budget_envelope.max_runtime,
+        max_compute: LORA.budget_envelope.max_compute,
+        max_human_review_count: 1,
+        retry_budget: LORA.budget_envelope.retry_budget,
+      },
+    },
+    expectedStatus: 201,
+  });
+  const cycleTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-validation-cycle-trace',
+    ref('validation_cycle', T.validationCycle, 'v1'),
+    (() => {
+      const lineage = emptyTraceLineage();
+      lineage.literature.literature_evidence_refs = [ref('literature_evidence_unit', T.litEvidence)];
+      lineage.decision.human_decision_refs = [ref('human_decision', `${SCEN}_human_decision_cycle_admit`)];
+      return lineage;
+    })(),
+  );
+  await inject(app, {
+    stepId: 'bh-validation-cycle-admit',
+    method: 'POST',
+    url: projectUrl(projectId, `/validation-cycles/${T.validationCycle}/admit`),
+    payload: { trace_manifest_id: cycleTraceId },
+    expectedStatus: 200,
+  });
+
+  const planTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-experiment-plan-trace',
+    ref('experiment_plan_light', T.experimentPlan, 'v1'),
+    backHalfExperimentLineage(spine, 'experiment_plan'),
+  );
+  await inject(app, {
+    stepId: 'bh-experiment-plan-light',
+    method: 'POST',
+    url: projectUrl(projectId, '/experiment-plan-lights'),
+    payload: {
+      experiment_plan_light_id: T.experimentPlan,
+      validation_cycle_id: T.validationCycle,
+      run_mode: 'confirmatory',
+      plan_summary:
+        'Confirmatory matrix {LoRA r=8, full fine-tuning} x {SST-2, MRPC, CoLA}, mean over <=3 repeats per cell, '
+        + 'stage-1 full-FT cells reused verbatim; latency measured under the committed protocol.',
+      estimated_cost_class: 'medium',
+      baseline_gap_status: 'resolved',
+      primary_metric_refs: [ref('metric', T.metricGlue)],
+      dataset_version_refs: [ref('dataset_version', T.datasetGlueSubset)],
+      baseline_version_refs: [ref('baseline_version', T.baselineFullFinetune), ref('baseline_version', T.baselineAdapter)],
+      code_version_refs: [ref('code_version', T.codeHfRoberta)],
+      config_refs: [ref('config', T.configAdaptation)],
+      budget_id: T.validationBudget,
+      stop_condition_refs: [ref('stop_rule', T.stopRule)],
+      trace_manifest_id: planTraceId,
+    },
+    expectedStatus: 201,
+  });
+
+  const woTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-work-order-trace',
+    ref('research_work_order', T.workOrder, 'v1'),
+    backHalfExperimentLineage(spine, 'work_order'),
+  );
+  await inject(app, {
+    stepId: 'bh-work-order-draft',
+    method: 'POST',
+    url: projectUrl(projectId, '/research-work-orders/drafts'),
+    payload: {
+      work_order_id: T.workOrder,
+      validation_cycle_id: T.validationCycle,
+      experiment_plan_light_id: T.experimentPlan,
+      run_type: 'confirmatory',
+      run_policy: {
+        run_policy_id: T.runPolicy,
+        retry_budget: LORA.budget_envelope.retry_budget,
+        stop_condition_refs: [ref('stop_rule', T.stopRule)],
+        allowed_mutation_refs: [],
+        autotune_policy: 'disabled',
+      },
+      experiment_bridge: {
+        run_recipe_ref: ref('experiment_run_recipe', T.runRecipe, 'v1'),
+        run_recipe_hash: hash({ kind: 'gs_run_recipe', tasks: EXPERIMENT_RESULTS.committed_tasks, method: 'lora_r8_vs_full_ft' }),
+        version_lock_hash: hash({ kind: 'gs_version_lock', code: T.codeHfRoberta }),
+        config_snapshot_hash: hash({ kind: 'gs_config_snapshot', config: T.configAdaptation }),
+        materialization_result_ref: ref('training_task_materialization_result', `${T.runRecipe}_materialization`),
+        materialization_result_hash: hash({ kind: 'gs_materialization_result', recipe: T.runRecipe }),
+        training_task_spec_ref: ref('training_task_spec', `${T.runRecipe}_task_spec`),
+        training_task_spec_hash: hash({ kind: 'gs_training_task_spec', recipe: T.runRecipe }),
+        result_validation_policy_ref: ref('result_validation_policy', `${SCEN}_result_validation_policy_v1`),
+      },
+      trace_manifest_id: woTraceId,
+    },
+    expectedStatus: 201,
+  });
+  const admissionGateResultId = await evaluateTraceGate(
+    app, projectId, 'bh-work-order-admission-gate', woTraceId,
+  );
+  await inject(app, {
+    stepId: 'bh-work-order-admit',
+    method: 'POST',
+    url: projectUrl(projectId, `/research-work-orders/${T.workOrder}/admit`),
+    payload: { admission_gate_result_id: admissionGateResultId },
+    expectedStatus: 200,
+  });
+  bh.work_order = {
+    status: 'admitted',
+    work_order_id: T.workOrder,
+    validation_cycle_id: T.validationCycle,
+    experiment_plan_light_id: T.experimentPlan,
+    trace_manifest_id: woTraceId,
+    admission_gate_result_id: admissionGateResultId,
+  };
+  return { woTraceId, admissionGateResultId };
+}
+
+/** 2) acceptance 假体实验：harness run 登记 + run-monitor-intake → trusted REU。 */
+async function runAcceptanceExperiment(app, projectId, spine, woInfo) {
+  const bh = state.back_half;
+  const externalJobRef = ref('external_training_job', T.externalJob);
+  const externalJobHash = hash({ kind: 'gs_external_job', experiment_results: EXPERIMENT_RESULTS });
+  await inject(app, {
+    stepId: 'bh-harness-run-submit',
+    method: 'POST',
+    url: projectUrl(projectId, `/research-work-orders/${T.workOrder}/harness-runs`),
+    payload: {
+      idempotency_key: `${runId}_acceptance_attempt_001`,
+      external_job_ref: externalJobRef,
+      external_job_hash: externalJobHash,
+      created_by: 'system',
+    },
+    expectedStatus: 201,
+  });
+  const reuTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-run-evidence-trace',
+    ref('run_evidence_unit', T.runEvidenceUnit, 'v1'),
+    (() => {
+      const lineage = backHalfExperimentLineage(spine, 'run_evidence');
+      lineage.decision.gate_result_refs = [ref('gate_result', woInfo.admissionGateResultId)];
+      return lineage;
+    })(),
+  );
+  const resultHash = hash({ kind: 'gs_experiment_result', results: EXPERIMENT_RESULTS });
+  const reportHash = hash({
+    kind: 'gs_result_validation_report',
+    stage0: EXPERIMENT_RESULTS.stage0_probe,
+    full_ft: EXPERIMENT_RESULTS.full_finetune_reproduction,
+    matrix: EXPERIMENT_RESULTS.confirmatory_matrix,
+  });
+  const intake = await inject(app, {
+    stepId: 'bh-run-monitor-intake-final',
+    method: 'POST',
+    url: projectUrl(projectId, '/run-monitor-intakes'),
+    payload: {
+      work_order_id: T.workOrder,
+      run_evidence_unit_id: T.runEvidenceUnit,
+      run_evidence_trace_manifest_id: reuTraceId,
+      external_job_ref: externalJobRef,
+      external_job_hash: externalJobHash,
+      monitor_event_kind: 'result_available',
+      run_status: EXPERIMENT_RESULTS.run_status,
+      result_ref: ref('experiment_result', T.experimentResult),
+      result_hash: resultHash,
+      result_validation_report_ref: ref('result_validation_report', T.resultValidationReport),
+      result_validation_report_hash: reportHash,
+      evidence_candidate_refs: [],
+      evidence_candidate_hashes: [],
+      raw_payload: {
+        source: 'gs_golden_scenario_acceptance_stub',
+        note: 'Pre-set paper-real experiment results fed through the product run-monitor channel; no provider call involved.',
+        experiment_results: EXPERIMENT_RESULTS,
+      },
+      created_by: 'system',
+    },
+    expectedStatus: 201,
+  });
+  if (!intake.run_evidence_unit || intake.run_evidence_unit.trusted_status !== 'trusted') {
+    throw new StepFailure('bh-run-monitor-intake-final', 201, {
+      reason: 'Run monitor intake did not produce a trusted RunEvidenceUnit.',
+      run_evidence_unit: intake.run_evidence_unit ?? null,
+    });
+  }
+  bh.acceptance_experiment = {
+    status: 'trusted_reu_created',
+    run_evidence_unit_id: intake.run_evidence_unit.run_evidence_unit_id,
+    run_status: intake.run_evidence_unit.run_status,
+    trusted_status: intake.run_evidence_unit.trusted_status,
+    external_job_ref: externalJobRef,
+    external_job_hash: externalJobHash,
+    result_hash: resultHash,
+    result_validation_report_hash: reportHash,
+    trace_manifest_id: reuTraceId,
+  };
+  return { reuTraceId, resultHash, reportHash };
+}
+
+/** 共享：跑一个后半链 runtime slot（live=provider / smoke=mocked 素材夹具），再走 Domain Gate 物化。 */
+async function runSlotAndMaterialize(app, projectId, input) {
+  const bh = state.back_half;
+  const run = await inject(app, {
+    stepId: `${input.stepKey}-run`,
+    method: 'POST',
+    url: projectUrl(projectId, input.slotUrl),
+    payload: input.payload,
+    expectedStatus: 201,
+  });
+  const slotSummary = {
+    run_id: run.run_id,
+    slot_id: run.slot_id,
+    status: run.status,
+    provider_call_count: run.provider_call_count,
+    blocker_codes: run.blocker_codes,
+    warning_codes: run.warning_codes,
+    final_runtime_artifact_id: run.final_runtime_artifact?.runtime_artifact_id ?? null,
+    final_artifact_hash: run.final_runtime_artifact?.final_artifact_hash ?? null,
+  };
+  state.totals.provider_calls += run.provider_call_count ?? 0;
+  bh[input.stateKey] = { slot: slotSummary, materialization: null };
+  if (run.status !== 'passed' || !run.final_runtime_artifact) {
+    // 诚实停驻：slot 语义停驻/失败不是四点集签核停驻，不 override，不物化。
+    state.stops.push({
+      lane: input.stepKey,
+      kind: 'back_half_slot_non_passed',
+      slot_id: run.slot_id,
+      status: run.status,
+      blocker_codes: run.blocker_codes,
+      note: 'Back-half slot did not pass; recorded honestly and the chain stops here (no override).',
+    });
+    throw new StepFailure(`${input.stepKey}-run`, 201, {
+      reason: `Slot ${run.slot_id} ended ${run.status}; back half honestly parked.`,
+      blocker_codes: run.blocker_codes,
+    });
+  }
+  const materialized = await inject(app, {
+    stepId: `${input.stepKey}-materialize`,
+    method: 'POST',
+    url: projectUrl(projectId, `/runtime-artifacts/${encodeURIComponent(run.final_runtime_artifact.runtime_artifact_id)}/materialize-domain-gate`),
+    payload: undefined,
+    expectedStatus: [200, 201],
+  });
+  bh[input.stateKey].materialization = {
+    status: materialized.status,
+    domain_artifact_ref: materialized.domain_artifact_ref,
+    domain_artifact_hash: materialized.domain_artifact_hash,
+    runtime_artifact_id: materialized.runtime_artifact_id,
+  };
+  return { run, materialized };
+}
+
+function backHalfSlotBaseRequest(runSeed, profileId, targetRef, targetVersionId, sourceRefs) {
+  const request = {
+    run_id: `${runId}_${runSeed}`,
+    run_mode: RUN_MODE,
+    execution_mode: EXECUTION_MODE,
+    model_profile_id: profileId,
+    target_ref: targetRef,
+    target_version_id: targetVersionId,
+    input_snapshot_ref: rref('implementation_input_snapshot', T.inputSnapshot),
+    input_snapshot_hash: workingCopyHash,
+    source_refs: sourceRefs,
+    source_hashes: sourceRefs.map((item) => hash(item.ref_id)),
+    preflight_blocker_codes: [],
+  };
+  if (LIVE) {
+    request.model_option_id = modelOptionId(profileId);
+  }
+  return request;
+}
+
+/**
+ * T-124 G4.5 Fix 1: build a hash-fenced source-body packet for a back-half slot.
+ * `backHalfSlotBaseRequest` declares source_hashes as hash(ref_id), so the fence
+ * (packet.source_hash must equal the declared source_hash for that ref) holds by
+ * construction here; the server re-verifies it.
+ */
+function backHalfContextPacket(sourceRef, evidenceKind, contentSummary, keyFacts) {
+  return {
+    source_ref: sourceRef,
+    source_hash: hash(sourceRef.ref_id),
+    evidence_kind: evidenceKind,
+    content_summary: contentSummary,
+    key_facts: keyFacts,
+  };
+}
+
+/** Verbatim body facts of the acceptance experiment results (paper-real numbers). */
+function experimentResultBodyFacts() {
+  const matrix = EXPERIMENT_RESULTS.confirmatory_matrix
+    .map((cell) => `${cell.task} ${cell.metric}: LoRA r=8 ${cell.lora_r8} vs full FT ${cell.full_ft} (delta ${cell.delta}, parity ${cell.parity})`)
+    .join('; ');
+  const fullFt = EXPERIMENT_RESULTS.full_finetune_reproduction
+    .map((row) => `${row.task} ${row.metric} ${row.value} (target ${row.precommitted_target}, met ${row.target_met})`)
+    .join('; ');
+  return [
+    `Run status: ${EXPERIMENT_RESULTS.run_status}. Committed tasks: ${EXPERIMENT_RESULTS.committed_tasks.join(', ')}; `
+    + `parity tolerance ${EXPERIMENT_RESULTS.parity_tolerance_points} points; provenance ${EXPERIMENT_RESULTS.provenance}.`,
+    `Stage-0 probe: ${EXPERIMENT_RESULTS.stage0_probe.note}`,
+    `Full fine-tuning reproduction: ${fullFt}.`,
+    `Confirmatory matrix (LoRA r=8 vs reproduced full fine-tuning): ${matrix}.`,
+    `Resource: ${EXPERIMENT_RESULTS.resource.lora_trainable_parameters} vs ${EXPERIMENT_RESULTS.resource.full_finetune_trainable_parameters} `
+    + `(${EXPERIMENT_RESULTS.resource.trainable_parameter_reduction}); inference latency: ${EXPERIMENT_RESULTS.resource.lora_added_inference_latency}.`,
+    `Overall: ${EXPERIMENT_RESULTS.overall_note}`,
+  ];
+}
+
+/** 3..9) result_analysis → packet → claim trace packet → 确认停驻 → claim debate →
+ *  ClaimCandidate → readiness gate → dossier debate → ImplementationDossier → export 停驻。 */
+async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
+  const bh = state.back_half;
+
+  // 3) result packet trace（Domain Gate 物化的确定性前置授权物）
+  const resultPacketTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-result-packet-trace',
+    ref('result_interpretation_packet', T.resultPacket, 'v1'),
+    backHalfExperimentLineage(spine, 'result_packet'),
+  );
+
+  // 4) result_analysis slot（live provider / smoke 素材夹具）→ 物化 packet
+  const resultFixtures = makeBackHalfFixtures({
+    validationCycleId: T.validationCycle,
+    experimentPlanLightId: T.experimentPlan,
+    resultPacketTraceManifestId: resultPacketTraceId,
+    claimTraceManifestId: 'pending',
+    dossierTraceManifestId: 'pending',
+    dossierReadinessGateResultId: 'pending',
+    claimTracePacketId: 'pending',
+    humanConfirmationRef: null,
+  });
+  // T-124 G4.6 structural context: the pre-authorized packet ref, experiment
+  // plan, and metric refs join source_refs — the SERVICE assembles the
+  // CreateResultInterpretationPacketRequest from them (never the LLM).
+  const resultSources = [
+    ref('run_evidence_unit', T.runEvidenceUnit),
+    ref('result_validation_report', T.resultValidationReport),
+    ref('experiment_result', T.experimentResult),
+    ref('trace_manifest', resultPacketTraceId),
+    ref('validation_cycle', T.validationCycle),
+    ref('result_interpretation_packet', T.resultPacket),
+    ref('experiment_plan_light', T.experimentPlan),
+    // Metric refs come from the material's expected packet source (single truth).
+    ...resultFixtures.domainGateRequests.resultInterpretationPacketRequest.source.metric_refs
+      .map((metricRef) => ref(metricRef.ref_type, metricRef.ref_id)),
+  ];
+  const resultRequest = backHalfSlotBaseRequest(
+    'result_analysis',
+    'paper-implementation.result-analysis.interpretation-scenarios.v1',
+    rref('validation_cycle', T.validationCycle),
+    `${T.validationCycle}@v1`,
+    resultSources,
+  );
+  if (SMOKE) {
+    resultRequest.mocked_role_outputs = resultFixtures.resultAnalysisRoleOutputs;
+  }
+  // T-124 G4.5 Fix 1: inject the hash-fenced experiment-result bodies so the
+  // (live) interpretation-scenario builder can produce a complete
+  // domain_gate_request instead of a content-starved conditional skeleton.
+  const experimentFacts = experimentResultBodyFacts();
+  resultRequest.source_context_packets = [
+    backHalfContextPacket(
+      ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
+      'Trusted run evidence unit from the acceptance experiment (paper-real confirmatory result set).',
+      experimentFacts,
+    ),
+    backHalfContextPacket(
+      ref('result_validation_report', T.resultValidationReport), 'result_validation_report',
+      'Result validation report: stage-0 gate outcome, full fine-tuning reproduction targets, and confirmatory parity per task.',
+      experimentFacts,
+    ),
+    backHalfContextPacket(
+      ref('experiment_result', T.experimentResult), 'experiment_result',
+      'Experiment result set (arXiv:2106.09685 Table 2, RoBERTa-base) fed through the product acceptance channel.',
+      experimentFacts,
+    ),
+  ];
+  const resultAnalysis = await runSlotAndMaterialize(app, projectId, {
+    stepKey: 'bh-result-analysis',
+    stateKey: 'result_analysis',
+    slotUrl: '/runtime-slots/result-analysis-scenarios/run',
+    payload: resultRequest,
+  });
+  // Read the materialized ResultInterpretationPacket back so the downstream
+  // claim/dossier debates receive its actual body (not just refs/hashes).
+  const materializedPacket = await inject(app, {
+    stepId: 'bh-result-packet-readback',
+    method: 'GET',
+    url: projectUrl(projectId, `/result-interpretation-packets/${encodeURIComponent(resultAnalysis.materialized.domain_artifact_ref.ref_id)}`),
+    expectedStatus: 200,
+  });
+  const resultPacketPacket = backHalfContextPacket(
+    ref('result_interpretation_packet', T.resultPacket), 'result_interpretation_packet',
+    materializedPacket.result_summary?.result_summary
+      ?? 'Materialized result interpretation packet for the confirmatory LoRA parity result set.',
+    [
+      `Allowed claim ceiling: ${materializedPacket.claim_implications?.allowed_claim_ceiling ?? 'strong'}.`,
+      `Forbidden overclaims: ${(materializedPacket.claim_implications?.forbidden_overclaims ?? CLAIM_GROUND_TRUTH.forbidden_overclaims).join('; ')}.`,
+      `Reliability notes: ${(materializedPacket.reliability?.reliability_notes ?? []).join('; ')}`,
+    ],
+  );
+
+  // 5) claim trace manifest + ClaimTracePacket（supported 状态的前置授权物）
+  const claimTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-claim-trace',
+    ref('claim_candidate', T.claimCandidate, 'v1'),
+    backHalfExperimentLineage(spine, 'claim'),
+  );
+  const claimTracePacket = await inject(app, {
+    stepId: 'bh-claim-trace-packet',
+    method: 'POST',
+    url: projectUrl(projectId, '/claim-trace-packets'),
+    payload: {
+      claim_ref: ref('claim_candidate', T.claimCandidate),
+      claim_statement: CLAIM_GROUND_TRUTH.expected_claim_statement,
+      trace_manifest_id: claimTraceId,
+      lineage: backHalfExperimentLineage(spine, 'claim'),
+      challenge: { challenging_result_refs: [], counter_evidence_refs: [], unresolved_objections: [] },
+      scope: { ...SPINE.claim_trace_scope },
+      boundary: {
+        forbidden_overclaims: [...CLAIM_GROUND_TRUTH.forbidden_overclaims],
+        claim_strength: CLAIM_GROUND_TRUTH.expected_claim_strength,
+        human_confirmation_required: CLAIM_GROUND_TRUTH.requires_human_confirmation,
+      },
+    },
+    expectedStatus: 201,
+  });
+  const claimTracePacketId = claimTracePacket.claim_trace_packet_id;
+
+  // 6) 四点集停驻 #2：强 claim 人工确认。停驻如实记录，随后以 gs 记录员身份
+  //    经产品路由创建 HumanConfirmationRecord（override actor 全程留痕；
+  //    该记录由产品在 ClaimCandidate 物化时消费/燃烧——runner 不代燃）。
+  state.stops.push({
+    lane: 'bh-strong-claim-confirmation',
+    kind: 'four_point_stop_2_strong_claim_confirmation',
+    note: 'Strong-claim human confirmation stop (four-point set #2) recorded honestly; the runner then creates the '
+      + 'HumanConfirmationRecord through the real product route as the gs recorder actor (override discipline).',
+    override_actor: `${SCEN}_golden_scenario_recorder`,
+  });
+  const confirmation = await inject(app, {
+    stepId: 'bh-strong-claim-human-confirmation',
+    method: 'POST',
+    url: projectUrl(projectId, '/human-confirmations'),
+    payload: {
+      confirmation_record_id: T.humanConfirmationStrongClaim,
+      confirmation_scope: CLAIM_GROUND_TRUTH.human_confirmation_scope,
+      target_refs: [ref('claim_candidate', T.claimCandidate)],
+      reviewed_sources: [
+        { source_ref: ref('run_evidence_unit', T.runEvidenceUnit), source_hash: reuInfo.resultHash },
+        { source_ref: ref('result_interpretation_packet', T.resultPacket), source_hash: hash(T.resultPacket) },
+      ],
+      gate_result_refs: [],
+      rationale:
+        'Golden-scenario recorder confirms the strong parity claim against the material ground-truth card '
+        + '(ground-truth.md §GT-9): bounded to the probed scale and committed task set, forbidden overclaims listed.',
+      confirmed_by_actor_type: 'human',
+      confirmed_by_actor_id: `${SCEN}_golden_scenario_recorder`,
+    },
+    expectedStatus: 201,
+  });
+  bh.strong_claim_confirmation = {
+    status: 'created',
+    confirmation_record_id: confirmation.confirmation_record_id,
+    confirmation_scope: confirmation.confirmation_scope,
+    confirmed_by_actor_id: confirmation.confirmed_by_actor_id ?? null,
+  };
+
+  // 7) claim_boundary debate → 物化 ClaimCandidate
+  const claimFixtures = makeBackHalfFixtures({
+    validationCycleId: T.validationCycle,
+    experimentPlanLightId: T.experimentPlan,
+    resultPacketTraceManifestId: resultPacketTraceId,
+    claimTraceManifestId: claimTraceId,
+    dossierTraceManifestId: 'pending',
+    dossierReadinessGateResultId: 'pending',
+    claimTracePacketId,
+    humanConfirmationRef: ref('human_confirmation_record', confirmation.confirmation_record_id),
+  });
+  // T-124 G4.6 structural context: the pre-authorized claim id joins
+  // source_refs — the SERVICE assembles the CreateClaimCandidateRequest.
+  const claimSources = [
+    ref('result_interpretation_packet', T.resultPacket),
+    ref('claim_trace_packet', claimTracePacketId),
+    ref('trace_manifest', claimTraceId),
+    ref('human_confirmation_record', confirmation.confirmation_record_id),
+    ref('run_evidence_unit', T.runEvidenceUnit),
+    ref('claim_candidate', T.claimCandidate),
+  ];
+  const claimRequest = backHalfSlotBaseRequest(
+    'claim_boundary',
+    'paper-implementation.claim-boundary.boundary-debate.v1',
+    rref('result_interpretation_packet', T.resultPacket),
+    `${T.resultPacket}@v1`,
+    claimSources,
+  );
+  if (SMOKE) {
+    claimRequest.mocked_role_outputs = claimFixtures.claimBoundaryRoleOutputs;
+  }
+  // T-124 G4.5 Fix 1: the claim-boundary adjudicator sees the materialized packet
+  // body + the claim trace packet's statement/boundary (hash-fenced).
+  claimRequest.source_context_packets = [
+    resultPacketPacket,
+    backHalfContextPacket(
+      ref('claim_trace_packet', claimTracePacketId), 'claim_trace_packet',
+      CLAIM_GROUND_TRUTH.expected_claim_statement,
+      [
+        `Expected claim strength: ${CLAIM_GROUND_TRUTH.expected_claim_strength}; type: ${CLAIM_GROUND_TRUTH.expected_claim_type}.`,
+        `Forbidden overclaims: ${CLAIM_GROUND_TRUTH.forbidden_overclaims.join('; ')}.`,
+        `Human confirmation required: ${CLAIM_GROUND_TRUTH.requires_human_confirmation} (scope ${CLAIM_GROUND_TRUTH.human_confirmation_scope}).`,
+      ],
+    ),
+    backHalfContextPacket(
+      ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
+      'Trusted run evidence unit backing the parity claim.',
+      experimentFacts,
+    ),
+  ];
+  const claimBoundary = await runSlotAndMaterialize(app, projectId, {
+    stepKey: 'bh-claim-boundary',
+    stateKey: 'claim_boundary',
+    slotUrl: '/runtime-slots/claim-boundary-debate/run',
+    payload: claimRequest,
+  });
+  // Read the materialized ClaimCandidate back for the dossier readiness debate.
+  const materializedClaim = await inject(app, {
+    stepId: 'bh-claim-candidate-readback',
+    method: 'GET',
+    url: projectUrl(projectId, `/claim-candidates/${encodeURIComponent(claimBoundary.materialized.domain_artifact_ref.ref_id)}`),
+    expectedStatus: 200,
+  });
+  const claimCandidatePacket = backHalfContextPacket(
+    ref('claim_candidate', T.claimCandidate), 'claim_candidate',
+    materializedClaim.claim_statement ?? CLAIM_GROUND_TRUTH.expected_claim_statement,
+    [
+      `Claim strength: ${materializedClaim.claim_strength ?? CLAIM_GROUND_TRUTH.expected_claim_strength}; `
+      + `type: ${materializedClaim.claim_type ?? CLAIM_GROUND_TRUTH.expected_claim_type}; `
+      + `status: ${materializedClaim.claim_status ?? 'supported'}.`,
+      `Scope: population ${materializedClaim.scope?.population_scope ?? ''}; method ${materializedClaim.scope?.method_scope ?? ''}; `
+      + `dataset ${materializedClaim.scope?.dataset_scope ?? ''}.`,
+      `Boundary forbidden overclaims: ${(materializedClaim.boundary?.forbidden_overclaims ?? CLAIM_GROUND_TRUTH.forbidden_overclaims).join('; ')}.`,
+    ],
+  );
+
+  // 8) dossier trace + readiness gate（enforced trace gate 真评估）
+  const dossierTraceId = await createBackHalfTrace(
+    app, projectId, 'bh-dossier-trace',
+    ref('implementation_dossier', T.dossier, 'v1'),
+    backHalfExperimentLineage(spine, 'dossier'),
+  );
+  const readinessGateResultId = await evaluateTraceGate(
+    app, projectId, 'bh-dossier-readiness-gate', dossierTraceId,
+  );
+
+  // 9) dossier_readiness debate → 物化 ImplementationDossier（产品侧 N7 对账 enforced）
+  const dossierFixtures = makeBackHalfFixtures({
+    validationCycleId: T.validationCycle,
+    experimentPlanLightId: T.experimentPlan,
+    resultPacketTraceManifestId: resultPacketTraceId,
+    claimTraceManifestId: claimTraceId,
+    dossierTraceManifestId: dossierTraceId,
+    dossierReadinessGateResultId: readinessGateResultId,
+    claimTracePacketId,
+    humanConfirmationRef: ref('human_confirmation_record', confirmation.confirmation_record_id),
+  });
+  const dossierSources = [
+    ref('claim_candidate', T.claimCandidate),
+    ref('claim_trace_packet', claimTracePacketId),
+    ref('result_interpretation_packet', T.resultPacket),
+    ref('trace_manifest', dossierTraceId),
+    ref('gate_result', readinessGateResultId),
+    ref('run_evidence_unit', T.runEvidenceUnit),
+  ];
+  const dossierRequest = backHalfSlotBaseRequest(
+    'dossier_readiness',
+    'paper-implementation.dossier-readiness.readiness-audit.v1',
+    rref('implementation_dossier', T.dossier),
+    `${T.dossier}@v1`,
+    dossierSources,
+  );
+  if (SMOKE) {
+    dossierRequest.mocked_role_outputs = dossierFixtures.dossierReadinessRoleOutputs;
+  }
+  // T-124 G4.5 Fix 1: the dossier-readiness adjudicator sees the materialized
+  // claim + packet bodies (hash-fenced).
+  dossierRequest.source_context_packets = [
+    claimCandidatePacket,
+    resultPacketPacket,
+    backHalfContextPacket(
+      ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
+      'Trusted run evidence unit; single succeeded confirmatory run set (nothing outstanding for N7).',
+      experimentFacts,
+    ),
+  ];
+  await runSlotAndMaterialize(app, projectId, {
+    stepKey: 'bh-dossier-readiness',
+    stateKey: 'dossier_readiness',
+    slotUrl: '/runtime-slots/dossier-readiness-audit/run',
+    payload: dossierRequest,
+  });
+
+  // 10) dossier ready → 四点集停驻 #3：export 停驻，runner 终点（不产 writing entry packet）。
+  state.stops.push({
+    lane: 'bh-dossier-export',
+    kind: 'four_point_stop_3_dossier_export',
+    note: 'Dossier is ready_for_writing; the runner terminates at the export stop (four-point set #3). '
+      + 'No WritingEntryPacket is created — export is a human decision outside this runner.',
+  });
+  bh.export_stop = { status: 'stopped_at_export', dossier_id: T.dossier };
+  bh.domain_gate_requests = dossierFixtures.domainGateRequests;
+  return {
+    resultPacketTraceId,
+    claimTraceId,
+    claimTracePacketId,
+    dossierTraceId,
+    readinessGateResultId,
+    confirmationRecordId: confirmation.confirmation_record_id,
+  };
+}
+
+/** 11) 血缘断言节：dossier→claim→packet→REU→WO→probe→route 逐环 ref 机器回溯。 */
+async function runLineageAssertion(app, projectId, chainInfo) {
+  const checks = [];
+  const check = (name, ok, detail) => {
+    checks.push({ check: name, ok: Boolean(ok), detail: detail ?? null });
+    if (!ok) {
+      console.error(`[golden-scenario] LINEAGE-CHECK FAILED: ${name} ${JSON.stringify(detail ?? null).slice(0, 300)}`);
+    }
+  };
+
+  const dossier = await inject(app, {
+    stepId: 'lineage-fetch-dossier',
+    method: 'GET',
+    url: projectUrl(projectId, `/implementation-dossiers/${T.dossier}`),
+    expectedStatus: 200,
+  });
+  check('dossier.status_ready', dossier.dossier_status === 'ready_for_writing', { dossier_status: dossier.dossier_status });
+  check(
+    'dossier->claim ref',
+    (dossier.source?.claim_candidate_refs ?? []).some((item) => item.ref_id === T.claimCandidate),
+    { claim_candidate_refs: dossier.source?.claim_candidate_refs ?? [] },
+  );
+  check(
+    'dossier->packet ref',
+    (dossier.source?.result_interpretation_packet_refs ?? []).some((item) => item.ref_id === T.resultPacket),
+    { result_interpretation_packet_refs: dossier.source?.result_interpretation_packet_refs ?? [] },
+  );
+  check(
+    'dossier.readiness_gate',
+    dossier.readiness_gate_result_id === chainInfo.readinessGateResultId,
+    { readiness_gate_result_id: dossier.readiness_gate_result_id ?? null },
+  );
+
+  const claim = await inject(app, {
+    stepId: 'lineage-fetch-claim',
+    method: 'GET',
+    url: projectUrl(projectId, `/claim-candidates/${T.claimCandidate}`),
+    expectedStatus: 200,
+  });
+  check('claim.status_supported', claim.claim_status === 'supported', { claim_status: claim.claim_status });
+  check(
+    'claim->packet ref',
+    (claim.result_interpretation_packet_refs ?? []).some((item) => item.ref_id === T.resultPacket),
+    { result_interpretation_packet_refs: claim.result_interpretation_packet_refs ?? [] },
+  );
+  check(
+    'claim->reu support ref',
+    (claim.support_refs ?? []).some((item) => item.ref_id === T.runEvidenceUnit),
+    { support_refs: claim.support_refs ?? [] },
+  );
+  check(
+    'claim->trace packet',
+    claim.claim_trace_packet_id === chainInfo.claimTracePacketId,
+    { claim_trace_packet_id: claim.claim_trace_packet_id ?? null },
+  );
+  check(
+    'claim.strong_confirmation_required',
+    claim.human_confirmation_required === true && claim.boundary_gate_status === 'allow_strong_with_confirmation',
+    { human_confirmation_required: claim.human_confirmation_required, boundary_gate_status: claim.boundary_gate_status },
+  );
+
+  const packet = await inject(app, {
+    stepId: 'lineage-fetch-result-packet',
+    method: 'GET',
+    url: projectUrl(projectId, `/result-interpretation-packets/${T.resultPacket}`),
+    expectedStatus: 200,
+  });
+  check(
+    'packet->reu ref',
+    (packet.source?.run_evidence_refs ?? []).some((item) => item.ref_id === T.runEvidenceUnit),
+    { run_evidence_refs: packet.source?.run_evidence_refs ?? [] },
+  );
+  check(
+    'packet->cycle',
+    packet.validation_cycle_id === T.validationCycle,
+    { validation_cycle_id: packet.validation_cycle_id },
+  );
+
+  const reu = await inject(app, {
+    stepId: 'lineage-fetch-run-evidence',
+    method: 'GET',
+    url: projectUrl(projectId, `/run-evidence-units/${T.runEvidenceUnit}`),
+    expectedStatus: 200,
+  });
+  check('reu.trusted', reu.trusted_status === 'trusted', { trusted_status: reu.trusted_status });
+  check('reu->wo', reu.work_order_id === T.workOrder, { work_order_id: reu.work_order_id });
+  check(
+    'reu.result_hash_matches_material',
+    reu.result_hash === state.back_half.acceptance_experiment?.result_hash,
+    { result_hash: reu.result_hash ?? null },
+  );
+
+  const workOrder = await inject(app, {
+    stepId: 'lineage-fetch-work-order',
+    method: 'GET',
+    url: projectUrl(projectId, `/research-work-orders/${T.workOrder}`),
+    expectedStatus: 200,
+  });
+  check('wo->cycle', workOrder.validation_cycle_id === T.validationCycle, { validation_cycle_id: workOrder.validation_cycle_id });
+  check(
+    'wo.admission_gate',
+    Boolean(workOrder.admission_gate_result_id),
+    { admission_gate_result_id: workOrder.admission_gate_result_id ?? null },
+  );
+
+  const cycle = await inject(app, {
+    stepId: 'lineage-fetch-validation-cycle',
+    method: 'GET',
+    url: projectUrl(projectId, `/validation-cycles/${T.validationCycle}`),
+    expectedStatus: 200,
+  });
+  if (LIVE) {
+    // WO→probe→route 段：cycle.trigger_refs → FeasibilityProbe；cycle.context.route_refs
+    // → TechnicalRouteCandidate；两者的 source_proposal_artifact_ref → lane A admitted
+    // runtime 提案（受理桥物化时已带血缘）。
+    check(
+      'cycle->probe trigger ref',
+      (cycle.trigger?.trigger_refs ?? []).some((item) => item.ref_id === T.feasibilityProbe),
+      { trigger_refs: cycle.trigger?.trigger_refs ?? [] },
+    );
+    check(
+      'cycle->route ref',
+      (cycle.context?.included_refs?.route_refs ?? []).some((item) => item.ref_id === T.routeCandidate),
+      { route_refs: cycle.context?.included_refs?.route_refs ?? [] },
+    );
+    check(
+      'probe->runtime proposal lineage',
+      Boolean(state.acceptance_bridge.feasibility_probe?.source_proposal_artifact_id),
+      { feasibility_probe: state.acceptance_bridge.feasibility_probe ?? null },
+    );
+    check(
+      'route->runtime proposal lineage',
+      Boolean(state.acceptance_bridge.technical_route_candidate?.source_proposal_artifact_id),
+      { technical_route_candidate: state.acceptance_bridge.technical_route_candidate ?? null },
+    );
+  } else {
+    checks.push({
+      check: 'wo->probe->route (smoke)',
+      ok: true,
+      detail: 'Not exercised: smoke mode skips the provider coordinator lanes, so FeasibilityProbe / '
+        + 'TechnicalRouteCandidate are not materialized; the probe/route hops are live-mode (G4) checks.',
+      skipped: true,
+    });
+  }
+
+  const failed = checks.filter((item) => !item.ok);
+  state.lineage_assertion = {
+    status: failed.length === 0 ? 'passed' : 'failed',
+    total: checks.length,
+    failed: failed.length,
+    checks,
+  };
+  if (failed.length > 0) {
+    registerGap('lineage-assertion', new Error(
+      `Lineage back-trace failed ${failed.length}/${checks.length} checks: ${failed.map((item) => item.check).join(', ')}`,
+    ));
+  }
+  await record('lineage-assertion', state.lineage_assertion);
+}
+
+/** 后半链总编排（live 与 smoke 共用；任何一步失败=诚实 GAP + 停链）。 */
+async function runBackHalf(app, projectId, spine, bridgeInfo) {
+  state.back_half = { mode: MODE };
+  let woInfo = null;
+  let reuInfo = null;
+  let chainInfo = null;
+  try {
+    woInfo = await runBackHalfWorkOrder(app, projectId, spine, bridgeInfo);
+  } catch (error) {
+    registerGap('back-half-work-order', error, 'WO 创建/admit 未通过；后半链停在此。');
+    return;
+  }
+  try {
+    reuInfo = await runAcceptanceExperiment(app, projectId, spine, woInfo);
+  } catch (error) {
+    registerGap('back-half-acceptance-experiment', error, 'acceptance 假体实验未产出 trusted REU；后半链停在此。');
+    return;
+  }
+  try {
+    chainInfo = await runBackHalfInterpretationChain(app, projectId, spine, reuInfo);
+  } catch (error) {
+    registerGap('back-half-interpretation-chain', error, 'result_analysis→claim→dossier 链未走完；诚实停驻。');
+    return;
+  }
+  try {
+    await runLineageAssertion(app, projectId, chainInfo);
+  } catch (error) {
+    registerGap('lineage-assertion', error, '血缘断言节自身失败（fetch 失败等）。');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // review packet
 // ---------------------------------------------------------------------------
 const NODE_REVIEW_SPECS = [
@@ -1449,9 +2446,11 @@ async function writeReviewPacket(artifactsById) {
   lines.push('');
   lines.push(`- runner: ${RUNNER_ID}@${RUNNER_VERSION}，scenario: ${SCENARIO_ID}`);
   lines.push(`- run id: ${runId}；日期: ${state.started_at}`);
-  lines.push(`- provider: ${providerId}；run_mode: ${RUN_MODE}（全 lane 一致，orchestrator 侧统一映射 acceptance 实跑）；`
-    + `execution_mode: ${EXECUTION_MODE}`);
-  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/gs-001-lora/（topic-package.mjs **v3**（run 004 复评 RF-* 修订：自包含探针判据 + 吸收 warning）/ ground-truth.md（含 §GT-7 v3 预承诺对照）/ rubric.md）`);
+  lines.push(`- mode: **${MODE}**${SMOKE ? '（结构冒烟：provider lanes/受理桥如实跳过，后半链 mocked 素材夹具，零 provider 调用）' : ''}；`
+    + `provider: ${providerId}；run_mode: ${RUN_MODE}；execution_mode: ${EXECUTION_MODE}`);
+  lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/${SCENARIO_ID}/（topic-package.mjs **${SCENARIO_META?.package_version ?? 'v4'}**`
+    + `（v3 内容核不动 + G1 后半链：experiment_results 数据段/claim ground-truth 锚/后半链夹具/通用导出契约）`
+    + ` / ground-truth.md（§GT-9/§GT-10 后半链答案卡） / rubric.md）`);
   lines.push(`- 入链: 真实 POST /paper-implementation/projects/bootstrap（bridge ${T.bridge}，hash 校验通过）`);
   lines.push('');
   lines.push('## 逐节点产出与对照');
@@ -1493,6 +2492,30 @@ async function writeReviewPacket(artifactsById) {
   lines.push('## 受理物化（acceptance bridge）');
   lines.push('');
   lines.push(fenceJson(state.acceptance_bridge));
+  lines.push('');
+  lines.push('## 后半链（G1）：WO → acceptance 实验 → result analysis → claim → dossier → export 停驻');
+  lines.push('');
+  lines.push('- 路径全部为产品真实 HTTP 路由（详见 runner 头注释「真实路由逐步」节）；每步原始请求/响应');
+  lines.push('  落盘在对应 `NN-bh-*.json` 序列文件（含三个 runtime slot 的完整 final artifact payload 与');
+  lines.push('  Domain Gate 物化结果）。');
+  lines.push('- acceptance 假体实验：素材 v4 `EXPERIMENT_RESULTS`（论文真实数字）经 harness-run 登记 +');
+  lines.push('  run-monitor-intake 产出 trusted RunEvidenceUnit——实验不经 LLM，零 provider 伪造。');
+  lines.push('- 人审对照：result analysis 解读质量 → ground-truth.md §GT-9 前半段（parity 语义）；');
+  lines.push('  claim 边界纪律 → §GT-9（预期 claim 边界答案卡）；dossier 完备性 → §GT-10（完备清单）。');
+  lines.push('');
+  lines.push(fenceJson(state.back_half ?? { status: 'not_run' }));
+  lines.push('');
+  lines.push('### acceptance 实验数据段（素材 v4 EXPERIMENT_RESULTS，论文真实数字）');
+  lines.push('');
+  lines.push(fenceJson(EXPERIMENT_RESULTS));
+  lines.push('');
+  lines.push('### claim ground-truth 锚（素材 v4 CLAIM_GROUND_TRUTH，评审对照卡）');
+  lines.push('');
+  lines.push(fenceJson(CLAIM_GROUND_TRUTH));
+  lines.push('');
+  lines.push('## 血缘断言（dossier→claim→packet→REU→WO→probe→route 机器回溯）');
+  lines.push('');
+  lines.push(fenceJson(state.lineage_assertion ?? { status: 'not_run' }));
   lines.push('');
   lines.push('## 停驻与缺口（如实呈现，停驻本身是有效结果）');
   lines.push('');
@@ -1575,7 +2598,7 @@ async function main() {
     paperImplementationRuntimeRepository: new InMemoryPaperImplementationRuntimeRepository(),
     paperImplementationCoordinatorRepository: new InMemoryPaperImplementationCoordinatorRepository(),
     paperImplementationHumanConfirmationRepository: new InMemoryPaperImplementationHumanConfirmationRepository(),
-    paperImplementationBridgeService: new Gs001BridgeService(),
+    paperImplementationBridgeService: new ScenarioBridgeService(),
     // 全部 paper-implementation orchestrator 的 llmGateway 回退链都收敛到此注入点
     paperImplementationTraceIntegrityDebateLlmGateway: gateway,
   });
@@ -1592,73 +2615,98 @@ async function main() {
     const projectId = spine.projectId;
     const bundle = motiveLaneSourceBundle(spine);
 
-    // 3) coordinator lane motive（decomposition → evolution）
-    try {
-      await runCoordinatorLane(app, projectId, 'lane-motive', {
-        coordinator_run_id: 'gs001_coordinator_run_motive',
-        lane_id: 'motive',
-        run_mode: RUN_MODE,
-        execution_mode: EXECUTION_MODE,
-        budget_envelope: { max_steps: 4, max_provider_calls: 12 },
-        slot_request_payloads: {
-          [SLOT.motiveDecomposition]: motiveDecompositionSlotPayload(spine, bundle),
-          [SLOT.motiveEvolution]: motiveEvolutionSlotPayload(spine, bundle),
-        },
-      });
-    } catch (error) {
-      registerGap('lane-motive', error);
+    // 3-5) coordinator lanes（provider_llm 真跑）——LIVE 专属；smoke 模式如实跳过
+    // （前半链 provider 面已由既有 live run 覆盖，smoke 的目的只是后半链结构冒烟）。
+    if (LIVE) {
+      // 3) coordinator lane motive（decomposition → evolution）
+      try {
+        await runCoordinatorLane(app, projectId, 'lane-motive', {
+          coordinator_run_id: `${SCEN}_coordinator_run_motive`,
+          lane_id: 'motive',
+          run_mode: RUN_MODE,
+          execution_mode: EXECUTION_MODE,
+          budget_envelope: { max_steps: 4, max_provider_calls: 12 },
+          slot_request_payloads: {
+            [SLOT.motiveDecomposition]: motiveDecompositionSlotPayload(spine, bundle),
+            [SLOT.motiveEvolution]: motiveEvolutionSlotPayload(spine, bundle),
+          },
+        });
+      } catch (error) {
+        registerGap('lane-motive', error);
+      }
+
+      // 4) board 单步 pipeline（evidence_board_curation）
+      try {
+        await runCoordinatorLane(app, projectId, 'lane-board-curation', {
+          coordinator_run_id: `${SCEN}_coordinator_run_board`,
+          lane_id: 'evidence-board-curation',
+          run_mode: RUN_MODE,
+          execution_mode: EXECUTION_MODE,
+          budget_envelope: { max_steps: 4, max_provider_calls: 12 },
+          slot_request_payloads: {
+            [SLOT.boardCuration]: boardCurationSlotPayload(spine),
+          },
+        });
+      } catch (error) {
+        registerGap('lane-board-curation', error);
+      }
+
+      // 5) coordinator lane A（route→skeptic→cycle→feasibility）
+      try {
+        await runCoordinatorLane(app, projectId, 'lane-a-validation-planning', {
+          coordinator_run_id: `${SCEN}_coordinator_run_lane_a`,
+          lane_id: 'validation-planning',
+          run_mode: RUN_MODE,
+          execution_mode: EXECUTION_MODE,
+          // max_steps 12 = 4 链步 + waiting_review override re-advance 的 attempt 余量
+          // （每次 re-advance 产生新 step 行）。上游提案正文由 coordinator 链内注入
+          // （S2-B B3），不再需要 runner 侧队列回流补喂。
+          budget_envelope: { max_steps: 12, max_provider_calls: 12 },
+          slot_request_payloads: {
+            [SLOT.routeArchitecture]: routeArchitectureSlotPayload(spine),
+            [SLOT.routeSkeptic]: routeSkepticSlotPayload(spine),
+            [SLOT.cyclePlanning]: cyclePlanningSlotPayload(spine),
+            [SLOT.feasibility]: feasibilitySlotPayload(spine),
+          },
+        });
+      } catch (error) {
+        registerGap('lane-a-validation-planning', error);
+      }
+    } else {
+      state.smoke_skipped_lanes = {
+        skipped: ['lane-motive', 'lane-board-curation', 'lane-a-validation-planning', 'acceptance-bridge'],
+        note: 'Smoke mode skips the provider coordinator lanes and the acceptance-bridge materialization; '
+          + 'the deterministic spine + full back half run structurally with material-supplied mocked role outputs.',
+      };
     }
 
-    // 4) board 单步 pipeline（evidence_board_curation）
-    try {
-      await runCoordinatorLane(app, projectId, 'lane-board-curation', {
-        coordinator_run_id: 'gs001_coordinator_run_board',
-        lane_id: 'evidence-board-curation',
-        run_mode: RUN_MODE,
-        execution_mode: EXECUTION_MODE,
-        budget_envelope: { max_steps: 4, max_provider_calls: 12 },
-        slot_request_payloads: {
-          [SLOT.boardCuration]: boardCurationSlotPayload(spine),
-        },
-      });
-    } catch (error) {
-      registerGap('lane-board-curation', error);
-    }
-
-    // 5) coordinator lane A（route→skeptic→cycle→feasibility）
-    try {
-      await runCoordinatorLane(app, projectId, 'lane-a-validation-planning', {
-        coordinator_run_id: 'gs001_coordinator_run_lane_a',
-        lane_id: 'validation-planning',
-        run_mode: RUN_MODE,
-        execution_mode: EXECUTION_MODE,
-        // max_steps 12 = 4 链步 + waiting_review override re-advance 的 attempt 余量
-        // （每次 re-advance 产生新 step 行）。上游提案正文由 coordinator 链内注入
-        // （S2-B B3），不再需要 runner 侧队列回流补喂。
-        budget_envelope: { max_steps: 12, max_provider_calls: 12 },
-        slot_request_payloads: {
-          [SLOT.routeArchitecture]: routeArchitectureSlotPayload(spine),
-          [SLOT.routeSkeptic]: routeSkepticSlotPayload(spine),
-          [SLOT.cyclePlanning]: cyclePlanningSlotPayload(spine),
-          [SLOT.feasibility]: feasibilitySlotPayload(spine),
-        },
-      });
-    } catch (error) {
-      registerGap('lane-a-validation-planning', error);
-    }
-
-    // 6) 受理桥物化 + 观测收尾
+    // 6) 受理桥物化 + 观测收尾（LIVE 专属——依赖 lane A admitted 提案）
     let artifactsById = new Map();
-    try {
-      artifactsById = await fetchFinalArtifacts(app, projectId);
-    } catch (error) {
-      registerGap('fetch-final-artifacts', error);
+    if (LIVE) {
+      try {
+        artifactsById = await fetchFinalArtifacts(app, projectId);
+      } catch (error) {
+        registerGap('fetch-final-artifacts', error);
+      }
+      try {
+        await materializeAcceptanceBridge(app, projectId, artifactsById);
+      } catch (error) {
+        registerGap('acceptance-bridge', error);
+      }
     }
+
+    // 6.5) 后半链（G1）：WO → acceptance 假体实验 → result_analysis → claim →
+    //      dossier → export 停驻 + 血缘断言。live 与 smoke 共用编排；live 中
+    //      cycle 的 trigger/route refs 指向受理桥物化出的 probe/route（血缘闭环）。
     try {
-      await materializeAcceptanceBridge(app, projectId, artifactsById);
+      await runBackHalf(app, projectId, spine, {
+        probeCreated: state.acceptance_bridge.feasibility_probe?.status === 'created',
+        routeCreated: state.acceptance_bridge.technical_route_candidate?.status === 'created',
+      });
     } catch (error) {
-      registerGap('acceptance-bridge', error);
+      registerGap('back-half', error);
     }
+
     try {
       const queue = await inject(app, {
         stepId: 'fetch-decision-work-queue',
@@ -1703,12 +2751,20 @@ async function main() {
     const allCompleted = laneStatuses.length === 3 && laneStatuses.every((status) => status === 'completed');
     const bridgeCreated = state.acceptance_bridge.technical_route_candidate?.status === 'created'
       && state.acceptance_bridge.feasibility_probe?.status === 'created';
+    // G1: 后半链终点判定——dossier 物化 + export 停驻 + 血缘断言通过。
+    const backHalfCompleted = ['materialized', 'already_materialized']
+      .includes(state.back_half?.dossier_readiness?.materialization?.status)
+      && state.back_half?.export_stop?.status === 'stopped_at_export'
+      && state.lineage_assertion?.status === 'passed';
     // Terminal status reads substantive gaps only (`state.gaps`).
     // `state.observability_gaps` (fail-open telemetry/observation failures) is
     // deliberately excluded — an observation step must not change the terminal
     // product it observes, so a telemetry export failure alone keeps a
     // genuinely completed run `completed`.
-    state.status = state.gaps.length === 0 && allCompleted && bridgeCreated ? 'completed' : 'partial';
+    // live: 前半链三 lane + 受理桥 + 后半链全绿才 completed；
+    // smoke: lanes/bridge 如实跳过，completed 只看后半链结构 + 零 GAP。
+    const frontHalfCompleted = LIVE ? (allCompleted && bridgeCreated) : true;
+    state.status = state.gaps.length === 0 && frontHalfCompleted && backHalfCompleted ? 'completed' : 'partial';
   } finally {
     await app.close();
   }
@@ -1738,6 +2794,22 @@ try {
       technical_route_candidate: state.acceptance_bridge.technical_route_candidate?.status ?? 'not_run',
       feasibility_probe: state.acceptance_bridge.feasibility_probe?.status ?? 'not_run',
     },
+    back_half: {
+      mode: state.back_half?.mode ?? 'not_run',
+      work_order: state.back_half?.work_order?.status ?? 'not_run',
+      acceptance_experiment: state.back_half?.acceptance_experiment?.status ?? 'not_run',
+      result_analysis: state.back_half?.result_analysis?.materialization?.status
+        ?? state.back_half?.result_analysis?.slot?.status ?? 'not_run',
+      strong_claim_confirmation: state.back_half?.strong_claim_confirmation?.status ?? 'not_run',
+      claim_boundary: state.back_half?.claim_boundary?.materialization?.status
+        ?? state.back_half?.claim_boundary?.slot?.status ?? 'not_run',
+      dossier_readiness: state.back_half?.dossier_readiness?.materialization?.status
+        ?? state.back_half?.dossier_readiness?.slot?.status ?? 'not_run',
+      export_stop: state.back_half?.export_stop?.status ?? 'not_run',
+    },
+    lineage_assertion: state.lineage_assertion
+      ? { status: state.lineage_assertion.status, total: state.lineage_assertion.total, failed: state.lineage_assertion.failed }
+      : { status: 'not_run' },
     stops: state.stops,
     gaps: state.gaps,
     observability_gaps: state.observability_gaps,

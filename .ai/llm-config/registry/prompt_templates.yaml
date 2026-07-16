@@ -222,7 +222,7 @@ templates:
       - "v2 applies to both passed and blocked role outputs — a blocked verdict must still be structurally complete."
 
   - prompt_template_id: paper-implementation-claim-boundary-debate
-    version: 1
+    version: 3
     runtime_profile_id: paper-implementation.claim-boundary.boundary-debate.v1
     description: Run one fixed role in the PaperImplementation claim-boundary debate runtime slot.
     variables_schema:
@@ -243,12 +243,12 @@ templates:
           type: array
     notes:
       - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
-      - Final adjudicator output may include a domain_gate_request for CreateClaimCandidateRequest only.
+      - "v3 (T-124 G4.6): the final adjudicator proposes typed SEMANTIC content in claim_proposal (claim type/statement/strength, support/challenge refs, scope, boundary rationale, forbidden overclaims); the runtime service assembles the CreateClaimCandidateRequest deterministically from the request context. No request envelope, no id transcription (v2 asked for a full Create request — run 009/010/011 envelope-echo signature)."
       - Do not create claims, trace packets, dossiers, queue items, prompt text, or raw provider output directly.
       - Preserve forbidden_overclaims, support/challenge refs, claim trace refs, and failed-run accounting.
 
   - prompt_template_id: paper-implementation-dossier-readiness-audit
-    version: 1
+    version: 3
     runtime_profile_id: paper-implementation.dossier-readiness.readiness-audit.v1
     description: Run one fixed role in the PaperImplementation dossier-readiness audit runtime slot.
     variables_schema:
@@ -269,12 +269,12 @@ templates:
           type: array
     notes:
       - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
-      - Final adjudicator output may include a domain_gate_request for CreateImplementationDossierRequest only.
+      - "v3 (T-124 G4.6): the final adjudicator proposes typed SEMANTIC content in dossier_proposal (dossier_status disposition, experiment limitations, failed/inconclusive/negative accounting refs, admitted/rejected claim refs, forbidden overclaims, claim ceiling, readiness blockers/warnings/notes); the runtime service assembles the CreateImplementationDossierRequest deterministically from the request context. No request envelope, no id transcription."
       - Do not create dossiers, writing packets, claims, queue items, prompt text, or raw provider output directly.
       - Preserve claim trace refs, failed/inconclusive run refs, readiness blockers, and scenario alternatives.
 
   - prompt_template_id: paper-implementation-result-analysis-scenarios
-    version: 1
+    version: 3
     runtime_profile_id: paper-implementation.result-analysis.interpretation-scenarios.v1
     description: Run the fixed PaperImplementation result-analysis interpretation-scenario runtime role.
     variables_schema:
@@ -295,7 +295,7 @@ templates:
           type: array
     notes:
       - Return only the PaperImplementationResultAnalysisRoleArtifact JSON for the interpretation-scenario role.
-      - Passed output must include scenario_outputs and a domain_gate_request for CreateResultInterpretationPacketRequest only.
+      - "v3 (T-124 G4.6): passed output must include all four scenario_outputs kinds AND the three typed SEMANTIC blocks (interpretation / reliability / claim_implications); the runtime service assembles the CreateResultInterpretationPacketRequest deterministically from the request context. No request envelope, no id transcription (v2 asked for a full Create request — run 009/010/011 envelope-echo signature)."
       - Interpretations are not evidence; keep run evidence, validation reports, failed runs, limitations, and follow-up refs separate.
       - Do not create result packets, claims, dossiers, writing packets, queue items, prompt text, or raw provider output directly.
 

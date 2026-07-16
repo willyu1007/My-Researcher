@@ -54,9 +54,14 @@ type Outcome =
   | 'designer_invented_ref'
   | 'designer_missing_human_gate'
   | 'designer_authority_field'
+  // T-124 G4.5 Fix 3 drift scenarios (runs 008/009).
+  | 'designer_review_set_version_drift'
+  | 'designer_cited_source_pinned_drift'
+  | 'designer_review_set_missing'
   | 'challenger_missing_coverage'
   | 'challenger_option_set_mismatch'
   | 'challenger_blocked_without_reason'
+  | 'challenger_dangling_reason_codes'
   | 'challenger_side_effect_guard_missing'
   | 'challenger_authority_field';
 
@@ -178,6 +183,30 @@ class StubMotiveEvolutionAgentOrchestrator {
         motive_evolution_decision_request: { must_not_exist: true },
       } as unknown as PaperImplementationMotiveEvolutionOptionDesignerRoleOutput;
     }
+    if (outcome === 'designer_review_set_version_drift') {
+      // Run 009: reviewed-motive echo drifts version_id (invented pin) and
+      // title_card_id; the review-set answers "which motives," so this is
+      // tolerated as the same motive identity.
+      return designerRoleOutput({
+        reviewed_target_motive_refs: [
+          { ...ref('core_motive', 'core_motive_001'), version_id: null, title_card_id: 'drifted_title_card' },
+        ],
+        reviewed_core_motive_version_refs: [
+          { ...ref('core_motive_version', 'core_motive_version_001'), version_id: null, title_card_id: 'drifted_title_card' },
+        ],
+      });
+    }
+    if (outcome === 'designer_cited_source_pinned_drift') {
+      // Zero-relaxation negative: the request pins source_001@v1; citing @v2 is a
+      // genuine different-version citation and still fails.
+      return designerRoleOutput({
+        cited_source_refs: [{ ...ref('source', 'source_001'), version_id: 'v2' }],
+      });
+    }
+    if (outcome === 'designer_review_set_missing') {
+      // Zero-relaxation negative: omitting a reviewed motive is still a mismatch.
+      return designerRoleOutput({ reviewed_target_motive_refs: [] });
+    }
     return designerRoleOutput();
   }
 
@@ -228,6 +257,19 @@ class StubMotiveEvolutionAgentOrchestrator {
             ...challengeCheck(),
             evidence_status: 'blocked',
             blocking_reason_codes: [],
+          },
+        }),
+      });
+    }
+    if (outcome === 'challenger_dangling_reason_codes') {
+      // T-124 G4.6 Fix 2 negative pin (moved invariant): blocking_reason_codes
+      // without any blocked status — previously an opaque wire-schema anyOf
+      // failure, now the semantic layer's CHALLENGE_CHECK_INCONSISTENT.
+      return challengerRoleOutput(prior, {
+        decision_options: decisionOptionsByKey('evolution_option_001', {
+          challenge_check: {
+            ...challengeCheck(),
+            blocking_reason_codes: ['residual_risk_documented_without_blocked_status'],
           },
         }),
       });
@@ -463,6 +505,24 @@ for (const scenario of [
     expectedArtifacts: 1,
   },
   {
+    // T-124 G4.5 Fix 3 (zero relaxation): a pinned request ref still enforces its version.
+    name: 'designer cited-source pinned version drift',
+    role: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    outcome: 'designer_cited_source_pinned_drift' as const,
+    failureCode: 'MOTIVE_EVOLUTION_REF_MISMATCH',
+    expectedCalls: 2,
+    expectedArtifacts: 1,
+  },
+  {
+    // T-124 G4.5 Fix 3 (zero relaxation): the reviewed-motive set must still cover the request's motives.
+    name: 'designer review-set omits a required motive',
+    role: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+    outcome: 'designer_review_set_missing' as const,
+    failureCode: 'MOTIVE_EVOLUTION_REVIEW_SET_MISMATCH',
+    expectedCalls: 2,
+    expectedArtifacts: 1,
+  },
+  {
     name: 'designer authority field',
     role: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
     outcome: 'designer_authority_field' as const,
@@ -491,6 +551,16 @@ for (const scenario of [
     role: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
     outcome: 'challenger_blocked_without_reason' as const,
     failureCode: 'MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING',
+    expectedCalls: 3,
+    expectedArtifacts: 2,
+  },
+  {
+    // T-124 G4.6 Fix 2: the challenge_check linkage moved from the wire schema
+    // to the semantic layer — the inverse direction is pinned here.
+    name: 'challenger dangling blocking reason codes',
+    role: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+    outcome: 'challenger_dangling_reason_codes' as const,
+    failureCode: 'MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT',
     expectedCalls: 3,
     expectedArtifacts: 2,
   },
@@ -802,6 +872,74 @@ test('motive evolution runtime accepts option refs that echo allowed inputs with
   for (const artifact of result.runtime_artifacts) {
     assert.notEqual(artifact.runtime_failure_code, 'MOTIVE_EVOLUTION_REF_MISMATCH');
   }
+});
+
+test('T-124 G4.5 Fix 3: motive evolution tolerates a reviewed-motive echo that drifts version_id/title_card_id (run 009 REVIEW_SET_MISMATCH)', async () => {
+  // Run 009 live signature: the designer echoed reviewed_target_motive_refs /
+  // reviewed_core_motive_version_refs with a drifted version_id (an invented pin)
+  // and title_card_id. The review-set answers "which motives did you review," so
+  // it now keys on object identity (ref_type:ref_id) — the drift is not a
+  // different motive, and the chain proceeds.
+  const { service } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: ['designer_review_set_version_drift'],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_review_set_version_drift_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  for (const artifact of result.runtime_artifacts) {
+    assert.notEqual(artifact.runtime_failure_code, 'MOTIVE_EVOLUTION_REVIEW_SET_MISMATCH');
+  }
+});
+
+test('T-124 G4.5 Fix 3: motive evolution tolerates a cited-source echo that pins an unpinned request ref (run 008 REF_MISMATCH)', async () => {
+  // Run 008 live signature: the request supplied source refs unpinned
+  // (version_id: null); the designer cited them back with an invented version
+  // pin (the default fixture cites source_001@v1). An unpinned allowed ref never
+  // constrained the version, so the pinned echo is the same object and accepted.
+  const unpinnedSource: TopicSelectionFunctionalRef = {
+    ref_type: 'source',
+    ref_id: 'source_001',
+    title_card_id: TITLE_CARD_ID,
+    version_id: null,
+  };
+  const base = providerRequest();
+  const { service } = serviceFixture();
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...base,
+    // Source (and its context-packet coverage) supplied unpinned.
+    source_refs: [unpinnedSource, ...base.source_refs.slice(1)],
+    motive_context_packets: [{
+      ...base.motive_context_packets![0]!,
+      covered_source_refs: [unpinnedSource],
+    }],
+    run_id: 'motive_evolution_cited_source_version_pin_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  for (const artifact of result.runtime_artifacts) {
+    assert.notEqual(artifact.runtime_failure_code, 'MOTIVE_EVOLUTION_REF_MISMATCH');
+  }
+});
+
+test('T-124 G4.5 Fix 3: motive evolution prompt v3 states verbatim-echo and challenger wire-surface guidance', async () => {
+  const { service, orchestrator } = serviceFixture();
+  await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_prompt_v3_guidance_run_001',
+  });
+  const designerCall = orchestrator.calls.find(
+    (call) => call.node_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  );
+  const challengerCall = orchestrator.calls.find(
+    (call) => call.node_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID,
+  );
+  const designerSystem = designerCall?.messages?.[0]?.content ?? '';
+  const challengerSystem = challengerCall?.messages?.[0]?.content ?? '';
+  assert.match(designerSystem, /never invent, fill, or change a version_id/);
+  assert.match(challengerSystem, /blocking_reason_codes/);
 });
 
 test('motive evolution runtime rejects product fixture modes, provider fixtures, model drift, and harness primary refs', async () => {

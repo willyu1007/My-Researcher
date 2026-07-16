@@ -7,6 +7,7 @@ import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
   type PaperImplementationP1RuntimeReviewRoleOutput,
   type PaperImplementationResultAnalysisRoleOutput,
+  type PaperImplementationRuntimeArtifactEnvelope,
   type RunPaperImplementationP1RuntimeReviewRequest,
   type RunPaperImplementationResultAnalysisRuntimeRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
@@ -268,16 +269,46 @@ test('runtime Domain Gate materializes an admitted result-analysis final artifac
   assert.equal(resultService.createResultPacketCalls, 1);
 });
 
-test('runtime Domain Gate rejects malformed domain gate requests before domain service calls', async () => {
-  const { runtime, domainGate, resultService } = fixture();
+test('T-124 G4.5 Fix 2 (under G4.6 assembly): the P1 slot rejects semantically-incomplete adjudicator content early, before any final artifact reaches the Domain Gate', async () => {
+  const { runtime, resultService } = fixture();
+  // The adjudicator's proposal is semantically hollow (empty statement, no
+  // support refs) — the ASSEMBLED CreateClaimCandidateRequest fails the ajv
+  // pre-check as a retryable semantic failure. No passed final artifact, so the
+  // Domain Gate and the domain service are never reached.
   const run = await runtime.runClaimBoundaryDebate(PROJECT_ID, mockedRequest('claim', {
     run_id: 'claim_boundary_malformed_domain_gate_run_001',
-    final_domain_gate_request: { claim_candidate_id: 'claim_candidate_malformed' },
+    final_claim_proposal: { ...claimProposal(), claim_statement: '', support_refs: [] },
+  }));
+  assert.equal(run.status, 'failed_runtime');
+  assert.equal(run.final_runtime_artifact, null);
+  assert.ok(
+    run.runtime_artifacts.some((artifact) => artifact.runtime_failure_code === 'P1_DOMAIN_GATE_REQUEST_MALFORMED'),
+  );
+  assert.equal(resultService.createClaimCalls, 0);
+});
+
+test('runtime Domain Gate rejects a malformed domain gate request before domain service calls (backstop, defense in depth)', async () => {
+  const { runtime, domainGate, resultService, repository } = fixture();
+  // A valid run produces an admitted final artifact; then the persisted payload
+  // is corrupted directly (simulating an artifact reaching materialize by some
+  // path other than the slot). The Domain Gate's own schema guard must still
+  // reject it with a 400 before calling the domain service.
+  const run = await runtime.runClaimBoundaryDebate(PROJECT_ID, mockedRequest('claim', {
+    run_id: 'claim_boundary_domain_gate_backstop_run_001',
   }));
   assert.ok(run.final_runtime_artifact);
+  const finalArtifactId = run.final_runtime_artifact.runtime_artifact_id;
+  const store = (repository as unknown as {
+    runtimeArtifacts: Map<string, PaperImplementationRuntimeArtifactEnvelope>;
+  }).runtimeArtifacts;
+  const stored = store.get(finalArtifactId);
+  assert.ok(stored);
+  (stored.artifact_payload as Record<string, unknown>).domain_gate_request = {
+    claim_candidate_id: 'claim_candidate_malformed',
+  };
 
   await assert.rejects(
-    () => domainGate.materializeFinalRuntimeArtifact(PROJECT_ID, run.final_runtime_artifact!.runtime_artifact_id),
+    () => domainGate.materializeFinalRuntimeArtifact(PROJECT_ID, finalArtifactId),
     (error) => error instanceof AppError
       && error.statusCode === 400
       && error.errorCode === 'INVALID_PAYLOAD'
@@ -294,8 +325,8 @@ test('runtime Domain Gate rejects same-id claim and dossier materialization drif
 
   const driftedClaimRun = await runtime.runClaimBoundaryDebate(PROJECT_ID, mockedRequest('claim', {
     run_id: 'claim_boundary_domain_gate_drift_run_001',
-    final_domain_gate_request: {
-      ...claimDomainGateRequest(),
+    final_claim_proposal: {
+      ...claimProposal(),
       claim_statement: 'Runtime drifted claim.',
     },
   }));
@@ -315,12 +346,9 @@ test('runtime Domain Gate rejects same-id claim and dossier materialization drif
 
   const driftedDossierRun = await runtime.runDossierReadinessAudit(PROJECT_ID, mockedRequest('dossier', {
     run_id: 'dossier_readiness_domain_gate_drift_run_001',
-    final_domain_gate_request: {
-      ...dossierDomainGateRequest(),
-      readiness: {
-        ...dossierDomainGateRequest().readiness,
-        readiness_notes: ['drifted readiness note'],
-      },
+    final_dossier_proposal: {
+      ...dossierProposal(),
+      readiness_notes: ['drifted readiness note'],
     },
   }));
   assert.ok(driftedDossierRun.final_runtime_artifact);
@@ -488,14 +516,15 @@ function fixture() {
     runtimeAdmission: admission,
     resultClaimDossier: resultService,
   });
-  return { runtime, resultRuntime, domainGate, resultService };
+  return { runtime, resultRuntime, domainGate, resultService, repository };
 }
 
 function mockedRequest(
   kind: 'claim' | 'dossier',
   options: {
     run_id?: string;
-    final_domain_gate_request?: Record<string, unknown>;
+    final_claim_proposal?: PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal'];
+    final_dossier_proposal?: PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal'];
   } = {},
 ): RunPaperImplementationP1RuntimeReviewRequest {
   const claim = kind === 'claim';
@@ -511,16 +540,35 @@ function mockedRequest(
       : ref('implementation_dossier', 'implementation_dossier_001'),
     input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
     input_snapshot_hash: hash('input-snapshot'),
+    // T-124 G4.6 structural context: every id the service assembles into the
+    // Create*Request is a declared source ref.
     source_refs: claim
-      ? [ref('result_interpretation_packet', 'result_packet_001')]
-      : [ref('claim_candidate', 'claim_candidate_001'), ref('claim_trace_packet', 'claim_trace_packet_001')],
+      ? [
+        ref('result_interpretation_packet', 'result_packet_001'),
+        ref('claim_candidate', 'claim_candidate_001'),
+        ref('trace_manifest', 'trace_manifest_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_001'),
+      ]
+      : [
+        ref('claim_candidate', 'claim_candidate_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_001'),
+        ref('result_interpretation_packet', 'result_packet_001'),
+        ref('trace_manifest', 'trace_manifest_001'),
+        ref('gate_result', 'readiness_gate_result_001'),
+      ],
     source_hashes: claim
-      ? [hash('result-packet')]
-      : [hash('claim-candidate'), hash('claim-trace-packet')],
+      ? [hash('result-packet'), hash('claim-candidate'), hash('trace-manifest'), hash('claim-trace-packet')]
+      : [
+        hash('claim-candidate'),
+        hash('claim-trace-packet'),
+        hash('result-packet'),
+        hash('trace-manifest'),
+        hash('gate-result'),
+      ],
     mocked_role_outputs: Object.fromEntries(
       roleSlotIds.map((slotId) => [
         slotId,
-        roleOutput(slotId, options.final_domain_gate_request),
+        roleOutput(slotId, options),
       ]),
     ),
   };
@@ -529,7 +577,6 @@ function mockedRequest(
 function mockedResultAnalysisRequest(
   options: {
     run_id?: string;
-    domain_gate_request?: CreateResultInterpretationPacketRequest;
   } = {},
 ): RunPaperImplementationResultAnalysisRuntimeRequest {
   return {
@@ -542,18 +589,30 @@ function mockedResultAnalysisRequest(
     source_refs: [
       ref('run_evidence_unit', 'run_evidence_unit_001'),
       ref('result_validation_report', 'result_validation_report_001'),
+      ref('result_interpretation_packet', 'result_interpretation_packet_001'),
+      ref('trace_manifest', 'trace_manifest_result_001'),
+      ref('metric', 'metric_001'),
     ],
-    source_hashes: [hash('run-evidence'), hash('validation-report')],
+    source_hashes: [
+      hash('run-evidence'),
+      hash('validation-report'),
+      hash('result-packet'),
+      hash('trace-manifest'),
+      hash('metric'),
+    ],
     mocked_role_outputs: {
       [PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID]:
-        resultAnalysisRoleOutput(options.domain_gate_request),
+        resultAnalysisRoleOutput(),
     },
   };
 }
 
 function roleOutput(
   nodeId: string,
-  finalDomainGateRequest?: Record<string, unknown>,
+  options: {
+    final_claim_proposal?: PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal'];
+    final_dossier_proposal?: PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal'];
+  } = {},
 ): PaperImplementationP1RuntimeReviewRoleOutput {
   const final = nodeId.endsWith('final');
   const claim = nodeId.startsWith('claim_boundary_review');
@@ -566,8 +625,13 @@ function roleOutput(
       : [ref('claim_candidate', 'claim_candidate_001')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final
-      ? finalDomainGateRequest ?? asRecord(claim ? claimDomainGateRequest() : dossierDomainGateRequest())
+    // T-124 G4.6: adjudicators emit typed semantic proposals; the runtime
+    // service assembles the Create*Request from the request context.
+    claim_proposal: final && claim
+      ? options.final_claim_proposal ?? claimProposal()
+      : null,
+    dossier_proposal: final && !claim
+      ? options.final_dossier_proposal ?? dossierProposal()
       : null,
     scenario_outputs: final && !claim
       ? [{ scenario_id: 'ready_for_writing', disposition: 'preferred' }]
@@ -575,9 +639,47 @@ function roleOutput(
   };
 }
 
-function resultAnalysisRoleOutput(
-  domainGateRequest: CreateResultInterpretationPacketRequest = resultDomainGateRequest(),
-): PaperImplementationResultAnalysisRoleOutput {
+function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
+  return {
+    claim_type: 'method_claim',
+    claim_statement: 'Runtime admitted claim.',
+    claim_strength: 'tentative',
+    support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'bounded benchmark runs',
+      method_scope: 'runtime orchestration path',
+      dataset_scope: 'fixture dataset',
+      metric_scope: 'admission correctness',
+      negative_scope_notes: [],
+      excluded_scope_notes: [],
+    },
+    boundary_rationale: 'accepted by fake domain gate',
+    forbidden_overclaims: ['forbidden strong claim'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
+  };
+}
+
+function dossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
+  return {
+    dossier_status: 'ready_for_writing',
+    experiment_limitations: [],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    negative_result_refs: [],
+    excluded_stale_or_invalidated_evidence_refs: [],
+    admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    rejected_claim_refs: [],
+    forbidden_overclaims: ['forbidden strong claim'],
+    claim_ceiling: 'tentative',
+    readiness_blocker_refs: [],
+    readiness_warning_refs: [],
+    readiness_notes: ['ready for writing'],
+  };
+}
+
+function resultAnalysisRoleOutput(): PaperImplementationResultAnalysisRoleOutput {
   return {
     role_slot_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
     role_status: 'passed',
@@ -599,31 +701,15 @@ function resultAnalysisRoleOutput(
       recommended_claim_refs: [ref('claim_candidate', `${kind}_claim_candidate_001`)],
       required_followup_refs: [ref('validation_feedback_item', `${kind}_followup_001`)],
     })),
-    domain_gate_request: asRecord(domainGateRequest),
-  };
-}
-
-function asRecord(value: object): Record<string, unknown> {
-  return structuredClone(value) as Record<string, unknown>;
-}
-
-function resultDomainGateRequest(): CreateResultInterpretationPacketRequest {
-  return {
-    result_interpretation_packet_id: 'result_interpretation_packet_001',
-    validation_cycle_id: 'validation_cycle_001',
-    source: {
-      run_evidence_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-      validation_report_refs: [ref('result_validation_report', 'result_validation_report_001')],
-      metric_refs: [ref('metric', 'metric_001')],
-      failed_run_refs: [],
-      inconclusive_run_refs: [],
-      stale_or_invalidated_evidence_refs: [],
-    },
-    result_summary: {
+    // T-124 G4.6: typed semantic blocks (assembly inputs).
+    interpretation: {
       result_summary: 'The trusted run supports the bounded assertion.',
       supports_assertion_refs: [ref('motive_assertion', 'motive_assertion_001')],
       challenges_assertion_refs: [],
       unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
       failed_runs_accounted_for: true,
       inconclusive_runs_accounted_for: true,
       exploratory_confirmatory_separated: true,
@@ -640,75 +726,6 @@ function resultDomainGateRequest(): CreateResultInterpretationPacketRequest {
       recommended_claim_refs: [],
       required_followup_refs: [],
     },
-    trace_manifest_id: 'trace_manifest_result_001',
-    policy_version_id: 'policy_v1',
-    created_by: 'system',
-  };
-}
-
-function claimDomainGateRequest(): CreateClaimCandidateRequest {
-  return {
-    claim_candidate_id: 'claim_candidate_001',
-    claim_type: 'method_claim',
-    claim_statement: 'Runtime admitted claim.',
-    claim_strength: 'tentative',
-    result_interpretation_packet_ids: ['result_packet_001'],
-    support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-    challenge_refs: [],
-    scope: {
-      population_scope: 'bounded benchmark runs',
-      method_scope: 'runtime orchestration path',
-      dataset_scope: 'fixture dataset',
-      metric_scope: 'admission correctness',
-      negative_scope_notes: [],
-      excluded_scope_notes: [],
-    },
-    boundary: {
-      boundary_gate_result_id: null,
-      rationale: 'accepted by fake domain gate',
-      forbidden_overclaims: ['forbidden strong claim'],
-      hidden_counter_evidence_refs: [],
-      required_followup_refs: [],
-      human_confirmation_ref: null,
-    },
-    trace_manifest_id: 'trace_manifest_001',
-    claim_trace_packet_id: 'claim_trace_packet_001',
-    policy_version_id: 'policy_v1',
-    created_by: 'system',
-  };
-}
-
-function dossierDomainGateRequest(): CreateImplementationDossierRequest {
-  return {
-    dossier_id: 'implementation_dossier_001',
-    dossier_version: 1,
-    dossier_status: 'ready_for_writing',
-    result_interpretation_packet_ids: ['result_packet_001'],
-    claim_candidate_ids: ['claim_candidate_001'],
-    claim_trace_packet_ids: ['claim_trace_packet_001'],
-    experiment_section: {
-      failed_run_refs: [],
-      inconclusive_run_refs: [],
-      negative_result_refs: [],
-      excluded_stale_or_invalidated_evidence_refs: [],
-      experiment_limitations: [],
-    },
-    claim_section: {
-      admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
-      rejected_claim_refs: [],
-      forbidden_overclaims: ['forbidden strong claim'],
-      claim_ceiling: 'tentative',
-    },
-    readiness: {
-      readiness_gate_result_id: 'readiness_gate_result_001',
-      blocker_refs: [],
-      warning_refs: [],
-      readiness_notes: ['ready for writing'],
-    },
-    trace_manifest_id: 'trace_manifest_001',
-    projection_policy_version_id: 'policy_v1',
-    policy_version_id: 'policy_v1',
-    created_by: 'system',
   };
 }
 

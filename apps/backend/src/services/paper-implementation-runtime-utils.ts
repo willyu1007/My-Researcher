@@ -19,6 +19,7 @@ import type {
 import { PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../errors/app-error.js';
 import type {
   PaperImplementationRuntimeProviderCallProvenance,
   PaperImplementationRuntimeTelemetryCollector,
@@ -215,6 +216,58 @@ export function sameStringSet(
     return false;
   }
   return [...leftSet].every((item) => rightSet.has(item));
+}
+
+/** Minimal structural view of an injected back-half source-body packet. */
+export interface BackHalfSourceContextPacketLike {
+  source_ref: TopicSelectionFunctionalRef;
+  source_hash: string;
+}
+
+/**
+ * T-124 G4.5 Fix 1 (B3 hash fence): assert every injected source-body packet is
+ * fenced to a declared, hashed source. Each packet's `source_ref` must appear in
+ * `source_refs` (matched by the identifying `ref_type`+`ref_id` pair, so an
+ * absent/null `version_id` or `title_card_id` is not spurious drift), and its
+ * `source_hash` must equal that source's declared `source_hashes` entry. This
+ * stops a caller from injecting unfenced or mismatched bodies into the prompt
+ * while claiming a different source hash in the ref bundle. No-op when no packets
+ * are supplied (the field is additive/optional).
+ */
+export function assertBackHalfSourceContextPacketFence(
+  sourceRefs: TopicSelectionFunctionalRef[],
+  sourceHashes: string[],
+  packets: readonly BackHalfSourceContextPacketLike[] | undefined,
+): void {
+  if (!packets || packets.length === 0) {
+    return;
+  }
+  const declaredHashByKey = new Map<string, string>();
+  sourceRefs.forEach((ref, index) => {
+    declaredHashByKey.set(backHalfSourceFenceKey(ref), sourceHashes[index] ?? '');
+  });
+  for (const packet of packets) {
+    const key = backHalfSourceFenceKey(packet.source_ref);
+    const identity = `${packet.source_ref.ref_type}:${packet.source_ref.ref_id}`;
+    if (!declaredHashByKey.has(key)) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `source_context_packet source_ref ${identity} is not among the declared source_refs.`,
+      );
+    }
+    if (declaredHashByKey.get(key) !== packet.source_hash) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `source_context_packet source_hash for ${identity} does not match the declared source_hash for that ref.`,
+      );
+    }
+  }
+}
+
+function backHalfSourceFenceKey(ref: TopicSelectionFunctionalRef): string {
+  return `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}`;
 }
 
 /**

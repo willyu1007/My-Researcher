@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Ajv, type ValidateFunction } from 'ajv';
 import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROMPT_TEMPLATE_ID,
@@ -22,6 +23,12 @@ import {
   type PaperImplementationRuntimeExecutorKind,
   type RunPaperImplementationP1RuntimeReviewRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import {
+  createClaimCandidateRequestSchema,
+  createImplementationDossierRequestSchema,
+  type CreateClaimCandidateRequest,
+  type CreateImplementationDossierRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
   PaperImplementationAgentExecutionMode,
   PaperImplementationAgentRunMode,
@@ -62,6 +69,7 @@ import {
 } from './paper-implementation-runtime-resume.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  assertBackHalfSourceContextPacketFence,
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -71,6 +79,12 @@ import {
 import type {
   PaperImplementationRuntimeTelemetryCollector,
 } from './paper-implementation-runtime-telemetry-service.js';
+import {
+  assembleCreateClaimCandidateRequest,
+  assembleCreateImplementationDossierRequest,
+  extractClaimBoundaryDomainGateContext,
+  extractDossierReadinessDomainGateContext,
+} from './paper-implementation-domain-gate-assembly.js';
 import {
   assessPaperImplementationDebateComplexityShadow,
   type PaperImplementationDebateComplexityTier,
@@ -273,16 +287,30 @@ const SLOT_PROFILES: Record<PaperImplementationP1RuntimeReviewSlotId, SlotProfil
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-// T-124 S3 复审 F5-1: a provider wire output whose JSON-string carrier
-// (domain_gate_request_json / scenario_output_jsons) fails to parse into the
-// canonical object shape is a retryable technical failure (SCHEMA_VALIDATION
-// semantics — one same-profile retry, then terminal), never an HTTP 400.
+// T-124 S3 复审 F5-1 (narrowed by G4.6): a provider wire output whose JSON-string
+// carrier (scenario_output_jsons — the sole remaining carrier) fails to parse
+// into the canonical array shape is a retryable technical failure
+// (SCHEMA_VALIDATION semantics — one same-profile retry, then terminal), never
+// an HTTP 400.
 // S4 复审 FA-2: single-sourced from runtime-utils so the retry_kind classifier
 // registers it as `technical` (it previously mislabeled it `semantic`).
 const RUNTIME_WIRE_JSON_DECODE_FAILED = PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE;
+// T-124 G4.5 Fix 2 (retained under G4.6 service-side assembly): a
+// SERVICE-ASSEMBLED Create*Request that cannot satisfy the target schema
+// (e.g. empty semantic strings from the adjudicator) is a retryable semantic
+// failure at the slot (one same-profile retry, then terminal failed_runtime),
+// never a 400 at the Domain Gate materialize step.
+const P1_DOMAIN_GATE_REQUEST_MALFORMED = 'P1_DOMAIN_GATE_REQUEST_MALFORMED';
+// T-124 G4.6: a passed final adjudicator that omits its typed semantic-proposal
+// block (claim_proposal / dossier_proposal) cannot be assembled — retryable
+// semantic failure through the existing channel; the service never writes
+// content on the model's behalf.
+const P1_DOMAIN_GATE_REQUEST_MISSING = 'P1_DOMAIN_GATE_REQUEST_MISSING';
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   RUNTIME_WIRE_JSON_DECODE_FAILED,
+  P1_DOMAIN_GATE_REQUEST_MALFORMED,
+  P1_DOMAIN_GATE_REQUEST_MISSING,
 ]);
 
 export class PaperImplementationP1RuntimeReviewService {
@@ -292,6 +320,13 @@ export class PaperImplementationP1RuntimeReviewService {
   private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
+  // T-124 G4.5 Fix 2: shape-only pre-check of the adjudicator's
+  // domain_gate_request against the exact schema the Domain Gate materializer
+  // compiles, selected by workflow. Existence / authority stays the gate's job.
+  private readonly domainGateRequestValidators: Record<
+    'claim_boundary_review' | 'dossier_readiness_prep',
+    ValidateFunction
+  >;
 
   constructor(options: RuntimeServiceOptions) {
     this.projectRepository = options.projectRepository;
@@ -300,6 +335,11 @@ export class PaperImplementationP1RuntimeReviewService {
     this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: false });
+    this.domainGateRequestValidators = {
+      claim_boundary_review: ajv.compile(createClaimCandidateRequestSchema),
+      dossier_readiness_prep: ajv.compile(createImplementationDossierRequestSchema),
+    };
   }
 
   async runClaimBoundaryDebate(
@@ -473,7 +513,7 @@ export class PaperImplementationP1RuntimeReviewService {
         retryAttemptIndex,
       );
       providerCallCount += this.providerCallCount(result);
-      const runtimeFailureCode = this.roleInvocationFailureCode(spec, result);
+      const runtimeFailureCode = this.roleInvocationFailureCode(runtimeBase.profile.workflowType, request, spec, result);
       const shouldRetry = request.execution_mode === 'provider_llm'
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
@@ -582,18 +622,17 @@ export class PaperImplementationP1RuntimeReviewService {
   }
 
   /**
-   * T-124 S3 复审 F5-1: canonicalize a provider wire output — parse the JSON
-   * string carriers (`domain_gate_request_json`, `scenario_output_jsons`) back
-   * into the canonical `domain_gate_request` object and `scenario_outputs`
-   * array so every recorded artifact, admission expectation, and downstream
-   * semantic check keeps the canonical shape. A carrier that is not present is
-   * mapped to the canonical absence (null / empty). A carrier that fails to
-   * parse, or parses to the wrong JSON shape, fails closed as a retryable
-   * technical failure (`RUNTIME_WIRE_JSON_DECODE_FAILED`). Outputs without any
-   * wire carrier key pass through untouched (fixture stubs that bypass the
-   * orchestrator ajv gate); a real provider output cannot reach here in
-   * canonical form because the wire schema forbids the object fields via
-   * additionalProperties: false.
+   * T-124 S3 复审 F5-1 (narrowed by G4.6): canonicalize a provider wire output —
+   * parse the one remaining JSON string carrier (`scenario_output_jsons`) back
+   * into the canonical `scenario_outputs` array so every recorded artifact,
+   * admission expectation, and downstream semantic check keeps the canonical
+   * shape. The former `domain_gate_request_json` carrier is retired — the
+   * adjudicator's semantic content is typed and rides the wire directly. A
+   * carrier that is not present is mapped to the canonical absence (empty). A
+   * carrier that fails to parse, or parses to the wrong JSON shape, fails
+   * closed as a retryable technical failure (`RUNTIME_WIRE_JSON_DECODE_FAILED`).
+   * Outputs without the wire carrier key pass through untouched (fixture stubs
+   * that bypass the orchestrator ajv gate).
    */
   private canonicalizedWireInvocationResult(
     result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
@@ -603,25 +642,10 @@ export class PaperImplementationP1RuntimeReviewService {
       return result;
     }
     const record = output as unknown as Record<string, unknown>;
-    const hasDomainGateWire = 'domain_gate_request_json' in record;
-    const hasScenarioWire = 'scenario_output_jsons' in record;
-    if (!hasDomainGateWire && !hasScenarioWire) {
+    if (!('scenario_output_jsons' in record)) {
       return result;
     }
-    const {
-      domain_gate_request_json: domainGateJson,
-      scenario_output_jsons: scenarioJsons,
-      ...rest
-    } = record;
-
-    let domainGateRequest: Record<string, unknown> | null = null;
-    if (domainGateJson !== undefined && domainGateJson !== null) {
-      const parsed = this.parseWireObject(domainGateJson);
-      if (parsed === null) {
-        return this.wireCanonicalizationFailure(result);
-      }
-      domainGateRequest = parsed;
-    }
+    const { scenario_output_jsons: scenarioJsons, ...rest } = record;
 
     let scenarioOutputs: Record<string, unknown>[] = [];
     if (scenarioJsons !== undefined) {
@@ -641,7 +665,6 @@ export class PaperImplementationP1RuntimeReviewService {
 
     const canonical = {
       ...rest,
-      domain_gate_request: domainGateRequest,
       scenario_outputs: scenarioOutputs,
     } as unknown as PaperImplementationP1RuntimeReviewRoleOutput;
     return { ...result, structured_output: canonical };
@@ -688,7 +711,8 @@ export class PaperImplementationP1RuntimeReviewService {
       cited_source_refs: [...request.source_refs],
       blocker_codes: blockerCodes,
       warning_codes: [],
-      domain_gate_request: null,
+      claim_proposal: null,
+      dossier_proposal: null,
       scenario_outputs: [],
     };
     const artifactPayload = this.roleArtifactPayload(runtimeBase, request, output, []);
@@ -1036,7 +1060,12 @@ export class PaperImplementationP1RuntimeReviewService {
       blockers: this.uniqueStrings(input.blockerCodes),
       warnings: this.uniqueStrings(input.warningCodes),
       runtime_failure_code: input.runtimeFailureCode,
-      domain_gate_request: input.status === 'passed' ? finalRole?.domain_gate_request ?? null : null,
+      // T-124 G4.6: the recorded domain_gate_request is SERVICE-ASSEMBLED (pure,
+      // replayable) from the request context + the final adjudicator's typed
+      // semantic proposal — field semantics unchanged, source moved off the LLM.
+      domain_gate_request: input.status === 'passed' && finalRole
+        ? (this.assembleDomainGateRequest(runtimeBase.profile.workflowType, request, finalRole) as unknown as Record<string, unknown> | null)
+        : null,
       scenario_outputs: roleOutputs.flatMap((item) => item.scenario_outputs ?? []),
       role_artifact_refs: roleArtifacts.map((item) => item.artifact_payload_ref),
       role_artifact_hashes: roleArtifacts.map((item) => item.artifact_payload_hash),
@@ -1144,6 +1173,9 @@ export class PaperImplementationP1RuntimeReviewService {
     const sourceHashBundleHash = this.hash({
       source_refs: request.source_refs,
       source_hashes: request.source_hashes,
+      // T-124 G4.5 Fix 1: injected bodies join the runtime identity so a body
+      // change re-keys the bundle (auditable, cache-correct, resume-consistent).
+      source_context_packets: request.source_context_packets ?? [],
       target_ref: request.target_ref,
       input_snapshot_hash: request.input_snapshot_hash,
     });
@@ -1201,14 +1233,21 @@ export class PaperImplementationP1RuntimeReviewService {
         content: [
           'Return only structured JSON for the requested PaperImplementation P1 runtime review role.',
           'Do not write claims, dossier readiness, writing packets, trace repairs, queue items, prompt text, or raw provider output.',
-          'If this is the final adjudicator role and the review passes, include a domain_gate_request for the deterministic Domain Gate service.',
-          // T-124 S3 复审 F5-1: provider strict mode cannot emit free/dynamic-key
-          // objects, so the domain-gate request and per-scenario outputs travel
-          // as JSON strings on the wire.
+          // T-124 G4.5 Fix 1: source_context_packets carry verbatim upstream bodies
+          // (the materialized result-interpretation packet / claim candidate and
+          // the run evidence). Ground the adjudication in those bodies.
+          'Read source_context_packets for the verbatim bodies of the cited upstream artifacts; ground the review in those concrete contents rather than conditioning on absent data.',
+          // T-124 G4.6: the adjudicator proposes SEMANTIC content only; the service
+          // assembles the Create*Request deterministically from the request context.
+          ...this.finalGateSemanticGuidance(runtimeBase.profile.workflowType),
+          'Do not emit a request envelope: no service, request_type, ids, source_refs, source_hashes, or trace manifest fields — the deterministic service assembles the Domain Gate request from the request context.',
+          // T-124 S3 复审 F5-1 (narrowed by G4.6): provider strict mode cannot emit
+          // free/dynamic-key objects, so per-scenario outputs travel as JSON
+          // strings on the wire; the semantic proposal blocks are typed and ride
+          // the wire directly.
           ...(request.execution_mode === 'provider_llm'
             ? [
-              'Encode the domain gate request as a JSON string in domain_gate_request_json (a single JSON object serialized to text), and encode each scenario output as a JSON-object string inside the scenario_output_jsons array.',
-              'Omit domain_gate_request_json (or set it to null) and leave scenario_output_jsons empty when there is nothing to request.',
+              'Encode each scenario output as a JSON-object string inside the scenario_output_jsons array; leave it empty when there is nothing to report.',
             ]
             : []),
         ].join(' '),
@@ -1223,12 +1262,33 @@ export class PaperImplementationP1RuntimeReviewService {
           input_snapshot_hash: request.input_snapshot_hash,
           source_refs: request.source_refs,
           source_hashes: request.source_hashes,
+          // T-124 G4.5 Fix 1: the actual source bodies (hash-fenced to source_refs).
+          source_context_packets: request.source_context_packets ?? [],
           source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
           prior_role_artifact_refs: priorArtifacts.map((item) => item.admission.admitted_artifact_ref),
           prior_role_artifact_hashes: priorArtifacts.map((item) => item.admission.admitted_artifact_hash),
           prior_role_outputs: priorArtifacts.flatMap((item) => item.output ? [item.output] : []),
         }),
       },
+    ];
+  }
+
+  /**
+   * T-124 G4.6: semantic-proposal guidance for the final adjudicator. The model
+   * fills the typed block with judgement content only; every structural id is
+   * assembled by the service (this is prompt guidance, not a validation
+   * relaxation — the Domain Gate schema is unchanged).
+   */
+  private finalGateSemanticGuidance(
+    workflowType: 'claim_boundary_review' | 'dossier_readiness_prep',
+  ): string[] {
+    if (workflowType === 'claim_boundary_review') {
+      return [
+        'When you are the final adjudicator (claim_boundary_review.adjudicator_final) and the review passes, you MUST fill claim_proposal with the SEMANTIC claim content: claim_type, claim_statement (the bounded claim wording), claim_strength, support_refs, challenge_refs, scope (population_scope, method_scope, dataset_scope, metric_scope, negative_scope_notes, excluded_scope_notes), boundary_rationale, forbidden_overclaims, hidden_counter_evidence_refs, and required_followup_refs. Set claim_proposal to null for every other role or when the review does not pass; dossier_proposal is always null in this workflow.',
+      ];
+    }
+    return [
+      'When you are the final adjudicator (dossier_readiness_prep.scenario_adjudicator_final) and the review passes, you MUST fill dossier_proposal with the SEMANTIC readiness content: dossier_status (the readiness disposition, e.g. ready_for_writing), experiment_limitations, failed_run_refs, inconclusive_run_refs, negative_result_refs, excluded_stale_or_invalidated_evidence_refs, admitted_claim_refs, rejected_claim_refs, forbidden_overclaims, claim_ceiling, readiness_blocker_refs, readiness_warning_refs, and readiness_notes. Set dossier_proposal to null for every other role or when the review does not pass; claim_proposal is always null in this workflow.',
     ];
   }
 
@@ -1416,6 +1476,20 @@ export class PaperImplementationP1RuntimeReviewService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
+    assertBackHalfSourceContextPacketFence(request.source_refs, request.source_hashes, request.source_context_packets);
+    // T-124 G4.6: the Domain Gate structural context is part of the request
+    // face — statically decidable, so an incomplete context fails 400 BEFORE
+    // any provider call instead of wasting a debate that can never materialize.
+    const contextExtraction = profile.workflowType === 'claim_boundary_review'
+      ? extractClaimBoundaryDomainGateContext(request.source_refs)
+      : extractDossierReadinessDomainGateContext(request.target_ref, request.source_refs);
+    if (!contextExtraction.ok) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `${profile.workflowType} Domain Gate structural context is incomplete: ${contextExtraction.issues.join(' ')}`,
+      );
+    }
     assertResumeRunIdConsistency(
       request.run_id?.trim() || null,
       request.resume_from_run_id?.trim() || null,
@@ -1565,6 +1639,8 @@ export class PaperImplementationP1RuntimeReviewService {
    * - `role_status='blocked'` with an empty `blocker_codes` list.
    */
   private roleInvocationFailureCode(
+    workflowType: 'claim_boundary_review' | 'dossier_readiness_prep',
+    request: RunPaperImplementationP1RuntimeReviewRequest,
     spec: RoleSpec,
     result: TopicSelectionAgentInvocationResult<PaperImplementationP1RuntimeReviewRoleOutput>,
   ): string | null {
@@ -1583,7 +1659,66 @@ export class PaperImplementationP1RuntimeReviewService {
     ) {
       return PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE;
     }
+    // T-124 G4.6: a passed final adjudicator MUST carry its typed semantic
+    // proposal block — without it the service cannot assemble the Create*Request
+    // (retryable semantic failure; the service never substitutes content).
+    if (output && spec.debateRole === 'arbiter' && output.role_status === 'passed') {
+      const proposalPresent = workflowType === 'claim_boundary_review'
+        ? Boolean(output.claim_proposal)
+        : Boolean(output.dossier_proposal);
+      if (!proposalPresent) {
+        return P1_DOMAIN_GATE_REQUEST_MISSING;
+      }
+      // T-124 G4.5 Fix 2 (retained): pre-check the SERVICE-ASSEMBLED request
+      // against the slot's target Create*Request schema (shape only). A
+      // malformed assembly (e.g. empty semantic strings) fails early
+      // (retryable) here instead of 400'ing at Domain Gate materialize.
+      const assembled = this.assembleDomainGateRequest(workflowType, request, output);
+      if (!assembled || !this.domainGateRequestValidators[workflowType](assembled)) {
+        return P1_DOMAIN_GATE_REQUEST_MALFORMED;
+      }
+    }
     return null;
+  }
+
+  /**
+   * T-124 G4.6: pure deterministic assembly of the workflow's Create*Request.
+   * Structural fields come from the request context (target ref + declared
+   * source refs — asserted complete before any provider call); semantic fields
+   * are mapped verbatim from the adjudicator's typed proposal block. Returns
+   * null when the proposal block is absent (never a substitute content path).
+   */
+  private assembleDomainGateRequest(
+    workflowType: 'claim_boundary_review' | 'dossier_readiness_prep',
+    request: RunPaperImplementationP1RuntimeReviewRequest,
+    output: PaperImplementationP1RuntimeReviewRoleOutput,
+  ): CreateClaimCandidateRequest | CreateImplementationDossierRequest | null {
+    if (workflowType === 'claim_boundary_review') {
+      if (!output.claim_proposal) {
+        return null;
+      }
+      const extraction = extractClaimBoundaryDomainGateContext(request.source_refs);
+      if (!extraction.ok) {
+        return null;
+      }
+      return assembleCreateClaimCandidateRequest({
+        context: extraction.context,
+        proposal: output.claim_proposal,
+        createdBy: this.createdBy(request.execution_mode),
+      });
+    }
+    if (!output.dossier_proposal) {
+      return null;
+    }
+    const extraction = extractDossierReadinessDomainGateContext(request.target_ref, request.source_refs);
+    if (!extraction.ok) {
+      return null;
+    }
+    return assembleCreateImplementationDossierRequest({
+      context: extraction.context,
+      proposal: output.dossier_proposal,
+      createdBy: this.createdBy(request.execution_mode),
+    });
   }
 
   private retryWarningCodes(

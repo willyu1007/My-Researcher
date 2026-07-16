@@ -10,9 +10,6 @@ import type {
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
-  CreateResultInterpretationPacketRequest,
-} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
-import type {
   PaperImplementationExperimentPlanningRoleOutput,
   PaperImplementationExperimentWorkOrderDraftCandidate,
   PaperImplementationCrossBoardAnchor,
@@ -177,9 +174,10 @@ class StubP1RuntimeGateway {
     request: LlmStructuredOutputRequest,
   ): Promise<LlmStructuredOutputResponse<T>> {
     this.calls.push(request);
-    // T-124 S3 复审 F5-1: provider_llm validates against the P1 wire schema, so
-    // the stubbed provider emits the wire carriers (domain_gate_request_json /
-    // scenario_output_jsons); the runtime service canonicalizes them back.
+    // T-124 S3 复审 F5-1 (narrowed by G4.6): provider_llm validates against the
+    // P1 wire schema — the stubbed provider emits the scenario_output_jsons
+    // carrier plus the typed proposal blocks; the service canonicalizes the
+    // carrier and ASSEMBLES the domain_gate_request from the request context.
     const output = p1WireReviewRoleOutput(request.executionContext.operation);
     return {
       parsed: output as T,
@@ -202,10 +200,9 @@ class StubResultAnalysisGateway {
     this.calls.push(request);
     const output = this.outputs.shift() ?? resultAnalysisRoleOutput();
     return {
-      // T-124 S3 复审 F5-1: provider_llm validates against the result-analysis
-      // wire schema — the domain-gate request travels as a JSON string (seeded
-      // canonical fixtures, incl. drifted/malformed ones, round-trip unchanged).
-      parsed: resultAnalysisWireRoleOutput(output) as T,
+      // T-124 G4.6: provider_llm validates against the single canonical
+      // result-analysis schema (typed semantic blocks — no wire carrier).
+      parsed: output as T,
       raw: { redacted_stub: true },
       telemetry: telemetry(request),
     };
@@ -833,8 +830,8 @@ test('PaperImplementation result-analysis runtime run route uses the production 
       4,
     );
     assert.equal(body.final_runtime_artifact?.artifact_payload.domain_gate_request !== null, true);
-    // T-124 S3 F5-1: the provider emitted domain_gate_request_json; the recorded
-    // payload carries the canonical parsed object with no wire residue.
+    // T-124 G4.6: the recorded payload carries the SERVICE-ASSEMBLED request
+    // (structural fields from the request context) with no wire residue.
     assert.equal(
       (body.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null)
         ?.result_interpretation_packet_id,
@@ -2692,20 +2689,22 @@ test('PaperImplementation experiment planning runtime routes reject slot profile
 
 test('PaperImplementation result-analysis Domain Gate route rejects malformed and drifted payloads', async () => {
   const fixture = await resultAnalysisDomainGateFixture();
+  const driftedInterpretation = {
+    ...resultAnalysisRoleOutput().interpretation!,
+    result_summary: 'Drifted result interpretation payload.',
+  };
+  const hollowInterpretation = {
+    ...resultAnalysisRoleOutput().interpretation!,
+    // T-124 G4.6: semantically hollow content — the ASSEMBLED request fails the
+    // ajv pre-check (empty result_summary), so the slot fails closed terminally
+    // (it never reaches the Domain Gate). Both attempts emit it.
+    result_summary: '',
+  };
   const gateway = new StubResultAnalysisGateway([
     resultAnalysisRoleOutput(),
-    resultAnalysisRoleOutput({
-      domain_gate_request: {
-        ...resultAnalysisDomainGateRequest(),
-        result_summary: {
-          ...resultAnalysisDomainGateRequest().result_summary,
-          result_summary: 'Drifted result interpretation payload.',
-        },
-      },
-    }),
-    resultAnalysisRoleOutput({
-      domain_gate_request: { result_interpretation_packet_id: 'malformed-result-packet-http-1' },
-    }),
+    resultAnalysisRoleOutput({ interpretation: driftedInterpretation }),
+    resultAnalysisRoleOutput({ interpretation: hollowInterpretation }),
+    resultAnalysisRoleOutput({ interpretation: hollowInterpretation }),
   ]);
   const app = buildApp({
     paperImplementationRepository: fixture.projectRepository,
@@ -2755,6 +2754,12 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
     });
     assertErrorCode(driftMaterialize, 409, 'VERSION_CONFLICT');
 
+    // T-124 G4.6: semantically hollow content (empty result_summary) is caught
+    // by the typed role-output schema at the REAL orchestrator ajv gate
+    // (SCHEMA_VALIDATION_FAILED, retryable then terminal) — even earlier than
+    // the retained assembled-request pre-check (which unit tests pin with a
+    // stubbed orchestrator). Either way the slot fails closed and the Domain
+    // Gate is never reached: no final artifact is produced to materialize.
     const malformedRun = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/result-analysis-scenarios/run`,
@@ -2764,15 +2769,18 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
       },
     });
     assert.equal(malformedRun.statusCode, 201);
-    const malformedBody = malformedRun.json() as { final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null };
-    assert.ok(malformedBody.final_runtime_artifact);
-    const malformedMaterialize = await app.inject({
-      method: 'POST',
-      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-artifacts/${encodeURIComponent(
-        malformedBody.final_runtime_artifact.runtime_artifact_id,
-      )}/materialize-domain-gate`,
-    });
-    assertErrorCode(malformedMaterialize, 400, 'INVALID_PAYLOAD');
+    const malformedBody = malformedRun.json() as {
+      status: string;
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      runtime_artifacts: PaperImplementationRuntimeArtifactEnvelope[];
+    };
+    assert.equal(malformedBody.status, 'failed_runtime');
+    assert.equal(malformedBody.final_runtime_artifact, null);
+    assert.ok(
+      malformedBody.runtime_artifacts.some(
+        (artifact) => artifact.runtime_failure_code === 'SCHEMA_VALIDATION_FAILED',
+      ),
+    );
   } finally {
     await app.close();
   }
@@ -4611,18 +4619,34 @@ function p1RunPayload(kind: 'claim' | 'dossier', providerId: 'openai' | 'dashsco
     target_version_id: 'target-http-1@v1',
     input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
     input_snapshot_hash: hash('input-snapshot-http-1'),
+    // T-124 G4.6 structural context: every id the service assembles into the
+    // Create*Request is a declared source ref.
     source_refs: claim
       ? [
         ref('result_interpretation_packet', 'result-packet-http-1'),
         ref('claim_trace_packet', 'claim-trace-packet-http-1'),
+        ref('claim_candidate', 'claim-candidate-http-1'),
+        ref('trace_manifest', 'trace-manifest-http-claim-1'),
       ]
       : [
         ref('claim_candidate', 'claim-candidate-http-1'),
         ref('claim_trace_packet', 'claim-trace-packet-http-1'),
+        ref('result_interpretation_packet', 'result-packet-http-1'),
+        ref('trace_manifest', 'trace-manifest-http-dossier-1'),
       ],
     source_hashes: claim
-      ? [hash('result-packet-http-1'), hash('claim-trace-packet-http-1')]
-      : [hash('claim-candidate-http-1'), hash('claim-trace-packet-http-1')],
+      ? [
+        hash('result-packet-http-1'),
+        hash('claim-trace-packet-http-1'),
+        hash('claim-candidate-http-1'),
+        hash('trace-manifest-http-claim-1'),
+      ]
+      : [
+        hash('claim-candidate-http-1'),
+        hash('claim-trace-packet-http-1'),
+        hash('result-packet-http-1'),
+        hash('trace-manifest-http-dossier-1'),
+      ],
     preflight_blocker_codes: [],
   };
 }
@@ -4638,13 +4662,20 @@ function resultAnalysisRunPayload(providerId: 'openai' | 'dashscope' = 'openai')
     target_version_id: 'validation-cycle-http-1@v1',
     input_snapshot_ref: ref('implementation_input_snapshot', 'input-snapshot-http-1'),
     input_snapshot_hash: hash('input-snapshot-http-1'),
+    // T-124 G4.6 structural context refs (service-assembled Create request).
     source_refs: [
       ref('run_evidence_unit', 'run-evidence-unit-http-1'),
       ref('result_validation_report', 'result-validation-report-http-1'),
+      ref('result_interpretation_packet', RESULT_PACKET_ID),
+      ref('trace_manifest', RESULT_TRACE_MANIFEST_ID),
+      ref('metric', RESULT_METRIC_ID),
     ],
     source_hashes: [
       hash('run-evidence-unit-http-1'),
       hash('result-validation-report-http-1'),
+      hash(RESULT_PACKET_ID),
+      hash(RESULT_TRACE_MANIFEST_ID),
+      hash(RESULT_METRIC_ID),
     ],
     preflight_blocker_codes: [],
   };
@@ -5275,87 +5306,69 @@ function p1ReviewRoleOutput(roleSlotId: string): PaperImplementationP1RuntimeRev
       : [ref('claim_candidate', 'claim-candidate-http-1')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final
-      ? claim
-        ? { claim_candidate_id: 'claim-candidate-http-1' }
-        : { dossier_id: 'dossier-http-1' }
-      : null,
+    // T-124 G4.6: the final adjudicator emits its typed SEMANTIC proposal; the
+    // runtime service assembles the Create*Request from the request context.
+    claim_proposal: final && claim ? httpClaimProposal() : null,
+    dossier_proposal: final && !claim ? httpDossierProposal() : null,
     scenario_outputs: final && !claim
       ? [{ scenario_id: 'ready_for_writing', disposition: 'preferred' }]
       : [],
   };
 }
 
+/** The HTTP claim adjudicator's typed semantic proposal (assembly input). */
+function httpClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
+  return {
+    claim_type: 'empirical_finding',
+    claim_statement: 'Bounded HTTP parity claim within the probed scale and committed task set.',
+    claim_strength: 'strong',
+    support_refs: [ref('run_evidence_unit', 'run-evidence-unit-http-1')],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'HTTP downstream adaptation of a Transformer language model.',
+      method_scope: 'Parameter-efficient adaptation vs reproduced full fine-tuning.',
+      dataset_scope: 'Committed HTTP benchmark subset.',
+      metric_scope: 'Per-task primary metric, trainable parameter count, inference latency.',
+      negative_scope_notes: [],
+      excluded_scope_notes: ['No claim beyond the probed setting.'],
+    },
+    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
+    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
+  };
+}
+
+/** The HTTP dossier adjudicator's typed semantic proposal (assembly input). */
+function httpDossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
+  return {
+    dossier_status: 'ready_for_writing',
+    experiment_limitations: ['Results at the probed scale on the committed tasks only.'],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    negative_result_refs: [],
+    excluded_stale_or_invalidated_evidence_refs: [],
+    admitted_claim_refs: [ref('claim_candidate', 'claim-candidate-http-1')],
+    rejected_claim_refs: [],
+    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
+    claim_ceiling: 'strong',
+    readiness_blocker_refs: [],
+    readiness_warning_refs: [],
+    readiness_notes: ['Single confirmatory run set; nothing outstanding for N7.'],
+  };
+}
+
 /**
- * T-124 S3 复审 F5-1: the provider wire shape of a P1 role output — canonical
- * output with `domain_gate_request` and `scenario_outputs` replaced by their
- * JSON-string carriers (`domain_gate_request_json` / `scenario_output_jsons`).
- * This is what a real provider emits under the wire schema; the runtime service
- * canonicalizes it back before recording.
+ * T-124 S3 复审 F5-1 (narrowed by G4.6): the provider wire shape of a P1 role
+ * output — canonical output with `scenario_outputs` replaced by its JSON-string
+ * carrier. The typed proposal blocks ride the wire directly; the runtime
+ * service canonicalizes the scenario carrier back before recording.
  */
 function p1WireReviewRoleOutput(roleSlotId: string): Record<string, unknown> {
-  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
+  const { scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
   return {
     ...rest,
-    domain_gate_request_json: domainGate === null || domainGate === undefined
-      ? null
-      : JSON.stringify(domainGate),
     scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
-  };
-}
-
-/**
- * T-124 S3 复审 F5-1: the provider wire shape of a result-analysis role output —
- * `domain_gate_request` replaced by the `domain_gate_request_json` string
- * carrier; `scenario_outputs` stays canonical (typed, strict-representable).
- */
-function resultAnalysisWireRoleOutput(
-  output: PaperImplementationResultAnalysisRoleOutput,
-): Record<string, unknown> {
-  const { domain_gate_request: domainGate, ...rest } = output;
-  return {
-    ...rest,
-    domain_gate_request_json: domainGate === null || domainGate === undefined
-      ? null
-      : JSON.stringify(domainGate),
-  };
-}
-
-function resultAnalysisDomainGateRequest(): CreateResultInterpretationPacketRequest {
-  return {
-    result_interpretation_packet_id: RESULT_PACKET_ID,
-    validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
-    source: {
-      run_evidence_refs: [ref('run_evidence_unit', RESULT_RUN_EVIDENCE_UNIT_ID)],
-      validation_report_refs: [ref('result_validation_report', RESULT_VALIDATION_REPORT_ID)],
-      metric_refs: [ref('metric', RESULT_METRIC_ID)],
-      failed_run_refs: [],
-      inconclusive_run_refs: [],
-      stale_or_invalidated_evidence_refs: [],
-    },
-    result_summary: {
-      result_summary: 'The trusted run supports the bounded assertion.',
-      supports_assertion_refs: [ref('motive_assertion', 'motive-assertion-http-1')],
-      challenges_assertion_refs: [],
-      unexpected_findings: [],
-      failed_runs_accounted_for: true,
-      inconclusive_runs_accounted_for: true,
-      exploratory_confirmatory_separated: true,
-    },
-    reliability: {
-      failed_runs_retained: true,
-      confound_refs: [],
-      limitation_refs: [ref('limitation', 'limitation-http-1')],
-      reliability_notes: [],
-    },
-    claim_implications: {
-      allowed_claim_ceiling: 'moderate',
-      forbidden_overclaims: ['broad generalization'],
-      recommended_claim_refs: [],
-      required_followup_refs: [],
-    },
-    trace_manifest_id: RESULT_TRACE_MANIFEST_ID,
-    created_by: 'system',
   };
 }
 
@@ -5590,7 +5603,32 @@ function resultAnalysisRoleOutput(
       recommended_claim_refs: [ref('claim_candidate', `${kind}-claim-candidate-http-1`)],
       required_followup_refs: [ref('validation_feedback_item', `${kind}-followup-http-1`)],
     })),
-    domain_gate_request: structuredClone(resultAnalysisDomainGateRequest()) as unknown as Record<string, unknown>,
+    // T-124 G4.6: typed SEMANTIC blocks; the runtime service assembles the
+    // CreateResultInterpretationPacketRequest from the request context.
+    interpretation: {
+      result_summary: 'The trusted run supports the bounded assertion.',
+      supports_assertion_refs: [ref('motive_assertion', 'motive-assertion-http-1')],
+      challenges_assertion_refs: [],
+      unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
+      failed_runs_accounted_for: true,
+      inconclusive_runs_accounted_for: true,
+      exploratory_confirmatory_separated: true,
+    },
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [ref('limitation', 'limitation-http-1')],
+      reliability_notes: [],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'moderate',
+      forbidden_overclaims: ['broad generalization'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
+    },
     ...overrides,
   };
 }

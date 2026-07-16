@@ -33,6 +33,16 @@ import {
   type PaperImplementationMotiveFreshnessStatus,
 } from './paper-implementation-motive-contracts.js';
 import {
+  PAPER_IMPLEMENTATION_CLAIM_STRENGTHS,
+  type PaperImplementationClaimStrength,
+} from './paper-implementation-trace-contracts.js';
+import {
+  PAPER_IMPLEMENTATION_CLAIM_TYPES,
+  PAPER_IMPLEMENTATION_DOSSIER_STATUSES,
+  type PaperImplementationClaimType,
+  type PaperImplementationDossierStatus,
+} from './paper-implementation-result-claim-dossier-contracts.js';
+import {
   PAPER_IMPLEMENTATION_DEBATE_COMPLEXITY_TIERS,
   type PaperImplementationDebateComplexityTier,
 } from './paper-implementation-debate-complexity-shadow.js';
@@ -249,8 +259,15 @@ export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_ID =
   'paper-implementation-motive-decomposition-draft-assertion-candidates' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID =
   'paper-implementation-motive-evolution-decision-support' as const;
-export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v1' as const;
-export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+// T-124 G4.5 Fix 1: v2 adds source-body (source_context_packets) handling and
+// target Create*Request schema guidance to the back-half slot prompts.
+// T-124 G4.6: v3 — the model proposes typed SEMANTIC content blocks only
+// (interpretation/reliability/claim_implications; claim_proposal /
+// dossier_proposal); the runtime service assembles the Create*Request
+// deterministically from the request context, so all id/envelope transcription
+// guidance is removed (run 009/010/011 envelope-echo signature).
+export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v3' as const;
+export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v3' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
@@ -264,7 +281,13 @@ export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_VERSION =
 // the structure implicit and, combined with the strict-mode-degenerate map
 // schemas, made options-proposing outputs deterministically fail schema
 // validation (gs001-lora-live-004).
-export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION = 'v2' as const;
+// T-124 G4.5 Fix 3: v3 adds explicit verbatim-echo guidance for the designer's
+// reviewed-motive / cited refs (keep version_id and title_card_id exactly as the
+// request supplied them — do not invent a version pin) and reinforces the
+// challenger's mandatory wire surface (side-effect guards + challenge_check
+// invariant), after the run 008/009 ref-echo drift and run 010 challenger
+// SCHEMA_VALIDATION_FAILED signatures.
+export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION = 'v3' as const;
 
 export const PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS = [
   'claim_boundary_review.boundary_critic',
@@ -816,6 +839,59 @@ export type PaperImplementationP1RuntimeReviewRoleSlotId =
   | PaperImplementationClaimBoundaryReviewRoleSlotId
   | PaperImplementationDossierReadinessReviewRoleSlotId;
 
+/**
+ * T-124 G4.6: typed semantic content the claim-boundary adjudicator proposes.
+ * The runtime service deterministically assembles the CreateClaimCandidateRequest
+ * from this block plus the request-context structural refs (claim_candidate /
+ * result_interpretation_packet / trace_manifest / claim_trace_packet /
+ * human_confirmation_record source refs) — the LLM never transcribes structural
+ * ids into a request envelope again (run 009/010/011 envelope-echo signature).
+ */
+export interface PaperImplementationClaimCandidateProposalScope {
+  population_scope: string;
+  method_scope: string;
+  dataset_scope: string;
+  metric_scope: string;
+  negative_scope_notes: string[];
+  excluded_scope_notes: string[];
+}
+
+export interface PaperImplementationClaimCandidateProposal {
+  claim_type: PaperImplementationClaimType;
+  claim_statement: string;
+  claim_strength: PaperImplementationClaimStrength;
+  support_refs: TopicSelectionFunctionalRef[];
+  challenge_refs: TopicSelectionFunctionalRef[];
+  scope: PaperImplementationClaimCandidateProposalScope;
+  boundary_rationale: string;
+  forbidden_overclaims: string[];
+  hidden_counter_evidence_refs: TopicSelectionFunctionalRef[];
+  required_followup_refs: TopicSelectionFunctionalRef[];
+}
+
+/**
+ * T-124 G4.6: typed semantic content the dossier-readiness adjudicator proposes.
+ * The runtime service deterministically assembles the
+ * CreateImplementationDossierRequest from this block plus the request-context
+ * structural refs (target implementation_dossier / result_interpretation_packet /
+ * claim_candidate / claim_trace_packet / trace_manifest / gate_result source refs).
+ */
+export interface PaperImplementationDossierReadinessProposal {
+  dossier_status: PaperImplementationDossierStatus;
+  experiment_limitations: string[];
+  failed_run_refs: TopicSelectionFunctionalRef[];
+  inconclusive_run_refs: TopicSelectionFunctionalRef[];
+  negative_result_refs: TopicSelectionFunctionalRef[];
+  excluded_stale_or_invalidated_evidence_refs: TopicSelectionFunctionalRef[];
+  admitted_claim_refs: TopicSelectionFunctionalRef[];
+  rejected_claim_refs: TopicSelectionFunctionalRef[];
+  forbidden_overclaims: string[];
+  claim_ceiling: PaperImplementationClaimStrength;
+  readiness_blocker_refs: TopicSelectionFunctionalRef[];
+  readiness_warning_refs: TopicSelectionFunctionalRef[];
+  readiness_notes: string[];
+}
+
 export interface PaperImplementationP1RuntimeReviewRoleOutput {
   role_slot_id: PaperImplementationP1RuntimeReviewRoleSlotId;
   role_status: 'passed' | 'blocked';
@@ -823,26 +899,27 @@ export interface PaperImplementationP1RuntimeReviewRoleOutput {
   cited_source_refs: TopicSelectionFunctionalRef[];
   blocker_codes: string[];
   warning_codes: string[];
-  domain_gate_request?: Record<string, unknown> | null;
+  // T-124 G4.6: the final adjudicator emits typed SEMANTIC content only; the
+  // runtime service assembles the Create*Request deterministically (the F5-1
+  // `domain_gate_request_json` wire carrier for the domain-gate request is
+  // retired for this slot). Exactly one of the two blocks applies per workflow.
+  claim_proposal?: PaperImplementationClaimCandidateProposal | null;
+  dossier_proposal?: PaperImplementationDossierReadinessProposal | null;
   scenario_outputs?: Record<string, unknown>[];
 }
 
 /**
  * T-124 S3 复审 F5-1 provider wire encoding of the P1 runtime-review role
- * output. The canonical `domain_gate_request` (a free/dynamic-key
- * `runtimeReviewPayloadObject`) and `scenario_outputs` (bare `{type:'object'}`
- * items) are both unrepresentable in OpenAI strict structured output: the
- * gateway normalizer forces `additionalProperties:false` + `properties:{}` on
- * every object node, degrading them to grammar-level always-empty objects, so
- * the model physically cannot emit a domain-gate request or scenario payload.
- * The wire encoding transports both as opaque JSON strings; the runtime
- * service parses them back into the canonical object shapes before recording,
- * admission, and semantic checks. Non-provider modes (mocked/codex) keep the
- * canonical schema unchanged.
+ * output, narrowed by G4.6: only `scenario_outputs` (bare `{type:'object'}`
+ * items, unrepresentable in OpenAI strict structured output) still travels as
+ * opaque JSON strings. The former `domain_gate_request_json` carrier is retired —
+ * the adjudicator's semantic content is fully typed (`claim_proposal` /
+ * `dossier_proposal`) and rides the wire directly; the runtime service
+ * assembles the Create*Request deterministically. Non-provider modes
+ * (mocked/codex) keep the canonical schema unchanged.
  */
 export type PaperImplementationP1RuntimeReviewRoleWireOutput =
-  Omit<PaperImplementationP1RuntimeReviewRoleOutput, 'domain_gate_request' | 'scenario_outputs'> & {
-    domain_gate_request_json?: string | null;
+  Omit<PaperImplementationP1RuntimeReviewRoleOutput, 'scenario_outputs'> & {
     scenario_output_jsons?: string[];
   };
 
@@ -874,6 +951,25 @@ export interface PaperImplementationP1RuntimeReviewArtifact {
   source_hash_bundle_hash: string;
 }
 
+/**
+ * T-124 G4.5 Fix 1 (B3-analog): a caller-injected source-body packet for the
+ * back-half domain-gate slots (result-analysis / claim-boundary /
+ * dossier-readiness). Mirrors the lane-A `source_context_packet` shape but adds
+ * a `source_hash` hash fence — the runtime asserts each packet's `source_hash`
+ * equals the request-declared `source_hashes` entry for the same `source_ref`
+ * (the B3 discipline: injected bodies are fenced to a declared, hashed source).
+ * Without a body carrier the slot only sees refs/hashes and the LLM cannot
+ * produce a complete Create*Request (the run 009/010 content-starvation signature
+ * `SOURCE_BODIES_NOT_INCLUDED_IN_REQUEST`).
+ */
+export interface PaperImplementationBackHalfSourceContextPacket {
+  source_ref: TopicSelectionFunctionalRef;
+  source_hash: string;
+  evidence_kind: string;
+  content_summary: string;
+  key_facts: string[];
+}
+
 export interface RunPaperImplementationP1RuntimeReviewRequest {
   schema_version?: typeof PAPER_IMPLEMENTATION_P1_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
   run_id?: string | null;
@@ -894,6 +990,10 @@ export interface RunPaperImplementationP1RuntimeReviewRequest {
   input_snapshot_hash: string;
   source_refs: TopicSelectionFunctionalRef[];
   source_hashes: string[];
+  // T-124 G4.5 Fix 1: optional caller-injected source bodies (hash-fenced to
+  // source_refs/source_hashes). Additive; live provider runs supply these so the
+  // adjudicator can emit a complete domain_gate_request.
+  source_context_packets?: PaperImplementationBackHalfSourceContextPacket[];
   preflight_blocker_codes?: string[];
   mocked_role_outputs?: Partial<Record<
     PaperImplementationP1RuntimeReviewRoleSlotId,
@@ -926,6 +1026,43 @@ export interface PaperImplementationResultAnalysisScenarioOutput {
   required_followup_refs: TopicSelectionFunctionalRef[];
 }
 
+/**
+ * T-124 G4.6: typed semantic content of the interpretation-scenario builder.
+ * These three blocks are the SEMANTIC half of the ResultInterpretationPacket;
+ * the runtime service deterministically assembles the
+ * CreateResultInterpretationPacketRequest from them plus the request-context
+ * structural refs (target validation_cycle / result_interpretation_packet /
+ * trace_manifest / run_evidence_unit / result_validation_report / metric /
+ * experiment_plan_light source refs). The LLM never transcribes structural ids
+ * into a request envelope again (run 009/010/011 envelope-echo signature).
+ */
+export interface PaperImplementationResultAnalysisInterpretationSummary {
+  result_summary: string;
+  supports_assertion_refs: TopicSelectionFunctionalRef[];
+  challenges_assertion_refs: TopicSelectionFunctionalRef[];
+  unexpected_findings: string[];
+  failed_run_refs: TopicSelectionFunctionalRef[];
+  inconclusive_run_refs: TopicSelectionFunctionalRef[];
+  stale_or_invalidated_evidence_refs: TopicSelectionFunctionalRef[];
+  failed_runs_accounted_for: boolean;
+  inconclusive_runs_accounted_for: boolean;
+  exploratory_confirmatory_separated: boolean;
+}
+
+export interface PaperImplementationResultAnalysisReliabilityAssessment {
+  failed_runs_retained: boolean;
+  confound_refs: TopicSelectionFunctionalRef[];
+  limitation_refs: TopicSelectionFunctionalRef[];
+  reliability_notes: string[];
+}
+
+export interface PaperImplementationResultAnalysisClaimImplications {
+  allowed_claim_ceiling: PaperImplementationClaimStrength;
+  forbidden_overclaims: string[];
+  recommended_claim_refs: TopicSelectionFunctionalRef[];
+  required_followup_refs: TopicSelectionFunctionalRef[];
+}
+
 export interface PaperImplementationResultAnalysisRoleOutput {
   role_slot_id: typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID;
   role_status: 'passed' | 'blocked';
@@ -934,24 +1071,16 @@ export interface PaperImplementationResultAnalysisRoleOutput {
   blocker_codes: string[];
   warning_codes: string[];
   scenario_outputs: PaperImplementationResultAnalysisScenarioOutput[];
-  domain_gate_request?: Record<string, unknown> | null;
+  // T-124 G4.6: the role emits typed SEMANTIC content only; the runtime service
+  // assembles the CreateResultInterpretationPacketRequest deterministically.
+  // The F5-1 `domain_gate_request_json` wire carrier is retired for this slot —
+  // every field is strict-representable, so provider/mocked/codex all share
+  // this one canonical schema. Passed-branch completeness (all three blocks
+  // non-null) is enforced server-side by the runtime semantic check.
+  interpretation?: PaperImplementationResultAnalysisInterpretationSummary | null;
+  reliability?: PaperImplementationResultAnalysisReliabilityAssessment | null;
+  claim_implications?: PaperImplementationResultAnalysisClaimImplications | null;
 }
-
-/**
- * T-124 S3 复审 F5-1 provider wire encoding of the result-analysis role output.
- * Unlike P1, `scenario_outputs` is already a typed array (fixed properties per
- * item — strict-representable) and stays canonical. The single load-bearing
- * degenerate node is `domain_gate_request` (a free `runtimeReviewPayloadObject`
- * whose passed-branch also requires a non-null value — the only strict-mode
- * satisfiable value would be `{}`). The wire encoding transports it as an
- * opaque JSON string that the runtime service parses back into the canonical
- * object before recording, admission, and semantic checks. Non-provider modes
- * keep the canonical schema unchanged.
- */
-export type PaperImplementationResultAnalysisRoleWireOutput =
-  Omit<PaperImplementationResultAnalysisRoleOutput, 'domain_gate_request'> & {
-    domain_gate_request_json?: string | null;
-  };
 
 export interface PaperImplementationResultAnalysisArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
@@ -994,6 +1123,10 @@ export interface RunPaperImplementationResultAnalysisRuntimeRequest {
   input_snapshot_hash: string;
   source_refs: TopicSelectionFunctionalRef[];
   source_hashes: string[];
+  // T-124 G4.5 Fix 1: optional caller-injected source bodies (hash-fenced to
+  // source_refs/source_hashes). Additive; live provider runs supply these so the
+  // interpretation-scenario builder can emit a complete domain_gate_request.
+  source_context_packets?: PaperImplementationBackHalfSourceContextPacket[];
   preflight_blocker_codes?: string[];
   mocked_role_outputs?: Partial<Record<
     typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
@@ -3071,6 +3204,110 @@ export const paperImplementationTraceIntegrityRoleOutputSchema = {
   },
 } as const;
 
+// T-124 G4.6: enum schemas for the typed semantic-proposal blocks (single-sourced
+// from the trace / result-claim-dossier contracts so the runtime wire face can
+// never drift from the Domain Gate's canonical enums).
+const runtimeClaimStrengthSchema = { enum: [...PAPER_IMPLEMENTATION_CLAIM_STRENGTHS] } as const;
+const runtimeClaimTypeSchema = { enum: [...PAPER_IMPLEMENTATION_CLAIM_TYPES] } as const;
+const runtimeDossierStatusSchema = { enum: [...PAPER_IMPLEMENTATION_DOSSIER_STATUSES] } as const;
+
+export const paperImplementationClaimCandidateProposalScopeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'population_scope',
+    'method_scope',
+    'dataset_scope',
+    'metric_scope',
+    'negative_scope_notes',
+    'excluded_scope_notes',
+  ],
+  properties: {
+    population_scope: stringId,
+    method_scope: stringId,
+    dataset_scope: stringId,
+    metric_scope: stringId,
+    negative_scope_notes: stringArray,
+    excluded_scope_notes: stringArray,
+  },
+} as const;
+
+export const paperImplementationClaimCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'claim_type',
+    'claim_statement',
+    'claim_strength',
+    'support_refs',
+    'challenge_refs',
+    'scope',
+    'boundary_rationale',
+    'forbidden_overclaims',
+    'hidden_counter_evidence_refs',
+    'required_followup_refs',
+  ],
+  properties: {
+    claim_type: runtimeClaimTypeSchema,
+    claim_statement: stringId,
+    claim_strength: runtimeClaimStrengthSchema,
+    support_refs: nonLegacyFunctionalRefArray,
+    challenge_refs: nonLegacyFunctionalRefArray,
+    scope: paperImplementationClaimCandidateProposalScopeSchema,
+    boundary_rationale: stringId,
+    forbidden_overclaims: stringArray,
+    hidden_counter_evidence_refs: nonLegacyFunctionalRefArray,
+    required_followup_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+export const paperImplementationDossierReadinessProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'dossier_status',
+    'experiment_limitations',
+    'failed_run_refs',
+    'inconclusive_run_refs',
+    'negative_result_refs',
+    'excluded_stale_or_invalidated_evidence_refs',
+    'admitted_claim_refs',
+    'rejected_claim_refs',
+    'forbidden_overclaims',
+    'claim_ceiling',
+    'readiness_blocker_refs',
+    'readiness_warning_refs',
+    'readiness_notes',
+  ],
+  properties: {
+    dossier_status: runtimeDossierStatusSchema,
+    experiment_limitations: stringArray,
+    failed_run_refs: nonLegacyFunctionalRefArray,
+    inconclusive_run_refs: nonLegacyFunctionalRefArray,
+    negative_result_refs: nonLegacyFunctionalRefArray,
+    excluded_stale_or_invalidated_evidence_refs: nonLegacyFunctionalRefArray,
+    admitted_claim_refs: nonLegacyFunctionalRefArray,
+    rejected_claim_refs: nonLegacyFunctionalRefArray,
+    forbidden_overclaims: stringArray,
+    claim_ceiling: runtimeClaimStrengthSchema,
+    readiness_blocker_refs: nonLegacyFunctionalRefArray,
+    readiness_warning_refs: nonLegacyFunctionalRefArray,
+    readiness_notes: stringArray,
+  },
+} as const;
+
+const nullableClaimCandidateProposalSchema = {
+  anyOf: [paperImplementationClaimCandidateProposalSchema, { type: 'null' }],
+} as const;
+const nullableDossierReadinessProposalSchema = {
+  anyOf: [paperImplementationDossierReadinessProposalSchema, { type: 'null' }],
+} as const;
+
+// T-124 G4.6: the P1 role output carries typed semantic-proposal blocks; the
+// runtime service assembles the Create*Request deterministically. Adjudicator
+// presence/completeness requirements are enforced server-side (runtime service
+// semantic checks), not by this shared schema, because one schema serves all
+// six P1 roles across the two workflows.
 export const paperImplementationP1RuntimeReviewRoleOutputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -3089,19 +3326,16 @@ export const paperImplementationP1RuntimeReviewRoleOutputSchema = {
     cited_source_refs: nonLegacyFunctionalRefArray,
     blocker_codes: stringArray,
     warning_codes: stringArray,
-    domain_gate_request: {
-      anyOf: [runtimeReviewPayloadObject, { type: 'null' }],
-    },
+    claim_proposal: nullableClaimCandidateProposalSchema,
+    dossier_proposal: nullableDossierReadinessProposalSchema,
     scenario_outputs: objectArray,
   },
 } as const;
 
-// T-124 S3 复审 F5-1: JSON-string wire carriers for the two degenerate map
-// nodes. Provider strict mode can emit a `string`; the runtime service parses
-// it back into the canonical object/array before anything is recorded.
-const nullableJsonStringSchema = {
-  anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }],
-} as const;
+// T-124 S3 复审 F5-1 (narrowed by G4.6): JSON-string wire carrier for the one
+// remaining degenerate node (`scenario_outputs`). Provider strict mode can emit
+// a `string`; the runtime service parses it back into the canonical array
+// before anything is recorded.
 const jsonStringArraySchema = {
   type: 'array',
   items: { type: 'string', minLength: 1 },
@@ -3109,11 +3343,11 @@ const jsonStringArraySchema = {
 
 /**
  * T-124 S3 复审 F5-1 provider wire schema for P1 role outputs (see
- * `PaperImplementationP1RuntimeReviewRoleWireOutput`). Identical base fields to
- * the canonical schema, but the two strict-mode-degenerate map nodes are
- * carried as opaque JSON strings — no `propertyNames`, no schema-valued
- * `additionalProperties`, no bare `{type:'object'}` — so the gateway strict
- * normalizer leaves the payload intact and the model can actually emit content.
+ * `PaperImplementationP1RuntimeReviewRoleWireOutput`), narrowed by G4.6:
+ * identical to the canonical schema except `scenario_outputs` (bare
+ * `{type:'object'}` items) travels as opaque JSON strings. The typed
+ * semantic-proposal blocks are strict-representable and ride the wire directly;
+ * the former `domain_gate_request_json` carrier is retired.
  */
 export const paperImplementationP1RuntimeReviewRoleWireOutputSchema = {
   type: 'object',
@@ -3133,7 +3367,8 @@ export const paperImplementationP1RuntimeReviewRoleWireOutputSchema = {
     cited_source_refs: nonLegacyFunctionalRefArray,
     blocker_codes: stringArray,
     warning_codes: stringArray,
-    domain_gate_request_json: nullableJsonStringSchema,
+    claim_proposal: nullableClaimCandidateProposalSchema,
+    dossier_proposal: nullableDossierReadinessProposalSchema,
     scenario_output_jsons: jsonStringArraySchema,
   },
 } as const;
@@ -3180,6 +3415,78 @@ const completeResultAnalysisScenarioOutputsSchema = {
   })),
 } as const;
 
+export const paperImplementationResultAnalysisInterpretationSummarySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'result_summary',
+    'supports_assertion_refs',
+    'challenges_assertion_refs',
+    'unexpected_findings',
+    'failed_run_refs',
+    'inconclusive_run_refs',
+    'stale_or_invalidated_evidence_refs',
+    'failed_runs_accounted_for',
+    'inconclusive_runs_accounted_for',
+    'exploratory_confirmatory_separated',
+  ],
+  properties: {
+    result_summary: stringId,
+    supports_assertion_refs: nonLegacyFunctionalRefArray,
+    challenges_assertion_refs: nonLegacyFunctionalRefArray,
+    unexpected_findings: stringArray,
+    failed_run_refs: nonLegacyFunctionalRefArray,
+    inconclusive_run_refs: nonLegacyFunctionalRefArray,
+    stale_or_invalidated_evidence_refs: nonLegacyFunctionalRefArray,
+    failed_runs_accounted_for: { type: 'boolean' },
+    inconclusive_runs_accounted_for: { type: 'boolean' },
+    exploratory_confirmatory_separated: { type: 'boolean' },
+  },
+} as const;
+
+export const paperImplementationResultAnalysisReliabilityAssessmentSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'failed_runs_retained',
+    'confound_refs',
+    'limitation_refs',
+    'reliability_notes',
+  ],
+  properties: {
+    failed_runs_retained: { type: 'boolean' },
+    confound_refs: nonLegacyFunctionalRefArray,
+    limitation_refs: nonLegacyFunctionalRefArray,
+    reliability_notes: stringArray,
+  },
+} as const;
+
+export const paperImplementationResultAnalysisClaimImplicationsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'allowed_claim_ceiling',
+    'forbidden_overclaims',
+    'recommended_claim_refs',
+    'required_followup_refs',
+  ],
+  properties: {
+    allowed_claim_ceiling: runtimeClaimStrengthSchema,
+    forbidden_overclaims: stringArray,
+    recommended_claim_refs: nonLegacyFunctionalRefArray,
+    required_followup_refs: nonLegacyFunctionalRefArray,
+  },
+} as const;
+
+/**
+ * T-124 G4.6: single result-analysis role-output schema for ALL execution modes
+ * (the F5-1 wire schema with the `domain_gate_request_json` carrier is retired).
+ * Every field is typed and strict-representable; passed-branch completeness
+ * (all three semantic blocks non-null + the four scenario kinds) is enforced
+ * server-side by the runtime service semantic check, not by schema
+ * conditionals — strict-mode grammar cannot enforce conditionals and the
+ * all-or-nothing ajv trap was the run 009/010/011 failure signature.
+ */
 export const paperImplementationResultAnalysisRoleOutputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -3203,77 +3510,16 @@ export const paperImplementationResultAnalysisRoleOutputSchema = {
       type: 'array',
       items: paperImplementationResultAnalysisScenarioOutputSchema,
     },
-    domain_gate_request: {
-      anyOf: [runtimeReviewPayloadObject, { type: 'null' }],
+    interpretation: {
+      anyOf: [paperImplementationResultAnalysisInterpretationSummarySchema, { type: 'null' }],
+    },
+    reliability: {
+      anyOf: [paperImplementationResultAnalysisReliabilityAssessmentSchema, { type: 'null' }],
+    },
+    claim_implications: {
+      anyOf: [paperImplementationResultAnalysisClaimImplicationsSchema, { type: 'null' }],
     },
   },
-  allOf: [
-    {
-      if: { properties: { role_status: { const: 'passed' } }, required: ['role_status'] },
-      then: {
-        required: ['domain_gate_request'],
-        properties: {
-          scenario_outputs: {
-            type: 'array',
-            minItems: 1,
-            items: paperImplementationResultAnalysisScenarioOutputSchema,
-          },
-          domain_gate_request: runtimeReviewPayloadObject,
-        },
-      },
-    },
-  ],
-} as const;
-
-/**
- * T-124 S3 复审 F5-1 provider wire schema for result-analysis role outputs (see
- * `PaperImplementationResultAnalysisRoleWireOutput`). `scenario_outputs` stays
- * canonical (typed items are strict-representable); only `domain_gate_request`
- * is replaced by an opaque JSON string. The passed-branch invariant becomes
- * "the JSON carrier must be a non-null string" (its parsed object satisfies the
- * canonical non-null requirement after the service round-trips it).
- */
-export const paperImplementationResultAnalysisRoleWireOutputSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'role_slot_id',
-    'role_status',
-    'summary',
-    'cited_source_refs',
-    'blocker_codes',
-    'warning_codes',
-    'scenario_outputs',
-  ],
-  properties: {
-    role_slot_id: resultAnalysisRoleSlotSchema,
-    role_status: { enum: ['passed', 'blocked'] },
-    summary: stringId,
-    cited_source_refs: nonLegacyFunctionalRefArray,
-    blocker_codes: stringArray,
-    warning_codes: stringArray,
-    scenario_outputs: {
-      type: 'array',
-      items: paperImplementationResultAnalysisScenarioOutputSchema,
-    },
-    domain_gate_request_json: nullableJsonStringSchema,
-  },
-  allOf: [
-    {
-      if: { properties: { role_status: { const: 'passed' } }, required: ['role_status'] },
-      then: {
-        required: ['domain_gate_request_json'],
-        properties: {
-          scenario_outputs: {
-            type: 'array',
-            minItems: 1,
-            items: paperImplementationResultAnalysisScenarioOutputSchema,
-          },
-          domain_gate_request_json: { type: 'string', minLength: 1 },
-        },
-      },
-    },
-  ],
 } as const;
 
 export const paperImplementationExperimentWorkOrderDraftCandidateSchema = {
@@ -6436,6 +6682,28 @@ export const runPaperImplementationTraceIntegrityDebateRuntimeRequestSchema = {
   ],
 } as const;
 
+// T-124 G4.5 Fix 1: shared source-body packet schema for the back-half
+// domain-gate slots (result-analysis + P1 review). `source_hash` carries the B3
+// hash fence the runtime enforces against the declared source_hashes.
+export const paperImplementationBackHalfSourceContextPacketSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'source_ref',
+    'source_hash',
+    'evidence_kind',
+    'content_summary',
+    'key_facts',
+  ],
+  properties: {
+    source_ref: nonLegacyFunctionalRef,
+    source_hash: hashString,
+    evidence_kind: stringId,
+    content_summary: stringId,
+    key_facts: stringArray,
+  },
+} as const;
+
 export const runPaperImplementationP1RuntimeReviewRequestSchema = {
   type: 'object',
   additionalProperties: false,
@@ -6470,6 +6738,10 @@ export const runPaperImplementationP1RuntimeReviewRequestSchema = {
     input_snapshot_hash: hashString,
     source_refs: nonEmptyNonLegacyFunctionalRefArray,
     source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationBackHalfSourceContextPacketSchema,
+    },
     preflight_blocker_codes: stringArray,
     mocked_role_outputs: p1RuntimeReviewRoleOutputsBySlotSchema,
     codex_role_outputs: p1RuntimeReviewRoleOutputsBySlotSchema,
@@ -6533,6 +6805,10 @@ export const runPaperImplementationResultAnalysisRuntimeRequestSchema = {
     input_snapshot_hash: hashString,
     source_refs: nonEmptyNonLegacyFunctionalRefArray,
     source_hashes: nonEmptyHashArray,
+    source_context_packets: {
+      type: 'array',
+      items: paperImplementationBackHalfSourceContextPacketSchema,
+    },
     preflight_blocker_codes: stringArray,
     mocked_role_outputs: resultAnalysisRoleOutputsBySlotSchema,
     codex_role_outputs: resultAnalysisRoleOutputsBySlotSchema,
@@ -7845,6 +8121,45 @@ export const paperImplementationMotiveEvolutionDesignedOptionEntrySchema = {
   allOf: [...motiveEvolutionOptionHumanGateInvariants],
 } as const;
 
+/**
+ * T-124 G4.6 Fix 2 (run 010/011 challenger SCHEMA_VALIDATION_FAILED root cause):
+ * the challenger's wire faces keep only strict-mode-stable SHAPE constraints.
+ * The canonical `challenge_check` interlocks (anyOf "some status blocked OR no
+ * blocking reason codes" + if/then "blocked status ⇒ non-empty reason codes")
+ * and the per-option human-gate conditionals are unenforceable in provider
+ * strict grammar (types/required/enum only) yet all-or-nothing at the local
+ * ajv gate — a single option-level slip discarded the whole output as an
+ * opaque SCHEMA_VALIDATION_FAILED. Those invariants are NOT relaxed: they
+ * moved to the motive-evolution runtime service post-parse semantic checks
+ * (`MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING`,
+ * `MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT`,
+ * `MOTIVE_EVOLUTION_HUMAN_CONFIRMATION_GATE_MISSING`,
+ * `MOTIVE_EVOLUTION_RESULT_STATUS_INVALID`,
+ * `MOTIVE_EVOLUTION_CHALLENGE_COVERAGE_MISSING`), which run on the
+ * canonicalized output with actionable failure codes and the bounded retry
+ * channel. The canonical (non-wire) schemas are unchanged.
+ */
+const motiveEvolutionWireChallengeCheckSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'evidence_status',
+    'trace_status',
+    'portfolio_status',
+    'human_confirmation_status',
+    'downstream_impact_status',
+    'blocking_reason_codes',
+  ],
+  properties: {
+    evidence_status: motiveEvolutionCheckStatusSchema,
+    trace_status: motiveEvolutionCheckStatusSchema,
+    portfolio_status: motiveEvolutionCheckStatusSchema,
+    human_confirmation_status: motiveEvolutionCheckStatusSchema,
+    downstream_impact_status: motiveEvolutionCheckStatusSchema,
+    blocking_reason_codes: stringArray,
+  },
+} as const;
+
 export const paperImplementationMotiveEvolutionDecisionOptionEntrySchema = {
   type: 'object',
   additionalProperties: false,
@@ -7854,9 +8169,9 @@ export const paperImplementationMotiveEvolutionDecisionOptionEntrySchema = {
   ],
   properties: {
     option_key: stringId,
-    ...paperImplementationMotiveEvolutionDecisionOptionSchema.properties,
+    ...paperImplementationMotiveEvolutionDesignedOptionSchema.properties,
+    challenge_check: motiveEvolutionWireChallengeCheckSchema,
   },
-  allOf: [...motiveEvolutionOptionHumanGateInvariants],
 } as const;
 
 const motiveEvolutionDesignedOptionEntryResultInvariants = [
@@ -7901,55 +8216,6 @@ const motiveEvolutionDesignedOptionEntryResultInvariants = [
   },
 ] as const;
 
-const motiveEvolutionDecisionOptionEntryResultInvariants = [
-  {
-    if: {
-      properties: {
-        support_result_status: { const: 'options_proposed' },
-      },
-      required: ['support_result_status'],
-    },
-    then: {
-      properties: {
-        challenged_option_keys: nonEmptyUniqueStringArray,
-        decision_option_entries: {
-          type: 'array',
-          minItems: 1,
-          items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
-        },
-      },
-    },
-  },
-  {
-    if: {
-      properties: {
-        support_result_status: { const: 'no_evolution_needed' },
-      },
-      required: ['support_result_status'],
-    },
-    then: {
-      properties: {
-        challenged_option_keys: {
-          type: 'array',
-          maxItems: 0,
-          uniqueItems: true,
-          items: stringId,
-        },
-        decision_option_entries: {
-          type: 'array',
-          maxItems: 0,
-          items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
-        },
-        blocker_codes: {
-          type: 'array',
-          maxItems: 0,
-          items: stringId,
-        },
-      },
-    },
-  },
-] as const;
-
 export const paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -7978,6 +8244,16 @@ export const paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchem
   ],
 } as const;
 
+/**
+ * T-124 G4.6 Fix 2: challenger wire face = strict-stable shape only (structural
+ * trunk: role base fields + eight side-effect guards + designer echo fields +
+ * option-key entry array with the `challenge_check` trunk). The role/result
+ * status interlocks, per-option human-gate conditionals, option-count
+ * conditionals, `challenge_check` linkage, and key uniqueness are enforced by
+ * the runtime service post-parse semantic checks on the canonicalized output
+ * (see the wire challenge-check note above) — moved, not deleted. The designer
+ * wire schema is unchanged (it has been strict-stable in live runs).
+ */
 export const paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -7996,16 +8272,12 @@ export const paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchem
     designer_role_artifact_ref: nonLegacyFunctionalRef,
     designer_role_artifact_hash: hashString,
     option_set_hash: hashString,
-    challenged_option_keys: uniqueStringArray,
+    challenged_option_keys: stringArray,
     decision_option_entries: {
       type: 'array',
       items: paperImplementationMotiveEvolutionDecisionOptionEntrySchema,
     },
   },
-  allOf: [
-    ...motiveEvolutionRoleStatusInvariants,
-    ...motiveEvolutionDecisionOptionEntryResultInvariants,
-  ],
 } as const;
 
 export const paperImplementationMotiveEvolutionArtifactSchema = {

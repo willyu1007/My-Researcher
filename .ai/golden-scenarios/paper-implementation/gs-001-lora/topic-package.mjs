@@ -33,6 +33,16 @@
  *   stage 顺序矛盾，已随 blocking 化解），无需素材侧改动。
  * hash 纪律不变：所有 *_hash 仍由 sha256Hex 在装载时对内容/载荷现算，改内容即自洽重算，
  * 无硬编码 hash 需手动维护。对照段见同目录 ground-truth.md §GT-7（v3 增补）。
+ *
+ * v4（2026-07-16, T-124 G1）：后半链素材接入。v3 内容核不动（work order §G1.4），新增：
+ * - GS001_EXPERIMENT_RESULTS：acceptance 假体实验数据段，数字取 LoRA 论文真实值
+ *   （arXiv:2106.09685 Table 2，RoBERTa-base，committed tasks SST-2/MRPC/CoLA）；
+ * - GS001_CLAIM_GROUND_TRUTH：强 claim 边界 + dossier 完备清单答案卡（对照 ground-truth.md §GT-9/§GT-10）；
+ * - makeGs001BackHalfFixtures(refs)：三个后半链 slot（result-analysis / claim-boundary /
+ *   dossier-readiness）的 mocked_llm 角色产出夹具（domain_gate_request = 各 Create*Request）；
+ * - 通用导出契约 SCENARIO_META / SCENARIO_IDS / SCENARIO_CONTENT / makeBridgeHandoff /
+ *   EXPERIMENT_RESULTS / CLAIM_GROUND_TRUTH / makeBackHalfFixtures（runner 按通用名导入，
+ *   --scenario 可切换；gs-002/gs-003 对齐同契约）；version 全线 v3→v4。
  */
 import { createHash } from 'node:crypto';
 
@@ -82,6 +92,27 @@ export const GS001_IDS = {
   feasibilityProbe: 'gs001_feasibility_probe_001',
   humanDecisionRouteAccept: 'gs001_human_decision_route_accept',
   humanDecisionProbeAccept: 'gs001_human_decision_probe_accept',
+  // --- v4 back-half (G1): work order → acceptance experiment → REU → result
+  //     analysis → claim → dossier. New in素材 v4; front-half ids above unchanged. ---
+  validationCycle: 'gs001_validation_cycle_001',
+  validationBudget: 'gs001_validation_budget_001',
+  stopRule: 'gs001_stop_rule_001',
+  experimentPlan: 'gs001_experiment_plan_light_001',
+  workOrder: 'gs001_research_work_order_001',
+  runPolicy: 'gs001_run_policy_001',
+  runRecipe: 'gs001_run_recipe_001',
+  // acceptance 假体 external job identity (a stand-in job handle; NOT an
+  // experiment-foundation training job — the run-monitor-intake channel takes the
+  // pre-set experiment_results verbatim, so no experiment-foundation infra runs).
+  externalJob: 'gs001_external_job_001',
+  runEvidenceUnit: 'gs001_run_evidence_unit_001',
+  experimentResult: 'gs001_experiment_result_001',
+  resultValidationReport: 'gs001_result_validation_report_001',
+  resultPacket: 'gs001_result_interpretation_packet_001',
+  claimCandidate: 'gs001_claim_candidate_001',
+  claimTracePacket: 'gs001_claim_trace_packet_001',
+  humanConfirmationStrongClaim: 'gs001_human_confirmation_strong_claim_001',
+  dossier: 'gs001_implementation_dossier_001',
 };
 
 /**
@@ -133,7 +164,9 @@ export const GS001_LORA_CONTENT = {
     retry_budget: 1,
   },
   // --- v3 pre-commitments（v2 RR-002/003/004/006 + run 004 RF-* 复评；晋升时点即冻结） ---
-  content_version: 'v3',
+  // content_version bumped v3→v4 with the G1 back-half素材 additions; the v3
+  // pre-commitment content below is unchanged (work order §G1.4: "v3 其余不动").
+  content_version: 'v4',
   confirmatory_budget_matrix: {
     gpu_constraint: 'single GPU, <=24 GB VRAM',
     total_training_budget: '<=40 GPU-hours across feasibility probe, baseline reproduction, and confirmatory runs combined',
@@ -270,12 +303,499 @@ export const GS001_LORA_CONTENT = {
   ],
 };
 
+const GS001_LORA_SPINE = {
+  motive_short_name: 'Low-rank adaptation of pretrained language models',
+  motive_contract: {
+    problem_pressure:
+      'Per-task full fine-tuning of large pretrained language models is prohibitive in trainable parameters, '
+      + 'GPU memory, and per-task checkpoint storage as model scale grows.',
+    current_solution_insufficiency:
+      'Existing parameter-efficient methods trade away what they save: adapter layers add inference latency, '
+      + 'and prefix/prompt tuning consumes usable sequence length and optimizes unstably.',
+    unmet_or_failure_mechanism:
+      'No adaptation method simultaneously achieves drastically fewer trainable parameters, zero added '
+      + 'inference latency, and task performance parity with full fine-tuning.',
+    target_setting: 'Downstream adaptation of Transformer language models (NLU and NLG tasks).',
+    expected_contribution_path:
+      'If adaptation deltas have low intrinsic rank, constraining the per-task update to a low-rank '
+      + 'decomposition should retain task performance while training orders of magnitude fewer parameters.',
+    why_this_is_not_trivial:
+      'It is not obvious that a hard low-rank constraint on weight updates preserves task performance at '
+      + 'realistic model scales, nor which weight matrices must receive the update.',
+    why_existing_baselines_do_not_already_solve_it:
+      'Adapters solve parameter count but not latency; prefix tuning solves latency but not sequence budget '
+      + 'or optimization stability; full fine-tuning solves neither cost dimension.',
+    what_makes_this_researchable_now:
+      'Strong public pretrained checkpoints (RoBERTa class) and standard benchmarks (GLUE) make a '
+      + 'small-scale falsification probe affordable within a single-GPU budget.',
+  },
+  falsification_contract: {
+    invalidation_conditions: [
+      'Low-rank-constrained adaptation consistently loses significant task performance versus full '
+      + 'fine-tuning at the probed scale even with generous rank.',
+    ],
+    weakening_conditions: [
+      'Low-rank adaptation matches full fine-tuning only on a narrow subset of tasks or only at large rank.',
+    ],
+    minimum_evidence_to_continue: [
+      'At least one representative task where a low-rank probe recovers near full fine-tuning performance.',
+    ],
+    decisive_negative_conditions: [
+      'The required rank to match full fine-tuning grows to the same order as the weight dimensions.',
+    ],
+  },
+  claim_boundary: {
+    maximum_allowed_claim:
+      'Low-rank adaptation matches full fine-tuning task performance within the probed model scale and task '
+      + 'set while training a small fraction of parameters and adding no inference latency.',
+    minimum_defensible_contribution_claim:
+      'A measured characterization of the performance/parameter trade-off of low-rank-constrained adaptation.',
+    forbidden_overclaims: [
+      'Universal superiority over all adaptation methods on all tasks',
+      'Claims about model scales or modalities never probed',
+    ],
+    claim_types_allowed: ['analysis_claim'],
+  },
+  assertions: {
+    motivation_pressure: {
+      assertion_type: 'motivation_pressure',
+      assertion_text:
+        'Per-task full fine-tuning cost (trainable parameters, GPU memory, checkpoint storage) is the binding '
+        + 'constraint that makes large-model downstream adaptation impractical at scale.',
+      must_hold: true,
+      contradict: ['Deployment surveys showing per-task full fine-tuning cost is negligible in practice.'],
+      weaken: ['Cost pressure applies only to the very largest model class.'],
+      decomposition_scope_summary:
+        'Cost pressure applies to downstream adaptation of large pretrained Transformer language models; '
+        + 'no new pretraining, no multimodal scope.',
+    },
+    technical_opportunity: {
+      assertion_type: 'technical_opportunity',
+      assertion_text:
+        'The adaptation delta over pretrained weights has low intrinsic rank, so a low-rank decomposition of '
+        + 'the update can approximate full fine-tuning without losing task performance.',
+      must_hold: true,
+      contradict: ['Low-rank-constrained updates consistently underperform full fine-tuning at any affordable rank.'],
+      weaken: ['The low-rank property holds only for some weight matrices or task families.'],
+      decomposition_scope_summary:
+        'The low-rank hypothesis targets adaptation deltas over frozen pretrained weights within the probed '
+        + 'model scale (RoBERTa-base class) and budget (single-GPU, GLUE subset).',
+    },
+    baseline_gap: {
+      assertion_type: 'baseline_gap',
+      assertion_text:
+        'Existing parameter-efficient baselines leave a real gap: adapter layers add inference latency and '
+        + 'prefix/prompt tuning consumes sequence budget and optimizes unstably, so none achieves parameter '
+        + 'efficiency with zero added latency at parity performance.',
+      must_hold: false,
+      contradict: ['A baseline reproduction showing adapters add no measurable latency and prefix tuning is stable at parity.'],
+      weaken: ['The latency penalty matters only in small-batch online inference.'],
+      decomposition_scope_summary:
+        'Baseline gap covers full fine-tuning, adapter tuning, and prefix/prompt tuning as reproduction '
+        + 'targets under the project compute budget.',
+    },
+  },
+  board: {
+    binding_dataset_scope: 'Transformer language model adaptation literature',
+    summary: {
+      current_support_summary:
+        'Topic-package literature supports the cost-pressure motivation and gives an indirect low-intrinsic-'
+        + 'dimension signal for the low-rank hypothesis; no direct probe evidence yet.',
+      current_challenge_summary: 'No direct counter-evidence recorded at intake.',
+      board_gap_summary:
+        'The low-rank hypothesis needs a direct feasibility probe at the target model scale, and the baseline '
+        + 'gap assertion needs reproduced adapter/prefix baselines under the project budget.',
+      next_evidence_needed: [
+        'Low-rank feasibility probe on a representative task at RoBERTa-base scale.',
+        'Reproduced full fine-tuning / adapter / prefix baselines with latency and parameter measurements.',
+      ],
+    },
+    bindings: {
+      motivation_pressure: {
+        statement:
+          'Prior work reports that per-task full-model copies are prohibitive in storage and deployment as '
+          + 'pretrained model scale grows.',
+        relevance: 'Directly supports the cost-pressure motivation.',
+        limitation: 'Evidence is literature-level; project-scale cost was not re-measured at intake.',
+      },
+      technical_opportunity: {
+        statement: 'Prior work reports learned over-parametrized models reside on a low intrinsic dimension.',
+        relevance: 'Indirectly supports the hypothesis that adaptation updates may also be low-rank.',
+        limitation: 'Intrinsic dimension of the model is not the same object as the rank of the adaptation delta.',
+      },
+      baseline_gap: {
+        statement:
+          'Prior work reports adapter latency overhead at small batch sizes and prefix-tuning optimization '
+          + 'instability with non-monotonic performance in tunable parameters.',
+        relevance: 'Supports the claim that existing parameter-efficient baselines leave a latency/stability gap.',
+        limitation: 'Reported measurements come from other model/serving configurations than this project budget.',
+      },
+    },
+  },
+  claim_trace_scope: {
+    dataset_scope: 'Committed GLUE subset: SST-2, MRPC, CoLA.',
+    task_scope: 'Downstream adaptation of a RoBERTa-base class model.',
+    baseline_scope: 'Reproduced full fine-tuning (to pre-committed targets) and Houlsby adapter.',
+    method_scope: 'Low-rank adaptation, rank r=8 confirmatory.',
+    evaluation_scope: 'Per-task primary metric, trainable parameter count, inference latency.',
+  },
+};
+
 export function gs001Ref(refType, refId, versionId = null) {
   return {
     ref_type: refType,
     ref_id: refId,
     title_card_id: GS001_IDS.titleCard,
     version_id: versionId,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// v4 back-half (G1): experiment_results data segment + claim ground-truth anchor.
+//
+// Numbers are the LoRA paper's REAL reported values (arXiv:2106.09685, Table 2,
+// RoBERTa-base ~125M-parameter encoder) for the committed task set SST-2 / MRPC /
+// CoLA. They are the ground-truth basis the acceptance假体实验 feeds through the
+// product acceptance channel (harness-run + run-monitor-intake → trusted
+// RunEvidenceUnit) — no provider call is faked; experiments do not call an LLM.
+// The result-analysis / claim / dossier LLM slots interpret these numbers; the
+// human rubric checks that interpretation against this ground-truth card.
+// ---------------------------------------------------------------------------
+export const GS001_EXPERIMENT_RESULTS = {
+  content_version: 'v4',
+  provenance: 'arXiv:2106.09685 Table 2 (RoBERTa-base), reproduced as this test scenario\'s acceptance experiment result set.',
+  model_scale: 'RoBERTa-base (~125M parameters)',
+  committed_tasks: ['SST-2', 'MRPC', 'CoLA'],
+  parity_tolerance_points: 0.5,
+  // stage-0 self-contained gate outcome (from the v3 early_check_obligations).
+  stage0_probe: {
+    calibration_anchor_sst2_full_ft_accuracy: 94.6,
+    lora_best_of_r4_r8_sst2_accuracy: 95.1,
+    absolute_floor: 90.0,
+    within_anchor_tolerance_points: 1.0,
+    passed: true,
+    note: 'LoRA best-of-{r=4,r=8} SST-2 95.1 is >= 90.0 absolute AND within 1.0 of the stage-0 '
+      + 'calibration anchor 94.6 — the self-contained stage-0 gate passes; the confirmatory matrix starts.',
+  },
+  // stage-1 baseline reproduction (full FT reproduction to the pre-committed targets).
+  full_finetune_reproduction: [
+    { task: 'SST-2', metric: 'accuracy', value: 94.8, precommitted_target: '>=94.0', target_met: true },
+    { task: 'MRPC', metric: 'F1', value: 90.2, precommitted_target: '>=89.0', target_met: true },
+    { task: 'CoLA', metric: 'Matthews correlation coefficient', value: 63.6, precommitted_target: '>=60.0', target_met: true },
+  ],
+  // stage-2 confirmatory matrix: LoRA r=8 vs reproduced full FT, mean over repeats.
+  confirmatory_matrix: [
+    { task: 'SST-2', metric: 'accuracy', lora_r8: 95.1, full_ft: 94.8, delta: 0.3, parity: true },
+    { task: 'MRPC', metric: 'F1', lora_r8: 89.7, full_ft: 90.2, delta: -0.5, parity: true },
+    { task: 'CoLA', metric: 'Matthews correlation coefficient', lora_r8: 63.4, full_ft: 63.6, delta: -0.2, parity: true },
+  ],
+  resource: {
+    lora_trainable_parameters: '~0.3M',
+    full_finetune_trainable_parameters: '~125M',
+    trainable_parameter_reduction: '~99.76% fewer trainable parameters',
+    lora_added_inference_latency: 'none (low-rank update merges into the frozen weight matrix at inference time)',
+  },
+  run_status: 'succeeded',
+  overall_note: 'Confirmatory: LoRA r=8 reaches task-metric parity with reproduced full fine-tuning on all three '
+    + 'committed tasks within the pre-registered 0.5-point tolerance, at ~0.3M vs ~125M trainable parameters and no '
+    + 'added inference latency. No failed / inconclusive / negative run in this scenario, so the project-level N7 '
+    + 'reconciliation has nothing outstanding to account for.',
+};
+
+// Claim ground-truth anchor: the expected claim boundary and dossier readiness
+// answer card for the back half (human rubric §GT-9 / §GT-10 in ground-truth.md).
+export const GS001_CLAIM_GROUND_TRUTH = {
+  content_version: 'v4',
+  expected_claim_type: 'empirical_finding',
+  expected_claim_strength: 'strong',
+  // Deliberately bounded: no "universal", "all tasks", "superior", "outperform",
+  // "SOTA", "always", "generalize" — those are the forbidden overclaims and the
+  // product's high-risk-overclaim gate would (correctly) block them.
+  expected_claim_statement:
+    'On the committed GLUE subset (SST-2, MRPC, CoLA) at RoBERTa-base scale, low-rank adaptation with rank r=8 '
+    + 'reaches task-metric parity with reproduced full fine-tuning within the pre-registered 0.5-point tolerance, '
+    + 'while training about 0.3M of 125M parameters and adding no inference latency.',
+  forbidden_overclaims: [
+    'universal superiority over all adaptation methods on all tasks',
+    'claims about model scales or modalities never probed in this project',
+    'outperforms full fine-tuning on every task and dataset',
+  ],
+  expected_claim_ceiling: 'strong',
+  requires_human_confirmation: true,
+  human_confirmation_scope: 'strong_claim_acceptance',
+  dossier_readiness_expectations: {
+    admitted_claim: 'the bounded parity claim above (claim_status must be supported via a claim trace packet)',
+    rejected_claims: 'none in this positive-confirmatory scenario',
+    failed_or_inconclusive_runs_to_account_for: 'none (single succeeded confirmatory run set)',
+    required_forbidden_overclaims_present: true,
+    readiness_gate_must_pass: true,
+  },
+};
+
+/**
+ * v4 back-half role-output fixtures for the mocked冒烟 (execution_mode='mocked_llm').
+ * These stand in for the provider_llm role outputs of the three back-half slots.
+ * The runner supplies the runtime-created structural ids (trace manifests, gate
+ * results, claim trace packet, human confirmation ref) via `refs`; the material
+ * owns the LoRA-specific semantic content (claim statement, scope, boundary,
+ * packet summary, dossier sections).
+ *
+ * T-124 G4.6: role outputs carry typed SEMANTIC content blocks only
+ * (interpretation/reliability/claim_implications, claim_proposal,
+ * dossier_proposal); the runtime SERVICE deterministically assembles each
+ * Create*Request from the request-context structural refs. The Create*Request
+ * objects built below are the EXPECTED assembly results (kept as the single
+ * source the semantic blocks derive from and exposed for the review packet;
+ * `created_by` differs by mode: mocked=system, live=llm). LIVE mode does NOT
+ * use these fixtures — the provider emits the same semantic blocks itself.
+ */
+export function makeGs001BackHalfFixtures(refs) {
+  const T = GS001_IDS;
+  const ref = (refType, refId, versionId = null) => gs001Ref(refType, refId, versionId);
+  const runEvidenceRef = ref('run_evidence_unit', T.runEvidenceUnit);
+  const validationReportRef = ref('result_validation_report', T.resultValidationReport);
+  const packetForbidden = [...GS001_CLAIM_GROUND_TRUTH.forbidden_overclaims];
+
+  const resultInterpretationPacketRequest = {
+    result_interpretation_packet_id: T.resultPacket,
+    validation_cycle_id: refs.validationCycleId,
+    experiment_plan_light_id: refs.experimentPlanLightId ?? null,
+    source: {
+      run_evidence_refs: [runEvidenceRef],
+      validation_report_refs: [validationReportRef],
+      metric_refs: [
+        ref('metric', T.metricGlue),
+        ref('metric', T.metricTrainableParams),
+        ref('metric', T.metricInferenceLatency),
+      ],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
+    },
+    result_summary: {
+      result_summary:
+        'The confirmatory run set shows LoRA r=8 reaching task-metric parity with reproduced full fine-tuning on '
+        + 'SST-2 (95.1 vs 94.8 acc), MRPC (89.7 vs 90.2 F1) and CoLA (63.4 vs 63.6 MCC), each within the '
+        + 'pre-registered 0.5-point tolerance, at ~0.3M vs ~125M trainable parameters and no added inference latency.',
+      supports_assertion_refs: [
+        ref('motive_assertion', T.assertionLowRankOpportunity),
+        ref('motive_assertion', T.assertionBaselineGap),
+      ],
+      challenges_assertion_refs: [],
+      unexpected_findings: [],
+      failed_runs_accounted_for: true,
+      inconclusive_runs_accounted_for: true,
+      exploratory_confirmatory_separated: true,
+    },
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [],
+      reliability_notes: [
+        'Parity judged as mean over repeats vs the reproduced full fine-tuning anchor; MRPC sits exactly at the '
+        + '0.5-point tolerance boundary and is reported as parity-at-boundary rather than a strict win.',
+      ],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'strong',
+      forbidden_overclaims: packetForbidden,
+      recommended_claim_refs: [ref('claim_candidate', T.claimCandidate)],
+      required_followup_refs: [],
+    },
+    trace_manifest_id: refs.resultPacketTraceManifestId,
+    created_by: 'system',
+  };
+
+  const claimCandidateRequest = {
+    claim_candidate_id: T.claimCandidate,
+    claim_type: GS001_CLAIM_GROUND_TRUTH.expected_claim_type,
+    claim_statement: GS001_CLAIM_GROUND_TRUTH.expected_claim_statement,
+    claim_strength: GS001_CLAIM_GROUND_TRUTH.expected_claim_strength,
+    result_interpretation_packet_ids: [T.resultPacket],
+    support_refs: [runEvidenceRef],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'Downstream adaptation of a RoBERTa-base class Transformer language model.',
+      method_scope: 'Low-rank adaptation with rank r=8 vs reproduced full fine-tuning.',
+      dataset_scope: 'Committed GLUE subset: SST-2, MRPC, CoLA.',
+      metric_scope: 'Per-task primary metric (accuracy / F1 / MCC), trainable parameter count, inference latency.',
+      negative_scope_notes: [],
+      excluded_scope_notes: [
+        'No claim about model scales or modalities never probed in this project.',
+        'No claim of superiority over other adaptation methods.',
+      ],
+    },
+    boundary: {
+      rationale:
+        'Parity is claimed only within the probed scale and committed task set, at the pre-registered 0.5-point '
+        + 'tolerance; the reproduced full fine-tuning anchors met their targets so parity is well-defined per task. '
+        + 'Strength is strong because all three committed tasks reach parity with the resource reduction measured, '
+        + 'but the claim stays bounded to the probed setting and requires explicit human confirmation.',
+      forbidden_overclaims: [...GS001_CLAIM_GROUND_TRUTH.forbidden_overclaims],
+      hidden_counter_evidence_refs: [],
+      required_followup_refs: [],
+      human_confirmation_ref: refs.humanConfirmationRef,
+    },
+    trace_manifest_id: refs.claimTraceManifestId,
+    claim_trace_packet_id: refs.claimTracePacketId,
+    created_by: 'system',
+  };
+
+  const dossierRequest = {
+    dossier_id: T.dossier,
+    dossier_status: 'ready_for_writing',
+    result_interpretation_packet_ids: [T.resultPacket],
+    claim_candidate_ids: [T.claimCandidate],
+    claim_trace_packet_ids: [refs.claimTracePacketId],
+    experiment_section: {
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      negative_result_refs: [],
+      excluded_stale_or_invalidated_evidence_refs: [],
+      experiment_limitations: [
+        'MRPC parity sits at the 0.5-point tolerance boundary; the parity claim is bounded accordingly.',
+        'Results are at RoBERTa-base scale on three committed GLUE tasks only.',
+      ],
+    },
+    claim_section: {
+      admitted_claim_refs: [ref('claim_candidate', T.claimCandidate)],
+      rejected_claim_refs: [],
+      forbidden_overclaims: [...GS001_CLAIM_GROUND_TRUTH.forbidden_overclaims],
+      claim_ceiling: GS001_CLAIM_GROUND_TRUTH.expected_claim_ceiling,
+    },
+    readiness: {
+      readiness_gate_result_id: refs.dossierReadinessGateResultId,
+      blocker_refs: [],
+      warning_refs: [],
+      readiness_notes: [
+        'Single confirmatory run set, all committed tasks at parity; no failed/inconclusive/negative run outstanding '
+        + 'for the project-level (N7) reconciliation.',
+      ],
+    },
+    trace_manifest_id: refs.dossierTraceManifestId,
+    created_by: 'system',
+  };
+
+  const resultAnalysisRole = {
+    role_slot_id: 'result_analysis.interpretation_scenario_builder',
+    role_status: 'passed',
+    summary: 'LoRA confirmatory result-analysis: bounded parity interpretation across the four required scenario kinds.',
+    cited_source_refs: [runEvidenceRef, validationReportRef],
+    blocker_codes: [],
+    warning_codes: [],
+    scenario_outputs: ['positive', 'negative', 'inconclusive', 'failed_run'].map((kind) => ({
+      scenario_id: `gs001_result_scenario_${kind}`,
+      scenario_kind: kind,
+      summary: kind === 'positive'
+        ? 'LoRA r=8 reaches parity with reproduced full fine-tuning on all three committed tasks within tolerance.'
+        : kind === 'negative'
+          ? 'No task shows LoRA losing significant performance versus full fine-tuning at the probed scale.'
+          : kind === 'inconclusive'
+            ? 'MRPC sits at the 0.5-point tolerance boundary; treated as parity-at-boundary, not a strict win.'
+            : 'No confirmatory run failed; the failed-run scenario is vacuously accounted for.',
+      support_refs: [runEvidenceRef],
+      challenge_refs: [validationReportRef],
+      limitation_refs: [],
+      forbidden_overclaims: packetForbidden,
+      recommended_claim_refs: [ref('claim_candidate', T.claimCandidate)],
+      required_followup_refs: [],
+    })),
+    // T-124 G4.6: the role emits typed SEMANTIC content; the runtime service
+    // assembles the CreateResultInterpretationPacketRequest deterministically
+    // from the request-context structural refs. Blocks are derived from the
+    // expected packet material above (single source of truth).
+    interpretation: {
+      ...resultInterpretationPacketRequest.result_summary,
+      failed_run_refs: [...resultInterpretationPacketRequest.source.failed_run_refs],
+      inconclusive_run_refs: [...resultInterpretationPacketRequest.source.inconclusive_run_refs],
+      stale_or_invalidated_evidence_refs: [...resultInterpretationPacketRequest.source.stale_or_invalidated_evidence_refs],
+    },
+    reliability: { ...resultInterpretationPacketRequest.reliability },
+    claim_implications: { ...resultInterpretationPacketRequest.claim_implications },
+  };
+
+  const claimRole = (roleSlotId, withGate) => ({
+    role_slot_id: roleSlotId,
+    role_status: 'passed',
+    summary: withGate
+      ? 'Adjudicator: the bounded LoRA parity claim is within the packet ceiling and carries human confirmation.'
+      : `Claim-boundary review role ${roleSlotId}: statement stays within the probed scale and forbidden-overclaim set.`,
+    cited_source_refs: [runEvidenceRef, ref('result_interpretation_packet', T.resultPacket)],
+    blocker_codes: [],
+    warning_codes: [],
+    // T-124 G4.6: the adjudicator proposes typed SEMANTIC claim content only;
+    // structural ids (claim id / packet ids / trace manifest / claim trace
+    // packet / human confirmation ref) are assembled by the service.
+    claim_proposal: withGate
+      ? {
+        claim_type: claimCandidateRequest.claim_type,
+        claim_statement: claimCandidateRequest.claim_statement,
+        claim_strength: claimCandidateRequest.claim_strength,
+        support_refs: [...claimCandidateRequest.support_refs],
+        challenge_refs: [...(claimCandidateRequest.challenge_refs ?? [])],
+        scope: { ...claimCandidateRequest.scope },
+        boundary_rationale: claimCandidateRequest.boundary.rationale,
+        forbidden_overclaims: [...claimCandidateRequest.boundary.forbidden_overclaims],
+        hidden_counter_evidence_refs: [...claimCandidateRequest.boundary.hidden_counter_evidence_refs],
+        required_followup_refs: [...claimCandidateRequest.boundary.required_followup_refs],
+      }
+      : null,
+    dossier_proposal: null,
+  });
+
+  const dossierRole = (roleSlotId, withGate) => ({
+    role_slot_id: roleSlotId,
+    role_status: 'passed',
+    summary: withGate
+      ? 'Adjudicator: dossier is ready for writing — admitted claim supported, forbidden overclaims present, no run unaccounted.'
+      : `Dossier-readiness review role ${roleSlotId}: readiness blockers are empty and the admitted claim is trace-supported.`,
+    cited_source_refs: [ref('claim_candidate', T.claimCandidate), ref('result_interpretation_packet', T.resultPacket)],
+    blocker_codes: [],
+    warning_codes: [],
+    // T-124 G4.6: the adjudicator proposes typed SEMANTIC readiness content only;
+    // structural ids (dossier id / packet ids / claim ids / claim trace packet
+    // ids / trace manifest / gate result id) are assembled by the service.
+    claim_proposal: null,
+    dossier_proposal: withGate
+      ? {
+        dossier_status: dossierRequest.dossier_status,
+        experiment_limitations: [...dossierRequest.experiment_section.experiment_limitations],
+        failed_run_refs: [...dossierRequest.experiment_section.failed_run_refs],
+        inconclusive_run_refs: [...dossierRequest.experiment_section.inconclusive_run_refs],
+        negative_result_refs: [...dossierRequest.experiment_section.negative_result_refs],
+        excluded_stale_or_invalidated_evidence_refs: [...dossierRequest.experiment_section.excluded_stale_or_invalidated_evidence_refs],
+        admitted_claim_refs: [...dossierRequest.claim_section.admitted_claim_refs],
+        rejected_claim_refs: [...dossierRequest.claim_section.rejected_claim_refs],
+        forbidden_overclaims: [...dossierRequest.claim_section.forbidden_overclaims],
+        claim_ceiling: dossierRequest.claim_section.claim_ceiling,
+        readiness_blocker_refs: [...dossierRequest.readiness.blocker_refs],
+        readiness_warning_refs: [...dossierRequest.readiness.warning_refs],
+        readiness_notes: [...dossierRequest.readiness.readiness_notes],
+      }
+      : null,
+  });
+
+  return {
+    resultAnalysisRoleOutputs: {
+      'result_analysis.interpretation_scenario_builder': resultAnalysisRole,
+    },
+    claimBoundaryRoleOutputs: {
+      'claim_boundary_review.boundary_critic': claimRole('claim_boundary_review.boundary_critic', false),
+      'claim_boundary_review.evidence_skeptic': claimRole('claim_boundary_review.evidence_skeptic', false),
+      'claim_boundary_review.adjudicator_final': claimRole('claim_boundary_review.adjudicator_final', true),
+    },
+    dossierReadinessRoleOutputs: {
+      'dossier_readiness_prep.readiness_reviewer': dossierRole('dossier_readiness_prep.readiness_reviewer', false),
+      'dossier_readiness_prep.blocker_skeptic': dossierRole('dossier_readiness_prep.blocker_skeptic', false),
+      'dossier_readiness_prep.scenario_adjudicator_final': dossierRole('dossier_readiness_prep.scenario_adjudicator_final', true),
+    },
+    // Also exposed so the runner can reference the exact domain requests for the
+    // review packet / lineage assertion without re-deriving them.
+    domainGateRequests: {
+      resultInterpretationPacketRequest,
+      claimCandidateRequest,
+      dossierRequest,
+    },
   };
 }
 
@@ -289,7 +809,7 @@ const CREATED_AT = '2026-07-11T00:00:00.000Z';
 export function makeGs001BridgeHandoff() {
   const c = GS001_LORA_CONTENT;
   const sourceRefs = [
-    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v3'),
+    gs001Ref('topic_package', GS001_IDS.topicPackage, 'v4'),
     gs001Ref('evidence_unit', GS001_IDS.litEvidence),
     gs001Ref('source_locator', GS001_IDS.sourceLocator),
   ];
@@ -364,7 +884,7 @@ export function makeGs001BridgeHandoff() {
     promotion_input_snapshot_ref: gs001Ref('promotion_input_snapshot', GS001_IDS.promotionInputSnapshot),
     promotion_input_snapshot_hash: snapshotHashes.promotion_input_snapshot_hash,
     topic_package_id: GS001_IDS.topicPackage,
-    package_version: 'v3',
+    package_version: 'v4',
     decision: 'promote_to_paper_project',
     conditions: [],
     accepted_risk_refs: [],
@@ -416,3 +936,34 @@ export function makeGs001BridgeHandoff() {
     source_promotion_handoff: bridge.source_promotion_handoff,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Generic scenario export contract (runner-facing; new in v4).
+//
+// The golden-scenario runner imports scenarios by these GENERIC names so a
+// scenario directory is swappable via --scenario / env. gs-002 / gs-003 align to
+// this same contract. Scenario-specific aliases (GS001_*) stay exported above so
+// the front-half history is untouched. A scenario topic-package.mjs MUST export:
+//   sha256Hex(value) -> hex
+//   SCENARIO_META          { scenario_id, paper, package_version, runner_contract }
+//   SCENARIO_IDS           superset of domain-object ids (front + back half)
+//   SCENARIO_CONTENT       topic content core (research question / scope / budget …)
+//   makeBridgeHandoff()    promotion bridge handoff (real bootstrap route input)
+//   EXPERIMENT_RESULTS     acceptance experiment data segment (paper real numbers)
+//   CLAIM_GROUND_TRUTH     expected claim boundary + dossier readiness answer card
+//   makeBackHalfFixtures(refs) -> { resultAnalysisRoleOutputs, claimBoundaryRoleOutputs,
+//                                   dossierReadinessRoleOutputs, domainGateRequests }
+// ---------------------------------------------------------------------------
+export const SCENARIO_META = {
+  scenario_id: 'gs-001-lora',
+  paper: 'arXiv:2106.09685 (LoRA: Low-Rank Adaptation of Large Language Models)',
+  package_version: 'v4',
+  runner_contract: 'paper-implementation-golden-scenario/v4',
+};
+export const SCENARIO_IDS = GS001_IDS;
+export const SCENARIO_CONTENT = GS001_LORA_CONTENT;
+export const SCENARIO_SPINE = GS001_LORA_SPINE;
+export const EXPERIMENT_RESULTS = GS001_EXPERIMENT_RESULTS;
+export const CLAIM_GROUND_TRUTH = GS001_CLAIM_GROUND_TRUTH;
+export const makeBridgeHandoff = makeGs001BridgeHandoff;
+export const makeBackHalfFixtures = makeGs001BackHalfFixtures;

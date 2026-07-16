@@ -369,12 +369,40 @@ function providerRequest(kind: 'claim' | 'dossier'): RunPaperImplementationP1Run
     target_version_id: 'v1',
     input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_001'),
     input_snapshot_hash: hash('input-snapshot'),
+    // T-124 G4.6 structural context: every id the service assembles into the
+    // Create*Request is a declared source ref (never LLM-transcribed).
     source_refs: claim
-      ? [ref('result_interpretation_packet', 'result_packet_001'), ref('claim_trace_packet', 'claim_trace_packet_001')]
-      : [ref('claim_candidate', 'claim_candidate_001'), ref('claim_trace_packet', 'claim_trace_packet_001')],
+      ? [
+        ref('result_interpretation_packet', 'result_packet_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_001'),
+        ref('claim_candidate', 'claim_candidate_001'),
+        ref('trace_manifest', 'trace_manifest_claim_001'),
+        ref('human_confirmation_record', 'human_confirmation_001'),
+        ref('run_evidence_unit', 'run_evidence_unit_001'),
+      ]
+      : [
+        ref('claim_candidate', 'claim_candidate_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_001'),
+        ref('result_interpretation_packet', 'result_packet_001'),
+        ref('trace_manifest', 'trace_manifest_dossier_001'),
+        ref('gate_result', 'gate_result_dossier_001'),
+      ],
     source_hashes: claim
-      ? [hash('result-packet'), hash('claim-trace-packet')]
-      : [hash('claim-candidate'), hash('claim-trace-packet')],
+      ? [
+        hash('result-packet'),
+        hash('claim-trace-packet'),
+        hash('claim-candidate'),
+        hash('trace-manifest-claim'),
+        hash('human-confirmation'),
+        hash('run-evidence'),
+      ]
+      : [
+        hash('claim-candidate'),
+        hash('claim-trace-packet'),
+        hash('result-packet'),
+        hash('trace-manifest-dossier'),
+        hash('gate-result'),
+      ],
     preflight_blocker_codes: [],
   };
 }
@@ -391,29 +419,70 @@ function roleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOutpu
       : [ref('claim_candidate', 'claim_candidate_001')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final
-      ? claim ? { claim_candidate_id: 'claim_candidate_001' } : { dossier_id: 'dossier_001' }
-      : null,
+    // T-124 G4.6: the final adjudicator proposes typed SEMANTIC content only;
+    // the service assembles the Create*Request from the request context.
+    claim_proposal: final && claim ? claimProposal() : null,
+    dossier_proposal: final && !claim ? dossierProposal() : null,
     scenario_outputs: final && !claim
       ? [{ scenario_id: 'ready_for_writing', disposition: 'preferred' }]
       : [],
   };
 }
 
+/** The claim adjudicator's typed semantic proposal (assembly input). */
+function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
+  return {
+    claim_type: 'empirical_finding',
+    claim_statement: 'Bounded parity claim within the probed scale and committed task set.',
+    claim_strength: 'strong',
+    support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'RoBERTa-base class Transformer language model.',
+      method_scope: 'Low-rank adaptation r=8 vs reproduced full fine-tuning.',
+      dataset_scope: 'Committed GLUE subset.',
+      metric_scope: 'Per-task primary metric, trainable parameter count, inference latency.',
+      negative_scope_notes: [],
+      excluded_scope_notes: ['No claim of superiority over other adaptation methods.'],
+    },
+    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
+    forbidden_overclaims: ['universal superiority over all adaptation methods on all tasks'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
+  };
+}
+
+/** The dossier adjudicator's typed semantic proposal (assembly input). */
+function dossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
+  return {
+    dossier_status: 'ready_for_writing',
+    experiment_limitations: ['Results are at the probed scale on the committed tasks only.'],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    negative_result_refs: [],
+    excluded_stale_or_invalidated_evidence_refs: [],
+    admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    rejected_claim_refs: [],
+    forbidden_overclaims: ['universal superiority over all adaptation methods on all tasks'],
+    claim_ceiling: 'strong',
+    readiness_blocker_refs: [],
+    readiness_warning_refs: [],
+    readiness_notes: ['Single confirmatory run set; nothing outstanding for N7 reconciliation.'],
+  };
+}
+
 /**
- * T-124 S3 F5-1: the provider wire shape — canonical role output with
- * `domain_gate_request` and `scenario_outputs` replaced by their JSON-string
- * carriers. Pass `overrideDomainGateJson` to inject a malformed carrier (only
- * meaningful for a role whose canonical domain_gate_request is non-null).
+ * T-124 S3 F5-1 (narrowed by G4.6): the provider wire shape — canonical role
+ * output with `scenario_outputs` replaced by its JSON-string carrier. The typed
+ * proposal blocks ride the wire directly. Pass `overrideScenarioJsons` to
+ * inject malformed carriers.
  */
-function p1WireOutput(nodeId: string, overrideDomainGateJson?: string): Record<string, unknown> {
-  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = roleOutput(nodeId);
+function p1WireOutput(nodeId: string, overrideScenarioJsons?: string[]): Record<string, unknown> {
+  const { scenario_outputs: scenarios, ...rest } = roleOutput(nodeId);
   return {
     ...rest,
-    domain_gate_request_json: domainGate === null
-      ? null
-      : overrideDomainGateJson ?? JSON.stringify(domainGate),
-    scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
+    scenario_output_jsons: overrideScenarioJsons
+      ?? (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
   };
 }
 
@@ -550,6 +619,7 @@ type P1InvocationCall = {
   execution_mode: string;
   invocation_attempt_id?: string | null;
   schema_name?: string;
+  messages?: Array<{ role: 'system' | 'user'; content: string }>;
 };
 
 class ScriptedP1AgentOrchestrator {
@@ -635,7 +705,7 @@ test('P1 runtime review retries blocked-without-codes once and lands failed_runt
   assert.equal(result.admission_records[0]?.issue_codes.includes('RUNTIME_STATUS_FAILED_RUNTIME'), true);
 });
 
-test('T-124 S3 F5-1: P1 canonicalizes provider wire JSON-string carriers into canonical domain-gate/scenario shapes', async () => {
+test('T-124 G4.6: P1 assembles the domain_gate_request deterministically from request context + the adjudicator proposal', async () => {
   const { service, orchestrator } = scriptedServiceFixture((call) => invocationResult(
     p1WireOutput(call.node_id) as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
     call.node_id,
@@ -644,21 +714,32 @@ test('T-124 S3 F5-1: P1 canonicalizes provider wire JSON-string carriers into ca
   const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
 
   assert.equal(result.status, 'passed');
-  // Provider mode sent the wire schema and instructed the JSON-string carriers.
+  // Provider mode still sends the wire schema (scenario_output_jsons carrier).
   assert.equal(orchestrator.calls[0]?.schema_name, 'paper_implementation_p1_runtime_review_role_wire');
   const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.ok(finalDomainGate);
+  // Structural fields come from the request context (declared source refs).
   assert.equal(finalDomainGate?.claim_candidate_id, 'claim_candidate_001');
+  assert.equal(finalDomainGate?.trace_manifest_id, 'trace_manifest_claim_001');
+  assert.equal(finalDomainGate?.claim_trace_packet_id, 'claim_trace_packet_001');
+  assert.deepEqual(finalDomainGate?.result_interpretation_packet_ids, ['result_packet_001']);
+  const boundary = finalDomainGate?.boundary as Record<string, unknown>;
+  assert.equal((boundary.human_confirmation_ref as { ref_id: string }).ref_id, 'human_confirmation_001');
+  // Semantic fields come verbatim from the adjudicator's typed proposal.
+  assert.equal(finalDomainGate?.claim_statement, 'Bounded parity claim within the probed scale and committed task set.');
+  assert.equal(finalDomainGate?.claim_strength, 'strong');
+  assert.equal(finalDomainGate?.created_by, 'llm');
   // No wire residue leaks into the recorded artifacts.
   const serialized = stableStringify(result);
   assert.equal(serialized.includes('domain_gate_request_json'), false);
   assert.equal(serialized.includes('scenario_output_jsons'), false);
 });
 
-test('T-124 S3 F5-1: P1 fails closed when a provider wire JSON carrier cannot be parsed', async () => {
+test('T-124 S3 F5-1: P1 fails closed when a provider wire scenario carrier cannot be parsed', async () => {
   const { service, orchestrator } = scriptedServiceFixture((call) => {
-    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+    if (call.node_id === 'dossier_readiness_prep.scenario_adjudicator_final') {
       return invocationResult(
-        p1WireOutput(call.node_id, '{ not valid json') as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
+        p1WireOutput(call.node_id, ['{ not valid json']) as unknown as PaperImplementationP1RuntimeReviewRoleOutput,
         call.node_id,
         call.execution_mode,
       );
@@ -669,7 +750,7 @@ test('T-124 S3 F5-1: P1 fails closed when a provider wire JSON carrier cannot be
       call.execution_mode,
     );
   });
-  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+  const result = await service.runDossierReadinessAudit(PROJECT_ID, providerRequest('dossier'));
 
   // The two prefix roles canonicalize fine; the final role's malformed carrier
   // retries once (technical failure) then lands failed_runtime — never a 400.
@@ -678,6 +759,161 @@ test('T-124 S3 F5-1: P1 fails closed when a provider wire JSON carrier cannot be
   const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
   assert.equal(failedArtifact?.runtime_failure_code, 'RUNTIME_WIRE_JSON_DECODE_FAILED');
   assert.equal(failedArtifact?.retry_attempt_index, 1);
+});
+
+test('T-124 G4.6: P1 adjudicator fails closed (retryable) when a passed adjudicator omits its semantic proposal', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      return invocationResult(
+        { ...roleOutput(call.node_id), claim_proposal: null },
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return p1SuccessScript(call);
+  });
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 4);
+  assert.equal(result.final_runtime_artifact, null);
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOMAIN_GATE_REQUEST_MISSING');
+  assert.equal(failedArtifact?.retry_attempt_index, 1);
+});
+
+test('T-124 G4.6 run-012 fix: an adjudicator support selection of interpretation refs assembles to the declared REU evidence floor', async () => {
+  const { service } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      // Run 012 live signature: the adjudicator cited the interpretation packet
+      // in support_refs — the Domain Gate 409s that as evidence. The assembly
+      // must land the DECLARED run-evidence refs in the evidence position.
+      return invocationResult(
+        {
+          ...roleOutput(call.node_id),
+          claim_proposal: {
+            ...claimProposal(),
+            support_refs: [ref('result_interpretation_packet', 'result_packet_001')],
+          },
+        },
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return p1SuccessScript(call);
+  });
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'passed');
+  const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.deepEqual(
+    (finalDomainGate?.support_refs as Array<{ ref_type: string; ref_id: string }>).map((item) => [item.ref_type, item.ref_id]),
+    [['run_evidence_unit', 'run_evidence_unit_001']],
+  );
+  // The packet linkage stays in its structural field, never the evidence position.
+  assert.deepEqual(finalDomainGate?.result_interpretation_packet_ids, ['result_packet_001']);
+});
+
+test('T-124 G4.5 Fix 2 (under G4.6 assembly): P1 adjudicator fails closed (retryable) when the ASSEMBLED request cannot satisfy the target Create schema', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      // Semantic content present but schema-invalid: empty claim_statement and
+      // empty support_refs — the assembled request fails the ajv pre-check.
+      return invocationResult(
+        {
+          ...roleOutput(call.node_id),
+          claim_proposal: { ...claimProposal(), claim_statement: '', support_refs: [] },
+        },
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return p1SuccessScript(call);
+  });
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'failed_runtime');
+  // Prefix roles admit; the adjudicator retries once then lands failed_runtime.
+  assert.equal(orchestrator.calls.length, 4);
+  assert.equal(result.final_runtime_artifact, null);
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOMAIN_GATE_REQUEST_MALFORMED');
+  assert.equal(failedArtifact?.retry_attempt_index, 1);
+});
+
+test('T-124 G4.6: P1 rejects an incomplete Domain Gate structural context with 400 before any provider call', async () => {
+  const { service, orchestrator } = scriptedServiceFixture(p1SuccessScript);
+  const request = providerRequest('claim');
+  await assert.rejects(
+    () => service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...request,
+      run_id: 'claim_boundary_missing_context_run_001',
+      source_refs: request.source_refs.filter((item) => item.ref_type !== 'claim_candidate'),
+      source_hashes: request.source_hashes.slice(0, request.source_refs.length - 1),
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /claim_candidate/.test(error.message),
+  );
+  const dossierRequest = providerRequest('dossier');
+  await assert.rejects(
+    () => service.runDossierReadinessAudit(PROJECT_ID, {
+      ...dossierRequest,
+      run_id: 'dossier_missing_context_run_001',
+      target_ref: ref('claim_candidate', 'claim_candidate_001'),
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /implementation_dossier/.test(error.message),
+  );
+  assert.equal(orchestrator.calls.length, 0);
+});
+
+test('T-124 G4.5 Fix 1: P1 injects hash-fenced source_context_packets and target-schema guidance into the role prompt', async () => {
+  const { service, orchestrator } = scriptedServiceFixture(p1SuccessScript);
+  const request = providerRequest('claim');
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...request,
+    source_context_packets: [
+      {
+        source_ref: request.source_refs[0]!,
+        source_hash: request.source_hashes[0]!,
+        evidence_kind: 'result_interpretation_packet',
+        content_summary: 'Materialized packet: bounded parity claim ceiling strong.',
+        key_facts: ['allowed_claim_ceiling strong', 'forbidden overclaims present'],
+      },
+    ],
+  });
+
+  assert.equal(result.status, 'passed');
+  const userMessage = orchestrator.calls[0]?.messages?.find((message) => message.role === 'user')?.content ?? '';
+  assert.match(userMessage, /source_context_packets/);
+  assert.match(userMessage, /bounded parity claim ceiling strong/);
+  const systemMessage = orchestrator.calls[0]?.messages?.[0]?.content ?? '';
+  assert.match(systemMessage, /claim_proposal/);
+  assert.match(systemMessage, /Do not emit a request envelope/);
+});
+
+test('T-124 G4.5 Fix 1: P1 rejects a source_context_packet whose hash does not match the declared source', async () => {
+  const { service } = scriptedServiceFixture(p1SuccessScript);
+  const request = providerRequest('claim');
+  await assert.rejects(
+    () => service.runClaimBoundaryDebate(PROJECT_ID, {
+      ...request,
+      source_context_packets: [
+        {
+          source_ref: request.source_refs[0]!,
+          source_hash: hash('a-different-body'),
+          evidence_kind: 'result_interpretation_packet',
+          content_summary: 'body',
+          key_facts: [],
+        },
+      ],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /source_hash .* does not match/.test(error.message),
+  );
 });
 
 test('P1 runtime review token budget counts message-embedded context once (S2-A N3, compression wiring deferred to STEP-7 downstream)', async () => {
@@ -785,7 +1021,14 @@ test('P1 runtime review resume rejects identity drift, unknown runs, and slot mi
       ...providerRequest('claim'),
       run_id: null,
       resume_from_run_id: 'claim_boundary_run_001',
-      source_hashes: [hash('drifted-result-packet'), hash('claim-trace-packet')],
+      source_hashes: [
+        hash('drifted-result-packet'),
+        hash('claim-trace-packet'),
+        hash('claim-candidate'),
+        hash('trace-manifest-claim'),
+        hash('human-confirmation'),
+        hash('run-evidence'),
+      ],
     }),
     (error: unknown) => error instanceof AppError
       && error.statusCode === 409

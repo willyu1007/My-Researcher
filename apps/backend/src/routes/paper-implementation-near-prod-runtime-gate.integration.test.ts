@@ -10,8 +10,6 @@ import type {
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
-  CreateClaimCandidateRequest,
-  CreateResultInterpretationPacketRequest,
   ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
@@ -356,10 +354,7 @@ test(
         method: 'POST',
         url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/result-analysis-scenarios/run`,
         payload: resultAnalysisMockedDomainGateRunPayload('result-domain-drift', {
-          result_summary: {
-            ...resultAnalysisDomainGateRequest().result_summary,
-            result_summary: 'Runtime drifted near-prod result interpretation.',
-          },
+          result_summary: 'Runtime drifted near-prod result interpretation.',
         }),
       });
       assert.equal(resultDriftRun.statusCode, 201);
@@ -622,18 +617,36 @@ function p1ProviderRunPayload(kind: 'claim' | 'dossier', providerId: 'openai' | 
     target_version_id: `${RUN_ID}-target@v1`,
     input_snapshot_ref: ref('implementation_input_snapshot', `${RUN_ID}-p1-input`),
     input_snapshot_hash: hash(`${RUN_ID}-p1-input`),
+    // T-124 G4.6 structural context: every id the service assembles into the
+    // Create*Request is a declared source ref.
     source_refs: claim
       ? [
         ref('result_interpretation_packet', `${RUN_ID}-live-result-packet`),
         ref('claim_trace_packet', `${RUN_ID}-live-claim-trace`),
+        ref('claim_candidate', `${RUN_ID}-live-claim`),
+        ref('trace_manifest', `${RUN_ID}-live-claim-trace-manifest`),
+        ref('run_evidence_unit', `${RUN_ID}-run-evidence`),
       ]
       : [
         ref('claim_candidate', `${RUN_ID}-live-claim`),
         ref('claim_trace_packet', `${RUN_ID}-live-claim-trace`),
+        ref('result_interpretation_packet', `${RUN_ID}-live-result-packet`),
+        ref('trace_manifest', `${RUN_ID}-live-dossier-trace-manifest`),
       ],
     source_hashes: claim
-      ? [hash(`${RUN_ID}-live-result-packet`), hash(`${RUN_ID}-live-claim-trace`)]
-      : [hash(`${RUN_ID}-live-claim`), hash(`${RUN_ID}-live-claim-trace`)],
+      ? [
+        hash(`${RUN_ID}-live-result-packet`),
+        hash(`${RUN_ID}-live-claim-trace`),
+        hash(`${RUN_ID}-live-claim`),
+        hash(`${RUN_ID}-live-claim-trace-manifest`),
+        hash(`${RUN_ID}-run-evidence`),
+      ]
+      : [
+        hash(`${RUN_ID}-live-claim`),
+        hash(`${RUN_ID}-live-claim-trace`),
+        hash(`${RUN_ID}-live-result-packet`),
+        hash(`${RUN_ID}-live-dossier-trace-manifest`),
+      ],
     preflight_blocker_codes: [],
   };
 }
@@ -649,13 +662,18 @@ function resultAnalysisProviderRunPayload(providerId: 'openai' | 'dashscope') {
     target_version_id: `${RUN_ID}-result-analysis-target@v1`,
     input_snapshot_ref: ref('implementation_input_snapshot', `${RUN_ID}-result-analysis-input`),
     input_snapshot_hash: hash(`${RUN_ID}-result-analysis-input`),
+    // T-124 G4.6 structural context refs (service-assembled Create request).
     source_refs: [
       ref('run_evidence_unit', `${RUN_ID}-run-evidence`),
       ref('result_validation_report', `${RUN_ID}-validation-report`),
+      ref('result_interpretation_packet', `${RUN_ID}-live-result-analysis-packet`),
+      ref('trace_manifest', `${RUN_ID}-live-result-analysis-trace-manifest`),
     ],
     source_hashes: [
       hash(`${RUN_ID}-run-evidence`),
       hash(`${RUN_ID}-validation-report`),
+      hash(`${RUN_ID}-live-result-analysis-packet`),
+      hash(`${RUN_ID}-live-result-analysis-trace-manifest`),
     ],
     preflight_blocker_codes: [],
   };
@@ -755,11 +773,11 @@ function experimentPlanningSourceContextPackets() {
 
 function p1MockedDomainGateRunPayload(
   suffix: string,
-  domainGateOverrides: Partial<CreateClaimCandidateRequest> = {},
+  proposalOverrides: Partial<NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']>> = {},
 ) {
-  const finalRequest = {
-    ...claimDomainGateRequest(),
-    ...domainGateOverrides,
+  const finalProposal = {
+    ...nearProdClaimProposal(),
+    ...proposalOverrides,
   };
   return {
     run_id: `${RUN_ID}-${suffix}`,
@@ -770,15 +788,25 @@ function p1MockedDomainGateRunPayload(
     target_version_id: `${RESULT_PACKET_ID}@v1`,
     input_snapshot_ref: ref('implementation_input_snapshot', `${RUN_ID}-domain-input`),
     input_snapshot_hash: hash(`${RUN_ID}-domain-input`),
+    // T-124 G4.6 structural context: claim id + trace manifest ride source_refs.
     source_refs: [
       ref('result_interpretation_packet', RESULT_PACKET_ID),
       ref('claim_trace_packet', CLAIM_TRACE_PACKET_ID),
+      ref('claim_candidate', CLAIM_CANDIDATE_ID),
+      ref('trace_manifest', TRACE_MANIFEST_CLAIM_ID),
+      ref('run_evidence_unit', `${RUN_ID}-run-evidence`),
     ],
-    source_hashes: [hash(RESULT_PACKET_ID), hash(CLAIM_TRACE_PACKET_ID)],
+    source_hashes: [
+      hash(RESULT_PACKET_ID),
+      hash(CLAIM_TRACE_PACKET_ID),
+      hash(CLAIM_CANDIDATE_ID),
+      hash(TRACE_MANIFEST_CLAIM_ID),
+      hash(`${RUN_ID}-run-evidence`),
+    ],
     mocked_role_outputs: Object.fromEntries(
       PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_REVIEW_ROLE_SLOT_IDS.map((slotId) => [
         slotId,
-        claimBoundaryRoleOutput(slotId, finalRequest),
+        claimBoundaryRoleOutput(slotId, finalProposal),
       ]),
     ),
   };
@@ -786,12 +814,8 @@ function p1MockedDomainGateRunPayload(
 
 function resultAnalysisMockedDomainGateRunPayload(
   suffix: string,
-  domainGateOverrides: Partial<CreateResultInterpretationPacketRequest> = {},
+  interpretationOverrides: Partial<NonNullable<PaperImplementationResultAnalysisRoleOutput['interpretation']>> = {},
 ) {
-  const finalRequest = {
-    ...resultAnalysisDomainGateRequest(),
-    ...domainGateOverrides,
-  };
   return {
     run_id: `${RUN_ID}-${suffix}`,
     run_mode: 'dry_run',
@@ -801,17 +825,24 @@ function resultAnalysisMockedDomainGateRunPayload(
     target_version_id: `${RESULT_ANALYSIS_VALIDATION_CYCLE_ID}@v1`,
     input_snapshot_ref: ref('implementation_input_snapshot', RESULT_ANALYSIS_INPUT_SNAPSHOT_ID),
     input_snapshot_hash: hash(RESULT_ANALYSIS_INPUT_SNAPSHOT_ID),
+    // T-124 G4.6 structural context: packet id + trace manifest + metric ride source_refs.
     source_refs: [
       ref('run_evidence_unit', RESULT_ANALYSIS_RUN_EVIDENCE_UNIT_ID),
       ref('result_validation_report', RESULT_ANALYSIS_VALIDATION_REPORT_ID),
+      ref('result_interpretation_packet', RESULT_ANALYSIS_DOMAIN_PACKET_ID),
+      ref('trace_manifest', RESULT_ANALYSIS_TRACE_MANIFEST_ID),
+      ref('metric', RESULT_ANALYSIS_METRIC_ID),
     ],
     source_hashes: [
       hash(RESULT_ANALYSIS_RUN_EVIDENCE_UNIT_ID),
       hash(RESULT_ANALYSIS_VALIDATION_REPORT_ID),
+      hash(RESULT_ANALYSIS_DOMAIN_PACKET_ID),
+      hash(RESULT_ANALYSIS_TRACE_MANIFEST_ID),
+      hash(RESULT_ANALYSIS_METRIC_ID),
     ],
     preflight_blocker_codes: [],
     mocked_role_outputs: {
-      [PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID]: resultAnalysisRoleOutput(finalRequest),
+      [PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID]: resultAnalysisRoleOutput(interpretationOverrides),
     },
   };
 }
@@ -871,7 +902,7 @@ function assertProviderCanaryResponse(
 
 function claimBoundaryRoleOutput(
   roleSlotId: string,
-  finalRequest: CreateClaimCandidateRequest,
+  finalProposal: NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']>,
 ): PaperImplementationP1RuntimeReviewRoleOutput {
   const final = roleSlotId.endsWith('final');
   return {
@@ -881,18 +912,19 @@ function claimBoundaryRoleOutput(
     cited_source_refs: [ref('result_interpretation_packet', RESULT_PACKET_ID)],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final ? structuredClone(finalRequest) as unknown as Record<string, unknown> : null,
+    // T-124 G4.6: the adjudicator proposes typed semantic content; the runtime
+    // service assembles the CreateClaimCandidateRequest from the request context.
+    claim_proposal: final ? structuredClone(finalProposal) : null,
+    dossier_proposal: null,
     scenario_outputs: [],
   };
 }
 
-function claimDomainGateRequest(): CreateClaimCandidateRequest {
+function nearProdClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
   return {
-    claim_candidate_id: CLAIM_CANDIDATE_ID,
     claim_type: 'empirical_finding',
     claim_statement: 'Near-prod runtime gate materialized a bounded claim.',
     claim_strength: 'moderate',
-    result_interpretation_packet_ids: [RESULT_PACKET_ID],
     support_refs: [ref('run_evidence_unit', `${RUN_ID}-run-evidence`)],
     challenge_refs: [],
     scope: {
@@ -903,23 +935,15 @@ function claimDomainGateRequest(): CreateClaimCandidateRequest {
       negative_scope_notes: [],
       excluded_scope_notes: [],
     },
-    boundary: {
-      boundary_gate_result_id: null,
-      rationale: 'Bounded to near-prod route smoke evidence.',
-      forbidden_overclaims: ['broad generalization'],
-      hidden_counter_evidence_refs: [],
-      required_followup_refs: [],
-      human_confirmation_ref: null,
-    },
-    trace_manifest_id: TRACE_MANIFEST_CLAIM_ID,
-    claim_trace_packet_id: CLAIM_TRACE_PACKET_ID,
-    policy_version_id: 'policy-v1',
-    created_by: 'system',
+    boundary_rationale: 'Bounded to near-prod route smoke evidence.',
+    forbidden_overclaims: ['broad generalization'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
   };
 }
 
 function resultAnalysisRoleOutput(
-  finalRequest: CreateResultInterpretationPacketRequest = resultAnalysisDomainGateRequest(),
+  interpretationOverrides: Partial<NonNullable<PaperImplementationResultAnalysisRoleOutput['interpretation']>> = {},
 ): PaperImplementationResultAnalysisRoleOutput {
   return {
     role_slot_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
@@ -942,30 +966,20 @@ function resultAnalysisRoleOutput(
       recommended_claim_refs: [ref('claim_candidate', `${RUN_ID}-${kind}-claim`)],
       required_followup_refs: [ref('validation_feedback_item', `${RUN_ID}-${kind}-followup`)],
     })),
-    domain_gate_request: structuredClone(finalRequest) as unknown as Record<string, unknown>,
-  };
-}
-
-function resultAnalysisDomainGateRequest(): CreateResultInterpretationPacketRequest {
-  return {
-    result_interpretation_packet_id: RESULT_ANALYSIS_DOMAIN_PACKET_ID,
-    validation_cycle_id: RESULT_ANALYSIS_VALIDATION_CYCLE_ID,
-    source: {
-      run_evidence_refs: [ref('run_evidence_unit', RESULT_ANALYSIS_RUN_EVIDENCE_UNIT_ID)],
-      validation_report_refs: [ref('result_validation_report', RESULT_ANALYSIS_VALIDATION_REPORT_ID)],
-      metric_refs: [ref('metric', RESULT_ANALYSIS_METRIC_ID)],
-      failed_run_refs: [],
-      inconclusive_run_refs: [],
-      stale_or_invalidated_evidence_refs: [],
-    },
-    result_summary: {
+    // T-124 G4.6: typed SEMANTIC blocks; the runtime service assembles the
+    // CreateResultInterpretationPacketRequest from the request context.
+    interpretation: {
       result_summary: 'The near-prod result-analysis runtime route supports a bounded result interpretation.',
       supports_assertion_refs: [ref('motive_assertion', `${RUN_ID}-result-analysis-assertion`)],
       challenges_assertion_refs: [],
       unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
       failed_runs_accounted_for: true,
       inconclusive_runs_accounted_for: true,
       exploratory_confirmatory_separated: true,
+      ...interpretationOverrides,
     },
     reliability: {
       failed_runs_retained: true,
@@ -979,9 +993,6 @@ function resultAnalysisDomainGateRequest(): CreateResultInterpretationPacketRequ
       recommended_claim_refs: [],
       required_followup_refs: [],
     },
-    trace_manifest_id: RESULT_ANALYSIS_TRACE_MANIFEST_ID,
-    policy_version_id: 'policy-v1',
-    created_by: 'system',
   };
 }
 

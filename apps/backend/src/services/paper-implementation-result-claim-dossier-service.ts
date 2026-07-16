@@ -74,7 +74,11 @@ const FAILED_LIKE_RUN_STATUSES = new Set(['failed', 'cancelled', 'negative']);
 // result packets happen to cite — otherwise selective packet inclusion can
 // silently launder away failed/negative evidence.
 const PROJECT_ACCOUNTABLE_RUN_STATUSES = new Set(['failed', 'cancelled', 'negative', 'inconclusive']);
-const CLAIM_SUPPORT_EVIDENCE_REF_TYPES = new Set([
+// T-124 G4.6 run-012 fix: exported so the Domain Gate assembly can mirror this
+// exact evidence discipline when mapping the adjudicator's semantic support
+// selection into the CreateClaimCandidateRequest evidence position (single
+// source — the gate's own check below stays untouched, defence in depth).
+export const CLAIM_SUPPORT_EVIDENCE_REF_TYPES = new Set([
   'runevidenceunit',
   'citationcandidate',
   'literatureevidence',
@@ -124,7 +128,7 @@ const HIGH_RISK_OVERCLAIM_STATEMENT_PATTERNS = [
   /\b(superior|superiority|best|state of the art|sota)\b/u,
   /\boutperform(s)? (all|every|any|across)\b/u,
 ] as const;
-const MEMO_OR_SUMMARY_REF_TYPES = new Set([
+export const MEMO_OR_SUMMARY_REF_TYPES = new Set([
   'resultinterpretationpacket',
   'llmrationale',
   'boardsummary',

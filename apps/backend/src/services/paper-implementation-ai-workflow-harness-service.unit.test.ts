@@ -872,6 +872,9 @@ function makeTraceManifest(implementationProjectId: string): TraceManifest {
 function makeClaimBoundaryRuntimeRequest(): RunPaperImplementationP1RuntimeReviewRequest {
   const resultPacketRef = ref('result_interpretation_packet', 'result_packet_1');
   const claimTracePacketRef = ref('claim_trace_packet', 'claim_trace_packet_1');
+  // T-124 G4.6 structural context refs (service-assembled Create request).
+  const claimCandidateRef = ref('claim_candidate', 'claim_candidate_1');
+  const traceManifestRef = ref('trace_manifest', 'trace_manifest_claim_1');
   return {
     run_id: 'claim_boundary_runtime_run_1',
     run_mode: 'mock',
@@ -881,8 +884,13 @@ function makeClaimBoundaryRuntimeRequest(): RunPaperImplementationP1RuntimeRevie
     target_version_id: 'v1',
     input_snapshot_ref: ref('implementation_input_snapshot', 'input_snapshot_1'),
     input_snapshot_hash: testHash('input_snapshot_1'),
-    source_refs: [resultPacketRef, claimTracePacketRef],
-    source_hashes: [testHash('result_packet_1'), testHash('claim_trace_packet_1')],
+    source_refs: [resultPacketRef, claimTracePacketRef, claimCandidateRef, traceManifestRef],
+    source_hashes: [
+      testHash('result_packet_1'),
+      testHash('claim_trace_packet_1'),
+      testHash('claim_candidate_1'),
+      testHash('trace_manifest_claim_1'),
+    ],
     preflight_blocker_codes: [],
     mocked_role_outputs: makeClaimBoundaryRoleOutputs(),
   };
@@ -908,7 +916,30 @@ function makeClaimBoundaryRoleOutput(
     cited_source_refs: [ref('result_interpretation_packet', 'result_packet_1')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final ? { claim_candidate_id: 'claim_candidate_1' } : null,
+    // T-124 G4.6: the adjudicator proposes typed semantic content; the runtime
+    // service assembles the CreateClaimCandidateRequest from the request context.
+    claim_proposal: final
+      ? {
+        claim_type: 'method_claim',
+        claim_statement: 'Bounded harness claim within the probed setting.',
+        claim_strength: 'tentative',
+        support_refs: [ref('run_evidence_unit', 'run_evidence_unit_1')],
+        challenge_refs: [],
+        scope: {
+          population_scope: 'harness fixture runs',
+          method_scope: 'runtime orchestration path',
+          dataset_scope: 'fixture dataset',
+          metric_scope: 'admission correctness',
+          negative_scope_notes: [],
+          excluded_scope_notes: [],
+        },
+        boundary_rationale: 'accepted by harness fixture',
+        forbidden_overclaims: [],
+        hidden_counter_evidence_refs: [],
+        required_followup_refs: [],
+      }
+      : null,
+    dossier_proposal: null,
     scenario_outputs: [],
   };
 }

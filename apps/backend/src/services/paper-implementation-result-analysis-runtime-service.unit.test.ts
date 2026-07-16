@@ -49,9 +49,8 @@ class StubResultAnalysisAgentOrchestrator {
       'passed'
       | 'schema_failed'
       | 'incomplete_scenarios'
-      | 'missing_domain_gate_request'
-      | 'wire_passed'
-      | 'wire_decode_failed'
+      | 'missing_semantic_blocks'
+      | 'malformed_semantic_content'
     > = ['passed'],
   ) {}
 
@@ -76,18 +75,25 @@ class StubResultAnalysisAgentOrchestrator {
         scenario_outputs: [resultAnalysisScenarioOutput('positive')],
       }) as T, input.node_id, input.execution_mode);
     }
-    if (outcome === 'missing_domain_gate_request') {
+    if (outcome === 'missing_semantic_blocks') {
+      // T-124 G4.6: a passed output without the typed semantic blocks cannot be
+      // assembled into a CreateResultInterpretationPacketRequest.
       return invocationResult(roleOutput({
-        domain_gate_request: undefined,
+        interpretation: null,
+        reliability: null,
+        claim_implications: null,
       }) as T, input.node_id, input.execution_mode);
     }
-    if (outcome === 'wire_passed') {
-      // T-124 S3 F5-1: a provider wire output carries the domain-gate request as
-      // a JSON string; the service must canonicalize it back into the object.
-      return invocationResult(wireRoleOutput() as T, input.node_id, input.execution_mode);
-    }
-    if (outcome === 'wire_decode_failed') {
-      return invocationResult(wireRoleOutput('{ not valid json') as T, input.node_id, input.execution_mode);
+    if (outcome === 'malformed_semantic_content') {
+      // T-124 G4.6: semantic content present but schema-invalid (empty
+      // result_summary) — the ASSEMBLED request fails the Domain Gate ajv
+      // pre-check (retryable), never a 400 at materialize.
+      return invocationResult(roleOutput({
+        interpretation: {
+          ...interpretationBlock(),
+          result_summary: '',
+        },
+      }) as T, input.node_id, input.execution_mode);
     }
     return invocationResult(roleOutput() as T, input.node_id, input.execution_mode);
   }
@@ -135,31 +141,64 @@ test('result analysis runtime records role and final artifacts with telemetry', 
   assert.equal(stableStringify(result).includes('rendered_prompt_text'), false);
 });
 
-test('T-124 S3 F5-1: result analysis canonicalizes the provider wire domain-gate JSON string into the canonical object', async () => {
-  const { service, orchestrator } = serviceFixture(['wire_passed']);
+test('T-124 G4.6: result analysis assembles the domain_gate_request deterministically from request context + semantic blocks', async () => {
+  const { service, orchestrator } = serviceFixture(['passed']);
   const result = await service.runInterpretationScenarios(PROJECT_ID, providerRequest());
 
   assert.equal(result.status, 'passed');
   assert.equal(orchestrator.calls.length, 1);
-  // Provider mode sent the wire schema and instructed the JSON-string carrier.
-  assert.match(orchestrator.calls[0]?.messages[0]?.content ?? '', /domain_gate_request_json/);
-  // The recorded artifact carries the canonical object — no wire residue anywhere.
-  const domainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
-  assert.equal(domainGate !== null, true);
-  assert.equal(domainGate?.result_interpretation_packet_id, 'result_interpretation_packet_001');
+  // Provider mode uses the single canonical schema — no wire carrier residue.
   const serialized = stableStringify(result);
   assert.equal(serialized.includes('domain_gate_request_json'), false);
-  assert.equal(serialized.includes('{ not valid json'), false);
+  const domainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  assert.ok(domainGate);
+  // Structural fields come from the request context (target + source refs).
+  assert.equal(domainGate?.result_interpretation_packet_id, 'result_interpretation_packet_001');
+  assert.equal(domainGate?.validation_cycle_id, 'validation_cycle_001');
+  assert.equal(domainGate?.trace_manifest_id, 'trace_manifest_result_001');
+  const source = domainGate?.source as Record<string, unknown>;
+  assert.deepEqual(
+    (source.run_evidence_refs as Array<{ ref_id: string }>).map((item) => item.ref_id),
+    ['run_evidence_unit_001'],
+  );
+  assert.deepEqual(
+    (source.metric_refs as Array<{ ref_id: string }>).map((item) => item.ref_id),
+    ['metric_001'],
+  );
+  // Semantic fields come verbatim from the role's typed blocks.
+  const resultSummary = domainGate?.result_summary as Record<string, unknown>;
+  assert.equal(resultSummary.result_summary, 'The trusted run supports the bounded assertion.');
+  const claimImplications = domainGate?.claim_implications as Record<string, unknown>;
+  assert.equal(claimImplications.allowed_claim_ceiling, 'moderate');
+  // created_by reflects the executing actor (provider_llm -> llm).
+  assert.equal(domainGate?.created_by, 'llm');
 });
 
-test('T-124 S3 F5-1: result analysis fails closed when the provider wire JSON carrier cannot be parsed', async () => {
-  const { service, orchestrator } = serviceFixture(['wire_decode_failed', 'wire_decode_failed']);
-  const result = await service.runInterpretationScenarios(PROJECT_ID, providerRequest());
-
-  // One retryable technical retry, then terminal failed_runtime — never a 400.
-  assert.equal(result.status, 'failed_runtime');
-  assert.equal(orchestrator.calls.length, 2);
-  assert.equal(result.blocker_codes.includes('RUNTIME_WIRE_JSON_DECODE_FAILED'), true);
+test('T-124 G4.6: result analysis rejects an incomplete Domain Gate structural context with 400 before any provider call', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const request = providerRequest();
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      run_id: 'result_analysis_missing_structural_context_run_001',
+      source_refs: request.source_refs.filter((item) => item.ref_type !== 'result_interpretation_packet'),
+      source_hashes: request.source_hashes.slice(0, request.source_refs.length - 1),
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /result_interpretation_packet/.test(error.message),
+  );
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      run_id: 'result_analysis_wrong_target_type_run_001',
+      target_ref: ref('experiment_result', 'experiment_result_001'),
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /validation_cycle/.test(error.message),
+  );
+  assert.equal(orchestrator.calls.length, 0);
 });
 
 test('result analysis runtime records preflight blockers without provider calls', async () => {
@@ -216,8 +255,8 @@ test('result analysis runtime fails closed when passed output omits required sce
   ]);
 });
 
-test('result analysis runtime fails closed when passed output omits domain gate request', async () => {
-  const { service, orchestrator } = serviceFixture(['missing_domain_gate_request', 'missing_domain_gate_request']);
+test('T-124 G4.6: result analysis fails closed when a passed output omits the semantic content blocks', async () => {
+  const { service, orchestrator } = serviceFixture(['missing_semantic_blocks', 'missing_semantic_blocks']);
   const result = await service.runInterpretationScenarios(PROJECT_ID, {
     ...providerRequest(),
     run_id: 'result_analysis_missing_domain_gate_run_001',
@@ -230,6 +269,106 @@ test('result analysis runtime fails closed when passed output omits domain gate 
   assert.equal(result.final_runtime_artifact, null);
   assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING');
   assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+});
+
+test('T-124 G4.5 Fix 2 (under G4.6 assembly): result analysis fails closed (retryable) when the ASSEMBLED request cannot satisfy the target Create schema', async () => {
+  const { service, orchestrator } = serviceFixture(['malformed_semantic_content', 'malformed_semantic_content']);
+  const result = await service.runInterpretationScenarios(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'result_analysis_malformed_domain_gate_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  // Retryable: one same-profile retry, then terminal failed_runtime (2 calls).
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED');
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+});
+
+test('T-124 G4.5 Fix 2 (under G4.6 assembly): result analysis retry recovers when malformed semantic content is followed by a valid output', async () => {
+  const { service, orchestrator } = serviceFixture(['malformed_semantic_content', 'passed']);
+  const result = await service.runInterpretationScenarios(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'result_analysis_malformed_then_valid_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.final_runtime_artifact?.artifact_payload.domain_gate_request !== null, true);
+});
+
+test('T-124 G4.5 Fix 1: result analysis injects hash-fenced source_context_packets into the role prompt', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const request = providerRequest();
+  const packets = [
+    {
+      source_ref: request.source_refs[0]!,
+      source_hash: request.source_hashes[0]!,
+      evidence_kind: 'run_evidence_unit',
+      content_summary: 'Confirmatory run: LoRA r=8 reaches parity on SST-2 95.1 vs 94.8.',
+      key_facts: ['SST-2 95.1 vs 94.8', 'MRPC 89.7 vs 90.2', 'CoLA 63.4 vs 63.6'],
+    },
+  ];
+  const result = await service.runInterpretationScenarios(PROJECT_ID, {
+    ...request,
+    run_id: 'result_analysis_context_packets_run_001',
+    source_context_packets: packets,
+  });
+
+  assert.equal(result.status, 'passed');
+  const userMessage = orchestrator.calls[0]?.messages.find((message) => message.role === 'user')?.content ?? '';
+  assert.match(userMessage, /source_context_packets/);
+  assert.match(userMessage, /SST-2 95\.1 vs 94\.8/);
+  const systemMessage = orchestrator.calls[0]?.messages[0]?.content ?? '';
+  assert.match(systemMessage, /three semantic blocks/);
+  assert.match(systemMessage, /Do not emit a request envelope/);
+});
+
+test('T-124 G4.5 Fix 1: result analysis rejects a source_context_packet whose hash does not match the declared source', async () => {
+  const { service } = serviceFixture();
+  const request = providerRequest();
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      run_id: 'result_analysis_fence_hash_mismatch_run_001',
+      source_context_packets: [
+        {
+          source_ref: request.source_refs[0]!,
+          source_hash: hash('a-different-body'),
+          evidence_kind: 'run_evidence_unit',
+          content_summary: 'body',
+          key_facts: [],
+        },
+      ],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /source_hash .* does not match/.test(error.message),
+  );
+});
+
+test('T-124 G4.5 Fix 1: result analysis rejects a source_context_packet for an undeclared source_ref', async () => {
+  const { service } = serviceFixture();
+  const request = providerRequest();
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      run_id: 'result_analysis_fence_unknown_ref_run_001',
+      source_context_packets: [
+        {
+          source_ref: ref('experiment_result', 'not_declared_001'),
+          source_hash: hash('body'),
+          evidence_kind: 'experiment_result',
+          content_summary: 'body',
+          key_facts: [],
+        },
+      ],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /is not among the declared source_refs/.test(error.message),
+  );
 });
 
 test('result analysis runtime rejects product fixture modes and provider fixture payloads', async () => {
@@ -386,9 +525,8 @@ function serviceFixture(
     'passed'
     | 'schema_failed'
     | 'incomplete_scenarios'
-    | 'missing_domain_gate_request'
-    | 'wire_passed'
-    | 'wire_decode_failed'
+    | 'missing_semantic_blocks'
+    | 'malformed_semantic_content'
   >,
   project: ImplementationProject | null = implementationProjectFixture(),
 ) {
@@ -431,8 +569,19 @@ function providerRequest(): RunPaperImplementationResultAnalysisRuntimeRequest {
     source_refs: [
       ref('run_evidence_unit', 'run_evidence_unit_001'),
       ref('result_validation_report', 'result_validation_report_001'),
+      // T-124 G4.6 structural context: pre-authorized packet ref + trace
+      // manifest ref + metric ref — assembled by the service, never the LLM.
+      ref('result_interpretation_packet', 'result_interpretation_packet_001'),
+      ref('trace_manifest', 'trace_manifest_result_001'),
+      ref('metric', 'metric_001'),
     ],
-    source_hashes: [hash('run-evidence'), hash('validation-report')],
+    source_hashes: [
+      hash('run-evidence'),
+      hash('validation-report'),
+      hash('result-packet'),
+      hash('trace-manifest'),
+      hash('metric'),
+    ],
     preflight_blocker_codes: [],
   };
 }
@@ -468,55 +617,35 @@ function roleOutput(
     warning_codes: [],
     scenario_outputs: ['positive', 'negative', 'inconclusive', 'failed_run'].map((kind) =>
       resultAnalysisScenarioOutput(kind as PaperImplementationResultAnalysisRoleOutput['scenario_outputs'][number]['scenario_kind'])),
-    domain_gate_request: {
-      result_interpretation_packet_id: 'result_interpretation_packet_001',
-      validation_cycle_id: 'validation_cycle_001',
-      source: {
-        run_evidence_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-        validation_report_refs: [ref('result_validation_report', 'result_validation_report_001')],
-        metric_refs: [ref('metric', 'metric_001')],
-        failed_run_refs: [],
-        inconclusive_run_refs: [],
-        stale_or_invalidated_evidence_refs: [],
-      },
-      result_summary: {
-        result_summary: 'The trusted run supports the bounded assertion.',
-        supports_assertion_refs: [ref('motive_assertion', 'motive_assertion_001')],
-        challenges_assertion_refs: [],
-        unexpected_findings: [],
-        failed_runs_accounted_for: true,
-        inconclusive_runs_accounted_for: true,
-        exploratory_confirmatory_separated: true,
-      },
-      reliability: {
-        failed_runs_retained: true,
-        confound_refs: [],
-        limitation_refs: [ref('limitation', 'limitation_001')],
-        reliability_notes: [],
-      },
-      claim_implications: {
-        allowed_claim_ceiling: 'moderate',
-        forbidden_overclaims: ['broad generalization'],
-        recommended_claim_refs: [],
-        required_followup_refs: [],
-      },
-      trace_manifest_id: 'trace_manifest_result_001',
-      created_by: 'system',
+    interpretation: interpretationBlock(),
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [ref('limitation', 'limitation_001')],
+      reliability_notes: [],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'moderate',
+      forbidden_overclaims: ['broad generalization'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
     },
     ...overrides,
   };
 }
 
-/**
- * T-124 S3 F5-1: the provider wire shape — canonical role output with
- * `domain_gate_request` replaced by the `domain_gate_request_json` string
- * carrier. Pass `overrideJson` to inject a malformed carrier.
- */
-function wireRoleOutput(overrideJson?: string): Record<string, unknown> {
-  const { domain_gate_request: domainGate, ...rest } = roleOutput();
+function interpretationBlock(): NonNullable<PaperImplementationResultAnalysisRoleOutput['interpretation']> {
   return {
-    ...rest,
-    domain_gate_request_json: overrideJson ?? JSON.stringify(domainGate),
+    result_summary: 'The trusted run supports the bounded assertion.',
+    supports_assertion_refs: [ref('motive_assertion', 'motive_assertion_001')],
+    challenges_assertion_refs: [],
+    unexpected_findings: [],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    stale_or_invalidated_evidence_refs: [],
+    failed_runs_accounted_for: true,
+    inconclusive_runs_accounted_for: true,
+    exploratory_confirmatory_separated: true,
   };
 }
 

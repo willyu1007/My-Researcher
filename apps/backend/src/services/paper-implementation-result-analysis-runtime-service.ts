@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { Ajv, type ValidateFunction } from 'ajv';
 import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
@@ -10,7 +11,6 @@ import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
   paperImplementationResultAnalysisRoleOutputSchema,
-  paperImplementationResultAnalysisRoleWireOutputSchema,
   type PaperImplementationResultAnalysisArtifact,
   type PaperImplementationResultAnalysisRoleOutput,
   type PaperImplementationRuntimeAdmissionRecord,
@@ -19,6 +19,10 @@ import {
   type PaperImplementationRuntimeExecutorKind,
   type RunPaperImplementationResultAnalysisRuntimeRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import {
+  createResultInterpretationPacketRequestSchema,
+  type CreateResultInterpretationPacketRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
   PaperImplementationAgentExecutionMode,
   PaperImplementationAgentRunMode,
@@ -50,12 +54,16 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  assertBackHalfSourceContextPacketFence,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
-  PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   recordSlotProviderCallTelemetry,
   roleSlotEchoMismatchCode,
 } from './paper-implementation-runtime-utils.js';
+import {
+  assembleCreateResultInterpretationPacketRequest,
+  extractResultAnalysisDomainGateContext,
+} from './paper-implementation-domain-gate-assembly.js';
 import {
   buildPaperImplementationRuntimeOperationalTelemetry,
   type PaperImplementationRuntimeOperationalTelemetry,
@@ -187,20 +195,22 @@ const SLOT_PROFILE: SlotProfile = {
 };
 
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
-// T-124 S3 复审 F5-1: a provider wire output whose domain_gate_request_json
-// carrier fails to parse into the canonical object is a retryable technical
-// failure, never an HTTP 400.
-// S4 复审 FA-2: single-sourced from runtime-utils so the retry_kind classifier
-// registers it as `technical`.
-const RUNTIME_WIRE_JSON_DECODE_FAILED = PAPER_IMPLEMENTATION_RUNTIME_WIRE_JSON_DECODE_FAILED_FAILURE_CODE;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   // T-124 S3-α4: a wrong role_slot_id echo is a retryable technical failure
   // (S2-C single-source constant), not an HTTP 400.
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
-  RUNTIME_WIRE_JSON_DECODE_FAILED,
+  // T-124 G4.6: a passed role output that omits any of the three typed semantic
+  // blocks (interpretation / reliability / claim_implications) cannot be
+  // assembled into a CreateResultInterpretationPacketRequest — retryable
+  // semantic failure through the existing channel, never an HTTP 400.
   'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING',
   'RESULT_ANALYSIS_SCENARIO_SET_INCOMPLETE',
+  // T-124 G4.5 Fix 2 (retained under G4.6 service-side assembly): an ASSEMBLED
+  // request that cannot satisfy the target CreateResultInterpretationPacketRequest
+  // schema (e.g. empty semantic strings) is a retryable semantic failure at the
+  // slot, never a 400 at the Domain Gate materialize step.
+  'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED',
 ]);
 
 export class PaperImplementationResultAnalysisRuntimeService {
@@ -210,6 +220,11 @@ export class PaperImplementationResultAnalysisRuntimeService {
   private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
+  // T-124 G4.5 Fix 2 (retained under G4.6): shape-only pre-check of the
+  // SERVICE-ASSEMBLED domain_gate_request against the exact schema the Domain
+  // Gate materializer compiles. Existence / authority stays the Domain Gate's
+  // job (defence in depth — the gate's own validation is untouched).
+  private readonly domainGateRequestValidator: ValidateFunction;
 
   constructor(options: RuntimeServiceOptions) {
     this.projectRepository = options.projectRepository;
@@ -218,6 +233,8 @@ export class PaperImplementationResultAnalysisRuntimeService {
     this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.domainGateRequestValidator = new Ajv({ allErrors: true, strict: false, removeAdditional: false })
+      .compile(createResultInterpretationPacketRequestSchema);
   }
 
   async runInterpretationScenarios(
@@ -309,7 +326,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     for (let retryAttemptIndex = 0; retryAttemptIndex <= MAX_TECHNICAL_RETRY_ATTEMPT_INDEX; retryAttemptIndex += 1) {
       const result = await this.invokeRole(runtimeBase, request, retryAttemptIndex);
       providerCallCount += this.providerCallCount(result);
-      const runtimeFailureCode = this.roleInvocationFailureCode(result);
+      const runtimeFailureCode = this.roleInvocationFailureCode(request, result);
       const shouldRetry = request.execution_mode === 'provider_llm'
         && retryAttemptIndex < MAX_TECHNICAL_RETRY_ATTEMPT_INDEX
         && runtimeFailureCode !== null
@@ -362,15 +379,11 @@ export class PaperImplementationResultAnalysisRuntimeService {
         version: SLOT_PROFILE.promptTemplateVersion,
       },
       prompt_variant_key: SLOT_PROFILE.promptVariantId,
-      // T-124 S3 复审 F5-1: provider_llm sends the wire schema (domain-gate
-      // request as a JSON string); mocked/codex keep the canonical schema.
-      // Recorded output_contract stays canonical.
-      schema_name: request.execution_mode === 'provider_llm'
-        ? 'paper_implementation_result_analysis_role_wire'
-        : 'paper_implementation_result_analysis_role_output',
-      schema: (request.execution_mode === 'provider_llm'
-        ? paperImplementationResultAnalysisRoleWireOutputSchema
-        : paperImplementationResultAnalysisRoleOutputSchema) as unknown as Record<string, unknown>,
+      // T-124 G4.6: one canonical schema for every execution mode — the role
+      // output is fully typed (semantic content blocks), so the F5-1 wire
+      // encoding (domain_gate_request_json carrier) is retired for this slot.
+      schema_name: 'paper_implementation_result_analysis_role_output',
+      schema: paperImplementationResultAnalysisRoleOutputSchema as unknown as Record<string, unknown>,
       messages,
       input_refs: [
         request.target_ref,
@@ -400,75 +413,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
         : null,
       created_by: this.createdBy(request.execution_mode),
     });
-    return request.execution_mode === 'provider_llm'
-      ? this.canonicalizedWireInvocationResult(invocationResult)
-      : invocationResult;
-  }
-
-  /**
-   * T-124 S3 复审 F5-1: canonicalize a provider wire output — parse the
-   * `domain_gate_request_json` string carrier back into the canonical
-   * `domain_gate_request` object so recording, admission, and semantic checks
-   * all see the canonical shape. `scenario_outputs` stays canonical on the wire
-   * (typed items are strict-representable) and is untouched. A carrier that
-   * fails to parse, or parses to a non-object, fails closed as a retryable
-   * technical failure. Outputs without the wire carrier key pass through
-   * untouched (fixture stubs that bypass the orchestrator ajv gate).
-   */
-  private canonicalizedWireInvocationResult(
-    result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
-  ): TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput> {
-    const output = result.structured_output;
-    if (!output || typeof output !== 'object') {
-      return result;
-    }
-    const record = output as unknown as Record<string, unknown>;
-    if (!('domain_gate_request_json' in record)) {
-      return result;
-    }
-    const { domain_gate_request_json: domainGateJson, ...rest } = record;
-    let domainGateRequest: Record<string, unknown> | null = null;
-    if (domainGateJson !== undefined && domainGateJson !== null) {
-      const parsed = this.parseWireObject(domainGateJson);
-      if (parsed === null) {
-        return this.wireCanonicalizationFailure(result);
-      }
-      domainGateRequest = parsed;
-    }
-    const canonical = {
-      ...rest,
-      domain_gate_request: domainGateRequest,
-    } as unknown as PaperImplementationResultAnalysisRoleOutput;
-    return { ...result, structured_output: canonical };
-  }
-
-  /** Parse a wire JSON string into a plain object, or null if it is not a
-   * string, not valid JSON, or not a JSON object. */
-  private parseWireObject(value: unknown): Record<string, unknown> | null {
-    if (typeof value !== 'string') {
-      return null;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return null;
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return null;
-    }
-    return parsed as Record<string, unknown>;
-  }
-
-  private wireCanonicalizationFailure(
-    result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
-  ): TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput> {
-    return {
-      ...result,
-      structured_output: null,
-      error_code: RUNTIME_WIRE_JSON_DECODE_FAILED,
-      blocker_codes: this.uniqueStrings([...result.blocker_codes, RUNTIME_WIRE_JSON_DECODE_FAILED]),
-    };
+    return invocationResult;
   }
 
   private async recordPreflightBlockedArtifact(
@@ -484,7 +429,9 @@ export class PaperImplementationResultAnalysisRuntimeService {
       blocker_codes: blockerCodes,
       warning_codes: [],
       scenario_outputs: [],
-      domain_gate_request: null,
+      interpretation: null,
+      reliability: null,
+      claim_implications: null,
     };
     const artifactPayload = this.roleArtifactPayload(runtimeBase, request, output);
     const artifact = this.buildRuntimeArtifact(runtimeBase, request, {
@@ -524,7 +471,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   ): Promise<RecordedRuntimeArtifact> {
     const roleResult = roleInvocation.result;
     const output = roleResult.structured_output;
-    const runtimeFailureCode = this.roleInvocationFailureCode(roleResult);
+    const runtimeFailureCode = this.roleInvocationFailureCode(request, roleResult);
     const runtimeStatus = runtimeFailureCode
       ? 'failed_runtime'
       : output?.role_status === 'blocked' ? 'blocked' : 'passed';
@@ -821,7 +768,12 @@ export class PaperImplementationResultAnalysisRuntimeService {
       blockers: this.uniqueStrings(input.blockerCodes),
       warnings: this.uniqueStrings(input.warningCodes),
       runtime_failure_code: input.runtimeFailureCode,
-      domain_gate_request: input.status === 'passed' ? roleOutput?.domain_gate_request ?? null : null,
+      // T-124 G4.6: the recorded domain_gate_request is SERVICE-ASSEMBLED (pure,
+      // replayable) from the request context + the role's semantic content —
+      // field semantics unchanged, source of truth moved off the LLM.
+      domain_gate_request: input.status === 'passed' && roleOutput
+        ? (this.assembleDomainGateRequest(request, roleOutput) as unknown as Record<string, unknown> | null)
+        : null,
       scenario_outputs: roleOutput?.scenario_outputs ?? [],
       role_artifact_refs: [roleArtifact.artifact_payload_ref],
       role_artifact_hashes: [roleArtifact.artifact_payload_hash],
@@ -891,6 +843,9 @@ export class PaperImplementationResultAnalysisRuntimeService {
     const sourceHashBundleHash = this.hash({
       source_refs: request.source_refs,
       source_hashes: request.source_hashes,
+      // T-124 G4.5 Fix 1: injected bodies are part of the runtime identity so a
+      // body change re-keys the bundle (auditable, cache-correct).
+      source_context_packets: request.source_context_packets ?? [],
       target_ref: request.target_ref,
       input_snapshot_hash: request.input_snapshot_hash,
     });
@@ -925,13 +880,17 @@ export class PaperImplementationResultAnalysisRuntimeService {
         content: [
           'Return only structured JSON for PaperImplementation result-analysis interpretation scenarios.',
           'Interpretations are not evidence; cite run evidence, validation reports, failed-run summaries, limitations, and required follow-up refs separately.',
-          'If the analysis passes, include scenario_outputs and a domain_gate_request for the deterministic ResultInterpretationPacket service.',
+          // T-124 G4.5 Fix 1: source_context_packets carry the verbatim bodies of
+          // the cited run evidence / validation report / experiment result. Ground
+          // every number and interpretation in those bodies — do not condition on
+          // absent data or emit a skeleton when the bodies are present.
+          'Read source_context_packets for the actual experiment results, validation report, and run evidence bodies; interpret those concrete numbers rather than emitting a conditional skeleton.',
+          // T-124 G4.6: the model proposes SEMANTIC content only; the service
+          // assembles the CreateResultInterpretationPacketRequest deterministically
+          // from the request context. No request envelope, no id transcription.
+          'When the analysis passes (role_status=passed), you MUST fill all four scenario_outputs kinds (positive, negative, inconclusive, failed_run) AND the three semantic blocks: interpretation (result_summary text, supports_assertion_refs, challenges_assertion_refs, unexpected_findings, failed_run_refs, inconclusive_run_refs, stale_or_invalidated_evidence_refs, failed_runs_accounted_for, inconclusive_runs_accounted_for, exploratory_confirmatory_separated), reliability (failed_runs_retained, confound_refs, limitation_refs, reliability_notes), and claim_implications (allowed_claim_ceiling, forbidden_overclaims, recommended_claim_refs, required_followup_refs). Set them to null only when role_status=blocked.',
+          'Do not emit a request envelope: no service, request_type, ids, source_refs, source_hashes, or trace manifest fields — the deterministic service assembles the Domain Gate request from the request context.',
           'Do not write claims, dossiers, trace repairs, queue items, prompt text, or raw provider output.',
-          // T-124 S3 复审 F5-1: provider strict mode cannot emit a free/dynamic-key
-          // object, so the domain-gate request travels as a JSON string on the wire.
-          ...(request.execution_mode === 'provider_llm'
-            ? ['Encode the domain gate request as a JSON string in domain_gate_request_json (a single JSON object serialized to text; required when the analysis passes). scenario_outputs stays a normal JSON array of typed scenario objects.']
-            : []),
         ].join(' '),
       },
       {
@@ -945,6 +904,8 @@ export class PaperImplementationResultAnalysisRuntimeService {
           input_snapshot_hash: request.input_snapshot_hash,
           source_refs: request.source_refs,
           source_hashes: request.source_hashes,
+          // T-124 G4.5 Fix 1: the actual source bodies (hash-fenced to source_refs).
+          source_context_packets: request.source_context_packets ?? [],
           source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
         }),
       },
@@ -1103,6 +1064,20 @@ export class PaperImplementationResultAnalysisRuntimeService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
+    assertBackHalfSourceContextPacketFence(request.source_refs, request.source_hashes, request.source_context_packets);
+    // T-124 G4.6: the Domain Gate structural context (target validation_cycle,
+    // pre-authorized result_interpretation_packet ref, trace_manifest ref,
+    // run_evidence_unit refs) is part of the request face — it is statically
+    // decidable, so an incomplete context fails 400 BEFORE any provider call
+    // instead of wasting an LLM round on a request that can never materialize.
+    const contextExtraction = extractResultAnalysisDomainGateContext(request.target_ref, request.source_refs);
+    if (!contextExtraction.ok) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `result_analysis Domain Gate structural context is incomplete: ${contextExtraction.issues.join(' ')}`,
+      );
+    }
     if (request.run_mode === 'product' && request.execution_mode !== 'provider_llm') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'product run_mode requires execution_mode=provider_llm.');
     }
@@ -1228,6 +1203,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   }
 
   private roleInvocationFailureCode(
+    request: RunPaperImplementationResultAnalysisRuntimeRequest,
     result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
   ): string | null {
     const runtimeFailureCode = this.runtimeFailureCode(result);
@@ -1240,21 +1216,69 @@ export class PaperImplementationResultAnalysisRuntimeService {
     if (echoCode) {
       return echoCode;
     }
-    return this.semanticOutputFailureCode(result.structured_output);
+    return this.semanticOutputFailureCode(request, result.structured_output);
   }
 
+  /**
+   * T-124 G4.6 semantic completeness + deterministic assembly pre-check for a
+   * passed role output:
+   * - all three typed semantic blocks must be present (missing/incomplete →
+   *   retryable RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING; the service never
+   *   writes content on the model's behalf),
+   * - the four scenario kinds must be covered,
+   * - the SERVICE-ASSEMBLED CreateResultInterpretationPacketRequest must pass
+   *   the exact Domain Gate ajv schema (retained G4.5 pre-check; failures are
+   *   retryable RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED, never a 400 at
+   *   the Domain Gate materialize step).
+   */
   private semanticOutputFailureCode(
+    request: RunPaperImplementationResultAnalysisRuntimeRequest,
     output: PaperImplementationResultAnalysisRoleOutput | null,
   ): string | null {
     if (!output || output.role_status !== 'passed') {
       return null;
     }
-    if (!output.domain_gate_request) {
+    if (!output.interpretation || !output.reliability || !output.claim_implications) {
       return 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING';
     }
     const observedKinds = new Set(output.scenario_outputs.map((scenario) => scenario.scenario_kind));
     const missingKind = PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS.find((kind) => !observedKinds.has(kind));
-    return missingKind ? 'RESULT_ANALYSIS_SCENARIO_SET_INCOMPLETE' : null;
+    if (missingKind) {
+      return 'RESULT_ANALYSIS_SCENARIO_SET_INCOMPLETE';
+    }
+    const assembled = this.assembleDomainGateRequest(request, output);
+    if (!assembled || !this.domainGateRequestValidator(assembled)) {
+      return 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED';
+    }
+    return null;
+  }
+
+  /**
+   * T-124 G4.6: pure deterministic assembly of the
+   * CreateResultInterpretationPacketRequest. Structural fields come from the
+   * request context (target validation_cycle + declared source refs — asserted
+   * complete before any provider call); semantic fields are mapped verbatim
+   * from the role's typed blocks. Returns null when a semantic block is absent
+   * (blocked outputs / never a substitute content path).
+   */
+  private assembleDomainGateRequest(
+    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    output: PaperImplementationResultAnalysisRoleOutput,
+  ): CreateResultInterpretationPacketRequest | null {
+    if (!output.interpretation || !output.reliability || !output.claim_implications) {
+      return null;
+    }
+    const extraction = extractResultAnalysisDomainGateContext(request.target_ref, request.source_refs);
+    if (!extraction.ok) {
+      return null;
+    }
+    return assembleCreateResultInterpretationPacketRequest({
+      context: extraction.context,
+      interpretation: output.interpretation,
+      reliability: output.reliability,
+      claimImplications: output.claim_implications,
+      createdBy: this.createdBy(request.execution_mode),
+    });
   }
 
   private retryWarningCodes(

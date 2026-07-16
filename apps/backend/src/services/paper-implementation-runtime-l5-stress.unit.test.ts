@@ -381,10 +381,19 @@ test('L5 trace transient provider failure retries the same profile and recovers 
 test('L5 P1 stress blocks over-budget source bundles before provider calls', async () => {
   const gateway = new ScriptedLlmGateway((request) => p1RoleOutput(request.executionContext.operation));
   const { p1Service } = realRuntimeFixture(gateway);
-  const largeSourceRefs = Array.from({ length: 1200 }, (_, index) => ref(
-    'claim_trace_packet',
-    `claim_trace_packet_${String(index).padStart(4, '0')}_${'x'.repeat(96)}`,
-  ));
+  // T-124 G4.6: the structural context set stays complete (one claim_candidate /
+  // trace_manifest / claim_trace_packet + packet ref); the budget is blown with
+  // bulky run-evidence refs so the token gate — not the context assert — fires.
+  const largeSourceRefs = [
+    ref('result_interpretation_packet', 'result_packet_l5_001'),
+    ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
+    ref('claim_candidate', 'claim_candidate_l5_001'),
+    ref('trace_manifest', 'trace_manifest_l5_claim_001'),
+    ...Array.from({ length: 1200 }, (_, index) => ref(
+      'run_evidence_unit',
+      `run_evidence_unit_${String(index).padStart(4, '0')}_${'x'.repeat(96)}`,
+    )),
+  ];
   const result = await p1Service.runClaimBoundaryDebate(PROJECT_ID, p1Request('claim', {
     run_id: 'p1_l5_over_budget_run_001',
     source_refs: largeSourceRefs,
@@ -450,11 +459,12 @@ test('L5 P1 forbidden provider output does not create final or domain-gate paylo
   ]);
 });
 
-test('L5 P1 provider wire JSON carriers complete the debate chain with a canonical domain-gate request', async () => {
-  // T-124 S3 F5-1: the provider emits the wire encoding (domain_gate_request /
-  // scenario_outputs as JSON strings). The real orchestrator ajv-validates the
-  // wire schema, then the service canonicalizes the carriers back into the
-  // by-object shapes before recording — no wire residue survives to storage.
+test('L5 P1 provider wire completes the debate chain with a SERVICE-ASSEMBLED domain-gate request (G4.6)', async () => {
+  // T-124 S3 F5-1 narrowed by G4.6: the provider emits the wire encoding
+  // (scenario_outputs as JSON strings; typed proposals ride directly). The real
+  // orchestrator ajv-validates the wire schema, the service canonicalizes the
+  // scenario carrier, then deterministically ASSEMBLES the Create*Request from
+  // the request context + the adjudicator proposal — no wire residue survives.
   const gateway = new ScriptedLlmGateway((request) => p1WireRoleOutput(request.executionContext.operation));
   const { p1Service } = realRuntimeFixture(gateway);
   const result = await p1Service.runClaimBoundaryDebate(PROJECT_ID, p1Request('claim', {
@@ -466,8 +476,35 @@ test('L5 P1 provider wire JSON carriers complete the debate chain with a canonic
   // Provider mode sent the wire schema, not the canonical one.
   assert.equal(gateway.calls[0]?.schemaName, 'paper_implementation_p1_runtime_review_role_wire');
   const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
+  // Structural fields come from the request context (declared source refs).
   assert.equal(finalDomainGate?.claim_candidate_id, 'claim_candidate_l5_001');
+  assert.equal(finalDomainGate?.trace_manifest_id, 'trace_manifest_l5_claim_001');
+  assert.deepEqual(finalDomainGate?.result_interpretation_packet_ids, ['result_packet_l5_001']);
+  // Semantic fields come verbatim from the adjudicator's typed proposal.
+  assert.equal(finalDomainGate?.claim_statement, 'Bounded L5 parity claim within the probed scale and committed task set.');
   assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assertNoLeak(result, ['domain_gate_request_json', 'scenario_output_jsons']);
+});
+
+test('L5 P1 passed adjudicator without its semantic proposal fails closed (G4.6, no service-substituted content)', async () => {
+  const gateway = new ScriptedLlmGateway((request) => {
+    const output = p1WireRoleOutput(request.executionContext.operation);
+    if (String(request.executionContext.operation).endsWith('adjudicator_final')) {
+      return { ...output, claim_proposal: null };
+    }
+    return output;
+  });
+  const { p1Service } = realRuntimeFixture(gateway);
+  const result = await p1Service.runClaimBoundaryDebate(PROJECT_ID, p1Request('claim', {
+    run_id: 'p1_l5_missing_proposal_run_001',
+  }));
+
+  assert.equal(result.status, 'failed_runtime');
+  // Two prefix roles + adjudicator retried once.
+  assert.equal(gateway.calls.length, 4);
+  assert.equal(result.final_runtime_artifact, null);
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOMAIN_GATE_REQUEST_MISSING');
   assertNoLeak(result, ['domain_gate_request_json', 'scenario_output_jsons']);
 });
 
@@ -592,16 +629,12 @@ test('L5 result-analysis provider gateway failure retries once and does not crea
 });
 
 test('L5 result-analysis incomplete scenario set retries once and does not create final or domain-gate payloads', async () => {
-  // T-124 S3 F5-1: provider mode validates against the wire schema, so the
-  // provider must emit the domain-gate request as a JSON string. ajv passes
-  // (one scenario satisfies minItems:1); the incomplete-set is a SEMANTIC
-  // failure the service raises after canonicalizing the wire carrier.
-  const gateway = new ScriptedLlmGateway(() => {
-    const { domain_gate_request: domainGate, ...rest } = resultAnalysisRoleOutput({
-      scenario_outputs: [resultAnalysisScenarioOutput('positive')],
-    });
-    return { ...rest, domain_gate_request_json: JSON.stringify(domainGate) };
-  });
+  // T-124 G4.6: provider mode validates against the single canonical schema
+  // (typed semantic blocks — no wire carrier). ajv passes; the incomplete
+  // scenario set is a SEMANTIC failure the service raises before assembly.
+  const gateway = new ScriptedLlmGateway(() => resultAnalysisRoleOutput({
+    scenario_outputs: [resultAnalysisScenarioOutput('positive')],
+  }));
   const { resultAnalysisService } = realRuntimeFixture(gateway);
 
   const result = await resultAnalysisService.runInterpretationScenarios(PROJECT_ID, resultAnalysisRequest({
@@ -2028,7 +2061,32 @@ test('L5 motive evolution blocked challenge without reason retries once and does
     run_id: 'motive_evolution_l5_blocked_challenge_without_reason_run_001',
   }));
 
-  assertMotiveEvolutionRetryFailure(result, gateway, 'SCHEMA_VALIDATION_FAILED', 3, 2);
+  // T-124 G4.6 Fix 2: the challenge_check linkage moved from the wire schema
+  // (opaque all-or-nothing SCHEMA_VALIDATION_FAILED) to the service semantic
+  // layer — same invariant, actionable code, same bounded retry.
+  assertMotiveEvolutionRetryFailure(result, gateway, 'MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING', 3, 2);
+});
+
+test('L5 motive evolution challenge reason codes without any blocked status retry once and fail closed (G4.6 Fix 2 inverse link)', async () => {
+  const gateway = new ScriptedLlmGateway((request) => {
+    if (request.executionContext.operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+      return motiveEvolutionWire(motiveEvolutionRiskChallengerRoleOutput(motiveEvolutionPriorFromGatewayRequest(request), {
+        decision_options: motiveEvolutionDecisionOptionsByKey('evolution_option_l5_001', {
+          challenge_check: motiveEvolutionChallengeCheck({
+            blocking_reason_codes: ['residual_risk_without_blocked_status'],
+          }),
+        }),
+      }));
+    }
+    return motiveEvolutionWire(motiveEvolutionDesignerRoleOutput());
+  });
+  const { motiveEvolutionService } = realRuntimeFixture(gateway);
+
+  const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
+    run_id: 'motive_evolution_l5_dangling_reason_codes_run_001',
+  }));
+
+  assertMotiveEvolutionRetryFailure(result, gateway, 'MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT', 3, 2);
 });
 
 test('L5 motive evolution memo-like motive context blocks before provider calls', async () => {
@@ -2546,10 +2604,22 @@ function p1Request(
   } = {},
 ): RunPaperImplementationP1RuntimeReviewRequest {
   const claim = kind === 'claim';
+  // T-124 G4.6 structural context: every id the service assembles into the
+  // Create*Request is a declared source ref.
   const sourceRefs = overrides.source_refs ?? (
     claim
-      ? [ref('result_interpretation_packet', 'result_packet_l5_001'), ref('claim_trace_packet', 'claim_trace_packet_l5_001')]
-      : [ref('claim_candidate', 'claim_candidate_l5_001'), ref('claim_trace_packet', 'claim_trace_packet_l5_001')]
+      ? [
+        ref('result_interpretation_packet', 'result_packet_l5_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
+        ref('claim_candidate', 'claim_candidate_l5_001'),
+        ref('trace_manifest', 'trace_manifest_l5_claim_001'),
+      ]
+      : [
+        ref('claim_candidate', 'claim_candidate_l5_001'),
+        ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
+        ref('result_interpretation_packet', 'result_packet_l5_001'),
+        ref('trace_manifest', 'trace_manifest_l5_dossier_001'),
+      ]
   );
   const sourceHashes = overrides.source_hashes ?? sourceRefs.map((item) => hash(item.ref_id));
   return {
@@ -2584,6 +2654,10 @@ function resultAnalysisRequest(
   const sourceRefs = overrides.source_refs ?? [
     ref('run_evidence_unit', 'run_evidence_unit_l5_001'),
     ref('result_validation_report', 'result_validation_report_l5_001'),
+    // T-124 G4.6 structural context refs (service-assembled Create request).
+    ref('result_interpretation_packet', 'result_packet_l5_001'),
+    ref('trace_manifest', 'trace_manifest_l5_result_001'),
+    ref('metric', 'metric_l5_001'),
   ];
   const sourceHashes = overrides.source_hashes ?? sourceRefs.map((item) => hash(item.ref_id));
   return {
@@ -2862,26 +2936,68 @@ function p1RoleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOut
       : [ref('claim_candidate', 'claim_candidate_l5_001')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: final
-      ? claim ? { claim_candidate_id: 'claim_candidate_l5_001' } : { dossier_id: 'dossier_l5_001' }
-      : null,
+    // T-124 G4.6: the final adjudicator emits its typed SEMANTIC proposal; the
+    // runtime service assembles the Create*Request from the request context.
+    claim_proposal: final && claim ? l5ClaimProposal() : null,
+    dossier_proposal: final && !claim ? l5DossierProposal() : null,
     scenario_outputs: final && !claim
       ? [{ scenario_id: 'ready_for_writing', disposition: 'preferred' }]
       : [],
   };
 }
 
+/** The L5 claim adjudicator's typed semantic proposal (assembly input). */
+function l5ClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
+  return {
+    claim_type: 'empirical_finding',
+    claim_statement: 'Bounded L5 parity claim within the probed scale and committed task set.',
+    claim_strength: 'strong',
+    support_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'L5 downstream adaptation of a Transformer language model.',
+      method_scope: 'Parameter-efficient adaptation vs reproduced full fine-tuning.',
+      dataset_scope: 'Committed L5 benchmark subset.',
+      metric_scope: 'Per-task primary metric, trainable parameter count, inference latency.',
+      negative_scope_notes: [],
+      excluded_scope_notes: ['No claim beyond the probed setting.'],
+    },
+    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
+    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
+  };
+}
+
+/** The L5 dossier adjudicator's typed semantic proposal (assembly input). */
+function l5DossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
+  return {
+    dossier_status: 'ready_for_writing',
+    experiment_limitations: ['Results at the probed scale on the committed tasks only.'],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    negative_result_refs: [],
+    excluded_stale_or_invalidated_evidence_refs: [],
+    admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_l5_001')],
+    rejected_claim_refs: [],
+    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
+    claim_ceiling: 'strong',
+    readiness_blocker_refs: [],
+    readiness_warning_refs: [],
+    readiness_notes: ['Single confirmatory run set; nothing outstanding for N7.'],
+  };
+}
+
 /**
- * T-124 S3 F5-1: the provider wire shape of a P1 role output — canonical output
- * with `domain_gate_request` and `scenario_outputs` replaced by their
- * JSON-string carriers. This is what provider_llm calls actually emit (the
- * service canonicalizes them back).
+ * T-124 S3 F5-1 (narrowed by G4.6): the provider wire shape of a P1 role
+ * output — canonical output with `scenario_outputs` replaced by its JSON-string
+ * carrier. The typed proposal blocks ride the wire directly. This is what
+ * provider_llm calls actually emit (the service canonicalizes the carrier back).
  */
 function p1WireRoleOutput(nodeId: string): Record<string, unknown> {
-  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1RoleOutput(nodeId);
+  const { scenario_outputs: scenarios, ...rest } = p1RoleOutput(nodeId);
   return {
     ...rest,
-    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
     scenario_output_jsons: (scenarios ?? []).map((scenario) => JSON.stringify(scenario)),
   };
 }
@@ -2901,8 +3017,31 @@ function resultAnalysisRoleOutput(
     warning_codes: [],
     scenario_outputs: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS.map((kind) =>
       resultAnalysisScenarioOutput(kind)),
-    domain_gate_request: {
-      result_interpretation_packet_id: 'result_packet_l5_001',
+    // T-124 G4.6: typed SEMANTIC blocks; the runtime service assembles the
+    // CreateResultInterpretationPacketRequest from the request context.
+    interpretation: {
+      result_summary: 'The trusted L5 run supports the bounded interpretation across the required scenario kinds.',
+      supports_assertion_refs: [ref('motive_assertion', 'motive_assertion_l5_001')],
+      challenges_assertion_refs: [],
+      unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
+      failed_runs_accounted_for: true,
+      inconclusive_runs_accounted_for: true,
+      exploratory_confirmatory_separated: true,
+    },
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [ref('limitation', 'limitation_l5_001')],
+      reliability_notes: [],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'moderate',
+      forbidden_overclaims: ['broad generalization'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
     },
     ...overrides,
   };

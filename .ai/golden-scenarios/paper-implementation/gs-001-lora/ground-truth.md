@@ -1,6 +1,7 @@
 # GS-001 Ground Truth（人审对照答案卡）
 
-> 版本注记：v3（2026-07-15）——选题包按 run gs001-lora-live-004 复评（RF-* 七条）修订后，本卡增补 §GT-8 v3 预承诺对照段；GT-1..GT-7 未变（GT-7 仍是 v2 承诺基线，v3 在其上收口顺序矛盾并吸收 warning）。
+> 版本注记：v4（2026-07-16，T-124 G1）——后半链答案卡增补：§GT-9（acceptance 实验数据段 + 预期 claim 边界）、§GT-10（dossier 完备清单）。GT-1..GT-8 未变。
+> v3（2026-07-15）——选题包按 run gs001-lora-live-004 复评（RF-* 七条）修订后，本卡增补 §GT-8 v3 预承诺对照段；GT-1..GT-7 未变（GT-7 仍是 v2 承诺基线，v3 在其上收口顺序矛盾并吸收 warning）。
 
 素材来源：LoRA — Low-Rank Adaptation of Large Language Models（arXiv:2106.09685，带官方代码 microsoft/LoRA）。
 本卡是人审时的对照答案：LLM 工位的产出**不需要**复现论文原文，但候选质量维度按"命中合理路线空间、与论文实际路线对齐或合理偏离"打分；幻觉对照按"是否虚构了选题包/本卡都不支持的事实"判定。
@@ -63,3 +64,35 @@ run `gs001-lora-live-004` 的 route skeptic 复评：唯一 blocking `RF-BASE-00
 - **参考实现指针（部分吸收 RF-TRACE-001）**：v3 加 reference_implementation（公开 LoRA 官方实现 + RoBERTa-base 参考配置）作晋升时点 code/config 溯源锚；但项目级 code/config artifact 晋升时点确实不存在，作为诚实登记的 route-planning 已知缺口保留（**不完全吸收理由**：需 stage-0 执行才产出真实工件，选题包不得伪造）。
 
 幻觉判定更新（v3）：上述 v3 新增阈值/规则（**90.0 绝对下限**、stage-0 校准锚点、full-FT 复用规则、mean-over-repeats 聚合等）在 v3 中是选题包事实，引用**不判幻觉**；参考实现指向公开实现/配置属 intake 事实亦不判幻觉。引用论文报告的具体分数作为已知事实仍判幻觉；把"参考实现指针"当作"项目已有 code/config 工件"引用（而非晋升时点缺口）判过度主张。
+
+## GT-9 后半链答案卡：acceptance 实验数据段 + 预期 claim 边界（素材 v4，2026-07-16 增补）
+
+后半链（G1）从 acceptance 假体实验开始，素材 `topic-package.mjs` 的 `GS001_EXPERIMENT_RESULTS` 是"实验已发生"的事实来源——数字取 LoRA 论文真实报告值（arXiv:2106.09685 Table 2，RoBERTa-base）作为本测试场景的实验结果：
+
+- **stage-0 探针**：stage-0 校准锚点 SST-2 full-FT 94.6 acc；LoRA best-of-{r=4,r=8} 95.1 acc → 同时满足 ≥90.0 绝对下限与 ≤1.0pt 锚点差，探针**通过**。
+- **stage-1 full-FT 复现**（全部达门槛，parity 锚可用）：SST-2 94.8 acc（≥94.0）/ MRPC 90.2 F1（≥89.0）/ CoLA 63.6 MCC（≥60.0）。
+- **stage-2 confirmatory 矩阵**（mean-over-repeats，容差 0.5pt）：SST-2 95.1 vs 94.8（+0.3，parity）/ MRPC 89.7 vs 90.2（−0.5，parity 恰在容差边界）/ CoLA 63.4 vs 63.6（−0.2，parity）。
+- **资源面**：可训练参数 ~0.3M vs ~125M（约省 99.76%）；合并后零额外推理延迟。
+- 本场景**无 failed / inconclusive / negative run**——N7 项目级 REU 对账应无未对账项。
+
+**预期 claim 边界**（result analysis 解读质量与 claim 边界纪律的评分锚；素材 `GS001_CLAIM_GROUND_TRUTH`）：
+
+- claim 类型 `empirical_finding`，强度 **strong**（三任务全 parity + 资源节省实测）→ 产品强制**人工确认**（scope `strong_claim_acceptance`，单次消费）。
+- 合格 claim 语句形态：**限定在 probed 规模（RoBERTa-base）+ committed 任务集（SST-2/MRPC/CoLA）+ 预注册 0.5pt 容差内的 parity + 参数量/延迟资源事实**。禁止词形态：universal / all tasks / every task / superior / outperform / SOTA / always / generalize——任何这类词出现即越界（产品 high-risk overclaim gate 也会拒绝）。
+- forbidden_overclaims 至少含：对所有适配方法的普适优越性、未 probed 的规模/模态、"每个任务每个数据集都赢 full FT"。
+- 解读质量红线：MRPC −0.5 恰在容差边界，合格解读应报告为 **parity-at-boundary** 而非强赢；把 −0.5 说成"超过 full FT"或忽略边界性=解读失真。
+
+幻觉判定更新（v4）：`GS001_EXPERIMENT_RESULTS` 数字（94.6/95.1/94.8/90.2/63.6/89.7/63.4、~0.3M vs ~125M）在后半链是**实验已产出的场景事实**（经 trusted RunEvidenceUnit 入链），后半链工位引用不判幻觉；但**前半链**工位（route/skeptic/cycle/feasibility，晋升时点）引用这些数字仍判幻觉——实验彼时尚未发生。
+
+## GT-10 后半链答案卡：dossier 完备清单（素材 v4，2026-07-16 增补）
+
+dossier_readiness 审计与 ImplementationDossier 物化（`ready_for_writing`）的完备性评分锚——合格 dossier 必须同时满足（产品 gate 亦逐条 enforced，评审时核对 LLM 审计是否独立命中这些点而非碰运气通过）：
+
+1. **claim 处置完备**：包含的 claim candidate 全部显式 admitted 或 rejected（本场景：admitted = 唯一的 bounded parity claim；rejected = 无）；admitted claim 的 `claim_status` 必须是 `supported`（即有已解析的 ClaimTracePacket 且列入 `claim_trace_packet_ids`）。
+2. **强 claim 确认已消费**：strong claim 携带的 HumanConfirmationRecord（scope `strong_claim_acceptance`，actor=human）在 claim 物化时被单次消费；dossier 阶段不得复用。
+3. **禁越界主张显式化**：`claim_section.forbidden_overclaims` 非空（GT-9 的三条起）；claim_ceiling = strong（本场景）。
+4. **run 对账（packet 级）**：包含的 result packet 声明的 failed/inconclusive run refs 必须全部收进 `experiment_section`——本场景两者皆空，vacuous 通过。
+5. **N7 对账（项目级）**：项目内全部 trusted 且 run_status ∈ {failed, cancelled, negative, inconclusive} 的 RunEvidenceUnit 必须被 experiment_section/packet 覆盖或以"可证作废"豁免——本场景唯一 REU 为 succeeded，应报告"无未对账项"，而非省略该检查。
+6. **readiness gate 真实通过**：`readiness.readiness_gate_result_id` 指向针对 dossier trace manifest 的 **passed** TraceGateResult；`blocker_refs` 必须为空。
+7. **实验局限如实**：`experiment_limitations` 应包含 MRPC parity-at-boundary 与"仅 RoBERTa-base 规模 + 三任务"边界（对照 GT-9 红线）。
+8. **终点纪律**：dossier ready 后停在 export 停驻（四点集 #3）——writing entry packet 的产出是 runner 终点之外的人工决策；审计产出若声称"已导出/已进写作"判越权。

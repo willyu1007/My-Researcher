@@ -14,7 +14,7 @@
       "materialization_class": "domain_gate_materializable",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-claim-boundary-debate",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v3"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.claim-boundary.context-policy.v1",
@@ -448,7 +448,7 @@
       "materialization_class": "domain_gate_materializable",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-dossier-readiness-audit",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v3"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.dossier-readiness.context-policy.v1",
@@ -1749,7 +1749,7 @@
       "materialization_class": "proposal_only",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-motive-evolution-decision-support",
-        "prompt_template_version": "v2"
+        "prompt_template_version": "v3"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.motive-evolution.context-policy.v1",
@@ -1965,7 +1965,7 @@
       "materialization_class": "domain_gate_materializable",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-result-analysis-scenarios",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v3"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.result-analysis.context-policy.v1",

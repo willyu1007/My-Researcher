@@ -60,6 +60,7 @@ import {
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
+  normalizedPaperImplementationRefType,
   PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_KEY_DUPLICATE_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
@@ -276,6 +277,12 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   'MOTIVE_EVOLUTION_OPTION_SET_MISMATCH',
   'MOTIVE_EVOLUTION_CHALLENGE_COVERAGE_MISSING',
   'MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING',
+  // T-124 G4.6 Fix 2: the challenge_check linkage invariant moved from the wire
+  // schema (strict-unstable anyOf/if-then interlock) into this post-parse
+  // semantic layer — blocking_reason_codes without any blocked status is the
+  // inverse direction of MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING. Moved, not
+  // deleted: the canonical schema keeps the interlock unchanged.
+  'MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT',
   'MOTIVE_EVOLUTION_HUMAN_CONFIRMATION_GATE_MISSING',
   'MOTIVE_EVOLUTION_SIDE_EFFECT_GUARD_MISSING',
   'MOTIVE_EVOLUTION_AUTHORITY_FIELD_PRESENT',
@@ -1328,6 +1335,12 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const designerInstruction = isWireEncoding
       ? 'Propose evolution options as designed_option_entries: an array where every entry carries a unique runtime-local option_key (not a MotiveEvolutionDecision id) plus the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.'
       : 'Propose evolution options as designed_options: an object keyed by a unique runtime-local option_key (not a MotiveEvolutionDecision id) whose value carries the full option fields, and set option_set_hash to a stable identity of exactly 64 lowercase hex characters.';
+    // T-124 G4.5 Fix 3 (prompt v3): the run 008/009 live signatures were the
+    // designer echoing reviewed/cited refs with a drifted version_id (invented an
+    // @v1 pin) or title_card_id, tripping the ref reconciliation. Copy request
+    // refs byte-for-byte — do not add or change version_id/title_card_id.
+    const designerEchoInstruction =
+      'Set reviewed_target_motive_refs to exactly the request target_motive_refs and reviewed_core_motive_version_refs to exactly the request target_core_motive_version_refs, and take every cited_source_ref and every option supporting_ref / challenging_ref only from the request input refs. Copy each ref verbatim — same ref_type, ref_id, version_id, and title_card_id as the request supplied them; never invent, fill, or change a version_id (keep it null when the request ref is null) and never change title_card_id.';
     // T-124 D2-pre1: the designer's complete designed_options body is threaded
     // verbatim into prior_role_artifacts[0].designed_options (keyed by option_key,
     // enumerated in prior_role_artifacts[0].designed_option_keys). The challenger
@@ -1337,6 +1350,16 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const challengerInstruction = isWireEncoding
       ? 'Challenge every designer option on its substance: the designer\'s complete option content is supplied verbatim in prior_role_artifacts[0].designed_options (enumerated in prior_role_artifacts[0].designed_option_keys), so never block for missing designer option keys or content. Echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_option_entries as an array with exactly one entry per challenged option key; each entry repeats its option_key and carries a complete challenge_check.'
       : 'Challenge every designer option on its substance: the designer\'s complete option content is supplied verbatim in prior_role_artifacts[0].designed_options (enumerated in prior_role_artifacts[0].designed_option_keys), so never block for missing designer option keys or content. Echo designer_role_artifact_ref, designer_role_artifact_hash, and option_set_hash exactly from prior_role_artifacts, list every designer option key in challenged_option_keys, and return decision_options as an object keyed by option_key with exactly one entry per challenged option key; each entry carries a complete challenge_check.';
+    // T-124 G4.5 Fix 3 (prompt v3) + G4.6 Fix 2: the run 010/011 challenger
+    // tripped SCHEMA_VALIDATION_FAILED on its strict wire surface. The wire
+    // schema now keeps only strict-stable shape constraints; the interlocked
+    // invariants spelled out below are enforced post-parse by this service's
+    // semantic checks (BOUNDARY_BLOCKER_MISSING / CHALLENGE_CHECK_INCONSISTENT /
+    // HUMAN_CONFIRMATION_GATE_MISSING / RESULT_STATUS_INVALID /
+    // CHALLENGE_COVERAGE_MISSING) with actionable codes instead of an opaque
+    // all-or-nothing ajv failure. This stays guidance, not a relaxation.
+    const challengerWireSurfaceInstruction =
+      'Every option\'s challenge_check must include evidence_status, trace_status, portfolio_status, human_confirmation_status, downstream_impact_status, and blocking_reason_codes; blocking_reason_codes must be non-empty when any of those five statuses is "blocked" and an empty array otherwise. Include all eight no_*_side_effect guard fields set to true.';
     return [
       {
         role: 'system',
@@ -1348,6 +1371,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
           'Return only structured JSON for PaperImplementation motive evolution decision support.',
           'Use request-owned refs as the only authority and preserve motive, core motive version, portfolio, evidence, trace, validation, result, accepted-risk, human-confirmation, and source refs exactly.',
           isChallenger ? challengerInstruction : designerInstruction,
+          isChallenger ? challengerWireSurfaceInstruction : designerEchoInstruction,
           `Result-status invariants: support_result_status="options_proposed" requires role_status="passed" and a non-empty ${optionShapeNoun}; "no_evolution_needed" requires role_status="passed", an empty ${optionShapeNoun}, and empty blocker_codes; "blocked" requires role_status="blocked" and at least one blocker_codes entry.`,
           'Do not create motive evolution decisions, portfolio decisions, motive role changes, board/evidence writes, trace repair queue items, queue items, Domain Gate requests, prompt text, debate transcripts, or raw provider output.',
         ].join(' '),
@@ -1840,8 +1864,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     if (echoCode) {
       return echoCode;
     }
-    const sourceKeys = new Set(request.source_refs.map((ref) => this.refKey(ref)));
-    if (!this.refsWithinSet(output.cited_source_refs, sourceKeys)) {
+    if (!this.refsWithinEchoSet(output.cited_source_refs, request.source_refs)) {
       return 'MOTIVE_EVOLUTION_REF_MISMATCH';
     }
     if (!this.hasRequiredSideEffectGuards(output)) {
@@ -1950,6 +1973,13 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     if (decisionOptions.some((option) => this.challengeCheckMissingBlocker(option.challenge_check))) {
       return 'MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING';
     }
+    // T-124 G4.6 Fix 2 (moved from the wire schema's challenge_check anyOf):
+    // blocking_reason_codes must be empty when NO status is blocked — the
+    // inverse direction of the blocked-status-needs-reason link above. Enforced
+    // here for every execution mode; the canonical schema keeps the interlock.
+    if (decisionOptions.some((option) => this.challengeCheckDanglingReasonCodes(option.challenge_check))) {
+      return 'MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT';
+    }
     return null;
   }
 
@@ -1957,11 +1987,11 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
     options: Array<Pick<PaperImplementationMotiveEvolutionDecisionOption, 'supporting_refs' | 'challenging_refs'>>,
   ): string | null {
-    const allowedRefKeys = new Set(this.primaryInputRefs(request).map((ref) => this.refKey(ref)));
+    const allowedRefs = this.primaryInputRefs(request);
     for (const option of options) {
       if (
-        !this.refsWithinSet(option.supporting_refs, allowedRefKeys)
-        || !this.refsWithinSet(option.challenging_refs, allowedRefKeys)
+        !this.refsWithinEchoSet(option.supporting_refs, allowedRefs)
+        || !this.refsWithinEchoSet(option.challenging_refs, allowedRefs)
       ) {
         return 'MOTIVE_EVOLUTION_REF_MISMATCH';
       }
@@ -1992,14 +2022,26 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
   }
 
   private challengeCheckMissingBlocker(check: PaperImplementationMotiveEvolutionDecisionOption['challenge_check']): boolean {
-    const hasBlockedStatus = [
+    return this.challengeCheckHasBlockedStatus(check) && check.blocking_reason_codes.length === 0;
+  }
+
+  /** T-124 G4.6 Fix 2: inverse challenge_check linkage (was wire-schema anyOf). */
+  private challengeCheckDanglingReasonCodes(
+    check: PaperImplementationMotiveEvolutionDecisionOption['challenge_check'],
+  ): boolean {
+    return !this.challengeCheckHasBlockedStatus(check) && check.blocking_reason_codes.length > 0;
+  }
+
+  private challengeCheckHasBlockedStatus(
+    check: PaperImplementationMotiveEvolutionDecisionOption['challenge_check'],
+  ): boolean {
+    return [
       check.evidence_status,
       check.trace_status,
       check.portfolio_status,
       check.human_confirmation_status,
       check.downstream_impact_status,
     ].includes('blocked');
-    return hasBlockedStatus && check.blocking_reason_codes.length === 0;
   }
 
   private hasRequiredSideEffectGuards(output: PaperImplementationMotiveEvolutionRoleOutput): boolean {
@@ -2248,9 +2290,44 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     return refs.every((ref) => allowedKeys.has(this.refKey(ref)));
   }
 
+  /**
+   * T-124 G4.5 Fix 3 (run 008 REF_MISMATCH): object-identity ("motive echo")
+   * key — ref_type + ref_id only. The evolution designer echoes/cites the
+   * request's INPUT refs back through the output schema; the live chain showed it
+   * drifting `version_id` (filling it from the pinned `@v1` on target_ref while
+   * the request supplied the input refs unpinned, version_id: null) or
+   * `title_card_id`, which the full `semanticRefKey` (F3) still treated as drift.
+   * These reconciliations answer "which object," so they key on object identity.
+   */
+  private motiveEchoRefKey(ref: TopicSelectionFunctionalRef): string {
+    return `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}`;
+  }
+
+  /**
+   * T-124 G4.5 Fix 3: bounds check for model-echoed refs against the request's
+   * allowed input refs. Zero relaxation: an allowed ref that pins a `version_id`
+   * still requires the echo to match that pin; an allowed ref supplied unpinned
+   * (version_id: null) accepts the same object regardless of the version tag the
+   * model attached (the version was never constrained).
+   */
+  private refsWithinEchoSet(
+    refs: TopicSelectionFunctionalRef[],
+    allowedRefs: TopicSelectionFunctionalRef[],
+  ): boolean {
+    return refs.every((ref) => {
+      const echoKey = this.motiveEchoRefKey(ref);
+      return allowedRefs.some((allowed) =>
+        this.motiveEchoRefKey(allowed) === echoKey
+        && ((allowed.version_id ?? null) === null || allowed.version_id === ref.version_id));
+    });
+  }
+
   private sameFunctionalRefSet(left: TopicSelectionFunctionalRef[], right: TopicSelectionFunctionalRef[]): boolean {
-    const leftKeys = left.map((ref) => this.refKey(ref)).sort();
-    const rightKeys = right.map((ref) => this.refKey(ref)).sort();
+    // T-124 G4.5 Fix 3 (run 009 REVIEW_SET_MISMATCH): the review-set reconciliation
+    // answers "which motives did you review," so it keys on object identity —
+    // an echoed version_id/title_card_id drift is not a different motive.
+    const leftKeys = left.map((ref) => this.motiveEchoRefKey(ref)).sort();
+    const rightKeys = right.map((ref) => this.motiveEchoRefKey(ref)).sort();
     return this.equalStringArrays(leftKeys, rightKeys);
   }
 

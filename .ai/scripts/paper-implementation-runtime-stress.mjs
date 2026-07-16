@@ -80,10 +80,17 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 P1 forbidden provider output does not create final or domain-gate payloads',
   },
   {
-    // T-124 S3 复审 F5-1: provider wire JSON carriers round-trip through the
-    // real orchestrator ajv gate into canonical domain-gate/scenario shapes.
+    // T-124 S3 复审 F5-1 (narrowed by G4.6): the scenario wire carrier
+    // round-trips through the real orchestrator ajv gate and the service
+    // ASSEMBLES the domain-gate request from the request context.
     key: 'p1_provider_wire_carriers_complete_chain_with_canonical_domain_gate',
-    subtest: 'L5 P1 provider wire JSON carriers complete the debate chain with a canonical domain-gate request',
+    subtest: 'L5 P1 provider wire completes the debate chain with a SERVICE-ASSEMBLED domain-gate request (G4.6)',
+  },
+  {
+    // T-124 G4.6: a passed adjudicator without its typed semantic proposal
+    // cannot be assembled — retryable fail-closed, never substituted content.
+    key: 'p1_passed_adjudicator_without_proposal_fails_closed',
+    subtest: 'L5 P1 passed adjudicator without its semantic proposal fails closed (G4.6, no service-substituted content)',
   },
   {
     // T-124 S3 复审 F5-2: a strict-mode-degenerate schema is rejected at the
@@ -299,6 +306,12 @@ const REQUIRED_L5_CASES = [
   {
     key: 'motive_evolution_blocked_challenge_without_reason_retry_exhausted_no_motive_portfolio_board_trace_queue_or_domain_gate_payload',
     subtest: 'L5 motive evolution blocked challenge without reason retries once and does not create final, motive, portfolio, board, trace, queue, or domain-gate payloads',
+  },
+  {
+    // T-124 G4.6 Fix 2: the challenge_check inverse link (reason codes without
+    // any blocked status) moved from the wire schema to the semantic layer.
+    key: 'motive_evolution_dangling_challenge_reason_codes_retry_exhausted',
+    subtest: 'L5 motive evolution challenge reason codes without any blocked status retry once and fail closed (G4.6 Fix 2 inverse link)',
   },
   {
     key: 'motive_evolution_memo_like_context_zero_provider_calls',

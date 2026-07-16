@@ -72,7 +72,6 @@ import {
   paperImplementationValidationCyclePlanningRoleOutputSchema,
   paperImplementationResultAnalysisArtifactSchema,
   paperImplementationResultAnalysisRoleOutputSchema,
-  paperImplementationResultAnalysisRoleWireOutputSchema,
   paperImplementationRuntimeAdmissionRecordSchema,
   paperImplementationRuntimeArtifactEnvelopeSchema,
   paperImplementationTraceIntegrityDebateArtifactSchema,
@@ -354,6 +353,11 @@ function traceIntegrityRoleOutput(roleSlotId: string) {
 }
 
 function p1ReviewRoleOutput(roleSlotId: string) {
+  // T-124 G4.6: adjudicators carry typed SEMANTIC proposal blocks; the runtime
+  // service assembles the Create*Request (no free-map domain_gate_request on
+  // the role face any more).
+  const finalRole = roleSlotId.endsWith('final');
+  const claim = roleSlotId.startsWith('claim_boundary_review');
   return {
     role_slot_id: roleSlotId,
     role_status: 'passed',
@@ -361,10 +365,49 @@ function p1ReviewRoleOutput(roleSlotId: string) {
     cited_source_refs: [ref('result_interpretation_packet', 'result_packet_001')],
     blocker_codes: [],
     warning_codes: [],
-    domain_gate_request: roleSlotId.endsWith('final')
-      ? { claim_candidate_id: 'claim_candidate_001' }
-      : null,
+    claim_proposal: finalRole && claim ? p1ClaimProposal() : null,
+    dossier_proposal: finalRole && !claim ? p1DossierProposal() : null,
     scenario_outputs: [],
+  };
+}
+
+function p1ClaimProposal() {
+  return {
+    claim_type: 'empirical_finding',
+    claim_statement: 'Bounded parity claim within the probed scale and committed task set.',
+    claim_strength: 'strong',
+    support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
+    challenge_refs: [],
+    scope: {
+      population_scope: 'RoBERTa-base class Transformer language model.',
+      method_scope: 'Low-rank adaptation r=8 vs reproduced full fine-tuning.',
+      dataset_scope: 'Committed GLUE subset.',
+      metric_scope: 'Per-task primary metric.',
+      negative_scope_notes: [],
+      excluded_scope_notes: [],
+    },
+    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
+    forbidden_overclaims: ['universal superiority claims'],
+    hidden_counter_evidence_refs: [],
+    required_followup_refs: [],
+  };
+}
+
+function p1DossierProposal() {
+  return {
+    dossier_status: 'ready_for_writing',
+    experiment_limitations: ['Probed scale only.'],
+    failed_run_refs: [],
+    inconclusive_run_refs: [],
+    negative_result_refs: [],
+    excluded_stale_or_invalidated_evidence_refs: [],
+    admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    rejected_claim_refs: [],
+    forbidden_overclaims: ['universal superiority claims'],
+    claim_ceiling: 'strong',
+    readiness_blocker_refs: [],
+    readiness_warning_refs: [],
+    readiness_notes: ['Nothing outstanding for N7 reconciliation.'],
   };
 }
 
@@ -397,7 +440,32 @@ function resultAnalysisRoleOutput(overrides: Record<string, unknown> = {}) {
     warning_codes: [],
     scenario_outputs: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS.map((kind) =>
       resultAnalysisScenarioOutput(kind)),
-    domain_gate_request: { result_interpretation_packet_id: 'result_packet_001' },
+    // T-124 G4.6: typed semantic blocks (assembly inputs) — no free-map
+    // domain_gate_request on the role face any more.
+    interpretation: {
+      result_summary: 'The trusted run supports the bounded assertion.',
+      supports_assertion_refs: [ref('motive_assertion', 'motive_assertion_001')],
+      challenges_assertion_refs: [],
+      unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
+      failed_runs_accounted_for: true,
+      inconclusive_runs_accounted_for: true,
+      exploratory_confirmatory_separated: true,
+    },
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [ref('failed_run_summary', 'failed_run_summary_001')],
+      reliability_notes: [],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'moderate',
+      forbidden_overclaims: ['Do not state causality beyond the validation report.'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
+    },
     ...overrides,
   };
 }
@@ -1662,15 +1730,36 @@ test('result analysis role and final schemas require materializable passed scena
     await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput()),
     true,
   );
+  // T-124 G4.6: the role schema is a single strict-stable shape for every
+  // execution mode — passed-branch completeness (scenario kinds + non-null
+  // semantic blocks) moved to the runtime service semantic check (pinned in
+  // paper-implementation-result-analysis-runtime-service.unit.test.ts), so
+  // schema-level validation of these two shapes now passes.
   assert.equal(
     await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput({
       scenario_outputs: [],
     })),
-    false,
+    true,
   );
   assert.equal(
     await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput({
-      domain_gate_request: null,
+      interpretation: null,
+      reliability: null,
+      claim_implications: null,
+    })),
+    true,
+  );
+  // The retired free-map field is rejected outright (additionalProperties: false).
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput({
+      domain_gate_request: { result_interpretation_packet_id: 'result_packet_001' },
+    })),
+    false,
+  );
+  // A semantic block that is present must match its typed shape.
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput({
+      claim_implications: { allowed_claim_ceiling: 'not_a_strength' },
     })),
     false,
   );
@@ -1679,7 +1768,9 @@ test('result analysis role and final schemas require materializable passed scena
       role_status: 'blocked',
       blocker_codes: ['run_evidence_missing'],
       scenario_outputs: [],
-      domain_gate_request: null,
+      interpretation: null,
+      reliability: null,
+      claim_implications: null,
     })),
     true,
   );
@@ -3479,8 +3570,8 @@ test('motive evolution wire schemas reproduce the gs001-lora-live-004 mismatch a
     true,
   );
 
-  // Wire schemas keep the fail-closed invariants: options_proposed still
-  // requires a non-empty entry array (and non-empty challenged keys)...
+  // The designer wire keeps its fail-closed invariants: options_proposed still
+  // requires a non-empty entry array...
   assert.equal(
     await validatesBody(paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema, {
       ...motiveEvolutionWireDesignerRoleOutput(),
@@ -3488,12 +3579,65 @@ test('motive evolution wire schemas reproduce the gs001-lora-live-004 mismatch a
     }),
     false,
   );
+  // ...while the CHALLENGER wire (T-124 G4.6 Fix 2) keeps shape only — the
+  // options_proposed count/coverage interlock moved to the runtime service
+  // semantic layer (MOTIVE_EVOLUTION_CHALLENGE_COVERAGE_MISSING, pinned in
+  // paper-implementation-motive-evolution-runtime-service.unit.test.ts). The
+  // canonical challenger schema keeps the interlock unchanged (zero relaxation).
   assert.equal(
     await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, {
       ...motiveEvolutionWireChallengerRoleOutput(),
       challenged_option_keys: [],
       decision_option_entries: [],
     }),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, {
+      ...motiveEvolutionChallengerRoleOutput(),
+      challenged_option_keys: [],
+      decision_options: {},
+    }),
+    false,
+  );
+  // G4.6 Fix 2 linkage move: a challenge_check carrying blocking_reason_codes
+  // with NO blocked status is wire-ACCEPTED (shape only) but stays canonically
+  // rejected — the semantic layer's MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT
+  // is the enforcement point now (pinned in the runtime service unit test).
+  const danglingChallengeCheck = {
+    evidence_status: 'partial',
+    trace_status: 'satisfied',
+    portfolio_status: 'partial',
+    human_confirmation_status: 'satisfied',
+    downstream_impact_status: 'partial',
+    blocking_reason_codes: ['residual_risk_without_blocked_status'],
+  };
+  const danglingReasonEntry = {
+    ...motiveEvolutionWireChallengerRoleOutput(),
+    decision_option_entries: (motiveEvolutionWireChallengerRoleOutput().decision_option_entries as Array<Record<string, unknown>>).map(
+      (entry) => ({
+        ...entry,
+        challenge_check: danglingChallengeCheck,
+      }),
+    ),
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema, danglingReasonEntry),
+    true,
+  );
+  const danglingReasonCanonical = {
+    ...motiveEvolutionChallengerRoleOutput(),
+    decision_options: Object.fromEntries(
+      Object.entries(motiveEvolutionChallengerRoleOutput().decision_options as unknown as Record<string, Record<string, unknown>>).map(
+        ([key, option]) => [key, {
+          ...option,
+          challenge_check: danglingChallengeCheck,
+        }],
+      ),
+    ),
+  };
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionRiskChallengerRoleOutputSchema, danglingReasonCanonical),
     false,
   );
   // ...the human-confirmation gate guardrail survives per entry...
@@ -3541,34 +3685,31 @@ test('motive evolution wire schemas reproduce the gs001-lora-live-004 mismatch a
 });
 
 function p1WireRoleOutput(roleSlotId: string): Record<string, unknown> {
-  const { domain_gate_request: domainGate, scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
+  const { scenario_outputs: scenarios, ...rest } = p1ReviewRoleOutput(roleSlotId);
   return {
     ...rest,
-    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
     scenario_output_jsons: (scenarios as Record<string, unknown>[]).map((scenario) => JSON.stringify(scenario)),
   };
 }
 
-function resultAnalysisWireRoleOutput(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const { domain_gate_request: domainGate, ...rest } = resultAnalysisRoleOutput();
-  return {
-    ...rest,
-    domain_gate_request_json: domainGate === null ? null : JSON.stringify(domainGate),
-    ...overrides,
-  };
-}
-
-test('T-124 S3 F5-1: P1 and result-analysis provider wire schemas carry JSON strings and drop the degenerate map nodes', async () => {
-  // --- P1 wire: accepts the JSON-string carriers, rejects the canonical map fields. ---
+test('T-124 S3 F5-1 (narrowed by G4.6): P1 wire carries scenario JSON strings; typed proposals ride the wire directly', async () => {
+  // --- P1 wire: accepts the scenario JSON-string carrier + typed proposals. ---
   assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1WireRoleOutput('claim_boundary_review.adjudicator_final')), true);
   assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1WireRoleOutput('claim_boundary_review.boundary_critic')), true);
-  // The canonical object shape must NOT validate against the wire schema (no dual shape).
-  assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1ReviewRoleOutput('claim_boundary_review.adjudicator_final')), false);
-  // domain_gate_request_json must be a string, never an object.
+  assert.equal(await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, p1WireRoleOutput('dossier_readiness_prep.scenario_adjudicator_final')), true);
+  // The retired domain_gate_request_json carrier is rejected outright.
   assert.equal(
     await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, {
       ...p1WireRoleOutput('claim_boundary_review.adjudicator_final'),
-      domain_gate_request_json: { claim_candidate_id: 'claim_candidate_001' },
+      domain_gate_request_json: JSON.stringify({ claim_candidate_id: 'claim_candidate_001' }),
+    }),
+    false,
+  );
+  // A free-map domain_gate_request never rides the role face any more.
+  assert.equal(
+    await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, {
+      ...p1WireRoleOutput('claim_boundary_review.adjudicator_final'),
+      domain_gate_request: { claim_candidate_id: 'claim_candidate_001' },
     }),
     false,
   );
@@ -3580,41 +3721,26 @@ test('T-124 S3 F5-1: P1 and result-analysis provider wire schemas carry JSON str
     }),
     false,
   );
-
-  // --- result-analysis wire: domain_gate_request becomes a JSON string; scenario_outputs stays typed. ---
-  assert.equal(await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput()), true);
-  // passed requires a non-null domain_gate_request_json string.
+  // A typed proposal must match its shape on the wire too.
   assert.equal(
-    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput({
-      domain_gate_request_json: null,
-    })),
-    false,
-  );
-  // passed still requires a non-empty typed scenario_outputs set.
-  assert.equal(
-    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisWireRoleOutput({
-      scenario_outputs: [],
-    })),
-    false,
-  );
-  // blocked may omit the wire carrier.
-  assert.equal(
-    await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, {
-      ...resultAnalysisWireRoleOutput(),
-      role_status: 'blocked',
-      blocker_codes: ['RESULT_ANALYSIS_INSUFFICIENT_EVIDENCE'],
-      domain_gate_request_json: undefined,
+    await validatesBody(paperImplementationP1RuntimeReviewRoleWireOutputSchema, {
+      ...p1WireRoleOutput('claim_boundary_review.adjudicator_final'),
+      claim_proposal: { claim_statement: 'missing every other field' },
     }),
-    true,
+    false,
   );
-  // The canonical object shape must NOT validate against the wire schema.
-  assert.equal(await validatesBody(paperImplementationResultAnalysisRoleWireOutputSchema, resultAnalysisRoleOutput()), false);
 
-  // --- Strict-representability asymmetry pin (mirrors the gateway guardrail). ---
+  // --- result-analysis (G4.6): ONE canonical schema for every execution mode —
+  // fully typed, no wire variant, no JSON-string carrier. ---
+  assert.equal(await validatesBody(paperImplementationResultAnalysisRoleOutputSchema, resultAnalysisRoleOutput()), true);
+
+  // --- Strict-representability pins (mirror the gateway guardrail): the
+  // provider-sent faces must be free of degenerate map nodes. The P1 CANONICAL
+  // schema still carries one (bare-object scenario_outputs — mocked/codex only);
+  // the result-analysis canonical schema is now strict-representable itself. ---
   assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationP1RuntimeReviewRoleWireOutputSchema), false);
   assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationP1RuntimeReviewRoleOutputSchema), true);
-  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationResultAnalysisRoleWireOutputSchema), false);
-  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationResultAnalysisRoleOutputSchema), true);
+  assert.equal(hasStrictModeDegenerateMapSchema(paperImplementationResultAnalysisRoleOutputSchema), false);
 });
 
 test('T-124 S3 F5-2: every provider-sent role output schema is free of strict-mode-degenerate map nodes', () => {
@@ -3623,7 +3749,7 @@ test('T-124 S3 F5-2: every provider-sent role output schema is free of strict-mo
   // F5-1 the gateway guardrail must fire ZERO times on any of them.
   const providerSentSchemas: Array<[string, Record<string, unknown>]> = [
     ['p1_wire', paperImplementationP1RuntimeReviewRoleWireOutputSchema as unknown as Record<string, unknown>],
-    ['result_analysis_wire', paperImplementationResultAnalysisRoleWireOutputSchema as unknown as Record<string, unknown>],
+    ['result_analysis', paperImplementationResultAnalysisRoleOutputSchema as unknown as Record<string, unknown>],
     ['motive_evolution_option_designer_wire', paperImplementationMotiveEvolutionOptionDesignerRoleWireOutputSchema as unknown as Record<string, unknown>],
     ['motive_evolution_risk_challenger_wire', paperImplementationMotiveEvolutionRiskChallengerRoleWireOutputSchema as unknown as Record<string, unknown>],
     ['trace_integrity', paperImplementationTraceIntegrityRoleOutputSchema as unknown as Record<string, unknown>],
