@@ -938,6 +938,112 @@ export function makeGs001BridgeHandoff() {
 }
 
 // ---------------------------------------------------------------------------
+// T-124 G5 FIX-B: scenario-parameterization exports consumed by the runner.
+// The runner used to hardcode LoRA-flavoured strings for these; they now live
+// in the material so gs-002 / gs-003 supply their own semantics and the runner
+// consumes a generic interface. (See topic-package tail comments in gs-002/003.)
+// ---------------------------------------------------------------------------
+
+// FIX-B item 1: scenario-shaped verbatim body facts of the acceptance-experiment
+// result set. Each scenario produces its OWN key_facts from its EXPERIMENT_RESULTS
+// (numbers already verified above); the runner just consumes the string[] and
+// hash-fences it into the back-half source_context_packets.
+export function buildExperimentBodyFacts() {
+  const R = GS001_EXPERIMENT_RESULTS;
+  const matrix = R.confirmatory_matrix
+    .map((cell) => `${cell.task} ${cell.metric}: LoRA r=8 ${cell.lora_r8} vs full FT ${cell.full_ft} (delta ${cell.delta}, parity ${cell.parity})`)
+    .join('; ');
+  const fullFt = R.full_finetune_reproduction
+    .map((row) => `${row.task} ${row.metric} ${row.value} (target ${row.precommitted_target}, met ${row.target_met})`)
+    .join('; ');
+  return [
+    `Run status: ${R.run_status}. Committed tasks: ${R.committed_tasks.join(', ')}; `
+    + `parity tolerance ${R.parity_tolerance_points} points; provenance ${R.provenance}.`,
+    `Stage-0 probe: ${R.stage0_probe.note}`,
+    `Full fine-tuning reproduction: ${fullFt}.`,
+    `Confirmatory matrix (LoRA r=8 vs reproduced full fine-tuning): ${matrix}.`,
+    `Resource: ${R.resource.lora_trainable_parameters} vs ${R.resource.full_finetune_trainable_parameters} `
+    + `(${R.resource.trainable_parameter_reduction}); inference latency: ${R.resource.lora_added_inference_latency}.`,
+    `Overall: ${R.overall_note}`,
+  ];
+}
+
+// FIX-B item 6: N7 project-level reconciliation accounting statement, derived
+// from the (scenario-real) EXPERIMENT_RESULTS. gs-001 is the clean positive
+// scenario: no failed / inconclusive / negative run outstanding.
+GS001_EXPERIMENT_RESULTS.n7_reconciliation =
+  'Single succeeded confirmatory run set; no failed, inconclusive, or negative run. The project-level '
+  + '(N7) reconciliation has nothing outstanding to account for.';
+
+// FIX-B items 2 & 4: back-half authority-object copy (ValidationCycle intent /
+// ExperimentPlanLight plan_summary / HumanConfirmation rationale) + the run
+// recipe method string. gs-001 keeps the equivalent meaning it had inline.
+GS001_LORA_SPINE.back_half = {
+  validation_question:
+    'Does low-rank adaptation (r=8) reach task-metric parity with reproduced full fine-tuning on the '
+    + 'committed GLUE subset within the pre-registered tolerance, at the probed RoBERTa-base scale?',
+  assumptions_under_test: ['The adaptation delta has low intrinsic rank at the probed scale.'],
+  decision_if_pass: 'Materialize the bounded parity interpretation and draft the claim.',
+  decision_if_fail: 'Record the reproduction failure; parity claims for missed tasks are void.',
+  decision_if_inconclusive: 'Retain inconclusive evidence and narrow the follow-up cycle.',
+  why_this_cycle_now:
+    'Stage-0 probe passed and stage-1 baselines reproduced to target; the confirmatory matrix is due.',
+  pass_conditions: ['LoRA r=8 mean-over-repeats within 0.5 points of the reproduced full-FT anchor on all three committed tasks.'],
+  fail_conditions: ['Any committed task misses parity, or a full-FT reproduction misses its pre-committed target (anchor void).'],
+  inconclusive_conditions: ['Repeat variance prevents a stable mean within the repeat cap.'],
+  stop_conditions: ['Stop when the 40 GPU-hour training ledger is exhausted.'],
+  minimum_artifacts_required: ['trusted run evidence unit', 'result validation report'],
+  plan_summary:
+    'Confirmatory matrix {LoRA r=8, full fine-tuning} x {SST-2, MRPC, CoLA}, mean over <=3 repeats per cell, '
+    + 'stage-1 full-FT cells reused verbatim; latency measured under the committed protocol.',
+  run_recipe_method: 'lora_r8_vs_full_ft',
+  confirmation_rationale:
+    'Golden-scenario recorder confirms the strong parity claim against the material ground-truth card '
+    + '(ground-truth.md §GT-9): bounded to the probed scale and committed task set, forbidden overclaims listed.',
+};
+
+// FIX-B item 3: front-half packet/hint copy (motive-evolution + board-curation
+// content_summaries, lane-A route/skeptic/cycle/feasibility hints) + the scenario
+// evidence units the runner injects into the board-curation request. gs-001 has a
+// single primary evidence unit (no secondary), so secondary_evidence_units = [].
+GS001_LORA_SPINE.runner_context = {
+  motive_context_summary:
+    'Intake-stage motive: low-intrinsic-rank adaptation hypothesis for parameter-efficient adaptation of '
+    + 'Transformer language models. Board has weak literature support for cost pressure and an indirect '
+    + 'low-intrinsic-dimension signal; the low-rank hypothesis and baseline gap still need probe evidence.',
+  board: {
+    paper_source_summary:
+      'Primary literature locator for the topic package: parameter-efficient adaptation context — full '
+      + 'fine-tuning cost pressure, adapter latency overhead, prefix-tuning sequence-budget/stability issues, '
+      + 'and the low-intrinsic-dimension observation motivating the low-rank hypothesis.',
+    evidence_source_summary:
+      'Bound evidence unit currently supporting all three intake assertions at weak support; the board gap '
+      + 'is a missing direct low-rank probe and missing reproduced baselines.',
+    evidence_source_key_facts: [
+      'All three assertions currently rest on the same literature evidence unit (weak, indirect for the low-rank hypothesis).',
+      'No probe or run evidence exists yet; freshness is intake-fresh.',
+    ],
+    secondary_evidence_units: [],
+  },
+  lane_a_hints: {
+    route:
+      'Route candidates must answer the research question within the budget envelope; deployment-relevant '
+      + 'metrics are task score, trainable parameter count, and inference latency.',
+    skeptic:
+      'Critique dimensions must be grounded in this topic: low-rank hypothesis applicability boundary, '
+      + 'baseline reproduction gaps (adapter latency, prefix-tuning stability), inference-latency trade-offs, '
+      + 'and reproducibility within the single-GPU budget.',
+    cycle:
+      'Validation cycles must operationalize the early check obligations: a low-rank feasibility probe at '
+      + 'target model scale, and baseline reproducibility (full fine-tuning / adapter / prefix) before any '
+      + 'comparative claim is planned.',
+    feasibility:
+      `Probe plans must fit the budget envelope (single-GPU, GLUE subset, max runtime ${GS001_LORA_CONTENT.budget_envelope.max_runtime}, `
+      + `retry budget ${GS001_LORA_CONTENT.budget_envelope.retry_budget}) and carry explicit stop conditions.`,
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Generic scenario export contract (runner-facing; new in v4).
 //
 // The golden-scenario runner imports scenarios by these GENERIC names so a
@@ -945,11 +1051,13 @@ export function makeGs001BridgeHandoff() {
 // this same contract. Scenario-specific aliases (GS001_*) stay exported above so
 // the front-half history is untouched. A scenario topic-package.mjs MUST export:
 //   sha256Hex(value) -> hex
-//   SCENARIO_META          { scenario_id, paper, package_version, runner_contract }
+//   SCENARIO_META          { scenario_id, paper, package_version, runner_contract, node_review }
 //   SCENARIO_IDS           superset of domain-object ids (front + back half)
 //   SCENARIO_CONTENT       topic content core (research question / scope / budget …)
+//   SCENARIO_SPINE         deterministic spine + .back_half / .runner_context (FIX-B)
 //   makeBridgeHandoff()    promotion bridge handoff (real bootstrap route input)
 //   EXPERIMENT_RESULTS     acceptance experiment data segment (paper real numbers)
+//   buildExperimentBodyFacts() -> string[]  (FIX-B item 1)
 //   CLAIM_GROUND_TRUTH     expected claim boundary + dossier readiness answer card
 //   makeBackHalfFixtures(refs) -> { resultAnalysisRoleOutputs, claimBoundaryRoleOutputs,
 //                                   dossierReadinessRoleOutputs, domainGateRequests }
@@ -959,6 +1067,17 @@ export const SCENARIO_META = {
   paper: 'arXiv:2106.09685 (LoRA: Low-Rank Adaptation of Large Language Models)',
   package_version: 'v4',
   runner_contract: 'paper-implementation-golden-scenario/v4',
+  // FIX-B item 5: per-node human-review ground-truth pointers (were hardcoded in
+  // the runner's NODE_REVIEW_SPECS). Keyed by the runner's slot short-name.
+  node_review: {
+    motiveDecomposition: 'ground-truth.md §GT-1/§GT-2（动机与路线空间的贴合度）+ 幻觉对照速查',
+    motiveEvolution: 'ground-truth.md §GT-5/§GT-6（结论边界与局限意识）',
+    boardCuration: 'ground-truth.md §GT-3（缺什么证据）+ 幻觉对照速查',
+    routeArchitecture: 'ground-truth.md §GT-1（论文实际路线）/§GT-2（路线空间）',
+    routeSkeptic: 'ground-truth.md §GT-2（基线代价）/§GT-6（已知局限）',
+    cyclePlanning: 'ground-truth.md §GT-3（关键实验）/§GT-4（消融）',
+    feasibility: 'ground-truth.md §GT-4（r 扫描/作用矩阵即典型 probe 形态）',
+  },
 };
 export const SCENARIO_IDS = GS001_IDS;
 export const SCENARIO_CONTENT = GS001_LORA_CONTENT;

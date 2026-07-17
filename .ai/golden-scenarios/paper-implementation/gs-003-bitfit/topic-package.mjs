@@ -195,10 +195,13 @@ export const GS003_BITFIT_CONTENT = {
     gpu_constraint: 'single GPU, <=24 GB VRAM',
     total_training_budget:
       '<=24 GPU-hours across feasibility probe, small/medium reproduction, and boundary matrix combined',
+    // Key names stage1_baseline_reproduction / stage2_confirmatory_matrix align the gs-001/G1 runner
+    // contract; in this scenario stage 1 is the small/medium full-FT + bias-only reproduction and stage 2
+    // is the MNLI training-set-size BOUNDARY matrix (see stage_budget_notes / confirmatory_matrix_definition).
     stage_budgets: {
       stage0_feasibility_probe: '<=2 GPU-hours',
-      stage1_small_medium_reproduction: '<=10 GPU-hours',
-      stage2_boundary_matrix: '<=12 GPU-hours',
+      stage1_baseline_reproduction: '<=10 GPU-hours',
+      stage2_confirmatory_matrix: '<=12 GPU-hours',
     },
     stage_budget_notes:
       'Stage 0 (<=2 GPU-hours) covers BOTH the short single-seed SST-2-subsample full fine-tuning calibration '
@@ -217,13 +220,25 @@ export const GS003_BITFIT_CONTENT = {
       + 'MRPC, CoLA} (6 cells) plus stage-2 boundary matrix {bias-only, full fine-tuning} x {MNLI at 2k, 10k, '
       + '50k, full (~393k) training examples} (8 cells). A cell is one (method, task, data-scale) condition; '
       + 'repeats within a cell are capped separately below.',
-    max_repeats_per_cell:
+    // Key name max_repeats_per_task aligns the gs-001/G1 runner contract; caps differ by stage here.
+    max_repeats_per_task:
       'Stage-1 cells: <=3 repeats (seeds). Stage-2 gradient cells: <=2 repeats (seeds) per cell; the full-data '
       + 'MNLI cells run single-seed within budget and are flagged as single-seed in every downstream claim.',
     hyperparameter_policy:
       'Hyperparameters are fixed before stage 1 from the stage-0 settings and public reference '
       + 'configurations; no post-hoc hyperparameter search inside the confirmatory matrix. The bias-only '
       + 'learning rate may differ from the full fine-tuning learning rate but both are frozen before stage 1.',
+    // Key name rank_policy aligns the gs-001/G1 runner contract; BitFit has no low-rank hyperparameter.
+    rank_policy:
+      'Bias-subset policy: the confirmatory bias-only method trains the full set of bias vectors plus the '
+      + 'task head, fixed before stage 1. Any narrower bias partition is exploratory only and is never '
+      + 'swapped into a confirmatory cell post hoc.',
+    // Key name latency_protocol aligns the gs-001/G1 runner contract; BitFit changes no inference-time
+    // architecture, so there is no separate inference-latency protocol.
+    latency_protocol:
+      'No separate inference-latency protocol: bias-only tuning adds no inference-time layers, so efficiency '
+      + 'is measured per efficiency_measurement_protocol (trainable-parameter fraction and per-task '
+      + 'stored-delta size), reported alongside every parity and boundary claim.',
     checkpoint_policy:
       'Keep the final checkpoint per run only; no best-of-many checkpoint selection for confirmatory claims.',
     efficiency_measurement_protocol:
@@ -247,6 +262,8 @@ export const GS003_BITFIT_CONTENT = {
         + '(bias-only mean >= anchor mean - tolerance); exceeding the anchor passes',
       repeat_cap_stage1: 3,
       repeat_cap_stage2: 2,
+      // Key name repeat_cap_per_task aligns the gs-001/G1 runner contract; caps differ by stage here.
+      repeat_cap_per_task: '3 for stage-1 parity cells, 2 for stage-2 gradient cells (full-data MNLI single-seed)',
       parity_tolerance_points: 1.0,
       anchor:
         'per-condition reproduced full fine-tuning mean; a condition whose full fine-tuning cell fails its '
@@ -350,6 +367,15 @@ export const GS003_BITFIT_CONTENT = {
         + 'are dropped rather than weakened, and the omission itself is reported',
     },
   ],
+  // Key name baseline_claim_control_rule aligns the gs-001/G1 runner contract; here it restates the
+  // scenario's claim_drop / negative / inconclusive registration discipline in one clause.
+  baseline_claim_control_rule:
+    'Failed baseline or anchor reproduction DROPS the affected comparative claim (a per-task parity claim, '
+    + 'or a boundary-onset claim) rather than weakening, reinterpreting, or silently omitting it; the drop '
+    + 'and its reason are always reported. Parity claims stay void for any task whose full fine-tuning '
+    + 'reproduction misses its pre-committed target; boundary-onset claims stay void across any data scale '
+    + 'whose gradient anchor fails the validity rule. A pre-registered negative or inconclusive outcome is a '
+    + 'first-class result and is never presented as a weakened positive.',
   reference_implementation: {
     note:
       'Public reference implementation available at promotion time as intake context (matches the arXiv '
@@ -375,7 +401,9 @@ export const GS003_BITFIT_CONTENT = {
       + 'accuracy is BOTH >= 85.0 absolute accuracy points AND >= (stage-0 calibration anchor - 1.0). '
       + 'Stage 1 starts only after this gate passes. No stage-1 result is required to evaluate the stage-0 '
       + 'gate.',
-    anchor_gate:
+    // Key name baseline_gate aligns the gs-001/G1 runner contract; here the "baseline" is the mandatory
+    // full fine-tuning reproduction that anchors both parity and boundary claims.
+    baseline_gate:
       'Parity claims additionally require the mandatory stage-1 full fine-tuning reproduction to meet its '
       + 'per-task targets; boundary claims additionally require the stage-2 gradient anchor cells to pass '
       + 'the anchor validity rule. Full fine-tuning cells are reused verbatim across stages per the '
@@ -592,7 +620,7 @@ export function makeGs003BridgeHandoff() {
       + `Degradation threshold: ${c.boundary_precommitments.degradation_threshold} `
       + `Onset rule: ${c.boundary_precommitments.onset_rule} `
       + `Disposition mapping: ${c.boundary_precommitments.disposition_mapping.join(' | ')} `
-      + `Staged execution: ${c.staged_route_dependency.stage0_gate} ${c.staged_route_dependency.anchor_gate}`,
+      + `Staged execution: ${c.staged_route_dependency.stage0_gate} ${c.staged_route_dependency.baseline_gate}`,
     initial_planning_notes: [
       `Included scope: ${c.scope.included.join('; ')}`,
       `Excluded scope: ${c.scope.excluded.join('; ')}`,
@@ -601,9 +629,9 @@ export function makeGs003BridgeHandoff() {
       `Confirmatory budget matrix: ${c.confirmatory_budget_matrix.gpu_constraint}; `
       + `${c.confirmatory_budget_matrix.total_training_budget}; stage budgets: `
       + `probe ${c.confirmatory_budget_matrix.stage_budgets.stage0_feasibility_probe}, `
-      + `small/medium reproduction ${c.confirmatory_budget_matrix.stage_budgets.stage1_small_medium_reproduction}, `
-      + `boundary matrix ${c.confirmatory_budget_matrix.stage_budgets.stage2_boundary_matrix}; `
-      + `repeats: ${c.confirmatory_budget_matrix.max_repeats_per_cell} `
+      + `small/medium reproduction ${c.confirmatory_budget_matrix.stage_budgets.stage1_baseline_reproduction}, `
+      + `boundary matrix ${c.confirmatory_budget_matrix.stage_budgets.stage2_confirmatory_matrix}; `
+      + `repeats: ${c.confirmatory_budget_matrix.max_repeats_per_task} `
       + `${c.confirmatory_budget_matrix.hyperparameter_policy} `
       + `Checkpoint policy: ${c.confirmatory_budget_matrix.checkpoint_policy} `
       + `Efficiency protocol: ${c.confirmatory_budget_matrix.efficiency_measurement_protocol} `
@@ -1254,11 +1282,187 @@ export function makeGs003BackHalfFixtures(refs) {
 // - baselinePrefix → 本场景第三基线对象 = majority-class 合理性基线（梯度锚点有效性
 //   规则的承诺对象；BitFit 无 prefix 基线承诺）。
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// T-124 G5 FIX-B: scenario-parameterization exports consumed by the runner
+// (mirrors gs-001; BitFit boundary-condition family — negative/inconclusive
+// dispositions are first-class, and the experiment body facts carry the
+// boundary_matrix / qqp_extension / onset_evaluation cells verbatim).
+// ---------------------------------------------------------------------------
+
+// FIX-B item 1: scenario-shaped verbatim body facts. Unlike the uniform-parity
+// scenarios, gs-003 threads the training-set-size boundary matrix, the QQP
+// extension, and the onset evaluation cell-by-cell into the facts.
+export function buildExperimentBodyFacts() {
+  const R = GS003_EXPERIMENT_RESULTS;
+  const fullFt = R.full_finetune_reproduction
+    .map((row) => `${row.task} ${row.metric} ${row.value} (target ${row.precommitted_target}, met ${row.target_met})`)
+    .join('; ');
+  const parity = R.confirmatory_matrix
+    .map((cell) => `${cell.task} ${cell.metric}: bias-only ${cell.bias_only} vs full FT ${cell.full_ft} (delta ${cell.delta}, parity ${cell.parity})`)
+    .join('; ');
+  const boundary = R.boundary_matrix
+    .map((cell) => `${cell.data_scale}: full FT ${cell.full_ft} vs bias-only ${cell.bias_only} `
+      + `(gap full-FT−bias-only ${cell.gap_full_ft_minus_bias_only}, degradation-threshold-met ${cell.degradation_threshold_met}, `
+      + `anchor-valid ${cell.anchor_validity_passed}${cell.single_seed ? ', single-seed' : ''})`)
+    .join('; ');
+  const qe = R.qqp_extension;
+  return [
+    `Run status: ${R.run_status}. Committed tasks: ${R.committed_tasks.join(', ')}; one-sided parity tolerance `
+    + `${R.parity_tolerance_points} point(s) — ${R.parity_criterion_note}. Provenance: ${R.provenance}.`,
+    `GLUE dev averages (paper-reported): BERT-base full-FT ${R.glue_dev_averages.bert_base.full_finetune} / bias-only `
+    + `${R.glue_dev_averages.bert_base.bias_only}; BERT-large full-FT ${R.glue_dev_averages.bert_large.full_finetune} / `
+    + `bias-only ${R.glue_dev_averages.bert_large.bias_only}.`,
+    `Stage-0 probe: ${R.stage0_probe.note}`,
+    `Full fine-tuning reproduction: ${fullFt}.`,
+    `Stage-1 parity matrix (bias-only vs reproduced full FT, one-sided criterion): ${parity}.`,
+    `Stage-2 MNLI training-set-size boundary matrix (gap = full-FT − bias-only; degradation threshold = gap >= 1.0): ${boundary}.`,
+    `Onset evaluation: ${R.onset_evaluation}`,
+    `QQP extension: ${qe.executed
+      ? `executed — full FT ${qe.full_ft} vs bias-only ${qe.bias_only} (gap ${qe.gap_full_ft_minus_bias_only}, `
+        + `degradation-threshold-met ${qe.degradation_threshold_met}); ${qe.budget_note}`
+      : 'not executed'}.`,
+    `Resource: bias-only trainable-parameter fraction ${R.resource.bias_only_trainable_parameter_fraction} vs full FT `
+    + `${R.resource.full_finetune_trainable_parameter_fraction}; comparison rows: `
+    + `${R.resource.comparison_rows.map((c) => `${c.method} ${c.trainable_parameter_fraction} (GLUE dev avg ${c.glue_dev_average})`).join('; ')}.`,
+    `Overall: ${R.overall_note}`,
+  ];
+}
+
+// FIX-B item 6: N7 reconciliation — carries the negative + inconclusive lists
+// (this is the scenario's core discipline: account for, do not resolve away).
+GS003_EXPERIMENT_RESULTS.n7_reconciliation =
+  'No failed runs. The project-level (N7) reconciliation must account for exactly one pre-registered NEGATIVE '
+  + 'claim (large-data parity: the 1.0-point degradation threshold is crossed at the full MNLI ~393k scale, gap '
+  + '1.1, corroborated by the QQP extension gap 2.1) and one INCONCLUSIVE registration (degradation-onset '
+  + 'location, not localized within the probed grid per the persistence rule). Both must be surfaced in the '
+  + 'dossier with lineage — "accounted for" means disclosed, not resolved away.';
+
+// FIX-B items 2 & 4: back-half authority-object copy + run recipe method.
+GS003_BITFIT_SPINE.back_half = {
+  validation_question:
+    'Does bias-only fine-tuning (~0.1% of parameters) reach the pre-registered one-sided parity criterion with '
+    + 'reproduced full fine-tuning on the committed small/medium GLUE tasks, and where on the MNLI '
+    + 'training-set-size gradient does that parity break down (a first-class boundary question), at the probed '
+    + 'BERT-base scale?',
+  assumptions_under_test: [
+    'Bias-only tuning matches full fine-tuning in the small/medium-data regime at the probed scale.',
+    'Parity degrades as training-set size grows; the boundary onset is a first-class deliverable, not a failure.',
+  ],
+  decision_if_pass:
+    'Materialize the bounded parity interpretation plus the pre-registered large-data negative and '
+    + 'onset-inconclusive dispositions, and draft the compound strong claim.',
+  decision_if_fail:
+    'A missed full-FT reproduction voids that condition anchor; parity/boundary claims over it are dropped, not '
+    + 'weakened, and registered inconclusive with reason codes.',
+  decision_if_inconclusive:
+    'Register INCONCLUSIVE (void anchor, or onset not localized within the grid) with reason codes; never present '
+    + 'it as a positive or negative finding.',
+  why_this_cycle_now:
+    'Stage-0 bias-only probe passed and stage-1 anchor reproduction met its targets; the stage-1 parity matrix '
+    + 'and stage-2 MNLI boundary gradient are due.',
+  pass_conditions: [
+    'Bias-only mean >= reproduced full-FT anchor mean − 1.0 on all three committed small/medium tasks (one-sided), '
+    + 'AND the MNLI boundary matrix runs to grid completion or an honest budget stop with its outcome registered '
+    + 'under the disposition mapping.',
+  ],
+  fail_conditions: [
+    'A full fine-tuning reproduction misses its per-task target (parity anchor void), or a stage-2 gradient anchor '
+    + 'fails the validity rule (boundary anchor void).',
+  ],
+  inconclusive_conditions: [
+    'A parity or gradient anchor is void, or the degradation onset is not localized within the probed grid '
+    + '(persistence rule not evaluable beyond the top scale).',
+  ],
+  stop_conditions: ['Stop when the 24 GPU-hour training ledger is exhausted.'],
+  minimum_artifacts_required: ['trusted run evidence unit', 'result validation report'],
+  plan_summary:
+    'Stage-1 parity matrix {bias-only, full fine-tuning} x {SST-2, MRPC, CoLA} (mean over <=3 repeats, one-sided '
+    + '1.0-point criterion) plus stage-2 MNLI training-set-size boundary matrix {bias-only, full fine-tuning} x '
+    + '{2k, 10k, 50k, full ~393k} (<=2 repeats, full-scale single-seed); full-FT cells reused verbatim per '
+    + 'condition; degradation threshold gap >= 1.0 with the persistence onset rule; QQP full-scale replication if '
+    + 'budget remains.',
+  run_recipe_method: 'bitfit_bias_only_vs_full_ft_parity_and_mnli_boundary_gradient',
+  confirmation_rationale:
+    'Golden-scenario recorder confirms the strong compound claim against the material ground-truth card '
+    + '(ground-truth.md §GT-7): small/medium parity holds under the one-sided criterion, large-data parity is '
+    + 'registered as a first-class NEGATIVE finding (threshold crossed at full MNLI + QQP), the onset location '
+    + 'stays INCONCLUSIVE per the persistence rule, and the boundary-overgeneralization overclaims are forbidden.',
+};
+
+// FIX-B item 3: front-half packet/hint copy + curation evidence units. gs-003
+// ships two evidence units (BitFit primary + adapter secondary) so board
+// curation has >=2 units of genuine material to bind.
+GS003_BITFIT_SPINE.runner_context = {
+  motive_context_summary:
+    'Intake-stage motive: bias-only (~0.1% parameter) adaptation of BERT-class encoders, with the data-size '
+    + 'effectiveness boundary treated as a first-class question. Board has literature support for adaptation-cost '
+    + 'pressure, the bias-only opportunity, and the expectation that data regime governs whether parity holds; the '
+    + 'boundary location is not established at intake.',
+  board: {
+    paper_source_summary:
+      'Primary literature locator for the topic package: parameter-efficient fine-tuning context — full '
+      + 'fine-tuning cost/checkpoint pressure, bias terms as one of the smallest per-task deltas, adapter/sparse-'
+      + 'delta alternatives, and the data-regime dependence of extremely small update families.',
+    evidence_source_summary:
+      'Bound primary (BitFit) evidence unit currently supporting all three intake assertions at weak support; the '
+      + 'board gap is missing anchor-valid small/medium reproduction and a completed MNLI training-size gradient '
+      + 'with negative/inconclusive outcomes preserved.',
+    evidence_source_key_facts: [
+      'All three assertions currently rest on the primary BitFit literature evidence unit; the boundary is expected '
+      + 'to produce negative/inconclusive evidence if larger-data parity fails.',
+      'No probe or run evidence exists yet; freshness is intake-fresh; the boundary-onset location is unestablished at intake.',
+    ],
+    secondary_evidence_units: [
+      {
+        evidence_ref_id: GS003_IDS.litEvidenceAdapter,
+        source_locator_ref_id: GS003_IDS.sourceLocatorAdapter,
+        citation_ref_id: GS003_IDS.citationCandidateAdapter,
+        content_summary:
+          'Secondary evidence unit: adapter-based parameter-efficient fine-tuning — inserts extra trainable layers '
+          + '(far fewer parameters than full fine-tuning, more than bias-only, modifies the inference-time '
+          + 'architecture). Genuine, non-duplicate curation material for the baseline-gap / effectiveness-boundary assertion.',
+        key_facts: [
+          'Adapters insert extra trainable layers: fewer trainable parameters than full fine-tuning but more than '
+          + 'bias-only, and they change the inference-time architecture.',
+          'Adapter comparison is a like-for-like efficiency baseline for the bias-only trade-off; available at '
+          + 'intake but not yet bound to any board assertion.',
+        ],
+      },
+    ],
+  },
+  lane_a_hints: {
+    route:
+      'Route candidates must answer both the parity question and the first-class boundary question within the '
+      + 'budget envelope; deployment-relevant metrics are per-task score, trainable-parameter fraction, and the '
+      + 'full-FT−bias-only gap per gradient cell.',
+    skeptic:
+      'Critique dimensions must be grounded in this topic: the MNLI gradient subsampling protocol (class/genre '
+      + 'stratification, sampling seeds), the data-size-vs-model-capacity confound at a single model scale, anchor '
+      + 'validity of the full-FT gradient cells, and the negative/inconclusive disposition discipline.',
+    cycle:
+      'Validation cycles must operationalize the early check obligations: a bias-only feasibility probe on a 2k '
+      + 'SST-2 subsample, anchor-valid small/medium reproduction, and a completed MNLI training-set-size gradient '
+      + 'with negative/inconclusive outcomes preserved.',
+    feasibility:
+      `Probe plans must fit the budget envelope (single-GPU, GLUE subset, max runtime ${GS003_BITFIT_CONTENT.budget_envelope.max_runtime}, `
+      + `retry budget ${GS003_BITFIT_CONTENT.budget_envelope.retry_budget}) and carry explicit stop conditions.`,
+  },
+};
+
 export const SCENARIO_META = {
   scenario_id: 'gs-003-bitfit',
   paper: 'arXiv:2106.10199 (BitFit: Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models)',
   package_version: 'v1',
   runner_contract: 'paper-implementation-golden-scenario/v4',
+  node_review: {
+    motiveDecomposition: 'ground-truth.md §GT-1/§GT-2（bias-only 动机与对照路线空间）+ 幻觉对照（§GT-8）',
+    motiveEvolution: 'ground-truth.md §GT-5/§GT-6（结论边界与已知局限）',
+    boardCuration: 'ground-truth.md §GT-3（缺什么证据：数据量梯度边界）+ 第二证据单元（adapter 对照）可绑',
+    routeArchitecture: 'ground-truth.md §GT-1（论文实际路线）/§GT-2（对照路线空间：adapter/diff-pruning）',
+    routeSkeptic: 'ground-truth.md §GT-2（基线代价）/§GT-6（已知局限）/§GT-9（故意保留缺口：子采样协议/模型容量混淆）',
+    cyclePlanning: 'ground-truth.md §GT-3（关键实验：小/中数据 parity + MNLI 梯度）/§GT-4（数据量梯度趋势）',
+    feasibility: 'ground-truth.md §GT-4（2k 子采样 bias-only 探针即典型 probe 形态）',
+  },
 };
 export const SCENARIO_IDS = {
   ...GS003_IDS,

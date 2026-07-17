@@ -1,5 +1,16 @@
 # 04 Verification
 
+## 2026-07-18 G5 闭合（golden ×3 全链正式证据齐）
+- **收口门**：修复轮（FIX-A 13 项/FIX-B 9 项+集成 stub 3 红修正）后全量 runtime-stress `t114-paper-implementation-runtime-stress-1784299784254` **passed**；迁移 `20260716120000`（确认内容绑定列）**用户审批后已 apply**，迁移后 prisma smoke **39/0/15**；三包检查零错。
+- **三场景正式版 live（D10 素材面证据）**：
+  | 场景 | run | 终局 | 血缘 | gaps | 成本/调用/重付率 |
+  |---|---|---|---|---|---|
+  | gs-001-lora | `gs001-lora-live-014` | dossier ready + export 停驻 | **LIVE 20/20** | 0 | $3.00 / 16 / 8.8% |
+  | gs-002-distilbert | `gs002-distilbert-live-002` | dossier ready + export 停驻 | **passed** | 0 | $3.11 / 17 / 14.9% |
+  | gs-003-bitfit | `gs003-bitfit-live-002` | **负结论正确 ready**（negative/inconclusive 入账） | 17/20（3 失败全定性：强度诚实降档×1+skeptic blocked 下游确定形状×2） | 1（已定性） | $2.33 / 14 / 9.3% |
+- 关键治理实证：N7 gate 双侧（gs-003 首跑拦假账 409/本跑放真账 201）；确认内容绑定 hash 机器验证相等（三场景）；claim 锚定消除后边界表述模型自产；四点停驻集全形态行使（skeptic 非 proceed/强 claim 确认/export/预算门 L5）。评分留档各 run 目录 `rubric-scored.md`。
+- **T-124 状态**：golden ×3 完成。剩余=D10 终验收（五项验收正式核验，工单 14 号）+ D4 memory families/D6 命名（后续裁定次序）。
+
 ## 2026-07-15 D2 闭合（debate 确定性档位 + live 双证据）
 - **实施与复审**：pre1/pre2/core 三路落地 + 6 角度 review（含对抗性档位审计）→ 两路修复全收（详 03）。收口门：全量 runtime-stress `t114-paper-implementation-runtime-stress-1784159862963` **passed**；prisma smoke **39/0/15**；三包 tsc/typecheck 零错；**near-prod gate `t114-paper-implementation-near-prod-runtime-gate-1784160628013` passed**（trace enforced standard 档确定性 4 调用首过 L6）。L5 必检新增 7（pre1×1/pre2×1/core×4/修复轮 light-gap resume×1）。无迁移（tier_mode 纯函数派生）。
 - **gs-001 v4（run 008，素材 v3 不动）**：**D2-pre2 live 实证**——curation gaps-only → `recommended_disposition=revise` → coordinator **waiting_review 停驻**（override 复跑再停驻，诚实语义终止）；lane A 仍 completed；motive lane 仍 blocked 但失败上移至 **designer ref 越界变异**（challenger 未运行，`MISSING_DESIGNER_*` 已消失——**D2-pre1 未获正向 live 验证**，如实留档待 v5）。遥测对比 007：9 调用/$2.075/**重付率 17.06% 全可归因**（override 重放 $0.272+designer 语义重试 $0.082——S4 指标在真实流程首次非零工作）。四维 rubric 代评审**延至 v5**（lane A 输出与 006/007 同构、motive 无新可评面；档位批判有效性已由专项探针覆盖）。

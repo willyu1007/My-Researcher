@@ -16,6 +16,7 @@ import {
   type PaperImplementationMotiveEvolutionArtifact,
   type PaperImplementationMotiveEvolutionDecisionOption,
   type PaperImplementationMotiveEvolutionDecisionOptionEntry,
+  type PaperImplementationMotiveEvolutionDesignedOption,
   type PaperImplementationMotiveEvolutionDesignedOptionEntry,
   type PaperImplementationMotiveEvolutionOptionDesignerRoleOutput,
   type PaperImplementationMotiveEvolutionRiskChallengerRoleOutput,
@@ -843,13 +844,21 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         retry_attempt_index: roleInvocation.retryAttemptIndex,
       })
       : null;
+    // T-124 G5 FIX-A item 10: before recording, normalize the model's echoed refs
+    // back to the DECLARED request refs (strip a model-invented version pin /
+    // title_card drift) so the persisted artifact — and the downstream decision
+    // it feeds — carries canonical object identity. Only for outputs that passed
+    // the failure-code check (the check itself is version-tolerant).
+    const normalizedOutput = runtimeFailureCode || !output
+      ? output
+      : this.normalizeEchoedOutput(request, output);
     const artifactOutput = runtimeFailureCode
       ? {
         status: 'failed_runtime',
         error_code: runtimeFailureCode,
         blocker_codes: [runtimeFailureCode],
       }
-      : output ?? {
+      : normalizedOutput ?? {
         status: 'failed_runtime',
         error_code: 'AGENT_EXECUTION_FAILED',
         blocker_codes: roleResult.blocker_codes,
@@ -899,7 +908,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     });
     const stored = await this.runtimeAdmission.recordRuntimeArtifact(artifact);
     const admission = await this.admit(stored, 'role');
-    return { artifact: stored, admission, output: runtimeFailureCode ? null : output ?? null };
+    return { artifact: stored, admission, output: runtimeFailureCode ? null : normalizedOutput ?? null };
   }
 
   private async recordFinalArtifact(
@@ -1946,6 +1955,13 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const designerOptionKeys = Object.keys(designerOutput.designed_options).sort();
     const challengedOptionKeys = [...output.challenged_option_keys].sort();
     const decisionOptionKeys = Object.keys(output.decision_options).sort();
+    // T-124 G5 FIX-A item 10: close the empty-options_proposed edge — a
+    // challenger that claims `options_proposed` while the designer produced zero
+    // options has nothing to challenge or decide (the coverage equality below
+    // would otherwise pass vacuously on two empty sets).
+    if (output.support_result_status === 'options_proposed' && designerOptionKeys.length === 0) {
+      return 'MOTIVE_EVOLUTION_OPTION_SET_MISMATCH';
+    }
     if (
       output.support_result_status === 'options_proposed'
       && (
@@ -2320,6 +2336,91 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         this.motiveEchoRefKey(allowed) === echoKey
         && ((allowed.version_id ?? null) === null || allowed.version_id === ref.version_id));
     });
+  }
+
+  /**
+   * T-124 G5 FIX-A item 10: canonicalize a list of model-echoed refs to the
+   * DECLARED request refs. Each echoed ref is matched by object identity
+   * (ref_type + ref_id) and replaced with the declared ref's identity fields, so
+   * a version pin the model invented (or a title_card drift) is stripped in
+   * favour of exactly what the request supplied. An echoed ref with no declared
+   * match (should not occur — the echo-set check runs first) is left untouched.
+   */
+  private normalizeRefsToDeclared(
+    refs: TopicSelectionFunctionalRef[],
+    declaredRefs: TopicSelectionFunctionalRef[],
+  ): TopicSelectionFunctionalRef[] {
+    return refs.map((ref) => {
+      const declared = declaredRefs.find(
+        (candidate) => this.motiveEchoRefKey(candidate) === this.motiveEchoRefKey(ref),
+      );
+      if (!declared) {
+        return ref;
+      }
+      return {
+        ref_type: declared.ref_type,
+        ref_id: declared.ref_id,
+        title_card_id: declared.title_card_id ?? null,
+        version_id: declared.version_id ?? null,
+      };
+    });
+  }
+
+  /** T-124 G5 FIX-A item 10: normalize the supporting / challenging refs inside a
+   * by-key option map (option content and keys are otherwise untouched — the
+   * model-assigned option_set_hash stays an opaque identity). */
+  private normalizeOptionRefs<TOption extends PaperImplementationMotiveEvolutionDesignedOption>(
+    options: Record<string, TOption>,
+    declaredRefs: TopicSelectionFunctionalRef[],
+  ): Record<string, TOption> {
+    // Null-prototype so an option_key like __proto__ stays a plain OWN property
+    // (the same discipline the wire canonicalization uses); a bracket assignment
+    // onto a normal object would silently set the prototype instead.
+    const normalized = Object.create(null) as Record<string, TOption>;
+    for (const [key, option] of Object.entries(options)) {
+      normalized[key] = {
+        ...option,
+        supporting_refs: this.normalizeRefsToDeclared(option.supporting_refs, declaredRefs),
+        challenging_refs: this.normalizeRefsToDeclared(option.challenging_refs, declaredRefs),
+      };
+    }
+    return normalized;
+  }
+
+  /**
+   * T-124 G5 FIX-A item 10: normalize every echoed ref on a passing role output
+   * to the declared request refs before it is recorded. cited_source_refs are
+   * bounded to source_refs, option refs to the full primary input set, and the
+   * designer's reviewed sets to their respective target refs — matching the sets
+   * the semantic checks already enforce.
+   */
+  private normalizeEchoedOutput<TOutput extends PaperImplementationMotiveEvolutionRoleOutput>(
+    request: RunPaperImplementationMotiveEvolutionRuntimeRequest,
+    output: TOutput,
+  ): TOutput {
+    const inputRefs = this.primaryInputRefs(request);
+    const base = {
+      ...output,
+      cited_source_refs: this.normalizeRefsToDeclared(output.cited_source_refs, request.source_refs),
+    };
+    if (this.isDesignerOutput(output)) {
+      return {
+        ...base,
+        reviewed_target_motive_refs: this.normalizeRefsToDeclared(
+          output.reviewed_target_motive_refs,
+          request.target_motive_refs,
+        ),
+        reviewed_core_motive_version_refs: this.normalizeRefsToDeclared(
+          output.reviewed_core_motive_version_refs,
+          request.target_core_motive_version_refs,
+        ),
+        designed_options: this.normalizeOptionRefs(output.designed_options, inputRefs),
+      } as TOutput;
+    }
+    return {
+      ...base,
+      decision_options: this.normalizeOptionRefs(output.decision_options, inputRefs),
+    } as TOutput;
   }
 
   private sameFunctionalRefSet(left: TopicSelectionFunctionalRef[], right: TopicSelectionFunctionalRef[]): boolean {

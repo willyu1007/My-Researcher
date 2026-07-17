@@ -72,9 +72,43 @@ export interface PaperImplementationDossierReadinessDomainGateContext {
   dossier_id: string;
   result_interpretation_packet_ids: string[];
   claim_candidate_ids: string[];
+  /**
+   * T-124 G5 FIX-A item 5 (gs-002 GAP-1): the full declared claim-candidate refs
+   * (not just ids) so the dossier claim_section can be assembled structurally
+   * from the authoritative context instead of transcribing the adjudicator's
+   * ref-type-polluted `admitted_claim_refs` selection.
+   */
+  claim_candidate_refs: TopicSelectionFunctionalRef[];
   claim_trace_packet_ids: string[];
   trace_manifest_id: string;
   readiness_gate_result_id: string | null;
+  /**
+   * T-124 G5 FIX-A item 6 (gs-003 GAP-R4): the negative / inconclusive / failed
+   * run refs deterministically collected from the materialized
+   * ResultInterpretationPacket read-backs injected on the request (source-body
+   * packets whose source_ref is a declared result_interpretation_packet). The
+   * dossier assembly unions these into the mandatory ledger slots so a "ready"
+   * dossier can never silently drop a disclosed non-supporting run. (Stale /
+   * invalidated exclusions are NOT auto-collected — the dossier's excluded list
+   * carries a distinct "provably superseded" gate only the reviewer's audited
+   * selection may satisfy.)
+   */
+  packet_failed_run_refs: TopicSelectionFunctionalRef[];
+  packet_inconclusive_run_refs: TopicSelectionFunctionalRef[];
+  packet_negative_result_refs: TopicSelectionFunctionalRef[];
+}
+
+/**
+ * T-124 G5 FIX-A item 6: minimal structural view of an injected back-half
+ * source-body packet, carrying the optional materialized-packet accounting refs.
+ * The real `PaperImplementationBackHalfSourceContextPacket` is structurally
+ * assignable.
+ */
+export interface PaperImplementationDossierLedgerPacketLike {
+  source_ref: TopicSelectionFunctionalRef;
+  failed_run_refs?: TopicSelectionFunctionalRef[];
+  inconclusive_run_refs?: TopicSelectionFunctionalRef[];
+  negative_result_refs?: TopicSelectionFunctionalRef[];
 }
 
 export type PaperImplementationDomainGateContextResult<TContext> =
@@ -133,6 +167,93 @@ function cloneRef(ref: TopicSelectionFunctionalRef): TopicSelectionFunctionalRef
 
 function cloneRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {
   return refs.map(cloneRef);
+}
+
+/** Object-identity key (ref_type normalized + ref_id) — version/title tolerant. */
+function refIdentityKey(ref: TopicSelectionFunctionalRef): string {
+  return `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}`;
+}
+
+/**
+ * Membership check for a model-echoed ref against a declared allowed set, using
+ * object identity (ref_type + ref_id). Mirrors the evolution service's
+ * `refsWithinEchoSet` intent: an echoed version_id/title_card_id drift is not a
+ * different object, but a phantom ref_id (never declared) is out.
+ */
+export function refsWithinDeclaredSet(
+  refs: TopicSelectionFunctionalRef[],
+  allowedRefs: TopicSelectionFunctionalRef[],
+): boolean {
+  const allowedKeys = new Set(allowedRefs.map(refIdentityKey));
+  return refs.every((ref) => allowedKeys.has(refIdentityKey(ref)));
+}
+
+/**
+ * T-124 G5 FIX-A item 7: intersect a model-proposed accounting-ref list with the
+ * declared allowed set, dropping phantom ids the model invented that were never
+ * in the request face. Keeps declared order/identity of the proposal refs.
+ */
+function intersectRefsWithDeclared(
+  refs: TopicSelectionFunctionalRef[],
+  allowedRefs: TopicSelectionFunctionalRef[],
+): TopicSelectionFunctionalRef[] {
+  const allowedKeys = new Set(allowedRefs.map(refIdentityKey));
+  return cloneRefs(refs.filter((ref) => allowedKeys.has(refIdentityKey(ref))));
+}
+
+/**
+ * T-124 G5 FIX-A item 6: union two ref lists by object identity, preserving the
+ * first list's order and appending the second list's new entries.
+ */
+function unionRefs(
+  primary: TopicSelectionFunctionalRef[],
+  additional: TopicSelectionFunctionalRef[],
+): TopicSelectionFunctionalRef[] {
+  const seen = new Set<string>();
+  const merged: TopicSelectionFunctionalRef[] = [];
+  for (const ref of [...primary, ...additional]) {
+    const key = refIdentityKey(ref);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(cloneRef(ref));
+    }
+  }
+  return merged;
+}
+
+/**
+ * T-124 G5 FIX-A item 5 (gs-002 GAP-1): the dossier claim_section disposition is
+ * a STRUCTURAL field the service owns, not the adjudicator's ref-type-polluted
+ * selection. When the context carries authoritative claim-candidate refs, every
+ * one is admitted unless the adjudicator explicitly rejected it (a claim-candidate
+ * ref that resolves to a context claim). That guarantees ref-type purity (only
+ * claim_candidate refs), completeness (admitted ∪ rejected = every context claim
+ * — the ready-dossier gate's "dispose every included claim" rule), and no
+ * admit/reject overlap. When the context carries NO claim refs (non-ready
+ * drafts), fall back to filtering the proposal by claim_candidate ref_type so the
+ * pollution is still dropped.
+ */
+function assembleDossierClaimDisposition(
+  context: PaperImplementationDossierReadinessDomainGateContext,
+  proposal: PaperImplementationDossierReadinessProposal,
+): { admitted: TopicSelectionFunctionalRef[]; rejected: TopicSelectionFunctionalRef[] } {
+  const claimCandidateOnly = (refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] =>
+    refs.filter((ref) => normalizedPaperImplementationRefType(ref.ref_type) === 'claimcandidate');
+  if (context.claim_candidate_refs.length === 0) {
+    return {
+      admitted: cloneRefs(claimCandidateOnly(proposal.admitted_claim_refs)),
+      rejected: cloneRefs(claimCandidateOnly(proposal.rejected_claim_refs)),
+    };
+  }
+  const contextClaimIds = new Set(context.claim_candidate_ids);
+  const rejectedIds = new Set(
+    claimCandidateOnly(proposal.rejected_claim_refs)
+      .filter((ref) => contextClaimIds.has(ref.ref_id))
+      .map((ref) => ref.ref_id),
+  );
+  const admitted = context.claim_candidate_refs.filter((ref) => !rejectedIds.has(ref.ref_id));
+  const rejected = context.claim_candidate_refs.filter((ref) => rejectedIds.has(ref.ref_id));
+  return { admitted: cloneRefs(admitted), rejected: cloneRefs(rejected) };
 }
 
 /**
@@ -203,33 +324,73 @@ export function extractClaimBoundaryDomainGateContext(
 }
 
 /**
- * T-124 G4.6 run-012 fix: the claim's support position accepts only
- * evidence-class refs (the Domain Gate's own `CLAIM_SUPPORT_EVIDENCE_REF_TYPES`
- * discipline, mirrored from the single exported source). Memo / summary /
- * interpretation refs — including the result_interpretation_packet, whose
- * linkage already rides the structural `result_interpretation_packet_ids` — are
- * dropped from the evidence position. If the adjudicator's selection carries no
- * admissible evidence ref at all, the assembly falls back to the DECLARED
- * run-evidence refs of the request context (deterministic linkage to verified
- * REU-level evidence, never invented content); an empty result then fails the
- * ajv pre-check (support_refs minItems 1) through the retry channel.
+ * T-124 G4.6 run-012 fix, hardened by G5 FIX-A item 4: the claim's support
+ * position accepts only evidence-class refs (the Domain Gate's own
+ * `CLAIM_SUPPORT_EVIDENCE_REF_TYPES` discipline, mirrored from the single
+ * exported source). Memo / summary / interpretation refs — including the
+ * result_interpretation_packet, whose linkage already rides the structural
+ * `result_interpretation_packet_ids` — are dropped from the evidence position.
+ *
+ * FIX-A item 4 retires the former REU-floor fallback: when the adjudicator's
+ * selection carries no admissible evidence ref, the service NO LONGER
+ * substitutes the declared context run-evidence refs (that was the service
+ * endorsing evidence on the model's behalf — a floor the ×3 live cross-check
+ * ruled out). The filtered (possibly empty) result is returned verbatim; an
+ * empty support set is then caught fail-closed by the slot pre-check as a
+ * retryable `P1_DOMAIN_GATE_REQUEST_MISSING` (the adjudicator must cite REU
+ * evidence one-by-one — prompt v4).
  */
 function claimSupportEvidenceRefs(
   proposalSupportRefs: TopicSelectionFunctionalRef[],
-  contextRunEvidenceRefs: TopicSelectionFunctionalRef[],
 ): TopicSelectionFunctionalRef[] {
-  const evidenceClassRefs = proposalSupportRefs.filter((ref) =>
-    CLAIM_SUPPORT_EVIDENCE_REF_TYPES.has(normalizedPaperImplementationRefType(ref.ref_type)));
-  if (evidenceClassRefs.length > 0) {
-    return cloneRefs(evidenceClassRefs);
+  return cloneRefs(
+    proposalSupportRefs.filter((ref) =>
+      CLAIM_SUPPORT_EVIDENCE_REF_TYPES.has(normalizedPaperImplementationRefType(ref.ref_type))),
+  );
+}
+
+/**
+ * T-124 G5 FIX-A item 6: deterministically collect the ledger accounting refs
+ * from the injected materialized-packet read-backs. Only packets whose
+ * source_ref is a DECLARED result_interpretation_packet source ref contribute
+ * (a fenced, gate-validated packet), and only the identity fields are copied.
+ */
+function collectDossierLedgerRefs(
+  sourceRefs: TopicSelectionFunctionalRef[],
+  packets: readonly PaperImplementationDossierLedgerPacketLike[] | undefined,
+  select: (packet: PaperImplementationDossierLedgerPacketLike) => TopicSelectionFunctionalRef[] | undefined,
+): TopicSelectionFunctionalRef[] {
+  if (!packets || packets.length === 0) {
+    return [];
   }
-  return cloneRefs(contextRunEvidenceRefs);
+  const declaredPacketIds = new Set(
+    refsOfType(sourceRefs, 'result_interpretation_packet').map((ref) => ref.ref_id),
+  );
+  const collected: TopicSelectionFunctionalRef[] = [];
+  const seen = new Set<string>();
+  for (const packet of packets) {
+    if (
+      normalizedPaperImplementationRefType(packet.source_ref.ref_type) !== 'resultinterpretationpacket'
+      || !declaredPacketIds.has(packet.source_ref.ref_id)
+    ) {
+      continue;
+    }
+    for (const ref of select(packet) ?? []) {
+      const key = `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        collected.push(cloneRef(ref));
+      }
+    }
+  }
+  return collected;
 }
 
 /** Extract the dossier-readiness structural context (statically decidable). */
 export function extractDossierReadinessDomainGateContext(
   targetRef: TopicSelectionFunctionalRef,
   sourceRefs: TopicSelectionFunctionalRef[],
+  packets?: readonly PaperImplementationDossierLedgerPacketLike[],
 ): PaperImplementationDomainGateContextResult<PaperImplementationDossierReadinessDomainGateContext> {
   const issues: string[] = [];
   if (normalizedPaperImplementationRefType(targetRef.ref_type) !== 'implementationdossier') {
@@ -240,15 +401,20 @@ export function extractDossierReadinessDomainGateContext(
   if (issues.length > 0) {
     return { ok: false, issues };
   }
+  const claimCandidateRefs = refsOfType(sourceRefs, 'claim_candidate');
   return {
     ok: true,
     context: {
       dossier_id: targetRef.ref_id,
       result_interpretation_packet_ids: refsOfType(sourceRefs, 'result_interpretation_packet').map((ref) => ref.ref_id),
-      claim_candidate_ids: refsOfType(sourceRefs, 'claim_candidate').map((ref) => ref.ref_id),
+      claim_candidate_ids: claimCandidateRefs.map((ref) => ref.ref_id),
+      claim_candidate_refs: cloneRefs(claimCandidateRefs),
       claim_trace_packet_ids: refsOfType(sourceRefs, 'claim_trace_packet').map((ref) => ref.ref_id),
       trace_manifest_id: traceRef!.ref_id,
       readiness_gate_result_id: gateRef?.ref_id ?? null,
+      packet_failed_run_refs: collectDossierLedgerRefs(sourceRefs, packets, (packet) => packet.failed_run_refs),
+      packet_inconclusive_run_refs: collectDossierLedgerRefs(sourceRefs, packets, (packet) => packet.inconclusive_run_refs),
+      packet_negative_result_refs: collectDossierLedgerRefs(sourceRefs, packets, (packet) => packet.negative_result_refs),
     },
   };
 }
@@ -266,6 +432,16 @@ export function assembleCreateResultInterpretationPacketRequest(input: {
   createdBy: TopicSelectionActorType;
 }): CreateResultInterpretationPacketRequest {
   const { context, interpretation, reliability, claimImplications } = input;
+  // T-124 G5 FIX-A item 7: the role decides WHICH runs failed / are inconclusive
+  // / are stale (its interpretive duty), but the accounting refs are bounded to
+  // the declared evidence source set so a phantom ref_id the model invented can
+  // never enter the materialized packet ledger. failed / inconclusive refs are
+  // REU-level; stale/invalidated may name any declared evidence source.
+  const declaredEvidenceRefs = [
+    ...context.run_evidence_refs,
+    ...context.validation_report_refs,
+    ...context.metric_refs,
+  ];
   return {
     result_interpretation_packet_id: context.result_interpretation_packet_id,
     validation_cycle_id: context.validation_cycle_id,
@@ -274,11 +450,12 @@ export function assembleCreateResultInterpretationPacketRequest(input: {
       run_evidence_refs: cloneRefs(context.run_evidence_refs),
       validation_report_refs: cloneRefs(context.validation_report_refs),
       metric_refs: cloneRefs(context.metric_refs),
-      // Semantic accounting: which runs failed / are inconclusive / are stale is
-      // the role's interpretive duty — mapped verbatim, never invented here.
-      failed_run_refs: cloneRefs(interpretation.failed_run_refs),
-      inconclusive_run_refs: cloneRefs(interpretation.inconclusive_run_refs),
-      stale_or_invalidated_evidence_refs: cloneRefs(interpretation.stale_or_invalidated_evidence_refs),
+      failed_run_refs: intersectRefsWithDeclared(interpretation.failed_run_refs, context.run_evidence_refs),
+      inconclusive_run_refs: intersectRefsWithDeclared(interpretation.inconclusive_run_refs, context.run_evidence_refs),
+      stale_or_invalidated_evidence_refs: intersectRefsWithDeclared(
+        interpretation.stale_or_invalidated_evidence_refs,
+        declaredEvidenceRefs,
+      ),
     },
     result_summary: {
       result_summary: interpretation.result_summary,
@@ -319,9 +496,10 @@ export function assembleCreateClaimCandidateRequest(input: {
     claim_statement: proposal.claim_statement,
     claim_strength: proposal.claim_strength,
     result_interpretation_packet_ids: [...context.result_interpretation_packet_ids],
-    // Run-012 fix: evidence position holds evidence-class refs only (REU floor
-    // fallback); the interpretation packet stays in its structural field above.
-    support_refs: claimSupportEvidenceRefs(proposal.support_refs, context.run_evidence_refs),
+    // Run-012 fix + G5 FIX-A item 4: evidence position holds evidence-class refs
+    // only (no service-endorsed REU floor); the interpretation packet stays in
+    // its structural field above.
+    support_refs: claimSupportEvidenceRefs(proposal.support_refs),
     challenge_refs: cloneRefs(proposal.challenge_refs),
     scope: {
       population_scope: proposal.scope.population_scope,
@@ -353,6 +531,7 @@ export function assembleCreateImplementationDossierRequest(input: {
   createdBy: TopicSelectionActorType;
 }): CreateImplementationDossierRequest {
   const { context, proposal } = input;
+  const disposition = assembleDossierClaimDisposition(context, proposal);
   return {
     dossier_id: context.dossier_id,
     dossier_status: proposal.dossier_status,
@@ -360,15 +539,19 @@ export function assembleCreateImplementationDossierRequest(input: {
     claim_candidate_ids: [...context.claim_candidate_ids],
     claim_trace_packet_ids: [...context.claim_trace_packet_ids],
     experiment_section: {
-      failed_run_refs: cloneRefs(proposal.failed_run_refs),
-      inconclusive_run_refs: cloneRefs(proposal.inconclusive_run_refs),
-      negative_result_refs: cloneRefs(proposal.negative_result_refs),
+      // FIX-A item 6: union the adjudicator's disclosed accounting with the
+      // packet-read-back ledger so a "ready" dossier deterministically covers
+      // every disclosed negative / inconclusive / failed run.
+      failed_run_refs: unionRefs(proposal.failed_run_refs, context.packet_failed_run_refs),
+      inconclusive_run_refs: unionRefs(proposal.inconclusive_run_refs, context.packet_inconclusive_run_refs),
+      negative_result_refs: unionRefs(proposal.negative_result_refs, context.packet_negative_result_refs),
       excluded_stale_or_invalidated_evidence_refs: cloneRefs(proposal.excluded_stale_or_invalidated_evidence_refs),
       experiment_limitations: [...proposal.experiment_limitations],
     },
     claim_section: {
-      admitted_claim_refs: cloneRefs(proposal.admitted_claim_refs),
-      rejected_claim_refs: cloneRefs(proposal.rejected_claim_refs),
+      // FIX-A item 5: structural, context-authoritative disposition.
+      admitted_claim_refs: disposition.admitted,
+      rejected_claim_refs: disposition.rejected,
       forbidden_overclaims: [...proposal.forbidden_overclaims],
       claim_ceiling: proposal.claim_ceiling,
     },
@@ -379,6 +562,10 @@ export function assembleCreateImplementationDossierRequest(input: {
       readiness_notes: [...proposal.readiness_notes],
     },
     trace_manifest_id: context.trace_manifest_id,
+    // FIX-A item 1: pass the disposition channels through; the slot pre-check
+    // fails closed when the disposition demands one and it is absent.
+    reopen_condition: proposal.reopen_condition ?? null,
+    abandon_reason: proposal.abandon_reason ?? null,
     created_by: input.createdBy,
   };
 }

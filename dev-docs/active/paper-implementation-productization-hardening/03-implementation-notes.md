@@ -1,5 +1,14 @@
 # 03 Implementation Notes
 
+## 2026-07-18 G5 闭合：三场景正式版全链 + 修复轮 FIX-A/B（T-124 golden ×3 完成）
+
+- **G 切片 review（6 角度含对抗性组装审计）+ 三场景首跑互证 → FIX-A（产品 13 项）/FIX-B（runner/素材 9 项）**：
+  - FIX-A 亮点：dossier 处置通道补全（reopen/abandon）；可静态判定约束镜像 slot 预检（strong 无确认/ready 无 gate result → 可重试，模型可降档）；claim proposal refs 围栏 `P1_CLAIM_PROPOSAL_REFS_UNFENCED` + gate 层 REU 存在性解析；**证据地板回落退役**（服务永不代模型背书证据，空选择 fail-closed 重试）；admitted_claim_refs 语境权威化（GAP-1 根修）；**dossier 账目确定性收集**（packet 读回 ledger refs 并入必填槽，GAP-R4 根修）；解读账目 refs 与声明 REU 集求交（幻影 id 出局）；围栏键含 version+重复拒绝；**确认内容绑定**（`reviewed_claim_statement_hash` 加性列，迁移 20260716120000 已审批 apply，携带才校验）；evolution echo 规范化+空 options_proposed 边缘关闭；YAML 漏 bump 补正；MEMO 集单源化（取并集更严侧）；RA assertion-ref 类型检查；proposal fixture 七副本收敛共享模块。
+  - FIX-B 亮点：experimentResultBodyFacts 场景化（素材导出 buildExperimentBodyFacts，gs-003 boundary_matrix/qqp/onset 逐格进事实）；SCENARIO_SPINE 扩 back_half/runner_context（权威对象文案/hint/N7 语句全场景化）；NG-2 结构性修复（全部证据单元入 curation 请求）；**claim 锚定消除**（预期结论字段剥离出 prompt，边界表述模型自产）；围栏真 hash（REU result_hash 等内容 hash）；**确认时序改 debate 后物化前**（人确认的即模型实际产出 statement，绑定 hash 机器验证相等）。
+- **三场景正式版 live（终局证据）**：**gs-001 run 014**——dossier ready+export 停驻，**血缘 LIVE 20/20，gaps=0**（$3.00/16 调用/重付 8.8%）；**gs-002 run 002**——同达 dossier ready，**血缘 passed，gaps=0**（$3.11/17 调用/重付 14.9%；首跑效度限制解除）；**gs-003 run 002**——**负结论场景的正确 dossier ready**（negative/inconclusive 如实入账后 ready；N7 gate 首跑拦假账/本跑放真账双侧实证；skeptic 双命中设计缺口升级 blocking；$2.33/14 调用/重付 9.3%）。评分留档各 run 目录 rubric-scored.md（AI 代评审）。
+- **登记（不阻塞，移交后续）**：GAP-N1 claim 强度拉锯（模型跨 run 一致降档 moderate=真实认识论立场，素材/契约层面明确强度语义）；GAP-N2 skeptic 槽缺 revise→waiting_review 出口（D2 给了 curation 未给 skeptic）；evolution 人工确认停驻的产品化续链出口；light 地板批判有效性探针（D2 校准）。
+- 过程：修复轮后合并态 3 处集成 stub 红（fixture 补声明如实修，不放松检查）；stress `1784299784254` passed + smoke 39/0/15 收口。
+
 ## 2026-07-16 G4.6 落地：三 slot domain_gate_request 服务侧确定性组装 + evolution challenger wire 简化（T-124）
 
 - **根因裁定（run 009/010/011 三跑收敛，run 011 rubric 核心判断 §3 建议采纳）**：LLM 在 provider strict 模式下无法可靠直吐 `CreateResultInterpretationPacketRequest`/`CreateClaimCandidateRequest`/`CreateImplementationDossierRequest`（退化为请求信封回显；G4.5 Fix 1 正文注入 + prompt 键清单指引均实证无效）；challenger wire 面的联锁不变量（challenge_check anyOf/if-then + per-option human-gate 条件 + 结果计数条件）strict 语法不可执行而本地 ajv all-or-nothing，持续 `SCHEMA_VALIDATION_FAILED`（prompt v3 实证无效）。**契约形状 × strict 的结构性不兼容，prompt 层修不动** → 架构对齐"runtime 提议语义内容、确定性代码组装信封"。

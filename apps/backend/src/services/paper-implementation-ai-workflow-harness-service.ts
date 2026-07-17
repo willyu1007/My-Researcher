@@ -31,6 +31,9 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
+// T-124 G5 FIX-A item 11: single-source the memo/summary ref-type discipline
+// from the dossier service (the exported set is the union of the former copies).
+import { MEMO_OR_SUMMARY_REF_TYPES } from './paper-implementation-result-claim-dossier-service.js';
 import type {
   PaperImplementationAiWorkflowHarnessRepository,
 } from '../repositories/paper-implementation-ai-workflow-harness.repository.js';
@@ -50,19 +53,6 @@ export type PaperImplementationAiWorkflowHarnessServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
 };
-
-const MEMO_OR_SUMMARY_REF_TYPES = new Set([
-  'boardsummary',
-  'displaysummary',
-  'internalinterpretation',
-  'llmrationale',
-  'llmsummary',
-  'memo',
-  'rationalememo',
-  'resultinterpretation',
-  'resultinterpretationpacket',
-  'summary',
-]);
 
 const TRACE_MANIFEST_REF_TYPES = new Set(['tracemanifest']);
 

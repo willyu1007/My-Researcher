@@ -38,6 +38,13 @@ export interface HumanConfirmationRecord {
   transition_attempt_ref?: TopicSelectionFunctionalRef | null;
   gate_result_refs: TopicSelectionFunctionalRef[];
   rationale: string;
+  // T-124 G5 FIX-A item 9: additive content binding. When a confirmation carries
+  // the sha256 of the exact claim_statement the human reviewed, the claim
+  // materialization asserts it equals the sha256 of the claim being written and
+  // rejects a mismatch (409) — the reviewer authorized THAT wording, not a later
+  // edit. Optional/nullable so existing records without the hash keep working
+  // (validated only when present).
+  reviewed_claim_statement_hash?: string | null;
   confirmed_by_actor_type: TopicSelectionActorType;
   confirmed_by_actor_id?: string | null;
   policy_version_id?: string | null;
@@ -57,6 +64,8 @@ export interface CreateHumanConfirmationRecordRequest {
   transition_attempt_ref?: TopicSelectionFunctionalRef | null;
   gate_result_refs?: TopicSelectionFunctionalRef[];
   rationale: string;
+  // T-124 G5 FIX-A item 9: optional content binding supplied at creation time.
+  reviewed_claim_statement_hash?: string | null;
   confirmed_by_actor_type: TopicSelectionActorType;
   confirmed_by_actor_id?: string | null;
   policy_version_id?: string | null;
@@ -119,6 +128,7 @@ export const humanConfirmationRecordSchema = {
     transition_attempt_ref: nullableFunctionalRef,
     gate_result_refs: functionalRefArray,
     rationale: stringId,
+    reviewed_claim_statement_hash: nullableStringId,
     confirmed_by_actor_type: actorTypeSchema,
     confirmed_by_actor_id: nullableStringId,
     policy_version_id: nullableStringId,
@@ -148,6 +158,7 @@ export const createHumanConfirmationRecordRequestSchema = {
     transition_attempt_ref: nullableFunctionalRef,
     gate_result_refs: functionalRefArray,
     rationale: stringId,
+    reviewed_claim_statement_hash: nullableStringId,
     confirmed_by_actor_type: actorTypeSchema,
     confirmed_by_actor_id: nullableStringId,
     policy_version_id: nullableStringId,

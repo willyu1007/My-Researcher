@@ -64,6 +64,7 @@ import type {
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
 import { BackendLlmGateway } from '../services/llm-gateway.js';
+import { buildClaimCandidateProposal } from '../services/paper-implementation-p1-proposal-test-fixtures.js';
 
 const TITLE_CARD_ID = 'title-card-near-prod-runtime-gate';
 const PROJECT_ID = 'implementation-project-near-prod-runtime-gate';
@@ -921,12 +922,10 @@ function claimBoundaryRoleOutput(
 }
 
 function nearProdClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
-  return {
-    claim_type: 'empirical_finding',
+  return buildClaimCandidateProposal({
     claim_statement: 'Near-prod runtime gate materialized a bounded claim.',
     claim_strength: 'moderate',
     support_refs: [ref('run_evidence_unit', `${RUN_ID}-run-evidence`)],
-    challenge_refs: [],
     scope: {
       population_scope: 'near-prod route smoke',
       method_scope: 'PaperImplementation runtime orchestration',
@@ -937,9 +936,7 @@ function nearProdClaimProposal(): NonNullable<PaperImplementationP1RuntimeReview
     },
     boundary_rationale: 'Bounded to near-prod route smoke evidence.',
     forbidden_overclaims: ['broad generalization'],
-    hidden_counter_evidence_refs: [],
-    required_followup_refs: [],
-  };
+  });
 }
 
 function resultAnalysisRoleOutput(

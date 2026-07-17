@@ -70,6 +70,7 @@ import {
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   assertBackHalfSourceContextPacketFence,
+  normalizedPaperImplementationRefType,
   PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   PAPER_IMPLEMENTATION_ROLE_BLOCKED_CODES_MISSING_FAILURE_CODE,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -84,7 +85,9 @@ import {
   assembleCreateImplementationDossierRequest,
   extractClaimBoundaryDomainGateContext,
   extractDossierReadinessDomainGateContext,
+  refsWithinDeclaredSet,
 } from './paper-implementation-domain-gate-assembly.js';
+import { CLAIM_SUPPORT_EVIDENCE_REF_TYPES } from './paper-implementation-result-claim-dossier-service.js';
 import {
   assessPaperImplementationDebateComplexityShadow,
   type PaperImplementationDebateComplexityTier,
@@ -304,13 +307,33 @@ const P1_DOMAIN_GATE_REQUEST_MALFORMED = 'P1_DOMAIN_GATE_REQUEST_MALFORMED';
 // T-124 G4.6: a passed final adjudicator that omits its typed semantic-proposal
 // block (claim_proposal / dossier_proposal) cannot be assembled — retryable
 // semantic failure through the existing channel; the service never writes
-// content on the model's behalf.
+// content on the model's behalf. G5 FIX-A item 4 reuses this class for a claim
+// proposal that cited no admissible evidence-class support ref (the retired
+// REU-floor fallback): the adjudicator must cite REU evidence one-by-one.
 const P1_DOMAIN_GATE_REQUEST_MISSING = 'P1_DOMAIN_GATE_REQUEST_MISSING';
+// T-124 G5 FIX-A item 3: a claim proposal whose support / challenge refs are not
+// a subset of the declared source refs (a model-invented ref outside the request
+// face) is a retryable semantic failure — the model must cite only declared refs.
+const P1_CLAIM_PROPOSAL_REFS_UNFENCED = 'P1_CLAIM_PROPOSAL_REFS_UNFENCED';
+// T-124 G5 FIX-A item 2: a statically-decidable constraint mirrored to the slot
+// pre-check. A strong claim with no human-confirmation ref in the context (the
+// model can retry at moderate), or a ready dossier with no readiness gate result
+// in the context — both retryable rather than a wasted Domain Gate 409.
+const P1_CLAIM_STRENGTH_CONFIRMATION_MISSING = 'P1_CLAIM_STRENGTH_CONFIRMATION_MISSING';
+const P1_DOSSIER_READINESS_GATE_MISSING = 'P1_DOSSIER_READINESS_GATE_MISSING';
+// T-124 G5 FIX-A item 1: a dossier disposition the request cannot express — a
+// parked status with no reopen_condition, or an abandoned status with no
+// abandon_reason — is retryable (the adjudicator must supply the channel).
+const P1_DOSSIER_DISPOSITION_INCOMPLETE = 'P1_DOSSIER_DISPOSITION_INCOMPLETE';
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_DEBATE_RETRYABLE_RUNTIME_FAILURE_CODES,
   RUNTIME_WIRE_JSON_DECODE_FAILED,
   P1_DOMAIN_GATE_REQUEST_MALFORMED,
   P1_DOMAIN_GATE_REQUEST_MISSING,
+  P1_CLAIM_PROPOSAL_REFS_UNFENCED,
+  P1_CLAIM_STRENGTH_CONFIRMATION_MISSING,
+  P1_DOSSIER_READINESS_GATE_MISSING,
+  P1_DOSSIER_DISPOSITION_INCOMPLETE,
 ]);
 
 export class PaperImplementationP1RuntimeReviewService {
@@ -1285,10 +1308,18 @@ export class PaperImplementationP1RuntimeReviewService {
     if (workflowType === 'claim_boundary_review') {
       return [
         'When you are the final adjudicator (claim_boundary_review.adjudicator_final) and the review passes, you MUST fill claim_proposal with the SEMANTIC claim content: claim_type, claim_statement (the bounded claim wording), claim_strength, support_refs, challenge_refs, scope (population_scope, method_scope, dataset_scope, metric_scope, negative_scope_notes, excluded_scope_notes), boundary_rationale, forbidden_overclaims, hidden_counter_evidence_refs, and required_followup_refs. Set claim_proposal to null for every other role or when the review does not pass; dossier_proposal is always null in this workflow.',
+        // T-124 G5 FIX-A item 4 (prompt v4): support_refs must cite the run-evidence (REU) refs one-by-one.
+        'support_refs MUST cite the actual run-evidence (run_evidence_unit / citation / source-evidence) refs that back the claim — one entry per supporting evidence object, taken only from the declared source refs. Never leave support_refs empty and never put the result_interpretation_packet, a memo, or a summary ref in support_refs (the interpretation packet is already linked structurally); challenge_refs likewise cite only declared source refs. The service will NOT supply evidence on your behalf: an empty or evidence-free support selection fails and is retried.',
+        // T-124 G5 FIX-A item 2 (prompt v4): strong needs a human confirmation ref in the source refs.
+        'Only set claim_strength="strong" when a human_confirmation_record ref is present in the source refs; otherwise cap the claim at "moderate" (or lower). A strong claim without that confirmation ref cannot be materialized and is retried.',
       ];
     }
     return [
       'When you are the final adjudicator (dossier_readiness_prep.scenario_adjudicator_final) and the review passes, you MUST fill dossier_proposal with the SEMANTIC readiness content: dossier_status (the readiness disposition, e.g. ready_for_writing), experiment_limitations, failed_run_refs, inconclusive_run_refs, negative_result_refs, excluded_stale_or_invalidated_evidence_refs, admitted_claim_refs, rejected_claim_refs, forbidden_overclaims, claim_ceiling, readiness_blocker_refs, readiness_warning_refs, and readiness_notes. Set dossier_proposal to null for every other role or when the review does not pass; claim_proposal is always null in this workflow.',
+      // T-124 G5 FIX-A item 1 (prompt v4): disposition channels for non-ready states.
+      'When dossier_status is "parked_with_reopen_condition" you MUST supply reopen_condition (the concrete condition under which the dossier reopens); when it is "abandoned_with_trace" you MUST supply abandon_reason. A disposition without its channel is retried.',
+      // T-124 G5 FIX-A items 2/5 (prompt v4): readiness gate + claim disposition are structural.
+      'Only set dossier_status="ready_for_writing" when a readiness gate_result ref is present in the source refs. admitted_claim_refs / rejected_claim_refs are your disposition of the claim candidates named in the source refs — cite ONLY claim_candidate refs there (never a packet or run-evidence ref); the service takes the source claim candidates as authoritative and admits every one you do not explicitly reject.',
     ];
   }
 
@@ -1669,6 +1700,15 @@ export class PaperImplementationP1RuntimeReviewService {
       if (!proposalPresent) {
         return P1_DOMAIN_GATE_REQUEST_MISSING;
       }
+      // T-124 G5 FIX-A: statically-decidable semantic constraints mirrored to the
+      // slot pre-check (items 1/2/3/4) — retryable failures that never waste a
+      // Domain Gate materialize spend.
+      const semanticFailure = workflowType === 'claim_boundary_review'
+        ? this.claimProposalSemanticFailureCode(request, output.claim_proposal!)
+        : this.dossierProposalSemanticFailureCode(request, output.dossier_proposal!);
+      if (semanticFailure) {
+        return semanticFailure;
+      }
       // T-124 G4.5 Fix 2 (retained): pre-check the SERVICE-ASSEMBLED request
       // against the slot's target Create*Request schema (shape only). A
       // malformed assembly (e.g. empty semantic strings) fails early
@@ -1677,6 +1717,80 @@ export class PaperImplementationP1RuntimeReviewService {
       if (!assembled || !this.domainGateRequestValidators[workflowType](assembled)) {
         return P1_DOMAIN_GATE_REQUEST_MALFORMED;
       }
+    }
+    return null;
+  }
+
+  /**
+   * T-124 G5 FIX-A claim-workflow slot pre-checks (all retryable):
+   * - item 3: support_refs / challenge_refs must be a subset of the declared
+   *   source refs (a model-invented ref outside the request face fails closed);
+   * - item 4: the support selection must carry at least one admissible
+   *   evidence-class ref (the retired REU-floor fallback — the service never
+   *   endorses evidence for the model; the adjudicator must cite REU refs);
+   * - item 2: a strong claim with no human-confirmation ref in the context can
+   *   never materialize (the model may retry at moderate).
+   */
+  private claimProposalSemanticFailureCode(
+    request: RunPaperImplementationP1RuntimeReviewRequest,
+    proposal: NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']>,
+  ): string | null {
+    if (
+      !refsWithinDeclaredSet(proposal.support_refs, request.source_refs)
+      || !refsWithinDeclaredSet(proposal.challenge_refs, request.source_refs)
+    ) {
+      return P1_CLAIM_PROPOSAL_REFS_UNFENCED;
+    }
+    const evidenceClassSupport = proposal.support_refs.filter((ref) =>
+      CLAIM_SUPPORT_EVIDENCE_REF_TYPES.has(normalizedPaperImplementationRefType(ref.ref_type)));
+    if (evidenceClassSupport.length === 0) {
+      return P1_DOMAIN_GATE_REQUEST_MISSING;
+    }
+    const extraction = extractClaimBoundaryDomainGateContext(request.source_refs);
+    if (
+      extraction.ok
+      && proposal.claim_strength === 'strong'
+      && extraction.context.human_confirmation_ref === null
+    ) {
+      return P1_CLAIM_STRENGTH_CONFIRMATION_MISSING;
+    }
+    return null;
+  }
+
+  /**
+   * T-124 G5 FIX-A dossier-workflow slot pre-checks (all retryable):
+   * - item 1: a parked status with no reopen_condition, or an abandoned status
+   *   with no abandon_reason, is an inexpressible disposition;
+   * - item 2: a ready_for_writing status with no readiness gate result in the
+   *   context can never materialize.
+   */
+  private dossierProposalSemanticFailureCode(
+    request: RunPaperImplementationP1RuntimeReviewRequest,
+    proposal: NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']>,
+  ): string | null {
+    if (
+      proposal.dossier_status === 'parked_with_reopen_condition'
+      && !(proposal.reopen_condition ?? '').trim()
+    ) {
+      return P1_DOSSIER_DISPOSITION_INCOMPLETE;
+    }
+    if (
+      proposal.dossier_status === 'abandoned_with_trace'
+      && !(proposal.abandon_reason ?? '').trim()
+    ) {
+      return P1_DOSSIER_DISPOSITION_INCOMPLETE;
+    }
+    const extraction = extractDossierReadinessDomainGateContext(
+      request.target_ref,
+      request.source_refs,
+      request.source_context_packets,
+    );
+    if (
+      extraction.ok
+      && proposal.dossier_status === 'ready_for_writing'
+      && extraction.context.readiness_gate_result_id === null
+    ) {
+      return P1_DOSSIER_READINESS_GATE_MISSING;
     }
     return null;
   }
@@ -1710,7 +1824,11 @@ export class PaperImplementationP1RuntimeReviewService {
     if (!output.dossier_proposal) {
       return null;
     }
-    const extraction = extractDossierReadinessDomainGateContext(request.target_ref, request.source_refs);
+    const extraction = extractDossierReadinessDomainGateContext(
+      request.target_ref,
+      request.source_refs,
+      request.source_context_packets,
+    );
     if (!extraction.ok) {
       return null;
     }

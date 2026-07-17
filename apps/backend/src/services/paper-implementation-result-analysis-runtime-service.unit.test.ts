@@ -51,6 +51,7 @@ class StubResultAnalysisAgentOrchestrator {
       | 'incomplete_scenarios'
       | 'missing_semantic_blocks'
       | 'malformed_semantic_content'
+      | 'assertion_ref_type_invalid'
     > = ['passed'],
   ) {}
 
@@ -92,6 +93,16 @@ class StubResultAnalysisAgentOrchestrator {
         interpretation: {
           ...interpretationBlock(),
           result_summary: '',
+        },
+      }) as T, input.node_id, input.execution_mode);
+    }
+    if (outcome === 'assertion_ref_type_invalid') {
+      // T-124 G5 FIX-A item 12: an evidence ref in the assertion position (the
+      // run 013 / gs-002 recurrence) — retryable semantic failure.
+      return invocationResult(roleOutput({
+        interpretation: {
+          ...interpretationBlock(),
+          supports_assertion_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
         },
       }) as T, input.node_id, input.execution_mode);
     }
@@ -283,6 +294,20 @@ test('T-124 G4.5 Fix 2 (under G4.6 assembly): result analysis fails closed (retr
   assert.equal(orchestrator.calls.length, 2);
   assert.equal(result.final_runtime_artifact, null);
   assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED');
+  assert.equal(result.admission_records[0]?.admission_status, 'rejected');
+});
+
+test('T-124 G5 FIX-A item 12: result analysis fails closed (retryable) when an assertion ref carries a source-bundle evidence type', async () => {
+  const { service, orchestrator } = serviceFixture(['assertion_ref_type_invalid', 'assertion_ref_type_invalid']);
+  const result = await service.runInterpretationScenarios(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'result_analysis_assertion_ref_invalid_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(orchestrator.calls.length, 2);
+  assert.equal(result.final_runtime_artifact, null);
+  assert.equal(result.runtime_artifacts[0]?.runtime_failure_code, 'RESULT_ANALYSIS_ASSERTION_REF_TYPE_INVALID');
   assert.equal(result.admission_records[0]?.admission_status, 'rejected');
 });
 
@@ -527,6 +552,7 @@ function serviceFixture(
     | 'incomplete_scenarios'
     | 'missing_semantic_blocks'
     | 'malformed_semantic_content'
+    | 'assertion_ref_type_invalid'
   >,
   project: ImplementationProject | null = implementationProjectFixture(),
 ) {

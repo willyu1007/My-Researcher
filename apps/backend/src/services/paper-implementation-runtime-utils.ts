@@ -225,14 +225,17 @@ export interface BackHalfSourceContextPacketLike {
 }
 
 /**
- * T-124 G4.5 Fix 1 (B3 hash fence): assert every injected source-body packet is
- * fenced to a declared, hashed source. Each packet's `source_ref` must appear in
- * `source_refs` (matched by the identifying `ref_type`+`ref_id` pair, so an
- * absent/null `version_id` or `title_card_id` is not spurious drift), and its
- * `source_hash` must equal that source's declared `source_hashes` entry. This
- * stops a caller from injecting unfenced or mismatched bodies into the prompt
- * while claiming a different source hash in the ref bundle. No-op when no packets
- * are supplied (the field is additive/optional).
+ * T-124 G4.5 Fix 1 (B3 hash fence), hardened by G5 FIX-A item 8: assert every
+ * injected source-body packet is fenced to a declared, hashed source. Each
+ * packet's `source_ref` must appear in `source_refs` matched by the full
+ * identity key `ref_type`+`ref_id`+`version_id` — a packet that pins a DIFFERENT
+ * `version_id` than the declared ref is a different object and is rejected — and
+ * its `source_hash` must equal that source's declared `source_hashes` entry.
+ *
+ * FIX-A item 8 also rejects an AMBIGUOUS declared set: two `source_refs` that
+ * collapse to the same identity key (same type + id + version) would silently
+ * let one overwrite the other's declared hash in the fence map, so the caller
+ * fails closed instead. No-op when no packets are supplied (additive/optional).
  */
 export function assertBackHalfSourceContextPacketFence(
   sourceRefs: TopicSelectionFunctionalRef[],
@@ -244,7 +247,15 @@ export function assertBackHalfSourceContextPacketFence(
   }
   const declaredHashByKey = new Map<string, string>();
   sourceRefs.forEach((ref, index) => {
-    declaredHashByKey.set(backHalfSourceFenceKey(ref), sourceHashes[index] ?? '');
+    const key = backHalfSourceFenceKey(ref);
+    if (declaredHashByKey.has(key)) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `source_refs contains a duplicate ${ref.ref_type}:${ref.ref_id} identity — the source-context fence cannot bind an ambiguous declared source.`,
+      );
+    }
+    declaredHashByKey.set(key, sourceHashes[index] ?? '');
   });
   for (const packet of packets) {
     const key = backHalfSourceFenceKey(packet.source_ref);
@@ -267,7 +278,7 @@ export function assertBackHalfSourceContextPacketFence(
 }
 
 function backHalfSourceFenceKey(ref: TopicSelectionFunctionalRef): string {
-  return `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}`;
+  return `${normalizedPaperImplementationRefType(ref.ref_type)}:${ref.ref_id}:${ref.version_id ?? ''}`;
 }
 
 /**

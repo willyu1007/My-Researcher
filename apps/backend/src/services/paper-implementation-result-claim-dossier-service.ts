@@ -31,6 +31,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type {
   PaperImplementationResultClaimDossierRepository,
@@ -128,13 +129,22 @@ const HIGH_RISK_OVERCLAIM_STATEMENT_PATTERNS = [
   /\b(superior|superiority|best|state of the art|sota)\b/u,
   /\boutperform(s)? (all|every|any|across)\b/u,
 ] as const;
+// T-124 G5 FIX-A item 11: single source of the memo/summary/interpretation ref
+// types that may never stand in as evidence. This is the UNION of the former
+// dossier-private and harness-private copies (whichever was stricter wins — the
+// harness copy's extra entries are folded in); the harness now imports this set
+// instead of keeping a divergent copy.
 export const MEMO_OR_SUMMARY_REF_TYPES = new Set([
   'resultinterpretationpacket',
+  'resultinterpretation',
   'llmrationale',
+  'llmsummary',
   'boardsummary',
   'rationalememo',
+  'memo',
   'displaysummary',
   'internalinterpretation',
+  'summary',
 ]);
 
 export class PaperImplementationResultClaimDossierService {
@@ -253,7 +263,7 @@ export class PaperImplementationResultClaimDossierService {
       request.result_interpretation_packet_ids.map((id) =>
         this.requireResultPacket(project.implementation_project_id, id)),
     );
-    this.assertClaimSupport(request);
+    await this.assertClaimSupport(project.implementation_project_id, request);
     await this.assertStrongClaimConfirmation(project, request);
     this.assertClaimBoundary(request, resultPackets);
     const claimTracePacket = request.claim_trace_packet_id
@@ -713,7 +723,10 @@ export class PaperImplementationResultClaimDossierService {
     }
   }
 
-  private assertClaimSupport(request: CreateClaimCandidateRequest): void {
+  private async assertClaimSupport(
+    implementationProjectId: string,
+    request: CreateClaimCandidateRequest,
+  ): Promise<void> {
     const memoRef = request.support_refs.find((ref) =>
       MEMO_OR_SUMMARY_REF_TYPES.has(this.normalizedRefType(ref.ref_type)));
     if (memoRef) {
@@ -736,11 +749,44 @@ export class PaperImplementationResultClaimDossierService {
         },
       );
     }
+    // T-124 G5 FIX-A item 3 (gate depth): a run_evidence_unit support ref must
+    // resolve to an actual RunEvidenceUnit in this project — a ref-type-correct
+    // but non-existent id can no longer stand in as evidence.
+    await this.assertRunEvidenceSupportRefsResolve(implementationProjectId, request.support_refs);
     if (request.claim_strength === 'strong' && !request.boundary.human_confirmation_ref) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
         'Strong ClaimCandidate requires explicit human confirmation.',
+      );
+    }
+  }
+
+  /**
+   * T-124 G5 FIX-A item 3: every run_evidence_unit support ref must resolve to a
+   * RunEvidenceUnit that exists in this project (existence / in-project
+   * resolution — defence in depth alongside the ref-type discipline above).
+   * Other evidence classes (citation / source evidence) are out of this
+   * repository's scope and are not existence-checked here.
+   */
+  private async assertRunEvidenceSupportRefsResolve(
+    implementationProjectId: string,
+    supportRefs: TopicSelectionFunctionalRef[],
+  ): Promise<void> {
+    const runEvidenceSupportRefs = supportRefs.filter((ref) =>
+      this.normalizedRefType(ref.ref_type) === 'runevidenceunit');
+    if (runEvidenceSupportRefs.length === 0) {
+      return;
+    }
+    const projectUnits = await this.workOrderRepository.listRunEvidenceUnits(implementationProjectId);
+    const projectUnitIds = new Set(projectUnits.map((unit) => unit.run_evidence_unit_id));
+    const unresolved = runEvidenceSupportRefs.find((ref) => !projectUnitIds.has(ref.ref_id));
+    if (unresolved) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ClaimCandidate run_evidence_unit support refs must resolve to RunEvidenceUnit objects in this project.',
+        { ref_type: unresolved.ref_type, ref_id: unresolved.ref_id },
       );
     }
   }
@@ -763,7 +809,7 @@ export class PaperImplementationResultClaimDossierService {
     if (!confirmationRef) {
       return;
     }
-    await requireActiveHumanConfirmation(
+    const record = await requireActiveHumanConfirmation(
       this.confirmationRepository,
       project.implementation_project_id,
       confirmationRef.ref_id,
@@ -771,6 +817,28 @@ export class PaperImplementationResultClaimDossierService {
       'Strong ClaimCandidate',
       this.strongClaimConfirmationTarget(project, request),
     );
+    // T-124 G5 FIX-A item 9: content binding. When the confirmation carries the
+    // sha256 of the exact claim_statement the reviewer approved, it must equal
+    // the sha256 of the claim being written — the reviewer authorized THAT
+    // wording, not a later edit. Validated only when the record carries the hash
+    // (backward compatible with records that predate the field).
+    const reviewedHash = record.reviewed_claim_statement_hash;
+    if (reviewedHash && reviewedHash.trim().length > 0) {
+      const expected = sha256Text(request.claim_statement.trim());
+      const provided = reviewedHash.trim().replace(/^sha256:/, '');
+      if (provided !== expected) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Strong ClaimCandidate human confirmation reviewed_claim_statement_hash does not match the claim_statement being written.',
+          {
+            confirmation_record_id: record.confirmation_record_id,
+            expected_claim_statement_hash: expected,
+            reviewed_claim_statement_hash: provided,
+          },
+        );
+      }
+    }
   }
 
   private async consumeStrongClaimConfirmation(

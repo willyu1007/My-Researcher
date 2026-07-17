@@ -107,6 +107,10 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import { PaperImplementationP1RuntimeReviewService } from './paper-implementation-p1-runtime-review-service.js';
+import {
+  buildClaimCandidateProposal,
+  buildDossierReadinessProposal,
+} from './paper-implementation-p1-proposal-test-fixtures.js';
 import { PaperImplementationResultAnalysisRuntimeService } from './paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from './paper-implementation-experiment-planning-runtime-service.js';
 import { PaperImplementationCrossBoardSynthesisRuntimeService } from './paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -2613,12 +2617,19 @@ function p1Request(
         ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
         ref('claim_candidate', 'claim_candidate_l5_001'),
         ref('trace_manifest', 'trace_manifest_l5_claim_001'),
+        // T-124 G5 FIX-A items 2/3: the strong claim's evidence support REU and
+        // human confirmation must be declared source refs.
+        ref('run_evidence_unit', 'run_evidence_unit_l5_001'),
+        ref('human_confirmation_record', 'human_confirmation_l5_001'),
       ]
       : [
         ref('claim_candidate', 'claim_candidate_l5_001'),
         ref('claim_trace_packet', 'claim_trace_packet_l5_001'),
         ref('result_interpretation_packet', 'result_packet_l5_001'),
         ref('trace_manifest', 'trace_manifest_l5_dossier_001'),
+        // T-124 G5 FIX-A item 2: a ready_for_writing dossier needs a readiness
+        // gate_result declared source ref.
+        ref('gate_result', 'gate_result_l5_001'),
       ]
   );
   const sourceHashes = overrides.source_hashes ?? sourceRefs.map((item) => hash(item.ref_id));
@@ -2948,12 +2959,9 @@ function p1RoleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOut
 
 /** The L5 claim adjudicator's typed semantic proposal (assembly input). */
 function l5ClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
-  return {
-    claim_type: 'empirical_finding',
+  return buildClaimCandidateProposal({
     claim_statement: 'Bounded L5 parity claim within the probed scale and committed task set.',
-    claim_strength: 'strong',
     support_refs: [ref('run_evidence_unit', 'run_evidence_unit_l5_001')],
-    challenge_refs: [],
     scope: {
       population_scope: 'L5 downstream adaptation of a Transformer language model.',
       method_scope: 'Parameter-efficient adaptation vs reproduced full fine-tuning.',
@@ -2962,30 +2970,15 @@ function l5ClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOu
       negative_scope_notes: [],
       excluded_scope_notes: ['No claim beyond the probed setting.'],
     },
-    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
-    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
-    hidden_counter_evidence_refs: [],
-    required_followup_refs: [],
-  };
+  });
 }
 
 /** The L5 dossier adjudicator's typed semantic proposal (assembly input). */
 function l5DossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
-  return {
-    dossier_status: 'ready_for_writing',
+  return buildDossierReadinessProposal({
     experiment_limitations: ['Results at the probed scale on the committed tasks only.'],
-    failed_run_refs: [],
-    inconclusive_run_refs: [],
-    negative_result_refs: [],
-    excluded_stale_or_invalidated_evidence_refs: [],
     admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_l5_001')],
-    rejected_claim_refs: [],
-    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
-    claim_ceiling: 'strong',
-    readiness_blocker_refs: [],
-    readiness_warning_refs: [],
-    readiness_notes: ['Single confirmatory run set; nothing outstanding for N7.'],
-  };
+  });
 }
 
 /**

@@ -894,6 +894,48 @@ test('T-124 G4.5 Fix 3: motive evolution tolerates a reviewed-motive echo that d
   }
 });
 
+test('T-124 G5 FIX-A item 10: the recorded designer output normalizes echoed refs back to the declared request refs', async () => {
+  const { service } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: ['designer_review_set_version_drift'],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_echo_normalization_run_001',
+  });
+
+  assert.equal(result.status, 'passed');
+  const designerArtifact = result.runtime_artifacts.find(
+    (artifact) => artifact.role_slot_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID,
+  );
+  const recorded = (designerArtifact?.artifact_payload as { role_output?: {
+    reviewed_target_motive_refs: TopicSelectionFunctionalRef[];
+    reviewed_core_motive_version_refs: TopicSelectionFunctionalRef[];
+  } }).role_output;
+  // The fixture echoed a drifted title_card_id and null version pin; the recorded
+  // artifact carries the DECLARED request identity (TITLE_CARD_ID, version v1).
+  assert.deepEqual(recorded?.reviewed_target_motive_refs, [
+    { ref_type: 'core_motive', ref_id: 'core_motive_001', title_card_id: TITLE_CARD_ID, version_id: 'v1' },
+  ]);
+  assert.deepEqual(recorded?.reviewed_core_motive_version_refs, [
+    { ref_type: 'core_motive_version', ref_id: 'core_motive_version_001', title_card_id: TITLE_CARD_ID, version_id: 'v1' },
+  ]);
+});
+
+test('T-124 G5 FIX-A item 10: a challenger claiming options_proposed while the designer produced zero options fails closed', async () => {
+  const { service } = serviceFixture({
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID]: ['no_evolution_needed', 'no_evolution_needed'],
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID]: ['challenger_missing_coverage', 'challenger_missing_coverage'],
+  });
+  const result = await service.runEvolutionDecisionSupport(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'motive_evolution_empty_options_proposed_run_001',
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  const failed = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failed?.runtime_failure_code, 'MOTIVE_EVOLUTION_OPTION_SET_MISMATCH');
+});
+
 test('T-124 G4.5 Fix 3: motive evolution tolerates a cited-source echo that pins an unpinned request ref (run 008 REF_MISMATCH)', async () => {
   // Run 008 live signature: the request supplied source refs unpinned
   // (version_id: null); the designer cited them back with an invented version

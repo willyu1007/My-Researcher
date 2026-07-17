@@ -55,6 +55,7 @@ import { PaperImplementationRuntimeAdmissionService } from './paper-implementati
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   assertBackHalfSourceContextPacketFence,
+  normalizedPaperImplementationRefType,
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
   PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
   recordSlotProviderCallTelemetry,
@@ -211,6 +212,28 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   // schema (e.g. empty semantic strings) is a retryable semantic failure at the
   // slot, never a 400 at the Domain Gate materialize step.
   'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED',
+  // T-124 G5 FIX-A item 12 (run 013 / gs-002 recurrence): supports/challenges_
+  // assertion_refs must name argument-assertion objects, NOT the source-bundle
+  // evidence refs (run_evidence_unit / validation_report / metric / experiment_
+  // result / interpretation packet) — those linkages already ride the structural
+  // source bundle. A mis-typed assertion ref is a retryable semantic failure.
+  'RESULT_ANALYSIS_ASSERTION_REF_TYPE_INVALID',
+]);
+
+// T-124 G5 FIX-A item 12: the source-bundle / evidence / interpretation ref
+// types that must never appear in supports/challenges_assertion_refs (the
+// "assertion" position answers "which paper argument assertion", a distinct
+// object class from the evidence that backs it). Systematic mirror of the claim-
+// support evidence discipline, in the opposite direction.
+const RESULT_ANALYSIS_FORBIDDEN_ASSERTION_REF_TYPES = new Set([
+  'runevidenceunit',
+  'resultvalidationreport',
+  'metric',
+  'experimentresult',
+  'resultinterpretationpacket',
+  'validationcycle',
+  'experimentplanlight',
+  'tracemanifest',
 ]);
 
 export class PaperImplementationResultAnalysisRuntimeService {
@@ -889,6 +912,8 @@ export class PaperImplementationResultAnalysisRuntimeService {
           // assembles the CreateResultInterpretationPacketRequest deterministically
           // from the request context. No request envelope, no id transcription.
           'When the analysis passes (role_status=passed), you MUST fill all four scenario_outputs kinds (positive, negative, inconclusive, failed_run) AND the three semantic blocks: interpretation (result_summary text, supports_assertion_refs, challenges_assertion_refs, unexpected_findings, failed_run_refs, inconclusive_run_refs, stale_or_invalidated_evidence_refs, failed_runs_accounted_for, inconclusive_runs_accounted_for, exploratory_confirmatory_separated), reliability (failed_runs_retained, confound_refs, limitation_refs, reliability_notes), and claim_implications (allowed_claim_ceiling, forbidden_overclaims, recommended_claim_refs, required_followup_refs). Set them to null only when role_status=blocked.',
+          // T-124 G5 FIX-A item 12 (prompt v4): assertion-ref position discipline.
+          'supports_assertion_refs and challenges_assertion_refs name the PAPER-ARGUMENT ASSERTIONS (motive_assertion refs) the result supports or challenges — NOT the evidence that backs them. Never put run_evidence_unit, result_validation_report, metric, experiment_result, or the interpretation packet in the assertion-ref fields; that evidence is already linked through the source bundle (run_evidence_refs / validation_report_refs / metric_refs) and failed_run_refs / inconclusive_run_refs. If no argument-assertion ref is available in the source refs, leave the assertion-ref lists empty rather than substituting evidence refs.',
           'Do not emit a request envelope: no service, request_type, ids, source_refs, source_hashes, or trace manifest fields — the deterministic service assembles the Domain Gate request from the request context.',
           'Do not write claims, dossiers, trace repairs, queue items, prompt text, or raw provider output.',
         ].join(' '),
@@ -1241,6 +1266,16 @@ export class PaperImplementationResultAnalysisRuntimeService {
     if (!output.interpretation || !output.reliability || !output.claim_implications) {
       return 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MISSING';
     }
+    // T-124 G5 FIX-A item 12: the assertion-ref position must not be polluted
+    // with source-bundle evidence refs (systematic fix for the run 013 / gs-002
+    // recurrence — the model kept citing evidence refs where argument-assertion
+    // refs belong; evidence linkage rides the structural source bundle).
+    if (
+      this.hasForbiddenAssertionRef(output.interpretation.supports_assertion_refs)
+      || this.hasForbiddenAssertionRef(output.interpretation.challenges_assertion_refs)
+    ) {
+      return 'RESULT_ANALYSIS_ASSERTION_REF_TYPE_INVALID';
+    }
     const observedKinds = new Set(output.scenario_outputs.map((scenario) => scenario.scenario_kind));
     const missingKind = PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS.find((kind) => !observedKinds.has(kind));
     if (missingKind) {
@@ -1251,6 +1286,15 @@ export class PaperImplementationResultAnalysisRuntimeService {
       return 'RESULT_ANALYSIS_DOMAIN_GATE_REQUEST_MALFORMED';
     }
     return null;
+  }
+
+  /**
+   * T-124 G5 FIX-A item 12: true when any ref is a source-bundle / evidence /
+   * interpretation ref that cannot occupy the argument-assertion position.
+   */
+  private hasForbiddenAssertionRef(refs: TopicSelectionFunctionalRef[]): boolean {
+    return refs.some((ref) =>
+      RESULT_ANALYSIS_FORBIDDEN_ASSERTION_REF_TYPES.has(normalizedPaperImplementationRefType(ref.ref_type)));
   }
 
   /**

@@ -1231,11 +1231,154 @@ GS002_IDS.codeHfRoberta = GS002_IDS.codeHfDistillation;
 GS002_IDS.configAdaptation = GS002_IDS.configDistillation;
 
 // ---------------------------------------------------------------------------
+// T-124 G5 FIX-B: scenario-parameterization exports consumed by the runner
+// (mirrors gs-001; DistilBERT multi-objective trade-off semantics).
+// ---------------------------------------------------------------------------
+
+// FIX-B item 1: scenario-shaped verbatim body facts (student/teacher/retention,
+// committed-subset macro, size/speed, per-task non-uniformity disclosure).
+export function buildExperimentBodyFacts() {
+  const R = GS002_EXPERIMENT_RESULTS;
+  const teacher = R.full_finetune_reproduction
+    .map((row) => `${row.task} ${row.metric} ${row.value} (target ${row.precommitted_target}, met ${row.target_met})`)
+    .join('; ');
+  const matrix = R.confirmatory_matrix
+    .map((cell) => `${cell.task} ${cell.metric}: student ${cell.student} vs teacher ${cell.teacher} `
+      + `(retention ${cell.retention_ratio}, floor-met ${cell.retention_met}, within-uniform-0.97 ${cell.within_uniform_target_097})`)
+    .join('; ');
+  const degradations = R.known_degradations
+    .map((d) => `${d.task}: ${d.teacher}->${d.student} (drop ${d.absolute_drop}, below-floor ${d.below_floor})`)
+    .join('; ');
+  return [
+    `Run status: ${R.run_status}. Committed tasks: ${R.committed_tasks.join(', ')}; per-task retention floor `
+    + `${R.retention_floor_ratio}; paper 9-task macro reference ${R.paper_reference_macro_retention} (reference only, not a gate); `
+    + `provenance ${R.provenance}.`,
+    `Stage-0 probe: ${R.stage0_probe.note}`,
+    `Teacher reproduction: ${teacher}.`,
+    `Confirmatory matrix (6-layer student vs reproduced teacher, retention = student/teacher): ${matrix}.`,
+    `Committed-subset macro retention: teacher ${R.subset_macro_retention.teacher_macro} vs student `
+    + `${R.subset_macro_retention.student_macro} (ratio ${R.subset_macro_retention.retention_ratio}, gated `
+    + `${R.subset_macro_retention.gated}); ${R.subset_macro_retention.note}`,
+    `Resource: ${R.resource.student_parameters} vs ${R.resource.teacher_parameters} (${R.resource.parameter_reduction}); `
+    + `inference speedup: ${R.resource.inference_speedup}.`,
+    `Known per-task non-uniformities: ${degradations}.`,
+    `Overall: ${R.overall_note}`,
+  ];
+}
+
+// FIX-B item 6: N7 reconciliation — clean positive run; the CoLA non-uniformity
+// is a disclosed boundary on a succeeded run, not an outstanding run.
+GS002_EXPERIMENT_RESULTS.n7_reconciliation =
+  'Single succeeded confirmatory run set; no failed, inconclusive, or negative run. The CoLA retention '
+  + 'non-uniformity is a disclosed boundary on a succeeded run (carried in the experiment limitations), not an '
+  + 'outstanding run — so the project-level (N7) reconciliation has nothing outstanding to account for beyond '
+  + 'that mandatory disclosure.';
+
+// FIX-B items 2 & 4: back-half authority-object copy + run recipe method.
+GS002_DISTILBERT_SPINE.back_half = {
+  validation_question:
+    'Does task-agnostic distillation into a 6-layer student meet all three pre-committed trade-off objectives on '
+    + 'the committed GLUE subset — the per-task 0.90 teacher-retention floor, the >=40% parameter reduction, and '
+    + 'the >=1.5x fixed-device inference speedup — at the probed BERT-base scale?',
+  assumptions_under_test: [
+    'Task-agnostic distillation transfers most teacher capability into a 6-layer student at the probed scale.',
+    'The retention/size/speed trade-off is claimable only when the per-task retention floor holds on every committed task.',
+  ],
+  decision_if_pass:
+    'Materialize the bounded multi-objective trade-off interpretation and draft the strong claim, disclosing the '
+    + 'CoLA non-uniformity boundary and the fixed-device speedup condition.',
+  decision_if_fail:
+    'A committed task below the 0.90 retention floor makes the trade-off FAILED for that scope; the claim is '
+    + 'dropped, not weakened, not reframed as partial success.',
+  decision_if_inconclusive:
+    'A teacher reproduction that misses its target voids that task anchor; retain the inconclusive cell and narrow '
+    + 'the follow-up cycle.',
+  why_this_cycle_now:
+    'Stage-0 distillation probe passed and stage-1 teacher + student baselines reproduced to target; the '
+    + 'confirmatory trade-off matrix is due.',
+  pass_conditions: [
+    'Every committed task retains at least 0.90 of the reproduced teacher (median over repeats), AND parameter '
+    + 'reduction >=40%, AND fixed-device speedup >=1.5x.',
+  ],
+  fail_conditions: [
+    'Any committed task falls below the 0.90 retention floor, or a teacher reproduction misses its pre-committed target (anchor void).',
+  ],
+  inconclusive_conditions: ['Repeat variance prevents a stable median within the repeat cap, or a teacher anchor is void.'],
+  stop_conditions: ['Stop when the 60 GPU-hour training ledger is exhausted.'],
+  minimum_artifacts_required: ['trusted run evidence unit', 'result validation report'],
+  plan_summary:
+    'Confirmatory matrix {6-layer distilled student, teacher BERT-base} x {SST-2, MRPC, CoLA}, median over <=3 '
+    + 'repeats per cell, stage-1 teacher cells reused verbatim; total parameter count and fixed-device latency '
+    + 'measured under the committed protocols; per-task retention reported alongside the committed-subset macro.',
+  run_recipe_method: 'distilbert_student_vs_teacher_retention_size_speed',
+  confirmation_rationale:
+    'Golden-scenario recorder confirms the strong bounded trade-off claim against the material ground-truth card '
+    + '(ground-truth.md §GT-7): every pre-committed gate passes, the CoLA non-uniformity and fixed-device speedup '
+    + 'condition are disclosed, and the forbidden overclaims (lossless / no-capability-loss / full-GLUE-97% / '
+    + 'device-free speedup) are listed.',
+};
+
+// FIX-B item 3: front-half packet/hint copy + curation evidence units. The
+// secondary (task-agnostic distillation mechanism) evidence unit is UNBOUND at
+// intake and is genuine, non-duplicate material the runner injects into curation
+// (fixes the gs-002 NG-2 "only-evidence-already-bound → curation must block").
+GS002_DISTILBERT_SPINE.runner_context = {
+  motive_context_summary:
+    'Intake-stage motive: task-agnostic distillation of a BERT-base teacher into a 6-layer student under an '
+    + 'explicit quality/size/speed trade-off. Board has literature support for deployment-cost pressure and the '
+    + 'distillation route; direct per-task retention and fixed-device speed measurements are still pending.',
+  board: {
+    paper_source_summary:
+      'Primary literature locator for the topic package: pretrained-encoder compression context — deployment '
+      + 'cost/latency pressure, knowledge distillation over soft targets, task-agnostic vs task-specific '
+      + 'distillation, and pruning/quantization trade-offs.',
+    evidence_source_summary:
+      'Bound primary evidence unit currently supporting all three intake assertions at weak support; the board gap '
+      + 'is missing direct per-task retention reproduction and missing fixed-device speed measurements.',
+    evidence_source_key_facts: [
+      'All three assertions currently rest on the same primary literature evidence unit (aggregate retention headline, not per-task).',
+      'No probe or run evidence exists yet; freshness is intake-fresh; the inference-speed facet has only literature-level support.',
+    ],
+    secondary_evidence_units: [
+      {
+        evidence_ref_id: GS002_IDS.litEvidenceSecondary,
+        source_locator_ref_id: GS002_IDS.sourceLocatorSecondary,
+        citation_ref_id: GS002_IDS.citationCandidateSecondary,
+        content_summary:
+          'Secondary evidence unit (unbound at intake): task-agnostic distillation mechanism — one general-purpose '
+          + 'compressed encoder from a combined distillation objective (masked-LM + soft-target KL + '
+          + 'cosine-embedding) with student layers initialized from the teacher. Genuine, non-duplicate curation '
+          + 'material for the distillation-transfer assertion.',
+        key_facts: [...GS002_DISTILBERT_CONTENT.secondary_literature_context_key_facts],
+      },
+    ],
+  },
+  lane_a_hints: {
+    route:
+      'Route candidates must answer the research question within the budget envelope; deployment-relevant metrics '
+      + 'are the committed-subset macro + per-task retention ratio, total parameter count, and fixed-device inference latency.',
+    skeptic:
+      'Critique dimensions must be grounded in this topic: the inference-speed measurement environment (device '
+      + 'class not pinned), the aggregation hazard (macro hiding per-task retention), teacher-reproduction anchor '
+      + 'validity, and reproducibility within the single-GPU budget.',
+    cycle:
+      'Validation cycles must operationalize the early check obligations: a distillation feasibility probe against '
+      + 'a teacher anchor, and teacher + task-agnostic-student baseline reproducibility before any '
+      + 'retention/trade-off claim is planned.',
+    feasibility:
+      `Probe plans must fit the budget envelope (single-GPU, GLUE subset, max runtime ${GS002_DISTILBERT_CONTENT.budget_envelope.max_runtime}, `
+      + `retry budget ${GS002_DISTILBERT_CONTENT.budget_envelope.retry_budget}) and carry explicit stop conditions.`,
+  },
+};
+
+// ---------------------------------------------------------------------------
 // 通用导出契约（对齐 gs-001 v4）：runner 按通用名导入，--scenario 可切换。
-//   SCENARIO_META          { scenario_id, paper, package_version, runner_contract }
+//   SCENARIO_META          { scenario_id, paper, package_version, runner_contract, node_review }
 //   SCENARIO_IDS           superset of domain-object ids (front + back half)
 //   SCENARIO_CONTENT       topic content core (research question / scope / budget …)
+//   SCENARIO_SPINE         deterministic spine + .back_half / .runner_context (FIX-B)
 //   EXPERIMENT_RESULTS     acceptance-experiment data segment (paper real values)
+//   buildExperimentBodyFacts() -> string[]  (FIX-B item 1)
 //   CLAIM_GROUND_TRUTH     claim boundary + dossier readiness answer card
 //   makeBridgeHandoff      full bridge handoff (real bootstrap route contract)
 //   makeBackHalfFixtures   mocked_llm role fixtures for the back half
@@ -1245,6 +1388,15 @@ export const SCENARIO_META = {
   paper: 'arXiv:1910.01108 (DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter)',
   package_version: 'v1',
   runner_contract: 'paper-implementation-golden-scenario/v4',
+  node_review: {
+    motiveDecomposition: 'ground-truth.md §GT-1/§GT-2（蒸馏压缩动机与对照路线空间）+ 幻觉对照（GT-3 论文数字仅后半链可引）',
+    motiveEvolution: 'ground-truth.md §GT-5/§GT-6（结论边界与已知局限：设备类别敏感/宏口径掩盖逐任务退化）',
+    boardCuration: 'ground-truth.md §GT-3（缺什么证据：直接加速/逐任务保留测量）+ 第二证据单元（task-agnostic 蒸馏机理）可绑',
+    routeArchitecture: 'ground-truth.md §GT-1（论文实际路线）/§GT-2（对照路线空间：pruning/quantization/task-specific 蒸馏）',
+    routeSkeptic: 'ground-truth.md §GT-2（基线代价）/§GT-6（已知局限）/§GT-7（权衡结论边界）',
+    cyclePlanning: 'ground-truth.md §GT-3（关键实验：三目标测量协议）/§GT-4（设计论证）',
+    feasibility: 'ground-truth.md §GT-4（6 层学生蒸馏 + SST-2 探针即典型 probe 形态）',
+  },
 };
 export const SCENARIO_IDS = GS002_IDS;
 export const SCENARIO_CONTENT = GS002_DISTILBERT_CONTENT;

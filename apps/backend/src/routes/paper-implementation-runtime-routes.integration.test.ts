@@ -116,6 +116,10 @@ import {
 } from '../services/llm-gateway.js';
 import { PaperImplementationRuntimeAdmissionService } from '../services/paper-implementation-runtime-admission-service.js';
 import {
+  buildClaimCandidateProposal,
+  buildDossierReadinessProposal,
+} from '../services/paper-implementation-p1-proposal-test-fixtures.js';
+import {
   seedAdmittedRoutePlanningLineage,
   seedAdmittedValidationPlanningLineage,
   type PaperImplementationSeededRouteLineage,
@@ -4627,12 +4631,21 @@ function p1RunPayload(kind: 'claim' | 'dossier', providerId: 'openai' | 'dashsco
         ref('claim_trace_packet', 'claim-trace-packet-http-1'),
         ref('claim_candidate', 'claim-candidate-http-1'),
         ref('trace_manifest', 'trace-manifest-http-claim-1'),
+        // T-124 G5 FIX-A items 2/3/4: the strong claim's evidence support REU and
+        // its human confirmation must be DECLARED source refs — the slot prechecks
+        // fence proposal refs to the declared set and require a confirmation ref
+        // for claim_strength=strong.
+        ref('run_evidence_unit', 'run-evidence-unit-http-1'),
+        ref('human_confirmation_record', 'human-confirmation-http-1'),
       ]
       : [
         ref('claim_candidate', 'claim-candidate-http-1'),
         ref('claim_trace_packet', 'claim-trace-packet-http-1'),
         ref('result_interpretation_packet', 'result-packet-http-1'),
         ref('trace_manifest', 'trace-manifest-http-dossier-1'),
+        // T-124 G5 FIX-A item 2: a ready_for_writing dossier requires a declared
+        // readiness gate_result source ref.
+        ref('gate_result', 'gate-result-http-1'),
       ],
     source_hashes: claim
       ? [
@@ -4640,12 +4653,15 @@ function p1RunPayload(kind: 'claim' | 'dossier', providerId: 'openai' | 'dashsco
         hash('claim-trace-packet-http-1'),
         hash('claim-candidate-http-1'),
         hash('trace-manifest-http-claim-1'),
+        hash('run-evidence-unit-http-1'),
+        hash('human-confirmation-http-1'),
       ]
       : [
         hash('claim-candidate-http-1'),
         hash('claim-trace-packet-http-1'),
         hash('result-packet-http-1'),
         hash('trace-manifest-http-dossier-1'),
+        hash('gate-result-http-1'),
       ],
     preflight_blocker_codes: [],
   };
@@ -5318,12 +5334,9 @@ function p1ReviewRoleOutput(roleSlotId: string): PaperImplementationP1RuntimeRev
 
 /** The HTTP claim adjudicator's typed semantic proposal (assembly input). */
 function httpClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
-  return {
-    claim_type: 'empirical_finding',
+  return buildClaimCandidateProposal({
     claim_statement: 'Bounded HTTP parity claim within the probed scale and committed task set.',
-    claim_strength: 'strong',
     support_refs: [ref('run_evidence_unit', 'run-evidence-unit-http-1')],
-    challenge_refs: [],
     scope: {
       population_scope: 'HTTP downstream adaptation of a Transformer language model.',
       method_scope: 'Parameter-efficient adaptation vs reproduced full fine-tuning.',
@@ -5332,30 +5345,15 @@ function httpClaimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRole
       negative_scope_notes: [],
       excluded_scope_notes: ['No claim beyond the probed setting.'],
     },
-    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
-    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
-    hidden_counter_evidence_refs: [],
-    required_followup_refs: [],
-  };
+  });
 }
 
 /** The HTTP dossier adjudicator's typed semantic proposal (assembly input). */
 function httpDossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
-  return {
-    dossier_status: 'ready_for_writing',
+  return buildDossierReadinessProposal({
     experiment_limitations: ['Results at the probed scale on the committed tasks only.'],
-    failed_run_refs: [],
-    inconclusive_run_refs: [],
-    negative_result_refs: [],
-    excluded_stale_or_invalidated_evidence_refs: [],
     admitted_claim_refs: [ref('claim_candidate', 'claim-candidate-http-1')],
-    rejected_claim_refs: [],
-    forbidden_overclaims: ['universal superiority over all methods on all tasks'],
-    claim_ceiling: 'strong',
-    readiness_blocker_refs: [],
-    readiness_warning_refs: [],
-    readiness_notes: ['Single confirmatory run set; nothing outstanding for N7.'],
-  };
+  });
 }
 
 /**

@@ -266,8 +266,14 @@ export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID =
 // dossier_proposal); the runtime service assembles the Create*Request
 // deterministically from the request context, so all id/envelope transcription
 // guidance is removed (run 009/010/011 envelope-echo signature).
-export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v3' as const;
-export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v3' as const;
+// T-124 G5 FIX-A items 4 / 12: v4 strengthens the claim-boundary support
+// discipline (support_refs MUST cite REU evidence refs one-by-one; the service
+// never endorses evidence for the model), the dossier disposition channels
+// (reopen_condition / abandon_reason), and the result-analysis assertion-ref
+// discipline (supports/challenges_assertion_refs carry argument-assertion refs,
+// never source-bundle evidence refs).
+export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v4' as const;
+export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v4' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
@@ -890,6 +896,15 @@ export interface PaperImplementationDossierReadinessProposal {
   readiness_blocker_refs: TopicSelectionFunctionalRef[];
   readiness_warning_refs: TopicSelectionFunctionalRef[];
   readiness_notes: string[];
+  // T-124 G5 FIX-A item 1: additive disposition channels for the non-ready
+  // dossier states. `parked_with_reopen_condition` carries the concrete reopen
+  // condition; `abandoned_with_trace` carries the abandon reason. Additive and
+  // nullable so existing ready/draft proposals need not supply them; the runtime
+  // service fails closed (retryable) when the disposition demands the field and
+  // the adjudicator omitted it, so an impossible-to-materialize disposition
+  // never wastes a Domain Gate spend.
+  reopen_condition?: string | null;
+  abandon_reason?: string | null;
 }
 
 export interface PaperImplementationP1RuntimeReviewRoleOutput {
@@ -968,6 +983,17 @@ export interface PaperImplementationBackHalfSourceContextPacket {
   evidence_kind: string;
   content_summary: string;
   key_facts: string[];
+  // T-124 G5 FIX-A item 6 (gs-003 GAP-R4): when the packet mirrors a
+  // materialized ResultInterpretationPacket read-back, the runner injects that
+  // packet's structural accounting refs here so the dossier assembly can
+  // deterministically collect every disclosed negative / inconclusive / failed /
+  // stale run ref into the dossier's mandatory ledger slots. Additive/optional
+  // (structural read-back of an already gate-validated packet — service-owned,
+  // not model content); absent for non-packet bodies.
+  failed_run_refs?: TopicSelectionFunctionalRef[];
+  inconclusive_run_refs?: TopicSelectionFunctionalRef[];
+  negative_result_refs?: TopicSelectionFunctionalRef[];
+  stale_or_invalidated_evidence_refs?: TopicSelectionFunctionalRef[];
 }
 
 export interface RunPaperImplementationP1RuntimeReviewRequest {
@@ -3293,6 +3319,9 @@ export const paperImplementationDossierReadinessProposalSchema = {
     readiness_blocker_refs: nonLegacyFunctionalRefArray,
     readiness_warning_refs: nonLegacyFunctionalRefArray,
     readiness_notes: stringArray,
+    // T-124 G5 FIX-A item 1: additive disposition channels (nullable, optional).
+    reopen_condition: nullableStringId,
+    abandon_reason: nullableStringId,
   },
 } as const;
 
@@ -6701,6 +6730,11 @@ export const paperImplementationBackHalfSourceContextPacketSchema = {
     evidence_kind: stringId,
     content_summary: stringId,
     key_facts: stringArray,
+    // T-124 G5 FIX-A item 6: additive materialized-packet accounting refs.
+    failed_run_refs: nonLegacyFunctionalRefArray,
+    inconclusive_run_refs: nonLegacyFunctionalRefArray,
+    negative_result_refs: nonLegacyFunctionalRefArray,
+    stale_or_invalidated_evidence_refs: nonLegacyFunctionalRefArray,
   },
 } as const;
 

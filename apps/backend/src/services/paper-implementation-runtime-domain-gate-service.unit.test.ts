@@ -38,6 +38,10 @@ import { PaperImplementationP1RuntimeReviewService } from './paper-implementatio
 import { PaperImplementationResultAnalysisRuntimeService } from './paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationRuntimeDomainGateService } from './paper-implementation-runtime-domain-gate-service.js';
+import {
+  buildClaimCandidateProposal,
+  buildDossierReadinessProposal,
+} from './paper-implementation-p1-proposal-test-fixtures.js';
 import type {
   TopicSelectionAgentInvocationResult,
 } from './topic-selection-agent-orchestrator-service.js';
@@ -271,13 +275,14 @@ test('runtime Domain Gate materializes an admitted result-analysis final artifac
 
 test('T-124 G4.5 Fix 2 (under G4.6 assembly): the P1 slot rejects semantically-incomplete adjudicator content early, before any final artifact reaches the Domain Gate', async () => {
   const { runtime, resultService } = fixture();
-  // The adjudicator's proposal is semantically hollow (empty statement, no
-  // support refs) — the ASSEMBLED CreateClaimCandidateRequest fails the ajv
-  // pre-check as a retryable semantic failure. No passed final artifact, so the
-  // Domain Gate and the domain service are never reached.
+  // The adjudicator's proposal is semantically hollow (empty statement, with a
+  // valid evidence support so the item-4 MISSING pre-check does not fire) — the
+  // ASSEMBLED CreateClaimCandidateRequest fails the ajv pre-check as a retryable
+  // semantic failure. No passed final artifact, so the Domain Gate and the domain
+  // service are never reached.
   const run = await runtime.runClaimBoundaryDebate(PROJECT_ID, mockedRequest('claim', {
     run_id: 'claim_boundary_malformed_domain_gate_run_001',
-    final_claim_proposal: { ...claimProposal(), claim_statement: '', support_refs: [] },
+    final_claim_proposal: { ...claimProposal(), claim_statement: '' },
   }));
   assert.equal(run.status, 'failed_runtime');
   assert.equal(run.final_runtime_artifact, null);
@@ -548,6 +553,8 @@ function mockedRequest(
         ref('claim_candidate', 'claim_candidate_001'),
         ref('trace_manifest', 'trace_manifest_001'),
         ref('claim_trace_packet', 'claim_trace_packet_001'),
+        // T-124 G5 FIX-A item 3: the proposal's support REU is a declared source ref.
+        ref('run_evidence_unit', 'run_evidence_unit_001'),
       ]
       : [
         ref('claim_candidate', 'claim_candidate_001'),
@@ -557,7 +564,7 @@ function mockedRequest(
         ref('gate_result', 'readiness_gate_result_001'),
       ],
     source_hashes: claim
-      ? [hash('result-packet'), hash('claim-candidate'), hash('trace-manifest'), hash('claim-trace-packet')]
+      ? [hash('result-packet'), hash('claim-candidate'), hash('trace-manifest'), hash('claim-trace-packet'), hash('run-evidence')]
       : [
         hash('claim-candidate'),
         hash('claim-trace-packet'),
@@ -640,12 +647,11 @@ function roleOutput(
 }
 
 function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
-  return {
+  return buildClaimCandidateProposal({
     claim_type: 'method_claim',
     claim_statement: 'Runtime admitted claim.',
     claim_strength: 'tentative',
     support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-    challenge_refs: [],
     scope: {
       population_scope: 'bounded benchmark runs',
       method_scope: 'runtime orchestration path',
@@ -656,27 +662,17 @@ function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutp
     },
     boundary_rationale: 'accepted by fake domain gate',
     forbidden_overclaims: ['forbidden strong claim'],
-    hidden_counter_evidence_refs: [],
-    required_followup_refs: [],
-  };
+  });
 }
 
 function dossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
-  return {
-    dossier_status: 'ready_for_writing',
+  return buildDossierReadinessProposal({
     experiment_limitations: [],
-    failed_run_refs: [],
-    inconclusive_run_refs: [],
-    negative_result_refs: [],
-    excluded_stale_or_invalidated_evidence_refs: [],
     admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
-    rejected_claim_refs: [],
     forbidden_overclaims: ['forbidden strong claim'],
     claim_ceiling: 'tentative',
-    readiness_blocker_refs: [],
-    readiness_warning_refs: [],
     readiness_notes: ['ready for writing'],
-  };
+  });
 }
 
 function resultAnalysisRoleOutput(): PaperImplementationResultAnalysisRoleOutput {

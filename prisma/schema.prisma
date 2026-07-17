@@ -4136,6 +4136,7 @@ model PaperImplementationHumanConfirmationRecord {
   transitionAttemptRef    Json?
   gateResultRefs          Json      @default("[]")
   rationale               String
+  reviewedClaimStatementHash String?
   confirmedByActorType    String
   confirmedByActorId      String?
   policyVersionId         String?

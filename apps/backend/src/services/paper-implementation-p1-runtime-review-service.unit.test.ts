@@ -24,6 +24,10 @@ import { InMemoryPaperImplementationRepository } from '../repositories/in-memory
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationP1RuntimeReviewService } from './paper-implementation-p1-runtime-review-service.js';
+import {
+  buildClaimCandidateProposal,
+  buildDossierReadinessProposal,
+} from './paper-implementation-p1-proposal-test-fixtures.js';
 import type {
   TopicSelectionAgentInvocationResult,
 } from './topic-selection-agent-orchestrator-service.js';
@@ -431,12 +435,9 @@ function roleOutput(nodeId: string): PaperImplementationP1RuntimeReviewRoleOutpu
 
 /** The claim adjudicator's typed semantic proposal (assembly input). */
 function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['claim_proposal']> {
-  return {
-    claim_type: 'empirical_finding',
+  return buildClaimCandidateProposal({
     claim_statement: 'Bounded parity claim within the probed scale and committed task set.',
-    claim_strength: 'strong',
     support_refs: [ref('run_evidence_unit', 'run_evidence_unit_001')],
-    challenge_refs: [],
     scope: {
       population_scope: 'RoBERTa-base class Transformer language model.',
       method_scope: 'Low-rank adaptation r=8 vs reproduced full fine-tuning.',
@@ -445,30 +446,18 @@ function claimProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutp
       negative_scope_notes: [],
       excluded_scope_notes: ['No claim of superiority over other adaptation methods.'],
     },
-    boundary_rationale: 'Parity claimed only within the probed scale and committed task set.',
     forbidden_overclaims: ['universal superiority over all adaptation methods on all tasks'],
-    hidden_counter_evidence_refs: [],
-    required_followup_refs: [],
-  };
+  });
 }
 
 /** The dossier adjudicator's typed semantic proposal (assembly input). */
 function dossierProposal(): NonNullable<PaperImplementationP1RuntimeReviewRoleOutput['dossier_proposal']> {
-  return {
-    dossier_status: 'ready_for_writing',
+  return buildDossierReadinessProposal({
     experiment_limitations: ['Results are at the probed scale on the committed tasks only.'],
-    failed_run_refs: [],
-    inconclusive_run_refs: [],
-    negative_result_refs: [],
-    excluded_stale_or_invalidated_evidence_refs: [],
     admitted_claim_refs: [ref('claim_candidate', 'claim_candidate_001')],
-    rejected_claim_refs: [],
     forbidden_overclaims: ['universal superiority over all adaptation methods on all tasks'],
-    claim_ceiling: 'strong',
-    readiness_blocker_refs: [],
-    readiness_warning_refs: [],
     readiness_notes: ['Single confirmatory run set; nothing outstanding for N7 reconciliation.'],
-  };
+  });
 }
 
 /**
@@ -782,12 +771,12 @@ test('T-124 G4.6: P1 adjudicator fails closed (retryable) when a passed adjudica
   assert.equal(failedArtifact?.retry_attempt_index, 1);
 });
 
-test('T-124 G4.6 run-012 fix: an adjudicator support selection of interpretation refs assembles to the declared REU evidence floor', async () => {
-  const { service } = scriptedServiceFixture((call) => {
+test('T-124 G5 FIX-A item 4: an adjudicator support selection of interpretation refs only fails closed (no REU floor)', async () => {
+  const { service, orchestrator } = scriptedServiceFixture((call) => {
     if (call.node_id === 'claim_boundary_review.adjudicator_final') {
-      // Run 012 live signature: the adjudicator cited the interpretation packet
-      // in support_refs — the Domain Gate 409s that as evidence. The assembly
-      // must land the DECLARED run-evidence refs in the evidence position.
+      // Run 012 live signature: the adjudicator cited only the interpretation
+      // packet in support_refs. The retired REU floor no longer rescues it — the
+      // service never endorses evidence, so the slot fails closed (retryable).
       return invocationResult(
         {
           ...roleOutput(call.node_id),
@@ -804,25 +793,25 @@ test('T-124 G4.6 run-012 fix: an adjudicator support selection of interpretation
   });
   const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
 
-  assert.equal(result.status, 'passed');
-  const finalDomainGate = result.final_runtime_artifact?.artifact_payload.domain_gate_request as Record<string, unknown> | null;
-  assert.deepEqual(
-    (finalDomainGate?.support_refs as Array<{ ref_type: string; ref_id: string }>).map((item) => [item.ref_type, item.ref_id]),
-    [['run_evidence_unit', 'run_evidence_unit_001']],
-  );
-  // The packet linkage stays in its structural field, never the evidence position.
-  assert.deepEqual(finalDomainGate?.result_interpretation_packet_ids, ['result_packet_001']);
+  assert.equal(result.status, 'failed_runtime');
+  // The adjudicator retries once then lands failed_runtime (2 prefix + 2 adjudicator).
+  assert.equal(orchestrator.calls.length, 4);
+  assert.equal(result.final_runtime_artifact, null);
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOMAIN_GATE_REQUEST_MISSING');
+  assert.equal(failedArtifact?.retry_attempt_index, 1);
 });
 
 test('T-124 G4.5 Fix 2 (under G4.6 assembly): P1 adjudicator fails closed (retryable) when the ASSEMBLED request cannot satisfy the target Create schema', async () => {
   const { service, orchestrator } = scriptedServiceFixture((call) => {
     if (call.node_id === 'claim_boundary_review.adjudicator_final') {
-      // Semantic content present but schema-invalid: empty claim_statement and
-      // empty support_refs — the assembled request fails the ajv pre-check.
+      // Semantic content present but schema-invalid: empty claim_statement (with
+      // a valid evidence support so the item-4 MISSING pre-check does not fire) —
+      // the assembled request fails the ajv pre-check as MALFORMED.
       return invocationResult(
         {
           ...roleOutput(call.node_id),
-          claim_proposal: { ...claimProposal(), claim_statement: '', support_refs: [] },
+          claim_proposal: { ...claimProposal(), claim_statement: '' },
         },
         call.node_id,
         call.execution_mode,
@@ -839,6 +828,88 @@ test('T-124 G4.5 Fix 2 (under G4.6 assembly): P1 adjudicator fails closed (retry
   const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
   assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOMAIN_GATE_REQUEST_MALFORMED');
   assert.equal(failedArtifact?.retry_attempt_index, 1);
+});
+
+test('T-124 G5 FIX-A item 3: a claim proposal support ref outside the declared source refs fails closed (retryable)', async () => {
+  const { service } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'claim_boundary_review.adjudicator_final') {
+      return invocationResult(
+        {
+          ...roleOutput(call.node_id),
+          claim_proposal: {
+            ...claimProposal(),
+            // A model-invented REU that is not among the declared source refs.
+            support_refs: [ref('run_evidence_unit', 'phantom_reu_999')],
+          },
+        },
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return p1SuccessScript(call);
+  });
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, providerRequest('claim'));
+
+  assert.equal(result.status, 'failed_runtime');
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_CLAIM_PROPOSAL_REFS_UNFENCED');
+});
+
+test('T-124 G5 FIX-A item 2: a strong claim with no human-confirmation ref in the context fails closed (retryable)', async () => {
+  const { service } = scriptedServiceFixture(p1SuccessScript);
+  const request = providerRequest('claim');
+  const confirmationIndex = request.source_refs.findIndex((item) => item.ref_type === 'human_confirmation_record');
+  const result = await service.runClaimBoundaryDebate(PROJECT_ID, {
+    ...request,
+    run_id: 'claim_boundary_strong_no_confirmation_run_001',
+    source_refs: request.source_refs.filter((_, index) => index !== confirmationIndex),
+    source_hashes: request.source_hashes.filter((_, index) => index !== confirmationIndex),
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_CLAIM_STRENGTH_CONFIRMATION_MISSING');
+});
+
+test('T-124 G5 FIX-A item 1: a parked dossier proposal with no reopen_condition fails closed (retryable)', async () => {
+  const { service } = scriptedServiceFixture((call) => {
+    if (call.node_id === 'dossier_readiness_prep.scenario_adjudicator_final') {
+      return invocationResult(
+        {
+          ...roleOutput(call.node_id),
+          dossier_proposal: {
+            ...dossierProposal(),
+            dossier_status: 'parked_with_reopen_condition',
+            // reopen_condition intentionally omitted — inexpressible disposition.
+          },
+        },
+        call.node_id,
+        call.execution_mode,
+      );
+    }
+    return p1SuccessScript(call);
+  });
+  const result = await service.runDossierReadinessAudit(PROJECT_ID, providerRequest('dossier'));
+
+  assert.equal(result.status, 'failed_runtime');
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOSSIER_DISPOSITION_INCOMPLETE');
+});
+
+test('T-124 G5 FIX-A item 2: a ready dossier with no readiness gate ref in the context fails closed (retryable)', async () => {
+  const { service } = scriptedServiceFixture(p1SuccessScript);
+  const request = providerRequest('dossier');
+  const gateIndex = request.source_refs.findIndex((item) => item.ref_type === 'gate_result');
+  const result = await service.runDossierReadinessAudit(PROJECT_ID, {
+    ...request,
+    run_id: 'dossier_readiness_no_gate_run_001',
+    source_refs: request.source_refs.filter((_, index) => index !== gateIndex),
+    source_hashes: request.source_hashes.filter((_, index) => index !== gateIndex),
+  });
+
+  assert.equal(result.status, 'failed_runtime');
+  const failedArtifact = result.runtime_artifacts.find((artifact) => artifact.runtime_status === 'failed_runtime');
+  assert.equal(failedArtifact?.runtime_failure_code, 'P1_DOSSIER_READINESS_GATE_MISSING');
 });
 
 test('T-124 G4.6: P1 rejects an incomplete Domain Gate structural context with 400 before any provider call', async () => {

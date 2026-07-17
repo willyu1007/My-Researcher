@@ -42,6 +42,7 @@ import type {
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
 import { PaperImplementationResultClaimDossierService } from './paper-implementation-result-claim-dossier-service.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
 const PROJECT_ID = 'implementation_project_001';
@@ -957,6 +958,78 @@ test('strong claim requires explicit human confirmation', async () => {
     service.createClaimCandidate(PROJECT_ID, strongClaim),
     (error) => error instanceof AppError && error.message.includes('human confirmation'),
   );
+});
+
+test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a project RunEvidenceUnit', async () => {
+  const { service } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+  const phantomSupport = validClaimRequest();
+  phantomSupport.support_refs = [ref('run_evidence_unit', 'run_evidence_unit_phantom')];
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, phantomSupport),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('must resolve to RunEvidenceUnit objects in this project'),
+  );
+  // The declared project REU still passes (positive control).
+  const ok = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  assert.equal(ok.claim_candidate_id, 'claim_candidate_001');
+});
+
+test('T-124 G5 FIX-A item 9: strong claim confirmation reviewed_claim_statement_hash binds to the claim statement', async () => {
+  const { service, confirmationRepository } = await setup();
+  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+
+  const baseConfirmation = {
+    implementation_project_id: PROJECT_ID,
+    confirmation_scope: 'strong_claim_acceptance' as const,
+    target_refs: [ref('claim_candidate', 'claim_candidate_001')],
+    reviewed_sources: [],
+    transition_attempt_ref: null,
+    gate_result_refs: [],
+    rationale: 'Reviewed the exact claim wording.',
+    confirmed_by_actor_type: 'human' as const,
+    confirmed_by_actor_id: 'reviewer_001',
+    policy_version_id: null,
+    status: 'active' as const,
+    status_reason: null,
+    created_at: NOW,
+    updated_at: null,
+  };
+
+  // (a) A confirmation whose hash does not match the claim statement is rejected.
+  await confirmationRepository.createHumanConfirmationRecord({
+    ...baseConfirmation,
+    confirmation_record_id: 'pi_human_confirmation_hash_mismatch',
+    reviewed_claim_statement_hash: sha256Text('A different claim statement than the one being written.'),
+  });
+  const mismatched = validClaimRequest();
+  mismatched.claim_strength = 'strong';
+  mismatched.boundary = {
+    ...mismatched.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_hash_mismatch'),
+  };
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, mismatched),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('reviewed_claim_statement_hash does not match'),
+  );
+
+  // (b) A confirmation whose hash matches the exact claim statement passes.
+  await confirmationRepository.createHumanConfirmationRecord({
+    ...baseConfirmation,
+    confirmation_record_id: 'pi_human_confirmation_hash_match',
+    reviewed_claim_statement_hash: sha256Text('The method improves the admitted benchmark metric.'),
+  });
+  const matched = validClaimRequest();
+  matched.claim_strength = 'strong';
+  matched.boundary = {
+    ...matched.boundary,
+    human_confirmation_ref: ref('human_confirmation_record', 'pi_human_confirmation_hash_match'),
+  };
+  const created = await service.createClaimCandidate(PROJECT_ID, matched);
+  assert.equal(created.claim_strength, 'strong');
 });
 
 test('writing packet cannot be projected from a non-ready dossier', async () => {

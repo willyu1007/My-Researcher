@@ -222,7 +222,7 @@ templates:
       - "v2 applies to both passed and blocked role outputs — a blocked verdict must still be structurally complete."
 
   - prompt_template_id: paper-implementation-claim-boundary-debate
-    version: 3
+    version: 4
     runtime_profile_id: paper-implementation.claim-boundary.boundary-debate.v1
     description: Run one fixed role in the PaperImplementation claim-boundary debate runtime slot.
     variables_schema:
@@ -244,11 +244,12 @@ templates:
     notes:
       - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
       - "v3 (T-124 G4.6): the final adjudicator proposes typed SEMANTIC content in claim_proposal (claim type/statement/strength, support/challenge refs, scope, boundary rationale, forbidden overclaims); the runtime service assembles the CreateClaimCandidateRequest deterministically from the request context. No request envelope, no id transcription (v2 asked for a full Create request — run 009/010/011 envelope-echo signature)."
+      - "v4 (T-124 G5 FIX-A items 2/3/4): support_refs MUST cite run-evidence (REU / citation / source-evidence) refs one-by-one — never empty, never a packet/memo/summary ref; the service no longer supplies an evidence floor (an empty or evidence-free support selection is retried). support_refs and challenge_refs may name only declared source refs. Set claim_strength=strong only when a human_confirmation_record ref is in the source refs, else cap at moderate."
       - Do not create claims, trace packets, dossiers, queue items, prompt text, or raw provider output directly.
       - Preserve forbidden_overclaims, support/challenge refs, claim trace refs, and failed-run accounting.
 
   - prompt_template_id: paper-implementation-dossier-readiness-audit
-    version: 3
+    version: 4
     runtime_profile_id: paper-implementation.dossier-readiness.readiness-audit.v1
     description: Run one fixed role in the PaperImplementation dossier-readiness audit runtime slot.
     variables_schema:
@@ -270,11 +271,12 @@ templates:
     notes:
       - Return only the PaperImplementationP1RuntimeReviewRoleArtifact JSON for the requested role slot.
       - "v3 (T-124 G4.6): the final adjudicator proposes typed SEMANTIC content in dossier_proposal (dossier_status disposition, experiment limitations, failed/inconclusive/negative accounting refs, admitted/rejected claim refs, forbidden overclaims, claim ceiling, readiness blockers/warnings/notes); the runtime service assembles the CreateImplementationDossierRequest deterministically from the request context. No request envelope, no id transcription."
+      - "v4 (T-124 G5 FIX-A items 1/2/5): supply reopen_condition when dossier_status=parked_with_reopen_condition and abandon_reason when abandoned_with_trace (a disposition without its channel is retried); set ready_for_writing only when a readiness gate_result ref is in the source refs. admitted_claim_refs / rejected_claim_refs must cite ONLY claim_candidate refs — the service takes the source claim candidates as authoritative and admits every one not explicitly rejected. The service also unions the materialized packet's disclosed negative/inconclusive/failed run refs into the dossier ledger."
       - Do not create dossiers, writing packets, claims, queue items, prompt text, or raw provider output directly.
       - Preserve claim trace refs, failed/inconclusive run refs, readiness blockers, and scenario alternatives.
 
   - prompt_template_id: paper-implementation-result-analysis-scenarios
-    version: 3
+    version: 4
     runtime_profile_id: paper-implementation.result-analysis.interpretation-scenarios.v1
     description: Run the fixed PaperImplementation result-analysis interpretation-scenario runtime role.
     variables_schema:
@@ -296,6 +298,7 @@ templates:
     notes:
       - Return only the PaperImplementationResultAnalysisRoleArtifact JSON for the interpretation-scenario role.
       - "v3 (T-124 G4.6): passed output must include all four scenario_outputs kinds AND the three typed SEMANTIC blocks (interpretation / reliability / claim_implications); the runtime service assembles the CreateResultInterpretationPacketRequest deterministically from the request context. No request envelope, no id transcription (v2 asked for a full Create request — run 009/010/011 envelope-echo signature)."
+      - "v4 (T-124 G5 FIX-A items 7/12): supports_assertion_refs and challenges_assertion_refs name the PAPER-ARGUMENT ASSERTIONS (motive_assertion refs) the result supports or challenges — NEVER the source-bundle evidence refs (run_evidence_unit / validation_report / metric / experiment_result / interpretation packet), which are already linked structurally; leave the assertion-ref lists empty when no argument-assertion ref is available. failed/inconclusive/stale accounting refs must name declared source refs (the service drops phantom ids)."
       - Interpretations are not evidence; keep run evidence, validation reports, failed runs, limitations, and follow-up refs separate.
       - Do not create result packets, claims, dossiers, writing packets, queue items, prompt text, or raw provider output directly.
 
@@ -616,7 +619,7 @@ templates:
       - Do not create MotiveAssertion, CoreMotiveVersion, MotiveEvolutionDecision, board, evidence binding, trace repair queue, queue, Domain Gate, prompt text, source_assertion_reviews, or raw provider output payloads.
 
   - prompt_template_id: paper-implementation-motive-evolution-decision-support
-    version: 2
+    version: 3
     runtime_profile_id: paper-implementation.motive-evolution.evolution-decision-support.v1
     description: Run the fixed PaperImplementation motive evolution decision-support runtime roles.
     variables_schema:
@@ -686,6 +689,7 @@ templates:
       - The option designer proposes option-keyed designed_options for existing motive/version/portfolio context; the risk challenger must challenge every option key before a final support packet can be admitted.
       - "v2 (T-124 D2-pre1) in-slot designer→challenger body thread — the risk challenger receives the option designer's COMPLETE designed_options content verbatim inside prior_role_artifacts[0].designed_options (enumerated in prior_role_artifacts[0].designed_option_keys and fenced by prior_role_artifacts[0].option_set_hash), not just the designer artifact ref/hash. The challenger must substantively challenge every designer option key item by item (echo option_set_hash exactly, list every key in challenged_option_keys, and return exactly one decision_options entry per key with a complete challenge_check). Because the designer option keys and full option content are always supplied in the request, the challenger must never block for missing designer option keys or missing designer option content; the echo/coverage checks are enforced unchanged, so a drifted option_set_hash echo still fails closed."
       - Every option must preserve request-owned motive, core motive version, board, evidence binding, trace, validation, result, prior decision, accepted-risk, and source refs exactly.
+      - "v3 (T-124 G5 FIX-A item 10 + registry sync to the v3 code constant): every echoed ref is normalized to the declared request ref before recording — a model-invented version pin or title_card drift on cited_source_refs / reviewed_target_motive_refs / reviewed_core_motive_version_refs / option supporting_refs / challenging_refs is stripped in favour of exactly what the request supplied. A risk challenger that claims options_proposed while the designer produced zero options fails closed (the empty-options edge is retried), as does a challenger with dangling blocking_reason_codes when no status is blocked."
       - The runtime emits decision support only; Domain/human gates and T-094 deterministic services own MotiveEvolutionDecision, portfolio, motive role, board, evidence binding, trace repair, and queue mutations.
       - Do not create MotiveEvolutionDecision, MotivePortfolioDecision, CoreMotiveVersion, motive role changes, board versions, evidence bindings, trace repair queue items, queue items, Domain Gate requests, prompt text, raw provider output, or writer DTO payloads.
 

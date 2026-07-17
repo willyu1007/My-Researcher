@@ -57,6 +57,9 @@ export class PaperImplementationHumanConfirmationService {
       transition_attempt_ref: request.transition_attempt_ref ?? null,
       gate_result_refs: request.gate_result_refs ?? [],
       rationale: request.rationale.trim(),
+      // T-124 G5 FIX-A item 9: carry the optional reviewed-claim-statement hash
+      // through to persistence so claim materialization can bind against it.
+      reviewed_claim_statement_hash: request.reviewed_claim_statement_hash ?? null,
       confirmed_by_actor_type: request.confirmed_by_actor_type,
       confirmed_by_actor_id: request.confirmed_by_actor_id ?? null,
       policy_version_id: request.policy_version_id ?? null,

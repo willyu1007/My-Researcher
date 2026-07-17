@@ -68,7 +68,17 @@ const RUNNER_ID = 'paper-implementation-golden-scenario';
 // pre-authorized structural refs (result packet / claim candidate / trace
 // manifests / experiment plan / metrics) in source_refs, and the material
 // fixtures carry SEMANTIC content blocks instead of full Create*Requests.
-const RUNNER_VERSION = 't124-g1-golden-full-chain-v8';
+// v9 (T-124 G5 FIX-B): scenario-parameterization residual cleanup — the
+// experiment body facts, back-half authority-object copy (validation cycle
+// intent / plan_summary / confirmation rationale), front-half packet/hint
+// strings, run-recipe method, node-review ground-truth pointers, and the N7
+// accounting statement now come from the per-scenario material instead of
+// LoRA-hardcoded runner strings; the claim-boundary prompt no longer injects
+// the expected claim statement/strength/type (claim-anchor elimination); the
+// back-half source fence declares real content hashes; and the strong-claim
+// human confirmation is created AFTER the boundary debate produces the claim
+// statement (statement binding, four-point stop semantics unchanged).
+const RUNNER_VERSION = 't124-g1-golden-full-chain-v9';
 
 // ---------------------------------------------------------------------------
 // args (scenario selection + run identity)
@@ -201,6 +211,7 @@ const {
   makeBackHalfFixtures,
   EXPERIMENT_RESULTS,
   CLAIM_GROUND_TRUTH,
+  buildExperimentBodyFacts,
   sha256Hex,
 } = material;
 // Back-compat alias so the front-half payload builders below keep their names.
@@ -431,7 +442,7 @@ function registerObservabilityGap(section, error, note) {
 }
 
 // ---------------------------------------------------------------------------
-// gs001 bridge stub (replaces the real topic-selection bridge provider; the
+// scenario bridge stub (replaces the real topic-selection bridge provider; the
 // bootstrap HTTP route itself stays fully real — no test backdoor)
 // ---------------------------------------------------------------------------
 class ScenarioBridgeService {
@@ -446,7 +457,7 @@ class ScenarioBridgeService {
 }
 
 // ---------------------------------------------------------------------------
-// content-bearing payload builders (LoRA content core; refs are gs001 handles)
+// content-bearing payload builders (scenario content core; refs are T.* handles)
 // ---------------------------------------------------------------------------
 const handoff = makeGs001BridgeHandoff();
 const workingCopyHash = handoff.working_copy_payload_hash;
@@ -615,8 +626,8 @@ function motiveLaneSourceBundle(spine) {
 
 function motiveDecompositionSlotPayload(spine, bundle) {
   const assertionPacket = (assertionId, assertionText, scopeSummary) => ({
-    packet_ref: ref('assertion_context_packet', `gs001_assertion_packet_${assertionId}`),
-    packet_hash: hash(`gs001_assertion_packet_${assertionId}`),
+    packet_ref: ref('assertion_context_packet', `${SCEN}_assertion_packet_${assertionId}`),
+    packet_hash: hash(`${SCEN}_assertion_packet_${assertionId}`),
     assertion_ref: ref('motive_assertion', assertionId),
     assertion_hash: hash(assertionText),
     assertion_text: assertionText,
@@ -684,8 +695,8 @@ function motiveEvolutionSlotPayload(spine, bundle) {
     target_core_motive_version_hashes: [hash(T.motiveVersion)],
     input_snapshot_ref: ref('implementation_input_snapshot', T.inputSnapshot),
     input_snapshot_hash: workingCopyHash,
-    portfolio_snapshot_ref: ref('motive_portfolio_snapshot', 'gs001_portfolio_snapshot_001'),
-    portfolio_snapshot_hash: hash('gs001_portfolio_snapshot_001'),
+    portfolio_snapshot_ref: ref('motive_portfolio_snapshot', `${SCEN}_portfolio_snapshot_001`),
+    portfolio_snapshot_hash: hash(`${SCEN}_portfolio_snapshot_001`),
     evidence_board_refs: [ref('motive_evidence_board_version', T.board)],
     evidence_board_hashes: [hash(T.board)],
     evidence_binding_refs: [ref('evidence_binding', T.bindingLowRankOpportunity)],
@@ -694,18 +705,16 @@ function motiveEvolutionSlotPayload(spine, bundle) {
     conflict_refs: [],
     trace_manifest_refs: [ref('trace_manifest', spine.motiveTraceManifestId)],
     trace_manifest_hashes: [hash(spine.motiveTraceManifestId)],
-    human_confirmation_policy_ref: ref('human_confirmation_policy', 'gs001_confirmation_policy_v1'),
-    human_confirmation_policy_hash: hash('gs001_confirmation_policy_v1'),
+    human_confirmation_policy_ref: ref('human_confirmation_policy', `${SCEN}_confirmation_policy_v1`),
+    human_confirmation_policy_hash: hash(`${SCEN}_confirmation_policy_v1`),
     source_refs: bundle.refs,
     source_hashes: bundle.hashes,
     motive_context_packets: [{
-      packet_ref: ref('motive_context_packet', 'gs001_motive_context_packet_001'),
-      packet_hash: hash('gs001_motive_context_packet_001'),
+      packet_ref: ref('motive_context_packet', `${SCEN}_motive_context_packet_001`),
+      packet_hash: hash(`${SCEN}_motive_context_packet_001`),
       packet_kind: 'motive_version_state',
-      content_summary:
-        'Intake-stage motive: low-intrinsic-rank adaptation hypothesis for parameter-efficient adaptation of '
-        + 'Transformer language models. Board has weak literature support for cost pressure and an indirect '
-        + 'low-intrinsic-dimension signal; the low-rank hypothesis and baseline gap still need probe evidence.',
+      // FIX-B item 3: content summary from the scenario material.
+      content_summary: SPINE.runner_context.motive_context_summary,
       key_facts: [
         `Research question: ${LORA.research_question}`,
         `Hypothesis under evolution: ${LORA.motive_hypothesis}`,
@@ -742,6 +751,73 @@ function motiveEvolutionSlotPayload(spine, bundle) {
 }
 
 function boardCurationSlotPayload(spine) {
+  // FIX-B item 3: board-curation packet content_summaries come from the scenario
+  // material, and ALL of the scenario's evidence units enter the request — the
+  // primary (bound-at-intake) unit plus any secondary units that are genuine,
+  // non-duplicate curation material (unbound at intake). This is the structural
+  // fix for the gs-002 NG-2 case where "the only evidence unit is already bound"
+  // left board curation with nothing bindable and forced a blocked run.
+  const rc = SPINE.runner_context.board;
+  const secondaryUnits = rc.secondary_evidence_units ?? [];
+  const sourceRefs = [
+    ref('source_locator', T.sourceLocator),
+    ref('citation_candidate', T.citationCandidate),
+    ref('evidence_unit', T.litEvidence),
+  ];
+  const sourceLocatorRefs = [ref('source_locator', T.sourceLocator)];
+  const citationRefs = [ref('citation_candidate', T.citationCandidate)];
+  const evidenceRefs = [ref('evidence_unit', T.litEvidence)];
+  const sourceContextPackets = [
+    {
+      packet_ref: ref('source_context_packet', `${SCEN}_source_packet_paper`),
+      packet_hash: hash(`${SCEN}_source_packet_paper`),
+      source_ref: ref('source_locator', T.sourceLocator),
+      source_hash: hash(T.sourceLocator),
+      evidence_kind: 'source_locator',
+      content_summary: rc.paper_source_summary,
+      key_facts: [...LORA.literature_context_key_facts],
+      covered_evidence_refs: [],
+      covered_source_locator_refs: [ref('source_locator', T.sourceLocator)],
+      covered_citation_candidate_refs: [],
+      covered_trace_manifest_refs: [],
+    },
+    {
+      packet_ref: ref('source_context_packet', `${SCEN}_source_packet_evidence`),
+      packet_hash: hash(`${SCEN}_source_packet_evidence`),
+      source_ref: ref('evidence_unit', T.litEvidence),
+      source_hash: hash(T.litEvidence),
+      evidence_kind: 'evidence_unit',
+      content_summary: rc.evidence_source_summary,
+      key_facts: [...rc.evidence_source_key_facts],
+      covered_evidence_refs: [ref('evidence_unit', T.litEvidence)],
+      covered_source_locator_refs: [],
+      covered_citation_candidate_refs: [ref('citation_candidate', T.citationCandidate)],
+      covered_trace_manifest_refs: [],
+    },
+  ];
+  for (const unit of secondaryUnits) {
+    sourceRefs.push(
+      ref('source_locator', unit.source_locator_ref_id),
+      ref('citation_candidate', unit.citation_ref_id),
+      ref('evidence_unit', unit.evidence_ref_id),
+    );
+    sourceLocatorRefs.push(ref('source_locator', unit.source_locator_ref_id));
+    citationRefs.push(ref('citation_candidate', unit.citation_ref_id));
+    evidenceRefs.push(ref('evidence_unit', unit.evidence_ref_id));
+    sourceContextPackets.push({
+      packet_ref: ref('source_context_packet', `${SCEN}_source_packet_${unit.evidence_ref_id}`),
+      packet_hash: hash(`${SCEN}_source_packet_${unit.evidence_ref_id}`),
+      source_ref: ref('evidence_unit', unit.evidence_ref_id),
+      source_hash: hash(unit.evidence_ref_id),
+      evidence_kind: 'evidence_unit',
+      content_summary: unit.content_summary,
+      key_facts: [...unit.key_facts],
+      covered_evidence_refs: [ref('evidence_unit', unit.evidence_ref_id)],
+      covered_source_locator_refs: [ref('source_locator', unit.source_locator_ref_id)],
+      covered_citation_candidate_refs: [ref('citation_candidate', unit.citation_ref_id)],
+      covered_trace_manifest_refs: [],
+    });
+  }
   return {
     model_profile_id: PROFILE[SLOT.boardCuration],
     model_option_id: modelOptionId(PROFILE[SLOT.boardCuration]),
@@ -759,59 +835,22 @@ function boardCurationSlotPayload(spine) {
     ],
     input_snapshot_ref: ref('implementation_input_snapshot', T.inputSnapshot),
     input_snapshot_hash: workingCopyHash,
-    source_refs: [
-      ref('source_locator', T.sourceLocator),
-      ref('citation_candidate', T.citationCandidate),
-      ref('evidence_unit', T.litEvidence),
-    ],
-    source_hashes: [hash(T.sourceLocator), hash(T.citationCandidate), hash(T.litEvidence)],
-    source_context_packets: [
-      {
-        packet_ref: ref('source_context_packet', 'gs001_source_packet_paper'),
-        packet_hash: hash('gs001_source_packet_paper'),
-        source_ref: ref('source_locator', T.sourceLocator),
-        source_hash: hash(T.sourceLocator),
-        evidence_kind: 'source_locator',
-        content_summary:
-          'Primary literature locator for the topic package: parameter-efficient adaptation context — full '
-          + 'fine-tuning cost pressure, adapter latency overhead, prefix-tuning sequence-budget/stability issues, '
-          + 'and the low-intrinsic-dimension observation motivating the low-rank hypothesis.',
-        key_facts: [...LORA.literature_context_key_facts],
-        covered_evidence_refs: [],
-        covered_source_locator_refs: [ref('source_locator', T.sourceLocator)],
-        covered_citation_candidate_refs: [],
-        covered_trace_manifest_refs: [],
-      },
-      {
-        packet_ref: ref('source_context_packet', 'gs001_source_packet_evidence'),
-        packet_hash: hash('gs001_source_packet_evidence'),
-        source_ref: ref('evidence_unit', T.litEvidence),
-        source_hash: hash(T.litEvidence),
-        evidence_kind: 'evidence_unit',
-        content_summary:
-          'Bound evidence unit currently supporting all three intake assertions at weak support; the board gap '
-          + 'is a missing direct low-rank probe and missing reproduced baselines.',
-        key_facts: [
-          'All three assertions currently rest on the same literature evidence unit (weak, indirect for the low-rank hypothesis).',
-          'No probe or run evidence exists yet; freshness is intake-fresh.',
-        ],
-        covered_evidence_refs: [ref('evidence_unit', T.litEvidence)],
-        covered_source_locator_refs: [],
-        covered_citation_candidate_refs: [ref('citation_candidate', T.citationCandidate)],
-        covered_trace_manifest_refs: [],
-      },
-    ],
+    source_refs: sourceRefs,
+    source_hashes: sourceRefs.map((item) => hash(item.ref_id)),
+    source_context_packets: sourceContextPackets,
     trace_manifest_refs: [ref('trace_manifest', spine.boardTraceManifestId)],
     trace_manifest_hashes: [hash(spine.boardTraceManifestId)],
-    source_locator_refs: [ref('source_locator', T.sourceLocator)],
-    citation_candidate_refs: [ref('citation_candidate', T.citationCandidate)],
-    reviewed_citation_candidate_refs: [ref('citation_candidate', T.citationCandidate)],
-    evidence_refs: [ref('evidence_unit', T.litEvidence)],
+    source_locator_refs: sourceLocatorRefs,
+    citation_candidate_refs: citationRefs,
+    reviewed_citation_candidate_refs: citationRefs,
+    evidence_refs: evidenceRefs,
     existing_evidence_binding_refs: [
       ref('evidence_binding', T.bindingMotivationPressure),
       ref('evidence_binding', T.bindingLowRankOpportunity),
       ref('evidence_binding', T.bindingBaselineGap),
     ],
+    // Only the primary evidence unit is bound at intake; secondary units are the
+    // genuine unbound material board curation is expected to bind.
     existing_bound_evidence_refs: [ref('evidence_unit', T.litEvidence)],
     accepted_risk_refs: [],
     freshness_policy: {
@@ -907,10 +946,8 @@ function routeArchitectureSlotPayload(spine) {
     input_snapshot_hash: workingCopyHash,
     source_refs: src.refs,
     source_hashes: src.hashes,
-    source_context_packets: laneAContextPackets([
-      'Route candidates must answer the research question within the budget envelope; deployment-relevant '
-      + 'metrics are task score, trainable parameter count, and inference latency.',
-    ]),
+    // FIX-B item 3: lane-A critique/planning hints come from the scenario material.
+    source_context_packets: laneAContextPackets([SPINE.runner_context.lane_a_hints.route]),
     admitted_route_proposal_artifact_ref: null,
     admitted_route_proposal_artifact_hash: null,
     reviewed_candidate_keys: [],
@@ -930,11 +967,7 @@ function routeSkepticSlotPayload(spine) {
     input_snapshot_hash: workingCopyHash,
     source_refs: src.refs,
     source_hashes: src.hashes,
-    source_context_packets: laneAContextPackets([
-      'Critique dimensions must be grounded in this topic: low-rank hypothesis applicability boundary, '
-      + 'baseline reproduction gaps (adapter latency, prefix-tuning stability), inference-latency trade-offs, '
-      + 'and reproducibility within the single-GPU budget.',
-    ]),
+    source_context_packets: laneAContextPackets([SPINE.runner_context.lane_a_hints.skeptic]),
     secondary_route_candidate_refs: [],
     preflight_blocker_codes: [],
     // admitted_route_proposal_artifact_ref/hash + reviewed_candidate_keys 由 coordinator 链内注入
@@ -952,11 +985,7 @@ function cyclePlanningSlotPayload(spine) {
     input_snapshot_hash: workingCopyHash,
     source_refs: src.refs,
     source_hashes: src.hashes,
-    source_context_packets: laneAContextPackets([
-      'Validation cycles must operationalize the early check obligations: a low-rank feasibility probe at '
-      + 'target model scale, and baseline reproducibility (full fine-tuning / adapter / prefix) before any '
-      + 'comparative claim is planned.',
-    ]),
+    source_context_packets: laneAContextPackets([SPINE.runner_context.lane_a_hints.cycle]),
     secondary_route_candidate_refs: [],
     preflight_blocker_codes: [],
     // admitted route/skeptic refs + reviewed_candidate_keys 由 coordinator 链内注入
@@ -968,17 +997,13 @@ function feasibilitySlotPayload(spine) {
   return {
     model_profile_id: PROFILE[SLOT.feasibility],
     model_option_id: modelOptionId(PROFILE[SLOT.feasibility]),
-    target_ref: rref('validation_cycle_candidate', 'gs001_cycle_candidate_planned'),
-    target_version_id: 'gs001_cycle_candidate_planned@v1',
+    target_ref: rref('validation_cycle_candidate', `${SCEN}_cycle_candidate_planned`),
+    target_version_id: `${SCEN}_cycle_candidate_planned@v1`,
     input_snapshot_ref: rref('implementation_input_snapshot', T.inputSnapshot),
     input_snapshot_hash: workingCopyHash,
     source_refs: src.refs,
     source_hashes: src.hashes,
-    source_context_packets: laneAContextPackets([
-      'Probe plans must fit the budget envelope (single-GPU, GLUE subset, max runtime '
-      + `${LORA.budget_envelope.max_runtime}, retry budget ${LORA.budget_envelope.retry_budget}) and carry `
-      + 'explicit stop conditions.',
-    ]),
+    source_context_packets: laneAContextPackets([SPINE.runner_context.lane_a_hints.feasibility]),
     secondary_route_candidate_refs: [],
     secondary_validation_cycle_refs: [],
     secondary_feasibility_probe_refs: [],
@@ -1543,20 +1568,20 @@ async function runBackHalfWorkOrder(app, projectId, spine, bridgeInfo) {
       target: { target_type: 'core_motive_version', target_id: T.motiveVersion, target_version_id: '1' },
       trigger: { trigger_type: 'board_gap', trigger_refs: cycleTrigger },
       cycle_type: 'route_feasibility',
+      // FIX-B item 2: ValidationCycle intent copy comes from the scenario
+      // material (SPINE.back_half); refs stay generic via T.*.
       validation_frame: {
-        validation_question:
-          'Does low-rank adaptation (r=8) reach task-metric parity with reproduced full fine-tuning on the '
-          + 'committed GLUE subset within the pre-registered tolerance, at the probed RoBERTa-base scale?',
-        assumptions_under_test: ['The adaptation delta has low intrinsic rank at the probed scale.'],
+        validation_question: SPINE.back_half.validation_question,
+        assumptions_under_test: [...SPINE.back_half.assumptions_under_test],
         assertions_under_test: [
           ref('motive_assertion', T.assertionLowRankOpportunity),
           ref('motive_assertion', T.assertionBaselineGap),
         ],
-        decision_if_pass: 'Materialize the bounded parity interpretation and draft the claim.',
-        decision_if_fail: 'Record the reproduction failure; parity claims for missed tasks are void.',
-        decision_if_inconclusive: 'Retain inconclusive evidence and narrow the follow-up cycle.',
+        decision_if_pass: SPINE.back_half.decision_if_pass,
+        decision_if_fail: SPINE.back_half.decision_if_fail,
+        decision_if_inconclusive: SPINE.back_half.decision_if_inconclusive,
         expected_information_gain: 'high',
-        why_this_cycle_now: 'Stage-0 probe passed and stage-1 baselines reproduced to target; the confirmatory matrix is due.',
+        why_this_cycle_now: SPINE.back_half.why_this_cycle_now,
       },
       context: {
         included_refs: {
@@ -1571,11 +1596,11 @@ async function runBackHalfWorkOrder(app, projectId, spine, bridgeInfo) {
         excluded_context_notes: [],
       },
       criteria: {
-        pass_conditions: ['LoRA r=8 mean-over-repeats within 0.5 points of the reproduced full-FT anchor on all three committed tasks.'],
-        fail_conditions: ['Any committed task misses parity, or a full-FT reproduction misses its pre-committed target (anchor void).'],
-        inconclusive_conditions: ['Repeat variance prevents a stable mean within the repeat cap.'],
-        stop_conditions: ['Stop when the 40 GPU-hour training ledger is exhausted.'],
-        minimum_artifacts_required: ['trusted run evidence unit', 'result validation report'],
+        pass_conditions: [...SPINE.back_half.pass_conditions],
+        fail_conditions: [...SPINE.back_half.fail_conditions],
+        inconclusive_conditions: [...SPINE.back_half.inconclusive_conditions],
+        stop_conditions: [...SPINE.back_half.stop_conditions],
+        minimum_artifacts_required: [...SPINE.back_half.minimum_artifacts_required],
       },
       budget: {
         budget_id: T.validationBudget,
@@ -1618,9 +1643,8 @@ async function runBackHalfWorkOrder(app, projectId, spine, bridgeInfo) {
       experiment_plan_light_id: T.experimentPlan,
       validation_cycle_id: T.validationCycle,
       run_mode: 'confirmatory',
-      plan_summary:
-        'Confirmatory matrix {LoRA r=8, full fine-tuning} x {SST-2, MRPC, CoLA}, mean over <=3 repeats per cell, '
-        + 'stage-1 full-FT cells reused verbatim; latency measured under the committed protocol.',
+      // FIX-B item 2: plan_summary from the scenario material.
+      plan_summary: SPINE.back_half.plan_summary,
       estimated_cost_class: 'medium',
       baseline_gap_status: 'resolved',
       primary_metric_refs: [ref('metric', T.metricGlue)],
@@ -1658,7 +1682,8 @@ async function runBackHalfWorkOrder(app, projectId, spine, bridgeInfo) {
       },
       experiment_bridge: {
         run_recipe_ref: ref('experiment_run_recipe', T.runRecipe, 'v1'),
-        run_recipe_hash: hash({ kind: 'gs_run_recipe', tasks: EXPERIMENT_RESULTS.committed_tasks, method: 'lora_r8_vs_full_ft' }),
+        // FIX-B item 4: the run-recipe method string comes from the scenario material.
+        run_recipe_hash: hash({ kind: 'gs_run_recipe', tasks: EXPERIMENT_RESULTS.committed_tasks, method: SPINE.back_half.run_recipe_method }),
         version_lock_hash: hash({ kind: 'gs_version_lock', code: T.codeHfRoberta }),
         config_snapshot_hash: hash({ kind: 'gs_config_snapshot', config: T.configAdaptation }),
         materialization_result_ref: ref('training_task_materialization_result', `${T.runRecipe}_materialization`),
@@ -1809,6 +1834,13 @@ async function runSlotAndMaterialize(app, projectId, input) {
       blocker_codes: run.blocker_codes,
     });
   }
+  // FIX-B item 9: optional hook run AFTER the slot passes but BEFORE the Domain
+  // Gate materialization — the claim-boundary step uses it to create the strong-
+  // claim human confirmation bound to the statement the debate actually produced,
+  // so the confirmation exists (and is consumed) at materialize time.
+  if (input.beforeMaterialize) {
+    await input.beforeMaterialize(run);
+  }
   const materialized = await inject(app, {
     stepId: `${input.stepKey}-materialize`,
     method: 'POST',
@@ -1825,7 +1857,22 @@ async function runSlotAndMaterialize(app, projectId, input) {
   return { run, materialized };
 }
 
-function backHalfSlotBaseRequest(runSeed, profileId, targetRef, targetVersionId, sourceRefs) {
+/**
+ * FIX-B item 8: a real content-hash resolver for the back-half source fence.
+ * Refs that carry an injected source_context_packet declare their REAL content
+ * hash (the trusted REU's result hash, the read-back materialized object's
+ * content hash); refs without a packet fall back to a deterministic hash(ref_id).
+ * The declared `source_hashes` and every packet's `source_hash` use the SAME
+ * resolver, so the product fence (packet.source_hash === declared source_hash for
+ * that ref) still holds — and, because the runner declares no duplicate
+ * (ref_type, ref_id, version) source keys, it stays valid when the product
+ * upgrades the fence key to include version and reject duplicates.
+ */
+function makeSourceHashResolver(realHashByRefId) {
+  return (refObj) => realHashByRefId[refObj.ref_id] ?? hash(refObj.ref_id);
+}
+
+function backHalfSlotBaseRequest(runSeed, profileId, targetRef, targetVersionId, sourceRefs, hashOf = (item) => hash(item.ref_id)) {
   const request = {
     run_id: `${runId}_${runSeed}`,
     run_mode: RUN_MODE,
@@ -1836,7 +1883,7 @@ function backHalfSlotBaseRequest(runSeed, profileId, targetRef, targetVersionId,
     input_snapshot_ref: rref('implementation_input_snapshot', T.inputSnapshot),
     input_snapshot_hash: workingCopyHash,
     source_refs: sourceRefs,
-    source_hashes: sourceRefs.map((item) => hash(item.ref_id)),
+    source_hashes: sourceRefs.map((item) => hashOf(item)),
     preflight_blocker_codes: [],
   };
   if (LIVE) {
@@ -1847,44 +1894,46 @@ function backHalfSlotBaseRequest(runSeed, profileId, targetRef, targetVersionId,
 
 /**
  * T-124 G4.5 Fix 1: build a hash-fenced source-body packet for a back-half slot.
- * `backHalfSlotBaseRequest` declares source_hashes as hash(ref_id), so the fence
- * (packet.source_hash must equal the declared source_hash for that ref) holds by
- * construction here; the server re-verifies it.
+ * FIX-B item 8: the caller passes the ref's REAL content hash (defaulting to
+ * hash(ref_id) when no real hash is known), matching the declared source_hash so
+ * the server-side fence holds.
  */
-function backHalfContextPacket(sourceRef, evidenceKind, contentSummary, keyFacts) {
+function backHalfContextPacket(sourceRef, evidenceKind, contentSummary, keyFacts, sourceHash = hash(sourceRef.ref_id)) {
   return {
     source_ref: sourceRef,
-    source_hash: hash(sourceRef.ref_id),
+    source_hash: sourceHash,
     evidence_kind: evidenceKind,
     content_summary: contentSummary,
     key_facts: keyFacts,
   };
 }
 
-/** Verbatim body facts of the acceptance experiment results (paper-real numbers). */
+/**
+ * FIX-B item 1: verbatim body facts of the acceptance experiment results
+ * (scenario-real numbers). The scenario shape differs (gs-001 lora/full_ft;
+ * gs-002 student/teacher/retention; gs-003 bias_only + boundary matrix / QQP /
+ * onset), so each material owns `buildExperimentBodyFacts()`; the runner only
+ * consumes the generic string[] interface.
+ */
 function experimentResultBodyFacts() {
-  const matrix = EXPERIMENT_RESULTS.confirmatory_matrix
-    .map((cell) => `${cell.task} ${cell.metric}: LoRA r=8 ${cell.lora_r8} vs full FT ${cell.full_ft} (delta ${cell.delta}, parity ${cell.parity})`)
-    .join('; ');
-  const fullFt = EXPERIMENT_RESULTS.full_finetune_reproduction
-    .map((row) => `${row.task} ${row.metric} ${row.value} (target ${row.precommitted_target}, met ${row.target_met})`)
-    .join('; ');
-  return [
-    `Run status: ${EXPERIMENT_RESULTS.run_status}. Committed tasks: ${EXPERIMENT_RESULTS.committed_tasks.join(', ')}; `
-    + `parity tolerance ${EXPERIMENT_RESULTS.parity_tolerance_points} points; provenance ${EXPERIMENT_RESULTS.provenance}.`,
-    `Stage-0 probe: ${EXPERIMENT_RESULTS.stage0_probe.note}`,
-    `Full fine-tuning reproduction: ${fullFt}.`,
-    `Confirmatory matrix (LoRA r=8 vs reproduced full fine-tuning): ${matrix}.`,
-    `Resource: ${EXPERIMENT_RESULTS.resource.lora_trainable_parameters} vs ${EXPERIMENT_RESULTS.resource.full_finetune_trainable_parameters} `
-    + `(${EXPERIMENT_RESULTS.resource.trainable_parameter_reduction}); inference latency: ${EXPERIMENT_RESULTS.resource.lora_added_inference_latency}.`,
-    `Overall: ${EXPERIMENT_RESULTS.overall_note}`,
-  ];
+  return buildExperimentBodyFacts();
 }
 
 /** 3..9) result_analysis → packet → claim trace packet → 确认停驻 → claim debate →
  *  ClaimCandidate → readiness gate → dossier debate → ImplementationDossier → export 停驻。 */
 async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
   const bh = state.back_half;
+
+  // FIX-B item 8: real content-hash map for the back-half source fence. The REU /
+  // result-validation-report / experiment-result refs declare the trusted run's
+  // real result/report hashes; the materialized packet and claim (read back
+  // below) fill in their real content hashes before their packets are built.
+  const realHashByRefId = {
+    [T.runEvidenceUnit]: reuInfo.resultHash,
+    [T.resultValidationReport]: reuInfo.reportHash,
+    [T.experimentResult]: reuInfo.resultHash,
+  };
+  const hashOf = makeSourceHashResolver(realHashByRefId);
 
   // 3) result packet trace（Domain Gate 物化的确定性前置授权物）
   const resultPacketTraceId = await createBackHalfTrace(
@@ -1925,6 +1974,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     rref('validation_cycle', T.validationCycle),
     `${T.validationCycle}@v1`,
     resultSources,
+    hashOf,
   );
   if (SMOKE) {
     resultRequest.mocked_role_outputs = resultFixtures.resultAnalysisRoleOutputs;
@@ -1938,16 +1988,20 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
       ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
       'Trusted run evidence unit from the acceptance experiment (paper-real confirmatory result set).',
       experimentFacts,
+      hashOf(ref('run_evidence_unit', T.runEvidenceUnit)),
     ),
     backHalfContextPacket(
       ref('result_validation_report', T.resultValidationReport), 'result_validation_report',
-      'Result validation report: stage-0 gate outcome, full fine-tuning reproduction targets, and confirmatory parity per task.',
+      'Result validation report: stage-0 gate outcome, baseline reproduction targets, and confirmatory outcomes per task.',
       experimentFacts,
+      hashOf(ref('result_validation_report', T.resultValidationReport)),
     ),
     backHalfContextPacket(
       ref('experiment_result', T.experimentResult), 'experiment_result',
-      'Experiment result set (arXiv:2106.09685 Table 2, RoBERTa-base) fed through the product acceptance channel.',
+      // FIX-B: provenance is scenario-sourced (was hardcoded to the LoRA arXiv ref).
+      `Experiment result set (${EXPERIMENT_RESULTS.provenance}) fed through the product acceptance channel.`,
       experimentFacts,
+      hashOf(ref('experiment_result', T.experimentResult)),
     ),
   ];
   const resultAnalysis = await runSlotAndMaterialize(app, projectId, {
@@ -1964,15 +2018,18 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     url: projectUrl(projectId, `/result-interpretation-packets/${encodeURIComponent(resultAnalysis.materialized.domain_artifact_ref.ref_id)}`),
     expectedStatus: 200,
   });
+  // FIX-B item 8: the materialized packet's real content hash now backs its fence.
+  realHashByRefId[T.resultPacket] = hash(materializedPacket);
   const resultPacketPacket = backHalfContextPacket(
     ref('result_interpretation_packet', T.resultPacket), 'result_interpretation_packet',
     materializedPacket.result_summary?.result_summary
-      ?? 'Materialized result interpretation packet for the confirmatory LoRA parity result set.',
+      ?? 'Materialized result interpretation packet for the confirmatory result set.',
     [
       `Allowed claim ceiling: ${materializedPacket.claim_implications?.allowed_claim_ceiling ?? 'strong'}.`,
       `Forbidden overclaims: ${(materializedPacket.claim_implications?.forbidden_overclaims ?? CLAIM_GROUND_TRUTH.forbidden_overclaims).join('; ')}.`,
       `Reliability notes: ${(materializedPacket.reliability?.reliability_notes ?? []).join('; ')}`,
     ],
+    hashOf(ref('result_interpretation_packet', T.resultPacket)),
   );
 
   // 5) claim trace manifest + ClaimTracePacket（supported 状态的前置授权物）
@@ -2001,46 +2058,19 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     expectedStatus: 201,
   });
   const claimTracePacketId = claimTracePacket.claim_trace_packet_id;
+  // FIX-B item 8: the created claim-trace packet's real content hash backs its fence.
+  realHashByRefId[claimTracePacketId] = hash(claimTracePacket);
 
-  // 6) 四点集停驻 #2：强 claim 人工确认。停驻如实记录，随后以 gs 记录员身份
-  //    经产品路由创建 HumanConfirmationRecord（override actor 全程留痕；
-  //    该记录由产品在 ClaimCandidate 物化时消费/燃烧——runner 不代燃）。
-  state.stops.push({
-    lane: 'bh-strong-claim-confirmation',
-    kind: 'four_point_stop_2_strong_claim_confirmation',
-    note: 'Strong-claim human confirmation stop (four-point set #2) recorded honestly; the runner then creates the '
-      + 'HumanConfirmationRecord through the real product route as the gs recorder actor (override discipline).',
-    override_actor: `${SCEN}_golden_scenario_recorder`,
-  });
-  const confirmation = await inject(app, {
-    stepId: 'bh-strong-claim-human-confirmation',
-    method: 'POST',
-    url: projectUrl(projectId, '/human-confirmations'),
-    payload: {
-      confirmation_record_id: T.humanConfirmationStrongClaim,
-      confirmation_scope: CLAIM_GROUND_TRUTH.human_confirmation_scope,
-      target_refs: [ref('claim_candidate', T.claimCandidate)],
-      reviewed_sources: [
-        { source_ref: ref('run_evidence_unit', T.runEvidenceUnit), source_hash: reuInfo.resultHash },
-        { source_ref: ref('result_interpretation_packet', T.resultPacket), source_hash: hash(T.resultPacket) },
-      ],
-      gate_result_refs: [],
-      rationale:
-        'Golden-scenario recorder confirms the strong parity claim against the material ground-truth card '
-        + '(ground-truth.md §GT-9): bounded to the probed scale and committed task set, forbidden overclaims listed.',
-      confirmed_by_actor_type: 'human',
-      confirmed_by_actor_id: `${SCEN}_golden_scenario_recorder`,
-    },
-    expectedStatus: 201,
-  });
-  bh.strong_claim_confirmation = {
-    status: 'created',
-    confirmation_record_id: confirmation.confirmation_record_id,
-    confirmation_scope: confirmation.confirmation_scope,
-    confirmed_by_actor_id: confirmation.confirmed_by_actor_id ?? null,
-  };
-
-  // 7) claim_boundary debate → 物化 ClaimCandidate
+  // 6+7) FIX-B item 9: the four-point-set #2 strong-claim human confirmation is
+  //   now created AFTER the claim-boundary debate produces the claim statement and
+  //   BEFORE the ClaimCandidate is materialized (materialization consumes it). The
+  //   confirmation is bound to the statement the model actually produced (its
+  //   sha256 → reviewed_claim_statement_hash), which is more correct than the old
+  //   before-debate ordering where the statement was not yet known in live mode.
+  //   The confirmation record id is deterministic, so the debate's source_refs can
+  //   reference it ahead of creation (the assembly only clones the ref; existence
+  //   is required only at materialize).
+  const confirmationRecordId = T.humanConfirmationStrongClaim;
   const claimFixtures = makeBackHalfFixtures({
     validationCycleId: T.validationCycle,
     experimentPlanLightId: T.experimentPlan,
@@ -2049,16 +2079,21 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     dossierTraceManifestId: 'pending',
     dossierReadinessGateResultId: 'pending',
     claimTracePacketId,
-    humanConfirmationRef: ref('human_confirmation_record', confirmation.confirmation_record_id),
+    humanConfirmationRef: ref('human_confirmation_record', confirmationRecordId),
   });
   // T-124 G4.6 structural context: the pre-authorized claim id joins
   // source_refs — the SERVICE assembles the CreateClaimCandidateRequest.
+  // FIX-B: the result_validation_report joins the declared claim-debate face so
+  // a scenario's adjudicator may cite it in support/challenge refs (FIX-A item 3
+  // fences proposal refs to this declared set; gs-002 legitimately challenges
+  // against the validation report).
   const claimSources = [
     ref('result_interpretation_packet', T.resultPacket),
     ref('claim_trace_packet', claimTracePacketId),
     ref('trace_manifest', claimTraceId),
-    ref('human_confirmation_record', confirmation.confirmation_record_id),
+    ref('human_confirmation_record', confirmationRecordId),
     ref('run_evidence_unit', T.runEvidenceUnit),
+    ref('result_validation_report', T.resultValidationReport),
     ref('claim_candidate', T.claimCandidate),
   ];
   const claimRequest = backHalfSlotBaseRequest(
@@ -2067,27 +2102,39 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     rref('result_interpretation_packet', T.resultPacket),
     `${T.resultPacket}@v1`,
     claimSources,
+    hashOf,
   );
   if (SMOKE) {
     claimRequest.mocked_role_outputs = claimFixtures.claimBoundaryRoleOutputs;
   }
   // T-124 G4.5 Fix 1: the claim-boundary adjudicator sees the materialized packet
   // body + the claim trace packet's statement/boundary (hash-fenced).
+  // FIX-B item 7 (claim-anchor elimination): the claim-trace-packet body injected
+  // into the boundary debate carries only the FACTUAL boundary material (forbidden
+  // overclaims + claim trace scope) — NOT the expected claim statement / strength /
+  // type. The boundary expression must be produced by the model from the evidence,
+  // not transcribed from an answer key. (CLAIM_GROUND_TRUTH stays in the material
+  // for human review; it just no longer enters the prompt.)
   claimRequest.source_context_packets = [
     resultPacketPacket,
     backHalfContextPacket(
       ref('claim_trace_packet', claimTracePacketId), 'claim_trace_packet',
-      CLAIM_GROUND_TRUTH.expected_claim_statement,
+      'Pre-registered claim-trace packet: the boundary constraints the adjudicator must respect. The claim '
+      + 'statement, strength, and type are deliberately NOT supplied here — the boundary debate must derive them '
+      + 'from the evidence rather than transcribe an expected answer.',
       [
-        `Expected claim strength: ${CLAIM_GROUND_TRUTH.expected_claim_strength}; type: ${CLAIM_GROUND_TRUTH.expected_claim_type}.`,
-        `Forbidden overclaims: ${CLAIM_GROUND_TRUTH.forbidden_overclaims.join('; ')}.`,
-        `Human confirmation required: ${CLAIM_GROUND_TRUTH.requires_human_confirmation} (scope ${CLAIM_GROUND_TRUTH.human_confirmation_scope}).`,
+        `Forbidden overclaims (must be avoided): ${CLAIM_GROUND_TRUTH.forbidden_overclaims.join('; ')}.`,
+        `Claim trace scope: dataset ${SPINE.claim_trace_scope.dataset_scope}; task ${SPINE.claim_trace_scope.task_scope}; `
+        + `baseline ${SPINE.claim_trace_scope.baseline_scope}; method ${SPINE.claim_trace_scope.method_scope}; `
+        + `evaluation ${SPINE.claim_trace_scope.evaluation_scope}.`,
       ],
+      hashOf(ref('claim_trace_packet', claimTracePacketId)),
     ),
     backHalfContextPacket(
       ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
-      'Trusted run evidence unit backing the parity claim.',
+      'Trusted run evidence unit backing the claim.',
       experimentFacts,
+      hashOf(ref('run_evidence_unit', T.runEvidenceUnit)),
     ),
   ];
   const claimBoundary = await runSlotAndMaterialize(app, projectId, {
@@ -2095,6 +2142,63 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     stateKey: 'claim_boundary',
     slotUrl: '/runtime-slots/claim-boundary-debate/run',
     payload: claimRequest,
+    // FIX-B item 9: after the debate passes, before materializing the claim,
+    // create the strong-claim human confirmation bound to the produced statement.
+    beforeMaterialize: async (run) => {
+      const producedStatement =
+        run.final_runtime_artifact?.artifact_payload?.domain_gate_request?.claim_statement
+        ?? CLAIM_GROUND_TRUTH.expected_claim_statement;
+      // Product-side check (FIX-A item 9): sha256Text(request.claim_statement.trim()).
+      const reviewedClaimStatementHash = hash(producedStatement.trim());
+      // Four-point-set #2 stop recorded honestly at the confirmation point.
+      state.stops.push({
+        lane: 'bh-strong-claim-confirmation',
+        kind: 'four_point_stop_2_strong_claim_confirmation',
+        note: 'Strong-claim human confirmation stop (four-point set #2) recorded honestly; created AFTER the '
+          + 'claim-boundary debate produced the statement and BEFORE the ClaimCandidate is materialized, bound '
+          + 'to the produced statement (reviewed_claim_statement_hash). The record is created through the real '
+          + 'product route as the gs recorder actor (override discipline) and consumed by the product at '
+          + 'ClaimCandidate materialization.',
+        override_actor: `${SCEN}_golden_scenario_recorder`,
+      });
+      const confirmationPayload = {
+        confirmation_record_id: confirmationRecordId,
+        confirmation_scope: CLAIM_GROUND_TRUTH.human_confirmation_scope,
+        target_refs: [ref('claim_candidate', T.claimCandidate)],
+        reviewed_sources: [
+          { source_ref: ref('run_evidence_unit', T.runEvidenceUnit), source_hash: reuInfo.resultHash },
+          {
+            source_ref: ref('result_interpretation_packet', T.resultPacket),
+            source_hash: hashOf(ref('result_interpretation_packet', T.resultPacket)),
+          },
+        ],
+        gate_result_refs: [],
+        // FIX-B item 2: confirmation rationale from the scenario material.
+        rationale: SPINE.back_half.confirmation_rationale,
+        confirmed_by_actor_type: 'human',
+        confirmed_by_actor_id: `${SCEN}_golden_scenario_recorder`,
+        // FIX-B item 9: content binding — the sha256 of the exact statement the
+        // reviewer approves (the adjudicator-produced statement). The product
+        // validates this against the claim being written at materialization.
+        reviewed_claim_statement_hash: reviewedClaimStatementHash,
+      };
+      const confirmation = await inject(app, {
+        stepId: 'bh-strong-claim-human-confirmation',
+        method: 'POST',
+        url: projectUrl(projectId, '/human-confirmations'),
+        payload: confirmationPayload,
+        expectedStatus: 201,
+      });
+      bh.strong_claim_confirmation = {
+        status: 'created',
+        confirmation_record_id: confirmation.confirmation_record_id,
+        confirmation_scope: confirmation.confirmation_scope,
+        confirmed_by_actor_id: confirmation.confirmed_by_actor_id ?? null,
+        reviewed_claim_statement_hash: reviewedClaimStatementHash,
+        bound_statement_source: run.final_runtime_artifact?.artifact_payload?.domain_gate_request?.claim_statement
+          ? 'adjudicator_proposal' : 'ground_truth_fallback',
+      };
+    },
   });
   // Read the materialized ClaimCandidate back for the dossier readiness debate.
   const materializedClaim = await inject(app, {
@@ -2103,6 +2207,11 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     url: projectUrl(projectId, `/claim-candidates/${encodeURIComponent(claimBoundary.materialized.domain_artifact_ref.ref_id)}`),
     expectedStatus: 200,
   });
+  // FIX-B item 8: the materialized claim's real content hash backs its fence.
+  // NB: the claim body downstream (dossier debate) is the MATERIALIZED claim —
+  // the model-produced statement — with the ground-truth card only as a smoke/
+  // read-failure fallback, never a prompt anchor ahead of production.
+  realHashByRefId[T.claimCandidate] = hash(materializedClaim);
   const claimCandidatePacket = backHalfContextPacket(
     ref('claim_candidate', T.claimCandidate), 'claim_candidate',
     materializedClaim.claim_statement ?? CLAIM_GROUND_TRUTH.expected_claim_statement,
@@ -2114,6 +2223,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
       + `dataset ${materializedClaim.scope?.dataset_scope ?? ''}.`,
       `Boundary forbidden overclaims: ${(materializedClaim.boundary?.forbidden_overclaims ?? CLAIM_GROUND_TRUTH.forbidden_overclaims).join('; ')}.`,
     ],
+    hashOf(ref('claim_candidate', T.claimCandidate)),
   );
 
   // 8) dossier trace + readiness gate（enforced trace gate 真评估）
@@ -2135,7 +2245,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     dossierTraceManifestId: dossierTraceId,
     dossierReadinessGateResultId: readinessGateResultId,
     claimTracePacketId,
-    humanConfirmationRef: ref('human_confirmation_record', confirmation.confirmation_record_id),
+    humanConfirmationRef: ref('human_confirmation_record', confirmationRecordId),
   });
   const dossierSources = [
     ref('claim_candidate', T.claimCandidate),
@@ -2151,6 +2261,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     rref('implementation_dossier', T.dossier),
     `${T.dossier}@v1`,
     dossierSources,
+    hashOf,
   );
   if (SMOKE) {
     dossierRequest.mocked_role_outputs = dossierFixtures.dossierReadinessRoleOutputs;
@@ -2162,8 +2273,12 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     resultPacketPacket,
     backHalfContextPacket(
       ref('run_evidence_unit', T.runEvidenceUnit), 'run_evidence_unit',
-      'Trusted run evidence unit; single succeeded confirmatory run set (nothing outstanding for N7).',
+      // FIX-B item 6: the N7 accounting statement is derived from the scenario's
+      // EXPERIMENT_RESULTS (gs-003 carries its negative/inconclusive list) rather
+      // than a hardcoded "nothing outstanding" positive-example string.
+      `Trusted run evidence unit. N7 reconciliation: ${EXPERIMENT_RESULTS.n7_reconciliation}`,
       experimentFacts,
+      hashOf(ref('run_evidence_unit', T.runEvidenceUnit)),
     ),
   ];
   await runSlotAndMaterialize(app, projectId, {
@@ -2188,7 +2303,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     claimTracePacketId,
     dossierTraceId,
     readinessGateResultId,
-    confirmationRecordId: confirmation.confirmation_record_id,
+    confirmationRecordId,
   };
 }
 
@@ -2386,47 +2501,51 @@ async function runBackHalf(app, projectId, spine, bridgeInfo) {
 // ---------------------------------------------------------------------------
 // review packet
 // ---------------------------------------------------------------------------
+// FIX-B item 5: the per-node ground-truth pointers come from the scenario
+// material (SCENARIO_META.node_review), keyed by the slot short-name, so each
+// scenario points reviewers at its own ground-truth.md sections.
+const NODE_REVIEW_GT = SCENARIO_META.node_review ?? {};
 const NODE_REVIEW_SPECS = [
   {
     label: 'motive decomposition（assertion 候选）',
     lane: 'lane-motive', slot: SLOT.motiveDecomposition,
-    groundTruth: 'ground-truth.md §GT-1/§GT-2（动机与路线空间的贴合度）+ 幻觉对照速查',
+    groundTruth: NODE_REVIEW_GT.motiveDecomposition ?? 'ground-truth.md（见素材）',
     rubricRow: 'motive decomposition（assertion 候选）',
   },
   {
     label: 'motive evolution（决策支持）',
     lane: 'lane-motive', slot: SLOT.motiveEvolution,
-    groundTruth: 'ground-truth.md §GT-5/§GT-6（结论边界与局限意识）',
+    groundTruth: NODE_REVIEW_GT.motiveEvolution ?? 'ground-truth.md（见素材）',
     rubricRow: 'motive evolution（决策支持）',
   },
   {
     label: 'board curation（binding/gap 候选）',
     lane: 'lane-board-curation', slot: SLOT.boardCuration,
-    groundTruth: 'ground-truth.md §GT-3（缺什么证据）+ 幻觉对照速查',
+    groundTruth: NODE_REVIEW_GT.boardCuration ?? 'ground-truth.md（见素材）',
     rubricRow: 'board curation（binding/gap 候选）',
   },
   {
     label: 'route 候选（route_architecture）',
     lane: 'lane-a-validation-planning', slot: SLOT.routeArchitecture,
-    groundTruth: 'ground-truth.md §GT-1（论文实际路线）/§GT-2（路线空间）',
+    groundTruth: NODE_REVIEW_GT.routeArchitecture ?? 'ground-truth.md（见素材）',
     rubricRow: 'route 候选（route_architecture）',
   },
   {
     label: 'skeptic 批判（route_skeptic_review）',
     lane: 'lane-a-validation-planning', slot: SLOT.routeSkeptic,
-    groundTruth: 'ground-truth.md §GT-2（基线代价）/§GT-6（已知局限）',
+    groundTruth: NODE_REVIEW_GT.routeSkeptic ?? 'ground-truth.md（见素材）',
     rubricRow: 'skeptic 批判（route_skeptic_review）',
   },
   {
     label: 'cycle 候选（validation_cycle_planning）',
     lane: 'lane-a-validation-planning', slot: SLOT.cyclePlanning,
-    groundTruth: 'ground-truth.md §GT-3（关键实验）/§GT-4（消融）',
+    groundTruth: NODE_REVIEW_GT.cyclePlanning ?? 'ground-truth.md（见素材）',
     rubricRow: 'cycle 候选（validation_cycle_planning）',
   },
   {
     label: 'probe/plan 候选（feasibility_planning）',
     lane: 'lane-a-validation-planning', slot: SLOT.feasibility,
-    groundTruth: 'ground-truth.md §GT-4（r 扫描/作用矩阵即典型 probe 形态）',
+    groundTruth: NODE_REVIEW_GT.feasibility ?? 'ground-truth.md（见素材）',
     rubricRow: 'probe/plan 候选（feasibility_planning）',
   },
 ];
@@ -2437,10 +2556,12 @@ function fenceJson(value) {
 
 async function writeReviewPacket(artifactsById) {
   const lines = [];
-  lines.push(`# GS-001 Review Packet — ${runId}`);
+  // FIX-B: review-packet header is scenario-parameterized (was GS-001/LoRA copy).
+  lines.push(`# ${SCENARIO_ID} Review Packet — ${runId}`);
   lines.push('');
-  lines.push('一句话导读：这是 LoRA 测试选题包经真实 bootstrap + coordinator（provider_llm 真跑）产出的');
-  lines.push('全链人审包——请拿同目录素材 `ground-truth.md` 对照逐节点 LLM 原始产出，按 `rubric.md` 四维打分。');
+  lines.push(`一句话导读：这是测试选题包（${SCENARIO_META?.paper ?? SCENARIO_ID}）经真实 bootstrap + coordinator`);
+  lines.push('（provider_llm 真跑）产出的全链人审包——请拿同目录素材 `ground-truth.md` 对照逐节点 LLM 原始产出，');
+  lines.push('按 `rubric.md` 四维打分。');
   lines.push('');
   lines.push('## 运行元数据');
   lines.push('');
@@ -2449,8 +2570,9 @@ async function writeReviewPacket(artifactsById) {
   lines.push(`- mode: **${MODE}**${SMOKE ? '（结构冒烟：provider lanes/受理桥如实跳过，后半链 mocked 素材夹具，零 provider 调用）' : ''}；`
     + `provider: ${providerId}；run_mode: ${RUN_MODE}；execution_mode: ${EXECUTION_MODE}`);
   lines.push(`- 素材: .ai/golden-scenarios/paper-implementation/${SCENARIO_ID}/（topic-package.mjs **${SCENARIO_META?.package_version ?? 'v4'}**`
-    + `（v3 内容核不动 + G1 后半链：experiment_results 数据段/claim ground-truth 锚/后半链夹具/通用导出契约）`
-    + ` / ground-truth.md（§GT-9/§GT-10 后半链答案卡） / rubric.md）`);
+    + `（内容核 + 后半链：experiment_results 数据段/claim ground-truth 锚/后半链夹具/通用导出契约，runner_contract `
+    + `${SCENARIO_META?.runner_contract ?? 'paper-implementation-golden-scenario/v4'}）`
+    + ` / ground-truth.md（后半链答案卡） / rubric.md）`);
   lines.push(`- 入链: 真实 POST /paper-implementation/projects/bootstrap（bridge ${T.bridge}，hash 校验通过）`);
   lines.push('');
   lines.push('## 逐节点产出与对照');
@@ -2498,18 +2620,21 @@ async function writeReviewPacket(artifactsById) {
   lines.push('- 路径全部为产品真实 HTTP 路由（详见 runner 头注释「真实路由逐步」节）；每步原始请求/响应');
   lines.push('  落盘在对应 `NN-bh-*.json` 序列文件（含三个 runtime slot 的完整 final artifact payload 与');
   lines.push('  Domain Gate 物化结果）。');
-  lines.push('- acceptance 假体实验：素材 v4 `EXPERIMENT_RESULTS`（论文真实数字）经 harness-run 登记 +');
+  lines.push('- acceptance 假体实验：素材 `EXPERIMENT_RESULTS`（论文真实数字）经 harness-run 登记 +');
   lines.push('  run-monitor-intake 产出 trusted RunEvidenceUnit——实验不经 LLM，零 provider 伪造。');
-  lines.push('- 人审对照：result analysis 解读质量 → ground-truth.md §GT-9 前半段（parity 语义）；');
-  lines.push('  claim 边界纪律 → §GT-9（预期 claim 边界答案卡）；dossier 完备性 → §GT-10（完备清单）。');
+  lines.push('- 人审对照：result analysis 解读质量 / claim 边界纪律 / dossier 完备性 → 同目录素材');
+  lines.push('  ground-truth.md 的后半链答案卡节（各场景节号见素材文件头注）。');
+  lines.push('- FIX-B item 7（claim 锚定消除）：claim_boundary debate 的 prompt 只注入事实边界素材');
+  lines.push('  （forbidden overclaims + claim trace scope + 实验事实），预期 claim 陈述/强度/类型不进 prompt——');
+  lines.push('  边界表述由模型自产；下方 CLAIM_GROUND_TRUTH 仅为评审对照卡。');
   lines.push('');
   lines.push(fenceJson(state.back_half ?? { status: 'not_run' }));
   lines.push('');
-  lines.push('### acceptance 实验数据段（素材 v4 EXPERIMENT_RESULTS，论文真实数字）');
+  lines.push('### acceptance 实验数据段（素材 EXPERIMENT_RESULTS，论文真实数字）');
   lines.push('');
   lines.push(fenceJson(EXPERIMENT_RESULTS));
   lines.push('');
-  lines.push('### claim ground-truth 锚（素材 v4 CLAIM_GROUND_TRUTH，评审对照卡）');
+  lines.push('### claim ground-truth 锚（素材 CLAIM_GROUND_TRUTH，评审对照卡——不进 prompt）');
   lines.push('');
   lines.push(fenceJson(CLAIM_GROUND_TRUTH));
   lines.push('');
