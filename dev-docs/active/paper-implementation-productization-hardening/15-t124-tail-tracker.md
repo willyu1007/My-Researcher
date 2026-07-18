@@ -7,8 +7,7 @@ T-124（paper-implementation 产品化硬化）D10 五项验收全部达成、�
 
 ### N1 gs-003 答案卡强度精修（+ 重跑验证）
 - 事由：gs-003 claim 强度模型跨 run 一致降档 moderate（单种子不足以支撑 strong），签核裁定=**模型正确、答案卡偏乐观**。
-- 处置：`expected_claim_strength: 'strong' → 'moderate'`；**注意耦合**——该值流入 runner ClaimTracePacket 权威语句（topic-package 1074）+ 强 claim 确认流程（1045/1386）+ `expected_claim_ceiling`（ceiling 保持 strong，moderate 在 ceiling 下合法）。改后 gs-003 全链 live 重跑一次验证血缘 20/20（消除 GAP-N1 的 claim 强度失败项），代评审复核。**不改论文核实数字**。
-- 状态：pending（外部无阻，随时可做）。
+- **状态：DONE（2026-07-18）**。处置=把 gs-003 诚实改为 **moderate claim 场景**（strength/ceiling strong→moderate、requires_human_confirmation→false、scope→null、rationale 改 moderate 理由；论文数字零改动，diff 无数字行）。runner 用素材自身确认契约作谓词 `EXPECTS_STRONG_CLAIM_CONFIRMATION` 条件化 5 处（确认 ref/声明面/beforeMaterialize 确认步/血缘断言 PASS 条件），**gs-001/002 强 claim 路径不破**（三场景冒烟全 completed，前两者 stop#2 仍 created、gs-003 skipped_moderate_claim）。live 重跑 `gs003-bitfit-live-003`：claim 强度血缘项 **failed→passed**（moderate 与 v2 答案卡同调），停驻#2 正确跳过。血缘 **18/20**（前 17/20）——剩 2 项 = skeptic 再 blocked lane A 的下游 probe skip（GAP-N2 家族，非本项），**未为凑 20/20 做 override**。四维各≥4.5（claim boundary 行 4.5→5.0，分歧扣分消解）。三语义诚实度未劣化。遗留：血缘 check 名 `claim.strong_confirmation_required` 对 moderate 略失准（保 D10 20-check 枚举一致故保留 + PASS 条件适配），如需可后续改名 `claim.confirmation_discipline`。
 
 ### N2 skeptic 槽 revise→waiting_review 出口
 - 事由：D2-pre2 给了 curation 的 `revise→waiting_review` 出口，skeptic 槽未覆盖——gs-003 lane A 的 skeptic 双命中设计缺口后 disposition=revise 无出口→直接 blocked 终止（GAP-N2），下游 probe/cycle ref 缺失。

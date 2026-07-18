@@ -1,6 +1,8 @@
 # GS-003 Ground Truth（人审对照答案卡）
 
 > 版本注记：v1（2026-07-16）——G3 首版即吸收 gs-001 v1→v3 三轮评审全部教训（阶段判据自包含/预算单计/metric 预承诺/claim-drop 规则/参考实现指针）。gs-001 素材 v4 + G1 runner 场景参数化在本素材撰写期间落地，本素材**已直接对齐**通用场景导出契约（runner_contract v4：SCENARIO_META/SCENARIO_IDS/SCENARIO_CONTENT/makeBridgeHandoff/EXPERIMENT_RESULTS/CLAIM_GROUND_TRUTH/makeBackHalfFixtures），残留对齐注记见 §GT-9。
+>
+> **v2 修订注记（T-124 尾巴 N1，2026-07-18）**：整体 claim 强度预期 **strong → moderate**（`expected_claim_strength`/`expected_claim_ceiling`；`requires_human_confirmation` true→false、`human_confirmation_scope` 置 null）。裁定依据（D10 报告 §E4 判断点①，用户签核）：本场景 D10 全链 live 重跑中，模型跨 run（gs003-bitfit-live-002 及 gs-002 对照 run）**一致把复合 claim 的强度诚实降档为 moderate**——full-scale MNLI 边界格是预注册 repeat cap 内的**单种子**，该单种子锚点使证据信心上限落在 moderate，即便每个分量（小中 parity / 大数据 negative / onset inconclusive）都遵循 anchor-valid 格上的预注册判据。首版把"预注册判据满足即达 strong"写进答案卡，属**偏乐观**：单种子不足以支撑 strong 正是本场景要考的边界认识论纪律。裁定=**模型 moderate 正确、答案卡 strong 偏乐观**，故修答案卡为 moderate（承认模型认识论立场），非系统缺陷。moderate 本不需强 claim 人工确认（boundary gate 判 `allow_moderate`，`human_confirmation_required=false`），这对本场景考点更自洽。**论文核实数字（§GT-3 的 82.3/82.4、MNLI/QQP gap、per-task 值等）一律未动**——只改强度语义，不改证据。
 
 素材来源：BitFit — Simple Parameter-efficient Fine-tuning for Transformer-based Masked Language-models（arXiv:2106.10199，公开参考实现 benzakenelad/BitFit）。
 本卡是人审时的对照答案：LLM 工位的产出**不需要**复现论文原文，但候选质量维度按"命中合理路线空间、与论文实际路线对齐或合理偏离"打分；幻觉对照按"是否虚构了选题包/本卡都不支持的事实"判定。
@@ -63,6 +65,11 @@
 | 边界过度泛化（"bias-only 在所有大数据/所有任务上失效"） | **禁止产出**（prohibited claim） | 只有 MNLI/QQP 两个大任务锚点 + 单一模型规模 | claim boundary debate 是否拦下超出探测网格/任务族/模型规模的泛化 |
 
 - N7 对账素材：negative claim 与 inconclusive 登记都必须能回溯到 REU/cell 级证据（disposition mapping 是预承诺，不是事后解释）。claim-drop（锚点作废→主张作废）与 negative-claim（锚点有效→结论为负）是**不同语义**，混用判违例。
+
+**整体 claim 强度预期（v2 修订，评审对照）**：复合 claim 的整体强度预期 = **moderate**（`expected_claim_strength`/`expected_claim_ceiling`），**非 strong**。依据：大数据 negative 与 onset inconclusive 的关键证据格（full-scale MNLI）是预注册 repeat cap 内的**单种子**，单种子锚点使整体证据信心上限落在 moderate——即便每个分量都守住 anchor-valid 格上的预注册判据。评审判读：
+- 模型产出 `claim_strength=moderate` + boundary gate `allow_moderate` + `human_confirmation_required=false` = **诚实、达标**（与本卡 moderate 预期一致；moderate 复合 claim 不触发强 claim 人工确认停驻，属正确边界纪律）。
+- 模型若产出 `strong` 并据此要求强 claim 人工确认，需其 rationale 显式论证单种子如何被提升到 strong（否则视为对单种子局限的粉饰，"约束遵守"扣分）——strong 在本场景单种子锚点下不可辩护，是本场景要考的边界认识论纪律。
+- v2 前的 v1 答案卡曾预期 strong；D10 全链 live 重跑显示模型跨 run 一致降档 moderate，用户签核裁定"模型正确、答案卡 strong 偏乐观"，故 v2 把强度预期改为 moderate（见顶部 v2 修订注记）。
 
 ## GT-8 v1 预承诺对照 + 幻觉判定
 

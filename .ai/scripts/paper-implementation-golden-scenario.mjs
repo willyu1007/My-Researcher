@@ -217,6 +217,20 @@ const {
 // Back-compat alias so the front-half payload builders below keep their names.
 const makeGs001BridgeHandoff = makeBridgeHandoff;
 
+// T-124 tail N1: the four-point-set #2 strong-claim human-confirmation stop is a
+// STRONG-claim discipline. It fires only when the scenario's answer card expects a
+// strong claim (boundary gate → allow_strong_with_confirmation; human confirmation
+// required + content-bound to the produced statement). A scenario whose honest claim
+// strength is moderate (gs-003: the single-seed full-MNLI anchor caps evidential
+// confidence at moderate) skips the stop — the boundary gate returns allow_moderate
+// and requires no human confirmation. gs-001/gs-002 (strong) keep the stop; gs-003
+// (moderate) drops it. Module-scope so both the back-half runner and the lineage
+// assertion share one definition, keyed off the material's own confirmation contract
+// rather than a hardcoded scenario id.
+const EXPECTS_STRONG_CLAIM_CONFIRMATION =
+  CLAIM_GROUND_TRUTH.requires_human_confirmation === true
+  && CLAIM_GROUND_TRUTH.human_confirmation_scope === 'strong_claim_acceptance';
+
 // ---------------------------------------------------------------------------
 // constants (mirror shared runtime contracts; string literals keep this runner
 // runnable without importing the TS contract module)
@@ -2071,6 +2085,12 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
   //   reference it ahead of creation (the assembly only clones the ref; existence
   //   is required only at materialize).
   const confirmationRecordId = T.humanConfirmationStrongClaim;
+  // N1: strong scenarios declare the confirmation record on the debate face and in the
+  // claim boundary; moderate scenarios (gs-003) carry no confirmation ref at all. See
+  // EXPECTS_STRONG_CLAIM_CONFIRMATION (module scope) for the rationale.
+  const strongClaimConfirmationRef = EXPECTS_STRONG_CLAIM_CONFIRMATION
+    ? ref('human_confirmation_record', confirmationRecordId)
+    : null;
   const claimFixtures = makeBackHalfFixtures({
     validationCycleId: T.validationCycle,
     experimentPlanLightId: T.experimentPlan,
@@ -2079,7 +2099,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     dossierTraceManifestId: 'pending',
     dossierReadinessGateResultId: 'pending',
     claimTracePacketId,
-    humanConfirmationRef: ref('human_confirmation_record', confirmationRecordId),
+    humanConfirmationRef: strongClaimConfirmationRef,
   });
   // T-124 G4.6 structural context: the pre-authorized claim id joins
   // source_refs — the SERVICE assembles the CreateClaimCandidateRequest.
@@ -2091,7 +2111,11 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     ref('result_interpretation_packet', T.resultPacket),
     ref('claim_trace_packet', claimTracePacketId),
     ref('trace_manifest', claimTraceId),
-    ref('human_confirmation_record', confirmationRecordId),
+    // N1: only a strong-claim scenario declares the human_confirmation_record on the
+    // debate face. The domain-gate assembly reads this optional ref into the claim's
+    // boundary.human_confirmation_ref; a moderate scenario must not carry a dangling
+    // ref to a record it never creates.
+    ...(EXPECTS_STRONG_CLAIM_CONFIRMATION ? [ref('human_confirmation_record', confirmationRecordId)] : []),
     ref('run_evidence_unit', T.runEvidenceUnit),
     ref('result_validation_report', T.resultValidationReport),
     ref('claim_candidate', T.claimCandidate),
@@ -2145,6 +2169,19 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     // FIX-B item 9: after the debate passes, before materializing the claim,
     // create the strong-claim human confirmation bound to the produced statement.
     beforeMaterialize: async (run) => {
+      if (!EXPECTS_STRONG_CLAIM_CONFIRMATION) {
+        // N1: moderate/tentative claim — the boundary gate returns allow_moderate and
+        // requires no human confirmation, so the four-point-set #2 strong-claim stop
+        // correctly does not fire. No confirmation record is created; the moderate claim
+        // materializes with boundary.human_confirmation_ref = null. Recorded honestly as
+        // a skipped semantic non-event, not an omission.
+        bh.strong_claim_confirmation = {
+          status: 'skipped_moderate_claim',
+          note: 'Claim strength is moderate (boundary gate allow_moderate); four-point-set #2 strong-claim '
+            + 'human confirmation does not fire. Recorded honestly as skipped, not an omission.',
+        };
+        return;
+      }
       const producedStatement =
         run.final_runtime_artifact?.artifact_payload?.domain_gate_request?.claim_statement
         ?? CLAIM_GROUND_TRUTH.expected_claim_statement;
@@ -2245,7 +2282,7 @@ async function runBackHalfInterpretationChain(app, projectId, spine, reuInfo) {
     dossierTraceManifestId: dossierTraceId,
     dossierReadinessGateResultId: readinessGateResultId,
     claimTracePacketId,
-    humanConfirmationRef: ref('human_confirmation_record', confirmationRecordId),
+    humanConfirmationRef: strongClaimConfirmationRef,
   });
   const dossierSources = [
     ref('claim_candidate', T.claimCandidate),
@@ -2362,10 +2399,25 @@ async function runLineageAssertion(app, projectId, chainInfo) {
     claim.claim_trace_packet_id === chainInfo.claimTracePacketId,
     { claim_trace_packet_id: claim.claim_trace_packet_id ?? null },
   );
+  // N1: the confirmation-discipline check adapts to the scenario's expected claim
+  // strength. A strong scenario (gs-001/gs-002) must gate at allow_strong_with_confirmation
+  // with human_confirmation_required=true; a moderate scenario (gs-003) must gate at
+  // allow_moderate with human_confirmation_required=false (the honest boundary outcome
+  // for a single-seed-capped claim). Both are the SAME lineage invariant: the claim's
+  // confirmation requirement matches the answer card's strength discipline.
   check(
     'claim.strong_confirmation_required',
-    claim.human_confirmation_required === true && claim.boundary_gate_status === 'allow_strong_with_confirmation',
-    { human_confirmation_required: claim.human_confirmation_required, boundary_gate_status: claim.boundary_gate_status },
+    EXPECTS_STRONG_CLAIM_CONFIRMATION
+      ? claim.human_confirmation_required === true && claim.boundary_gate_status === 'allow_strong_with_confirmation'
+      : claim.human_confirmation_required === false && claim.boundary_gate_status === 'allow_moderate',
+    {
+      expected_discipline: EXPECTS_STRONG_CLAIM_CONFIRMATION ? 'strong+confirmation' : 'moderate+no_confirmation',
+      expected_boundary_gate_status: EXPECTS_STRONG_CLAIM_CONFIRMATION
+        ? 'allow_strong_with_confirmation'
+        : 'allow_moderate',
+      human_confirmation_required: claim.human_confirmation_required,
+      boundary_gate_status: claim.boundary_gate_status,
+    },
   );
 
   const packet = await inject(app, {
