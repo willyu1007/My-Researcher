@@ -55,7 +55,7 @@ function ref(id: string): TopicSelectionFunctionalRef {
 function makeTelemetry(): LlmCallTelemetry {
   return {
     provider_id: 'openai',
-    model_id: 'gpt-5.5',
+    model_id: 'gpt-5.6-sol',
     profile_id: TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY,
     prompt_template_id: TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID,
     prompt_template_version: TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_VERSION,
@@ -591,7 +591,7 @@ test('resource sampling routes provider batches through runtime audit and token 
 
   assert.equal(llmGateway.calls.length, 1);
   assert.equal(llmGateway.calls[0]!.model.providerId, 'openai');
-  assert.equal(llmGateway.calls[0]!.model.modelId, 'gpt-5.5');
+  assert.equal(llmGateway.calls[0]!.model.modelId, 'gpt-5.6-sol');
   assert.equal(llmGateway.calls[0]!.model.profileId, TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY);
   assert.equal(
     llmGateway.calls[0]!.executionContext.metadata?.model_option_id,

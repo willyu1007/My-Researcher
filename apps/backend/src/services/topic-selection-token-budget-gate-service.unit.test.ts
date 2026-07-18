@@ -30,7 +30,7 @@ function gateInput(overrides: Partial<Parameters<TopicSelectionTokenBudgetGateSe
   return {
     context_policy_profile: profile(),
     provider_id: 'openai',
-    model_id: 'gpt-5.5',
+    model_id: 'gpt-5.6-sol',
     model_profile_id: 'topic-selection.generate-need-candidate.single-agent.v1',
     model_option_id: 'topic-selection.generate-need-candidate.single-agent.v1.openai-balanced',
     messages: [
@@ -70,7 +70,7 @@ test('token budget gate returns within_budget for first-slice profile under targ
 
   assert.equal(evaluation.result.decision, 'within_budget');
   assert.equal(evaluation.result.provider_id, 'openai');
-  assert.equal(evaluation.result.model_id, 'gpt-5.5');
+  assert.equal(evaluation.result.model_id, 'gpt-5.6-sol');
   assert.equal(evaluation.result.estimated_output_tokens, 4096);
   assert.equal(evaluation.result.context_window_tokens, 128000);
   assert.equal(evaluation.result.blocker_codes.length, 0);

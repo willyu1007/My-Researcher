@@ -46,7 +46,7 @@ const DEFAULT_SETTINGS: Omit<LiteratureAcquisitionSettingsDTO, 'updated_at'> = {
   quality_scorer: {
     enabled: true,
     provider: 'openai',
-    model: 'gpt-5.5',
+    model: 'gpt-5.6-sol',
     prompt_version: 'auto_pull_quality.v1',
     external_endpoint_configured: false,
   },

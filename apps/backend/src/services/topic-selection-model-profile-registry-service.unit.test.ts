@@ -123,7 +123,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
 
   assert.equal(resolved.profile.role_family, 'explorer');
   assert.equal(resolved.selected_model_option?.provider_id, 'openai');
-  assert.equal(resolved.selected_model_option?.model_id, 'gpt-5.5');
+  assert.equal(resolved.selected_model_option?.model_id, 'gpt-5.6-sol');
   assert.equal(resolved.selected_model_option?.use_when.includes('default_provider_run'), true);
   assert.equal(resolved.selected_model_option?.request_policy?.timeout_ms, 180000);
   assert.match(resolved.profile_hash, /^[a-f0-9]{64}$/);
@@ -135,7 +135,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
     run_mode: 'product',
     model_option_id: `${TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID}.openai-quality`,
   });
-  assert.equal(quality.selected_model_option?.model_id, 'gpt-5.5');
+  assert.equal(quality.selected_model_option?.model_id, 'gpt-5.6-sol');
   assert.equal(quality.selected_model_option?.normalized_params.reasoning_depth, 'high');
   assert.equal(quality.selected_model_option?.request_policy?.timeout_ms, 300000);
 
@@ -145,7 +145,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
     run_mode: 'product',
     model_option_id: `${TOPIC_SELECTION_NEED_DISCOVERY_DEEP_CRITIC_PROFILE_ID}.openai-deep-reasoning`,
   });
-  assert.equal(deepReasoning.selected_model_option?.model_id, 'gpt-5.5');
+  assert.equal(deepReasoning.selected_model_option?.model_id, 'gpt-5.6-sol');
   assert.equal(deepReasoning.selected_model_option?.normalized_params.reasoning_depth, 'high');
   assert.equal(deepReasoning.selected_model_option?.request_policy?.timeout_ms, 450000);
 
@@ -156,7 +156,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
     model_option_id: `${TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID}.dashscope-thinking-budget`,
   });
   assert.equal(dashscopeThinking.selected_model_option?.provider_id, 'dashscope');
-  assert.equal(dashscopeThinking.selected_model_option?.model_id, 'qwen3.6-plus');
+  assert.equal(dashscopeThinking.selected_model_option?.model_id, 'qwen3.7-plus');
   assert.equal(dashscopeThinking.selected_model_option?.request_policy?.timeout_ms, 300000);
   assert.deepEqual(dashscopeThinking.selected_model_option?.provider_overrides, {
     enable_thinking: true,
@@ -268,7 +268,7 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
     'TopicSelectionPromotionDecisionSupportLlmDraft@v1',
   );
   assert.equal(v1cPromotionSupport.selected_model_option?.provider_id, 'openai');
-  assert.equal(v1cPromotionSupport.selected_model_option?.model_id, 'gpt-5.5');
+  assert.equal(v1cPromotionSupport.selected_model_option?.model_id, 'gpt-5.6-sol');
 
   const v1cBoundedDebateCodex = service.resolveProfile({
     profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
@@ -339,7 +339,7 @@ test('model profile registry resolves resource sampling provider-only profile', 
   assert.equal(resourceSampling.profile.allowed_execution_modes.includes('mocked_llm'), false);
   assert.equal(resourceSampling.profile.output_contract, 'TopicSelectionResourceSamplingLlmOutput@v1');
   assert.equal(resourceSampling.selected_model_option?.provider_id, 'openai');
-  assert.equal(resourceSampling.selected_model_option?.model_id, 'gpt-5.5');
+  assert.equal(resourceSampling.selected_model_option?.model_id, 'gpt-5.6-sol');
   assert.equal(resourceSampling.selected_model_option?.normalized_params.creativity, 'low');
   assert.equal(resourceSampling.selected_model_option?.normalized_params.output_budget, 'medium');
 
@@ -350,7 +350,7 @@ test('model profile registry resolves resource sampling provider-only profile', 
     model_option_id: `${TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID}.dashscope-thinking-budget`,
   });
   assert.equal(dashscope.selected_model_option?.provider_id, 'dashscope');
-  assert.equal(dashscope.selected_model_option?.model_id, 'qwen3.6-plus');
+  assert.equal(dashscope.selected_model_option?.model_id, 'qwen3.7-plus');
 });
 
 test('model profile registry keeps PaperImplementation product mode provider-only', () => {

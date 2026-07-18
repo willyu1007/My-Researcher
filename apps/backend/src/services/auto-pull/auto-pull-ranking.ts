@@ -130,7 +130,7 @@ async function resolveQualityScorerConfig(dependencies: {
   return {
     endpoint: null,
     apiKey: null,
-    model: profile?.model ?? 'gpt-5.5',
+    model: profile?.model ?? 'gpt-5.6-sol',
     promptVersion: profile?.prompt_version ?? 'auto_pull_quality.v1',
     enabled: true,
     llmGateway: dependencies.llmGateway ?? new BackendLlmGateway({

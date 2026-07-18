@@ -32,6 +32,9 @@
 - [ ] C-2:6 门控 prompt 产品化,各得唯一漂移锚,对抗式 review 无 critical。
 - [ ] C-3:dormancy 常量翻开 + 三义务接线 + execution_spec 决策落地,dormant 身份守卫测试按新态更新(前置仅 C-2)。
 
+## 跨代登记（2026-07-18 换模包）
+- **模型换代扰动 profile hash**：注册表 model_id 换代（openai 三档 gpt-5.5→gpt-5.6-sol、dashscope 两档 qwen3.6-plus→qwen3.7-plus，deepseek 不变）→ `profile_hash = hash(profile)` 含 options 全量,**全部 per-role profile hash 换代**。既有 shadow/校准观测（N6/N8 家族、D2 shadow ComplexityAssessment 等）与新代数据**不可直接混池**;本包（corpus-gated 停驻中）未来开工时校准样本从换代后起算,或按 profile hash 分层。effort 面为严格平替（三档 reasoning_depth 均保持 high;xhigh/max 未启用——勘察发现 deep-reasoning 档会被 evidence-map 抽取与 need-discovery 深评自动解析,升档不是零风险顺手项,留待单独决策）。
+
 ## 背景细节去向
 - 完整证据链/设计语境:`dev-docs/archive/topic-selection-product-readiness-closure/`(03 矩阵、04 各段、05-pitfalls「伪造语料/盲写正文」「D8 骆驼鼻子」两条纪律直接适用本包)。
 - 代码级自文档:两个 `*_PRODUCT_GATE` 常量、`TOPIC_SELECTION_V1B_PROVIDER_DEBATE_PATH` 常量、W-16 sign-off schema(释放门槛结构化)。

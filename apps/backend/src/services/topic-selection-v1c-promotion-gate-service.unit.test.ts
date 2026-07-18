@@ -555,7 +555,7 @@ test('LLM draft success stores draft prose while deterministic gate remains auth
   };
   const telemetry: LlmCallTelemetry = {
     provider_id: 'openai',
-    model_id: 'gpt-5.5',
+    model_id: 'gpt-5.6-sol',
     profile_id: 'topic-selection-promotion-decision-support',
     prompt_template_id: 'topic-selection-promotion-decision-support',
     prompt_template_version: '1',

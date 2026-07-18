@@ -204,7 +204,7 @@ function cacheKey(): TopicSelectionContextPacketCacheKey {
 function tokenBudgetGateResult(): TopicSelectionTokenBudgetGateResult {
   return {
     provider_id: 'openai',
-    model_id: 'gpt-5.5',
+    model_id: 'gpt-5.6-sol',
     profile_id: 'topic-selection.generate-need-candidate.single-agent.v1',
     model_option_id: 'topic-selection.generate-need-candidate.single-agent.v1.openai-balanced',
     estimated_input_tokens: 24000,
@@ -454,7 +454,7 @@ function runtimeAuditEnvelope(): TopicSelectionRuntimeAuditEnvelope {
     provider_live_call: true,
     provider_telemetry: {
       provider_id: 'openai',
-      model_id: 'gpt-5.5',
+      model_id: 'gpt-5.6-sol',
       input_tokens: 24000,
       output_tokens: 900,
       total_tokens: 24900,

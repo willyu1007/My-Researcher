@@ -94,8 +94,8 @@ const DEFAULT_TOKEN_CALIBRATION: ProviderTokenCalibration = {
  * evidence/f10-token-calibration/measure.py to reproduce \u2014 the exact margin drifts slightly
  * as the doc-derived corpus evolves, but 0 underestimates is the invariant).
  *
- *   openai    / gpt-5.5         \u2192 tiktoken o200k_base
- *   dashscope / qwen3.6-plus    \u2192 Qwen BBPE (Qwen2.5/Qwen3 shared vocab)
+ *   openai    / gpt-5.6-sol     \u2192 tiktoken o200k family (assumed, 2026-07-18 swap; same family as gpt-5.5, constants unchanged)
+ *   dashscope / qwen3.7-plus    \u2192 Qwen BBPE (Qwen2.5/Qwen3 shared vocab; family unchanged across 3.6\u21923.7)
  *   deepseek  / deepseek-v4-pro \u2192 DeepSeek-V3 BBPE
  */
 const PROVIDER_TOKEN_CALIBRATIONS: Readonly<Record<string, ProviderTokenCalibration>> = {

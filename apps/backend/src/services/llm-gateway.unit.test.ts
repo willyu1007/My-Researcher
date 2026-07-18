@@ -558,7 +558,7 @@ test('LLM gateway maps DashScope chat completion JSON output and telemetry', asy
 
   const response = await gateway.createStructuredOutput<{ ok: boolean }>({
     executionContext: { feature: 'test', operation: 'dashscope-structured' },
-    model: { providerId: 'dashscope', modelId: 'qwen3.6-plus', profileId: 'default' },
+    model: { providerId: 'dashscope', modelId: 'qwen3.7-plus', profileId: 'default' },
     prompt: { promptTemplateId: 'test-prompt', version: 'v1' },
     messages: [{ role: 'user', content: 'return ok' }],
     schemaName: 'ok_schema',
@@ -575,11 +575,11 @@ test('LLM gateway maps DashScope chat completion JSON output and telemetry', asy
 
   assert.equal(response.parsed.ok, true);
   assert.equal(response.telemetry.provider_id, 'dashscope');
-  assert.equal(response.telemetry.model_id, 'qwen3.6-plus');
+  assert.equal(response.telemetry.model_id, 'qwen3.7-plus');
   assert.equal(response.telemetry.input_tokens, 13);
   assert.equal(response.telemetry.output_tokens, 5);
   assert.equal(calls[0]?.input, 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
-  assert.equal(calls[0]?.body.model, 'qwen3.6-plus');
+  assert.equal(calls[0]?.body.model, 'qwen3.7-plus');
   assert.deepEqual(calls[0]?.body.response_format, { type: 'json_object' });
   assert.deepEqual(calls[0]?.body.extra_body, { enable_thinking: false });
   const messages = calls[0]?.body.messages as Array<{ role: string; content: string }>;

@@ -3622,7 +3622,7 @@ test('workflow harness runs provider single-agent EvidenceMap extraction through
   assert.equal(ctx.llmGateway.calls.length, 1);
   assert.equal(ctx.llmGateway.calls[0]?.schemaName, 'TopicSelectionEvidenceMapExtractionDraft@v1');
   assert.equal(ctx.llmGateway.calls[0]?.model.profileId, TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID);
-  assert.equal(ctx.llmGateway.calls[0]?.model.modelId, 'gpt-5.5');
+  assert.equal(ctx.llmGateway.calls[0]?.model.modelId, 'gpt-5.6-sol');
   assert.deepEqual(ctx.llmGateway.calls[0]?.normalizedParams, {
     creativity: 'low',
     reasoning_depth: 'high',

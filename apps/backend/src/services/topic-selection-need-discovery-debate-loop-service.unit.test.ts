@@ -451,7 +451,7 @@ test('need-discovery debate loop uses contract defaults for provider role instan
     ],
   );
   assert.equal(llmGateway.calls.every((call) => call.model.providerId === 'openai'), true);
-  assert.equal(llmGateway.calls.every((call) => call.model.modelId === 'gpt-5.5'), true);
+  assert.equal(llmGateway.calls.every((call) => call.model.modelId === 'gpt-5.6-sol'), true);
   assert.equal(
     llmGateway.calls.every((call) =>
       (call.normalizedParams as { reasoning_depth?: string } | undefined)?.reasoning_depth === 'high',
@@ -701,11 +701,11 @@ test('need-discovery debate loop supports canonical execution plan with instance
   assert.deepEqual(
     llmGateway.calls.map((call) => `${call.model.providerId}:${call.model.modelId}`),
     [
-      'dashscope:qwen3.6-plus',
-      'openai:gpt-5.5',
-      'openai:gpt-5.5',
-      'openai:gpt-5.5',
-      'openai:gpt-5.5',
+      'dashscope:qwen3.7-plus',
+      'openai:gpt-5.6-sol',
+      'openai:gpt-5.6-sol',
+      'openai:gpt-5.6-sol',
+      'openai:gpt-5.6-sol',
     ],
   );
   assert.deepEqual(
@@ -780,7 +780,7 @@ test('need-discovery debate loop supports mixed-cost-control profile materializa
   );
   assert.deepEqual(
     llmGateway.calls.map((call) => `${call.model.providerId}:${call.model.modelId}`),
-    ['openai:gpt-5.5'],
+    ['openai:gpt-5.6-sol'],
   );
   assert.equal(
     result.final_invocation_result.provenance.model_option_id,
@@ -867,10 +867,10 @@ test('need-discovery debate loop supports provider-diverse-deep profile material
   assert.deepEqual(
     llmGateway.calls.map((call) => `${call.model.providerId}:${call.model.modelId}`),
     [
-      'openai:gpt-5.5',
-      'dashscope:qwen3.6-plus',
-      'openai:gpt-5.5',
-      'openai:gpt-5.5',
+      'openai:gpt-5.6-sol',
+      'dashscope:qwen3.7-plus',
+      'openai:gpt-5.6-sol',
+      'openai:gpt-5.6-sol',
     ],
   );
   assert.equal(

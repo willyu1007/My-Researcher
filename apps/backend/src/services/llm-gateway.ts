@@ -752,15 +752,20 @@ export class BackendLlmGateway {
 
   private openAiReasoningEffort(
     reasoningDepth: TopicSelectionModelProfileReasoningDepth | null,
-  ): 'low' | 'medium' | 'high' | null {
+  ): 'low' | 'medium' | 'high' | 'xhigh' | null {
     if (reasoningDepth === 'low') {
       return 'low';
     }
     if (reasoningDepth === 'medium') {
       return 'medium';
     }
-    if (reasoningDepth === 'high' || reasoningDepth === 'xhigh') {
+    if (reasoningDepth === 'high') {
       return 'high';
+    }
+    if (reasoningDepth === 'xhigh') {
+      // 换模包(2026-07-18):gpt-5.6 起 API 支持 xhigh(及 max,未接);此前
+      // xhigh 被钳到 high。仅 deep-reasoning manual 档使用。
+      return 'xhigh';
     }
     return null;
   }

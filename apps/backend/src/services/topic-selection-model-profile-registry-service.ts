@@ -203,7 +203,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
       option_id: `${profileKey}.openai-balanced`,
       option_purpose: 'default_balanced_provider_run',
       provider_id: 'openai',
-      model_id: 'gpt-5.5',
+      model_id: 'gpt-5.6-sol',
       use_when: ['default_provider_run'],
       request_policy: {
         timeout_ms: 180000,
@@ -218,7 +218,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
       option_id: `${profileKey}.openai-quality`,
       option_purpose: 'quality_sensitive_explicit_provider_run',
       provider_id: 'openai',
-      model_id: 'gpt-5.5',
+      model_id: 'gpt-5.6-sol',
       use_when: ['quality_sensitive_manual_selection'],
       request_policy: {
         timeout_ms: 300000,
@@ -236,11 +236,15 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
       option_id: `${profileKey}.openai-deep-reasoning`,
       option_purpose: 'deep_reasoning_explicit_provider_run',
       provider_id: 'openai',
-      model_id: 'gpt-5.5',
+      model_id: 'gpt-5.6-sol',
       use_when: ['deep_reasoning_manual_selection'],
       request_policy: {
         timeout_ms: 450000,
       },
+      // 换模包(2026-07-18):严格平替——三档全保持 high 与 gpt-5.5 行为逐字对齐。
+      // 勘察发现 deep-reasoning 并非纯 manual 档(evidence-map 抽取与
+      // need-discovery 深评角色会自动解析到它),故 xhigh 升档不属零风险顺手项,
+      // 留待单独决策(gateway 已扩 xhigh 枚举,休眠待用;max 档未接)。
       normalized_params: normalizedParams({
         reasoning_depth: 'high',
         output_budget: 'large',
@@ -254,7 +258,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
       option_id: `${profileKey}.dashscope-thinking-budget`,
       option_purpose: 'budget_sensitive_thinking_provider_run',
       provider_id: 'dashscope',
-      model_id: 'qwen3.6-plus',
+      model_id: 'qwen3.7-plus',
       use_when: ['budget_sensitive_manual_selection', 'thinking_budget_manual_selection'],
       request_policy: {
         timeout_ms: 300000,
@@ -271,7 +275,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
       option_id: `${profileKey}.dashscope-budget`,
       option_purpose: 'legacy_budget_sensitive_thinking_provider_run',
       provider_id: 'dashscope',
-      model_id: 'qwen3.6-plus',
+      model_id: 'qwen3.7-plus',
       use_when: ['legacy_budget_sensitive_manual_selection'],
       request_policy: {
         timeout_ms: 300000,

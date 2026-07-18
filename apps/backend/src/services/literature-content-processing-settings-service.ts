@@ -86,12 +86,12 @@ const DEFAULT_EXTRACTION_PROFILES: LiteratureExtractionProfileDTO[] = [
   {
     profile_id: 'default',
     provider: OPENAI_PROVIDER,
-    model: 'gpt-5.5',
+    model: 'gpt-5.6-sol',
   },
   {
     profile_id: 'high_accuracy',
     provider: OPENAI_PROVIDER,
-    model: 'gpt-5.5',
+    model: 'gpt-5.6-sol',
   },
 ];
 
@@ -105,8 +105,8 @@ const DEFAULT_EXTRACTION_RUNTIME: LiteratureContentProcessingSettingsDTO['extrac
 };
 
 const LEGACY_EXTRACTION_MODEL_BY_PROFILE: Partial<Record<LiteratureExtractionProfileId, string>> = {
-  default: 'gpt-5.5',
-  high_accuracy: 'gpt-5.5',
+  default: 'gpt-5.6-sol',
+  high_accuracy: 'gpt-5.6-sol',
 };
 
 export type OpenAIEmbeddingConfig = {

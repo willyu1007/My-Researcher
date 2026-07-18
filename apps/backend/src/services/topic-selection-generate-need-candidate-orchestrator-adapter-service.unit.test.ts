@@ -423,7 +423,7 @@ test('generate-need-candidate adapter blocks over-budget provider invocation bef
   assert.deepEqual(result.blocker_codes, ['TOKEN_BUDGET_OVER_LIMIT_AFTER_COMPRESSION']);
   assert.equal(llmGateway.calls.length, 0);
   assert.equal(result.invocation_result.provenance.provider_id, 'openai');
-  assert.equal(result.invocation_result.provenance.model_id, 'gpt-5.5');
+  assert.equal(result.invocation_result.provenance.model_id, 'gpt-5.6-sol');
 
   const artifacts = await repository.listArtifactRefsByWorkflowRunId('workflow_run_001');
   assert.equal(

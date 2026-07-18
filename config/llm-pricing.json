@@ -1,14 +1,16 @@
 {
-  "$comment": "LLM provider list prices in USD per 1M tokens, consumed by BackendLlmGateway telemetry cost computation (T-123 Phase 1.5). Verified 2026-06-12 from provider pricing pages/aggregators: gpt-5.5 $5/$30 (openai.com pricing; cached-input discount not modeled in v1); qwen3.6-plus $0.325/$1.95 (DashScope list price); deepseek-v4-pro standard $1.74/$3.48 (promo $0.435/$0.87 expired 2026-05-31 — using standard rate; if the promo is extended, lower these). Update on provider price changes; null disables cost computation for that model (non-blocking, warn-once).",
+  "$comment": "LLM provider list prices in USD per 1M tokens, consumed by BackendLlmGateway telemetry cost computation (T-123 Phase 1.5). Verified 2026-07-18 (model-swap package): gpt-5.6-sol $5/$30 GA 2026-07-09 (same list as gpt-5.5; NOTE gpt-5.6 bills explicit cache WRITES at 1.25x uncached input and keeps the 90% cache-read discount — neither modeled in v1, same as the old cached-input caveat); gpt-5.5 kept for historical telemetry recompute; qwen3.7-plus $0.32/$1.28 current billed promo (20% off the $0.40/$1.60 list — raise to list if the promo lapses); qwen3.6-plus kept historical; deepseek-v4-pro $0.435/$0.87 current billed rate (the promo priced as standard on api-docs as of 2026-07; the 2026-05-31 expiry note is obsolete). Update on provider price changes; null disables cost computation for that model (non-blocking, warn-once).",
   "openai": {
+    "gpt-5.6-sol": { "input_usd_per_mtok": 5.0, "output_usd_per_mtok": 30.0 },
     "gpt-5.5": { "input_usd_per_mtok": 5.0, "output_usd_per_mtok": 30.0 },
     "text-embedding-3-large": { "input_usd_per_mtok": 0.13, "output_usd_per_mtok": null },
     "text-embedding-3-small": { "input_usd_per_mtok": 0.02, "output_usd_per_mtok": null }
   },
   "dashscope": {
+    "qwen3.7-plus": { "input_usd_per_mtok": 0.32, "output_usd_per_mtok": 1.28 },
     "qwen3.6-plus": { "input_usd_per_mtok": 0.325, "output_usd_per_mtok": 1.95 }
   },
   "deepseek": {
-    "deepseek-v4-pro": { "input_usd_per_mtok": 1.74, "output_usd_per_mtok": 3.48 }
+    "deepseek-v4-pro": { "input_usd_per_mtok": 0.435, "output_usd_per_mtok": 0.87 }
   }
 }

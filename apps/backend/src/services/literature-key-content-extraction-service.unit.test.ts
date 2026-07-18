@@ -153,7 +153,7 @@ function createSettingsService(
     resolveExtractionConfig: async () => ({
       apiKey: 'sk-test',
       provider: 'openai',
-      model: 'gpt-5.5',
+      model: 'gpt-5.6-sol',
       profileId: 'default',
       runtime: {
         section_concurrency: 3,
