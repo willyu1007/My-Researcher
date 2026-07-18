@@ -17,6 +17,7 @@ import type {
   ListExperimentFoundationRecordsResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
 import { EXPERIMENT_FOUNDATION_READINESS_REPORT_STATUSES } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
+import { LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   ExperimentFoundationReadinessReportRecord,
@@ -391,6 +392,12 @@ const CANDIDATE_RECORD_KINDS: ExperimentFoundationRecordKind[] = [
   'base_model_candidate',
 ];
 
+const CLOSED_LEGACY_SCIENTIFIC_RECORD_KINDS = new Set<string>([
+  'experiment_result',
+  'result_validation_report',
+  'evidence_candidate',
+]);
+
 export class ExperimentFoundationService {
   private readonly ajv = new Ajv({
     allErrors: true,
@@ -409,6 +416,7 @@ export class ExperimentFoundationService {
   }
 
   async createRecord(input: CreateExperimentFoundationRecordRequest): Promise<ExperimentFoundationStoredRecord> {
+    this.assertLegacyScientificWriterOpen(input.record_kind);
     const recordKind = this.assertRecordKind(input.record_kind);
     const payload = this.assertValidPayload(recordKind, input.payload);
     const metadata = this.deriveMetadata(recordKind, payload);
@@ -446,6 +454,8 @@ export class ExperimentFoundationService {
     recordId: string,
     input: CreateExperimentFoundationRecordRequest,
   ): Promise<ExperimentFoundationStoredRecord> {
+    this.assertLegacyScientificWriterOpen(recordKindRaw);
+    this.assertLegacyScientificWriterOpen(input.record_kind);
     const recordKind = this.assertRecordKind(recordKindRaw);
     if (input.record_kind !== recordKind) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Path record_kind must match body record_kind.');
@@ -630,6 +640,18 @@ export class ExperimentFoundationService {
       promotion_result_record: result.promotionResultRecord,
       candidate_record: result.candidateRecord,
     };
+  }
+
+  private assertLegacyScientificWriterOpen(recordKind: string): void {
+    if (!CLOSED_LEGACY_SCIENTIFIC_RECORD_KINDS.has(recordKind)) {
+      return;
+    }
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy ExperimentFoundation scientific writers are permanently closed.',
+      { reason_code: LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE },
+    );
   }
 
   private assertRecordKind(value: string): ExperimentFoundationRecordKind {

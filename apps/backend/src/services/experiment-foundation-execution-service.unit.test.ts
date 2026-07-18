@@ -25,6 +25,15 @@ import { ExperimentFoundationService } from './experiment-foundation-service.js'
 const timestamp = '2026-05-18T00:00:00.000Z';
 const temporaryExecutionRoots = new Set<string>();
 
+class CountingExperimentFoundationExecutionRepository extends InMemoryExperimentFoundationExecutionRepository {
+  findByIdCalls = 0;
+
+  override async findExternalTrainingJobById(externalJobId: string) {
+    this.findByIdCalls += 1;
+    return super.findExternalTrainingJobById(externalJobId);
+  }
+}
+
 afterEach(async () => {
   await Promise.all(
     [...temporaryExecutionRoots].map((root) => rm(root, { recursive: true, force: true })),
@@ -276,7 +285,7 @@ function submitRequest(overrides: Partial<SubmitExternalTrainingJobRequest> = {}
 
 async function createServices() {
   const registryService = new ExperimentFoundationService(new InMemoryExperimentFoundationRepository());
-  const executionRepository = new InMemoryExperimentFoundationExecutionRepository();
+  const executionRepository = new CountingExperimentFoundationExecutionRepository();
   const executionService = new ExperimentFoundationExecutionService(executionRepository, registryService);
   return { registryService, executionService, executionRepository };
 }
@@ -357,12 +366,12 @@ async function seedRecordRoute(
   assert.equal(response.statusCode, 201, response.body);
 }
 
-test('LocalScript submit, sync, collect creates result validation and evidence records', async () => {
+test('LocalScript collect fails closed without result, validation, evidence, or diagnostic writes', async () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousRoot = process.env.EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT;
   process.env.NODE_ENV = 'test';
   try {
-    const { registryService, executionService } = await createServices();
+    const { registryService, executionService, executionRepository } = await createServices();
     await seedExecutableTask(registryService);
 
     const submitted = await executionService.submitJob(submitRequest());
@@ -373,19 +382,25 @@ test('LocalScript submit, sync, collect creates result validation and evidence r
     assert.equal(synced.external_job.job_status, 'succeeded');
     assert.ok(synced.external_job.stage_event_refs.length >= 2);
 
-    const collected = await executionService.collectJob(submitted.external_job.external_job_id, {
-      source_refs: [sourceRef('test_case', 'collect')],
-    });
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'experiment_result'));
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'result_validation_report'));
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'));
-    assert.ok(collected.external_job.partial_result_refs.length > 0);
-    const validationRef = collected.external_job.result_refs.find((ref) => ref.ref_type === 'result_validation_report');
-    assert.ok(validationRef);
-    const validation = await registryService.getRecord('result_validation_report', validationRef.ref_id);
-    assert.equal(validation.status, 'valid');
-    const validationPayload = validation.payload as { generated_fact_refs: ExperimentFoundationRef[] };
-    assert.ok(validationPayload.generated_fact_refs.some((ref) => ref.ref_type === 'evaluation_fact'));
+    const recordsBefore = await registryService.listRecords({ limit: 100 });
+    const jobBefore = await executionService.getJob(submitted.external_job.external_job_id);
+    const findByIdCallsBefore = executionRepository.findByIdCalls;
+    await assert.rejects(
+      () => executionService.collectJob(submitted.external_job.external_job_id, {
+        source_refs: [sourceRef('test_case', 'collect')],
+      }),
+      (error) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+        && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+    );
+    assert.equal(executionRepository.findByIdCalls, findByIdCallsBefore);
+    const recordsAfter = await registryService.listRecords({ limit: 100 });
+    const jobAfter = await executionService.getJob(submitted.external_job.external_job_id);
+    assert.equal(recordsAfter.records.length, recordsBefore.records.length);
+    assert.deepEqual(jobAfter.external_job, jobBefore.external_job);
+    assert.deepEqual(jobAfter.external_job.result_refs, []);
+    assert.deepEqual(jobAfter.external_job.partial_result_refs, []);
   } finally {
     process.env.NODE_ENV = previousNodeEnv;
     restoreOptionalEnv('EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT', previousRoot);
@@ -502,7 +517,7 @@ test('LocalScript robustness keeps shell metacharacter args literal with shell=f
   }
 });
 
-test('LocalScript robustness handles timeout, non-terminal collect, and repeated collect deterministically', async () => {
+test('LocalScript timeout remains observable while collect stays closed before and after terminal sync', async () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousRoot = process.env.EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT;
   process.env.NODE_ENV = 'test';
@@ -518,30 +533,27 @@ test('LocalScript robustness handles timeout, non-terminal collect, and repeated
       () => executionService.collectJob(submitted.external_job.external_job_id, {
         source_refs: [sourceRef('test_case', 'collect_before_terminal')],
       }),
-      (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+      (error) => error instanceof AppError
+        && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
     );
 
     const timedOut = await syncUntilTerminal(executionService, submitted.external_job.external_job_id, 'failed');
     assert.equal(timedOut.external_job.job_status, 'failed');
-    const collected = await executionService.collectJob(submitted.external_job.external_job_id, {
-      source_refs: [sourceRef('test_case', 'timeout_collect')],
-    });
-    assert.equal(collected.external_job.job_status, 'failed');
-    assert.equal(
-      collected.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'),
-      false,
-    );
-    const validationRef = collected.external_job.result_refs.find((ref) => ref.ref_type === 'result_validation_report');
-    assert.ok(validationRef);
-    const validation = await registryService.getRecord('result_validation_report', validationRef.ref_id);
-    assert.equal(validation.status, 'partial');
-
-    const repeated = await executionService.collectJob(submitted.external_job.external_job_id, {
-      source_refs: [sourceRef('test_case', 'timeout_collect_repeated')],
-    });
-    assert.deepEqual(repeated.external_job.result_refs, collected.external_job.result_refs);
-    assert.deepEqual(repeated.external_job.partial_result_refs, collected.external_job.partial_result_refs);
-    assert.equal(repeated.external_job.stage_event_refs.length, collected.external_job.stage_event_refs.length);
+    const recordsBefore = await registryService.listRecords({ limit: 100 });
+    for (const sourceId of ['timeout_collect', 'timeout_collect_repeated']) {
+      await assert.rejects(
+        () => executionService.collectJob(submitted.external_job.external_job_id, {
+          source_refs: [sourceRef('test_case', sourceId)],
+        }),
+        (error) => error instanceof AppError
+          && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+      );
+    }
+    const recordsAfter = await registryService.listRecords({ limit: 100 });
+    const unchangedJob = await executionService.getJob(submitted.external_job.external_job_id);
+    assert.equal(recordsAfter.records.length, recordsBefore.records.length);
+    assert.deepEqual(unchangedJob.external_job.result_refs, []);
+    assert.deepEqual(unchangedJob.external_job.partial_result_refs, []);
   } finally {
     process.env.NODE_ENV = previousNodeEnv;
     restoreOptionalEnv('EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT', previousRoot);
@@ -728,8 +740,12 @@ test('execution routes cover submit, read, list, sync, cancel, collect and schem
       url: `/experiment-foundation/execution/jobs/${externalJobId}/collect`,
       payload: { source_refs: [sourceRef('test_case', 'route_collect')] },
     });
-    assert.equal(collect.statusCode, 200, collect.body);
-    assert.ok(collect.json().external_job.result_refs.some((ref: ExperimentFoundationRef) => ref.ref_type === 'evidence_candidate'));
+    assert.equal(collect.statusCode, 409, collect.body);
+    assert.equal(collect.json().error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(
+      collect.json().error.details.reason_code,
+      'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+    );
   } finally {
     await app.close();
     process.env.NODE_ENV = previousNodeEnv;

@@ -27,6 +27,7 @@ import type {
   TrainingTaskSpec,
   TrainingTaskStageEvent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
+import { LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   ExperimentFoundationExecutionRepository,
@@ -261,6 +262,13 @@ export class ExperimentFoundationExecutionService {
     externalJobId: string,
     input: CollectExternalTrainingJobRequest,
   ): Promise<ExternalTrainingJobResponse> {
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy ExperimentFoundation scientific collection is permanently closed.',
+      { reason_code: LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE },
+    );
+
     const job = await this.requireJob(externalJobId);
     if (job.result_refs.length > 0) {
       return { external_job: job };

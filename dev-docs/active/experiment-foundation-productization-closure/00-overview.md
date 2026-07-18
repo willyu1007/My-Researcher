@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: 正式 PI scope → named-local Pack A/Pack B 产品链和 zero-write cloud-preflight implementation/quality remediation 均已完成，admission/simulation/cloud-preflight capability 均保持关闭。Pack C C-EF step 4 的 `ScientificValidationService`、dual repository 和 in-memory unit coverage 已于 2026-07-19 完成；下一步是 C-EF step 5 的 legacy scientific writer closure，然后执行本 slice 的 disposable-PostgreSQL/machine gate。真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、当前已审查 repo-external RAM policy evidence 及其独立摘要阻塞；C-PI、C-cutover、provider execution、UI/search 和非本地 rollout 仍未完成。
+- Next step: 正式 PI scope → named-local Pack A/Pack B 产品链和 zero-write cloud-preflight implementation/quality remediation 均已完成，admission/simulation/cloud-preflight capability 均保持关闭。Pack C C-EF step 4 和 step 5a service-layer legacy scientific writer closure 已于 2026-07-19 完成；下一步是 step 5b legacy partial-acceptance/provenance vocabulary removal，然后执行本 slice 的 disposable-PostgreSQL/machine gate。真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、当前已审查 repo-external RAM policy evidence 及其独立摘要阻塞；C-PI、C-cutover、provider execution、UI/search 和非本地 rollout 仍未完成。
 
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 

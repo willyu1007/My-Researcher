@@ -776,3 +776,20 @@ No code, configuration, Prisma artifact, other task package, database or externa
 Coverage includes passed atomic report/Candidate/outbox with exact result/report/Candidate/payload/envelope hashes, injected rollback, failed and unsupported report-only outcomes, incomplete batch, simulation/fake provenance, manifest drift, result replay/conflict, same/different validation-key convergence, cross-Run idempotency conflict, caller-owned server-field rejection and absent head-ack zero validation writes.
 
 Optional whole-bundle strict docs lint reported 0 errors and 8 pre-existing vague-reference warnings in older T-132 planning/readiness/artifact files after the new C-EF wording was cleaned; historical unrelated files were preserved.
+
+## 2026-07-19 — Pack C C-EF step 5a verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed after implementation and again after the repository-access assertion fix; exit 0 |
+| modified backend tests via `node --test --loader ts-node/esm` | final scoped population passed 39/39 with 1 conditional Prisma-parity skip in the five-file run; the strengthened execution file rerun passed 10/10 |
+| modified shared schema test via `node --test --loader ts-node/esm src/research-lifecycle/experiment-v2-contracts.schema.test.ts` | passed 17/17; 0 failed, 0 skipped |
+| `cd packages/shared && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 |
+| `pnpm --filter @paper-engineering-assistant/shared test` | passed 374/374; 0 failed, 0 skipped |
+| first exact `pnpm --filter @paper-engineering-assistant/backend test` | 2,292 tests: 2,228 passed, 14 failed, 50 skipped; six unrelated Prisma rollback tests attempted the local `DATABASE_URL` and failed because sandboxed TCP could not reach `127.0.0.1:5432`; no modified targeted file failed |
+| no-DB conditional rerun: `DATABASE_URL='' pnpm --filter @paper-engineering-assistant/backend test` | 2,292 tests: 2,228 passed, 8 failed, 56 skipped; the six Prisma cases became their documented conditional skips; remaining failures are outside the changed files |
+| isolated unrelated literature diagnostic | the two observed literature route polling failures reproduced with only those names selected: content-processing remained non-terminal/`PARTIAL` beyond the fixed 40×10ms poll; no EF closure code was involved |
+| `git diff --check` | passed before documentation update and at final handoff |
+| whole-bundle strict docs lint | 0 errors and 8 pre-existing vague-reference warnings in older T-132 files; the new step-5a report adds no warning |
+
+One intermediate two-file rerun failed 1/14 because the newly strengthened execution test omitted `executionRepository` from its local fixture destructuring. The test-only omission was corrected; backend typecheck and the affected file then passed 10/10. No product-code defect was involved.

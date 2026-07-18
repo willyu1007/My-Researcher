@@ -26,7 +26,7 @@ import {
 type CapabilityHarness = Awaited<ReturnType<typeof buildExperimentFoundationCapabilityHarness>>;
 type InjectResponse = Awaited<ReturnType<CapabilityHarness['app']['inject']>>;
 
-test('experiment-foundation capability harness drives registry, readiness, submit, sync, collect', async () => {
+test('experiment-foundation capability harness drives registry, readiness, submit, sync, and closed collect', async () => {
   const localRoot = await createLocalScriptExecutionRoot();
   const restoreEnv = installLocalScriptTestEnv(localRoot.root);
   let harness: CapabilityHarness | null = null;
@@ -92,18 +92,11 @@ test('experiment-foundation capability harness drives registry, readiness, submi
     assert.equal(synced.external_job.job_status, 'succeeded');
     assert.ok(synced.external_job.stage_event_refs.length > submitted.external_job.stage_event_refs.length);
 
-    const collected = await harness.collectJob(submitted.external_job.external_job_id);
-    assert.equal(collected.external_job.job_status, 'succeeded');
-    assert.ok(collected.external_job.partial_result_refs.length > 0);
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'experiment_result'));
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'result_validation_report'));
-    assert.ok(collected.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'));
-
-    const evidenceRef = collected.external_job.result_refs.find((ref) => ref.ref_type === 'evidence_candidate');
-    assert.ok(evidenceRef);
-    const evidence = await harness.getRecord('evidence_candidate', evidenceRef.ref_id);
-    assert.equal(evidence.status, 'candidate');
-    assert.equal('claim_text' in evidence.payload, false);
+    const collect = await collectRaw(harness, submitted.external_job.external_job_id);
+    assertLegacyScientificWriterClosed(harness, collect);
+    const unchangedJob = await getJobRaw(harness, submitted.external_job.external_job_id);
+    assert.deepEqual(unchangedJob.result_refs, []);
+    assert.deepEqual(unchangedJob.partial_result_refs, []);
 
     const genericJobWrite = await harness.app.inject({
       method: 'POST',
@@ -344,7 +337,7 @@ test('experiment-foundation capability harness validates mocked Aliyun mirror an
   }
 });
 
-test('experiment-foundation capability harness validates result, evidence, and sidecar boundaries', async () => {
+test('experiment-foundation capability harness closes scientific writers while preserving sidecar validation', async () => {
   const localRoot = await createLocalScriptExecutionRoot('experiment-foundation-result-');
   const restoreEnv = installLocalScriptTestEnv(localRoot.root);
   let harness: CapabilityHarness | null = null;
@@ -360,48 +353,39 @@ test('experiment-foundation capability harness validates result, evidence, and s
       experimentFoundationRef('training_task_spec', validGraph.trainingTaskSpec.training_task_spec_id),
     );
     const submitted = await harness.submitJob(validGraph.submitRequest);
-    await harness.syncJobUntilTerminal(submitted.external_job.external_job_id);
-    const collected = await harness.collectJob(submitted.external_job.external_job_id);
+    const synced = await harness.syncJobUntilTerminal(submitted.external_job.external_job_id);
+    const closedCollect = await collectRaw(harness, submitted.external_job.external_job_id);
+    assertLegacyScientificWriterClosed(harness, closedCollect);
 
-    const experimentResultRef = requireResultRef(collected.external_job.result_refs, 'experiment_result');
-    const validationReportRef = requireResultRef(collected.external_job.result_refs, 'result_validation_report');
-    const evidenceCandidateRef = requireResultRef(collected.external_job.result_refs, 'evidence_candidate');
-    const experimentResult = await harness.getRecord('experiment_result', experimentResultRef.ref_id);
-    const validationReport = await harness.getRecord('result_validation_report', validationReportRef.ref_id);
-    const evidenceCandidate = await harness.getRecord('evidence_candidate', evidenceCandidateRef.ref_id);
+    for (const recordKind of [
+      'experiment_result',
+      'result_validation_report',
+      'evidence_candidate',
+    ]) {
+      const closedCreate = await createRecordRaw(harness, recordKind, {});
+      assertLegacyScientificWriterClosed(harness, closedCreate);
+    }
 
-    assert.equal(recordPayload(validationReport).validation_status, 'valid');
-    assert.equal(recordPayload(evidenceCandidate).validation_status, 'valid');
-    assert.equal('claim_text' in recordPayload(experimentResult), false);
-    assert.equal('paper_claim' in recordPayload(evidenceCandidate), false);
-    assert.equal('final_table' in recordPayload(experimentResult), false);
-
-    const resultClaimLeakage = await createRecordRaw(harness, 'experiment_result', {
-      ...recordPayload(experimentResult),
-      experiment_result_id: 'experiment_result_claim_leakage',
-      result_hash: 'sha256:result-claim-leakage',
-      claim_text: 'This wording belongs to paper drafting, not the experiment result packet.',
-    });
-    harness.expectError(resultClaimLeakage, 400, 'INVALID_PAYLOAD');
-
-    const invalidEvidence = await createRecordRaw(harness, 'evidence_candidate', {
-      ...recordPayload(evidenceCandidate),
-      evidence_candidate_id: 'evidence_candidate_invalid_validation_status',
-      validation_status: 'invalid',
-      evidence_hash: 'sha256:evidence-invalid-validation-status',
-    });
-    harness.expectError(invalidEvidence, 400, 'INVALID_PAYLOAD');
-
-    const metricObservations = await harness.listRecords({ record_kind: 'metric_observation' });
-    const evaluationFacts = await harness.listRecords({ record_kind: 'evaluation_fact' });
+    const experimentResult = {
+      experiment_result_id: 'historical_experiment_result_001',
+      result_hash: 'sha256:historical-experiment-result',
+    };
+    const validationReport = {
+      result_validation_report_id: 'historical_validation_report_001',
+      validation_hash: 'sha256:historical-validation-report',
+    };
+    const evidenceCandidate = {
+      evidence_candidate_id: 'historical_evidence_candidate_001',
+      evidence_hash: 'sha256:historical-evidence-candidate',
+    };
     const sidecarPayload = paperExperimentSidecarPayload({
       graph: validGraph,
-      job: collected.external_job,
-      experimentResult: recordPayload(experimentResult),
-      validationReport: recordPayload(validationReport),
-      evidenceCandidate: recordPayload(evidenceCandidate),
-      metricObservationRecords: metricObservations.records,
-      evaluationFactRecords: evaluationFacts.records,
+      job: synced.external_job,
+      experimentResult,
+      validationReport,
+      evidenceCandidate,
+      metricObservationRecords: [],
+      evaluationFactRecords: [],
       suffix: 'result_evidence_valid',
     });
     const sidecar = await harness.createRecord('paper_experiment_sidecar', sidecarPayload);
@@ -429,15 +413,11 @@ test('experiment-foundation capability harness validates result, evidence, and s
     );
     const failedSubmitted = await harness.submitJob(failedGraph.submitRequest);
     await harness.syncJobUntilTerminal(failedSubmitted.external_job.external_job_id, { expectedStatus: 'failed' });
-    const failedCollected = await harness.collectJob(failedSubmitted.external_job.external_job_id);
-    assert.equal(failedCollected.external_job.job_status, 'failed');
-    assert.equal(
-      failedCollected.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'),
-      false,
-    );
-    const failedValidationRef = requireResultRef(failedCollected.external_job.result_refs, 'result_validation_report');
-    const failedValidation = await harness.getRecord('result_validation_report', failedValidationRef.ref_id);
-    assert.equal(recordPayload(failedValidation).validation_status, 'partial');
+    const failedCollect = await collectRaw(harness, failedSubmitted.external_job.external_job_id);
+    assertLegacyScientificWriterClosed(harness, failedCollect);
+    const unchangedFailedJob = await getJobRaw(harness, failedSubmitted.external_job.external_job_id);
+    assert.deepEqual(unchangedFailedJob.result_refs, []);
+    assert.deepEqual(unchangedFailedJob.partial_result_refs, []);
   } finally {
     await harness?.close();
     restoreEnv();
@@ -577,18 +557,12 @@ test('experiment-foundation Phase 3 recovery path exposes actionable state for a
       cancelledList.jobs.some((job) =>
         job.external_job_id === submitted.external_job.external_job_id),
     );
-    const collectedCancelled = await harness.collectJob(submitted.external_job.external_job_id);
-    assert.equal(collectedCancelled.external_job.job_status, 'cancelled');
-    assert.equal(
-      collectedCancelled.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'),
-      false,
-    );
-    const validationRef = requireResultRef(
-      collectedCancelled.external_job.result_refs,
-      'result_validation_report',
-    );
-    const validation = await harness.getRecord('result_validation_report', validationRef.ref_id);
-    assert.equal(recordPayload(validation).validation_status, 'partial');
+    const collectedCancelled = await collectRaw(harness, submitted.external_job.external_job_id);
+    assertLegacyScientificWriterClosed(harness, collectedCancelled);
+    const unchangedCancelledJob = await getJobRaw(harness, submitted.external_job.external_job_id);
+    assert.equal(unchangedCancelledJob.job_status, 'cancelled');
+    assert.deepEqual(unchangedCancelledJob.result_refs, []);
+    assert.deepEqual(unchangedCancelledJob.partial_result_refs, []);
   } finally {
     await harness?.close();
     restoreEnv();
@@ -676,21 +650,48 @@ async function createRecordRaw(
   });
 }
 
+async function collectRaw(
+  harness: CapabilityHarness,
+  externalJobId: string,
+): Promise<InjectResponse> {
+  return harness.app.inject({
+    method: 'POST',
+    url: `/experiment-foundation/execution/jobs/${externalJobId}/collect`,
+    payload: {
+      source_refs: [experimentFoundationRef('test_case', 'closed_legacy_collect')],
+    },
+  });
+}
+
+async function getJobRaw(
+  harness: CapabilityHarness,
+  externalJobId: string,
+): Promise<ExternalTrainingJob> {
+  const response = await harness.app.inject({
+    method: 'GET',
+    url: `/experiment-foundation/execution/jobs/${externalJobId}`,
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  return response.json().external_job as ExternalTrainingJob;
+}
+
+function assertLegacyScientificWriterClosed(
+  harness: CapabilityHarness,
+  response: InjectResponse,
+): void {
+  harness.expectError(response, 409, 'GATE_CONSTRAINT_FAILED');
+  assert.equal(
+    response.json().error.details.reason_code,
+    'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+  );
+}
+
 function payload(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
 function recordPayload(record: ExperimentFoundationStoredRecord): Record<string, unknown> {
   return record.payload as Record<string, unknown>;
-}
-
-function requireResultRef(
-  refs: Array<{ ref_type: string; ref_id: string }>,
-  refType: string,
-): { ref_type: string; ref_id: string } {
-  const ref = refs.find((item) => item.ref_type === refType);
-  assert.ok(ref, `Expected ${refType} ref.`);
-  return ref;
 }
 
 function paperExperimentSidecarPayload(input: {

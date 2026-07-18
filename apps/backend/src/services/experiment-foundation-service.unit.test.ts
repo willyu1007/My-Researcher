@@ -23,6 +23,7 @@ import type {
 import { buildApp } from '../app.js';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryExperimentFoundationRepository } from '../repositories/in-memory-experiment-foundation-repository.js';
+import type { ExperimentFoundationRepository } from '../repositories/experiment-foundation.repository.js';
 import { PrismaExperimentFoundationRepository } from '../repositories/prisma/prisma-experiment-foundation-repository.js';
 import { ExperimentFoundationService } from './experiment-foundation-service.js';
 
@@ -410,6 +411,88 @@ test('experiment-foundation service validates kind, schema, and alias/private le
     }),
     (error) => error instanceof AppError && error.errorCode === 'INVALID_PAYLOAD',
   );
+});
+
+test('legacy scientific create and upsert writers fail closed before repository access', async () => {
+  const backingRepository = new InMemoryExperimentFoundationRepository();
+  let repositoryAccessCount = 0;
+  const repository = new Proxy(backingRepository, {
+    get(target, property, receiver) {
+      const value: unknown = Reflect.get(target, property, receiver);
+      if (typeof value !== 'function') {
+        return value;
+      }
+      return (...args: unknown[]) => {
+        repositoryAccessCount += 1;
+        return Reflect.apply(value, target, args);
+      };
+    },
+  }) as ExperimentFoundationRepository;
+  const service = new ExperimentFoundationService(repository);
+  const closedKinds = [
+    'experiment_result',
+    'result_validation_report',
+    'evidence_candidate',
+  ] as const;
+
+  for (const recordKind of closedKinds) {
+    const assertClosed = (error: unknown) => (
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED'
+    );
+    await assert.rejects(
+      () => service.createRecord({ record_kind: recordKind, payload: {} }),
+      assertClosed,
+    );
+    await assert.rejects(
+      () => service.upsertRecord(recordKind, `${recordKind}_closed`, {
+        record_kind: recordKind,
+        payload: {},
+      }),
+      assertClosed,
+    );
+  }
+
+  assert.equal(repositoryAccessCount, 0);
+  assert.equal((await backingRepository.listRecords({})).records.length, 0);
+
+  const created = await service.createRecord({
+    record_kind: 'dataset_asset',
+    payload: asPayload(datasetAssetPayload()),
+  });
+  const upserted = await service.upsertRecord('dataset_asset', created.record_id, {
+    record_kind: 'dataset_asset',
+    payload: asPayload({ ...datasetAssetPayload(), description: 'Updated non-scientific record.' }),
+  });
+  assert.equal(upserted.payload.description, 'Updated non-scientific record.');
+  assert.ok(repositoryAccessCount > 0);
+});
+
+test('cutover-off generic HTTP routes surface the closed scientific writer reason', async () => {
+  const app = buildApp({ paperImplementationExperimentV2CutoverCommitted: () => false });
+  await app.ready();
+  try {
+    for (const method of ['POST', 'PUT'] as const) {
+      const recordKind = 'experiment_result';
+      const response = await app.inject({
+        method,
+        url: method === 'POST'
+          ? '/experiment-foundation/records'
+          : `/experiment-foundation/records/${recordKind}/${recordKind}_closed`,
+        payload: { record_kind: recordKind, payload: {} },
+      });
+      assert.equal(response.statusCode, 409, response.body);
+      assert.equal(response.json().error.code, 'GATE_CONSTRAINT_FAILED');
+      assert.equal(
+        response.json().error.details.reason_code,
+        'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+      );
+    }
+  } finally {
+    await app.close();
+  }
 });
 
 test('experiment-foundation readiness blocks non-ready versions, stale mirrors, and invalid fine-tuning results', async () => {

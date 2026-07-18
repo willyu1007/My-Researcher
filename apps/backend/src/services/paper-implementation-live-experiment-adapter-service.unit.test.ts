@@ -6,6 +6,7 @@ import type {
   ExperimentFoundationRef,
   ExperimentFoundationStoredRecord,
   ExternalTrainingJob,
+  ExternalTrainingJobResponse,
   SubmitExternalTrainingJobRequest,
   SyncExternalTrainingJobRequest,
   CollectExternalTrainingJobRequest,
@@ -41,7 +42,6 @@ import type {
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationAiWorkflowHarnessService } from './paper-implementation-ai-workflow-harness-service.js';
-import { findExperimentFoundationPayloadCopyKey } from './paper-implementation-experiment-foundation-boundary-guard.js';
 import type { PaperImplementationIntakeBootstrapService } from './paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationLiveExperimentAdapterService } from './paper-implementation-live-experiment-adapter-service.js';
 import type { PaperImplementationMotiveEvidenceBoardService } from './paper-implementation-motive-evidence-board-service.js';
@@ -269,22 +269,17 @@ class FakeExperimentExecution {
     return { external_job: structuredClone(this.job) };
   }
 
-  async collectJob(externalJobId: string, _input: CollectExternalTrainingJobRequest) {
-    this.failIfRequested('collect');
+  async collectJob(
+    externalJobId: string,
+    _input: CollectExternalTrainingJobRequest,
+  ): Promise<ExternalTrainingJobResponse> {
     this.collectJobIds.push(externalJobId);
-    this.job = {
-      ...this.job,
-      job_status: 'succeeded',
-      completed_at: NOW,
-      result_refs: [
-        experimentRef('experiment_result', 'experiment_result_001'),
-        experimentRef('result_validation_report', 'result_validation_report_001'),
-        experimentRef('evidence_candidate', 'evidence_candidate_001'),
-      ],
-      partial_result_refs: [experimentRef('training_task_partial_result_ref', 'partial_result_001')],
-      updated_at: NOW,
-    };
-    return { external_job: structuredClone(this.job) };
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy ExperimentFoundation scientific collection is permanently closed.',
+      { reason_code: 'LEGACY_SCIENTIFIC_WRITER_CLOSED' },
+    );
   }
 
   async cancelJob(externalJobId: string, input: CancelExternalTrainingJobRequest) {
@@ -597,11 +592,6 @@ async function assertRejectsWithCode(action: () => Promise<unknown>, expectedCod
   );
 }
 
-function assertNoExperimentFoundationDtoCopies(value: unknown): void {
-  const blocked = findExperimentFoundationPayloadCopyKey(value);
-  assert.equal(blocked, null, `Unexpected experiment-foundation DTO or claim field copied into adjacent state: ${blocked}`);
-}
-
 test('submits admitted WorkOrder to experiment-foundation execution idempotently', async () => {
   const { service, execution, workOrderService } = await makeHarness();
 
@@ -742,33 +732,21 @@ test('blocks wrong external job before sync collect or cancel side effects', asy
   assert.deepEqual(execution.cancelJobIds, []);
 });
 
-test('collect creates target-specific trace and trusted run evidence from stored result hashes', async () => {
-  const { service, execution } = await makeHarness();
+test('collect propagates the typed legacy scientific writer closure without PI monitor or REU writes', async () => {
+  const { service, execution, workOrderService } = await makeHarness();
   await service.submitLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, {
     idempotency_key: 'work_order_attempt_001',
   });
 
-  const collected = await service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {});
-  assert.equal(collected.run_evidence_unit?.run_status, 'succeeded');
-  assert.equal(collected.run_evidence_unit?.result_hash, 'experiment_result_hash_001');
-  assert.equal(collected.run_evidence_unit?.result_validation_report_hash, 'validation_report_hash_001');
-  assert.equal(collected.run_evidence_unit?.evidence_candidate_hashes[0], 'evidence_candidate_hash_001');
-  assert.equal(collected.run_evidence_unit?.result_ref?.ref_type, 'experiment_result');
-  assert.equal(collected.run_evidence_unit?.result_validation_report_ref?.ref_type, 'result_validation_report');
-  assert.equal(collected.run_evidence_unit?.evidence_candidate_refs[0]?.ref_type, 'evidence_candidate');
-  assertNoExperimentFoundationDtoCopies(collected.monitor_intake);
-  assertNoExperimentFoundationDtoCopies(collected.run_evidence_unit);
-  assertNoExperimentFoundationDtoCopies(collected.trace_manifest);
-  assert.equal(collected.trace_manifest?.target_ref.ref_type, 'run_evidence_unit');
-  assert.equal(collected.trace_manifest?.target_ref.ref_id, collected.run_evidence_unit?.run_evidence_unit_id);
-  assert.equal(collected.trace_manifest?.trace_status, 'complete');
-  assert.equal(collected.terminal_evidence_recorded, true);
-
-  const repeated = await service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {});
-  assert.equal(repeated.outcome, 'already_recorded');
-  assert.equal(repeated.run_evidence_unit?.run_evidence_unit_id, collected.run_evidence_unit?.run_evidence_unit_id);
-  assert.equal(repeated.terminal_evidence_recorded, true);
+  await assert.rejects(
+    () => service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {}),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+  );
   assert.equal(execution.collectJobIds.length, 1);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
 });
 
 test('cancel records non-final status without trusted run evidence while external job is cancelling', async () => {
@@ -851,14 +829,6 @@ test('live adapter external execution failures do not create partial state or fa
     'running',
   );
 
-  execution.failNext('collect');
-  await assertRejectsWithCode(
-    () => service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {}),
-    'INTERNAL_ERROR',
-  );
-  assert.deepEqual(execution.collectJobIds, []);
-  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
-
   execution.failNext('cancel');
   await assertRejectsWithCode(
     () => service.cancelLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {
@@ -929,6 +899,18 @@ test('route wiring validates submit payload and delegates live experiment submit
     });
     assert.equal(valid.statusCode, 201);
     assert.equal(valid.json().harness_run.external_job_ref.ref_id, 'local_job_001');
+
+    const collect = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${PROJECT_ID}/research-work-orders/${WORK_ORDER_ID}/live-experiment-runs/${EXTERNAL_JOB_ID}/collect`,
+      payload: {},
+    });
+    assert.equal(collect.statusCode, 409, collect.body);
+    assert.equal(collect.json().error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(
+      collect.json().error.details.reason_code,
+      'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+    );
   } finally {
     await app.close();
   }

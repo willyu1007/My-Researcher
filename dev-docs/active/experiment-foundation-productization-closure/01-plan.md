@@ -18,7 +18,9 @@ Authorization scope: Phase 4 per `09-pack-c-implementation-readiness-review.md` 
 2. Required-rules execution engine over the existing Pack A typed `required_rules` authority: code-local closed capability map keyed `rule_type@rule_version` (first slice exactly `metric_contract@v1`, `artifact_contract@v1`), readiness-time check plus final-validation recheck of the frozen validator profile, `UNSUPPORTED_RULE` fail-closed before Run freeze/dispatch and at validation.
 3. Additive EF Prisma families for result/report/candidate plus outbox use; exact DDL matrix produced through `sync-db-schema-from-code`; apply is a separate gate.
 4. **Completed 2026-07-19:** `ScientificValidationService` as sole writer: complete-eligible-real-provider-batch validation, `passed`-only atomic report/Candidate/outbox mint, idempotent transaction key, simulation/LocalScript/fake provenance rejection. C-EF step 4 intentionally adds no route/composition/capability wiring.
-5. Service-layer closure of legacy scientific writers per census §8 items 1-11 and 15-17: `collectJob`'s three private creators, generic `createRecord`/`upsertRecord` authority for the three kinds, `accept_partial`/`accepted_partial`/`partial_acceptance_ref` vocabulary and branches — all fail closed below HTTP regardless of route guards or cutover flags.
+5. Service-layer closure of legacy scientific writers:
+   - **5a completed 2026-07-19:** census §8 items 1-7 are closed below HTTP. Generic `createRecord`/`upsertRecord` cannot write `experiment_result`, `result_validation_report` or `evidence_candidate`; `collectJob` fails at method entry before repository/adapter/diagnostic access; PI live collect propagates the same typed closure.
+   - **5b pending:** census §8 items 8-11 and 15-17 remain the separately scoped `accept_partial`/`accepted_partial`/`partial_acceptance_ref`, partial-materialization/non-atomic-sequence and provenance-vocabulary removal. Step 5a did not start that cleanup.
 
 ### Slice C-PI — gateway, D-18 watermark and closure authority (gates `packc-pi-*`, checks PC08-PC17 + PC19 PI half + PC20)
 

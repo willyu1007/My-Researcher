@@ -883,6 +883,7 @@ test('stable error surface contains the frozen top-level and reason codes', () =
   for (const reason of [
     'PI_EXPERIMENT_V2_ADMISSION_DISABLED',
     'LEGACY_RECORD_NOT_ELIGIBLE',
+    'LEGACY_SCIENTIFIC_WRITER_CLOSED',
     'SERVER_CANONICAL_HASH_MISMATCH',
     'ASSET_FREEZE_IDEMPOTENCY_CONFLICT',
     'ASSET_LIFECYCLE_TRANSITION_INVALID',

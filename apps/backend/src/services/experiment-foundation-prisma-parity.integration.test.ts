@@ -162,15 +162,20 @@ test(
         source_refs: [experimentFoundationRef('test_case', 'prisma_parity_success_readiness')],
       });
       const successSubmitted = await execution.submitJob(successGraph.submitRequest);
-      const successCollected = await execution.collectJob(successSubmitted.external_job.external_job_id, {
-        accept_partial: false,
-        source_refs: [experimentFoundationRef('test_case', 'prisma_parity_success_collect')],
-      });
-      assert.equal(successCollected.external_job.job_status, 'succeeded');
-      const evidenceRef = requireResultRef(successCollected.external_job.result_refs, 'evidence_candidate');
-      const evidence = await registry.getRecord('evidence_candidate', evidenceRef.ref_id);
-      assert.equal(evidence.status, 'candidate');
-      assert.equal(evidence.payload.validation_status, 'valid');
+      await assertRejectsAppError(
+        () => execution.collectJob(successSubmitted.external_job.external_job_id, {
+          accept_partial: false,
+          source_refs: [experimentFoundationRef('test_case', 'prisma_parity_success_collect')],
+        }),
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+      );
+      const successAfterClosedCollect = await execution.getJob(
+        successSubmitted.external_job.external_job_id,
+      );
+      assert.deepEqual(successAfterClosedCollect.external_job.result_refs, []);
+      assert.deepEqual(successAfterClosedCollect.external_job.partial_result_refs, []);
 
       const submitGraph = createExperimentFoundationMinimalGraph({
         outputRoot,
@@ -233,18 +238,21 @@ test(
       assert.ok(
         cancelledList.jobs.some((job) => job.external_job_id === submitted.external_job.external_job_id),
       );
-      const collected = await execution.collectJob(submitted.external_job.external_job_id, {
-        accept_partial: false,
-        source_refs: [experimentFoundationRef('test_case', 'prisma_parity_collect_cancelled')],
-      });
-      assert.equal(collected.external_job.job_status, 'cancelled');
-      assert.equal(
-        collected.external_job.result_refs.some((ref) => ref.ref_type === 'evidence_candidate'),
-        false,
+      await assertRejectsAppError(
+        () => execution.collectJob(submitted.external_job.external_job_id, {
+          accept_partial: false,
+          source_refs: [experimentFoundationRef('test_case', 'prisma_parity_collect_cancelled')],
+        }),
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'LEGACY_SCIENTIFIC_WRITER_CLOSED',
       );
-      const validationRef = requireResultRef(collected.external_job.result_refs, 'result_validation_report');
-      const validation = await registry.getRecord('result_validation_report', validationRef.ref_id);
-      assert.equal(validation.status, 'partial');
+      const cancelledAfterClosedCollect = await execution.getJob(
+        submitted.external_job.external_job_id,
+      );
+      assert.equal(cancelledAfterClosedCollect.external_job.job_status, 'cancelled');
+      assert.deepEqual(cancelledAfterClosedCollect.external_job.result_refs, []);
+      assert.deepEqual(cancelledAfterClosedCollect.external_job.partial_result_refs, []);
     } catch (error) {
       primaryError = error;
       throw error;
@@ -463,6 +471,7 @@ async function assertRejectsAppError(
   action: () => Promise<unknown>,
   statusCode: number,
   errorCode: string,
+  reasonCode?: string,
 ): Promise<void> {
   await assert.rejects(
     action,
@@ -470,6 +479,7 @@ async function assertRejectsAppError(
       error instanceof AppError
       && error.statusCode === statusCode
       && error.errorCode === errorCode
+      && (reasonCode === undefined || error.details?.reason_code === reasonCode)
     ),
   );
 }
@@ -543,15 +553,6 @@ function resultLog(
     byte_size: stableStringify(metadata).length,
     source_refs: [externalJobRef],
   };
-}
-
-function requireResultRef(
-  refs: ExperimentFoundationRef[],
-  refType: string,
-): ExperimentFoundationRef {
-  const ref = refs.find((item) => item.ref_type === refType);
-  assert.ok(ref, `Expected ${refType} ref.`);
-  return ref;
 }
 
 function isPromotionCanonicalRecordKind(recordKind: ExperimentFoundationRecordKind): boolean {
