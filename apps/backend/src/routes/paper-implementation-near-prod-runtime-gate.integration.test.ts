@@ -526,6 +526,15 @@ async function seededDomainRepositories() {
     run_evidence_unit: resultAnalysisRunEvidenceUnit(),
     work_order: null,
   });
+  // T-124 G5 FIX-A item 3: assertClaimSupport now resolves every run_evidence_unit
+  // support ref against the project's REUs. The mocked claim-boundary canary
+  // (nearProdClaimProposal) supports its claim with `${RUN_ID}-run-evidence`
+  // (also the packet's cited evidence), so that REU must exist in the project.
+  await workOrderRepository.recordMonitorIngestion({
+    monitor_intake: claimSupportMonitorIntake(),
+    run_evidence_unit: claimSupportRunEvidenceUnit(),
+    work_order: null,
+  });
   await traceRepository.createClaimTracePacket(claimTracePacket());
   await resultRepository.createResultInterpretationPacket(resultPacket());
   return {
@@ -1127,6 +1136,57 @@ function resultAnalysisRunEvidenceUnit(): RunEvidenceUnit {
     result_hash: hash(`${RUN_ID}-result-analysis-run-result`),
     result_validation_report_ref: ref('result_validation_report', RESULT_ANALYSIS_VALIDATION_REPORT_ID),
     result_validation_report_hash: hash(RESULT_ANALYSIS_VALIDATION_REPORT_ID),
+    evidence_candidate_refs: [],
+    evidence_candidate_hashes: [],
+    trace_manifest_ref: ref('trace_manifest', RESULT_ANALYSIS_TRACE_MANIFEST_ID),
+    trace_manifest_id: RESULT_ANALYSIS_TRACE_MANIFEST_ID,
+    created_by: 'system',
+    created_at: NOW,
+  };
+}
+
+function claimSupportMonitorIntake(): RunMonitorIntakeRecord {
+  return {
+    monitor_intake_id: `${RUN_ID}-claim-support-intake`,
+    implementation_project_id: PROJECT_ID,
+    work_order_id: RESULT_ANALYSIS_WORK_ORDER_ID,
+    external_job_ref: ref('external_job', `${RUN_ID}-claim-support-job`),
+    external_job_hash: hash(`${RUN_ID}-claim-support-job`),
+    monitor_event_kind: 'result_available',
+    run_status: 'succeeded',
+    trust_status: 'trusted',
+    result_ref: ref('run_result', `${RUN_ID}-run-evidence-run-result`),
+    result_hash: hash(`${RUN_ID}-run-evidence-run-result`),
+    result_validation_report_ref: ref('result_validation_report', `${RUN_ID}-validation-report`),
+    result_validation_report_hash: hash(`${RUN_ID}-validation-report`),
+    evidence_candidate_refs: [],
+    evidence_candidate_hashes: [],
+    raw_payload: { redacted_fixture: true },
+    received_at: NOW,
+    created_by: 'system',
+  };
+}
+
+function claimSupportRunEvidenceUnit(): RunEvidenceUnit {
+  return {
+    run_evidence_unit_id: `${RUN_ID}-run-evidence`,
+    implementation_project_id: PROJECT_ID,
+    work_order_id: RESULT_ANALYSIS_WORK_ORDER_ID,
+    validation_cycle_id: RESULT_ANALYSIS_VALIDATION_CYCLE_ID,
+    monitor_intake_id: `${RUN_ID}-claim-support-intake`,
+    external_job_ref: ref('external_job', `${RUN_ID}-claim-support-job`),
+    external_job_hash: hash(`${RUN_ID}-claim-support-job`),
+    run_type: 'confirmatory',
+    run_status: 'succeeded',
+    trusted_status: 'trusted',
+    dataset_version_refs: [ref('dataset_version', `${RUN_ID}-dataset`)],
+    baseline_version_refs: [ref('baseline_version', `${RUN_ID}-baseline`)],
+    code_version_refs: [ref('code_version', `${RUN_ID}-code`)],
+    config_refs: [ref('config_snapshot', `${RUN_ID}-config`)],
+    result_ref: ref('run_result', `${RUN_ID}-run-evidence-run-result`),
+    result_hash: hash(`${RUN_ID}-run-evidence-run-result`),
+    result_validation_report_ref: ref('result_validation_report', `${RUN_ID}-validation-report`),
+    result_validation_report_hash: hash(`${RUN_ID}-validation-report`),
     evidence_candidate_refs: [],
     evidence_candidate_hashes: [],
     trace_manifest_ref: ref('trace_manifest', RESULT_ANALYSIS_TRACE_MANIFEST_ID),
