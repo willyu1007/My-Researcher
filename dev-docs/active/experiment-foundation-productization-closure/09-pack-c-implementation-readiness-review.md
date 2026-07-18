@@ -2,7 +2,7 @@
 
 ## Status
 
-- State: `draft-in-review` — NOT authorized for implementation.
+- State: `reviewed — ready_for_implementation_authorization`; OD-C1 through OD-C4 confirmed by the user on 2026-07-18. Per the Pack A/B convention, implementation (code/config/Prisma/migration changes) still requires one separate explicit authorization.
 - Review target: `Implementation Pack C — Phase 4 exact-batch scientific validation, evidence gateway and D-16/D-17/D-18 trusted Cycle closure`.
 - Prepared: 2026-07-18, after the zero-write cloud-preflight implementation checkpoint (`cloud-preflight-local-20260718-r9`).
 - Precedents: `07-implementation-readiness-review.md` (Pack A), `08-pack-b-implementation-readiness-review.md` (Pack B). Pack C follows the same review → authorization → implementation → disposable-PostgreSQL gate sequence.
@@ -33,9 +33,9 @@ Out of scope (unchanged decisions):
 
 Audit-matrix closure targets: EF-P02, EF-P03, EF-P07, EF-P18 (closure half), EF-P22, EF-P23, EF-P24; EF-P06 partially (validation/evidence half); EF-P17 gains the closure-action evidence.
 
-## Proposed internal slicing (open decision OD-C1)
+## Internal slicing — confirmed by OD-C1
 
-Phase 4 spans two domains and one joint cutover seam. Proposed delivery order inside one Pack C authorization:
+Phase 4 spans two domains and one joint cutover seam. Confirmed delivery order inside one Pack C authorization:
 
 1. **C-EF slice** — protocol v2 required-rules kernel, ScientificValidationService, EvidenceCandidate mint, `accept_partial` removal. Independently gateable on disposable PostgreSQL (production-disabled fixtures).
 2. **C-PI slice** — Evidence Trust Gateway, D-18 watermark/snapshot, readiness trigger, proposal-only Result Analysis, sole closure writer, closed-Cycle seal, Packet one-way materialization.
@@ -43,7 +43,7 @@ Phase 4 spans two domains and one joint cutover seam. Proposed delivery order in
 
 Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pack closes only when all three converge in one final gate run. Alternative (rejected by default): splitting C-cutover into a separate task package — rejected because D-16/D-17 name the cutover as one mandatory atomic migration debt and a package boundary would invite a dual-read interim.
 
-## Frozen implementation decisions (proposed for sign-off)
+## Frozen implementation decisions — signed off with OD-C1..C4 on 2026-07-18
 
 ### Domain and writer boundary
 
@@ -63,7 +63,7 @@ Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pa
 
 ### Capability posture
 
-- New scientific/closure v2 write paths sit behind default-off configuration guards mirroring Pack A/B (`…_SCIENTIFIC_VALIDATION_ENABLED`, or one shared Phase 4 key — OD-C2 below). First-release production enables only the no-evidence closure path.
+- Per confirmed OD-C2: two separate default-off configuration guards mirroring Pack A/B — `EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED` (EF slice) and `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED` (PI slice; also gates the only first-release live path, the no-evidence closure). Exact names finalized through the env-contract workflow at implementation.
 
 ## Acceptance matrix (proposed PC01–PC20)
 
@@ -92,14 +92,14 @@ Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pa
 
 Gate mechanics follow Pack A/B: one checked-in machine gate runner, disposable real-PostgreSQL lanes with skip=0, protected-table before/after digests, exact evidence keysets, durable closure artifact under `artifacts/`.
 
-## Open decisions requiring user sign-off
+## Confirmed decisions — OD-C1 through OD-C4, user-confirmed 2026-07-18
 
-| ID | Question | Recommended default |
+| ID | Question | Confirmed decision |
 |---|---|---|
-| OD-C1 | Internal slicing C-EF → C-PI → C-cutover inside one Pack C authorization? | yes, one pack, three gated slices, single final convergence gate |
-| OD-C2 | One shared default-off Phase 4 capability key vs per-path keys? | separate keys for EF scientific validation and PI closure cutover; no-evidence closure live path gated by the PI key only |
-| OD-C3 | T-124/T-133 coordination: the cutover slice touches live PI code (S3 dossier, closure route, Result Analysis). Sequence Pack C cutover before/after T-133 debate-closure tail? | land C-EF and C-PI first; schedule C-cutover jointly with T-124 tracker owner once T-133 N2+N6 converges, in one atomic release |
-| OD-C4 | Do ExperimentResult envelopes land in Pack C (production-disabled) or defer to M7? | land in Pack C as production-disabled contract conformance; M7 only flips real-provider eligibility |
+| OD-C1 | Internal slicing inside one Pack C authorization | one pack, three gated slices C-EF → C-PI → C-cutover, single final convergence gate |
+| OD-C2 | Capability-key granularity | two separate default-off keys: EF scientific validation and PI closure cutover; the first-release live path (no-evidence closure) is gated by the PI key only. Proposed names `EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED` and `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED`; exact names finalized through the env-contract workflow at implementation |
+| OD-C3 | T-124/T-133 coordination for the cutover slice (live S3 dossier, closure route, Result Analysis code and superseded T-124 tests) | land C-EF and C-PI first; schedule C-cutover jointly with the T-124 tracker owner after T-133 N2+N6 converge, in one atomic release |
+| OD-C4 | ExperimentResult envelope timing | lands in Pack C as production-disabled contract conformance; M7 only flips real-provider eligibility |
 
 ## Source population and modification boundary
 
@@ -141,4 +141,5 @@ Additional findings:
 ## Verification artifacts
 
 - Pre-planning census: `artifacts/pack-c-preplanning-20260718/` (this review's source population input).
-- Defined at authorization: gate id scheme (`packc-…`), artifact root `artifacts/implementation/0X-pack-c-…`, disposable-PostgreSQL lane names (Pack C needs Pack A+B seeded lanes plus new scientific/closure families), full-suite expectations.
+- Frozen at review sign-off: gate id scheme `packc-ef-*` / `packc-pi-*` / `packc-cutover-*` with final convergence `packc-final-*`; durable artifact root `artifacts/implementation/06-pack-c-…` (next free ordinal after `05-pack-b-quality-remediation-closure.md`); the stable reason-code minimum set above is the frozen registry baseline (additions require a named review addendum).
+- Defined at implementation authorization: disposable-PostgreSQL lane names (Pack C needs Pack A+B seeded lanes plus the new scientific/closure families), full-suite expectations and the exact Prisma family/DDL matrix via `sync-db-schema-from-code`.

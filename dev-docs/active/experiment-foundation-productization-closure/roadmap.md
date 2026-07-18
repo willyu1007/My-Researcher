@@ -498,4 +498,6 @@ dev-docs/active/experiment-foundation-productization-closure/
 - [x] Apply the reviewed Pack B migration and enable no-network simulation on the named local-development target.
 - [x] Establish formal product PI scope and drain Pack A to the exact EF acknowledgement without fixture bootstrap (`formal-pi-scope-packa-product-20260715-verify-r5`).
 - [x] Separately authorize and run named-local Pack B E1-E5 from the exact acknowledged Run, with zero real-provider/scientific/legacy writes (`formal-pi-scope-packb-product-20260715-verify-r2`).
+- [x] Complete the Pack C (Phase 4) readiness review with EF/PI writer-census artifacts and confirm OD-C1 through OD-C4 (2026-07-18; `09-pack-c-implementation-readiness-review.md`, `artifacts/pack-c-preplanning-20260718/`).
+- [ ] Separately authorize Pack C implementation; deliver the C-EF and C-PI slices first and schedule the C-cutover slice jointly with the T-124 tracker after T-133 N2+N6 converge (OD-C3).
 - [ ] Obtain independent authorization for every non-local rollout and later provider/scientific/closure/UI slice.
