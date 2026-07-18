@@ -275,7 +275,12 @@ export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID =
 export const PAPER_IMPLEMENTATION_P1_REVIEW_PROMPT_TEMPLATE_VERSION = 'v4' as const;
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION = 'v4' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
-export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+// v2 (T-133 D-133-1): the skeptic system prompt teaches the role_status vs
+// recommended_disposition split — fixable input gaps are blocking findings on a
+// PASSED critique with disposition=revise; role_status='blocked' is reserved for
+// "the critique itself cannot be produced". Architecture prompt text unchanged
+// (the version labels the route-planning template family shared by both slots).
+export const PAPER_IMPLEMENTATION_ROUTE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v2' as const;
 export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
@@ -1323,6 +1328,26 @@ export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS = [
 export type PaperImplementationRouteSkepticRiskDimension =
   (typeof PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_RISK_DIMENSIONS)[number];
 
+// T-133 D-133-1/2 (the S3 orthogonal-axes split, isomorphic with the curation
+// disposition below): for the route skeptic, `role_status` answers "could the
+// role produce its critique" (`blocked` = the OUTPUT itself is unusable —
+// unreadable/missing inputs, technical failure), while `recommended_disposition`
+// is the verdict on the reviewed INPUT when the critique is usable:
+//   - proceed: no blocking finding — the lane auto-advances;
+//   - revise:  fixable input gaps expressed as blocking findings on a PASSED
+//              critique; the coordinator parks the passed final as
+//              waiting_review (revise-and-retry via payload override +
+//              re-advance), never a terminal block;
+//   - park/abandon: verdicts beyond revision — the same waiting_review park.
+// A passed skeptic final legitimately carries the blocking findings' codes in
+// `blocker_codes` as the substance of the critique (audit entities), NOT as
+// output-unusable markers; only `role_status='blocked'` makes the final blocked
+// (single-trigger derivation, route-planning runtime service). The runtime
+// deterministically clamps `proceed` to `revise` when blocking findings are
+// present (D-133-2: the LLM can only err toward human review, never past it),
+// and downstream consumption additionally requires `proceed`
+// (`requireProceedRouteSkepticFinalArtifact`) so a parked verdict can never be
+// consumed by direct runtime-route callers.
 export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_DISPOSITIONS = [
   'proceed',
   'revise',
