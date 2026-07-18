@@ -11,8 +11,7 @@ T-124（paper-implementation 产品化硬化）D10 五项验收全部达成、�
 
 ### N2 skeptic 槽 revise→waiting_review 出口
 - 事由：D2-pre2 给了 curation 的 `revise→waiting_review` 出口，skeptic 槽未覆盖——gs-003 lane A 的 skeptic 双命中设计缺口后 disposition=revise 无出口→直接 blocked 终止（GAP-N2），下游 probe/cycle ref 缺失。
-- 处置：把 D2-pre2 的确定性 disposition 出口机制扩到 route_skeptic（及同族单角色 skeptic 面）；coordinator lane A pipeline 对 admitted+revise 停驻 waiting_review（对齐 curation 语义）。含复审 + L5 + gs-003 重跑验证 lane A 可停驻复审。
-- 状态：pending。
+- **状态：移交 T-133**（`../paper-implementation-debate-disposition-closure/00-overview.md`，与 N6 同包）。设计张力=skeptic 的"可修缺口返回 blocked"到底是分类错（改 skeptic 契约，倾向）还是需 coordinator 新路由，P0 勘察后定（D-133-1）。
 
 ### N3 纯 light 地板批判有效性探针（D2 校准）
 - 事由：D2 档位对比只行使了 light→standard 升档路径；**纯 light 地板**（skeptic 零 findings、不升档、3 角色完链）的批判有效性 vs 原生 standard 未 live 验证——D2 阈值校准的下一最高价值探针。
@@ -29,8 +28,7 @@ T-124（paper-implementation 产品化硬化）D10 五项验收全部达成、�
 
 ### N6 evolution 人工确认停驻的产品化续链出口
 - 事由：motive-evolution 的 park/split 选项在缺人工确认时诚实停驻（`HUMAN_CONFIRMATION_REQUIRED_FOR_LINEAGE_CHANGE` 等），golden 流程中该停驻无产品化续链出口（三 run 均停于此）。
-- 处置：设计确认后续链的产品路径（与 N2 同族的 disposition→waiting_review→override 语义）。
-- 状态：pending。
+- **状态：移交 T-133**（与 N2 同包）。注意与 N2 续路动作不同：N6=confirm-and-continue（四点集#2 同族），N2=revise-and-retry；共用 waiting_review 机器（D-133-3）。
 
 ### N7（观测，非缺陷）board lane waiting_review 使 run 恒 partial
 - 三场景 run status 恒 partial，唯一构成=board/motive lane 的设计性 waiting_review 停驻（非缺陷）。若未来需要"全 completed"的验收面表述，需重定义 runner status 公式对语义停驻的处理（waiting_review 不计入 non-completed）。纯表述面，登记备查。
