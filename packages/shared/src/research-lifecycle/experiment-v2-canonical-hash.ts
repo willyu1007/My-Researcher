@@ -30,6 +30,12 @@ import type {
   PaperImplementationExperimentWorkOrderRevisionCellV2,
   WorkOrderRevisionAdmittedCellV1,
 } from './paper-implementation-experiment-v2-contracts.js';
+import type {
+  ExperimentFoundationScientificValidationStatusV2,
+  ExperimentResultCellV2,
+  ScientificValidationCellResultRefV2,
+  ScientificValidationRuleResultV2,
+} from './experiment-foundation-scientific-validation-v2-contracts.js';
 
 export { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
 
@@ -57,6 +63,9 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-work-order-approved-plan-json@v1',
   'integration-event-payload-json@v1',
   'integration-event-envelope-json@v1',
+  'ef-scientific-result-json@v1',
+  'ef-scientific-validation-json@v1',
+  'ef-evidence-candidate-json@v1',
 ] as const);
 export type ExperimentV2HashProfile = (typeof EXPERIMENT_V2_HASH_PROFILES)[number];
 
@@ -509,6 +518,69 @@ export function serverHashExperimentV2EventEnvelope<
     schema_version: event.schema_version,
     hash_profile: 'integration-event-envelope-json@v1',
     content: event,
+  });
+}
+
+export type ExperimentFoundationV2ScientificResultHashInput = Omit<
+  ExperimentResultCellV2,
+  'content_hash'
+>;
+
+export interface ExperimentFoundationV2ScientificValidationHashInput {
+  run_id: string;
+  run_manifest_hash: string;
+  ordered_cell_results: ScientificValidationCellResultRefV2[];
+  evaluation_protocol: ExperimentFoundationV2ExactAssetRevisionRef & {
+    asset_type: 'EvaluationProtocol';
+  };
+  validator_profile_version: string;
+  validator_profile_hash: string;
+  ordered_rule_results: ScientificValidationRuleResultV2[];
+  status: ExperimentFoundationScientificValidationStatusV2;
+}
+
+export interface ExperimentFoundationV2EvidenceCandidateHashInput {
+  run_id: string;
+  run_manifest_hash: string;
+  validation_report_id: string;
+  validation_hash: string;
+}
+
+/** Canonical hash for one complete per-cell scientific result envelope. */
+export function serverHashExperimentFoundationV2ScientificResult(
+  content: ExperimentFoundationV2ScientificResultHashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationExperimentResultV2',
+    schema_version: content.schema_version,
+    hash_profile: 'ef-scientific-result-json@v1',
+    content,
+  });
+}
+
+/**
+ * Validation hash covers the complete subject, protocol/validator identities
+ * and ordered rule results; a hash omitting any of those cannot qualify evidence.
+ */
+export function serverHashExperimentFoundationV2ScientificValidation(
+  content: ExperimentFoundationV2ScientificValidationHashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationScientificValidationReportV2',
+    schema_version: 'v1',
+    hash_profile: 'ef-scientific-validation-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationV2EvidenceCandidate(
+  content: ExperimentFoundationV2EvidenceCandidateHashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationEvidenceCandidateV2',
+    schema_version: 'v1',
+    hash_profile: 'ef-evidence-candidate-json@v1',
+    content,
   });
 }
 
