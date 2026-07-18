@@ -1,7 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
+- State: **DONE（2026-07-18 D10 五项验收全部达成、四判断点已签核；见 `06-d10-acceptance-report.md`）**；验收后硬化移交 `15-t124-tail-tracker.md`（N1-N7，均非阻断）。
+- 完成实录：S0（治理补洞）/S1（coordinator+受理桥+队列回流）/S2（单调用鲁棒包）/S3（debate kernel+D9 resume+wire 编码+gateway 护栏）/S4（遥测 sink+shadow 档位+桌面 runtime 视图）/D2（确定性档位+light 升档+disposition 出口）/G（全链 runner+三场景素材+确定性组装）全部闭合。**3 条 golden scenario 全链正式版达 dossier ready**：gs-001 run 014 血缘 20/20、gs-002 run 002 20/20、gs-003 run 002 负结论正确 ready。五项验收=血缘无断链/四点停驻集/治理门对抗不可穿透（红队 10/10 拒零穿透）/成本重付率有数/rubric 四维达标（各≥4.5）。
+- ~~State: in-progress~~
 - Progress: 包创建（2026-06-11）。审计发现 P-01..P-13 已登记（as-verified，含代码证据指针）；待签核决策 D1~D7 列于下方；Phase 0 对齐项未开工。**2026-07-10 全模块复审**：新增发现 N1..N9（含 3 项 P0：强 claim 人确伪造 / admission 自证+语义空心 / debate 无断点+token 双计，SSOT=`06-review-2026-07-10.md`）；D8（S0-S5 切片重排序）与 D9（debate resume 契约）已签核；S0 工单已起草（`07-s0-workorder.md`，待开工）；PC-S1..S4 并入 S2。**2026-07-13 Pack A local landing**：D-19 source-backed run 与 local-development migration/fixture/single-writer cutover gate 均已通过。**2026-07-13 Pack B technical closure**：same-payload simulation provider-control slice 已在 disposable PostgreSQL 通过 PB01-PB16。**2026-07-15 formal PI scope → Pack A → Pack B product landing**：active PaperProject `P313` 已经正常 PI route 建立 admitted Cycle/WorkOrder，T1-T4 drain 到 exact Run/head/唯一 EF acknowledgement；该 Run 随后完成 named-local E1-E5，2/2 cells succeeded/collected，simulation 已关闭且 scientific/evidence 仍为 `not_started/false`。T-124 整体仍为 `in-progress`。
 - Task ID: `T-124`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-013`

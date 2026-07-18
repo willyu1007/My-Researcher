@@ -271,14 +271,18 @@ jq '.' .ai/.tmp/paper-implementation-golden-scenario/gs001-lora-live-014/39-bh-r
 
 ---
 
-## E4 待用户签核的判断点
+## E4 用户签核结果（2026-07-18 已签核）
 
-| # | 判断点 | 本报告主张 | 依据小节 |
+**验收标准（元问题）先定**：D10 完成 = "三场景暴露的问题都已理解并有处置"，**非**"三场景全绿达标"。理由（用户认可）：三场景恰因未全部完美（gs-003 强度分歧/停驻恒 partial/样本量 2）才证明系统在诚实工作；按"全绿"标准反而要粉饰答案卡与停驻。运行语境=纯个人本地科研工作流（AI 仅用于工作流编排/调用，已核实 gateway 边界与 env 门控）。
+
+| # | 判断点 | 裁定 | 依据/处置 |
 |---|---|---|---|
-| ① | gs-003 三项血缘差异裁定为**合规差异** | 三项失败全落 claim 强度诚实降档（GAP-N1）+ skeptic 诚实终止确定性下游形状（GAP-N2），非断链 | §A1 |
-| ② | waiting_review 家族停驻**归类**为第 1 点 skeptic 非 proceed 同族语义停驻 | curation revise / motive 确认类与 skeptic 非 proceed 同为"非 proceed 处置→语义停驻"，四点集语义闭合 | §A2 |
-| ③ | A5 **达标线 ≥4.5**（每维） | 沿用历史评审隐含高标；三场景全部满足 | §A5 |
-| ④ | **AI 代评审抽验认可** | 每场景给出 1-2 个最值得人眼看的节点产出，用户抽验后 AI 代评审可作最终评分 | §A5 |
+| ① | gs-003 三项血缘差异 | **✅ 认可为合规差异** | ②③ = skeptic blocked 导致 probe 如实 skipped 的确定性下游形状（必然且正确）。① claim 强度分歧：**模型 moderate 正确、答案卡 strong 偏乐观**（单种子不足以支撑 strong=要的诚实批判）→ 处置=**修答案卡为 moderate（承认模型认识论立场），不算系统缺陷**。**耦合发现**：`expected_claim_strength` 流入 runner 的 ClaimTracePacket 权威语句+强 claim 确认流程（topic-package 1045/1074/1386），改动需"改+重跑验证"，故答案卡精修放入尾巴 tracker 谨慎做，不在验收收口动素材（保当前干净证据） |
+| ② | waiting_review 家族归类 | **✅ 认可 + 定义抽象** | 四点集第 1 点表述由"skeptic 非 proceed"**抽象为"debate 角色产出非 proceed disposition → waiting_review 语义停驻"**，覆盖 skeptic/curation/未来 debate 槽，不逐槽打补丁。四点集语义闭合 |
+| ③ | A5 达标线 ≥4.5 | **✅ 认可，且降为软信号** | A1-A4 为硬门（血缘/停驻/对抗/成本，机器可验），**A5 为参考+人工可覆盖，非硬闸**；≥4.5 作 advisory 线，三场景全满足 |
+| ④ | AI 代评审抽验认可 | **✅ 已抽验认可** | 用户抽验 gs-003 claim/dossier 实际产出（负结论最考验诚实度）：negative/inconclusive/positive 三语义分离逐格引真值、`negative_result_refs`/`inconclusive_run_refs` 穿透 dossier 账本、明写"a negative conclusion is not a failed run"——确认如实产出非粉饰，采信 AI 代评审为最终评分 |
+
+**结论：D10 五项验收全部达成，四判断点已签核，T-124 完成。**
 
 ---
 
