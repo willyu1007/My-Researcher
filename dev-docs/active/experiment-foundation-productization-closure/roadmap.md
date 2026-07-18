@@ -499,5 +499,8 @@ dev-docs/active/experiment-foundation-productization-closure/
 - [x] Establish formal product PI scope and drain Pack A to the exact EF acknowledgement without fixture bootstrap (`formal-pi-scope-packa-product-20260715-verify-r5`).
 - [x] Separately authorize and run named-local Pack B E1-E5 from the exact acknowledged Run, with zero real-provider/scientific/legacy writes (`formal-pi-scope-packb-product-20260715-verify-r2`).
 - [x] Complete the Pack C (Phase 4) readiness review with EF/PI writer-census artifacts and confirm OD-C1 through OD-C4 (2026-07-18; `09-pack-c-implementation-readiness-review.md`, `artifacts/pack-c-preplanning-20260718/`).
-- [ ] Separately authorize Pack C implementation; deliver the C-EF and C-PI slices first and schedule the C-cutover slice jointly with the T-124 tracker after T-133 N2+N6 converge (OD-C3).
+- [x] Separately authorize Pack C implementation after syncing the execution plan into `01-plan.md` (2026-07-18; baseline HEAD `3d241127`).
+- [ ] Land Slice C-EF (scientific validation kernel) and pass `packc-ef-*` gates PC01-PC07/PC19-EF with skip=0 disposable PostgreSQL.
+- [ ] Land Slice C-PI (gateway, D-18 watermark, closure authority) and pass `packc-pi-*` gates PC08-PC17/PC19-PI/PC20.
+- [ ] Schedule and land Slice C-cutover jointly with the T-124 tracker after T-133 N2+N6 converge (OD-C3), then run the `packc-final-*` convergence gate over PC01-PC20.
 - [ ] Obtain independent authorization for every non-local rollout and later provider/scientific/closure/UI slice.

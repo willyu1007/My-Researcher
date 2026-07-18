@@ -5,6 +5,11 @@
 - Last updated: 2026-07-18
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation 均已验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；未通过真实 Aliyun read-only acceptance，也未执行非本地 rollout、provider write 或 scientific execution。
 
+## 2026-07-18 — Pack C implementation start
+
+- Pack C (Phase 4 exact-batch scientific validation, evidence gateway and D-16/D-17/D-18 trusted Cycle closure) was authorized after `09-pack-c-implementation-readiness-review.md` sign-off (OD-C1..C4) and the execution-plan sync into `01-plan.md`. Baseline HEAD at authorization is `3d241127`; census inputs are `artifacts/pack-c-preplanning-20260718/00-ef-side-writer-census.md` and `01-pi-side-closure-census.md`.
+- Delivery order: Slice C-EF → Slice C-PI → Slice C-cutover (OD-C3 schedule-gated on T-133 N2+N6 with the T-124 tracker). Capability keys per OD-C2 default off; scientific happy paths remain production-disabled conformance; the sole first-release live path is the no-evidence closure. DB apply stays a separately approved named-local gate.
+
 ## 2026-07-18 — Zero-write cloud-preflight quality remediation closure
 
 - Policy evidence now requires an exact reviewer ref, canonical UTC instants, a maximum 24-hour review lifetime, a non-symlink repo-external real path, a non-group/world-writable regular file and an independently supplied exact-file SHA-256 digest. Path, inode and digest drift fail before JSON trust or provider transport.

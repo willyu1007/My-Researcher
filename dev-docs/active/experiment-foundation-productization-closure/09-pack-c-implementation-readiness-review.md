@@ -2,7 +2,7 @@
 
 ## Status
 
-- State: `reviewed — ready_for_implementation_authorization`; OD-C1 through OD-C4 confirmed by the user on 2026-07-18. Per the Pack A/B convention, implementation (code/config/Prisma/migration changes) still requires one separate explicit authorization.
+- State: `authorized — implementation in progress`; OD-C1 through OD-C4 confirmed by the user on 2026-07-18, and Pack C implementation was separately authorized the same day after the execution plan was synced into `01-plan.md`. Baseline HEAD at authorization: `3d241127`. Execution begins with Slice C-EF; the C-cutover slice remains schedule-gated by OD-C3.
 - Review target: `Implementation Pack C — Phase 4 exact-batch scientific validation, evidence gateway and D-16/D-17/D-18 trusted Cycle closure`.
 - Prepared: 2026-07-18, after the zero-write cloud-preflight implementation checkpoint (`cloud-preflight-local-20260718-r9`).
 - Precedents: `07-implementation-readiness-review.md` (Pack A), `08-pack-b-implementation-readiness-review.md` (Pack B). Pack C follows the same review → authorization → implementation → disposable-PostgreSQL gate sequence.

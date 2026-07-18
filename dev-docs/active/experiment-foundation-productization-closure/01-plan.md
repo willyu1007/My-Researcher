@@ -8,6 +8,37 @@
 - Pack B 已完成 product code、default-off config、additive Prisma schema/migration artifacts、isolated disposable-Postgres tests、named local-development schema apply，以及 exact acknowledged Pack A Run 上的产品 E1-E5。所有非本地环境和真实 provider/scientific paths 仍关闭。
 - Any persisted-field change MUST use `sync-db-schema-from-code`; DB apply remains a separate approval gate.
 
+## Pack C execution plan — authorized 2026-07-18
+
+Authorization scope: Phase 4 per `09-pack-c-implementation-readiness-review.md` (OD-C1..C4 confirmed). Baseline HEAD at authorization: `3d241127`. Census inputs: `artifacts/pack-c-preplanning-20260718/`. All new write paths are default-off behind the two OD-C2 capability keys; every scientific happy path stays production-disabled conformance; the only first-release live path is the no-evidence closure. DB apply remains a separately approved named-local gate via `sync-db-schema-from-code` with a prior recovery point, per Pack A/B precedent.
+
+### Slice C-EF — scientific validation kernel (gates `packc-ef-*`, checks PC01-PC07 + PC19 EF half)
+
+1. Shared v2 contracts: per-cell complete `ExperimentResult` envelope, batch-scoped `ScientificValidationReport` (exact Run ref/`run_manifest_hash`, canonically ordered cell/result refs+hashes, exact protocol revision/hash, `validator_profile_version/hash`, ordered rule results, `passed | failed | unsupported`), `EvidenceCandidate` and the `EvidenceCandidateQualified` outbox envelope; schema tests follow the existing v2 contract file pattern.
+2. Required-rules execution engine over the existing Pack A typed `required_rules` authority: code-local closed capability map keyed `rule_type@rule_version` (first slice exactly `metric_contract@v1`, `artifact_contract@v1`), readiness-time check plus final-validation recheck of the frozen validator profile, `UNSUPPORTED_RULE` fail-closed before Run freeze/dispatch and at validation.
+3. Additive EF Prisma families for result/report/candidate plus outbox use; exact DDL matrix produced through `sync-db-schema-from-code`; apply is a separate gate.
+4. `ScientificValidationService` as sole writer: complete-eligible-real-provider-batch validation, `passed`-only atomic report/Candidate/outbox mint, idempotent transaction key, simulation/LocalScript/fake provenance rejection.
+5. Service-layer closure of legacy scientific writers per census §8 items 1-11 and 15-17: `collectJob`'s three private creators, generic `createRecord`/`upsertRecord` authority for the three kinds, `accept_partial`/`accepted_partial`/`partial_acceptance_ref` vocabulary and branches — all fail closed below HTTP regardless of route guards or cutover flags.
+
+### Slice C-PI — gateway, D-18 watermark and closure authority (gates `packc-pi-*`, checks PC08-PC17 + PC19 PI half + PC20)
+
+1. Shared PI v2 contracts: `RunEvidenceUnit`/`TraceManifest` v2, identity-only gateway command, closure watermark/snapshot shapes and the readiness-evaluation output.
+2. Evidence Trust Gateway as sole REU writer: atomic REU/TraceManifest/outbox from one eligible `EvidenceCandidateQualified` inbox consumption; failed/cancelled/incomplete and all non-production provenance ⇒ zero REU.
+3. D-18 watermark evaluator/read model (greenfield): deterministic server-derived readiness decision + exact candidate snapshot/hash; `BRANCH_HEAD_NOT_FROZEN`, `CYCLE_ACTIVE_REAL_ATTEMPT` (Cycle-wide incl. non-head), `CYCLE_CLOSURE_SCOPE_DRIFT` zero-write rebuild; no caller-writable readiness record.
+4. Closure authority: existing `/complete` action becomes the sole writer of closure kind + nullable disposition + accepted proposal ref/hash + embedded CAS snapshot/hash; server-derived selected exit from admission-frozen exits; caller `cycle_assessment`/`decision_exit` rejected; closed-Cycle write seal; no-evidence closure is the only live path behind the PI key.
+5. `paper_experiment_sidecar` generic create/upsert authority closed; Sidecar rebuilt strictly from closure authority as display-only projection.
+
+### Slice C-cutover — atomic T-124 seam (gates `packc-cutover-*`, check PC18; scheduled per OD-C3 after T-133 N2+N6)
+
+1. Remove monitor/live-collect/cancel/finalization trusted REU minting for failed/cancelled/negative/inconclusive; route all seven census entry paths through the gateway.
+2. Remove `PROJECT_ACCOUNTABLE_RUN_STATUSES`/`assertProjectRunEvidenceAccounting`, the project-wide REU scan and supersession heuristics; dossier consumes explicit closed-Cycle snapshot refs/hashes only.
+3. Remove both pre-closure Packet triggers; retain only post-closure one-way materialization from `ValidationCycleClosed`.
+4. Replace superseded T-124 tests in the same slice; no dual read, alias or fallback; final convergence gate `packc-final-*` runs PC01-PC20 together.
+
+### Verification commands
+
+- `pnpm typecheck`; `pnpm --filter @paper-engineering-assistant/shared test`; targeted backend suites per slice; disposable-PostgreSQL lanes with skip=0 per gate; backend full suite at slice closure; protected-table before/after digests and exact evidence keysets per Pack A/B convention.
+
 ## Zero-write Aliyun cloud-preflight checkpoint — 2026-07-18
 
 The Phase 6 preflight implementation lane is complete: exact provider payload materialization and hashing, redacted-only evidence, same-payload fake lifecycle, paginated official-SDK read-only calls, code-level write denial, temporary-STS/policy-evidence path/digest/lifetime validation, server-enforced read-only database evidence, a default-off env contract and CP01-CP12 machine gate are checked in. No database schema or persisted authority family was added.

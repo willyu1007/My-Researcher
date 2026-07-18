@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: 正式 PI scope → named-local Pack A/Pack B 产品链和 zero-write cloud-preflight implementation/quality remediation 均已完成，admission/simulation/cloud-preflight capability 均保持关闭。真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、当前已审查 repo-external RAM policy evidence 及其独立摘要阻塞；PI projection、D-18 科学闭包、provider execution、UI/search 和非本地 rollout 仍未完成。Pack C（Phase 4 科学验证 + D-16/D-17/D-18 closure）readiness review 已于 2026-07-18 完成并经 OD-C1..C4 签核（`09-pack-c-implementation-readiness-review.md`），当前等待单独实施授权；按 OD-C3，C-cutover 切片须与 T-124 tracker 在 T-133 N2+N6 收敛后原子协调。
+- Next step: 正式 PI scope → named-local Pack A/Pack B 产品链和 zero-write cloud-preflight implementation/quality remediation 均已完成，admission/simulation/cloud-preflight capability 均保持关闭。真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、当前已审查 repo-external RAM policy evidence 及其独立摘要阻塞；PI projection、D-18 科学闭包、provider execution、UI/search 和非本地 rollout 仍未完成。Pack C（Phase 4 科学验证 + D-16/D-17/D-18 closure）readiness review 已于 2026-07-18 完成、OD-C1..C4 签核并在执行计划同步进 `01-plan.md` 后获得单独实施授权（baseline HEAD `3d241127`）；当前按 C-EF → C-PI 顺序实施，C-cutover 切片按 OD-C3 与 T-124 tracker 在 T-133 N2+N6 收敛后原子协调。
 
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 
