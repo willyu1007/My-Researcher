@@ -4128,24 +4128,24 @@ model PaperImplementationTraceGateResult {
 }
 
 model PaperImplementationHumanConfirmationRecord {
-  id                      String    @id
-  implementationProjectId String
-  confirmationScope       String
-  targetRefs              Json      @default("[]")
-  reviewedSources         Json      @default("[]")
-  transitionAttemptRef    Json?
-  gateResultRefs          Json      @default("[]")
-  rationale               String
+  id                         String    @id
+  implementationProjectId    String
+  confirmationScope          String
+  targetRefs                 Json      @default("[]")
+  reviewedSources            Json      @default("[]")
+  transitionAttemptRef       Json?
+  gateResultRefs             Json      @default("[]")
+  rationale                  String
   reviewedClaimStatementHash String?
-  confirmedByActorType    String
-  confirmedByActorId      String?
-  policyVersionId         String?
-  status                  String
-  statusReason            String?
-  consumedAt              DateTime? @db.Timestamptz(6)
-  consumedByRef           Json?
-  createdAt               DateTime  @db.Timestamptz(6)
-  updatedAt               DateTime? @db.Timestamptz(6)
+  confirmedByActorType       String
+  confirmedByActorId         String?
+  policyVersionId            String?
+  status                     String
+  statusReason               String?
+  consumedAt                 DateTime? @db.Timestamptz(6)
+  consumedByRef              Json?
+  createdAt                  DateTime  @db.Timestamptz(6)
+  updatedAt                  DateTime? @db.Timestamptz(6)
 
   @@index([implementationProjectId, status, createdAt(sort: Desc)], map: "pihcr_project_status_idx")
   @@index([confirmationScope], map: "pihcr_scope_idx")
@@ -6195,13 +6195,13 @@ model PaperImplementationExperimentIntegrationOutboxV2 {
 // T-132 Pack A: five named EF v2 asset families. Each identity owns only its
 // named draft JSON and each immutable revision owns only its named snapshot JSON.
 model ExperimentFoundationDatasetV2 {
-  id                 String   @id
-  datasetKey         String   @unique(map: "ef_dataset_v2_key_unique")
-  draftStateVersion  Int      @default(0)
-  datasetDraftJson   Json     @default("{}")
-  currentRevisionId  String?  @unique(map: "ef_dataset_v2_current_revision_unique")
-  createdAt          DateTime @db.Timestamptz(6)
-  updatedAt          DateTime @db.Timestamptz(6)
+  id                String   @id
+  datasetKey        String   @unique(map: "ef_dataset_v2_key_unique")
+  draftStateVersion Int      @default(0)
+  datasetDraftJson  Json     @default("{}")
+  currentRevisionId String?  @unique(map: "ef_dataset_v2_current_revision_unique")
+  createdAt         DateTime @db.Timestamptz(6)
+  updatedAt         DateTime @db.Timestamptz(6)
 
   revisions       ExperimentFoundationDatasetRevisionV2[] @relation("EFDatasetRevisionsV2")
   currentRevision ExperimentFoundationDatasetRevisionV2?  @relation("EFDatasetCurrentRevisionV2", fields: [id, currentRevisionId], references: [datasetId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -6460,6 +6460,7 @@ model ExperimentFoundationEvaluationProtocolRevisionV2 {
   benchmarkRevision  ExperimentFoundationBenchmarkRevisionV2                        @relation(fields: [benchmarkRevisionId, benchmarkRevisionHash], references: [id, contentHash], onDelete: Restrict, onUpdate: Restrict)
   metricDependencies ExperimentFoundationEvaluationProtocolMetricDependencyV2[]
   freezeCommands     ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2[]
+  validationReports  ExperimentFoundationScientificValidationReportV2[]
 
   @@unique([evaluationProtocolId, revisionSequence], map: "ef_evaluation_protocol_revision_sequence_unique")
   @@unique([evaluationProtocolId, contentHash], map: "ef_evaluation_protocol_revision_content_unique")
@@ -6664,6 +6665,7 @@ model ExperimentFoundationTrainingTaskSpecV2 {
   runCell           ExperimentFoundationRunCellV2?
   providerPayloads  ExperimentFoundationProviderPayloadV2[]
   executionAttempts ExperimentFoundationExecutionAttemptV2[]
+  experimentResults ExperimentFoundationExperimentResultV2[]
 
   @@unique([externalPiWorkOrderRevisionId, externalPiWorkOrderCellId], map: "ef_task_spec_pi_cell_unique")
   @@unique([externalPiWorkOrderRevisionId, cellOrdinal], map: "ef_task_spec_pi_ordinal_unique")
@@ -6682,10 +6684,13 @@ model ExperimentFoundationRunV2 {
   runManifestHash                 String
   frozenAt                        DateTime @db.Timestamptz(6)
 
-  runRecipe         ExperimentFoundationRunRecipeV2          @relation(fields: [runRecipeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  cells             ExperimentFoundationRunCellV2[]
-  providerPayloads  ExperimentFoundationProviderPayloadV2[]
-  executionAttempts ExperimentFoundationExecutionAttemptV2[]
+  runRecipe          ExperimentFoundationRunRecipeV2                    @relation(fields: [runRecipeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  cells              ExperimentFoundationRunCellV2[]
+  providerPayloads   ExperimentFoundationProviderPayloadV2[]
+  executionAttempts  ExperimentFoundationExecutionAttemptV2[]
+  experimentResults  ExperimentFoundationExperimentResultV2[]
+  validationReports  ExperimentFoundationScientificValidationReportV2[]
+  evidenceCandidates ExperimentFoundationEvidenceCandidateV2[]
 
   @@unique([id, runManifestHash], map: "ef_run_exact_manifest_unique")
   @@unique([id, runManifestHash, externalPiBranchId, externalPiWorkOrderRevisionId, externalPiWorkOrderRevisionHash, externalPiRevisionSequence], map: "ef_run_exact_pi_scope_unique")
@@ -6709,6 +6714,7 @@ model ExperimentFoundationRunCellV2 {
   trainingTaskSpec  ExperimentFoundationTrainingTaskSpecV2   @relation(fields: [trainingTaskSpecId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   providerPayloads  ExperimentFoundationProviderPayloadV2[]
   executionAttempts ExperimentFoundationExecutionAttemptV2[]
+  experimentResults ExperimentFoundationExperimentResultV2[]
 
   @@unique([runId, ordinal], map: "ef_run_cell_run_ordinal_unique")
   @@unique([runId, cellKey], map: "ef_run_cell_run_key_unique")
@@ -6877,6 +6883,7 @@ model ExperimentFoundationExecutionAttemptV2 {
   events              ExperimentFoundationExecutionAttemptEventV2[]
   commands            ExperimentFoundationProviderCommandV2[]
   collectionAttempt   ExperimentFoundationCollectionAttemptV2?
+  experimentResult    ExperimentFoundationExperimentResultV2?
 
   @@unique([runCellId, attemptSequence], map: "ef_execution_attempt_cell_sequence_unique")
   @@unique([runId, runCellId, workflowBusinessKey], map: "ef_execution_attempt_workflow_business_unique")
@@ -6996,4 +7003,77 @@ model ExperimentFoundationProvisionalOutputV2 {
   @@unique([collectionAttemptId, ordinal], map: "ef_provisional_output_collection_ordinal_unique")
   @@unique([collectionAttemptId, outputKind], map: "ef_provisional_output_collection_kind_unique")
   @@unique([collectionAttemptId, outputHash], map: "ef_provisional_output_collection_hash_unique")
+}
+
+// T-132 Pack C: EF-owned scientific-validation families. Rows may be written
+// only by the sole ScientificValidationService lane behind the default-off
+// capability; every scientific happy path stays production-disabled in the
+// first release, so product traffic creates zero rows here.
+model ExperimentFoundationExperimentResultV2 {
+  id                       String   @id
+  runId                    String
+  runManifestHash          String
+  runCellId                String   @unique(map: "ef_experiment_result_run_cell_unique")
+  cellKey                  String
+  trainingTaskSpecId       String
+  trainingTaskSpecHash     String
+  executionAttemptId       String   @unique(map: "ef_experiment_result_attempt_unique")
+  provenance               String
+  schemaVersion            String
+  metricObservationCount   Int
+  artifactObservationCount Int
+  resultSnapshotJson       Json     @default("{}")
+  contentHash              String
+  createdAt                DateTime @db.Timestamptz(6)
+
+  run              ExperimentFoundationRunV2              @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_fkey")
+  runCell          ExperimentFoundationRunCellV2          @relation(fields: [runId, runCellId, trainingTaskSpecId, cellKey], references: [runId, id, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_cell_fkey")
+  trainingTaskSpec ExperimentFoundationTrainingTaskSpecV2 @relation(fields: [trainingTaskSpecId, trainingTaskSpecHash], references: [id, taskSpecHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_task_spec_fkey")
+  executionAttempt ExperimentFoundationExecutionAttemptV2 @relation(fields: [executionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_attempt_fkey")
+
+  @@unique([id, contentHash], map: "ef_experiment_result_exact_content_unique")
+  @@index([runId], map: "ef_experiment_result_run_idx")
+}
+
+model ExperimentFoundationScientificValidationReportV2 {
+  id                                 String   @id
+  runId                              String   @unique(map: "ef_scientific_validation_run_unique")
+  runManifestHash                    String
+  evaluationProtocolId               String
+  evaluationProtocolRevisionId       String
+  evaluationProtocolRevisionSequence Int
+  evaluationProtocolContentHash      String
+  validatorProfileVersion            String
+  validatorProfileHash               String
+  status                             String
+  schemaVersion                      String
+  orderedCellResultCount             Int
+  orderedRuleResultCount             Int
+  reportSnapshotJson                 Json     @default("{}")
+  validationHash                     String
+  idempotencyKey                     String   @unique(map: "ef_scientific_validation_idempotency_unique")
+  createdAt                          DateTime @db.Timestamptz(6)
+
+  run                        ExperimentFoundationRunV2                        @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_scientific_validation_run_fkey")
+  evaluationProtocolRevision ExperimentFoundationEvaluationProtocolRevisionV2 @relation(fields: [evaluationProtocolId, evaluationProtocolRevisionId, evaluationProtocolContentHash], references: [evaluationProtocolId, id, contentHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_scientific_validation_protocol_fkey")
+  evidenceCandidates         ExperimentFoundationEvidenceCandidateV2[]
+
+  @@unique([id, validationHash], map: "ef_scientific_validation_exact_hash_unique")
+  @@index([evaluationProtocolRevisionId], map: "ef_scientific_validation_protocol_idx")
+}
+
+model ExperimentFoundationEvidenceCandidateV2 {
+  id                 String   @id
+  validationReportId String   @unique(map: "ef_evidence_candidate_report_unique")
+  validationHash     String
+  runId              String   @unique(map: "ef_evidence_candidate_run_unique")
+  runManifestHash    String
+  schemaVersion      String
+  contentHash        String
+  createdAt          DateTime @db.Timestamptz(6)
+
+  validationReport ExperimentFoundationScientificValidationReportV2 @relation(fields: [validationReportId, validationHash], references: [id, validationHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_evidence_candidate_report_fkey")
+  run              ExperimentFoundationRunV2                        @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_evidence_candidate_run_fkey")
+
+  @@unique([id, contentHash], map: "ef_evidence_candidate_exact_content_unique")
 }
