@@ -132,6 +132,13 @@ import {
 import {
   InMemoryPaperImplementationAiWorkflowHarnessRepository,
 } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
+import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
+import {
+  InMemoryPaperImplementationHumanConfirmationRepository,
+} from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
+import type {
+  MotiveEvolutionDecision,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-motive-contracts';
 import {
   seedAdmittedRoutePlanningLineage,
   seedAdmittedValidationPlanningLineage,
@@ -866,6 +873,358 @@ test('L5 route skeptic incomplete dimension set retries once and does not create
   assert.equal(result.admission_records[0]?.admission_status, 'rejected');
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, ['domain_gate_request', 'queue_action']);
+});
+
+// T-133 helpers: the validation-planning lane driven end-to-end through the
+// coordinator in provider mode. The scripted gateway discriminates slots by the
+// role_slot_id inside the user payload and echoes the coordinator-injected
+// admitted upstream refs verbatim (present-but-drifted echo fails closed).
+function userPayloadOf(request: LlmStructuredOutputRequest): Record<string, unknown> {
+  const user = request.messages.find((message) => message.role === 'user')?.content ?? '{}';
+  // stableStringify deliberately emits literal `undefined` for absent optional
+  // fields (providers tolerate it as prompt text); normalize to null so the
+  // scripted gateway can read the payload back as strict JSON.
+  return JSON.parse(user.replace(/:undefined/g, ':null')) as Record<string, unknown>;
+}
+
+function t133SkepticEchoOverrides(payload: Record<string, unknown>): Partial<PaperImplementationRoutePlanningRoleOutput> {
+  return {
+    reviewed_route_proposal_ref: payload.admitted_route_proposal_artifact_ref as TopicSelectionFunctionalRef,
+    reviewed_route_proposal_hash: payload.admitted_route_proposal_artifact_hash as string,
+    reviewed_candidate_keys: payload.reviewed_candidate_keys as string[],
+  };
+}
+
+function t133ReviseSkepticOutput(payload: Record<string, unknown>): PaperImplementationRoutePlanningRoleOutput {
+  return routeSkepticRoleOutput({
+    ...t133SkepticEchoOverrides(payload),
+    blocker_codes: ['SUBSAMPLING_PROTOCOL_UNSPECIFIED_T133', 'ANCHOR_VALIDITY_RULE_UNDER_SPECIFIED_T133'],
+    risk_findings: [{
+      finding_id: 'route_risk_finding_t133_blocking_001',
+      risk_dimension: 'dataset_metric_alignment',
+      severity: 'blocking',
+      summary: 'The admitted route leaves the subsampling protocol unspecified; the input needs revision before progression.',
+      evidence_refs: [ref('implementation_input_snapshot', 'input_snapshot_l5_001')],
+      affected_candidate_keys: (payload.reviewed_candidate_keys as string[] | undefined) ?? [],
+      required_revision_refs: [ref('implementation_input_snapshot', 'input_snapshot_l5_001')],
+      blocks_route_progression: true,
+    }],
+    recommended_disposition: 'revise',
+  });
+}
+
+function t133ValidationPlanningLaneFixture(gateway: ScriptedLlmGateway): {
+  fixture: ReturnType<typeof realRuntimeFixture>;
+  coordinator: PaperImplementationRunCoordinatorService;
+  harnessRepository: InMemoryPaperImplementationAiWorkflowHarnessRepository;
+  motiveRepository: InMemoryPaperImplementationMotiveRepository;
+  humanConfirmationRepository: InMemoryPaperImplementationHumanConfirmationRepository;
+} {
+  const fixture = realRuntimeFixture(gateway);
+  const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
+  const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
+  const motiveRepository = new InMemoryPaperImplementationMotiveRepository();
+  const humanConfirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
+  const coordinator = new PaperImplementationRunCoordinatorService({
+    coordinatorRepository,
+    projectRepository: fixture.projectRepository,
+    decisionQueueWriter: {
+      enqueueDecisionWorkQueueItem: (item) => harnessRepository.enqueueDecisionWorkQueueItem(item),
+    },
+    runtimeArtifactReader: {
+      findRuntimeArtifactById: (implementationProjectId, runtimeArtifactId) =>
+        fixture.repository.findRuntimeArtifactById(implementationProjectId, runtimeArtifactId),
+    },
+    routePlanningRuntime: fixture.routePlanningService,
+    validationCyclePlanningRuntime: fixture.validationCyclePlanningService,
+    feasibilityPlanningRuntime: fixture.feasibilityPlanningService,
+    motiveDecompositionRuntime: fixture.motiveDecompositionService,
+    motiveEvolutionRuntime: fixture.motiveEvolutionService,
+    evidenceBoardCurationRuntime: fixture.evidenceBoardCurationService,
+    crossBoardSynthesisRuntime: fixture.crossBoardSynthesisService,
+    // T-133 confirm-and-continue read-only validators (mirrors app.ts wiring).
+    motiveDecisionReader: {
+      findMotiveEvolutionDecisionById: (implementationProjectId, decisionId) =>
+        motiveRepository.findMotiveEvolutionDecisionById(implementationProjectId, decisionId),
+    },
+    confirmationReader: {
+      findHumanConfirmationRecordById: (implementationProjectId, confirmationRecordId) =>
+        humanConfirmationRepository.findHumanConfirmationRecordById(implementationProjectId, confirmationRecordId),
+    },
+    idFactory: fixture.idFactory,
+    now: () => NOW,
+    leaseTtlMs: 60_000,
+  });
+  return { fixture, coordinator, harnessRepository, motiveRepository, humanConfirmationRepository };
+}
+
+function t133LaneASlotPayloads(): Record<string, Record<string, unknown>> {
+  // Coordinator-owned fields (run_id/run_mode/execution_mode) and the per-slot
+  // chain-injected consumption fields must stay OFF the lane payloads — the
+  // coordinator injects the admitted upstream refs and selected keys itself.
+  const strip = (request: Record<string, unknown>, chainFields: readonly string[]): Record<string, unknown> => {
+    const payload = { ...request };
+    for (const field of ['run_id', 'run_mode', 'execution_mode', ...chainFields]) {
+      delete payload[field];
+    }
+    return payload;
+  };
+  return {
+    [PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID]:
+      strip(routePlanningRequest('architecture') as unknown as Record<string, unknown>, []),
+    [PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID]:
+      strip(routePlanningRequest('skeptic') as unknown as Record<string, unknown>, [
+        'admitted_route_proposal_artifact_ref',
+        'admitted_route_proposal_artifact_hash',
+        'reviewed_candidate_keys',
+      ]),
+    [PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID]:
+      strip(validationCyclePlanningRequest() as unknown as Record<string, unknown>, [
+        'admitted_route_proposal_artifact_ref',
+        'admitted_route_proposal_artifact_hash',
+        'admitted_route_skeptic_artifact_ref',
+        'admitted_route_skeptic_artifact_hash',
+        'reviewed_candidate_keys',
+      ]),
+    [PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID]:
+      strip(feasibilityPlanningRequest() as unknown as Record<string, unknown>, [
+        'admitted_validation_cycle_artifact_ref',
+        'admitted_validation_cycle_artifact_hash',
+        'admitted_route_proposal_artifact_ref',
+        'admitted_route_proposal_artifact_hash',
+        'admitted_route_skeptic_artifact_ref',
+        'admitted_route_skeptic_artifact_hash',
+        'reviewed_cycle_candidate_keys',
+        'reviewed_route_candidate_keys',
+      ]),
+  };
+}
+
+function t133LaneAGateway(options: { skepticOutputForCall: (skepticCallIndex: number, payload: Record<string, unknown>) => unknown }): ScriptedLlmGateway {
+  let skepticCalls = 0;
+  return new ScriptedLlmGateway((request) => {
+    const payload = userPayloadOf(request);
+    const roleSlotId = payload.role_slot_id as string;
+    if (roleSlotId === PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_ROLE_SLOT_ID) {
+      return routeArchitectureRoleOutput();
+    }
+    if (roleSlotId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_ROLE_SLOT_ID) {
+      skepticCalls += 1;
+      return options.skepticOutputForCall(skepticCalls, payload);
+    }
+    if (roleSlotId === PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_ROLE_SLOT_ID) {
+      return validationCyclePlanningRoleOutput({
+        reviewed_route_proposal_ref: payload.admitted_route_proposal_artifact_ref as TopicSelectionFunctionalRef,
+        reviewed_route_proposal_hash: payload.admitted_route_proposal_artifact_hash as string,
+        reviewed_route_skeptic_artifact_ref: payload.admitted_route_skeptic_artifact_ref as TopicSelectionFunctionalRef,
+        reviewed_route_skeptic_artifact_hash: payload.admitted_route_skeptic_artifact_hash as string,
+        reviewed_candidate_keys: payload.reviewed_candidate_keys as string[],
+      });
+    }
+    if (roleSlotId === PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_ROLE_SLOT_ID) {
+      return feasibilityPlanningRoleOutput({
+        reviewed_validation_cycle_artifact_ref: payload.admitted_validation_cycle_artifact_ref as TopicSelectionFunctionalRef,
+        reviewed_validation_cycle_artifact_hash: payload.admitted_validation_cycle_artifact_hash as string,
+        reviewed_route_proposal_ref: payload.admitted_route_proposal_artifact_ref as TopicSelectionFunctionalRef,
+        reviewed_route_proposal_hash: payload.admitted_route_proposal_artifact_hash as string,
+        reviewed_route_skeptic_artifact_ref: payload.admitted_route_skeptic_artifact_ref as TopicSelectionFunctionalRef,
+        reviewed_route_skeptic_artifact_hash: payload.admitted_route_skeptic_artifact_hash as string,
+        reviewed_cycle_candidate_keys: payload.reviewed_cycle_candidate_keys as string[],
+        reviewed_route_candidate_keys: payload.reviewed_route_candidate_keys as string[],
+      });
+    }
+    throw new Error(`T-133 lane fixture received an unexpected role slot: ${roleSlotId}`);
+  });
+}
+
+test('L5 route skeptic revise disposition parks the coordinator run as waiting_review across the full chain (T-133 D-133-1)', async () => {
+  // T-133 D-133-1 full chain (形状2 single-trigger): a PASSED critique with
+  // blocking findings and disposition=revise flows runtime service → passed
+  // final carrying the finding codes as audit entities → the coordinator's
+  // designed four-point-#1 skeptic branch parks the run as waiting_review
+  // (semantic stop: no decision-queue item, override/re-advance resumes) —
+  // never the terminal blocked the old dual-trigger derivation landed.
+  const gateway = t133LaneAGateway({
+    skepticOutputForCall: (_index, payload) => t133ReviseSkepticOutput(payload),
+  });
+  const { fixture, coordinator, harnessRepository } = t133ValidationPlanningLaneFixture(gateway);
+
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'validation-planning',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 6, max_provider_calls: 8 },
+    slot_request_payloads: t133LaneASlotPayloads(),
+  });
+  const parked = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_revise_park',
+  });
+
+  assert.equal(gateway.calls.length, 2);
+  assert.equal(parked.run.run_status, 'waiting_review');
+  assert.equal(parked.steps.length, 2);
+  assert.equal(parked.steps[0]?.outcome, 'passed');
+  assert.equal(parked.steps[1]?.outcome, 'waiting_review');
+  assert.equal(parked.steps[1]?.slot_id, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID);
+  // The skeptic final is PASSED (the critique is usable) and carries the
+  // server-respected revise verdict plus the blocking-finding codes as audit
+  // entities — the single-trigger derivation of D-133-1.
+  const finals = await fixture.repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+    artifact_scope: 'final',
+  });
+  assert.equal(finals.length, 1);
+  assert.equal(finals[0]?.runtime_status, 'passed');
+  assert.equal(finals[0]?.artifact_payload.recommended_disposition, 'revise');
+  assert.deepEqual(
+    finals[0]?.artifact_payload.blockers,
+    ['SUBSAMPLING_PROTOCOL_UNSPECIFIED_T133', 'ANCHOR_VALIDITY_RULE_UNDER_SPECIFIED_T133'],
+  );
+  // waiting_review is a semantic stop, not a blocker — no decision-queue item.
+  assert.equal((await harnessRepository.listDecisionWorkQueueItems(PROJECT_ID)).length, 0);
+});
+
+test('L5 route skeptic revise waiting_review override re-advance completes the validation-planning lane (T-133 revise-and-retry)', async () => {
+  // T-133 revise-and-retry exercised end-to-end: park on revise, then a human
+  // payload override + re-advance reruns the slot as a NEW attempt (nothing is
+  // forged); a proceed critique then lets the lane finish cycle + feasibility.
+  const gateway = t133LaneAGateway({
+    skepticOutputForCall: (index, payload) => index === 1
+      ? t133ReviseSkepticOutput(payload)
+      : routeSkepticRoleOutput({ ...t133SkepticEchoOverrides(payload), recommended_disposition: 'proceed' }),
+  });
+  const { coordinator } = t133ValidationPlanningLaneFixture(gateway);
+
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'validation-planning',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 6, max_provider_calls: 8 },
+    slot_request_payloads: t133LaneASlotPayloads(),
+  });
+  const parked = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_revise_park',
+  });
+  assert.equal(parked.run.run_status, 'waiting_review');
+
+  const resumed = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_revise_override_reviewer',
+    slot_request_payload_overrides: {
+      [PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID]:
+        t133LaneASlotPayloads()[PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID]!,
+    },
+  });
+
+  assert.equal(gateway.calls.length, 5);
+  assert.equal(resumed.run.run_status, 'completed');
+  const skepticAttempts = resumed.steps.filter(
+    (step) => step.slot_id === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+  );
+  assert.deepEqual(skepticAttempts.map((step) => step.outcome), ['waiting_review', 'passed']);
+  assert.notEqual(skepticAttempts[0]?.node_attempt_id, skepticAttempts[1]?.node_attempt_id);
+  const outcomesBySlot = resumed.steps.map((step) => `${step.slot_id}:${step.outcome}`);
+  assert.ok(outcomesBySlot.includes(`${PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID}:passed`));
+  assert.ok(outcomesBySlot.includes(`${PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_SLOT_ID}:passed`));
+});
+
+test('L5 route skeptic role-blocked critique stays a terminal blocked with a decision-queue item (T-133 D-133-1)', async () => {
+  // T-133 red line: role_status='blocked' (the critique itself could not be
+  // produced) keeps the honest terminal blocked semantics — decision-queue item
+  // included — and no blocked→waiting_review routing was opened.
+  const gateway = t133LaneAGateway({
+    skepticOutputForCall: (_index, payload) => routeSkepticRoleOutput({
+      ...t133SkepticEchoOverrides(payload),
+      role_status: 'blocked',
+      blocker_codes: ['ROUTE_INPUT_SNAPSHOT_UNREADABLE_T133'],
+      recommended_disposition: null,
+    }),
+  });
+  const { fixture, coordinator, harnessRepository } = t133ValidationPlanningLaneFixture(gateway);
+
+  const run = await coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'validation-planning',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 6, max_provider_calls: 8 },
+    slot_request_payloads: t133LaneASlotPayloads(),
+  });
+  const blocked = await coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_role_blocked',
+  });
+
+  assert.equal(blocked.run.run_status, 'blocked');
+  assert.equal(blocked.steps[1]?.outcome, 'blocked');
+  assert.equal(blocked.steps[1]?.slot_id, PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID);
+  const finals = await fixture.repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+    artifact_scope: 'final',
+  });
+  assert.equal(finals[0]?.runtime_status, 'blocked');
+  const queueItems = await harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueItems.length, 1);
+  assert.equal(queueItems[0]?.queue_type, 'human_review');
+});
+
+test('L5 route skeptic proceed with blocking findings is deterministically clamped to revise with a drift warning (T-133 D-133-2)', async () => {
+  // T-133 D-133-2: the deterministic disposition floor — proceed cannot coexist
+  // with blocking findings. The server rewrites the verdict to revise and
+  // surfaces the drift as a warning (never a blocker): the LLM can only err
+  // toward human review, never route itself past the governance stop.
+  const gateway = new ScriptedLlmGateway((request) => {
+    const payload = userPayloadOf(request);
+    const overrides = t133ReviseSkepticOutput(payload);
+    return { ...overrides, recommended_disposition: 'proceed' };
+  });
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
+
+  const result = await fixture.routePlanningService.runRouteSkepticReview(PROJECT_ID, routePlanningRequest('skeptic', {
+    run_id: 'route_skeptic_t133_clamp_run_001',
+    admitted_route_proposal: { ref: lineage.routeProposalRef, hash: lineage.routeProposalHash },
+  }));
+
+  assert.equal(result.status, 'passed');
+  const finalArtifact = result.final_runtime_artifact;
+  assert.ok(finalArtifact);
+  assert.equal(finalArtifact.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(finalArtifact.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'), true);
+  assert.equal(result.admission_records.at(-1)?.admission_status, 'admitted');
+});
+
+test('L5 validation cycle planning refuses a non-proceed route skeptic final with a fail-closed 409 (T-133 downstream gate)', async () => {
+  // T-133 downstream gate: a revise skeptic final is PASSED and admitted, but a
+  // direct runtime-route caller must not be able to consume it — the parked
+  // verdict belongs to the human review, so cycle consumption fails closed.
+  const gateway = new ScriptedLlmGateway((request) => t133ReviseSkepticOutput(userPayloadOf(request)));
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedRoutePlanningLineage(l5LineageSeedOptions(fixture));
+
+  const reviseSkeptic = await fixture.routePlanningService.runRouteSkepticReview(PROJECT_ID, routePlanningRequest('skeptic', {
+    run_id: 'route_skeptic_t133_downstream_gate_run_001',
+    admitted_route_proposal: { ref: lineage.routeProposalRef, hash: lineage.routeProposalHash },
+  }));
+  assert.equal(reviseSkeptic.status, 'passed');
+  const reviseFinal = reviseSkeptic.final_runtime_artifact;
+  assert.ok(reviseFinal?.final_artifact_ref);
+  assert.ok(reviseFinal?.final_artifact_hash);
+
+  await assert.rejects(
+    fixture.validationCyclePlanningService.runCycleCandidates(PROJECT_ID, validationCyclePlanningRequest({
+      run_id: 'validation_cycle_t133_downstream_gate_run_001',
+      lineage: {
+        ...lineage,
+        routeSkepticRef: reviseFinal.final_artifact_ref!,
+        routeSkepticHash: reviseFinal.final_artifact_hash!,
+      },
+    })),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.errorCode, 'GATE_CONSTRAINT_FAILED');
+      assert.equal((error.details as { guard?: string } | undefined)?.guard, 'route_skeptic_disposition_proceed');
+      return true;
+    },
+  );
 });
 
 test('L5 validation cycle planning provider gateway failure retries once and does not create final, cycle, queue, or domain-gate payloads', async () => {
@@ -1674,6 +2033,18 @@ test('L5 evidence-board curation gaps-only disposition parks the coordinator run
     motiveEvolutionRuntime: fixture.motiveEvolutionService,
     evidenceBoardCurationRuntime: fixture.evidenceBoardCurationService,
     crossBoardSynthesisRuntime: fixture.crossBoardSynthesisService,
+    // T-133 confirm-and-continue read-only validators (unused by this lane) —
+    // wrapped to the single-method literals the structural guard expects.
+    motiveDecisionReader: {
+      findMotiveEvolutionDecisionById: (implementationProjectId, decisionId) =>
+        new InMemoryPaperImplementationMotiveRepository()
+          .findMotiveEvolutionDecisionById(implementationProjectId, decisionId),
+    },
+    confirmationReader: {
+      findHumanConfirmationRecordById: (implementationProjectId, confirmationRecordId) =>
+        new InMemoryPaperImplementationHumanConfirmationRepository()
+          .findHumanConfirmationRecordById(implementationProjectId, confirmationRecordId),
+    },
     idFactory: fixture.idFactory,
     now: () => NOW,
     leaseTtlMs: 60_000,
@@ -4747,6 +5118,566 @@ test('L5 motive evolution challenger receives the designer designed_options body
   assert.equal(result.final_admission_record?.admission_status, 'admitted');
   assertNoNonProviderRuntimeArtifacts(result.runtime_artifacts);
   assertNoLeak(result, motiveEvolutionForbiddenWriteFragments());
+});
+
+// ---------------------------------------------------------------------------
+// T-133 P2 (D-133-2/3): the motive lane driven end-to-end through the
+// coordinator in provider mode — confirmable lineage option park,
+// confirm-and-continue, mixed-defect red line, and the verb locks.
+// ---------------------------------------------------------------------------
+
+const T133_PARK_OPTION_KEY = 'evolution_option_l5_park_001';
+const T133_REPAIR_OPTION_KEY = 'evolution_option_l5_001';
+
+function t133MotiveLaneSlotPayloads(): Record<string, Record<string, unknown>> {
+  // Lane B couples the two slots through the same frozen source refs/hashes
+  // bundle — use the union of both fixtures' bundles so every slot-side
+  // refs-subset check keeps holding.
+  const decompositionBase = motiveDecompositionRequest();
+  const evolutionBase = motiveEvolutionRequest();
+  const bundle = {
+    source_refs: [...decompositionBase.source_refs, ...evolutionBase.source_refs],
+    source_hashes: [...decompositionBase.source_hashes, ...evolutionBase.source_hashes],
+  };
+  const strip = (request: Record<string, unknown>): Record<string, unknown> => {
+    const payload = { ...request };
+    for (const field of ['run_id', 'run_mode', 'execution_mode']) {
+      delete payload[field];
+    }
+    return payload;
+  };
+  return {
+    [PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID]:
+      strip(motiveDecompositionRequest(bundle) as unknown as Record<string, unknown>),
+    [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID]:
+      strip(motiveEvolutionRequest(bundle) as unknown as Record<string, unknown>),
+  };
+}
+
+function t133ParkDesignedOptionOverrides(): Partial<PaperImplementationMotiveEvolutionDesignedOption> {
+  return {
+    option_kind: 'park',
+    portfolio_impact_class: 'lineage_change',
+    human_confirmation_required: true,
+    recommended_next_gate: 'human_confirmation',
+  };
+}
+
+function t133DesignerOutputWithPark(): PaperImplementationMotiveEvolutionOptionDesignerRoleOutput {
+  return motiveEvolutionDesignerRoleOutput({
+    designed_options: {
+      [T133_REPAIR_OPTION_KEY]: motiveEvolutionDesignedOption(),
+      [T133_PARK_OPTION_KEY]: motiveEvolutionDesignedOption(t133ParkDesignedOptionOverrides()),
+    },
+    option_set_hash: hash('motive-evolution-option-set-t133-park'),
+  });
+}
+
+function t133ChallengerOutputWithPark(
+  prior: MotiveEvolutionPriorRoleMaterial,
+  options: { mixedDefect?: boolean } = {},
+): PaperImplementationMotiveEvolutionRiskChallengerRoleOutput {
+  return motiveEvolutionRiskChallengerRoleOutput(prior, {
+    challenged_option_keys: [T133_REPAIR_OPTION_KEY, T133_PARK_OPTION_KEY],
+    decision_options: {
+      [T133_REPAIR_OPTION_KEY]: motiveEvolutionDecisionOption(),
+      [T133_PARK_OPTION_KEY]: motiveEvolutionDecisionOption({
+        ...t133ParkDesignedOptionOverrides(),
+        blocker_codes: ['human_confirmation_required_for_lineage_change_t133'],
+        challenge_check: motiveEvolutionChallengeCheck({
+          evidence_status: 'satisfied',
+          trace_status: 'satisfied',
+          portfolio_status: 'satisfied',
+          downstream_impact_status: options.mixedDefect ? 'blocked' : 'satisfied',
+          human_confirmation_status: 'blocked',
+          blocking_reason_codes: options.mixedDefect
+            ? ['human_confirmation_missing_t133', 'downstream_impact_unassessed_t133']
+            : ['human_confirmation_missing_t133'],
+        }),
+      }),
+    },
+  });
+}
+
+function t133MotiveLaneGateway(options: { mixedDefect?: boolean } = {}): ScriptedLlmGateway {
+  return new ScriptedLlmGateway((request) => {
+    const operation = request.executionContext.operation;
+    if (operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+      return motiveEvolutionWire(
+        t133ChallengerOutputWithPark(motiveEvolutionPriorFromGatewayRequest(request), options),
+      );
+    }
+    if (operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID) {
+      return motiveEvolutionWire(t133DesignerOutputWithPark());
+    }
+    return motiveDecompositionRoleOutput();
+  });
+}
+
+async function t133ParkedMotiveLaneRun(options: { mixedDefect?: boolean } = {}): Promise<{
+  gateway: ScriptedLlmGateway;
+  lane: ReturnType<typeof t133ValidationPlanningLaneFixture>;
+  runId: string;
+  advanced: Awaited<ReturnType<PaperImplementationRunCoordinatorService['advance']>>;
+}> {
+  const gateway = t133MotiveLaneGateway(options);
+  const lane = t133ValidationPlanningLaneFixture(gateway);
+  const run = await lane.coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'motive',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 5, max_provider_calls: 8 },
+    slot_request_payloads: t133MotiveLaneSlotPayloads(),
+  });
+  const advanced = await lane.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_motive_lane',
+  });
+  return { gateway, lane, runId: run.coordinator_run_id, advanced };
+}
+
+async function t133SeedApprovedEvolutionDecision(
+  lane: ReturnType<typeof t133ValidationPlanningLaneFixture>,
+  options: {
+    applicationStatus?: MotiveEvolutionDecision['application_status'];
+    idSuffix?: string;
+    decisionCreatedAt?: string;
+    sourceMotiveRefId?: string;
+    confirmation?: 'consumed' | 'wrong_scope' | 'wrong_consumer' | 'none';
+  } = {},
+): Promise<{ decisionId: string; confirmationId: string }> {
+  const suffix = options.idSuffix ?? '001';
+  const decisionId = `motive_evolution_decision_t133_park_${suffix}`;
+  const confirmationId = `human_confirmation_t133_park_${suffix}`;
+  const confirmationMode = options.confirmation ?? 'consumed';
+  if (confirmationMode !== 'none') {
+    await lane.humanConfirmationRepository.createHumanConfirmationRecord({
+      confirmation_record_id: confirmationId,
+      implementation_project_id: PROJECT_ID,
+      confirmation_scope: confirmationMode === 'wrong_scope'
+        ? 'motive_portfolio_decision'
+        : 'motive_evolution_decision',
+      target_refs: [ref('core_motive', 'core_motive_motive_evolution_l5_001')],
+      reviewed_sources: [],
+      transition_attempt_ref: null,
+      gate_result_refs: [],
+      rationale: 'Reviewed the park option and its lineage impact before confirming.',
+      confirmed_by_actor_type: 'human',
+      confirmed_by_actor_id: 'reviewer_t133_001',
+      policy_version_id: null,
+      status: 'active',
+      status_reason: null,
+      created_at: NOW,
+      updated_at: null,
+      consumed_at: NOW,
+      consumed_by_ref: {
+        ref_type: 'motive_evolution_decision',
+        ref_id: confirmationMode === 'wrong_consumer' ? 'motive_evolution_decision_someone_else' : decisionId,
+        title_card_id: null,
+        version_id: null,
+      },
+    });
+  }
+  await lane.motiveRepository.createMotiveEvolutionDecision({
+    motive_evolution_decision_id: decisionId,
+    implementation_project_id: PROJECT_ID,
+    source_motive_refs: [ref('core_motive', options.sourceMotiveRefId ?? 'core_motive_motive_evolution_l5_001')],
+    triggering_validation_cycle_refs: [],
+    triggering_result_packet_refs: [],
+    triggering_cross_board_review_refs: [],
+    triggering_human_request_refs: [],
+    evolution_type: 'park',
+    effect_class: 'structural_evolution',
+    decision_summary: 'Park the motive pending the lineage decision.',
+    decision_rationale: 'The park option was human-confirmed through the authority chain.',
+    change_set: {},
+    proposed_outputs: {},
+    evidence_basis: {},
+    impact_analysis: {},
+    gate: {},
+    proposed_by: 'human',
+    confirmed_by: confirmationMode === 'none' ? null : 'human',
+    human_confirmation_required: confirmationMode !== 'none',
+    confirmation_ref: confirmationMode === 'none'
+      ? null
+      : {
+        ref_type: 'human_confirmation_record',
+        ref_id: confirmationId,
+        title_card_id: null,
+        version_id: null,
+      },
+    application_status: options.applicationStatus ?? 'approved',
+    trace_manifest_ref: null,
+    trace_manifest_id: 'trace_manifest_t133_park_001',
+    policy_version_id: null,
+    created_at: options.decisionCreatedAt ?? NOW,
+  });
+  return { decisionId, confirmationId };
+}
+
+test('L5 motive evolution confirmable lineage option parks the coordinator run as waiting_review across the full chain (T-133 P2)', async () => {
+  const { gateway, lane, advanced } = await t133ParkedMotiveLaneRun();
+
+  // decomposition (1 call) + designer + challenger (2 calls).
+  assert.equal(gateway.calls.length, 3);
+  assert.equal(advanced.run.run_status, 'waiting_review');
+  assert.equal(advanced.steps.length, 2);
+  assert.equal(advanced.steps[0]?.outcome, 'passed');
+  assert.equal(advanced.steps[1]?.outcome, 'waiting_review');
+  assert.equal(advanced.steps[1]?.slot_id, PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID);
+  // The final is PASSED: the awaiting-human option's codes stayed on the
+  // option (audit) and out of the final blockers; the server-derived
+  // human-decision keys carry exactly the park option.
+  const finals = await lane.fixture.repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    artifact_scope: 'final',
+  });
+  assert.equal(finals.length, 1);
+  assert.equal(finals[0]?.runtime_status, 'passed');
+  const payload = finals[0]?.artifact_payload as {
+    blockers?: string[];
+    human_decision_required_option_keys?: string[];
+    decision_options?: Record<string, { blocker_codes?: string[] }>;
+  };
+  assert.deepEqual(payload.human_decision_required_option_keys, [T133_PARK_OPTION_KEY]);
+  assert.deepEqual(payload.blockers, []);
+  assert.deepEqual(
+    payload.decision_options?.[T133_PARK_OPTION_KEY]?.blocker_codes,
+    ['human_confirmation_required_for_lineage_change_t133'],
+  );
+  // Semantic stop, not a blocker — no decision-queue item.
+  assert.equal((await lane.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID)).length, 0);
+});
+
+test('L5 motive evolution confirm-and-continue completes the motive lane without re-running the slot (T-133 P2)', async () => {
+  const { gateway, lane, runId, advanced } = await t133ParkedMotiveLaneRun();
+  assert.equal(advanced.run.run_status, 'waiting_review');
+  const { decisionId, confirmationId } = await t133SeedApprovedEvolutionDecision(lane);
+
+  const resumed = await lane.coordinator.advance(PROJECT_ID, runId, {
+    holder_id: 'holder_t133_confirm_reviewer',
+    review_acceptance: {
+      slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+      decision_ref: decisionId,
+      acceptance_actor_id: 'reviewer_t133_001',
+    },
+  });
+
+  // Zero re-runs: the gateway saw no additional calls.
+  assert.equal(gateway.calls.length, 3);
+  assert.equal(resumed.run.run_status, 'completed');
+  const evolutionSteps = resumed.steps.filter(
+    (step) => step.slot_id === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+  );
+  assert.deepEqual(evolutionSteps.map((step) => step.outcome), ['waiting_review', 'passed']);
+  const accepted = evolutionSteps[1]!;
+  assert.equal(accepted.provider_call_count, 0);
+  assert.equal(accepted.runtime_artifact_id, evolutionSteps[0]?.runtime_artifact_id);
+  assert.equal(accepted.runtime_artifact_hash, evolutionSteps[0]?.runtime_artifact_hash);
+  assert.deepEqual(accepted.review_acceptance, {
+    decision_ref: decisionId,
+    human_confirmation_ref: confirmationId,
+    acceptance_actor_id: 'reviewer_t133_001',
+  });
+  assert.equal(accepted.advance_holder_id, 'holder_t133_confirm_reviewer');
+});
+
+test('L5 motive evolution mixed-defect blocked final stays a terminal blocked with a decision-queue item (T-133 P2 red line)', async () => {
+  const { lane, advanced } = await t133ParkedMotiveLaneRun({ mixedDefect: true });
+
+  assert.equal(advanced.run.run_status, 'blocked');
+  assert.equal(advanced.steps[1]?.outcome, 'blocked');
+  const finals = await lane.fixture.repository.listRuntimeArtifacts(PROJECT_ID, {
+    slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+    artifact_scope: 'final',
+  });
+  assert.equal(finals[0]?.runtime_status, 'blocked');
+  const payload = finals[0]?.artifact_payload as { blockers?: string[] };
+  assert.deepEqual(payload.blockers, ['human_confirmation_required_for_lineage_change_t133']);
+  const queueItems = await lane.harnessRepository.listDecisionWorkQueueItems(PROJECT_ID);
+  assert.equal(queueItems.length, 1);
+  assert.equal(queueItems[0]?.queue_type, 'human_review');
+});
+
+test('L5 motive evolution human-decision stop rejects a re-advance without review_acceptance (T-133 verb lock)', async () => {
+  const { gateway, lane, runId, advanced } = await t133ParkedMotiveLaneRun();
+  assert.equal(advanced.run.run_status, 'waiting_review');
+
+  await assert.rejects(
+    lane.coordinator.advance(PROJECT_ID, runId, { holder_id: 'holder_t133_plain_re_advance' }),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.errorCode, 'GATE_CONSTRAINT_FAILED');
+      return true;
+    },
+  );
+  // The lock fails closed before any slot execution.
+  assert.equal(gateway.calls.length, 3);
+  // T-133 P3 review fix (adversarial C1): the rejection must never terminalize
+  // the park — the run stays waiting_review and its lease is released.
+  const surviving = await lane.coordinator.getCoordinatorRun(PROJECT_ID, runId);
+  assert.equal(surviving.run.run_status, 'waiting_review');
+  assert.equal(surviving.run.lease, null);
+});
+
+test('L5 motive evolution review_acceptance rejects an unapproved decision and the revise-family slot (T-133 confirm gate)', async () => {
+  const { lane, runId, advanced } = await t133ParkedMotiveLaneRun();
+  assert.equal(advanced.run.run_status, 'waiting_review');
+  const { decisionId } = await t133SeedApprovedEvolutionDecision(lane, { applicationStatus: 'proposed' });
+
+  // A proposed (unapproved) decision cannot accept the stop.
+  await assert.rejects(
+    lane.coordinator.advance(PROJECT_ID, runId, {
+      holder_id: 'holder_t133_unapproved',
+      review_acceptance: {
+        slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+        decision_ref: decisionId,
+        acceptance_actor_id: 'reviewer_t133_001',
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.errorCode, 'GATE_CONSTRAINT_FAILED');
+      return true;
+    },
+  );
+  // C1 pin: the rejected confirm leaves the park intact.
+  assert.equal((await lane.coordinator.getCoordinatorRun(PROJECT_ID, runId)).run.run_status, 'waiting_review');
+
+  // The revise-family (skeptic) stop rejects the confirm verb outright.
+  const skepticGateway = t133LaneAGateway({
+    skepticOutputForCall: (_index, payload) => t133ReviseSkepticOutput(payload),
+  });
+  const skepticLane = t133ValidationPlanningLaneFixture(skepticGateway);
+  const skepticRun = await skepticLane.coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'validation-planning',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 6, max_provider_calls: 8 },
+    slot_request_payloads: t133LaneASlotPayloads(),
+  });
+  const parked = await skepticLane.coordinator.advance(PROJECT_ID, skepticRun.coordinator_run_id, {
+    holder_id: 'holder_t133_skeptic_park',
+  });
+  assert.equal(parked.run.run_status, 'waiting_review');
+  await assert.rejects(
+    skepticLane.coordinator.advance(PROJECT_ID, skepticRun.coordinator_run_id, {
+      holder_id: 'holder_t133_wrong_verb',
+      review_acceptance: {
+        slot_id: PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID,
+        decision_ref: 'motive_evolution_decision_t133_park_001',
+        acceptance_actor_id: 'reviewer_t133_001',
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 400);
+      assert.equal(error.errorCode, 'INVALID_PAYLOAD');
+      return true;
+    },
+  );
+});
+
+
+test('L5 motive evolution rejected acceptance leaves the run parked and a later valid confirm succeeds (T-133 P3 C1)', async () => {
+  // Adversarial C1 regression pin: wrong-verb and invalid-ref advances are
+  // client-recoverable — the park must survive every rejection and the ONE
+  // legitimate exit must still work afterwards.
+  const { gateway, lane, runId, advanced } = await t133ParkedMotiveLaneRun();
+  assert.equal(advanced.run.run_status, 'waiting_review');
+
+  // ① plain re-advance (wrong verb) → 409, park survives.
+  await assert.rejects(
+    lane.coordinator.advance(PROJECT_ID, runId, { holder_id: 'holder_t133_c1_plain' }),
+    (error: unknown) => error instanceof AppError && error.statusCode === 409,
+  );
+  assert.equal((await lane.coordinator.getCoordinatorRun(PROJECT_ID, runId)).run.run_status, 'waiting_review');
+
+  // ② nonexistent decision_ref (typo) → 409, park survives.
+  await assert.rejects(
+    lane.coordinator.advance(PROJECT_ID, runId, {
+      holder_id: 'holder_t133_c1_typo',
+      review_acceptance: {
+        slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+        decision_ref: 'motive_evolution_decision_typo_does_not_exist',
+        acceptance_actor_id: 'reviewer_t133_001',
+      },
+    }),
+    (error: unknown) => error instanceof AppError && error.statusCode === 409,
+  );
+  assert.equal((await lane.coordinator.getCoordinatorRun(PROJECT_ID, runId)).run.run_status, 'waiting_review');
+
+  // ③ the legitimate confirm still succeeds — nothing was terminalized.
+  const { decisionId } = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'c1' });
+  const resumed = await lane.coordinator.advance(PROJECT_ID, runId, {
+    holder_id: 'holder_t133_c1_confirm',
+    review_acceptance: {
+      slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+      decision_ref: decisionId,
+      acceptance_actor_id: 'reviewer_t133_001',
+    },
+  });
+  assert.equal(resumed.run.run_status, 'completed');
+  assert.equal(gateway.calls.length, 3);
+});
+
+test('L5 motive evolution review_acceptance confirm-gate negative matrix keeps the park intact (T-133 P3 C2/C3)', async () => {
+  const { lane, runId, advanced } = await t133ParkedMotiveLaneRun();
+  assert.equal(advanced.run.run_status, 'waiting_review');
+  const expectParkedRejection = async (
+    decisionId: string,
+    expectedStatus: number,
+    extra: Record<string, unknown> = {},
+  ) => {
+    await assert.rejects(
+      lane.coordinator.advance(PROJECT_ID, runId, {
+        holder_id: 'holder_t133_matrix',
+        review_acceptance: {
+          slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+          decision_ref: decisionId,
+          acceptance_actor_id: 'reviewer_t133_001',
+        },
+        ...extra,
+      }),
+      (error: unknown) => error instanceof AppError && error.statusCode === expectedStatus,
+    );
+    assert.equal((await lane.coordinator.getCoordinatorRun(PROJECT_ID, runId)).run.run_status, 'waiting_review');
+  };
+
+  // Adversarial C2: an approved decision minted WITHOUT any confirmation
+  // (its own human_confirmation_required=false) can never clear the stop.
+  const noConfirmation = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'nc', confirmation: 'none' });
+  await expectParkedRejection(noConfirmation.decisionId, 409);
+  // Confirmation with the wrong scope.
+  const wrongScope = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'ws', confirmation: 'wrong_scope' });
+  await expectParkedRejection(wrongScope.decisionId, 409);
+  // Confirmation consumed by a DIFFERENT decision.
+  const wrongConsumer = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'wc', confirmation: 'wrong_consumer' });
+  await expectParkedRejection(wrongConsumer.decisionId, 409);
+  // Decision covering a different motive than the parked final's targets.
+  const uncovered = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'uc', sourceMotiveRefId: 'core_motive_unrelated_t133' });
+  await expectParkedRejection(uncovered.decisionId, 409);
+  // Adversarial C3: a decision that PREDATES the park cannot be replayed onto it.
+  const stale = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'st', decisionCreatedAt: '2026-01-01T00:00:00.000Z' });
+  await expectParkedRejection(stale.decisionId, 409);
+  // D-133-3 verb mutex: acceptance + payload overrides in one request → 400.
+  const valid = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'vm' });
+  await expectParkedRejection(valid.decisionId, 400, {
+    slot_request_payload_overrides: {
+      [PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID]:
+        t133MotiveLaneSlotPayloads()[PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID]!,
+    },
+  });
+});
+
+test('L5 motive evolution confirm at the step-budget ceiling requires a raise in the same request (T-133 P3 C3-budget)', async () => {
+  // The accepted continuation consumes one envelope step: at the ceiling a
+  // raise-less confirm is a loud recoverable 409 (never a silent ledger
+  // overrun), and raise + review_acceptance in ONE request completes the lane.
+  const gateway = t133MotiveLaneGateway();
+  const lane = t133ValidationPlanningLaneFixture(gateway);
+  const run = await lane.coordinator.createCoordinatorRun(PROJECT_ID, {
+    lane_id: 'motive',
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    budget_envelope: { max_steps: 2, max_provider_calls: 8 },
+    slot_request_payloads: t133MotiveLaneSlotPayloads(),
+  });
+  const parked = await lane.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_budget_park',
+  });
+  assert.equal(parked.run.run_status, 'waiting_review');
+  assert.equal(parked.run.consumed.steps, 2);
+
+  const { decisionId } = await t133SeedApprovedEvolutionDecision(lane, { idSuffix: 'bd' });
+  await assert.rejects(
+    lane.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+      holder_id: 'holder_t133_budget_confirm',
+      review_acceptance: {
+        slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+        decision_ref: decisionId,
+        acceptance_actor_id: 'reviewer_t133_001',
+      },
+    }),
+    (error: unknown) => error instanceof AppError && error.statusCode === 409,
+  );
+  assert.equal(
+    (await lane.coordinator.getCoordinatorRun(PROJECT_ID, run.coordinator_run_id)).run.run_status,
+    'waiting_review',
+  );
+  const resumed = await lane.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+    holder_id: 'holder_t133_budget_confirm_raise',
+    raise_budget_envelope: { max_steps: 3 },
+    review_acceptance: {
+      slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+      decision_ref: decisionId,
+      acceptance_actor_id: 'reviewer_t133_001',
+    },
+  });
+  assert.equal(resumed.run.run_status, 'completed');
+  assert.equal(resumed.run.consumed.steps, 3);
+  assert.equal(gateway.calls.length, 3);
+});
+
+test('L5 motive evolution blocked challenge axis without option blocker codes fails closed (T-133 P3 red-line interlock)', async () => {
+  // D-133-2 enforcement: the final aggregation reads ONLY option.blocker_codes,
+  // so a challenger reporting a blocked axis purely in challenge_check reason
+  // codes must be a retryable semantic failure — never a passed final over an
+  // unvetted option.
+  const gateway = new ScriptedLlmGateway((request) => {
+    const operation = request.executionContext.operation;
+    if (operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_RISK_CHALLENGER_ROLE_SLOT_ID) {
+      const output = t133ChallengerOutputWithPark(motiveEvolutionPriorFromGatewayRequest(request), { mixedDefect: true });
+      output.decision_options[T133_PARK_OPTION_KEY]!.blocker_codes = [];
+      return motiveEvolutionWire(output);
+    }
+    if (operation === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_OPTION_DESIGNER_ROLE_SLOT_ID) {
+      return motiveEvolutionWire(t133DesignerOutputWithPark());
+    }
+    return motiveDecompositionRoleOutput();
+  });
+  const { motiveEvolutionService } = realRuntimeFixture(gateway);
+  const result = await motiveEvolutionService.runEvolutionDecisionSupport(PROJECT_ID, motiveEvolutionRequest({
+    run_id: 'motive_evolution_t133_interlock_run_001',
+  }));
+  assert.equal(result.status, 'failed_runtime');
+  assert.equal(
+    result.runtime_artifacts.at(-1)?.runtime_failure_code,
+    'MOTIVE_EVOLUTION_OPTION_BLOCKER_CODES_MISSING',
+  );
+});
+
+test('L5 feasibility planning refuses a non-proceed route skeptic final with a fail-closed 409 (T-133 downstream gate, feasibility side)', async () => {
+  const gateway = new ScriptedLlmGateway((request) => t133ReviseSkepticOutput(userPayloadOf(request)));
+  const fixture = realRuntimeFixture(gateway);
+  const lineage = await seedAdmittedValidationPlanningLineage(l5LineageSeedOptions(fixture));
+
+  const reviseSkeptic = await fixture.routePlanningService.runRouteSkepticReview(PROJECT_ID, routePlanningRequest('skeptic', {
+    run_id: 'route_skeptic_t133_feasibility_gate_run_001',
+    admitted_route_proposal: { ref: lineage.routeProposalRef, hash: lineage.routeProposalHash },
+  }));
+  assert.equal(reviseSkeptic.status, 'passed');
+  const reviseFinal = reviseSkeptic.final_runtime_artifact;
+  assert.ok(reviseFinal?.final_artifact_ref);
+  assert.ok(reviseFinal?.final_artifact_hash);
+
+  await assert.rejects(
+    fixture.feasibilityPlanningService.runProbePlanCandidates(PROJECT_ID, feasibilityPlanningRequest({
+      run_id: 'feasibility_t133_downstream_gate_run_001',
+      lineage: {
+        ...lineage,
+        routeSkepticRef: reviseFinal.final_artifact_ref!,
+        routeSkepticHash: reviseFinal.final_artifact_hash!,
+      },
+    })),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal((error.details as { guard?: string } | undefined)?.guard, 'route_skeptic_disposition_proceed');
+      return true;
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

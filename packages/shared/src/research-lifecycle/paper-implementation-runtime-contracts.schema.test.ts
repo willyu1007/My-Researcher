@@ -3828,8 +3828,8 @@ function hasStrictModeDegenerateMapSchema(schema: unknown): boolean {
   return Object.values(record).some((value) => hasStrictModeDegenerateMapSchema(value));
 }
 
-test('motive evolution final artifact remains support-only', async () => {
-  const artifact = {
+function motiveEvolutionFinalArtifactBody() {
+  return {
     status: 'passed',
     slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
     workflow_type: 'motive_evolution',
@@ -3872,6 +3872,10 @@ test('motive evolution final artifact remains support-only', async () => {
     source_refs: [ref('source', 'source_001')],
     source_hash_bundle_hash: hashD,
   };
+}
+
+test('motive evolution final artifact remains support-only', async () => {
+  const artifact = motiveEvolutionFinalArtifactBody();
   assert.equal(
     await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, artifact),
     true,
@@ -3989,6 +3993,55 @@ test('motive evolution final artifact remains support-only', async () => {
     await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
       ...artifact,
       motive_evolution_decision_request: { must_not_exist: true },
+    }),
+    false,
+  );
+});
+
+test('motive evolution final artifact human-decision keys invariants (T-133)', async () => {
+  const artifact = motiveEvolutionFinalArtifactBody();
+  // Passed final carrying the server-derived keys — the waiting_review park shape.
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      human_decision_required_option_keys: ['evolution_option_001'],
+    }),
+    true,
+  );
+  // Optional for finals persisted before the field existed (step-field precedent).
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, artifact),
+    true,
+  );
+  // A final that proposed no options cannot carry human-decision keys.
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      support_result_status: 'no_evolution_needed',
+      decision_options: {},
+      blockers: [],
+      human_decision_required_option_keys: ['evolution_option_001'],
+    }),
+    false,
+  );
+  // Mixed-defect red-line shape (gs-001 live-015 evidence): a blocked FINAL
+  // legitimately keeps the challenger's honest options_proposed with the
+  // aggregated codes — schema-valid after the P3 invariant relaxation…
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'blocked',
+      blockers: ['human_confirmation_required_for_lineage_change'],
+      human_decision_required_option_keys: ['evolution_option_001'],
+    }),
+    true,
+  );
+  // …but a blocked final still requires at least one blocker.
+  assert.equal(
+    await validatesBody(paperImplementationMotiveEvolutionArtifactSchema, {
+      ...artifact,
+      status: 'blocked',
+      blockers: [],
     }),
     false,
   );

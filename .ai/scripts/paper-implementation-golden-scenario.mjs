@@ -78,7 +78,10 @@ const RUNNER_ID = 'paper-implementation-golden-scenario';
 // back-half source fence declares real content hashes; and the strong-claim
 // human confirmation is created AFTER the boundary debate produces the claim
 // statement (statement binding, four-point stop semantics unchanged).
-const RUNNER_VERSION = 't124-g1-golden-full-chain-v9';
+// v10 (T-133 P3): evolution 人决策停驻的 confirm-and-continue 接线(权威链
+// target=决策的 manifest 修复)+ 停驻记录先于续路入账。live-003 用的是带
+// spine-manifest bug 的过渡态(仍标 v9),live-004 起为 v10 语义。
+const RUNNER_VERSION = 't124-g1-golden-full-chain-v10';
 
 // ---------------------------------------------------------------------------
 // args (scenario selection + run identity)
@@ -1132,11 +1135,14 @@ function laneSummary(result) {
 /**
  * 推进一条 coordinator lane。
  * - waiting_review：如实记录停驻（review packet 呈现原始 disposition），随后至多一次
- *   不改载荷的 override re-advance（actor 记录；新 attempt 真跑 LLM，不伪造 disposition）。
+ *   续路动作。默认动作=不改载荷的 override re-advance（actor 记录；新 attempt 真跑
+ *   LLM，不伪造 disposition）。T-133：lane 可传 options.resolveWaitingReview(step)
+ *   定制续路（evolution 人决策停驻走权威链 + confirm-and-continue，不重跑）——
+ *   返回 { label, payload, note, actor } 或 null（null=默认 override）。
  * - blocked：如实终止（有效终态）。上游提案正文由 coordinator 链内注入（S2-B B3），
  *   首跑时代偿用的手工队列回流补喂（resolveBlocked）已删除。
  */
-async function runCoordinatorLane(app, projectId, laneKey, createBody) {
+async function runCoordinatorLane(app, projectId, laneKey, createBody, options = {}) {
   const startedAt = Date.now();
   const created = await inject(app, {
     stepId: `${laneKey}-create`,
@@ -1168,19 +1174,34 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody) {
   for (;;) {
     if (result.run.run_status === 'waiting_review' && waitingResolves < 1) {
       const waitingStep = [...result.steps].reverse().find((step) => step.outcome === 'waiting_review');
-      state.stops.push({
+      // T-133 P3 复审修复(角度⑧):停驻本体先入账再走续路——resolver 内任何一步
+      // 失败(live-003 实锤:权威链 409)都不再吞掉语义停驻记录。
+      const stopEntry = {
         lane: laneKey,
         kind: 'waiting_review',
         coordinator_run_id: coordinatorRunId,
         step_index: waitingStep?.step_index ?? null,
         slot_id: waitingStep?.slot_id ?? null,
         note: 'Semantic stop recorded honestly; one override re-advance follows (actor recorded, payload '
-          + 'unchanged, new provider attempt — the disposition is never forged).',
+          + 'unchanged, new provider attempt — the FINAL disposition is never forged; the clamped value is '
+          + 'what the final payload carries).',
         override_actor: `${SCEN}_human_override_reviewer`,
-      });
+      };
+      state.stops.push(stopEntry);
       await record(`${laneKey}-waiting-review-stop`, { coordinator_run: result.run, waiting_step: waitingStep ?? null });
+      let advanceLabel = 'override';
+      let advancePayload = { holder_id: `${SCEN}_human_override_reviewer` };
+      if (options.resolveWaitingReview) {
+        const resolved = await options.resolveWaitingReview(waitingStep ?? null);
+        if (resolved) {
+          advanceLabel = resolved.label ?? 'confirm';
+          advancePayload = resolved.payload;
+          stopEntry.note = resolved.note ?? stopEntry.note;
+          stopEntry.override_actor = resolved.actor ?? stopEntry.override_actor;
+        }
+      }
       waitingResolves += 1;
-      result = await advance('override', { holder_id: `${SCEN}_human_override_reviewer` });
+      result = await advance(advanceLabel, advancePayload);
       continue;
     }
     if (result.run.run_status === 'waiting_review') {
@@ -1204,6 +1225,90 @@ async function runCoordinatorLane(app, projectId, laneKey, createBody) {
   state.totals.provider_calls += result.run.consumed.provider_calls;
   await record(`${laneKey}-final-state`, { run: result.run, steps: result.steps });
   return result;
+}
+
+/**
+ * T-133 P2：evolution 人决策停驻的 confirm-and-continue 续路。
+ * 走真实权威链（产品路由，非 fixture）：① HumanConfirmationRecord（scope=
+ * motive_evolution_decision，human actor，目标=源 motive）；② MotiveEvolutionDecision
+ * （park/structural，approved 需完整 trace manifest，创建时消费确认单）。随后
+ * advance 带 review_acceptance——coordinator 只读复核决策与消费链后合成 passed
+ * step（零 provider 调用，decision support 不重跑）。
+ */
+async function resolveEvolutionHumanDecisionStop(app, projectId) {
+  const reviewerActor = `${SCEN}_human_evolution_reviewer`;
+  const confirmationRecordId = `${SCEN}_evolution_park_confirmation_001`;
+  const decisionId = `${SCEN}_evolution_park_decision_001`;
+  await inject(app, {
+    stepId: 'lane-motive-evolution-human-confirmation',
+    method: 'POST',
+    url: projectUrl(projectId, '/human-confirmations'),
+    payload: {
+      confirmation_record_id: confirmationRecordId,
+      confirmation_scope: 'motive_evolution_decision',
+      target_refs: [ref('core_motive', T.motive)],
+      reviewed_sources: [],
+      gate_result_refs: [],
+      rationale: 'Human reviewer examined the lineage-changing evolution option surfaced by decision support '
+        + 'and confirmed the structural decision before it was created.',
+      confirmed_by_actor_type: 'human',
+      confirmed_by_actor_id: reviewerActor,
+    },
+    expectedStatus: 201,
+  });
+  // approved 决策要求"以决策本身为 target"的完整 TraceManifest（live-003 gs-002
+  // 实证：借用 spine motive manifest 会 409 target 失配）——decision 家族血缘
+  // = 刚建的确认单（human_decision_refs），目标即本决策 id。
+  const decisionLineage = emptyTraceLineage();
+  decisionLineage.decision.human_decision_refs = [ref('human_confirmation_record', confirmationRecordId)];
+  const decisionTrace = await inject(app, {
+    stepId: 'lane-motive-evolution-decision-trace',
+    method: 'POST',
+    url: projectUrl(projectId, '/trace-manifests'),
+    payload: {
+      target_ref: ref('motive_evolution_decision', decisionId),
+      lineage: decisionLineage,
+      integrity: {},
+    },
+    expectedStatus: 201,
+  });
+  await inject(app, {
+    stepId: 'lane-motive-evolution-decision',
+    method: 'POST',
+    url: projectUrl(projectId, '/motive-evolution-decisions'),
+    payload: {
+      motive_evolution_decision_id: decisionId,
+      source_motive_refs: [ref('core_motive', T.motive)],
+      evolution_type: 'park',
+      effect_class: 'structural_evolution',
+      decision_summary: 'Park the motive as proposed by the human-confirmable evolution option.',
+      decision_rationale: 'The human decision accepted the lineage-changing option surfaced by the evolution '
+        + 'decision-support stop; the confirmation was consumed by this decision.',
+      change_set: {},
+      proposed_by: 'human',
+      confirmed_by: 'human',
+      human_confirmation_required: true,
+      confirmation_ref: ref('human_confirmation_record', confirmationRecordId),
+      application_status: 'approved',
+      trace_manifest_id: decisionTrace.trace_manifest_id,
+    },
+    expectedStatus: 201,
+  });
+  return {
+    label: 'confirm',
+    actor: reviewerActor,
+    payload: {
+      holder_id: reviewerActor,
+      review_acceptance: {
+        slot_id: SLOT.motiveEvolution,
+        decision_ref: decisionId,
+        acceptance_actor_id: reviewerActor,
+      },
+    },
+    note: 'Evolution human-decision stop: the authority chain ran for real (human confirmation → approved '
+      + 'MotiveEvolutionDecision consuming it), then confirm-and-continue accepted the stop — the slot is '
+      + 'never re-run and nothing is forged.',
+  };
 }
 
 async function fetchFinalArtifacts(app, projectId, label = 'main') {
@@ -2795,7 +2900,10 @@ async function main() {
     // 3-5) coordinator lanes（provider_llm 真跑）——LIVE 专属；smoke 模式如实跳过
     // （前半链 provider 面已由既有 live run 覆盖，smoke 的目的只是后半链结构冒烟）。
     if (LIVE) {
-      // 3) coordinator lane motive（decomposition → evolution）
+      // 3) coordinator lane motive（decomposition → evolution）。T-133 P2：
+      // evolution 的人决策停驻（park/split 选项等人确认）不再是终态 blocked——
+      // runner 走真实权威链（确认单 → approved 决策）后 confirm-and-continue，
+      // 槽不重跑；非 evolution 的 waiting_review 走默认 override 纪律。
       try {
         await runCoordinatorLane(app, projectId, 'lane-motive', {
           coordinator_run_id: `${SCEN}_coordinator_run_motive`,
@@ -2807,6 +2915,11 @@ async function main() {
             [SLOT.motiveDecomposition]: motiveDecompositionSlotPayload(spine, bundle),
             [SLOT.motiveEvolution]: motiveEvolutionSlotPayload(spine, bundle),
           },
+        }, {
+          resolveWaitingReview: async (waitingStep) =>
+            waitingStep?.slot_id === SLOT.motiveEvolution
+              ? resolveEvolutionHumanDecisionStop(app, projectId)
+              : null,
         });
       } catch (error) {
         registerGap('lane-motive', error);

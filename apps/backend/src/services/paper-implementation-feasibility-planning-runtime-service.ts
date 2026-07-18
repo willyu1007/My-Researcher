@@ -59,7 +59,10 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
-import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
+import {
+  requireAdmittedPassedFinalArtifact,
+  requireProceedRouteSkepticFinalArtifact,
+} from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   functionalRefEquals,
@@ -253,7 +256,9 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
       request.admitted_route_proposal_artifact_hash,
       PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_SLOT_ID,
     );
-    await requireAdmittedPassedFinalArtifact(
+    // T-133 D-133-1: a non-proceed skeptic verdict parks for human review and
+    // must not be consumable here even via direct runtime-route calls.
+    await requireProceedRouteSkepticFinalArtifact(
       this.runtimeAdmission,
       implementationProjectId,
       request.admitted_route_skeptic_artifact_ref,

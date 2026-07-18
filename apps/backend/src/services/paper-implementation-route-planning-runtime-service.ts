@@ -19,6 +19,7 @@ import {
   type PaperImplementationRoutePlanningRoleSlotId,
   type PaperImplementationRoutePlanningSlotId,
   type PaperImplementationRoutePlanningSourceContextPacket,
+  type PaperImplementationRouteSkepticDisposition,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
   type PaperImplementationRuntimeCacheStatus,
@@ -217,6 +218,12 @@ const SKEPTIC_PROFILE: SlotProfile = {
   promptPolicyId: 'paper-implementation.route-skeptic-review.prompt-redaction.v1',
 };
 
+// T-133 D-133-2 (curation echo-drift precedent): surfaced when the
+// deterministic disposition floor rewrites a proceed verdict that coexists with
+// blocking findings — observability only, never a blocker.
+const ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE_WARNING_CODE =
+  'ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE';
+
 const MAX_TECHNICAL_RETRY_ATTEMPT_INDEX = 1;
 const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   ...PAPER_IMPLEMENTATION_SHARED_RETRYABLE_RUNTIME_FAILURE_CODES,
@@ -327,13 +334,30 @@ export class PaperImplementationRoutePlanningRuntimeService {
       ...(roleArtifact.output?.blocker_codes ?? []),
       ...roleArtifact.artifact.blocker_codes,
     ]);
-    const finalStatus = blockerCodes.length > 0 || roleArtifact.output?.role_status === 'blocked'
-      ? 'blocked'
-      : 'passed';
+    // T-133 D-133-1 (single-trigger, skeptic only): a PASSED critique carrying
+    // blocking findings is a usable output whose verdict lives in
+    // recommended_disposition — its blocker codes stay on the final as the
+    // critique's audit entities and no longer force a blocked final (the
+    // coordinator parks the non-proceed passed final as waiting_review). Only
+    // the honest role_status='blocked' — the critique itself could not be
+    // produced — blocks the skeptic final. The architecture slot keeps the
+    // dual-trigger derivation unchanged.
+    const finalStatus = runtimeBase.profile.workflowType === 'route_skeptic_review'
+      ? roleArtifact.output?.role_status === 'blocked' ? 'blocked' : 'passed'
+      : blockerCodes.length > 0 || roleArtifact.output?.role_status === 'blocked'
+        ? 'blocked'
+        : 'passed';
+    const disposition = this.skepticFinalDisposition(runtimeBase.profile, roleArtifact.output);
     const warningCodes = this.uniqueStrings([
       ...(roleArtifact.output?.warning_codes ?? []),
       ...roleArtifact.artifact.warning_codes,
-      ...this.skepticRepairSuggestionWarnings(runtimeBase.profile, finalStatus, roleArtifact.output),
+      ...disposition.warningCodes,
+      ...this.skepticRepairSuggestionWarnings(
+        runtimeBase.profile,
+        finalStatus,
+        disposition.disposition,
+        roleArtifact.output,
+      ),
     ]);
     const final = await this.recordFinalArtifact(runtimeBase, request, {
       roleArtifact,
@@ -342,6 +366,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
       providerCallCount: roleArtifact.artifact.provider_call_count,
       blockerCodes,
       warningCodes,
+      recommendedDisposition: disposition.disposition,
     });
     artifacts.push(final.artifact);
     admissions.push(final.admission);
@@ -588,6 +613,9 @@ export class PaperImplementationRoutePlanningRuntimeService {
       providerCallCount: number;
       blockerCodes: string[];
       warningCodes: string[];
+      // T-133 D-133-2: the server-clamped skeptic disposition; when omitted the
+      // final payload echoes the role output value (architecture / preflight).
+      recommendedDisposition?: PaperImplementationRouteSkepticDisposition | null;
     },
   ): Promise<{ artifact: PaperImplementationRuntimeArtifactEnvelope; admission: PaperImplementationRuntimeAdmissionRecord }> {
     const finalPayload = this.finalPayload(runtimeBase, request, input);
@@ -797,6 +825,7 @@ export class PaperImplementationRoutePlanningRuntimeService {
       runtimeFailureCode: string | null;
       blockerCodes: string[];
       warningCodes: string[];
+      recommendedDisposition?: PaperImplementationRouteSkepticDisposition | null;
     },
   ): PaperImplementationRoutePlanningArtifact {
     const roleArtifact = input.roleArtifact.artifact;
@@ -828,7 +857,9 @@ export class PaperImplementationRoutePlanningRuntimeService {
       ]),
       checked_dimensions: roleOutput?.checked_dimensions ?? [],
       risk_findings: roleOutput?.risk_findings ?? [],
-      recommended_disposition: roleOutput?.recommended_disposition ?? null,
+      recommended_disposition: input.recommendedDisposition !== undefined
+        ? input.recommendedDisposition
+        : roleOutput?.recommended_disposition ?? null,
       no_domain_gate_request: true,
       no_queue_side_effect: true,
       role_artifact_refs: [roleArtifact.artifact_payload_ref],
@@ -950,6 +981,12 @@ export class PaperImplementationRoutePlanningRuntimeService {
         // model must copy them verbatim rather than paraphrase or re-derive.
         'Echo reviewed_route_proposal_ref and reviewed_route_proposal_hash exactly as the admitted_route_proposal_artifact_ref / admitted_route_proposal_artifact_hash provided in the request, and set reviewed_candidate_keys to exactly the request reviewed_candidate_keys (same set, verbatim).',
         'Check scope boundary, compute budget, dataset/metric alignment, baseline controls, traceability, and confirmatory/exploratory separation.',
+        // T-133 D-133-1 (prompt template v2): the role_status vs disposition
+        // split — fixable input defects are findings on a PASSED critique, and
+        // the deterministic clamp backstops the proceed/blocking-finding
+        // consistency server-side.
+        'Distinguish the two axes: role_status answers whether the critique itself could be produced — set role_status="blocked" ONLY when the inputs are unusable (unreadable, missing, or technically broken), never because the reviewed route has fixable defects; a blocked critique must carry blocker_codes naming what made the inputs unusable.',
+        'Report fixable defects of the reviewed input as risk_findings with severity="blocking" or "critical" (or blocks_route_progression=true, adding required_revision_refs where possible) on a role_status="passed" critique, and set recommended_disposition consistently: "proceed" only when no finding is blocking-class and blocker_codes is empty; "revise" when fixable gaps exist; the runtime deterministically rewrites "proceed" to "revise" whenever blocking-class findings or blocker_codes are present.',
         'The critique may recommend proceed, revise, park, or abandon, but must not create routes, validation cycles, queue items, Domain Gate requests, prompt text, or raw provider output.',
       ];
     return [
@@ -1429,18 +1466,71 @@ export class PaperImplementationRoutePlanningRuntimeService {
   }
 
   /**
-   * S2-C C4 transitional completeness check (pre-S3 contract deepening): a
-   * blocked skeptic outcome should carry actionable repair guidance. The
-   * current role contract expresses repair suggestions as
-   * risk_findings[].required_revision_refs; a blocked final without a single
-   * such ref gets a non-blocking completeness warning.
+   * T-133 D-133-2: the deterministic disposition floor for the skeptic slot.
+   * The verdict itself stays LLM-owned (revise vs park vs abandon is judgment),
+   * but its governance-relevant direction is clamped: a critique carrying any
+   * blocking finding (severity blocking/critical, or blocks_route_progression)
+   * can never read `proceed` — the server rewrites it to `revise` and surfaces
+   * the drift as a warning (never a blocker, curation echo-drift precedent), so
+   * the LLM can only err toward human review, never past it. A
+   * revise/park/abandon verdict without blocking findings is respected (also
+   * the human-review direction). The architecture slot passes its echoed
+   * disposition through unchanged.
+   */
+  private skepticFinalDisposition(
+    profile: SlotProfile,
+    output: PaperImplementationRoutePlanningRoleOutput | null,
+  ): {
+    disposition: PaperImplementationRouteSkepticDisposition | null;
+    warningCodes: string[];
+  } {
+    const echoed = output?.recommended_disposition ?? null;
+    // The clamp only applies to a PASSED critique (T-133 P3 review fix): a
+    // blocked output's disposition is echoed untouched — the verdict axis is
+    // undefined when the critique itself could not be produced, and the final
+    // is terminal blocked regardless.
+    if (profile.workflowType !== 'route_skeptic_review' || !output || output.role_status !== 'passed') {
+      return { disposition: echoed, warningCodes: [] };
+    }
+    // T-133 P3 review fix (D-133-2): non-empty blocker_codes on a passed
+    // critique are blocking entities too — under the single-trigger derivation
+    // they no longer force a blocked final, so without this arm a proceed
+    // verdict alongside honest codes would sail past the human review (the old
+    // dual-trigger blocked exactly this shape).
+    const hasBlockingFinding = (output.risk_findings ?? []).some((finding) =>
+      finding.severity === 'blocking'
+      || finding.severity === 'critical'
+      || finding.blocks_route_progression === true)
+      || (output.blocker_codes?.length ?? 0) > 0;
+    if (echoed === 'proceed' && hasBlockingFinding) {
+      return {
+        disposition: 'revise',
+        warningCodes: [ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE_WARNING_CODE],
+      };
+    }
+    return { disposition: echoed, warningCodes: [] };
+  }
+
+  /**
+   * S2-C C4 transitional completeness check (pre-S3 contract deepening),
+   * extended by T-133 D-133-1: a non-proceed skeptic outcome — a blocked final
+   * OR a passed final whose verdict is revise/park/abandon — should carry
+   * actionable repair guidance. The current role contract expresses repair
+   * suggestions as risk_findings[].required_revision_refs; such an outcome
+   * without a single such ref gets a non-blocking completeness warning.
    */
   private skepticRepairSuggestionWarnings(
     profile: SlotProfile,
     finalStatus: 'passed' | 'blocked' | 'failed_runtime',
+    disposition: PaperImplementationRouteSkepticDisposition | null,
     output: PaperImplementationRoutePlanningRoleOutput | null,
   ): string[] {
-    if (profile.workflowType !== 'route_skeptic_review' || finalStatus !== 'blocked' || !output) {
+    if (profile.workflowType !== 'route_skeptic_review' || !output) {
+      return [];
+    }
+    const nonProceedOutcome = finalStatus === 'blocked'
+      || (disposition !== null && disposition !== 'proceed');
+    if (!nonProceedOutcome) {
       return [];
     }
     const hasRepairGuidance = (output.risk_findings ?? [])

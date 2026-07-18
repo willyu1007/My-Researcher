@@ -56,6 +56,7 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
+import { InMemoryPaperImplementationHumanConfirmationRepository } from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
@@ -596,6 +597,24 @@ test('coordinator budget exhaustion parks the run as budget_exhausted', async ()
   );
   assert.equal(fixture.orchestrator.calls.length, orchestratorCallsBefore);
 
+  // T-133 P3 review fix (state-machine C4, R1 discipline): review_acceptance
+  // on a raise-less advance of a budget-exhausted run is rejected loudly —
+  // never silently swallowed by the idempotent no-op.
+  await assert.rejects(
+    () => fixture.coordinator.advance(PROJECT_ID, run.coordinator_run_id, {
+      holder_id: 'holder_budget_acceptance',
+      review_acceptance: {
+        slot_id: PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID,
+        decision_ref: 'motive_evolution_decision_any',
+        acceptance_actor_id: 'reviewer_any',
+      },
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+  assert.equal(fixture.orchestrator.calls.length, orchestratorCallsBefore);
+
   // R1: overrides without a raise must never ride the idempotent no-op and
   // be silently dropped — loud 400, no lease, no execution.
   await assert.rejects(
@@ -1022,6 +1041,7 @@ test('coordinator constructor dependency surface stays structurally zero-authori
   const fixture = coordinatorFixture();
   const instanceKeys = Object.keys(fixture.coordinator).sort();
   assert.deepEqual(instanceKeys, [
+    'confirmationReader',
     'coordinatorRepository',
     'crossBoardSynthesisRuntime',
     'decisionQueueWriter',
@@ -1029,6 +1049,7 @@ test('coordinator constructor dependency surface stays structurally zero-authori
     'feasibilityPlanningRuntime',
     'idFactory',
     'leaseTtlMs',
+    'motiveDecisionReader',
     'motiveDecompositionRuntime',
     'motiveEvolutionRuntime',
     'now',
@@ -1042,12 +1063,18 @@ test('coordinator constructor dependency surface stays structurally zero-authori
   // domain authority — so the allowed persistence handles are exactly the
   // coordinator's own state machine, the read-only project preflight, the
   // decision-queue writer, and (S2-B B3) the read-only runtime artifact
-  // lookback. Still no domain authority repositories
+  // lookback. T-133 confirm-and-continue adds two more READ-ONLY single-method
+  // validators (motive decision + human confirmation lookups) — the
+  // coordinator rechecks the referenced decision before synthesizing the
+  // accepted step but still never writes any authority object. Still no
+  // domain authority repositories
   // (motive/trace/validation/workorder/dossier/confirmation/harness).
   const persistenceKeys = instanceKeys.filter((key) => /repository|writer|reader/i.test(key));
   assert.deepEqual(persistenceKeys, [
+    'confirmationReader',
     'coordinatorRepository',
     'decisionQueueWriter',
+    'motiveDecisionReader',
     'projectRepository',
     'runtimeArtifactReader',
   ]);
@@ -1065,6 +1092,13 @@ test('coordinator constructor dependency surface stays structurally zero-authori
   // write surface into the runtime artifact store.
   const reader = (fixture.coordinator as unknown as { runtimeArtifactReader: object }).runtimeArtifactReader;
   assert.deepEqual(Object.keys(reader), ['findRuntimeArtifactById']);
+  // T-133: the confirm-and-continue validators are single read methods too —
+  // the coordinator can look a decision/confirmation up, never create,
+  // consume, or mutate one.
+  const decisionReader = (fixture.coordinator as unknown as { motiveDecisionReader: object }).motiveDecisionReader;
+  assert.deepEqual(Object.keys(decisionReader), ['findMotiveEvolutionDecisionById']);
+  const confirmationReader = (fixture.coordinator as unknown as { confirmationReader: object }).confirmationReader;
+  assert.deepEqual(Object.keys(confirmationReader), ['findHumanConfirmationRecordById']);
 });
 
 test('coordinator listCoordinatorRunsByProject returns the slim projection without slot_request_payloads', async () => {
@@ -2217,6 +2251,8 @@ function coordinatorFixture(
   };
   const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
   const harnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
+  const motiveRepository = new InMemoryPaperImplementationMotiveRepository();
+  const humanConfirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
   const routePlanningRuntime = new PaperImplementationRoutePlanningRuntimeService(slotServiceOptions);
   const evidenceBoardCurationRuntime = new PaperImplementationEvidenceBoardCurationRuntimeService(slotServiceOptions);
   const buildCoordinator = (
@@ -2244,6 +2280,15 @@ function coordinatorFixture(
       motiveEvolutionRuntime: new PaperImplementationMotiveEvolutionRuntimeService(slotServiceOptions),
       evidenceBoardCurationRuntime,
       crossBoardSynthesisRuntime: new PaperImplementationCrossBoardSynthesisRuntimeService(slotServiceOptions),
+      // T-133 confirm-and-continue read-only validators (mirrors app.ts wiring).
+      motiveDecisionReader: {
+        findMotiveEvolutionDecisionById: (implementationProjectId, decisionId) =>
+          motiveRepository.findMotiveEvolutionDecisionById(implementationProjectId, decisionId),
+      },
+      confirmationReader: {
+        findHumanConfirmationRecordById: (implementationProjectId, confirmationRecordId) =>
+          humanConfirmationRepository.findHumanConfirmationRecordById(implementationProjectId, confirmationRecordId),
+      },
       idFactory,
       now,
       leaseTtlMs: 60_000,
@@ -2265,6 +2310,8 @@ function coordinatorFixture(
     buildCoordinator,
     coordinatorRepository,
     harnessRepository,
+    motiveRepository,
+    humanConfirmationRepository,
     runtimeRepository,
     runtimeAdmission,
     projectRepository,

@@ -284,6 +284,9 @@ const RETRYABLE_RUNTIME_FAILURE_CODES = new Set<string>([
   // inverse direction of MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING. Moved, not
   // deleted: the canonical schema keeps the interlock unchanged.
   'MOTIVE_EVOLUTION_CHALLENGE_CHECK_INCONSISTENT',
+  // T-133 P3: blocked challenge axis without option-level blocker codes — the
+  // deterministic mirror that keeps the mixed-defect red line enforceable.
+  'MOTIVE_EVOLUTION_OPTION_BLOCKER_CODES_MISSING',
   'MOTIVE_EVOLUTION_HUMAN_CONFIRMATION_GATE_MISSING',
   'MOTIVE_EVOLUTION_SIDE_EFFECT_GUARD_MISSING',
   'MOTIVE_EVOLUTION_AUTHORITY_FIELD_PRESENT',
@@ -452,7 +455,11 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     const admittedChallengerArtifact =
       challengerArtifact as RecordedRuntimeArtifact<PaperImplementationMotiveEvolutionRiskChallengerRoleOutput>;
 
-    const blockerCodes = this.outputBlockerCodes(admittedChallengerArtifact.output, admittedChallengerArtifact.artifact.blocker_codes);
+    // T-133 D-133-2 (P2): the FINAL aggregation recomputes from the challenger
+    // output with the awaiting-human exclusion (the role-artifact envelope
+    // codes are themselves output-derived at record time, so no fallback is
+    // lost); the role artifact keeps the unfiltered aggregation for audit.
+    const blockerCodes = this.finalBlockerCodes(admittedChallengerArtifact.output);
     const warningCodes = this.outputWarningCodes(admittedChallengerArtifact.output, admittedChallengerArtifact.artifact.warning_codes);
     const finalStatus = blockerCodes.length > 0 || admittedChallengerArtifact.output.role_status === 'blocked'
       ? 'blocked'
@@ -758,6 +765,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
       warnings: [],
       runtime_failure_code: null,
       decision_options: {},
+      human_decision_required_option_keys: [],
       no_domain_gate_request: true,
       no_queue_side_effect: true,
       no_motive_write_side_effect: true,
@@ -1170,6 +1178,7 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
       warnings: this.uniqueStrings(input.warningCodes),
       runtime_failure_code: input.runtimeFailureCode,
       decision_options: challengerOutput.decision_options,
+      human_decision_required_option_keys: this.humanDecisionRequiredOptionKeys(challengerOutput),
       no_domain_gate_request: true,
       no_queue_side_effect: true,
       no_motive_write_side_effect: true,
@@ -1989,6 +1998,16 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
     if (decisionOptions.some((option) => this.challengeCheckMissingBlocker(option.challenge_check))) {
       return 'MOTIVE_EVOLUTION_BOUNDARY_BLOCKER_MISSING';
     }
+    // T-133 P3 review fix (D-133-2 red-line enforcement): a blocked challenge
+    // axis must mirror into option-level blocker_codes — the final aggregation
+    // reads ONLY option.blocker_codes, so without this interlock a challenger
+    // could report a blocked axis purely in challenge_check reason codes and
+    // land a PASSED final over an unvetted option. Deterministic, retryable.
+    if (decisionOptions.some((option) =>
+      this.challengeCheckHasBlockedStatus(option.challenge_check)
+      && option.blocker_codes.length === 0)) {
+      return 'MOTIVE_EVOLUTION_OPTION_BLOCKER_CODES_MISSING';
+    }
     // T-124 G4.6 Fix 2 (moved from the wire schema's challenge_check anyOf):
     // blocking_reason_codes must be empty when NO status is blocked — the
     // inverse direction of the blocked-status-needs-reason link above. Enforced
@@ -2181,6 +2200,66 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
       ...(output?.warning_codes ?? []),
       ...Object.values(this.decisionOptions(output)).flatMap((option) => option.warning_codes),
     ]);
+  }
+
+  /**
+   * T-133 D-133-2 (P2): SERVER-DERIVED "a human decision is required" keys —
+   * the challenged options whose kind/impact class sits in the
+   * portfolio-changing set (the exact deterministic set
+   * `optionHumanGateFailureCode` enforces the confirmation flag over, so a
+   * listed option is always properly flagged). Pure structure; the LLM cannot
+   * add or remove keys. A non-empty list on a PASSED final is the coordinator's
+   * waiting_review park condition (confirm-and-continue resumes it).
+   */
+  private humanDecisionRequiredOptionKeys(
+    output: PaperImplementationMotiveEvolutionRoleOutput | null,
+  ): string[] {
+    return Object.entries(this.decisionOptions(output))
+      .filter(([, option]) => PORTFOLIO_CHANGING_OPTION_KINDS.has(option.option_kind)
+        || PORTFOLIO_CHANGING_IMPACT_CLASSES.has(option.portfolio_impact_class))
+      .map(([key]) => key)
+      .sort();
+  }
+
+  /**
+   * T-133 D-133-2 (P2) final aggregation: an option whose ONLY blocked
+   * challenge axis is the human-confirmation gate — and which properly
+   * declares `human_confirmation_required` (the deterministic flag guard ran
+   * before this) — is "decision support awaiting a human", not a defect of
+   * the output. Its option-level blocker codes stay on the option as audit
+   * entities but no longer aggregate into the final blockers, so a pure
+   * awaiting-human option set lands a PASSED final. Any other blocked/partial
+   * axis keeps the option's codes aggregating — a mixed-defect final stays
+   * honestly blocked (terminal, red line). Role-artifact aggregation
+   * (`outputBlockerCodes`) is intentionally unchanged for audit honesty.
+   */
+  private finalBlockerCodes(
+    output: PaperImplementationMotiveEvolutionRoleOutput | null,
+  ): string[] {
+    return this.uniqueStrings([
+      ...(output?.blocker_codes ?? []),
+      ...Object.values(this.decisionOptions(output))
+        .filter((option) => !this.optionAwaitsHumanDecisionOnly(option))
+        .flatMap((option) => option.blocker_codes),
+    ]);
+  }
+
+  private optionAwaitsHumanDecisionOnly(
+    option: PaperImplementationMotiveEvolutionDecisionOption,
+  ): boolean {
+    const portfolioChanging = PORTFOLIO_CHANGING_OPTION_KINDS.has(option.option_kind)
+      || PORTFOLIO_CHANGING_IMPACT_CLASSES.has(option.portfolio_impact_class);
+    if (!portfolioChanging || option.human_confirmation_required !== true) {
+      return false;
+    }
+    const check = option.challenge_check;
+    const otherAxesClean = [
+      check.evidence_status,
+      check.trace_status,
+      check.portfolio_status,
+      check.downstream_impact_status,
+    ].every((status) => status === 'satisfied' || status === 'not_applicable');
+    return check.human_confirmation_status === 'blocked' && otherAxesClean;
   }
 
   private decisionOptions(

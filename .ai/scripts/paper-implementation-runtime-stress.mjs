@@ -135,6 +135,41 @@ const REQUIRED_L5_CASES = [
     subtest: 'L5 route skeptic incomplete dimension set retries once and does not create final, queue, or domain-gate payloads',
   },
   {
+    // T-133 D-133-1 (形状2 single-trigger): a PASSED critique with blocking
+    // findings and disposition=revise lands a passed final that the coordinator
+    // parks as waiting_review (semantic stop, no queue item) — the designed
+    // four-point-#1 skeptic stop that never fired before T-133.
+    key: 'route_skeptic_revise_disposition_waiting_review_full_chain',
+    subtest: 'L5 route skeptic revise disposition parks the coordinator run as waiting_review across the full chain (T-133 D-133-1)',
+  },
+  {
+    // T-133 revise-and-retry: after the waiting_review park, a human payload
+    // override + re-advance reruns the slot; a proceed critique then completes
+    // the remaining validation-planning lane steps.
+    key: 'route_skeptic_revise_override_re_advance_completes_lane',
+    subtest: 'L5 route skeptic revise waiting_review override re-advance completes the validation-planning lane (T-133 revise-and-retry)',
+  },
+  {
+    // T-133 D-133-1 red line: role_status='blocked' (the critique itself could
+    // not be produced) keeps the honest terminal blocked path with a
+    // decision-queue item — no blocked→waiting_review routing was opened.
+    key: 'route_skeptic_role_blocked_terminal_blocked_with_queue_item',
+    subtest: 'L5 route skeptic role-blocked critique stays a terminal blocked with a decision-queue item (T-133 D-133-1)',
+  },
+  {
+    // T-133 D-133-2: the deterministic disposition floor — proceed cannot
+    // coexist with blocking findings; the server rewrites it to revise and
+    // surfaces a drift warning (the LLM can only err toward human review).
+    key: 'route_skeptic_proceed_with_blocking_findings_clamped_to_revise',
+    subtest: 'L5 route skeptic proceed with blocking findings is deterministically clamped to revise with a drift warning (T-133 D-133-2)',
+  },
+  {
+    // T-133 downstream gate: a non-proceed skeptic final parks for review and
+    // must not be consumable via direct runtime-route calls either.
+    key: 'route_skeptic_non_proceed_final_not_consumable_downstream',
+    subtest: 'L5 validation cycle planning refuses a non-proceed route skeptic final with a fail-closed 409 (T-133 downstream gate)',
+  },
+  {
     key: 'route_architecture_over_budget_compression_applied_completes',
     subtest: 'L5 route architecture compressible over-budget packet context compresses and completes with verifiable lineage',
   },
@@ -324,6 +359,47 @@ const REQUIRED_L5_CASES = [
     // self-reporting MISSING_DESIGNER_OPTION_KEYS / MISSING_DESIGNER_ARTIFACT_CONTENT.
     key: 'motive_evolution_challenger_receives_designer_designed_options_body_full_chain',
     subtest: 'L5 motive evolution challenger receives the designer designed_options body and challenges every option key',
+  },
+  {
+    // T-133 P2 (D-133-2): a properly flagged lineage-changing option whose only
+    // blocked challenge axis is the human-confirmation gate lands a PASSED
+    // final carrying server-derived human_decision_required_option_keys — the
+    // coordinator parks the motive lane as waiting_review (semantic stop, no
+    // queue item) instead of the old terminal blocked.
+    key: 'motive_evolution_confirmable_option_parks_run_as_waiting_review_full_chain',
+    subtest: 'L5 motive evolution confirmable lineage option parks the coordinator run as waiting_review across the full chain (T-133 P2)',
+  },
+  {
+    // T-133 P2 (D-133-3): confirm-and-continue — an approved MotiveEvolutionDecision
+    // covering the parked final's motives (with its consumed confirmation)
+    // synthesizes a passed step with zero provider calls and completes the lane.
+    key: 'motive_evolution_confirm_and_continue_completes_lane_without_rerun',
+    subtest: 'L5 motive evolution confirm-and-continue completes the motive lane without re-running the slot (T-133 P2)',
+  },
+  {
+    // T-133 P2 red line: a mixed-defect final (another challenge axis blocked
+    // besides the human gate) keeps its codes aggregating — terminal blocked
+    // with a decision-queue item, no blocked→waiting_review routing.
+    key: 'motive_evolution_mixed_defect_blocked_final_stays_terminal_blocked',
+    subtest: 'L5 motive evolution mixed-defect blocked final stays a terminal blocked with a decision-queue item (T-133 P2 red line)',
+  },
+  {
+    // T-133 D-133-3 verb lock: the evolution human-decision stop has exactly
+    // one exit — a plain or payload-override re-advance fails closed.
+    key: 'motive_evolution_human_decision_stop_rejects_re_advance_without_acceptance',
+    subtest: 'L5 motive evolution human-decision stop rejects a re-advance without review_acceptance (T-133 verb lock)',
+  },
+  {
+    // T-133 confirm gate: review_acceptance fails closed on an unapproved
+    // decision and on a revise-family (skeptic) stop — the verbs never mix.
+    key: 'motive_evolution_review_acceptance_rejects_unapproved_decision_and_wrong_slot_family',
+    subtest: 'L5 motive evolution review_acceptance rejects an unapproved decision and the revise-family slot (T-133 confirm gate)',
+  },
+  {
+    // T-133 P3 复审修复(对抗 C1):任何被拒绝的 advance(错动词/错 ref)都不得
+    // terminalize 人决策停驻——park 存活且合法 confirm 事后仍可行使。
+    key: 'motive_evolution_rejected_acceptance_leaves_run_parked',
+    subtest: 'L5 motive evolution rejected acceptance leaves the run parked and a later valid confirm succeeds (T-133 P3 C1)',
   },
   {
     key: 'p1_current_role_retry_no_prior_role_rerun',

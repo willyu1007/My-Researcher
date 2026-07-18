@@ -355,7 +355,11 @@ function skepticSeedRoleOutput(
       required_revision_refs: [],
       blocks_route_progression: false,
     }],
-    recommended_disposition: 'revise',
+    // T-133 D-133-1: the seeded strong-path critique must read `proceed` — a
+    // non-proceed verdict parks for human review and (downstream gate) can no
+    // longer feed cycle/feasibility consumers. A warning-only finding is
+    // consistent with proceed under the deterministic clamp.
+    recommended_disposition: 'proceed',
     no_queue_side_effect: true,
   };
 }

@@ -936,6 +936,191 @@ test('route skeptic runtime omits the repair-suggestions warning when blocked fi
 });
 
 // ---------------------------------------------------------------------------
+// T-133 D-133-1/2 derivation matrix: the single-trigger final status for the
+// skeptic slot (final blocked ⇔ role_status='blocked') and the deterministic
+// disposition floor (proceed cannot coexist with blocking findings).
+// ---------------------------------------------------------------------------
+
+function t133BlockingFinding(revisionRefs: boolean): NonNullable<PaperImplementationRoutePlanningRoleOutput['risk_findings']>[number] {
+  return {
+    finding_id: 'route_risk_finding_t133_blocking_001',
+    risk_dimension: 'dataset_metric_alignment',
+    severity: 'blocking',
+    summary: 'Subsampling protocol is unspecified in the reviewed input; the input needs revision.',
+    evidence_refs: [ref('implementation_input_snapshot', 'input_snapshot_001')],
+    affected_candidate_keys: ['exploratory_route_candidate'],
+    required_revision_refs: revisionRefs
+      ? [ref('implementation_input_snapshot', 'input_snapshot_001')]
+      : [],
+    blocks_route_progression: true,
+  };
+}
+
+test('route skeptic passed critique with blocking findings and revise lands a PASSED final carrying its codes (T-133 D-133-1)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    blocker_codes: ['SUBSAMPLING_PROTOCOL_UNSPECIFIED_T133'],
+    risk_findings: [t133BlockingFinding(true)],
+    recommended_disposition: 'revise',
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_revise_passed_run_001'),
+  );
+
+  // Single-trigger: the critique is usable (role passed), so the final is
+  // PASSED with the revise verdict — the blocker codes stay on the final as
+  // the critique's audit entities, they no longer force a blocked final.
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.runtime_status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.deepEqual(
+    result.final_runtime_artifact?.artifact_payload.blockers,
+    ['SUBSAMPLING_PROTOCOL_UNSPECIFIED_T133'],
+  );
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'),
+    false,
+  );
+  // Findings carry revision refs, so no repair-suggestions completeness warning.
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'),
+    false,
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('route skeptic proceed with blocking findings is deterministically clamped to revise with a drift warning (T-133 D-133-2)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    risk_findings: [t133BlockingFinding(true)],
+    recommended_disposition: 'proceed',
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_clamp_run_001'),
+  );
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'),
+    true,
+  );
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+});
+
+test('route skeptic revise without blocking findings is respected without a clamp warning (T-133 D-133-2 safe direction)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  // The default fixture shape: warning-only finding + revise. The clamp only
+  // tightens toward human review, so an LLM revise without blocking findings
+  // stays revise (and parks) — never silently promoted to proceed.
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_respected_revise_run_001'),
+  );
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'),
+    false,
+  );
+  // T-133 extension of the S2-C C4 completeness warning: a passed revise final
+  // without a single required_revision_refs entry is flagged (non-blocking).
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'),
+    true,
+  );
+});
+
+test('route skeptic proceed with non-empty blocker codes is clamped even without blocking findings (T-133 P3 C-1)', async () => {
+  // P3 review fix: under the single-trigger derivation, codes no longer force
+  // a blocked final — so an honest codes channel alongside a proceed verdict
+  // must clamp to revise (the old dual-trigger blocked exactly this shape;
+  // letting it through would cross the human review in the unsafe direction).
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    blocker_codes: ['SUBSAMPLING_PROTOCOL_UNSPECIFIED_T133'],
+    recommended_disposition: 'proceed',
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_codes_clamp_run_001'),
+  );
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'revise');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'),
+    true,
+  );
+});
+
+test('route skeptic blocked output is never clamped and keeps the terminal blocked shape (T-133 P3 P-2)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    role_status: 'blocked',
+    blocker_codes: ['ROUTE_INPUT_SNAPSHOT_UNREADABLE_T133'],
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    risk_findings: [t133BlockingFinding(true)],
+    recommended_disposition: 'proceed',
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_blocked_no_clamp_run_001'),
+  );
+
+  assert.equal(result.status, 'blocked');
+  // The verdict axis is undefined on a blocked critique — echoed untouched,
+  // no clamp drift warning (the final is terminal blocked regardless).
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'proceed');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.includes('ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'),
+    false,
+  );
+});
+
+test('route skeptic proceed without blocking findings keeps the untouched strong path (T-133 regression guard)', async () => {
+  const { service, seedLineage } = mockedEchoServiceFixture();
+  const lineage = await seedLineage();
+  const fixture = routeSkepticRoleOutput({
+    reviewed_route_proposal_ref: null,
+    reviewed_route_proposal_hash: null,
+    recommended_disposition: 'proceed',
+  });
+  const result = await service.runRouteSkepticReview(
+    PROJECT_ID,
+    mockedSkepticRequest(lineage, fixture, 'route_skeptic_t133_strong_path_run_001'),
+  );
+
+  assert.equal(result.status, 'passed');
+  assert.equal(result.final_runtime_artifact?.artifact_payload.recommended_disposition, 'proceed');
+  assert.equal(
+    result.final_runtime_artifact?.warning_codes.some((code) =>
+      code === 'ROUTE_SKEPTIC_DISPOSITION_CLAMPED_TO_REVISE'
+      || code === 'ROUTE_SKEPTIC_REPAIR_SUGGESTIONS_MISSING'),
+    false,
+  );
+});
+
+// ---------------------------------------------------------------------------
 // T-124 S3-α4: role_slot_id echo mismatch is a retryable technical failure
 // (single-source S2-C constant), and the skeptic reconciles present-but-drifted
 // upstream echoes against the request-injected admitted values.

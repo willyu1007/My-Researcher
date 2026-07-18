@@ -177,3 +177,45 @@ export async function requireAdmittedPassedFinalArtifact(
   });
   return { artifact, admission };
 }
+
+/**
+ * T-133 D-133-1 downstream gate: route-skeptic upstream consumption
+ * additionally requires the critique verdict `recommended_disposition='proceed'`.
+ * Under the single-trigger (passed-final) derivation a revise/park/abandon
+ * critique final carries runtime_status='passed' — the coordinator parks it as
+ * waiting_review, and a direct runtime-route caller must not be able to consume
+ * it downstream either (fail-closed 409, same guard-detail shape). Only a
+ * proceed final — or a fresh proceed attempt after the human review — unlocks
+ * the cycle/feasibility consumers.
+ */
+export async function requireProceedRouteSkepticFinalArtifact(
+  runtimeAdmission: PaperImplementationRuntimeAdmissionService,
+  implementationProjectId: string,
+  artifactRef: TopicSelectionFunctionalRef | null | undefined,
+  expectedHash: string | null | undefined,
+  expectedSlotId: string,
+): Promise<PaperImplementationAdmittedPassedFinalArtifact> {
+  const consumed = await requireAdmittedPassedFinalArtifact(
+    runtimeAdmission,
+    implementationProjectId,
+    artifactRef,
+    expectedHash,
+    expectedSlotId,
+  );
+  const disposition = (consumed.artifact.artifact_payload as { recommended_disposition?: unknown })
+    .recommended_disposition;
+  if (disposition !== 'proceed') {
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      `Upstream route-skeptic final ${consumed.artifact.runtime_artifact_id} carries recommended_disposition=${String(disposition ?? 'null')}; only a proceed critique can be consumed downstream (non-proceed verdicts park for human review).`,
+      {
+        guard: 'route_skeptic_disposition_proceed',
+        consumer: `runtime_slot_consumption:${expectedSlotId}`,
+        runtime_artifact_id: consumed.artifact.runtime_artifact_id,
+        recommended_disposition: disposition ?? null,
+      },
+    );
+  }
+  return consumed;
+}

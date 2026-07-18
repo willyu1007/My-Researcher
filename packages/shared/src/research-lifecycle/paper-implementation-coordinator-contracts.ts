@@ -222,7 +222,30 @@ export interface PaperImplementationCoordinatorStep {
   outcome: PaperImplementationCoordinatorStepOutcome;
   provider_call_count: number;
   blocker_codes: string[];
+  /**
+   * T-133 D-133-3 minimal audit (persisted inside the step payload JSON — no
+   * migration required, `budget_raise_events` precedent): the advance holder
+   * that produced this attempt, so waiting_review override / acceptance actors
+   * are visible product-side (the lease holder is cleared on finish and was
+   * never persisted per-step). Optional for steps persisted before the field.
+   */
+  advance_holder_id?: string | null;
+  /**
+   * T-133 confirm-and-continue: set ONLY on a step synthesized by a
+   * review-acceptance advance (the evolution human-decision waiting_review
+   * stop) — records the accepted MotiveEvolutionDecision, the consumed
+   * confirmation it carried, and the accepting actor. Absent/null on every
+   * executed step; a synthesized step never issues provider calls.
+   */
+  review_acceptance?: PaperImplementationCoordinatorReviewAcceptanceRecord | null;
   created_at: string;
+}
+
+/** T-133: the audit record a confirm-and-continue advance stamps on its synthesized step. */
+export interface PaperImplementationCoordinatorReviewAcceptanceRecord {
+  decision_ref: string;
+  human_confirmation_ref: string | null;
+  acceptance_actor_id: string;
 }
 
 export interface CreatePaperImplementationCoordinatorRunRequest {
@@ -255,6 +278,25 @@ export interface AdvancePaperImplementationCoordinatorRunRequest {
    * `budget_raise_events`.
    */
   raise_budget_envelope?: PaperImplementationCoordinatorBudgetEnvelopeRaise | null;
+  /**
+   * T-133 confirm-and-continue (D-133-3): accept an evolution
+   * human-decision waiting_review stop by referencing an approved/applied
+   * MotiveEvolutionDecision instead of re-running the slot. The coordinator
+   * deterministically validates the decision (status, target coverage over
+   * the parked final artifact's motives, consumed human confirmation) and
+   * synthesizes a passed step with zero provider calls. Verbs never mix:
+   * this field is rejected on revise-family stops (skeptic/curation) and
+   * cannot be combined with `slot_request_payload_overrides`; an evolution
+   * human-decision stop conversely rejects advances WITHOUT this field.
+   */
+  review_acceptance?: PaperImplementationCoordinatorReviewAcceptanceRequest | null;
+}
+
+/** T-133: the confirm-and-continue request face. */
+export interface PaperImplementationCoordinatorReviewAcceptanceRequest {
+  slot_id: string;
+  decision_ref: string;
+  acceptance_actor_id: string;
 }
 
 export interface PaperImplementationCoordinatorRunWithSteps {
@@ -461,6 +503,22 @@ export const paperImplementationCoordinatorStepSchema = {
     outcome: stepOutcomeSchema,
     provider_call_count: nonNegativeInteger,
     blocker_codes: stringArray,
+    advance_holder_id: nullableStringId,
+    review_acceptance: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['decision_ref', 'human_confirmation_ref', 'acceptance_actor_id'],
+          properties: {
+            decision_ref: stringId,
+            human_confirmation_ref: nullableStringId,
+            acceptance_actor_id: stringId,
+          },
+        },
+        { type: 'null' },
+      ],
+    },
     created_at: stringId,
   },
 } as const;
@@ -495,6 +553,21 @@ export const advancePaperImplementationCoordinatorRunRequestSchema = {
     slot_request_payload_overrides: slotRequestPayloadsSchema,
     raise_budget_envelope: {
       anyOf: [paperImplementationCoordinatorBudgetEnvelopeRaiseSchema, { type: 'null' }],
+    },
+    review_acceptance: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['slot_id', 'decision_ref', 'acceptance_actor_id'],
+          properties: {
+            slot_id: stringId,
+            decision_ref: stringId,
+            acceptance_actor_id: stringId,
+          },
+        },
+        { type: 'null' },
+      ],
     },
   },
 } as const;

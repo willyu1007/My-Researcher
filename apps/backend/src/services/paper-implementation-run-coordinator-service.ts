@@ -16,6 +16,7 @@ import {
   type PaperImplementationCoordinatorLaneId,
   type PaperImplementationCoordinatorRun,
   type PaperImplementationCoordinatorRunWithSteps,
+  type PaperImplementationCoordinatorReviewAcceptanceRequest,
   type PaperImplementationCoordinatorStep,
   type PaperImplementationCoordinatorStepOutcome,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
@@ -57,11 +58,18 @@ import type {
 import type {
   PaperImplementationRuntimeRepository,
 } from '../repositories/paper-implementation-runtime.repository.js';
+import type {
+  PaperImplementationMotiveRepository,
+} from '../repositories/paper-implementation-motive.repository.js';
+import type {
+  PaperImplementationHumanConfirmationRepository,
+} from '../repositories/paper-implementation-human-confirmation.repository.js';
 import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
+import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type { PaperImplementationRoutePlanningRuntimeService } from './paper-implementation-route-planning-runtime-service.js';
 import type {
   PaperImplementationValidationCyclePlanningRuntimeService,
@@ -515,6 +523,15 @@ export interface PaperImplementationRunCoordinatorServiceOptions {
   motiveEvolutionRuntime: PaperImplementationCoordinatorMotiveEvolutionRuntime;
   evidenceBoardCurationRuntime: PaperImplementationCoordinatorEvidenceBoardCurationRuntime;
   crossBoardSynthesisRuntime: PaperImplementationCoordinatorCrossBoardSynthesisRuntime;
+  /**
+   * T-133 confirm-and-continue read-only validators: the coordinator never
+   * writes decisions or confirmations — it only rechecks the referenced
+   * MotiveEvolutionDecision (status / target coverage) and its consumed human
+   * confirmation before synthesizing the accepted step. Both are narrow
+   * read-only Picks, preserving the zero-authority-write dependency surface.
+   */
+  motiveDecisionReader: Pick<PaperImplementationMotiveRepository, 'findMotiveEvolutionDecisionById'>;
+  confirmationReader: Pick<PaperImplementationHumanConfirmationRepository, 'findHumanConfirmationRecordById'>;
   idFactory?: (prefix: string) => string;
   now?: () => string;
   leaseTtlMs?: number;
@@ -554,6 +571,23 @@ class CoordinatorPersistenceFailure extends Error {
 }
 
 /**
+ * T-133 P3 review fix (adversarial C1): wrapper distinguishing CLIENT-RECOVERABLE
+ * advance rejections (verb lock, review-acceptance validation 409/400) from
+ * coordinator logic faults. Before this wrapper existed, these expected
+ * rejections fell into the generic catch and `tryMarkFailed` TERMINALIZED the
+ * run — a single wrong advance (or a typo'd decision_ref) permanently
+ * destroyed a parked human-decision stop. A rejection restores the pre-advance
+ * run status (releasing the lease) and rethrows the original error; the run
+ * stays advanceable.
+ */
+class CoordinatorAdvanceRejection extends Error {
+  constructor(public readonly original: AppError) {
+    super('Coordinator advance rejected.');
+    this.name = 'CoordinatorAdvanceRejection';
+  }
+}
+
+/**
  * S4 list projection: the read-only project-level coordinator-run list omits
  * the heavy `slot_request_payloads` map (a per-slot full request-body blob the
  * list view never needs — the single-run GET still returns it in full).
@@ -574,6 +608,8 @@ export class PaperImplementationRunCoordinatorService {
   private readonly motiveEvolutionRuntime: PaperImplementationCoordinatorMotiveEvolutionRuntime;
   private readonly evidenceBoardCurationRuntime: PaperImplementationCoordinatorEvidenceBoardCurationRuntime;
   private readonly crossBoardSynthesisRuntime: PaperImplementationCoordinatorCrossBoardSynthesisRuntime;
+  private readonly motiveDecisionReader: Pick<PaperImplementationMotiveRepository, 'findMotiveEvolutionDecisionById'>;
+  private readonly confirmationReader: Pick<PaperImplementationHumanConfirmationRepository, 'findHumanConfirmationRecordById'>;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
   private readonly leaseTtlMs: number;
@@ -590,6 +626,8 @@ export class PaperImplementationRunCoordinatorService {
     this.motiveEvolutionRuntime = options.motiveEvolutionRuntime;
     this.evidenceBoardCurationRuntime = options.evidenceBoardCurationRuntime;
     this.crossBoardSynthesisRuntime = options.crossBoardSynthesisRuntime;
+    this.motiveDecisionReader = options.motiveDecisionReader;
+    this.confirmationReader = options.confirmationReader;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
     this.leaseTtlMs = options.leaseTtlMs ?? DEFAULT_LEASE_TTL_MS;
@@ -706,6 +744,16 @@ export class PaperImplementationRunCoordinatorService {
       this.assertBudgetEnvelopeRaise(existing, raise);
     }
     const overrides = request.slot_request_payload_overrides ?? null;
+    const reviewAcceptance = request.review_acceptance ?? null;
+    // T-133 D-133-3: the confirm and revise verbs never mix — a single advance
+    // either accepts the parked human decision or rebuilds a slot payload.
+    if (reviewAcceptance && overrides) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'review_acceptance cannot be combined with slot_request_payload_overrides — the confirm-and-continue and revise-and-retry verbs never mix.',
+      );
+    }
     if (existing.run_status === 'budget_exhausted' && !raise) {
       // R1: overrides on a raise-less advance of a budget-exhausted run must
       // never be silently dropped by the idempotent no-op — reject loudly.
@@ -715,6 +763,19 @@ export class PaperImplementationRunCoordinatorService {
           'INVALID_PAYLOAD',
           `CoordinatorRun ${coordinatorRunId} is budget_exhausted: slot_request_payload_overrides `
           + 'require raise_budget_envelope, otherwise the advance is a no-op and would silently drop them.',
+        );
+      }
+      // T-133 P3 review fix (state-machine C4, same R1 discipline): a
+      // review_acceptance on a raise-less advance of a budget-exhausted run
+      // must never be silently swallowed either — the operator would believe
+      // the human decision was accepted while nothing happened. The correct
+      // exit is raise + review_acceptance in ONE request.
+      if (reviewAcceptance) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `CoordinatorRun ${coordinatorRunId} is budget_exhausted: review_acceptance `
+          + 'requires raise_budget_envelope in the same request, otherwise the advance is a no-op and would silently drop it.',
         );
       }
       // F2: without a raise, re-advancing a budget-exhausted run is an
@@ -812,8 +873,23 @@ export class PaperImplementationRunCoordinatorService {
         }
         run = await this.persistRun(run, holderId);
       }
-      return await this.advanceLoop(implementationProjectId, run, laneSlots, holderId);
+      return await this.advanceLoop(
+        implementationProjectId,
+        run,
+        laneSlots,
+        holderId,
+        reviewAcceptance,
+        existing.run_status,
+      );
     } catch (error) {
+      if (error instanceof CoordinatorAdvanceRejection) {
+        // T-133 P3 review fix (adversarial C1): a client-recoverable rejection
+        // already restored the pre-advance run status and released the lease
+        // inside the loop — surface the original 4xx untouched, and above all
+        // never tryMarkFailed (which would terminalize a parked human-decision
+        // stop on a mere wrong-verb or typo'd-ref advance).
+        throw error.original;
+      }
       if (error instanceof CoordinatorPersistenceFailure) {
         // Crash-equivalent path: the run stays `advancing` and recovery is an
         // explicit re-advance from the breakpoint. R5: best-effort release of
@@ -842,12 +918,55 @@ export class PaperImplementationRunCoordinatorService {
     initialRun: PaperImplementationCoordinatorRun,
     laneSlots: readonly string[],
     leaseHolderId: string,
+    reviewAcceptance: PaperImplementationCoordinatorReviewAcceptanceRequest | null = null,
+    entryRunStatus: PaperImplementationCoordinatorRun['run_status'] = initialRun.run_status,
   ): Promise<PaperImplementationCoordinatorRunWithSteps> {
     let run = initialRun;
     const steps = await this.coordinatorRepository.listCoordinatorSteps(
       implementationProjectId,
       run.coordinator_run_id,
     );
+
+    // T-133 P3 review fix (adversarial C1): expected client rejections restore
+    // the pre-advance run status (waiting_review for a parked stop) and release
+    // the lease instead of falling into the terminalizing generic catch.
+    const rejectAdvance = async (error: AppError): Promise<never> => {
+      await this.finish(run, steps, entryRunStatus, leaseHolderId);
+      throw new CoordinatorAdvanceRejection(error);
+    };
+
+    // T-133 confirm-and-continue: an accepted human decision synthesizes a
+    // passed step (zero provider calls, nothing re-runs) BEFORE the normal
+    // loop, which then continues past the formerly parked index. Validation
+    // failures are client-recoverable rejections — the park must survive them.
+    if (reviewAcceptance) {
+      let acceptedStep: PaperImplementationCoordinatorStep;
+      try {
+        acceptedStep = this.buildReviewAcceptanceStep(
+          implementationProjectId,
+          run,
+          steps,
+          reviewAcceptance,
+          leaseHolderId,
+          await this.validateReviewAcceptance(implementationProjectId, run, laneSlots, steps, reviewAcceptance),
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          return rejectAdvance(error);
+        }
+        throw error;
+      }
+      // Holder-fenced heartbeat before the synthesized step lands (R5-equivalent
+      // fence; the validation above is read-only), then persist and re-sync the
+      // consumed projection exactly like an executed step.
+      run = await this.persistRun(this.withBumpedLease(run, this.now()), leaseHolderId);
+      const persistedStep = await this.persistStep(acceptedStep);
+      steps.push(persistedStep);
+      run = await this.persistRun({
+        ...this.withBumpedLease(run, this.now()),
+        consumed: this.consumedFromSteps(steps),
+      }, leaseHolderId);
+    }
 
     // F6/R10: the persisted steps are the SOLE source of truth for consumed
     // budget — every budget decision below reads the steps-derived value, and
@@ -872,6 +991,30 @@ export class PaperImplementationRunCoordinatorService {
       if (nextIndex === -1) {
         return this.finish(run, steps, 'completed', leaseHolderId);
       }
+      const slotId = laneSlots[nextIndex]!;
+      // T-133 D-133-3 verb lock: an evolution human-decision waiting_review
+      // stop has exactly ONE exit — confirm-and-continue. A plain (or
+      // payload-override) re-advance would re-run decision support the human
+      // has already decided on, so it fails closed (as a recoverable rejection
+      // that keeps the park intact). Deliberately BEFORE the budget check so a
+      // parked stop is never silently re-labelled budget_exhausted (P3 review
+      // P1), and existence-based rather than "latest row" — the persisted step
+      // ordering is lexicographic on node_attempt_id, so `attempt-10` sorts
+      // before `attempt-2` and a latest-row read is unreliable (P3 review C2);
+      // once an evolution index parked, no other verb can add rows to it, so
+      // EXISTS is exact.
+      if (
+        slotId === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID
+        && steps.some((step) => step.step_index === nextIndex && step.outcome === 'waiting_review')
+      ) {
+        return rejectAdvance(new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          `CoordinatorRun ${run.coordinator_run_id} is parked at the motive-evolution human-decision stop; `
+          + 'advancing it requires review_acceptance referencing an approved MotiveEvolutionDecision '
+          + '(confirm-and-continue), never a slot re-run.',
+        ));
+      }
       // R10: budget decisions read the steps-derived consumption, never the
       // cached run-row counters.
       const consumed = this.consumedFromSteps(steps);
@@ -882,7 +1025,6 @@ export class PaperImplementationRunCoordinatorService {
         return this.finish(run, steps, 'budget_exhausted', leaseHolderId);
       }
 
-      const slotId = laneSlots[nextIndex]!;
       const attemptSequence = steps.filter((step) => step.step_index === nextIndex).length;
       // S2-C C2: the attempt id doubles as the slot run_id and therefore pins
       // the runtime identity of every artifact the slot records. The persisted
@@ -988,6 +1130,9 @@ export class PaperImplementationRunCoordinatorService {
         outcome,
         provider_call_count: result?.provider_call_count ?? 0,
         blocker_codes: this.uniqueStrings([...slotBlockerCodes, ...trustedBlockerCodes]),
+        // T-133 minimal audit: the advance holder that produced this attempt
+        // (override / re-advance actors were previously lease-only and lost).
+        advance_holder_id: leaseHolderId,
         created_at: this.now(),
       };
       // R5: a second holder-fenced heartbeat immediately before the step is
@@ -1559,11 +1704,254 @@ export class PaperImplementationRunCoordinatorService {
     if (slotId === PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_SLOT_ID) {
       const disposition = result.final_runtime_artifact?.artifact_payload.recommended_disposition;
       if (disposition !== 'proceed') {
-        return 'waiting_review';
+        // T-133 P3 review fix (defensive parity with the curation A#3 gate and
+        // the evolution branch below): the waiting_review park must carry an
+        // ADMITTED final for a human to review — a rejected-admission final
+        // would park with a null lineage pair ("nothing to review"), so it
+        // falls to the terminal blocked semantics instead (safe direction).
+        return result.final_admission_record?.admission_status === 'admitted'
+          ? 'waiting_review'
+          : 'blocked';
+      }
+    }
+    // T-133 D-133-2 (P2): a PASSED evolution final whose SERVER-DERIVED
+    // human-decision keys are non-empty means "decision support is ready and a
+    // lineage-changing option awaits a human" — a semantic stop, not a defect.
+    // Deliberately placed AFTER the generic blocked check: a mixed-defect
+    // final (other blocked axes kept its codes aggregating) stays a terminal
+    // blocked (red line — no blocked→waiting_review routing was opened).
+    if (slotId === PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID) {
+      const keys = result.final_runtime_artifact?.artifact_payload.human_decision_required_option_keys;
+      if (Array.isArray(keys) && keys.length > 0) {
+        // P3 review fix: keys on a NON-admitted passed final must not silently
+        // pass the human-decision stop — fail closed to blocked (the curation
+        // A#3 direction), never fall through to 'passed'.
+        return result.final_admission_record?.admission_status === 'admitted'
+          ? 'waiting_review'
+          : 'blocked';
       }
     }
     return 'passed';
   }
+
+  /**
+   * T-133 confirm-and-continue (D-133-3): deterministically validates the
+   * referenced MotiveEvolutionDecision against the parked evolution final.
+   * The coordinator never writes decisions or confirmations — the authority
+   * chain (consume-before-write, human actor, target coverage at creation)
+   * already ran; this is a READ-ONLY recheck:
+   *   1. the current step must be an evolution waiting_review park (verb↔stop
+   *      family mapping — revise-family stops reject this verb); the parked
+   *      row is located by existence, never by "latest row" (P3 review C2),
+   *   2. accepting consumes one step of the envelope, so the budget must
+   *      admit it (P3 review C3 — a raise-less accept at the ceiling is a
+   *      loud recoverable 409, never a silent ledger overrun),
+   *   3. the parked final artifact is re-read by id and hash-rechecked (B3
+   *      lookback discipline) and must carry non-empty human-decision keys,
+   *   4. the decision must exist with application_status approved/applied,
+   *      must cover the final's target_motive_refs (normalized ref types, the
+   *      governance refCovered discipline), and must NOT predate the park —
+   *      a stale decision cannot be replayed onto a newer stop (adversarial
+   *      C3),
+   *   5. a consumed human confirmation with scope motive_evolution_decision
+   *      pointing back at the decision is required UNCONDITIONALLY — the park
+   *      semantic is "a human decides", so a decision minted without a
+   *      confirmation (whatever its own flags claim) can never accept the
+   *      stop (adversarial C2).
+   * All failures are client-recoverable rejections; the park survives them.
+   */
+  private async validateReviewAcceptance(
+    implementationProjectId: string,
+    run: PaperImplementationCoordinatorRun,
+    laneSlots: readonly string[],
+    steps: PaperImplementationCoordinatorStep[],
+    acceptance: PaperImplementationCoordinatorReviewAcceptanceRequest,
+  ): Promise<{ parked: PaperImplementationCoordinatorStep; humanConfirmationRef: string }> {
+    const passedByIndex = this.passedStepsByIndex(steps);
+    const nextIndex = laneSlots.findIndex((_, index) => !passedByIndex.has(index));
+    const parked = nextIndex === -1
+      ? null
+      : steps.find((step) => step.step_index === nextIndex && step.outcome === 'waiting_review') ?? null;
+    if (nextIndex === -1 || !parked) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `CoordinatorRun ${run.coordinator_run_id} has no waiting_review stop at its current step; review_acceptance has nothing to accept.`,
+      );
+    }
+    const slotId = laneSlots[nextIndex]!;
+    if (slotId !== PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `review_acceptance is the confirm-and-continue verb for the motive-evolution human-decision stop; `
+        + `slot ${slotId} parks under the revise verb (payload override + re-advance) and never accepts a decision ref.`,
+      );
+    }
+    if (acceptance.slot_id !== slotId) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `review_acceptance.slot_id ${acceptance.slot_id} does not match the parked slot ${slotId}.`,
+      );
+    }
+    const consumed = this.consumedFromSteps(steps);
+    if (consumed.steps + 1 > run.budget_envelope.max_steps) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `CoordinatorRun ${run.coordinator_run_id} has no step budget left for the accepted continuation; `
+        + 'raise_budget_envelope in the same request and retry.',
+      );
+    }
+    // R9 pairing: an evolution waiting_review park only exists over an
+    // ADMITTED final, so the lineage pair must be present on the parked step.
+    if (!parked.runtime_artifact_id || !parked.runtime_artifact_hash) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Parked step ${parked.coordinator_step_id} carries no admitted final artifact lineage; review_acceptance cannot proceed.`,
+      );
+    }
+    const artifact = await this.runtimeArtifactReader.findRuntimeArtifactById(
+      implementationProjectId,
+      parked.runtime_artifact_id,
+    );
+    if (!artifact || artifact.final_artifact_hash !== parked.runtime_artifact_hash) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Parked evolution final artifact ${parked.runtime_artifact_id} was not found or drifted from the step lineage hash.`,
+      );
+    }
+    const payload = artifact.artifact_payload as {
+      target_motive_refs?: TopicSelectionFunctionalRef[];
+      human_decision_required_option_keys?: unknown;
+    };
+    const decisionKeys = payload.human_decision_required_option_keys;
+    if (!Array.isArray(decisionKeys) || decisionKeys.length === 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Parked evolution final ${parked.runtime_artifact_id} carries no human-decision options; review_acceptance does not apply.`,
+      );
+    }
+    const decision = await this.motiveDecisionReader.findMotiveEvolutionDecisionById(
+      implementationProjectId,
+      acceptance.decision_ref,
+    );
+    if (!decision) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `MotiveEvolutionDecision ${acceptance.decision_ref} was not found; review_acceptance requires an existing decision.`,
+      );
+    }
+    if (decision.application_status !== 'approved' && decision.application_status !== 'applied') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `MotiveEvolutionDecision ${acceptance.decision_ref} has application_status=${decision.application_status}; only approved or applied decisions accept the stop.`,
+      );
+    }
+    // Adversarial C3: a decision minted BEFORE the park cannot have decided
+    // about it — reject stale replays deterministically (ISO-8601 strings
+    // compare lexicographically).
+    if (decision.created_at < parked.created_at) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `MotiveEvolutionDecision ${acceptance.decision_ref} predates the parked stop; a decision created after the stop is required.`,
+      );
+    }
+    const targetRefs = payload.target_motive_refs ?? [];
+    const uncovered = targetRefs.filter((target) => !decision.source_motive_refs.some(
+      (source) =>
+        normalizedPaperImplementationRefType(source.ref_type) === normalizedPaperImplementationRefType(target.ref_type)
+        && source.ref_id === target.ref_id,
+    ));
+    if (uncovered.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `MotiveEvolutionDecision ${acceptance.decision_ref} does not cover the parked final's target motives: `
+        + `${uncovered.map((ref) => `${ref.ref_type}:${ref.ref_id}`).join(', ')}.`,
+      );
+    }
+    // Adversarial C2: the confirmation is required UNCONDITIONALLY — never
+    // trust the decision's own human_confirmation_required flag (a decision
+    // creator can mint a state_evolution/approved decision without any
+    // confirmation; that must never clear a human-decision park).
+    const confirmationRefId = decision.confirmation_ref?.ref_id ?? null;
+    if (!confirmationRefId) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `MotiveEvolutionDecision ${acceptance.decision_ref} carries no confirmation_ref; the human-decision stop only accepts a decision backed by a consumed human confirmation.`,
+      );
+    }
+    const confirmation = await this.confirmationReader.findHumanConfirmationRecordById(
+      implementationProjectId,
+      confirmationRefId,
+    );
+    if (
+      !confirmation
+      || confirmation.confirmation_scope !== 'motive_evolution_decision'
+      || confirmation.consumed_by_ref?.ref_id !== decision.motive_evolution_decision_id
+    ) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `HumanConfirmationRecord ${confirmationRefId} is missing, has the wrong scope, or was not consumed by decision ${acceptance.decision_ref}.`,
+      );
+    }
+    return { parked, humanConfirmationRef: confirmationRefId };
+  }
+
+  /**
+   * Pure build of the accepted continuation step: passed with zero provider
+   * calls, the parked artifact lineage copied verbatim (nothing is forged —
+   * the waiting_review row stays in history), and the acceptance audit record
+   * stamped. Persistence and lease fencing happen in the advance loop.
+   */
+  private buildReviewAcceptanceStep(
+    implementationProjectId: string,
+    run: PaperImplementationCoordinatorRun,
+    steps: PaperImplementationCoordinatorStep[],
+    acceptance: PaperImplementationCoordinatorReviewAcceptanceRequest,
+    leaseHolderId: string,
+    validated: { parked: PaperImplementationCoordinatorStep; humanConfirmationRef: string },
+  ): PaperImplementationCoordinatorStep {
+    const { parked, humanConfirmationRef } = validated;
+    const attemptSequence = steps.filter((step) => step.step_index === parked.step_index).length;
+    return {
+      schema_version: PAPER_IMPLEMENTATION_COORDINATOR_STEP_SCHEMA_VERSION,
+      coordinator_step_id: this.idFactory('pi_coordinator_step'),
+      coordinator_run_id: run.coordinator_run_id,
+      implementation_project_id: implementationProjectId,
+      step_index: parked.step_index,
+      slot_id: parked.slot_id,
+      node_attempt_id: this.idFactory(
+        `${run.coordinator_run_id}.step-${parked.step_index}.acceptance-${attemptSequence}`,
+      ),
+      runtime_artifact_ref: parked.runtime_artifact_ref,
+      runtime_artifact_hash: parked.runtime_artifact_hash,
+      runtime_artifact_id: parked.runtime_artifact_id,
+      admission_ref: parked.admission_ref,
+      decision_record: parked.decision_record,
+      outcome: 'passed',
+      provider_call_count: 0,
+      blocker_codes: [],
+      advance_holder_id: leaseHolderId,
+      review_acceptance: {
+        decision_ref: acceptance.decision_ref,
+        human_confirmation_ref: humanConfirmationRef,
+        acceptance_actor_id: acceptance.acceptance_actor_id,
+      },
+      created_at: this.now(),
+    };
+  }
+
 
   private selectionDecisionForSlot(
     slotId: string,

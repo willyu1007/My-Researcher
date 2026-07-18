@@ -331,3 +331,85 @@ test('AdvancePaperImplementationCoordinatorRunRequest accepts increase-only budg
     400,
   );
 });
+
+test('AdvancePaperImplementationCoordinatorRunRequest review_acceptance shape (T-133)', async () => {
+  const schema = coordinatorContracts.advancePaperImplementationCoordinatorRunRequestSchema;
+  assert.equal(
+    await validateWithSchema(schema, {
+      review_acceptance: {
+        slot_id: 'motive_evolution.evolution_decision_support',
+        decision_ref: 'motive_evolution_decision_001',
+        acceptance_actor_id: 'reviewer_001',
+      },
+    }),
+    200,
+  );
+  assert.equal(await validateWithSchema(schema, { review_acceptance: null }), 200);
+  assert.equal(
+    await validateWithSchema(schema, {
+      review_acceptance: {
+        slot_id: 'motive_evolution.evolution_decision_support',
+        decision_ref: 'motive_evolution_decision_001',
+      },
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      review_acceptance: {
+        slot_id: 'motive_evolution.evolution_decision_support',
+        decision_ref: 'motive_evolution_decision_001',
+        acceptance_actor_id: 'reviewer_001',
+        forged_extra_member: true,
+      },
+    }),
+    400,
+  );
+});
+
+test('PaperImplementationCoordinatorStep audit fields (T-133)', async () => {
+  const schema = coordinatorContracts.paperImplementationCoordinatorStepSchema;
+  assert.equal(await validateWithSchema(schema, validStep()), 200);
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validStep(),
+      advance_holder_id: 'advance_holder_001',
+      review_acceptance: {
+        decision_ref: 'motive_evolution_decision_001',
+        human_confirmation_ref: 'human_confirmation_001',
+        acceptance_actor_id: 'reviewer_001',
+      },
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validStep(),
+      advance_holder_id: null,
+      review_acceptance: null,
+    }),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validStep(),
+      review_acceptance: {
+        decision_ref: 'motive_evolution_decision_001',
+        human_confirmation_ref: null,
+      },
+    }),
+    400,
+  );
+  assert.equal(
+    await validateWithSchema(schema, {
+      ...validStep(),
+      review_acceptance: {
+        decision_ref: 'motive_evolution_decision_001',
+        human_confirmation_ref: null,
+        acceptance_actor_id: 'reviewer_001',
+        forged_extra_member: true,
+      },
+    }),
+    400,
+  );
+});

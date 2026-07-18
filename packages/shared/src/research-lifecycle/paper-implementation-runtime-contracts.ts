@@ -2660,6 +2660,23 @@ export interface PaperImplementationMotiveEvolutionArtifact {
   warnings: string[];
   runtime_failure_code: string | null;
   decision_options: Record<string, PaperImplementationMotiveEvolutionDecisionOption>;
+  /**
+   * T-133 D-133-2 (P2): SERVER-DERIVED keys of the challenged options whose
+   * kind/impact class sits in the portfolio-changing set (park/split/… — the
+   * same deterministic set the human-confirmation flag guard enforces). A
+   * non-empty list on a passed final means "decision support is ready and a
+   * lineage-changing option awaits a human decision" — the coordinator parks
+   * the run as waiting_review (confirm-and-continue resumes it). On blocked
+   * finals the keys are informational only (mixed-defect finals stay terminal
+   * blocked). Pure structural derivation; the LLM cannot add or remove keys.
+   * Optional for finals persisted before the field existed (same discipline as
+   * the coordinator step audit fields); the service always writes it. NOTE:
+   * acceptance evidence never lands on this artifact — a confirm-and-continue
+   * acceptance is recorded on the coordinator step (`review_acceptance`), so a
+   * future consumer must join the coordinator steps, never infer acceptance
+   * from the artifact body.
+   */
+  human_decision_required_option_keys?: string[];
   no_domain_gate_request: true;
   no_queue_side_effect: true;
   no_motive_write_side_effect: true;
@@ -7956,6 +7973,29 @@ const motiveEvolutionDecisionOptionResultInvariants = [
   },
 ] as const;
 
+// T-133 P2 (final-artifact-only — the shared decision-option invariants above
+// are also spliced into the challenger ROLE schema where this field cannot
+// exist): a final that proposed no options cannot carry human-decision keys.
+const motiveEvolutionHumanDecisionKeysInvariants = [
+  {
+    if: {
+      properties: {
+        support_result_status: { const: 'no_evolution_needed' },
+      },
+      required: ['support_result_status'],
+    },
+    then: {
+      properties: {
+        human_decision_required_option_keys: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
+        },
+      },
+    },
+  },
+] as const;
+
 const motiveEvolutionFinalStatusInvariants = [
   {
     if: {
@@ -7982,7 +8022,13 @@ const motiveEvolutionFinalStatusInvariants = [
     },
     then: {
       properties: {
-        support_result_status: { const: 'blocked' },
+        // T-133 P3 review fix (pre-existing divergence made load-bearing by the
+        // mixed-defect red line): a blocked FINAL legitimately carries the
+        // challenger's honest `options_proposed` when the block came from
+        // aggregated option-level codes on a PASSED critique (gs-001 live-015 /
+        // gs-002 live-004 evidence); `blocked` remains the role-blocked /
+        // preflight shape. The ROLE-level result-status interlock is unchanged.
+        support_result_status: { enum: ['blocked', 'options_proposed'] },
         runtime_failure_code: { type: 'null' },
         blockers: {
           type: 'array',
@@ -8006,6 +8052,11 @@ const motiveEvolutionFinalStatusInvariants = [
         decision_options: {
           ...paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
           maxProperties: 0,
+        },
+        human_decision_required_option_keys: {
+          type: 'array',
+          maxItems: 0,
+          items: stringId,
         },
         blockers: {
           type: 'array',
@@ -8412,6 +8463,11 @@ export const paperImplementationMotiveEvolutionArtifactSchema = {
     warnings: stringArray,
     runtime_failure_code: nullableStringId,
     decision_options: paperImplementationMotiveEvolutionDecisionOptionsByKeySchema,
+    human_decision_required_option_keys: {
+      type: 'array',
+      uniqueItems: true,
+      items: stringId,
+    },
     no_domain_gate_request: { const: true },
     no_queue_side_effect: { const: true },
     no_motive_write_side_effect: { const: true },
@@ -8436,6 +8492,7 @@ export const paperImplementationMotiveEvolutionArtifactSchema = {
   allOf: [
     ...motiveEvolutionFinalStatusInvariants,
     ...motiveEvolutionDecisionOptionResultInvariants,
+    ...motiveEvolutionHumanDecisionKeysInvariants,
     {
       if: {
         properties: {

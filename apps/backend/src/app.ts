@@ -1112,6 +1112,20 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     motiveEvolutionRuntime: paperImplementationMotiveEvolutionRuntimeService,
     evidenceBoardCurationRuntime: paperImplementationEvidenceBoardCurationRuntimeService,
     crossBoardSynthesisRuntime: paperImplementationCrossBoardSynthesisRuntimeService,
+    // T-133 confirm-and-continue: read-only recheck of the referenced
+    // MotiveEvolutionDecision + its consumed confirmation — object-literal
+    // wrapped like the reader above, never a write surface.
+    motiveDecisionReader: {
+      findMotiveEvolutionDecisionById: (implementationProjectId, decisionId) =>
+        paperImplementationMotiveRepository.findMotiveEvolutionDecisionById(implementationProjectId, decisionId),
+    },
+    confirmationReader: {
+      findHumanConfirmationRecordById: (implementationProjectId, confirmationRecordId) =>
+        paperImplementationHumanConfirmationRepository.findHumanConfirmationRecordById(
+          implementationProjectId,
+          confirmationRecordId,
+        ),
+    },
   });
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,

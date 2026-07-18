@@ -2182,7 +2182,7 @@
       "materialization_class": "proposal_only",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-route-architecture-route-candidates",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v2"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.route-architecture.context-policy.v1",
@@ -2399,7 +2399,7 @@
       "materialization_class": "proposal_only",
       "prompt_template": {
         "prompt_template_id": "paper-implementation-route-skeptic-review-route-risk-critique",
-        "prompt_template_version": "v1"
+        "prompt_template_version": "v2"
       },
       "context_policy": {
         "context_policy_profile_id": "paper-implementation.route-skeptic-review.context-policy.v1",

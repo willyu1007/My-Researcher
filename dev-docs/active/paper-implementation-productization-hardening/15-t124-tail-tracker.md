@@ -11,7 +11,7 @@ T-124（paper-implementation 产品化硬化）D10 五项验收全部达成、�
 
 ### N2 skeptic 槽 revise→waiting_review 出口
 - 事由：D2-pre2 给了 curation 的 `revise→waiting_review` 出口，skeptic 槽未覆盖——gs-003 lane A 的 skeptic 双命中设计缺口后 disposition=revise 无出口→直接 blocked 终止（GAP-N2），下游 probe/cycle ref 缺失。
-- **状态：移交 T-133**（`../paper-implementation-debate-disposition-closure/00-overview.md`，与 N6 同包）。设计张力=skeptic 的"可修缺口返回 blocked"到底是分类错（改 skeptic 契约，倾向）还是需 coordinator 新路由，P0 勘察后定（D-133-1）。
+- **状态：DONE via T-133（2026-07-18）**。裁定=D-133-1 形状 2（passed-final 单扳机 + disposition 确定性钳制 + 下游 proceed 门），coordinator 既有分支零改动。live 实证：两种出口均行使——gs-002 live-003 `waiting_review→override→passed→全链 completed`（设计停驻点首次触发）、gs-003/gs-002 live-004 `waiting_review→override→仍 revise→waiting_review_terminal`（gs-003 从终态死堵变可复审停驻，血缘 18/20 为设计内形状）。详见 `../paper-implementation-debate-disposition-closure/03-implementation-notes.md` / `05-p3-closeout.md`。
 
 ### N3 纯 light 地板批判有效性探针（D2 校准）
 - 事由：D2 档位对比只行使了 light→standard 升档路径；**纯 light 地板**（skeptic 零 findings、不升档、3 角色完链）的批判有效性 vs 原生 standard 未 live 验证——D2 阈值校准的下一最高价值探针。
@@ -27,10 +27,11 @@ T-124（paper-implementation 产品化硬化）D10 五项验收全部达成、�
 - 状态：deferred。
 
 ### N6 evolution 人工确认停驻的产品化续链出口
-- 事由：motive-evolution 的 park/split 选项在缺人工确认时诚实停驻（`HUMAN_CONFIRMATION_REQUIRED_FOR_LINEAGE_CHANGE` 等），golden 流程中该停驻无产品化续链出口（三 run 均停于此）。
-- **状态：移交 T-133**（与 N2 同包）。注意与 N2 续路动作不同：N6=confirm-and-continue（四点集#2 同族），N2=revise-and-retry；共用 waiting_review 机器（D-133-3）。
+- 事由：motive-evolution 的 park/split 选项在缺人工确认时诚实停驻（停驻码为 **LLM 自产 blocking code**，如 `HUMAN_CONFIRMATION_REQUIRED_FOR_LINEAGE_CHANGE`——T-133 P0 勘察更正：非后端常量），golden 流程中该停驻无产品化续链出口。
+- **状态：DONE via T-133（2026-07-18）**。裁定=D-133-2/3：`human_decision_required_option_keys` 服务端结构推导 + 聚合排除（纯等人选项 → passed final → coordinator waiting_review 停驻）+ confirm-and-continue 动词（`review_acceptance` ref 校验直通不重跑,无条件要求已消费人工确认,双向动词锁）；混合缺陷照旧终态 blocked（红线,live 实证 gs-001 live-015）。停驻+权威门 live 实证（gs-002 live-003）,confirm 直通由 L5 must-case 钉死,live 全链行使按"机会主义"纪律待后续抽中。详见 T-133 包文档。
 
 ### N7（观测，非缺陷）board lane waiting_review 使 run 恒 partial
+- 注（T-133 后）：motive lane 现可 completed（evolution 停驻有 confirm 出口）；lane A 的 waiting_review 终止为新增设计性停驻形态。partial 的构成 = 各语义停驻，表述面问题不变。
 - 三场景 run status 恒 partial，唯一构成=board/motive lane 的设计性 waiting_review 停驻（非缺陷）。若未来需要"全 completed"的验收面表述，需重定义 runner status 公式对语义停驻的处理（waiting_review 不计入 non-completed）。纯表述面，登记备查。
 - 状态：backlog。
 
