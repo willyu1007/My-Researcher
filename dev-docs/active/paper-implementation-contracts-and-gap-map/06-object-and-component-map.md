@@ -3,6 +3,8 @@
 ## Purpose
 This file is the T-092 ownership map for paper implementation. It maps design-doc objects and runtime components to child task owners before product implementation starts.
 
+> T-132 D-17 adoption (2026-07-12; docs-only, not implemented): the rows below use the product-target single conclusion chain. Result Analysis proposes only; the existing ValidationCycle closure owns scientific disposition/selected exit; `ResultInterpretationPacket` and later consumers require that exact closed Cycle. Landed caller/direct-materializer paths are migration debt.
+
 ## Source Set
 | Source | Role |
 |---|---|
@@ -28,21 +30,23 @@ This file is the T-092 ownership map for paper implementation. It maps design-do
 | Motive | `MotiveEvidenceBoardVersion` | T-094 | T-095, T-097 | missing | Support/challenge/context bindings only; not final claim evidence. |
 | Portfolio | `CrossBoardReview` | T-094 | T-095, T-100, T-101 | missing | Structured cross-board review, not UI browsing. |
 | Portfolio | `MotivePortfolioDecision` | T-094 | T-095, T-100, T-101 | missing | Required for role changes, merge/split, park, abandon, primary replacement. |
-| Validation | `ValidationCycle` | T-095 | T-096, T-098, T-101 | missing | Must include input snapshot, criteria, budget, expected information gain, exits. |
+| Validation | `ValidationCycle` | T-095 | T-096, T-098, T-101 | missing; D-17 migration required | Admission freezes question/criteria/budget and positive/negative/inconclusive exit definitions; existing closure is the sole nullable scientific-disposition writer and server-derives the selected exit. |
 | Validation | `TechnicalRouteCandidate` / `FeasibilityProbe` | T-095 | T-096, T-101 | missing | Route/probe planning only; no trusted evidence or claims. |
 | Validation | `ExperimentPlanLight` | T-095 | T-096, T-098 | missing | Freezes route scope, metrics, baseline/data refs, budget, stop rules. |
 | Experiment | `ResearchWorkOrder` | T-096 | T-097, T-098, T-101 | missing | PaperImplementation governance envelope for all experiment execution. |
 | Experiment | `ResearchWorkOrderHarness` | T-096 | T-099, T-101 | missing | Only trusted path into experiment-foundation execution. |
 | Experiment | `RunMonitorAdapter` | T-096 | T-098, T-101 | missing | Receives async run updates; untrusted without `work_order_id`. |
-| Experiment | `EvidenceLedgerWriter` | T-096 | T-098, T-101 | missing | Writes every run outcome into queryable run evidence ledger. |
-| Experiment | `RunEvidenceUnit` | T-096 | T-097, T-098, T-101 | missing | Implementation-side evidence unit for success, failed, inconclusive, negative runs. |
+| Experiment | Evidence Trust Gateway | T-132/T-124 refinement of T-096 | T-098, T-101 | missing | Sole writer for complete protocol-compliant validation-passed EvidenceCandidate → RunEvidenceUnit. |
+| Experiment | `RunEvidenceUnit` | T-096, refined by T-132 D-16/D-17 | T-097, T-098, T-101 | missing | Eligible evidence lineage for a complete protocol-compliant validation-passed candidate; never failed/cancelled/incomplete execution and never the scientific-disposition authority. |
+| Result support | Result Analysis proposal | T-114/T-124 under T-132 D-17 | T-095 closure only | landed four-scenario/direct-packet path must migrate | One exact-hash-bound proposal with disposition, evidence roles, uncertainty, limitations and claim ceiling; support-only, no Cycle/exit/packet write. |
+| Validation/experiment accounting | ValidationCycle closure assessment + snapshot/hash | T-095/T-124 under T-132 D-16/D-17 | T-098, T-101 | missing; atomic migration required | Sole nullable scientific-disposition/selected-exit authority plus embedded exact Run/Attempt accounting; Sidecar display and dossier declared-scope source. |
 | Experiment substrate | `RunRecipe`, `TrainingTaskSpec`, `ExternalTrainingJob`, `ExperimentResult`, `ResultValidationReport`, `EvidenceCandidate` | existing `experiment-foundation`; consumed by T-096 | T-096, T-098 | adapt | Reuse by refs/hashes only; do not copy reusable asset DTOs into PaperImplementation authority. |
 | Trace | `TraceManifest` | T-097 | all writing-affecting children | missing | Mandatory for writing-affecting objects before writing-ready export. |
 | Trace | `CitationCandidate` | T-097 | T-098, writing lane | missing | Only from citable literature evidence with source locator. |
 | Trace | `ClaimTracePacket` | T-097 / T-098 | T-098, T-101 | missing | Required for every claim included in an implementation dossier. |
 | Trace | `MemoAsEvidenceGuard` | T-097 | all children | missing | Blocks memo/rationale/summary/interpretation from evidence authority. |
 | Trace | Natural-language field role registry | T-097 | T-099, T-101 | missing | Distinguish semantic contract, interpretation, rationale memo, display summary, operational instruction, human judgment. |
-| Result | `ResultInterpretationPacket` | T-098 | T-099, T-100, T-101 | missing | Interprets run evidence with failures, limitations, challenge evidence. |
+| Result | `ResultInterpretationPacket` | T-098 | T-099, T-100, T-101 | missing; D-17 migration required | Post-closure interpretation lineage over the exact closed Cycle and accepted proposal; explains evidence/limitations/claim ceiling but cannot choose disposition/exit or become evidence. |
 | Result | `ClaimCandidate` | T-098 | T-097, T-100, T-101 | missing | Bounded proposed claim; cannot be writing-ready without trace and gates. |
 | Dossier | `ImplementationDossier` | T-098 | PaperProject/writing lane, T-100, T-101 | missing | Authoritative pre-writing package; supports ready, parked, abandoned-with-trace. |
 | Dossier projection | `WritingEntryPacket` projection | T-098 | `PaperProject` / writing lane | legacy/adapt | Future packet is derived from dossier version; legacy research-argument packet is migration input only. |

@@ -32,8 +32,12 @@ PromotionDecision / PaperProjectBridge
   -> ValidationCycle
   -> TechnicalRouteCandidate / FeasibilityProbe / ExperimentPlanLight
   -> ResearchWorkOrder
-  -> RunEvidenceUnit
-  -> ResultInterpretationPacketLight
+  -> exact Run/Attempt/result facts + eligible EvidenceCandidate
+  -> PI Evidence Trust Gateway / RunEvidenceUnit
+  -> whole-Cycle readiness
+  -> one Result Analysis proposal, or no-evidence interpretation skip
+  -> existing ValidationCycle closure assessment + accounting snapshot/hash + derived exit
+  -> ResultInterpretationPacket
   -> ClaimCandidateLight
   -> ClaimTracePacket
   -> ImplementationDossier
@@ -41,7 +45,7 @@ PromotionDecision / PaperProjectBridge
 ```
 
 ## Intake Boundary
-`PaperProjectBridge` remains the current topic-selection v1c promotion handoff carrier. It is not renamed and is not treated as the semantic root of `PaperImplementation`.
+`PaperProjectBridge` remains the current topic-selection v1c promotion handoff carrier. `PaperProjectBridge` is not renamed and is not treated as the semantic root of `PaperImplementation`.
 
 ```text
 TopicSelectionPaperProjectBridgeHandoff
@@ -53,7 +57,7 @@ Rules:
 - `ImplementationIntakeSnapshot` is derived from an active `TopicSelectionPaperProjectBridgeHandoff`.
 - `ImplementationProject` bootstraps from `ImplementationIntakeSnapshot`.
 - `ImplementationProject` must store immutable upstream refs and hashes, including `paper_project_bridge_id`, `bridge_payload_hash`, `promotion_input_snapshot_hash`, `topic_package_id`, `package_version`, and `title_card_id`.
-- `PaperProject` may be linked as `target_paper_project_ref` when present, but it is not the implementation authority root.
+- `PaperProject` may be linked as `target_paper_project_ref` when present, but `PaperProject` is not the implementation authority root.
 - Upstream bridge supersession or hash mismatch triggers intake refresh / upstream recheck, not silent state mutation.
 - Existing `PaperProjectBridge` routes, DB model, shared contracts, and historical docs remain stable to avoid a broad breaking rename.
 
@@ -70,7 +74,7 @@ Naming and authority contract:
 Child task rule: implementation child tasks may read bridge lineage and hashes, but must hang new implementation behavior from `ImplementationIntakeSnapshot` or `ImplementationProject`.
 
 ## Retired Historical Boundary
-The former research-argument control plane is retired. Current code, Prisma SSOT, LLM-readable context, active planning, and PaperImplementation runtime surfaces must not depend on it as a wrapper, adapter, migration lane, or compatibility authority.
+The former research-argument control plane is retired. Current code, Prisma SSOT, LLM-readable context, active planning, and PaperImplementation runtime surfaces must not depend on the retired control plane as a wrapper, adapter, migration lane, or compatibility authority.
 
 Allowed uses:
 - archived historical documentation;
@@ -84,9 +88,9 @@ Disallowed uses:
 - writing back from legacy projections into `PaperImplementation` authority state.
 
 ## ImplementationDossier / WritingEntryPacket Boundary
-`ImplementationDossier` is the authoritative pre-writing material package. It contains the complete implementation state needed for writing: motive, assertions, evidence board, validation cycles, work orders, run evidence, result interpretation, claim candidates, claim trace packets, citation candidates, failed/negative paths, accepted risks, boundaries, and trace manifests.
+`ImplementationDossier` is the authoritative pre-writing material package. The dossier contains the complete implementation state needed for writing: motive, assertions, evidence board, validation cycles, work orders, run evidence, result interpretation, claim candidates, claim trace packets, citation candidates, failed/negative paths, accepted risks, boundaries, and trace manifests.
 
-`WritingEntryPacket` is a projection from a specific dossier version into a form that downstream writing/editor surfaces can consume. It exists for ergonomics, not authority.
+`WritingEntryPacket` is a projection from a specific dossier version into a form that downstream writing/editor surfaces can consume. The packet exists for ergonomics, not authority.
 
 | Object | Owner | Role | Authority |
 |---|---|---|---|
@@ -102,9 +106,9 @@ Rules:
 - Dossier export requires trace-complete claim packets; packet export alone is insufficient.
 
 ## ResearchWorkOrder / ExperimentFoundation Boundary
-`ResearchWorkOrder` is the implementation-side governance envelope for running experiments. It answers why the work is being run, which motive/assertion/validation cycle it serves, what policy bounds it must obey, and how outputs are ingested into implementation evidence.
+`ResearchWorkOrder` is the implementation-side governance envelope for running experiments. The WorkOrder answers why the work is being run, which motive/assertion/validation cycle the work serves, which policy bounds apply, and how outputs are ingested into implementation evidence.
 
-`experiment-foundation` owns the experimental substrate. It answers which assets are selected, how a run is locked, how it is materialized for a platform, how job lifecycle is tracked, and how structured result/fact/candidate records are produced.
+`experiment-foundation` owns the experimental substrate. ExperimentFoundation answers which assets are selected, how a run is locked, how the run is materialized for a platform, how job lifecycle is tracked, and how structured result/fact/candidate records are produced.
 
 | Object | Owner | Role | Must not own |
 |---|---|---|---|
@@ -115,7 +119,9 @@ Rules:
 | `ExternalTrainingJob` | `experiment-foundation` | External job lifecycle snapshot | claim readiness; motive state |
 | `ExperimentResult` / `ResultValidationReport` | `experiment-foundation` | Structured result and protocol validation | final paper evidence acceptance |
 | `EvidenceCandidate` | `experiment-foundation` | Candidate result that may support a later claim | final claim support or publication wording |
-| `RunEvidenceUnit` | `PaperImplementation` | Implementation-side ingestion of any run outcome, including failures and inconclusive runs | reusable asset catalog or platform job lifecycle |
+| `RunEvidenceUnit` | `PaperImplementation` | Gateway projection of a complete protocol-compliant validation-passed EvidenceCandidate; eligible evidence lineage only | failed/cancelled/incomplete execution, platform job lifecycle or scientific disposition |
+| Result Analysis proposal | `PaperImplementation` runtime support | One exact-hash-bound proposed scientific disposition plus evidence roles, uncertainty, limitations and claim ceiling | Cycle assessment, selected exit or direct packet writer payload |
+| ValidationCycle closure assessment + snapshot/hash | `PaperImplementation` | Sole nullable scientific-disposition/selected-exit authority plus embedded immutable exact Run/Attempt execution accounting; dossier scope authority and Sidecar source | scientific evidence minting, caller-authored exit, packet-before-closure or independently mutable Sidecar ledger |
 
 Flow:
 
@@ -126,17 +132,24 @@ ExperimentPlanLight
   -> RunRecipe
   -> TrainingTaskSpec
   -> ExternalTrainingJob
-  -> ExperimentResult / ResultValidationReport / EvidenceCandidate
-  -> RunEvidenceUnit
-  -> ResultInterpretationPacket
+  -> ExperimentResult / ResultValidationReport
+  -> eligible EvidenceCandidate -> RunEvidenceUnit
+  -> exact Run/Attempt/evidence facts -> CycleReadyForInterpretation
+  -> eligible evidence: one Result Analysis proposal; no evidence/control-only: skip analysis
+  -> existing ValidationCycle closure assessment + snapshot/hash + derived exit
+  -> post-closure ResultInterpretationPacket
   -> ClaimTracePacket / ImplementationDossier
 ```
 
 Rules:
 - `ResearchWorkOrder` stores experiment-foundation refs and hashes, not copied payloads.
 - `RunRecipe` remains claim-agnostic and platform-neutral.
-- `EvidenceCandidate` is not sufficient for claim support until PaperImplementation ingests and interprets it.
-- Failed, crashed, cancelled, aborted, inconclusive, and negative runs must be retained as `RunEvidenceUnit`.
+- `EvidenceCandidate` is not sufficient for claim support until PaperImplementation ingests and interprets the candidate.
+- Failed/cancelled/aborted/incomplete execution must be retained in the immutable Cycle closure snapshot and creates no RunEvidenceUnit. Results later assigned negative/inconclusive by Cycle closure remain on the same eligible-REU path, but that disposition is neither execution nor REU state.
+- Dossier consumes explicit closed-Cycle snapshot refs/hashes; project-wide failed-like REU scans and Sidecar accounting authority are forbidden by D-16.
+- T-132 D-17 is the canonical executable-protocol/conclusion-authority decision. PI control plane derives whole-Cycle readiness, Result Analysis proposes only, and the existing Cycle closure action alone writes nullable `positive | negative | inconclusive`, closure kind and server-derived selected exit. No caller, REU/run status, runtime scenario, Domain Gate or packet may become a second conclusion writer.
+- `ResultInterpretationPacket`, Claim, Dossier, retrieval/motive projections and next-step drafts require the exact closed Cycle. A no-evidence/control-only closure has null scientific disposition and does not fabricate `inconclusive` or a scientific packet.
+- The D-17 contract is documentation-only and not implemented in the landed T-095/T-098/T-114/T-104 surfaces; direct packet materialization and caller-authored assessment/exit are mandatory atomic migration debt, not compatibility paths.
 - Confirmatory runs require frozen config and locked recipe hashes.
 - Exploratory runs can inform planning, but cannot directly support strong claims.
 
@@ -166,7 +179,7 @@ Rules:
 - Failed and negative runs are part of trace, not disposable execution noise.
 
 ## Agent Workflow Harness Boundary
-`PaperImplementation` should reuse the runtime lessons and shared infrastructure proven by topic-selection, but it must not inherit topic-selection business semantics. The reusable layer is an agent runtime kernel; the implementation layer owns its own control plane, snapshots, harnesses, gates, and state writer.
+`PaperImplementation` should reuse the runtime lessons and shared infrastructure proven by topic-selection, but PaperImplementation must not inherit topic-selection business semantics. The reusable layer is an agent runtime kernel; the implementation layer owns its own control plane, snapshots, harnesses, gates, and state writer.
 
 | Object | Owner | Role | Must not own |
 |---|---|---|---|
@@ -209,7 +222,7 @@ Rules:
 - Product route exposure requires scenario coverage for schema failure, stale refs, missing trace, memo-as-evidence, forbidden state mutation, and mock/product isolation.
 
 ## Human Confirmation Boundary
-Human confirmation is a bounded authorization artifact. It records that a human reviewed a specific transition under a specific policy and source snapshot; it does not itself mutate motive, claim, work order, dossier, or packet authority state.
+Human confirmation is a bounded authorization artifact. The confirmation records that a human reviewed a specific transition under a specific policy and source snapshot; the confirmation does not itself mutate motive, claim, work order, dossier, or packet authority state.
 
 | Object | Owner | Role | Must not own |
 |---|---|---|---|
@@ -235,15 +248,15 @@ Rules:
 - Confirmation must attach to `TransitionAttempt` and `GateResult` refs.
 - Confirmation must record reviewed source refs/hashes; source drift invalidates or supersedes the confirmation.
 - Confirmation scope must not expand implicitly. Confirming an expensive run does not confirm a later claim, and confirming a strong claim does not confirm dossier export.
-- Confirmation may resolve `require_human_review`; it cannot override a hard `blocked` gate without a new gate result or explicit accepted-risk path.
+- Confirmation may resolve `require_human_review`; confirmation cannot override a hard `blocked` gate without a new gate result or explicit accepted-risk path.
 - UI/API confirmation routes write `HumanConfirmationRecord` only. `StateWriter` applies authority state in a separate step.
 - Human confirmation cannot be inferred from LLM/provider/Codex/mock/cached output, generated rationale, or generic operator notes.
 - Draft/internal dossier assembly does not require confirmation; writing-ready status and export must obey confirmation policy.
 
 ## Desktop Workbench Boundary
-`PaperImplementationWorkbench` is the desktop surface for operating the implementation loop inside `论文管理`. It helps the user inspect, decide, repair, and command implementation workflows, but all authority remains in backend contracts, gates, traces, and `StateWriter`.
+`PaperImplementationWorkbench` is the desktop surface for operating the implementation loop inside `论文管理`. The workbench helps the user inspect, decide, repair, and command implementation workflows, but all authority remains in backend contracts, gates, traces, and `StateWriter`.
 
-This is intentionally a coarse UI decision. Component layout, exact fields, and detailed interaction design should follow backend contract/read-model landing work.
+The workbench decision is intentionally coarse. Component layout, exact fields, and detailed interaction design should follow backend contract/read-model landing work.
 
 | Surface | Role | Must not become |
 |---|---|---|
@@ -258,7 +271,7 @@ This is intentionally a coarse UI decision. Component layout, exact fields, and 
 Rules:
 - The workbench lives under `论文管理` / paper module product grouping, not under downstream writing/editor.
 - The first screen should be queue-first. A selected queue item drives detail panes, trace context, gate status, blockers, and available commands.
-- UI emits commands to backend routes; it does not apply state, infer readiness, or persist authority locally.
+- UI emits commands to backend routes; the UI does not apply state, infer readiness, or persist authority locally.
 - Command surfaces must show source refs, trace status, gate result, blockers, risks, and stale/hash status before submission when authority may be affected.
 - Dossier and writing-entry packet status may be displayed, but body writing, LaTeX editing, Prism/Overleaf execution, submission strategy, and rebuttal authoring are out of scope.
 - Experiment refs and run evidence may be displayed, but reusable asset ownership and platform execution remain in `experiment-foundation`.
@@ -266,7 +279,7 @@ Rules:
 - Desktop implementation work must follow the repo `data-ui` + token/contract path and must not recreate retired desktop style layers.
 
 ## Child Task Boundary
-Implementation child tasks are split by flow node and decision point, not by UI screen alone and not by one object per package. Each child package must be independently verifiable and must preserve the authority boundaries confirmed in this roadmap.
+Implementation child tasks are split by flow node and decision point, not by UI screen alone and not by one object per package. Each child package must be independently verifiable and must preserve the authority boundaries confirmed in the parent roadmap.
 
 Required child-task declaration:
 - parent task reference: `parent-task:T-091`;
@@ -293,11 +306,11 @@ Confirmed child sequence:
 
 Rules:
 - Flow-node tasks may define the local DTOs/read-models they need, but must not create alternate authority roots.
-- The trace kernel is dedicated and cross-cutting; later flow-node tasks must wire trace as acceptance, not defer it.
+- The trace kernel is dedicated and cross-cutting; later flow-node tasks must wire trace as acceptance, not defer trace.
 - The AI workflow harness task depends on trace, gates, and WorkOrder boundaries.
 - The desktop workbench task depends on backend command/read-model contracts.
 - The evaluation suite must convert D1-D10 frozen rules into repeatable checks.
-- Any conflict with D1-D10 must be brought back to this parent roadmap before implementation continues.
+- Any conflict with D1-D10 must be brought back to the parent roadmap before implementation continues.
 
 ## Runtime Rules
 - Orchestrator controls flow.
@@ -308,7 +321,7 @@ Rules:
 - `ImplementationControlPlane` coordinates implementation workflows but does not directly call LLM providers or experiment adapters.
 - `PaperImplementationAgentWorkflowHarness` produces proposal artifacts, not authority writes.
 - Human confirmation is an input to `StateWriter`, not a substitute for `StateWriter`.
-- `PaperImplementationWorkbench` emits commands and consumes read-models; it does not write authority state.
+- `PaperImplementationWorkbench` emits commands and consumes read-models; the workbench does not write authority state.
 - TraceHarness runs before writing readiness, not after writing starts.
 - `PaperImplementation` writes claim/dossier readiness; `PaperProject` consumes that readiness through dossier/packet projections.
 - No wrapper or adapter may route PaperImplementation authority through retired pre-writing control-plane artifacts.

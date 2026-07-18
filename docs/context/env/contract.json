@@ -5,9 +5,66 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-07-13T15:58:00Z",
+  "generated_at_utc": "2026-07-18T00:24:48Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
+    "ALIBABA_CLOUD_ACCESS_KEY_ID": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Temporary STS AccessKey ID for the dedicated Aliyun read-only preflight identity; long-lived account credentials are not accepted by the gate.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": true,
+      "secret_ref": "alibaba_cloud_access_key_id",
+      "state": "active",
+      "type": "string"
+    },
+    "ALIBABA_CLOUD_ACCESS_KEY_SECRET": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Temporary STS AccessKey secret for the dedicated Aliyun read-only preflight identity.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": true,
+      "secret_ref": "alibaba_cloud_access_key_secret",
+      "state": "active",
+      "type": "string"
+    },
+    "ALIBABA_CLOUD_SECURITY_TOKEN": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Temporary STS security token required by the dedicated Aliyun read-only preflight identity.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": true,
+      "secret_ref": "alibaba_cloud_security_token",
+      "state": "active",
+      "type": "string"
+    },
     "APPLICATION_SETTINGS_REPOSITORY": {
       "default": "memory",
       "deprecate_after": null,
@@ -213,6 +270,139 @@
       "default": "",
       "deprecate_after": null,
       "description": "Comma-separated LocalScript command allowlist; keep narrow for local smoke execution.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable only the zero-write Aliyun PAI read-only preflight; this switch never authorizes CreateJob or scientific execution.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_PATH": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Repo-external JSON evidence binding the temporary preflight credential to the reviewed read-only RAM policy with explicit paidlc:CreateJob denial.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_SHA256": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Independently supplied sha256:<lowercase-hex> digest of the exact repo-external reviewed identity-policy evidence file.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Exact runtime image reference used only for offline CreateJob request materialization.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_REGION_ID": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Exact Aliyun region ID for the zero-write PAI cloud preflight.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Exact DLC resource quota ID inspected by the zero-write cloud preflight.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": [
+        "dev"
+      ],
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Exact PAI workspace ID inspected by the zero-write cloud preflight.",
       "legacy": {
         "deprecated": false,
         "replaced_by": null

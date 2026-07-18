@@ -2,6 +2,9 @@
 
 ## Do Not Repeat
 - Do not let harness scripts become the owner of production semantics.
+- Do not let Result Analysis, runtime admission or Domain Gate become the scientific-conclusion writer. Under D-17 they produce/admit one support proposal only; the existing ValidationCycle closure writes the authoritative disposition and selected exit.
+- Do not require positive/negative/inconclusive/failed-run scenarios as four coequal conclusions. Counterfactual scenarios may support analysis, but execution failure is never a scientific disposition and only one exact-hash proposal enters closure.
+- Do not directly materialize `ResultInterpretationPacket` from a Result Analysis final artifact. T-098 packet creation is downstream of the exact closed Cycle; the landed materializer is superseded migration debt, not a fallback.
 - Do not add direct provider calls outside `AgentOrchestrator -> BackendLlmGateway`.
 - Do not use `mocked_llm` or replay fixtures as product runtime decisions.
 - Do not store prompt payloads, raw provider responses, hidden reasoning, secrets, or provider-private traces in DB tables.
@@ -40,6 +43,7 @@
 - Do not infer no-fallback from executor kind. A deterministic preflight artifact in a provider-mode request can still carry `execution_mode=provider_llm`; no-fallback telemetry should compare runtime artifact execution modes, not executor labels.
 - Do not promote a remaining node by copying P1 runtime shape without naming the node-specific semantic artifact and Domain Gate materializer. Each promoted slot needs its own role/final schema, route-owned profile identity, and deterministic materialization target.
 - Do not rely only on provider-compatible role schemas for result-analysis completeness. Runtime semantic gates must still reject passed outputs that omit required scenario kinds or Domain Gate requests before any final artifact is recorded.
+- The preceding required-scenario/Domain Gate rule is historical T-114 behavior. D-17 productization must replace it, not keep it as a second valid path; this documentation update does not claim the runtime has been migrated.
 
 ## Resolved Failures / Lessons
 - Symptom: promoted PaperImplementation profiles could appear Codex-product eligible in the shared model-profile registry even though runtime routes/schema already enforced product-provider execution.

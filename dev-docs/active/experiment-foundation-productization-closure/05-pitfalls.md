@@ -2,6 +2,19 @@
 
 `05-pitfalls.md` is append-only for resolved failures and dead ends encountered while executing T-132. Active findings belong in `06-audit-closure-matrix.md`.
 
+## Cloud-preflight implementation findings — 2026-07-18
+
+- Do not interpret a controlled `blocked` summary as `cloud_preflight_passed`. Missing profile, temporary STS or reviewed policy evidence must remain explicit blockers even when zero-write safety checks pass.
+- Do not persist or log the full `CreateJob` request to make a preflight auditable. Hash transient canonical bytes and retain only byte size, exact hashes and hashed/redacted refs.
+- Do not accept long-lived or partial credentials. The live preflight requires a complete temporary STS triplet and a current repo-external policy review bound to the credential access-key-id hash.
+- Do not trust RAM policy evidence merely because it lists read actions. It must also explicitly deny `paidlc:CreateJob`, be time-bounded, and match the code-owned policy-document hash.
+- Do not invent `paidlc:ListEcsSpecs` in the RAM policy while the official PAI-DLC 2020-12-03 API page exposes no authorization action for `ListEcsSpecs`. Keep the API in the application read-only transport allowlist and revisit the policy only when Alibaba publishes an authoritative action.
+- Do not put the provider SDK client itself behind a broad generic call surface. The application transport owns exactly three read methods, and all create/update/delete operations must fail before SDK transport.
+- Do not return raw provider exception messages in machine evidence. Unknown failures expose only a stable reason code and a redacted generic message; operation ledgers contain request IDs and hashed refs only.
+- Do not materialize placeholder payloads or fake-lifecycle success when the exact region/workspace/quota/image profile is incomplete. The honest result is CP02/03/10 `blocked` with zero payload records.
+- Do not treat `ListEcsSpecs` visibility or an ENABLED workspace as execution proof. Scheduling stock, image pull, mounts, runtime network, accelerator health, user command, logs/results and real cancel/cleanup remain unverified until a separately authorized real provider lane.
+- Do not claim the production dependency audit is clean merely because the SDK-introduced `lodash` and `fast-uri` paths were remediated. The repository still carries a Fastify 4 advisory whose supported patch starts in Fastify 5; record that residual explicitly and migrate the Fastify dependency as a separate compatibility slice. Also do not pin the deprecated `lodash@4.18.0`; the reviewed override is `4.18.1`.
+
 ## Pack A execution findings — 2026-07-13
 
 - Do not let a uniqueness error become the concurrency contract. Concurrent identical admission must re-read the committed command and converge only after exact semantic comparison; changed payload remains a terminal conflict.
@@ -291,7 +304,7 @@
 - References: `.ai/scripts/lib/experiment-v2-evidence.mjs`; `artifacts/db/pack-b-local-development-20260714/07-quality-remediation-addendum.md`.
 
 ### 2026-07-14 — pnpm command separation changed env-file resolution
-- Symptom: the first app-smoke rerun resolved the environment-file argument through pnpm instead of passing it intact to Node.
+- Symptom: the first app-smoke rerun resolved the environment-file argument through pnpm instead of passing the argument intact to Node.
 - Context: invoking the backend TypeScript app-smoke producer from its package directory.
 - What was tried: placing `node --env-file=...` directly after a pnpm invocation without the `exec --` separator.
 - Why the attempt failed: pnpm parsed the command/arguments under its own resolution rules, so the expected Node environment source was not loaded.
@@ -439,7 +452,7 @@
 - Context: final duplication audit of source-backed Pack A evidence.
 - What was tried: keeping equivalent validation logic in runtime-specific modules because both consumed the same JSON artifact.
 - Why the attempt failed: equivalent copies are not one authority; an accepted attestation could eventually pass one execution lane and fail or change meaning in another.
-- Fix/workaround: one portable ESM parser/digester owns the closed schema, order, semantic source checks and canonical digest. The gate imports it directly, while the backend adapter only layers types, the reviewed digest and exact-slot lookup.
+- Fix/workaround: one portable ESM parser/digester owns the closed schema, order, semantic source checks and canonical digest. The gate imports the parser directly, while the backend adapter only layers types, the reviewed digest and exact-slot lookup.
 - Prevention: cross-runtime evidence formats require one portable semantic parser; adapters may add typing and application policy but must not restate the format.
 - References: `packages/shared/src/research-lifecycle/experiment-foundation-d19-source-policy.mjs`; `apps/backend/src/services/experiment-foundation-d19-source-policy.ts`; `04-verification.md`.
 
@@ -451,6 +464,69 @@
 - Fix/workaround: service entrypoints now wrap the complete operation, including preflight and replay/status reads, and translate repository constraints into the stable top-level code plus `details.reason_code`.
 - Prevention: error-boundary tests must inject repository failure at every public operation stage, including initial reads and exact-replay lookup, not only transaction commits.
 - References: `03-implementation-notes.md`; `04-verification.md`; final service and route tests associated with D-19 r19 and Pack B r16.
+
+### 2026-07-15 — Formal PI scope requires the whole planning prefix
+- Symptom: direct Cycle creation or admission against a plausible project/Cycle id failed before Pack A T1.
+- Context: moving from the pre-bound D-19 fixture to a real PaperProject product path.
+- What was tried: treating an active project id and an ad hoc Cycle as sufficient scope.
+- Why the attempt failed: PI correctly requires an admitted CoreMotive, complete literature-backed trace and a current trace-ready evidence board/binding before a ValidationCycle can be admitted; CoreMotive drafts also cannot claim primary role before admission.
+- Fix/workaround: execute the normal bootstrap → motive draft/admission → complete trace → minimal board/binding → Cycle draft/admission route chain, then admit the v2 WorkOrder. The Pack A admission guard independently requires active project and admitted Cycle.
+- Prevention: product gates must use the domain's normal route prefix; a test fixture prerequisite is not evidence that product bootstrap can be skipped.
+- References: `artifacts/product-pack-a-local-20260715/05-product-landing-closure.md`; `apps/backend/scripts/run-experiment-foundation-packa-product-landing.ts`.
+
+### 2026-07-15 — Product landing must converge failed trace repair without erasing audit
+- Symptom: an early trace manifest lacked the required literature lineage and left an open repair queue item.
+- Context: fail-closed retries while constructing the first formal Pack A product scope.
+- What was tried: creating the trace before binding an actual upstream `evidence_unit` reference.
+- Why the attempt failed: synthetic or missing lineage cannot satisfy PI trace completeness, and deleting the failed record would erase operational evidence.
+- Fix/workaround: create a new complete trace using the actual bridge evidence ref, resolve the old queue item through the formal repair route as superseded, retain both trace records, and require `open_trace_repair_count=0` in final verification.
+- Prevention: use exact source refs from the active bridge and design apply runners for replay/convergence, not only first-attempt success.
+- References: final verifier `formal-pi-scope-packa-product-20260715-verify-r5`; `04-verification.md`.
+
+### 2026-07-15 — Admission windows and metric identity must not become hidden authority
+- Symptom: local product execution needed a temporary write window, while fixture metric order could vary between repository reads.
+- Context: a one-way Pack A cutover with later Pack B execution still separately gated.
+- What was tried: relying on a persistent enabled admission flag or selecting active metrics by array position.
+- Why the attempt failed: an always-open capability broadens intake after the authorized run, and positional selection makes import order an accidental scientific authority.
+- Fix/workaround: compile an explicit admission-on window, drain T1-T4, then compile admission off while retaining committed cutover; select the seven active metrics by frozen logical keys and canonical key order.
+- Prevention: capability state is config-only and time-bounded; semantic identity is key-based, never index-based.
+- References: `apps/backend/src/services/experiment-foundation-d19-fixture-import-service.ts`; `artifacts/product-pack-a-local-20260715/01-admission-window-config.md`; `artifacts/product-pack-a-local-20260715/03-post-landing-config.md`.
+
+### 2026-07-18 — Repo-external path was not reviewed evidence by itself
+- Symptom: a caller could point the cloud gate at a mutable or substituted file outside the repository while preserving a policy-shaped JSON body.
+- Context: temporary-STS identity-policy proof for the zero-write Aliyun preflight.
+- What was tried: lexical repo-root exclusion plus JSON schema/hash-field validation.
+- Why the attempt failed: a path is not content identity, lexical checks do not close symlink/realpath races, and an unbounded review interval lets stale approval survive indefinitely.
+- Fix/workaround: require an independent exact-file SHA-256, exact reviewer ref, canonical timestamps with a 24-hour maximum lifetime, repo-external realpath, no symlink, stable inode, regular-file type and no group/world write permission before parsing.
+- Prevention: external evidence must bind reviewer, bytes, lifetime and filesystem identity independently of the attested policy payload.
+- References: `03-implementation-notes.md`; `04-verification.md`; `artifacts/cloud-preflight-implementation-20260718/00-implementation-closure.md`.
+
+### 2026-07-18 — Before/after digests did not enforce database read-only behavior
+- Symptom: the cloud gate reported `database_writes=0` from application intent and matching digests, but PostgreSQL had not independently rejected writes.
+- Context: CP12 named-local authority fencing.
+- What was tried: digesting 88 tables before and after ordinary repository reads.
+- Why the attempt failed: digest parity is detection over a selected census, not a write capability fence, and separate queries need not observe one stable snapshot.
+- Fix/workaround: run target validation, exact prerequisite resolution and both digests inside one `REPEATABLE READ` transaction whose first application statement sets `TRANSACTION READ ONLY`; verify `SHOW transaction_read_only=on` and record the result.
+- Prevention: zero-write database claims require a server-enforced read-only transaction in addition to before/after evidence.
+- References: `apps/backend/scripts/experiment-foundation-named-local-evidence.ts`; runner r9; `04-verification.md`.
+
+### 2026-07-18 — One-page SDK tests could miss the exact quota or CPU capacity
+- Symptom: `ListResources` and `ListEcsSpecs` inspected only page 1 with size 100, so a valid exact resource or available CPU spec on a later page appeared absent.
+- Context: official Aliyun SDK read-only adapter validation.
+- What was tried: business-service tests over a three-call fake transport and one SDK request per operation type.
+- Why the attempt failed: the fake did not execute SDK request construction/response mapping, and the provider APIs expose `TotalCount` pagination.
+- Fix/workaround: inject narrow official-SDK client interfaces, traverse bounded pages, record every provider request and accept only `GetWorkspace → ListResources+ → ListEcsSpecs+`. A no-network two-page test verifies request fields, mapping and ledger order.
+- Prevention: adapter tests must exercise generated SDK models and pagination boundaries, not only a domain-level fake.
+- References: `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; its cloud-preflight unit test; `04-verification.md`.
+
+### 2026-07-18 — A phase verifier became unusable after the next phase landed
+- Symptom: Pack A `verify` failed once legitimate Pack B rows existed, even though Pack A and Pack B authority were unchanged.
+- Context: revalidating shared evidence-helper extraction after named-local Pack B product execution.
+- What was tried: applying the Pack A apply-time `Pack B total rows = 0` precondition to both apply and verify modes.
+- Why the attempt failed: the rule captured phase ordering rather than verifier side effects; after Pack B, only the historical Pack A artifact could pass.
+- Fix/workaround: retain the zero-row precondition for Pack A apply, while verify accepts an existing Pack B census only when every before/after count is identical and reports the current total explicitly.
+- Prevention: distinguish entry preconditions from read-only non-mutation invariants so earlier-phase verifiers remain executable after additive later phases.
+- References: `apps/backend/scripts/run-experiment-foundation-packa-product-landing.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
 When adding an entry, use:
 

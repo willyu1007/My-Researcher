@@ -1,5 +1,14 @@
 # 04 Verification
 
+## D-17 Documentation Contract (2026-07-12)
+- Status: specification-only; implementation verification is pending.
+- Future acceptance MUST prove watermark-bound current-effective branch-head readiness replay, Cycle/branch/head CAS drift rejection, stable no-head blocking, all-Cycle active real-Attempt blocking including non-head Runs, non-head default exclusion, explicit comparison lineage without scope promotion, automatic eligible-evidence interpretation, no-evidence/control-only interpretation skip, exact proposal/hash acceptance, caller assessment/exit rejection, server-derived exit mapping, atomic D-16 snapshot closure and closed-Cycle-only packet/claim/dossier consumption.
+- Historical green checks below remain valid for the T-095 implementation that existed then; they do not prove D-17 and cannot be counted as productized conclusion-authority acceptance.
+
+## 2026-07-13 - Current-effective scope documentation synchronization
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/paper-implementation-validation-cycle-planning --strict` passed 7/7 Markdown files with 0 errors and 0 warnings after current-effective branch-head scope convergence.
+- `jq empty docs/context/glossary.json` and the scoped `git diff --check` passed. Documentation only; no contract, code, schema, database or runtime behavior was changed.
+
 ## 2026-05-20
 - Task package creation passed governance sync/lint in parent creation pass.
 

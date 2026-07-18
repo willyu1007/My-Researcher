@@ -70,7 +70,7 @@ const METRICS: readonly MetricFixtureDefinition[] = [
   ),
 ];
 
-const ACTIVE_METRIC_KEYS = [
+export const EXPERIMENT_FOUNDATION_D19_ACTIVE_METRIC_KEYS = [
   'embedding_time_ns',
   'generation_time_ns',
   'prompt_time_ns',
@@ -268,7 +268,7 @@ export async function buildExperimentFoundationD19TypedFixture(
           content_hash_required: true,
           parser_binding: 'ragperf_text_pipeline_stats@v1',
         },
-        ...ACTIVE_METRIC_KEYS.map((metricKey) => {
+        ...EXPERIMENT_FOUNDATION_D19_ACTIVE_METRIC_KEYS.map((metricKey) => {
           const definition = requireMetricDefinition(metricKey);
           return {
             rule_id: `metric_contract@v1:${metricKey}`,

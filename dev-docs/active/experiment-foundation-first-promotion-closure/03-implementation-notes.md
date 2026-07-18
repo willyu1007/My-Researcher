@@ -12,3 +12,10 @@
 - Playbook:`docs/context/process/experiment-foundation-promotion-lane-playbook.md`(7 步 lane + 档位/前向引用/消费时验证/负例守卫约定 + 需求拉动策略)。
 - C 段登记:benchmark 候选 manual_review_required(外部依赖 faithful GPU + dataset payloads);dataset 两候选 needs_info;其余 8 篇按需拉动——均在 playbook Registry 现状锚与 T-118 07 留痕。
 - D 段(消费时验证)defer:第一个真实 RunRecipe 锁定时执行,约定已入 playbook。
+
+## 2026-07-12 - D-17 catalog/execution 边界对账
+
+- 2026-07-08 的 23 条 registry 记录、`promoted` 裁决、protocol_hash 复算和重放负例均保持有效且不回写；这些事实证明的是 catalog promotion lane，不是可执行协议或科学证据链。
+- `v1-cpu-adapter` 继续作为 immutable catalog/reference 资产。其 free-shape policies、未托管 seed、smoke repeat 和 benchmark 前向引用无法满足 D-17 typed runtime contract，因此在 Run freeze/head/真实 Attempt 前必须被 readiness 阻断，并且不能产生 protocol-compliant passed validation report/EvidenceCandidate。
+- 唯一升级路径是新建 versioned `evaluation_protocol_id`、typed v2 protocol/version/hash 和对应 candidate/promotion，再通过 exact dependencies + validator capability readiness；不得覆盖 v1、双读新旧规则或借 manual promotion 例外放行 runtime。
+- 本次只同步目标文档，没有修改 runner、registry 数据、backend、schema 或运行时状态；typed v2 导入与 readiness/validator 实施仍属于后续产品化切片。

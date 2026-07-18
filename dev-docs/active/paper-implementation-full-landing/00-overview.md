@@ -5,6 +5,7 @@
 - Task ID: `T-091`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-013`
 - Next step: post-landing review or future hardening tasks may proceed from the T-101 closure evidence.
+- Semantic supersession (2026-07-12): T-132 D-16 replaces the original “all terminal outcomes become RunEvidenceUnit” rule for all future/productized work. Historical completion evidence remains valid for the implementation that existed then, but current target semantics are eligible scientific EvidenceCandidate→REU and exact failed/cancelled/incomplete execution→immutable ValidationCycle closure snapshot/hash; see T-132/T-124.
 
 ## Goal
 - Create the parent package for full paper implementation landing under the user-facing `论文管理` module.

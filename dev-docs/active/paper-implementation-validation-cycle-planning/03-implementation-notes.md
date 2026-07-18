@@ -22,3 +22,13 @@
 ## Open Notes
 - Keep planning separate from experiment execution.
 - T-096 should consume only admitted validation planning objects and should not reinterpret T-095 feedback candidates as upstream authority unless explicitly dispatched.
+
+## 2026-07-12 - D-17 Semantic Adoption (docs-only; not implemented)
+- Recorded T-132 D-17 as the product target: the exact closure-input scope derives one interpretation-ready identity, Result Analysis proposes only, and the existing Cycle closure is the sole scientific-disposition and selected-exit writer. The 2026-07-13 convergence below defines that exact scope as watermark-bound current-effective branch heads rather than all historical Runs.
+- The landed caller-authored `cycle_assessment`/`decision_exit` path, mixed outcome axis and downstream packet refs remain historical implementation facts. They are mandatory atomic migration debt and must not survive as a compatibility or fallback path.
+- No contracts, services, repositories, Prisma schema, routes or tests changed in this documentation update.
+
+## 2026-07-13 - Current-effective closure-scope convergence (docs-only; not implemented)
+- Refined the D-16/D-17 target from ambiguous "every/exact terminal Run" wording to one `closure_watermark` over the admission-frozen branch set and each branch's current admitted revision plus sequence-fenced head Run.
+- Non-head Runs remain immutable queryable history and are excluded from readiness/snapshot/dossier by default; explicit `comparison_input_ref` adds interpretation lineage only. A missing head is a stable blocker, every active real-provider Attempt in the Cycle blocks closure, and Cycle/branch/head CAS drift forces readiness rebuild.
+- Historical T-095 implementation evidence remains unchanged; no contract, code, schema, database or runtime behavior was modified.

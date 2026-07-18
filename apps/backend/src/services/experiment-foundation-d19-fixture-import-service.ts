@@ -16,6 +16,7 @@ import type {
 } from '../repositories/experiment-foundation-v2.repository.js';
 import {
   buildExperimentFoundationD19TypedFixture,
+  EXPERIMENT_FOUNDATION_D19_ACTIVE_METRIC_KEYS,
   type ExperimentFoundationD19TypedFixture,
 } from './experiment-foundation-d19-fixture.js';
 import {
@@ -123,7 +124,14 @@ export async function importExperimentFoundationD19TypedFixture(
 export function buildExperimentFoundationD19AdmissionRequestTemplate(
   fixture: ExperimentFoundationD19TypedFixture,
 ): PaperImplementationExperimentV2AdmissionRequest {
-  const activeMetrics = fixture.metric_definitions.slice(0, 7).map((metric) => {
+  const metricsByLogicalId = new Map(
+    fixture.metric_definitions.map((metric) => [metric.logical_id, metric]),
+  );
+  const activeMetrics = EXPERIMENT_FOUNDATION_D19_ACTIVE_METRIC_KEYS.map((metricKey) => {
+    const metric = metricsByLogicalId.get(`d19-metric-${metricKey}`);
+    if (!metric) {
+      throw fixtureConflict(`The D-19 active metric catalog is missing ${metricKey}.`);
+    }
     if (metric.asset_type !== 'MetricDefinition') {
       throw fixtureConflict('The D-19 active metric catalog contains a non-metric ref.');
     }

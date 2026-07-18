@@ -1,5 +1,7 @@
 # 04 Verification
 
+> Supersession (2026-07-12): the T-074 green results below are historical contract evidence. `accepted_partial` acceptance cannot satisfy current T-132 D-03b/D-16 productized gates and must be replaced, not retained as an alternate passing path.
+
 ## 2026-05-17 - T-074 landing verification
 - Scope: result, evidence, evaluation fact, and paper sidecar shared contracts.
 - Commands:

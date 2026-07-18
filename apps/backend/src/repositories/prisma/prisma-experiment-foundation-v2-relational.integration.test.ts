@@ -256,7 +256,12 @@ test(
         repository: piRepository,
         scopeReader: {
           async resolveExactScope(implementationProjectId, validationCycleId) {
-            return { implementation_project_id: implementationProjectId, validation_cycle_id: validationCycleId };
+            return {
+              implementation_project_id: implementationProjectId,
+              implementation_project_lifecycle_status: 'active',
+              validation_cycle_id: validationCycleId,
+              validation_cycle_lifecycle_status: 'admitted',
+            };
           },
         },
         admissionEnabled: () => true,
@@ -576,7 +581,9 @@ async function createRelationalAdmission(
       async resolveExactScope(implementationProjectId, validationCycleId) {
         return {
           implementation_project_id: implementationProjectId,
+          implementation_project_lifecycle_status: 'active',
           validation_cycle_id: validationCycleId,
+          validation_cycle_lifecycle_status: 'admitted',
         };
       },
     },

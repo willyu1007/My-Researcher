@@ -1,5 +1,7 @@
 # 07 Design Doc Component Coverage
 
+> D-16 supersession (2026-07-12): trusted failed-callback/failed-RunEvidenceUnit rows below remain historical T-101 coverage evidence only. Productized replacement coverage requires zero failed/cancelled/incomplete REU plus exact immutable closed-Cycle snapshot/hash accounting; old and new paths cannot both pass.
+
 ## Outcome
 All runtime components from the implementation design docs have either executable coverage or an explicit non-blocking follow-up owner.
 

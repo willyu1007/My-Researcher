@@ -3,6 +3,44 @@
 ## Context and current state
 ExperimentFoundation already has a sensible bounded context and a broad shared contract covering reusable assets, evaluation protocols, Recipe/TaskSpec, execution, result validation and evidence. The productization gap is not a missing noun model; the gap is the absence of enforceable trust invariants, durable application services and one continuous researcher workflow. The workflow must also close a round trip with PaperImplementation: PI owns the paper-bound intent and WorkOrder, while EF owns experiment execution and scientific facts.
 
+## Implemented zero-write Aliyun preflight boundary — 2026-07-18
+
+The cloud-preflight slice is a non-persisted control boundary layered over the exact acknowledged Pack A Run and its existing Pack B product evidence. It adds no Prisma model and performs no provider write:
+
+```text
+exact Run + ordered RunCells + exact TrainingTaskSpecs + code-owned execution profile
+  -> exact Aliyun PAI-DLC CreateJob payload bytes (transient only)
+  -> canonical payload hash + redacted manifest
+  -> same exact payload/hash through deterministic fake lifecycle
+  -> temporary-STS + reviewed-policy gate
+  -> official SDK: GetWorkspace -> ListResources -> ListEcsSpecs
+  -> CP01-CP12 summary with protected-table digest parity
+```
+
+The full request is never persisted or logged. Its provider profile is code-owned and environment-supplied, while Run/RunCell/TaskSpec identity remains database authority; the materializer rejects any cross-layer substitution or caller-authored hash. The official `CreateJob` contract has no documented dry-run flag and creates a job, so `PaiDlc.CreateJob` is a frozen forbidden operation and is rejected before transport. The request size is checked against the documented 65,536-byte ceiling before any network path.
+
+The live surface is exactly `AIWorkspace.GetWorkspace`, `AIWorkspace.ListResources` and `PaiDlc.ListEcsSpecs`, using regional HTTPS endpoints. A complete temporary STS triplet is mandatory. A repo-external, current review receipt must bind the access-key-id hash to a policy-document hash, require `paiworkspace:GetWorkspace`/`paiworkspace:ListResources`, and explicitly deny `paidlc:CreateJob`; long-lived or partial credentials cannot enter the transport. The operation ledger stores only operation names, endpoints, request IDs and hashed refs. Official references: [CreateJob](https://help.aliyun.com/en/pai/developer-reference/api-pai-dlc-2020-12-03-createjob), [GetWorkspace](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-getworkspace), [ListResources](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-listresources), [ListEcsSpecs](https://help.aliyun.com/zh/pai/developer-reference/api-pai-dlc-2020-12-03-listecsspecs).
+
+Admission, workflow simulation and cloud preflight are independent switches. Disabling preflight cannot change the already committed Pack A/Pack B lineage; enabling it authorizes only these reads. `cloud_preflight_passed` still does not verify scheduling capacity, image pull, mounts, runtime network, accelerator health, user command, logs/results, cancellation/cleanup or scientific evidence.
+
+## Formal PI product prefix and Pack A terminal state — 2026-07-15
+
+The product-bound prefix is now executable as one normal route chain:
+
+```text
+active PaperProject + exact active bridge
+  -> active ImplementationProject
+  -> admitted CoreMotive + complete literature-backed trace
+  -> trace-ready evidence board/binding
+  -> admitted ValidationCycle
+  -> v2 WorkOrder admission
+  -> T1 PI -> T2 EF -> T3 PI -> T4 EF acknowledgement
+```
+
+The evidence board/binding establishes PI planning trace readiness; the binding is not an EF scientific result or trusted evidence mint. Admission independently revalidates that the project is `active` and the exact Cycle is `admitted`; caller-supplied ids cannot promote an inactive scope. The product runner uses HTTP routes for the PI-owned prefix and admission, then the production Prisma relay/services for T1-T4 drain, preserving the four domain-local transactions.
+
+Named-local terminal configuration separates one-way writer ownership from intake: cutover remains committed, admission is off, and Pack B simulation is off. The terminal configuration prevents new Pack A work while preserving the exact v2 lineage and allowing a separately authorized Pack B continuation from the acknowledged Run.
+
 ## Pack A implemented architecture — 2026-07-13
 
 The first executable authority slice now follows the frozen D-19/D-20/D-21/D-22 design without a compatibility path:
@@ -25,14 +63,14 @@ The final source-policy gate binds the exact Wikimedia 2026-07-01 raw source bun
 - Each typed identity owns a stable family-specific key that is independent from `logical_id`; create enforces same-family key uniqueness, update cannot rename that key and Prisma mapping fails closed if relational identity and draft content disagree.
 - Draft schema version and canonical hash are derived from the typed draft content when needed; five duplicated `draftSchemaVersion`/`draftHash` column pairs and their five indexes are not persisted authority. `state_version`/expected-version fencing accepts positive integers only.
 - VersionLock authority is its exact relational dependency rows plus one server-derived canonical lock hash. The unused `lockSchemaVersion` and `resolvedLockJson` placeholders are removed, so no second lock snapshot can drift from the relational dependency manifest.
-- T2's repository commit performs a batched `FOR SHARE` readiness fence inside the same transaction and before inbox/materialization/Run/outbox writes. It rechecks the exact attestation target/hash, ordered dependency manifest/hash, all 23 active lifecycle projections and Dataset location; any drift returns a typed conflict with zero partial T2 authority.
+- T2's repository commit performs a batched `FOR SHARE` readiness fence inside the same transaction and before inbox/materialization/Run/outbox writes. The fence rechecks the exact attestation target/hash, ordered dependency manifest/hash, all 23 active lifecycle projections and Dataset location; any drift returns a typed conflict with zero partial T2 authority.
 - Readiness dependency traversal uses one transaction-local revision/manifest cache. The cache changes query shape, not trust semantics: execution still resolves exact revisions/hashes and never `latest`.
 
 ### Event storage and relational hardening — 2026-07-14
 
 - The four PI/EF integration inbox/outbox tables persist only the typed event payload in JSON. Event type/version, ids, aggregate references, branch key and hashes remain structural columns; repositories reconstruct the full typed envelope before delivery or consumer acceptance.
 - Payload integrity and envelope integrity are independent fences. Reconstructed events must pass the server canonical payload hash and the canonical full-envelope hash, so a scalar-column substitution cannot be hidden by unchanged payload JSON and duplicated envelope JSON cannot become a second authority.
-- Migration `20260714210000_normalize_experiment_v2_event_payloads` rewrites all 38 Pack A same-domain foreign keys to `ON DELETE RESTRICT ON UPDATE RESTRICT`. It introduces no PI-to-EF relation, cascade or shared mutable table.
+- Migration `20260714210000_normalize_experiment_v2_event_payloads` rewrites all 38 Pack A same-domain foreign keys to `ON DELETE RESTRICT ON UPDATE RESTRICT`. The migration introduces no PI-to-EF relation, cascade or shared mutable table.
 - Nine columns that are intentionally fixed at schema version `v1` are now protected twice: a database CHECK rejects new invalid rows and repository mapping rejects unexpected historical values before they enter typed domain state.
 - Shared numeric contracts mirror PostgreSQL `Int` exactly (`-2147483648..2147483647`) for seeds, repeats and run-policy values. Every server-incremented Int authority—revision/lifecycle/projection/state/head/relay/lease/attempt counters—uses the same upper-bound fence before arithmetic or persistence, so overflow cannot wrap or leave a partial transaction.
 - Persisted `redacted_manifest` JSON is untrusted on every read. One exact typed v1 parser validates closed keys, nested scope, redacted fields and hashes before replay, scope resolution or provider dispatch; neither repository DTO typing nor a top-level shape check upgrades unknown JSON into authority.
@@ -84,7 +122,7 @@ Cancellation is a durable intent with explicit linearization. A pending-submit c
 
 The local rollout preserves the architecture's independent gates. Historical Pack A/Pack B landing probes temporarily enabled gitignored local cutover/admission/simulation overrides; the deep-cleanup closure recompiles all three to `false`, while repository defaults remain `false`. Disabling Pack B blocks only new E1 intake; committed command drain remains independent. A future separately authorized enablement still cannot manufacture dispatch eligibility: E1 must re-resolve an exact Run/RunCell/TaskSpec plus the processed `BranchHeadAdvanced` inbox receipt and exact readiness before any Pack B write.
 
-The named local database currently contains the typed asset/readiness substrate but no PI v2 admission, Run/head or acknowledgement, and all three local admission/cutover/simulation flags are `false`. The isolated historical enabled probe ended at `EXECUTION_HEAD_ACK_REQUIRED`; all six Pack B tables remain empty. The deployed schema is a valid default-off readiness state, not an alternate bootstrap path. A future product smoke must create the prerequisite through PI admission and the Pack A four-transaction saga, then receive separate enablement authorization; disposable fixture import, legacy-row trust upgrade and direct Pack B table seeding remain forbidden.
+At the 2026-07-14 readiness checkpoint, the named local database contained the typed asset/readiness substrate but no PI v2 admission, Run/head or acknowledgement, and all three local admission/cutover/simulation flags were `false`. The isolated historical enabled probe ended at `EXECUTION_HEAD_ACK_REQUIRED`; all six Pack B tables were empty. The 2026-07-15 formal product landing supersedes that missing-head state: exact PI admission/Run/head/ack now exists, cutover is committed, admission/simulation are off, and Pack B tables remain empty. Disposable fixture import, legacy-row trust upgrade and direct Pack B table seeding remain forbidden.
 
 Remaining implementation risks from the 2026-07-10 review after Pack A/Pack B deep cleanup:
 - legacy generic upsert remains present only for diagnostics/legacy workflows and is mechanically ineligible for v2 authority; the legacy path must not regain a product writer;

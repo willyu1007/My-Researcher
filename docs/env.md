@@ -2,7 +2,7 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-07-13T15:58:00Z`
+Generated at (UTC): `2026-07-18T00:24:48Z`
 
 ## Environments
 - `dev`, `dev.local`, `prod`, `staging`
@@ -11,6 +11,9 @@ Generated at (UTC): `2026-07-13T15:58:00Z`
 
 | Name | State | Type | Required | Secret | Default | Secret Ref | Scopes | Deprecate After | Replacement | Rename From | Description |
 |---|---:|---:|:---:|:---:|---|---|---|---|---|---|---|
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` | `active` | `string` | no | yes | `` | `alibaba_cloud_access_key_id` | `dev` | `` | `` | `` | Temporary STS AccessKey ID for the dedicated Aliyun read-only preflight identity; long-lived account credentials are not accepted by the gate. |
+| `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | `active` | `string` | no | yes | `` | `alibaba_cloud_access_key_secret` | `dev` | `` | `` | `` | Temporary STS AccessKey secret for the dedicated Aliyun read-only preflight identity. |
+| `ALIBABA_CLOUD_SECURITY_TOKEN` | `active` | `string` | no | yes | `` | `alibaba_cloud_security_token` | `dev` | `` | `` | `` | Temporary STS security token required by the dedicated Aliyun read-only preflight identity. |
 | `APPLICATION_SETTINGS_REPOSITORY` | `active` | `enum` | no | no | `memory` | `` | `*` | `` | `` | `` | Repository strategy for application settings; must match TITLE_CARD_REPOSITORY when title-card uses Prisma. |
 | `APP_ENV` | `active` | `enum` | yes | no | `dev` | `` | `*` | `` | `` | `` | Deployment environment profile. |
 | `AUTO_PULL_REPOSITORY` | `active` | `enum` | no | no | `memory` | `` | `*` | `` | `` | `` | Repository strategy for auto-pull stores; must match TITLE_CARD_REPOSITORY when title-card uses Prisma. |
@@ -23,6 +26,13 @@ Generated at (UTC): `2026-07-13T15:58:00Z`
 | `EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED` | `active` | `enum` | no | no | `false` | `` | `dev` | `` | `` | `` | Explicit opt-in switch for experiment-foundation LocalScript execution outside NODE_ENV=test. |
 | `EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT` | `active` | `string` | no | no | `.ai/.tmp/experiment-foundation-local-execution` | `` | `dev` | `` | `` | `` | LocalScript execution root for experiment-foundation smoke runs; all working directories and outputs must stay inside this root. |
 | `EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Comma-separated LocalScript command allowlist; keep narrow for local smoke execution. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED` | `active` | `bool` | no | no | `False` | `` | `dev` | `` | `` | `` | Enable only the zero-write Aliyun PAI read-only preflight; this switch never authorizes CreateJob or scientific execution. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_PATH` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Repo-external JSON evidence binding the temporary preflight credential to the reviewed read-only RAM policy with explicit paidlc:CreateJob denial. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_SHA256` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Independently supplied sha256:<lowercase-hex> digest of the exact repo-external reviewed identity-policy evidence file. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact runtime image reference used only for offline CreateJob request materialization. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_REGION_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact Aliyun region ID for the zero-write PAI cloud preflight. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact DLC resource quota ID inspected by the zero-write cloud preflight. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact PAI workspace ID inspected by the zero-write cloud preflight. |
 | `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands. |
 | `HOST` | `active` | `string` | no | no | `0.0.0.0` | `` | `*` | `` | `` | `` | Service listen host. |
 | `LITERATURE_CONTENT_PROCESSING_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing` | `` | `dev` | `` | `` | `` | Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. |

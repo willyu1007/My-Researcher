@@ -1,5 +1,7 @@
 # 04 Verification
 
+> **D-17 supersession (2026-07-12; docs-only, not implemented):** historical green result-analysis Domain Gate/materialization checks below prove the T-114 implementation that existed then. They do not prove the productized conclusion-authority contract. Future acceptance must instead prove support-only Result Analysis, exact proposal/hash consumption by the sole ValidationCycle closure writer, server-derived selected exit, direct packet materializer removal and closed-Cycle-only packet/claim/dossier consumption.
+
 ## Planning Verification
 | Check | Expected result |
 |---|---|

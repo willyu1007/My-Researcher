@@ -762,7 +762,7 @@ async function makeV1cRouteHarness(
 ): Promise<V1cRouteHarness> {
   const app = Fastify({ logger: false });
   app.setErrorHandler((error, _request, reply) => {
-    if ('validation' in error) {
+    if (typeof error === 'object' && error !== null && 'validation' in error) {
       reply.status(400).send({
         error: {
           code: 'INVALID_PAYLOAD',

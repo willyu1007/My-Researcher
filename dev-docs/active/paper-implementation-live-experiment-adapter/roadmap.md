@@ -27,9 +27,9 @@ T-104 turns the existing PaperImplementation WorkOrder control plane into a live
 | L1 | Which task ID? | Use `T-104`; `T-103` is occupied. | confirmed |
 | L2 | Where does adapter authority live? | PaperImplementation owns WorkOrder and evidence admission; experiment-foundation owns execution artifacts; T-104 is orchestration only and must not create a new authority root or direct persistence path. | confirmed |
 | L3 | Is a new Prisma model required? | Do not add Prisma fields by default. During implementation, explicitly check idempotency and queryability; add schema only if a concrete gap cannot be represented by existing queryable fields without JSON-only drift. | confirmed |
-| L4 | How is final run evidence trusted? | Use option A: T-104 pre-allocates `run_evidence_unit_id`, creates or requires a complete `TraceManifest` targeting `run_evidence_unit:<id>`, then calls `recordRunMonitorIntake`; the WorkOrder service remains the final gate. | confirmed |
+| L4 | How is final run evidence trusted? | Historical T-104 pre-allocated REU identity for terminal outcomes. T-132 D-16 supersedes the productized target: only complete validation-passed EvidenceCandidate receives REU identity through the sole gateway; failed/cancelled/incomplete terminal facts feed Cycle closure accounting. | confirmed; refined by D-16 |
 | L5 | Should real cloud execution be default? | No. Default verification is deterministic and credential-free; real cloud/external execution is opt-in canary with preflight, redacted artifacts, and skipped/blocked/passed reporting separate from default pass/fail. | confirmed |
-| L6 | Should adapter create result interpretation or claims? | No. T-104 stops at trusted `RunEvidenceUnit` and monitor/evidence ledger closure; `ResultInterpretationPacket`, `ClaimCandidate`, `ImplementationDossier`, and `WritingEntryPacket` remain owned by T-098/downstream writing. | confirmed |
+| L6 | Should adapter create or trigger result interpretation/claims? | No. T-104 stops at monitor/Attempt facts, eligible `RunEvidenceUnit` gateway handoff and Cycle closure-accounting input. Under T-132 D-17, exact terminal fact publication drives PI-owned idempotent whole-Cycle readiness evaluation; PI control plane triggers one Result Analysis proposal, the existing Cycle closure writes disposition/selected exit, and T-098 consumes the exact closed Cycle. The semantic cutover is docs-only/not implemented. | confirmed; refined by D-16/D-17 |
 | L7 | Should this include provider variance? | No. T-104 is live experiment execution infrastructure only; live LLM/provider variance is owned by `T-105 paper-implementation-provider-variance-evaluation` and must not be implemented inside T-104. | confirmed |
 
 ## Recommended Execution Order
@@ -43,3 +43,5 @@ T-104 turns the existing PaperImplementation WorkOrder control plane into a live
 
 ## Completion Signal
 T-104 is complete when an admitted WorkOrder can be submitted to experiment-foundation execution, synced/collected, and converted into trusted run evidence through the existing monitor/evidence ledger path without creating any parallel authority or default live-cloud dependency.
+
+For the D-17 product target, historical T-104 completion is insufficient until terminal responses are facts-only, one-job conclusion/packet/readiness commands are rejected, and PI-owned whole-Cycle readiness evaluation is replay-safe and automatic after fact publication. This is scheduled migration debt, not implemented by the documentation update.

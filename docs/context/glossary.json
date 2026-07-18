@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-01T00:00:00Z",
+  "updatedAt": "2026-07-12T22:42:46Z",
   "terms": [
     {
       "term": "PaperProject",
@@ -19,7 +19,7 @@
     },
     {
       "term": "PaperImplementation",
-      "definition": "paper-implementation 是论文管理中的研究实施 authority lane，拥有 ImplementationProject、CoreMotiveVersion、ValidationCycle、ResearchWorkOrder、RunEvidenceUnit、ClaimTracePacket、ImplementationDossier 和 writing-ready decision。",
+      "definition": "paper-implementation 是论文管理中的研究实施 authority lane，拥有 ImplementationProject、CoreMotiveVersion、ValidationCycle、WorkOrder branch/revision/current-head projection、RunEvidenceUnit、ClaimTracePacket、ImplementationDossier 和 writing-ready decision。它在 ValidationCycle closure 中拥有 contextual scientific disposition；experiment-foundation 仍拥有 Run/Attempt/result facts。",
       "scope": "paper-implementation",
       "aliases": [
         "paper-implementation",
@@ -28,12 +28,28 @@
       "see_also": [
         "PaperProject",
         "ImplementationDossier",
-        "PaperImplementationWritingEntryPacket"
+        "PaperImplementationWritingEntryPacket",
+        "ValidationCycleClosureSnapshot"
+      ]
+    },
+    {
+      "term": "ValidationCycleClosureSnapshot",
+      "definition": "ValidationCycle 关闭时在一个 closure_watermark 上冻结的 current-effective decision scope：admission-frozen branch 集合，以及每个 branch 的 current admitted revision、sequence-fenced head Run 和完整 cell/Attempt accounting。Non-head Runs 保持 immutable/queryable 且默认不进入 readiness、snapshot 或 dossier；当前 revision 只有通过显式 comparison_input_ref 才能引用旧 Run 作为对比 lineage，不能恢复其 head 或 execution-scope 身份。缺少 head 的 branch 在候选范围中返回 BRANCH_HEAD_NOT_FROZEN，任何 Cycle 内 active real-provider Attempt（包括 non-head Run）返回 CYCLE_ACTIVE_REAL_ATTEMPT，Cycle/branch/head CAS 漂移返回 CYCLE_CLOSURE_SCOPE_DRIFT 并零写重建。ValidationCycleClosed 之后才物化 ResultInterpretationPacket，Packet 不进入 closure hash。",
+      "scope": "paper-implementation",
+      "aliases": [
+        "cycle closure snapshot",
+        "current-effective closure scope",
+        "验证周期关闭快照"
+      ],
+      "see_also": [
+        "PaperImplementation",
+        "ResearchWorkOrder",
+        "ImplementationDossier"
       ]
     },
     {
       "term": "ImplementationDossier",
-      "definition": "PaperImplementation 拥有的完整、权威、可追踪写作前研究材料包，包含 motive、validation cycle、work order、run evidence、result interpretation、claim trace、citation candidates、failed paths、accepted risks、boundaries 和 trace manifests。只有通过 ImplementationDossierReadinessGate 后，材料才可作为 writing-ready。",
+      "definition": "PaperImplementation 拥有的完整、权威、可追踪写作前研究材料包，包含 motive、validation cycle、work order、run evidence、result interpretation、claim trace、citation candidates、当前有效 head execution accounting、accepted risks、boundaries 和 trace manifests。它只从显式 closed-Cycle current-effective snapshot 与显式 comparison_input_ref 取范围，不扫描 project/Cycle 全历史；只有通过 ImplementationDossierReadinessGate 后，材料才可作为 writing-ready。",
       "scope": "paper-implementation",
       "aliases": [
         "implementation dossier",
@@ -43,12 +59,13 @@
       "see_also": [
         "PaperImplementation",
         "ImplementationDossierReadinessGate",
-        "PaperImplementationWritingEntryPacket"
+        "PaperImplementationWritingEntryPacket",
+        "ValidationCycleClosureSnapshot"
       ]
     },
     {
       "term": "ImplementationDossierReadinessGate",
-      "definition": "PaperImplementation 中决定 ImplementationDossier 是否 writing-ready 的唯一 readiness gate。它必须检查 claim trace、citation candidates、failed/negative/inconclusive runs、accepted risks、blockers 和 trace manifests。",
+      "definition": "PaperImplementation 中决定 ImplementationDossier 是否 writing-ready 的唯一 readiness gate。它必须检查 claim trace、citation candidates、closed-Cycle current-effective head snapshot 中的 failed/negative/inconclusive accounting、显式 comparison lineage、accepted risks、blockers 和 trace manifests；不得用 project-wide/history scan 或 Sidecar fallback 扩张范围。",
       "scope": "paper-implementation",
       "aliases": [
         "dossier readiness gate",
@@ -57,7 +74,8 @@
       "see_also": [
         "ImplementationDossier",
         "ClaimTracePacket",
-        "TraceManifest"
+        "TraceManifest",
+        "ValidationCycleClosureSnapshot"
       ]
     },
     {
@@ -77,7 +95,7 @@
     },
     {
       "term": "ResearchWorkOrder",
-      "definition": "PaperImplementation 拥有的实验 command/governance envelope，规定为什么跑、服务哪个 motive/assertion/validation cycle、采用什么 run policy，并通过 refs/hashes 调用 experiment-foundation 的 RunRecipe、TrainingTaskSpec、ExternalTrainingJob 和结果对象。它不拥有实验基座对象本身。",
+      "definition": "PaperImplementation 拥有的实验 command/governance envelope。WorkOrder branch 是稳定逻辑身份，admitted revision 是 immutable exact plan；PI 维护 current admitted revision 和 per-branch sequence-fenced head projection，并通过 refs/hashes 调用 experiment-foundation 的 RunRecipe、TrainingTaskSpec、Run/ExecutionAttempt 和结果对象，但不拥有实验基座事实。",
       "scope": "paper-implementation",
       "aliases": [
         "work order",
@@ -87,7 +105,8 @@
       "see_also": [
         "PaperImplementation",
         "ExperimentFoundation",
-        "ImplementationDossier"
+        "ImplementationDossier",
+        "ValidationCycleClosureSnapshot"
       ]
     },
     {

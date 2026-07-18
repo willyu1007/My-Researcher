@@ -1,0 +1,1027 @@
+{
+  "schema_version": "experiment-foundation-packb-product-landing@v1",
+  "status": "passed",
+  "mode": "verify",
+  "run_id": "formal-pi-scope-packb-product-20260715-verify-r2",
+  "generated_at": "2026-07-15T13:06:41.080Z",
+  "target": {
+    "database": "postgres",
+    "schema": "my_researcher_dev",
+    "host": "127.0.0.1",
+    "port": "5432",
+    "fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0"
+  },
+  "source_pack_a_evidence": {
+    "path": "dev-docs/active/experiment-foundation-productization-closure/artifacts/product-pack-a-local-20260715/04-product-landing-verify.json",
+    "sha256": "sha256:341eba9ae1e38ce282947d9d9554102f04ff5c93fa7cb5564a7152b0c245ee48",
+    "status": "passed",
+    "paper_project_id": "P313"
+  },
+  "configuration": {
+    "cutover_committed": true,
+    "admission_enabled": false,
+    "workflow_simulation_enabled": false,
+    "auto_pull_scheduler_enabled": false,
+    "background_work_enabled": false
+  },
+  "operation": {
+    "mutation_performed": false,
+    "start_replayed": null,
+    "drain_outcomes": []
+  },
+  "exact_pack_a_prerequisite": {
+    "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+    "validation_cycle_id": "validation_cycle_t132_packa_product_p313_v1",
+    "branch_id": "pi_experiment_branch_v2_82dfdc10-858a-4e19-955b-e265a420418c",
+    "work_order_revision_id": "pi_experiment_revision_v2_fed4f563-4717-4bb3-89d6-1295a1b751db",
+    "work_order_revision_hash": "sha256:a5be97e94ecc9e1b817b42016473f169834ac18ec6c53e24ecce8305b019e81b",
+    "run_id": "ef_run_v2_c4ab7919-2d7b-415c-ab53-201b11464aca",
+    "run_manifest_hash": "sha256:8965ebdfd39f899a56ff242aedc968c0b29dd8048a2cecba1ac3ecdb9342d915",
+    "run_cells": [
+      {
+        "ordinal": 1,
+        "run_cell_id": "ef_run_cell_v2_08f23a75-a703-4ce9-85c5-0e3997102f10",
+        "cell_key": "retriever-top-k-5",
+        "training_task_spec_id": "ef_training_task_spec_v2_ed694855-e582-4d51-aa8b-71aa7493c7de",
+        "training_task_spec_hash": "sha256:922ba30985c715154706b951af3f34e8d4c46bf5b54fa2b73130e34167b1a427"
+      },
+      {
+        "ordinal": 2,
+        "run_cell_id": "ef_run_cell_v2_22adca85-e47b-4a56-8a79-e38363ba9d0f",
+        "cell_key": "retriever-top-k-10",
+        "training_task_spec_id": "ef_training_task_spec_v2_63467583-f614-48ff-816c-bb14e09d20bf",
+        "training_task_spec_hash": "sha256:8a1cba0a43a84345e34025a2d41bba13ba4a10b3fcdeec1df4cca39c3e9557ab"
+      }
+    ],
+    "acknowledgement_inbox_id": "ef_integration_inbox_v2_366831a8-fe25-4361-a701-e83a85004ce8",
+    "readiness_attestation_id": "readiness_attestation_5a9a84ce-bc90-48fe-9225-0188b076ca30",
+    "readiness_attestation_hash": "sha256:3f6ac7705c01ba9efc15f030868002f455915fcff095517c6f34d2e588d92bc0",
+    "dependency_manifest_hash": "sha256:3ba818c9b7dd3b97d4e255c08f9563722351e2e01ae008fdf8b859d57ef17279",
+    "ordered_dependency_count": 22
+  },
+  "workflow_simulation_status": {
+    "run_id": "ef_run_v2_c4ab7919-2d7b-415c-ab53-201b11464aca",
+    "run_manifest_hash": "sha256:8965ebdfd39f899a56ff242aedc968c0b29dd8048a2cecba1ac3ecdb9342d915",
+    "workflow_simulation_status": "workflow_simulation_passed",
+    "required_cell_count": 2,
+    "terminal_cell_count": 2,
+    "collected_cell_count": 2,
+    "cells": [
+      {
+        "run_cell_id": "ef_run_cell_v2_08f23a75-a703-4ce9-85c5-0e3997102f10",
+        "cell_key": "retriever-top-k-5",
+        "latest_execution_attempt_id": "ef_v2_attempt_0c749c9b-9fc4-4d82-8730-a7582c72c375",
+        "latest_attempt_state": "succeeded",
+        "latest_collection_state": "collected"
+      },
+      {
+        "run_cell_id": "ef_run_cell_v2_22adca85-e47b-4a56-8a79-e38363ba9d0f",
+        "cell_key": "retriever-top-k-10",
+        "latest_execution_attempt_id": "ef_v2_attempt_88b1cd2a-5937-4479-bd5c-960319da1393",
+        "latest_attempt_state": "succeeded",
+        "latest_collection_state": "collected"
+      }
+    ],
+    "scientific_execution_status": "not_started",
+    "evidence_eligibility": false,
+    "derived_at": "2026-07-15T13:06:40.388Z"
+  },
+  "exact_pack_b_state": {
+    "business_idempotency_key": "packb-product-p313-two-cell-v1",
+    "provider_payload_count": 2,
+    "attempts": [
+      {
+        "execution_attempt_id": "ef_v2_attempt_0c749c9b-9fc4-4d82-8730-a7582c72c375",
+        "run_cell_id": "ef_run_cell_v2_08f23a75-a703-4ce9-85c5-0e3997102f10",
+        "cell_key": "retriever-top-k-5",
+        "provider_payload_id": "ef_v2_payload_83c596d7-2539-4d68-9a3f-712de167a3e3",
+        "provider_payload_hash": "sha256:0b8f756dadb4ea813d5d613591bcd0bde3a3604810a33769fd7778c6f8a8f9fa",
+        "external_job_ref": "fake_aliyun_pai_dlc_job_305cdb29972d762effac4bd64e53d4c4",
+        "events": [
+          {
+            "id": "ef_v2_event_30cee51d-03dd-41d5-99fe-ffa62ca671a1",
+            "sequence": 1,
+            "type": "created",
+            "hash": "sha256:93acc307d28368d4e015a58a15f8859219aaccf20a1797105c26f37acbbbc07e"
+          },
+          {
+            "id": "ef_v2_event_41fca298-5bc4-43a1-92e0-8d36acecdc94",
+            "sequence": 2,
+            "type": "submitted",
+            "hash": "sha256:009ceeb3deb8ff3ac65958599de572bd2e43414a7aacfbc1dc8af99c26850141"
+          },
+          {
+            "id": "ef_v2_event_eb966438-fa87-44cc-bdb8-caab372cfa2f",
+            "sequence": 3,
+            "type": "running",
+            "hash": "sha256:69ba3998d898942e01a2d08f21160cf5ee19b25c2082a0b6bf22c1b52124e826"
+          },
+          {
+            "id": "ef_v2_event_87adce77-3d05-4beb-b7a5-383fa02a3ef1",
+            "sequence": 4,
+            "type": "succeeded",
+            "hash": "sha256:9e0197dd24be834e0e2dba45dd6274290cc078413ca8982ebbf426005ae4917b"
+          },
+          {
+            "id": "ef_v2_event_308456aa-3d1c-4b7b-8591-ea538c701005",
+            "sequence": 5,
+            "type": "collection_prepared",
+            "hash": "sha256:901f0c9ab8dd29ba7f7239cb9bb3201d90fb588a364fd157b2df947b3063a5f2"
+          },
+          {
+            "id": "ef_v2_event_534021df-d5d8-41a5-98bc-bfb8d888b319",
+            "sequence": 6,
+            "type": "collection_collected",
+            "hash": "sha256:6426425e5cb167014ca77713f929ca9ef5923249318c0543afcf64055287b18b"
+          }
+        ],
+        "commands": [
+          {
+            "id": "ef_v2_command_d94fc4d6-7a37-4f46-b3b9-6df33326315b",
+            "sequence": 1,
+            "operation": "submit",
+            "hash": "sha256:3e5f68318b4beb38d0d2562bb343f3535aed51ab2faae75cfd6eccbb58ce934c",
+            "response_hash": "sha256:a5d3b4ca5843f3dca52767f597f81450fbae0c733edbc67302865a9bf5b5a769",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_ba6a5f1e-ab36-45f8-abdb-1a9595bf763d",
+            "sequence": 2,
+            "operation": "sync",
+            "hash": "sha256:240720de147227d8a62924f1e0162b09b80e253cdee2fa29189f0ee5356adea3",
+            "response_hash": "sha256:4e4d217ed510dce1b1a1ecbfde2ced1a90f04d8c4faa9b34eede265d71ad1216",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_88748e0d-8241-48e2-9dd1-fb2585de347e",
+            "sequence": 3,
+            "operation": "reconcile",
+            "hash": "sha256:57ede7cccacdd47363fc57cadc64161e2e49e99a72a350f464521e7c3d0d34c9",
+            "response_hash": "sha256:7b7ca3ce3a1f495d0b5606b70b06f0ae0624a76477c0415b622b1def7625fcd4",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_b1993f8d-af0c-4fde-99d7-0ec1451f9c82",
+            "sequence": 4,
+            "operation": "collect",
+            "hash": "sha256:d20666e0060daf8270b352d401b6e3a7686894e1df891fbfcddbe1916c6dac14",
+            "response_hash": "sha256:9f0219ce43b0d278f717025fcc190aa49e2fddaf873349f6598d5ffe9b301446",
+            "attempt_count": 1
+          }
+        ],
+        "collection": {
+          "id": "ef_v2_collection_7d852602-5f5d-4db8-abb5-d0929626e9af",
+          "state": "collected",
+          "request_hash": "sha256:a1d6bdaab00d0815e6de080a5d5b77ebfc5eea415f03e47531f00493dfb2f2c7"
+        },
+        "provisional_output": {
+          "id": "fake_diagnostic_output_d9c9d5febb74c5e0e22d2ca03e5eb4f4",
+          "ordinal": 1,
+          "kind": "simulation_lifecycle_trace",
+          "class": "diagnostic_only",
+          "hash": "sha256:d9c9d5febb74c5e0e22d2ca03e5eb4f4b669a7c1de14c8eb3d1c198f3656ca2a"
+        }
+      },
+      {
+        "execution_attempt_id": "ef_v2_attempt_88b1cd2a-5937-4479-bd5c-960319da1393",
+        "run_cell_id": "ef_run_cell_v2_22adca85-e47b-4a56-8a79-e38363ba9d0f",
+        "cell_key": "retriever-top-k-10",
+        "provider_payload_id": "ef_v2_payload_878dcf82-4ecc-471a-bc70-f895abc9c1b6",
+        "provider_payload_hash": "sha256:cfe7529bd7f9f2c492f018ba49980f0019fce45eaa9bf07028751d0ab895d4cd",
+        "external_job_ref": "fake_aliyun_pai_dlc_job_28602b84a65c38cbc3f4470dec244388",
+        "events": [
+          {
+            "id": "ef_v2_event_16cac65a-11df-4c19-acd7-69aa27dcc1e9",
+            "sequence": 1,
+            "type": "created",
+            "hash": "sha256:e0e50b7a626b035e5cb57ca6b80765c6882277e3f46400964fa3f2eba827db41"
+          },
+          {
+            "id": "ef_v2_event_c805dd1a-3753-4463-8223-72b6041899f1",
+            "sequence": 2,
+            "type": "submitted",
+            "hash": "sha256:f9bcc53752410ec9518cb4e02d10c1b883736026c7e3cb6d81f6d994ecb213a9"
+          },
+          {
+            "id": "ef_v2_event_1c416876-191a-4ba8-be65-f232810022f5",
+            "sequence": 3,
+            "type": "running",
+            "hash": "sha256:dc466383eab8b2ae859d5decf7183f45c3eba844560d0ad0d5b915673e3eeb08"
+          },
+          {
+            "id": "ef_v2_event_3ca09342-c930-4f11-8a47-d5bd539221ff",
+            "sequence": 4,
+            "type": "succeeded",
+            "hash": "sha256:a453b15d8ef851cd7f639a2a1fcfe28af0a8fa3321e94c4cd5886ac6fdde44c0"
+          },
+          {
+            "id": "ef_v2_event_fcb1ddd3-687c-4bc8-acc9-1c65b942638f",
+            "sequence": 5,
+            "type": "collection_prepared",
+            "hash": "sha256:f5d5b0ca8c0cb348a7a8d0c8fecda9d81932d1ecb86a8db4ecfbce0b00247c69"
+          },
+          {
+            "id": "ef_v2_event_d240be24-5442-40f1-876e-6c4f09d110cd",
+            "sequence": 6,
+            "type": "collection_collected",
+            "hash": "sha256:40254483f237edbd86dc1451c4e21cfdcdbb976b995e724c7dd60145d18b593a"
+          }
+        ],
+        "commands": [
+          {
+            "id": "ef_v2_command_d80b4b9e-9655-4d1b-980c-e8599e02e140",
+            "sequence": 1,
+            "operation": "submit",
+            "hash": "sha256:1c8b5d3df25e36f0fd1b26a306882231e43396b855b4734ae54cf0fad855c77a",
+            "response_hash": "sha256:932a6690d4399e6bcced90bf6b1ba4be58f4c3391ff0280ab21f9a99ba14eb07",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_cf7fac44-5f22-4ea3-9e83-3b250515ce87",
+            "sequence": 2,
+            "operation": "sync",
+            "hash": "sha256:8191c5a79afd08e7d4ab413ed1872efd7289cb1784af554e6085f1e3db5b27bd",
+            "response_hash": "sha256:cfde578aa20f9d3fab7d38ea2bfe6ce300f766f28b0952926cadefbccc3ee5c2",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_61054941-7cf9-4741-a41f-27fc2b0f9d58",
+            "sequence": 3,
+            "operation": "reconcile",
+            "hash": "sha256:f61f0f0e5f6223405607696755a19db42b9512d80c7840cc5c10eb2b94486044",
+            "response_hash": "sha256:190754acd6b80b2bd990961e8d3abf18d66426105491a136e330aa453cd26122",
+            "attempt_count": 1
+          },
+          {
+            "id": "ef_v2_command_b06d112f-4c29-4522-aae7-63603866212b",
+            "sequence": 4,
+            "operation": "collect",
+            "hash": "sha256:f02a1b4035c5e72260b60d9fdbbf1b6c8df6beb17d4f344e89e05fedd575e5ef",
+            "response_hash": "sha256:1bd14c779d8414625c4a53fa0173b1215c1802ce0a110ab03a36ec6414e0524f",
+            "attempt_count": 1
+          }
+        ],
+        "collection": {
+          "id": "ef_v2_collection_d82f51c6-bf27-43bb-acc6-6559ca885977",
+          "state": "collected",
+          "request_hash": "sha256:69739dd1ee070c3b1a06911291248ee1cecb1e52dad27d551c72834378f83986"
+        },
+        "provisional_output": {
+          "id": "fake_diagnostic_output_f3b0903e78c3726191957a229a5fbe7e",
+          "ordinal": 1,
+          "kind": "simulation_lifecycle_trace",
+          "class": "diagnostic_only",
+          "hash": "sha256:f3b0903e78c3726191957a229a5fbe7e610031580fb1cfc1e7deeff556e37c8e"
+        }
+      }
+    ],
+    "cycle_active_real_attempt_count": 0
+  },
+  "pack_b_census_before": {
+    "ExperimentFoundationProviderPayloadV2": 2,
+    "ExperimentFoundationExecutionAttemptV2": 2,
+    "ExperimentFoundationExecutionAttemptEventV2": 12,
+    "ExperimentFoundationProviderCommandV2": 8,
+    "ExperimentFoundationCollectionAttemptV2": 2,
+    "ExperimentFoundationProvisionalOutputV2": 2
+  },
+  "pack_b_write_census": {
+    "ExperimentFoundationProviderPayloadV2": 2,
+    "ExperimentFoundationExecutionAttemptV2": 2,
+    "ExperimentFoundationExecutionAttemptEventV2": 12,
+    "ExperimentFoundationProviderCommandV2": 8,
+    "ExperimentFoundationCollectionAttemptV2": 2,
+    "ExperimentFoundationProvisionalOutputV2": 2
+  },
+  "protected_authority_fence": {
+    "table_count": 88,
+    "changed_tables": [],
+    "before": {
+      "PaperImplementationExperimentWorkOrderBranchV2": {
+        "count": 1,
+        "digest": "sha256:3d142530a5e445ef8dede3f98f6e6c6d31de04a2bf8921f3c8da9a2efa574366"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionV2": {
+        "count": 1,
+        "digest": "sha256:62988e0ef3cd890b70629b0c6ad7c951ec9a9c14abc047130c4978f1fa8c7c78"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionCellV2": {
+        "count": 2,
+        "digest": "sha256:ace49f6069c3c7b808da5c2a331039966c022dfe1a75fee59520ae38056c1582"
+      },
+      "PaperImplementationExperimentWorkOrderAdmissionV2": {
+        "count": 1,
+        "digest": "sha256:150c346f727deb8896a0c08445ff89367d89b559465b7afe3b3aa746343aeb0b"
+      },
+      "PaperImplementationExperimentIntegrationInboxV2": {
+        "count": 1,
+        "digest": "sha256:b8beead7a1803fcfb848ade28dd8f3619c1964c04f17c41334d39837911bab23"
+      },
+      "PaperImplementationExperimentIntegrationOutboxV2": {
+        "count": 2,
+        "digest": "sha256:a72fb7933f87bbd919d00bd63fabc4f61b3eab411a3c2ac1e6c730139eaedfd9"
+      },
+      "ExperimentFoundationDatasetV2": {
+        "count": 2,
+        "digest": "sha256:3159b97322020fa5a47e1d0d9eafe676f950503815dffa866282c859e4a57d61"
+      },
+      "ExperimentFoundationDatasetRevisionV2": {
+        "count": 2,
+        "digest": "sha256:18a2ffca413829470eb189585088192005494a9bf47af665def7b17fc3c6a4ec"
+      },
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:e46a8417c5b18c9a9dc3722c3cc1deffcee3ff5d92e9f42e9961b69143d7ac67"
+      },
+      "ExperimentFoundationDataPolicyV2": {
+        "count": 2,
+        "digest": "sha256:c743506f6e618a41246b93b3088c0378e386954b57e38d7b064239f8872485ed"
+      },
+      "ExperimentFoundationDataPolicyRevisionV2": {
+        "count": 2,
+        "digest": "sha256:b0d8dce3553f85d71e328b79e5df9893cae8b12a70c774437006e209fea35b2f"
+      },
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:7094a16b944c286183841b70fb8c7ec5d089d4c1e4a273b72b93f473f04d2ebe"
+      },
+      "ExperimentFoundationMetricDefinitionV2": {
+        "count": 17,
+        "digest": "sha256:8ddbc627f91e4dd2d5e0e73bd28065492f5773a4fe96590ec766f39a8bd95cd3"
+      },
+      "ExperimentFoundationMetricDefinitionRevisionV2": {
+        "count": 17,
+        "digest": "sha256:6d3b68eeceda507c403b906671cb89b4100046a22b14ed84bec3d8e1a1a61884"
+      },
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2": {
+        "count": 17,
+        "digest": "sha256:629ad330bc037269f59f130dc645fdbd903fed016fd16650eb918f8ec7a11b2a"
+      },
+      "ExperimentFoundationBenchmarkV2": {
+        "count": 1,
+        "digest": "sha256:40e50aa363515ad38a08746bfc535939c61a1d515acd518ac676fb3c609f738c"
+      },
+      "ExperimentFoundationBenchmarkRevisionV2": {
+        "count": 1,
+        "digest": "sha256:b047259ee5070935e1cc9b92829a18b306c3debbe137cc04561cce9b4b4c6a79"
+      },
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:dc89a16ba28f3f02b9fe2d101f47d32352eca0b81dda4b895fc81e0bb1babe93"
+      },
+      "ExperimentFoundationEvaluationProtocolV2": {
+        "count": 1,
+        "digest": "sha256:59762181fb7ea19ab1baafa04f7f2cdde0d99fa949d9761d7a0ca51725939920"
+      },
+      "ExperimentFoundationEvaluationProtocolRevisionV2": {
+        "count": 1,
+        "digest": "sha256:71b883529f707c8c6f059f20724be376d43c6dda72a24dab7cf508540677a5f5"
+      },
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:35adada1a57794a462b7171c690482c45022fd58ab3e6e76cf31ba68146f3d90"
+      },
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2": {
+        "count": 17,
+        "digest": "sha256:800341f7e6c7fbf0e1e4c5e5aa34a7dace68ac4042dc84cc832cf37f021c4bef"
+      },
+      "ExperimentFoundationAssetLifecycleEventV2": {
+        "count": 48,
+        "digest": "sha256:21a744ba8d8f01ef61ad9694ae2e5afed7944e0c3c309cdb12499d58e5eebd20"
+      },
+      "ExperimentFoundationAssetLifecycleProjectionV2": {
+        "count": 23,
+        "digest": "sha256:5203ebcffce50704d38391ad1b1bb56a4646a3fc1d70ca5760ff37d5b0bfdcbe"
+      },
+      "ExperimentFoundationReadinessAttestationV2": {
+        "count": 23,
+        "digest": "sha256:6f648fe57960b53b07ca420054822d007a8fd5d83c0d1aa3c46fa5485206c6af"
+      },
+      "ExperimentFoundationReadinessDependencyV2": {
+        "count": 28,
+        "digest": "sha256:b18b22ee2a1eced9a9fcbf233eab53cc05f630c555b173efde457f9f1b4bd2c9"
+      },
+      "ExperimentFoundationVersionLockV2": {
+        "count": 1,
+        "digest": "sha256:b4fb92797746a8762017f01f70073dc93f45106c59727f83355ccc1b51a6e838"
+      },
+      "ExperimentFoundationVersionLockDependencyV2": {
+        "count": 23,
+        "digest": "sha256:86433c3bc4b01752678bbae4237881b338ffbffd536356d97d4aa99f60b777ed"
+      },
+      "ExperimentFoundationRunRecipeV2": {
+        "count": 1,
+        "digest": "sha256:e842e572f13ac3c151329657491204c076dc0800eb0a93dc6f767e6989bd0bb5"
+      },
+      "ExperimentFoundationTrainingTaskSpecV2": {
+        "count": 2,
+        "digest": "sha256:cf77aa480925318ecf52d02749215f7c0e67a5c3d6700af1ce854bbb03eb2347"
+      },
+      "ExperimentFoundationRunV2": {
+        "count": 1,
+        "digest": "sha256:747eecb8d87432ac75c3349372bb5c94a10aa9e248588d32e73c1de483feb590"
+      },
+      "ExperimentFoundationRunCellV2": {
+        "count": 2,
+        "digest": "sha256:901afde452fce6be2f79b2aa64d51045b1f5477bd428c2da21c0c7786fb73263"
+      },
+      "ExperimentFoundationIntegrationInboxV2": {
+        "count": 2,
+        "digest": "sha256:dbf2b74633622dab1b82f2c8d30bceabf7cb045679bd2df0eff85e53f52f2b74"
+      },
+      "ExperimentFoundationIntegrationOutboxV2": {
+        "count": 1,
+        "digest": "sha256:87783b02307a00698f6c9c7248b132630ff80a2ecc39c7c24765113760ac6ed3"
+      },
+      "PaperImplementationIntakeSnapshot": {
+        "count": 1,
+        "digest": "sha256:acb5dac5e717fdc04a3c28cd6c5c302c4d5b8ecf4cdabecedecd96629f9ab6cd"
+      },
+      "PaperImplementationProject": {
+        "count": 1,
+        "digest": "sha256:e415aacf8e0ebcb58c84971f7d18efaf97179be27aafa54eb1f3127e68bb872f"
+      },
+      "PaperImplementationFeedbackEvent": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTraceManifest": {
+        "count": 5,
+        "digest": "sha256:2bc43fa7f3bf4b313e10ec4166fa8c39f387851c8146557a8e667f0d694a20f8"
+      },
+      "PaperImplementationCitationCandidate": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationClaimTracePacket": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationNaturalLanguageFieldRole": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTraceRepairQueueItem": {
+        "count": 1,
+        "digest": "sha256:00b9d70f110abeb50bfc21ca1492e59555af06a0a2d5b60607ffb5d424524dd3"
+      },
+      "PaperImplementationTraceGateResult": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationHumanConfirmationRecord": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationCoreMotiveIdentity": {
+        "count": 2,
+        "digest": "sha256:3a126abe12574ab5a25ac7b68c2ac7d2f85659e55c181adebb464ec1ee695150"
+      },
+      "PaperImplementationCoreMotiveSet": {
+        "count": 2,
+        "digest": "sha256:5279d68f09b8ab79199a7984938a9faf094a3850728241261dec8d03aa63d779"
+      },
+      "PaperImplementationCoreMotiveVersion": {
+        "count": 2,
+        "digest": "sha256:322d79e4c47dc58bd247d86ed7143b031a549ddb24a06f4f0925769573301d17"
+      },
+      "PaperImplementationCoreMotiveVersionState": {
+        "count": 2,
+        "digest": "sha256:b936bdff02e9d8cc936b752d3569fb8d82e9c2ecf80697a57e7c6f84bbc88d65"
+      },
+      "PaperImplementationMotiveAssertion": {
+        "count": 2,
+        "digest": "sha256:8c75b7fc54469eb228f2d0a2f10b093b24644fe2a1ce9472e4ae723a00bca4e3"
+      },
+      "PaperImplementationMotiveEvidenceBoardVersion": {
+        "count": 2,
+        "digest": "sha256:c40dc48718fa19389aa91513d3ddb503c8e9dabcf4be4cac7051eb172ab22838"
+      },
+      "PaperImplementationEvidenceBinding": {
+        "count": 2,
+        "digest": "sha256:4b13137cf25d3bdc0b42dd24d193e6e66a5af8dbd3241d2f24c231073697b7c8"
+      },
+      "PaperImplementationEvidenceTransferBinding": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationCrossBoardReview": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationMotivePortfolioDecision": {
+        "count": 2,
+        "digest": "sha256:4d247636a546b3e2304fcbf5eca533d02639bb9decc7802b0ea28f0b68baeae4"
+      },
+      "PaperImplementationMotiveEvolutionDecision": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationValidationCycleInputSnapshot": {
+        "count": 2,
+        "digest": "sha256:02f75876c0e47772c02c44e11e823778efc59ecaaa3ca67fb5c360f0af95b5ad"
+      },
+      "PaperImplementationValidationCycle": {
+        "count": 2,
+        "digest": "sha256:49f5c99921b0e658edba67d4bf26b3ea33947bc246577166ebe5b071b3106f80"
+      },
+      "PaperImplementationTechnicalRouteCandidate": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationFeasibilityProbe": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationExperimentPlanLight": {
+        "count": 1,
+        "digest": "sha256:387653c1387cc42f106cbb475b6ce5c8b3eee76b993ad6392e1f2c2a228f0cb8"
+      },
+      "PaperImplementationValidationPlanningReviewItem": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationValidationUpstreamFeedbackCandidate": {
+        "count": 1,
+        "digest": "sha256:3a28705a5eee46f6f710c5a83f0924d23acae276f34eceac6a320b23b3893df5"
+      },
+      "PaperImplementationResearchWorkOrder": {
+        "count": 1,
+        "digest": "sha256:4f00c895f3eda842defbb2789e73289f47949c342518abf9eb613e0552a4d442"
+      },
+      "PaperImplementationWorkOrderHarnessRun": {
+        "count": 1,
+        "digest": "sha256:f9a54297d3a43914cf100ea3272697f9e432289ba4f6ebcc70a91681708e7350"
+      },
+      "PaperImplementationRunMonitorIntake": {
+        "count": 2,
+        "digest": "sha256:bae408ce9b1fc082a37a5918ea887ee5f7939ba6c1b71436dd4794b12fc5acc8"
+      },
+      "PaperImplementationRunEvidenceUnit": {
+        "count": 1,
+        "digest": "sha256:d0c197e73cf9e736f5f89f927eca16878aed30f4e6aee9c6a3e8eeb19277f2cf"
+      },
+      "PaperImplementationResultInterpretationPacket": {
+        "count": 1,
+        "digest": "sha256:ea0c70ae25d32bf0e4166853f4c5356b8ffd3a9cfb956cce5bf153b531341959"
+      },
+      "PaperImplementationClaimCandidate": {
+        "count": 1,
+        "digest": "sha256:588531ee41f71238703924257ef75f9f275b9147cb728ac8de05346d7283d7eb"
+      },
+      "PaperImplementationDossier": {
+        "count": 1,
+        "digest": "sha256:c8c153ae592419ae16de3c761ae760671ec5765ee9e221b24b2adab3db0a537f"
+      },
+      "PaperImplementationWritingEntryPacket": {
+        "count": 1,
+        "digest": "sha256:3836c25677afd1417d2c6648cdc181beb022e899bd0b4d87c93eac959ea24c2b"
+      },
+      "PaperImplementationHarness": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationInputSnapshot": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationRuntimeArtifact": {
+        "count": 382,
+        "digest": "sha256:45ce4c45bdc50570fb56638bdae48d37dec6f767d8fafbf188d224c93b8932b6"
+      },
+      "PaperImplementationRuntimeAdmissionRecord": {
+        "count": 382,
+        "digest": "sha256:31710baac72b48ba8b4c0e85c71c922952ee90ac9249912be77ac9f6d6fac1eb"
+      },
+      "PaperImplementationCoordinatorRun": {
+        "count": 181,
+        "digest": "sha256:b5a661b45413955298ab85658bf1d4c03bf2e65ed91d42a4c46ce2ad7e4d9a6a"
+      },
+      "PaperImplementationCoordinatorStep": {
+        "count": 309,
+        "digest": "sha256:9f21a7681b788e227dd619d1b4e64b9e9e11f1343ec6fc66f11d0efc34c52ff7"
+      },
+      "PaperImplementationRuntimeTelemetryRecord": {
+        "count": 115,
+        "digest": "sha256:50fbf250693ea4fbeaa478006f7c1dd7e8317903831fb0d44a9fbc88a2967a98"
+      },
+      "PaperImplementationAgentWorkflowHarnessRun": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationProposalArtifact": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationQualitySignal": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationGateResult": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTransitionAttempt": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationDecisionWorkQueueItem": {
+        "count": 125,
+        "digest": "sha256:5335bb5ae218f7f5e9639710e1219c51440782cd4af17695de241b88dfdedc3e"
+      },
+      "PaperProject": {
+        "count": 375,
+        "digest": "sha256:76883331fcc2e86a4091a24812a6c61dc4166d70db7cc01ff1631fb897295625"
+      },
+      "TopicSelectionPaperProjectBridge": {
+        "count": 398,
+        "digest": "sha256:4800b1403c6de93cea1e45e821397cb53bbeed751029c2a3532ca15bbd97ffad"
+      },
+      "ExperimentFoundationRecord": {
+        "count": 234,
+        "digest": "sha256:3553944166657f7d18f2df61c61d95035d2e0b25f885a25dc795160c8d3a1933"
+      },
+      "ExperimentFoundationReadinessReport": {
+        "count": 15,
+        "digest": "sha256:c4c5f82ab82fa248c5940c11fbc9e09b63e5aff61c0dbe015a585104f50178f8"
+      },
+      "ExperimentFoundationExternalTrainingJob": {
+        "count": 6,
+        "digest": "sha256:364ae566a9961d326830688059b83f6b60b2c7b0337c7be044afa686321a16a4"
+      }
+    },
+    "after": {
+      "PaperImplementationExperimentWorkOrderBranchV2": {
+        "count": 1,
+        "digest": "sha256:3d142530a5e445ef8dede3f98f6e6c6d31de04a2bf8921f3c8da9a2efa574366"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionV2": {
+        "count": 1,
+        "digest": "sha256:62988e0ef3cd890b70629b0c6ad7c951ec9a9c14abc047130c4978f1fa8c7c78"
+      },
+      "PaperImplementationExperimentWorkOrderRevisionCellV2": {
+        "count": 2,
+        "digest": "sha256:ace49f6069c3c7b808da5c2a331039966c022dfe1a75fee59520ae38056c1582"
+      },
+      "PaperImplementationExperimentWorkOrderAdmissionV2": {
+        "count": 1,
+        "digest": "sha256:150c346f727deb8896a0c08445ff89367d89b559465b7afe3b3aa746343aeb0b"
+      },
+      "PaperImplementationExperimentIntegrationInboxV2": {
+        "count": 1,
+        "digest": "sha256:b8beead7a1803fcfb848ade28dd8f3619c1964c04f17c41334d39837911bab23"
+      },
+      "PaperImplementationExperimentIntegrationOutboxV2": {
+        "count": 2,
+        "digest": "sha256:a72fb7933f87bbd919d00bd63fabc4f61b3eab411a3c2ac1e6c730139eaedfd9"
+      },
+      "ExperimentFoundationDatasetV2": {
+        "count": 2,
+        "digest": "sha256:3159b97322020fa5a47e1d0d9eafe676f950503815dffa866282c859e4a57d61"
+      },
+      "ExperimentFoundationDatasetRevisionV2": {
+        "count": 2,
+        "digest": "sha256:18a2ffca413829470eb189585088192005494a9bf47af665def7b17fc3c6a4ec"
+      },
+      "ExperimentFoundationDatasetFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:e46a8417c5b18c9a9dc3722c3cc1deffcee3ff5d92e9f42e9961b69143d7ac67"
+      },
+      "ExperimentFoundationDataPolicyV2": {
+        "count": 2,
+        "digest": "sha256:c743506f6e618a41246b93b3088c0378e386954b57e38d7b064239f8872485ed"
+      },
+      "ExperimentFoundationDataPolicyRevisionV2": {
+        "count": 2,
+        "digest": "sha256:b0d8dce3553f85d71e328b79e5df9893cae8b12a70c774437006e209fea35b2f"
+      },
+      "ExperimentFoundationDataPolicyFreezeCommandReceiptV2": {
+        "count": 2,
+        "digest": "sha256:7094a16b944c286183841b70fb8c7ec5d089d4c1e4a273b72b93f473f04d2ebe"
+      },
+      "ExperimentFoundationMetricDefinitionV2": {
+        "count": 17,
+        "digest": "sha256:8ddbc627f91e4dd2d5e0e73bd28065492f5773a4fe96590ec766f39a8bd95cd3"
+      },
+      "ExperimentFoundationMetricDefinitionRevisionV2": {
+        "count": 17,
+        "digest": "sha256:6d3b68eeceda507c403b906671cb89b4100046a22b14ed84bec3d8e1a1a61884"
+      },
+      "ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2": {
+        "count": 17,
+        "digest": "sha256:629ad330bc037269f59f130dc645fdbd903fed016fd16650eb918f8ec7a11b2a"
+      },
+      "ExperimentFoundationBenchmarkV2": {
+        "count": 1,
+        "digest": "sha256:40e50aa363515ad38a08746bfc535939c61a1d515acd518ac676fb3c609f738c"
+      },
+      "ExperimentFoundationBenchmarkRevisionV2": {
+        "count": 1,
+        "digest": "sha256:b047259ee5070935e1cc9b92829a18b306c3debbe137cc04561cce9b4b4c6a79"
+      },
+      "ExperimentFoundationBenchmarkFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:dc89a16ba28f3f02b9fe2d101f47d32352eca0b81dda4b895fc81e0bb1babe93"
+      },
+      "ExperimentFoundationEvaluationProtocolV2": {
+        "count": 1,
+        "digest": "sha256:59762181fb7ea19ab1baafa04f7f2cdde0d99fa949d9761d7a0ca51725939920"
+      },
+      "ExperimentFoundationEvaluationProtocolRevisionV2": {
+        "count": 1,
+        "digest": "sha256:71b883529f707c8c6f059f20724be376d43c6dda72a24dab7cf508540677a5f5"
+      },
+      "ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2": {
+        "count": 1,
+        "digest": "sha256:35adada1a57794a462b7171c690482c45022fd58ab3e6e76cf31ba68146f3d90"
+      },
+      "ExperimentFoundationEvaluationProtocolMetricDependencyV2": {
+        "count": 17,
+        "digest": "sha256:800341f7e6c7fbf0e1e4c5e5aa34a7dace68ac4042dc84cc832cf37f021c4bef"
+      },
+      "ExperimentFoundationAssetLifecycleEventV2": {
+        "count": 48,
+        "digest": "sha256:21a744ba8d8f01ef61ad9694ae2e5afed7944e0c3c309cdb12499d58e5eebd20"
+      },
+      "ExperimentFoundationAssetLifecycleProjectionV2": {
+        "count": 23,
+        "digest": "sha256:5203ebcffce50704d38391ad1b1bb56a4646a3fc1d70ca5760ff37d5b0bfdcbe"
+      },
+      "ExperimentFoundationReadinessAttestationV2": {
+        "count": 23,
+        "digest": "sha256:6f648fe57960b53b07ca420054822d007a8fd5d83c0d1aa3c46fa5485206c6af"
+      },
+      "ExperimentFoundationReadinessDependencyV2": {
+        "count": 28,
+        "digest": "sha256:b18b22ee2a1eced9a9fcbf233eab53cc05f630c555b173efde457f9f1b4bd2c9"
+      },
+      "ExperimentFoundationVersionLockV2": {
+        "count": 1,
+        "digest": "sha256:b4fb92797746a8762017f01f70073dc93f45106c59727f83355ccc1b51a6e838"
+      },
+      "ExperimentFoundationVersionLockDependencyV2": {
+        "count": 23,
+        "digest": "sha256:86433c3bc4b01752678bbae4237881b338ffbffd536356d97d4aa99f60b777ed"
+      },
+      "ExperimentFoundationRunRecipeV2": {
+        "count": 1,
+        "digest": "sha256:e842e572f13ac3c151329657491204c076dc0800eb0a93dc6f767e6989bd0bb5"
+      },
+      "ExperimentFoundationTrainingTaskSpecV2": {
+        "count": 2,
+        "digest": "sha256:cf77aa480925318ecf52d02749215f7c0e67a5c3d6700af1ce854bbb03eb2347"
+      },
+      "ExperimentFoundationRunV2": {
+        "count": 1,
+        "digest": "sha256:747eecb8d87432ac75c3349372bb5c94a10aa9e248588d32e73c1de483feb590"
+      },
+      "ExperimentFoundationRunCellV2": {
+        "count": 2,
+        "digest": "sha256:901afde452fce6be2f79b2aa64d51045b1f5477bd428c2da21c0c7786fb73263"
+      },
+      "ExperimentFoundationIntegrationInboxV2": {
+        "count": 2,
+        "digest": "sha256:dbf2b74633622dab1b82f2c8d30bceabf7cb045679bd2df0eff85e53f52f2b74"
+      },
+      "ExperimentFoundationIntegrationOutboxV2": {
+        "count": 1,
+        "digest": "sha256:87783b02307a00698f6c9c7248b132630ff80a2ecc39c7c24765113760ac6ed3"
+      },
+      "PaperImplementationIntakeSnapshot": {
+        "count": 1,
+        "digest": "sha256:acb5dac5e717fdc04a3c28cd6c5c302c4d5b8ecf4cdabecedecd96629f9ab6cd"
+      },
+      "PaperImplementationProject": {
+        "count": 1,
+        "digest": "sha256:e415aacf8e0ebcb58c84971f7d18efaf97179be27aafa54eb1f3127e68bb872f"
+      },
+      "PaperImplementationFeedbackEvent": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTraceManifest": {
+        "count": 5,
+        "digest": "sha256:2bc43fa7f3bf4b313e10ec4166fa8c39f387851c8146557a8e667f0d694a20f8"
+      },
+      "PaperImplementationCitationCandidate": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationClaimTracePacket": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationNaturalLanguageFieldRole": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTraceRepairQueueItem": {
+        "count": 1,
+        "digest": "sha256:00b9d70f110abeb50bfc21ca1492e59555af06a0a2d5b60607ffb5d424524dd3"
+      },
+      "PaperImplementationTraceGateResult": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationHumanConfirmationRecord": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationCoreMotiveIdentity": {
+        "count": 2,
+        "digest": "sha256:3a126abe12574ab5a25ac7b68c2ac7d2f85659e55c181adebb464ec1ee695150"
+      },
+      "PaperImplementationCoreMotiveSet": {
+        "count": 2,
+        "digest": "sha256:5279d68f09b8ab79199a7984938a9faf094a3850728241261dec8d03aa63d779"
+      },
+      "PaperImplementationCoreMotiveVersion": {
+        "count": 2,
+        "digest": "sha256:322d79e4c47dc58bd247d86ed7143b031a549ddb24a06f4f0925769573301d17"
+      },
+      "PaperImplementationCoreMotiveVersionState": {
+        "count": 2,
+        "digest": "sha256:b936bdff02e9d8cc936b752d3569fb8d82e9c2ecf80697a57e7c6f84bbc88d65"
+      },
+      "PaperImplementationMotiveAssertion": {
+        "count": 2,
+        "digest": "sha256:8c75b7fc54469eb228f2d0a2f10b093b24644fe2a1ce9472e4ae723a00bca4e3"
+      },
+      "PaperImplementationMotiveEvidenceBoardVersion": {
+        "count": 2,
+        "digest": "sha256:c40dc48718fa19389aa91513d3ddb503c8e9dabcf4be4cac7051eb172ab22838"
+      },
+      "PaperImplementationEvidenceBinding": {
+        "count": 2,
+        "digest": "sha256:4b13137cf25d3bdc0b42dd24d193e6e66a5af8dbd3241d2f24c231073697b7c8"
+      },
+      "PaperImplementationEvidenceTransferBinding": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationCrossBoardReview": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationMotivePortfolioDecision": {
+        "count": 2,
+        "digest": "sha256:4d247636a546b3e2304fcbf5eca533d02639bb9decc7802b0ea28f0b68baeae4"
+      },
+      "PaperImplementationMotiveEvolutionDecision": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationValidationCycleInputSnapshot": {
+        "count": 2,
+        "digest": "sha256:02f75876c0e47772c02c44e11e823778efc59ecaaa3ca67fb5c360f0af95b5ad"
+      },
+      "PaperImplementationValidationCycle": {
+        "count": 2,
+        "digest": "sha256:49f5c99921b0e658edba67d4bf26b3ea33947bc246577166ebe5b071b3106f80"
+      },
+      "PaperImplementationTechnicalRouteCandidate": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationFeasibilityProbe": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationExperimentPlanLight": {
+        "count": 1,
+        "digest": "sha256:387653c1387cc42f106cbb475b6ce5c8b3eee76b993ad6392e1f2c2a228f0cb8"
+      },
+      "PaperImplementationValidationPlanningReviewItem": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationValidationUpstreamFeedbackCandidate": {
+        "count": 1,
+        "digest": "sha256:3a28705a5eee46f6f710c5a83f0924d23acae276f34eceac6a320b23b3893df5"
+      },
+      "PaperImplementationResearchWorkOrder": {
+        "count": 1,
+        "digest": "sha256:4f00c895f3eda842defbb2789e73289f47949c342518abf9eb613e0552a4d442"
+      },
+      "PaperImplementationWorkOrderHarnessRun": {
+        "count": 1,
+        "digest": "sha256:f9a54297d3a43914cf100ea3272697f9e432289ba4f6ebcc70a91681708e7350"
+      },
+      "PaperImplementationRunMonitorIntake": {
+        "count": 2,
+        "digest": "sha256:bae408ce9b1fc082a37a5918ea887ee5f7939ba6c1b71436dd4794b12fc5acc8"
+      },
+      "PaperImplementationRunEvidenceUnit": {
+        "count": 1,
+        "digest": "sha256:d0c197e73cf9e736f5f89f927eca16878aed30f4e6aee9c6a3e8eeb19277f2cf"
+      },
+      "PaperImplementationResultInterpretationPacket": {
+        "count": 1,
+        "digest": "sha256:ea0c70ae25d32bf0e4166853f4c5356b8ffd3a9cfb956cce5bf153b531341959"
+      },
+      "PaperImplementationClaimCandidate": {
+        "count": 1,
+        "digest": "sha256:588531ee41f71238703924257ef75f9f275b9147cb728ac8de05346d7283d7eb"
+      },
+      "PaperImplementationDossier": {
+        "count": 1,
+        "digest": "sha256:c8c153ae592419ae16de3c761ae760671ec5765ee9e221b24b2adab3db0a537f"
+      },
+      "PaperImplementationWritingEntryPacket": {
+        "count": 1,
+        "digest": "sha256:3836c25677afd1417d2c6648cdc181beb022e899bd0b4d87c93eac959ea24c2b"
+      },
+      "PaperImplementationHarness": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationInputSnapshot": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationRuntimeArtifact": {
+        "count": 382,
+        "digest": "sha256:45ce4c45bdc50570fb56638bdae48d37dec6f767d8fafbf188d224c93b8932b6"
+      },
+      "PaperImplementationRuntimeAdmissionRecord": {
+        "count": 382,
+        "digest": "sha256:31710baac72b48ba8b4c0e85c71c922952ee90ac9249912be77ac9f6d6fac1eb"
+      },
+      "PaperImplementationCoordinatorRun": {
+        "count": 181,
+        "digest": "sha256:b5a661b45413955298ab85658bf1d4c03bf2e65ed91d42a4c46ce2ad7e4d9a6a"
+      },
+      "PaperImplementationCoordinatorStep": {
+        "count": 309,
+        "digest": "sha256:9f21a7681b788e227dd619d1b4e64b9e9e11f1343ec6fc66f11d0efc34c52ff7"
+      },
+      "PaperImplementationRuntimeTelemetryRecord": {
+        "count": 115,
+        "digest": "sha256:50fbf250693ea4fbeaa478006f7c1dd7e8317903831fb0d44a9fbc88a2967a98"
+      },
+      "PaperImplementationAgentWorkflowHarnessRun": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationProposalArtifact": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationQualitySignal": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationGateResult": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationTransitionAttempt": {
+        "count": 0,
+        "digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PaperImplementationDecisionWorkQueueItem": {
+        "count": 125,
+        "digest": "sha256:5335bb5ae218f7f5e9639710e1219c51440782cd4af17695de241b88dfdedc3e"
+      },
+      "PaperProject": {
+        "count": 375,
+        "digest": "sha256:76883331fcc2e86a4091a24812a6c61dc4166d70db7cc01ff1631fb897295625"
+      },
+      "TopicSelectionPaperProjectBridge": {
+        "count": 398,
+        "digest": "sha256:4800b1403c6de93cea1e45e821397cb53bbeed751029c2a3532ca15bbd97ffad"
+      },
+      "ExperimentFoundationRecord": {
+        "count": 234,
+        "digest": "sha256:3553944166657f7d18f2df61c61d95035d2e0b25f885a25dc795160c8d3a1933"
+      },
+      "ExperimentFoundationReadinessReport": {
+        "count": 15,
+        "digest": "sha256:c4c5f82ab82fa248c5940c11fbc9e09b63e5aff61c0dbe015a585104f50178f8"
+      },
+      "ExperimentFoundationExternalTrainingJob": {
+        "count": 6,
+        "digest": "sha256:364ae566a9961d326830688059b83f6b60b2c7b0337c7be044afa686321a16a4"
+      }
+    }
+  },
+  "excluded_write_census": {
+    "pi_writes": 0,
+    "pack_a_authority_writes": 0,
+    "legacy_writes": 0,
+    "scientific_writes": 0,
+    "real_provider_requests": 0,
+    "create_job_calls": 0,
+    "fetch_calls": 0,
+    "scientific_execution_status": "not_started",
+    "evidence_eligibility": false
+  },
+  "fake_transport": {
+    "adapter_identity": "deterministic_fake_aliyun_pai_dlc@v1",
+    "operation_ledger": [],
+    "network_census": {
+      "real_network_request_count": 0,
+      "create_job_call_count": 0
+    }
+  }
+}

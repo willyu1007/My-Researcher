@@ -1,5 +1,7 @@
 # 03 Implementation Notes
 
+> D-16 supersession (2026-07-12): statements below that all terminal outcomes were ingested as RunEvidenceUnit remain accurate historical T-091 implementation decisions, but no longer define the productized target. Future acceptance uses eligible EvidenceCandidate→REU and exact failed/cancelled/incomplete execution→immutable Cycle closure snapshot/hash, with no dual-track fallback.
+
 ## 2026-05-20 - Parent Package Created
 - Created `T-091 paper-implementation-full-landing` as the parent task package for paper implementation full landing.
 - Recorded user-confirmed module decisions:
@@ -12,14 +14,14 @@
 - Landed the first roadmap decision baseline:
   - `PaperProject` is the writing lifecycle / delivery container.
   - `PaperImplementation` is the research implementation operation lane under `论文管理`.
-  - `PaperProject` consumes dossier/packet outputs; it does not decide claim readiness from loose evidence.
-  - `PaperImplementation` owns motive validation, experiment work orders, result interpretation, claim trace, and implementation dossier readiness; it does not own paper version spine or release gates.
+  - `PaperProject` consumes dossier/packet outputs; `PaperProject` does not decide claim readiness from loose evidence.
+  - `PaperImplementation` owns motive validation, experiment work orders, result interpretation, claim trace, and implementation dossier readiness; `PaperImplementation` does not own paper version spine or release gates.
 - Updated `roadmap.md` D1 status to `confirmed`.
 - Added architecture guardrails for avoiding dual-track claim-readiness authority.
 
 ## 2026-05-20 - Implementation Intake Decision
 - Landed D2 as confirmed.
-- Decided not to rename existing `PaperProjectBridge` because it is already embedded in shared contracts, backend routes/services, Prisma schema, OpenAPI/context docs, desktop UI, and historical task records.
+- Decided not to rename existing `PaperProjectBridge` because the name is already embedded in shared contracts, backend routes/services, Prisma schema, OpenAPI/context docs, desktop UI, and historical task records.
 - Confirmed the compatibility pattern:
   - keep `TopicSelectionPaperProjectBridgeHandoff` as the current topic-selection promotion handoff carrier;
   - add `ImplementationIntakeSnapshot` as the neutral `PaperImplementation` intake object;
@@ -170,7 +172,7 @@
 ## 2026-05-21 - T-100 Closure
 - Closed `T-100 paper-implementation-desktop-workbench` as desktop minimum closure.
 - Landed `PaperImplementationWorkbench` under `论文管理` with backend-backed project lookup, queue aggregation, queue detail, read-model tables, and command panels.
-- Confirmed the UI does not synthesize readiness and does not write authority state locally; it emits only existing backend commands.
+- Confirmed the UI does not synthesize readiness and does not write authority state locally; the UI emits only existing backend commands.
 - Confirmed T-101 entry conditions: evaluation should cover UI command/read-model paths, authority bypass prevention, and screenshot/browser verification once the browser test harness is available.
 
 ## 2026-05-22 - T-101 And Parent Closure

@@ -1,5 +1,9 @@
 # Verification
 
+> D-16 supersession (2026-07-12): historical green tests in this file prove the T-104 implementation that existed then. Tests that finalize failed/cancelled execution as trusted RunEvidenceUnit cannot satisfy the current productized contract and must be replaced, not retained as a fallback, by zero-REU plus exact Cycle-closure accounting fixtures.
+
+> D-17 supersession (2026-07-12; docs-only, not implemented): the historical terminal handoff tests in this file do not prove whole-Cycle readiness or conclusion-authority isolation. Future acceptance must prove one job cannot trigger Result Analysis/closure/packet, adapter output carries facts only, fact publication drives replay-safe PI-owned Cycle-readiness evaluation without a caller command, and every scientific consumer requires the exact closed Cycle.
+
 ## 2026-05-24 - Task Package Creation
 | Command | Result | Notes |
 |---|---|---|
@@ -11,7 +15,7 @@
 | `git diff --check -- dev-docs/active/paper-implementation-live-experiment-adapter .ai/project/main` | passed | No whitespace errors in T-104 docs or generated project views. |
 
 ## Required Before Closure
-- Completed below.
+- Completed in the recorded verification sections.
 
 ## 2026-05-24 - Implementation Verification
 | Command | Result | Notes |

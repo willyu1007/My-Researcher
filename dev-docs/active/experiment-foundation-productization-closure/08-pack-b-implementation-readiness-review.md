@@ -4,12 +4,20 @@
 
 - Task: `T-132 experiment-foundation-productization-closure`
 - Pack: `Implementation Pack B — Phase 3 durable provider control and same-payload simulation`
-- State: `implemented_quality_remediated_disposable_verified_and_named_local_cleanup_applied`
+- State: `implemented_quality_remediated_and_named_local_product_e1_e5_verified`
 - Authorization date: `2026-07-13`
 - Authorization: user requested Pack B implementation; code, default-off configuration, additive Prisma schema/migration artifacts, isolated disposable-PostgreSQL tests and canonical documentation are in scope.
 - Existing-environment migration apply/enable: not part of the initial authorization. Pack B must stop after reviewable artifacts and disposable-target evidence unless a named target is separately authorized.
 - Later authorization: on 2026-07-14 the user separately authorized the reviewed named local-development target. No non-local target, real provider, scientific execution or product traffic switch was authorized or performed.
-- Local E1-E5: not exercised because the target has no formal Pack A Run/RunCell/TaskSpec/final head acknowledgement; all six Pack B tables remain empty.
+- Product authorization: on 2026-07-15 the user authorized formal PI scope → Pack A and subsequent Pack B product execution on the reviewed named-local target. No non-local target, real provider, cloud write, scientific execution or product traffic switch was authorized or performed.
+- Local E1-E5: completed against the exact formal Pack A Run/head acknowledgement. Final state is 2 payloads, 2 Attempts, 12 events, 8 commands, 2 Collections and 2 diagnostic-only outputs; simulation is disabled again.
+
+## Named-local product execution closure — 2026-07-15
+
+- Apply run `formal-pi-scope-packb-product-20260715-apply-r1` used the normal HTTP entrance and production Prisma worker under the deterministic fake adapter; final read-only run `formal-pi-scope-packb-product-20260715-verify-r2` ran after capability disable.
+- Both exact RunCells are `succeeded` and `collected`; workflow projection passed while Run/RunCell scientific state remained `not_started` and evidence eligibility remained false.
+- Final r2 broadened the zero-side-effect fence to 88 protected tables and reported `changed_tables=[]`, zero fetch/provider/`CreateJob`, zero PI/Pack A/legacy/scientific write and zero foreign lineage.
+- Durable evidence: `artifacts/product-pack-b-local-20260715/05-product-execution-closure.md`. This closes product E1-E5 only; all exclusions in the scope restatement remain unchanged.
 
 ## Quality-remediation closure — 2026-07-14
 

@@ -5,6 +5,7 @@
 - Task ID: `T-109`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-013`
 - Current focus: closed.
+- Semantic supersession (2026-07-12): T-132 D-16 replaces V1's trusted failed-RunEvidenceUnit fixture for future/productized work. Historical replay evidence remains valid for V1 only; current target uses immutable Cycle closure snapshot/hash for failed/cancelled/incomplete execution and eligible REU only for complete validation-passed scientific results.
 
 ## Goal
 Make the PaperImplementation V1 lane runnable as a repeatable, diagnosable flow. The task should prove that the chain from upstream intake through trace, motive, validation planning, WorkOrder, run evidence, claim/dossier, writing packet projection, AI harness, live-adapter boundary, and provider preflight can be executed without semantic drift or hidden authority forks.

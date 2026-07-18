@@ -1,5 +1,7 @@
 # 03 Implementation Notes
 
+> **D-17 supersession (2026-07-12; docs-only, not implemented):** the result-analysis promotion/materialization entries below remain accurate historical implementation facts. They do not define the product target and cannot satisfy D-17 acceptance. The direct Result Analysis Domain Gate→`ResultInterpretationPacket` branch, four required scenarios as the accepted semantic output, and packet-before-authoritative-Cycle behavior are mandatory atomic migration debt. The replacement is one exact-hash-bound support proposal → existing ValidationCycle closure sole disposition/selected-exit writer → post-closure T-098 packet.
+
 ## 2026-06-03 - Planning Task Created
 - Created T-114 for PaperImplementation harness/runtime production hardening planning.
 - The task started as planning-only, then moved into the shared runtime/admission contract first slice after user confirmation.

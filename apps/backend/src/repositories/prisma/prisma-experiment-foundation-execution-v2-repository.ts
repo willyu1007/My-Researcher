@@ -1059,6 +1059,13 @@ implements ExperimentFoundationExecutionV2Repository {
   }
 }
 
+export function resolveExperimentFoundationExecutionV2RunPrerequisiteInTransaction(
+  transaction: Prisma.TransactionClient,
+  runId: string,
+): Promise<ExperimentFoundationExecutionV2Prerequisite | null> {
+  return loadRunPrerequisite(transaction, runId);
+}
+
 async function loadRunPrerequisite(
   client: Client,
   runId: string,

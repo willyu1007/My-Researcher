@@ -11,7 +11,13 @@
 - Product admission enable/cutover authorized by the readiness-closure record: no
 - Pack: `Implementation Pack A — Phase 1 + D-19 minimal v2 spine`
 
-The readiness closure froze the exact first-pack asset census, logical-to-Prisma family names, relational versus typed-snapshot placement, stable error reasons, verification IDs, current legacy population and a non-overlapping edit boundary. The required later user confirmation was received on 2026-07-13, and the authorized technical implementation subsequently completed. Existing-environment DB apply and product enable/cutover remain unauthorized by this record.
+The readiness closure froze the exact first-pack asset census, logical-to-Prisma family names, relational versus typed-snapshot placement, stable error reasons, verification IDs, current legacy population and a non-overlapping edit boundary. The required later user confirmation was received on 2026-07-13, and the authorized technical implementation subsequently completed. Existing-environment DB apply and product enable/cutover remain unauthorized by the readiness record.
+
+## Post-readiness formal product outcome — 2026-07-15
+
+The readiness record itself did not authorize product enablement, but the user subsequently granted explicit authorization for the formal PI scope → Pack A named-local landing. That operation is now complete: active PaperProject `P313` reached an admitted ValidationCycle through the normal PI routes, the dedicated v2 admission drained T1-T4, and the final EF inbox contains the sole exact acknowledgement. Final configuration retains committed named-local cutover while admission and Pack B simulation are off.
+
+The product outcome satisfies the previously separate product-bound Pack A prerequisite without changing the original readiness population. The later authorization does not complete Pack B E1-E5, a non-local rollout, provider execution, scientific evidence, D-18 closure, UI/search or traffic enablement outside the reviewed named-local target.
 
 ## Post-readiness implementation outcome — 2026-07-13
 
@@ -314,14 +320,14 @@ None remain inside the approved readiness-closure scope. The exact five-kind cen
 3. ~~prove the migration diff contains no excluded family, cross-domain FK or legacy mutation~~ — completed;
 4. ~~preserve the locked legacy digests~~ — completed inside the disposable gate; an independently observed external legacy transition still requires a fresh pre-cutover review.
 
-No bounded Pack A D-19 acceptance item remains. The source-policy dependency was satisfied rather than bypassed. Extraction/scientific alignment and later execution/product gates remain explicitly outside this acceptance.
+No bounded Pack A D-19 acceptance item remains. The source-policy dependency was satisfied rather than bypassed. Extraction/scientific alignment and later execution/product gates remain explicitly outside Pack A acceptance.
 
 ### Must-fix before product cutover
 
-1. terminalize or explicitly restart the submitted legacy HarnessRun and running ExternalTrainingJob;
-2. pass D-19 and obtain product enable/cutover approval;
-3. close overlapping legacy product writers in the cutover release without restoring fallback on rollback.
+1. ~~terminalize or explicitly account for the submitted legacy HarnessRun and running ExternalTrainingJob~~ — completed during the named-local Pack A landing review; historical rows remain unchanged/read-only;
+2. ~~pass D-19 and obtain product enable/cutover approval~~ — disposable D-19 passed and subsequent explicit authorization opened the named-local product landing;
+3. ~~close overlapping legacy product writers in the cutover release without restoring fallback on rollback~~ — named-local committed cutover remains enabled; admission is now closed and there is no legacy fallback.
 
 ## Authorization recommendation
 
-The readiness record and subsequent evidence now support bounded Pack A control-plane source-binding closure. The result does not include DB apply or product enablement. A named-target DB-SSOT review and a separate product enable/cutover authorization remain mandatory; relevant scope drift or edits to forbidden T-124 surfaces still reopen review.
+The readiness record plus subsequent independently authorized operations now support bounded Pack A control-plane source binding, named-local schema landing and formal PI product admission-to-ack closure. Pack B E1-E5 and every non-local/provider/scientific/closure/UI slice remain separate gates; relevant scope drift or edits to forbidden T-124 surfaces still reopen review.

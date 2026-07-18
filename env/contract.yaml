@@ -133,6 +133,63 @@ variables:
     required: false
     default: false
     description: Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED:
+    type: bool
+    required: false
+    default: false
+    scopes: [dev]
+    description: Enable only the zero-write Aliyun PAI read-only preflight; this switch never authorizes CreateJob or scientific execution.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_REGION_ID:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Exact Aliyun region ID for the zero-write PAI cloud preflight.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Exact PAI workspace ID inspected by the zero-write cloud preflight.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Exact DLC resource quota ID inspected by the zero-write cloud preflight.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Exact runtime image reference used only for offline CreateJob request materialization.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_PATH:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Repo-external JSON evidence binding the temporary preflight credential to the reviewed read-only RAM policy with explicit paidlc:CreateJob denial.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_SHA256:
+    type: string
+    required: false
+    scopes: [dev]
+    description: Independently supplied sha256:<lowercase-hex> digest of the exact repo-external reviewed identity-policy evidence file.
+  ALIBABA_CLOUD_ACCESS_KEY_ID:
+    type: string
+    required: false
+    secret: true
+    secret_ref: alibaba_cloud_access_key_id
+    scopes: [dev]
+    description: Temporary STS AccessKey ID for the dedicated Aliyun read-only preflight identity; long-lived account credentials are not accepted by the gate.
+  ALIBABA_CLOUD_ACCESS_KEY_SECRET:
+    type: string
+    required: false
+    secret: true
+    secret_ref: alibaba_cloud_access_key_secret
+    scopes: [dev]
+    description: Temporary STS AccessKey secret for the dedicated Aliyun read-only preflight identity.
+  ALIBABA_CLOUD_SECURITY_TOKEN:
+    type: string
+    required: false
+    secret: true
+    secret_ref: alibaba_cloud_security_token
+    scopes: [dev]
+    description: Temporary STS security token required by the dedicated Aliyun read-only preflight identity.
   PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED:
     type: bool
     required: false

@@ -3,7 +3,9 @@
 ## Do Not Repeat
 - Do not let the live adapter become a second experiment-foundation implementation.
 - Do not let experiment-foundation callbacks directly create trusted `RunEvidenceUnit`.
-- Do not treat external job success as a scientific outcome; scientific outcome still comes from `RunEvidenceUnit.run_status` and result validation.
+- Do not treat external job success, adapter outcome, result-validation status or `RunEvidenceUnit.run_status` as the scientific conclusion. Under D-17 only the exact ValidationCycle closure assessment owns the nullable disposition and selected exit.
+- Do not let a terminal callback for one job trigger Result Analysis, Cycle closure or `ResultInterpretationPacket`. Readiness is a whole-Cycle derived predicate over every exact in-scope fact.
+- Do not emit `create_result_interpretation_packet` or a caller-driven readiness command as an adapter handoff. Publish exact facts and let the PI control plane re-evaluate readiness idempotently; T-104 is not a conclusion or packet orchestrator.
 - Do not copy training task specs, recipes, datasets, code, result artifacts, or validation reports into PaperImplementation payloads beyond refs/hashes.
 - Do not make cloud credentials or external provider availability required for default verification.
 

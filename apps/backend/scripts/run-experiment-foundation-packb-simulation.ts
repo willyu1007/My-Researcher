@@ -148,6 +148,8 @@ async function main(): Promise<void> {
             ? {
               implementation_project_id: implementationProjectId,
               validation_cycle_id: validationCycleId,
+              implementation_project_lifecycle_status: 'active',
+              validation_cycle_lifecycle_status: 'admitted',
             }
             : null;
         },

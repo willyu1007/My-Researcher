@@ -34,7 +34,7 @@
 ## 2026-05-27 - Phase 2 Replay Entrypoint
 - Added `.ai/scripts/paper-implementation-v1-runnable-replay.mjs`.
   - Runs a deterministic in-memory Fastify route replay through existing PaperImplementation controllers, services, and in-memory repositories.
-  - Uses T-104 fake/local experiment execution semantics to submit, sync, collect, and admit trusted target-specific failed run evidence.
+  - Uses T-104 fake/local experiment execution semantics to submit, sync, collect, and admit trusted target-specific failed run evidence (historical V1 behavior; superseded by T-132 D-16 for productized acceptance, which requires zero failed REU plus exact Cycle closure accounting).
   - Produces result interpretation, claim trace packet, supported claim, ready dossier, and `WritingEntryPacket` projection without mutating writing authority.
   - Dispatches explicit validation upstream feedback through the existing T-093 feedback path with `paper_implementation` source kind.
   - Exercises T-105 provider variance with deterministic fake provider execution and live-provider preflight blocked/skipped behavior.

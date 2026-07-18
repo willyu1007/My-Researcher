@@ -58,17 +58,17 @@
   - `topic_package_id`
   - `package_version`
   - `title_card_id`
-- If a target `PaperProject` already exists, it may be linked as `target_paper_project_ref`, but it is not the implementation authority root.
+- If a target `PaperProject` already exists, the project may be linked as `target_paper_project_ref`, but the project is not the implementation authority root.
 - If the upstream bridge is superseded or hash-mismatched, implementation must enter upstream recheck / intake refresh instead of silently updating authority state.
 
 ### D2 Landing Rules
 1. Existing `PaperProjectBridge` names stay in topic-selection code, storage, API/context docs, desktop topic-selection UI, and historical task records.
 2. New paper-implementation contracts must not introduce new public names that imply `PaperProjectBridge` is the implementation aggregate root.
 3. Child tasks that need implementation intake must define or consume `ImplementationIntakeSnapshot` in the `paper-implementation` boundary.
-4. `ImplementationIntakeSnapshot` is a snapshot, not a mutable join table. It captures the selected upstream authority state and source hashes at bootstrap time.
+4. `ImplementationIntakeSnapshot` is a snapshot, not a mutable join table. The snapshot captures the selected upstream authority state and source hashes at bootstrap time.
 5. `ImplementationProject` identity and state transitions are owned by `PaperImplementation`; bridge ids are lineage refs only.
 6. Any upstream correction from `选题管理` must be modeled as intake refresh / recheck, not in-place mutation of admitted implementation state.
-7. If a child task touches existing `PaperProjectBridge` code, it must declare that as compatibility maintenance, not semantic expansion.
+7. If a child task touches existing `PaperProjectBridge` code, the child task must declare the work as compatibility maintenance, not semantic expansion.
 
 ## Confirmed Motive Kernel Decision
 - `CoreMotiveVersion` is a first-class `PaperImplementation` domain object.
@@ -94,7 +94,7 @@
 
 ### D4 Landing Rules
 1. Every exported `WritingEntryPacket` must carry `implementation_dossier_id`, `implementation_dossier_version`, `dossier_readiness_gate_result_ref`, `trace_manifest_ref`, and a projection timestamp/hash.
-2. A packet may summarize, reorder, or omit fields for writing ergonomics, but it must expose any omitted blockers, risks, failed-run notes, or projection limitations.
+2. A packet may summarize, reorder, or omit fields for writing ergonomics, but the packet must expose any omitted blockers, risks, failed-run notes, or projection limitations.
 3. Packet regeneration must be deterministic from the source dossier version and projection policy version.
 4. If the source dossier changes, existing packets become stale unless their source dossier version/hash still matches.
 5. Downstream writing/editor surfaces may consume packets for convenience, but must link back to the dossier and trace refs for authority.
@@ -103,10 +103,10 @@
 ## Confirmed WorkOrder / Experiment Foundation Decision
 - `ResearchWorkOrder` is the `PaperImplementation`-owned command and governance envelope for all implementation experiments.
 - `experiment-foundation` owns reusable assets, `RunRecipe`, `TrainingTaskSpec`, `ExternalTrainingJob`, `ExperimentResult`, `ResultValidationReport`, `EvaluationFact`, and `EvidenceCandidate`.
-- `ResearchWorkOrder` wraps experiment-foundation refs and hashes; it must not copy or own experiment-foundation objects.
-- `RunRecipe` remains a locked, deterministic, platform-neutral experiment plan; it must not contain paper claim text, claim readiness, or dossier state.
+- `ResearchWorkOrder` wraps experiment-foundation refs and hashes; `ResearchWorkOrder` must not copy or own experiment-foundation objects.
+- `RunRecipe` remains a locked, deterministic, platform-neutral experiment plan; `RunRecipe` must not contain paper claim text, claim readiness, or dossier state.
 - `EvidenceCandidate` is an experiment-foundation candidate result, not final paper evidence. Claim/dossier implications are decided only after `PaperImplementation` ingests outputs into `RunEvidenceUnit`, `ResultInterpretationPacket`, and `ClaimTracePacket`.
-- Failed, crashed, cancelled, aborted, inconclusive, and negative runs must be retained in `RunEvidenceUnit`, even when they do not produce an `EvidenceCandidate`.
+- All run outcomes remain visible, but T-132 D-16 supersedes the original all-outcomes-as-REU rule: failed/cancelled/aborted/incomplete execution is retained by exact Run/Attempt ref in the immutable ValidationCycle closure snapshot/hash, while only complete protocol-compliant validation-passed EvidenceCandidate may produce RunEvidenceUnit. Complete valid negative/inconclusive results remain REU-eligible on a separate scientific-disposition axis.
 
 ### D5 Landing Rules
 1. Every experiment, probe, baseline reproduction, training run, ablation, robustness check, data check, and error analysis must enter through `ResearchWorkOrderHarness`.
@@ -115,7 +115,7 @@
 4. Confirmatory work orders require frozen config, locked `RunRecipe`, source hashes, explicit stop conditions, and `auto_tune_allowed = false` unless a later policy explicitly narrows an exception.
 5. Exploratory work orders may create new validation cycles or experiment plans, but cannot directly support strong claims without confirmatory/trace gates.
 6. Implementation child tasks must model experiment-foundation links as refs/hashes: `recipe_draft_ref`, `run_recipe_ref/hash`, `training_task_spec_ref/hash`, `materialization_result_ref/hash`, `external_job_ref/hash`, `experiment_result_ref/hash`, `validation_report_ref/hash`, and optional `evidence_candidate_refs`.
-7. `RunEvidenceUnit` is the required ingestion object on the implementation side; it must preserve run status, metrics, logs/artifacts, config/data/code refs, failure summary, exploratory/confirmatory marker, and trace manifest.
+7. Future/productized ingestion uses two explicit authorities: `RunEvidenceUnit` preserves eligible scientific result/validation/trace lineage, while the ValidationCycle closure record's embedded immutable snapshot/hash preserves exact execution-accounting Run/Attempt refs, states and eligibility codes. Sidecar is display-only and dossier consumes declared closed-Cycle snapshots.
 
 ## Confirmed Trace Kernel Decision
 - `TraceManifest` is the mandatory trace kernel for all writing-affecting `PaperImplementation` objects.
@@ -177,7 +177,7 @@
 
 ### D8 Landing Rules
 1. A `HumanConfirmationRecord` must include confirmation target refs, transition attempt ref, gate result refs, reviewed source refs/hashes, decision, human rationale, confirmer identity, policy version, created timestamp, and trace manifest ref.
-2. Confirmation may unlock a `require_human_review` transition, but it must not override a hard `blocked` gate without a new gate result or accepted-risk path explicitly allowed by policy.
+2. Confirmation may unlock a `require_human_review` transition, but confirmation must not override a hard `blocked` gate without a new gate result or accepted-risk path explicitly allowed by policy.
 3. Source ref/hash drift after confirmation invalidates or supersedes the confirmation.
 4. Confirmation scope must be narrow: confirming an expensive run does not confirm the later claim; confirming a strong claim does not confirm dossier export.
 5. `DecisionWorkQueueItem` must deduplicate human review tasks by target transition and gate result.
@@ -192,7 +192,7 @@
 - The workbench is an implementation decision/action surface, not a writing editor, experiment console, or authority state writer.
 - UI details may stay coarse until backend contracts and read-models land; D9 freezes only ownership, workflow shape, view priorities, command boundaries, and non-goals.
 - The first-class entry surface is `DecisionWorkQueue`, with queues for human review, trace repair, gate blockers, failed workflow, failed run review, stale evidence recheck, and accepted-risk expiry.
-- The workbench consumes backend read-models and emits commands. It must not infer authority from loose UI state, local component state, LLM text, or copied experiment data.
+- The workbench consumes backend read-models and emits commands. The workbench must not infer authority from loose UI state, local component state, LLM text, or copied experiment data.
 - Existing `topic-workbench` staged workflow and queue-panel patterns may be used as UI pattern references, but topic-selection business semantics must not be reused.
 
 ### D9 Coarse Surface Model
@@ -211,18 +211,18 @@
 2. The initial UI should be queue-first: selected queue item drives detail panes, evidence/trace context, recommended actions, and available commands.
 3. UI commands may request confirmation, request trace repair, accept risk, create work order draft, submit confirmation, request gate rerun, trigger intake refresh, or generate dossier/packet projection commands.
 4. UI commands must call backend command routes; UI components must not write authority state or synthesize readiness locally.
-5. The workbench may display `ImplementationDossier` and `WritingEntryPacket` projection status, but it must not provide body writing, LaTeX editing, Prism/Overleaf execution, or submission/rebuttal authoring.
-6. The workbench may display experiment-foundation refs, run state, metrics, logs, and evidence ingestion status, but it must not duplicate the experiment asset registry or become a platform execution console.
+5. The workbench may display `ImplementationDossier` and `WritingEntryPacket` projection status, but the workbench must not provide body writing, LaTeX editing, Prism/Overleaf execution, or submission/rebuttal authoring.
+6. The workbench may display experiment-foundation refs, run state, metrics, logs, and evidence ingestion status, but the workbench must not duplicate the experiment asset registry or become a platform execution console.
 7. Queue/readiness badges must be derived from backend read-models and gate results, not client-only heuristics.
 8. Every action that can affect authority must expose source refs, trace status, gate result, blockers, known risks, and stale/hash status before command submission.
 9. Desktop implementation child tasks must use the repo's `data-ui` + token/contract path and must not recreate retired desktop runtime style layers.
-10. UI completion is not the acceptance boundary; backend contracts/read-models/gates must be proven first, and UI is complete only when it drives those commands without bypass.
+10. UI completion is not the acceptance boundary; backend contracts/read-models/gates must be proven first, and UI is complete only when the workbench drives those commands without bypass.
 
 ## Confirmed Child Task Granularity Decision
 - Child tasks should be split by the paper-implementation flow and key decision nodes.
 - Child tasks must still preserve kernel boundaries: authority writer, gate, trace, command/read-model, and verification must be explicit in every package.
 - Do not split by UI screen alone, and do not merge the full landing into one broad implementation package.
-- Trace is a cross-cutting kernel. It may have a dedicated child task, but every flow-node child must integrate trace rather than treating it as a later repair pass.
+- Trace is a cross-cutting kernel. The trace kernel may have a dedicated child task, but every flow-node child must integrate trace rather than treating trace as a later repair pass.
 - UI and AI workflow tasks must depend on backend contracts, gates, trace, and read-model/command boundaries.
 
 ### D10 Child Package List
@@ -249,7 +249,7 @@
 7. The desktop workbench child depends on backend command/read-model contracts and must not be accepted on mock UI alone.
 8. The evaluation suite must convert frozen rules into contract/replay/adversarial/trace/dossier tests and record residual risk.
 9. A child task must not touch retired pre-writing control-plane artifacts except to archive historical docs or strengthen negative guards.
-10. If a child task discovers a decision conflict with D1-D10, it must return to the parent roadmap instead of creating an alternate local rule.
+10. If a child task discovers a decision conflict with D1-D10, the child task must return to the parent roadmap instead of creating an alternate local rule.
 
 ## Terminology Note
 - 用户可见模块名使用 `论文管理`。
@@ -307,7 +307,7 @@
 | D6 | Trace kernel scope | Confirmed: implement `TraceManifest`, `ClaimTracePacket`, `CitationCandidate`, and memo-as-evidence guard before claim/dossier readiness; missing trace blocks writing-ready export. | confirmed | P0 |
 | D7 | Agent workflow harness reuse | Confirmed: reuse a domain-neutral agent runtime kernel extracted from topic-selection patterns, but keep `PaperImplementation` control plane, input snapshots, workflow harnesses, gates, and state writer domain-owned. Agent outputs are proposal artifacts only. | confirmed | AI runtime |
 | D8 | Human confirmation boundaries | Confirmed: human confirmation is an authorization record for high-risk transitions, not a state write. Use `DecisionWorkQueueItem(queue_type=human_review)` and `HumanConfirmationRecord`; final authority changes still require gates, trace, accepted-risk checks, and `StateWriter`. | confirmed | UI/API gates |
-| D9 | Desktop workflow shape | Confirmed: add a coarse `PaperImplementationWorkbench` under `论文管理`; it is a queue-first implementation decision/action surface that consumes backend read-models and emits commands, not a writing editor, experiment console, or authority state writer. | confirmed | UI child task |
+| D9 | Desktop workflow shape | Confirmed: add a coarse `PaperImplementationWorkbench` under `论文管理`; the workbench is a queue-first implementation decision/action surface that consumes backend read-models and emits commands, not a writing editor, experiment console, or authority state writer. | confirmed | UI child task |
 | D10 | Child task granularity | Confirmed: split child tasks by implementation flow and key decision nodes, while each child must declare authority writer, gates, trace, command/read-model/API surface, owner, dependencies, and verification. | confirmed | roadmap freeze |
 
 ## Parent / Child Execution Plan

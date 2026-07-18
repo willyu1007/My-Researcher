@@ -1,5 +1,14 @@
 # 04 Verification
 
+## D-17 Documentation Contract (2026-07-12)
+- Status: specification-only; implementation verification is pending.
+- Future acceptance MUST prove direct Result Analysis→Packet materialization is closed; packet creation requires the exact watermark-bound current-effective closed Cycle/assessment/snapshot and accepted proposal hashes; current-head execution failure and scientific inconclusive use separate authorities; missing-head/Cycle/branch/head CAS drift, non-head implicit inclusion and history scans are rejected; explicit comparison refs preserve lineage without scope promotion; packet conclusion drift is rejected; and Claim/Dossier reject open/proposal-only inputs.
+- Historical green checks below remain valid for the T-098 implementation that existed then; they do not prove D-17 and cannot satisfy the productized conclusion-authority seam.
+
+## 2026-07-13 - Current-effective scope documentation synchronization
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/paper-implementation-result-claim-dossier --strict` passed 7/7 Markdown files with 0 errors and 0 warnings after current-effective branch-head consumption convergence.
+- `jq empty docs/context/glossary.json` and the scoped `git diff --check` passed. Documentation only; no contract, code, schema, database or runtime behavior was changed.
+
 ## 2026-05-20
 - Task package creation passed governance sync/lint in parent creation pass.
 

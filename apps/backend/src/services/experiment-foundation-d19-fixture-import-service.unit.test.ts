@@ -19,6 +19,7 @@ import {
   requireLocalExperimentFoundationD19DatabaseUrl,
 } from './experiment-foundation-d19-fixture-import-cli.js';
 import {
+  buildExperimentFoundationD19AdmissionRequestTemplate,
   EXPERIMENT_FOUNDATION_D19_FIXTURE_IMPORT_CONFLICT,
   importExperimentFoundationD19TypedFixture,
   summarizeExperimentFoundationD19FixtureImport,
@@ -279,6 +280,33 @@ test('D-19 import summary exposes exact readiness and the two admission cells wi
     [
       { cell_key: 'retriever-top-k-5', seed: 7, retriever_top_k: 5, metric_count: 7 },
       { cell_key: 'retriever-top-k-10', seed: 11, retriever_top_k: 10, metric_count: 7 },
+    ],
+  );
+});
+
+test('D-19 admission template selects active metrics by identity rather than fixture array position', async () => {
+  const result = await importExperimentFoundationD19TypedFixture(
+    new InMemoryExperimentFoundationV2Repository(),
+    await reviewedSourcePolicy(),
+  );
+  const reorderedFixture = {
+    ...result.fixture,
+    metric_definitions: [...result.fixture.metric_definitions].reverse(),
+  };
+
+  const template = buildExperimentFoundationD19AdmissionRequestTemplate(reorderedFixture);
+  assert.deepEqual(
+    template.exact_cells[0]?.required_result_contract.metrics.map(
+      (metric) => metric.metric_definition.logical_id,
+    ),
+    [
+      'd19-metric-embedding_time_ns',
+      'd19-metric-generation_time_ns',
+      'd19-metric-prompt_time_ns',
+      'd19-metric-qps',
+      'd19-metric-rerank_time_ns',
+      'd19-metric-retrieval_time_ns',
+      'd19-metric-total_pipeline_time_ns',
     ],
   );
 });

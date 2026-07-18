@@ -47,7 +47,7 @@ Acceptance:
 
 ## Phase 4 - Result, Evidence, and Sidecar Robustness
 1. Validate result collection creates `ExperimentResult`, optional `FineTuningResult`, `ResultValidationReport`, `EvaluationFact`, metric/comparison observations, and eligible `EvidenceCandidate`.
-2. Test invalid/partial result paths and ensure only `valid` or `accepted_partial` validation can create evidence.
+2. Test invalid/partial result paths and enforce the T-132 D-03b/D-16 productized rule: only complete protocol-compliant passed validation can create evidence; historical `accepted_partial` is ineligible.
 3. Test paper sidecar creation/compatibility as refs/locks/hashes/snapshots only.
 4. Test claim/leaderboard/final-table leakage rejection.
 

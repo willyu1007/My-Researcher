@@ -44,7 +44,7 @@
 | Portfolio governance, cross-board review, and motive role changes | `T-094`, `T-095`, `T-100`, `T-101` | covered after supplement |
 | Validation cycles before expensive execution | `T-095` | covered |
 | Experiment execution via WorkOrder and experiment-foundation refs | `T-096` | covered |
-| Failed/negative/inconclusive run retention | `T-096`, `T-097`, `T-098` | covered |
+| Failed execution and negative/inconclusive result retention | `T-095`, `T-096`, `T-097`, `T-098`, refined by T-132 D-16 | covered historically; productized split requires Cycle closure snapshot for execution and REU only for eligible scientific results |
 | Trace-first lineage and memo-as-evidence guard | `T-097` plus every flow-node child | covered |
 | Result interpretation without evidence drift | `T-098` | covered |
 | Claim boundary, claim trace, and dossier readiness | `T-097`, `T-098` | covered |
@@ -64,8 +64,8 @@
    - Next step dependency: validation planning must use explicit gaps, assertions, and portfolio priorities, not free-text summaries.
 3. Validation-cycle planning closes only when cycles have budget, expected information gain, stop rules, portfolio constraint checks, and work-order handoff candidates.
    - Next step dependency: WorkOrder bridge must receive admitted plans, policy refs, and portfolio context, not raw agent suggestions.
-4. WorkOrder bridge closes only when monitor intake, ledger writer behavior, and all run outcomes enter `RunEvidenceUnit`.
-   - Next step dependency: result/claim/dossier work must interpret run evidence, not raw platform output.
+4. WorkOrder bridge historical closure retained all outcomes, but T-132 D-16 supersedes the all-REU target: eligible scientific results enter RunEvidenceUnit; failed/cancelled/incomplete execution enters the immutable Cycle closure snapshot/hash.
+   - Next step dependency: result/claim/dossier work consumes declared closed-Cycle accounting plus eligible run evidence, not raw platform output or a project-wide REU scan.
 5. Trace kernel closes only when writing-affecting objects have explicit lineage categories and broken trace creates queue items.
    - Next step dependency: claim and dossier gates must call trace completeness before readiness.
 6. Result/claim/dossier closes only when claims have boundaries, trace packets, failed-run accounting, and dossier readiness result.

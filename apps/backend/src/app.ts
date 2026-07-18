@@ -1229,7 +1229,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const autoPullScheduler = createAutoPullScheduler(autoPullService);
 
   app.setErrorHandler((error, _request, reply) => {
-    if ('validation' in error) {
+    if (isRecord(error) && 'validation' in error) {
       const validationMessage = formatSchemaValidationMessage(error);
       reply.status(400).send({
         error: {

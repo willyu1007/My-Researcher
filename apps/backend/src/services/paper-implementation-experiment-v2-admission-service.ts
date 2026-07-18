@@ -15,6 +15,12 @@ import type {
   PaperImplementationExperimentWorkOrderRevisionCellV2,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import type {
+  PaperImplementationProjectLifecycleStatus,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+import type {
+  PaperImplementationValidationCycleStatus,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
 
 import { AppError } from '../errors/app-error.js';
 import {
@@ -28,7 +34,9 @@ const DEFAULT_SERVER_ACTOR = 'system:paper-implementation-experiment-v2-admissio
 
 export interface PaperImplementationExperimentV2ResolvedScope {
   implementation_project_id: string;
+  implementation_project_lifecycle_status: PaperImplementationProjectLifecycleStatus;
   validation_cycle_id: string;
+  validation_cycle_lifecycle_status: PaperImplementationValidationCycleStatus;
 }
 
 /**
@@ -165,6 +173,17 @@ export class PaperImplementationExperimentV2AdmissionService {
       throw new AppError(404, 'NOT_FOUND', 'ImplementationProject/ValidationCycle scope not found.', {
         reason_code: 'BRANCH_SCOPE_CONFLICT',
       });
+    }
+    if (
+      resolvedScope.implementation_project_lifecycle_status !== 'active'
+      || resolvedScope.validation_cycle_lifecycle_status !== 'admitted'
+    ) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Experiment v2 admission requires an active ImplementationProject and admitted ValidationCycle.',
+        { reason_code: 'BRANCH_SCOPE_CONFLICT' },
+      );
     }
 
     assertExactCellPlan(input.request.exact_cells);

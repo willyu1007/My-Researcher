@@ -2046,13 +2046,20 @@ These lanes should not become LLM runtime slots by default. They need stronger r
 
 The remaining T-114 closure work is deterministic. Runtime slots are promoted; the question is which admitted runtime final artifacts may be consumed by Domain Gate and which must remain support-only.
 
-### Current Materializable Allowlist
+### D-17 Product-Target Materializable Allowlist (docs-only; not implemented)
+
+The landed service still contains three materializer branches. Under D-17, only the two rows below remain product-valid. Result Analysis is removed from the target allowlist and recorded separately as superseded migration debt.
 
 | Runtime slot | Domain artifact | Deterministic writer owner | Required Domain Gate behavior |
 |---|---|---|---|
 | `claim_boundary_review.boundary_debate` | `ClaimCandidate` | `PaperImplementationResultClaimDossierService.createClaimCandidate` | Consume only admitted `passed` final artifacts with a valid claim `domain_gate_request`. Same normalized identity returns `already_materialized`; same id with different payload returns `VERSION_CONFLICT`. |
 | `dossier_readiness_prep.readiness_audit` | `ImplementationDossier` | `PaperImplementationResultClaimDossierService.createImplementationDossier` | Consume only admitted `passed` final artifacts with a valid dossier `domain_gate_request`. Same normalized identity returns `already_materialized`; same id with different payload returns `VERSION_CONFLICT`. |
-| `result_analysis.interpretation_scenarios` | `ResultInterpretationPacket` | `PaperImplementationResultClaimDossierService.createResultInterpretationPacket` | Consume only admitted `passed` final artifacts with a valid result interpretation `domain_gate_request`. Same normalized identity returns `already_materialized`; same id with different payload returns `VERSION_CONFLICT`. |
+
+### Superseded Landed Result-Analysis Materializer
+
+| Landed path | Historical fact | D-17 product target |
+|---|---|---|
+| `result_analysis.interpretation_scenarios` → Domain Gate → `PaperImplementationResultClaimDossierService.createResultInterpretationPacket` | Implemented and historically verified by T-114 for replay/drift/fail-closed behavior. | Remove the materializer atomically. Admit one exact-hash-bound Result Analysis proposal as support-only; the existing ValidationCycle closure accepts/corrects it and alone writes disposition/selected exit. T-098 creates a packet only after resolving that exact closed Cycle. This migration is not implemented by the docs update. |
 
 ### Support-Only Runtime Artifacts
 
@@ -2071,6 +2078,7 @@ These slots are explicitly non-materializable in this slice. Their final artifac
 | `evidence_board_curation.binding_gap_candidates` | Binding/gap candidates are append-only proposals only. | T-094 board/evidence/citation/trace repair services. |
 | `motive_decomposition.draft_assertion_candidates` | Draft assertion candidates cannot create or mutate motives/assertions. | T-094 motive version/assertion services. |
 | `motive_evolution.evolution_decision_support` | Decision support cannot create `MotiveEvolutionDecision`, portfolio changes, or human-confirmed motive transitions. | T-094 motive evolution / portfolio services plus human/domain gate. |
+| `result_analysis.interpretation_scenarios` | D-17 makes the admitted final artifact one scientific-disposition proposal only; model/runtime/admission/Domain Gate cannot write Cycle assessment, selected exit or accepted packet. | Existing T-095 ValidationCycle closure authority consumes the exact proposal; T-098 is a post-closure packet/claim/dossier consumer. |
 
 ### Non-Negotiable Gate Rules
 
@@ -2085,7 +2093,7 @@ These slots are explicitly non-materializable in this slice. Their final artifac
 
 Status: deterministic Domain Gate coverage hardening steps 1-2, deterministic-lane step 3, and DecisionWorkQueue deterministic stress step 4 are complete; remaining work stays operational.
 
-The current `PaperImplementationRuntimeDomainGateService` already uses a narrow allowlist for claim, dossier, and result-analysis materializers. Existing service tests cover idempotent materialization and drift conflicts for those three families, and route tests cover Domain Gate rejection for most support-only promoted slots.
+The landed `PaperImplementationRuntimeDomainGateService` uses a three-branch allowlist for claim, dossier, and result-analysis materializers, and historical tests cover replay/drift for all three. T-132 D-17 supersedes the result-analysis branch only: product acceptance requires a two-branch claim/dossier allowlist, support-only Result Analysis, one ValidationCycle closure conclusion writer and post-closure packet creation. Until the atomic migration lands, the historical green tests must not be treated as D-17 evidence.
 
 Closed in deterministic implementation step 1:
 - explicit support-only Domain Gate rejection matrix now covers every promoted support-only slot through real product runtime routes;

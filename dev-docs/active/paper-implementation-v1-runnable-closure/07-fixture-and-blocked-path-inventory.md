@@ -1,5 +1,7 @@
 # Fixture And Blocked Path Inventory
 
+> D-16 supersession (2026-07-12): `LL-FAILED-RUN-001` below remains historical V1 fixture evidence. The current replacement fixture must use exact failed Run/Attempt refs in an immutable closed-Cycle snapshot/hash, create zero failed REU, and source any valid negative/inconclusive scientific result from a complete validation-passed REU. Both fixture shapes must not remain alternative product passes.
+
 ## Fixture Naming
 Use deterministic IDs so route replay can be re-run without hidden state:
 
@@ -38,7 +40,7 @@ Minimum assertions:
 ## Linked-Loop Fixture
 | Fixture | Purpose | Required objects | Expected result |
 |---|---|---|---|
-| `LL-FAILED-RUN-001` | Prove failed/inconclusive experiment-facing evidence returns into planning/review/feedback | Admitted validation cycle, admitted WorkOrder, fake/local external job, trusted failed `RunEvidenceUnit`, result packet with failed run accounted for, feedback/review source refs | Validation completion or feedback candidate creates explicit next-step planning signal; no upstream authority mutation. |
+| `LL-FAILED-RUN-001` | Historical proof that failed/inconclusive experiment-facing information returns into planning/review/feedback; superseded input shape under D-16 | Admitted validation cycle, admitted WorkOrder, fake/local external job, exact failed Run/Attempt closure entry, zero failed REU, optional complete valid inconclusive REU, feedback/review source refs | Validation completion freezes exact accounting and feedback creates explicit next-step planning signal; no upstream authority mutation or execution/evidence conflation. |
 | `LL-FOLLOWUP-PLAN-001` | Prove continued progression after feedback/review | Review/feedback output from `LL-FAILED-RUN-001`, adjusted validation question or follow-up work-order candidate | Follow-up planning object is explicit and traceable; no implicit overwrite of previous validation/work order. |
 
 The first implementation may close the linked loop with a validation review item plus dispatched upstream feedback if a follow-up cycle fixture is too costly. If so, `LL-FOLLOWUP-PLAN-001` must remain as a named follow-up fixture, not disappear from the inventory.

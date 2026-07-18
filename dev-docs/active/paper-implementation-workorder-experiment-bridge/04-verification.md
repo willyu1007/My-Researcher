@@ -1,5 +1,12 @@
 # 04 Verification
 
+## Current-effective closure-scope documentation contract (2026-07-13)
+- Status: specification-only; implementation verification is pending.
+- Future acceptance MUST prove watermark-bound current-head accounting, non-head default exclusion, explicit comparison lineage without scope promotion, `BRANCH_HEAD_NOT_FROZEN`, `CYCLE_ACTIVE_REAL_ATTEMPT` including non-head Runs, `CYCLE_CLOSURE_SCOPE_DRIFT` zero-write rebuild, and no project-wide/history scan fallback.
+- Historical green checks below remain valid for the T-096 implementation that existed then; they do not prove this productized closure scope.
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/paper-implementation-workorder-experiment-bridge --strict` passed 7/7 Markdown files with 0 errors and 0 warnings after the documentation synchronization.
+- `jq empty docs/context/glossary.json` and the scoped `git diff --check` passed. Documentation only; no contract, code, schema, database or runtime behavior was changed.
+
 ## 2026-05-20
 - Task package creation passed governance sync/lint in parent creation pass.
 

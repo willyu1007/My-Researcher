@@ -177,7 +177,12 @@ function scopeReader(counter?: { calls: number }): PaperImplementationExperiment
         counter.calls += 1;
       }
       return projectId === PROJECT_ID && cycleId === CYCLE_ID
-        ? { implementation_project_id: PROJECT_ID, validation_cycle_id: CYCLE_ID }
+        ? {
+          implementation_project_id: PROJECT_ID,
+          implementation_project_lifecycle_status: 'active',
+          validation_cycle_id: CYCLE_ID,
+          validation_cycle_lifecycle_status: 'admitted',
+        }
         : null;
     },
   };
@@ -336,6 +341,52 @@ test('A01 capability-off performs zero scope/repository work and rejects before 
   assert.deepEqual(pi.snapshot(), {
     branches: [], admission_bundles: [], inboxes: [], outboxes: [],
   });
+});
+
+test('PI admission rejects inactive project or non-admitted Cycle with zero v2 writes', async () => {
+  const readiness = readinessFor(dependencies());
+  const cases = [
+    {
+      project_status: 'blocked' as const,
+      cycle_status: 'admitted' as const,
+    },
+    {
+      project_status: 'active' as const,
+      cycle_status: 'completed' as const,
+    },
+  ];
+
+  for (const [index, entry] of cases.entries()) {
+    const pi = new InMemoryPaperImplementationExperimentSpineV2Repository();
+    const service = new PaperImplementationExperimentV2AdmissionService({
+      repository: pi,
+      scopeReader: {
+        async resolveExactScope() {
+          return {
+            implementation_project_id: PROJECT_ID,
+            implementation_project_lifecycle_status: entry.project_status,
+            validation_cycle_id: CYCLE_ID,
+            validation_cycle_lifecycle_status: entry.cycle_status,
+          };
+        },
+      },
+      admissionEnabled: () => true,
+      serverActorId: SERVER_ACTOR,
+      idFactory: ids(`inactive-scope-${index}`),
+      now: () => BASE_TIME,
+    });
+
+    await assert.rejects(
+      admit(service, admissionRequest(readiness)),
+      (error) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+        && error.details?.reason_code === 'BRANCH_SCOPE_CONFLICT',
+    );
+    assert.deepEqual(pi.snapshot(), {
+      branches: [], admission_bundles: [], inboxes: [], outboxes: [],
+    });
+  }
 });
 
 test('PI public services preserve stable repository read-integrity reason codes', async () => {

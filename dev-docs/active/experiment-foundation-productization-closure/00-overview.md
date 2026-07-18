@@ -4,7 +4,33 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: Pack A/Pack B 深度清理、disposable 验证与 named-local schema 闭包已完成；下一产品步骤仍是建立正式 PaperProject/active ValidationCycle，经 Pack A admission-to-ack 形成 exact head acknowledgement 后再单独授权 named-local E1-E5。D-18 科学闭包、真实 read-only cloud preflight、provider execution、UI/search 和产品 traffic cutover 均未被本次修复授权或完成。
+- Next step: 正式 PI scope → named-local Pack A/Pack B 产品链和 zero-write cloud-preflight implementation/quality remediation 均已完成，admission/simulation/cloud-preflight capability 均保持关闭。真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、当前已审查 repo-external RAM policy evidence 及其独立摘要阻塞；PI projection、D-18 科学闭包、provider execution、UI/search 和非本地 rollout 仍未完成。
+
+## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
+
+- 新增独立 shared v2 contracts、exact Aliyun PAI-DLC `CreateJob` payload materializer、same-payload fake lifecycle、official SDK read-only transport/service 和机器 gate。产品代码没有 `CreateJob` 调用；provider operation allowlist 精确为 `AIWorkspace.GetWorkspace`、`AIWorkspace.ListResources`、`PaiDlc.ListEcsSpecs`，任何 write operation 在 transport 前 fail closed。
+- 全 payload 只在进程内 canonicalize/hash，最大 65,536 bytes；durable output 只允许 exact payload hash、byte size、execution-profile hash 与 hashed/redacted refs。caller expansion、TaskSpec/RunCell drift、payload oversize、policy drift/expiry、incomplete STS 和 unavailable workspace 均有负例。
+- 新增 default-false `EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED` 及 development-scoped profile/temporary-STS/policy-evidence path + independent SHA-256 env contract。Evidence 必须通过 exact reviewer/24-hour lifetime、realpath/non-symlink/inode/permission/digest fences；没有写入 secret value、没有注册远程 cloud target、没有打开 capability。
+- named-local 解析、exact Run prerequisite 和 88 张 protected table before/after digest 现在位于同一 `REPEATABLE READ` 且 server-enforced `transaction_read_only=on` 的事务。Official SDK adapter 以 no-network injected clients 验证 exact request/response mapping 和多页 resource/spec 遍历；Pack A/B/cloud 三条 runner 共用同一 evidence helper。
+- 最终本地 runner `cloud-preflight-local-20260718-r9` 正确返回 `blocked`：CP01/04/05/11/12 passed；CP02/03/10 等待 exact profile，CP06-09 等待 capability、temporary STS、repo-external reviewed policy evidence 和 independent digest。88 张 protected tables `changed_tables=[]`，provider/CreateJob/database/scientific write 均为 0，scientific status 仍为 `not_started`、evidence eligibility=false。
+- r9 summary SHA-256 为 `77f8f9973f2237e706216c894d55ff44657c6bede27fd32e42c0c6e09a3b07ea`。Backend full suite 2,247 tests：2,197 passed、0 failed、50 conditional skips；Fastify 5.10.0 升级后 production audit 为 `No known vulnerabilities found`。Durable handoff: `artifacts/cloud-preflight-implementation-20260718/00-implementation-closure.md`。该 checkpoint 证明 fail-closed implementation，不宣称 `cloud_preflight_passed`、真实签名成功、cloud workspace/resource 可用或训练运行时有效。
+
+## Formal PI scope → Pack B product execution — 2026-07-15
+
+- `run-experiment-foundation-packb-product-landing.ts` 在 E1 前锁定 named-local target fingerprint、Pack A 最终只读证据、exact Run/head acknowledgement、Prisma composition 和 live exact readiness；任何 foreign Run/business-key lineage 均 fail closed。
+- simulation intake 只通过 `env-localctl` 打开一次。正常产品 POST route 为 exact two-cell Run 写入 2 ProviderPayload、2 ExecutionAttempt、12 AttemptEvent、8 ProviderCommand、2 CollectionAttempt 和 2 diagnostic-only ProvisionalOutput；生产 Prisma worker 以 deterministic fake adapter 完成 E1-E5，8 次 operation、0 fetch、0 real provider/`CreateJob`。
+- 最终只读 verifier `formal-pi-scope-packb-product-20260715-verify-r2` 在 simulation 已关闭后通过：2/2 cells 均 `succeeded` + `collected`，`workflow_simulation_passed`，但 `scientific_execution_status=not_started`、`evidence_eligibility=false`。
+- verifier 对所有 `PaperImplementation*` authority、产品 source、Pack A、legacy 与 scientific sentinels 共 88 张受保护表逐表 digest，`changed_tables=[]`；PI、Pack A、legacy、科学结果/验证/证据写入均为 0。
+- 最终配置保持 cutover=`true`、Pack A admission=`false`、Pack B simulation=`false`、auto-pull scheduler=`false`。Durable evidence: `artifacts/product-pack-b-local-20260715/05-product-execution-closure.md`；最终 JSON SHA-256 `7cc6044bc3822e4197f99638b09b7a4f9e90640bb205cde929f98df2b998e9c7`。
+
+## Formal PI scope → Pack A product landing — 2026-07-15
+
+- 正式来源是 active PaperProject `P313` 及其 exact active bridge `paper_project_bridge_d956e811-7042-4f26-9f28-afba3d5258fa`。产品 route 依次建立 ImplementationProject、admitted CoreMotive、trace-ready minimal evidence board/binding、admitted ValidationCycle，再调用独立 v2 admission route；没有 fixture scope、直接 repository bootstrap 或 legacy fallback。
+- PI scope guard 现在同时要求 ImplementationProject 为 `active`、ValidationCycle 为 `admitted`。不满足时以稳定 `BRANCH_SCOPE_CONFLICT` fail closed，且 admission/outbox/legacy writer 均零写。
+- 四事务/三事件已在 named-local PostgreSQL 完整 drain：1 WorkOrder revision、2 ordered cells、1 VersionLock、1 RunRecipe、2 TrainingTaskSpecs、1 Run/2 RunCells、1 PI branch head，以及 final EF inbox 中唯一 durable acknowledgement。
+- 产品终态配置为 `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true`、`PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED=false`、`EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED=false`。cutover 保留，新的 Pack A intake 已关闭；已提交 saga 已完成，不存在待 drain 事件。
+- 最终只读 verifier `formal-pi-scope-packa-product-20260715-verify-r5` 为 `passed`。legacy 257 行摘要、既有 4 行科学哨兵逐行 digest 不变，六张 Pack B 表合计 0 行；未创建 Attempt/provider/scientific result/evidence/closure，也没有网络或 provider 请求。
+- Durable evidence: `artifacts/product-pack-a-local-20260715/05-product-landing-closure.md`；最终 JSON SHA-256 `341eba9ae1e38ce282947d9d9554102f04ff5c93fa7cb5564a7152b0c245ee48`。
 
 ## Pack A/Pack B deep-cleanup closure — 2026-07-15
 
@@ -19,7 +45,7 @@
 - Backend full suite 在 r19/r16 之后为 2,083 tests：2,034 passed、0 failed、49 conditional database/provider-canary skipped、0 todo，duration `396225.938458ms`。这些条件性 skip 不构成 Pack A/Pack B 数据库验收；数据库验收仍只认强制 disposable PostgreSQL 6/6 与 7/7 且 skip=0。
 - Pack A authority 使用忽略被删除纯 placeholder 的 semantic digest profile v2；migration apply 前后均为 208 rows / `sha256:494cdf5a02e2379a66a12bc82411e8237f39e949a2f992f3e12a0e220f613d74`。legacy 仍为 257 rows / `sha256:f9e7a6875c9a3597ecb485abc978920e461a3af33f071c676665439dde17211d`。
 - strict publisher 对 exact evidence keysets、全部 zero-census/redaction keys 和 provenance fail closed 后，durable `05-app-composition-smoke.json` 的 SHA-256 为 `9f4e0e5f81d4f127ac1cd5c956c639a8f89a9406d0af873e5d06d2d039f10e4e`；durable `06-final-gate-summary.json` 的 SHA-256 为 `bd702c6aca7104248839da1bb224e711d9eee64ddf6a98e4824f713b03e8eaad`，publisher producer SHA-256 为 `982119a31989bbad1da51ae96892241bab90add1ee084031596f550350838c38`。两份 durable 文件仍绑定 named-local r18 source digests `37d262fa11fc45015d5e24320e963459034df77f2857074e3fea9476891de1b9` 与 `53e269275d5b082d2b1f82ad6b2ed47a324380470479de3b0598be6a62a16a0c`。已验证的 PostgreSQL 17 recovery point 位于 `/Volumes/DataDisk/Project/.backups/My-Researcher/packb-quality-remediation-20260714-r1/my_researcher_dev.pre-cleanup.dump`，大小 `8399040887` bytes，SHA-256 `0692d19e6e4ec2ea54389e229eae443b1c5f360e286a8203f9b4b979a4b00ecf`。
-- 当前 named-local `PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED`、`PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED` 和 `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` 均为 `false`。enabled app composition 只保留为隔离的历史探针；未执行产品 E1-E5、非本地 DB apply、真实 provider/fetch、科学结果/证据、D-18 closure 或 traffic cutover。
+- 该 deep-cleanup checkpoint 当时三个 local flags 均为 `false`；2026-07-15 正式 Pack A landing 将 named-local cutover 提交为 `true`，Pack B 产品 E1-E5 随后在一次性 simulation 窗口完成。当前 admission/simulation 均恢复为 `false`；仍未执行非本地 DB apply、真实 provider/fetch、科学结果/证据或 D-18 closure。
 
 ## Pack B quality-remediation checkpoint — 2026-07-14
 
