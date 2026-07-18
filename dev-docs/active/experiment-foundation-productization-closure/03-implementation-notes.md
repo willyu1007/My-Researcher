@@ -569,3 +569,11 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 ## Pitfalls and dead ends
 - Historical/active review findings live in `06-audit-closure-matrix.md`.
 - Add only resolved mistakes and dead ends to `05-pitfalls.md`; do not use the pitfalls log as an active issue tracker.
+
+## 2026-07-19 — Pack C C-EF step 4 ScientificValidationService
+
+- Added `ExperimentFoundationScientificValidationV2Repository` plus independent in-memory and Prisma implementations. The read port resolves exact Run/cell/Attempt/head-ack scope and the Run → RunRecipe → VersionLock dependency → typed EvaluationProtocol revision chain; the write port owns result convergence and atomic validation-outcome persistence.
+- `recordExperimentResult` rejects caller result ids/content hashes, manifest/cell/TaskSpec/Attempt drift, non-succeeded Attempts and every simulation/fake provenance. It derives a stable result id from the RunCell, hashes the complete envelope server-side and relies on the RunCell unique fence for changed-content conflicts.
+- `validateScientificBatch` accepts only Run identity, expected manifest and idempotency key. It requires exactly one result per ordered cell, real provenance, non-empty typed rules and the durable exact head acknowledgement before writing. `required_rules=[]` is deliberately `VALIDATION_SUBJECT_INCOMPLETE`; missing head authority is `VALIDATION_SCOPE_DRIFT`.
+- The service executes the frozen validator profile and derives report/Candidate/event ids and all canonical hashes. `passed` persists report/Candidate/one `EvidenceCandidateQualified@v1` outbox atomically; `failed` and `unsupported` persist the report only. Same-key/same-hash and different-key/same-Run/same-hash replays return the stored outcome.
+- No route, controller, `app.ts` composition, env contract, shared contract, Prisma schema/migration, database, capability state or legacy writer was changed. C-EF step 5 remains the legacy scientific writer closure; capability wiring and live real-provider Attempt production remain later increments.

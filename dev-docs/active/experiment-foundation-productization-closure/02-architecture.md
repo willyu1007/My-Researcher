@@ -642,6 +642,7 @@ The names below describe boundaries, not final filenames. Phase 0 may refine the
 - be the sole validation-report/EvidenceCandidate writer and atomically/idempotently persist passed report/Candidate/outbox;
 - derive required-cell/Run scientific completeness only from eligible real-provider complete ExperimentResults;
 - reject LocalScript/fake-provider provenance and every `workflow_simulation_*` outcome before scientific result/validation/evidence writes; simulation terminality never upgrades trust or becomes a negative scientific result.
+- Implemented C-EF step 4 boundary (2026-07-19): the service exposes only `recordExperimentResult` and `validateScientificBatch`; a typed repository port has independent in-memory and Prisma adapters. The Prisma adapter owns typed EvaluationProtocol JSON parsing and uses one `$transaction` for report/Candidate/outbox. Empty `required_rules` maps to `VALIDATION_SUBJECT_INCOMPLETE`; an absent durable head acknowledgement maps to `VALIDATION_SCOPE_DRIFT` and blocks every report write, including report-only outcomes, so later replay cannot depend on missing PI scope authority.
 
 ### ProviderExecutionCoordinator and LifecycleSimulator
 - require an exact durable PI `BranchHeadAdvanced` acknowledgement before creating the first cell ExecutionAttempt; then persist each ExecutionAttempt and adapter idempotency key before dispatch;

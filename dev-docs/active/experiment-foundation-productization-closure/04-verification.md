@@ -763,3 +763,16 @@ The expanded manifest adds only required package export and integration-contract
 | closure-ledger scan | EF-P25 `verified`; EF-P27 `in-progress`; remaining `SOURCE_POLICY_UNRESOLVED` references marked historical/superseded |
 
 No code, configuration, Prisma artifact, other task package, database or external system was modified by the handoff documentation update.
+
+## 2026-07-19 — Pack C C-EF step 4 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0; Prisma and in-memory adapters typecheck under strict TypeScript |
+| `cd apps/backend && node --test --loader ts-node/esm src/services/experiment-foundation-v2-scientific-validation-service.unit.test.ts` | passed 13/13; 0 failed, 0 skipped, 0 todo |
+| shared typecheck | not run because no file under `packages/shared` changed |
+| database/migration | not run; C-EF step 4 did not apply migrations or touch a database |
+
+Coverage includes passed atomic report/Candidate/outbox with exact result/report/Candidate/payload/envelope hashes, injected rollback, failed and unsupported report-only outcomes, incomplete batch, simulation/fake provenance, manifest drift, result replay/conflict, same/different validation-key convergence, cross-Run idempotency conflict, caller-owned server-field rejection and absent head-ack zero validation writes.
+
+Optional whole-bundle strict docs lint reported 0 errors and 8 pre-existing vague-reference warnings in older T-132 planning/readiness/artifact files after the new C-EF wording was cleaned; historical unrelated files were preserved.
