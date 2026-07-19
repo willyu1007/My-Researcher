@@ -70,7 +70,6 @@ export interface CollectLiveExperimentRunRequest {
   run_evidence_unit_id?: string | null;
   run_evidence_trace_manifest_id?: string | null;
   source_refs?: ExperimentFoundationRef[];
-  accept_partial?: boolean;
   monitor_intake_id?: string | null;
   received_at?: string | null;
   failure_summary?: string | null;
@@ -145,7 +144,6 @@ export const collectLiveExperimentRunRequestSchema = {
     run_evidence_unit_id: nullableStringId,
     run_evidence_trace_manifest_id: nullableStringId,
     source_refs: experimentFoundationRefArray,
-    accept_partial: { type: 'boolean' },
     monitor_intake_id: nullableStringId,
     received_at: nullableStringId,
     failure_summary: nullableStringId,

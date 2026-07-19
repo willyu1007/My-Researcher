@@ -67,10 +67,13 @@ test('collect and cancel live experiment schemas expose final evidence trace inp
         run_evidence_unit_id: 'run_evidence_unit_001',
         run_evidence_trace_manifest_id: 'trace_manifest_run_evidence_001',
         source_refs: [experimentRef('external_training_job', 'external_training_job_001')],
-        accept_partial: true,
       },
     ),
     200,
+  );
+  assert.equal(
+    Object.hasOwn(liveContracts.collectLiveExperimentRunRequestSchema.properties, 'accept_partial'),
+    false,
   );
   assert.equal(
     await validateWithSchema(

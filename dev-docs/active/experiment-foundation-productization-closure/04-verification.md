@@ -793,3 +793,15 @@ Optional whole-bundle strict docs lint reported 0 errors and 8 pre-existing vagu
 | whole-bundle strict docs lint | 0 errors and 8 pre-existing vague-reference warnings in older T-132 files; the new step-5a report adds no warning |
 
 One intermediate two-file rerun failed 1/14 because the newly strengthened execution test omitted `executionRepository` from its local fixture destructuring. The test-only omission was corrected; backend typecheck and the affected file then passed 10/10. No product-code defect was involved.
+
+## 2026-07-20 — Pack C C-EF step 5b verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 |
+| `cd packages/shared && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 |
+| `pnpm --filter @paper-engineering-assistant/shared test` | passed 374/374; 0 failed, 0 skipped, 0 todo |
+| `pnpm --filter @paper-engineering-assistant/backend test` | 2,292 tests: 2,228 passed, 14 failed, 50 conditional skips, 0 todo; exact totals match the documented step-5a sandbox baseline. Six Prisma rollback tests plus T-054/T-067 report unreachable `127.0.0.1:5432`; the remaining pre-existing literature integration failures are outside the changed files. No in-scope targeted test failed. |
+| focused EF execution + PI live adapter tests | passed 21/21; 0 failed, 0 skipped; includes entry-closure zero-write assertions and unchanged PI error propagation |
+| desktop typecheck | passed via `pnpm --filter @paper-engineering-assistant/desktop typecheck`; exit 0 |
+| API index/OpenAPI checks | `node .ai/scripts/ctl-api-index.mjs verify` current; `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` passed; no regeneration required |

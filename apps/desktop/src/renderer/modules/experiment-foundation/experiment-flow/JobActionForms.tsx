@@ -340,7 +340,6 @@ export type CollectJobFormProps = {
 };
 
 export function CollectJobForm({ status, message, disabled, onSubmit }: CollectJobFormProps) {
-  const [acceptPartial, setAcceptPartial] = useState<boolean>(false);
   const [sourceRefs, setSourceRefs] = useState<ExperimentFoundationRef[]>(DEFAULT_SOURCE_REFS);
 
   return (
@@ -352,20 +351,10 @@ export function CollectJobForm({ status, message, disabled, onSubmit }: CollectJ
       ctaLabel="采集结果"
       onSubmit={() =>
         void onSubmit({
-          accept_partial: acceptPartial,
           source_refs: sourceRefs.length > 0 ? sourceRefs : DEFAULT_SOURCE_REFS,
         })
       }
     >
-      <label data-ui="field">
-        <span data-slot="label">accept_partial</span>
-        <input
-          data-ui="checkbox"
-          type="checkbox"
-          checked={acceptPartial}
-          onChange={(event) => setAcceptPartial(event.target.checked)}
-        />
-      </label>
       <RefPickerList
         label="source_refs"
         refType="desktop_workbench"

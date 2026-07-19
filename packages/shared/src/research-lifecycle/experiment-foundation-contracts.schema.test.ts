@@ -2531,9 +2531,12 @@ test('ExternalTrainingJob schemas accept canonical payloads and route wrappers',
   assert.equal(
     await validateWithRouteSchema(collectExternalTrainingJobRequestSchema, {
       source_refs: [sourceRef('user', 'user_001')],
-      accept_partial: false,
     }),
     200,
+  );
+  assert.equal(
+    Object.hasOwn(collectExternalTrainingJobRequestSchema.body.properties, 'accept_partial'),
+    false,
   );
 });
 

@@ -1754,7 +1754,6 @@ export interface CancelExternalTrainingJobRequest {
 
 export interface CollectExternalTrainingJobRequest {
   source_refs: ExperimentFoundationRef[];
-  accept_partial?: boolean;
 }
 
 const stringId = { type: 'string', minLength: 1 } as const;
@@ -4875,7 +4874,6 @@ export const collectExternalTrainingJobRequestSchema = {
     required: ['source_refs'],
     properties: {
       source_refs: { type: 'array', items: experimentFoundationRefSchema },
-      accept_partial: { type: 'boolean' },
       ...externalJobPrivateForbiddenProperties,
     },
   },

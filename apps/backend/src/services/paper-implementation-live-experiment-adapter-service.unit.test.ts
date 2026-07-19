@@ -178,6 +178,7 @@ class FakeExperimentExecution {
   submitInputs: SubmitExternalTrainingJobRequest[] = [];
   syncJobIds: string[] = [];
   collectJobIds: string[] = [];
+  collectInputs: CollectExternalTrainingJobRequest[] = [];
   cancelJobIds: string[] = [];
   nextSyncStatus: ExternalTrainingJob['job_status'] = 'running';
   private readonly failingOperations = new Set<FakeExperimentOperation>();
@@ -271,9 +272,10 @@ class FakeExperimentExecution {
 
   async collectJob(
     externalJobId: string,
-    _input: CollectExternalTrainingJobRequest,
+    input: CollectExternalTrainingJobRequest,
   ): Promise<ExternalTrainingJobResponse> {
     this.collectJobIds.push(externalJobId);
+    this.collectInputs.push(structuredClone(input));
     throw new AppError(
       409,
       'GATE_CONSTRAINT_FAILED',
@@ -746,6 +748,7 @@ test('collect propagates the typed legacy scientific writer closure without PI m
       && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
   );
   assert.equal(execution.collectJobIds.length, 1);
+  assert.equal(Object.hasOwn(execution.collectInputs[0]!, 'accept_partial'), false);
   assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
 });
 

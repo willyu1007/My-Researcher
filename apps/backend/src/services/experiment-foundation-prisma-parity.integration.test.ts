@@ -164,7 +164,6 @@ test(
       const successSubmitted = await execution.submitJob(successGraph.submitRequest);
       await assertRejectsAppError(
         () => execution.collectJob(successSubmitted.external_job.external_job_id, {
-          accept_partial: false,
           source_refs: [experimentFoundationRef('test_case', 'prisma_parity_success_collect')],
         }),
         409,
@@ -240,7 +239,6 @@ test(
       );
       await assertRejectsAppError(
         () => execution.collectJob(submitted.external_job.external_job_id, {
-          accept_partial: false,
           source_refs: [experimentFoundationRef('test_case', 'prisma_parity_collect_cancelled')],
         }),
         409,

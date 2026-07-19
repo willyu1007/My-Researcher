@@ -196,7 +196,6 @@ export class PaperImplementationLiveExperimentAdapterService {
     }
     const collectInput: CollectExternalTrainingJobRequest = {
       source_refs: this.defaultSourceRefs(workOrder, request.source_refs, externalJobId),
-      accept_partial: request.accept_partial,
     };
     const { external_job: externalJob } = await this.options.experimentExecution.collectJob(
       externalJobId,

@@ -1,7 +1,7 @@
 # 01 Plan
 
 ## Execution posture
-- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation/quality remediation 均已完成。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；real read-only Aliyun acceptance 被 exact profile、temporary STS、reviewed repo-external RAM-policy evidence 及其 independent digest 阻塞。Pack C 已获得单独授权并按 C-EF → C-PI → C-cutover 实施；C-EF steps 1-4 已完成，step 5 legacy writer closure 和本 slice 的 disposable-PostgreSQL/machine gate 仍待完成。
+- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation/quality remediation 均已完成。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；real read-only Aliyun acceptance 被 exact profile、temporary STS、reviewed repo-external RAM-policy evidence 及其 independent digest 阻塞。Pack C 已获得单独授权并按 C-EF → C-PI → C-cutover 实施；C-EF steps 1-5 已完成，本 slice 的 disposable-PostgreSQL/machine gate 仍待完成。
 - Pack A state: implementation and exact source-policy binding are complete; final run `packa-d19-source-policy-20260713-r2` passed A01-A04 and B01-B10 with `blockers=[]` on disposable PostgreSQL.
 - T-132 remains a single execution package. Internal workstreams may run in parallel only after the shared invariant contracts are frozen.
 - Every phase MUST add its own negative/integration evidence. A final control-plane scenario cannot compensate for missing phase-level proof.
@@ -20,7 +20,7 @@ Authorization scope: Phase 4 per `09-pack-c-implementation-readiness-review.md` 
 4. **Completed 2026-07-19:** `ScientificValidationService` as sole writer: complete-eligible-real-provider-batch validation, `passed`-only atomic report/Candidate/outbox mint, idempotent transaction key, simulation/LocalScript/fake provenance rejection. C-EF step 4 intentionally adds no route/composition/capability wiring.
 5. Service-layer closure of legacy scientific writers:
    - **5a completed 2026-07-19:** census §8 items 1-7 are closed below HTTP. Generic `createRecord`/`upsertRecord` cannot write `experiment_result`, `result_validation_report` or `evidence_candidate`; `collectJob` fails at method entry before repository/adapter/diagnostic access; PI live collect propagates the same typed closure.
-   - **5b pending:** census §8 items 8-11 and 15-17 remain the separately scoped `accept_partial`/`accepted_partial`/`partial_acceptance_ref`, partial-materialization/non-atomic-sequence and provenance-vocabulary removal. Step 5a did not start that cleanup.
+   - **5b completed 2026-07-20 (scoped request/write cleanup):** deleted the unreachable legacy collection body, heuristic analyzer, partial/result/observation/fact/validation/fine-tuning/evidence creators and their dead dependencies; removed `accept_partial` from the EF and PI request types/schemas and all forwarding/UI assembly. Immutable stored-row vocabulary (`accepted_partial`, `partial_acceptance_ref`, legacy partial-result shapes) is deliberately preserved for D-08 diagnostics/admin reads. Live submit-time partial materialization and census §8 provenance items 15-17 were not changed by this authorized slice.
 
 ### Slice C-PI — gateway, D-18 watermark and closure authority (gates `packc-pi-*`, checks PC08-PC17 + PC19 PI half + PC20)
 
