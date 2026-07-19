@@ -1,0 +1,215 @@
+{
+  "gate_id": "packc-ef-20260720-r4",
+  "status": "passed",
+  "started_at": "2026-07-19T23:34:39.575Z",
+  "finished_at": "2026-07-19T23:35:31.342Z",
+  "check_registry": {
+    "PC01": {
+      "status": "passed",
+      "evidence_refs": [
+        "engine_unit"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC02": {
+      "status": "passed",
+      "evidence_refs": [
+        "engine_unit"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC03": {
+      "status": "passed",
+      "evidence_refs": [
+        "engine_unit",
+        "service_unit"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC04": {
+      "status": "passed",
+      "evidence_refs": [
+        "engine_unit",
+        "service_unit"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC05": {
+      "status": "passed",
+      "evidence_refs": [
+        "static_census",
+        "schema_unit"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC06": {
+      "status": "passed",
+      "evidence_refs": [
+        "relational"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC07": {
+      "status": "passed",
+      "evidence_refs": [
+        "service_unit",
+        "relational"
+      ],
+      "details": "all required evidence passed"
+    },
+    "PC19-EF": {
+      "status": "passed",
+      "evidence_refs": [
+        "legacy_writer_unit"
+      ],
+      "details": "all required evidence passed"
+    }
+  },
+  "suite_totals": {
+    "suites": 5,
+    "tests": 72,
+    "passed": 72,
+    "failed": 0,
+    "skipped": 0,
+    "blocked": 0
+  },
+  "migrations": {
+    "20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2": {
+      "source_present": true,
+      "source_sha256": "sha256:0f30a413bf56d35d285a90b79bd94293f180ce8c1ec76d9878c73ffc8e18b415",
+      "applied_to_disposable_postgres": true
+    },
+    "20260719120000_reconcile_index_names_and_topic_research_record": {
+      "source_present": true,
+      "source_sha256": "sha256:3de50af7e0cca7aa665bbdbfd9217daa302227dafd681fea5633d52246483b8e",
+      "applied_to_disposable_postgres": true
+    }
+  },
+  "disposable_postgres": {
+    "mode": "docker",
+    "image": "pgvector/pgvector@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
+    "digest_pinned": true,
+    "existing_database_url_used": false,
+    "started": true,
+    "database_name": "packc_c889b31bf228",
+    "identity_marker_verified": true,
+    "cleaned_up": true
+  },
+  "evidence": {
+    "engine_unit": {
+      "status": "passed",
+      "command_id": "engine-unit",
+      "exit_code": 0,
+      "duration_ms": 705,
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "output_sha256": "sha256:e52b5e7ec7dcee77a8edbb93ba6a1bd35fd636d4c0763a21692f6ce15e301a3f",
+      "sanitized_output_tail": "TAP version 13\n# (node:56290) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: complete two-cell batch passes both first-slice rule types in protocol order\nok 1 - complete two-cell batch passes both first-slice rule types in protocol order\n  ---\n  duration_ms: 0.6605\n  ...\n# Subtest: a metric missing on one cell fails the rule with a cell-scoped detail code\nok 2 - a metric missing on one cell fails the rule with a cell-scoped detail code\n  ---\n  duration_ms: 0.077917\n  ...\n# Subtest: unit and value-type drift fail the metric rule\nok 3 - unit and value-type drift fail the metric rule\n  ---\n  duration_ms: 0.060958\n  ...\n# Subtest: excess cardinality fails exactly like missing observations\nok 4 - excess cardinality fails exactly like missing observations\n  ---\n  duration_ms: 0.050667\n  ...\n# Subtest: artifact parser-binding drift fails the artifact rule\nok 5 - artifact parser-binding drift fails the artifact rule\n  ---\n  duration_ms: 0.051833\n  ...\n# Subtest: a declared unsupported rule type yields unsupported status, never best effort\nok 6 - a declared unsupported rule type yields unsupported status, never best effort\n  ---\n  duration_ms: 0.070125\n  ...\n# Subtest: unsupported outranks failed in the overall status\nok 7 - unsupported outranks failed in the overall status\n  ---\n  duration_ms: 0.043417\n  ...\n# Subtest: empty rules or empty cells are programmer errors, not silent passes\nok 8 - empty rules or empty cells are programmer errors, not silent passes\n  ---\n  duration_ms: 0.0975\n  ...\n# Subtest: validator profile hash is deterministic and version-bound\nok 9 - validator profile hash is deterministic and version-bound\n  ---\n  duration_ms: 0.386166\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 503.762291\n\n"
+    },
+    "service_unit": {
+      "status": "passed",
+      "command_id": "service-unit",
+      "exit_code": 0,
+      "duration_ms": 902,
+      "tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "output_sha256": "sha256:698060b4bf62f55280c5f5d37053e9c6a08af72ae4edba7450b098818889fb2c",
+      "sanitized_output_tail": "TAP version 13\n# (node:57552) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: passed batch atomically persists report, Candidate and outbox with exact hash bindings\nok 1 - passed batch atomically persists report, Candidate and outbox with exact hash bindings\n  ---\n  duration_ms: 2.761542\n  ...\n# Subtest: in-memory validation commit rolls back report, Candidate and outbox together\nok 2 - in-memory validation commit rolls back report, Candidate and outbox together\n  ---\n  duration_ms: 0.703292\n  ...\n# Subtest: failed required rule persists report only\nok 3 - failed required rule persists report only\n  ---\n  duration_ms: 0.404166\n  ...\n# Subtest: unsupported required rule persists unsupported report only\nok 4 - unsupported required rule persists unsupported report only\n  ---\n  duration_ms: 0.455458\n  ...\n# Subtest: missing cell result fails incomplete with zero report/Candidate/outbox writes\nok 5 - missing cell result fails incomplete with zero report/Candidate/outbox writes\n  ---\n  duration_ms: 0.352959\n  ...\n# Subtest: simulation Attempt and fake envelope provenance are rejected\nok 6 - simulation Attempt and fake envelope provenance are rejected\n  ---\n  duration_ms: 0.294625\n  ...\n# Subtest: manifest-hash drift fails before result or validation writes\nok 7 - manifest-hash drift fails before result or validation writes\n  ---\n  duration_ms: 0.129292\n  ...\n# Subtest: duplicate result with same content converges and changed content conflicts\nok 8 - duplicate result with same content converges and changed content conflicts\n  ---\n  duration_ms: 1.00175\n  ...\n# Subtest: validate replay with the same idempotency key returns stored outcome without new writes\nok 9 - validate replay with the same idempotency key returns stored outcome without new writes\n  ---\n  duration_ms: 1.353833\n  ...\n# Subtest: different idempotency key for the same unchanged Run returns the stored outcome\nok 10 - different idempotency key for the same unchanged Run returns the stored outcome\n  ---\n  duration_ms: 1.015792\n  ...\n# Subtest: service rejects caller-owned result hashes and validation statuses\nok 11 - service rejects caller-owned result hashes and validation statuses\n  ---\n  duration_ms: 0.377459\n  ...\n# Subtest: same idempotency key for a different Run fails idempotency conflict\nok 12 - same idempotency key for a different Run fails idempotency conflict\n  ---\n  duration_ms: 1.034\n  ...\n# Subtest: absent head acknowledgement fails closed with zero validation outcome writes\nok 13 - absent head acknowledgement fails closed with zero validation outcome writes\n  ---\n  duration_ms: 0.387458\n  ...\n1..13\n# tests 13\n# suites 0\n# pass 13\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 711.391167\n\n"
+    },
+    "schema_unit": {
+      "status": "passed",
+      "command_id": "schema-unit",
+      "exit_code": 0,
+      "duration_ms": 966,
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "output_sha256": "sha256:d5166315f6770ea432be1094f19c313b97179d8d94c39ae198ace9a8bab5e92a",
+      "sanitized_output_tail": "TAP version 13\n# (node:59373) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: experiment result cell v2 schema accepts a complete real-provider envelope\nok 1 - experiment result cell v2 schema accepts a complete real-provider envelope\n  ---\n  duration_ms: 53.15625\n  ...\n# Subtest: experiment result cell v2 schema rejects simulation provenance\nok 2 - experiment result cell v2 schema rejects simulation provenance\n  ---\n  duration_ms: 11.584166\n  ...\n# Subtest: experiment result cell v2 schema rejects a malformed content hash\nok 3 - experiment result cell v2 schema rejects a malformed content hash\n  ---\n  duration_ms: 19.081042\n  ...\n# Subtest: scientific validation report v2 schema accepts a passed batch report\nok 4 - scientific validation report v2 schema accepts a passed batch report\n  ---\n  duration_ms: 11.018334\n  ...\n# Subtest: scientific validation report v2 schema rejects an empty cell-result list\nok 5 - scientific validation report v2 schema rejects an empty cell-result list\n  ---\n  duration_ms: 9.390208\n  ...\n# Subtest: scientific validation report v2 schema rejects an unknown status\nok 6 - scientific validation report v2 schema rejects an unknown status\n  ---\n  duration_ms: 8.559083\n  ...\n# Subtest: scientific validation report v2 schema rejects a caller-authored validator profile\nok 7 - scientific validation report v2 schema rejects a caller-authored validator profile\n  ---\n  duration_ms: 7.472667\n  ...\n# Subtest: scientific validation report v2 schema rejects an unknown rule type\nok 8 - scientific validation report v2 schema rejects an unknown rule type\n  ---\n  duration_ms: 7.221375\n  ...\n# Subtest: evidence candidate v2 schema accepts a report-bound candidate and rejects extra trust fields\nok 9 - evidence candidate v2 schema accepts a report-bound candidate and rejects extra trust fields\n  ---\n  duration_ms: 11.7555\n  ...\n# Subtest: evidence candidate qualified event schema binds exact scope identities\nok 10 - evidence candidate qualified event schema binds exact scope identities\n  ---\n  duration_ms: 13.113083\n  ...\n# Subtest: validate scientific batch request schema is identity-only\nok 11 - validate scientific batch request schema is identity-only\n  ---\n  duration_ms: 12.453875\n  ...\n# Subtest: reason-code registry matches the Pack C frozen baseline\nok 12 - reason-code registry matches the Pack C frozen baseline\n  ---\n  duration_ms: 0.341875\n  ...\n1..12\n# tests 12\n# suites 0\n# pass 12\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 766.084625\n\n"
+    },
+    "legacy_writer_unit": {
+      "status": "passed",
+      "command_id": "legacy-writer-unit",
+      "exit_code": 0,
+      "duration_ms": 42512,
+      "tests": 34,
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "output_sha256": "sha256:6b11eb738ba58f564aa1d295b0d04268f3162c34f6babb3c65beda080a5262f7",
+      "sanitized_output_tail": "rtial writes on failure\n  ---\n  duration_ms: 1.353167\n  ...\n# Subtest: Prisma experiment-foundation duplicate record create maps to VERSION_CONFLICT\nok 19 - Prisma experiment-foundation duplicate record create maps to VERSION_CONFLICT\n  ---\n  duration_ms: 0.355458\n  ...\n# Subtest: experiment-foundation routes create/list/read records and return service validation errors\nok 20 - experiment-foundation routes create/list/read records and return service validation errors\n  ---\n  duration_ms: 6477.384083\n  ...\n# Subtest: experiment-foundation readiness route persists and reads latest report\nok 21 - experiment-foundation readiness route persists and reads latest report\n  ---\n  duration_ms: 6010.023958\n  ...\n# Subtest: experiment-foundation candidate promotion route records request/result and updates candidate status\nok 22 - experiment-foundation candidate promotion route records request/result and updates candidate status\n  ---\n  duration_ms: 5844.115417\n  ...\n# Subtest: experiment-foundation readiness list route filters by status and target_kind\nok 23 - experiment-foundation readiness list route filters by status and target_kind\n  ---\n  duration_ms: 5377.750833\n  ...\n# (node:61548) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: submits admitted WorkOrder to experiment-foundation execution idempotently\nok 24 - submits admitted WorkOrder to experiment-foundation execution idempotently\n  ---\n  duration_ms: 2.114541\n  ...\n# Subtest: blocks submit before external execution when WorkOrder is not admitted or running\nok 25 - blocks submit before external execution when WorkOrder is not admitted or running\n  ---\n  duration_ms: 0.874167\n  ...\n# Subtest: blocks live submit when WorkOrder lacks materialization refs\nok 26 - blocks live submit when WorkOrder lacks materialization refs\n  ---\n  duration_ms: 0.615208\n  ...\n# Subtest: sync records non-final monitor intake without trusted run evidence\nok 27 - sync records non-final monitor intake without trusted run evidence\n  ---\n  duration_ms: 1.013208\n  ...\n# Subtest: sync observes terminal external status without creating evidence and recommends finalization\nok 28 - sync observes terminal external status without creating evidence and recommends finalization\n  ---\n  duration_ms: 0.62625\n  ...\n# Subtest: blocks wrong external job before sync collect or cancel side effects\nok 29 - blocks wrong external job before sync collect or cancel side effects\n  ---\n  duration_ms: 0.58575\n  ...\n# Subtest: collect propagates the typed legacy scientific writer closure without PI monitor or REU writes\nok 30 - collect propagates the typed legacy scientific writer closure without PI monitor or REU writes\n  ---\n  duration_ms: 0.654916\n  ...\n# Subtest: cancel records non-final status without trusted run evidence while external job is cancelling\nok 31 - cancel records non-final status without trusted run evidence while external job is cancelling\n  ---\n  duration_ms: 1.506625\n  ...\n# Subtest: cancel finalizes trusted cancelled run evidence with target-specific trace\nok 32 - cancel finalizes trusted cancelled run evidence with target-specific trace\n  ---\n  duration_ms: 1.327\n  ...\n# Subtest: live adapter external execution failures do not create partial state or fallback artifacts\nok 33 - live adapter external execution failures do not create partial state or fallback artifacts\n  ---\n  duration_ms: 0.849583\n  ...\n# Subtest: route wiring validates submit payload and delegates live experiment submit\nok 34 - route wiring validates submit payload and delegates live experiment submit\n  ---\n  duration_ms: 3423.496458\n  ...\n1..34\n# tests 34\n# suites 0\n# pass 34\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 42310.577666\n\n"
+    },
+    "static_census": {
+      "status": "passed",
+      "closed_legacy_scientific_record_kinds": [
+        "experiment_result",
+        "result_validation_report",
+        "evidence_candidate"
+      ],
+      "generic_service_guard_call_count": 4,
+      "collect_job_closed_before_repository_access": true,
+      "accept_partial_request_contract_occurrences": 0,
+      "route_repository_write_path_count": 0,
+      "scientific_prisma_writer_files": [
+        "apps/backend/src/repositories/prisma/prisma-experiment-foundation-scientific-validation-v2-repository.ts"
+      ],
+      "generic_scientific_write_path_count": 0,
+      "adapter_scientific_write_path_count": 0
+    },
+    "relational": {
+      "status": "passed",
+      "command_id": "relational",
+      "exit_code": 0,
+      "duration_ms": 4520,
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "output_sha256": "sha256:4595b19a04322163fbca775bfb75b88662f397180446d2aef086be7bde50e9dc",
+      "sanitized_output_tail": "TAP version 13\n# (node:42009) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: Pack C Prisma/PostgreSQL enforces unique, exact-scope FK and closed CHECK fences\nok 1 - Pack C Prisma/PostgreSQL enforces unique, exact-scope FK and closed CHECK fences\n  ---\n  duration_ms: 1045.691833\n  ...\n# Subtest: Pack C Prisma service commits passed report, Candidate and outbox atomically and rolls all three back on outbox failure\nok 2 - Pack C Prisma service commits passed report, Candidate and outbox atomically and rolls all three back on outbox failure\n  ---\n  duration_ms: 315.445\n  ...\n# Subtest: Pack C real persistence keeps failed and unsupported outcomes report-only\nok 3 - Pack C real persistence keeps failed and unsupported outcomes report-only\n  ---\n  duration_ms: 312.147917\n  ...\n# Subtest: Pack C real Prisma composition permanently closes generic scientific create/upsert and collectJob\nok 4 - Pack C real Prisma composition permanently closes generic scientific create/upsert and collectJob\n  ---\n  duration_ms: 366.870583\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 4333.734042\n\n"
+    }
+  },
+  "zero_census": {
+    "generic_scientific_writes": 0,
+    "route_scientific_writes": 0,
+    "adapter_scientific_writes": 0,
+    "accept_partial_request_contract_occurrences": 0,
+    "existing_database_connections": 0,
+    "real_provider_requests": 0,
+    "external_network_requests": 0,
+    "scientific_product_writes": 0
+  },
+  "redaction": {
+    "database_url_stored": false,
+    "database_password_stored": false,
+    "command_stdout_stored_in_summary": false,
+    "credential_values_loaded": false,
+    "output_tails_sanitized": true
+  },
+  "environment_isolation": {
+    "policy": "explicit_allowlist@v1",
+    "inherited_key_allowlist": [
+      "CI",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "PATH",
+      "PNPM_HOME",
+      "TEMP",
+      "TERM",
+      "TMP",
+      "TMPDIR"
+    ],
+    "host_sensitive_key_count": 0,
+    "stripped_sensitive_key_count": 0,
+    "exposed_sensitive_keys": [],
+    "existing_database_url_present_but_ignored": false
+  },
+  "blockers": [],
+  "canonical_summary_sha256": "sha256:6a7f85b5a86281c77fceea66a7c4c011139d40c2d740a31216e34c329231a565"
+}

@@ -805,3 +805,18 @@ One intermediate two-file rerun failed 1/14 because the newly strengthened execu
 | focused EF execution + PI live adapter tests | passed 21/21; 0 failed, 0 skipped; includes entry-closure zero-write assertions and unchanged PI error propagation |
 | desktop typecheck | passed via `pnpm --filter @paper-engineering-assistant/desktop typecheck`; exit 0 |
 | API index/OpenAPI checks | `node .ai/scripts/ctl-api-index.mjs verify` current; `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` passed; no regeneration required |
+
+## 2026-07-20 — Pack C C-EF step 6 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 after the relational lane and again after the service-level unsupported-outcome test-port injection |
+| `node --test .ai/scripts/experiment-foundation-packc-ef-gate.unit.test.mjs` | passed 6/6; 0 failed, 0 skipped |
+| direct engine suite | passed 9/9; 0 failed, 0 skipped |
+| direct scientific validation service suite | passed 13/13; 0 failed, 0 skipped |
+| direct shared scientific schema suite | passed 12/12; 0 failed, 0 skipped |
+| direct 5a service-layer closure suites | passed 34/34; 0 failed, 0 skipped |
+| disposable identity/guard unit suite | passed 7/7; 0 failed, 0 skipped |
+| `node .ai/scripts/experiment-foundation-packc-ef-gate.mjs --run-id packc-ef-20260720-r1` | expected sandbox result: exit 2, `blocked`; 68/68 non-relational tests passed, PC01-PC05 + PC19-EF passed, PC06/PC07 blocked, Docker daemon unavailable, no existing DB used |
+| sandbox summary | `.ai/.tmp/experiment-foundation-productization/packc-ef-20260720-r1/summary.json`; canonical SHA-256 `sha256:efa5c836e7942c8eb0df1f352619feebe1c1d1fcadb9a1840f9a6ae4636a7750` |
+| real PostgreSQL relational lane | PENDING host run; the checked-in gate must report four passed, zero failed, zero skipped before C-EF step 6 can close |

@@ -186,3 +186,24 @@ test('requires the live database name and COMMENT marker to match the disposable
     /identity marker does not match/,
   );
 });
+
+test('accepts the Pack C dedicated identity keys and marker', () => {
+  const databaseName = `packc_${NONCE.slice(0, 12)}`;
+  const databaseUrl = DATABASE_URL.replace(DATABASE_NAME, databaseName);
+  assert.deepEqual(
+    requireDisposablePostgresDatabaseIdentity({
+      DATABASE_URL: databaseUrl,
+      EXPERIMENT_FOUNDATION_PACKC_DATABASE_URL: databaseUrl,
+      EXPERIMENT_FOUNDATION_PACKC_DISPOSABLE_NONCE: NONCE,
+    }, 'packc', {
+      databaseUrlKey: 'EXPERIMENT_FOUNDATION_PACKC_DATABASE_URL',
+      nonceKey: 'EXPERIMENT_FOUNDATION_PACKC_DISPOSABLE_NONCE',
+    }),
+    {
+      database_url: databaseUrl,
+      database_name: databaseName,
+      nonce: NONCE,
+      marker: `experiment-foundation-packc-disposable:${NONCE}`,
+    },
+  );
+});
