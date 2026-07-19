@@ -88,8 +88,10 @@ indexes have never existed anywhere.
 
 ## Recommended plan
 
-**Option 1 (recommended): one reconciliation migration** — see
-`02-reconciliation-migration-draft.sql` (242 lines; Part 1 = 228 renames, Part 2 =
+**Option 1 (recommended): one reconciliation migration** — drafted as
+`02-reconciliation-migration-draft.sql`, later removed as redundant once landed verbatim as
+`prisma/migrations/20260719120000_reconcile_index_names_and_topic_research_record/migration.sql`
+(Part 1 = 228 renames, Part 2 =
 TopicResearchRecord DROP DEFAULT + 2 CREATE INDEX). On approval:
 
 1. Create `prisma/migrations/20260719<hhmmss>_reconcile_index_names_and_topic_research_record/migration.sql`

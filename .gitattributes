@@ -108,3 +108,13 @@
 /dist/         export-ignore
 /build/        export-ignore
 /coverage/     export-ignore
+
+# ----------------------------------------------------------------------------
+# Generated context snapshots
+# ----------------------------------------------------------------------------
+# Script-generated (ctl-db-ssot / ctl-api-index / slot-parameter-manifest-export);
+# kept tracked because unit tests and skills gate on snapshot freshness, but
+# collapsed in diffs and review (use `git diff --text` to inspect when needed).
+docs/context/db/schema.json                                    linguist-generated -diff
+docs/context/api/api-index.json                                linguist-generated -diff
+docs/context/paper-implementation/slot-parameter-manifest.json linguist-generated -diff

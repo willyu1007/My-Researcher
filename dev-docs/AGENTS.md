@@ -75,6 +75,17 @@ dev-docs/
 | `04-verification.md` | Checks run and results | After each check |
 | `05-pitfalls.md` | Resolved failures, dead ends, historical lessons (not current issues) | After issue is resolved |
 
+### Artifact size policy (`artifacts/**`)
+
+Raw machine output (smoke/gate JSON dumps, full API responses, run transcripts) larger
+than ~500 lines must NOT be committed verbatim. Commit a digest instead: the run
+metadata (command, timestamp, target), the pass/fail verdict per check, any failing
+excerpts, and a SHA-256 of the full output (keep the full file untracked under
+`/artifacts/` or session storage if it may be needed again). Rationale: 2026-07
+baseline audit found multi-thousand-line raw JSON dumps in `artifacts/**` that inflate
+history without adding reviewable signal. Existing committed files are grandfathered —
+do not rewrite history to remove them.
+
 ## AI Instructions
 
 ### On Context Reset
