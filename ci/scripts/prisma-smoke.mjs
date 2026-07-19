@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -129,38 +129,60 @@ function quoteIdentifier(identifier) {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 
+// Streams child output live (tee to console + log file) instead of buffering:
+// the backend test step runs for many minutes and a silent step gets killed by
+// the job-level timeout with zero diagnostics (run 29679363684).
 function runStep({ label, command, args, env, cwd, logPath, stdin }) {
   const commandText = [command, ...args].join(' ').trim();
   const start = new Date().toISOString();
-  const header = `# ${label}\n$ ${commandText}\n[start] ${start}\n\n`;
 
   console.log(`[run] ${label}`);
-  const result = spawnSync(command, args, {
-    cwd,
-    env,
-    encoding: 'utf8',
-    input: stdin,
-    maxBuffer: 20 * 1024 * 1024,
+  const logStream = fs.createWriteStream(logPath, { encoding: 'utf8' });
+  logStream.write(`# ${label}\n$ ${commandText}\n[start] ${start}\n\n`);
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    });
+
+    if (stdin !== undefined) {
+      child.stdin.end(stdin);
+    }
+    child.stdout.on('data', (chunk) => {
+      process.stdout.write(chunk);
+      logStream.write(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      process.stderr.write(chunk);
+      logStream.write(chunk);
+    });
+
+    const finish = (error, status) => {
+      logStream.end(`\n[end] ${new Date().toISOString()}\n[exit] ${status ?? 1}\n`, () => {
+        if (error) {
+          rejectPromise(error);
+        } else {
+          resolvePromise(undefined);
+        }
+      });
+    };
+
+    child.on('error', (spawnError) => {
+      finish(new Error(`Failed to execute "${command}": ${spawnError.message}`), 1);
+    });
+    child.on('close', (status) => {
+      if (status !== 0) {
+        finish(new Error(`Step "${label}" failed with exit code ${status ?? 1}.`), status);
+        return;
+      }
+      finish(undefined, status);
+    });
   });
-
-  const output = `${result.stdout || ''}${result.stderr || ''}`;
-  const end = new Date().toISOString();
-  const footer = `\n[end] ${end}\n[exit] ${result.status ?? 1}\n`;
-  fs.writeFileSync(logPath, `${header}${output}${footer}`, 'utf8');
-
-  if (output) {
-    process.stdout.write(output);
-  }
-
-  if (result.error) {
-    throw new Error(`Failed to execute "${command}": ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    throw new Error(`Step "${label}" failed with exit code ${result.status ?? 1}.`);
-  }
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv);
   const runId = options.runId || nowRunId();
   const schema = buildSchemaName(options.schemaPrefix, runId);
@@ -191,7 +213,7 @@ function main() {
   };
 
   try {
-    runStep({
+    await runStep({
       label: 'Prisma generate',
       command: 'pnpm',
       args: ['exec', 'prisma', 'generate', '--schema', PRISMA_SCHEMA_PATH],
@@ -200,7 +222,7 @@ function main() {
       logPath: path.join(artifactRoot, '01-prisma-generate.log'),
     });
 
-    runStep({
+    await runStep({
       label: 'Prisma migrate deploy',
       command: 'pnpm',
       args: ['exec', 'prisma', 'migrate', 'deploy', '--schema', PRISMA_SCHEMA_PATH],
@@ -209,7 +231,7 @@ function main() {
       logPath: path.join(artifactRoot, '02-prisma-migrate-deploy.log'),
     });
 
-    runStep({
+    await runStep({
       label: 'Backend tests with isolated Prisma schema',
       command: 'pnpm',
       args: ['--filter', '@paper-engineering-assistant/backend', 'test'],
@@ -226,7 +248,7 @@ function main() {
     if (!options.keepSchema) {
       try {
         const dropSql = `DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE;`;
-        runStep({
+        await runStep({
           label: 'Drop smoke schema',
           command: 'pnpm',
           args: ['exec', 'prisma', 'db', 'execute', '--stdin', '--url', adminUrl],
@@ -261,4 +283,4 @@ function main() {
   }
 }
 
-main();
+await main();

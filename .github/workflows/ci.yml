@@ -29,7 +29,9 @@ jobs:
   backend-checks:
     name: Backend Checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Full backend suite runs ~206 test files serially on the 2-core runner
+    # (node --test concurrency = cores-1); 20 min was not enough (run 29679363684)
+    timeout-minutes: 40
     services:
       postgres:
         # pgvector required: migrations run CREATE EXTENSION vector (20260605104000+)
@@ -74,6 +76,10 @@ jobs:
         run: pnpm ci:prisma-smoke
         env:
           PRISMA_SMOKE_BASE_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          # Type checking is already covered by the dedicated tsc --noEmit step
+          # above; per-test-process ts-node type checking makes the serial
+          # 2-core run blow past any reasonable job timeout
+          TS_NODE_TRANSPILE_ONLY: '1'
 
       - name: Upload backend Prisma test artifacts
         if: always()
