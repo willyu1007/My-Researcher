@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import {
   computeLlmCostUsd,
@@ -561,6 +564,17 @@ export class BackendLlmGateway {
         ? ''
         : String(init.body);
     const headers = this.normalizeFetchHeaders(init?.headers);
+    // Auth headers travel via a mode-0600 config file, not argv (visible in
+    // /proc) and not an extra stdio fd: node stdio pipes are socketpairs, and
+    // Linux cannot open("/dev/fd/N") on a socket (ENXIO), which crashed curl
+    // at startup on Linux hosts.
+    const configDir = await mkdtemp(path.join(os.tmpdir(), 'pea-curl-'));
+    const configPath = path.join(configDir, 'config');
+    const config = headers
+      .map(([name, value]) => `header = "${this.escapeCurlConfigValue(`${name}: ${value}`)}"`)
+      .join('\n');
+    await writeFile(configPath, `${config}\n`, { mode: 0o600 });
+
     const args = [
       '--silent',
       '--show-error',
@@ -575,63 +589,66 @@ export class BackendLlmGateway {
       '--output',
       '-',
       '--config',
-      '/dev/fd/3',
+      configPath,
       ...(body ? ['--data-binary', '@-'] : []),
       url,
     ];
 
-    const config = headers
-      .map(([name, value]) => `header = "${this.escapeCurlConfigValue(`${name}: ${value}`)}"`)
-      .join('\n');
-
-    return await new Promise<Response>((resolve, reject) => {
-      const child = spawn('curl', args, {
-        stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
+    try {
+      return await new Promise<Response>((resolve, reject) => {
+        const child = spawn('curl', args, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        const stdoutChunks: Buffer[] = [];
+        const stderrChunks: Buffer[] = [];
+        const abort = () => {
+          child.kill('SIGTERM');
+          const abortError = new Error('The operation was aborted.');
+          abortError.name = 'AbortError';
+          reject(abortError);
+        };
+        if (init?.signal?.aborted) {
+          abort();
+          return;
+        }
+        init?.signal?.addEventListener('abort', abort, { once: true });
+        child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
+        child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+        // If curl dies before draining stdin the write side errors (EPIPE, or
+        // ECONNRESET on Linux socketpairs); without a handler that becomes an
+        // uncaughtException. The 'close' handler reports the real failure.
+        child.stdin.on('error', () => {});
+        child.on('error', reject);
+        child.on('close', (code) => {
+          init?.signal?.removeEventListener('abort', abort);
+          const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+          const stderr = Buffer.concat(stderrChunks).toString('utf8').trim();
+          if (code !== 0) {
+            reject(new Error(stderr || `curl exited with code ${code ?? 'unknown'}`));
+            return;
+          }
+          const marker = '\n__PEA_CURL_STATUS__:';
+          const markerIndex = stdout.lastIndexOf(marker);
+          if (markerIndex < 0) {
+            reject(new Error('curl response did not include an HTTP status marker.'));
+            return;
+          }
+          const responseBody = stdout.slice(0, markerIndex);
+          const status = Number(stdout.slice(markerIndex + marker.length).trim());
+          if (!Number.isInteger(status) || status <= 0) {
+            reject(new Error(`curl returned invalid HTTP status ${stdout.slice(markerIndex + marker.length).trim()}.`));
+            return;
+          }
+          resolve(new Response(responseBody, {
+            status,
+            headers: { 'content-type': 'application/json' },
+          }));
+        });
+        child.stdin.end(body);
       });
-      const stdoutChunks: Buffer[] = [];
-      const stderrChunks: Buffer[] = [];
-      const abort = () => {
-        child.kill('SIGTERM');
-        const abortError = new Error('The operation was aborted.');
-        abortError.name = 'AbortError';
-        reject(abortError);
-      };
-      if (init?.signal?.aborted) {
-        abort();
-        return;
-      }
-      init?.signal?.addEventListener('abort', abort, { once: true });
-      child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-      child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
-      child.on('error', reject);
-      child.on('close', (code) => {
-        init?.signal?.removeEventListener('abort', abort);
-        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-        const stderr = Buffer.concat(stderrChunks).toString('utf8').trim();
-        if (code !== 0) {
-          reject(new Error(stderr || `curl exited with code ${code ?? 'unknown'}`));
-          return;
-        }
-        const marker = '\n__PEA_CURL_STATUS__:';
-        const markerIndex = stdout.lastIndexOf(marker);
-        if (markerIndex < 0) {
-          reject(new Error('curl response did not include an HTTP status marker.'));
-          return;
-        }
-        const responseBody = stdout.slice(0, markerIndex);
-        const status = Number(stdout.slice(markerIndex + marker.length).trim());
-        if (!Number.isInteger(status) || status <= 0) {
-          reject(new Error(`curl returned invalid HTTP status ${stdout.slice(markerIndex + marker.length).trim()}.`));
-          return;
-        }
-        resolve(new Response(responseBody, {
-          status,
-          headers: { 'content-type': 'application/json' },
-        }));
-      });
-      (child.stdio[3] as NodeJS.WritableStream | null)?.end(`${config}\n`);
-      child.stdin.end(body);
-    });
+    } finally {
+      await rm(configDir, { recursive: true, force: true });
+    }
   }
 
   private normalizeFetchHeaders(headers: unknown): Array<[string, string]> {

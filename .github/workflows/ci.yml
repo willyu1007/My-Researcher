@@ -76,6 +76,10 @@ jobs:
         run: pnpm ci:prisma-smoke
         env:
           PRISMA_SMOKE_BASE_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          # Default local data root is a macOS volume path that does not exist
+          # on Linux runners; literature flow stages that persist artifacts
+          # would fail with PARTIAL runs without a writable root
+          PAPER_ENGINEER_LOCAL_DATA_ROOT: ${{ runner.temp }}/paper-engineer-data
           # Type checking is already covered by the dedicated tsc --noEmit step
           # above; per-test-process ts-node type checking makes the serial
           # 2-core run blow past any reasonable job timeout
