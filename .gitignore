@@ -42,3 +42,7 @@ dev-docs/**/artifacts/**/*.log
 dev-docs/**/artifacts/**/00-context.json
 dev-docs/**/artifacts/**/00-context.txt
 dev-docs/**/artifacts/**/90-summary.json
+
+# CI script outputs (uploaded via actions/upload-artifact, never committed;
+# some embed database URLs — durable artifacts live under dev-docs/**/artifacts/)
+/artifacts/

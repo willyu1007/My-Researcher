@@ -32,7 +32,8 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        # pgvector required: migrations run CREATE EXTENSION vector (20260605104000+)
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -48,14 +49,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
+      # reads the pinned version from package.json packageManager and does not
+      # depend on the runner's system Node bundling corepack (removed in Node 25+)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -78,6 +82,59 @@ jobs:
           name: artifacts-backend-prisma-smoke
           path: artifacts/prisma-smoke
 
+  prisma-drift:
+    name: Prisma Migrate Drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # pgvector required: migrations run CREATE EXTENSION vector (20260605104000+)
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
+      # reads the pinned version from package.json packageManager and does not
+      # depend on the runner's system Node bundling corepack (removed in Node 25+)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      # Replays prisma/migrations onto the disposable service DB and diffs the
+      # result against schema.prisma; any non-empty migration fails the job.
+      # Rules for migration authors: prisma/migrations/AGENTS.md
+      - name: Prisma migrate drift check
+        run: pnpm ci:prisma-drift
+        env:
+          PRISMA_DRIFT_SHADOW_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+
+      - name: Upload drift artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-prisma-drift
+          path: artifacts/prisma-drift
+
   desktop-checks:
     name: Desktop Checks
     runs-on: ubuntu-latest
@@ -86,14 +143,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
+      # reads the pinned version from package.json packageManager and does not
+      # depend on the runner's system Node bundling corepack (removed in Node 25+)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Install deps
         run: pnpm install --frozen-lockfile

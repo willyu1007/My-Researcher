@@ -12,6 +12,7 @@
     "build": "echo \"Add build script\"",
     "backend:dev:prisma": "pnpm --filter @paper-engineering-assistant/backend dev:prisma",
     "backend:dev:prisma:setup": "pnpm env:dev:db-url:init && pnpm env:dev:compile && pnpm db:dev:migrate",
+    "ci:prisma-drift": "node ci/scripts/prisma-migrate-drift.mjs",
     "ci:prisma-smoke": "node ci/scripts/prisma-smoke.mjs",
     "db:dev:migrate": "set -a; . ./.env.local; set +a; pnpm exec prisma migrate deploy --schema prisma/schema.prisma",
     "desktop:build": "pnpm --filter @paper-engineering-assistant/desktop build",

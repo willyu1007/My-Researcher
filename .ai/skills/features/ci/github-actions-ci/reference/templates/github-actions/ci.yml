@@ -55,14 +55,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # corepack must run before setup-node: cache "pnpm" needs pnpm on PATH
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -88,14 +89,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # corepack must run before setup-node: cache "pnpm" needs pnpm on PATH
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -121,14 +123,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # corepack must run before setup-node: cache "pnpm" needs pnpm on PATH
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Enable corepack (pnpm)
-        run: corepack enable
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -153,11 +156,11 @@ jobs:
   #   timeout-minutes: 30
   #   steps:
   #     - uses: actions/checkout@v4
+  #     - run: corepack enable  # before setup-node: cache "pnpm" needs pnpm on PATH
   #     - uses: actions/setup-node@v4
   #       with:
   #         node-version: "20"
   #         cache: "pnpm"
-  #     - run: corepack enable
   #     - run: pnpm install --frozen-lockfile
   #     - run: pnpm test:e2e:cypress
   #       env:
