@@ -25,3 +25,5 @@ Additive migration `20260718224543_add_experiment_foundation_pack_c_scientific_v
 ## Excluded pre-existing drift (NOT part of Pack C)
 
 `prisma migrate dev --create-only` also emitted a large unrelated drift set: one `TopicResearchRecord` column-default drop plus two new indexes, and ~170 `RenameIndex` statements across topic-selection/literature/EF-legacy tables (migration history recorded truncated auto-generated index names that no longer match schema-implied names). This drift predates Pack C, belongs to other domains, and was removed from this migration. It is tracked as a separate reconciliation task; Pack C's named-local apply will use `prisma migrate deploy`, which applies this file verbatim and does not re-diff.
+
+> Resolved 2026-07-19: full attribution and reconciliation landed as migration `20260719120000_reconcile_index_names_and_topic_research_record` (applied together with this Pack C migration via `migrate deploy`; drift now zero). See `../migrate-drift-reconciliation-20260719/01-analysis.md`.
