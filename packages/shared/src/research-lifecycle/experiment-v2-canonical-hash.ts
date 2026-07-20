@@ -36,6 +36,12 @@ import type {
   ScientificValidationCellResultRefV2,
   ScientificValidationRuleResultV2,
 } from './experiment-foundation-scientific-validation-v2-contracts.js';
+import type {
+  PaperImplementationEvidenceTraceManifestV2,
+  PaperImplementationRunEvidenceUnitV2,
+  ValidationCycleClosureV2,
+  ValidationCycleClosureWatermarkV2,
+} from './paper-implementation-evidence-v2-contracts.js';
 
 export { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
 
@@ -66,6 +72,10 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'ef-scientific-result-json@v1',
   'ef-scientific-validation-json@v1',
   'ef-evidence-candidate-json@v1',
+  'pi-run-evidence-unit-json@v1',
+  'pi-evidence-trace-manifest-json@v1',
+  'pi-cycle-closure-watermark-json@v1',
+  'pi-cycle-closure-json@v1',
 ] as const);
 export type ExperimentV2HashProfile = (typeof EXPERIMENT_V2_HASH_PROFILES)[number];
 
@@ -580,6 +590,52 @@ export function serverHashExperimentFoundationV2EvidenceCandidate(
     record_kind: 'ExperimentFoundationEvidenceCandidateV2',
     schema_version: 'v1',
     hash_profile: 'ef-evidence-candidate-json@v1',
+    content,
+  });
+}
+
+export function serverHashPaperImplementationV2RunEvidenceUnit(
+  content: Omit<PaperImplementationRunEvidenceUnitV2, 'content_hash'>,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationRunEvidenceUnitV2',
+    schema_version: content.schema_version,
+    hash_profile: 'pi-run-evidence-unit-json@v1',
+    content,
+  });
+}
+
+export function serverHashPaperImplementationV2EvidenceTraceManifest(
+  content: Omit<PaperImplementationEvidenceTraceManifestV2, 'content_hash'>,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationEvidenceTraceManifestV2',
+    schema_version: content.schema_version,
+    hash_profile: 'pi-evidence-trace-manifest-json@v1',
+    content,
+  });
+}
+
+/** D-18 closure-input hash over the complete current-effective watermark scope. */
+export function serverHashPaperImplementationV2ClosureWatermark(
+  content: Omit<ValidationCycleClosureWatermarkV2, 'closure_input_hash'>,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationValidationCycleClosureWatermarkV2',
+    schema_version: content.schema_version,
+    hash_profile: 'pi-cycle-closure-watermark-json@v1',
+    content,
+  });
+}
+
+/** Closure snapshot hash; ResultInterpretationPacket identity is never a member. */
+export function serverHashPaperImplementationV2CycleClosure(
+  content: Omit<ValidationCycleClosureV2, 'closure_snapshot_hash'>,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationValidationCycleClosureV2',
+    schema_version: content.schema_version,
+    hash_profile: 'pi-cycle-closure-json@v1',
     content,
   });
 }
