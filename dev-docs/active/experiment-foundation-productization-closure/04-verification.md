@@ -820,3 +820,15 @@ One intermediate two-file rerun failed 1/14 because the newly strengthened execu
 | `node .ai/scripts/experiment-foundation-packc-ef-gate.mjs --run-id packc-ef-20260720-r1` | expected sandbox result: exit 2, `blocked`; 68/68 non-relational tests passed, PC01-PC05 + PC19-EF passed, PC06/PC07 blocked, Docker daemon unavailable, no existing DB used |
 | sandbox summary | `.ai/.tmp/experiment-foundation-productization/packc-ef-20260720-r1/summary.json`; canonical SHA-256 `sha256:efa5c836e7942c8eb0df1f352619feebe1c1d1fcadb9a1840f9a6ae4636a7750` |
 | real PostgreSQL relational lane | PENDING host run; the checked-in gate must report four passed, zero failed, zero skipped before C-EF step 6 can close |
+
+## 2026-07-20 — Pack C C-PI step 3 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 after final repository/readback tightening |
+| `cd apps/backend && node --test --loader ts-node/esm src/services/paper-implementation-evidence-trust-gateway-service.unit.test.ts` | passed 19/19; 0 failed, 0 skipped, 0 todo |
+| shared typecheck | not run because no file under `packages/shared` changed |
+| `git diff --check` | passed before documentation finalization |
+| optional whole-bundle strict docs lint | first run: 0 errors/12 warnings, including 2 in the new report; final run: 0 errors/10 pre-existing warnings and no warning in the new report; strict mode remains nonzero on the historical baseline |
+
+The 19 assertions cover one atomic eligible ingestion, exact replay without EF reread/new writes, first-seen payload-hash tamper, changed-envelope event-id conflict, four branch/revision scope-drift receipts, six Candidate/report/hash/status rejections, protocol provenance rejection, injected all-or-nothing rollback, identity-only readback and second-event Candidate-unique convergence.

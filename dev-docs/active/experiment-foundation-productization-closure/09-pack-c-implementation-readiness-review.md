@@ -50,6 +50,7 @@ Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pa
 - EF owns: protocol rule execution, validation report, EvidenceCandidate. PI owns: REU/TraceManifest, readiness trigger, proposal, closure assessment/snapshot, Packet, dossier consumption. No cross-domain FK/ORM relation; cross-domain identity remains exact refs/hashes/sequences/events (D-20/D-21 unchanged).
 - Sole writers: `ScientificValidationService` (EF), `EvidenceTrustGateway` (PI REU), `ValidationCycleClosureService` (PI disposition/snapshot). Generic record writers, adapters, monitors, routes and callers cannot construct these records.
 - Integration events (additive): `EvidenceCandidateQualified` (EF outbox → PI inbox) is the only new cross-domain event required by the gateway; `ValidationCycleClosed` remains a PI-domain event consumed by PI-side materializers. Any additional event requires a named review addendum.
+- **Addendum (2026-07-20, C-PI step 3)**: the gateway additionally emits one PI-domain projection-feed event `RunEvidenceUnitRegistered@v1` in its atomic commit (D-16's "gateway atomically writes REU/TraceManifest/outbox" acceptance). It is PI-internal (never crosses to EF), carries identity/hash refs only, and its consumers are the Phase 5 retrieval/motive projections. No other event is added.
 
 ### Additive schema families (exact Prisma names TBD via `sync-db-schema-from-code`)
 
