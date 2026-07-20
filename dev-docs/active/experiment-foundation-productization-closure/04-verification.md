@@ -832,3 +832,15 @@ One intermediate two-file rerun failed 1/14 because the newly strengthened execu
 | optional whole-bundle strict docs lint | first run: 0 errors/12 warnings, including 2 in the new report; final run: 0 errors/10 pre-existing warnings and no warning in the new report; strict mode remains nonzero on the historical baseline |
 
 The 19 assertions cover one atomic eligible ingestion, exact replay without EF reread/new writes, first-seen payload-hash tamper, changed-envelope event-id conflict, four branch/revision scope-drift receipts, six Candidate/report/hash/status rejections, protocol provenance rejection, injected all-or-nothing rollback, identity-only readback and second-event Candidate-unique convergence.
+
+## 2026-07-20 — Pack C C-PI D-18 readiness evaluator verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0; strict TypeScript covers the service plus in-memory and Prisma read adapters |
+| `cd apps/backend && node --test --loader ts-node/esm src/services/paper-implementation-cycle-readiness-v2-service.unit.test.ts` | passed 9/9; 0 failed, 0 skipped, 0 todo |
+| read-only source scan | passed; no create/update/upsert/delete call exists in the new port, Prisma adapter or evaluator |
+| schema/migration/env/app/legacy completion | unchanged; no database or external system was contacted |
+| optional whole-bundle strict docs lint | 0 errors and the same 10 historical vague-reference warnings recorded after C-PI step 3; strict mode remains nonzero on that pre-existing warning baseline |
+
+Coverage proves deterministic two-branch order/hash replay, older/no-current head blocking, pending EF acknowledgement blocking, a non-head active real-provider Attempt blocking the Cycle, simulation exclusion from the active-real count, existing-closure blocking, current-head REU readiness, superseded Run/cell/REU exclusion and typed zero-branch failure.
