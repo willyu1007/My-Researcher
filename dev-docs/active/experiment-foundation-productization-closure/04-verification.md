@@ -844,3 +844,19 @@ The 19 assertions cover one atomic eligible ingestion, exact replay without EF r
 | optional whole-bundle strict docs lint | 0 errors and the same 10 historical vague-reference warnings recorded after C-PI step 3; strict mode remains nonzero on that pre-existing warning baseline |
 
 Coverage proves deterministic two-branch order/hash replay, older/no-current head blocking, pending EF acknowledgement blocking, a non-head active real-provider Attempt blocking the Cycle, simulation exclusion from the active-real count, existing-closure blocking, current-head REU readiness, superseded Run/cell/REU exclusion and typed zero-branch failure.
+
+## 2026-07-21 — Pack C C-PI step 5 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 |
+| all eight new/modified test files via direct `node --test --loader ts-node/esm` | passed: backend 86/86 and shared 26/26; 0 failed, 0 skipped |
+| `pnpm --filter @paper-engineering-assistant/shared test` | passed 383/383; 0 failed, 0 skipped |
+| `pnpm --filter @paper-engineering-assistant/backend test` | final post-fix full population: 2,338 tests, 2,269 passed, 15 failed, 54 skipped; underlying test status failed; no modified test failed |
+| `git diff --check` | passed before documentation finalization |
+
+The closure matrix covers the disabled lane, exact no-evidence closure/outbox hashes and atomic rollback, both readiness blockers, Cycle/hash drift, already-closed and exact replay behavior, scientific-kind disablement, and eligible-REU rejection. Seal coverage proves zero admission/head/materialization writes and zero Attempt/payload/command/dispatch writes; generic Sidecar create/upsert joins the existing 5a closed-kind assertions.
+
+Eight full-suite failures require unavailable PostgreSQL at `127.0.0.1:5432`: Prisma topic-selection rollback N4/N5/N6/N7/N8/N10 plus the T-054 and T-067 Prisma HTTP smokes. The other seven are one Pack A fixed-FK-count assertion and six literature integration assertions. Exact names are recorded in `artifacts/pack-c-pi-cycle-closure-20260721/report.md`; none is in a modified test file.
+
+The first full run was 2,268 passed/16 failed and caught one obsolete capability-harness expectation that generic Sidecar creation remained open. The test was brought into the step-5 closure set, its complete file passed 5/5, backend typecheck passed again, and the final full population improved to 2,269 passed/15 failed.

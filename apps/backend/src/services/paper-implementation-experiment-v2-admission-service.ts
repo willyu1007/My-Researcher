@@ -28,6 +28,9 @@ import {
   type PaperImplementationExperimentSpineV2Repository,
   type PaperImplementationExperimentV2AdmissionBundle,
 } from '../repositories/experiment-spine-v2.repository.js';
+import type {
+  PaperImplementationValidationCycleClosureV2Lookup,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 import { incrementExperimentV2Int32Counter } from './experiment-v2-int32.js';
 
 const DEFAULT_SERVER_ACTOR = 'system:paper-implementation-experiment-v2-admission';
@@ -55,6 +58,7 @@ export interface PaperImplementationExperimentV2AdmissionServiceOptions {
   repository: PaperImplementationExperimentSpineV2Repository;
   scopeReader: PaperImplementationExperimentV2ScopeReader;
   admissionEnabled: () => boolean;
+  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
   serverActorId?: string;
   idFactory?: (prefix: string) => string;
   now?: () => string;
@@ -120,6 +124,7 @@ export class PaperImplementationExperimentV2AdmissionService {
   private readonly repository: PaperImplementationExperimentSpineV2Repository;
   private readonly scopeReader: PaperImplementationExperimentV2ScopeReader;
   private readonly admissionEnabled: () => boolean;
+  private readonly cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   private readonly serverActorId: string;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
@@ -128,6 +133,7 @@ export class PaperImplementationExperimentV2AdmissionService {
     this.repository = options.repository;
     this.scopeReader = options.scopeReader;
     this.admissionEnabled = options.admissionEnabled;
+    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
     this.serverActorId = options.serverActorId ?? DEFAULT_SERVER_ACTOR;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
@@ -155,6 +161,9 @@ export class PaperImplementationExperimentV2AdmissionService {
   private async admitEnabled(
     input: PaperImplementationExperimentV2AdmissionInput,
   ): Promise<PaperImplementationExperimentV2AdmissionResponse> {
+    if (await this.cycleClosureLookup.isCycleClosed(input.validation_cycle_id)) {
+      throw cycleAlreadyClosed();
+    }
     if (input.admitted_by !== this.serverActorId) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Admission actor must be server injected.', {
         reason_code: 'V2_TYPED_SNAPSHOT_INVALID',
@@ -364,6 +373,21 @@ export class PaperImplementationExperimentV2AdmissionService {
       replayed: stored.admission.admission_id !== admissionId,
     };
   }
+}
+
+const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
+  async isCycleClosed() {
+    return false;
+  },
+};
+
+function cycleAlreadyClosed(): AppError {
+  return new AppError(
+    409,
+    'GATE_CONSTRAINT_FAILED',
+    'A closed ValidationCycle cannot admit another WorkOrder revision.',
+    { reason_code: 'CYCLE_ALREADY_CLOSED' },
+  );
 }
 
 function branchAdvanceError(message: string): AppError {

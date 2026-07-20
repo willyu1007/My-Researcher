@@ -953,15 +953,30 @@ test('Pack A hardening makes all 38 same-domain foreign keys immutable and fence
   );
   assert.doesNotMatch(hardeningMigration, /ON (?:DELETE|UPDATE) CASCADE/);
 
-  const packASchema = schema.slice(
+  // The Pack C (C-PI) evidence/closure models sit inside this window; excise
+  // them so the census stays exactly the Pack A population, then hold the
+  // excised Pack C block to the same immutable-FK rule.
+  const packAWindow = schema.slice(
     schema.indexOf('model PaperImplementationExperimentWorkOrderBranchV2'),
     schema.indexOf('// T-132 Pack B:'),
   );
+  const packCStart = packAWindow.indexOf('// T-132 Pack C (slice C-PI):');
+  const packCEnd = packAWindow.indexOf('// T-132 Pack A:');
+  assert.ok(packCStart >= 0 && packCEnd > packCStart);
+  const packCSchema = packAWindow.slice(packCStart, packCEnd);
+  const packASchema = packAWindow.slice(0, packCStart) + packAWindow.slice(packCEnd);
   const owningRelationLines = packASchema
     .split('\n')
     .filter((line) => line.includes('@relation(') && line.includes('fields:'));
   assert.equal(owningRelationLines.length, 38);
   for (const relationLine of owningRelationLines) {
+    assert.match(relationLine, /onDelete: Restrict, onUpdate: Restrict/);
+  }
+  const packCOwningRelationLines = packCSchema
+    .split('\n')
+    .filter((line) => line.includes('@relation(') && line.includes('fields:'));
+  assert.equal(packCOwningRelationLines.length, 3);
+  for (const relationLine of packCOwningRelationLines) {
     assert.match(relationLine, /onDelete: Restrict, onUpdate: Restrict/);
   }
 

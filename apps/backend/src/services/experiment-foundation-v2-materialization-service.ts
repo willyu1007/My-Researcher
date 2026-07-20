@@ -35,6 +35,9 @@ import {
   type ExperimentFoundationExperimentSpineV2Repository,
   type ExperimentFoundationV2MaterializationBundle,
 } from '../repositories/experiment-spine-v2.repository.js';
+import type {
+  PaperImplementationValidationCycleClosureV2Lookup,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 const D19_DEPENDENCY_COUNTS = {
   Dataset: 2,
   DataPolicy: 2,
@@ -62,6 +65,7 @@ export interface ExperimentFoundationV2ReadinessResolver {
 export interface ExperimentFoundationV2MaterializationServiceOptions {
   repository: ExperimentFoundationExperimentSpineV2Repository;
   readinessResolver: ExperimentFoundationV2ReadinessResolver;
+  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -277,12 +281,14 @@ function mapRepositoryError(error: ExperimentSpineV2RepositoryConstraintError): 
 export class ExperimentFoundationV2MaterializationService {
   private readonly repository: ExperimentFoundationExperimentSpineV2Repository;
   private readonly readinessResolver: ExperimentFoundationV2ReadinessResolver;
+  private readonly cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: ExperimentFoundationV2MaterializationServiceOptions) {
     this.repository = options.repository;
     this.readinessResolver = options.readinessResolver;
+    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -304,6 +310,13 @@ export class ExperimentFoundationV2MaterializationService {
     event: WorkOrderRevisionAdmittedEventV1,
   ): Promise<ExperimentFoundationV2MaterializationBundle> {
     assertWorkOrderRevisionAdmittedEventV1(event);
+    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
+      throw integrationError(
+        'A closed ValidationCycle cannot materialize another EF Run lineage.',
+        'CYCLE_ALREADY_CLOSED',
+        'GATE_CONSTRAINT_FAILED',
+      );
+    }
 
     const eventReplay = await this.repository.findInboxByEvent(
       EXPERIMENT_FOUNDATION_V2_MATERIALIZATION_CONSUMER,
@@ -572,3 +585,9 @@ export class ExperimentFoundationV2MaterializationService {
     return this.repository.commitMaterialization(bundle, event);
   }
 }
+
+const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
+  async isCycleClosed() {
+    return false;
+  },
+};

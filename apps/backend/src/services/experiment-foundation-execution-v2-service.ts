@@ -30,6 +30,9 @@ import {
   type ExperimentFoundationProviderCommandV2Record,
   type ExperimentFoundationProviderPayloadV2Record,
 } from '../repositories/experiment-foundation-execution-v2.repository.js';
+import type {
+  PaperImplementationValidationCycleClosureV2Lookup,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 import {
   ExperimentFoundationV2ProviderPayloadService,
   type ExperimentFoundationV2HeadAcknowledgementBinding,
@@ -62,6 +65,7 @@ export interface ExperimentFoundationExecutionV2ServiceOptions {
   repository: ExperimentFoundationExecutionV2Repository;
   readinessRevalidator: ExperimentFoundationExecutionV2ReadinessRevalidator;
   intakeEnabled: () => boolean;
+  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
   payloadService?: ExperimentFoundationV2ProviderPayloadService;
   now?: () => string;
   idGenerator?: (kind: 'payload' | 'attempt' | 'event' | 'command') => string;
@@ -71,6 +75,7 @@ export class ExperimentFoundationExecutionV2Service {
   private readonly repository: ExperimentFoundationExecutionV2Repository;
   private readonly readinessRevalidator: ExperimentFoundationExecutionV2ReadinessRevalidator;
   private readonly intakeEnabled: () => boolean;
+  private readonly cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   private readonly payloadService: ExperimentFoundationV2ProviderPayloadService;
   private readonly now: () => string;
   private readonly idGenerator: NonNullable<ExperimentFoundationExecutionV2ServiceOptions['idGenerator']>;
@@ -79,6 +84,7 @@ export class ExperimentFoundationExecutionV2Service {
     this.repository = options.repository;
     this.readinessRevalidator = options.readinessRevalidator;
     this.intakeEnabled = options.intakeEnabled;
+    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
     this.payloadService = options.payloadService ?? new ExperimentFoundationV2ProviderPayloadService();
     this.now = options.now ?? (() => new Date().toISOString());
     this.idGenerator = options.idGenerator
@@ -107,6 +113,12 @@ export class ExperimentFoundationExecutionV2Service {
     }
 
     const prerequisite = await this.requirePrerequisite(runId);
+    if (await this.cycleClosureLookup.isCycleClosed(prerequisite.validation_cycle_id)) {
+      throw errorForReason(
+        'CYCLE_ALREADY_CLOSED',
+        'A closed ValidationCycle cannot create or start another ExecutionAttempt.',
+      );
+    }
     assertExactPrerequisite(prerequisite);
     assertExactReadinessPrerequisite(prerequisite);
     await this.revalidateExactReadiness(prerequisite);
@@ -652,6 +664,12 @@ export class ExperimentFoundationExecutionV2Service {
     }
   }
 }
+
+const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 
 interface ExperimentFoundationExecutionFactsIndex {
   attemptCount: number;

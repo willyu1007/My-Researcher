@@ -6,15 +6,21 @@ import type {
   PaperImplementationExperimentV2AdmissionRequest,
   PaperImplementationExperimentV2AdmissionResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import type {
+  CloseValidationCycleV2Request,
+  CloseValidationCycleV2Response,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 
 import { buildApp } from '../app.js';
 import {
   PaperImplementationExperimentV2Controller,
   type PaperImplementationExperimentV2AdmissionUseCase,
+  type PaperImplementationValidationCycleClosureV2UseCase,
 } from '../controllers/paper-implementation-experiment-v2-controller.js';
 import { AppError } from '../errors/app-error.js';
 import type { PaperImplementationExperimentSpineV2Repository } from '../repositories/experiment-spine-v2.repository.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
+import type { PaperImplementationValidationCycleClosureV2Repository } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import { registerPaperImplementationExperimentV2Routes } from './paper-implementation-experiment-v2-routes.js';
 
 const HASH = `sha256:${'a'.repeat(64)}`;
@@ -109,6 +115,63 @@ function responseFixture(): PaperImplementationExperimentV2AdmissionResponse {
   };
 }
 
+function closureRequestFixture(): CloseValidationCycleV2Request {
+  return {
+    validation_cycle_id: 'cycle-1',
+    expected_cycle_version: 0,
+    expected_closure_input_hash: HASH,
+    closure_kind: 'control_flow_validated_no_paper_evidence',
+    accepted_proposal_id: null,
+    expected_proposal_hash: null,
+    corrected_scientific_disposition: null,
+    idempotency_key: 'close-cycle-1-v1',
+  };
+}
+
+function closureResponseFixture(): CloseValidationCycleV2Response {
+  return {
+    closure: {
+      closure_id: 'closure-1',
+      schema_version: 'v1',
+      validation_cycle_id: 'cycle-1',
+      cycle_version_at_closure: 0,
+      closure_kind: 'control_flow_validated_no_paper_evidence',
+      scientific_disposition: null,
+      selected_exit_key: null,
+      accepted_proposal_id: null,
+      accepted_proposal_hash: null,
+      closure_watermark: {
+        schema_version: 'v1',
+        validation_cycle_id: 'cycle-1',
+        expected_cycle_version: 0,
+        ordered_branches: [{
+          ordinal: 1,
+          branch_id: 'branch-1',
+          branch_key: 'main',
+          current_admitted_revision_id: 'revision-1',
+          current_admitted_revision_hash: HASH,
+          branch_revision_sequence: 1,
+          effective_head_run_id: 'run-1',
+          effective_head_run_manifest_hash: HASH,
+          head_blocker: null,
+          ordered_cells: [{
+            ordinal: 1,
+            run_cell_id: 'run-cell-1',
+            cell_key: 'cell-1',
+            ordered_attempts: [],
+            complete_result_ref: null,
+            eligibility_code: 'SCIENTIFIC_EXECUTION_NOT_STARTED',
+          }],
+          eligible_run_evidence_unit_refs: [],
+        }],
+        active_real_attempt_count: 0,
+        closure_input_hash: HASH,
+      },
+      closure_snapshot_hash: HASH,
+    },
+  };
+}
+
 test('v2 admission route injects the server actor and delegates the validated exact scope', async () => {
   const captured: Array<Parameters<PaperImplementationExperimentV2AdmissionUseCase['admit']>[0]> = [];
   const useCase: PaperImplementationExperimentV2AdmissionUseCase = {
@@ -134,6 +197,53 @@ test('v2 admission route injects the server actor and delegates the validated ex
   assert.equal(captured[0]?.implementation_project_id, 'project-1');
   assert.equal(captured[0]?.validation_cycle_id, 'cycle-1');
   assert.equal(captured[0]?.admitted_by, 'system:paper-implementation-experiment-v2-admission');
+  await app.close();
+});
+
+test('v2 closure route enforces strict cycle identity and maps the dedicated use case', async () => {
+  const admission: PaperImplementationExperimentV2AdmissionUseCase = {
+    async admit() {
+      return responseFixture();
+    },
+  };
+  const captured: CloseValidationCycleV2Request[] = [];
+  const closure: PaperImplementationValidationCycleClosureV2UseCase = {
+    async close(request) {
+      captured.push(request);
+      return closureResponseFixture();
+    },
+  };
+  const app = Fastify({ logger: false });
+  await registerPaperImplementationExperimentV2Routes(
+    app,
+    new PaperImplementationExperimentV2Controller(admission, closure),
+  );
+
+  const success = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/validation-cycles/cycle-1/closure/v2',
+    payload: closureRequestFixture(),
+  });
+  assert.equal(success.statusCode, 201, success.body);
+  assert.equal(success.json().closure.closure_id, 'closure-1');
+  assert.deepEqual(captured, [closureRequestFixture()]);
+
+  const mismatch = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/validation-cycles/cycle-other/closure/v2',
+    payload: closureRequestFixture(),
+  });
+  assert.equal(mismatch.statusCode, 400, mismatch.body);
+  assert.equal(mismatch.json().error.details.reason_code, 'V2_TYPED_SNAPSHOT_INVALID');
+  assert.equal(captured.length, 1);
+
+  const extraField = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/validation-cycles/cycle-1/closure/v2',
+    payload: { ...closureRequestFixture(), decision_exit: 'proceed' },
+  });
+  assert.equal(extraField.statusCode, 400, extraField.body);
+  assert.equal(captured.length, 1);
   await app.close();
 });
 
@@ -376,6 +486,36 @@ test('A01 app composition keeps admission default-off before scope, v2, or legac
     } else {
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED = previousCapability;
     }
+  }
+});
+
+test('C-PI app composition keeps the dedicated closure lane default-off before repository work', async () => {
+  let repositoryCalls = 0;
+  const repository = new Proxy({} as PaperImplementationValidationCycleClosureV2Repository, {
+    get() {
+      return async () => {
+        repositoryCalls += 1;
+        throw new Error('closure capability-off repository call');
+      };
+    },
+  });
+  const app = buildApp({
+    paperImplementationValidationCycleClosureV2Repository: repository,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycles/cycle-1/closure/v2',
+      payload: closureRequestFixture(),
+    });
+    assert.equal(response.statusCode, 409, response.body);
+    assert.equal(
+      response.json().error.details.reason_code,
+      'PI_EXPERIMENT_V2_CYCLE_CLOSURE_DISABLED',
+    );
+    assert.equal(repositoryCalls, 0);
+  } finally {
+    await app.close();
   }
 });
 

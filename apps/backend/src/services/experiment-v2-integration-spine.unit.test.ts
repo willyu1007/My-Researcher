@@ -22,6 +22,7 @@ import {
   InMemoryPaperImplementationExperimentSpineV2Repository,
 } from '../repositories/in-memory-experiment-spine-v2-repository.js';
 import { ExperimentSpineV2RepositoryConstraintError } from '../repositories/experiment-spine-v2.repository.js';
+import { InMemoryPaperImplementationValidationCycleClosureV2Lookup } from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 import {
   ExperimentFoundationV2AcknowledgementService,
   ACKNOWLEDGEMENT_CONSUMER,
@@ -341,6 +342,62 @@ test('A01 capability-off performs zero scope/repository work and rejects before 
   assert.deepEqual(pi.snapshot(), {
     branches: [], admission_bundles: [], inboxes: [], outboxes: [],
   });
+});
+
+test('closed-Cycle seal blocks PI admission/head and EF materialization with zero writes', async () => {
+  const closed = new InMemoryPaperImplementationValidationCycleClosureV2Lookup([CYCLE_ID]);
+  const readiness = readinessFor(dependencies());
+  const admissionRepository = new InMemoryPaperImplementationExperimentSpineV2Repository();
+  const scopeCalls = { calls: 0 };
+  const admission = new PaperImplementationExperimentV2AdmissionService({
+    repository: admissionRepository,
+    scopeReader: scopeReader(scopeCalls),
+    admissionEnabled: () => true,
+    cycleClosureLookup: closed,
+    serverActorId: SERVER_ACTOR,
+  });
+  await assert.rejects(
+    admit(admission, admissionRequest(readiness)),
+    (error) => appReason(error) === 'CYCLE_ALREADY_CLOSED',
+  );
+  assert.equal(scopeCalls.calls, 0);
+  assert.deepEqual(admissionRepository.snapshot(), {
+    branches: [], admission_bundles: [], inboxes: [], outboxes: [],
+  });
+
+  const open = makeServices({});
+  await admit(open.admission, admissionRequest(open.readiness));
+  const admittedEvent = open.pi.snapshot().outboxes[0]!.outbox.event;
+  const beforeEf = open.ef.snapshot();
+  let readinessCalls = 0;
+  const sealedMaterialization = new ExperimentFoundationV2MaterializationService({
+    repository: open.ef,
+    cycleClosureLookup: closed,
+    readinessResolver: {
+      async resolvePassedExactReadiness() {
+        readinessCalls += 1;
+        return open.readiness;
+      },
+    },
+  });
+  await assert.rejects(
+    sealedMaterialization.consume(admittedEvent as never),
+    (error) => appReason(error) === 'CYCLE_ALREADY_CLOSED',
+  );
+  assert.equal(readinessCalls, 0);
+  assert.deepEqual(open.ef.snapshot(), beforeEf);
+
+  const materialized = await open.materialization.consume(admittedEvent as never);
+  const beforePi = open.pi.snapshot();
+  const sealedHead = new PaperImplementationExperimentV2HeadService({
+    repository: open.pi,
+    cycleClosureLookup: closed,
+  });
+  await assert.rejects(
+    sealedHead.consume(materialized.outbox.event),
+    (error) => appReason(error) === 'CYCLE_ALREADY_CLOSED',
+  );
+  assert.deepEqual(open.pi.snapshot(), beforePi);
 });
 
 test('PI admission rejects inactive project or non-admitted Cycle with zero v2 writes', async () => {

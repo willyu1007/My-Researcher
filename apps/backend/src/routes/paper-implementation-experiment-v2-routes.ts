@@ -10,10 +10,16 @@ import {
   paperImplementationExperimentV2AdmissionRequestSchema,
   type PaperImplementationExperimentV2AdmissionRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import {
+  closeValidationCycleV2RequestSchema,
+  closeValidationCycleV2ResponseSchema,
+  type CloseValidationCycleV2Request,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 
 import type {
   PaperImplementationExperimentV2Controller,
 } from '../controllers/paper-implementation-experiment-v2-controller.js';
+import { AppError } from '../errors/app-error.js';
 import { findForbiddenNestedField } from './experiment-v2-route-validation.js';
 
 // Exact readiness and asset-reference hashes are assertions that EF revalidates.
@@ -41,12 +47,31 @@ const callerAuthoredAuthorityFields = new Set([
   'work_order_revision_hash',
 ]);
 
+const callerAuthoredClosureAuthorityFields = new Set([
+  'closure_snapshot_hash',
+  'closure_watermark',
+  'cycle_assessment',
+  'decision_exit',
+  'outputs',
+  'scientific_disposition',
+  'selected_exit_key',
+]);
+
 const admissionParamsSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['implementation_project_id', 'validation_cycle_id'],
   properties: {
     implementation_project_id: { type: 'string', minLength: 1 },
+    validation_cycle_id: { type: 'string', minLength: 1 },
+  },
+} as const;
+
+const closureParamsSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['validation_cycle_id'],
+  properties: {
     validation_cycle_id: { type: 'string', minLength: 1 },
   },
 } as const;
@@ -60,10 +85,20 @@ const standardErrorResponses = {
 } as const;
 
 async function handleRouteError(
-  error: FastifyError,
+  error: FastifyError | AppError,
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
+  if (error instanceof AppError) {
+    await reply.status(error.statusCode).send({
+      error: {
+        code: error.errorCode,
+        message: error.message,
+        details: error.details,
+      },
+    });
+    return;
+  }
   if (error.validation) {
     await reply.status(400).send({
       error: {
@@ -115,7 +150,7 @@ export async function registerPaperImplementationExperimentV2Routes(
         if (!callerAuthoredField) {
           return;
         }
-        await reply.status(400).send({
+        return reply.status(400).send({
           error: {
             code: 'INVALID_PAYLOAD',
             message: `Caller-authored authority field is not allowed: ${callerAuthoredField}`,
@@ -128,5 +163,47 @@ export async function registerPaperImplementationExperimentV2Routes(
       errorHandler: handleRouteError,
     },
     controller.admitWorkOrderRevision,
+  );
+
+  fastify.post<{
+    Params: { validation_cycle_id: string };
+    Body: CloseValidationCycleV2Request;
+  }>(
+    '/paper-implementation/validation-cycles/:validation_cycle_id/closure/v2',
+    {
+      schema: {
+        params: closureParamsSchema,
+        body: closeValidationCycleV2RequestSchema,
+        response: {
+          201: closeValidationCycleV2ResponseSchema,
+          ...standardErrorResponses,
+        },
+      },
+      preValidation: async (request, _reply) => {
+        if (request.params.validation_cycle_id === request.body.validation_cycle_id) {
+          const forbiddenField = findForbiddenNestedField(
+            request.body,
+            callerAuthoredClosureAuthorityFields,
+          );
+          if (!forbiddenField) {
+            return;
+          }
+          throw new AppError(
+            400,
+            'INVALID_PAYLOAD',
+            `Caller-authored closure authority field is not allowed: ${forbiddenField}`,
+            { reason_code: 'V2_TYPED_SNAPSHOT_INVALID' },
+          );
+        }
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          'Path and body validation_cycle_id must match.',
+          { reason_code: 'V2_TYPED_SNAPSHOT_INVALID' },
+        );
+      },
+      errorHandler: handleRouteError,
+    },
+    controller.closeValidationCycle,
   );
 }

@@ -396,6 +396,7 @@ const CLOSED_LEGACY_SCIENTIFIC_RECORD_KINDS = new Set<string>([
   'experiment_result',
   'result_validation_report',
   'evidence_candidate',
+  'paper_experiment_sidecar',
 ]);
 
 export class ExperimentFoundationService {

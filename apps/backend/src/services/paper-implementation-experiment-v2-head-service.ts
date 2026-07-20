@@ -19,12 +19,16 @@ import {
   type PaperImplementationExperimentSpineV2Repository,
   type PaperImplementationExperimentV2AdmissionBundle,
 } from '../repositories/experiment-spine-v2.repository.js';
+import type {
+  PaperImplementationValidationCycleClosureV2Lookup,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 import { incrementExperimentV2Int32Counter } from './experiment-v2-int32.js';
 
 const HEAD_CONSUMER = 'paper-implementation-experiment-v2-head-advancer';
 
 export interface PaperImplementationExperimentV2HeadServiceOptions {
   repository: PaperImplementationExperimentSpineV2Repository;
+  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -176,17 +180,25 @@ function mapRepositoryError(error: ExperimentSpineV2RepositoryConstraintError): 
 
 export class PaperImplementationExperimentV2HeadService {
   private readonly repository: PaperImplementationExperimentSpineV2Repository;
+  private readonly cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: PaperImplementationExperimentV2HeadServiceOptions) {
     this.repository = options.repository;
+    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
   async consume(event: RunManifestFrozenEventV1): Promise<PaperImplementationExperimentV2HeadOutcome> {
     assertRunManifestFrozenEventV1(event);
+    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
+      throw integrationError(
+        'A closed ValidationCycle cannot advance its branch head.',
+        'CYCLE_ALREADY_CLOSED',
+      );
+    }
     try {
       return await this.consumeValidated(event);
     } catch (error) {
@@ -423,5 +435,11 @@ export class PaperImplementationExperimentV2HeadService {
   }
 
 }
+
+const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 
 export { HEAD_CONSUMER };

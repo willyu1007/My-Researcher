@@ -433,6 +433,7 @@ test('legacy scientific create and upsert writers fail closed before repository 
     'experiment_result',
     'result_validation_report',
     'evidence_candidate',
+    'paper_experiment_sidecar',
   ] as const;
 
   for (const recordKind of closedKinds) {

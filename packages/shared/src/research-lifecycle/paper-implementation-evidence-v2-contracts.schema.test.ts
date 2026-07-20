@@ -6,6 +6,7 @@ import Fastify from 'fastify';
 import {
   PAPER_IMPLEMENTATION_EVIDENCE_V2_REASON_CODES,
   closeValidationCycleV2RequestSchema,
+  closeValidationCycleV2ResponseSchema,
   ingestQualifiedEvidenceCandidateV2RequestSchema,
   paperImplementationEvidenceTraceManifestV2Schema,
   paperImplementationRunEvidenceUnitV2Schema,
@@ -246,6 +247,7 @@ test('close request carries identity, CAS expectations and the human decision on
 
 test('closure v2 schema binds embedded watermark and nullable disposition/exit pairs', async () => {
   assert.equal(await validates(validationCycleClosureV2Schema, closure), true);
+  assert.equal(await validates(closeValidationCycleV2ResponseSchema, { closure }), true);
   assert.equal(
     await validates(validationCycleClosureV2Schema, {
       ...closure,

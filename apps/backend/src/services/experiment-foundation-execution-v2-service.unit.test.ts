@@ -9,6 +9,7 @@ import {
   ExperimentFoundationExecutionV2Repository,
 } from '../repositories/experiment-foundation-execution-v2.repository.js';
 import { InMemoryExperimentFoundationExecutionV2Repository } from '../repositories/in-memory-experiment-foundation-execution-v2-repository.js';
+import { InMemoryPaperImplementationValidationCycleClosureV2Lookup } from '../repositories/paper-implementation-validation-cycle-closure-v2-lookup.js';
 import { DeterministicFakeAliyunPaiDlcTransport } from './experiment-foundation-v2-deterministic-fake-provider.js';
 import {
   createProviderCommandV2Record,
@@ -105,6 +106,42 @@ test('PB02 capability-off rejects before prerequisite/readiness and writes nothi
     assertAppReason('EF_V2_WORKFLOW_SIMULATION_DISABLED'),
   );
   assert.equal(prerequisiteCalls, 0);
+  assert.equal(readinessCalls, 0);
+  assert.deepEqual(repository.snapshot(), {
+    payloads: [],
+    attempts: [],
+    events: [],
+    commands: [],
+    collections: [],
+    outputs: [],
+    start_receipts: [],
+  });
+});
+
+test('closed-Cycle seal blocks workflow simulation and Attempt creation with zero writes', async () => {
+  const prerequisite = buildPackBExecutionPrerequisite();
+  let readinessCalls = 0;
+  const repository = new InMemoryExperimentFoundationExecutionV2Repository({
+    prerequisites: [prerequisite],
+  });
+  const service = new ExperimentFoundationExecutionV2Service({
+    repository,
+    readinessRevalidator: passingPackBReadinessRevalidator(prerequisite, () => {
+      readinessCalls += 1;
+    }),
+    intakeEnabled: () => true,
+    cycleClosureLookup: new InMemoryPaperImplementationValidationCycleClosureV2Lookup([
+      prerequisite.validation_cycle_id,
+    ]),
+    idGenerator: deterministicPackBIdGenerator('closed_cycle'),
+  });
+
+  await assert.rejects(
+    service.startWorkflowSimulation(prerequisite.run.run_id, {
+      business_idempotency_key: 'closed-cycle-start',
+    }),
+    assertAppReason('CYCLE_ALREADY_CLOSED'),
+  );
   assert.equal(readinessCalls, 0);
   assert.deepEqual(repository.snapshot(), {
     payloads: [],

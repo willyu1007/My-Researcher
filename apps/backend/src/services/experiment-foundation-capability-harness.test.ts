@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
-  ExperimentFoundationStoredRecord,
   ExternalTrainingJob,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
 import { buildExperimentFoundationCapabilityHarness } from './experiment-foundation-capability-harness.js';
@@ -10,9 +9,7 @@ import {
   completenessCheckFixture,
   datasetAssetCandidateFixture,
   duplicateCheckFixture,
-  EXPERIMENT_FOUNDATION_SCENARIO_TIMESTAMP,
   experimentFoundationRef,
-  type ExperimentFoundationMinimalGraph,
   experimentFoundationScenarioIds,
   promotionRequestFixture,
   promotionResultFixture,
@@ -337,7 +334,7 @@ test('experiment-foundation capability harness validates mocked Aliyun mirror an
   }
 });
 
-test('experiment-foundation capability harness closes scientific writers while preserving sidecar validation', async () => {
+test('experiment-foundation capability harness closes scientific and Sidecar generic writers', async () => {
   const localRoot = await createLocalScriptExecutionRoot('experiment-foundation-result-');
   const restoreEnv = installLocalScriptTestEnv(localRoot.root);
   let harness: CapabilityHarness | null = null;
@@ -353,7 +350,7 @@ test('experiment-foundation capability harness closes scientific writers while p
       experimentFoundationRef('training_task_spec', validGraph.trainingTaskSpec.training_task_spec_id),
     );
     const submitted = await harness.submitJob(validGraph.submitRequest);
-    const synced = await harness.syncJobUntilTerminal(submitted.external_job.external_job_id);
+    await harness.syncJobUntilTerminal(submitted.external_job.external_job_id);
     const closedCollect = await collectRaw(harness, submitted.external_job.external_job_id);
     assertLegacyScientificWriterClosed(harness, closedCollect);
 
@@ -361,44 +358,11 @@ test('experiment-foundation capability harness closes scientific writers while p
       'experiment_result',
       'result_validation_report',
       'evidence_candidate',
+      'paper_experiment_sidecar',
     ]) {
       const closedCreate = await createRecordRaw(harness, recordKind, {});
       assertLegacyScientificWriterClosed(harness, closedCreate);
     }
-
-    const experimentResult = {
-      experiment_result_id: 'historical_experiment_result_001',
-      result_hash: 'sha256:historical-experiment-result',
-    };
-    const validationReport = {
-      result_validation_report_id: 'historical_validation_report_001',
-      validation_hash: 'sha256:historical-validation-report',
-    };
-    const evidenceCandidate = {
-      evidence_candidate_id: 'historical_evidence_candidate_001',
-      evidence_hash: 'sha256:historical-evidence-candidate',
-    };
-    const sidecarPayload = paperExperimentSidecarPayload({
-      graph: validGraph,
-      job: synced.external_job,
-      experimentResult,
-      validationReport,
-      evidenceCandidate,
-      metricObservationRecords: [],
-      evaluationFactRecords: [],
-      suffix: 'result_evidence_valid',
-    });
-    const sidecar = await harness.createRecord('paper_experiment_sidecar', sidecarPayload);
-    assert.equal(sidecar.record_kind, 'paper_experiment_sidecar');
-    assert.equal(sidecar.status, 'linked');
-
-    const sidecarDtoCopy = await createRecordRaw(harness, 'paper_experiment_sidecar', {
-      ...sidecarPayload,
-      paper_experiment_sidecar_id: 'paper_experiment_sidecar_dto_copy',
-      sidecar_hash: 'sha256:sidecar-dto-copy',
-      run_recipe: validGraph.runRecipe,
-    });
-    harness.expectError(sidecarDtoCopy, 400, 'INVALID_PAYLOAD');
 
     const failedGraph = createExperimentFoundationMinimalGraph({
       outputRoot: localRoot.root,
@@ -688,94 +652,4 @@ function assertLegacyScientificWriterClosed(
 
 function payload(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
-}
-
-function recordPayload(record: ExperimentFoundationStoredRecord): Record<string, unknown> {
-  return record.payload as Record<string, unknown>;
-}
-
-function paperExperimentSidecarPayload(input: {
-  graph: ExperimentFoundationMinimalGraph;
-  job: ExternalTrainingJob;
-  experimentResult: Record<string, unknown>;
-  validationReport: Record<string, unknown>;
-  evidenceCandidate: Record<string, unknown>;
-  metricObservationRecords: ExperimentFoundationStoredRecord[];
-  evaluationFactRecords: ExperimentFoundationStoredRecord[];
-  suffix: string;
-}): Record<string, unknown> {
-  const baselineLocks = input.graph.runRecipe.version_lock.baseline_implementation_locks;
-  const methodLocks = input.graph.runRecipe.version_lock.method_component_locks;
-  return {
-    paper_experiment_sidecar_id: `paper_experiment_sidecar_${input.suffix}`,
-    paper_project_id: `paper_project_${input.suffix}`,
-    sidecar_status: 'linked',
-    run_recipe_ref: experimentFoundationRef('run_recipe', input.graph.runRecipe.run_recipe_id),
-    run_recipe_hash: input.graph.runRecipe.run_recipe_hash,
-    version_lock_hash: input.graph.runRecipe.version_lock_hash,
-    version_lock_snapshot_refs: [experimentFoundationRef('version_lock', input.graph.runRecipe.version_lock.version_lock_id)],
-    dataset_version_lock_ref: experimentFoundationRef(
-      'dataset_version_lock',
-      input.graph.runRecipe.version_lock.dataset_version_lock.dataset_version_id,
-    ),
-    dataset_version_lock_hash: input.graph.runRecipe.version_lock.dataset_version_lock.checksum_manifest_hash,
-    evaluation_protocol_lock_ref: experimentFoundationRef(
-      'evaluation_protocol_lock',
-      input.graph.runRecipe.version_lock.evaluation_protocol_lock.evaluation_protocol_id,
-    ),
-    evaluation_protocol_hash: input.graph.runRecipe.version_lock.evaluation_protocol_lock.protocol_hash,
-    benchmark_asset_ref: experimentFoundationRef(
-      'benchmark_asset',
-      input.graph.runRecipe.version_lock.evaluation_protocol_lock.benchmark_asset_id,
-    ),
-    baseline_implementation_lock_refs: baselineLocks.map((lock) => experimentFoundationRef(
-      'baseline_implementation_version',
-      lock.baseline_implementation_version_id,
-    )),
-    baseline_implementation_hashes: baselineLocks.map((lock) => lock.implementation_hash),
-    method_component_lock_refs: methodLocks.map((lock) => experimentFoundationRef(
-      'method_recipe_component',
-      lock.method_recipe_component_id,
-    )),
-    method_component_hashes: methodLocks.map((lock) => lock.component_hash),
-    training_task_spec_ref: experimentFoundationRef(
-      'training_task_spec',
-      input.graph.trainingTaskSpec.training_task_spec_id,
-    ),
-    training_task_spec_hash: input.graph.materializationResult.training_task_spec_hash,
-    materialization_result_ref: experimentFoundationRef(
-      'training_task_materialization_result',
-      input.graph.materializationResult.materialization_result_id,
-    ),
-    materialization_result_hash: input.graph.materializationResult.materialization_hash,
-    adapter_metadata_refs: input.job.adapter_metadata_refs,
-    adapter_metadata_hashes: input.job.adapter_metadata_hashes,
-    external_job_ref: experimentFoundationRef('external_training_job', input.job.external_job_id),
-    external_job_hash: input.job.external_job_hash,
-    stage_event_refs: input.job.stage_event_refs,
-    cancellation_request_refs: [],
-    partial_result_refs: input.job.partial_result_refs,
-    result_refs: [experimentFoundationRef('experiment_result', String(input.experimentResult.experiment_result_id))],
-    result_hashes: [String(input.experimentResult.result_hash)],
-    validation_report_refs: [
-      experimentFoundationRef('result_validation_report', String(input.validationReport.result_validation_report_id)),
-    ],
-    validation_report_hashes: [String(input.validationReport.validation_hash)],
-    evaluation_fact_refs: input.evaluationFactRecords.map((record) => (
-      experimentFoundationRef('evaluation_fact', String(recordPayload(record).evaluation_fact_id))
-    )),
-    evaluation_fact_hashes: input.evaluationFactRecords.map((record) => String(recordPayload(record).fact_hash)),
-    evidence_candidate_refs: [
-      experimentFoundationRef('evidence_candidate', String(input.evidenceCandidate.evidence_candidate_id)),
-    ],
-    evidence_candidate_hashes: [String(input.evidenceCandidate.evidence_hash)],
-    paper_table_fact_set_refs: [],
-    paper_table_fact_set_hashes: [],
-    status_snapshot_refs: [],
-    event_log_refs: [],
-    provenance_refs: [experimentFoundationRef('test_case', input.suffix)],
-    sidecar_hash: `sha256:paper-experiment-sidecar-${input.suffix}`,
-    created_at: EXPERIMENT_FOUNDATION_SCENARIO_TIMESTAMP,
-    updated_at: EXPERIMENT_FOUNDATION_SCENARIO_TIMESTAMP,
-  };
 }

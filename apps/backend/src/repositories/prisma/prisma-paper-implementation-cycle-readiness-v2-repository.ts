@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
 import {
   EXPERIMENT_FOUNDATION_V2_HEAD_ACKNOWLEDGEMENT_CONSUMER,
@@ -39,7 +39,7 @@ function headAcknowledgementKey(input: {
 
 export class PrismaPaperImplementationCycleReadinessV2Repository
 implements PaperImplementationCycleReadinessV2Repository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient | Prisma.TransactionClient) {}
 
   async findValidationCycle(validationCycleId: string) {
     const row = await this.prisma.paperImplementationValidationCycle.findUnique({

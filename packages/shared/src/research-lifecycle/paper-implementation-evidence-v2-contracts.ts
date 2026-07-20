@@ -516,6 +516,15 @@ export const validationCycleClosureV2Schema = {
   },
 } as const;
 
+export const closeValidationCycleV2ResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['closure'],
+  properties: {
+    closure: validationCycleClosureV2Schema,
+  },
+} as const;
+
 export const validationCycleClosedV1Schema = {
   type: 'object',
   additionalProperties: false,
