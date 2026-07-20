@@ -6028,10 +6028,11 @@ model PaperImplementationExperimentWorkOrderBranchV2 {
   createdAt                DateTime @db.Timestamptz(6)
   updatedAt                DateTime @db.Timestamptz(6)
 
-  revisions       PaperImplementationExperimentWorkOrderRevisionV2[]  @relation("PIExperimentWorkOrderBranchRevisionsV2")
-  currentRevision PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderCurrentRevisionV2", fields: [id, currentRevisionId, currentRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_current_exact_fkey")
-  headRevision    PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderHeadRevisionV2", fields: [id, headRevisionId, headRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_head_exact_fkey")
-  admissions      PaperImplementationExperimentWorkOrderAdmissionV2[]
+  revisions        PaperImplementationExperimentWorkOrderRevisionV2[]  @relation("PIExperimentWorkOrderBranchRevisionsV2")
+  currentRevision  PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderCurrentRevisionV2", fields: [id, currentRevisionId, currentRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_current_exact_fkey")
+  headRevision     PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderHeadRevisionV2", fields: [id, headRevisionId, headRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_head_exact_fkey")
+  admissions       PaperImplementationExperimentWorkOrderAdmissionV2[]
+  runEvidenceUnits PaperImplementationRunEvidenceUnitV2[]
 
   @@unique([validationCycleId, branchKey], map: "pi_ewo_branch_cycle_key_unique")
   @@unique([id, currentRevisionId, currentRevisionSequence], map: "pi_ewo_branch_current_exact_unique")
@@ -6062,6 +6063,7 @@ model PaperImplementationExperimentWorkOrderRevisionV2 {
   headForBranch    PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderHeadRevisionV2")
   cells            PaperImplementationExperimentWorkOrderRevisionCellV2[]
   admission        PaperImplementationExperimentWorkOrderAdmissionV2?
+  runEvidenceUnits PaperImplementationRunEvidenceUnitV2[]
 
   @@unique([branchId, revisionSequence], map: "pi_ewo_revision_branch_sequence_unique")
   @@unique([branchId, contentHash], map: "pi_ewo_revision_branch_content_unique")
@@ -6190,6 +6192,78 @@ model PaperImplementationExperimentIntegrationOutboxV2 {
   @@index([relayStatus, relayNextAttemptAt, occurredAt], map: "pi_ei_outbox_relay_ready_idx")
   @@index([relayLeaseExpiresAt], map: "pi_ei_outbox_lease_expiry_idx")
   @@index([correlationId], map: "pi_ei_outbox_correlation_idx")
+}
+
+// T-132 Pack C (slice C-PI): PI-owned trusted-evidence and Cycle-closure
+// families. RunEvidenceUnit rows carry evidence identity/lineage only — no
+// run_status, disposition or trust axis — and may be written solely by the
+// Evidence Trust Gateway lane; the closure table is the one embedded D-18
+// snapshot per ValidationCycle. Cross-domain EF refs and product Cycle refs
+// stay exact scalar identities without FKs, per D-21.
+model PaperImplementationRunEvidenceUnitV2 {
+  id                             String   @id
+  schemaVersion                  String
+  implementationProjectId        String
+  validationCycleId              String
+  branchId                       String
+  workOrderRevisionId            String
+  workOrderRevisionHash          String
+  branchRevisionSequence         Int
+  runId                          String   @unique(map: "pi_reu_run_unique")
+  runManifestHash                String
+  evidenceCandidateId            String   @unique(map: "pi_reu_candidate_unique")
+  evidenceCandidateContentHash   String
+  validationReportId             String   @unique(map: "pi_reu_report_unique")
+  validationHash                 String
+  evaluationProtocolRevisionId   String
+  evaluationProtocolContentHash  String
+  ingestIdempotencyKey           String   @unique(map: "pi_reu_ingest_idempotency_unique")
+  contentHash                    String
+  createdAt                      DateTime @db.Timestamptz(6)
+
+  branch        PaperImplementationExperimentWorkOrderBranchV2   @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pi_reu_branch_fkey")
+  revision      PaperImplementationExperimentWorkOrderRevisionV2 @relation(fields: [branchId, workOrderRevisionId, branchRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_reu_revision_exact_fkey")
+  traceManifest PaperImplementationEvidenceTraceManifestV2?
+
+  @@unique([id, contentHash], map: "pi_reu_exact_content_unique")
+  @@index([validationCycleId], map: "pi_reu_cycle_idx")
+  @@index([implementationProjectId, validationCycleId], map: "pi_reu_project_cycle_idx")
+}
+
+model PaperImplementationEvidenceTraceManifestV2 {
+  id                   String   @id
+  schemaVersion        String
+  runEvidenceUnitId    String   @unique(map: "pi_evidence_trace_reu_unique")
+  orderedTraceRefCount Int
+  traceRefsJson        Json     @default("{}")
+  contentHash          String
+  createdAt            DateTime @db.Timestamptz(6)
+
+  runEvidenceUnit PaperImplementationRunEvidenceUnitV2 @relation(fields: [runEvidenceUnitId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "pi_evidence_trace_reu_fkey")
+
+  @@unique([id, contentHash], map: "pi_evidence_trace_exact_content_unique")
+}
+
+model PaperImplementationValidationCycleClosureV2 {
+  id                    String   @id
+  schemaVersion         String
+  validationCycleId     String   @unique(map: "pi_cycle_closure_cycle_unique")
+  implementationProjectId String
+  cycleVersionAtClosure Int
+  closureKind           String
+  scientificDisposition String?
+  selectedExitKey       String?
+  acceptedProposalId    String?
+  acceptedProposalHash  String?
+  orderedBranchCount    Int
+  closureWatermarkJson  Json     @default("{}")
+  closureInputHash      String
+  closureSnapshotHash   String
+  idempotencyKey        String   @unique(map: "pi_cycle_closure_idempotency_unique")
+  createdAt             DateTime @db.Timestamptz(6)
+
+  @@unique([id, closureSnapshotHash], map: "pi_cycle_closure_exact_snapshot_unique")
+  @@index([implementationProjectId], map: "pi_cycle_closure_project_idx")
 }
 
 // T-132 Pack A: five named EF v2 asset families. Each identity owns only its
