@@ -198,6 +198,7 @@ export async function inspectStaticCensus(options = {}) {
   const closedKinds = extractStringArray(service, 'CLOSED_LEGACY_SCIENTIFIC_RECORD_KINDS');
   const expectedClosedKinds = [
     'experiment_result', 'result_validation_report', 'evidence_candidate',
+    'paper_experiment_sidecar',
   ];
   const guardCalls = (service.match(/assertLegacyScientificWriterOpen\(/g) ?? []).length;
   const collectPrefix = execution.slice(execution.indexOf('async collectJob('));

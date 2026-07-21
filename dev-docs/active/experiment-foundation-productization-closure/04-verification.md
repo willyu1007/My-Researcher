@@ -912,3 +912,26 @@ The other eight full-suite failures are sandbox-environmental PostgreSQL failure
 The full backend failures are outside the modified cutover files. Eight cannot reach PostgreSQL at `127.0.0.1:5432`: rollback N4/N5/N6/N7/N8/N10 and the T-054/T-067 Prisma HTTP smokes. Six are the established literature environment/network population: key-content curation export/import; workflow import/topic/paper-link/citation update; rerun artifact overwrite; global-env USER_AUTH gate; explicit fulltext processing/metadata-stale registration; and remote download/register (`getaddrinfo ENOTFOUND arxiv.org`).
 
 The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 skipped. It exposed an in-scope T-101 source-anchor still naming the deleted repeated-low-information completion test. The anchor was replaced with the new legacy-closure/read-preservation test name, passed directly 5/5, and disappeared from the final full run. No in-scope test remains non-green.
+
+## 2026-07-22 — Pack C C-cutover increment 3 and final convergence verification
+
+| Check | Outcome |
+|---|---|
+| `node --test .ai/scripts/experiment-foundation-packc-cutover-gate.unit.test.mjs .ai/scripts/experiment-foundation-packc-final-gate.unit.test.mjs` | passed 13/13; 0 failed/skipped |
+| post-correction EF regression + both new meta files | passed 19/19; 0 failed/skipped |
+| direct packet/dossier/runtime gate group | passed 30/30; 0 failed/skipped |
+| direct bridge/live-adapter gate group | passed 29/29; 0 failed/skipped |
+| direct closure-authority/seal gate group | passed 55/55; 0 failed/skipped |
+| direct shared dossier/validation contract group | passed 11/11; 0 failed/skipped |
+| direct PaperImplementation route integration group | passed 6/6; 0 failed/skipped |
+| `node .ai/scripts/experiment-foundation-packc-cutover-gate.mjs --run-id packc-cutover-20260722-r1` | passed; PC17/PC18 passed; 131/131; 0 failed/skipped/blocked; SHA `sha256:2a1c6eebe062e6ddeb0b96602bb7d705f07b87768d7360588d6cb96d3fd3ac8d` |
+| initial final `packc-final-20260722-r2` | failed as diagnostic evidence because the pre-existing EF gate still froze the three-kind closure set; this exposed a gate-only stale expectation after C-PI added Sidecar |
+| corrected `node .ai/scripts/experiment-foundation-packc-final-gate.mjs --run-id packc-final-20260722-r3` | expected sandbox result: exit 2 / `blocked`; EF and PI blocked on `DISPOSABLE_POSTGRES_UNAVAILABLE`, cutover passed, all child SHAs verified |
+| final r3 PC registry | 11 passed; 9 blocked: PC06, PC07, PC09-PC13, PC15, PC16; PC17/PC18 passed from cutover |
+| final r3 child totals/SHAs | EF 69/69 + one blocked relational suite / `sha256:be5487c5934c42f93dc2cd00c90f6cce62dc384e1b5bf98140c50e37f058a43d`; PI 122/122 + one blocked relational suite / `sha256:69d972c98886d8fa6617d9af52c7b740b3c1756e40efa246f669bcd40abd3b9e`; cutover 131/131 / `sha256:e46b316b5d7544bd307b04fd5a354a040f9e743644346ed5cfe73cd04efd8167` |
+| backend full suite inside final r3 | 2,340 total; 2,269 passed; 14 failed; 57 conditional skips; exit 1; output SHA `sha256:46622b213754d4669f61896633069814598aafbd7c3f767661a50e42b3b9f77e` |
+| final r3 aggregate | 2,662 tests; 2,591 passed; 14 failed; 57 skipped; 2 blocked suites; final SHA `sha256:da3d482995fad2d4dbdbde3bebb3c0718cf878be03dd484724c141c480f18fde` |
+
+The 14 backend failures match the established environment-dependent baseline recorded for increment 2: eight unavailable-local-PostgreSQL cases and six literature environment/network cases. They are recorded as failed evidence, not accepted as passing. The final status remains `blocked` because the two mandatory Pack C relational children could not execute; on a host where those children pass, any remaining backend failure will make the final gate `failed`.
+
+Host closure remains PENDING. Run a fresh `packc-final-<YYYYMMDD>-r<N>` with Docker/PostgreSQL available, require both relational lanes to execute with zero skips, require cutover PC17/PC18 to remain passed, and require the backend full suite to report zero failures before replacing the PENDING section in `artifacts/implementation/08-pack-c-cutover-technical-closure.md`.

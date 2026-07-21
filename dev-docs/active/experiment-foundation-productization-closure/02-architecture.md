@@ -853,3 +853,10 @@ Official references:
 The 2026-07-14 implementation cleanup refines D-22 without opening D-23: stable family keys remain relational identity, typed draft schema/hash are derived rather than duplicated, immutable revisions retain server hashes, and VersionLock uses relational exact dependencies plus one derived hash. Removing the 12 write-only columns and 5 unused indexes changes no logical family or authority boundary.
 
 Accepted decisions MUST be written immediately to `03-implementation-notes.md` and reflected here before implementation.
+
+## 2026-07-22 — Pack C final convergence evidence boundary
+
+- `packc-cutover` owns PC17/PC18 source and targeted-suite proof only. It opens no database connection because the owning C-EF and C-PI relational families already have mandatory digest-pinned disposable lanes.
+- `packc-final` is the pack-wide convergence authority: one final id deterministically derives fresh EF/PI/cutover child ids, executes all three, verifies each canonical summary SHA and maps PC01-PC20 to the owning child checks. PC19 is conjunctive across PC19-EF and PC19-PI; PC17/PC18 are owned by cutover rather than the C-PI deferral row.
+- The final runner executes the backend full suite exactly once and records conditional skips. Exit 0 requires all child gates and the backend suite to pass. A valid blocked relational child keeps the convergence status blocked while any independent backend failure remains explicit evidence; once relational children pass, any backend failure makes convergence failed.
+- Child summaries under `.ai/.tmp` remain ephemeral. Durable closure is `artifacts/implementation/08-pack-c-cutover-technical-closure.md` plus a copied/sanitized passing host summary; no existing-database or product-write authority is introduced by the runner.

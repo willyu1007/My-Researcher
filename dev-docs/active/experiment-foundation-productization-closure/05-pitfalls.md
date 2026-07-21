@@ -27,6 +27,7 @@
 - Do not report the five one-row legacy sentinels created inside the disposable gate as a recount of the existing local database's `1/1/231/15/6` legacy population. The gate proves zero existing-database reads and unchanged isolated sentinels; the implementation-start record separately preserves the live baseline digest.
 
 ## Do-not-repeat summary
+- Do not freeze an earlier sub-gate census against a closure set that a later authorized slice intentionally extends. Final convergence must rerun every child gate; update only the stale gate/meta allowlist when the product is strictly more closed.
 - Do not accept readiness outside the materialization transaction and then write against that stale decision. Re-fence the exact attestation, ordered dependency manifest, lifecycle projections and Dataset location in the same transaction before the first T2 write.
 - Do not conflate a typed family's stable key with `logical_id`, or persist draft schema/hash copies that no reader trusts. Keep family keys independently unique/immutable and derive draft schema/hash from typed content; immutable revisions own canonical server hashes.
 - Do not keep VersionLock snapshot placeholders beside relational exact dependencies. Ordered dependency rows plus one server-derived lock hash are the authority; duplicate snapshot JSON creates drift without adding a contract.
@@ -529,6 +530,15 @@
 - References: `apps/backend/scripts/run-experiment-foundation-packa-product-landing.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
 When adding an entry, use:
+
+### 2026-07-22 — Final convergence exposed a stale earlier-slice census
+- Symptom: the first `packc-final` attempt reported C-EF `failed` even though all 69 C-EF non-relational tests passed and PostgreSQL unavailability should have produced `blocked`.
+- Context: C-PI had intentionally added `paper_experiment_sidecar` to the permanent generic scientific-writer closure set after the last C-EF host pass.
+- What was tried: the unchanged C-EF static gate required exact equality with its earlier three-kind set.
+- Why the attempt failed: the gate encoded an intermediate slice population rather than the pack-wide monotonic closure set, so a stricter landed product state looked like drift.
+- Fix/workaround: add `paper_experiment_sidecar` to the C-EF gate/meta expected closed-kind allowlist; no product code or writer behavior changed. The corrected final run reports C-EF `blocked` only on its disposable relational lane.
+- Prevention: final convergence must execute every child gate after later slices land, and monotonic cross-slice closure sets must be reconciled in gate metadata before interpreting a census mismatch as a product violation.
+- References: `.ai/scripts/experiment-foundation-packc-ef-gate.mjs`; `.ai/scripts/experiment-foundation-packc-final-gate.mjs`; `04-verification.md`.
 
 ### YYYY-MM-DD — Short title
 - Symptom:

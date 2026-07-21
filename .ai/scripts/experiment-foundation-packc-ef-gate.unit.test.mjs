@@ -78,6 +78,7 @@ test('static census proves service-level closure and removed accept_partial requ
     status: 'passed',
     closed_legacy_scientific_record_kinds: [
       'experiment_result', 'result_validation_report', 'evidence_candidate',
+      'paper_experiment_sidecar',
     ],
     generic_service_guard_call_count: 4,
     collect_job_closed_before_repository_access: true,
