@@ -25,3 +25,13 @@ Assessment: identical end-state to an approved apply of the same additive migrat
 ## Apply plan for the hardening migration
 
 Standard gate: recovery point + explicit approval + `prisma migrate deploy` + post-verify (constraint census, zero rows unchanged). The CHECK migration is invisible to `migrate diff` drift (Prisma does not model CHECKs), consistent with Pack A/B precedent.
+
+## Hardening migration applied — 2026-07-22 (user-approved)
+
+Environment incident resolved first: after a host reboot (~2026-07-21) Homebrew `postgresql@14` had seized port 5432 with a stale May-21 snapshot of `my_researcher_dev` (44 migrations), while the authoritative `postgresql@17` instance (data dir `/opt/homebrew/var/postgresql@17`) failed to start (`error 1`, port taken). No write was issued against the stale server. Fix: `brew services stop postgresql@14` (autostart removed) and start `postgresql@17`; identity re-verified (PostgreSQL 17.7, 67 applied, latest three migrations exact). Standing rule: verify `SELECT version()` is 17.x before any named-local DB operation and use `/opt/homebrew/opt/postgresql@17/bin` client tools.
+
+- Recovery point: `/Volumes/DataDisk/Project/.backups/My-Researcher/packc-hardening-20260722-r1/my_researcher_dev.pre-packc-hardening.dump` — PostgreSQL 17 custom format, 8,405,447,416 bytes, `pg_restore --list` passed with 2,199 TOC entries, SHA-256 `4f191bd3677fba9fc962ff23e68da36e2e16515ab801774fd14793f11442d33c`. (A first dump attempt was SIGKILLed and produced a corrupt archive; it was deleted and the dump redone under `caffeinate -i` with full verification — only the verified archive is retained.)
+- Apply: `prisma migrate deploy` → "All migrations have been successfully applied"; migration history now 68/68 with `20260720141000_harden_paper_implementation_pack_c_closure_v2` recorded.
+- Post-verify: 11 `pi_*` CHECK constraints present across the three C-PI tables (fixed v1, closed kind/disposition enums, count/version bounds, no-evidence/scientific kind invariants, proposal-pair all-or-nothing); `PaperImplementationRunEvidenceUnitV2` / `EvidenceTraceManifestV2` / `ValidationCycleClosureV2` all remain 0 rows.
+
+No unapplied Pack C DB work remains; named-local schema state matches the repository migration history exactly.

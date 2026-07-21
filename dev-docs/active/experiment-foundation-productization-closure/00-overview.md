@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: **Pack C 已于 2026-07-22 整包关闭**——`packc-final-20260722-r5` passed（三个 child gate 全过，PC01-PC20 二十项全绿，聚合 2,669/2,612/0 fail，closure 见 `artifacts/implementation/08-pack-c-cutover-technical-closure.md`）。legacy `/complete`、pre-closure Packet 与旧 REU writers 已永久关闭，不得重开。admission/simulation/scientific-validation/PI-closure capability 均保持默认关闭。Pack C 之外的待办：hardening 迁移 `20260720141000` 的 named-local apply（单独审批）；真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、reviewed repo-external RAM policy evidence 及其 independent digest 阻塞；scientific-kind closure、packet post-closure 物化、provider execution（M7）、UI/search（M5）与非本地 rollout 仍未完成。
+- Next step: **Pack C 已于 2026-07-22 整包关闭**——`packc-final-20260722-r5` passed（三个 child gate 全过，PC01-PC20 二十项全绿，聚合 2,669/2,612/0 fail，closure 见 `artifacts/implementation/08-pack-c-cutover-technical-closure.md`）。legacy `/complete`、pre-closure Packet 与旧 REU writers 已永久关闭，不得重开。admission/simulation/scientific-validation/PI-closure capability 均保持默认关闭。hardening 迁移 `20260720141000` 已于 2026-07-22 经用户批准 apply 到 named-local（recovery point + 68/68 + 11 CHECK census + 三表 0 行，记录见 `artifacts/db/pack-c-pi-evidence-closure-20260720/01-schema-and-apply-record.md`，含 postgresql@14 抢占 5432 的环境事故与修复）；named-local schema 与仓库迁移历史完全一致，Pack C 无任何未完成 DB 工作。剩余待办：真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、reviewed repo-external RAM policy evidence 及其 independent digest 阻塞；scientific-kind closure、packet post-closure 物化、provider execution（M7）、UI/search（M5）与非本地 rollout 仍未完成。
 
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 
