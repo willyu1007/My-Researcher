@@ -883,9 +883,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const paperImplementationLiveExperimentAdapterService = new PaperImplementationLiveExperimentAdapterService({
     experimentExecution: experimentFoundationExecutionService,
-    experimentRecords: experimentFoundationService,
     workOrderService: paperImplementationWorkOrderExperimentBridgeService,
-    traceKernel: paperImplementationTraceKernelService,
     workOrderRepository: paperImplementationWorkOrderRepository,
   });
   const paperImplementationResultClaimDossierService = new PaperImplementationResultClaimDossierService({
@@ -896,6 +894,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     workOrderRepository: paperImplementationWorkOrderRepository,
     confirmationRepository: paperImplementationHumanConfirmationRepository,
     feedbackRecorder: paperImplementationIntakeBootstrapService,
+    closedCycleSnapshotReader: {
+      findStoredClosureByCycle: (validationCycleId) => (
+        paperImplementationValidationCycleClosureV2Repository.withTransaction((transaction) => (
+          transaction.findStoredClosureByCycle(validationCycleId)
+        ))
+      ),
+    },
   });
   const paperImplementationHumanConfirmationService = new PaperImplementationHumanConfirmationService({
     projectRepository: paperImplementationRepository,

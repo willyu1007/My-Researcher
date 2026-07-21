@@ -4,7 +4,6 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import type {
   ExperimentFoundationRef,
-  ExperimentFoundationStoredRecord,
   ExternalTrainingJob,
   ExternalTrainingJobResponse,
   SubmitExternalTrainingJobRequest,
@@ -305,56 +304,6 @@ class FakeExperimentExecution {
   }
 }
 
-class FakeExperimentRecords {
-  private readonly hashes = new Map<string, string>([
-    ['experiment_result:experiment_result_001', 'experiment_result_hash_001'],
-    ['result_validation_report:result_validation_report_001', 'validation_report_hash_001'],
-    ['evidence_candidate:evidence_candidate_001', 'evidence_candidate_hash_001'],
-  ]);
-  private readonly payloads = new Map<string, Record<string, unknown>>([
-    ['experiment_result:experiment_result_001', {
-      experiment_result_id: 'experiment_result_001',
-      result_hash: 'experiment_result_hash_001',
-      claim_text: 'must not be copied into PaperImplementation state',
-    }],
-    ['result_validation_report:result_validation_report_001', {
-      result_validation_report_id: 'result_validation_report_001',
-      validation_hash: 'validation_report_hash_001',
-      final_conclusion: 'must not be copied into PaperImplementation state',
-    }],
-    ['evidence_candidate:evidence_candidate_001', {
-      evidence_candidate_id: 'evidence_candidate_001',
-      evidence_hash: 'evidence_candidate_hash_001',
-      publication_ready_text: 'must not be copied into PaperImplementation state',
-    }],
-  ]);
-
-  async getRecord(recordKind: string, recordId: string): Promise<ExperimentFoundationStoredRecord> {
-    const key = `${recordKind}:${recordId}`;
-    const hash = this.hashes.get(key);
-    if (!hash) {
-      throw new AppError(404, 'NOT_FOUND', `${key} not found.`);
-    }
-    return {
-      id: key,
-      record_kind: recordKind as ExperimentFoundationStoredRecord['record_kind'],
-      record_id: recordId,
-      record_hash: hash,
-      status: null,
-      family: null,
-      parent_record_kind: null,
-      parent_record_id: null,
-      owner_ref_type: null,
-      owner_ref_id: null,
-      payload: structuredClone(this.payloads.get(key) ?? {}),
-      source_refs: [],
-      traceability_refs: [],
-      created_at: NOW,
-      updated_at: NOW,
-    };
-  }
-}
-
 function makeInputSnapshot(): ValidationCycleInputSnapshot {
   return {
     input_snapshot_id: 'validation_input_snapshot_001',
@@ -546,12 +495,9 @@ async function makeHarness() {
     now: () => NOW,
   });
   const execution = new FakeExperimentExecution();
-  const records = new FakeExperimentRecords();
   const service = new PaperImplementationLiveExperimentAdapterService({
     experimentExecution: execution,
-    experimentRecords: records,
     workOrderService,
-    traceKernel,
     workOrderRepository,
   });
 
@@ -687,7 +633,6 @@ test('sync records non-final monitor intake without trusted run evidence', async
   const synced = await service.syncLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {});
   assert.equal(synced.monitor_intake?.run_status, 'running');
   assert.equal(synced.monitor_intake?.trust_status, 'trusted');
-  assert.equal(synced.run_evidence_unit, null);
   assert.equal(synced.terminal_evidence_recorded, false);
   assert.deepEqual(synced.handoff.recommended_next_actions, ['sync_live_experiment_run']);
 });
@@ -701,7 +646,6 @@ test('sync observes terminal external status without creating evidence and recom
 
   const synced = await service.syncLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {});
 
-  assert.equal(synced.run_evidence_unit, null);
   assert.equal(synced.terminal_evidence_recorded, false);
   assert.deepEqual(synced.handoff.recommended_next_actions, ['collect_live_experiment_run']);
   assert.match(synced.handoff.notes[0] ?? '', /Terminal external job status observed/);
@@ -765,12 +709,11 @@ test('cancel records non-final status without trusted run evidence while externa
 
   assert.equal(cancelled.outcome, 'cancel_requested');
   assert.equal(cancelled.monitor_intake?.run_status, 'running');
-  assert.equal(cancelled.run_evidence_unit, null);
   assert.equal(cancelled.terminal_evidence_recorded, false);
 });
 
-test('cancel finalizes trusted cancelled run evidence with target-specific trace', async () => {
-  const { service, execution } = await makeHarness();
+test('cancel records terminal cancellation as lifecycle fact with zero REU or trace writes', async () => {
+  const { service, execution, workOrderService, traceKernel } = await makeHarness();
   await service.submitLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, {
     idempotency_key: 'work_order_attempt_001',
   });
@@ -782,20 +725,39 @@ test('cancel finalizes trusted cancelled run evidence with target-specific trace
 
   assert.equal(cancelled.outcome, 'cancel_requested');
   assert.equal(cancelled.monitor_intake?.run_status, 'cancelled');
-  assert.equal(cancelled.run_evidence_unit?.run_status, 'cancelled');
-  assert.equal(cancelled.run_evidence_unit?.failure_summary, 'human stopped expensive run');
-  assert.equal(cancelled.trace_manifest?.target_ref.ref_type, 'run_evidence_unit');
-  assert.equal(cancelled.trace_manifest?.target_ref.ref_id, cancelled.run_evidence_unit?.run_evidence_unit_id);
-  assert.equal(cancelled.terminal_evidence_recorded, true);
-
-  const repeated = await service.cancelLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {
-    reason: 'human stopped expensive run',
-    idempotency_key: 'cancel_attempt_001',
-  });
-  assert.equal(repeated.outcome, 'already_recorded');
-  assert.equal(repeated.run_evidence_unit?.run_evidence_unit_id, cancelled.run_evidence_unit?.run_evidence_unit_id);
-  assert.equal(repeated.terminal_evidence_recorded, true);
+  assert.equal(cancelled.monitor_intake?.failure_summary, 'human stopped expensive run');
+  assert.equal(cancelled.terminal_evidence_recorded, false);
+  assert.deepEqual(cancelled.handoff.recommended_next_actions, []);
   assert.equal(execution.cancelJobIds.length, 1);
+  assert.equal((await workOrderService.listRunEvidenceUnits(PROJECT_ID)).length, 0);
+  assert.equal((await traceKernel.listTraceManifests(PROJECT_ID))
+    .filter((manifest) => manifest.target_ref.ref_type === 'run_evidence_unit').length, 0);
+});
+
+test('live collect and cancel reject explicit legacy REU parameters before provider side effects', async () => {
+  const { service, execution } = await makeHarness();
+  await service.submitLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, {
+    idempotency_key: 'work_order_attempt_001',
+  });
+  const assertClosed = (error: unknown) => error instanceof AppError
+    && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+    && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED';
+  await assert.rejects(
+    service.collectLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {
+      run_evidence_unit_id: 'legacy_reu',
+    }),
+    assertClosed,
+  );
+  await assert.rejects(
+    service.cancelLiveExperimentRun(PROJECT_ID, WORK_ORDER_ID, EXTERNAL_JOB_ID, {
+      reason: 'legacy trace request',
+      idempotency_key: 'cancel_legacy',
+      run_evidence_trace_manifest_id: 'legacy_trace',
+    }),
+    assertClosed,
+  );
+  assert.deepEqual(execution.collectJobIds, []);
+  assert.deepEqual(execution.cancelJobIds, []);
 });
 
 test('live adapter external execution failures do not create partial state or fallback artifacts', async () => {

@@ -16,7 +16,11 @@ import type {
 import type {
   CreateClaimCandidateRequest,
   CreateResultInterpretationPacketRequest,
+  ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import type {
+  ValidationCycleClosureV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 import type {
   ResearchWorkOrder,
   RunEvidenceUnit,
@@ -41,6 +45,7 @@ import type {
 } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
+import type { PaperImplementationStoredValidationCycleClosureV2 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import { PaperImplementationResultClaimDossierService } from './paper-implementation-result-claim-dossier-service.js';
 import { sha256Text } from './literature-content-processing-utils.js';
 
@@ -48,6 +53,8 @@ const NOW = '2026-05-21T00:00:00.000Z';
 const PROJECT_ID = 'implementation_project_001';
 const VALIDATION_CYCLE_ID = 'validation_cycle_001';
 const RUN_EVIDENCE_ID = 'run_evidence_unit_001';
+const CLOSURE_ID = 'validation_cycle_closure_001';
+const CLOSURE_SNAPSHOT_HASH = 'sha256:closed-cycle-snapshot-001';
 
 function ref(refType: string, refId: string, versionId: string | null = null): TopicSelectionFunctionalRef {
   return {
@@ -326,45 +333,6 @@ function makeValidationRepository(): PaperImplementationValidationRepository {
   } as unknown as PaperImplementationValidationRepository;
 }
 
-function makeWorkOrder(
-  workOrderId: string,
-  workOrderStatus: ResearchWorkOrder['work_order_status'],
-): ResearchWorkOrder {
-  return {
-    work_order_id: workOrderId,
-    implementation_project_id: PROJECT_ID,
-    validation_cycle_id: VALIDATION_CYCLE_ID,
-    experiment_plan_light_id: null,
-    run_type: 'confirmatory',
-    work_order_status: workOrderStatus,
-    run_policy: {
-      run_policy_id: 'run_policy_001',
-      retry_budget: 0,
-      compute_limit_ref: null,
-      stop_condition_refs: [],
-      allowed_mutation_refs: [],
-      autotune_policy: 'disabled',
-    },
-    experiment_bridge: {
-      run_recipe_ref: ref('run_recipe', 'run_recipe_001'),
-      run_recipe_hash: 'run_recipe_hash_001',
-    },
-    motive_refs: [],
-    assertion_refs: [],
-    dataset_version_refs: [],
-    baseline_version_refs: [],
-    code_version_refs: [],
-    config_refs: [],
-    trace_manifest_ref: ref('trace_manifest', 'trace_manifest_work_order_001'),
-    trace_manifest_id: 'trace_manifest_work_order_001',
-    admission_gate_result_id: null,
-    policy_version_id: 'policy_v1',
-    created_by: 'system',
-    created_at: NOW,
-    updated_at: NOW,
-  };
-}
-
 function makeWorkOrderRepository(
   runEvidence: RunEvidenceUnit,
   extraProjectRunEvidence: RunEvidenceUnit[] = [],
@@ -417,6 +385,57 @@ function validResultRequest(): CreateResultInterpretationPacketRequest {
   };
 }
 
+function historicalResultPacket(): ResultInterpretationPacket {
+  const request = validResultRequest();
+  return {
+    result_interpretation_packet_id: request.result_interpretation_packet_id,
+    implementation_project_id: PROJECT_ID,
+    validation_cycle_id: request.validation_cycle_id,
+    experiment_plan_light_id: null,
+    source: request.source,
+    result_summary: request.result_summary,
+    reliability: request.reliability,
+    claim_implications: request.claim_implications,
+    interpretation_gate_status: 'passed',
+    trace_manifest_ref: ref('trace_manifest', request.trace_manifest_id),
+    trace_manifest_id: request.trace_manifest_id,
+    policy_version_id: 'policy_v1',
+    created_by: 'system',
+    created_at: NOW,
+  };
+}
+
+function storedClosure(
+  implementationProjectId: string = PROJECT_ID,
+): PaperImplementationStoredValidationCycleClosureV2 {
+  const closure: ValidationCycleClosureV2 = {
+    closure_id: CLOSURE_ID,
+    schema_version: 'v1',
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    cycle_version_at_closure: 1,
+    closure_kind: 'control_flow_validated_no_paper_evidence',
+    scientific_disposition: null,
+    selected_exit_key: null,
+    accepted_proposal_id: null,
+    accepted_proposal_hash: null,
+    closure_watermark: {
+      schema_version: 'v1',
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      expected_cycle_version: 1,
+      ordered_branches: [],
+      active_real_attempt_count: 0,
+      closure_input_hash: 'sha256:closure-input-001',
+    },
+    closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+  };
+  return {
+    implementation_project_id: implementationProjectId,
+    closure,
+    idempotency_key: 'close-cycle-001',
+    created_at: NOW,
+  };
+}
+
 function validClaimRequest(): CreateClaimCandidateRequest {
   return {
     claim_candidate_id: 'claim_candidate_001',
@@ -452,6 +471,11 @@ function validDossierRequest() {
     result_interpretation_packet_ids: ['result_interpretation_packet_001'],
     claim_candidate_ids: ['claim_candidate_001'],
     claim_trace_packet_ids: ['claim_trace_packet_001'],
+    closed_validation_cycle_snapshot_refs: [{
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      closure_id: CLOSURE_ID,
+      closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    }],
     experiment_section: {
       failed_run_refs: [] as TopicSelectionFunctionalRef[],
       inconclusive_run_refs: [] as TopicSelectionFunctionalRef[],
@@ -481,6 +505,7 @@ async function setup(
   runEvidenceOverrides: Partial<RunEvidenceUnit> = {},
   extraProjectRunEvidence: RunEvidenceUnit[] = [],
   workOrders: ResearchWorkOrder[] = [],
+  closure: PaperImplementationStoredValidationCycleClosureV2 | null = storedClosure(),
 ) {
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
@@ -537,6 +562,7 @@ async function setup(
   };
   await traceRepository.createClaimTracePacket(claimTracePacket);
   const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
+  await resultClaimRepository.createResultInterpretationPacket(historicalResultPacket());
   const service = new PaperImplementationResultClaimDossierService({
     projectRepository: new StaticProjectRepository(),
     resultClaimRepository,
@@ -552,56 +578,31 @@ async function setup(
       workOrders,
     ),
     feedbackRecorder,
+    closedCycleSnapshotReader: {
+      findStoredClosureByCycle: async (validationCycleId) => (
+        closure?.closure.validation_cycle_id === validationCycleId
+          ? structuredClone(closure)
+          : null
+      ),
+    },
     now: () => NOW,
     idFactory: (prefix) => `${prefix}_001`,
   });
   return { service, feedbackRecorder, confirmationRepository, traceRepository };
 }
 
-test('result interpretation blocks failed runs that are not retained and accounted for', async () => {
-  const { service } = await setup('failed');
-  const request = validResultRequest();
-  request.result_summary.failed_runs_accounted_for = false;
+test('direct ResultInterpretationPacket materialization is closed pending ValidationCycleClosed consumption', async () => {
+  const { service } = await setup();
   await assert.rejects(
-    service.createResultInterpretationPacket(PROJECT_ID, request),
-    (error) =>
-      error instanceof AppError
+    service.createResultInterpretationPacket(PROJECT_ID, validResultRequest()),
+    (error) => error instanceof AppError
       && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('accounted for'),
+      && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED',
   );
 });
 
-test('result interpretation requires trusted run evidence and explicit validation outputs', async () => {
-  const untrusted = await setup('succeeded', { trusted_status: 'needs_review' });
-  await assert.rejects(
-    untrusted.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest()),
-    (error) => error instanceof AppError && error.message.includes('trusted RunEvidenceUnit'),
-  );
-
-  const missingReport = await setup();
-  const missingReportRequest = validResultRequest();
-  missingReportRequest.source.validation_report_refs = [];
-  await assert.rejects(
-    missingReport.service.createResultInterpretationPacket(PROJECT_ID, missingReportRequest),
-    (error) => error instanceof AppError && error.message.includes('validation_report_refs'),
-  );
-
-  const missingMetric = await setup();
-  const missingMetricRequest = validResultRequest();
-  missingMetricRequest.source.metric_refs = [];
-  await assert.rejects(
-    missingMetric.service.createResultInterpretationPacket(PROJECT_ID, missingMetricRequest),
-    (error) => error instanceof AppError && error.message.includes('metric_refs'),
-  );
-});
-
-test('result interpretation, claim, dossier, and writing packet close the ready path', async () => {
+test('historical packet, claim, closed-Cycle dossier, and writing packet preserve the downstream ready path', async () => {
   const { service } = await setup('failed');
-  const resultRequest = validResultRequest();
-  resultRequest.source.failed_run_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
-  const resultPacket = await service.createResultInterpretationPacket(PROJECT_ID, resultRequest);
-  assert.equal(resultPacket.interpretation_gate_status, 'passed_with_risk');
-
   const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   assert.equal(claim.claim_trace_packet_id, 'claim_trace_packet_001');
   assert.equal(claim.claim_status, 'supported');
@@ -612,6 +613,11 @@ test('result interpretation, claim, dossier, and writing packet close the ready 
     result_interpretation_packet_ids: ['result_interpretation_packet_001'],
     claim_candidate_ids: ['claim_candidate_001'],
     claim_trace_packet_ids: ['claim_trace_packet_001'],
+    closed_validation_cycle_snapshot_refs: [{
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      closure_id: CLOSURE_ID,
+      closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    }],
     experiment_section: {
       failed_run_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID)],
       inconclusive_run_refs: [],
@@ -636,6 +642,11 @@ test('result interpretation, claim, dossier, and writing packet close the ready 
   });
   assert.equal(dossier.dossier_status, 'ready_for_writing');
   assert.equal(dossier.failed_run_count, 1);
+  assert.deepEqual(dossier.source.closed_validation_cycle_snapshot_refs, [{
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    closure_id: CLOSURE_ID,
+    closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+  }]);
 
   const packet = await service.createWritingEntryPacket(PROJECT_ID, dossier.dossier_id, {
     projection_policy_version_id: 'writing_projection_policy_v1',
@@ -646,7 +657,6 @@ test('result interpretation, claim, dossier, and writing packet close the ready 
 
 test('claim boundary blocks interpretation refs as support and forbidden overclaims', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
 
   const memoSupport = validClaimRequest();
   memoSupport.support_refs = [ref('result_interpretation_packet', 'result_interpretation_packet_001')];
@@ -688,7 +698,6 @@ test('claim boundary blocks interpretation refs as support and forbidden overcla
 
 test('claim without claim trace stays pending and cannot be admitted to ready dossier', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
 
   const pendingRequest = validClaimRequest();
   delete (pendingRequest as Partial<CreateClaimCandidateRequest>).claim_trace_packet_id;
@@ -704,7 +713,6 @@ test('claim without claim trace stays pending and cannot be admitted to ready do
 
 test('ready dossier rejects blockers and unresolved admitted claim disposition', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
 
   const blocked = validDossierRequest();
@@ -729,229 +737,66 @@ test('ready dossier rejects blockers and unresolved admitted claim disposition',
   );
 });
 
-function projectRunEvidence(
-  runEvidenceUnitId: string,
-  runStatus: RunEvidenceUnit['run_status'],
-  overrides: Partial<RunEvidenceUnit> = {},
-): RunEvidenceUnit {
-  return {
-    ...makeRunEvidence(runStatus),
-    run_evidence_unit_id: runEvidenceUnitId,
-    ...overrides,
-  };
-}
-
-test('ready dossier reconciles every trusted failed-like project run and rejects uncovered ones with the missing list', async () => {
+test('ready dossier ignores project-wide legacy failed-like REUs and consumes only declared closed snapshots', async () => {
   const { service } = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
-    projectRunEvidence('run_evidence_unit_negative_003', 'negative'),
+    { ...makeRunEvidence('failed'), run_evidence_unit_id: 'legacy_failed_reu' },
+    { ...makeRunEvidence('negative'), run_evidence_unit_id: 'legacy_negative_reu' },
   ]);
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  const dossier = await service.createImplementationDossier(PROJECT_ID, validDossierRequest());
+  assert.equal(dossier.dossier_status, 'ready_for_writing');
+  assert.deepEqual(dossier.source.closed_validation_cycle_snapshot_refs, [{
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    closure_id: CLOSURE_ID,
+    closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+  }]);
+});
 
+test('ready dossier fails closed when a declared ValidationCycle has no v2 closure', async () => {
+  const { service } = await setup('succeeded', {}, [], [], null);
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   await assert.rejects(
     service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
-    (error) =>
-      error instanceof AppError
+    (error) => error instanceof AppError
       && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('must account for every trusted failed, cancelled, negative, or inconclusive RunEvidenceUnit')
-      && JSON.stringify(error.details?.missing_run_evidence_unit_ids) === JSON.stringify([
-        'run_evidence_unit_failed_002',
-        'run_evidence_unit_negative_003',
-      ]),
+      && error.message.includes('must resolve to closed ValidationCycle v2 authority'),
   );
 });
 
-test('ready dossier passes project run reconciliation through explicit exemption, section refs, and packet source coverage', async () => {
-  // Explicit exemption via excluded_stale_or_invalidated_evidence_refs:
-  // S3 F4-1 requires the excluded unit to be provably superseded, here by a
-  // strictly newer trusted RunEvidenceUnit on the same work order.
-  const exempted = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
-      work_order_id: 'research_work_order_stale',
-      created_at: '2026-05-20T00:00:00.000Z',
-    }),
-    projectRunEvidence('run_evidence_unit_rerun_003', 'succeeded', {
-      work_order_id: 'research_work_order_stale',
-      created_at: '2026-05-21T00:00:00.000Z',
-    }),
-  ]);
-  await exempted.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await exempted.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const exemptedRequest = validDossierRequest();
-  exemptedRequest.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
-  ];
-  const exemptedDossier = await exempted.service.createImplementationDossier(PROJECT_ID, exemptedRequest);
-  assert.equal(exemptedDossier.dossier_status, 'ready_for_writing');
-
-  // Direct disclosure through the status-matching experiment_section refs.
-  const disclosed = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
-    projectRunEvidence('run_evidence_unit_negative_003', 'negative'),
-    projectRunEvidence('run_evidence_unit_inconclusive_004', 'inconclusive'),
-  ]);
-  await disclosed.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await disclosed.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const disclosedRequest = validDossierRequest();
-  disclosedRequest.experiment_section.failed_run_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
-  ];
-  disclosedRequest.experiment_section.negative_result_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_negative_003'),
-  ];
-  disclosedRequest.experiment_section.inconclusive_run_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_inconclusive_004'),
-  ];
-  const disclosedDossier = await disclosed.service.createImplementationDossier(PROJECT_ID, disclosedRequest);
-  assert.equal(disclosedDossier.dossier_status, 'ready_for_writing');
-
-  // Coverage through an included result packet's source.run_evidence_refs:
-  // the primary REU itself is failed and cited by the packet source, which
-  // also forces the packet-level failed_run_refs accounting.
-  const packetCovered = await setup('failed');
-  const packetRequest = validResultRequest();
-  packetRequest.source.failed_run_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
-  await packetCovered.service.createResultInterpretationPacket(PROJECT_ID, packetRequest);
-  await packetCovered.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const packetCoveredRequest = validDossierRequest();
-  packetCoveredRequest.experiment_section.failed_run_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
-  const packetCoveredDossier = await packetCovered.service.createImplementationDossier(PROJECT_ID, packetCoveredRequest);
-  assert.equal(packetCoveredDossier.dossier_status, 'ready_for_writing');
+test('ready dossier rejects tampered closure identity and snapshot hash', async () => {
+  const { service } = await setup();
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  for (const drift of [
+    { closure_id: 'closure_tampered', closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH },
+    { closure_id: CLOSURE_ID, closure_snapshot_hash: 'sha256:tampered' },
+  ]) {
+    const request = validDossierRequest();
+    request.closed_validation_cycle_snapshot_refs = [{
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      ...drift,
+    }];
+    await assert.rejects(
+      service.createImplementationDossier(PROJECT_ID, request),
+      (error) => error instanceof AppError
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+        && error.message.includes('identity or hash does not match closure authority'),
+    );
+  }
 });
 
-test('ready dossier rejects exemption refs that do not resolve to a project RunEvidenceUnit', async () => {
-  const { service } = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
-      work_order_id: 'research_work_order_lone',
-    }),
-  ]);
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
+test('ready dossier rejects a closed snapshot owned by another project', async () => {
+  const { service } = await setup('succeeded', {}, [], [], storedClosure('foreign_project'));
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const request = validDossierRequest();
-  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_ghost'),
-  ];
   await assert.rejects(
-    service.createImplementationDossier(PROJECT_ID, request),
-    (error) =>
-      error instanceof AppError
+    service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
+    (error) => error instanceof AppError
       && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('excluded_stale_or_invalidated_evidence_refs')
-      && JSON.stringify(error.details?.unresolved_excluded_refs) === JSON.stringify([
-        { ref_type: 'run_evidence_unit', ref_id: 'run_evidence_unit_ghost' },
-      ])
-      && JSON.stringify(error.details?.not_superseded_excluded_run_evidence_unit_ids) === JSON.stringify([]),
+      && error.message.includes('different project'),
   );
-});
-
-test('ready dossier rejects exemption of a failed RunEvidenceUnit that is not provably superseded', async () => {
-  const { service } = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
-      work_order_id: 'research_work_order_lone',
-    }),
-  ]);
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const request = validDossierRequest();
-  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
-  ];
-  await assert.rejects(
-    service.createImplementationDossier(PROJECT_ID, request),
-    (error) =>
-      error instanceof AppError
-      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('provably superseded')
-      && JSON.stringify(error.details?.unresolved_excluded_refs) === JSON.stringify([])
-      && JSON.stringify(error.details?.not_superseded_excluded_run_evidence_unit_ids) === JSON.stringify([
-        'run_evidence_unit_failed_002',
-      ]),
-  );
-});
-
-test('ready dossier accepts exemption of a failed RunEvidenceUnit whose work order is superseded', async () => {
-  const { service } = await setup(
-    'succeeded',
-    {},
-    [
-      projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
-        work_order_id: 'research_work_order_superseded',
-      }),
-    ],
-    [makeWorkOrder('research_work_order_superseded', 'superseded')],
-  );
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const request = validDossierRequest();
-  request.experiment_section.excluded_stale_or_invalidated_evidence_refs = [
-    ref('run_evidence_unit', 'run_evidence_unit_failed_002'),
-  ];
-  const dossier = await service.createImplementationDossier(PROJECT_ID, request);
-  assert.equal(dossier.dossier_status, 'ready_for_writing');
-});
-
-test('project run coverage ignores foreign-typed refs whose ref_id collides with a RunEvidenceUnit id', async () => {
-  const { service } = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed', {
-      work_order_id: 'research_work_order_lone',
-    }),
-  ]);
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const request = validDossierRequest();
-  // Same ref_id as the accountable failed unit, but not a run_evidence_unit
-  // ref — S3 F4-2 keeps it out of the coverage set.
-  request.experiment_section.failed_run_refs = [
-    ref('validation_cycle', 'run_evidence_unit_failed_002'),
-  ];
-  await assert.rejects(
-    service.createImplementationDossier(PROJECT_ID, request),
-    (error) =>
-      error instanceof AppError
-      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('must account for every trusted failed, cancelled, negative, or inconclusive RunEvidenceUnit')
-      && JSON.stringify(error.details?.missing_run_evidence_unit_ids) === JSON.stringify([
-        'run_evidence_unit_failed_002',
-      ]),
-  );
-});
-
-test('project run reconciliation skips non-ready dossiers and untrusted failed runs', async () => {
-  // Non-ready statuses are exempt from the project-level reconciliation.
-  const draft = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed'),
-  ]);
-  await draft.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  const draftRequest = {
-    ...validDossierRequest(),
-    dossier_status: 'draft' as const,
-    claim_candidate_ids: [],
-    claim_trace_packet_ids: [],
-    claim_section: {
-      admitted_claim_refs: [],
-      rejected_claim_refs: [],
-      forbidden_overclaims: [],
-      claim_ceiling: 'tentative' as const,
-    },
-  };
-  const draftDossier = await draft.service.createImplementationDossier(PROJECT_ID, draftRequest);
-  assert.equal(draftDossier.dossier_status, 'draft');
-
-  // Untrusted / needs_review failed runs are not admissible evidence and do
-  // not enter the reconciliation set.
-  const untrusted = await setup('succeeded', {}, [
-    projectRunEvidence('run_evidence_unit_failed_002', 'failed', { trusted_status: 'needs_review' }),
-  ]);
-  await untrusted.service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
-  await untrusted.service.createClaimCandidate(PROJECT_ID, validClaimRequest());
-  const untrustedDossier = await untrusted.service.createImplementationDossier(PROJECT_ID, validDossierRequest());
-  assert.equal(untrustedDossier.dossier_status, 'ready_for_writing');
 });
 
 test('strong claim requires explicit human confirmation', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   const strongClaim = validClaimRequest();
   strongClaim.claim_strength = 'strong';
   await assert.rejects(
@@ -962,7 +807,6 @@ test('strong claim requires explicit human confirmation', async () => {
 
 test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a project RunEvidenceUnit', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   const phantomSupport = validClaimRequest();
   phantomSupport.support_refs = [ref('run_evidence_unit', 'run_evidence_unit_phantom')];
   await assert.rejects(
@@ -978,7 +822,6 @@ test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a 
 
 test('T-124 G5 FIX-A item 9: strong claim confirmation reviewed_claim_statement_hash binds to the claim statement', async () => {
   const { service, confirmationRepository } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
 
   const baseConfirmation = {
     implementation_project_id: PROJECT_ID,
@@ -1034,13 +877,17 @@ test('T-124 G5 FIX-A item 9: strong claim confirmation reviewed_claim_statement_
 
 test('writing packet cannot be projected from a non-ready dossier', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   const dossier = await service.createImplementationDossier(PROJECT_ID, {
     dossier_id: 'implementation_dossier_001',
     dossier_status: 'draft',
     result_interpretation_packet_ids: ['result_interpretation_packet_001'],
     claim_candidate_ids: [],
     claim_trace_packet_ids: [],
+    closed_validation_cycle_snapshot_refs: [{
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      closure_id: CLOSURE_ID,
+      closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    }],
     experiment_section: {
       failed_run_refs: [],
       inconclusive_run_refs: [],
@@ -1080,7 +927,6 @@ test('result claim feedback delegates to T-093 implementation feedback authority
 
 test('strong claim confirmation ref must resolve to an active strong-claim-scope record', async () => {
   const { service, confirmationRepository } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   const strongClaim = validClaimRequest();
   strongClaim.claim_strength = 'strong';
   strongClaim.boundary = {
@@ -1148,7 +994,6 @@ test('strong claim confirmation ref must resolve to an active strong-claim-scope
 
 test('strong claim confirmation is target-bound and consumed exactly once', async () => {
   const { service, confirmationRepository } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
 
   // A record whose target_refs do not cover this claim candidate is rejected.
   await confirmationRepository.createHumanConfirmationRecord({
@@ -1224,7 +1069,6 @@ test('strong claim confirmation is target-bound and consumed exactly once', asyn
 
 test('ready dossier rejects unresolvable readiness gate results', async () => {
   const { service } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   const request = validDossierRequest();
   request.readiness = {
@@ -1240,7 +1084,6 @@ test('ready dossier rejects unresolvable readiness gate results', async () => {
 
 test('ready dossier rejects readiness gate results targeting a different trace manifest', async () => {
   const { service, traceRepository } = await setup();
-  await service.createResultInterpretationPacket(PROJECT_ID, validResultRequest());
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   await traceRepository.createTraceGateResult({
     gate_result_id: 'dossier_readiness_gate_other_manifest',

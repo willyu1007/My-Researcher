@@ -257,20 +257,20 @@ test('runtime Domain Gate materializes an admitted dossier final artifact idempo
   assert.equal(resultService.createDossierCalls, 1);
 });
 
-test('runtime Domain Gate materializes an admitted result-analysis final artifact idempotently', async () => {
+test('runtime Domain Gate closes pre-closure result-analysis packet materialization', async () => {
   const { resultRuntime, domainGate, resultService } = fixture();
   const run = await resultRuntime.runInterpretationScenarios(PROJECT_ID, mockedResultAnalysisRequest());
   const finalArtifact = run.final_runtime_artifact;
   assert.ok(finalArtifact);
 
-  const first = await domainGate.materializeFinalRuntimeArtifact(PROJECT_ID, finalArtifact.runtime_artifact_id);
-  assert.equal(first.status, 'materialized');
-  assert.equal(first.domain_artifact_ref.ref_type, 'result_interpretation_packet');
-  assert.equal(first.domain_artifact_ref.ref_id, 'result_interpretation_packet_001');
-
-  const second = await domainGate.materializeFinalRuntimeArtifact(PROJECT_ID, finalArtifact.runtime_artifact_id);
-  assert.equal(second.status, 'already_materialized');
-  assert.equal(resultService.createResultPacketCalls, 1);
+  await assert.rejects(
+    domainGate.materializeFinalRuntimeArtifact(PROJECT_ID, finalArtifact.runtime_artifact_id),
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED',
+  );
+  assert.equal(resultService.createResultPacketCalls, 0);
+  assert.equal(resultService.resultPackets.size, 0);
 });
 
 test('T-124 G4.5 Fix 2 (under G4.6 assembly): the P1 slot rejects semantically-incomplete adjudicator content early, before any final artifact reaches the Domain Gate', async () => {

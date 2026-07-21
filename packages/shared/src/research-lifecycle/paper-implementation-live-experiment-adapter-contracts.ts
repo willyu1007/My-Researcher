@@ -6,16 +6,10 @@ import {
 } from './experiment-foundation-contracts.js';
 import {
   researchWorkOrderHarnessRunSchema,
-  runEvidenceUnitSchema,
   runMonitorIntakeRecordSchema,
   type ResearchWorkOrderHarnessRun,
-  type RunEvidenceUnit,
   type RunMonitorIntakeRecord,
 } from './paper-implementation-workorder-contracts.js';
-import {
-  traceManifestSchema,
-  type TraceManifest,
-} from './paper-implementation-trace-contracts.js';
 import {
   TOPIC_SELECTION_ACTOR_TYPES,
   topicSelectionFunctionalRefSchema,
@@ -94,8 +88,6 @@ export interface PaperImplementationLiveExperimentRunResponse {
   external_job: ExternalTrainingJob;
   harness_run?: ResearchWorkOrderHarnessRun | null;
   monitor_intake?: RunMonitorIntakeRecord | null;
-  run_evidence_unit?: RunEvidenceUnit | null;
-  trace_manifest?: TraceManifest | null;
   terminal_evidence_recorded: boolean;
   handoff: LiveExperimentHandoff;
 }
@@ -192,8 +184,6 @@ export const paperImplementationLiveExperimentRunResponseSchema = {
     external_job: experimentFoundationExternalTrainingJobSchema,
     harness_run: { anyOf: [researchWorkOrderHarnessRunSchema, { type: 'null' }] },
     monitor_intake: { anyOf: [runMonitorIntakeRecordSchema, { type: 'null' }] },
-    run_evidence_unit: { anyOf: [runEvidenceUnitSchema, { type: 'null' }] },
-    trace_manifest: { anyOf: [traceManifestSchema, { type: 'null' }] },
     terminal_evidence_recorded: { type: 'boolean' },
     handoff: liveExperimentHandoffSchema,
   },

@@ -8,21 +8,17 @@ import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
   paperImplementationP1RuntimeReviewArtifactSchema,
   type PaperImplementationP1RuntimeReviewArtifact,
-  paperImplementationResultAnalysisArtifactSchema,
-  type PaperImplementationResultAnalysisArtifact,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
   createClaimCandidateRequestSchema,
   createImplementationDossierRequestSchema,
-  createResultInterpretationPacketRequestSchema,
+  RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
   type ClaimCandidate,
   type CreateClaimCandidateRequest,
   type CreateImplementationDossierRequest,
-  type CreateResultInterpretationPacketRequest,
   type ImplementationDossier,
-  type ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
   TopicSelectionFunctionalRef,
@@ -58,8 +54,6 @@ export interface PaperImplementationRuntimeDomainGateServiceOptions {
     | 'getClaimCandidate'
     | 'createImplementationDossier'
     | 'getImplementationDossier'
-    | 'createResultInterpretationPacket'
-    | 'getResultInterpretationPacket'
   >;
 }
 
@@ -70,10 +64,8 @@ export class PaperImplementationRuntimeDomainGateService {
     removeAdditional: false,
   });
   private readonly p1ReviewArtifactValidator: ValidateFunction;
-  private readonly resultAnalysisArtifactValidator: ValidateFunction;
   private readonly createClaimCandidateRequestValidator: ValidateFunction;
   private readonly createImplementationDossierRequestValidator: ValidateFunction;
-  private readonly createResultInterpretationPacketRequestValidator: ValidateFunction;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly resultClaimDossier: PaperImplementationRuntimeDomainGateServiceOptions['resultClaimDossier'];
 
@@ -81,11 +73,8 @@ export class PaperImplementationRuntimeDomainGateService {
     this.runtimeAdmission = options.runtimeAdmission;
     this.resultClaimDossier = options.resultClaimDossier;
     this.p1ReviewArtifactValidator = this.ajv.compile(paperImplementationP1RuntimeReviewArtifactSchema);
-    this.resultAnalysisArtifactValidator = this.ajv.compile(paperImplementationResultAnalysisArtifactSchema);
     this.createClaimCandidateRequestValidator = this.ajv.compile(createClaimCandidateRequestSchema);
     this.createImplementationDossierRequestValidator = this.ajv.compile(createImplementationDossierRequestSchema);
-    this.createResultInterpretationPacketRequestValidator =
-      this.ajv.compile(createResultInterpretationPacketRequestSchema);
   }
 
   async materializeFinalRuntimeArtifact(
@@ -97,19 +86,11 @@ export class PaperImplementationRuntimeDomainGateService {
     const admission = await this.requireAdmittedFinalAdmission(implementationProjectId, runtimeArtifactId);
 
     if (artifact.slot_id === PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID) {
-      const payload = this.resultAnalysisPayload(artifact);
-      if (!payload.domain_gate_request) {
-        throw new AppError(
-          409,
-          'GATE_CONSTRAINT_FAILED',
-          'Admitted final runtime artifact is missing domain_gate_request.',
-        );
-      }
-      return this.materializeResultInterpretationPacket(
-        implementationProjectId,
-        artifact,
-        admission,
-        this.resultInterpretationPacketRequest(payload.domain_gate_request),
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ResultInterpretationPacket materialization is closed until a later increment consumes ValidationCycleClosed.',
+        { reason_code: RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE },
       );
     }
 
@@ -143,51 +124,6 @@ export class PaperImplementationRuntimeDomainGateService {
       'GATE_CONSTRAINT_FAILED',
       `Runtime slot ${artifact.slot_id} is not supported by PaperImplementation Domain Gate materialization.`,
     );
-  }
-
-  private async materializeResultInterpretationPacket(
-    implementationProjectId: string,
-    artifact: PaperImplementationRuntimeArtifactEnvelope,
-    admission: PaperImplementationRuntimeAdmissionRecord,
-    request: CreateResultInterpretationPacketRequest,
-  ): Promise<PaperImplementationRuntimeDomainGateMaterializationResult> {
-    let existing = await this.findExistingResultInterpretationPacket(
-      implementationProjectId,
-      request.result_interpretation_packet_id,
-    );
-    let status: PaperImplementationDomainGateMaterializationStatus = 'already_materialized';
-    if (!existing) {
-      status = 'materialized';
-      try {
-        existing = await this.resultClaimDossier.createResultInterpretationPacket(implementationProjectId, request);
-      } catch (error) {
-        if (!this.isVersionConflict(error)) {
-          throw error;
-        }
-        existing = await this.findExistingResultInterpretationPacket(
-          implementationProjectId,
-          request.result_interpretation_packet_id,
-        );
-        if (!existing) {
-          throw error;
-        }
-        status = 'already_materialized';
-      }
-    }
-    this.assertResultInterpretationPacketMatchesRequest(existing, request);
-    return {
-      status,
-      implementation_project_id: implementationProjectId,
-      runtime_artifact_id: artifact.runtime_artifact_id,
-      slot_id: artifact.slot_id,
-      domain_artifact_ref: {
-        ref_type: 'result_interpretation_packet',
-        ref_id: existing.result_interpretation_packet_id,
-        title_card_id: artifact.target_ref.title_card_id ?? null,
-      },
-      domain_artifact_hash: this.hash(existing),
-      runtime_admission_record: admission,
-    };
   }
 
   private async materializeClaimCandidate(
@@ -313,16 +249,6 @@ export class PaperImplementationRuntimeDomainGateService {
     }
   }
 
-  private resultAnalysisPayload(artifact: PaperImplementationRuntimeArtifactEnvelope): PaperImplementationResultAnalysisArtifact {
-    const payload = artifact.artifact_payload;
-    if (!this.resultAnalysisArtifactValidator(payload)) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Runtime artifact payload is not a result analysis runtime artifact.', {
-        errors: this.resultAnalysisArtifactValidator.errors ?? [],
-      });
-    }
-    return payload as unknown as PaperImplementationResultAnalysisArtifact;
-  }
-
   private p1ReviewPayload(artifact: PaperImplementationRuntimeArtifactEnvelope): PaperImplementationP1RuntimeReviewArtifact {
     const payload = artifact.artifact_payload;
     if (!this.p1ReviewArtifactValidator(payload)) {
@@ -356,20 +282,6 @@ export class PaperImplementationRuntimeDomainGateService {
     return value as unknown as CreateImplementationDossierRequest;
   }
 
-  private resultInterpretationPacketRequest(value: Record<string, unknown>): CreateResultInterpretationPacketRequest {
-    if (!this.createResultInterpretationPacketRequestValidator(value)) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        'Domain Gate result_interpretation_packet domain_gate_request is invalid.',
-        {
-          errors: this.createResultInterpretationPacketRequestValidator.errors ?? [],
-        },
-      );
-    }
-    return value as unknown as CreateResultInterpretationPacketRequest;
-  }
-
   private async findExistingClaimCandidate(
     implementationProjectId: string,
     claimCandidateId: string,
@@ -390,23 +302,6 @@ export class PaperImplementationRuntimeDomainGateService {
   ): Promise<ImplementationDossier | null> {
     try {
       return await this.resultClaimDossier.getImplementationDossier(implementationProjectId, dossierId);
-    } catch (error) {
-      if (error instanceof AppError && error.statusCode === 404) {
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  private async findExistingResultInterpretationPacket(
-    implementationProjectId: string,
-    resultInterpretationPacketId: string,
-  ): Promise<ResultInterpretationPacket | null> {
-    try {
-      return await this.resultClaimDossier.getResultInterpretationPacket(
-        implementationProjectId,
-        resultInterpretationPacketId,
-      );
     } catch (error) {
       if (error instanceof AppError && error.statusCode === 404) {
         return null;
@@ -453,58 +348,6 @@ export class PaperImplementationRuntimeDomainGateService {
       'VERSION_CONFLICT',
       `ImplementationDossier ${request.dossier_id} already exists with different Domain Gate payload.`,
     );
-  }
-
-  private assertResultInterpretationPacketMatchesRequest(
-    packet: ResultInterpretationPacket,
-    request: CreateResultInterpretationPacketRequest,
-  ): void {
-    const existingHash = this.hash(this.resultInterpretationPacketIdentity(packet, request));
-    const requestHash = this.hash(this.resultInterpretationRequestIdentity(request, packet));
-    if (existingHash === requestHash) {
-      return;
-    }
-    throw new AppError(
-      409,
-      'VERSION_CONFLICT',
-      `ResultInterpretationPacket ${request.result_interpretation_packet_id} already exists with different Domain Gate payload.`,
-    );
-  }
-
-  private resultInterpretationRequestIdentity(
-    request: CreateResultInterpretationPacketRequest,
-    existing?: ResultInterpretationPacket,
-  ): Record<string, unknown> {
-    return {
-      result_interpretation_packet_id: request.result_interpretation_packet_id,
-      validation_cycle_id: request.validation_cycle_id,
-      experiment_plan_light_id: request.experiment_plan_light_id ?? null,
-      source: this.resultInterpretationSourceIdentity(request.source),
-      result_summary: this.resultInterpretationSummaryIdentity(request.result_summary),
-      reliability: this.resultInterpretationReliabilityIdentity(request.reliability),
-      claim_implications: this.resultInterpretationClaimImplicationsIdentity(request.claim_implications),
-      trace_manifest_id: request.trace_manifest_id,
-      policy_version_id: request.policy_version_id ?? existing?.policy_version_id ?? null,
-      created_by: request.created_by ?? 'system',
-    };
-  }
-
-  private resultInterpretationPacketIdentity(
-    packet: ResultInterpretationPacket,
-    request: CreateResultInterpretationPacketRequest,
-  ): Record<string, unknown> {
-    return {
-      result_interpretation_packet_id: packet.result_interpretation_packet_id,
-      validation_cycle_id: packet.validation_cycle_id,
-      experiment_plan_light_id: packet.experiment_plan_light_id ?? null,
-      source: this.resultInterpretationSourceIdentity(packet.source),
-      result_summary: this.resultInterpretationSummaryIdentity(packet.result_summary),
-      reliability: this.resultInterpretationReliabilityIdentity(packet.reliability),
-      claim_implications: this.resultInterpretationClaimImplicationsIdentity(packet.claim_implications),
-      trace_manifest_id: packet.trace_manifest_id,
-      policy_version_id: request.policy_version_id ?? packet.policy_version_id ?? null,
-      created_by: packet.created_by,
-    };
   }
 
   private claimRequestIdentity(
@@ -592,55 +435,6 @@ export class PaperImplementationRuntimeDomainGateService {
       abandon_reason: dossier.abandon_reason ?? null,
       policy_version_id: request.policy_version_id ?? dossier.policy_version_id ?? null,
       created_by: dossier.created_by,
-    };
-  }
-
-  private resultInterpretationSourceIdentity(
-    value: CreateResultInterpretationPacketRequest['source'],
-  ): Record<string, unknown> {
-    return {
-      run_evidence_refs: this.dedupeRefs(value.run_evidence_refs),
-      validation_report_refs: this.dedupeRefs(value.validation_report_refs),
-      metric_refs: this.dedupeRefs(value.metric_refs),
-      failed_run_refs: this.dedupeRefs(value.failed_run_refs),
-      inconclusive_run_refs: this.dedupeRefs(value.inconclusive_run_refs),
-      stale_or_invalidated_evidence_refs: this.dedupeRefs(value.stale_or_invalidated_evidence_refs),
-    };
-  }
-
-  private resultInterpretationSummaryIdentity(
-    value: CreateResultInterpretationPacketRequest['result_summary'],
-  ): Record<string, unknown> {
-    return {
-      result_summary: value.result_summary.trim(),
-      supports_assertion_refs: this.dedupeRefs(value.supports_assertion_refs),
-      challenges_assertion_refs: this.dedupeRefs(value.challenges_assertion_refs),
-      unexpected_findings: [...value.unexpected_findings],
-      failed_runs_accounted_for: value.failed_runs_accounted_for,
-      inconclusive_runs_accounted_for: value.inconclusive_runs_accounted_for,
-      exploratory_confirmatory_separated: value.exploratory_confirmatory_separated,
-    };
-  }
-
-  private resultInterpretationReliabilityIdentity(
-    value: CreateResultInterpretationPacketRequest['reliability'],
-  ): Record<string, unknown> {
-    return {
-      failed_runs_retained: value.failed_runs_retained,
-      confound_refs: this.dedupeRefs(value.confound_refs),
-      limitation_refs: this.dedupeRefs(value.limitation_refs),
-      reliability_notes: [...value.reliability_notes],
-    };
-  }
-
-  private resultInterpretationClaimImplicationsIdentity(
-    value: CreateResultInterpretationPacketRequest['claim_implications'],
-  ): Record<string, unknown> {
-    return {
-      allowed_claim_ceiling: value.allowed_claim_ceiling,
-      forbidden_overclaims: [...value.forbidden_overclaims],
-      recommended_claim_refs: this.dedupeRefs(value.recommended_claim_refs),
-      required_followup_refs: this.dedupeRefs(value.required_followup_refs),
     };
   }
 

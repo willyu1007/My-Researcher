@@ -223,6 +223,14 @@ export interface ImplementationDossierSourceBundle {
   run_evidence_refs: TopicSelectionFunctionalRef[];
   validation_cycle_refs: TopicSelectionFunctionalRef[];
   trace_manifest_refs: TopicSelectionFunctionalRef[];
+  /** Optional only so pre-cutover persisted dossiers remain readable history. */
+  closed_validation_cycle_snapshot_refs?: ClosedValidationCycleSnapshotRef[];
+}
+
+export interface ClosedValidationCycleSnapshotRef {
+  validation_cycle_id: string;
+  closure_id: string;
+  closure_snapshot_hash: string;
 }
 
 export interface ImplementationDossierExperimentSection {
@@ -278,6 +286,7 @@ export interface CreateImplementationDossierRequest {
   result_interpretation_packet_ids: string[];
   claim_candidate_ids: string[];
   claim_trace_packet_ids: string[];
+  closed_validation_cycle_snapshot_refs: ClosedValidationCycleSnapshotRef[];
   experiment_section: ImplementationDossierExperimentSection;
   claim_section: ImplementationDossierClaimSection;
   readiness: ImplementationDossierReadiness;
@@ -365,6 +374,20 @@ const writingEntryPacketStatusSchema = {
 } as const;
 const resultFeedbackTriggerSchema = {
   enum: [...PAPER_IMPLEMENTATION_RESULT_FEEDBACK_TRIGGERS],
+} as const;
+
+export const RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE =
+  'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED' as const;
+
+export const closedValidationCycleSnapshotRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['validation_cycle_id', 'closure_id', 'closure_snapshot_hash'],
+  properties: {
+    validation_cycle_id: stringId,
+    closure_id: stringId,
+    closure_snapshot_hash: stringId,
+  },
 } as const;
 
 export const resultInterpretationSourceBundleSchema = {
@@ -691,6 +714,10 @@ export const implementationDossierSourceBundleSchema = {
     run_evidence_refs: functionalRefArray,
     validation_cycle_refs: functionalRefArray,
     trace_manifest_refs: functionalRefArray,
+    closed_validation_cycle_snapshot_refs: {
+      type: 'array',
+      items: closedValidationCycleSnapshotRefSchema,
+    },
   },
 } as const;
 
@@ -703,6 +730,7 @@ export const createImplementationDossierRequestSchema = {
     'result_interpretation_packet_ids',
     'claim_candidate_ids',
     'claim_trace_packet_ids',
+    'closed_validation_cycle_snapshot_refs',
     'experiment_section',
     'claim_section',
     'readiness',
@@ -715,6 +743,10 @@ export const createImplementationDossierRequestSchema = {
     result_interpretation_packet_ids: { type: 'array', items: stringId },
     claim_candidate_ids: { type: 'array', items: stringId },
     claim_trace_packet_ids: { type: 'array', items: stringId },
+    closed_validation_cycle_snapshot_refs: {
+      type: 'array',
+      items: closedValidationCycleSnapshotRefSchema,
+    },
     experiment_section: implementationDossierExperimentSectionSchema,
     claim_section: implementationDossierClaimSectionSchema,
     readiness: implementationDossierReadinessSchema,

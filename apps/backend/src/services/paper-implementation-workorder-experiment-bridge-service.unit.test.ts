@@ -569,7 +569,7 @@ test('rejects experiment foundation DTO copies and paper claims at adjacent brid
   assert.deepEqual(Object.keys(lightweight.monitor_intake.raw_payload).sort(), ['external_event_ref', 'result_hash']);
 });
 
-test('admits work order, submits harness run, and records failed run evidence', async () => {
+test('admits work order, submits harness run, and records failed execution as a monitor fact only', async () => {
   const { service, workOrderRepository } = await makeHarness();
   await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
   const admitted = await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
@@ -587,8 +587,6 @@ test('admits work order, submits harness run, and records failed run evidence', 
 
   const response = await service.recordRunMonitorIntake(PROJECT_ID, {
     work_order_id: WORK_ORDER_ID,
-    run_evidence_unit_id: RUN_EVIDENCE_ID,
-    run_evidence_trace_manifest_id: 'trace_manifest_run_evidence_001',
     external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
     external_job_hash: 'experiment_run_hash_001',
     monitor_event_kind: 'failed',
@@ -596,9 +594,10 @@ test('admits work order, submits harness run, and records failed run evidence', 
     failure_summary: 'The run failed before producing result artifacts.',
   });
   assert.equal(response.monitor_intake.trust_status, 'trusted');
-  assert.equal(response.run_evidence_unit?.run_status, 'failed');
-  assert.equal(response.run_evidence_unit?.failure_summary_id?.startsWith('run_failure_summary_'), true);
-  assert.equal(response.run_evidence_unit?.trace_manifest_id, 'trace_manifest_run_evidence_001');
+  assert.equal(response.monitor_intake.run_status, 'failed');
+  assert.equal(response.evidence_handoff.authority, 'paper_implementation_evidence_trust_gateway_v2');
+  assert.equal(response.evidence_handoff.required_input, 'ef_qualified_evidence_candidate');
+  assert.equal((await service.listRunEvidenceUnits(PROJECT_ID)).length, 0);
   assert.equal((await workOrderRepository.findWorkOrderById(PROJECT_ID, WORK_ORDER_ID))?.work_order_status, 'failed');
 });
 
@@ -655,7 +654,7 @@ test('harness run submission replays same idempotency key and rejects drifted ex
   );
 });
 
-test('trusted final run evidence requires target-specific run evidence trace manifest', async () => {
+test('monitor intake rejects explicit legacy REU minting parameters with the permanent closure reason', async () => {
   const { service } = await makeHarness();
   await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
   await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
@@ -667,38 +666,26 @@ test('trusted final run evidence requires target-specific run evidence trace man
     external_job_hash: 'experiment_run_hash_001',
   });
 
-  await assertRejectsWithCode(
-    () => service.recordRunMonitorIntake(PROJECT_ID, {
-      work_order_id: WORK_ORDER_ID,
-      external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
-      external_job_hash: 'experiment_run_hash_001',
-      monitor_event_kind: 'failed',
-      run_status: 'failed',
-      failure_summary: 'The final callback did not predeclare evidence identity.',
-    }),
-    'GATE_CONSTRAINT_FAILED',
-  );
-
-  await assertRejectsWithCode(
-    () => service.recordRunMonitorIntake(PROJECT_ID, {
+  await assert.rejects(
+    service.recordRunMonitorIntake(PROJECT_ID, {
       work_order_id: WORK_ORDER_ID,
       run_evidence_unit_id: RUN_EVIDENCE_ID,
+      run_evidence_trace_manifest_id: 'trace_manifest_run_evidence_001',
       external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
       external_job_hash: 'experiment_run_hash_001',
       monitor_event_kind: 'failed',
       run_status: 'failed',
-      failure_summary: 'The final callback did not include the evidence trace.',
+      failure_summary: 'The caller attempted to mint legacy evidence.',
     }),
-    'GATE_CONSTRAINT_FAILED',
+    (error) => error instanceof AppError
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED',
   );
+  assert.equal((await service.listRunEvidenceUnits(PROJECT_ID)).length, 0);
 });
 
-test('negative final run keeps process completion separate from scientific outcome', async () => {
-  const { service, workOrderRepository, traceRepository } = await makeHarness();
-  await traceRepository.createTraceManifest(
-    traceManifest('trace_manifest_run_evidence_negative', 'run_evidence_unit', 'run_evidence_unit_negative'),
-    [],
-  );
+test('legacy negative status remains monitor history and never becomes RunEvidenceUnit authority', async () => {
+  const { service, workOrderRepository } = await makeHarness();
   await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
   await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
     admission_gate_result_id: 'work_order_gate_result_001',
@@ -711,8 +698,6 @@ test('negative final run keeps process completion separate from scientific outco
 
   const response = await service.recordRunMonitorIntake(PROJECT_ID, {
     work_order_id: WORK_ORDER_ID,
-    run_evidence_unit_id: 'run_evidence_unit_negative',
-    run_evidence_trace_manifest_id: 'trace_manifest_run_evidence_negative',
     external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
     external_job_hash: 'experiment_run_hash_001',
     monitor_event_kind: 'failed',
@@ -720,7 +705,8 @@ test('negative final run keeps process completion separate from scientific outco
     failure_summary: 'The controlled run completed with a negative scientific outcome.',
   });
 
-  assert.equal(response.run_evidence_unit?.run_status, 'negative');
+  assert.equal(response.monitor_intake.run_status, 'negative');
+  assert.equal((await service.listRunEvidenceUnits(PROJECT_ID)).length, 0);
   assert.equal((await workOrderRepository.findWorkOrderById(PROJECT_ID, WORK_ORDER_ID))?.work_order_status, 'completed');
 });
 
@@ -737,11 +723,11 @@ test('marks monitor intake without work_order_id untrusted and does not create r
     result_validation_report_hash: 'report_hash_001',
   });
   assert.equal(response.monitor_intake.trust_status, 'untrusted');
-  assert.equal(response.run_evidence_unit, null);
+  assert.equal(response.evidence_handoff.authority, 'paper_implementation_evidence_trust_gateway_v2');
   assert.equal((await service.listRunEvidenceUnits(PROJECT_ID)).length, 0);
 });
 
-test('successful trusted run evidence requires result and validation report refs', async () => {
+test('successful monitor intake does not trust caller result fields or mint evidence', async () => {
   const { service } = await makeHarness();
   await service.createResearchWorkOrderDraft(PROJECT_ID, workOrderRequest());
   await service.admitResearchWorkOrder(PROJECT_ID, WORK_ORDER_ID, {
@@ -753,18 +739,18 @@ test('successful trusted run evidence requires result and validation report refs
     external_job_hash: 'experiment_run_hash_001',
   });
 
-  await assertRejectsWithCode(
-    () => service.recordRunMonitorIntake(PROJECT_ID, {
-      work_order_id: WORK_ORDER_ID,
-      external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
-      external_job_hash: 'experiment_run_hash_001',
-      monitor_event_kind: 'result_available',
-      run_status: 'succeeded',
-      result_ref: ref('experiment_result', 'result_001'),
-      result_hash: 'result_hash_001',
-    }),
-    'GATE_CONSTRAINT_FAILED',
-  );
+  const response = await service.recordRunMonitorIntake(PROJECT_ID, {
+    work_order_id: WORK_ORDER_ID,
+    external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
+    external_job_hash: 'experiment_run_hash_001',
+    monitor_event_kind: 'result_available',
+    run_status: 'succeeded',
+    result_ref: ref('experiment_result', 'result_001'),
+    result_hash: 'result_hash_001',
+  });
+  assert.equal(response.monitor_intake.result_ref?.ref_id, 'result_001');
+  assert.equal(response.evidence_handoff.required_input, 'ef_qualified_evidence_candidate');
+  assert.equal((await service.listRunEvidenceUnits(PROJECT_ID)).length, 0);
 });
 
 test('trusted monitor intake requires a submitted harness run', async () => {

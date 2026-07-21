@@ -2,7 +2,7 @@
 
 ## Status
 - Current status: `in-progress`
-- Last updated: 2026-07-18
+- Last updated: 2026-07-21
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation 均已验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；未通过真实 Aliyun read-only acceptance，也未执行非本地 rollout、provider write 或 scientific execution。
 
 ## 2026-07-18 — Pack C implementation start
@@ -635,3 +635,11 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - Added `packc-pi-<date>-r<N>` with exact PC08-PC16/PC19-PI/PC20 evidence mapping. PC17 is `deferred_to_cutover` only after static proof that no v2 Packet writer exists and `ValidationCycleClosed@v1` has one producer. The same census requires all four real `app.ts` closure lookups, the four-kind 5a Sidecar guard, evaluator zero writes and the untouched legacy `/complete` delegate.
 - The summary uses exact keysets, canonical SHA-256, the reviewed digest-pinned pgvector image, zero/redaction censuses and both C-PI migrations. `20260720141000_harden_paper_implementation_pack_c_closure_v2` is explicitly recorded as `UNAPPLIED_TO_NAMED_LOCAL_INFORMATIONAL`; the disposable gate applies full migration history but never connects to named-local PostgreSQL.
 - Sandbox gate `packc-pi-20260721-r1` returned exit 2 / `blocked`, with 121/121 non-relational tests, zero skips/failures, PC08/PC14/PC19-PI/PC20 passed, PC17 deferred and every relational-dependent check blocked. Canonical summary SHA-256: `sha256:cc169aeddc81d85df4378a2a0d823e288beca454f50d2dff0e70b22579c1bfd9`. Host PostgreSQL closure remains pending.
+
+## 2026-07-21 — Pack C C-cutover increment 1 D-16 evidence seam
+
+- Closed the legacy WorkOrder monitor/manual attachment constructor and every live-adapter terminal choreography. Monitor intake, sync, collect and cancel now persist monitor/lifecycle facts only; no adapter constructs a `RunEvidenceUnit` or `TraceManifest`. Explicit legacy REU/trace identity parameters fail before side effects with `LEGACY_SCIENTIFIC_WRITER_CLOSED`, and responses identify the v2 Evidence Trust Gateway plus its EF-qualified candidate requirement.
+- Removed dossier-wide failed-like REU reconciliation, including `PROJECT_ACCOUNTABLE_RUN_STATUSES`, the unbounded project scan, newer-REU inference and WorkOrder-supersession inference. A ready dossier now requires explicit `(validation_cycle_id, closure_id, closure_snapshot_hash)` refs and verifies exact v2 closure identity, hash and project ownership. Open, tampered and foreign-project refs fail closed; no scan fallback or dual read remains. Historical dossier rows remain readable and unchanged.
+- Closed the direct packet POST service and runtime Domain Gate packet materializer with `RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED`. Result-analysis artifacts may still carry proposal-era analysis content, but no pre-closure path persists a packet. A later increment must add the one-way materializer consuming `ValidationCycleClosed`; this increment deliberately adds no partial replacement.
+- Replaced the T-124 assertions for trusted failed/negative/cancelled REUs, runtime/direct packet creation and project-wide S3 accounting with gateway-only, zero-writer, explicit-closure and open/tampered/wrong-project fail-closed coverage. The legacy `/complete` route/service and optional closure-lookup injection default remain untouched for increment 2, as scoped.
+- No Prisma schema/migration, env-contract, capability flag, v2 gateway/closure/evaluator service or persisted legacy row was changed. Detailed census disposition and verification evidence are in `artifacts/pack-c-preplanning-20260718/report.md`.

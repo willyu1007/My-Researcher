@@ -3,6 +3,9 @@ import test from 'node:test';
 
 import Fastify from 'fastify';
 import type {
+  ResultInterpretationPacket,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import type {
   BootstrapImplementationProjectResponse,
   RecordImplementationFeedbackEventResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
@@ -47,6 +50,11 @@ import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
+import { InMemoryPaperImplementationCycleReadinessV2Repository } from '../repositories/paper-implementation-cycle-readiness-v2.repository.js';
+import {
+  InMemoryPaperImplementationValidationCycleClosureV2Repository,
+  type PaperImplementationValidationCycleClosureV2Repository,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import {
   PaperImplementationIntakeBootstrapService,
   type PaperImplementationDownstreamFeedbackService,
@@ -653,6 +661,9 @@ function makeRealService(): {
     workOrderRepository,
     confirmationRepository,
     feedbackRecorder: service,
+    closedCycleSnapshotReader: {
+      findStoredClosureByCycle: async () => null,
+    },
     idFactory,
     now: () => NOW,
   });
@@ -1031,9 +1042,62 @@ test('buildApp registers PaperImplementation routes and drives bootstrap happy p
 
 test('PaperImplementation motive routes bootstrap draft admission and evidence board through buildApp', async () => {
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
+  const workOrderRepository = new InMemoryPaperImplementationWorkOrderRepository();
+  const resultClaimDossierRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
+  const closureSnapshotHash = 'sha256:route-closure-snapshot-001';
+  const seededClosureRepository = new InMemoryPaperImplementationValidationCycleClosureV2Repository({
+    readinessRepository: new InMemoryPaperImplementationCycleReadinessV2Repository(),
+    closures: [{
+      implementation_project_id: 'implementation_project_001',
+      closure: {
+        closure_id: 'validation_cycle_closure_route_001',
+        schema_version: 'v1',
+        validation_cycle_id: 'validation_cycle_route_001',
+        cycle_version_at_closure: 1,
+        closure_kind: 'control_flow_validated_no_paper_evidence',
+        scientific_disposition: null,
+        selected_exit_key: null,
+        accepted_proposal_id: null,
+        accepted_proposal_hash: null,
+        closure_watermark: {
+          schema_version: 'v1',
+          validation_cycle_id: 'validation_cycle_route_001',
+          expected_cycle_version: 1,
+          ordered_branches: [],
+          active_real_attempt_count: 0,
+          closure_input_hash: 'sha256:route-closure-input-001',
+        },
+        closure_snapshot_hash: closureSnapshotHash,
+      },
+      idempotency_key: 'route-close-cycle-001',
+      created_at: NOW,
+    }],
+  });
+  let closureOwnerProjectId = 'implementation_project_pending';
+  const closureRepository: PaperImplementationValidationCycleClosureV2Repository = {
+    isCycleClosed: (validationCycleId) => seededClosureRepository.isCycleClosed(validationCycleId),
+    withTransaction: (operation) => seededClosureRepository.withTransaction((transaction) => operation({
+      ...transaction,
+      findStoredClosureByCycle: async (validationCycleId) => {
+        const stored = await transaction.findStoredClosureByCycle(validationCycleId);
+        return stored === null
+          ? null
+          : { ...stored, implementation_project_id: closureOwnerProjectId };
+      },
+      findStoredClosureByIdempotencyKey: async (idempotencyKey) => {
+        const stored = await transaction.findStoredClosureByIdempotencyKey(idempotencyKey);
+        return stored === null
+          ? null
+          : { ...stored, implementation_project_id: closureOwnerProjectId };
+      },
+    })),
+  };
   const app = buildApp({
     paperImplementationRepository: new InMemoryPaperImplementationRepository(),
     paperImplementationTraceRepository: new InMemoryPaperImplementationTraceRepository(),
+    paperImplementationWorkOrderRepository: workOrderRepository,
+    paperImplementationResultClaimDossierRepository: resultClaimDossierRepository,
+    paperImplementationValidationCycleClosureV2Repository: closureRepository,
     paperImplementationBridgeService: new StubBridgeService(),
     paperImplementationDownstreamFeedbackService: downstreamFeedback,
   });
@@ -1049,6 +1113,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assert.equal(created.statusCode, 201);
     const projectId = (created.json() as BootstrapImplementationProjectResponse)
       .implementation_project.implementation_project_id;
+    closureOwnerProjectId = projectId;
 
     const draft = await app.inject({
       method: 'POST',
@@ -1381,36 +1446,12 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assertStatus(missingRunEvidenceTraceMonitor, 409);
 
     const routeRunEvidenceId = 'run_evidence_unit_route_001';
-    const runEvidenceTrace = await app.inject({
-      method: 'POST',
-      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/trace-manifests`,
-      payload: {
-        target_ref: ref('run_evidence_unit', routeRunEvidenceId, 'v1'),
-        lineage: {
-          ...emptyTraceLineage(),
-          experiment: {
-            ...emptyTraceLineage().experiment,
-            work_order_refs: [ref('research_work_order', 'research_work_order_route_001')],
-            run_refs: [ref('experiment_foundation_run', 'experiment_foundation_run_001')],
-          },
-          artifact: {
-            ...emptyTraceLineage().artifact,
-            dataset_refs: [ref('dataset_version', 'dataset_route_001')],
-            code_version_refs: [ref('code_version', 'code_route_001')],
-            config_refs: [ref('config', 'config_route_001')],
-          },
-        },
-      },
-    });
-    assertStatus(runEvidenceTrace, 201);
 
     const monitor = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/run-monitor-intakes`,
       payload: {
         work_order_id: 'research_work_order_route_001',
-        run_evidence_unit_id: routeRunEvidenceId,
-        run_evidence_trace_manifest_id: (runEvidenceTrace.json() as TraceManifest).trace_manifest_id,
         external_job_ref: ref('experiment_foundation_run', 'experiment_foundation_run_001'),
         external_job_hash: 'external_job_hash_001',
         monitor_event_kind: 'failed',
@@ -1421,16 +1462,15 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assertStatus(monitor, 201);
     const monitorBody = monitor.json() as RecordRunMonitorIntakeResponse;
     assert.equal(monitorBody.monitor_intake.trust_status, 'trusted');
-    assert.equal(monitorBody.run_evidence_unit?.run_status, 'failed');
+    assert.equal(monitorBody.monitor_intake.run_status, 'failed');
+    assert.equal(monitorBody.evidence_handoff.authority, 'paper_implementation_evidence_trust_gateway_v2');
 
     const runEvidenceUnits = await app.inject({
       method: 'GET',
       url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/run-evidence-units`,
     });
     assertStatus(runEvidenceUnits, 200);
-    assert.equal((runEvidenceUnits.json() as { items: RunEvidenceUnit[] }).items[0]?.work_order_id, 'research_work_order_route_001');
-    assert.equal(monitorBody.run_evidence_unit?.run_evidence_unit_id, routeRunEvidenceId);
-    assert.equal(monitorBody.run_evidence_unit?.trace_manifest_id, (runEvidenceTrace.json() as TraceManifest).trace_manifest_id);
+    assert.equal((runEvidenceUnits.json() as { items: RunEvidenceUnit[] }).items.length, 0);
 
     const resultTrace = await app.inject({
       method: 'POST',
@@ -1488,7 +1528,56 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         trace_manifest_id: (resultTrace.json() as TraceManifest).trace_manifest_id,
       },
     });
-    assertStatus(resultPacket, 201);
+    assertStatus(resultPacket, 409);
+    assert.equal(
+      resultPacket.json().error.details.reason_code,
+      'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED',
+    );
+    const historicalPacket: ResultInterpretationPacket = {
+      result_interpretation_packet_id: 'result_interpretation_packet_route_001',
+      implementation_project_id: projectId,
+      validation_cycle_id: 'validation_cycle_route_001',
+      experiment_plan_light_id: 'experiment_plan_light_route_001',
+      source: {
+        run_evidence_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
+        validation_report_refs: [],
+        metric_refs: [ref('metric', 'claim_conflation_rate')],
+        failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
+        inconclusive_run_refs: [],
+        stale_or_invalidated_evidence_refs: [],
+      },
+      result_summary: {
+        result_summary: 'Historical pre-cutover packet retained for downstream read coverage.',
+        supports_assertion_refs: [],
+        challenges_assertion_refs: [ref('motive_assertion', 'motive_assertion_route_001')],
+        unexpected_findings: [],
+        failed_runs_accounted_for: true,
+        inconclusive_runs_accounted_for: true,
+        exploratory_confirmatory_separated: true,
+      },
+      reliability: {
+        failed_runs_retained: true,
+        confound_refs: [],
+        limitation_refs: [],
+        reliability_notes: [],
+      },
+      claim_implications: {
+        allowed_claim_ceiling: 'tentative',
+        forbidden_overclaims: ['broad model reliability'],
+        recommended_claim_refs: [],
+        required_followup_refs: [],
+      },
+      interpretation_gate_status: 'passed_with_risk',
+      trace_manifest_ref: ref(
+        'trace_manifest',
+        (resultTrace.json() as TraceManifest).trace_manifest_id,
+      ),
+      trace_manifest_id: (resultTrace.json() as TraceManifest).trace_manifest_id,
+      policy_version_id: 'policy_v1',
+      created_by: 'system',
+      created_at: NOW,
+    };
+    await resultClaimDossierRepository.createResultInterpretationPacket(historicalPacket);
 
     const claimTraceManifest = await app.inject({
       method: 'POST',
@@ -1560,7 +1649,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         claim_statement: 'The run exposes a bounded failure case.',
         claim_strength: 'tentative',
         result_interpretation_packet_ids: ['result_interpretation_packet_route_001'],
-        support_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
+        support_refs: [ref('literature_evidence_unit', 'literature_evidence_unit_001')],
         challenge_refs: [],
         scope: {
           population_scope: 'Controlled synthesis conflation check.',
@@ -1622,6 +1711,11 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         result_interpretation_packet_ids: ['result_interpretation_packet_route_001'],
         claim_candidate_ids: ['claim_candidate_route_001'],
         claim_trace_packet_ids: [(claimTracePacket.json() as ClaimTracePacket).claim_trace_packet_id],
+        closed_validation_cycle_snapshot_refs: [{
+          validation_cycle_id: 'validation_cycle_route_001',
+          closure_id: 'validation_cycle_closure_route_001',
+          closure_snapshot_hash: closureSnapshotHash,
+        }],
         experiment_section: {
           failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
           inconclusive_run_refs: [],
@@ -1670,7 +1764,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assertStatus(untrustedMonitor, 201);
     const untrustedMonitorBody = untrustedMonitor.json() as RecordRunMonitorIntakeResponse;
     assert.equal(untrustedMonitorBody.monitor_intake.trust_status, 'untrusted');
-    assert.equal(untrustedMonitorBody.run_evidence_unit, null);
+    assert.equal(untrustedMonitorBody.evidence_handoff.required_input, 'ef_qualified_evidence_candidate');
 
     const completedValidation = await app.inject({
       method: 'POST',

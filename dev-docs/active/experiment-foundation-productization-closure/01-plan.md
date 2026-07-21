@@ -34,10 +34,10 @@ Authorization scope: Phase 4 per `09-pack-c-implementation-readiness-review.md` 
 
 ### Slice C-cutover — atomic T-124 seam (gates `packc-cutover-*`, check PC18; scheduled per OD-C3 after T-133 N2+N6)
 
-1. Remove monitor/live-collect/cancel/finalization trusted REU minting for failed/cancelled/negative/inconclusive; route all seven census entry paths through the gateway.
-2. Remove `PROJECT_ACCOUNTABLE_RUN_STATUSES`/`assertProjectRunEvidenceAccounting`, the project-wide REU scan and supersession heuristics; dossier consumes explicit closed-Cycle snapshot refs/hashes only.
-3. Remove both pre-closure Packet triggers; retain only post-closure one-way materialization from `ValidationCycleClosed`.
-4. Replace superseded T-124 tests in the same slice; no dual read, alias or fallback; final convergence gate `packc-final-*` runs PC01-PC20 together.
+1. **Increment 1 completed 2026-07-21:** monitor/manual attachment and live collect/cancel/finalization/sync paths create monitor or lifecycle facts only. All legacy REU/TraceManifest construction is deleted, explicit legacy minting parameters return `LEGACY_SCIENTIFIC_WRITER_CLOSED`, and the v2 Evidence Trust Gateway is the sole REU writer.
+2. **Increment 1 completed 2026-07-21:** `PROJECT_ACCOUNTABLE_RUN_STATUSES`, project-wide dossier REU accounting, the unbounded scan and supersession heuristics are removed. Ready dossiers require explicit closed-Cycle snapshot refs and exact closure id/hash/project verification with no legacy fallback.
+3. **Increment 1 completed 2026-07-21:** both pre-closure Packet triggers are closed with `RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED`. Post-closure materialization remains intentionally unavailable until a later increment consumes `ValidationCycleClosed`; no partial materializer was introduced.
+4. **Increment 1 completed 2026-07-21:** superseded T-124 writer, packet-trigger and S3 accounting assertions are replaced by gateway-only and closed-snapshot fail-closed coverage. Increment 2 retains the explicitly excluded legacy `/complete` conversion and closure-lookup optional-injection default; final convergence gate `packc-final-*` still runs PC01-PC20 together.
 
 ### Verification commands
 

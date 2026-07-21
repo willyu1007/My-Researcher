@@ -100,6 +100,11 @@ function validDossierRequest() {
     result_interpretation_packet_ids: ['result_interpretation_packet_001'],
     claim_candidate_ids: ['claim_candidate_001'],
     claim_trace_packet_ids: ['claim_trace_packet_001'],
+    closed_validation_cycle_snapshot_refs: [{
+      validation_cycle_id: 'validation_cycle_001',
+      closure_id: 'validation_cycle_closure_001',
+      closure_snapshot_hash: 'sha256:closure-snapshot-001',
+    }],
     experiment_section: {
       failed_run_refs: [],
       inconclusive_run_refs: [],

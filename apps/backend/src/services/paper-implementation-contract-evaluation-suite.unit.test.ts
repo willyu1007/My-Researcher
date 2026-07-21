@@ -15,6 +15,7 @@ import type {
   CreateClaimCandidateRequest,
   CreateImplementationDossierRequest,
   CreateResultInterpretationPacketRequest,
+  ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
   TraceLineageBundle,
@@ -51,6 +52,7 @@ import {
 } from '../repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
+import type { PaperImplementationStoredValidationCycleClosureV2 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import {
   PaperImplementationIntakeBootstrapService,
   type PaperImplementationDownstreamFeedbackService,
@@ -82,6 +84,36 @@ const RUN_EVIDENCE_ID = 'run_evidence_unit_001';
 const RESULT_PACKET_ID = 'result_interpretation_packet_001';
 const CLAIM_ID = 'claim_candidate_001';
 const DOSSIER_ID = 'implementation_dossier_001';
+const CLOSURE_ID = 'validation_cycle_closure_001';
+const CLOSURE_SNAPSHOT_HASH = 'sha256:closed-cycle-snapshot-001';
+
+function closedCycleAuthority(): PaperImplementationStoredValidationCycleClosureV2 {
+  return {
+    implementation_project_id: 'implementation_project_001',
+    closure: {
+      closure_id: CLOSURE_ID,
+      schema_version: 'v1',
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      cycle_version_at_closure: 1,
+      closure_kind: 'control_flow_validated_no_paper_evidence',
+      scientific_disposition: null,
+      selected_exit_key: null,
+      accepted_proposal_id: null,
+      accepted_proposal_hash: null,
+      closure_watermark: {
+        schema_version: 'v1',
+        validation_cycle_id: VALIDATION_CYCLE_ID,
+        expected_cycle_version: 1,
+        ordered_branches: [],
+        active_real_attempt_count: 0,
+        closure_input_hash: 'sha256:closure-input-001',
+      },
+      closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    },
+    idempotency_key: 'close-cycle-001',
+    created_at: NOW,
+  };
+}
 
 function ref(refType: string, refId: string, versionId: string | null = null): TopicSelectionFunctionalRef {
   return {
@@ -458,6 +490,14 @@ function buildEvaluationHarness() {
     workOrderRepository,
     confirmationRepository,
     feedbackRecorder,
+    closedCycleSnapshotReader: {
+      findStoredClosureByCycle: async (validationCycleId) => {
+        const stored = closedCycleAuthority();
+        return stored.closure.validation_cycle_id === validationCycleId
+          ? structuredClone(stored)
+          : null;
+      },
+    },
     idFactory,
     now: () => NOW,
   });
@@ -757,6 +797,29 @@ function resultPacketRequest(traceManifestId: string): CreateResultInterpretatio
   };
 }
 
+function historicalResultPacket(
+  implementationProjectId: string,
+  traceManifestId: string,
+): ResultInterpretationPacket {
+  const request = resultPacketRequest(traceManifestId);
+  return {
+    result_interpretation_packet_id: request.result_interpretation_packet_id,
+    implementation_project_id: implementationProjectId,
+    validation_cycle_id: request.validation_cycle_id,
+    experiment_plan_light_id: request.experiment_plan_light_id ?? null,
+    source: request.source,
+    result_summary: request.result_summary,
+    reliability: request.reliability,
+    claim_implications: request.claim_implications,
+    interpretation_gate_status: 'passed_with_risk',
+    trace_manifest_ref: ref('trace_manifest', traceManifestId),
+    trace_manifest_id: traceManifestId,
+    policy_version_id: 'policy_v1',
+    created_by: 'system',
+    created_at: NOW,
+  };
+}
+
 function claimCandidateRequest(traceManifestId: string, claimTracePacketId: string): CreateClaimCandidateRequest {
   return {
     claim_candidate_id: CLAIM_ID,
@@ -764,7 +827,7 @@ function claimCandidateRequest(traceManifestId: string, claimTracePacketId: stri
     claim_statement: 'The admitted confirmatory run failed before supporting a broad improvement claim.',
     claim_strength: 'moderate',
     result_interpretation_packet_ids: [RESULT_PACKET_ID],
-    support_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID)],
+    support_refs: [ref('literature_evidence_unit', 'literature_evidence_unit_001')],
     challenge_refs: [],
     scope: {
       population_scope: 'Admitted benchmark.',
@@ -796,6 +859,11 @@ function dossierRequest(
     result_interpretation_packet_ids: [RESULT_PACKET_ID],
     claim_candidate_ids: [CLAIM_ID],
     claim_trace_packet_ids: [claimTracePacketId],
+    closed_validation_cycle_snapshot_refs: [{
+      validation_cycle_id: VALIDATION_CYCLE_ID,
+      closure_id: CLOSURE_ID,
+      closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    }],
     experiment_section: {
       failed_run_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID)],
       inconclusive_run_refs: [],
@@ -1062,14 +1130,8 @@ test('T-101 replays the PaperImplementation ready path across child authorities'
     external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
     external_job_hash: 'experiment_run_hash_001',
   });
-  const runEvidenceTrace = await harness.traceService.createTraceManifest(projectId, {
-    target_ref: ref('run_evidence_unit', RUN_EVIDENCE_ID, 'v1'),
-    lineage: experimentLineage(),
-  });
   const monitor = await harness.workOrderService.recordRunMonitorIntake(projectId, {
     work_order_id: WORK_ORDER_ID,
-    run_evidence_unit_id: RUN_EVIDENCE_ID,
-    run_evidence_trace_manifest_id: runEvidenceTrace.trace_manifest_id,
     external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
     external_job_hash: 'experiment_run_hash_001',
     monitor_event_kind: 'failed',
@@ -1077,15 +1139,16 @@ test('T-101 replays the PaperImplementation ready path across child authorities'
     failure_summary: 'The run failed before producing result artifacts.',
   });
   assert.equal(monitor.monitor_intake.trust_status, 'trusted');
-  assert.equal(monitor.run_evidence_unit?.run_status, 'failed');
+  assert.equal(monitor.monitor_intake.run_status, 'failed');
+  assert.equal(monitor.evidence_handoff.authority, 'paper_implementation_evidence_trust_gateway_v2');
+  assert.equal((await harness.workOrderService.listRunEvidenceUnits(projectId)).length, 0);
 
   const resultTrace = await harness.traceService.createTraceManifest(projectId, {
     target_ref: ref('result_interpretation_packet', RESULT_PACKET_ID, 'v1'),
     lineage: experimentLineage(),
   });
-  const resultPacket = await harness.resultClaimService.createResultInterpretationPacket(
-    projectId,
-    resultPacketRequest(resultTrace.trace_manifest_id),
+  const resultPacket = await harness.resultClaimRepository.createResultInterpretationPacket(
+    historicalResultPacket(projectId, resultTrace.trace_manifest_id),
   );
   assert.equal(resultPacket.interpretation_gate_status, 'passed_with_risk');
 
@@ -1288,7 +1351,7 @@ test('T-101 blocks authority bypass and corrupted evaluation fixtures', async ()
     result_validation_report_hash: 'orphan_report_hash_001',
   });
   assert.equal(orphanMonitor.monitor_intake.trust_status, 'untrusted');
-  assert.equal(orphanMonitor.run_evidence_unit, null);
+  assert.equal(orphanMonitor.evidence_handoff.required_input, 'ef_qualified_evidence_candidate');
 
   const proposalTrace = await harness.traceService.createTraceManifest(projectId, {
     target_ref: ref('validation_cycle', VALIDATION_CYCLE_ID, 'v1'),
@@ -1591,7 +1654,8 @@ test('T-101 coverage anchors existing child-level blocked-path tests', async () 
     'portfolio constraint drift blocks validation cycle draft creation',
     'repeated low information gain completion creates loop budget review item',
     'marks monitor intake without work_order_id untrusted and does not create run evidence',
-    'result interpretation blocks failed runs that are not retained and accounted for',
+    'direct ResultInterpretationPacket materialization is closed pending ValidationCycleClosed consumption',
+    'ready dossier fails closed when a declared ValidationCycle has no v2 closure',
     'claim boundary blocks interpretation refs as support and forbidden overclaims',
     'strong claim requires explicit human confirmation',
     'expected information gain none blocks without human-confirmed override',

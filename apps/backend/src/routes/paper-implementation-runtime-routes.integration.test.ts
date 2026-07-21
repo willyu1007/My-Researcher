@@ -9,6 +9,9 @@ import type {
   ImplementationIntakeSnapshot,
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+import {
+  RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
   PaperImplementationExperimentPlanningRoleOutput,
   PaperImplementationExperimentWorkOrderDraftCandidate,
@@ -793,7 +796,7 @@ test('PaperImplementation dossier-readiness runtime run route uses the productio
   }
 });
 
-test('PaperImplementation result-analysis runtime run route uses the production slot service path', async () => {
+test('PaperImplementation result-analysis runtime preserves analysis artifacts but closes packet materialization', async () => {
   const fixture = await resultAnalysisDomainGateFixture();
   const gateway = new StubResultAnalysisGateway();
   const app = buildApp({
@@ -865,14 +868,13 @@ test('PaperImplementation result-analysis runtime run route uses the production 
         body.final_runtime_artifact.runtime_artifact_id,
       )}/materialize-domain-gate`,
     });
-    assert.equal(materialize.statusCode, 201);
-    const materializeBody = materialize.json() as {
-      status: string;
-      domain_artifact_ref: TopicSelectionFunctionalRef;
-    };
-    assert.equal(materializeBody.status, 'materialized');
-    assert.equal(materializeBody.domain_artifact_ref.ref_type, 'result_interpretation_packet');
-    assert.equal(materializeBody.domain_artifact_ref.ref_id, RESULT_PACKET_ID);
+    assertErrorCode(materialize, 409, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(
+      (materialize.json() as { error?: { details?: { reason_code?: string } } })
+        .error?.details?.reason_code,
+      RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
+    );
+    assert.equal((await fixture.resultRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
 
     const replay = await app.inject({
       method: 'POST',
@@ -880,8 +882,8 @@ test('PaperImplementation result-analysis runtime run route uses the production 
         body.final_runtime_artifact.runtime_artifact_id,
       )}/materialize-domain-gate`,
     });
-    assert.equal(replay.statusCode, 200);
-    assert.equal((replay.json() as { status: string }).status, 'already_materialized');
+    assertErrorCode(replay, 409, 'GATE_CONSTRAINT_FAILED');
+    assert.equal((await fixture.resultRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
   } finally {
     await app.close();
   }
@@ -2691,7 +2693,7 @@ test('PaperImplementation experiment planning runtime routes reject slot profile
   }
 });
 
-test('PaperImplementation result-analysis Domain Gate route rejects malformed and drifted payloads', async () => {
+test('PaperImplementation result-analysis Domain Gate closes both valid packet requests and rejects malformed payloads', async () => {
   const fixture = await resultAnalysisDomainGateFixture();
   const driftedInterpretation = {
     ...resultAnalysisRoleOutput().interpretation!,
@@ -2737,7 +2739,12 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
         firstBody.final_runtime_artifact.runtime_artifact_id,
       )}/materialize-domain-gate`,
     });
-    assert.equal(firstMaterialize.statusCode, 201);
+    assertErrorCode(firstMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(
+      (firstMaterialize.json() as { error?: { details?: { reason_code?: string } } })
+        .error?.details?.reason_code,
+      RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
+    );
 
     const driftRun = await app.inject({
       method: 'POST',
@@ -2756,7 +2763,13 @@ test('PaperImplementation result-analysis Domain Gate route rejects malformed an
         driftBody.final_runtime_artifact.runtime_artifact_id,
       )}/materialize-domain-gate`,
     });
-    assertErrorCode(driftMaterialize, 409, 'VERSION_CONFLICT');
+    assertErrorCode(driftMaterialize, 409, 'GATE_CONSTRAINT_FAILED');
+    assert.equal(
+      (driftMaterialize.json() as { error?: { details?: { reason_code?: string } } })
+        .error?.details?.reason_code,
+      RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
+    );
+    assert.equal((await fixture.resultRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
 
     // T-124 G4.6: semantically hollow content (empty result_summary) is caught
     // by the typed role-output schema at the REAL orchestrator ajv gate

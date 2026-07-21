@@ -11,6 +11,7 @@ import type {
   RunMonitorIntakeRecord,
   SubmitResearchWorkOrderHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
+import { LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import type {
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
@@ -50,9 +51,7 @@ export type PaperImplementationWorkOrderExperimentBridgeServiceOptions = {
   now?: () => string;
 };
 
-const FINAL_RUN_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'inconclusive', 'negative']);
-const RESULT_REQUIRED_RUN_STATUSES = new Set(['succeeded']);
-const FAILURE_SUMMARY_REQUIRED_RUN_STATUSES = new Set(['failed', 'cancelled', 'inconclusive', 'negative']);
+const TERMINAL_MONITOR_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'inconclusive', 'negative']);
 
 export class PaperImplementationWorkOrderExperimentBridgeService {
   private readonly projectRepository: PaperImplementationRepository;
@@ -275,7 +274,8 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     implementationProjectId: string,
     request: RecordRunMonitorIntakeRequest,
   ): Promise<RecordRunMonitorIntakeResponse> {
-    const project = await this.requireActiveProject(implementationProjectId);
+    this.assertLegacyRunEvidenceWriterClosed(request);
+    await this.requireActiveProject(implementationProjectId);
     const receivedAt = request.received_at ?? this.now();
     const workOrder = request.work_order_id
       ? await this.requireWorkOrder(implementationProjectId, request.work_order_id)
@@ -302,60 +302,22 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
       received_at: receivedAt,
       created_by: request.created_by ?? 'system',
     };
-    let runEvidenceUnit: RunEvidenceUnit | null = null;
     let updatedWorkOrder: ResearchWorkOrder | null = null;
     if (workOrder) {
       this.assertMonitorMatchesWorkOrder(workOrder, monitorIntake);
       updatedWorkOrder = this.updateWorkOrderForRunStatus(workOrder, request.run_status, receivedAt);
-      if (FINAL_RUN_STATUSES.has(request.run_status)) {
-        this.assertFinalRunEvidenceInput(request);
-        const runEvidenceUnitId = this.requireRunEvidenceUnitId(request.run_evidence_unit_id);
-        const runEvidenceTraceManifest = await this.requireRunEvidenceTraceManifest(
-          implementationProjectId,
-          request.run_evidence_trace_manifest_id,
-          runEvidenceUnitId,
-        );
-        runEvidenceUnit = {
-          run_evidence_unit_id: runEvidenceUnitId,
-          implementation_project_id: implementationProjectId,
-          work_order_id: workOrder.work_order_id,
-          validation_cycle_id: workOrder.validation_cycle_id,
-          experiment_plan_light_id: workOrder.experiment_plan_light_id ?? null,
-          monitor_intake_id: monitorIntake.monitor_intake_id,
-          external_job_ref: monitorIntake.external_job_ref ?? null,
-          external_job_hash: monitorIntake.external_job_hash ?? null,
-          run_type: workOrder.run_type,
-          run_status: request.run_status,
-          trusted_status: 'trusted',
-          dataset_version_refs: workOrder.dataset_version_refs,
-          baseline_version_refs: workOrder.baseline_version_refs,
-          code_version_refs: workOrder.code_version_refs,
-          config_refs: workOrder.config_refs,
-          result_ref: request.result_ref ?? null,
-          result_hash: request.result_hash ?? null,
-          result_validation_report_ref: request.result_validation_report_ref ?? null,
-          result_validation_report_hash: request.result_validation_report_hash ?? null,
-          evidence_candidate_refs: request.evidence_candidate_refs ?? [],
-          evidence_candidate_hashes: request.evidence_candidate_hashes ?? [],
-          failure_summary_id: request.failure_summary
-            ? this.idFactory('run_failure_summary')
-            : null,
-          failure_summary: request.failure_summary ?? null,
-          trace_manifest_ref: this.traceManifestRef(project, runEvidenceTraceManifest),
-          trace_manifest_id: runEvidenceTraceManifest.trace_manifest_id,
-          created_by: request.created_by ?? 'system',
-          created_at: receivedAt,
-        };
-      }
     }
     const persisted = await this.workOrderRepository.recordMonitorIngestion({
       monitor_intake: monitorIntake,
-      run_evidence_unit: runEvidenceUnit,
+      run_evidence_unit: null,
       work_order: updatedWorkOrder,
     });
     return {
       monitor_intake: persisted.monitor_intake,
-      run_evidence_unit: persisted.run_evidence_unit,
+      evidence_handoff: {
+        authority: 'paper_implementation_evidence_trust_gateway_v2',
+        required_input: 'ef_qualified_evidence_candidate',
+      },
     };
   }
 
@@ -513,63 +475,20 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     }
   }
 
-  private assertFinalRunEvidenceInput(request: RecordRunMonitorIntakeRequest): void {
-    if (
-      RESULT_REQUIRED_RUN_STATUSES.has(request.run_status)
-      && (!request.result_ref || !this.hasText(request.result_hash))
-    ) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Successful run evidence requires result_ref and result_hash.');
+  private assertLegacyRunEvidenceWriterClosed(request: RecordRunMonitorIntakeRequest): void {
+    if (!this.hasText(request.run_evidence_unit_id)
+      && !this.hasText(request.run_evidence_trace_manifest_id)) {
+      return;
     }
-    if (
-      RESULT_REQUIRED_RUN_STATUSES.has(request.run_status)
-      && (!request.result_validation_report_ref || !this.hasText(request.result_validation_report_hash))
-    ) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Successful run evidence requires result validation report ref and hash.',
-      );
-    }
-    if (
-      FAILURE_SUMMARY_REQUIRED_RUN_STATUSES.has(request.run_status)
-      && !this.hasText(request.failure_summary)
-    ) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Failed, cancelled, inconclusive, and negative run evidence requires failure_summary.',
-      );
-    }
-  }
-
-  private requireRunEvidenceUnitId(runEvidenceUnitId: string | undefined): string {
-    if (!this.hasText(runEvidenceUnitId)) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Trusted final run evidence requires explicit run_evidence_unit_id so its TraceManifest can target it.',
-      );
-    }
-    return runEvidenceUnitId;
-  }
-
-  private async requireRunEvidenceTraceManifest(
-    implementationProjectId: string,
-    traceManifestId: string | null | undefined,
-    runEvidenceUnitId: string,
-  ): Promise<TraceManifest> {
-    if (!this.hasText(traceManifestId)) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Trusted final run evidence requires run_evidence_trace_manifest_id targeting the RunEvidenceUnit.',
-      );
-    }
-    return this.requireCompleteTraceManifest(
-      implementationProjectId,
-      traceManifestId,
-      'run_evidence_unit',
-      runEvidenceUnitId,
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy RunEvidenceUnit and TraceManifest minting through monitor intake is permanently closed.',
+      {
+        reason_code: LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE,
+        replacement_authority: 'paper_implementation_evidence_trust_gateway_v2',
+        required_input: 'ef_qualified_evidence_candidate',
+      },
     );
   }
 
@@ -616,13 +535,13 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
       );
     }
     if (
-      FINAL_RUN_STATUSES.has(intake.run_status)
+      TERMINAL_MONITOR_STATUSES.has(intake.run_status)
       && (!intake.external_job_ref || !this.hasText(intake.external_job_hash))
     ) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'Trusted final run evidence requires external_job_ref and external_job_hash.',
+        'Terminal run monitor intake requires external_job_ref and external_job_hash.',
       );
     }
   }
@@ -663,7 +582,7 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
         ? 'failed'
         : runStatus === 'cancelled'
           ? 'cancelled'
-          : FINAL_RUN_STATUSES.has(runStatus)
+          : TERMINAL_MONITOR_STATUSES.has(runStatus)
             ? 'completed'
             : 'running';
     return {

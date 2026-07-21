@@ -538,6 +538,10 @@ export function assembleCreateImplementationDossierRequest(input: {
     result_interpretation_packet_ids: [...context.result_interpretation_packet_ids],
     claim_candidate_ids: [...context.claim_candidate_ids],
     claim_trace_packet_ids: [...context.claim_trace_packet_ids],
+    // This pre-closure runtime artifact has no authority to infer closed-Cycle
+    // membership. Ready dossier materialization therefore fails closed until a
+    // caller supplies explicit v2 closure refs through the post-closure path.
+    closed_validation_cycle_snapshot_refs: [],
     experiment_section: {
       // FIX-A item 6: union the adjudicator's disclosed accounting with the
       // packet-read-back ledger so a "ready" dossier deterministically covers

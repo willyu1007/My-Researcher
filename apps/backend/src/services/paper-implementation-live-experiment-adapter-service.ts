@@ -1,6 +1,5 @@
 import type {
   CollectExternalTrainingJobRequest,
-  ExperimentFoundationRecordKind,
   ExperimentFoundationRef,
   ExternalTrainingJob,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-contracts';
@@ -13,12 +12,8 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-live-experiment-adapter-contracts';
 import type {
   ResearchWorkOrder,
-  RunEvidenceUnit,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
-import type {
-  TraceLineageBundle,
-  TraceManifest,
-} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
+import { LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -26,8 +21,6 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
 import type { ExperimentFoundationExecutionService } from './experiment-foundation-execution-service.js';
-import type { ExperimentFoundationService } from './experiment-foundation-service.js';
-import { PaperImplementationTraceKernelService } from './paper-implementation-trace-kernel-service.js';
 import { PaperImplementationWorkOrderExperimentBridgeService } from './paper-implementation-workorder-experiment-bridge-service.js';
 
 type ExperimentExecutionPort = Pick<
@@ -35,23 +28,10 @@ type ExperimentExecutionPort = Pick<
   'submitJob' | 'getJob' | 'getJobByIdempotencyKey' | 'syncJob' | 'collectJob' | 'cancelJob'
 >;
 
-type ExperimentRecordPort = Pick<ExperimentFoundationService, 'getRecord'>;
-
 export type PaperImplementationLiveExperimentAdapterServiceOptions = {
   experimentExecution: ExperimentExecutionPort;
-  experimentRecords: ExperimentRecordPort;
   workOrderService: PaperImplementationWorkOrderExperimentBridgeService;
-  traceKernel: PaperImplementationTraceKernelService;
   workOrderRepository: PaperImplementationWorkOrderRepository;
-};
-
-type FinalEvidenceRefs = {
-  resultRef: TopicSelectionFunctionalRef | null;
-  resultHash: string | null;
-  validationReportRef: TopicSelectionFunctionalRef | null;
-  validationReportHash: string | null;
-  evidenceCandidateRefs: TopicSelectionFunctionalRef[];
-  evidenceCandidateHashes: string[];
 };
 
 type MonitorMapping = {
@@ -163,14 +143,13 @@ export class PaperImplementationLiveExperimentAdapterService {
     );
     return this.response('sync', 'synced', externalJob, {
       monitor_intake: monitor.monitor_intake,
-      run_evidence_unit: monitor.run_evidence_unit,
       handoffRefs: [this.externalTrainingJobRef(externalJob)],
       recommendedNextActions: terminalObserved
         ? this.finalizationActionsForExternalJob(externalJob)
         : undefined,
       notes: terminalObserved
-        ? ['Terminal external job status observed during sync; collect or cancel finalization is required to create trusted RunEvidenceUnit.']
-        : ['External job status synced without creating final trusted evidence.'],
+        ? ['Terminal external job status observed during sync; collect or cancel records lifecycle facts only. Scientific evidence is admitted only by the v2 Evidence Trust Gateway.']
+        : ['External job status synced as a monitor fact.'],
     });
   }
 
@@ -180,20 +159,15 @@ export class PaperImplementationLiveExperimentAdapterService {
     externalJobId: string,
     request: CollectLiveExperimentRunRequest,
   ): Promise<PaperImplementationLiveExperimentRunResponse> {
+    this.assertLegacyRunEvidenceParametersClosed(
+      request.run_evidence_unit_id,
+      request.run_evidence_trace_manifest_id,
+    );
     const workOrder = await this.options.workOrderService.getResearchWorkOrder(
       implementationProjectId,
       workOrderId,
     );
-    const preflightJob = await this.requireOwnedExternalJob(workOrder, externalJobId);
-    const existingBeforeCollect = await this.findExistingRunEvidence(implementationProjectId, preflightJob);
-    if (existingBeforeCollect) {
-      return this.response('collect', 'already_recorded', preflightJob, {
-        run_evidence_unit: existingBeforeCollect,
-        terminalEvidenceRecorded: true,
-        handoffRefs: [this.runEvidenceRef(existingBeforeCollect)],
-        notes: ['Existing trusted RunEvidenceUnit returned for this external job before collect side effects.'],
-      });
-    }
+    await this.requireOwnedExternalJob(workOrder, externalJobId);
     const collectInput: CollectExternalTrainingJobRequest = {
       source_refs: this.defaultSourceRefs(workOrder, request.source_refs, externalJobId),
     };
@@ -202,23 +176,12 @@ export class PaperImplementationLiveExperimentAdapterService {
       collectInput,
     );
     this.assertExternalJobBelongsToWorkOrder(workOrder, externalJob, externalJobId);
-    const existingEvidence = await this.findExistingRunEvidence(implementationProjectId, externalJob);
-    if (existingEvidence) {
-      return this.response('collect', 'already_recorded', externalJob, {
-        run_evidence_unit: existingEvidence,
-        terminalEvidenceRecorded: true,
-        handoffRefs: [this.runEvidenceRef(existingEvidence)],
-        notes: ['Existing trusted RunEvidenceUnit returned for this external job.'],
-      });
-    }
     return this.recordFinalOrStatusUpdate(
       implementationProjectId,
       workOrder,
       externalJob,
       {
         action: 'collect',
-        runEvidenceUnitId: request.run_evidence_unit_id ?? undefined,
-        traceManifestId: request.run_evidence_trace_manifest_id ?? undefined,
         monitorIntakeId: request.monitor_intake_id ?? undefined,
         receivedAt: request.received_at ?? undefined,
         failureSummary: request.failure_summary ?? undefined,
@@ -233,20 +196,15 @@ export class PaperImplementationLiveExperimentAdapterService {
     externalJobId: string,
     request: CancelLiveExperimentRunRequest,
   ): Promise<PaperImplementationLiveExperimentRunResponse> {
+    this.assertLegacyRunEvidenceParametersClosed(
+      request.run_evidence_unit_id,
+      request.run_evidence_trace_manifest_id,
+    );
     const workOrder = await this.options.workOrderService.getResearchWorkOrder(
       implementationProjectId,
       workOrderId,
     );
-    const preflightJob = await this.requireOwnedExternalJob(workOrder, externalJobId);
-    const existingBeforeCancel = await this.findExistingRunEvidence(implementationProjectId, preflightJob);
-    if (existingBeforeCancel) {
-      return this.response('cancel', 'already_recorded', preflightJob, {
-        run_evidence_unit: existingBeforeCancel,
-        terminalEvidenceRecorded: true,
-        handoffRefs: [this.runEvidenceRef(existingBeforeCancel)],
-        notes: ['Existing trusted RunEvidenceUnit returned for this external job before cancel side effects.'],
-      });
-    }
+    await this.requireOwnedExternalJob(workOrder, externalJobId);
     const { external_job: externalJob } = await this.options.experimentExecution.cancelJob(externalJobId, {
       requested_by_ref: request.requested_by_ref ?? this.workOrderExperimentRef(workOrder),
       reason: request.reason,
@@ -260,8 +218,6 @@ export class PaperImplementationLiveExperimentAdapterService {
       externalJob,
       {
         action: 'cancel',
-        runEvidenceUnitId: request.run_evidence_unit_id ?? undefined,
-        traceManifestId: request.run_evidence_trace_manifest_id ?? undefined,
         monitorIntakeId: request.monitor_intake_id ?? undefined,
         receivedAt: request.received_at ?? undefined,
         failureSummary: request.reason,
@@ -276,8 +232,6 @@ export class PaperImplementationLiveExperimentAdapterService {
     externalJob: ExternalTrainingJob,
     input: {
       action: 'collect' | 'cancel';
-      runEvidenceUnitId?: string;
-      traceManifestId?: string;
       monitorIntakeId?: string;
       receivedAt?: string;
       failureSummary?: string;
@@ -309,30 +263,15 @@ export class PaperImplementationLiveExperimentAdapterService {
       });
     }
 
-    const runEvidenceUnitId = input.runEvidenceUnitId ?? this.runEvidenceUnitId(externalJob);
-    const traceManifest = input.traceManifestId
-      ? await this.options.traceKernel.getTraceManifest(implementationProjectId, input.traceManifestId)
-      : await this.findOrCreateRunEvidenceTrace(implementationProjectId, workOrder, externalJob, runEvidenceUnitId);
-    const refs = mapping.runStatus === 'succeeded'
-      ? await this.loadFinalEvidenceRefs(externalJob)
-      : this.emptyFinalEvidenceRefs();
     const monitor = await this.options.workOrderService.recordRunMonitorIntake(
       implementationProjectId,
       {
         monitor_intake_id: input.monitorIntakeId,
         work_order_id: workOrder.work_order_id,
-        run_evidence_unit_id: runEvidenceUnitId,
-        run_evidence_trace_manifest_id: traceManifest.trace_manifest_id,
         external_job_ref: this.toFunctionalRef(externalJob.external_job_ref),
         external_job_hash: externalJob.external_job_hash,
         monitor_event_kind: mapping.monitorEventKind,
         run_status: mapping.runStatus,
-        result_ref: refs.resultRef,
-        result_hash: refs.resultHash,
-        result_validation_report_ref: refs.validationReportRef,
-        result_validation_report_hash: refs.validationReportHash,
-        evidence_candidate_refs: refs.evidenceCandidateRefs,
-        evidence_candidate_hashes: refs.evidenceCandidateHashes,
         failure_summary: mapping.runStatus === 'succeeded'
           ? null
           : input.failureSummary ?? `External job ${externalJob.external_job_id} ended with ${externalJob.job_status}.`,
@@ -343,86 +282,15 @@ export class PaperImplementationLiveExperimentAdapterService {
     );
     return this.response(input.action, input.action === 'cancel' ? 'cancel_requested' : 'collected', externalJob, {
       monitor_intake: monitor.monitor_intake,
-      run_evidence_unit: monitor.run_evidence_unit,
-      trace_manifest: traceManifest,
-      terminalEvidenceRecorded: Boolean(monitor.run_evidence_unit),
-      handoffRefs: monitor.run_evidence_unit ? [this.runEvidenceRef(monitor.run_evidence_unit)] : [],
-      notes: ['Terminal external job converted into trusted RunEvidenceUnit through WorkOrder monitor intake.'],
+      terminalEvidenceRecorded: false,
+      handoffRefs: [this.externalTrainingJobRef(externalJob)],
+      recommendedNextActions: mapping.runStatus === 'succeeded'
+        ? ['await_evidence_trust_gateway_v2']
+        : [],
+      notes: [mapping.runStatus === 'succeeded'
+        ? 'Terminal success recorded as a monitor fact. Only an EF-qualified EvidenceCandidate can enter the v2 Evidence Trust Gateway.'
+        : 'Terminal failed or cancelled execution recorded as a lifecycle fact; it is not scientific evidence and creates no RunEvidenceUnit.'],
     });
-  }
-
-  private async findOrCreateRunEvidenceTrace(
-    implementationProjectId: string,
-    workOrder: ResearchWorkOrder,
-    externalJob: ExternalTrainingJob,
-    runEvidenceUnitId: string,
-  ): Promise<TraceManifest> {
-    const targetRef = this.runEvidenceTargetRef(workOrder, runEvidenceUnitId);
-    const existing = (await this.options.traceKernel.listTraceManifests(implementationProjectId))
-      .find((manifest) => manifest.trace_status === 'complete'
-        && manifest.target_ref.ref_type === targetRef.ref_type
-        && manifest.target_ref.ref_id === targetRef.ref_id);
-    if (existing) {
-      return existing;
-    }
-    return this.options.traceKernel.createTraceManifest(implementationProjectId, {
-      target_ref: targetRef,
-      lineage: this.runEvidenceLineage(workOrder, externalJob, runEvidenceUnitId),
-      integrity: {},
-      trace_policy_version_id: 'paper_implementation_live_experiment_adapter_v1',
-      created_by: 'system',
-    });
-  }
-
-  private async loadFinalEvidenceRefs(externalJob: ExternalTrainingJob): Promise<FinalEvidenceRefs> {
-    const resultRef = externalJob.result_refs.find((candidate) => candidate.ref_type === 'experiment_result') ?? null;
-    const validationReportRef = externalJob.result_refs
-      .find((candidate) => candidate.ref_type === 'result_validation_report') ?? null;
-    if (!resultRef || !validationReportRef) {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'Successful external job requires experiment_result and result_validation_report refs.',
-      );
-    }
-    const resultHash = await this.loadRecordHash(resultRef, 'experiment_result');
-    const validationReportHash = await this.loadRecordHash(validationReportRef, 'result_validation_report');
-    const evidenceCandidateRefs = externalJob.result_refs
-      .filter((candidate) => candidate.ref_type === 'evidence_candidate')
-      .map((candidate) => this.toFunctionalRef(candidate));
-    const evidenceCandidateHashes = await Promise.all(
-      externalJob.result_refs
-        .filter((candidate) => candidate.ref_type === 'evidence_candidate')
-        .map((candidate) => this.loadRecordHash(candidate, 'evidence_candidate')),
-    );
-    return {
-      resultRef: this.toFunctionalRef(resultRef),
-      resultHash,
-      validationReportRef: this.toFunctionalRef(validationReportRef),
-      validationReportHash,
-      evidenceCandidateRefs,
-      evidenceCandidateHashes,
-    };
-  }
-
-  private async loadRecordHash(ref: ExperimentFoundationRef, expectedKind: ExperimentFoundationRecordKind): Promise<string> {
-    if (ref.ref_type !== expectedKind) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', `Expected ${expectedKind} ref, got ${ref.ref_type}.`);
-    }
-    const record = await this.options.experimentRecords.getRecord(ref.ref_type, ref.ref_id);
-    return this.requireText(record.record_hash, `${ref.ref_type}:${ref.ref_id} record_hash`);
-  }
-
-  private async findExistingRunEvidence(
-    implementationProjectId: string,
-    externalJob: ExternalTrainingJob,
-  ): Promise<RunEvidenceUnit | null> {
-    return this.options.workOrderRepository.findRunEvidenceUnitByExternalJob(
-      implementationProjectId,
-      externalJob.external_job_ref.ref_type,
-      externalJob.external_job_ref.ref_id,
-      externalJob.external_job_ref.version_id ?? null,
-    );
   }
 
   private mapMonitorStatus(status: ExternalTrainingJob['job_status']): MonitorMapping {
@@ -448,68 +316,6 @@ export class PaperImplementationLiveExperimentAdapterService {
     return { monitorEventKind: 'status_update', runStatus: 'running' };
   }
 
-  private runEvidenceLineage(
-    workOrder: ResearchWorkOrder,
-    externalJob: ExternalTrainingJob,
-    runEvidenceUnitId: string,
-  ): TraceLineageBundle {
-    return {
-      literature: {
-        literature_evidence_refs: [],
-        source_locator_refs: [],
-        citation_candidate_refs: [],
-      },
-      experiment: {
-        experiment_plan_refs: workOrder.experiment_plan_light_id
-          ? [this.ref('experiment_plan_light', workOrder.experiment_plan_light_id)]
-          : [],
-        work_order_refs: [this.ref('research_work_order', workOrder.work_order_id)],
-        run_refs: [
-          this.externalTrainingJobRef(externalJob),
-          this.toFunctionalRef(externalJob.external_job_ref),
-        ],
-        run_evidence_refs: [this.ref('run_evidence_unit', runEvidenceUnitId)],
-        result_packet_refs: externalJob.result_refs
-          .filter((candidate) => candidate.ref_type === 'experiment_result')
-          .map((candidate) => this.toFunctionalRef(candidate)),
-        metric_refs: [],
-      },
-      artifact: {
-        dataset_refs: workOrder.dataset_version_refs,
-        baseline_refs: workOrder.baseline_version_refs,
-        code_version_refs: workOrder.code_version_refs,
-        model_checkpoint_refs: [],
-        config_refs: workOrder.config_refs,
-        log_artifact_refs: externalJob.partial_result_refs.map((candidate) => this.toFunctionalRef(candidate)),
-      },
-      decision: {
-        validation_cycle_refs: [this.ref('validation_cycle', workOrder.validation_cycle_id)],
-        motive_evolution_decision_refs: [],
-        gate_result_refs: workOrder.admission_gate_result_id
-          ? [this.ref('gate_result', workOrder.admission_gate_result_id)]
-          : [],
-        human_decision_refs: [],
-        accepted_risk_refs: [],
-      },
-      internal_interpretation: {
-        result_interpretation_refs: [],
-        llm_rationale_refs: [],
-        board_summary_refs: [],
-        non_citable_refs: [],
-      },
-    };
-  }
-
-  private emptyFinalEvidenceRefs(): FinalEvidenceRefs {
-    return {
-      resultRef: null,
-      resultHash: null,
-      validationReportRef: null,
-      validationReportHash: null,
-      evidenceCandidateRefs: [],
-      evidenceCandidateHashes: [],
-    };
-  }
 
   private defaultSourceRefs(
     workOrder: ResearchWorkOrder,
@@ -532,29 +338,23 @@ export class PaperImplementationLiveExperimentAdapterService {
     input: {
       harness_run?: PaperImplementationLiveExperimentRunResponse['harness_run'];
       monitor_intake?: PaperImplementationLiveExperimentRunResponse['monitor_intake'];
-      run_evidence_unit?: PaperImplementationLiveExperimentRunResponse['run_evidence_unit'];
-      trace_manifest?: PaperImplementationLiveExperimentRunResponse['trace_manifest'];
       terminalEvidenceRecorded?: boolean;
       handoffRefs: TopicSelectionFunctionalRef[];
       recommendedNextActions?: string[];
       notes: string[];
     },
   ): PaperImplementationLiveExperimentRunResponse {
-    const terminalEvidenceRecorded = input.terminalEvidenceRecorded ?? Boolean(input.run_evidence_unit);
+    const terminalEvidenceRecorded = input.terminalEvidenceRecorded ?? false;
     return {
       action,
       outcome,
       external_job: externalJob,
       harness_run: input.harness_run ?? null,
       monitor_intake: input.monitor_intake ?? null,
-      run_evidence_unit: input.run_evidence_unit ?? null,
-      trace_manifest: input.trace_manifest ?? null,
       terminal_evidence_recorded: terminalEvidenceRecorded,
       handoff: {
         next_action_refs: input.handoffRefs,
-        recommended_next_actions: input.recommendedNextActions ?? (terminalEvidenceRecorded
-          ? ['create_result_interpretation_packet']
-          : ['sync_live_experiment_run']),
+        recommended_next_actions: input.recommendedNextActions ?? ['sync_live_experiment_run'],
         notes: input.notes,
       },
     };
@@ -661,24 +461,23 @@ export class PaperImplementationLiveExperimentAdapterService {
     };
   }
 
-  private runEvidenceUnitId(externalJob: ExternalTrainingJob): string {
-    return `run_evidence_unit_${externalJob.external_job_id}`;
-  }
-
-  private runEvidenceTargetRef(
-    workOrder: ResearchWorkOrder,
-    runEvidenceUnitId: string,
-  ): TopicSelectionFunctionalRef {
-    return {
-      ref_type: 'run_evidence_unit',
-      ref_id: runEvidenceUnitId,
-      title_card_id: workOrder.trace_manifest_ref.title_card_id ?? null,
-      version_id: null,
-    };
-  }
-
-  private runEvidenceRef(unit: RunEvidenceUnit): TopicSelectionFunctionalRef {
-    return this.ref('run_evidence_unit', unit.run_evidence_unit_id);
+  private assertLegacyRunEvidenceParametersClosed(
+    runEvidenceUnitId: string | null | undefined,
+    traceManifestId: string | null | undefined,
+  ): void {
+    if (!this.hasText(runEvidenceUnitId) && !this.hasText(traceManifestId)) {
+      return;
+    }
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy live-experiment RunEvidenceUnit and TraceManifest minting is permanently closed.',
+      {
+        reason_code: LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE,
+        replacement_authority: 'paper_implementation_evidence_trust_gateway_v2',
+        required_input: 'ef_qualified_evidence_candidate',
+      },
+    );
   }
 
   private externalTrainingJobRef(externalJob: ExternalTrainingJob): TopicSelectionFunctionalRef {

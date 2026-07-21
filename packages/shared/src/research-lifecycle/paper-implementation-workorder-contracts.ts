@@ -255,7 +255,10 @@ export interface RecordRunMonitorIntakeRequest {
 
 export interface RecordRunMonitorIntakeResponse {
   monitor_intake: RunMonitorIntakeRecord;
-  run_evidence_unit: RunEvidenceUnit | null;
+  evidence_handoff: {
+    authority: 'paper_implementation_evidence_trust_gateway_v2';
+    required_input: 'ef_qualified_evidence_candidate';
+  };
 }
 
 export interface ListResearchWorkOrdersResponse {
@@ -579,9 +582,17 @@ export const runEvidenceUnitSchema = {
 export const recordRunMonitorIntakeResponseSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['monitor_intake', 'run_evidence_unit'],
+  required: ['monitor_intake', 'evidence_handoff'],
   properties: {
     monitor_intake: runMonitorIntakeRecordSchema,
-    run_evidence_unit: { anyOf: [runEvidenceUnitSchema, { type: 'null' }] },
+    evidence_handoff: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['authority', 'required_input'],
+      properties: {
+        authority: { const: 'paper_implementation_evidence_trust_gateway_v2' },
+        required_input: { const: 'ef_qualified_evidence_candidate' },
+      },
+    },
   },
 } as const;

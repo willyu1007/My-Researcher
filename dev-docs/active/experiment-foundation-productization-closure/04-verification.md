@@ -879,3 +879,17 @@ The first full run was 2,268 passed/16 failed and caught one obsolete capability
 | forced real-PostgreSQL relational lane | PENDING host run; must execute 3/3 with zero skips before C-PI step 6 can close |
 
 The sandbox gate recorded `DISPOSABLE_POSTGRES_UNAVAILABLE`, `existing_database_url_used=false`, both migration sources present, all ten zero-census fields equal to zero, and no database/provider/network/product write. The host must replace the pending section in `artifacts/implementation/07-pack-c-pi-technical-closure.md` with the disposable marker, migration apply, relational and cleanup evidence.
+
+## 2026-07-21 — Pack C C-cutover increment 1 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed after implementation and again after the final runtime-route test rewrite; exit 0 |
+| every modified backend test file via `node --test --loader ts-node/esm` | six-file cutover population passed 65/65; the additionally discovered runtime-routes file completed 54 tests with 38 passed, 0 failed and 16 intentional provider/database skips |
+| modified shared schema test via `node --test --loader ts-node/esm` | passed 5/5; 0 failed, 0 skipped |
+| `pnpm --filter @paper-engineering-assistant/shared test` | passed 383/383; 0 failed, 0 skipped, 0 todo |
+| `pnpm --filter @paper-engineering-assistant/backend test` | final full population: 2,339 tests; 2,268 passed, 14 failed, 57 skipped, 0 todo; duration `470125.795834ms`; no modified test failed |
+| focused unrelated-failure diagnostics | all six literature failures reproduced when selected independently: five remain `PARTIAL` under the sandbox's unavailable content-processing prerequisites, and the download case reports `getaddrinfo ENOTFOUND arxiv.org`; none enters the PaperImplementation cutover code |
+| `git diff --check` | passed before and after handoff documentation |
+
+The other eight full-suite failures are sandbox-environmental PostgreSQL failures: topic-selection Prisma rollback N4/N5/N6/N7/N8/N10 plus T-054 and T-067 cannot reach `127.0.0.1:5432`. The 14 non-green full-suite cases are therefore recorded as unrelated environment-dependent failures, not accepted as passing evidence. All in-scope strict compilation and modified-file tests are green.
