@@ -386,11 +386,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   // TODO(T-132 C-PI env follow-up): replace this test/composition injection
   // with the reviewed env-contract key. Env-contract changes are out of this slice.
   const validationCycleClosureV2Enabled =
-    options.paperImplementationValidationCycleClosureV2Enabled?.() ?? false;
+    options.paperImplementationValidationCycleClosureV2Enabled?.()
+    ?? isPaperImplementationExperimentV2CycleClosureEnabled();
   assertPaperImplementationExperimentV2CutoverConfig({
     admissionEnabled: experimentV2AdmissionEnabled,
     cutoverCommitted: experimentV2CutoverCommitted,
     workflowSimulationEnabled: experimentV2WorkflowSimulationEnabled,
+    cycleClosureEnabled: validationCycleClosureV2Enabled,
   });
 
   const app = Fastify({
@@ -1906,10 +1908,17 @@ function isExperimentFoundationV2WorkflowSimulationEnabled(): boolean {
   );
 }
 
+function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
+  );
+}
+
 type ExperimentV2BooleanEnvironmentVariable =
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED'
-  | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED';
+  | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED'
+  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 
 function parseExperimentV2BooleanEnvironmentVariable(
   name: ExperimentV2BooleanEnvironmentVariable,
@@ -1934,10 +1943,17 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   admissionEnabled: boolean;
   cutoverCommitted: boolean;
   workflowSimulationEnabled: boolean;
+  cycleClosureEnabled: boolean;
 }): void {
   if (input.admissionEnabled && !input.cutoverCommitted) {
     throw new Error(
       'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.cycleClosureEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
     );
   }

@@ -2,7 +2,7 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-07-19T13:35:48Z`
+Generated at (UTC): `2026-07-21T14:46:19Z`
 
 ## Environments
 - `dev`, `dev.local`, `prod`, `staging`
@@ -47,6 +47,7 @@ Generated at (UTC): `2026-07-19T13:35:48Z`
 | `PAPER_ENGINEER_LOCAL_DATA_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer` | `` | `dev` | `` | `` | `` | Local root directory for Paper Engineer runtime data and generated artifacts. Code default is /Volumes/DataDisk/Data/PaperEngineer when that volume exists (macOS dev machine); otherwise $XDG_DATA_HOME/paper-engineer or ~/.local/share/paper-engineer. |
 | `PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events. |
 | `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Commit the single-writer v2 product boundary by rejecting legacy PI WorkOrder/Harness/live and EF generic/readiness/promotion/execution mutations while preserving diagnostics reads and integration-event draining. |
+| `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only the dedicated PaperImplementation v2 ValidationCycle closure lane (the sole first-release live path is the no-evidence closure); this switch does not gate readback, replay or draining of committed events and requires the committed cutover. |
 | `PORT` | `active` | `int` | yes | no | `8000` | `` | `*` | `` | `` | `` | Service listen port. |
 | `RESEARCH_LIFECYCLE_REPOSITORY` | `active` | `enum` | no | no | `memory` | `` | `*` | `` | `` | `` | Repository strategy for research lifecycle stores; cascades from TITLE_CARD_REPOSITORY when unset. |
 | `SEMANTIC_SCHOLAR_API_KEY` | `active` | `string` | no | yes | `` | `semantic_scholar_api_key` | `dev` | `` | `` | `` | Optional Semantic Scholar Graph API key for literature candidate discovery. |

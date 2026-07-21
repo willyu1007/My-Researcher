@@ -128,6 +128,11 @@ variables:
     required: false
     default: false
     description: Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events.
+  PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only the dedicated PaperImplementation v2 ValidationCycle closure lane (the sole first-release live path is the no-evidence closure); this switch does not gate readback, replay or draining of committed events and requires the committed cutover.
   EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED:
     type: bool
     required: false
