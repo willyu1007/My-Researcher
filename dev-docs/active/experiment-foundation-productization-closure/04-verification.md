@@ -860,3 +860,22 @@ The closure matrix covers the disabled lane, exact no-evidence closure/outbox ha
 Eight full-suite failures require unavailable PostgreSQL at `127.0.0.1:5432`: Prisma topic-selection rollback N4/N5/N6/N7/N8/N10 plus the T-054 and T-067 Prisma HTTP smokes. The other seven are one Pack A fixed-FK-count assertion and six literature integration assertions. Exact names are recorded in `artifacts/pack-c-pi-cycle-closure-20260721/report.md`; none is in a modified test file.
 
 The first full run was 2,268 passed/16 failed and caught one obsolete capability-harness expectation that generic Sidecar creation remained open. The test was brought into the step-5 closure set, its complete file passed 5/5, backend typecheck passed again, and the final full population improved to 2,269 passed/15 failed.
+
+## 2026-07-21 — Pack C C-PI step 6 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed; exit 0 under strict TypeScript |
+| `node --test .ai/scripts/experiment-foundation-packc-pi-gate.unit.test.mjs` | passed 7/7; 0 failed, 0 skipped |
+| direct gateway suite | passed 19/19; 0 failed, 0 skipped |
+| direct evidence/scientific contract suites | passed 21/21; 0 failed, 0 skipped |
+| direct evaluator + closure suites | passed 18/18; 0 failed, 0 skipped |
+| direct seal + Sidecar suites | passed 63/63; 0 failed, 0 skipped |
+| disposable identity suite | passed 8/8; includes the additive `packc-pi` identity and marker |
+| `node .ai/scripts/experiment-foundation-packc-pi-gate.mjs --run-id packc-pi-20260721-r1` | expected sandbox result: exit 2, `blocked`; 121/121 non-relational tests passed, 0 failed/skipped; PC08/PC14/PC19-PI/PC20 passed, PC17 `deferred_to_cutover`, relational checks blocked |
+| sandbox summary | `.ai/.tmp/experiment-foundation-productization/packc-pi-20260721-r1/summary.json`; canonical SHA-256 `sha256:cc169aeddc81d85df4378a2a0d823e288beca454f50d2dff0e70b22579c1bfd9` |
+| `git diff --check` | passed after final source and handoff documentation updates |
+| whole-bundle strict docs lint | 0 errors and 12 historical vague-reference warnings; no warning in the new step-6 artifact/report; strict mode remains nonzero on the pre-existing warning baseline |
+| forced real-PostgreSQL relational lane | PENDING host run; must execute 3/3 with zero skips before C-PI step 6 can close |
+
+The sandbox gate recorded `DISPOSABLE_POSTGRES_UNAVAILABLE`, `existing_database_url_used=false`, both migration sources present, all ten zero-census fields equal to zero, and no database/provider/network/product write. The host must replace the pending section in `artifacts/implementation/07-pack-c-pi-technical-closure.md` with the disposable marker, migration apply, relational and cleanup evidence.

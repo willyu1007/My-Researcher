@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: Pack C C-EF 已以 host gate `packc-ef-20260720-r4` 关闭；C-PI Evidence Trust Gateway 和 D-18 rebuildable readiness/watermark evaluator 已实现并通过聚焦验证。下一步是 C-PI closure authority：在唯一写事务中重解 evaluator 输入、以 `CYCLE_CLOSURE_SCOPE_DRIFT` CAS-fence Cycle/分支/当前 revision/head/active-real scope，并完成 closed-Cycle seal。admission/simulation/scientific-validation/PI-closure capability 均保持关闭；真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、reviewed repo-external RAM policy evidence 及其 independent digest 阻塞；C-cutover、provider execution、UI/search 和非本地 rollout 仍未完成。
+- Next step: Pack C C-EF 已以 host gate `packc-ef-20260720-r4` 关闭；C-PI gateway、D-18 evaluator、closure/seal 与 `packc-pi` machine gate 已实现，sandbox gate `packc-pi-20260721-r1` 以 121/121 非 relational tests、zero skips 正确返回 `blocked`。下一步由 Claude 在可用 Docker/PostgreSQL host 上运行同一 gate 并关闭强制 relational lane；PC17 仍明确 `deferred_to_cutover`。admission/simulation/scientific-validation/PI-closure capability 均保持关闭；真实只读 Aliyun acceptance 仍被 exact execution profile、临时 STS、reviewed repo-external RAM policy evidence 及其 independent digest 阻塞；C-cutover、provider execution、UI/search 和非本地 rollout 仍未完成。
 
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 

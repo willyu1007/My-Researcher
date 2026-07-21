@@ -161,7 +161,10 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
         branchId: `validation-cycle:${closure.validation_cycle_id}`,
         branchKey: 'validation-cycle-closure-v2',
         workOrderRevisionId: closure.closure_id,
-        revisionSequence: closure.cycle_version_at_closure,
+        // The PI outbox mirror requires a positive sequence
+        // (pi_ei_outbox_sequence_attempt_check); the Cycle-wide closure mirror
+        // carries the 1-based closure ordinal over the 0-based cycle version.
+        revisionSequence: closure.cycle_version_at_closure + 1,
         workOrderRevisionHash: closure.closure_snapshot_hash,
         cellPlanHash: closure.closure_watermark.closure_input_hash,
         approvedPlanHash: closure.closure_snapshot_hash,

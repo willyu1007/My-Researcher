@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-export type DisposablePostgresTestDatabasePrefix = 'd19' | 'packb' | 'packc';
+export type DisposablePostgresTestDatabasePrefix = 'd19' | 'packb' | 'packc' | 'packc_pi';
 
 export interface DisposablePostgresTestDatabaseIdentity {
   database_url: string;
@@ -19,7 +19,8 @@ export interface DisposablePostgresDatabaseIdentityEnvironment {
     | 'EXPERIMENT_V2_TEST_DATABASE_URL'
     | 'EXPERIMENT_FOUNDATION_D19_DATABASE_URL'
     | 'EXPERIMENT_FOUNDATION_PACKB_DATABASE_URL'
-    | 'EXPERIMENT_FOUNDATION_PACKC_DATABASE_URL';
+    | 'EXPERIMENT_FOUNDATION_PACKC_DATABASE_URL'
+    | 'PAPER_IMPLEMENTATION_PACKC_PI_DATABASE_URL';
   databaseNameKey?:
     | 'EXPERIMENT_V2_TEST_DATABASE_NAME'
     | 'EXPERIMENT_FOUNDATION_D19_DATABASE_NAME';
@@ -27,7 +28,8 @@ export interface DisposablePostgresDatabaseIdentityEnvironment {
     | 'EXPERIMENT_V2_TEST_DISPOSABLE_NONCE'
     | 'EXPERIMENT_FOUNDATION_D19_DISPOSABLE_NONCE'
     | 'EXPERIMENT_FOUNDATION_PACKB_DISPOSABLE_NONCE'
-    | 'EXPERIMENT_FOUNDATION_PACKC_DISPOSABLE_NONCE';
+    | 'EXPERIMENT_FOUNDATION_PACKC_DISPOSABLE_NONCE'
+    | 'PAPER_IMPLEMENTATION_PACKC_PI_DISPOSABLE_NONCE';
 }
 
 const NONCE_PATTERN = /^[0-9a-f]{64}$/;
@@ -37,6 +39,7 @@ const MARKER_PREFIXES: Record<DisposablePostgresTestDatabasePrefix, string> = {
   d19: 'experiment-foundation-d19-disposable',
   packb: 'experiment-foundation-packb-disposable',
   packc: 'experiment-foundation-packc-disposable',
+  'packc_pi': 'experiment-foundation-packc-pi-disposable',
 };
 
 export function requireDisposablePostgresDatabaseIdentity(

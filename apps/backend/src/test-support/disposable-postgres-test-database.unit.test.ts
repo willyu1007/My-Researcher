@@ -207,3 +207,24 @@ test('accepts the Pack C dedicated identity keys and marker', () => {
     },
   );
 });
+
+test('accepts the Pack C-PI dedicated identity keys and marker', () => {
+  const databaseName = `packc_pi_${NONCE.slice(0, 12)}`;
+  const databaseUrl = DATABASE_URL.replace(DATABASE_NAME, databaseName);
+  assert.deepEqual(
+    requireDisposablePostgresDatabaseIdentity({
+      DATABASE_URL: databaseUrl,
+      PAPER_IMPLEMENTATION_PACKC_PI_DATABASE_URL: databaseUrl,
+      PAPER_IMPLEMENTATION_PACKC_PI_DISPOSABLE_NONCE: NONCE,
+    }, 'packc_pi', {
+      databaseUrlKey: 'PAPER_IMPLEMENTATION_PACKC_PI_DATABASE_URL',
+      nonceKey: 'PAPER_IMPLEMENTATION_PACKC_PI_DISPOSABLE_NONCE',
+    }),
+    {
+      database_url: databaseUrl,
+      database_name: databaseName,
+      nonce: NONCE,
+      marker: `experiment-foundation-packc-pi-disposable:${NONCE}`,
+    },
+  );
+});
