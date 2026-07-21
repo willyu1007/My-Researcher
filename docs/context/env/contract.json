@@ -5,7 +5,7 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-07-18T00:24:48Z",
+  "generated_at_utc": "2026-07-19T13:35:48Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "ALIBABA_CLOUD_ACCESS_KEY_ID": {
@@ -455,7 +455,7 @@
     "LITERATURE_CONTENT_PROCESSING_ROOT": {
       "default": "/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing",
       "deprecate_after": null,
-      "description": "Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports.",
+      "description": "Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. Defaults to <PAPER_ENGINEER_LOCAL_DATA_ROOT>/literature-content-processing (portable fallback applies when the macOS dev volume is absent).",
       "legacy": {
         "deprecated": false,
         "replaced_by": null
@@ -616,7 +616,7 @@
     "PAPER_ENGINEER_LOCAL_DATA_ROOT": {
       "default": "/Volumes/DataDisk/Data/PaperEngineer",
       "deprecate_after": null,
-      "description": "Local root directory for Paper Engineer runtime data and generated artifacts.",
+      "description": "Local root directory for Paper Engineer runtime data and generated artifacts. Code default is /Volumes/DataDisk/Data/PaperEngineer when that volume exists (macOS dev machine); otherwise $XDG_DATA_HOME/paper-engineer or ~/.local/share/paper-engineer.",
       "legacy": {
         "deprecated": false,
         "replaced_by": null

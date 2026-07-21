@@ -2,7 +2,7 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-07-18T00:24:48Z`
+Generated at (UTC): `2026-07-19T13:35:48Z`
 
 ## Environments
 - `dev`, `dev.local`, `prod`, `staging`
@@ -35,7 +35,7 @@ Generated at (UTC): `2026-07-18T00:24:48Z`
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact PAI workspace ID inspected by the zero-write cloud preflight. |
 | `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands. |
 | `HOST` | `active` | `string` | no | no | `0.0.0.0` | `` | `*` | `` | `` | `` | Service listen host. |
-| `LITERATURE_CONTENT_PROCESSING_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing` | `` | `dev` | `` | `` | `` | Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. |
+| `LITERATURE_CONTENT_PROCESSING_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing` | `` | `dev` | `` | `` | `` | Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. Defaults to <PAPER_ENGINEER_LOCAL_DATA_ROOT>/literature-content-processing (portable fallback applies when the macOS dev volume is absent). |
 | `LITERATURE_KEY_CONTENT_READY_METHOD` | `active` | `enum` | no | no | `codex_curated` | `` | `*` | `` | `` | `` | Default KEY_CONTENT_READY completion mode; codex_curated blocks for curated dossier import instead of calling the LLM gateway. |
 | `LITERATURE_PIPELINE_EMBEDDING_API_KEY` | `active` | `string` | no | no | `` | `` | `*` | `` | `` | `` | Optional API key for external embedding endpoint. |
 | `LITERATURE_PIPELINE_EMBEDDING_MODEL` | `active` | `string` | no | no | `text-embedding-v1` | `` | `*` | `` | `` | `` | Embedding model name used when external embedding endpoint is configured. |
@@ -44,7 +44,7 @@ Generated at (UTC): `2026-07-18T00:24:48Z`
 | `OPENAI_API_KEY` | `active` | `string` | no | yes | `` | `openai_api_key` | `dev` | `` | `` | `` | Local OpenAI API key for backend LLM workflows and topic-selection dry runs. |
 | `OPENALEX_API_KEY` | `active` | `string` | no | yes | `` | `openalex_api_key` | `dev` | `` | `` | `` | Optional OpenAlex API key for high-volume literature candidate discovery. |
 | `OPENALEX_MAILTO` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Contact email attached to OpenAlex literature discovery requests for polite-pool identification. |
-| `PAPER_ENGINEER_LOCAL_DATA_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer` | `` | `dev` | `` | `` | `` | Local root directory for Paper Engineer runtime data and generated artifacts. |
+| `PAPER_ENGINEER_LOCAL_DATA_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer` | `` | `dev` | `` | `` | `` | Local root directory for Paper Engineer runtime data and generated artifacts. Code default is /Volumes/DataDisk/Data/PaperEngineer when that volume exists (macOS dev machine); otherwise $XDG_DATA_HOME/paper-engineer or ~/.local/share/paper-engineer. |
 | `PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events. |
 | `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Commit the single-writer v2 product boundary by rejecting legacy PI WorkOrder/Harness/live and EF generic/readiness/promotion/execution mutations while preserving diagnostics reads and integration-event draining. |
 | `PORT` | `active` | `int` | yes | no | `8000` | `` | `*` | `` | `` | `` | Service listen port. |

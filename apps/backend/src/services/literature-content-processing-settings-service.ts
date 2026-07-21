@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type {
@@ -34,7 +35,19 @@ const RETRIEVAL_KEY = 'retrieval_candidate_window';
 export const PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV = 'PAPER_ENGINEER_LOCAL_DATA_ROOT';
 export const LITERATURE_CONTENT_PROCESSING_ROOT_ENV = 'LITERATURE_CONTENT_PROCESSING_ROOT';
 export const LITERATURE_KEY_CONTENT_READY_METHOD_ENV = 'LITERATURE_KEY_CONTENT_READY_METHOD';
-export const DEFAULT_PAPER_ENGINEER_LOCAL_DATA_ROOT = '/Volumes/DataDisk/Data/PaperEngineer';
+const MACOS_DEV_DATA_VOLUME = '/Volumes/DataDisk';
+export const DEFAULT_PAPER_ENGINEER_LOCAL_DATA_ROOT = resolvePortableDefaultDataRoot();
+
+// The historical default lives on a dev-machine macOS volume; on hosts without that volume
+// (Linux CI/production) it is not creatable, so fall back to the XDG data dir. The
+// PAPER_ENGINEER_LOCAL_DATA_ROOT env var remains the primary configuration mechanism.
+function resolvePortableDefaultDataRoot(): string {
+  if (fs.existsSync(MACOS_DEV_DATA_VOLUME)) {
+    return path.join(MACOS_DEV_DATA_VOLUME, 'Data', 'PaperEngineer');
+  }
+  const xdgDataHome = resolveConfiguredFilesystemPath(process.env.XDG_DATA_HOME);
+  return path.join(xdgDataHome ?? path.join(os.homedir(), '.local', 'share'), 'paper-engineer');
+}
 
 export function resolveDefaultPaperEngineerLocalDataRoot(): string {
   return resolveConfiguredFilesystemPath(process.env[PAPER_ENGINEER_LOCAL_DATA_ROOT_ENV])

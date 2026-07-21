@@ -103,7 +103,7 @@ variables:
     required: false
     default: /Volumes/DataDisk/Data/PaperEngineer
     scopes: [dev]
-    description: Local root directory for Paper Engineer runtime data and generated artifacts.
+    description: Local root directory for Paper Engineer runtime data and generated artifacts. Code default is /Volumes/DataDisk/Data/PaperEngineer when that volume exists (macOS dev machine); otherwise $XDG_DATA_HOME/paper-engineer or ~/.local/share/paper-engineer.
   EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT:
     type: string
     required: false
@@ -200,7 +200,7 @@ variables:
     required: false
     default: /Volumes/DataDisk/Data/PaperEngineer/literature-content-processing
     scopes: [dev]
-    description: Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports.
+    description: Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. Defaults to <PAPER_ENGINEER_LOCAL_DATA_ROOT>/literature-content-processing (portable fallback applies when the macOS dev volume is absent).
   LITERATURE_KEY_CONTENT_READY_METHOD:
     type: enum
     enum: [llm_gateway, codex_curated, manual_curated]
