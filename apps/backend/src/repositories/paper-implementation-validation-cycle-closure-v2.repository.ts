@@ -2,6 +2,9 @@ import type {
   ValidationCycleClosedV1,
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
+import type {
+  PaperImplementationValidationCycleStatus,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
@@ -47,6 +50,19 @@ export interface PaperImplementationValidationCycleClosureCommitV2 {
   outbox: PaperImplementationValidationCycleClosureOutboxV2;
 }
 
+export type PaperImplementationValidationCycleClosableStatus = Extract<
+  PaperImplementationValidationCycleStatus,
+  'admitted' | 'running' | 'interpreting'
+>;
+
+export interface PaperImplementationValidationCycleProductCompletionV2 {
+  validation_cycle_id: string;
+  expected_lifecycle_status: PaperImplementationValidationCycleClosableStatus;
+  lifecycle_status: 'completed';
+  execution_status: 'completed';
+  completed_at: string;
+}
+
 export type PaperImplementationValidationCycleClosureV2RepositoryReasonCode =
   | 'CYCLE_ALREADY_CLOSED'
   | 'CLOSURE_IDEMPOTENCY_CONFLICT'
@@ -72,6 +88,10 @@ extends PaperImplementationCycleReadinessV2Repository {
   findStoredClosureByIdempotencyKey(
     idempotencyKey: string,
   ): Promise<PaperImplementationStoredValidationCycleClosureV2 | null>;
+
+  completeProductValidationCycle(
+    input: PaperImplementationValidationCycleProductCompletionV2,
+  ): Promise<void>;
 
   commitClosure(
     input: PaperImplementationValidationCycleClosureCommitV2,
@@ -99,6 +119,10 @@ export class InMemoryPaperImplementationValidationCycleClosureV2Repository
 implements PaperImplementationValidationCycleClosureV2Repository {
   private closures: PaperImplementationStoredValidationCycleClosureV2[];
   private outboxes: PaperImplementationValidationCycleClosureOutboxV2[];
+  private productCycleCompletions = new Map<
+    string,
+    PaperImplementationValidationCycleProductCompletionV2
+  >();
   private readonly readinessRepository: PaperImplementationCycleReadinessV2Repository;
 
   constructor(options: InMemoryPaperImplementationValidationCycleClosureV2RepositoryOptions) {
@@ -118,12 +142,14 @@ implements PaperImplementationValidationCycleClosureV2Repository {
   ): Promise<T> {
     const closureSnapshot = clone(this.closures);
     const outboxSnapshot = clone(this.outboxes);
+    const productCycleCompletionSnapshot = clone([...this.productCycleCompletions.entries()]);
     const transaction = this.createTransaction();
     try {
       return await operation(transaction);
     } catch (error) {
       this.closures = closureSnapshot;
       this.outboxes = outboxSnapshot;
+      this.productCycleCompletions = new Map(productCycleCompletionSnapshot);
       throw error;
     }
   }
@@ -135,11 +161,21 @@ implements PaperImplementationValidationCycleClosureV2Repository {
     return clone({ closures: this.closures, outboxes: this.outboxes });
   }
 
+  productCycleCompletion(
+    validationCycleId: string,
+  ): PaperImplementationValidationCycleProductCompletionV2 | null {
+    return clone(this.productCycleCompletions.get(validationCycleId) ?? null);
+  }
+
   private createTransaction(): PaperImplementationValidationCycleClosureV2Transaction {
     return {
-      findValidationCycle: (validationCycleId) => (
-        this.readinessRepository.findValidationCycle(validationCycleId)
-      ),
+      findValidationCycle: async (validationCycleId) => {
+        const cycle = await this.readinessRepository.findValidationCycle(validationCycleId);
+        const completion = this.productCycleCompletions.get(validationCycleId);
+        return cycle && completion
+          ? { ...cycle, lifecycle_status: completion.lifecycle_status }
+          : cycle;
+      },
       listAdmittedBranches: (validationCycleId) => (
         this.readinessRepository.listAdmittedBranches(validationCycleId)
       ),
@@ -174,6 +210,26 @@ implements PaperImplementationValidationCycleClosureV2Repository {
       findStoredClosureByIdempotencyKey: async (idempotencyKey) => clone(
         this.closures.find((stored) => stored.idempotency_key === idempotencyKey) ?? null,
       ),
+      completeProductValidationCycle: async (input) => {
+        const current = await this.readinessRepository.findValidationCycle(
+          input.validation_cycle_id,
+        );
+        const priorCompletion = this.productCycleCompletions.get(input.validation_cycle_id);
+        const currentStatus = priorCompletion?.lifecycle_status ?? current?.lifecycle_status;
+        if (currentStatus === 'completed' || currentStatus === 'aborted' || currentStatus === 'superseded') {
+          throw new PaperImplementationValidationCycleClosureV2RepositoryError(
+            'CYCLE_ALREADY_CLOSED',
+            `ValidationCycle product row is already terminal: ${input.validation_cycle_id}`,
+          );
+        }
+        if (!current || currentStatus !== input.expected_lifecycle_status) {
+          throw new PaperImplementationValidationCycleClosureV2RepositoryError(
+            'CLOSURE_CONCURRENT_CONFLICT',
+            `ValidationCycle product row changed during closure: ${input.validation_cycle_id}`,
+          );
+        }
+        this.productCycleCompletions.set(input.validation_cycle_id, clone(input));
+      },
       commitClosure: async (input) => {
         assertValidationCycleClosureCommit(input);
         if (this.closures.some((stored) => (

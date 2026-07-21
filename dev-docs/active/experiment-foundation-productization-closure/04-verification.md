@@ -893,3 +893,22 @@ The sandbox gate recorded `DISPOSABLE_POSTGRES_UNAVAILABLE`, `existing_database_
 | `git diff --check` | passed before and after handoff documentation |
 
 The other eight full-suite failures are sandbox-environmental PostgreSQL failures: topic-selection Prisma rollback N4/N5/N6/N7/N8/N10 plus T-054 and T-067 cannot reach `127.0.0.1:5432`. The 14 non-green full-suite cases are therefore recorded as unrelated environment-dependent failures, not accepted as passing evidence. All in-scope strict compilation and modified-file tests are green.
+
+## 2026-07-21 — Pack C C-cutover increment 2 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed on final source; exit 0 |
+| checked-in runner script typecheck | `cd apps/backend && npx tsc -p tsconfig.experiment-foundation-scripts.json --noEmit` passed; exit 0 |
+| initial ten-file modified backend population via `node --test --loader ts-node/esm` | 141 total: 130 passed, 0 failed, 11 intentional conditional PostgreSQL skips |
+| final affected route/planning/closure population via direct runner | 30/30 passed; 0 failed, 0 skipped |
+| newly modified T-101 contract-evaluation file via direct runner | 5/5 passed; 0 failed, 0 skipped |
+| modified shared schema file via direct runner | 6/6 passed; 0 failed, 0 skipped |
+| `pnpm --filter @paper-engineering-assistant/shared test` | 384/384 passed; 0 failed, 0 skipped, 0 todo; duration `25753.829208ms` |
+| `pnpm --filter @paper-engineering-assistant/backend test` | final population: 2,340 tests; 2,269 passed, 14 failed, 57 skipped, 0 todo; duration `412532.452542ms`; command exit 1 |
+| `git diff --check` | passed after final source and documentation updates |
+| whole-bundle strict docs lint | 0 errors and 13 historical vague-reference warnings; no warning in the increment-2 report; strict mode remains nonzero on the existing warning baseline |
+
+The full backend failures are outside the modified cutover files. Eight cannot reach PostgreSQL at `127.0.0.1:5432`: rollback N4/N5/N6/N7/N8/N10 and the T-054/T-067 Prisma HTTP smokes. Six are the established literature environment/network population: key-content curation export/import; workflow import/topic/paper-link/citation update; rerun artifact overwrite; global-env USER_AUTH gate; explicit fulltext processing/metadata-stale registration; and remote download/register (`getaddrinfo ENOTFOUND arxiv.org`).
+
+The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 skipped. It exposed an in-scope T-101 source-anchor still naming the deleted repeated-low-information completion test. The anchor was replaced with the new legacy-closure/read-preservation test name, passed directly 5/5, and disappeared from the final full run. No in-scope test remains non-green.

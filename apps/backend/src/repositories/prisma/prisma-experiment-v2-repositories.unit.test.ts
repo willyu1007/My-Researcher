@@ -75,6 +75,11 @@ import { PrismaPaperImplementationExperimentSpineV2Repository } from './prisma-p
 
 const NOW = '2026-07-13T00:00:00.000Z';
 const LATER = '2026-07-13T00:01:00.000Z';
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 
 function isIntegrationPayloadConflict(error: unknown): boolean {
   return error instanceof ExperimentSpineV2RepositoryConstraintError
@@ -1063,7 +1068,10 @@ test('PI Prisma spine commits T1/T3 atomically, converges replay, and leases its
   await repository.commitHeadAdvance(head.input, head.sourceEvent);
   assert.equal((await repository.findBranch('project-1', 'cycle-1', 'main'))?.head_run_id, 'run-1');
   await repository.commitHeadAdvance(head.input, head.sourceEvent);
-  const headService = new PaperImplementationExperimentV2HeadService({ repository });
+  const headService = new PaperImplementationExperimentV2HeadService({
+    repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+  });
   assert.equal((await headService.consume(head.sourceEvent)).emitted_branch_head_advanced, true);
 
   // T3 adds a second PI outbox for the same revision. Both admission readback
@@ -1181,7 +1189,10 @@ test('PI Prisma processed replay verifies the complete later head authority', as
   const secondHead = piHeadInput(secondAdmission, undefined, '2');
   await repository.commitHeadAdvance(secondHead.input, secondHead.sourceEvent);
 
-  const headService = new PaperImplementationExperimentV2HeadService({ repository });
+  const headService = new PaperImplementationExperimentV2HeadService({
+    repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+  });
   const healthyReplay = await headService.consume(firstHead.sourceEvent);
   assert.equal(healthyReplay.emitted_branch_head_advanced, true);
   assert.equal(healthyReplay.branch?.head_run_id, secondHead.sourceEvent.payload.run_id);

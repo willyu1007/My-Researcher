@@ -420,7 +420,6 @@ export interface CreateValidationCycleDraftRequest {
   context?: Partial<ValidationCycleInputSnapshot>;
   criteria: ValidationCycleCriteria;
   budget: ValidationCycleBudget;
-  decision_exit?: string | null;
   confirmation_level?: PaperImplementationValidationConfirmationLevel;
   confirmed_by?: TopicSelectionActorType | null;
   human_override_expected_information_gain_none?: boolean;
@@ -433,7 +432,6 @@ export interface CreateValidationCycleDraftRequest {
 export interface AdmitValidationCycleRequest {
   trace_manifest_id: string;
   gate_result_id?: string | null;
-  decision_exit?: string | null;
   confirmation_level?: PaperImplementationValidationConfirmationLevel;
   confirmed_by?: TopicSelectionActorType | null;
   human_override_expected_information_gain_none?: boolean;
@@ -441,10 +439,6 @@ export interface AdmitValidationCycleRequest {
 }
 
 export interface CompleteValidationCycleRequest {
-  lifecycle_status?: Extract<PaperImplementationValidationCycleStatus, 'completed' | 'aborted'>;
-  execution_status?: Extract<PaperImplementationValidationExecutionStatus, 'completed' | 'failed'>;
-  outputs?: Partial<ValidationCycleOutputs>;
-  cycle_assessment: ValidationCycleAssessment;
   created_by?: TopicSelectionActorType;
 }
 
@@ -762,7 +756,6 @@ export const createValidationCycleDraftRequestSchema = {
     context: objectPayload,
     criteria: validationCycleCriteriaSchema,
     budget: validationCycleBudgetSchema,
-    decision_exit: nullableStringId,
     confirmation_level: confirmationLevelSchema,
     confirmed_by: actorTypeNullableSchema,
     human_override_expected_information_gain_none: { type: 'boolean' },
@@ -804,7 +797,6 @@ export const admitValidationCycleRequestSchema = {
   properties: {
     trace_manifest_id: stringId,
     gate_result_id: nullableStringId,
-    decision_exit: nullableStringId,
     confirmation_level: confirmationLevelSchema,
     confirmed_by: actorTypeNullableSchema,
     human_override_expected_information_gain_none: { type: 'boolean' },
@@ -815,12 +807,7 @@ export const admitValidationCycleRequestSchema = {
 export const completeValidationCycleRequestSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['cycle_assessment'],
   properties: {
-    lifecycle_status: { enum: ['completed', 'aborted'] },
-    execution_status: { enum: ['completed', 'failed'] },
-    outputs: objectPayload,
-    cycle_assessment: validationCycleAssessmentSchema,
     created_by: actorTypeSchema,
   },
 } as const;

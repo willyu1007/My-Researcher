@@ -58,7 +58,7 @@ export interface PaperImplementationExperimentV2AdmissionServiceOptions {
   repository: PaperImplementationExperimentSpineV2Repository;
   scopeReader: PaperImplementationExperimentV2ScopeReader;
   admissionEnabled: () => boolean;
-  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
+  cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   serverActorId?: string;
   idFactory?: (prefix: string) => string;
   now?: () => string;
@@ -133,7 +133,7 @@ export class PaperImplementationExperimentV2AdmissionService {
     this.repository = options.repository;
     this.scopeReader = options.scopeReader;
     this.admissionEnabled = options.admissionEnabled;
-    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
+    this.cycleClosureLookup = options.cycleClosureLookup;
     this.serverActorId = options.serverActorId ?? DEFAULT_SERVER_ACTOR;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
@@ -375,11 +375,6 @@ export class PaperImplementationExperimentV2AdmissionService {
   }
 }
 
-const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
-  async isCycleClosed() {
-    return false;
-  },
-};
 
 function cycleAlreadyClosed(): AppError {
   return new AppError(

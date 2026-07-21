@@ -1766,7 +1766,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
     assert.equal(untrustedMonitorBody.monitor_intake.trust_status, 'untrusted');
     assert.equal(untrustedMonitorBody.evidence_handoff.required_input, 'ef_qualified_evidence_candidate');
 
-    const completedValidation = await app.inject({
+    const callerAuthoredCompletion = await app.inject({
       method: 'POST',
       url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/validation-cycles/validation_cycle_route_001/complete`,
       payload: {
@@ -1779,7 +1779,20 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         },
       },
     });
-    assertStatus(completedValidation, 200);
+    assertStatus(callerAuthoredCompletion, 409);
+    assert.equal(
+      (callerAuthoredCompletion.json() as { error?: { details?: { reason_code?: string } } })
+        .error?.details?.reason_code,
+      'LEGACY_SCIENTIFIC_WRITER_CLOSED',
+    );
+
+    const preservedCycleRead = await app.inject({
+      method: 'GET',
+      url: `/paper-implementation/projects/${encodeURIComponent(projectId)}/validation-cycles/validation_cycle_route_001`,
+    });
+    assertStatus(preservedCycleRead, 200);
+    assert.equal((preservedCycleRead.json() as { lifecycle_status: string }).lifecycle_status, 'admitted');
+    assert.equal((preservedCycleRead.json() as { cycle_assessment: unknown }).cycle_assessment, null);
 
     const feedbackCandidate = await app.inject({
       method: 'POST',

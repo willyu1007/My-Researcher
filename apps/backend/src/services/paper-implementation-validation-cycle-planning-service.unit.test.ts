@@ -829,30 +829,46 @@ test('expensive or confirmatory plan with open baseline gap blocks admission', a
   );
 });
 
-test('repeated low information gain completion creates loop budget review item', async () => {
-  const { service, traceRepository } = await makeHarness();
-  for (const id of ['validation_cycle_001', 'validation_cycle_002']) {
-    const cycle = await service.createValidationCycleDraft(PROJECT_ID, validDraftPayload(id));
-    await traceRepository.createTraceManifest(
-      traceManifest(`trace_manifest_${id}`, 'validation_cycle', id),
-      [],
-    );
-    await service.admitValidationCycle(PROJECT_ID, cycle.validation_cycle_id, {
-      trace_manifest_id: `trace_manifest_${id}`,
-    });
-    await service.completeValidationCycle(PROJECT_ID, cycle.validation_cycle_id, {
-      cycle_assessment: {
-        outcome: 'inconclusive',
-        information_gain_realized: 'low',
-        residual_uncertainties: ['Route is still ambiguous.'],
-        recommended_next_action: 'Review loop budget.',
-        rationale: 'The cycle did not reduce the key uncertainty enough.',
-      },
-    });
-  }
-  const reviewItems = await service.listValidationPlanningReviewItems(PROJECT_ID);
-  assert.equal(reviewItems.length, 1);
-  assert.equal(reviewItems[0].item_kind, 'loop_budget_review');
+test('legacy completion is closed below HTTP while historical completed-cycle reads are preserved', async () => {
+  const { service, traceRepository, validationRepository } = await makeHarness();
+  const cycle = await service.createValidationCycleDraft(
+    PROJECT_ID,
+    validDraftPayload('validation_cycle_legacy_completion_closed'),
+  );
+  await traceRepository.createTraceManifest(
+    traceManifest('trace_manifest_legacy_completion_closed', 'validation_cycle', cycle.validation_cycle_id),
+    [],
+  );
+  const admitted = await service.admitValidationCycle(PROJECT_ID, cycle.validation_cycle_id, {
+    trace_manifest_id: 'trace_manifest_legacy_completion_closed',
+  });
+  await assert.rejects(
+    service.completeValidationCycle(PROJECT_ID, cycle.validation_cycle_id, {}),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'LEGACY_SCIENTIFIC_WRITER_CLOSED'
+      && error.message.includes('v2 closure lane'),
+  );
+  assert.deepEqual(await service.getValidationCycle(PROJECT_ID, cycle.validation_cycle_id), admitted);
+
+  const historical = await validationRepository.updateValidationCycle({
+    ...admitted,
+    lifecycle_status: 'completed',
+    execution_status: 'completed',
+    cycle_assessment: {
+      outcome: 'inconclusive',
+      information_gain_realized: 'low',
+      residual_uncertainties: ['Historical uncertainty remains queryable.'],
+      recommended_next_action: 'Preserve the historical read shape.',
+      rationale: 'This row predates the v2 closure cutover.',
+    },
+    decision_exit: 'historical-exit',
+    completed_at: NOW,
+  });
+  assert.deepEqual(await service.getValidationCycle(PROJECT_ID, cycle.validation_cycle_id), historical);
+  assert.deepEqual(await service.listValidationCycles(PROJECT_ID), [historical]);
+  assert.deepEqual(await service.listValidationPlanningReviewItems(PROJECT_ID), []);
 });
 
 test('upstream feedback candidate dispatch is explicit and uses implementation feedback event service', async () => {

@@ -20,6 +20,9 @@ import type {
   AdmitValidationCycleRequest,
   CompleteValidationCycleRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
+import {
+  LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import type {
   ImplementationProject,
   RecordImplementationFeedbackEventRequest,
@@ -69,7 +72,6 @@ export type PaperImplementationValidationCyclePlanningServiceOptions = {
 };
 
 const ACTIVE_PORTFOLIO_ROLES = new Set(['primary', 'secondary', 'fallback', 'supporting']);
-const LOW_INFORMATION_GAINS = new Set(['none', 'low']);
 const MEMO_LIKE_REF_TYPES = new Set([
   'boardsummary',
   'displaysummary',
@@ -169,7 +171,7 @@ export class PaperImplementationValidationCyclePlanningService {
       trace_manifest_ref: null,
       trace_manifest_id: null,
       gate_result_id: null,
-      decision_exit: request.decision_exit ?? null,
+      decision_exit: null,
       confirmation_level: request.confirmation_level ?? 'not_required',
       confirmed_by: request.confirmed_by ?? null,
       policy_version_id: request.policy_version_id ?? project.policy_version_id ?? null,
@@ -223,7 +225,6 @@ export class PaperImplementationValidationCyclePlanningService {
       trace_manifest_id: traceManifest.trace_manifest_id,
       trace_manifest_ref: this.traceManifestRef(project, traceManifest),
       gate_result_id: request.gate_result_id ?? cycle.gate_result_id ?? this.idFactory('validation_gate_result'),
-      decision_exit: request.decision_exit ?? cycle.decision_exit,
       confirmation_level: request.confirmation_level ?? cycle.confirmation_level,
       confirmed_by: request.confirmed_by ?? cycle.confirmed_by ?? null,
       updated_at: admittedAt,
@@ -237,50 +238,15 @@ export class PaperImplementationValidationCyclePlanningService {
     validationCycleId: string,
     request: CompleteValidationCycleRequest,
   ): Promise<ValidationCycle> {
-    await this.requireActiveProject(implementationProjectId);
-    const cycle = await this.requireValidationCycle(implementationProjectId, validationCycleId);
-    if (!['admitted', 'running', 'interpreting'].includes(cycle.lifecycle_status)) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only admitted or in-progress ValidationCycle objects can complete.');
-    }
-    const recentBefore = await this.validationRepository.listRecentCompletedCyclesByTarget(
-      implementationProjectId,
-      cycle.target.target_type,
-      cycle.target.target_id,
-      2,
+    void implementationProjectId;
+    void validationCycleId;
+    void request;
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      'Legacy ValidationCycle completion is permanently closed. Use the ValidationCycle v2 closure lane.',
+      { reason_code: LEGACY_SCIENTIFIC_WRITER_CLOSED_REASON_CODE },
     );
-    const completedAt = this.now();
-    const updated: ValidationCycle = {
-      ...cycle,
-      lifecycle_status: request.lifecycle_status ?? 'completed',
-      execution_status: request.execution_status ?? 'completed',
-      outputs: this.mergeOutputs(cycle.outputs, request.outputs),
-      cycle_assessment: request.cycle_assessment,
-      updated_at: completedAt,
-      completed_at: completedAt,
-    };
-    const persisted = await this.validationRepository.updateValidationCycle(updated);
-    if (
-      LOW_INFORMATION_GAINS.has(request.cycle_assessment.information_gain_realized)
-      && recentBefore.some((previous) => (
-        previous.cycle_assessment
-        && LOW_INFORMATION_GAINS.has(previous.cycle_assessment.information_gain_realized)
-      ))
-    ) {
-      await this.validationRepository.createReviewItem({
-        review_item_id: this.idFactory('validation_review_item'),
-        implementation_project_id: implementationProjectId,
-        validation_cycle_id: validationCycleId,
-        item_kind: 'loop_budget_review',
-        status: 'open',
-        severity: 'warning',
-        blocker_code: 'REPEATED_LOW_INFORMATION_GAIN',
-        summary: 'Repeated low or no information gain requires loop-budget review before scheduling another cycle.',
-        source_refs: [this.functionalRef('validation_cycle', validationCycleId)],
-        created_at: completedAt,
-        resolved_at: null,
-      });
-    }
-    return persisted;
   }
 
   async listValidationCycles(
@@ -993,24 +959,6 @@ export class PaperImplementationValidationCyclePlanningService {
       work_order_refs: this.dedupeRefs(input?.work_order_refs ?? []),
       result_packet_refs: this.dedupeRefs(input?.result_packet_refs ?? []),
       experiment_plan_light_refs: this.dedupeRefs(input?.experiment_plan_light_refs ?? []),
-    };
-  }
-
-  private mergeOutputs(
-    existing: ValidationCycleOutputs,
-    patch: Partial<ValidationCycleOutputs> | undefined,
-  ): ValidationCycleOutputs {
-    return {
-      evidence_unit_refs: patch?.evidence_unit_refs ?? existing.evidence_unit_refs,
-      evidence_binding_refs: patch?.evidence_binding_refs ?? existing.evidence_binding_refs,
-      board_update_refs: patch?.board_update_refs ?? existing.board_update_refs,
-      route_update_refs: patch?.route_update_refs ?? existing.route_update_refs,
-      work_order_result_refs: patch?.work_order_result_refs ?? existing.work_order_result_refs,
-      result_interpretation_packet_refs: patch?.result_interpretation_packet_refs
-        ?? existing.result_interpretation_packet_refs,
-      quality_signal_refs: patch?.quality_signal_refs ?? existing.quality_signal_refs,
-      recommended_evolution_decision_refs: patch?.recommended_evolution_decision_refs
-        ?? existing.recommended_evolution_decision_refs,
     };
   }
 

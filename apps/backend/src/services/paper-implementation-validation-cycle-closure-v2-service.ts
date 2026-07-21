@@ -17,6 +17,7 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE,
   PaperImplementationValidationCycleClosureV2RepositoryError,
   type PaperImplementationStoredValidationCycleClosureV2,
+  type PaperImplementationValidationCycleClosableStatus,
   type PaperImplementationValidationCycleClosureV2Repository,
   type PaperImplementationValidationCycleClosureV2Transaction,
 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
@@ -142,6 +143,18 @@ export class PaperImplementationValidationCycleClosureV2Service {
         reason_code: 'CYCLE_CLOSURE_SCOPE_DRIFT',
       });
     }
+    if (!isClosableProductCycleStatus(cycle.lifecycle_status)) {
+      if (isTerminalProductCycleStatus(cycle.lifecycle_status)) {
+        throw closureError(
+          'CYCLE_ALREADY_CLOSED',
+          'ValidationCycle product row is already terminal.',
+        );
+      }
+      throw closureError(
+        'CYCLE_CLOSURE_SCOPE_DRIFT',
+        'ValidationCycle product row is not in a closable lifecycle state.',
+      );
+    }
     const createdAt = this.now();
     const closureId = this.idFactory('pi_validation_cycle_closure_v2');
     const closureWithoutHash: Omit<ValidationCycleClosureV2, 'closure_snapshot_hash'> = {
@@ -185,6 +198,13 @@ export class PaperImplementationValidationCycleClosureV2Service {
       ),
       payload,
     };
+    await transaction.completeProductValidationCycle({
+      validation_cycle_id: closure.validation_cycle_id,
+      expected_lifecycle_status: cycle.lifecycle_status,
+      lifecycle_status: 'completed',
+      execution_status: 'completed',
+      completed_at: createdAt,
+    });
     const stored = await transaction.commitClosure({
       stored_closure: {
         implementation_project_id: cycle.implementation_project_id,
@@ -218,6 +238,16 @@ export class PaperImplementationValidationCycleClosureV2Service {
       );
     });
   }
+}
+
+function isClosableProductCycleStatus(
+  status: string,
+): status is PaperImplementationValidationCycleClosableStatus {
+  return status === 'admitted' || status === 'running' || status === 'interpreting';
+}
+
+function isTerminalProductCycleStatus(status: string): boolean {
+  return status === 'completed' || status === 'aborted' || status === 'superseded';
 }
 
 function assertControlOnlyRequest(request: CloseValidationCycleV2Request): void {

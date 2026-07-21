@@ -65,7 +65,7 @@ export interface ExperimentFoundationV2ReadinessResolver {
 export interface ExperimentFoundationV2MaterializationServiceOptions {
   repository: ExperimentFoundationExperimentSpineV2Repository;
   readinessResolver: ExperimentFoundationV2ReadinessResolver;
-  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
+  cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -288,7 +288,7 @@ export class ExperimentFoundationV2MaterializationService {
   constructor(options: ExperimentFoundationV2MaterializationServiceOptions) {
     this.repository = options.repository;
     this.readinessResolver = options.readinessResolver;
-    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
+    this.cycleClosureLookup = options.cycleClosureLookup;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -585,9 +585,3 @@ export class ExperimentFoundationV2MaterializationService {
     return this.repository.commitMaterialization(bundle, event);
   }
 }
-
-const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
-  async isCycleClosed() {
-    return false;
-  },
-};

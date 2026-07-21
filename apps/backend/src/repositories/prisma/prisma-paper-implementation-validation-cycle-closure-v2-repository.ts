@@ -26,6 +26,7 @@ import {
   PaperImplementationValidationCycleClosureV2RepositoryError,
   type PaperImplementationStoredValidationCycleClosureV2,
   type PaperImplementationValidationCycleClosureCommitV2,
+  type PaperImplementationValidationCycleProductCompletionV2,
   type PaperImplementationValidationCycleClosureV2Repository,
   type PaperImplementationValidationCycleClosureV2Transaction,
 } from '../paper-implementation-validation-cycle-closure-v2.repository.js';
@@ -112,6 +113,45 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
       where: { idempotencyKey },
     });
     return row ? mapStoredClosure(row) : null;
+  }
+
+  async completeProductValidationCycle(
+    input: PaperImplementationValidationCycleProductCompletionV2,
+  ): Promise<void> {
+    const completedAt = new Date(input.completed_at);
+    const result = await this.transaction.paperImplementationValidationCycle.updateMany({
+      where: {
+        id: input.validation_cycle_id,
+        cycleStatus: input.expected_lifecycle_status,
+        completedAt: null,
+      },
+      data: {
+        cycleStatus: input.lifecycle_status,
+        executionStatus: input.execution_status,
+        updatedAt: completedAt,
+        completedAt,
+      },
+    });
+    if (result.count === 1) return;
+
+    const current = await this.transaction.paperImplementationValidationCycle.findUnique({
+      where: { id: input.validation_cycle_id },
+      select: { cycleStatus: true },
+    });
+    if (
+      current?.cycleStatus === 'completed'
+      || current?.cycleStatus === 'aborted'
+      || current?.cycleStatus === 'superseded'
+    ) {
+      throw new PaperImplementationValidationCycleClosureV2RepositoryError(
+        'CYCLE_ALREADY_CLOSED',
+        `ValidationCycle product row is already terminal: ${input.validation_cycle_id}`,
+      );
+    }
+    throw new PaperImplementationValidationCycleClosureV2RepositoryError(
+      'CLOSURE_CONCURRENT_CONFLICT',
+      `ValidationCycle product row changed during closure: ${input.validation_cycle_id}`,
+    );
   }
 
   async commitClosure(input: PaperImplementationValidationCycleClosureCommitV2) {

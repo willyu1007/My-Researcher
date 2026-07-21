@@ -36,6 +36,11 @@ const RUN_REAL_POSTGRES = process.env.EXPERIMENT_FOUNDATION_V2_RELATIONAL_PRISMA
 const REAL_POSTGRES_SKIP_REASON =
   'set EXPERIMENT_FOUNDATION_V2_RELATIONAL_PRISMA=1 with the explicit randomized disposable database identity variables';
 const WRONG_HASH = `sha256:${'f'.repeat(64)}`;
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 let relationalFixturePromise: ReturnType<typeof buildExperimentFoundationD19TypedFixture> | null = null;
 
 test(
@@ -254,6 +259,7 @@ test(
       let idSequence = 0;
       const admissionService = new PaperImplementationExperimentV2AdmissionService({
         repository: piRepository,
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         scopeReader: {
           async resolveExactScope(implementationProjectId, validationCycleId) {
             return {
@@ -300,6 +306,7 @@ test(
       }
       const materializer = new ExperimentFoundationV2MaterializationService({
         repository: new RevokeAfterPreflightRepository(prisma),
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         readinessResolver: {
           async resolvePassedExactReadiness(input) {
             const resolved = await foundationService.revalidateReadiness({
@@ -409,6 +416,7 @@ test(
       }
       const materializer = new ExperimentFoundationV2MaterializationService({
         repository: new TamperReadinessAfterPreflightRepository(prisma),
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         readinessResolver: {
           async resolvePassedExactReadiness() {
             return {
@@ -478,6 +486,7 @@ test(
       const repository = new PrismaExperimentFoundationSpineV2Repository(prisma);
       const materializer = new ExperimentFoundationV2MaterializationService({
         repository,
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         readinessResolver: {
           async resolvePassedExactReadiness(input) {
             const resolved = await foundationService.revalidateReadiness({
@@ -577,6 +586,7 @@ async function createRelationalAdmission(
   const nextId = (prefix: string) => `${namespace}:${prefix}:${++idSequence}`;
   const service = new PaperImplementationExperimentV2AdmissionService({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     scopeReader: {
       async resolveExactScope(implementationProjectId, validationCycleId) {
         return {

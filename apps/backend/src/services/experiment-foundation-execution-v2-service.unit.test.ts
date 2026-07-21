@@ -26,6 +26,12 @@ import {
 } from '../test-support/experiment-foundation-execution-v2-test-fixture.js';
 import { ExperimentFoundationProviderCommandV2Worker } from './experiment-foundation-provider-command-v2-worker.js';
 
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
+
 function assertAppReason(reasonCode: string) {
   return (error: unknown): boolean => (
     error instanceof AppError && error.details?.reason_code === reasonCode
@@ -39,6 +45,7 @@ test('ProviderCommand authoring closes cancellation reason semantics before pers
   });
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     idGenerator: deterministicPackBIdGenerator('command_reason'),
@@ -92,6 +99,7 @@ test('PB02 capability-off rejects before prerequisite/readiness and writes nothi
   });
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite, () => {
       readinessCalls += 1;
     }),
@@ -175,6 +183,7 @@ test('Pack B public reads map persisted lineage integrity failures to stable App
   }) as ExperimentFoundationExecutionV2Repository;
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
   });
@@ -216,6 +225,7 @@ test('PB03 exact current-head and readiness drift fail closed with zero E1 write
     let readinessCalls = 0;
     const service = new ExperimentFoundationExecutionV2Service({
       repository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: passingPackBReadinessRevalidator(prerequisite, () => {
         readinessCalls += 1;
       }),
@@ -252,6 +262,7 @@ test('PB03 exact current-head and readiness drift fail closed with zero E1 write
     };
     const service = new ExperimentFoundationExecutionV2Service({
       repository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: driftedRevalidator,
       intakeEnabled: () => true,
     });
@@ -286,6 +297,7 @@ test('PB03 invalid TaskSpec output contracts fail before E1 writes and provider 
     const transport = new DeterministicFakeAliyunPaiDlcTransport();
     const service = new ExperimentFoundationExecutionV2Service({
       repository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
       intakeEnabled: () => true,
     });
@@ -321,6 +333,7 @@ test('PB04 E1 same-key replay converges without duplicate payload, Attempt, even
   });
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     idGenerator: deterministicPackBIdGenerator('same_key'),
@@ -354,6 +367,7 @@ test('PB04 replay rejects a malformed nested persisted redacted manifest with ze
   const request = { business_idempotency_key: 'pack-b-manifest-tamper-replay' };
   const initialService = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     idGenerator: deterministicPackBIdGenerator('manifest_tamper_initial'),
@@ -382,6 +396,7 @@ test('PB04 replay rejects a malformed nested persisted redacted manifest with ze
   }) as ExperimentFoundationExecutionV2Repository;
   const replayService = new ExperimentFoundationExecutionV2Service({
     repository: tamperedRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
   });
@@ -400,6 +415,7 @@ test('Pack B control rejects exhausted Attempt stateVersion before repository wr
   });
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     idGenerator: deterministicPackBIdGenerator('state_version_initial'),
@@ -422,6 +438,7 @@ test('Pack B control rejects exhausted Attempt stateVersion before repository wr
   }) as ExperimentFoundationExecutionV2Repository;
   const exhaustedService = new ExperimentFoundationExecutionV2Service({
     repository: exhaustedRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
   });
@@ -444,6 +461,7 @@ test('control same-key replay rejects changed route-specific reason codes', asyn
     });
     const service = new ExperimentFoundationExecutionV2Service({
       repository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
       intakeEnabled: () => true,
       idGenerator: deterministicPackBIdGenerator('cancel_reason_replay'),
@@ -477,6 +495,7 @@ test('control same-key replay rejects changed route-specific reason codes', asyn
     const clock = mutablePackBClock();
     const service = new ExperimentFoundationExecutionV2Service({
       repository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
       intakeEnabled: () => true,
       now: clock.now,
@@ -554,6 +573,7 @@ test('Pack B transaction-race reason codes map to one exhaustive stable HTTP pol
     }) as ExperimentFoundationExecutionV2Repository;
     const service = new ExperimentFoundationExecutionV2Service({
       repository: racingRepository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
       intakeEnabled: () => true,
       idGenerator: deterministicPackBIdGenerator(`error_policy_${reasonCode}`),
@@ -610,6 +630,7 @@ test('PB10 cancel racing submit E3 returns zero-partial conflict and same-key re
   }) as ExperimentFoundationExecutionV2Repository;
   const service = new ExperimentFoundationExecutionV2Service({
     repository: racingRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -657,6 +678,7 @@ test('PB05 retry creates Attempts only for the failed cell and advances its cell
   const clock = mutablePackBClock();
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -717,6 +739,7 @@ test('PB05/PB06 indexed facts preserve latest lineage and ordering at multi-cell
   const clock = mutablePackBClock();
   const initialService = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -799,6 +822,7 @@ test('PB05/PB06 indexed facts preserve latest lineage and ordering at multi-cell
   }) as ExperimentFoundationExecutionV2Repository;
   const indexedService = new ExperimentFoundationExecutionV2Service({
     repository: indexedRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -851,6 +875,7 @@ test('PB06 workflow status is event-derived, has no persisted aggregate, and rej
   const clock = mutablePackBClock();
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -899,6 +924,7 @@ test('PB06 workflow status is event-derived, has no persisted aggregate, and rej
   }) as ExperimentFoundationExecutionV2Repository;
   const driftDetectingService = new ExperimentFoundationExecutionV2Service({
     repository: driftedRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,

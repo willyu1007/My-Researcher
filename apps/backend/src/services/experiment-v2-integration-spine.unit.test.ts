@@ -42,6 +42,11 @@ const PROJECT_ID = 'implementation-project-d19';
 const CYCLE_ID = 'validation-cycle-d19';
 const SERVER_ACTOR = 'system:paper-implementation-experiment-v2-admission';
 const BASE_TIME = '2026-07-13T12:00:00.000Z';
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 
 function hash(label: string): string {
   return serverHashExperimentV2SemanticContent({
@@ -201,6 +206,7 @@ function makeServices(input: {
   const readiness = readinessFor(orderedDependencies);
   const admission = new PaperImplementationExperimentV2AdmissionService({
     repository: pi,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     scopeReader: scopeReader(),
     admissionEnabled: input.enabled ?? (() => true),
     serverActorId: SERVER_ACTOR,
@@ -209,6 +215,7 @@ function makeServices(input: {
   });
   const materialization = new ExperimentFoundationV2MaterializationService({
     repository: ef,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness(request) {
         return request.readiness_attestation_id === readiness.attestation.readiness_attestation_id
@@ -222,6 +229,7 @@ function makeServices(input: {
   });
   const head = new PaperImplementationExperimentV2HeadService({
     repository: pi,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     idFactory: ids('head'),
     now: input.now ?? (() => BASE_TIME),
   });
@@ -323,6 +331,7 @@ test('A01 capability-off performs zero scope/repository work and rejects before 
   const readiness = readinessFor(dependencies());
   const service = new PaperImplementationExperimentV2AdmissionService({
     repository: pi,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     scopeReader: scopeReader(counter),
     admissionEnabled: () => false,
     idFactory: ids('disabled'),
@@ -417,6 +426,7 @@ test('PI admission rejects inactive project or non-admitted Cycle with zero v2 w
     const pi = new InMemoryPaperImplementationExperimentSpineV2Repository();
     const service = new PaperImplementationExperimentV2AdmissionService({
       repository: pi,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       scopeReader: {
         async resolveExactScope() {
           return {
@@ -459,6 +469,7 @@ test('PI public services preserve stable repository read-integrity reason codes'
   };
   const admissionService = new PaperImplementationExperimentV2AdmissionService({
     repository: admissionRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     scopeReader: scopeReader(),
     admissionEnabled: () => true,
     serverActorId: SERVER_ACTOR,
@@ -487,6 +498,7 @@ test('PI public services preserve stable repository read-integrity reason codes'
   };
   const guardedMaterialization = new ExperimentFoundationV2MaterializationService({
     repository: materializationRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness() {
         return services.readiness;
@@ -513,6 +525,7 @@ test('PI public services preserve stable repository read-integrity reason codes'
   };
   const headService = new PaperImplementationExperimentV2HeadService({
     repository: headRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
   });
   await assert.rejects(
     headService.consume(materialized.outbox.event),
@@ -584,6 +597,7 @@ test('T1 rejects exhausted branch revision/state counters before commit and pres
       };
       const service = new PaperImplementationExperimentV2AdmissionService({
         repository,
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         scopeReader: scopeReader(),
         admissionEnabled: () => true,
         serverActorId: SERVER_ACTOR,
@@ -755,6 +769,7 @@ test('A04/B02 exact readiness rejects missing, substituted, reordered and wrong 
       const drifted = driftCase.mutate(source.readiness);
       const materializer = new ExperimentFoundationV2MaterializationService({
         repository: ef,
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         readinessResolver: {
           async resolvePassedExactReadiness() {
             return drifted;
@@ -793,6 +808,7 @@ test('B02 T2 commit fence rejects readiness revoked after precheck with zero par
   });
   const materializer = new ExperimentFoundationV2MaterializationService({
     repository: ef,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness() {
         readinessCurrent = false;
@@ -868,6 +884,7 @@ test('T3 business replay revalidates exact PI authority and maps drift fail clos
   businessReplayRepository.findInboxByEvent = async () => null;
   const replayService = new PaperImplementationExperimentV2HeadService({
     repository: businessReplayRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
   });
   assert.equal(
     (await replayService.consume(materialized.outbox.event)).emitted_branch_head_advanced,
@@ -1027,6 +1044,7 @@ test('T3 rejects an exhausted branch state counter before inbox/head/outbox comm
   };
   const head = new PaperImplementationExperimentV2HeadService({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     idFactory: ids('int32-head'),
     now: () => BASE_TIME,
   });
@@ -1057,6 +1075,7 @@ test('B06 lower sequence is durably ignored and a missing prerequisite writes no
   const emptyPi = new InMemoryPaperImplementationExperimentSpineV2Repository();
   const missingHead = new PaperImplementationExperimentV2HeadService({
     repository: emptyPi,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     idFactory: ids('missing'),
     now: () => BASE_TIME,
   });

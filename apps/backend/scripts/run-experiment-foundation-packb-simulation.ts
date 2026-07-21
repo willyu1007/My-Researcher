@@ -16,6 +16,7 @@ import { PrismaExperimentFoundationExecutionV2Repository } from '../src/reposito
 import { PrismaExperimentFoundationSpineV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
+import { PrismaPaperImplementationValidationCycleClosureV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
 import {
   requireDisposablePostgresDatabaseIdentity,
 } from '../src/test-support/disposable-postgres-test-database.js';
@@ -136,6 +137,9 @@ async function main(): Promise<void> {
     const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
     const efSpineRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
     const executionRepository = new PrismaExperimentFoundationExecutionV2Repository(prisma);
+    const cycleClosureLookup = new PrismaPaperImplementationValidationCycleClosureV2Repository(
+      prisma,
+    );
 
     const fixture = await buildExperimentFoundationD19TypedFixture(assetService);
     const admissionRequest = buildExperimentFoundationD19AdmissionRequestTemplate(fixture);
@@ -155,6 +159,7 @@ async function main(): Promise<void> {
         },
       },
       admissionEnabled: () => true,
+      cycleClosureLookup,
       serverActorId: SERVER_ACTOR,
       idFactory,
       now: clock.now,
@@ -179,11 +184,13 @@ async function main(): Promise<void> {
     const materializationService = new ExperimentFoundationV2MaterializationService({
       repository: efSpineRepository,
       readinessResolver,
+      cycleClosureLookup,
       idFactory,
       now: clock.now,
     });
     const headService = new PaperImplementationExperimentV2HeadService({
       repository: piRepository,
+      cycleClosureLookup,
       idFactory,
       now: clock.now,
     });
@@ -244,6 +251,7 @@ async function main(): Promise<void> {
       repository: executionRepository,
       readinessRevalidator: assetService,
       intakeEnabled: () => intakeEnabled,
+      cycleClosureLookup,
       payloadService: providerPayloadService,
       now: clock.now,
       idGenerator: (kind) => idFactory(`packb_${kind}`),

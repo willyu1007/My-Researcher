@@ -54,6 +54,11 @@ const RUN_REAL_POSTGRES =
 const REAL_POSTGRES_SKIP_REASON =
   'set PAPER_IMPLEMENTATION_EVIDENCE_CLOSURE_V2_RELATIONAL_PRISMA=1 with the Pack C-PI randomized disposable database identity variables';
 const FIXED_NOW = '2026-07-21T08:00:00.000Z';
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 let foundationFixturePromise: ReturnType<typeof buildExperimentFoundationD19TypedFixture> | null = null;
 
 interface AcknowledgedRunFixture {
@@ -95,7 +100,9 @@ test(
       assert.match(firstEvaluation.watermark.closure_input_hash, /^sha256:[0-9a-f]{64}$/u);
       const noEvidenceBefore = await noEvidenceScientificCounts(prisma, happy);
       assert.deepEqual(noEvidenceBefore, {
+        cycleLifecycleStatus: 'admitted',
         cycleExecutionStatus: 'not_started',
+        cycleCompletedAt: null,
         experimentResults: 0,
         validationReports: 0,
         evidenceCandidates: 0,
@@ -124,7 +131,12 @@ test(
         closures: 1,
         closedOutboxes: 1,
       });
-      assert.deepEqual(await noEvidenceScientificCounts(prisma, happy), noEvidenceBefore);
+      assert.deepEqual(await noEvidenceScientificCounts(prisma, happy), {
+        ...noEvidenceBefore,
+        cycleLifecycleStatus: 'completed',
+        cycleExecutionStatus: 'completed',
+        cycleCompletedAt: FIXED_NOW,
+      });
 
       const noHead = await seedAcknowledgedRun(prisma, 'readiness-no-head');
       await prisma.paperImplementationExperimentWorkOrderBranchV2.updateMany({
@@ -184,6 +196,40 @@ test(
         await removeClosureOutboxFailureTrigger(prisma);
       }
       assert.deepEqual(await closureCounts(prisma, rollback.validationCycleId), {
+        closures: 0,
+        closedOutboxes: 0,
+      });
+      assert.deepEqual(await noEvidenceScientificCounts(prisma, rollback), {
+        cycleLifecycleStatus: 'admitted',
+        cycleExecutionStatus: 'not_started',
+        cycleCompletedAt: null,
+        experimentResults: 0,
+        validationReports: 0,
+        evidenceCandidates: 0,
+        runEvidenceUnits: 0,
+      });
+
+      const alreadyTerminal = await seedAcknowledgedRun(prisma, 'closure-terminal');
+      const terminalEvaluation = await evaluator.evaluate(alreadyTerminal.validationCycleId);
+      await prisma.paperImplementationValidationCycle.update({
+        where: { id: alreadyTerminal.validationCycleId },
+        data: {
+          cycleStatus: 'aborted',
+          executionStatus: 'failed',
+          updatedAt: new Date(FIXED_NOW),
+          completedAt: new Date(FIXED_NOW),
+        },
+      });
+      await assert.rejects(
+        closureService.close(controlOnlyClosureRequest(
+          alreadyTerminal.validationCycleId,
+          terminalEvaluation.watermark.expected_cycle_version,
+          terminalEvaluation.watermark.closure_input_hash,
+          `${alreadyTerminal.namespace}:close`,
+        )),
+        appReason('CYCLE_ALREADY_CLOSED'),
+      );
+      assert.deepEqual(await closureCounts(prisma, alreadyTerminal.validationCycleId), {
         closures: 0,
         closedOutboxes: 0,
       });
@@ -439,6 +485,7 @@ async function admitAndDrainRevision(
   assert.ok(admissionBundle);
   const materializer = new ExperimentFoundationV2MaterializationService({
     repository: fixture.efRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: exactReadinessResolver(fixture.foundationService),
     now: () => FIXED_NOW,
   });
@@ -448,6 +495,7 @@ async function admitAndDrainRevision(
     materializationConsumer: materializer,
     headConsumer: new PaperImplementationExperimentV2HeadService({
       repository: fixture.piRepository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
       now: () => FIXED_NOW,
     }),
     acknowledgementConsumer: new ExperimentFoundationV2AcknowledgementService({
@@ -487,7 +535,9 @@ function admissionServiceFor(
   implementationProjectId: string,
   validationCycleId: string,
   namespace: string,
-  cycleClosureLookup?: PrismaPaperImplementationValidationCycleClosureV2Repository,
+  cycleClosureLookup:
+    | PrismaPaperImplementationValidationCycleClosureV2Repository
+    | typeof OPEN_CYCLE_LOOKUP = OPEN_CYCLE_LOOKUP,
 ) {
   const nextSequence = (): number => {
     const next = (admissionIdSequences.get(namespace) ?? 0) + 1;
@@ -864,7 +914,7 @@ async function noEvidenceScientificCounts(
     await Promise.all([
       prisma.paperImplementationValidationCycle.findUniqueOrThrow({
         where: { id: fixture.validationCycleId },
-        select: { executionStatus: true },
+        select: { cycleStatus: true, executionStatus: true, completedAt: true },
       }),
       prisma.experimentFoundationExperimentResultV2.count({
         where: { runId: fixture.runId },
@@ -880,7 +930,9 @@ async function noEvidenceScientificCounts(
       }),
     ]);
   return {
+    cycleLifecycleStatus: cycle.cycleStatus,
     cycleExecutionStatus: cycle.executionStatus,
+    cycleCompletedAt: cycle.completedAt?.toISOString() ?? null,
     experimentResults,
     validationReports,
     evidenceCandidates,

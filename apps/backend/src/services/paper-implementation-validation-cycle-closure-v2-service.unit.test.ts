@@ -61,13 +61,14 @@ function readinessOptions(input: {
   withHead?: boolean;
   attempts?: PaperImplementationCycleReadinessV2Attempt[];
   evidence?: boolean;
+  lifecycleStatus?: string;
 } = {}): InMemoryPaperImplementationCycleReadinessV2RepositoryOptions {
   const currentBranch = branch(input.withHead ?? true);
   return {
     cycles: [{
       validation_cycle_id: CYCLE_ID,
       implementation_project_id: PROJECT_ID,
-      lifecycle_status: 'admitted',
+      lifecycle_status: input.lifecycleStatus ?? 'admitted',
       expected_cycle_version: 0,
     }],
     branches: { [CYCLE_ID]: [currentBranch] },
@@ -157,6 +158,13 @@ test('control-only closure atomically writes one exact server-hashed closure and
 
   assert.equal(snapshot.closures.length, 1);
   assert.equal(snapshot.outboxes.length, 1);
+  assert.deepEqual(context.repository.productCycleCompletion(CYCLE_ID), {
+    validation_cycle_id: CYCLE_ID,
+    expected_lifecycle_status: 'admitted',
+    lifecycle_status: 'completed',
+    execution_status: 'completed',
+    completed_at: NOW,
+  });
   assert.deepEqual(snapshot.closures[0]?.closure, response.closure);
   assert.equal(response.closure.closure_watermark.ordered_branches.length, 1);
   assert.equal(response.closure.scientific_disposition, null);
@@ -250,6 +258,19 @@ test('exact replay is idempotent while changed replay and later closure are reje
   );
   assert.equal(context.repository.snapshot().closures.length, 1);
   assert.equal(context.repository.snapshot().outboxes.length, 1);
+  assert.equal(context.repository.productCycleCompletion(CYCLE_ID)?.completed_at, NOW);
+});
+
+test('a terminal product Cycle without a stored v2 closure maps to CYCLE_ALREADY_CLOSED', async () => {
+  const context = await fixture({
+    readiness: readinessOptions({ lifecycleStatus: 'aborted' }),
+  });
+  await assert.rejects(
+    context.service.close(context.request),
+    (error) => reason(error) === 'CYCLE_ALREADY_CLOSED',
+  );
+  assert.deepEqual(context.repository.snapshot(), { closures: [], outboxes: [] });
+  assert.equal(context.repository.productCycleCompletion(CYCLE_ID), null);
 });
 
 test('scientific closure remains production-disabled and control-only cannot discard eligible REU', async () => {
@@ -275,4 +296,3 @@ test('scientific closure remains production-disabled and control-only cannot dis
   );
   assert.deepEqual(evidence.repository.snapshot(), { closures: [], outboxes: [] });
 });
-

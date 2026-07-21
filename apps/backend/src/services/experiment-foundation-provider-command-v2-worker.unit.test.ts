@@ -23,6 +23,12 @@ import {
 } from '../test-support/experiment-foundation-execution-v2-test-fixture.js';
 import { ExperimentFoundationProviderCommandV2Worker } from './experiment-foundation-provider-command-v2-worker.js';
 
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
+
 function createHarness(options: {
   cellCount?: number;
   outputKeys?: ExperimentFoundationV2TrainingTaskOutputKey[];
@@ -40,6 +46,7 @@ function createHarness(options: {
   const clock = mutablePackBClock();
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -466,6 +473,7 @@ test('PB06 batched worker heartbeats immediately before dispatch and skips an ex
   const clock = mutablePackBClock();
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,
@@ -1003,6 +1011,7 @@ test('PB15 committed commands keep draining after the branch head advances', asy
   const clock = mutablePackBClock();
   const service = new ExperimentFoundationExecutionV2Service({
     repository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessRevalidator: passingPackBReadinessRevalidator(prerequisite),
     intakeEnabled: () => true,
     now: clock.now,

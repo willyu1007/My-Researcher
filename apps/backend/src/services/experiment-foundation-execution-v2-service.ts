@@ -65,7 +65,7 @@ export interface ExperimentFoundationExecutionV2ServiceOptions {
   repository: ExperimentFoundationExecutionV2Repository;
   readinessRevalidator: ExperimentFoundationExecutionV2ReadinessRevalidator;
   intakeEnabled: () => boolean;
-  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
+  cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   payloadService?: ExperimentFoundationV2ProviderPayloadService;
   now?: () => string;
   idGenerator?: (kind: 'payload' | 'attempt' | 'event' | 'command') => string;
@@ -84,7 +84,7 @@ export class ExperimentFoundationExecutionV2Service {
     this.repository = options.repository;
     this.readinessRevalidator = options.readinessRevalidator;
     this.intakeEnabled = options.intakeEnabled;
-    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
+    this.cycleClosureLookup = options.cycleClosureLookup;
     this.payloadService = options.payloadService ?? new ExperimentFoundationV2ProviderPayloadService();
     this.now = options.now ?? (() => new Date().toISOString());
     this.idGenerator = options.idGenerator
@@ -664,12 +664,6 @@ export class ExperimentFoundationExecutionV2Service {
     }
   }
 }
-
-const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
-  async isCycleClosed() {
-    return false;
-  },
-};
 
 interface ExperimentFoundationExecutionFactsIndex {
   attemptCount: number;

@@ -16,6 +16,7 @@ import type {
 import { PrismaExperimentFoundationV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-v2-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
+import { PrismaPaperImplementationValidationCycleClosureV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
 import {
   reconstructExperimentV2Event,
 } from '../src/repositories/experiment-v2-stored-integration-event.js';
@@ -231,6 +232,9 @@ async function main(): Promise<void> {
     });
     const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
     const efSpineRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
+    const cycleClosureLookup = new PrismaPaperImplementationValidationCycleClosureV2Repository(
+      prisma,
+    );
     let admissionEnabled = false;
     const admissionService = new PaperImplementationExperimentV2AdmissionService({
       repository: piRepository,
@@ -251,6 +255,7 @@ async function main(): Promise<void> {
         },
       },
       admissionEnabled: () => admissionEnabled,
+      cycleClosureLookup,
       serverActorId: SERVER_ACTOR,
       idFactory,
       now: clock,
@@ -277,11 +282,13 @@ async function main(): Promise<void> {
     const materializationService = new ExperimentFoundationV2MaterializationService({
       repository: efSpineRepository,
       readinessResolver,
+      cycleClosureLookup,
       idFactory,
       now: clock,
     });
     const headService = new PaperImplementationExperimentV2HeadService({
       repository: piRepository,
+      cycleClosureLookup,
       idFactory,
       now: clock,
     });
@@ -1267,6 +1274,7 @@ async function verifyB06(
   });
   const staleService = new PaperImplementationExperimentV2HeadService({
     repository: staleRepository,
+    cycleClosureLookup: new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma),
     idFactory,
     now,
   });

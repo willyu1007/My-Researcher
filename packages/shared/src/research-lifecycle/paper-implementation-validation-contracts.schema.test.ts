@@ -85,6 +85,46 @@ test('paper-implementation validation schemas load through direct and aggregate 
   assert.ok(researchLifecycleContracts.validationCycleSchema);
 });
 
+test('legacy ValidationCycle write contracts expose no caller-authored conclusion fields while reads preserve them', async () => {
+  const writeProperties = validationContracts.completeValidationCycleRequestSchema.properties;
+  for (const field of [
+    'lifecycle_status',
+    'execution_status',
+    'outputs',
+    'cycle_assessment',
+    'decision_exit',
+  ]) {
+    assert.equal(Object.hasOwn(writeProperties, field), false);
+  }
+  assert.equal(
+    Object.hasOwn(
+      validationContracts.createValidationCycleDraftRequestSchema.properties,
+      'decision_exit',
+    ),
+    false,
+  );
+  assert.equal(
+    Object.hasOwn(validationContracts.admitValidationCycleRequestSchema.properties, 'decision_exit'),
+    false,
+  );
+  assert.equal(
+    await validateWithSchema(validationContracts.completeValidationCycleRequestSchema, {}),
+    200,
+  );
+  assert.equal(
+    Object.hasOwn(validationContracts.validationCycleSchema.properties, 'cycle_assessment'),
+    true,
+  );
+  assert.equal(
+    Object.hasOwn(validationContracts.validationCycleSchema.properties, 'decision_exit'),
+    true,
+  );
+  assert.equal(
+    Object.hasOwn(validationContracts.validationCycleSchema.properties, 'outputs'),
+    true,
+  );
+});
+
 test('validation cycle draft requires input target frame criteria budget stop conditions and exits', async () => {
   assert.equal(
     await validateWithSchema(

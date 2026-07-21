@@ -28,7 +28,7 @@ const HEAD_CONSUMER = 'paper-implementation-experiment-v2-head-advancer';
 
 export interface PaperImplementationExperimentV2HeadServiceOptions {
   repository: PaperImplementationExperimentSpineV2Repository;
-  cycleClosureLookup?: PaperImplementationValidationCycleClosureV2Lookup;
+  cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
@@ -186,7 +186,7 @@ export class PaperImplementationExperimentV2HeadService {
 
   constructor(options: PaperImplementationExperimentV2HeadServiceOptions) {
     this.repository = options.repository;
-    this.cycleClosureLookup = options.cycleClosureLookup ?? NEVER_CLOSED_CYCLE_LOOKUP;
+    this.cycleClosureLookup = options.cycleClosureLookup;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -435,11 +435,5 @@ export class PaperImplementationExperimentV2HeadService {
   }
 
 }
-
-const NEVER_CLOSED_CYCLE_LOOKUP: PaperImplementationValidationCycleClosureV2Lookup = {
-  async isCycleClosed() {
-    return false;
-  },
-};
 
 export { HEAD_CONSUMER };

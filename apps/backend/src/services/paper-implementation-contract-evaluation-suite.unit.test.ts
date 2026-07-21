@@ -1652,7 +1652,7 @@ test('T-101 coverage anchors existing child-level blocked-path tests', async () 
   const requiredAnchors = [
     'hash mismatch and changed upstream hash block without mutating admitted implementation state',
     'portfolio constraint drift blocks validation cycle draft creation',
-    'repeated low information gain completion creates loop budget review item',
+    'legacy completion is closed below HTTP while historical completed-cycle reads are preserved',
     'marks monitor intake without work_order_id untrusted and does not create run evidence',
     'direct ResultInterpretationPacket materialization is closed pending ValidationCycleClosed consumption',
     'ready dossier fails closed when a declared ValidationCycle has no v2 closure',

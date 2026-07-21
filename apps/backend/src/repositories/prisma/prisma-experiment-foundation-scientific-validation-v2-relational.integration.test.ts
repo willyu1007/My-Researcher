@@ -51,6 +51,11 @@ const REAL_POSTGRES_SKIP_REASON =
   'set EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATION_V2_RELATIONAL_PRISMA=1 with the Pack C randomized disposable database identity variables';
 const FIXED_NOW = '2026-07-20T08:00:00.000Z';
 const WRONG_HASH = `sha256:${'f'.repeat(64)}`;
+const OPEN_CYCLE_LOOKUP = {
+  async isCycleClosed() {
+    return false;
+  },
+};
 let foundationFixturePromise: ReturnType<typeof buildExperimentFoundationD19TypedFixture> | null = null;
 
 interface ScientificFixture {
@@ -389,6 +394,7 @@ async function seedScientificFixture(
   const piRepository = new InMemoryPaperImplementationExperimentSpineV2Repository();
   const admissionService = new PaperImplementationExperimentV2AdmissionService({
     repository: piRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     scopeReader: {
       async resolveExactScope(implementationProjectId, validationCycleId) {
         return {
@@ -415,6 +421,7 @@ async function seedScientificFixture(
   const spineRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
   const materializer = new ExperimentFoundationV2MaterializationService({
     repository: spineRepository,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness(input) {
         const resolved = await foundationService.revalidateReadiness({

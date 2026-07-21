@@ -48,6 +48,7 @@ import { getPrismaClient } from '../src/repositories/prisma/prisma-client.js';
 import { PrismaExperimentFoundationSpineV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from '../src/repositories/prisma/prisma-experiment-foundation-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
+import { PrismaPaperImplementationValidationCycleClosureV2Repository } from '../src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
 import {
   EXPERIMENT_FOUNDATION_D19_ACTIVE_METRIC_KEYS,
   type ExperimentFoundationD19TypedFixture,
@@ -590,6 +591,7 @@ function buildRelay(prisma: PrismaClient): ExperimentV2IntegrationRelayService {
   );
   const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
   const efRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
+  const cycleClosureLookup = new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
   const readinessResolver: ExperimentFoundationV2ReadinessResolver = {
     async resolvePassedExactReadiness(input) {
       const result = await assetService.revalidateReadiness({
@@ -613,8 +615,12 @@ function buildRelay(prisma: PrismaClient): ExperimentV2IntegrationRelayService {
     materializationConsumer: new ExperimentFoundationV2MaterializationService({
       repository: efRepository,
       readinessResolver,
+      cycleClosureLookup,
     }),
-    headConsumer: new PaperImplementationExperimentV2HeadService({ repository: piRepository }),
+    headConsumer: new PaperImplementationExperimentV2HeadService({
+      repository: piRepository,
+      cycleClosureLookup,
+    }),
     acknowledgementConsumer: new ExperimentFoundationV2AcknowledgementService({
       repository: efRepository,
     }),
