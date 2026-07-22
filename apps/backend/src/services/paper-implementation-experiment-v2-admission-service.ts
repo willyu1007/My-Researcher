@@ -108,6 +108,9 @@ function exactAdmissionMatches(
 }
 
 function mapAdmissionRepositoryError(error: ExperimentSpineV2RepositoryConstraintError): AppError {
+  if (error.reasonCode === 'CYCLE_ALREADY_CLOSED') {
+    return cycleAlreadyClosed();
+  }
   const concurrent = error.reasonCode === 'BRANCH_CAS_CONFLICT';
   const reasonCode = concurrent
     ? 'BRANCH_CURRENT_REVISION_CAS_CONFLICT'
@@ -161,9 +164,6 @@ export class PaperImplementationExperimentV2AdmissionService {
   private async admitEnabled(
     input: PaperImplementationExperimentV2AdmissionInput,
   ): Promise<PaperImplementationExperimentV2AdmissionResponse> {
-    if (await this.cycleClosureLookup.isCycleClosed(input.validation_cycle_id)) {
-      throw cycleAlreadyClosed();
-    }
     if (input.admitted_by !== this.serverActorId) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Admission actor must be server injected.', {
         reason_code: 'V2_TYPED_SNAPSHOT_INVALID',
@@ -259,6 +259,13 @@ export class PaperImplementationExperimentV2AdmissionService {
           replayed: true,
         };
       }
+    }
+
+    // Exact committed admission replay remains valid after the immutable Cycle
+    // closure. Only a genuinely new revision reaches the cheap closure fast path
+    // and the repository's authoritative transaction-internal fence.
+    if (await this.cycleClosureLookup.isCycleClosed(input.validation_cycle_id)) {
+      throw cycleAlreadyClosed();
     }
 
     const revisionSequence = incrementExperimentV2Int32Counter(

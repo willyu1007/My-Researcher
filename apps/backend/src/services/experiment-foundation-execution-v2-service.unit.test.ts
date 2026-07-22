@@ -359,6 +359,39 @@ test('PB04 E1 same-key replay converges without duplicate payload, Attempt, even
   assert.equal(firstSnapshot.start_receipts.length, 1);
 });
 
+test('workflow simulation exact idempotency-key replay converges after Cycle closure', async () => {
+  const prerequisite = buildPackBExecutionPrerequisite();
+  const repository = new InMemoryExperimentFoundationExecutionV2Repository({
+    prerequisites: [prerequisite],
+  });
+  let closed = false;
+  let readinessCalls = 0;
+  const service = new ExperimentFoundationExecutionV2Service({
+    repository,
+    cycleClosureLookup: { async isCycleClosed() { return closed; } },
+    readinessRevalidator: passingPackBReadinessRevalidator(prerequisite, () => {
+      readinessCalls += 1;
+    }),
+    intakeEnabled: () => true,
+    idGenerator: deterministicPackBIdGenerator('closed_replay'),
+  });
+  const request = { business_idempotency_key: 'pack-b-e1-closed-replay' };
+  const first = await service.startWorkflowSimulation(prerequisite.run.run_id, request);
+  const before = repository.snapshot();
+
+  closed = true;
+  const replay = await service.startWorkflowSimulation(prerequisite.run.run_id, request);
+
+  assert.equal(first.replayed, false);
+  assert.equal(replay.replayed, true);
+  assert.deepEqual(
+    replay.execution_attempts.map((attempt) => attempt.execution_attempt_id),
+    first.execution_attempts.map((attempt) => attempt.execution_attempt_id),
+  );
+  assert.equal(readinessCalls, 1, 'replay does not re-run mutable readiness authority');
+  assert.deepEqual(repository.snapshot(), before);
+});
+
 test('PB04 replay rejects a malformed nested persisted redacted manifest with zero writes', async () => {
   const prerequisite = buildPackBExecutionPrerequisite({ cellCount: 1 });
   const repository = new InMemoryExperimentFoundationExecutionV2Repository({

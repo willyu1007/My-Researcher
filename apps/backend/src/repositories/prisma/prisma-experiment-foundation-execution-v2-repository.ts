@@ -205,6 +205,16 @@ implements ExperimentFoundationExecutionV2Repository {
           return loadStartReplay(transaction, prerequisite, replayRows);
         }
 
+        const closure = await transaction.paperImplementationValidationCycleClosureV2.findUnique({
+          where: { validationCycleId: prerequisite.validation_cycle_id },
+          select: { id: true },
+        });
+        if (closure) {
+          throw constraint(
+            'CYCLE_ALREADY_CLOSED',
+            `ValidationCycle already has an immutable v2 closure: ${prerequisite.validation_cycle_id}`,
+          );
+        }
         assertStartPrerequisite(prerequisite, input);
         await assertLiveReadinessSnapshot(transaction, prerequisite);
         await assertStartShape(transaction, prerequisite, input);

@@ -113,15 +113,8 @@ export class ExperimentFoundationExecutionV2Service {
     }
 
     const prerequisite = await this.requirePrerequisite(runId);
-    if (await this.cycleClosureLookup.isCycleClosed(prerequisite.validation_cycle_id)) {
-      throw errorForReason(
-        'CYCLE_ALREADY_CLOSED',
-        'A closed ValidationCycle cannot create or start another ExecutionAttempt.',
-      );
-    }
     assertExactPrerequisite(prerequisite);
     assertExactReadinessPrerequisite(prerequisite);
-    await this.revalidateExactReadiness(prerequisite);
 
     const requestHash = serverHashExperimentFoundationProviderControlV2Semantic('ExperimentFoundationWorkflowSimulationRequestV2', {
       business_idempotency_key: request.business_idempotency_key,
@@ -153,6 +146,16 @@ export class ExperimentFoundationExecutionV2Service {
         workflow_simulation_status: await this.deriveStatus(prerequisite),
       };
     }
+    // The durable workflow start receipt is replay authority even after Cycle
+    // closure. New starts take both this cheap fence and the transaction-local
+    // fence in startWorkflowSimulation.
+    if (await this.cycleClosureLookup.isCycleClosed(prerequisite.validation_cycle_id)) {
+      throw errorForReason(
+        'CYCLE_ALREADY_CLOSED',
+        'A closed ValidationCycle cannot create or start another ExecutionAttempt.',
+      );
+    }
+    await this.revalidateExactReadiness(prerequisite);
     const [existingAttempts, existingPayloads] = await Promise.all([
       this.repository.listRunAttempts(runId),
       this.repository.listRunPayloads(runId),

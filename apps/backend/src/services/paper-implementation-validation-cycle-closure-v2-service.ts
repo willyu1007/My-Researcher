@@ -43,7 +43,10 @@ export class PaperImplementationValidationCycleClosureV2Service {
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
-  async close(request: CloseValidationCycleV2Request): Promise<CloseValidationCycleV2Response> {
+  async close(
+    request: CloseValidationCycleV2Request,
+    serializationRetry = 0,
+  ): Promise<CloseValidationCycleV2Response> {
     if (!this.enabled()) {
       throw closureDisabled('ValidationCycle v2 closure is disabled.');
     }
@@ -77,6 +80,12 @@ export class PaperImplementationValidationCycleClosureV2Service {
         return this.resolveConcurrentReplay(request);
       }
       if (error.reasonCode === 'CLOSURE_CONCURRENT_CONFLICT') {
+        if (serializationRetry < 2) {
+          // Closure authority IDs are deterministic, so a transaction aborted
+          // by PostgreSQL SSI can safely rebuild the watermark and retry. If a
+          // writer won, the rebuilt authority deterministically reports drift.
+          return this.close(request, serializationRetry + 1);
+        }
         throw closureError(
           'CYCLE_CLOSURE_SCOPE_DRIFT',
           'ValidationCycle closure scope changed during the closure transaction.',
@@ -93,19 +102,6 @@ export class PaperImplementationValidationCycleClosureV2Service {
     const readiness = await new PaperImplementationCycleReadinessV2Service({
       repository: transaction,
     }).evaluate(request.validation_cycle_id);
-
-    const scopeBlocker = readiness.ordered_blockers.find((blocker) => (
-      blocker.code === 'BRANCH_HEAD_NOT_FROZEN'
-      || blocker.code === 'CYCLE_ACTIVE_REAL_ATTEMPT'
-    ));
-    if (scopeBlocker) {
-      throw closureError(
-        scopeBlocker.code,
-        scopeBlocker.code === 'BRANCH_HEAD_NOT_FROZEN'
-          ? 'Every admitted branch must have its exact frozen and acknowledged current head.'
-          : 'A non-terminal real-provider Attempt blocks ValidationCycle closure.',
-      );
-    }
 
     const existing = await transaction.findStoredClosureByCycle(request.validation_cycle_id);
     if (existing) {
@@ -127,6 +123,20 @@ export class PaperImplementationValidationCycleClosureV2Service {
         'ValidationCycle closure expectation does not match the transactionally rebuilt watermark.',
       );
     }
+
+    const scopeBlocker = readiness.ordered_blockers.find((blocker) => (
+      blocker.code === 'BRANCH_HEAD_NOT_FROZEN'
+      || blocker.code === 'CYCLE_ACTIVE_REAL_ATTEMPT'
+    ));
+    if (scopeBlocker) {
+      throw closureError(
+        scopeBlocker.code,
+        scopeBlocker.code === 'BRANCH_HEAD_NOT_FROZEN'
+          ? 'Every admitted branch must have its exact frozen and acknowledged current head.'
+          : 'A non-terminal real-provider Attempt blocks ValidationCycle closure.',
+      );
+    }
+
     if (readiness.eligible_run_evidence_unit_count !== 0) {
       throw closureError(
         'CLOSURE_PROPOSAL_STALE',

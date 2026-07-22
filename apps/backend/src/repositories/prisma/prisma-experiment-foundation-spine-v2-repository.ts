@@ -126,6 +126,7 @@ implements ExperimentFoundationExperimentSpineV2Repository {
   async commitMaterialization(
     bundle: ExperimentFoundationV2MaterializationBundle,
     sourceEvent: WorkOrderRevisionAdmittedEventV1,
+    serializationRetry = 0,
   ): Promise<ExperimentFoundationV2MaterializationBundle> {
     assertMaterializationParity(bundle, sourceEvent);
     try {
@@ -152,6 +153,7 @@ implements ExperimentFoundationExperimentSpineV2Repository {
           );
         }
 
+        await assertCycleOpen(transaction, sourceEvent.validation_cycle_id);
         await assertExactMaterializationReadinessCurrent(
           transaction,
           bundle,
@@ -281,8 +283,21 @@ implements ExperimentFoundationExperimentSpineV2Repository {
           );
         }
         return committed;
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2034'
+        && serializationRetry < 2
+      ) {
+        return this.commitMaterialization(bundle, sourceEvent, serializationRetry + 1);
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw constraint(
+          'MATERIALIZATION_KEY_CONFLICT',
+          'Serializable materialization did not converge after bounded retry',
+        );
+      }
       throw mapEfWriteError(error, 'MATERIALIZATION_KEY_CONFLICT');
     }
   }
@@ -1554,6 +1569,19 @@ function constraint(
   message: string,
 ): ExperimentSpineV2RepositoryConstraintError {
   return new ExperimentSpineV2RepositoryConstraintError(reasonCode, message);
+}
+
+async function assertCycleOpen(client: SpineClient, validationCycleId: string): Promise<void> {
+  const closure = await client.paperImplementationValidationCycleClosureV2.findUnique({
+    where: { validationCycleId },
+    select: { id: true },
+  });
+  if (closure) {
+    throw constraint(
+      'CYCLE_ALREADY_CLOSED',
+      `ValidationCycle already has an immutable v2 closure: ${validationCycleId}`,
+    );
+  }
 }
 
 function mapEfWriteError(

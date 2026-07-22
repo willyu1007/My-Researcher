@@ -112,6 +112,7 @@ implements PaperImplementationExperimentSpineV2Repository {
 
   async commitAdmission(
     input: PaperImplementationExperimentV2CommitAdmissionInput,
+    serializationRetry = 0,
   ): Promise<PaperImplementationExperimentV2AdmissionBundle> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -139,6 +140,7 @@ implements PaperImplementationExperimentSpineV2Repository {
           );
         }
 
+        await assertCycleOpen(transaction, input.branch.validation_cycle_id);
         assertAdmissionScope(input, branchRow);
 
         let persistedBranch = branchRow;
@@ -253,8 +255,15 @@ implements PaperImplementationExperimentSpineV2Repository {
           );
         }
         return committed;
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2034'
+        && serializationRetry < 2
+      ) {
+        return this.commitAdmission(input, serializationRetry + 1);
+      }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         // A concurrent identical command can lose on any of the branch,
         // revision, admission, or outbox unique constraints before its
@@ -276,6 +285,12 @@ implements PaperImplementationExperimentSpineV2Repository {
         if (replay && sameAdmissionBundle(replay, input)) {
           return replay;
         }
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw constraint(
+          'BRANCH_CAS_CONFLICT',
+          'Serializable admission did not converge after bounded retry',
+        );
       }
       throw mapPiWriteError(error, 'ADMISSION_IDEMPOTENCY_CONFLICT');
     }
@@ -383,6 +398,7 @@ implements PaperImplementationExperimentSpineV2Repository {
   async commitHeadAdvance(
     input: PaperImplementationExperimentV2CommitHeadInput,
     sourceEvent: RunManifestFrozenEventV1,
+    serializationRetry = 0,
   ): Promise<PaperImplementationExperimentV2CommitHeadInput> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -419,6 +435,7 @@ implements PaperImplementationExperimentSpineV2Repository {
           return input;
         }
 
+        await assertCycleOpen(transaction, sourceEvent.validation_cycle_id);
         const authority = await loadHeadAuthority(transaction, sourceEvent);
         if (!authority) {
           throw constraint(
@@ -461,8 +478,21 @@ implements PaperImplementationExperimentSpineV2Repository {
           data: piOutboxCreateData(input.outbox),
         });
         return input;
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2034'
+        && serializationRetry < 2
+      ) {
+        return this.commitHeadAdvance(input, sourceEvent, serializationRetry + 1);
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw constraint(
+          'BRANCH_HEAD_CAS_CONFLICT',
+          'Serializable head advance did not converge after bounded retry',
+        );
+      }
       throw mapPiWriteError(error, 'INTEGRATION_EVENT_PAYLOAD_CONFLICT');
     }
   }
@@ -1576,6 +1606,19 @@ function constraint(
   message: string,
 ): ExperimentSpineV2RepositoryConstraintError {
   return new ExperimentSpineV2RepositoryConstraintError(reasonCode, message);
+}
+
+async function assertCycleOpen(client: SpineClient, validationCycleId: string): Promise<void> {
+  const closure = await client.paperImplementationValidationCycleClosureV2.findUnique({
+    where: { validationCycleId },
+    select: { id: true },
+  });
+  if (closure) {
+    throw constraint(
+      'CYCLE_ALREADY_CLOSED',
+      `ValidationCycle already has an immutable v2 closure: ${validationCycleId}`,
+    );
+  }
 }
 
 function mapPiWriteError(

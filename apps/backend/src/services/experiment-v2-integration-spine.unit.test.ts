@@ -198,6 +198,7 @@ function makeServices(input: {
   pi?: InMemoryPaperImplementationExperimentSpineV2Repository;
   ef?: InMemoryExperimentFoundationExperimentSpineV2Repository;
   enabled?: () => boolean;
+  cycleClosureLookup?: typeof OPEN_CYCLE_LOOKUP;
   now?: () => string;
 }) {
   const pi = input.pi ?? new InMemoryPaperImplementationExperimentSpineV2Repository();
@@ -206,7 +207,7 @@ function makeServices(input: {
   const readiness = readinessFor(orderedDependencies);
   const admission = new PaperImplementationExperimentV2AdmissionService({
     repository: pi,
-    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+    cycleClosureLookup: input.cycleClosureLookup ?? OPEN_CYCLE_LOOKUP,
     scopeReader: scopeReader(),
     admissionEnabled: input.enabled ?? (() => true),
     serverActorId: SERVER_ACTOR,
@@ -215,7 +216,7 @@ function makeServices(input: {
   });
   const materialization = new ExperimentFoundationV2MaterializationService({
     repository: ef,
-    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+    cycleClosureLookup: input.cycleClosureLookup ?? OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness(request) {
         return request.readiness_attestation_id === readiness.attestation.readiness_attestation_id
@@ -229,7 +230,7 @@ function makeServices(input: {
   });
   const head = new PaperImplementationExperimentV2HeadService({
     repository: pi,
-    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+    cycleClosureLookup: input.cycleClosureLookup ?? OPEN_CYCLE_LOOKUP,
     idFactory: ids('head'),
     now: input.now ?? (() => BASE_TIME),
   });
@@ -369,7 +370,7 @@ test('closed-Cycle seal blocks PI admission/head and EF materialization with zer
     admit(admission, admissionRequest(readiness)),
     (error) => appReason(error) === 'CYCLE_ALREADY_CLOSED',
   );
-  assert.equal(scopeCalls.calls, 0);
+  assert.equal(scopeCalls.calls, 1);
   assert.deepEqual(admissionRepository.snapshot(), {
     branches: [], admission_bundles: [], inboxes: [], outboxes: [],
   });
@@ -407,6 +408,59 @@ test('closed-Cycle seal blocks PI admission/head and EF materialization with zer
     (error) => appReason(error) === 'CYCLE_ALREADY_CLOSED',
   );
   assert.deepEqual(open.pi.snapshot(), beforePi);
+});
+
+test('PI admission exact business-key replay converges after Cycle closure', async () => {
+  let closed = false;
+  const services = makeServices({
+    cycleClosureLookup: { async isCycleClosed() { return closed; } },
+  });
+  const request = admissionRequest(services.readiness);
+  const first = await admit(services.admission, request);
+  const before = services.pi.snapshot();
+
+  closed = true;
+  const replay = await admit(services.admission, request);
+
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.admission.admission_id, first.admission.admission_id);
+  assert.deepEqual(services.pi.snapshot(), before);
+});
+
+test('EF materialization exact inbox replay converges after Cycle closure', async () => {
+  let closed = false;
+  const services = makeServices({
+    cycleClosureLookup: { async isCycleClosed() { return closed; } },
+  });
+  await admit(services.admission, admissionRequest(services.readiness));
+  const event = services.pi.snapshot().outboxes[0]!.outbox.event;
+  const first = await services.materialization.consume(event as never);
+  const before = services.ef.snapshot();
+
+  closed = true;
+  const replay = await services.materialization.consume(event as never);
+
+  assert.equal(replay.run.run_id, first.run.run_id);
+  assert.deepEqual(services.ef.snapshot(), before);
+});
+
+test('PI head-advance exact processed receipt replay converges after Cycle closure', async () => {
+  let closed = false;
+  const services = makeServices({
+    cycleClosureLookup: { async isCycleClosed() { return closed; } },
+  });
+  await admit(services.admission, admissionRequest(services.readiness));
+  const admitted = services.pi.snapshot().outboxes[0]!.outbox.event;
+  const materialized = await services.materialization.consume(admitted as never);
+  const first = await services.head.consume(materialized.outbox.event);
+  const before = services.pi.snapshot();
+
+  closed = true;
+  const replay = await services.head.consume(materialized.outbox.event);
+
+  assert.equal(replay.inbox.inbox_id, first.inbox.inbox_id);
+  assert.equal(replay.emitted_branch_head_advanced, true);
+  assert.deepEqual(services.pi.snapshot(), before);
 });
 
 test('PI admission rejects inactive project or non-admitted Cycle with zero v2 writes', async () => {
@@ -1171,11 +1225,16 @@ test('relay terminalizes invalid integration poison without retrying or minting 
   assert.equal(services.ef.snapshot().inboxes.length, 0);
 });
 
-test('B05/B10 relay replays after delivery-marker failure and drains to the sole ack while admission is off', async () => {
+test('relay converges consumer-committed marker failure through closure and exact redelivery without terminalization', async () => {
   let capabilityEnabled = true;
+  let cycleClosed = false;
   let nowMs = Date.parse(BASE_TIME);
   const now = () => new Date(nowMs).toISOString();
-  const services = makeServices({ enabled: () => capabilityEnabled, now });
+  const services = makeServices({
+    enabled: () => capabilityEnabled,
+    cycleClosureLookup: { async isCycleClosed() { return cycleClosed; } },
+    now,
+  });
   await admit(services.admission, admissionRequest(services.readiness));
   capabilityEnabled = false;
 
@@ -1192,17 +1251,25 @@ test('B05/B10 relay replays after delivery-marker failure and drains to the sole
     now,
     retryDelayMs: 1_000,
   });
-  services.pi.failNext('markOutboxDelivered');
+  const materialized = await relay.drainOnce();
+  assert.equal(materialized.delivered, 1);
+  assert.equal(materialized.terminalized, 0);
+
+  services.ef.failNext('markOutboxDelivered');
   const failedMarker = await relay.drainOnce();
   assert.equal(failedMarker.claimed, 1);
   assert.equal(failedMarker.delivered, 0);
   assert.equal(failedMarker.released, 1);
-  assert.equal(services.ef.snapshot().materializations.length, 1, 'consumer committed before marker');
+  assert.equal(failedMarker.terminalized, 0);
+  assert.equal(services.pi.snapshot().branches[0]!.head_run_id !== null, true,
+    'head consumer committed before marker');
 
+  cycleClosed = true;
   nowMs += 2_000;
   const drained = await relay.drainUntilIdle();
   assert.equal(drained.idle, true);
   assert.equal(drained.failures.length, 0);
+  assert.equal(drained.terminalized, 0);
   assert.equal(services.ef.snapshot().materializations.length, 1);
   assert.equal(services.ef.snapshot().materializations[0]!.task_specs.length, 2);
   assert.equal(services.pi.snapshot().branches[0]!.head_run_id !== null, true);

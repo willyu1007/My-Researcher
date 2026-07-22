@@ -268,7 +268,10 @@ export function deriveExperimentFoundationV2RunManifestHash(
 }
 
 function mapRepositoryError(error: ExperimentSpineV2RepositoryConstraintError): AppError {
-  if (error.reasonCode === 'READINESS_DEPENDENCY_DRIFT') {
+  if (
+    error.reasonCode === 'READINESS_DEPENDENCY_DRIFT'
+    || error.reasonCode === 'CYCLE_ALREADY_CLOSED'
+  ) {
     return new AppError(422, 'GATE_CONSTRAINT_FAILED', error.message, {
       reason_code: error.reasonCode,
     });
@@ -310,13 +313,6 @@ export class ExperimentFoundationV2MaterializationService {
     event: WorkOrderRevisionAdmittedEventV1,
   ): Promise<ExperimentFoundationV2MaterializationBundle> {
     assertWorkOrderRevisionAdmittedEventV1(event);
-    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
-      throw integrationError(
-        'A closed ValidationCycle cannot materialize another EF Run lineage.',
-        'CYCLE_ALREADY_CLOSED',
-        'GATE_CONSTRAINT_FAILED',
-      );
-    }
 
     const eventReplay = await this.repository.findInboxByEvent(
       EXPERIMENT_FOUNDATION_V2_MATERIALIZATION_CONSUMER,
@@ -361,6 +357,17 @@ export class ExperimentFoundationV2MaterializationService {
       if (stored) {
         return stored;
       }
+    }
+
+    // Inbox-backed materialization replay remains valid after Cycle closure.
+    // Only a first materialization delivery reaches this fast path and the
+    // repository's transaction-internal closure fence.
+    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
+      throw integrationError(
+        'A closed ValidationCycle cannot materialize another EF Run lineage.',
+        'CYCLE_ALREADY_CLOSED',
+        'GATE_CONSTRAINT_FAILED',
+      );
     }
 
     const protocolTargets = event.payload.asset_dependencies.filter(

@@ -48,6 +48,15 @@ function integrationError(message: string, reasonCode: string, retryable = false
   );
 }
 
+function cycleAlreadyClosed(): AppError {
+  return new AppError(
+    409,
+    'GATE_CONSTRAINT_FAILED',
+    'A closed ValidationCycle cannot advance its branch head.',
+    { reason_code: 'CYCLE_ALREADY_CLOSED' },
+  );
+}
+
 function scopeFromEvent(event: RunManifestFrozenEventV1) {
   return {
     implementation_project_id: event.implementation_project_id,
@@ -170,6 +179,9 @@ function exactRunAuthorityMismatch(
 }
 
 function mapRepositoryError(error: ExperimentSpineV2RepositoryConstraintError): AppError {
+  if (error.reasonCode === 'CYCLE_ALREADY_CLOSED') {
+    return cycleAlreadyClosed();
+  }
   return new AppError(
     409,
     error.reasonCode === 'BRANCH_HEAD_CAS_CONFLICT' ? 'CONCURRENT_ADVANCE' : 'VERSION_CONFLICT',
@@ -193,12 +205,6 @@ export class PaperImplementationExperimentV2HeadService {
 
   async consume(event: RunManifestFrozenEventV1): Promise<PaperImplementationExperimentV2HeadOutcome> {
     assertRunManifestFrozenEventV1(event);
-    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
-      throw integrationError(
-        'A closed ValidationCycle cannot advance its branch head.',
-        'CYCLE_ALREADY_CLOSED',
-      );
-    }
     try {
       return await this.consumeValidated(event);
     } catch (error) {
@@ -260,6 +266,13 @@ export class PaperImplementationExperimentV2HeadService {
         branch,
         emitted_branch_head_advanced: businessReplay.outcome === 'processed',
       };
+    }
+
+    // A processed inbox is the replay authority even after Cycle closure.
+    // New head mutations still take the cheap fence here and the authoritative
+    // fence inside commitHeadAdvance's transaction.
+    if (await this.cycleClosureLookup.isCycleClosed(event.validation_cycle_id)) {
+      throw cycleAlreadyClosed();
     }
 
     const branch = await this.repository.findBranch(

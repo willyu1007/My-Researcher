@@ -18,6 +18,8 @@ import {
 } from '../repositories/paper-implementation-cycle-readiness-v2.repository.js';
 import {
   InMemoryPaperImplementationValidationCycleClosureV2Repository,
+  PaperImplementationValidationCycleClosureV2RepositoryError,
+  type PaperImplementationValidationCycleClosureV2Repository,
 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import { PaperImplementationCycleReadinessV2Service } from './paper-implementation-cycle-readiness-v2-service.js';
 import { PaperImplementationValidationCycleClosureV2Service } from './paper-implementation-validation-cycle-closure-v2-service.js';
@@ -207,6 +209,38 @@ test('production default derivation reconstructs identical closure, snapshot, ev
   assert.equal(secondOutbox.event.event_id, firstOutbox.event.event_id);
   assert.equal(secondOutbox.outbox_id, firstOutbox.outbox_id);
   assert.deepEqual(second.closure, first.closure);
+});
+
+test('Serializable closure abort retries with the same deterministic authority identity', async () => {
+  const context = await fixture();
+  let transactionAttempts = 0;
+  const retryingRepository: PaperImplementationValidationCycleClosureV2Repository = {
+    isCycleClosed: (validationCycleId) => context.repository.isCycleClosed(validationCycleId),
+    async withTransaction(operation) {
+      transactionAttempts += 1;
+      if (transactionAttempts === 1) {
+        throw new PaperImplementationValidationCycleClosureV2RepositoryError(
+          'CLOSURE_CONCURRENT_CONFLICT',
+          'injected PostgreSQL serialization abort',
+        );
+      }
+      return context.repository.withTransaction(operation);
+    },
+  };
+  const service = new PaperImplementationValidationCycleClosureV2Service({
+    repository: retryingRepository,
+    enabled: () => true,
+    now: () => NOW,
+  });
+
+  const response = await service.close(context.request);
+  const snapshot = context.repository.snapshot();
+
+  assert.equal(transactionAttempts, 2);
+  assert.equal(snapshot.closures.length, 1);
+  assert.equal(snapshot.outboxes.length, 1);
+  assert.equal(snapshot.closures[0]!.closure.closure_id, response.closure.closure_id);
+  assert.equal(snapshot.outboxes[0]!.event.correlation_id, response.closure.closure_id);
 });
 
 test('readiness blockers and CAS drift reject with zero writes', async (t) => {

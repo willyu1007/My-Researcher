@@ -240,7 +240,7 @@ test(
 );
 
 test(
-  'Pack C-PI real closure composition seals admission, head, materialization, execution, and Sidecar writes',
+  'Pack C-PI real closure composition seals new admission/execution while exact head/materialization replay converges',
   { skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON, timeout: 180_000 },
   async () => {
     const { prisma } = await openPackCPiDatabase();
@@ -265,7 +265,7 @@ test(
         fixture.implementationProjectId,
         fixture.validationCycleId,
         fixture.namespace,
-        closureRepository,
+        OPEN_CYCLE_LOOKUP,
       );
       await assert.rejects(
         admission.admit({
@@ -277,27 +277,24 @@ test(
         appReason('CYCLE_ALREADY_CLOSED'),
       );
 
-      await assert.rejects(
-        new PaperImplementationExperimentV2HeadService({
-          repository: fixture.piRepository,
-          cycleClosureLookup: closureRepository,
-        }).consume(fixture.frozenEvent),
-        appReason('CYCLE_ALREADY_CLOSED'),
-      );
-      await assert.rejects(
-        new ExperimentFoundationV2MaterializationService({
-          repository: fixture.efRepository,
-          readinessResolver: exactReadinessResolver(fixture.foundationService),
-          cycleClosureLookup: closureRepository,
-        }).consume(fixture.admissionEvent),
-        appReason('CYCLE_ALREADY_CLOSED'),
-      );
+      const headReplay = await new PaperImplementationExperimentV2HeadService({
+        repository: fixture.piRepository,
+        cycleClosureLookup: closureRepository,
+      }).consume(fixture.frozenEvent);
+      assert.equal(headReplay.inbox.outcome, 'processed');
+      assert.equal(headReplay.emitted_branch_head_advanced, true);
+      const materializationReplay = await new ExperimentFoundationV2MaterializationService({
+        repository: fixture.efRepository,
+        readinessResolver: exactReadinessResolver(fixture.foundationService),
+        cycleClosureLookup: closureRepository,
+      }).consume(fixture.admissionEvent);
+      assert.equal(materializationReplay.run.run_id, fixture.runId);
       await assert.rejects(
         new ExperimentFoundationExecutionV2Service({
           repository: new PrismaExperimentFoundationExecutionV2Repository(prisma),
           readinessRevalidator: fixture.foundationService,
           intakeEnabled: () => true,
-          cycleClosureLookup: closureRepository,
+          cycleClosureLookup: OPEN_CYCLE_LOOKUP,
         }).startWorkflowSimulation(fixture.runId, {
           business_idempotency_key: `${fixture.namespace}:sealed-simulation`,
         }),
@@ -322,6 +319,26 @@ test(
       assert.deepEqual(await sealWriteCounts(prisma, fixture.validationCycleId), before);
     } finally {
       await prisma.$disconnect();
+    }
+  },
+);
+
+test(
+  'Pack C-PI two-client Serializable races preserve closure-vs-writer final-state invariants',
+  { skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON, timeout: 300_000 },
+  async () => {
+    const first = await openPackCPiDatabase();
+    const second = await openPackCPiDatabase();
+    const firstClient = first.prisma;
+    const secondClient = second.prisma;
+    try {
+      for (let iteration = 1; iteration <= 4; iteration += 1) {
+        await assertClosureVsAdmissionRace(firstClient, secondClient, iteration);
+        await assertClosureVsSimulationStartRace(firstClient, secondClient, iteration);
+        await assertClosureVsGatewayRace(firstClient, secondClient, iteration);
+      }
+    } finally {
+      await Promise.all([firstClient.$disconnect(), secondClient.$disconnect()]);
     }
   },
 );
@@ -482,6 +499,194 @@ async function openPackCPiDatabase(): Promise<{ prisma: PrismaClient }> {
     nonceKey: 'PAPER_IMPLEMENTATION_PACKC_PI_DISPOSABLE_NONCE',
   });
   return openVerifiedDisposablePostgresTestDatabase(process.env, 'packc_pi');
+}
+
+async function assertClosureVsAdmissionRace(
+  closureClient: PrismaClient,
+  writerClient: PrismaClient,
+  iteration: number,
+): Promise<void> {
+  const fixture = await seedAcknowledgedRun(closureClient, `race-admission-${iteration}`);
+  const evaluation = await evaluateCycle(closureClient, fixture.validationCycleId);
+  const closure = closureServiceFor(
+    new PrismaPaperImplementationValidationCycleClosureV2Repository(closureClient),
+  );
+  const request = revisionRequest(fixture.admissionRequest, fixture.namespace, 2);
+  const admission = admissionServiceFor(
+    new PrismaPaperImplementationExperimentSpineV2Repository(writerClient),
+    fixture.implementationProjectId,
+    fixture.validationCycleId,
+    fixture.namespace,
+    OPEN_CYCLE_LOOKUP,
+  );
+
+  const [closureResult, admissionResult] = await Promise.allSettled([
+    closure.close(controlOnlyClosureRequest(
+      fixture.validationCycleId,
+      evaluation.watermark.expected_cycle_version,
+      evaluation.watermark.closure_input_hash,
+      `${fixture.namespace}:close-race`,
+    )),
+    admission.admit({
+      implementation_project_id: fixture.implementationProjectId,
+      validation_cycle_id: fixture.validationCycleId,
+      request,
+      admitted_by: `system:${fixture.namespace}`,
+    }),
+  ]);
+  const [closures, newAdmissions, cycle] = await Promise.all([
+    closureClient.paperImplementationValidationCycleClosureV2.count({
+      where: { validationCycleId: fixture.validationCycleId },
+    }),
+    closureClient.paperImplementationExperimentWorkOrderAdmissionV2.count({
+      where: {
+        businessIdempotencyKey: request.business_idempotency_key,
+        branch: { validationCycleId: fixture.validationCycleId },
+      },
+    }),
+    closureClient.paperImplementationValidationCycle.findUniqueOrThrow({
+      where: { id: fixture.validationCycleId },
+      select: { cycleStatus: true },
+    }),
+  ]);
+
+  assert.equal(closures + newAdmissions, 1, `admission race ${iteration} has one authority winner`);
+  if (closures === 1) {
+    assert.equal(cycle.cycleStatus, 'completed');
+    assert.equal(closureResult.status, 'fulfilled');
+    assert.equal(settledReason(admissionResult), 'CYCLE_ALREADY_CLOSED');
+  } else {
+    assert.equal(cycle.cycleStatus, 'admitted');
+    assert.equal(admissionResult.status, 'fulfilled');
+    assert.equal(settledReason(closureResult), 'CYCLE_CLOSURE_SCOPE_DRIFT');
+  }
+}
+
+async function assertClosureVsSimulationStartRace(
+  closureClient: PrismaClient,
+  writerClient: PrismaClient,
+  iteration: number,
+): Promise<void> {
+  const fixture = await seedAcknowledgedRun(closureClient, `race-simulation-${iteration}`);
+  const evaluation = await evaluateCycle(closureClient, fixture.validationCycleId);
+  const businessKey = `${fixture.namespace}:simulation-race`;
+  const [closureResult, simulationResult] = await Promise.allSettled([
+    closureServiceFor(
+      new PrismaPaperImplementationValidationCycleClosureV2Repository(closureClient),
+    ).close(controlOnlyClosureRequest(
+      fixture.validationCycleId,
+      evaluation.watermark.expected_cycle_version,
+      evaluation.watermark.closure_input_hash,
+      `${fixture.namespace}:close-race`,
+    )),
+    new ExperimentFoundationExecutionV2Service({
+      repository: new PrismaExperimentFoundationExecutionV2Repository(writerClient),
+      readinessRevalidator: fixture.foundationService,
+      intakeEnabled: () => true,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+      now: () => FIXED_NOW,
+    }).startWorkflowSimulation(fixture.runId, {
+      business_idempotency_key: businessKey,
+    }),
+  ]);
+  const [closures, attempts] = await Promise.all([
+    closureClient.paperImplementationValidationCycleClosureV2.count({
+      where: { validationCycleId: fixture.validationCycleId },
+    }),
+    closureClient.experimentFoundationExecutionAttemptV2.count({
+      where: {
+        externalPiValidationCycleId: fixture.validationCycleId,
+        workflowBusinessKey: businessKey,
+      },
+    }),
+  ]);
+
+  assert.equal(closures === 1 && attempts > 0, false,
+    `simulation race ${iteration} cannot persist post-closure Attempts`);
+  assert.equal(closures === 1 || attempts > 0, true,
+    `simulation race ${iteration} has one authority winner`);
+  if (closures === 1) {
+    assert.equal(closureResult.status, 'fulfilled');
+    assert.equal(settledReason(simulationResult), 'CYCLE_ALREADY_CLOSED');
+  } else {
+    assert.equal(simulationResult.status, 'fulfilled');
+    assert.equal(settledReason(closureResult), 'CYCLE_CLOSURE_SCOPE_DRIFT');
+  }
+}
+
+async function assertClosureVsGatewayRace(
+  closureClient: PrismaClient,
+  writerClient: PrismaClient,
+  iteration: number,
+): Promise<void> {
+  const fixture = await seedAcknowledgedRun(closureClient, `race-gateway-${iteration}`);
+  const scientificWriter = new PrismaExperimentFoundationScientificValidationV2Repository(
+    closureClient,
+  );
+  const event = await seedScientificGatewayFixture(
+    closureClient,
+    scientificWriter,
+    fixture,
+    authorityFromEvent(fixture.admissionEvent),
+  );
+  const evaluation = await evaluateCycle(closureClient, fixture.validationCycleId);
+  const gateway = new PaperImplementationEvidenceTrustGatewayService({
+    repository: new PrismaPaperImplementationEvidenceV2Repository(writerClient),
+    scientificValidationReadRepository:
+      new PrismaExperimentFoundationScientificValidationV2Repository(writerClient),
+    now: () => FIXED_NOW,
+  });
+  const [closureResult, gatewayResult] = await Promise.allSettled([
+    closureServiceFor(
+      new PrismaPaperImplementationValidationCycleClosureV2Repository(closureClient),
+    ).close(controlOnlyClosureRequest(
+      fixture.validationCycleId,
+      evaluation.watermark.expected_cycle_version,
+      evaluation.watermark.closure_input_hash,
+      `${fixture.namespace}:close-race`,
+    )),
+    gateway.consume(event),
+  ]);
+  const [closures, evidenceUnits] = await Promise.all([
+    closureClient.paperImplementationValidationCycleClosureV2.count({
+      where: { validationCycleId: fixture.validationCycleId },
+    }),
+    closureClient.paperImplementationRunEvidenceUnitV2.count({
+      where: { validationCycleId: fixture.validationCycleId },
+    }),
+  ]);
+
+  assert.equal(closures === 1 && evidenceUnits > 0, false,
+    `gateway race ${iteration} cannot coexist with a control-only closure`);
+  assert.equal(closures === 1 || evidenceUnits > 0, true,
+    `gateway race ${iteration} has one authority winner`);
+  if (closures === 1) {
+    assert.equal(closureResult.status, 'fulfilled');
+    assert.equal(gatewayResult.status, 'fulfilled');
+    if (gatewayResult.status === 'fulfilled') {
+      assert.equal(gatewayResult.value.inbox.outcome, 'terminal_conflict');
+      assert.equal(gatewayResult.value.run_evidence_unit, null);
+    }
+  } else {
+    assert.equal(gatewayResult.status, 'fulfilled');
+    if (gatewayResult.status === 'fulfilled') {
+      assert.equal(gatewayResult.value.inbox.outcome, 'processed');
+      assert.ok(gatewayResult.value.run_evidence_unit);
+    }
+    assert.equal(settledReason(closureResult), 'CYCLE_CLOSURE_SCOPE_DRIFT');
+  }
+}
+
+async function evaluateCycle(prisma: PrismaClient, validationCycleId: string) {
+  return new PaperImplementationCycleReadinessV2Service({
+    repository: new PrismaPaperImplementationCycleReadinessV2Repository(prisma),
+  }).evaluate(validationCycleId);
+}
+
+function settledReason(result: PromiseSettledResult<unknown>): string | undefined {
+  return result.status === 'rejected' && result.reason instanceof AppError
+    ? result.reason.details?.reason_code as string | undefined
+    : undefined;
 }
 
 async function seedAcknowledgedRun(

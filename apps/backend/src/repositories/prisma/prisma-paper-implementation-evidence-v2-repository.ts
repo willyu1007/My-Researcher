@@ -147,11 +147,19 @@ implements PaperImplementationEvidenceV2Repository {
 
   async commitEvidenceIngestion(
     input: PaperImplementationEvidenceV2CommitInput,
+    serializationRetry = 0,
   ): Promise<PaperImplementationEvidenceV2CommitResult> {
     assertEvidenceCommitInput(input);
     try {
       return await this.commitOnce(input);
     } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2034'
+        && serializationRetry < 2
+      ) {
+        return this.commitEvidenceIngestion(input, serializationRetry + 1);
+      }
       if (isPrismaUniqueConflict(error)) {
         try {
           return await this.commitOnce(input);
@@ -280,7 +288,7 @@ implements PaperImplementationEvidenceV2Repository {
         reused_existing_evidence: false,
         rejection_message: null,
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 }
 
@@ -652,6 +660,12 @@ function mapWriteError(error: unknown): Error {
     return constraint(
       'EVIDENCE_INGESTION_CONFLICT',
       'PI evidence or inbox uniqueness rejected changed content.',
+    );
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+    return constraint(
+      'EVIDENCE_INGESTION_CONFLICT',
+      'Serializable PI evidence ingestion did not converge after bounded retry.',
     );
   }
   return error instanceof Error ? error : new Error('UNKNOWN_PI_EVIDENCE_WRITE_FAILURE');

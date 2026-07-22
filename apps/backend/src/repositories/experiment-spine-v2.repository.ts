@@ -88,6 +88,7 @@ export class ExperimentSpineV2RepositoryConstraintError extends Error {
       | 'READINESS_DEPENDENCY_DRIFT'
       | 'BRANCH_HEAD_SCOPE_CONFLICT'
       | 'BRANCH_HEAD_CAS_CONFLICT'
+      | 'CYCLE_ALREADY_CLOSED'
       | 'OUTBOX_LEASE_CONFLICT',
     message: string,
   ) {
