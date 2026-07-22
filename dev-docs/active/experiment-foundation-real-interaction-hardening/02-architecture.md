@@ -48,7 +48,7 @@ Allowed fixture classes:
 
 | Class | Default | Storage | Artifact Rule |
 | --- | --- | --- | --- |
-| Synthetic deterministic | Yes | Checked-in source or generated under `.ai/.tmp` | Full payload allowed only when it is non-sensitive synthetic test data. |
+| Synthetic deterministic | Yes | Checked-in source or generated under `.ai/.tmp` | Full payload allowed only for non-sensitive synthetic test data. |
 | Controlled local real | No, explicit opt-in | Outside repo or `.ai/.tmp` | Store refs, hashes, summaries, and redacted diagnostics only. |
 | True external canary sample | No, explicit opt-in | External provider plus redacted `.ai/.tmp` summary | Store refs, hashes, status, durations, validation summary, evidence refs, and cleanup result only. |
 
@@ -76,19 +76,25 @@ The command supports explicit lane selection and writes redacted artifacts under
 
 The T-103 handoff remains documented rather than embedded: T-103 is the standard full-flow closure runner; T-106 is the official post-V1 hardening entrypoint.
 
-The external gate reads key presence from `process.env` and root `.env.local`. It records only source/presence booleans, never values.
+The external gate reads key presence from `process.env` and root `.env.local`. The gate records only source/presence booleans, never values.
 
 ## External Canary Boundary
+
+### 2026-07-23 ownership handoff
+
+T-132 M7 is the sole owner of the provider-specific Aliyun transport, real execution contracts/schema, migration, provider gate and live canary. T-106 owns only generic hardening acceptance and consumes T-132's final redacted evidence. The existing T-106 `external-gate` remains gate-only and must not gain `CreateJob`, provider SDK composition, real execution persistence or scientific-writer logic.
+
+The handoff avoids two authority tracks: T-132 already owns the exact PI WorkOrder revision → EF Run/Attempt → scientific validation/evidence lineage, while the historical T-106 gate predates that product authority. T-106 stays `in-progress` until T-132 M7 proves the minimum real external flow required by this task.
 
 T-106 uses three external lanes:
 
 - `gate-only`: default; validates opt-in flags and required environment shape without calling external services.
 - `local-fake-external`: default; exercises submit/sync/collect/result/evidence behavior through a fake provider without cloud credentials.
-- `true-external-canary`: explicit opt-in; Phase 6/7 implements prerequisite gating only. A later provider-specific implementation must call the configured external provider with minimum resources to verify connectivity and real flow.
+- `true-external-canary`: explicit opt-in; Phase 6/7 implements prerequisite gating only. The later provider-specific implementation is T-132 M7 and must call the configured external provider with minimum resources to verify connectivity and real flow.
 
 The true canary must return `blocked`, not `passed`, when credentials, project/bucket/queue, mirror, approval, or cleanup prerequisites are missing.
 
-A gate status of `ready_for_provider_specific_real_execution` means the local prerequisites are present. It is not evidence that any real external provider was contacted.
+A gate status of `ready_for_provider_specific_real_execution` means the local prerequisites are present. The status is not evidence that any real external provider was contacted.
 
 Supported provider gate contracts are explicit. The initial gate allows `aliyun_pai_dlc`; unknown provider names return `blocked` until a provider-specific gate is added.
 
@@ -127,7 +133,7 @@ The UI proof must assert:
 
 ### Smoke entrypoint
 
-`pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` is the official UI-driven full-flow smoke. It boots a memory-backed backend on a held port, starts the desktop dev server, runs the source-level + API-level assertions, and tears down both processes. Implementation lives at `apps/desktop/scripts/smoke-e2e.mjs`; the assertion catalogue lives in `assertExperimentFoundationWorkbenchSource` and `smokeExperimentFoundationApis`. Co-owned with `T-110 S5` per the soft-preference decision in `dev-docs/archive/experiment-foundation-research-workbench/03-implementation-notes.md`.
+`pnpm --filter @paper-engineering-assistant/desktop smoke:e2e` is the official UI-driven full-flow smoke. The command boots a memory-backed backend on a held port, starts the desktop dev server, runs the source-level + API-level assertions, and tears down both processes. Implementation lives at `apps/desktop/scripts/smoke-e2e.mjs`; the assertion catalogue lives in `assertExperimentFoundationWorkbenchSource` and `smokeExperimentFoundationApis`. Co-owned with `T-110 S5` per the soft-preference decision in `dev-docs/archive/experiment-foundation-research-workbench/03-implementation-notes.md`.
 
 ## LocalScript Robustness Contract
 

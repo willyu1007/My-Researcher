@@ -1,11 +1,23 @@
 # 02 Architecture
 
+## M7 real-provider boundary — 2026-07-23
+
+- T-132 is the sole implementation owner for the provider-specific canary; T-106 is an acceptance consumer and must not own a second transport, schema or runner.
+- Existing Pack A/Pack B Run, Recipe, TaskSpecs, payloads and Attempts are immutable simulation-only history. Real execution always starts from a new branch-local PI WorkOrder revision and a new T1-T4 materialization/head acknowledgement.
+- A named typed `ExecutionBundleV2` exact revision/hash binds code, container image, ordered dataset mirrors, dependency lock, provider-neutral command and typed output parser. It is EF authority; PI carries only exact admitted refs/hashes.
+- Existing six Pack B provider-control families remain the sole durable execution authority. Their future real-provider support is an exact discriminated tuple extension, never a parallel table family, dual read/write or legacy job upgrade.
+- `CreateJob` acceptance is not atomically coupled to the database. A deterministic provider tag/display name plus `ListJobs`/`GetJob` exact recovery fence handles accepted-response loss; ambiguity blocks and never blind-retries a second job.
+- Provider logs are diagnostic only. Scientific trust begins only after exact collected output hash/schema/parser verification and the existing ScientificValidationService accepts a complete `real_provider` batch.
+- Preflight, real-provider intake, scientific validation and PI Cycle closure are independent default-off capabilities. Disabling intake must not interrupt committed sync/cancel/collect/cleanup.
+
+Full review and acceptance matrix: `artifacts/implementation/11-m7-real-provider-readiness-review.md`.
+
 ## Context and current state
 ExperimentFoundation already has a sensible bounded context and a broad shared contract covering reusable assets, evaluation protocols, Recipe/TaskSpec, execution, result validation and evidence. The productization gap is not a missing noun model; the gap is the absence of enforceable trust invariants, durable application services and one continuous researcher workflow. The workflow must also close a round trip with PaperImplementation: PI owns the paper-bound intent and WorkOrder, while EF owns experiment execution and scientific facts.
 
 ## Implemented zero-write Aliyun preflight boundary — 2026-07-18
 
-The cloud-preflight slice is a non-persisted control boundary layered over the exact acknowledged Pack A Run and its existing Pack B product evidence. It adds no Prisma model and performs no provider write:
+The cloud-preflight slice is a non-persisted control boundary layered over the exact acknowledged Pack A Run and its existing Pack B product evidence. The slice adds no Prisma model and performs no provider write:
 
 ```text
 exact Run + ordered RunCells + exact TrainingTaskSpecs + code-owned execution profile
@@ -19,9 +31,22 @@ exact Run + ordered RunCells + exact TrainingTaskSpecs + code-owned execution pr
 
 The full request is never persisted or logged. Its provider profile is code-owned and environment-supplied, while Run/RunCell/TaskSpec identity remains database authority; the materializer rejects any cross-layer substitution or caller-authored hash. The official `CreateJob` contract has no documented dry-run flag and creates a job, so `PaiDlc.CreateJob` is a frozen forbidden operation and is rejected before transport. The request size is checked against the documented 65,536-byte ceiling before any network path.
 
-The live surface is exactly `AIWorkspace.GetWorkspace`, `AIWorkspace.ListResources` and `PaiDlc.ListEcsSpecs`, using regional HTTPS endpoints. A complete temporary STS triplet is mandatory. A repo-external, current review receipt must bind the access-key-id hash to a policy-document hash, require `paiworkspace:GetWorkspace`/`paiworkspace:ListResources`, and explicitly deny `paidlc:CreateJob`; long-lived or partial credentials cannot enter the transport. The operation ledger stores only operation names, endpoints, request IDs and hashed refs. Official references: [CreateJob](https://help.aliyun.com/en/pai/developer-reference/api-pai-dlc-2020-12-03-createjob), [GetWorkspace](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-getworkspace), [ListResources](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-listresources), [ListEcsSpecs](https://help.aliyun.com/zh/pai/developer-reference/api-pai-dlc-2020-12-03-listecsspecs).
+The live surface is exactly `AIWorkspace.GetWorkspace`, `AIWorkspace.ListResources` and `PaiDlc.ListEcsSpecs`, using regional HTTPS endpoints. A complete temporary STS triplet is mandatory. A repo-external, current review receipt must bind the access-key-id hash to a policy-document hash, require `paiworkspace:GetWorkspace`, `paiworkspace:ListResources` and the empirically inferred `paidlc:ListEcsSpecs`, and explicitly deny `paidlc:CreateJob`; long-lived or partial credentials cannot enter the transport. The provider's ListEcsSpecs documentation still publishes no RAM authorization metadata, so that third action is an evidence-backed minimum-permission inference from the controlled r3 failure rather than an official contract. The operation ledger stores only operation names, endpoints, request IDs and hashed refs. Official references: [CreateJob](https://help.aliyun.com/en/pai/developer-reference/api-pai-dlc-2020-12-03-createjob), [GetWorkspace](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-getworkspace), [ListResources](https://help.aliyun.com/en/pai/developer-reference/api-aiworkspace-2021-02-04-listresources), [ListEcsSpecs](https://help.aliyun.com/zh/pai/developer-reference/api-pai-dlc-2020-12-03-listecsspecs).
 
-Admission, workflow simulation and cloud preflight are independent switches. Disabling preflight cannot change the already committed Pack A/Pack B lineage; enabling it authorizes only these reads. `cloud_preflight_passed` still does not verify scheduling capacity, image pull, mounts, runtime network, accelerator health, user command, logs/results, cancellation/cleanup or scientific evidence.
+Admission, workflow simulation and cloud preflight are independent switches. Disabling preflight cannot change the already committed Pack A/Pack B lineage; enabling the preflight switch authorizes only these reads. `cloud_preflight_passed` still does not verify scheduling capacity, image pull, mounts, runtime network, accelerator health, user command, logs/results, cancellation/cleanup or scientific evidence.
+
+### Explicit resource-selector modes — 2026-07-22
+
+The execution profile v2 uses a closed discriminated union instead of an optional free-form quota field:
+
+```text
+exact_quota     -> { mode, exact resource_id } -> CreateJob.ResourceId present
+public_resource -> { mode }                    -> CreateJob.ResourceId absent
+```
+
+No empty string, sentinel ID, fallback lookup or automatic mode is valid. Profile schema validation, SDK round-trip validation and payload-to-manifest hash binding independently enforce the same selector. The public manifest records a null resource-id hash rather than hashing an invented value.
+
+`ListResources` remains in both modes because the operation is part of the reviewed workspace read surface. Exact-quota mode performs bounded pagination until the configured DLC quota is found. Public-resource mode performs exactly one enumeration call and records no quota claim; readiness comes from the documented `CreateJob` omission semantics plus an enabled exact workspace and at least one available CPU spec returned by `ListEcsSpecs`. The check is a control-plane preflight only and does not claim scheduler stock or actual public-resource job acceptance.
 
 ## Formal PI product prefix and Pack A terminal state — 2026-07-15
 
@@ -856,7 +881,7 @@ Accepted decisions MUST be written immediately to `03-implementation-notes.md` a
 
 ## 2026-07-22 — Pack C final convergence evidence boundary
 
-- `packc-cutover` owns PC17/PC18 source and targeted-suite proof only. It opens no database connection because the owning C-EF and C-PI relational families already have mandatory digest-pinned disposable lanes.
+- `packc-cutover` owns PC17/PC18 source and targeted-suite proof only. The gate opens no database connection because the owning C-EF and C-PI relational families already have mandatory digest-pinned disposable lanes.
 - `packc-final` is the pack-wide convergence authority: one final id deterministically derives fresh EF/PI/cutover child ids, executes all three, verifies each canonical summary SHA and maps PC01-PC20 to the owning child checks. PC19 is conjunctive across PC19-EF and PC19-PI; PC17/PC18 are owned by cutover rather than the C-PI deferral row.
 - The final runner executes the backend full suite exactly once and records conditional skips. Exit 0 requires all child gates and the backend suite to pass. A valid blocked relational child keeps the convergence status blocked while any independent backend failure remains explicit evidence; once relational children pass, any backend failure makes convergence failed.
 - Child summaries under `.ai/.tmp` remain ephemeral. Durable closure is `artifacts/implementation/08-pack-c-cutover-technical-closure.md` plus a copied/sanitized passing host summary; no existing-database or product-write authority is introduced by the runner.

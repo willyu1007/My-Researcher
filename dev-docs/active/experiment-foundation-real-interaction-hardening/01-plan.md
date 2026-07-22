@@ -7,10 +7,10 @@
 3. Add the minimum harness command or test entrypoint for T-106 only.
 4. Land LocalScript robustness tests.
 5. Land API, persistence, readiness, promotion, and recovery tests.
-6. Define the UI-driven workbench smoke or Playwright flow contract; implement it later after backend/API and runner hardening lanes stabilize.
+6. Define the UI-driven workbench smoke or Playwright flow contract; implement the UI flow later after backend/API and runner hardening lanes stabilize.
 7. Land cross-flow seam tests with PaperImplementation or adjacent evidence consumers.
 8. Implement the external canary lane shape: safe default gates, local fake provider, and true opt-in canary contract.
-9. Stabilize the standalone hardening command, then integrate it with T-103 or document it as the official post-V1 hardening entrypoint.
+9. Stabilize the standalone hardening command, then integrate the command with T-103 or document the command as the official post-V1 hardening entrypoint.
 10. Close T-106 only after verification artifacts are redacted and residual risks are recorded.
 
 ## Phase Acceptance
@@ -45,14 +45,14 @@
 - [x] Adjacent flows consume refs and hashes only.
 - [x] Tests prevent canonical experiment-foundation DTO copies from entering PaperImplementation state.
 - [x] Paper claim or final-table wording does not leak into evidence candidates or sidecars.
-- [x] Any required product bridge expansion is recorded as a follow-up unless it is a small compatibility fix exposed by a seam test.
+- [x] Any required product bridge expansion is recorded as a follow-up unless the expansion is a small compatibility fix exposed by a seam test.
 
 ### Phase 6
 - [x] Default external checks remain safe: gate-only config validation and local fake provider flow.
 - [x] True external canary exists as an explicit opt-in prerequisite gate and command contract.
 - [x] True canary gate has credential, cost, cleanup, blocked/skipped/pass, and redaction guardrails.
 - [x] True canary gate artifacts store key presence, refs, hashes, summaries, and cleanup prerequisites only.
-- [ ] Provider-specific true canary implementation performs real connectivity and minimum real flow verification.
+- [ ] Import and verify the T-132 M7 provider-specific canary verdict, redaction, budget and cleanup evidence. T-106 must not implement a separate provider transport or schema.
 
 ### Phase 7
 - [x] A standalone T-106 hardening command exists with clear deterministic, real-local-DB, UI-definition, cross-flow, and true-external-canary-gate lanes.

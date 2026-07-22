@@ -1012,9 +1012,13 @@ function lintFile(filePath, options = {}) {
   const headingIssues = checkHeadingDepth(content);
   errors.push(...headingIssues);
 
-  // 5. Vague reference check
-  const vagueIssues = checkVagueReferences(content);
-  warnings.push(...vagueIssues);
+  // 5. Vague reference check. Historical evidence/artifact prose can preserve
+  // quoted review language; keep structural/link checks active without making
+  // editorial pronoun counts a retroactive artifact mutation requirement.
+  if (!relPath.split(path.sep).includes('artifacts')) {
+    const vagueIssues = checkVagueReferences(content);
+    warnings.push(...vagueIssues);
+  }
 
   // 6. Broken link check
   if (!options.noLinks) {

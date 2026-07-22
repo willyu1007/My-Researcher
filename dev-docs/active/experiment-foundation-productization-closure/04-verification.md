@@ -1,5 +1,36 @@
 # 04 Verification
 
+## Aliyun public-resource preflight mode — 2026-07-22
+
+- Shared v2 schema tests passed 3/3 and cover both modes plus caller expansion, missing exact quota, fake public quota, manifest-mode/redaction mismatch and public non-null resource hash. Backend cloud-preflight tests passed 11/11, including official SDK omission round-trip, payload↔manifest and top-level execution-profile-hash substitution, exact-quota pagination, and rejection of a public transport ledger containing more than one `ListResources` read.
+- Gate meta tests passed 4/4. Unknown mode and `public_resource` plus `RESOURCE_ID` both return controlled `blocked` before database/provider access, with zero provider operations/writes. Shared, backend and experiment-foundation script typechecks passed; env-contract validate/generate passed and derived artifacts contain no secrets.
+- Joint shared full suite passed 386/386 after the Pack C event-union merge. Final current-tree backend full passed 2,358 tests: 2,301 passed, 0 failed, 57 explicit conditional relational/live-provider skips, 0 todo, duration `429955.191417ms`; those skips are never used as public-resource acceptance evidence.
+- PAI console read-only inspection confirmed zero general-compute quota, the product-selected `public_resource` lane, workspace `1450165`, and the official CPU image `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`; the create form was not submitted and no job was created.
+- Runner `cloud-preflight-public-resource-offline-20260722-r2` used that exact image reference and returned expected `blocked` because capability, STS and reviewed external policy evidence remain absent. CP01-05 and CP10-12 passed; CP06-09 remain blocked. Configuration reports `resource_mode=public_resource` and `execution_profile_complete=true` without a resource ID.
+- Both exact two-cell payloads passed offline schema/SDK/hash/redaction checks. Their byte sizes are 354/355 and hashes are `sha256:d460d32eb8225141959b6d2744174f9576bef4d8898c988327bee28b2c052989` / `sha256:45e32261a38aec77142ebfe967c75e5126f28713f9e7071569379c8d363bf1d2`; each manifest is v2 with `resource_id_hash=null` and no `ResourceId` redaction entry. Summary SHA-256 is `41c32e433e0ab6f8b51eb31e8c429a85156b7bbf14966ffdb66c260db763f834`.
+- Named-local evidence used a server-enforced read-only transaction over all 88 protected tables with `changed_tables=[]`. Provider transport operations, provider write requests, CreateJob calls, provider writes, database writes and scientific writes are all 0; scientific state remains `not_started` and evidence eligibility false.
+- The checkpoint validates the public-resource control spine only. The frozen official CPU image was not pulled or submitted, so the checkpoint does not establish real STS signing, RAM-policy acceptance, workspace/spec API responses, public scheduler capacity or any scientific result.
+
+### Controlled live read-only retry evidence — 2026-07-22
+
+- `cloud-preflight-public-resource-readonly-20260722-r3`: `GetWorkspace` and `ListResources` succeeded; `ListEcsSpecs` failed under the two-action STS policy. The operation ledger contained only the three intended reads. Provider write requests, CreateJob calls, provider writes, database writes and scientific writes were all 0; all 88 protected tables were unchanged. Summary SHA-256: `37ff55b08ce04ebcdeb06ae7b76a11bf4d574f22c70e5e5245d64e3dcff67244`.
+- After adding only inferred `paidlc:ListEcsSpecs`, the focused backend file passed 12/12, including provider-error redaction; the cloud gate meta suite passed 4/4; backend and specialized runner typechecks passed.
+- `cloud-preflight-public-resource-readonly-20260722-r4`: exit 2 / `status=blocked` with `ALIYUN_IDENTITY_POLICY_EVIDENCE_INVALID` before provider transport because the one-off wrapper did not canonicalize the STS expiration timestamp to millisecond UTC. CP01-05 and CP10 passed; CP06-09/11/12 blocked. Provider transport operations, provider writes, CreateJob calls, database writes and scientific writes were all 0. Summary SHA-256: `a4c56386b404ad6d9a9118a799905f19f3cf71bfaede28cb682e832144b66465`.
+- The r4 temporary credential and reviewed-evidence directory was removed unconditionally, no cloud credential environment variable remained in the shell, and the browser left the credential response page. No second STS was issued. Real `ListEcsSpecs` acceptance remains pending a separately authorized rerun with canonicalized evidence time.
+- `cloud-preflight-public-resource-readonly-20260723-r5`: expiration was canonicalized before evidence hashing; production evidence parsing and independent digest verification passed. The exact ledger was `AIWorkspace.GetWorkspace succeeded`, `AIWorkspace.ListResources succeeded`, `PaiDlc.ListEcsSpecs failed`. The failure was safely classified as `ALIYUN_READ_ONLY_PROVIDER_CALL_FAILED`; no raw provider diagnostics entered the summary.
+- r5 write census: provider transport operations 3; provider write requests 0; CreateJob calls 0; provider writes 0; database writes 0; scientific writes 0. The server-enforced read-only fence covered 88 tables with `changed_tables=[]`; scientific execution stayed `not_started` and evidence eligibility stayed false. Summary SHA-256: `e8c2c89c56b05dec9ac9758eb2aa6044d17827355ee1585b69b9828bde1fb774`.
+- The temporary r5 credential/evidence directory was removed in `finally`, the shell retained no cloud credential variables, and the browser left the credential response. The gate is honestly `failed`, not passed or blocked. No further retry is authorized; acceptance remains open pending read-only effective-permission review of the assumed role and any separately approved IAM remediation.
+- The 2026-07-23 read-only RAM review completed that effective-permission check. `cloud-0001` had 10 account-level system policies and, critically, `AdministratorAccess`; the captured list contained no custom policy or separate deny policy. Because the system administrator policy already grants all actions/resources, the role does not need an additional `paidlc:ListEcsSpecs` Allow and the IAM change census is exactly 0.
+- The audit closes only the “missing role Allow” hypothesis, not CP06-09 or the live preflight. `ListEcsSpecs` authorization metadata remains absent from the reviewed public API documentation, so the inferred session action is unconfirmed. No console mutation, policy attach/detach, STS issue, provider retry, CreateJob, database write or scientific write occurred during the audit.
+
+### HTTP 400 isolation and successful r6 — 2026-07-23
+
+- Gate-1 diagnostic `dbg-20260722-223758-bd92` used one STS and stopped at the first failure: minimal ECS page-10 request returned HTTP 200 / total 149 (RequestId `019F8C01-9148-50F1-B22E-60A7DD6A66C7`); adding only `AcceleratorType=CPU` returned HTTP 200 / total 108 (RequestId `019F8C01-929D-5589-8375-796310B0B2E7`); adding only `SortBy=CPU` returned HTTP 400 `BadRequest` (RequestId `019F8C01-9394-5DC6-8C15-0D7C417CDD8C`). Provider reads=3; provider writes/CreateJob/database operations=0.
+- Production fix verification: focused backend tests 12/12, cloud gate meta 4/4, backend typecheck passed and experiment-foundation script typecheck passed. Tests assert `PageSize=10`, `AcceleratorType=CPU`, `ResourceType=ECS`, absent `SortBy/Order`, exact pagination, and safe provider status/code/RequestId retention without raw diagnostic leakage.
+- `cloud-preflight-public-resource-readonly-20260723-r6` returned `cloud_preflight_passed`; CP01-CP12 all passed. Workspace RequestId `019F8C15-90E7-5870-83CE-56A703091304` and resource RequestId `019F8C15-9156-572C-BA70-635AE5A51BA5` succeeded. Eleven successful DLC pages reported 108 visible CPU specs and 105 available; final RequestId `019F8C15-9E22-590D-BBDB-E75046DA155D`.
+- r6 write census: provider transport operations 13; provider write requests 0; CreateJob calls 0; provider writes 0; database writes 0; scientific writes 0. The server-enforced read-only fence covered 88 tables before/after with `changed_tables=[]`; scientific execution remained `not_started`, evidence eligibility remained false, and the product capability was restored to its default-off posture.
+- r6 summary path: `.ai/.tmp/experiment-foundation-productization/cloud-preflight-public-resource-readonly-20260723-r6/summary.json`; SHA-256 `ae524752ef64f658ddfb796e8c0834bf0903baadf1c8e79cfbc392887c516053`. External credential/evidence files, clipboard content and temporary debug/wrapper code were removed after the run. The result is read-only cloud acceptance only; it does not authorize or prove CreateJob, scheduler/image/runtime behavior or scientific output.
+
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 
 - Shared cloud-preflight contracts passed 2/2; backend exact payload/read-only-policy/official-SDK-pagination/same-payload tests passed 8/8; gate meta tests passed 3/3. Shared, backend and experiment-foundation script typechecks passed.
@@ -8,7 +39,7 @@
 - Final runner `cloud-preflight-local-20260718-r9` returned exit 2 / `status=blocked`, which is the required fail-closed result for the current configuration. Source Pack B evidence SHA-256 is `7cc6044bc3822e4197f99638b09b7a4f9e90640bb205cde929f98df2b998e9c7`; r9 summary SHA-256 is `77f8f9973f2237e706216c894d55ff44657c6bede27fd32e42c0c6e09a3b07ea`.
 - CP01 exact scope, CP04 write hard deny, CP05 read-only allowlist, CP11 zero cloud writes and CP12 zero scientific writes passed. CP02/03/10 are blocked by `ALIYUN_EXECUTION_PROFILE_INCOMPLETE`; CP06-09 remain blocked while the capability is disabled and temporary STS/reviewed policy evidence plus its independent exact-file digest are absent. The gate did not synthesize payload/fake-lifecycle evidence under incomplete profile.
 - The exact named-local Run is `ef_run_v2_c4ab7919-2d7b-415c-ab53-201b11464aca`, manifest `sha256:8965ebdfd39f899a56ff242aedc968c0b29dd8048a2cecba1ac3ecdb9342d915`, with two ordered cells. Target/scope/digest resolution ran inside one server-verified read-only repeatable-read transaction. All 88 protected-table digests matched before/after; provider transport operations=0, provider write requests=0, CreateJob calls=0, database writes=0 and scientific writes=0. Scientific status remains `not_started`; evidence eligibility remains false.
-- This verifies the implementation and current fail-closed posture only. It does not pass the real read-only cloud checks, close EF-P16, prove signing/endpoints/workspace/quota availability, or validate scheduler/image/mount/network/accelerator/command/log/result/cancel/cleanup behavior. Durable evidence is `artifacts/cloud-preflight-implementation-20260718/00-implementation-closure.md`.
+- The r9 evidence verifies the implementation and current fail-closed posture only. The evidence does not pass the real read-only cloud checks, close EF-P16, prove signing/endpoints/workspace/quota availability, or validate scheduler/image/mount/network/accelerator/command/log/result/cancel/cleanup behavior. Durable evidence is `artifacts/cloud-preflight-implementation-20260718/00-implementation-closure.md`.
 - Dependency verification resolved the SDK graph to `lodash@4.18.1` and `fast-uri@3.1.2`, and Fastify was upgraded to 5.10.0. `pnpm audit --prod --audit-level high` now reports `No known vulnerabilities found`; frozen install, shared/backend typechecks and the complete backend runtime suite pass on the upgraded dependency graph.
 - Read-only product-runner regressions passed after helper extraction: Pack B retained 88-table parity, and Pack A verify now accepts the already-landed 28 Pack B rows only when their exact before/after census is unchanged. Pack A apply still requires a zero-row Pack B baseline.
 
@@ -899,6 +930,7 @@ The other eight full-suite failures are sandbox-environmental PostgreSQL failure
 | Check | Outcome |
 |---|---|
 | `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed on final source; exit 0 |
+| `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` | passed after verifying D-19/Pack A/Pack B relay composition; exit 0 |
 | checked-in runner script typecheck | `cd apps/backend && npx tsc -p tsconfig.experiment-foundation-scripts.json --noEmit` passed; exit 0 |
 | initial ten-file modified backend population via `node --test --loader ts-node/esm` | 141 total: 130 passed, 0 failed, 11 intentional conditional PostgreSQL skips |
 | final affected route/planning/closure population via direct runner | 30/30 passed; 0 failed, 0 skipped |
@@ -911,7 +943,7 @@ The other eight full-suite failures are sandbox-environmental PostgreSQL failure
 
 The full backend failures are outside the modified cutover files. Eight cannot reach PostgreSQL at `127.0.0.1:5432`: rollback N4/N5/N6/N7/N8/N10 and the T-054/T-067 Prisma HTTP smokes. Six are the established literature environment/network population: key-content curation export/import; workflow import/topic/paper-link/citation update; rerun artifact overwrite; global-env USER_AUTH gate; explicit fulltext processing/metadata-stale registration; and remote download/register (`getaddrinfo ENOTFOUND arxiv.org`).
 
-The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 skipped. It exposed an in-scope T-101 source-anchor still naming the deleted repeated-low-information completion test. The anchor was replaced with the new legacy-closure/read-preservation test name, passed directly 5/5, and disappeared from the final full run. No in-scope test remains non-green.
+The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 skipped. The run exposed an in-scope T-101 source-anchor still naming the deleted repeated-low-information completion test. The anchor was replaced with the new legacy-closure/read-preservation test name, passed directly 5/5, and disappeared from the final full run. No in-scope test remains non-green.
 
 ## 2026-07-22 — Pack C C-cutover increment 3 and final convergence verification
 
@@ -925,7 +957,7 @@ The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 ski
 | direct shared dossier/validation contract group | passed 11/11; 0 failed/skipped |
 | direct PaperImplementation route integration group | passed 6/6; 0 failed/skipped |
 | `node .ai/scripts/experiment-foundation-packc-cutover-gate.mjs --run-id packc-cutover-20260722-r1` | passed; PC17/PC18 passed; 131/131; 0 failed/skipped/blocked; SHA `sha256:2a1c6eebe062e6ddeb0b96602bb7d705f07b87768d7360588d6cb96d3fd3ac8d` |
-| initial final `packc-final-20260722-r2` | failed as diagnostic evidence because the pre-existing EF gate still froze the three-kind closure set; this exposed a gate-only stale expectation after C-PI added Sidecar |
+| initial final `packc-final-20260722-r2` | failed as diagnostic evidence because the pre-existing EF gate still froze the three-kind closure set; the failure exposed a gate-only stale expectation after C-PI added Sidecar |
 | corrected `node .ai/scripts/experiment-foundation-packc-final-gate.mjs --run-id packc-final-20260722-r3` | expected sandbox result: exit 2 / `blocked`; EF and PI blocked on `DISPOSABLE_POSTGRES_UNAVAILABLE`, cutover passed, all child SHAs verified |
 | final r3 PC registry | 11 passed; 9 blocked: PC06, PC07, PC09-PC13, PC15, PC16; PC17/PC18 passed from cutover |
 | final r3 child totals/SHAs | EF 69/69 + one blocked relational suite / `sha256:be5487c5934c42f93dc2cd00c90f6cce62dc384e1b5bf98140c50e37f058a43d`; PI 122/122 + one blocked relational suite / `sha256:69d972c98886d8fa6617d9af52c7b740b3c1756e40efa246f669bcd40abd3b9e`; cutover 131/131 / `sha256:e46b316b5d7544bd307b04fd5a354a040f9e743644346ed5cfe73cd04efd8167` |
@@ -935,3 +967,60 @@ The first final-source full run was 2,340 total, 2,268 passed, 15 failed, 57 ski
 The 14 backend failures match the established environment-dependent baseline recorded for increment 2: eight unavailable-local-PostgreSQL cases and six literature environment/network cases. They are recorded as failed evidence, not accepted as passing. The final status remains `blocked` because the two mandatory Pack C relational children could not execute; on a host where those children pass, any remaining backend failure will make the final gate `failed`.
 
 Host closure remains PENDING. Run a fresh `packc-final-<YYYYMMDD>-r<N>` with Docker/PostgreSQL available, require both relational lanes to execute with zero skips, require cutover PC17/PC18 to remain passed, and require the backend full suite to report zero failures before replacing the PENDING section in `artifacts/implementation/08-pack-c-cutover-technical-closure.md`.
+
+## 2026-07-22 — Pack C quality remediation QR-1 verification
+
+| Check | Outcome |
+|---|---|
+| `cd apps/backend && npx tsc -p tsconfig.json --noEmit` | passed on final source; exit 0 |
+| every new/modified QR-1 backend test file via direct `node --test --loader ts-node/esm` | 97 total; 90 passed; 0 failed; 7 conditional PostgreSQL skips |
+| modified shared integration-event schema test via direct `node --test --loader ts-node/esm` | 18/18 passed; 0 failed/skipped |
+| focused relay/readiness/closure/gateway/stored-codec regression group | 41/41 passed; 0 failed/skipped |
+| `pnpm --filter @paper-engineering-assistant/shared test` | 386/386 passed; 0 failed/skipped |
+| `pnpm --filter @paper-engineering-assistant/backend test` | final merged population: 2,352 total; 2,295 passed; 0 failed; 57 skipped; 0 todo; duration `473471.691916ms`; exit 0 |
+| `git diff --check` | passed after source and documentation updates |
+
+All QR-1 tests passed in both targeted and final full-suite execution. An earlier sandbox run recorded 14 environment failures, but the controlled host rerun did not reproduce any failure. The 57 final skips remain explicit conditional relational/live-provider lanes and are not counted as green evidence; the seven targeted skips are the two opt-in Pack C real-PostgreSQL files.
+
+QR-1 itself changed no Prisma schema/migration. The subsequent public-resource integration pass registered `EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED` in the env SSOT with default `false`, regenerated all non-secret artifacts, passed the environment suite, and extended the cutover/config tests to cover all five v2 booleans.
+
+The specialized runner compatibility test proves that an unconfigured Pack C relay destination produces `released_retry`, leaves its outbox in retry state, and records zero delivery or terminalization. Product `buildApp` continues to compose all three Pack C consumers explicitly.
+
+## 2026-07-23 — Aliyun r6 closure and M7 readiness verification
+
+### Source evidence inspected
+
+| Evidence | Outcome |
+|---|---|
+| `.ai/.tmp/experiment-foundation-productization/cloud-preflight-public-resource-readonly-20260723-r6/summary.json` | `cloud_preflight_passed`; CP01-CP12 all passed |
+| r6 summary SHA-256 | `ae524752ef64f658ddfb796e8c0834bf0903baadf1c8e79cfbc392887c516053` |
+| provider operation ledger | 13 succeeded reads: 1 GetWorkspace, 1 ListResources, 11 ListEcsSpecs |
+| provider write census | provider write requests 0; `CreateJob` 0; provider writes 0 |
+| database/scientific census | database writes 0; scientific writes 0 |
+| protected authority fence | 88 tables; `changed_tables=[]`; server-enforced read-only transaction |
+| scientific state | `not_started`; `evidence_eligibility=false` |
+
+### M7 static readiness census
+
+| Check | Outcome |
+|---|---|
+| current RunRecipe/TaskSpec generation | simulation/materialization-only; not eligible for live reuse |
+| shared provider-control mode/provenance/ref contracts | simulation/fake only |
+| Pack B migration CHECK population | exact simulation/fake payload and Attempt tuple only |
+| product provider-worker composition | deterministic fake transport only |
+| Pack C validation boundary | already requires succeeded `real_provider` Attempt/result provenance |
+| T-106 external gate | prerequisite-presence gate only; no real provider call |
+| official API review | CreateJob/GetJob/ListJobs/StopJob/DeleteJob/JobSettings and OSS-mount primary docs reviewed; links recorded in the M7 review |
+| sensitive-data review | new durable artifacts contain no raw access key, secret, session token, SDK payload, unredacted object path or raw provider log |
+
+### Commands to run after the handoff update
+
+```bash
+node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-productization-closure --strict
+node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-real-interaction-hardening --strict
+node .ai/scripts/ctl-project-governance.mjs sync --apply --project main
+node .ai/scripts/ctl-project-governance.mjs lint --check --project main
+git diff --check
+```
+
+No live or mutating verification command is authorized by the readiness step.

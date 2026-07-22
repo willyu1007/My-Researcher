@@ -6,7 +6,7 @@
 - Review target: `Implementation Pack C — Phase 4 exact-batch scientific validation, evidence gateway and D-16/D-17/D-18 trusted Cycle closure`.
 - Prepared: 2026-07-18, after the zero-write cloud-preflight implementation checkpoint (`cloud-preflight-local-20260718-r9`).
 - Precedents: `07-implementation-readiness-review.md` (Pack A), `08-pack-b-implementation-readiness-review.md` (Pack B). Pack C follows the same review → authorization → implementation → disposable-PostgreSQL gate sequence.
-- Blocking dependency note: Pack C does NOT depend on the live Aliyun read-only acceptance window (EF-P16 remains `blocked` independently); Pack C work must not be sequenced behind it.
+- Blocking dependency note: Pack C does NOT depend on the live Aliyun read-only acceptance window (EF-P16 remains `blocked` independently); Pack C work must not be sequenced behind that window.
 
 ## Scope restatement
 
@@ -23,7 +23,7 @@ In scope:
 - `ValidationCycleClosed` as the only ResultInterpretationPacket trigger; Packet/Claim/Dossier/motive/retrieval/next-step consumers require the exact closed Cycle; dossier readiness consumes only explicit closed-Cycle snapshot refs/hashes; Sidecar rebuildable/display-only.
 - Atomic cutover of the superseded T-124 paths: trusted failed/cancelled REU creation, project-wide failed-like REU scans, caller-authored assessment/exit and direct Packet materialization are removed in the same release with no dual read, fallback or compatibility alias (audit rows/tests remain audit-only).
 - Closure of `paper_experiment_sidecar` generic create/upsert authority (census finding: Sidecar is currently an independently writable generic EF record, not a projection); Sidecar becomes strictly rebuildable from closure authority.
-- Service/repository-layer enforcement for the legacy scientific writers (census finding: the existing cutover guard is HTTP-only; `collectJob`, `createRecord`/`upsertRecord` for the three scientific kinds and the PI live-collect wrapper remain internally callable and must fail closed below the route layer).
+- Service/repository-layer enforcement for the legacy scientific writers (census finding: the existing cutover guard is HTTP-only; `collectJob`, `createRecord`/`upsertRecord` for the three scientific kinds and the PI live-collect wrapper remain internally callable and must fail closed inside the service layer).
 
 Out of scope (unchanged decisions):
 
@@ -50,10 +50,10 @@ Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pa
 - EF owns: protocol rule execution, validation report, EvidenceCandidate. PI owns: REU/TraceManifest, readiness trigger, proposal, closure assessment/snapshot, Packet, dossier consumption. No cross-domain FK/ORM relation; cross-domain identity remains exact refs/hashes/sequences/events (D-20/D-21 unchanged).
 - Sole writers: `ScientificValidationService` (EF), `EvidenceTrustGateway` (PI REU), `ValidationCycleClosureService` (PI disposition/snapshot). Generic record writers, adapters, monitors, routes and callers cannot construct these records.
 - Integration events (additive): `EvidenceCandidateQualified` (EF outbox → PI inbox) is the only new cross-domain event required by the gateway; `ValidationCycleClosed` remains a PI-domain event consumed by PI-side materializers. Any additional event requires a named review addendum.
-- **Addendum (2026-07-20, C-PI step 3)**: the gateway additionally emits one PI-domain projection-feed event `RunEvidenceUnitRegistered@v1` in its atomic commit (D-16's "gateway atomically writes REU/TraceManifest/outbox" acceptance). It is PI-internal (never crosses to EF), carries identity/hash refs only, and its consumers are the Phase 5 retrieval/motive projections. No other event is added.
+- **Addendum (2026-07-20, C-PI step 3)**: the gateway additionally emits one PI-domain projection-feed event `RunEvidenceUnitRegistered@v1` in its atomic commit (D-16's "gateway atomically writes REU/TraceManifest/outbox" acceptance). The event is PI-internal (never crosses to EF), carries identity/hash refs only, and its consumers are the Phase 5 retrieval/motive projections. No other event is added.
 - **Addendum (2026-07-21, C-PI step 5)**: reason code `PI_EXPERIMENT_V2_CYCLE_CLOSURE_DISABLED` is added beside `PI_EXPERIMENT_V2_ADMISSION_DISABLED` (capability-off rejection for the dedicated v2 closure lane; also currently returned for the production-disabled `scientific_evidence_assessed` kind). The closed-Cycle seal lookup is injected optionally with a never-closed default for test compatibility; the `packc-pi` gate must census the production composition wiring, and C-cutover makes the dependency required.
 - **Addendum (2026-07-21, C-cutover increment 1)**: reason code `RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED` marks both former pre-closure ResultInterpretationPacket triggers as permanently closed; packet materialization returns only as a `ValidationCycleClosed`-driven post-closure projection in a later increment. Legacy REU minting entries reuse `LEGACY_SCIENTIFIC_WRITER_CLOSED`. Dossier readiness input gains `closed_validation_cycle_snapshot_refs` (exact validation_cycle_id + closure_id + closure_snapshot_hash triplets verified against the v2 closure table); the project-wide REU scan vocabulary is deleted, not aliased.
-- **Addendum (2026-07-22, quality review R2)**: with `scientific_evidence_assessed` production-disabled AND control-only closure rejecting cycles that hold eligible REUs, an evidence-bearing cycle currently has no closure path. This is accepted as the explicit entry condition of the future scientific-closure increment (which must land proposal resolution + disposition + server-derived exit in the same Serializable closure transaction); it is NOT patched around in the 2026-07-22 quality remediation. Until then the invariant holds vacuously because the composed product cannot mint REUs while the gateway lane is capability-off.
+- **Addendum (2026-07-22, quality review R2)**: with `scientific_evidence_assessed` production-disabled AND control-only closure rejecting cycles that hold eligible REUs, an evidence-bearing cycle currently has no closure path. The limitation is accepted as the explicit entry condition of the future scientific-closure increment (which must land proposal resolution + disposition + server-derived exit in the same Serializable closure transaction); the limitation is NOT patched around in the 2026-07-22 quality remediation. Until then the invariant holds vacuously because the composed product cannot mint REUs while the gateway lane is capability-off.
 
 ### Additive schema families (exact Prisma names TBD via `sync-db-schema-from-code`)
 
@@ -91,7 +91,7 @@ Each slice gets its own PC-check subrange and disposable-PostgreSQL lane; the pa
 | PC16 | closed-Cycle seal: admission/revise/fork/Run-freeze/head/Attempt/attachment/dispatch all fail closed with zero writes; successor-Cycle path works |
 | PC17 | Packet only after `ValidationCycleClosed`, excluded from closure hash; Claim/Dossier/motive/retrieval reject open/proposal-only input; dossier consumes only declared closed snapshots, project-wide REU scan absent |
 | PC18 | atomic cutover census: superseded failed-REU writers, project scans, caller assessment/exit and direct Packet paths removed; no dual read/fallback; legacy/audit digests unchanged |
-| PC19 | below-HTTP writer closure: internal service-level calls to legacy scientific writers (`collectJob`, generic create/upsert for the three kinds, PI live collect, `paper_experiment_sidecar` create/upsert) fail closed regardless of route guards or cutover flag state |
+| PC19 | service-layer writer closure: internal service-level calls to legacy scientific writers (`collectJob`, generic create/upsert for the three kinds, PI live collect, `paper_experiment_sidecar` create/upsert) fail closed regardless of route guards or cutover flag state |
 | PC20 | readiness evaluator: D-18 watermark evaluation is server-derived, deterministic and rebuildable; no caller-writable readiness record; consumed by proposal admission and the one completion action without adding a human action |
 
 Gate mechanics follow Pack A/B: one checked-in machine gate runner, disposable real-PostgreSQL lanes with skip=0, protected-table before/after digests, exact evidence keysets, durable closure artifact under `artifacts/`.
@@ -107,7 +107,7 @@ Gate mechanics follow Pack A/B: one checked-in machine gate runner, disposable r
 
 ## Source population and modification boundary
 
-Census source: two read-only code surveys executed 2026-07-18 (Codex gpt-5.6-sol, read-only sandbox), checked in as `artifacts/pack-c-preplanning-20260718/00-ef-side-writer-census.md` (exhaustive EF writer inventory + 20-item closure checklist) and `01-pi-side-closure-census.md` (exhaustive PI closure/REU/dossier inventory + atomic cutover checklist). File:line references below are as of commit `389fccbc`.
+Census source: two read-only code surveys executed 2026-07-18 (Codex gpt-5.6-sol, read-only sandbox), checked in as `artifacts/pack-c-preplanning-20260718/00-ef-side-writer-census.md` (exhaustive EF writer inventory + 20-item closure checklist) and `01-pi-side-closure-census.md` (exhaustive PI closure/REU/dossier inventory + atomic cutover checklist). Subsequent file:line references are as of commit `389fccbc`.
 
 ### EF-side population Pack C closes or replaces
 
@@ -126,13 +126,13 @@ All four superseded authorities named by D-16/D-17 are still live:
 
 1. **Caller-authored conclusion**: callers author `cycle_assessment` and may select `decision_exit` at draft/admission and completion; closure row update is general non-CAS.
 2. **Result Analysis over-authority**: produces four free-standing scenarios plus complete packet semantics and deterministically assembles `CreateResultInterpretationPacketRequest`; two pre-closure packet-creation triggers exist.
-3. **Trusted failed/cancelled REU**: `PaperImplementationWorkOrderExperimentBridgeService.recordRunMonitorIntake` (`apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts:274`) is the sole low-level REU constructor with seven entry paths (standalone/monitor/recovery intake, live collect, live cancel, live finalization, trace side writer); it mints trusted REUs for `failed`, `cancelled`, `negative`, `inconclusive` and `succeeded` alike. No Evidence Trust Gateway exists.
+3. **Trusted failed/cancelled REU**: `PaperImplementationWorkOrderExperimentBridgeService.recordRunMonitorIntake` (`apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts:274`) is the sole low-level REU constructor with seven entry paths (standalone/monitor/recovery intake, live collect, live cancel, live finalization, trace side writer); the constructor mints trusted REUs for `failed`, `cancelled`, `negative`, `inconclusive` and `succeeded` alike. No Evidence Trust Gateway exists.
 4. **Project-wide dossier scan**: `PROJECT_ACCOUNTABLE_RUN_STATUSES` + `assertProjectRunEvidenceAccounting` perform an unbounded project-wide REU scan with newer-REU/WorkOrder-supersession exclusion heuristics; S3 tests lock these superseded semantics and must be replaced in the same slice.
 
 Additional findings:
 
-- **Sidecar is not a projection**: `paper_experiment_sidecar` is an independently writable/upsertable generic EF record with no builder/rebuilder/closure consumer anywhere in production code. Pack C must close its generic create/upsert authority and rebuild it strictly from closure authority (this extends the C-PI slice scope beyond the plan's assumption that Sidecar was already display-only).
-- **Readiness evaluator is greenfield**: no `CycleReadyForInterpretation` contract, event, evaluator, repository or route exists. Pack C adds a PI-owned deterministic evaluator/read model for the D-18 watermark (server-derived readiness decision + exact candidate snapshot/hash), consumed by Result Analysis admission and the existing completion action; it must not become a caller-writable readiness record.
+- **Sidecar is not a projection**: `paper_experiment_sidecar` is an independently writable/upsertable generic EF record with no builder/rebuilder/closure consumer anywhere in production code. Pack C must close the generic create/upsert authority and rebuild the Sidecar strictly from closure authority (the requirement extends the C-PI slice scope beyond the plan's assumption that Sidecar was already display-only).
+- **Readiness evaluator is greenfield**: no `CycleReadyForInterpretation` contract, event, evaluator, repository or route exists. Pack C adds a PI-owned deterministic evaluator/read model for the D-18 watermark (server-derived readiness decision + exact candidate snapshot/hash), consumed by Result Analysis admission and the existing completion action; the evaluator must not become a caller-writable readiness record.
 - Pack A v2 patterns to follow (typed contracts, server canonical hash, restrictive relational invariants, version-CAS, atomic inbox/domain/outbox, replay) are inventoried with file refs in `01-pi-side-closure-census.md` §6.
 - Full atomic-cutover checklist: `01-pi-side-closure-census.md` final section.
 
@@ -144,6 +144,6 @@ Additional findings:
 
 ## Verification artifacts
 
-- Pre-planning census: `artifacts/pack-c-preplanning-20260718/` (this review's source population input).
+- Pre-planning census: `artifacts/pack-c-preplanning-20260718/` (the review's source population input).
 - Frozen at review sign-off: gate id scheme `packc-ef-*` / `packc-pi-*` / `packc-cutover-*` with final convergence `packc-final-*`; durable artifact root `artifacts/implementation/06-pack-c-…` (next free ordinal after `05-pack-b-quality-remediation-closure.md`); the stable reason-code minimum set above is the frozen registry baseline (additions require a named review addendum).
 - Defined at implementation authorization: disposable-PostgreSQL lane names (Pack C needs Pack A+B seeded lanes plus the new scientific/closure families), full-suite expectations and the exact Prisma family/DDL matrix via `sync-db-schema-from-code`.

@@ -7,13 +7,54 @@
 - Do not interpret a controlled `blocked` summary as `cloud_preflight_passed`. Missing profile, temporary STS or reviewed policy evidence must remain explicit blockers even when zero-write safety checks pass.
 - Do not persist or log the full `CreateJob` request to make a preflight auditable. Hash transient canonical bytes and retain only byte size, exact hashes and hashed/redacted refs.
 - Do not accept long-lived or partial credentials. The live preflight requires a complete temporary STS triplet and a current repo-external policy review bound to the credential access-key-id hash.
-- Do not trust RAM policy evidence merely because it lists read actions. It must also explicitly deny `paidlc:CreateJob`, be time-bounded, and match the code-owned policy-document hash.
-- Do not invent `paidlc:ListEcsSpecs` in the RAM policy while the official PAI-DLC 2020-12-03 API page exposes no authorization action for `ListEcsSpecs`. Keep the API in the application read-only transport allowlist and revisit the policy only when Alibaba publishes an authoritative action.
+- Do not trust RAM policy evidence merely because the policy lists read actions. The evidence must also explicitly deny `paidlc:CreateJob`, be time-bounded, and match the code-owned policy-document hash.
+- Do not treat an undocumented API's first failure as proof of a missing provider action. Preserve the explicit `paidlc:CreateJob` deny, isolate request parameters before changing IAM, and label any temporary `paidlc:ListEcsSpecs` allow as empirical until provider metadata or a separate least-privilege review confirms the action mapping.
 - Do not put the provider SDK client itself behind a broad generic call surface. The application transport owns exactly three read methods, and all create/update/delete operations must fail before SDK transport.
 - Do not return raw provider exception messages in machine evidence. Unknown failures expose only a stable reason code and a redacted generic message; operation ledgers contain request IDs and hashed refs only.
 - Do not materialize placeholder payloads or fake-lifecycle success when the exact region/workspace/quota/image profile is incomplete. The honest result is CP02/03/10 `blocked` with zero payload records.
 - Do not treat `ListEcsSpecs` visibility or an ENABLED workspace as execution proof. Scheduling stock, image pull, mounts, runtime network, accelerator health, user command, logs/results and real cancel/cleanup remain unverified until a separately authorized real provider lane.
+- Do not dispatch or trust-upgrade the existing acknowledged Run for M7. Its Recipe, TaskSpecs, payload schema, mode/provenance and database CHECKs are intentionally simulation-only; real execution requires a new PI revision and new Run lineage.
+- Do not swap a real SDK transport behind the current fake worker interface without splitting response validation. The worker currently accepts only the deterministic fake response schema and diagnostic outputs.
+- Do not blind-retry `CreateJob` after an unknown/accepted-response-loss outcome. The documented operation has no client idempotency token; reconcile a deterministic tag/display name and exact `GetJob` details or remain blocked.
 - Do not claim the production dependency audit is clean merely because the SDK-introduced `lodash` and `fast-uri` paths were remediated. The repository still carries a Fastify 4 advisory whose supported patch starts in Fastify 5; record that residual explicitly and migrate the Fastify dependency as a separate compatibility slice. Also do not pin the deprecated `lodash@4.18.0`; the reviewed override is `4.18.1`.
+
+### 2026-07-22 — Canonicalize STS expiration before building reviewed evidence
+
+- Symptom: r4 blocked on `ALIYUN_IDENTITY_POLICY_EVIDENCE_INVALID` before the first provider transport operation even though the new STS policy, credential binding, reviewer and action lists were exact.
+- Context: one-off controlled `public_resource` read-only acceptance using a 3600-second AssumeRole credential and a repo-external `0600` evidence file.
+- What was tried: copy the provider `Credentials.Expiration` string directly into the evidence `expires_at` field.
+- Why the attempt failed: the evidence contract requires exact `YYYY-MM-DDTHH:mm:ss.sssZ`, while STS returns an RFC3339 timestamp without guaranteeing that millisecond component. The raw value therefore failed canonical-time validation before SDK construction.
+- Fix/workaround: parse the provider timestamp, reject invalid/expired/out-of-bound values, and serialize the expiration with `new Date(epoch).toISOString()` before writing and independently hashing evidence. Treat this as local evidence normalization; do not weaken the canonical parser.
+- Prevention: exercise the external STS timestamp shape in the temporary harness before consuming the single live-provider attempt, and preserve unconditional credential cleanup on every blocked/failed/passed exit.
+- References: `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-23 — A session policy cannot grant a missing role permission
+
+- Symptom: r5 added only the inferred `paidlc:ListEcsSpecs` session-policy action and passed all local identity-evidence checks, yet `GetWorkspace`/`ListResources` succeeded while `ListEcsSpecs` failed exactly as in r3.
+- Context: temporary STS was obtained by assuming `cloud-0001`; the session policy was intentionally minimal and explicitly denied `paidlc:CreateJob`.
+- What was tried: use the AssumeRole session policy as the only permission variable while leaving the role's attached and inline identity policies unchanged.
+- Why the attempt was insufficient: session policy evaluation intersects with the assumed role's existing permissions. Session policy can reduce effective access but cannot grant an action missing from the role. Therefore repeated session-policy additions cannot distinguish an incorrect action name from an ungranted role action.
+- Fix/workaround: stop provider retries and inspect the role's attached/inline policies and effective PAI-DLC permission read-only. If a missing action is confirmed, prepare the smallest IAM policy diff and require separate explicit authorization before applying the policy change; continue to retain the CreateJob deny during any later read-only acceptance.
+- Prevention: before consuming live STS attempts, inventory both layers—role identity permissions and session restrictions—and record which layer owns every allowed action. Never treat a session policy as an additive grant.
+- References: `00-overview.md`; `03-implementation-notes.md`; `04-verification.md`; `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`.
+
+### 2026-07-23 — Do not add a redundant Allow to an administrator role
+
+- Symptom: after r5 failed at `ListEcsSpecs`, the obvious remediation appeared to be attaching `paidlc:ListEcsSpecs` to `cloud-0001`.
+- Context: a read-only RAM audit found 10 account-level system policies on the role, including `AdministratorAccess`; the captured list contained no custom policy or separate deny policy.
+- Why that remediation is invalid: the administrator system policy already grants every action on every resource. Another Allow cannot broaden the role and would falsely document an IAM fix without changing effective access.
+- Fix/workaround: keep the IAM diff empty, do not issue another STS guessing attempt, and obtain the endpoint's exact authorization action/evaluation from Alibaba Cloud or redesign the preflight dependency. Treat the current `paidlc:ListEcsSpecs` session action as unverified until then.
+- Prevention: inventory the assumed role before proposing permission expansion, distinguish role identity policy from session restriction and service-level controls, and require an effective-access explanation for every IAM diff. Handle least-privilege removal of `AdministratorAccess` as a separate security change, never as part of acceptance troubleshooting.
+- References: `00-overview.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-23 — Do not send optional ListEcsSpecs sort fields without a provider acceptance test
+
+- Symptom: `ListEcsSpecs` returned HTTP 400 with an empty provider body while the two preceding AIWorkspace reads succeeded; the console's intermittent white-screen loading state made the failure look potentially UI- or permission-related.
+- Root cause: controlled single-variable calls proved the regional endpoint accepts the minimal ECS request and `AcceleratorType=CPU`, but rejects the otherwise documented optional `SortBy=CPU` field with `BadRequest`. IAM and the console white screen were unrelated.
+- What was tried: adding an inferred RAM action and auditing the role's effective permissions. Those checks were useful to rule out IAM, but could not repair a malformed/rejected request parameter.
+- Fix: use provider-accepted `PageSize=10`, `ResourceType=ECS`, `AcceleratorType=CPU`; omit `SortBy/Order`; paginate deterministically and preserve only safe status/code/RequestId on failure. r6 then passed all 12 checks with zero writes and unchanged 88-table digests.
+- Prevention: isolate optional provider parameters one at a time before changing IAM, maintain separate service-specific page-size constants, and test that optional fields are absent from the SDK wire request. Treat a recoverable console white screen as a frontend symptom unless API evidence correlates the symptom with the provider failure.
+- References: `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; `apps/backend/src/services/experiment-foundation-v2-aliyun-cloud-preflight.unit.test.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
 ## Pack A execution findings — 2026-07-13
 
@@ -529,7 +570,14 @@
 - Prevention: distinguish entry preconditions from read-only non-mutation invariants so earlier-phase verifiers remain executable after additive later phases.
 - References: `apps/backend/scripts/run-experiment-foundation-packa-product-landing.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
-When adding an entry, use:
+### 2026-07-22 — Public resources must be represented by omission, not a fake quota
+- Symptom: the original cloud gate required a visible exact DLC quota, while the authorized PAI workspace had no purchased quota and exposed only the public pay-as-you-go selector.
+- Context: zero-write Aliyun acceptance after PAI authorization, before any provider job or purchase authorization.
+- What was tried: treating `ListResources` quota visibility as a universal prerequisite for every `CreateJob` selector.
+- Why the attempt failed: Aliyun's `CreateJob.ResourceId` is optional for the public resource group; inventing an ID, persisting an empty selector or silently falling back would create false authority and make evidence ambiguous.
+- Fix/workaround: introduce an explicit profile-v2 union. Exact quota requires a non-empty ID; public resource forbids the ID and removes the key from canonical payload bytes, SDK wire map and redacted-field census. Read-only evidence records mode plus a null resource hash and makes no quota claim.
+- Prevention: optional provider selectors with distinct business meaning must use discriminated contracts and omission tests; never encode absence as a sentinel or implicit fallback.
+- References: `02-architecture.md`; `apps/backend/src/services/experiment-foundation-v2-aliyun-create-job-payload-service.ts`; `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; `04-verification.md`.
 
 ### 2026-07-22 — Final convergence exposed a stale earlier-slice census
 - Symptom: the first `packc-final` attempt reported C-EF `failed` even though all 69 C-EF non-relational tests passed and PostgreSQL unavailability should have produced `blocked`.
@@ -539,6 +587,18 @@ When adding an entry, use:
 - Fix/workaround: add `paper_experiment_sidecar` to the C-EF gate/meta expected closed-kind allowlist; no product code or writer behavior changed. The corrected final run reports C-EF `blocked` only on its disposable relational lane.
 - Prevention: final convergence must execute every child gate after later slices land, and monotonic cross-slice closure sets must be reconciled in gate metadata before interpreting a census mismatch as a product violation.
 - References: `.ai/scripts/experiment-foundation-packc-ef-gate.mjs`; `.ai/scripts/experiment-foundation-packc-final-gate.mjs`; `04-verification.md`.
+
+### 2026-07-23 — Existing simulation Run cannot be reused for M7
+
+- Symptom: the first M7 outline assumed the exact acknowledged two-cell Run could be sent to the real Aliyun provider after adding a transport.
+- Context: Pack A intentionally stopped before Attempt/provider execution, while Pack B proved a same-payload deterministic simulation and Pack C used synthetic real-provider fixtures only for default-off conformance.
+- What was tried: map the existing Run cells and TaskSpecs directly onto the already materialized offline `CreateJob` payloads.
+- Why the attempt is invalid: the RunRecipe entrypoint is explicitly `materialize-only`; TaskSpecs contain the non-runnable `experiment-foundation-v2:materialize-cell` command and only `simulation_*` output keys; shared contracts, provider response validation and PostgreSQL CHECKs all freeze simulation/fake provenance. The Run and hashes are immutable authority and cannot be rewritten or trust-upgraded.
+- Fix/workaround: D-23 requires a new PI WorkOrder revision bound to an exact typed ExecutionBundle. T1-T4 creates a new executable Run; provider-control contracts/tables gain exact discriminated real variants while old rows remain unchanged.
+- Prevention: before reusing an immutable Run across a new execution mode, inspect Recipe, TaskSpec IO, shared mode/provenance/ref unions, repository decoders, app composition and DB CHECKs. Exact identity does not imply capability compatibility.
+- References: `02-architecture.md`; `artifacts/implementation/11-m7-real-provider-readiness-review.md`; `apps/backend/src/services/experiment-foundation-v2-materialization-service.ts`; `packages/shared/src/research-lifecycle/experiment-foundation-execution-v2-contracts.ts`; `prisma/migrations/20260713210000_add_experiment_foundation_pack_b_provider_control_v2/migration.sql`.
+
+When adding an entry, use:
 
 ### YYYY-MM-DD — Short title
 - Symptom:

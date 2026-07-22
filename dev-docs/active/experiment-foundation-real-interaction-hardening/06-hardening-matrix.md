@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This matrix turns the D1 through D8 roadmap decisions into an executable hardening backlog. It defines what T-106 must prove before experiment foundation can be treated as a robust tool surface for paper-implementation automation.
+The matrix turns the D1 through D8 roadmap decisions into an executable hardening backlog. The matrix defines what T-106 must prove before experiment foundation can be treated as a robust tool surface for paper-implementation automation.
 
-T-106 does not redefine T-070 through T-078 semantics. It exercises the existing contracts, APIs, repositories, adapters, desktop workbench boundary, and PaperImplementation seams with harder fixtures and explicit artifact rules.
+T-106 does not redefine T-070 through T-078 semantics. The task exercises the existing contracts, APIs, repositories, adapters, desktop workbench boundary, and PaperImplementation seams with harder fixtures and explicit artifact rules.
 
 ## Lane Taxonomy
 
@@ -23,7 +23,7 @@ Artifacts default to `.ai/.tmp/experiment-foundation-hardening/<run-id>/`.
 
 | Fixture Id | Class | Source / Builder | Default | Used By | Artifact Rule |
 | --- | --- | --- | --- | --- | --- |
-| `SYN-MINIMAL-GRAPH` | Synthetic deterministic | `createExperimentFoundationMinimalGraph` in `apps/backend/src/services/experiment-foundation-scenario-fixtures.ts` | Yes | Registry, readiness, recipe, materialization, submit | Payload may be stored if it remains non-sensitive synthetic data. |
+| `SYN-MINIMAL-GRAPH` | Synthetic deterministic | `createExperimentFoundationMinimalGraph` in `apps/backend/src/services/experiment-foundation-scenario-fixtures.ts` | Yes | Registry, readiness, recipe, materialization, submit | Payload may be stored when the payload remains non-sensitive synthetic data. |
 | `SYN-REF-ID-SET` | Synthetic deterministic | `experimentFoundationScenarioIds` and `experimentFoundationRef` | Yes | All backend and seam tests | Store ids and refs. |
 | `SYN-DATASET-MIRROR` | Synthetic deterministic | `datasetMirrorFixture` | Yes | Mirror freshness, checksum, policy, Aliyun fake | Store refs, hashes, status, and synthetic provider kind only. |
 | `SYN-CANDIDATE-PROMOTION` | Synthetic deterministic | `datasetAssetCandidateFixture`, `promotionRequestFixture`, `promotionResultFixture` | Yes | Promotion gate and candidate lifecycle | Store candidate ids, decision, blockers, and canonical refs only. |
@@ -75,7 +75,7 @@ Already covered before T-106 implementation:
 - T-103 full-flow runner already covers contract, preflight, deterministic, real-local-DB smoke, and gate-only external canary reporting.
 - T-106 hardening runner now provides the post-V1 command entrypoint for targeted deterministic, real-local-DB, UI-definition, and true-external-gate lanes.
 
-T-106 must deepen the baseline rather than duplicate it.
+T-106 must deepen the baseline rather than duplicate the baseline.
 
 ## Implementation Backlog From Matrix
 
@@ -92,6 +92,6 @@ T-106 must deepen the baseline rather than duplicate it.
 
 Phase 1 is complete when:
 
-- this matrix is reviewed and kept as the T-106 implementation backlog;
+- the hardening matrix is reviewed and kept as the T-106 implementation backlog;
 - future work references matrix row ids in implementation notes and verification results;
 - no raw real dataset, credential, model weight, checkpoint, provider log, SDK payload, or unredacted object path is added to the repo.

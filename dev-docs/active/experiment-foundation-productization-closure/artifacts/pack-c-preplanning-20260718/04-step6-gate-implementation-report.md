@@ -18,7 +18,7 @@ No Prisma schema/migration, env contract, `app.ts`, or committed Pack C service/
 - `dev-docs/active/experiment-foundation-productization-closure/03-implementation-notes.md`
 - `dev-docs/active/experiment-foundation-productization-closure/04-verification.md`
 - `dev-docs/active/experiment-foundation-productization-closure/artifacts/implementation/06-pack-c-ef-technical-closure.md`
-- `dev-docs/active/experiment-foundation-productization-closure/artifacts/implementation/report.md`
+- `dev-docs/active/experiment-foundation-productization-closure/artifacts/pack-c-preplanning-20260718/11-qr1-wiring-report.md`
 
 The five user-identified unrelated dirty files were not modified by this work.
 

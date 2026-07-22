@@ -16,7 +16,7 @@ The `packc-pi` machine gate, its exact meta contract and the forced disposable-P
 - `dev-docs/active/experiment-foundation-productization-closure/03-implementation-notes.md`
 - `dev-docs/active/experiment-foundation-productization-closure/04-verification.md`
 - `dev-docs/active/experiment-foundation-productization-closure/artifacts/implementation/07-pack-c-pi-technical-closure.md`
-- `dev-docs/active/experiment-foundation-productization-closure/artifacts/implementation/report.md`
+- `dev-docs/active/experiment-foundation-productization-closure/artifacts/pack-c-preplanning-20260718/11-qr1-wiring-report.md`
 
 No service under test, Prisma schema/migration, env contract, capability value, named-local database or provider surface was modified. The five pre-existing unrelated dirty files were not touched by the C-PI gate work.
 

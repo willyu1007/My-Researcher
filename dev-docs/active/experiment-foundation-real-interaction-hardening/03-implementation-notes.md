@@ -36,13 +36,13 @@
   - submit with mismatched materialization hash fails without creating an external job;
   - retrying with the original locked submit request succeeds;
   - cancellation is idempotent, terminal cancelled state is listable, and collect creates partial validation without evidence.
-- This phase intentionally remains memory/API deterministic only. Disposable Postgres parity and recovery proof remain Phase 3B.
+- Phase 3A intentionally remains memory/API deterministic only. Disposable Postgres parity and recovery proof remain Phase 3B.
 
 ## 2026-05-27: Phase 3B Disposable DB Baseline
 - Ran the existing T-103 real-local-DB lane as a T-106 Phase 3B baseline.
 - The runner created a disposable schema, applied repo migrations, round-tripped experiment-foundation registry/readiness/external-job rows, and dropped the schema.
 - Redaction check found no raw database URL, provider keys, or credential patterns in the generated artifacts.
-- This proves DB infrastructure and SSOT migration viability for experiment-foundation tables, but it is not yet the full parity probe for the same readiness/promotion/submit/recovery scenarios exercised by Phase 3A.
+- The smoke proves DB infrastructure and SSOT migration viability for experiment-foundation tables, but the smoke is not yet the full parity probe for the same readiness/promotion/submit/recovery scenarios exercised by Phase 3A.
 
 ## 2026-05-27: Phase 3B Prisma Parity Probe
 - Added opt-in disposable-Postgres parity coverage in `apps/backend/src/services/experiment-foundation-prisma-parity.integration.test.ts`.
@@ -58,7 +58,7 @@
   - mismatched materialization hash fails without creating a job;
   - submit idempotency returns the existing job and conflicting reuse returns `VERSION_CONFLICT`;
   - cancel is idempotent, sync preserves cancelled terminal state, cancelled jobs are listable, and collect produces partial validation without evidence.
-- The adapter used by the parity probe is backend-only deterministic fake execution. This keeps the DB parity lane focused on persistence/service behavior instead of LocalScript process timing, which Phase 2 already covers.
+- The adapter used by the parity probe is backend-only deterministic fake execution. The adapter keeps the DB parity lane focused on persistence/service behavior instead of LocalScript process timing, which Phase 2 already covers.
 
 ## 2026-05-27: Phase 4 UI Flow Contract
 - Added `07-ui-workbench-flow-contract.md` as the define-only UI proof target.
@@ -71,7 +71,7 @@
 - The fake experiment-foundation record port now returns payloads containing paper-claim/final-wording fields while preserving valid record hashes.
 - The live adapter collect path still reads only refs/hashes and stores PaperImplementation `RunEvidenceUnit`, monitor intake, and trace manifest state without copied experiment-foundation DTO fields.
 - Added recursive assertions that adjacent state excludes reusable experiment-foundation DTO keys, evidence/sidecar DTO keys, paper claim fields, final table fields, leaderboard/ranking fields, and publication-ready wording.
-- This extends the existing WorkOrder bridge no-copy guard without changing product code or moving ownership between experiment foundation and PaperImplementation.
+- The seam assertion extends the existing WorkOrder bridge no-copy guard without changing product code or moving ownership between experiment foundation and PaperImplementation.
 
 ## 2026-05-27: Phase 6/7 Hardening Runner And External Gate
 - Added `.ai/scripts/experiment-foundation-hardening-runner.mjs` and the root `experiment-foundation:hardening` package script.
@@ -79,7 +79,7 @@
 - `deterministic` runs targeted shared schema, backend execution, capability harness, PaperImplementation seam, backend typecheck, governance sync dry-run, governance lint, and diff hygiene checks.
 - `real-local-db` invokes the opt-in disposable Postgres parity probe with `EXPERIMENT_FOUNDATION_PRISMA_PARITY=1`.
 - `ui-definition` validates that `07-ui-workbench-flow-contract.md` still names the required backend-authority routes and renderer non-ownership rules.
-- `external-gate` is intentionally gate-only: by default it records `skipped`; with `--include-true-external-canary` it checks provider, mirror, approval, budget, cleanup, and provider-specific credential key presence without calling a real cloud provider.
+- `external-gate` is intentionally gate-only: by default the gate records `skipped`; with `--include-true-external-canary` the gate checks provider, mirror, approval, budget, cleanup, and provider-specific credential key presence without calling a real cloud provider.
 - The gate never stores raw env values. Artifacts contain key names and present/missing booleans only.
 - The T-103 relationship is documented as a handoff command rather than changing the default T-103 full-flow runner semantics.
 
@@ -87,11 +87,11 @@
 - Fixed external-gate environment resolution to read key presence from both `process.env` and root `.env.local`.
 - Added a provider allowlist for the gate contract. The current supported provider is `aliyun_pai_dlc`; unknown providers block instead of returning ready.
 - Strengthened redaction for secret-like `KEY=value`, `KEY: value`, and JSON/quoted assignment shapes, plus bearer authorization output.
-- The gate still records only key names and presence/source booleans. It does not store raw environment values.
+- The gate still records only key names and presence/source booleans. The artifact does not store raw environment values.
 
 ## 2026-05-29: Phase 8 UI Smoke Landed via T-110 S5
 - The open acceptance criterion "UI-driven full-flow smoke covers registry, readiness, job submit/sync/cancel/collect, result/evidence detail, and error rendering without renderer-owned domain semantics" is now satisfied. Implementation lives at `apps/desktop/scripts/smoke-e2e.mjs` and is invoked as `pnpm --filter @paper-engineering-assistant/desktop smoke:e2e`.
-- Co-ownership boundary settled with T-110: T-110 S5 implements the smoke command in the desktop tree; T-106 owns this acceptance checkbox. T-110 closure does NOT gate on this checkbox flip; T-106 closure does (along with the still-open external-canary acceptance).
+- Co-ownership boundary settled with T-110: T-110 S5 implements the smoke command in the desktop tree; T-106 owns the acceptance checkbox. T-110 closure does NOT gate on the checkbox flip; T-106 closure does (along with the still-open external-canary acceptance).
 - T-106 02-architecture's UI Flow Contract section now carries a step-to-mount mapping for the T-110-cutover IA (Registry → 资产库; Readiness → ReadinessInspector modal; Recipe/Materialization → 实验流; Execution/Evidence → 实验流's external_training_job stage with typed JobActionForms). The six contract steps remain authoritative; the new IA names are documented alongside.
 - Smoke coverage:
   - Step 1 (nav entry): `coreNavItems` order, `<ExperimentFoundationModule>` mount, Topbar aria label.
@@ -114,3 +114,10 @@
 - D6: confirmed memory plus disposable local Postgres validation. Persistence hardening should prove automation-facing usability for paper-implementation handoff, not mutate the normal developer schema or run long DB stress by default.
 - D7: confirmed standalone T-106 hardening command first; hook into T-103 only after the command contract is stable and does not change default full-flow semantics.
 - D8: confirmed synthetic deterministic fixtures by default. Controlled local real fixtures and true external samples are explicit opt-in only, with refs/hashes/summaries/cleanup artifacts and no checked-in raw data, model weights, checkpoints, credentials, raw logs, or unredacted provider payloads.
+
+## 2026-07-23: provider-canary ownership handoff to T-132 M7
+
+- Recorded a bilateral ownership handoff with T-132. T-132 M7 uniquely owns Aliyun real-provider contracts, schema/migration, transport, crash recovery, live gate and execution because it owns the current PI/EF v2 Run/Attempt/scientific trust lineage.
+- T-106's existing `external-gate` remains a key-presence/prerequisite gate and receives no provider calls or real persistence. T-106 will consume and verify the final redacted M7 verdict rather than creating a second canary implementation.
+- The T-132 readiness review found that the existing acknowledged Run is immutable simulation-only and cannot be upgraded. M7 will require a new PI WorkOrder revision/new Run plus an exact typed execution bundle. The new-lineage design preserves T-106's no-second-semantic-track rule.
+- No T-106 code, provider configuration, credential, database or cloud resource changed in the handoff.

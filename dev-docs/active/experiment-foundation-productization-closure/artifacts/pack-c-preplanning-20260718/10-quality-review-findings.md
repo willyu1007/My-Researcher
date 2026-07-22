@@ -1,6 +1,6 @@
 ## 1. Blocker — Pack C events are written into an outbox pipeline that cannot decode or deliver them
 
-Files: [app.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/app.ts:470), [experiment-v2-integration-relay-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/experiment-v2-integration-relay-service.ts:222), [paper-implementation-experiment-v2-contracts.ts](/Volumes/DataDisk/Project/My-Researcher/packages/shared/src/research-lifecycle/paper-implementation-experiment-v2-contracts.ts:332), [prisma-experiment-foundation-spine-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts:334), [prisma-paper-implementation-experiment-spine-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts:469)
+Files: [app.ts](../../../../../apps/backend/src/app.ts#L470), [experiment-v2-integration-relay-service.ts](../../../../../apps/backend/src/services/experiment-v2-integration-relay-service.ts#L222), [paper-implementation-experiment-v2-contracts.ts](../../../../../packages/shared/src/research-lifecycle/paper-implementation-experiment-v2-contracts.ts#L332), [prisma-experiment-foundation-spine-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts#L334), [prisma-paper-implementation-experiment-spine-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts#L469)
 
 The scientific service, evidence gateway, and closure repository insert `EvidenceCandidateQualified`, `RunEvidenceUnitRegistered`, and `ValidationCycleClosed@v1` into the existing EF/PI integration outbox tables. However:
 
@@ -11,13 +11,13 @@ The scientific service, evidence gateway, and closure repository insert `Evidenc
 
 Thus, if the new writers are invoked directly, their outbox rows are terminalized rather than delivered. In normal app composition, the scientific and gateway paths are unreachable in the first place. `ValidationCycleClosed` has no consumer anywhere, leaving the post-closure packet path permanently closed.
 
-The HTTP closure route also requires `expected_closure_input_hash`, but production routing exposes no readiness-evaluation operation from which a caller can obtain it ([paper-implementation-experiment-v2-routes.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/routes/paper-implementation-experiment-v2-routes.ts:124)).
+The HTTP closure route also requires `expected_closure_input_hash`, but production routing exposes no readiness-evaluation operation from which a caller can obtain it ([paper-implementation-experiment-v2-routes.ts](../../../../../apps/backend/src/routes/paper-implementation-experiment-v2-routes.ts#L124)).
 
 Fix direction: extend the shared event union, stored-event codecs, spine outbox mappers, relay consumer ports, and delivery routing for all three Pack C events. Compose the scientific service and trust gateway in `app.ts`, expose the pure-read readiness preview, and add an actual `ValidationCycleClosed` consumer/post-closure path. Test the real `buildApp` scheduler, not just direct service calls.
 
 ## 2. Blocker — Any cycle containing qualified evidence is permanently unclosable
 
-File: [paper-implementation-validation-cycle-closure-v2-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts:49)
+File: [paper-implementation-validation-cycle-closure-v2-service.ts](../../../../../apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts#L49)
 
 `scientific_evidence_assessed` is rejected as “not implemented” at lines 53–57. The same service rejects control-only closure whenever any eligible REU exists at lines 133–137.
 
@@ -27,7 +27,7 @@ Fix direction: implement proposal resolution, proposal-hash verification, dispos
 
 ## 3. High — The D-18 cycle-version CAS and closed-cycle seal are not transactional
 
-Files: [prisma-paper-implementation-cycle-readiness-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-cycle-readiness-v2-repository.ts:44), [prisma-paper-implementation-validation-cycle-closure-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.ts:118), [prisma-paper-implementation-experiment-spine-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts:112), [prisma-experiment-foundation-spine-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts:126), [prisma-experiment-foundation-execution-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts:180)
+Files: [prisma-paper-implementation-cycle-readiness-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-cycle-readiness-v2-repository.ts#L44), [prisma-paper-implementation-validation-cycle-closure-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.ts#L118), [prisma-paper-implementation-experiment-spine-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts#L112), [prisma-experiment-foundation-spine-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts#L126), [prisma-experiment-foundation-execution-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts#L180)
 
 `expected_cycle_version` is always the constant initial value `0`; there is no mutable Cycle version. The product Cycle update CASes only `cycleStatus` and `completedAt`.
 
@@ -43,7 +43,7 @@ Fix direction: introduce a real, incrementing Cycle authority version or equival
 
 ## 4. High — Closed-cycle checks break idempotent replay and relay redelivery
 
-Files: [paper-implementation-experiment-v2-admission-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-experiment-v2-admission-service.ts:161), [paper-implementation-experiment-v2-head-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-experiment-v2-head-service.ts:194), [experiment-foundation-v2-materialization-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/experiment-foundation-v2-materialization-service.ts:309), [experiment-foundation-execution-v2-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/experiment-foundation-execution-v2-service.ts:115), [experiment-v2-integration-relay-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/experiment-v2-integration-relay-service.ts:86)
+Files: [paper-implementation-experiment-v2-admission-service.ts](../../../../../apps/backend/src/services/paper-implementation-experiment-v2-admission-service.ts#L161), [paper-implementation-experiment-v2-head-service.ts](../../../../../apps/backend/src/services/paper-implementation-experiment-v2-head-service.ts#L194), [experiment-foundation-v2-materialization-service.ts](../../../../../apps/backend/src/services/experiment-foundation-v2-materialization-service.ts#L309), [experiment-foundation-execution-v2-service.ts](../../../../../apps/backend/src/services/experiment-foundation-execution-v2-service.ts#L115), [experiment-v2-integration-relay-service.ts](../../../../../apps/backend/src/services/experiment-v2-integration-relay-service.ts#L86)
 
 All four services check closure before looking for an already-committed replay.
 
@@ -53,7 +53,7 @@ Fix direction: resolve and validate exact read-only replays first. Only a genuin
 
 ## 5. High — The Evidence Trust Gateway accepts superseded and already-closed PI scope
 
-File: [prisma-paper-implementation-evidence-v2-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-v2-repository.ts:190)
+File: [prisma-paper-implementation-evidence-v2-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-v2-repository.ts#L190)
 
 `loadAuthority` at lines 257–283 verifies only that the referenced revision once had an admission. It does not require:
 
@@ -69,7 +69,7 @@ Fix direction: make current revision, exact head Run, and closure absence member
 
 ## 6. High — Closure authority IDs and hashes are nondeterministic
 
-File: [paper-implementation-validation-cycle-closure-v2-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts:42)
+File: [paper-implementation-validation-cycle-closure-v2-service.ts](../../../../../apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts#L42)
 
 The default ID factory uses `randomUUID()`. It supplies the closure ID at line 159, event ID at line 186, and outbox ID at line 216. More importantly, `closure_id` is included in `closureWithoutHash`, so `closure_snapshot_hash` changes on every pre-commit retry of the same semantic request.
 
@@ -79,7 +79,7 @@ Fix direction: derive the closure ID from stable semantic inputs such as cycle I
 
 ## 7. High — Legacy REU write/read authority remains active, and v2 REUs are invisible to claims
 
-Files: [prisma-paper-implementation-workorder-repository.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-workorder-repository.ts:249), [paper-implementation-result-claim-dossier-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-result-claim-dossier-service.ts:587), [paper-implementation-workorder-experiment-bridge-service.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts:324)
+Files: [prisma-paper-implementation-workorder-repository.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-workorder-repository.ts#L249), [paper-implementation-result-claim-dossier-service.ts](../../../../../apps/backend/src/services/paper-implementation-result-claim-dossier-service.ts#L587), [paper-implementation-workorder-experiment-bridge-service.ts](../../../../../apps/backend/src/services/paper-implementation-workorder-experiment-bridge-service.ts#L324)
 
 The monitor service now passes `run_evidence_unit: null`, but the legacy repository port and Prisma implementation still accept a non-null legacy REU and execute `paperImplementationRunEvidenceUnit.create()`.
 
@@ -91,7 +91,7 @@ Fix direction: remove the legacy REU member from monitor persistence and delete/
 
 ## 8. Medium — Pack C gates can pass while all of the above regressions remain
 
-Files: [experiment-foundation-packc-pi-gate.mjs](/Volumes/DataDisk/Project/My-Researcher/.ai/scripts/experiment-foundation-packc-pi-gate.mjs:207), [experiment-foundation-packc-cutover-gate.mjs](/Volumes/DataDisk/Project/My-Researcher/.ai/scripts/experiment-foundation-packc-cutover-gate.mjs:245), [prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts](/Volumes/DataDisk/Project/My-Researcher/apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts:242), [experiment-foundation-packc-ef-gate.mjs](/Volumes/DataDisk/Project/My-Researcher/.ai/scripts/experiment-foundation-packc-ef-gate.mjs:42)
+Files: [experiment-foundation-packc-pi-gate.mjs](../../../../../.ai/scripts/experiment-foundation-packc-pi-gate.mjs#L207), [experiment-foundation-packc-cutover-gate.mjs](../../../../../.ai/scripts/experiment-foundation-packc-cutover-gate.mjs#L245), [prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts](../../../../../apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts#L242), [experiment-foundation-packc-ef-gate.mjs](../../../../../.ai/scripts/experiment-foundation-packc-ef-gate.mjs#L42)
 
 The gates check that constructors contain a `cycleClosureLookup` property, but not that the check occurs inside the write transaction. The relational seal test closes first and invokes each writer afterward; it does not race closure against a writer.
 

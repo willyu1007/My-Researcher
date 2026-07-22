@@ -42,7 +42,7 @@ Results:
 ## Remaining Verification Lanes
 
 - Hardening matrix lint: every critical node has a fixture, command, expected outcome, and artifact. Phase 1 matrix is now the backlog source.
-- LocalScript robustness: Phase 2 targeted backend tests now cover this lane; future runner work should only add artifact reporting and command integration.
+- LocalScript robustness: Phase 2 targeted backend tests now cover the lane; future runner work should only add artifact reporting and command integration.
 - API/DB recovery: memory plus disposable local DB tests for registry, readiness, promotion, materialization, execution, result, and evidence paths.
 - UI-driven workbench: desktop smoke/e2e for registry, readiness, jobs, results, evidence, and error states.
 - Cross-flow seam: PaperImplementation and adjacent flows consume refs and hashes only.
@@ -96,7 +96,7 @@ Results:
 - Capability harness targeted test: passed, 5 tests.
 - Backend typecheck: passed.
 - New Phase 3A recovery scenario covered readiness blocker/action recovery, candidate promotion gate recovery, failed submit retry without job creation, idempotent cancel, cancelled-job listability, and partial validation without evidence.
-- Disposable DB parity was not run in this subphase; it remains Phase 3B.
+- Disposable DB parity was not run in the subphase; parity remains Phase 3B.
 
 Commands run for Phase 3B baseline on 2026-05-27:
 
@@ -114,7 +114,7 @@ Results:
 - Artifact redaction spot-check returned no matches for raw database URLs or credential patterns.
 - Governance lint: passed.
 - Scoped `git diff --check`: passed.
-- This is a disposable-DB baseline smoke. It does not replace the still-needed DB-backed parity probe for the Phase 3A recovery scenarios.
+- The result is a disposable-DB baseline smoke. The smoke does not replace the still-needed DB-backed parity probe for the Phase 3A recovery scenarios.
 
 Commands run for Phase 3B Prisma parity on 2026-05-27:
 
@@ -227,6 +227,14 @@ Results:
 - Real-local-DB mode: passed.
 - Artifact redaction scan found no fake secret values, raw database URL, SDK payload, or credential assignment pattern.
 - Governance lint and scoped `git diff --check`: passed.
+
+## 2026-07-23: T-132 M7 ownership-handoff verification
+
+- T-132 audit matrix now states that zero-write preflight and M7 provider implementation are T-132-owned, while T-106 consumes the final evidence.
+- T-132 M7 readiness review names T-106 as the consuming acceptance and prohibits a second provider transport/schema/runner.
+- T-106 overview, plan and architecture preserve the existing `external-gate` as gate-only and leave the true external acceptance item open.
+- No credential value, SDK payload, raw provider log or object path was added to either task package.
+- Verification commands are the strict T-106/T-132 docs lints, governance sync/lint and `git diff --check` recorded in the T-132 handoff.
 
 ## Actual Local Full Baseline
 
