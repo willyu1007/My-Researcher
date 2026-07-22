@@ -97,7 +97,6 @@ import type {
   ValidationCycleInputSnapshot,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
 import type {
-  RunEvidenceUnit,
   RunMonitorIntakeRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
 import type {
@@ -134,6 +133,11 @@ import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
+import { InMemoryPaperImplementationEvidenceV2Repository } from '../repositories/in-memory-paper-implementation-evidence-v2-repository.js';
+import type {
+  PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
+} from '../repositories/paper-implementation-evidence-v2.repository.js';
 import type {
   PaperImplementationBootstrapPersistence,
   PaperImplementationBootstrapResult,
@@ -504,9 +508,28 @@ class StaticProjectRepository implements PaperImplementationRepository {
   }
 }
 
+class ClosedClaimSupportEvidenceV2Repository
+extends InMemoryPaperImplementationEvidenceV2Repository {
+  override async resolveClaimSupportRunEvidenceUnit(
+    input: PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  ): Promise<PaperImplementationClaimSupportRunEvidenceUnitV2Resolution> {
+    return {
+      status: 'v2_closed',
+      run_evidence_unit: {
+        run_evidence_unit_id: input.run_evidence_unit_id,
+        implementation_project_id: input.implementation_project_id,
+        validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
+        content_hash: input.expected_content_hash ?? hash(input.run_evidence_unit_id),
+      },
+      closure_id: `closure-${RESULT_VALIDATION_CYCLE_ID}`,
+    };
+  }
+}
+
 function buildApp(options: BuildAppOptions = {}): ReturnType<typeof buildBackendApp> {
   return buildBackendApp({
     paperImplementationRepository: new StaticProjectRepository(),
+    paperImplementationEvidenceV2Repository: new ClosedClaimSupportEvidenceV2Repository(),
     ...options,
   });
 }
@@ -4290,7 +4313,6 @@ async function resultAnalysisDomainGateFixture() {
   });
   await workOrderRepository.recordMonitorIngestion({
     monitor_intake: resultAnalysisMonitorIntake(),
-    run_evidence_unit: resultAnalysisRunEvidenceUnit(),
     work_order: null,
   });
   return {
@@ -5494,35 +5516,6 @@ function resultAnalysisMonitorIntake(): RunMonitorIntakeRecord {
     raw_payload: { redacted_fixture: true },
     received_at: NOW,
     created_by: 'system',
-  };
-}
-
-function resultAnalysisRunEvidenceUnit(): RunEvidenceUnit {
-  return {
-    run_evidence_unit_id: RESULT_RUN_EVIDENCE_UNIT_ID,
-    implementation_project_id: PROJECT_ID,
-    work_order_id: RESULT_WORK_ORDER_ID,
-    validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
-    monitor_intake_id: RESULT_MONITOR_INTAKE_ID,
-    external_job_ref: ref('external_job', 'external-job-http-1'),
-    external_job_hash: hash('external-job-http-1'),
-    run_type: 'confirmatory',
-    run_status: 'succeeded',
-    trusted_status: 'trusted',
-    dataset_version_refs: [ref('dataset_version', 'dataset-http-1')],
-    baseline_version_refs: [ref('baseline_version', 'baseline-http-1')],
-    code_version_refs: [ref('code_version', 'code-http-1')],
-    config_refs: [ref('config_snapshot', 'config-http-1')],
-    result_ref: ref('run_result', 'run-result-http-1'),
-    result_hash: hash('run-result-http-1'),
-    result_validation_report_ref: ref('result_validation_report', RESULT_VALIDATION_REPORT_ID),
-    result_validation_report_hash: hash(RESULT_VALIDATION_REPORT_ID),
-    evidence_candidate_refs: [],
-    evidence_candidate_hashes: [],
-    trace_manifest_ref: ref('trace_manifest', RESULT_TRACE_MANIFEST_ID),
-    trace_manifest_id: RESULT_TRACE_MANIFEST_ID,
-    created_by: 'system',
-    created_at: NOW,
   };
 }
 

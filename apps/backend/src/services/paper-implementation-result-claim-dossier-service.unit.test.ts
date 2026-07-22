@@ -19,12 +19,9 @@ import type {
   ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
+  PaperImplementationRunEvidenceUnitV2,
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
-import type {
-  ResearchWorkOrder,
-  RunEvidenceUnit,
-} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
 import type {
   ValidationCycle,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
@@ -44,7 +41,10 @@ import type {
   PaperImplementationRepository,
 } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
-import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
+import type {
+  PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
+  PaperImplementationEvidenceV2ClaimSupportReader,
+} from '../repositories/paper-implementation-evidence-v2.repository.js';
 import type { PaperImplementationStoredValidationCycleClosureV2 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import { PaperImplementationResultClaimDossierService } from './paper-implementation-result-claim-dossier-service.js';
 import { sha256Text } from './literature-content-processing-utils.js';
@@ -53,6 +53,7 @@ const NOW = '2026-05-21T00:00:00.000Z';
 const PROJECT_ID = 'implementation_project_001';
 const VALIDATION_CYCLE_ID = 'validation_cycle_001';
 const RUN_EVIDENCE_ID = 'run_evidence_unit_001';
+const RUN_EVIDENCE_CONTENT_HASH = 'sha256:run-evidence-unit-v2-content-001';
 const CLOSURE_ID = 'validation_cycle_closure_001';
 const CLOSURE_SNAPSHOT_HASH = 'sha256:closed-cycle-snapshot-001';
 
@@ -211,37 +212,25 @@ function traceManifest(id: string, targetType: string, targetId: string): TraceM
   };
 }
 
-function makeRunEvidence(runStatus: RunEvidenceUnit['run_status'] = 'succeeded'): RunEvidenceUnit {
+function makeV2RunEvidenceUnit(): PaperImplementationRunEvidenceUnitV2 {
   return {
     run_evidence_unit_id: RUN_EVIDENCE_ID,
+    schema_version: 'v1',
     implementation_project_id: PROJECT_ID,
-    work_order_id: 'research_work_order_001',
     validation_cycle_id: VALIDATION_CYCLE_ID,
-    experiment_plan_light_id: null,
-    monitor_intake_id: 'run_monitor_intake_001',
-    external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
-    external_job_hash: 'experiment_run_hash_001',
-    run_type: 'confirmatory',
-    run_status: runStatus,
-    trusted_status: 'trusted',
-    dataset_version_refs: [ref('dataset_version', 'dataset_version_001')],
-    baseline_version_refs: [ref('baseline_version', 'baseline_version_001')],
-    code_version_refs: [ref('code_version', 'code_version_001')],
-    config_refs: [ref('config', 'config_001')],
-    result_ref: runStatus === 'succeeded' ? ref('result_artifact', 'result_001') : null,
-    result_hash: runStatus === 'succeeded' ? 'result_hash_001' : null,
-    result_validation_report_ref: runStatus === 'succeeded'
-      ? ref('result_validation_report', 'result_validation_report_001')
-      : null,
-    result_validation_report_hash: runStatus === 'succeeded' ? 'result_validation_hash_001' : null,
-    evidence_candidate_refs: [],
-    evidence_candidate_hashes: [],
-    failure_summary_id: runStatus === 'succeeded' ? null : 'failure_summary_001',
-    failure_summary: runStatus === 'succeeded' ? null : 'Run did not support the expected result.',
-    trace_manifest_ref: ref('trace_manifest', 'trace_manifest_run_001'),
-    trace_manifest_id: 'trace_manifest_run_001',
-    created_by: 'system',
-    created_at: NOW,
+    branch_id: 'branch_001',
+    work_order_revision_id: 'work_order_revision_001',
+    work_order_revision_hash: 'sha256:work-order-revision-001',
+    branch_revision_sequence: 1,
+    run_id: 'run_001',
+    run_manifest_hash: 'sha256:run-manifest-001',
+    evidence_candidate_id: 'evidence_candidate_001',
+    evidence_candidate_content_hash: 'sha256:evidence-candidate-001',
+    validation_report_id: 'validation_report_001',
+    validation_hash: 'sha256:validation-report-001',
+    evaluation_protocol_revision_id: 'evaluation_protocol_revision_001',
+    evaluation_protocol_content_hash: 'sha256:evaluation-protocol-001',
+    content_hash: RUN_EVIDENCE_CONTENT_HASH,
   };
 }
 
@@ -333,19 +322,34 @@ function makeValidationRepository(): PaperImplementationValidationRepository {
   } as unknown as PaperImplementationValidationRepository;
 }
 
-function makeWorkOrderRepository(
-  runEvidence: RunEvidenceUnit,
-  extraProjectRunEvidence: RunEvidenceUnit[] = [],
-  workOrders: ResearchWorkOrder[] = [],
-): PaperImplementationWorkOrderRepository {
-  const units = [runEvidence, ...extraProjectRunEvidence];
+function makeEvidenceV2Reader(
+  resolution: PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
+): PaperImplementationEvidenceV2ClaimSupportReader {
   return {
-    findRunEvidenceUnitById: async (_implementationProjectId: string, runEvidenceUnitId: string) =>
-      structuredClone(units.find((unit) => unit.run_evidence_unit_id === runEvidenceUnitId) ?? null),
-    listRunEvidenceUnits: async () => structuredClone(units),
-    findWorkOrderById: async (_implementationProjectId: string, workOrderId: string) =>
-      structuredClone(workOrders.find((workOrder) => workOrder.work_order_id === workOrderId) ?? null),
-  } as unknown as PaperImplementationWorkOrderRepository;
+    resolveClaimSupportRunEvidenceUnit: async (input) => {
+      if (
+        'run_evidence_unit' in resolution
+        && (
+          resolution.run_evidence_unit.run_evidence_unit_id !== input.run_evidence_unit_id
+          || resolution.run_evidence_unit.implementation_project_id
+            !== input.implementation_project_id
+        )
+      ) {
+        return { status: 'not_found' };
+      }
+      if (
+        'run_evidence_unit' in resolution
+        && input.expected_content_hash !== null
+        && resolution.run_evidence_unit.content_hash !== input.expected_content_hash
+      ) {
+        return {
+          status: 'v2_content_hash_mismatch',
+          run_evidence_unit: structuredClone(resolution.run_evidence_unit),
+        };
+      }
+      return structuredClone(resolution);
+    },
+  };
 }
 
 function validResultRequest(): CreateResultInterpretationPacketRequest {
@@ -443,7 +447,7 @@ function validClaimRequest(): CreateClaimCandidateRequest {
     claim_statement: 'The method improves the admitted benchmark metric.',
     claim_strength: 'moderate' as const,
     result_interpretation_packet_ids: ['result_interpretation_packet_001'],
-    support_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID)],
+    support_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID, RUN_EVIDENCE_CONTENT_HASH)],
     challenge_refs: [],
     scope: {
       population_scope: 'Admitted benchmark.',
@@ -501,11 +505,12 @@ function validDossierRequest() {
 }
 
 async function setup(
-  runStatus: RunEvidenceUnit['run_status'] = 'succeeded',
-  runEvidenceOverrides: Partial<RunEvidenceUnit> = {},
-  extraProjectRunEvidence: RunEvidenceUnit[] = [],
-  workOrders: ResearchWorkOrder[] = [],
   closure: PaperImplementationStoredValidationCycleClosureV2 | null = storedClosure(),
+  claimResolution: PaperImplementationClaimSupportRunEvidenceUnitV2Resolution = {
+    status: 'v2_closed',
+    run_evidence_unit: makeV2RunEvidenceUnit(),
+    closure_id: CLOSURE_ID,
+  },
 ) {
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
@@ -569,14 +574,7 @@ async function setup(
     traceRepository,
     confirmationRepository,
     validationRepository: makeValidationRepository(),
-    workOrderRepository: makeWorkOrderRepository(
-      {
-        ...makeRunEvidence(runStatus),
-        ...runEvidenceOverrides,
-      },
-      extraProjectRunEvidence,
-      workOrders,
-    ),
+    evidenceV2Reader: makeEvidenceV2Reader(claimResolution),
     feedbackRecorder,
     closedCycleSnapshotReader: {
       findStoredClosureByCycle: async (validationCycleId) => (
@@ -602,7 +600,7 @@ test('direct ResultInterpretationPacket materialization is closed pending Valida
 });
 
 test('historical packet, claim, closed-Cycle dossier, and writing packet preserve the downstream ready path', async () => {
-  const { service } = await setup('failed');
+  const { service } = await setup();
   const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   assert.equal(claim.claim_trace_packet_id, 'claim_trace_packet_001');
   assert.equal(claim.claim_status, 'supported');
@@ -696,6 +694,55 @@ test('claim boundary blocks interpretation refs as support and forbidden overcla
   );
 });
 
+test('claim support accepts an exact v2 REU only after its ValidationCycle is closed', async () => {
+  const { service } = await setup();
+  const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  assert.equal(claim.support_refs[0]?.ref_id, RUN_EVIDENCE_ID);
+  assert.equal(claim.support_refs[0]?.version_id, RUN_EVIDENCE_CONTENT_HASH);
+});
+
+test('claim support rejects a v2 REU from an open ValidationCycle', async () => {
+  const { service } = await setup(storedClosure(), {
+    status: 'v2_open',
+    run_evidence_unit: makeV2RunEvidenceUnit(),
+  });
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, validClaimRequest()),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.message.includes('requires a v2 ValidationCycle closure'),
+  );
+});
+
+test('claim support explicitly rejects a legacy-only REU with stable cutover semantics', async () => {
+  const { service } = await setup(storedClosure(), {
+    status: 'legacy_record_not_eligible',
+  });
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, validClaimRequest()),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'LEGACY_RECORD_NOT_ELIGIBLE',
+  );
+});
+
+test('claim support rejects an exact v2 REU content-hash mismatch', async () => {
+  const { service } = await setup(storedClosure(), {
+    status: 'v2_content_hash_mismatch',
+    run_evidence_unit: makeV2RunEvidenceUnit(),
+  });
+  const request = validClaimRequest();
+  request.support_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID, 'sha256:wrong-content')];
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, request),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.message.includes('content hash does not match'),
+  );
+});
+
 test('claim without claim trace stays pending and cannot be admitted to ready dossier', async () => {
   const { service } = await setup();
 
@@ -737,11 +784,8 @@ test('ready dossier rejects blockers and unresolved admitted claim disposition',
   );
 });
 
-test('ready dossier ignores project-wide legacy failed-like REUs and consumes only declared closed snapshots', async () => {
-  const { service } = await setup('succeeded', {}, [
-    { ...makeRunEvidence('failed'), run_evidence_unit_id: 'legacy_failed_reu' },
-    { ...makeRunEvidence('negative'), run_evidence_unit_id: 'legacy_negative_reu' },
-  ]);
+test('ready dossier consumes only declared closed snapshots without consulting legacy REU diagnostics', async () => {
+  const { service } = await setup();
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   const dossier = await service.createImplementationDossier(PROJECT_ID, validDossierRequest());
   assert.equal(dossier.dossier_status, 'ready_for_writing');
@@ -753,7 +797,7 @@ test('ready dossier ignores project-wide legacy failed-like REUs and consumes on
 });
 
 test('ready dossier fails closed when a declared ValidationCycle has no v2 closure', async () => {
-  const { service } = await setup('succeeded', {}, [], [], null);
+  const { service } = await setup(null);
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   await assert.rejects(
     service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
@@ -785,7 +829,7 @@ test('ready dossier rejects tampered closure identity and snapshot hash', async 
 });
 
 test('ready dossier rejects a closed snapshot owned by another project', async () => {
-  const { service } = await setup('succeeded', {}, [], [], storedClosure('foreign_project'));
+  const { service } = await setup(storedClosure('foreign_project'));
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   await assert.rejects(
     service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
@@ -805,7 +849,7 @@ test('strong claim requires explicit human confirmation', async () => {
   );
 });
 
-test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a project RunEvidenceUnit', async () => {
+test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a project v2 RunEvidenceUnit', async () => {
   const { service } = await setup();
   const phantomSupport = validClaimRequest();
   phantomSupport.support_refs = [ref('run_evidence_unit', 'run_evidence_unit_phantom')];
@@ -813,7 +857,7 @@ test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a 
     service.createClaimCandidate(PROJECT_ID, phantomSupport),
     (error) => error instanceof AppError
       && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('must resolve to RunEvidenceUnit objects in this project'),
+      && error.message.includes('must resolve to v2 RunEvidenceUnit objects in this project'),
   );
   // The declared project REU still passes (positive control).
   const ok = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());

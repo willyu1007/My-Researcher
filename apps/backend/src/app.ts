@@ -963,7 +963,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     resultClaimRepository: paperImplementationResultClaimDossierRepository,
     traceRepository: paperImplementationTraceRepository,
     validationRepository: paperImplementationValidationRepository,
-    workOrderRepository: paperImplementationWorkOrderRepository,
+    evidenceV2Reader: paperImplementationEvidenceV2Repository,
     confirmationRepository: paperImplementationHumanConfirmationRepository,
     feedbackRecorder: paperImplementationIntakeBootstrapService,
     closedCycleSnapshotReader: {

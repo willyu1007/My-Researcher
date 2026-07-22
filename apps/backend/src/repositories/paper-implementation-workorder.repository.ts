@@ -7,7 +7,6 @@ import type {
 
 export type RunMonitorIngestionPersistence = {
   monitor_intake: RunMonitorIntakeRecord;
-  run_evidence_unit: RunEvidenceUnit | null;
   work_order: ResearchWorkOrder | null;
 };
 
@@ -49,6 +48,8 @@ export interface PaperImplementationWorkOrderRepository {
     persistence: RunMonitorIngestionPersistence,
   ): Promise<RunMonitorIngestionPersistence>;
 
+  // Historical D-08 diagnostics/admin reads only. These rows are not claim
+  // evidence authority and this repository exposes no legacy REU writer.
   listRunEvidenceUnits(
     implementationProjectId: string,
   ): Promise<RunEvidenceUnit[]>;
@@ -56,12 +57,5 @@ export interface PaperImplementationWorkOrderRepository {
   findRunEvidenceUnitById(
     implementationProjectId: string,
     runEvidenceUnitId: string,
-  ): Promise<RunEvidenceUnit | null>;
-
-  findRunEvidenceUnitByExternalJob(
-    implementationProjectId: string,
-    externalJobRefType: string,
-    externalJobRefId: string,
-    externalJobVersionId?: string | null,
   ): Promise<RunEvidenceUnit | null>;
 }

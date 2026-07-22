@@ -13,6 +13,8 @@ import {
   type PaperImplementationEvidenceV2Authority,
   type PaperImplementationEvidenceV2CommitInput,
   type PaperImplementationEvidenceV2Repository,
+  type PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  type PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
   type PaperImplementationStoredEvidenceV2,
 } from './paper-implementation-evidence-v2.repository.js';
 
@@ -28,6 +30,12 @@ interface State {
 
 export interface InMemoryPaperImplementationEvidenceV2RepositoryOptions {
   authorities?: readonly PaperImplementationEvidenceV2Authority[];
+  claimSupportEvidence?: readonly PaperImplementationStoredEvidenceV2[];
+  closedValidationCycleIds?: readonly string[];
+  legacyRunEvidenceUnitRefs?: readonly {
+    implementation_project_id: string;
+    run_evidence_unit_id: string;
+  }[];
 }
 
 function clone<T>(value: T): T {
@@ -82,6 +90,8 @@ implements PaperImplementationEvidenceV2Repository {
   };
 
   private readonly authorities = new Map<string, PaperImplementationEvidenceV2Authority>();
+  private readonly closedValidationCycleIds = new Set<string>();
+  private readonly legacyRunEvidenceUnitKeys = new Set<string>();
   private transactionTail: Promise<void> = Promise.resolve();
   private commitFault: Error | null = null;
 
@@ -92,6 +102,69 @@ implements PaperImplementationEvidenceV2Repository {
         clone(authority),
       );
     }
+    for (const stored of options.claimSupportEvidence ?? []) {
+      const unit = stored.run_evidence_unit;
+      this.state.evidenceByCandidate.set(
+        unit.evidence_candidate_id,
+        clone(stored),
+      );
+      this.state.candidateByRun.set(unit.run_id, unit.evidence_candidate_id);
+      this.state.candidateByReport.set(unit.validation_report_id, unit.evidence_candidate_id);
+      this.state.candidateByIngestKey.set(
+        stored.ingest_idempotency_key,
+        unit.evidence_candidate_id,
+      );
+    }
+    for (const validationCycleId of options.closedValidationCycleIds ?? []) {
+      this.closedValidationCycleIds.add(validationCycleId);
+    }
+    for (const ref of options.legacyRunEvidenceUnitRefs ?? []) {
+      this.legacyRunEvidenceUnitKeys.add(this.legacyRunEvidenceUnitKey(
+        ref.implementation_project_id,
+        ref.run_evidence_unit_id,
+      ));
+    }
+  }
+
+  async resolveClaimSupportRunEvidenceUnit(
+    input: PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  ): Promise<PaperImplementationClaimSupportRunEvidenceUnitV2Resolution> {
+    const stored = [...this.state.evidenceByCandidate.values()].find(({ run_evidence_unit: unit }) => (
+      unit.run_evidence_unit_id === input.run_evidence_unit_id
+      && unit.implementation_project_id === input.implementation_project_id
+    ));
+    if (!stored) {
+      return this.legacyRunEvidenceUnitKeys.has(this.legacyRunEvidenceUnitKey(
+        input.implementation_project_id,
+        input.run_evidence_unit_id,
+      ))
+        ? { status: 'legacy_record_not_eligible' }
+        : { status: 'not_found' };
+    }
+    const unit = clone(stored.run_evidence_unit);
+    if (
+      input.expected_content_hash !== null
+      && unit.content_hash !== input.expected_content_hash
+    ) {
+      return { status: 'v2_content_hash_mismatch', run_evidence_unit: unit };
+    }
+    const authorityClosed = [...this.authorities.values()].some((authority) => (
+      authority.validation_cycle_id === unit.validation_cycle_id
+      && authority.implementation_project_id === unit.implementation_project_id
+      && authority.validation_cycle_closure_id !== null
+    ));
+    if (!this.closedValidationCycleIds.has(unit.validation_cycle_id) && !authorityClosed) {
+      return { status: 'v2_open', run_evidence_unit: unit };
+    }
+    return {
+      status: 'v2_closed',
+      run_evidence_unit: unit,
+      closure_id: [...this.authorities.values()].find((authority) => (
+        authority.validation_cycle_id === unit.validation_cycle_id
+        && authority.implementation_project_id === unit.implementation_project_id
+        && authority.validation_cycle_closure_id !== null
+      ))?.validation_cycle_closure_id ?? `closure:${unit.validation_cycle_id}`,
+    };
   }
 
   failNextCommit(error: Error = new Error('INJECTED_EVIDENCE_COMMIT_FAILURE')): void {
@@ -106,6 +179,7 @@ implements PaperImplementationEvidenceV2Repository {
   }
 
   closeValidationCycle(validationCycleId: string, closureId: string): void {
+    this.closedValidationCycleIds.add(validationCycleId);
     for (const [key, authority] of this.authorities) {
       if (authority.validation_cycle_id === validationCycleId) {
         this.authorities.set(key, {
@@ -114,6 +188,13 @@ implements PaperImplementationEvidenceV2Repository {
         });
       }
     }
+  }
+
+  private legacyRunEvidenceUnitKey(
+    implementationProjectId: string,
+    runEvidenceUnitId: string,
+  ): string {
+    return `${implementationProjectId}\0${runEvidenceUnitId}`;
   }
 
   snapshot() {

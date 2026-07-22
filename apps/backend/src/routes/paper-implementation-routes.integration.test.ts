@@ -658,7 +658,18 @@ function makeRealService(): {
     resultClaimRepository: resultClaimDossierRepository,
     traceRepository,
     validationRepository,
-    workOrderRepository,
+    evidenceV2Reader: {
+      resolveClaimSupportRunEvidenceUnit: async (input) => ({
+        status: 'v2_closed',
+        run_evidence_unit: {
+          run_evidence_unit_id: input.run_evidence_unit_id,
+          implementation_project_id: input.implementation_project_id,
+          validation_cycle_id: 'validation_cycle_route_001',
+          content_hash: input.expected_content_hash ?? 'sha256:route-claim-evidence',
+        },
+        closure_id: 'validation_cycle_closure_route_001',
+      }),
+    },
     confirmationRepository,
     feedbackRecorder: service,
     closedCycleSnapshotReader: {

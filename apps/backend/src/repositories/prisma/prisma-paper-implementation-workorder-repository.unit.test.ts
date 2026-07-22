@@ -6,7 +6,6 @@ import type { PrismaClient } from '@prisma/client';
 import type {
   ResearchWorkOrder,
   ResearchWorkOrderHarnessRun,
-  RunEvidenceUnit,
   RunMonitorIntakeRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-workorder-contracts';
 import type {
@@ -114,38 +113,6 @@ function makeMonitorIntake(): RunMonitorIntakeRecord {
   };
 }
 
-function makeRunEvidenceUnit(): RunEvidenceUnit {
-  return {
-    run_evidence_unit_id: 'run_evidence_unit_001',
-    implementation_project_id: PROJECT_ID,
-    work_order_id: WORK_ORDER_ID,
-    validation_cycle_id: 'validation_cycle_001',
-    experiment_plan_light_id: 'experiment_plan_light_001',
-    monitor_intake_id: 'run_monitor_intake_001',
-    external_job_ref: ref('experiment_foundation_run', 'experiment_run_001'),
-    external_job_hash: 'experiment_run_hash_001',
-    run_type: 'confirmatory',
-    run_status: 'failed',
-    trusted_status: 'trusted',
-    dataset_version_refs: [ref('dataset_version', 'dataset_version_001')],
-    baseline_version_refs: [ref('baseline_version', 'baseline_version_001')],
-    code_version_refs: [ref('code_version', 'code_version_001')],
-    config_refs: [ref('config', 'config_001')],
-    result_ref: null,
-    result_hash: null,
-    result_validation_report_ref: null,
-    result_validation_report_hash: null,
-    evidence_candidate_refs: [],
-    evidence_candidate_hashes: [],
-    failure_summary_id: 'run_failure_summary_001',
-    failure_summary: 'The run failed before producing result artifacts.',
-    trace_manifest_ref: ref('trace_manifest', 'trace_manifest_work_order_001'),
-    trace_manifest_id: 'trace_manifest_work_order_001',
-    created_by: 'system',
-    created_at: NOW,
-  };
-}
-
 function normalizeRow(row: StoredRow): StoredRow {
   const normalized: StoredRow = { ...row };
   for (const [key, value] of Object.entries(normalized)) {
@@ -181,21 +148,29 @@ function matchesWhere(row: StoredRow, where: Partial<StoredRow>): boolean {
   return Object.entries(where).every(([key, value]) => row[key] === value);
 }
 
-function makeFakePrismaClient(): PrismaClient {
+function makeFakePrismaClient(): {
+  client: PrismaClient;
+  legacyRunEvidenceRows: StoredRow[];
+} {
+  const legacyRunEvidenceRows: StoredRow[] = [];
   const client = {
     paperImplementationResearchWorkOrder: makeModel([]),
     paperImplementationWorkOrderHarnessRun: makeModel([]),
     paperImplementationRunMonitorIntake: makeModel([]),
-    paperImplementationRunEvidenceUnit: makeModel([]),
+    paperImplementationRunEvidenceUnit: makeModel(legacyRunEvidenceRows),
   };
   return {
-    ...client,
-    $transaction: async (operations: Array<Promise<unknown>>) => Promise.all(operations),
-  } as unknown as PrismaClient;
+    client: {
+      ...client,
+      $transaction: async (operations: Array<Promise<unknown>>) => Promise.all(operations),
+    } as unknown as PrismaClient,
+    legacyRunEvidenceRows,
+  };
 }
 
-test('Prisma PaperImplementationWorkOrder repository round-trips work orders, harness runs, and run evidence', async () => {
-  const repository = new PrismaPaperImplementationWorkOrderRepository(makeFakePrismaClient());
+test('Prisma PaperImplementationWorkOrder repository persists monitor intake with zero legacy REU writes', async () => {
+  const { client, legacyRunEvidenceRows } = makeFakePrismaClient();
+  const repository = new PrismaPaperImplementationWorkOrderRepository(client);
   const workOrder = await repository.createWorkOrder(makeWorkOrder());
   assert.equal(workOrder.work_order_id, WORK_ORDER_ID);
   assert.equal(workOrder.experiment_bridge.run_recipe_hash, 'run_recipe_hash_001');
@@ -230,7 +205,6 @@ test('Prisma PaperImplementationWorkOrder repository round-trips work orders, ha
 
   const persistence = await repository.recordMonitorIngestion({
     monitor_intake: makeMonitorIntake(),
-    run_evidence_unit: makeRunEvidenceUnit(),
     work_order: {
       ...workOrder,
       work_order_status: 'failed',
@@ -238,12 +212,10 @@ test('Prisma PaperImplementationWorkOrder repository round-trips work orders, ha
     },
   });
   assert.equal(persistence.monitor_intake.trust_status, 'trusted');
-  assert.equal(persistence.run_evidence_unit?.failure_summary_id, 'run_failure_summary_001');
-  assert.equal((await repository.listRunEvidenceUnits(PROJECT_ID))[0]?.run_status, 'failed');
-  assert.equal(
-    (await repository.findRunEvidenceUnitById(PROJECT_ID, 'run_evidence_unit_001'))?.trace_manifest_id,
-    'trace_manifest_work_order_001',
-  );
+  assert.equal('run_evidence_unit' in persistence, false);
+  assert.equal(legacyRunEvidenceRows.length, 0);
+  assert.deepEqual(await repository.listRunEvidenceUnits(PROJECT_ID), []);
+  assert.equal(await repository.findRunEvidenceUnitById(PROJECT_ID, 'run_evidence_unit_001'), null);
 });
 
 test('workorder migration declares queryable work order monitor and run evidence indexes', async () => {

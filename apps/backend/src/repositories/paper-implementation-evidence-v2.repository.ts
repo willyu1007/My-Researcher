@@ -73,6 +73,47 @@ export interface PaperImplementationStoredEvidenceV2 {
   ingest_idempotency_key: string;
 }
 
+export interface PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput {
+  implementation_project_id: string;
+  run_evidence_unit_id: string;
+  expected_content_hash: string | null;
+}
+
+export type PaperImplementationClaimSupportRunEvidenceUnitV2 = Pick<
+  PaperImplementationRunEvidenceUnitV2,
+  | 'run_evidence_unit_id'
+  | 'implementation_project_id'
+  | 'validation_cycle_id'
+  | 'content_hash'
+>;
+
+export type PaperImplementationClaimSupportRunEvidenceUnitV2Resolution =
+  | {
+    status: 'v2_closed';
+    run_evidence_unit: PaperImplementationClaimSupportRunEvidenceUnitV2;
+    closure_id: string;
+  }
+  | {
+    status: 'v2_open';
+    run_evidence_unit: PaperImplementationClaimSupportRunEvidenceUnitV2;
+  }
+  | {
+    status: 'v2_content_hash_mismatch';
+    run_evidence_unit: PaperImplementationClaimSupportRunEvidenceUnitV2;
+  }
+  | {
+    status: 'legacy_record_not_eligible';
+  }
+  | {
+    status: 'not_found';
+  };
+
+export interface PaperImplementationEvidenceV2ClaimSupportReader {
+  resolveClaimSupportRunEvidenceUnit(
+    input: PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  ): Promise<PaperImplementationClaimSupportRunEvidenceUnitV2Resolution>;
+}
+
 export interface PaperImplementationEvidenceV2CommitInput {
   authority: PaperImplementationEvidenceV2Authority;
   inbox: PaperImplementationEvidenceInboxReceiptV2;
@@ -113,7 +154,8 @@ export class PaperImplementationEvidenceV2RepositoryConstraintError extends Erro
   }
 }
 
-export interface PaperImplementationEvidenceV2Repository {
+export interface PaperImplementationEvidenceV2Repository
+extends PaperImplementationEvidenceV2ClaimSupportReader {
   findInboxByEvent(
     consumerName: string,
     eventId: string,

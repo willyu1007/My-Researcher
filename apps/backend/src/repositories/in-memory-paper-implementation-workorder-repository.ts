@@ -17,8 +17,6 @@ implements PaperImplementationWorkOrderRepository {
   private readonly harnessRuns = new Map<string, ResearchWorkOrderHarnessRun>();
   private readonly harnessRunIdsByWorkOrder = new Map<string, string[]>();
   private readonly monitorIntakes = new Map<string, RunMonitorIngestionPersistence['monitor_intake']>();
-  private readonly runEvidenceUnits = new Map<string, RunEvidenceUnit>();
-  private readonly runEvidenceUnitIdsByProject = new Map<string, string[]>();
 
   async createWorkOrder(workOrder: ResearchWorkOrder): Promise<ResearchWorkOrder> {
     this.assertNewId(this.workOrders, workOrder.work_order_id, 'ResearchWorkOrder');
@@ -103,28 +101,10 @@ implements PaperImplementationWorkOrderRepository {
       persistence.monitor_intake.monitor_intake_id,
       'RunMonitorIntakeRecord',
     );
-    if (persistence.run_evidence_unit) {
-      this.assertNewId(
-        this.runEvidenceUnits,
-        persistence.run_evidence_unit.run_evidence_unit_id,
-        'RunEvidenceUnit',
-      );
-    }
     this.monitorIntakes.set(
       persistence.monitor_intake.monitor_intake_id,
       structuredClone(persistence.monitor_intake),
     );
-    if (persistence.run_evidence_unit) {
-      this.runEvidenceUnits.set(
-        persistence.run_evidence_unit.run_evidence_unit_id,
-        structuredClone(persistence.run_evidence_unit),
-      );
-      this.pushId(
-        this.runEvidenceUnitIdsByProject,
-        persistence.run_evidence_unit.implementation_project_id,
-        persistence.run_evidence_unit.run_evidence_unit_id,
-      );
-    }
     if (persistence.work_order) {
       await this.updateWorkOrder(persistence.work_order);
     }
@@ -132,36 +112,16 @@ implements PaperImplementationWorkOrderRepository {
   }
 
   async listRunEvidenceUnits(
-    implementationProjectId: string,
+    _implementationProjectId: string,
   ): Promise<RunEvidenceUnit[]> {
-    return (this.runEvidenceUnitIdsByProject.get(implementationProjectId) ?? [])
-      .map((id) => this.runEvidenceUnits.get(id))
-      .filter((unit): unit is RunEvidenceUnit => Boolean(unit))
-      .map((unit) => structuredClone(unit));
+    return [];
   }
 
   async findRunEvidenceUnitById(
-    implementationProjectId: string,
-    runEvidenceUnitId: string,
+    _implementationProjectId: string,
+    _runEvidenceUnitId: string,
   ): Promise<RunEvidenceUnit | null> {
-    const unit = this.runEvidenceUnits.get(runEvidenceUnitId);
-    if (!unit || unit.implementation_project_id !== implementationProjectId) {
-      return null;
-    }
-    return structuredClone(unit);
-  }
-
-  async findRunEvidenceUnitByExternalJob(
-    implementationProjectId: string,
-    externalJobRefType: string,
-    externalJobRefId: string,
-    externalJobVersionId: string | null = null,
-  ): Promise<RunEvidenceUnit | null> {
-    const unit = [...this.runEvidenceUnits.values()].find((candidate) => candidate.implementation_project_id === implementationProjectId
-      && candidate.external_job_ref?.ref_type === externalJobRefType
-      && candidate.external_job_ref.ref_id === externalJobRefId
-      && (candidate.external_job_ref.version_id ?? null) === externalJobVersionId);
-    return unit ? structuredClone(unit) : null;
+    return null;
   }
 
   private assertNewId<T>(map: Map<string, T>, id: string, label: string): void {

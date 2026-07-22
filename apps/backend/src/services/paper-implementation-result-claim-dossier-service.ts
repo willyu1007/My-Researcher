@@ -29,6 +29,9 @@ import type {
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type {
+  ExperimentV2ReasonCode,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
 import { AppError } from '../errors/app-error.js';
 import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
@@ -39,7 +42,9 @@ import type {
 } from '../repositories/paper-implementation-result-claim-dossier.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
-import type { PaperImplementationWorkOrderRepository } from '../repositories/paper-implementation-workorder.repository.js';
+import type {
+  PaperImplementationEvidenceV2ClaimSupportReader,
+} from '../repositories/paper-implementation-evidence-v2.repository.js';
 import type {
   PaperImplementationHumanConfirmationRepository,
 } from '../repositories/paper-implementation-human-confirmation.repository.js';
@@ -72,7 +77,7 @@ export type PaperImplementationResultClaimDossierServiceOptions = {
   resultClaimRepository: PaperImplementationResultClaimDossierRepository;
   traceRepository: PaperImplementationTraceRepository;
   validationRepository: PaperImplementationValidationRepository;
-  workOrderRepository: PaperImplementationWorkOrderRepository;
+  evidenceV2Reader: PaperImplementationEvidenceV2ClaimSupportReader;
   confirmationRepository: PaperImplementationHumanConfirmationRepository;
   feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   closedCycleSnapshotReader: PaperImplementationClosedCycleSnapshotReader;
@@ -125,6 +130,8 @@ const HIGH_RISK_OVERCLAIM_TERMS = [
   'state of the art',
   'sota',
 ] as const;
+const LEGACY_RECORD_NOT_ELIGIBLE_REASON_CODE: ExperimentV2ReasonCode =
+  'LEGACY_RECORD_NOT_ELIGIBLE';
 const HIGH_RISK_OVERCLAIM_STATEMENT_PATTERNS = [
   /\b(universal|universally|always)\b/u,
   /\b(generalize|generalizes|generalized|generalization)\b/u,
@@ -156,7 +163,7 @@ export class PaperImplementationResultClaimDossierService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly resultClaimRepository: PaperImplementationResultClaimDossierRepository;
   private readonly traceRepository: PaperImplementationTraceRepository;
-  private readonly workOrderRepository: PaperImplementationWorkOrderRepository;
+  private readonly evidenceV2Reader: PaperImplementationEvidenceV2ClaimSupportReader;
   private readonly confirmationRepository: PaperImplementationHumanConfirmationRepository;
   private readonly feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   private readonly closedCycleSnapshotReader: PaperImplementationClosedCycleSnapshotReader;
@@ -167,7 +174,7 @@ export class PaperImplementationResultClaimDossierService {
     this.projectRepository = options.projectRepository;
     this.resultClaimRepository = options.resultClaimRepository;
     this.traceRepository = options.traceRepository;
-    this.workOrderRepository = options.workOrderRepository;
+    this.evidenceV2Reader = options.evidenceV2Reader;
     this.confirmationRepository = options.confirmationRepository;
     this.feedbackRecorder = options.feedbackRecorder;
     this.closedCycleSnapshotReader = options.closedCycleSnapshotReader;
@@ -564,9 +571,10 @@ export class PaperImplementationResultClaimDossierService {
         },
       );
     }
-    // T-124 G5 FIX-A item 3 (gate depth): a run_evidence_unit support ref must
-    // resolve to an actual RunEvidenceUnit in this project — a ref-type-correct
-    // but non-existent id can no longer stand in as evidence.
+    // QR-4: claim consumers are closed-cycle-only under D-16/D-17. A v2 REU
+    // becomes claim-usable only after its ValidationCycle has a v2 closure row.
+    // Historical legacy rows are rejection-classification data, never a read
+    // fallback or an alternate evidence authority.
     await this.assertRunEvidenceSupportRefsResolve(implementationProjectId, request.support_refs);
     if (request.claim_strength === 'strong' && !request.boundary.human_confirmation_ref) {
       throw new AppError(
@@ -578,9 +586,9 @@ export class PaperImplementationResultClaimDossierService {
   }
 
   /**
-   * T-124 G5 FIX-A item 3: every run_evidence_unit support ref must resolve to a
-   * RunEvidenceUnit that exists in this project (existence / in-project
-   * resolution — defence in depth alongside the ref-type discipline above).
+   * Every run_evidence_unit support ref must resolve to exact project-scoped v2
+   * evidence whose ValidationCycle has a v2 closure. When version_id is
+   * supplied it is treated as the expected immutable REU content_hash.
    * Other evidence classes (citation / source evidence) are out of this
    * repository's scope and are not existence-checked here.
    */
@@ -593,20 +601,61 @@ export class PaperImplementationResultClaimDossierService {
     if (runEvidenceSupportRefs.length === 0) {
       return;
     }
-    const uniqueIds = [...new Set(runEvidenceSupportRefs.map((ref) => ref.ref_id))];
-    const resolved = await Promise.all(uniqueIds.map((runEvidenceUnitId) => (
-      this.workOrderRepository.findRunEvidenceUnitById(implementationProjectId, runEvidenceUnitId)
-    )));
-    const resolvedIds = new Set(resolved.flatMap((unit) => (
-      unit ? [unit.run_evidence_unit_id] : []
-    )));
-    const unresolved = runEvidenceSupportRefs.find((ref) => !resolvedIds.has(ref.ref_id));
-    if (unresolved) {
+    const uniqueRefs = [...new Map(runEvidenceSupportRefs.map((ref) => [
+      `${ref.ref_id}\0${ref.version_id ?? ''}`,
+      ref,
+    ])).values()];
+    for (const ref of uniqueRefs) {
+      const resolution = await this.evidenceV2Reader.resolveClaimSupportRunEvidenceUnit({
+        implementation_project_id: implementationProjectId,
+        run_evidence_unit_id: ref.ref_id,
+        expected_content_hash: ref.version_id ?? null,
+      });
+      if (resolution.status === 'v2_closed') {
+        continue;
+      }
+      if (resolution.status === 'legacy_record_not_eligible') {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Historical legacy RunEvidenceUnit records are not eligible for claim support after the v2 cutover.',
+          {
+            reason_code: LEGACY_RECORD_NOT_ELIGIBLE_REASON_CODE,
+            ref_type: ref.ref_type,
+            ref_id: ref.ref_id,
+          },
+        );
+      }
+      if (resolution.status === 'v2_open') {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'ClaimCandidate run_evidence_unit support requires a v2 ValidationCycle closure.',
+          {
+            ref_type: ref.ref_type,
+            ref_id: ref.ref_id,
+            validation_cycle_id: resolution.run_evidence_unit.validation_cycle_id,
+          },
+        );
+      }
+      if (resolution.status === 'v2_content_hash_mismatch') {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'ClaimCandidate run_evidence_unit support content hash does not match the v2 authority.',
+          {
+            ref_type: ref.ref_type,
+            ref_id: ref.ref_id,
+            expected_content_hash: ref.version_id,
+            actual_content_hash: resolution.run_evidence_unit.content_hash,
+          },
+        );
+      }
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'ClaimCandidate run_evidence_unit support refs must resolve to RunEvidenceUnit objects in this project.',
-        { ref_type: unresolved.ref_type, ref_id: unresolved.ref_id },
+        'ClaimCandidate run_evidence_unit support refs must resolve to v2 RunEvidenceUnit objects in this project.',
+        { ref_type: ref.ref_type, ref_id: ref.ref_id },
       );
     }
   }

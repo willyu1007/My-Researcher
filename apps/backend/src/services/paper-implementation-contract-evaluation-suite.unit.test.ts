@@ -487,7 +487,18 @@ function buildEvaluationHarness() {
     resultClaimRepository,
     traceRepository,
     validationRepository,
-    workOrderRepository,
+    evidenceV2Reader: {
+      resolveClaimSupportRunEvidenceUnit: async (input) => ({
+        status: 'v2_closed',
+        run_evidence_unit: {
+          run_evidence_unit_id: input.run_evidence_unit_id,
+          implementation_project_id: input.implementation_project_id,
+          validation_cycle_id: VALIDATION_CYCLE_ID,
+          content_hash: input.expected_content_hash ?? 'sha256:contract-evaluation-claim-evidence',
+        },
+        closure_id: 'validation_cycle_closure_contract_evaluation',
+      }),
+    },
     confirmationRepository,
     feedbackRecorder,
     closedCycleSnapshotReader: {

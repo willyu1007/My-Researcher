@@ -254,13 +254,6 @@ implements PaperImplementationWorkOrderRepository {
         data: this.toMonitorIntakeCreateInput(persistence.monitor_intake),
       }),
     ];
-    if (persistence.run_evidence_unit) {
-      operations.push(
-        this.prisma.paperImplementationRunEvidenceUnit.create({
-          data: this.toRunEvidenceUnitCreateInput(persistence.run_evidence_unit),
-        }),
-      );
-    }
     if (persistence.work_order) {
       operations.push(
         this.prisma.paperImplementationResearchWorkOrder.update({
@@ -272,9 +265,6 @@ implements PaperImplementationWorkOrderRepository {
     const rows = await this.prisma.$transaction(operations);
     return {
       monitor_intake: toMonitorIntake(rows[0] as RunMonitorIntakeRow),
-      run_evidence_unit: persistence.run_evidence_unit
-        ? toRunEvidenceUnit(rows[1] as RunEvidenceUnitRow)
-        : null,
       work_order: persistence.work_order,
     };
   }
@@ -295,24 +285,6 @@ implements PaperImplementationWorkOrderRepository {
   ): Promise<RunEvidenceUnit | null> {
     const row = await this.prisma.paperImplementationRunEvidenceUnit.findFirst({
       where: { id: runEvidenceUnitId, implementationProjectId },
-    });
-    return row ? toRunEvidenceUnit(row) : null;
-  }
-
-  async findRunEvidenceUnitByExternalJob(
-    implementationProjectId: string,
-    externalJobRefType: string,
-    externalJobRefId: string,
-    externalJobVersionId: string | null = null,
-  ): Promise<RunEvidenceUnit | null> {
-    const row = await this.prisma.paperImplementationRunEvidenceUnit.findFirst({
-      where: {
-        implementationProjectId,
-        externalJobRefType,
-        externalJobRefId,
-        externalJobVersionId,
-      },
-      orderBy: { createdAt: 'desc' },
     });
     return row ? toRunEvidenceUnit(row) : null;
   }
@@ -470,53 +442,4 @@ implements PaperImplementationWorkOrderRepository {
     };
   }
 
-  private toRunEvidenceUnitCreateInput(
-    unit: RunEvidenceUnit,
-  ): Prisma.PaperImplementationRunEvidenceUnitCreateInput {
-    return {
-      id: unit.run_evidence_unit_id,
-      implementationProjectId: unit.implementation_project_id,
-      workOrderId: unit.work_order_id,
-      validationCycleId: unit.validation_cycle_id,
-      experimentPlanLightId: unit.experiment_plan_light_id ?? null,
-      monitorIntakeId: unit.monitor_intake_id,
-      externalJobRef: unit.external_job_ref ? toJsonValue(unit.external_job_ref) : Prisma.JsonNull,
-      externalJobRefType: unit.external_job_ref?.ref_type ?? null,
-      externalJobRefId: unit.external_job_ref?.ref_id ?? null,
-      externalJobVersionId: unit.external_job_ref?.version_id ?? null,
-      externalJobHash: unit.external_job_hash ?? null,
-      runType: unit.run_type,
-      runStatus: unit.run_status,
-      trustedStatus: unit.trusted_status,
-      datasetVersionRefs: refKeys(unit.dataset_version_refs),
-      datasetVersionRefPayloads: toJsonValue(unit.dataset_version_refs),
-      baselineVersionRefs: refKeys(unit.baseline_version_refs),
-      baselineVersionRefPayloads: toJsonValue(unit.baseline_version_refs),
-      codeVersionRefs: refKeys(unit.code_version_refs),
-      codeVersionRefPayloads: toJsonValue(unit.code_version_refs),
-      configRefs: refKeys(unit.config_refs),
-      configRefPayloads: toJsonValue(unit.config_refs),
-      resultRef: unit.result_ref ? toJsonValue(unit.result_ref) : Prisma.JsonNull,
-      resultRefType: unit.result_ref?.ref_type ?? null,
-      resultRefId: unit.result_ref?.ref_id ?? null,
-      resultVersionId: unit.result_ref?.version_id ?? null,
-      resultHash: unit.result_hash ?? null,
-      resultValidationReportRef: unit.result_validation_report_ref
-        ? toJsonValue(unit.result_validation_report_ref)
-        : Prisma.JsonNull,
-      resultValidationReportRefType: unit.result_validation_report_ref?.ref_type ?? null,
-      resultValidationReportRefId: unit.result_validation_report_ref?.ref_id ?? null,
-      resultValidationReportVersionId: unit.result_validation_report_ref?.version_id ?? null,
-      resultValidationReportHash: unit.result_validation_report_hash ?? null,
-      evidenceCandidateRefs: refKeys(unit.evidence_candidate_refs),
-      evidenceCandidateRefPayloads: toJsonValue(unit.evidence_candidate_refs),
-      evidenceCandidateHashes: unit.evidence_candidate_hashes,
-      failureSummaryId: unit.failure_summary_id ?? null,
-      failureSummary: unit.failure_summary ?? null,
-      traceManifestId: unit.trace_manifest_id,
-      traceManifestRef: toJsonValue(unit.trace_manifest_ref),
-      createdBy: unit.created_by,
-      createdAt: unit.created_at,
-    };
-  }
 }

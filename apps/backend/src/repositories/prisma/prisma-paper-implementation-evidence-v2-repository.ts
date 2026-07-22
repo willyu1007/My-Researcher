@@ -36,6 +36,8 @@ import {
   type PaperImplementationEvidenceV2CommitInput,
   type PaperImplementationEvidenceV2CommitResult,
   type PaperImplementationEvidenceV2Repository,
+  type PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  type PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
   type PaperImplementationStoredEvidenceV2,
 } from '../paper-implementation-evidence-v2.repository.js';
 
@@ -63,6 +65,51 @@ function constraint(
 export class PrismaPaperImplementationEvidenceV2Repository
 implements PaperImplementationEvidenceV2Repository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  async resolveClaimSupportRunEvidenceUnit(
+    input: PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
+  ): Promise<PaperImplementationClaimSupportRunEvidenceUnitV2Resolution> {
+    const row = await this.prisma.paperImplementationRunEvidenceUnitV2.findFirst({
+      where: {
+        id: input.run_evidence_unit_id,
+        implementationProjectId: input.implementation_project_id,
+      },
+      include: { traceManifest: true },
+    });
+    if (!row) {
+      // The legacy table is consulted only to classify an explicit rejection.
+      // A legacy row is never returned as claim evidence and is not a fallback
+      // authority for this v2 read port.
+      const legacy = await this.prisma.paperImplementationRunEvidenceUnit.findFirst({
+        where: {
+          id: input.run_evidence_unit_id,
+          implementationProjectId: input.implementation_project_id,
+        },
+        select: { id: true },
+      });
+      return legacy
+        ? { status: 'legacy_record_not_eligible' }
+        : { status: 'not_found' };
+    }
+
+    const unit = mapStoredEvidence(row).run_evidence_unit;
+    if (
+      input.expected_content_hash !== null
+      && unit.content_hash !== input.expected_content_hash
+    ) {
+      return { status: 'v2_content_hash_mismatch', run_evidence_unit: unit };
+    }
+    const closure = await this.prisma.paperImplementationValidationCycleClosureV2.findFirst({
+      where: {
+        validationCycleId: unit.validation_cycle_id,
+        implementationProjectId: input.implementation_project_id,
+      },
+      select: { id: true },
+    });
+    return closure
+      ? { status: 'v2_closed', run_evidence_unit: unit, closure_id: closure.id }
+      : { status: 'v2_open', run_evidence_unit: unit };
+  }
 
   async findInboxByEvent(consumerName: string, eventId: string) {
     const row = await this.prisma.paperImplementationExperimentIntegrationInboxV2.findUnique({
