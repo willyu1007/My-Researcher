@@ -71,9 +71,56 @@ export interface ExperimentFoundationAliyunPaiDlcExecutionProfileV1 {
   pod_count: 1;
 }
 
+export const EXPERIMENT_FOUNDATION_ALIYUN_RESOURCE_MODES_V2 = [
+  'exact_quota',
+  'public_resource',
+] as const;
+
+export type ExperimentFoundationAliyunResourceModeV2 =
+  (typeof EXPERIMENT_FOUNDATION_ALIYUN_RESOURCE_MODES_V2)[number];
+
+export type ExperimentFoundationAliyunPaiDlcResourceBindingV2 =
+  | {
+    mode: 'exact_quota';
+    resource_id: string;
+  }
+  | {
+    mode: 'public_resource';
+  };
+
+export interface ExperimentFoundationAliyunPaiDlcExecutionProfileV2 {
+  schema_version: 'AliyunPaiDlcExecutionProfile@v2';
+  region_id: string;
+  workspace_id: string;
+  resource_binding: ExperimentFoundationAliyunPaiDlcResourceBindingV2;
+  image_uri: string;
+  job_type: 'PyTorchJob';
+  job_spec_type: 'Worker';
+  pod_count: 1;
+}
+
 export interface ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1 {
   WorkspaceId: string;
   ResourceId: string;
+  DisplayName: string;
+  JobType: 'PyTorchJob';
+  JobSpecs: [{
+    Type: 'Worker';
+    Image: string;
+    PodCount: 1;
+    ResourceConfig: {
+      CPU: string;
+      Memory: string;
+    };
+  }];
+  UserCommand: string;
+  Accessibility: 'PRIVATE';
+}
+
+export interface ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2 {
+  WorkspaceId: string;
+  /** Required for exact_quota and absent for public_resource. */
+  ResourceId?: string;
   DisplayName: string;
   JobType: 'PyTorchJob';
   JobSpecs: [{
@@ -125,6 +172,50 @@ export interface ExperimentFoundationAliyunPaiDlcRedactedManifestV1 {
   ];
 }
 
+type ExperimentFoundationAliyunPaiDlcRedactedManifestV2Base = {
+  schema_version: 'AliyunPaiDlcRedactedManifest@v2';
+  payload_schema: 'AliyunPaiDlcCreateJobRequest@2020-12-03';
+  source_binding: ExperimentFoundationAliyunPaiDlcRedactedManifestV1['source_binding'];
+  request_summary: ExperimentFoundationAliyunPaiDlcRedactedManifestV1['request_summary'];
+};
+
+export type ExperimentFoundationAliyunPaiDlcRedactedManifestV2 =
+  ExperimentFoundationAliyunPaiDlcRedactedManifestV2Base & (
+    | {
+      provider_binding_hashes: {
+        execution_profile_hash: string;
+        region_id_hash: string;
+        workspace_id_hash: string;
+        resource_mode: 'exact_quota';
+        resource_id_hash: string;
+        image_uri_hash: string;
+      };
+      redacted_fields: [
+        'canonical_payload_bytes',
+        'WorkspaceId',
+        'ResourceId',
+        'JobSpecs[0].Image',
+        'UserCommand',
+      ];
+    }
+    | {
+      provider_binding_hashes: {
+        execution_profile_hash: string;
+        region_id_hash: string;
+        workspace_id_hash: string;
+        resource_mode: 'public_resource';
+        resource_id_hash: null;
+        image_uri_hash: string;
+      };
+      redacted_fields: [
+        'canonical_payload_bytes',
+        'WorkspaceId',
+        'JobSpecs[0].Image',
+        'UserCommand',
+      ];
+    }
+  );
+
 export interface ExperimentFoundationCloudPreflightV2CheckOutcome {
   id: ExperimentFoundationCloudPreflightV2CheckId;
   status: ExperimentFoundationCloudPreflightV2CheckStatus;
@@ -153,6 +244,51 @@ export const experimentFoundationAliyunPaiDlcExecutionProfileV1Schema = {
     region_id: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{1,62}$' },
     workspace_id: nonEmptyString,
     resource_id: nonEmptyString,
+    image_uri: { type: 'string', minLength: 3, maxLength: 2048 },
+    job_type: { type: 'string', const: 'PyTorchJob' },
+    job_spec_type: { type: 'string', const: 'Worker' },
+    pod_count: { type: 'integer', const: 1 },
+  },
+} as const;
+
+export const experimentFoundationAliyunPaiDlcExecutionProfileV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'region_id',
+    'workspace_id',
+    'resource_binding',
+    'image_uri',
+    'job_type',
+    'job_spec_type',
+    'pod_count',
+  ],
+  properties: {
+    schema_version: { type: 'string', const: 'AliyunPaiDlcExecutionProfile@v2' },
+    region_id: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{1,62}$' },
+    workspace_id: nonEmptyString,
+    resource_binding: {
+      oneOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['mode', 'resource_id'],
+          properties: {
+            mode: { type: 'string', const: 'exact_quota' },
+            resource_id: nonEmptyString,
+          },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['mode'],
+          properties: {
+            mode: { type: 'string', const: 'public_resource' },
+          },
+        },
+      ],
+    },
     image_uri: { type: 'string', minLength: 3, maxLength: 2048 },
     job_type: { type: 'string', const: 'PyTorchJob' },
     job_spec_type: { type: 'string', const: 'Worker' },
@@ -209,6 +345,18 @@ export const experimentFoundationAliyunPaiDlcCreateJobPayloadV1Schema = {
     UserCommand: nonEmptyString,
     Accessibility: { type: 'string', const: 'PRIVATE' },
   },
+} as const;
+
+export const experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema = {
+  ...experimentFoundationAliyunPaiDlcCreateJobPayloadV1Schema,
+  required: [
+    'WorkspaceId',
+    'DisplayName',
+    'JobType',
+    'JobSpecs',
+    'UserCommand',
+    'Accessibility',
+  ],
 } as const;
 
 export const experimentFoundationAliyunPaiDlcRedactedManifestV1Schema = {
@@ -299,6 +447,88 @@ export const experimentFoundationAliyunPaiDlcRedactedManifestV1Schema = {
       ],
     },
   },
+} as const;
+
+const exactQuotaRedactedFieldsV2 = [
+  'canonical_payload_bytes',
+  'WorkspaceId',
+  'ResourceId',
+  'JobSpecs[0].Image',
+  'UserCommand',
+] as const;
+
+const publicResourceRedactedFieldsV2 = [
+  'canonical_payload_bytes',
+  'WorkspaceId',
+  'JobSpecs[0].Image',
+  'UserCommand',
+] as const;
+
+export const experimentFoundationAliyunPaiDlcRedactedManifestV2Schema = {
+  ...experimentFoundationAliyunPaiDlcRedactedManifestV1Schema,
+  properties: {
+    ...experimentFoundationAliyunPaiDlcRedactedManifestV1Schema.properties,
+    schema_version: { type: 'string', const: 'AliyunPaiDlcRedactedManifest@v2' },
+    provider_binding_hashes: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'execution_profile_hash',
+        'region_id_hash',
+        'workspace_id_hash',
+        'resource_mode',
+        'resource_id_hash',
+        'image_uri_hash',
+      ],
+      properties: {
+        execution_profile_hash: hashSchema,
+        region_id_hash: hashSchema,
+        workspace_id_hash: hashSchema,
+        resource_mode: {
+          type: 'string',
+          enum: [...EXPERIMENT_FOUNDATION_ALIYUN_RESOURCE_MODES_V2],
+        },
+        resource_id_hash: {
+          anyOf: [hashSchema, { type: 'null' }],
+        },
+        image_uri_hash: hashSchema,
+      },
+    },
+    redacted_fields: {
+      oneOf: [
+        { type: 'array', const: exactQuotaRedactedFieldsV2 },
+        { type: 'array', const: publicResourceRedactedFieldsV2 },
+      ],
+    },
+  },
+  allOf: [{
+    if: {
+      properties: {
+        provider_binding_hashes: {
+          type: 'object',
+          properties: { resource_mode: { const: 'exact_quota' } },
+        },
+      },
+    },
+    then: {
+      properties: {
+        provider_binding_hashes: {
+          type: 'object',
+          properties: { resource_id_hash: hashSchema },
+        },
+        redacted_fields: { const: exactQuotaRedactedFieldsV2 },
+      },
+    },
+    else: {
+      properties: {
+        provider_binding_hashes: {
+          type: 'object',
+          properties: { resource_id_hash: { type: 'null' } },
+        },
+        redacted_fields: { const: publicResourceRedactedFieldsV2 },
+      },
+    },
+  }],
 } as const;
 
 export const experimentFoundationCloudPreflightV2CheckOutcomeSchema = {

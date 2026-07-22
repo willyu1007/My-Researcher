@@ -15,7 +15,7 @@ import {
   type ListEcsSpecsRequest,
 } from '@alicloud/pai-dlc20201203';
 import type {
-  ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+  ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
 import type {
   ExperimentFoundationRunCellV2,
@@ -30,7 +30,7 @@ import {
   type ExperimentFoundationAliyunCreateJobPayloadPrerequisiteV2,
 } from './experiment-foundation-v2-aliyun-create-job-payload-service.js';
 import {
-  AliyunSdkExperimentFoundationReadOnlyTransportV1,
+  AliyunSdkExperimentFoundationReadOnlyTransportV2,
   EXPERIMENT_FOUNDATION_ALIYUN_PREFLIGHT_REQUIRED_RAM_POLICY_V1,
   EXPERIMENT_FOUNDATION_ALIYUN_PREFLIGHT_REQUIRED_RAM_POLICY_HASH_V1,
   ExperimentFoundationAliyunCloudPreflightError,
@@ -43,7 +43,8 @@ import {
   type ExperimentFoundationAliyunPreflightIdentityPolicyEvidenceV1,
   type ExperimentFoundationAliyunReadOnlySdkClientsV1,
   type ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1,
-  type ExperimentFoundationAliyunReadOnlyTransportV1,
+  type ExperimentFoundationAliyunResourceObservationV2,
+  type ExperimentFoundationAliyunReadOnlyTransportV2,
 } from './experiment-foundation-v2-aliyun-read-only-preflight-service.js';
 import {
   ExperimentFoundationV2AliyunSamePayloadFakeLifecycle,
@@ -52,15 +53,23 @@ import {
 const timestamp = '2026-07-18T00:00:00.000Z';
 const hash = (character: string) => `sha256:${character.repeat(64)}`;
 
-const profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1 = {
-  schema_version: 'AliyunPaiDlcExecutionProfile@v1',
+const profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2 = {
+  schema_version: 'AliyunPaiDlcExecutionProfile@v2',
   region_id: 'cn-hangzhou',
   workspace_id: 'ws-preflight-secret-ref',
-  resource_id: 'quota-preflight-secret-ref',
+  resource_binding: {
+    mode: 'exact_quota',
+    resource_id: 'quota-preflight-secret-ref',
+  },
   image_uri: 'registry-vpc.cn-hangzhou.aliyuncs.com/pai/example:2026-07-18',
   job_type: 'PyTorchJob',
   job_spec_type: 'Worker',
   pod_count: 1,
+};
+
+const publicResourceProfile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2 = {
+  ...profile,
+  resource_binding: { mode: 'public_resource' },
 };
 
 function prerequisite(
@@ -122,6 +131,7 @@ function policyEvidence(
     verified_allowed_actions: [
       'paiworkspace:GetWorkspace',
       'paiworkspace:ListResources',
+      'paidlc:ListEcsSpecs',
     ],
     verified_denied_actions: ['paidlc:CreateJob'],
     reviewer_ref: 'security-review:T-132-cloud-preflight',
@@ -130,7 +140,7 @@ function policyEvidence(
   };
 }
 
-class PassingReadOnlyTransport implements ExperimentFoundationAliyunReadOnlyTransportV1 {
+class PassingReadOnlyTransport implements ExperimentFoundationAliyunReadOnlyTransportV2 {
   private readonly ledger: ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1[] = [];
 
   async getWorkspace() {
@@ -143,13 +153,19 @@ class PassingReadOnlyTransport implements ExperimentFoundationAliyunReadOnlyTran
     };
   }
 
-  async listResources() {
+  async listResources(): Promise<ExperimentFoundationAliyunResourceObservationV2> {
     this.record('AIWorkspace.ListResources', 'aiworkspace.cn-hangzhou.aliyuncs.com', 'request-2');
     return {
       request_id: 'request-2',
       endpoint: 'aiworkspace.cn-hangzhou.aliyuncs.com',
-      resource_id_hash: hashAliyunPreflightProviderRef('resource_id', profile.resource_id),
-      resource_found: true,
+      resource_mode: 'exact_quota' as const,
+      resource_id_hash: hashAliyunPreflightProviderRef(
+        'resource_id',
+        profile.resource_binding.mode === 'exact_quota'
+          ? profile.resource_binding.resource_id
+          : 'unreachable',
+      ),
+      exact_quota_found: true,
       quota_type: 'DLC',
       quota_spec_count: 1,
       quota_spec_manifest_hash: hash('6'),
@@ -171,7 +187,7 @@ class PassingReadOnlyTransport implements ExperimentFoundationAliyunReadOnlyTran
     return structuredClone(this.ledger);
   }
 
-  private record(
+  protected record(
     operation: ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1['operation'],
     endpoint: string,
     requestId: string,
@@ -196,13 +212,45 @@ class DisabledWorkspaceTransport extends PassingReadOnlyTransport {
   }
 }
 
+class PassingPublicResourceTransport extends PassingReadOnlyTransport {
+  override async listResources(): Promise<ExperimentFoundationAliyunResourceObservationV2> {
+    this.record(
+      'AIWorkspace.ListResources',
+      'aiworkspace.cn-hangzhou.aliyuncs.com',
+      'request-2',
+    );
+    return {
+      request_id: 'request-2',
+      endpoint: 'aiworkspace.cn-hangzhou.aliyuncs.com',
+      resource_mode: 'public_resource' as const,
+      resource_id_hash: null,
+      exact_quota_found: false,
+      quota_type: null,
+      quota_spec_count: 0,
+      quota_spec_manifest_hash: null,
+    };
+  }
+}
+
+class DuplicatePublicResourceReadTransport extends PassingPublicResourceTransport {
+  override async listResources(): Promise<ExperimentFoundationAliyunResourceObservationV2> {
+    await super.listResources();
+    return super.listResources();
+  }
+}
+
 test('exact Aliyun CreateJob payload is canonical, bounded, and persistently redacted', () => {
   const service = new ExperimentFoundationV2AliyunCreateJobPayloadService();
   const result = service.materialize(prerequisite(), profile);
   const payload = service.verify(result);
 
   assert.equal(payload.WorkspaceId, profile.workspace_id);
-  assert.equal(payload.ResourceId, profile.resource_id);
+  assert.equal(
+    payload.ResourceId,
+    profile.resource_binding.mode === 'exact_quota'
+      ? profile.resource_binding.resource_id
+      : undefined,
+  );
   assert.equal(payload.JobSpecs[0].ResourceConfig.CPU, '2');
   assert.equal(payload.JobSpecs[0].ResourceConfig.Memory, '2048Mi');
   assert.match(payload.UserCommand, /must-be-redacted/);
@@ -210,6 +258,51 @@ test('exact Aliyun CreateJob payload is canonical, bounded, and persistently red
   assert.doesNotMatch(JSON.stringify(result.redacted_manifest), /must-be-redacted/);
   assert.doesNotMatch(JSON.stringify(result.redacted_manifest), /ws-preflight-secret-ref/);
   assert.doesNotMatch(JSON.stringify(result.redacted_manifest), /quota-preflight-secret-ref/);
+});
+
+test('public-resource CreateJob payload omits ResourceId in canonical bytes, SDK wire map, and evidence', () => {
+  const service = new ExperimentFoundationV2AliyunCreateJobPayloadService();
+  const result = service.materialize(prerequisite(), publicResourceProfile);
+  const payload = service.verify(result);
+  const parsedBytes = JSON.parse(result.canonical_payload_bytes) as Record<string, unknown>;
+
+  assert.equal(Object.hasOwn(payload, 'ResourceId'), false);
+  assert.equal(Object.hasOwn(parsedBytes, 'ResourceId'), false);
+  assert.equal(result.redacted_manifest.provider_binding_hashes.resource_mode, 'public_resource');
+  assert.equal(result.redacted_manifest.provider_binding_hashes.resource_id_hash, null);
+  assert.equal(
+    (result.redacted_manifest.redacted_fields as readonly string[]).includes('ResourceId'),
+    false,
+  );
+  assert.doesNotMatch(JSON.stringify(result.redacted_manifest), /quota-preflight-secret-ref/);
+
+  const exactQuotaResult = service.materialize(prerequisite(), profile);
+  assert.throws(
+    () => service.verify({
+      ...result,
+      redacted_manifest: exactQuotaResult.redacted_manifest,
+    }),
+    (error) => error instanceof ExperimentFoundationAliyunCreateJobPayloadError
+      && error.reasonCode === 'ALIYUN_CREATE_JOB_PAYLOAD_CONFLICT',
+  );
+
+  assert.throws(
+    () => service.verify({
+      ...result,
+      execution_profile_hash: hash('0'),
+    }),
+    (error) => error instanceof ExperimentFoundationAliyunCreateJobPayloadError
+      && error.reasonCode === 'ALIYUN_CREATE_JOB_PAYLOAD_CONFLICT',
+  );
+
+  assert.throws(
+    () => service.materialize(prerequisite(), {
+      ...publicResourceProfile,
+      resource_binding: { mode: 'public_resource', resource_id: 'fake-quota' },
+    } as unknown as ExperimentFoundationAliyunPaiDlcExecutionProfileV2),
+    (error) => error instanceof ExperimentFoundationAliyunCreateJobPayloadError
+      && error.reasonCode === 'ALIYUN_EXECUTION_PROFILE_INVALID',
+  );
 });
 
 test('Aliyun CreateJob payload materialization is deterministic and rejects exact-binding drift', () => {
@@ -254,7 +347,7 @@ test('same-payload fake lifecycle exercises replay, recovery, cancel, and collec
 test('read-only preflight rejects CreateJob before transport and accepts only the exact three-call ledger', async () => {
   assert.deepEqual(
     EXPERIMENT_FOUNDATION_ALIYUN_PREFLIGHT_REQUIRED_RAM_POLICY_V1.Statement[0].Action,
-    ['paiworkspace:GetWorkspace', 'paiworkspace:ListResources'],
+    ['paiworkspace:GetWorkspace', 'paiworkspace:ListResources', 'paidlc:ListEcsSpecs'],
   );
   const transport = new PassingReadOnlyTransport();
   const result = await new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
@@ -272,6 +365,55 @@ test('read-only preflight rejects CreateJob before transport and accepts only th
   );
   assert.equal(result.provider_write_attempts, 0);
   assert.equal(result.provider_writes, 0);
+});
+
+test('read-only preflight accepts public-resource selector omission without claiming an exact quota', async () => {
+  const result = await new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
+    profile: publicResourceProfile,
+    credentialAccessKeyId: 'STS.preflight-access-key-id',
+    identityPolicyEvidence: policyEvidence(),
+    transport: new PassingPublicResourceTransport(),
+    now: new Date('2026-07-18T00:00:00.000Z'),
+  });
+
+  assert.equal(result.resource.resource_mode, 'public_resource');
+  assert.equal(result.resource.resource_id_hash, null);
+  assert.equal(result.resource.exact_quota_found, false);
+  assert.equal(result.resource.quota_type, null);
+  assert.deepEqual(result.operation_ledger.map((entry) => entry.operation), [
+    'AIWorkspace.GetWorkspace',
+    'AIWorkspace.ListResources',
+    'PaiDlc.ListEcsSpecs',
+  ]);
+  assert.equal(result.provider_write_attempts, 0);
+  assert.equal(result.provider_writes, 0);
+
+  await assert.rejects(
+    () => new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
+      profile: {
+        ...publicResourceProfile,
+        resource_binding: { mode: 'public_resource', resource_id: 'fake-quota' },
+      } as unknown as ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+      credentialAccessKeyId: 'STS.preflight-access-key-id',
+      identityPolicyEvidence: policyEvidence(),
+      transport: new PassingPublicResourceTransport(),
+      now: new Date('2026-07-18T00:00:00.000Z'),
+    }),
+    (error) => error instanceof ExperimentFoundationAliyunCloudPreflightError
+      && error.reasonCode === 'ALIYUN_EXECUTION_PROFILE_INVALID',
+  );
+
+  await assert.rejects(
+    () => new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
+      profile: publicResourceProfile,
+      credentialAccessKeyId: 'STS.preflight-access-key-id',
+      identityPolicyEvidence: policyEvidence(),
+      transport: new DuplicatePublicResourceReadTransport(),
+      now: new Date('2026-07-18T00:00:00.000Z'),
+    }),
+    (error) => error instanceof ExperimentFoundationAliyunCloudPreflightError
+      && error.reasonCode === 'ALIYUN_READ_ONLY_LEDGER_INVALID',
+  );
 });
 
 test('official Aliyun SDK adapter maps requests and exhausts bounded read-only pagination', async () => {
@@ -308,7 +450,9 @@ test('official Aliyun SDK adapter maps requests and exhausts bounded read-only p
             resources: [{
               id: 'resource-container-101',
               quotas: [{
-                id: profile.resource_id,
+                id: profile.resource_binding.mode === 'exact_quota'
+                  ? profile.resource_binding.resource_id
+                  : 'unreachable',
                 quotaType: 'DLC',
                 specs: [{ name: 'cpu', value: '8' }],
               }],
@@ -320,26 +464,30 @@ test('official Aliyun SDK adapter maps requests and exhausts bounded read-only p
     dlcClient: {
       async listEcsSpecs(request: ListEcsSpecsRequest) {
         specPageNumbers.push(request.pageNumber ?? -1);
-        assert.equal(request.pageSize, 100);
-        const firstPage = Array.from({ length: 100 }, () => ({
+        assert.equal(request.pageSize, 10);
+        assert.equal(request.acceleratorType, 'CPU');
+        assert.equal(request.resourceType, 'ECS');
+        assert.equal(request.sortBy, undefined);
+        assert.equal(request.order, undefined);
+        const firstPage = Array.from({ length: 10 }, () => ({
           acceleratorType: 'CPU',
           isAvailable: false,
         }));
         return new ListEcsSpecsResponse({
           body: request.pageNumber === 1 ? {
             requestId: 'spec-request-1',
-            totalCount: 101,
+            totalCount: 11,
             ecsSpecs: firstPage,
           } : {
             requestId: 'spec-request-2',
-            totalCount: 101,
+            totalCount: 11,
             ecsSpecs: [{ acceleratorType: 'CPU', isAvailable: true }],
           },
         });
       },
     },
   };
-  const transport = new AliyunSdkExperimentFoundationReadOnlyTransportV1(
+  const transport = new AliyunSdkExperimentFoundationReadOnlyTransportV2(
     profile.region_id,
     {
       access_key_id: 'STS.adapter-test',
@@ -359,9 +507,9 @@ test('official Aliyun SDK adapter maps requests and exhausts bounded read-only p
 
   assert.deepEqual(resourcePageNumbers, [1, 2]);
   assert.deepEqual(specPageNumbers, [1, 2]);
-  assert.equal(result.resource.resource_found, true);
+  assert.equal(result.resource.exact_quota_found, true);
   assert.equal(result.resource.request_id, 'resource-request-2');
-  assert.equal(result.dlc_specs.visible_cpu_spec_count, 101);
+  assert.equal(result.dlc_specs.visible_cpu_spec_count, 11);
   assert.equal(result.dlc_specs.available_cpu_spec_count, 1);
   assert.deepEqual(result.operation_ledger.map((entry) => entry.operation), [
     'AIWorkspace.GetWorkspace',
@@ -370,6 +518,135 @@ test('official Aliyun SDK adapter maps requests and exhausts bounded read-only p
     'PaiDlc.ListEcsSpecs',
     'PaiDlc.ListEcsSpecs',
   ]);
+});
+
+test('official Aliyun SDK adapter performs one ListResources read for public-resource mode', async () => {
+  const resourcePageNumbers: number[] = [];
+  const clients: ExperimentFoundationAliyunReadOnlySdkClientsV1 = {
+    workspaceClient: {
+      async getWorkspace(workspaceId) {
+        return new GetWorkspaceResponse({
+          body: { requestId: 'public-workspace-request', workspaceId, status: 'ENABLED' },
+        });
+      },
+      async listResources(request: ListResourcesRequest) {
+        resourcePageNumbers.push(request.pageNumber ?? -1);
+        return new ListResourcesResponse({
+          body: {
+            requestId: 'public-resource-request',
+            totalCount: 0,
+            resources: [],
+          },
+        });
+      },
+    },
+    dlcClient: {
+      async listEcsSpecs() {
+        return new ListEcsSpecsResponse({
+          body: {
+            requestId: 'public-spec-request',
+            totalCount: 1,
+            ecsSpecs: [{ acceleratorType: 'CPU', isAvailable: true }],
+          },
+        });
+      },
+    },
+  };
+  const transport = new AliyunSdkExperimentFoundationReadOnlyTransportV2(
+    publicResourceProfile.region_id,
+    {
+      access_key_id: 'STS.public-adapter-test',
+      access_key_secret: 'public-adapter-test-secret',
+      security_token: 'public-adapter-test-token',
+    },
+    clients,
+  );
+
+  const result = await new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
+    profile: publicResourceProfile,
+    credentialAccessKeyId: 'STS.public-adapter-test',
+    identityPolicyEvidence: policyEvidence('STS.public-adapter-test'),
+    transport,
+    now: new Date('2026-07-18T00:00:00.000Z'),
+  });
+
+  assert.deepEqual(resourcePageNumbers, [1]);
+  assert.equal(result.resource.resource_mode, 'public_resource');
+  assert.equal(result.resource.exact_quota_found, false);
+  assert.deepEqual(result.operation_ledger.map((entry) => entry.operation), [
+    'AIWorkspace.GetWorkspace',
+    'AIWorkspace.ListResources',
+    'PaiDlc.ListEcsSpecs',
+  ]);
+});
+
+test('official Aliyun SDK adapter classifies provider failures without leaking diagnostics', async () => {
+  const providerDiagnostic =
+    'AccessKeySecret=must-not-leak SecurityToken=must-not-leak RequestId=provider-secret';
+  const safeProviderRequestId = 'provider-request-safe';
+  const clients: ExperimentFoundationAliyunReadOnlySdkClientsV1 = {
+    workspaceClient: {
+      async getWorkspace(workspaceId) {
+        return new GetWorkspaceResponse({
+          body: { requestId: 'failure-workspace-request', workspaceId, status: 'ENABLED' },
+        });
+      },
+      async listResources() {
+        return new ListResourcesResponse({
+          body: {
+            requestId: 'failure-resource-request',
+            totalCount: 0,
+            resources: [],
+          },
+        });
+      },
+    },
+    dlcClient: {
+      async listEcsSpecs() {
+        throw Object.assign(new Error(providerDiagnostic), {
+          statusCode: 400,
+          requestId: safeProviderRequestId,
+          code: 'BadRequest',
+        });
+      },
+    },
+  };
+  const transport = new AliyunSdkExperimentFoundationReadOnlyTransportV2(
+    publicResourceProfile.region_id,
+    {
+      access_key_id: 'STS.failure-adapter-test',
+      access_key_secret: 'failure-adapter-test-secret',
+      security_token: 'failure-adapter-test-token',
+    },
+    clients,
+  );
+
+  await assert.rejects(
+    () => new ExperimentFoundationV2AliyunReadOnlyPreflightService().run({
+      profile: publicResourceProfile,
+      credentialAccessKeyId: 'STS.failure-adapter-test',
+      identityPolicyEvidence: policyEvidence('STS.failure-adapter-test'),
+      transport,
+      now: new Date('2026-07-18T00:00:00.000Z'),
+    }),
+    (error) => error instanceof ExperimentFoundationAliyunCloudPreflightError
+      && error.disposition === 'failed'
+      && error.reasonCode === 'ALIYUN_READ_ONLY_PROVIDER_CALL_FAILED'
+      && error.message.includes('provider_status=400')
+      && error.message.includes('provider_code=BadRequest')
+      && error.message.includes(`request_id=${safeProviderRequestId}`)
+      && !error.message.includes(providerDiagnostic)
+      && !error.message.includes('must-not-leak'),
+  );
+  assert.deepEqual(transport.getOperationLedger().at(-1), {
+    sequence: 3,
+    operation: 'PaiDlc.ListEcsSpecs',
+    endpoint: 'pai-dlc.cn-hangzhou.aliyuncs.com',
+    request_id: safeProviderRequestId,
+    outcome: 'failed',
+    reason_code: 'ALIYUN_READ_ONLY_PROVIDER_CALL_FAILED',
+    redacted_refs: {},
+  });
 });
 
 test('read-only preflight fails closed for policy drift, expiry, unavailable workspace, and incomplete STS', async () => {
@@ -416,7 +693,7 @@ test('read-only preflight fails closed for policy drift, expiry, unavailable wor
   );
 
   assert.throws(
-    () => new AliyunSdkExperimentFoundationReadOnlyTransportV1('cn-hangzhou', {
+    () => new AliyunSdkExperimentFoundationReadOnlyTransportV2('cn-hangzhou', {
       access_key_id: 'id',
       access_key_secret: 'secret',
       security_token: '',
@@ -425,7 +702,7 @@ test('read-only preflight fails closed for policy drift, expiry, unavailable wor
       && error.reasonCode === 'ALIYUN_TEMPORARY_CREDENTIAL_REQUIRED',
   );
 
-  const sdkTransport = new AliyunSdkExperimentFoundationReadOnlyTransportV1('cn-hangzhou', {
+  const sdkTransport = new AliyunSdkExperimentFoundationReadOnlyTransportV2('cn-hangzhou', {
     access_key_id: 'STS.runtime-constructor-only',
     access_key_secret: 'constructor-only-secret',
     security_token: 'constructor-only-token',

@@ -4,12 +4,12 @@ import { Ajv, type ValidateFunction } from 'ajv';
 import { CreateJobRequest } from '@alicloud/pai-dlc20201203';
 
 import {
-  experimentFoundationAliyunPaiDlcCreateJobPayloadV1Schema,
-  experimentFoundationAliyunPaiDlcExecutionProfileV1Schema,
-  experimentFoundationAliyunPaiDlcRedactedManifestV1Schema,
-  type ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1,
-  type ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
-  type ExperimentFoundationAliyunPaiDlcRedactedManifestV1,
+  experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema,
+  experimentFoundationAliyunPaiDlcExecutionProfileV2Schema,
+  experimentFoundationAliyunPaiDlcRedactedManifestV2Schema,
+  type ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2,
+  type ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+  type ExperimentFoundationAliyunPaiDlcRedactedManifestV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
 import type {
   ExperimentFoundationRunCellV2,
@@ -40,7 +40,7 @@ export interface ExperimentFoundationAliyunCreateJobMaterializationV2 {
   payload_hash: string;
   payload_byte_size: number;
   execution_profile_hash: string;
-  redacted_manifest: ExperimentFoundationAliyunPaiDlcRedactedManifestV1;
+  redacted_manifest: ExperimentFoundationAliyunPaiDlcRedactedManifestV2;
   /** Transient provider bytes. These bytes must never be persisted or logged. */
   canonical_payload_bytes: string;
 }
@@ -69,30 +69,32 @@ const ajv = new Ajv({
   removeAdditional: false,
 });
 
-const profileValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcExecutionProfileV1> =
-  ajv.compile<ExperimentFoundationAliyunPaiDlcExecutionProfileV1>(
-    experimentFoundationAliyunPaiDlcExecutionProfileV1Schema,
+const profileValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcExecutionProfileV2> =
+  ajv.compile<ExperimentFoundationAliyunPaiDlcExecutionProfileV2>(
+    experimentFoundationAliyunPaiDlcExecutionProfileV2Schema,
   );
-const payloadValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1> =
-  ajv.compile<ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1>(
-    experimentFoundationAliyunPaiDlcCreateJobPayloadV1Schema,
+const payloadValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2> =
+  ajv.compile<ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2>(
+    experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema,
   );
-const manifestValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcRedactedManifestV1> =
-  ajv.compile<ExperimentFoundationAliyunPaiDlcRedactedManifestV1>(
-    experimentFoundationAliyunPaiDlcRedactedManifestV1Schema,
+const manifestValidator: ValidateFunction<ExperimentFoundationAliyunPaiDlcRedactedManifestV2> =
+  ajv.compile<ExperimentFoundationAliyunPaiDlcRedactedManifestV2>(
+    experimentFoundationAliyunPaiDlcRedactedManifestV2Schema,
   );
 
 export class ExperimentFoundationV2AliyunCreateJobPayloadService {
   materialize(
     prerequisite: ExperimentFoundationAliyunCreateJobPayloadPrerequisiteV2,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
   ): ExperimentFoundationAliyunCreateJobMaterializationV2 {
     assertPrerequisite(prerequisite);
     assertExecutionProfile(profile);
 
-    const payload: ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1 = {
+    const payload: ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2 = {
       WorkspaceId: profile.workspace_id,
-      ResourceId: profile.resource_id,
+      ...(profile.resource_binding.mode === 'exact_quota'
+        ? { ResourceId: profile.resource_binding.resource_id }
+        : {}),
       DisplayName: deterministicDisplayName(prerequisite),
       JobType: profile.job_type,
       JobSpecs: [{
@@ -126,8 +128,14 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
       profile.schema_version,
       profile,
     );
-    const redactedManifest: ExperimentFoundationAliyunPaiDlcRedactedManifestV1 = {
-      schema_version: 'AliyunPaiDlcRedactedManifest@v1',
+    const commonProviderBindingHashes = {
+      execution_profile_hash: executionProfileHash,
+      region_id_hash: hashRedactedProviderRef('region_id', profile.region_id),
+      workspace_id_hash: hashRedactedProviderRef('workspace_id', profile.workspace_id),
+      image_uri_hash: hashRedactedProviderRef('image_uri', profile.image_uri),
+    };
+    const commonManifest = {
+      schema_version: 'AliyunPaiDlcRedactedManifest@v2' as const,
       payload_schema: EXPERIMENT_FOUNDATION_ALIYUN_CREATE_JOB_PAYLOAD_SCHEMA,
       source_binding: {
         run_id: prerequisite.run.run_id,
@@ -136,13 +144,6 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
         cell_key: prerequisite.run_cell.cell_key,
         training_task_spec_id: prerequisite.task_spec.training_task_spec_id,
         training_task_spec_hash: prerequisite.task_spec.task_spec_hash,
-      },
-      provider_binding_hashes: {
-        execution_profile_hash: executionProfileHash,
-        region_id_hash: hashRedactedProviderRef('region_id', profile.region_id),
-        workspace_id_hash: hashRedactedProviderRef('workspace_id', profile.workspace_id),
-        resource_id_hash: hashRedactedProviderRef('resource_id', profile.resource_id),
-        image_uri_hash: hashRedactedProviderRef('image_uri', profile.image_uri),
       },
       request_summary: {
         display_name: payload.DisplayName,
@@ -153,23 +154,53 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
         memory_mb: prerequisite.task_spec.resource_snapshot.memory_mb,
         argument_count: prerequisite.task_spec.command_snapshot.arguments.length,
       },
-      redacted_fields: [
-        'canonical_payload_bytes',
-        'WorkspaceId',
-        'ResourceId',
-        'JobSpecs[0].Image',
-        'UserCommand',
-      ],
     };
+    const redactedManifest: ExperimentFoundationAliyunPaiDlcRedactedManifestV2 =
+      profile.resource_binding.mode === 'exact_quota'
+        ? {
+          ...commonManifest,
+          provider_binding_hashes: {
+            ...commonProviderBindingHashes,
+            resource_mode: 'exact_quota',
+            resource_id_hash: hashRedactedProviderRef(
+              'resource_id',
+              profile.resource_binding.resource_id,
+            ),
+          },
+          redacted_fields: [
+            'canonical_payload_bytes',
+            'WorkspaceId',
+            'ResourceId',
+            'JobSpecs[0].Image',
+            'UserCommand',
+          ],
+        }
+        : {
+          ...commonManifest,
+          provider_binding_hashes: {
+            ...commonProviderBindingHashes,
+            resource_mode: 'public_resource',
+            resource_id_hash: null,
+          },
+          redacted_fields: [
+            'canonical_payload_bytes',
+            'WorkspaceId',
+            'JobSpecs[0].Image',
+            'UserCommand',
+          ],
+        };
     assertRedactedManifest(redactedManifest);
 
     const serializedManifest = canonicalizeExperimentV2Json(redactedManifest);
-    for (const forbiddenValue of [
+    const forbiddenValues = [
       profile.workspace_id,
-      profile.resource_id,
       profile.image_uri,
       payload.UserCommand,
-    ]) {
+      ...(profile.resource_binding.mode === 'exact_quota'
+        ? [profile.resource_binding.resource_id]
+        : []),
+    ];
+    for (const forbiddenValue of forbiddenValues) {
       if (forbiddenValue.length > 0 && serializedManifest.includes(forbiddenValue)) {
         throw new ExperimentFoundationAliyunCreateJobPayloadError(
           'ALIYUN_CREATE_JOB_PAYLOAD_INVALID',
@@ -189,7 +220,7 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
 
   verify(
     materialized: ExperimentFoundationAliyunCreateJobMaterializationV2,
-  ): ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1 {
+  ): ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2 {
     let parsed: unknown;
     try {
       parsed = JSON.parse(materialized.canonical_payload_bytes);
@@ -207,6 +238,11 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
       )
       || Buffer.byteLength(materialized.canonical_payload_bytes, 'utf8')
         !== materialized.payload_byte_size
+      || materialized.payload_byte_size > EXPERIMENT_FOUNDATION_ALIYUN_CREATE_JOB_MAX_BYTES
+      || !safeTextEqual(
+        materialized.execution_profile_hash,
+        materialized.redacted_manifest.provider_binding_hashes.execution_profile_hash,
+      )
     ) {
       throw new ExperimentFoundationAliyunCreateJobPayloadError(
         'ALIYUN_CREATE_JOB_PAYLOAD_CONFLICT',
@@ -215,6 +251,7 @@ export class ExperimentFoundationV2AliyunCreateJobPayloadService {
     }
     assertCreateJobPayload(parsed);
     assertRedactedManifest(materialized.redacted_manifest);
+    assertPayloadManifestBindings(parsed, materialized.redacted_manifest);
     return structuredClone(parsed);
   }
 }
@@ -245,11 +282,11 @@ export function hashAliyunCreateJobPayloadBytes(canonicalPayloadBytes: string): 
 
 function assertExecutionProfile(
   value: unknown,
-): asserts value is ExperimentFoundationAliyunPaiDlcExecutionProfileV1 {
+): asserts value is ExperimentFoundationAliyunPaiDlcExecutionProfileV2 {
   if (!profileValidator(value)) {
     throw validationError(
       'ALIYUN_EXECUTION_PROFILE_INVALID',
-      'Aliyun execution profile failed its exact v1 schema.',
+      'Aliyun execution profile failed its exact v2 schema.',
       profileValidator,
     );
   }
@@ -263,7 +300,7 @@ function assertExecutionProfile(
 
 function assertCreateJobPayload(
   value: unknown,
-): asserts value is ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1 {
+): asserts value is ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2 {
   if (!payloadValidator(value)) {
     throw validationError(
       'ALIYUN_CREATE_JOB_PAYLOAD_INVALID',
@@ -275,12 +312,12 @@ function assertCreateJobPayload(
 }
 
 function assertOfficialSdkWireRoundTrip(
-  payload: ExperimentFoundationAliyunPaiDlcCreateJobPayloadV1,
+  payload: ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2,
 ): void {
   try {
     const request = new CreateJobRequest({
       workspaceId: payload.WorkspaceId,
-      resourceId: payload.ResourceId,
+      ...(payload.ResourceId === undefined ? {} : { resourceId: payload.ResourceId }),
       displayName: payload.DisplayName,
       jobType: payload.JobType,
       jobSpecs: payload.JobSpecs.map((spec) => ({
@@ -309,12 +346,35 @@ function assertOfficialSdkWireRoundTrip(
 
 function assertRedactedManifest(
   value: unknown,
-): asserts value is ExperimentFoundationAliyunPaiDlcRedactedManifestV1 {
+): asserts value is ExperimentFoundationAliyunPaiDlcRedactedManifestV2 {
   if (!manifestValidator(value)) {
     throw validationError(
       'ALIYUN_CREATE_JOB_PAYLOAD_INVALID',
-      'Aliyun CreateJob redacted manifest failed its exact v1 schema.',
+      'Aliyun CreateJob redacted manifest failed its exact v2 schema.',
       manifestValidator,
+    );
+  }
+}
+
+function assertPayloadManifestBindings(
+  payload: ExperimentFoundationAliyunPaiDlcCreateJobPayloadV2,
+  manifest: ExperimentFoundationAliyunPaiDlcRedactedManifestV2,
+): void {
+  const bindings = manifest.provider_binding_hashes;
+  const hasResourceId = Object.hasOwn(payload, 'ResourceId');
+  const commonBindingsMatch = bindings.workspace_id_hash
+      === hashRedactedProviderRef('workspace_id', payload.WorkspaceId)
+    && bindings.image_uri_hash
+      === hashRedactedProviderRef('image_uri', payload.JobSpecs[0].Image);
+  const resourceBindingMatches = bindings.resource_mode === 'exact_quota'
+    ? hasResourceId
+      && payload.ResourceId !== undefined
+      && bindings.resource_id_hash === hashRedactedProviderRef('resource_id', payload.ResourceId)
+    : !hasResourceId && bindings.resource_id_hash === null;
+  if (!commonBindingsMatch || !resourceBindingMatches) {
+    throw new ExperimentFoundationAliyunCreateJobPayloadError(
+      'ALIYUN_CREATE_JOB_PAYLOAD_CONFLICT',
+      'The CreateJob payload and redacted manifest provider bindings differ.',
     );
   }
 }

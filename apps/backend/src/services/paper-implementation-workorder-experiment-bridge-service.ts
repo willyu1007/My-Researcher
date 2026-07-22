@@ -309,7 +309,6 @@ export class PaperImplementationWorkOrderExperimentBridgeService {
     }
     const persisted = await this.workOrderRepository.recordMonitorIngestion({
       monitor_intake: monitorIntake,
-      run_evidence_unit: null,
       work_order: updatedWorkOrder,
     });
     return {

@@ -7,8 +7,11 @@ import {
   EXPERIMENT_FOUNDATION_ALIYUN_READ_ONLY_OPERATIONS_V2,
   EXPERIMENT_FOUNDATION_CLOUD_PREFLIGHT_V2_CHECK_IDS,
   experimentFoundationAliyunPaiDlcCreateJobPayloadV1Schema,
+  experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema,
   experimentFoundationAliyunPaiDlcExecutionProfileV1Schema,
+  experimentFoundationAliyunPaiDlcExecutionProfileV2Schema,
   experimentFoundationAliyunPaiDlcRedactedManifestV1Schema,
+  experimentFoundationAliyunPaiDlcRedactedManifestV2Schema,
   experimentFoundationCloudPreflightV2CheckOutcomeSchema,
 } from './experiment-foundation-cloud-preflight-v2-contracts.js';
 
@@ -128,5 +131,84 @@ test('cloud-preflight contracts reject caller expansion and provider-write upgra
     id: 'CP13_CREATE_JOB',
     status: 'passed',
     summary: 'Forbidden.',
+  }), false);
+});
+
+test('cloud-preflight v2 contracts bind exact-quota and public-resource selectors without a fake resource ID', async () => {
+  const exactQuotaProfile = {
+    ...profile,
+    schema_version: 'AliyunPaiDlcExecutionProfile@v2',
+    resource_binding: { mode: 'exact_quota', resource_id: profile.resource_id },
+  };
+  delete (exactQuotaProfile as Partial<typeof profile>).resource_id;
+  const publicResourceProfile = {
+    ...exactQuotaProfile,
+    resource_binding: { mode: 'public_resource' },
+  };
+  const publicPayload = { ...payload };
+  delete (publicPayload as Partial<typeof payload>).ResourceId;
+  const exactManifest = {
+    ...manifest,
+    schema_version: 'AliyunPaiDlcRedactedManifest@v2',
+    provider_binding_hashes: {
+      ...manifest.provider_binding_hashes,
+      resource_mode: 'exact_quota',
+    },
+  };
+  const publicManifest = {
+    ...exactManifest,
+    provider_binding_hashes: {
+      ...exactManifest.provider_binding_hashes,
+      resource_mode: 'public_resource',
+      resource_id_hash: null,
+    },
+    redacted_fields: [
+      'canonical_payload_bytes',
+      'WorkspaceId',
+      'JobSpecs[0].Image',
+      'UserCommand',
+    ],
+  };
+
+  assert.equal(await validates(
+    experimentFoundationAliyunPaiDlcExecutionProfileV2Schema,
+    exactQuotaProfile,
+  ), true);
+  assert.equal(await validates(
+    experimentFoundationAliyunPaiDlcExecutionProfileV2Schema,
+    publicResourceProfile,
+  ), true);
+  assert.equal(await validates(experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema, payload), true);
+  assert.equal(await validates(
+    experimentFoundationAliyunPaiDlcCreateJobPayloadV2Schema,
+    publicPayload,
+  ), true);
+  assert.equal(await validates(
+    experimentFoundationAliyunPaiDlcRedactedManifestV2Schema,
+    exactManifest,
+  ), true);
+  assert.equal(await validates(
+    experimentFoundationAliyunPaiDlcRedactedManifestV2Schema,
+    publicManifest,
+  ), true);
+
+  assert.equal(await validates(experimentFoundationAliyunPaiDlcExecutionProfileV2Schema, {
+    ...publicResourceProfile,
+    resource_binding: { mode: 'public_resource', resource_id: 'fake-quota' },
+  }), false);
+  assert.equal(await validates(experimentFoundationAliyunPaiDlcExecutionProfileV2Schema, {
+    ...exactQuotaProfile,
+    resource_binding: { mode: 'exact_quota' },
+  }), false);
+  assert.equal(await validates(experimentFoundationAliyunPaiDlcRedactedManifestV2Schema, {
+    ...publicManifest,
+    redacted_fields: exactManifest.redacted_fields,
+  }), false);
+  assert.equal(await validates(experimentFoundationAliyunPaiDlcRedactedManifestV2Schema, {
+    ...publicManifest,
+    provider_binding_hashes: {
+      ...publicManifest.provider_binding_hashes,
+      resource_id_hash: hash('9'),
+    },
   }), false);
 });

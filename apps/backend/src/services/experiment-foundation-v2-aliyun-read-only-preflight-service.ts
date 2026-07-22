@@ -14,7 +14,8 @@ import { ListEcsSpecsRequest } from '@alicloud/pai-dlc20201203';
 import {
   EXPERIMENT_FOUNDATION_ALIYUN_FORBIDDEN_WRITE_OPERATION_V2,
   EXPERIMENT_FOUNDATION_ALIYUN_READ_ONLY_OPERATIONS_V2,
-  type ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+  type ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+  type ExperimentFoundationAliyunPaiDlcResourceBindingV2,
   type ExperimentFoundationAliyunReadOnlyOperationV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
 import { serverHashExperimentV2SemanticContent } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
@@ -28,6 +29,7 @@ export const EXPERIMENT_FOUNDATION_ALIYUN_PREFLIGHT_REQUIRED_RAM_POLICY_V1 = Obj
       Action: [
         'paiworkspace:GetWorkspace',
         'paiworkspace:ListResources',
+        'paidlc:ListEcsSpecs',
       ],
       Resource: ['*'],
     },
@@ -54,10 +56,13 @@ export const EXPERIMENT_FOUNDATION_ALIYUN_PREFLIGHT_EVIDENCE_MAX_LIFETIME_MS =
 const REQUIRED_ALLOWED_ACTIONS = [
   'paiworkspace:GetWorkspace',
   'paiworkspace:ListResources',
+  'paidlc:ListEcsSpecs',
 ] as const;
-// The official PAI-DLC 2020-12-03 ListEcsSpecs page currently exposes no RAM
-// authorization action. Keep the operation transport-allowlisted, but do not
-// invent an undocumented paidlc action in the reviewed identity policy.
+// The official PAI-DLC 2020-12-03 ListEcsSpecs page does not expose RAM
+// authorization metadata. The reviewed session policy retains the empirical
+// ListEcsSpecs action used by the successful read-only acceptance and keeps an
+// explicit CreateJob deny. Parameter isolation later proved that the earlier
+// HTTP 400 came from SortBy=CPU, not from the role permission boundary.
 const REQUIRED_DENIED_ACTIONS = ['paidlc:CreateJob'] as const;
 const HASH_PATTERN = new RegExp(EXPERIMENT_V2_HASH_PATTERN);
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -67,6 +72,7 @@ const AIWorkspaceClientConstructor = require('@alicloud/aiworkspace20210204').de
 const PaiDlcClientConstructor = require('@alicloud/pai-dlc20201203').default as
   typeof import('@alicloud/pai-dlc20201203').default;
 const PROVIDER_LIST_PAGE_SIZE = 100;
+const PROVIDER_DLC_SPEC_PAGE_SIZE = 10;
 const PROVIDER_LIST_MAX_PAGES = 100;
 
 export interface ExperimentFoundationAliyunWorkspaceSdkClientV1 {
@@ -124,11 +130,12 @@ export interface ExperimentFoundationAliyunWorkspaceObservationV1 {
   status: string;
 }
 
-export interface ExperimentFoundationAliyunResourceObservationV1 {
+export interface ExperimentFoundationAliyunResourceObservationV2 {
   request_id: string;
   endpoint: string;
-  resource_id_hash: string;
-  resource_found: boolean;
+  resource_mode: ExperimentFoundationAliyunPaiDlcResourceBindingV2['mode'];
+  resource_id_hash: string | null;
+  exact_quota_found: boolean;
   quota_type: string | null;
   quota_spec_count: number;
   quota_spec_manifest_hash: string | null;
@@ -142,11 +149,11 @@ export interface ExperimentFoundationAliyunDlcSpecObservationV1 {
   available_cpu_spec_count: number;
 }
 
-export interface ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV1 {
+export interface ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV2 {
   status: 'cloud_preflight_passed';
   region_id: string;
   workspace: ExperimentFoundationAliyunWorkspaceObservationV1;
-  resource: ExperimentFoundationAliyunResourceObservationV1;
+  resource: ExperimentFoundationAliyunResourceObservationV2;
   dlc_specs: ExperimentFoundationAliyunDlcSpecObservationV1;
   identity_policy: {
     principal_ref_hash: string;
@@ -162,14 +169,14 @@ export interface ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV1 {
   provider_writes: 0;
 }
 
-export interface ExperimentFoundationAliyunReadOnlyTransportV1 {
+export interface ExperimentFoundationAliyunReadOnlyTransportV2 {
   getWorkspace(
     workspaceId: string,
   ): Promise<ExperimentFoundationAliyunWorkspaceObservationV1>;
   listResources(
     workspaceId: string,
-    resourceId: string,
-  ): Promise<ExperimentFoundationAliyunResourceObservationV1>;
+    resourceBinding: ExperimentFoundationAliyunPaiDlcResourceBindingV2,
+  ): Promise<ExperimentFoundationAliyunResourceObservationV2>;
   listEcsSpecs(): Promise<ExperimentFoundationAliyunDlcSpecObservationV1>;
   getOperationLedger(): ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1[];
 }
@@ -187,12 +194,13 @@ export class ExperimentFoundationAliyunCloudPreflightError extends Error {
 
 export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
   async run(input: {
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1;
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2;
     credentialAccessKeyId: string;
     identityPolicyEvidence: ExperimentFoundationAliyunPreflightIdentityPolicyEvidenceV1;
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1;
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2;
     now?: Date;
-  }): Promise<ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV1> {
+  }): Promise<ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV2> {
+    assertExactAliyunResourceBinding(input.profile.resource_binding);
     assertIdentityPolicyEvidence(
       input.identityPolicyEvidence,
       input.credentialAccessKeyId,
@@ -247,14 +255,20 @@ export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
 
     const expectedWorkspaceEndpoint = `aiworkspace.${input.profile.region_id}.aliyuncs.com`;
     const expectedDlcEndpoint = `pai-dlc.${input.profile.region_id}.aliyuncs.com`;
+    const expectedResourceIdHash = input.profile.resource_binding.mode === 'exact_quota'
+      ? hashAliyunPreflightProviderRef(
+        'resource_id',
+        input.profile.resource_binding.resource_id,
+      )
+      : null;
     if (
       workspace.endpoint !== expectedWorkspaceEndpoint
       || resource.endpoint !== expectedWorkspaceEndpoint
       || dlcSpecs.endpoint !== expectedDlcEndpoint
       || workspace.workspace_id_hash
         !== hashAliyunPreflightProviderRef('workspace_id', input.profile.workspace_id)
-      || resource.resource_id_hash
-        !== hashAliyunPreflightProviderRef('resource_id', input.profile.resource_id)
+      || resource.resource_mode !== input.profile.resource_binding.mode
+      || resource.resource_id_hash !== expectedResourceIdHash
     ) {
       throw new ExperimentFoundationAliyunCloudPreflightError(
         'failed',
@@ -270,17 +284,31 @@ export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
         'The exact Aliyun PAI workspace is not ENABLED.',
       );
     }
-    if (
-      !resource.resource_found
-      || resource.quota_type !== 'DLC'
-      || resource.quota_spec_count < 1
-      || resource.quota_spec_manifest_hash === null
-      || !HASH_PATTERN.test(resource.quota_spec_manifest_hash)
+    if (input.profile.resource_binding.mode === 'exact_quota') {
+      if (
+        !resource.exact_quota_found
+        || resource.quota_type !== 'DLC'
+        || resource.quota_spec_count < 1
+        || resource.quota_spec_manifest_hash === null
+        || !HASH_PATTERN.test(resource.quota_spec_manifest_hash)
+      ) {
+        throw new ExperimentFoundationAliyunCloudPreflightError(
+          'blocked',
+          'ALIYUN_DLC_RESOURCE_NOT_VISIBLE',
+          'The exact DLC resource quota is not visible in the configured workspace.',
+        );
+      }
+    } else if (
+      resource.exact_quota_found
+      || resource.resource_id_hash !== null
+      || resource.quota_type !== null
+      || resource.quota_spec_count !== 0
+      || resource.quota_spec_manifest_hash !== null
     ) {
       throw new ExperimentFoundationAliyunCloudPreflightError(
-        'blocked',
-        'ALIYUN_DLC_RESOURCE_NOT_VISIBLE',
-        'The exact DLC resource quota is not visible in the configured workspace.',
+        'failed',
+        'ALIYUN_PUBLIC_RESOURCE_OBSERVATION_INVALID',
+        'Public-resource preflight observations must not claim an exact quota binding.',
       );
     }
     if (dlcSpecs.visible_cpu_spec_count < 1 || dlcSpecs.available_cpu_spec_count < 1) {
@@ -292,7 +320,7 @@ export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
     }
 
     const ledger = input.transport.getOperationLedger();
-    assertExactReadOnlyLedger(ledger);
+    assertExactReadOnlyLedger(ledger, input.profile.resource_binding.mode);
     return {
       status: 'cloud_preflight_passed',
       region_id: input.profile.region_id,
@@ -317,35 +345,35 @@ export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
 
   private invoke(
     operation: 'AIWorkspace.GetWorkspace',
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
   ): Promise<ExperimentFoundationAliyunWorkspaceObservationV1>;
   private invoke(
     operation: 'AIWorkspace.ListResources',
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
-  ): Promise<ExperimentFoundationAliyunResourceObservationV1>;
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+  ): Promise<ExperimentFoundationAliyunResourceObservationV2>;
   private invoke(
     operation: 'PaiDlc.ListEcsSpecs',
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
   ): Promise<ExperimentFoundationAliyunDlcSpecObservationV1>;
   private invoke(
     operation: string,
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
   ): Promise<
     | ExperimentFoundationAliyunWorkspaceObservationV1
-    | ExperimentFoundationAliyunResourceObservationV1
+    | ExperimentFoundationAliyunResourceObservationV2
     | ExperimentFoundationAliyunDlcSpecObservationV1
   >;
   private async invoke(
     operation: string,
-    transport: ExperimentFoundationAliyunReadOnlyTransportV1,
-    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+    transport: ExperimentFoundationAliyunReadOnlyTransportV2,
+    profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
   ): Promise<
     | ExperimentFoundationAliyunWorkspaceObservationV1
-    | ExperimentFoundationAliyunResourceObservationV1
+    | ExperimentFoundationAliyunResourceObservationV2
     | ExperimentFoundationAliyunDlcSpecObservationV1
   > {
     assertAliyunPreflightProviderOperationAllowed(operation);
@@ -353,15 +381,41 @@ export class ExperimentFoundationV2AliyunReadOnlyPreflightService {
       case 'AIWorkspace.GetWorkspace':
         return transport.getWorkspace(profile.workspace_id);
       case 'AIWorkspace.ListResources':
-        return transport.listResources(profile.workspace_id, profile.resource_id);
+        return transport.listResources(profile.workspace_id, profile.resource_binding);
       case 'PaiDlc.ListEcsSpecs':
         return transport.listEcsSpecs();
     }
   }
 }
 
-export class AliyunSdkExperimentFoundationReadOnlyTransportV1
-implements ExperimentFoundationAliyunReadOnlyTransportV1 {
+function assertExactAliyunResourceBinding(
+  value: unknown,
+): asserts value is ExperimentFoundationAliyunPaiDlcResourceBindingV2 {
+  if (!isPlainObject(value)) {
+    throw new ExperimentFoundationAliyunCloudPreflightError(
+      'failed',
+      'ALIYUN_EXECUTION_PROFILE_INVALID',
+      'Aliyun execution profile resource binding must be an exact object.',
+    );
+  }
+  const keys = Object.keys(value).sort();
+  const exactQuota = value.mode === 'exact_quota'
+    && typeof value.resource_id === 'string'
+    && value.resource_id.length > 0
+    && JSON.stringify(keys) === JSON.stringify(['mode', 'resource_id']);
+  const publicResource = value.mode === 'public_resource'
+    && JSON.stringify(keys) === JSON.stringify(['mode']);
+  if (!exactQuota && !publicResource) {
+    throw new ExperimentFoundationAliyunCloudPreflightError(
+      'failed',
+      'ALIYUN_EXECUTION_PROFILE_INVALID',
+      'Aliyun execution profile resource binding is invalid or ambiguous.',
+    );
+  }
+}
+
+export class AliyunSdkExperimentFoundationReadOnlyTransportV2
+implements ExperimentFoundationAliyunReadOnlyTransportV2 {
   private readonly workspaceClient: ExperimentFoundationAliyunWorkspaceSdkClientV1;
   private readonly dlcClient: ExperimentFoundationAliyunDlcSdkClientV1;
   private readonly ledger: ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1[] = [];
@@ -441,18 +495,31 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
       );
       return observation;
     } catch (error) {
-      this.recordFailed('AIWorkspace.GetWorkspace', this.workspaceEndpoint, redactedRefs);
-      throw error;
+      const failure = extractAliyunReadOnlyProviderFailureMetadata(error);
+      this.recordFailed(
+        'AIWorkspace.GetWorkspace',
+        this.workspaceEndpoint,
+        failure.request_id ?? 'unavailable',
+        redactedRefs,
+      );
+      throw normalizeAliyunReadOnlyProviderFailure(
+        error,
+        'AIWorkspace.GetWorkspace',
+        failure,
+      );
     }
   }
 
   async listResources(
     workspaceId: string,
-    resourceId: string,
-  ): Promise<ExperimentFoundationAliyunResourceObservationV1> {
+    resourceBinding: ExperimentFoundationAliyunPaiDlcResourceBindingV2,
+  ): Promise<ExperimentFoundationAliyunResourceObservationV2> {
     const redactedRefs = {
       workspace_id_hash: hashAliyunPreflightProviderRef('workspace_id', workspaceId),
-      resource_id_hash: hashAliyunPreflightProviderRef('resource_id', resourceId),
+      resource_mode: resourceBinding.mode,
+      ...(resourceBinding.mode === 'exact_quota'
+        ? { resource_id_hash: hashAliyunPreflightProviderRef('resource_id', resourceBinding.resource_id) }
+        : {}),
     };
     let lastRequestId = 'unavailable';
     for (let pageNumber = 1; pageNumber <= PROVIDER_LIST_MAX_PAGES; pageNumber += 1) {
@@ -471,8 +538,18 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
           'ListResources.RequestId',
         );
       } catch (error) {
-        this.recordFailed('AIWorkspace.ListResources', this.workspaceEndpoint, redactedRefs);
-        throw error;
+        const failure = extractAliyunReadOnlyProviderFailureMetadata(error);
+        this.recordFailed(
+          'AIWorkspace.ListResources',
+          this.workspaceEndpoint,
+          failure.request_id ?? 'unavailable',
+          redactedRefs,
+        );
+        throw normalizeAliyunReadOnlyProviderFailure(
+          error,
+          'AIWorkspace.ListResources',
+          failure,
+        );
       }
       this.recordSucceeded(
         'AIWorkspace.ListResources',
@@ -481,8 +558,20 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
         redactedRefs,
       );
       const resources = response.body?.resources ?? [];
+      if (resourceBinding.mode === 'public_resource') {
+        return {
+          request_id: lastRequestId,
+          endpoint: this.workspaceEndpoint,
+          resource_mode: 'public_resource',
+          resource_id_hash: null,
+          exact_quota_found: false,
+          quota_type: null,
+          quota_spec_count: 0,
+          quota_spec_manifest_hash: null,
+        };
+      }
       const match = resources.flatMap((resource) => resource.quotas ?? [])
-        .find((quota) => quota.id === resourceId);
+        .find((quota) => quota.id === resourceBinding.resource_id);
       if (match) {
         const quotaSpecs = (match.specs ?? []).map((spec) => ({
           name: spec.name ?? 'unknown',
@@ -496,8 +585,12 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
         return {
           request_id: lastRequestId,
           endpoint: this.workspaceEndpoint,
-          resource_id_hash: redactedRefs.resource_id_hash,
-          resource_found: true,
+          resource_mode: 'exact_quota',
+          resource_id_hash: hashAliyunPreflightProviderRef(
+            'resource_id',
+            resourceBinding.resource_id,
+          ),
+          exact_quota_found: true,
           quota_type: match.quotaType ?? null,
           quota_spec_count: quotaSpecs.length,
           quota_spec_manifest_hash: quotaSpecsComplete
@@ -514,8 +607,12 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
         return {
           request_id: lastRequestId,
           endpoint: this.workspaceEndpoint,
-          resource_id_hash: redactedRefs.resource_id_hash,
-          resource_found: false,
+          resource_mode: 'exact_quota',
+          resource_id_hash: hashAliyunPreflightProviderRef(
+            'resource_id',
+            resourceBinding.resource_id,
+          ),
+          exact_quota_found: false,
           quota_type: null,
           quota_spec_count: 0,
           quota_spec_manifest_hash: null,
@@ -540,15 +637,23 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
         response = await this.dlcClient.listEcsSpecs(new ListEcsSpecsRequest({
           acceleratorType: 'CPU',
           pageNumber,
-          pageSize: PROVIDER_LIST_PAGE_SIZE,
+          pageSize: PROVIDER_DLC_SPEC_PAGE_SIZE,
           resourceType: 'ECS',
-          sortBy: 'CPU',
-          order: 'asc',
         }));
         lastRequestId = requiredProviderText(response.body?.requestId, 'ListEcsSpecs.RequestId');
       } catch (error) {
-        this.recordFailed('PaiDlc.ListEcsSpecs', this.dlcEndpoint, {});
-        throw error;
+        const failure = extractAliyunReadOnlyProviderFailureMetadata(error);
+        this.recordFailed(
+          'PaiDlc.ListEcsSpecs',
+          this.dlcEndpoint,
+          failure.request_id ?? 'unavailable',
+          {},
+        );
+        throw normalizeAliyunReadOnlyProviderFailure(
+          error,
+          'PaiDlc.ListEcsSpecs',
+          failure,
+        );
       }
       this.recordSucceeded('PaiDlc.ListEcsSpecs', this.dlcEndpoint, lastRequestId, {});
       const specs = response.body?.ecsSpecs ?? [];
@@ -558,8 +663,8 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
       )).length;
       reportedTotalCount = response.body?.totalCount ?? visibleCpuSpecCount;
       const hasNextPage = typeof response.body?.totalCount === 'number'
-        ? pageNumber * PROVIDER_LIST_PAGE_SIZE < response.body.totalCount
-        : specs.length === PROVIDER_LIST_PAGE_SIZE;
+        ? pageNumber * PROVIDER_DLC_SPEC_PAGE_SIZE < response.body.totalCount
+        : specs.length === PROVIDER_DLC_SPEC_PAGE_SIZE;
       if (!hasNextPage) {
         return {
           request_id: lastRequestId,
@@ -600,18 +705,71 @@ implements ExperimentFoundationAliyunReadOnlyTransportV1 {
   private recordFailed(
     operation: ExperimentFoundationAliyunReadOnlyOperationV2,
     endpoint: string,
+    requestId: string,
     redactedRefs: Record<string, string>,
   ): void {
     this.ledger.push({
       sequence: this.ledger.length + 1,
       operation,
       endpoint,
-      request_id: 'unavailable',
+      request_id: requestId,
       outcome: 'failed',
       reason_code: 'ALIYUN_READ_ONLY_PROVIDER_CALL_FAILED',
       redacted_refs: redactedRefs,
     });
   }
+}
+
+interface AliyunReadOnlyProviderFailureMetadata {
+  status_code: number | null;
+  request_id: string | null;
+  provider_code: string | null;
+}
+
+function extractAliyunReadOnlyProviderFailureMetadata(
+  error: unknown,
+): AliyunReadOnlyProviderFailureMetadata {
+  const candidate = error !== null && typeof error === 'object'
+    ? error as Record<string, unknown>
+    : {};
+  const data = isPlainObject(candidate.data) ? candidate.data : {};
+  return {
+    status_code: Number.isInteger(candidate.statusCode)
+      ? candidate.statusCode as number
+      : Number.isInteger(candidate.status)
+        ? candidate.status as number
+        : null,
+    request_id: safeAliyunProviderDiagnosticToken(candidate.requestId)
+      ?? safeAliyunProviderDiagnosticToken(data.RequestId)
+      ?? safeAliyunProviderDiagnosticToken(data.requestId),
+    provider_code: safeAliyunProviderDiagnosticToken(candidate.code)
+      ?? safeAliyunProviderDiagnosticToken(data.Code)
+      ?? safeAliyunProviderDiagnosticToken(data.code),
+  };
+}
+
+function safeAliyunProviderDiagnosticToken(value: unknown): string | null {
+  return typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(value)
+    ? value
+    : null;
+}
+
+function normalizeAliyunReadOnlyProviderFailure(
+  error: unknown,
+  operation: ExperimentFoundationAliyunReadOnlyOperationV2,
+  metadata = extractAliyunReadOnlyProviderFailureMetadata(error),
+): ExperimentFoundationAliyunCloudPreflightError {
+  if (error instanceof ExperimentFoundationAliyunCloudPreflightError) return error;
+  const safeMetadata = [
+    metadata.status_code === null ? null : `provider_status=${metadata.status_code}`,
+    metadata.provider_code === null ? null : `provider_code=${metadata.provider_code}`,
+    metadata.request_id === null ? null : `request_id=${metadata.request_id}`,
+  ].filter((value): value is string => value !== null);
+  return new ExperimentFoundationAliyunCloudPreflightError(
+    'failed',
+    'ALIYUN_READ_ONLY_PROVIDER_CALL_FAILED',
+    `${operation} failed${safeMetadata.length > 0 ? ` (${safeMetadata.join(', ')})` : ''}; raw provider diagnostics were intentionally redacted.`,
+  );
 }
 
 export function parseAliyunPreflightIdentityPolicyEvidence(
@@ -830,12 +988,14 @@ function isCanonicalUtcInstant(value: string): boolean {
 
 function assertExactReadOnlyLedger(
   ledger: ExperimentFoundationAliyunReadOnlyOperationLedgerEntryV1[],
+  resourceMode: ExperimentFoundationAliyunPaiDlcResourceBindingV2['mode'],
 ): void {
   const operations = ledger.map((entry) => entry.operation);
   const firstDlcIndex = operations.indexOf('PaiDlc.ListEcsSpecs');
   if (
     operations[0] !== 'AIWorkspace.GetWorkspace'
     || firstDlcIndex < 2
+    || (resourceMode === 'public_resource' && firstDlcIndex !== 2)
     || operations.slice(1, firstDlcIndex)
       .some((operation) => operation !== 'AIWorkspace.ListResources')
     || operations.slice(firstDlcIndex)

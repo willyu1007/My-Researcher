@@ -10,7 +10,8 @@ import {
   EXPERIMENT_FOUNDATION_ALIYUN_READ_ONLY_OPERATIONS_V2,
   EXPERIMENT_FOUNDATION_CLOUD_PREFLIGHT_UNVERIFIED_BEHAVIORS_V2,
   EXPERIMENT_FOUNDATION_CLOUD_PREFLIGHT_V2_CHECK_IDS,
-  type ExperimentFoundationAliyunPaiDlcExecutionProfileV1,
+  type ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+  type ExperimentFoundationAliyunResourceModeV2,
   type ExperimentFoundationCloudPreflightV2CheckId,
   type ExperimentFoundationCloudPreflightV2CheckOutcome,
   type ExperimentFoundationCloudPreflightV2Status,
@@ -37,13 +38,13 @@ import {
   type ExperimentFoundationAliyunCreateJobMaterializationV2,
 } from '../src/services/experiment-foundation-v2-aliyun-create-job-payload-service.js';
 import {
-  AliyunSdkExperimentFoundationReadOnlyTransportV1,
+  AliyunSdkExperimentFoundationReadOnlyTransportV2,
   ExperimentFoundationAliyunCloudPreflightError,
   ExperimentFoundationV2AliyunReadOnlyPreflightService,
   assertAliyunPreflightProviderOperationAllowed,
   parseAliyunPreflightIdentityPolicyEvidence,
   readAliyunPreflightReviewedPolicyEvidenceFile,
-  type ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV1,
+  type ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV2,
 } from '../src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.js';
 import {
   ExperimentFoundationV2AliyunSamePayloadFakeLifecycle,
@@ -116,7 +117,8 @@ interface PackBEvidence {
 
 interface ConfigResolution {
   enabled: boolean;
-  profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1 | null;
+  resourceMode: ExperimentFoundationAliyunResourceModeV2;
+  profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2 | null;
   credential: {
     access_key_id: string;
     access_key_secret: string;
@@ -149,8 +151,8 @@ async function main(): Promise<void> {
   let databaseReadOnlyVerified = false;
   let materializations: ExperimentFoundationAliyunCreateJobMaterializationV2[] = [];
   let fakeOutcomes: ExperimentFoundationAliyunSamePayloadFakeLifecycleOutcome[] = [];
-  let cloudOutcome: ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV1 | null = null;
-  let readOnlyTransport: AliyunSdkExperimentFoundationReadOnlyTransportV1 | null = null;
+  let cloudOutcome: ExperimentFoundationAliyunReadOnlyCloudPreflightOutcomeV2 | null = null;
+  let readOnlyTransport: AliyunSdkExperimentFoundationReadOnlyTransportV2 | null = null;
   let policyEvidenceDigestVerified = false;
 
   try {
@@ -279,7 +281,7 @@ async function main(): Promise<void> {
       const policyEvidence = parseAliyunPreflightIdentityPolicyEvidence(
         JSON.parse(reviewedPolicyEvidence.raw_json) as unknown,
       );
-      readOnlyTransport = new AliyunSdkExperimentFoundationReadOnlyTransportV1(
+      readOnlyTransport = new AliyunSdkExperimentFoundationReadOnlyTransportV2(
         configuration.profile.region_id,
         configuration.credential,
       );
@@ -296,7 +298,9 @@ async function main(): Promise<void> {
       setCheck(checks, 'CP08_WORKSPACE_ENABLED', 'passed',
         'The exact target workspace exists and is ENABLED.');
       setCheck(checks, 'CP09_RESOURCE_VISIBLE', 'passed',
-        'The exact DLC quota and at least one available CPU specification are visible through read-only APIs.');
+        configuration.resourceMode === 'exact_quota'
+          ? 'The exact DLC quota and at least one available CPU specification are visible through read-only APIs.'
+          : 'Public-resource selector omission and at least one available CPU specification are verified through the exact offline payload and read-only APIs.');
     } else {
       const cloudBlocker = configuration.blockers[0] ?? {
         reason_code: 'ALIYUN_CLOUD_PREFLIGHT_CONFIGURATION_INCOMPLETE',
@@ -320,7 +324,7 @@ async function main(): Promise<void> {
     const orderedChecks = orderedCheckOutcomes(checks);
     const status = aggregateStatus(orderedChecks);
     const summary = {
-      schema_version: 'experiment-foundation-cloud-preflight@v1',
+      schema_version: 'experiment-foundation-cloud-preflight@v2',
       status,
       run_id: args.runId,
       generated_at: new Date().toISOString(),
@@ -332,6 +336,7 @@ async function main(): Promise<void> {
       exact_scope: evidence.exact_scope,
       configuration: {
         capability_enabled: configuration.enabled,
+        resource_mode: configuration.resourceMode,
         execution_profile_complete: configuration.profile !== null,
         temporary_sts_credential_complete: configuration.credential !== null,
         identity_policy_evidence_present: configuration.policyEvidencePath !== null,
@@ -385,7 +390,7 @@ async function main(): Promise<void> {
       protectedAfter,
     );
     const summary = {
-      schema_version: 'experiment-foundation-cloud-preflight@v1',
+      schema_version: 'experiment-foundation-cloud-preflight@v2',
       status: classified.status,
       run_id: args.runId,
       generated_at: new Date().toISOString(),
@@ -397,6 +402,7 @@ async function main(): Promise<void> {
       ...(configuration ? {
         configuration: {
           capability_enabled: configuration.enabled,
+          resource_mode: configuration.resourceMode,
           execution_profile_complete: configuration.profile !== null,
           temporary_sts_credential_complete: configuration.credential !== null,
           identity_policy_evidence_present: configuration.policyEvidencePath !== null,
@@ -460,25 +466,51 @@ function resolveConfiguration(): ConfigResolution {
       summary: 'The zero-write Aliyun cloud preflight capability is disabled.',
     });
   }
+  const resourceModeRaw = optionalEnv(
+    'EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_MODE',
+  ) ?? 'exact_quota';
+  if (resourceModeRaw !== 'exact_quota' && resourceModeRaw !== 'public_resource') {
+    throw new ExperimentFoundationAliyunCloudPreflightError(
+      'blocked',
+      'ALIYUN_RESOURCE_MODE_INVALID',
+      'Aliyun resource mode must be exact_quota or public_resource.',
+    );
+  }
+  const resourceMode: ExperimentFoundationAliyunResourceModeV2 = resourceModeRaw;
   const profileValues = {
     region_id: optionalEnv('EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_REGION_ID'),
     workspace_id: optionalEnv('EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID'),
     resource_id: optionalEnv('EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID'),
     image_uri: optionalEnv('EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI'),
   };
-  const profileComplete = Object.values(profileValues).every((value) => value !== null);
+  if (resourceMode === 'public_resource' && profileValues.resource_id !== null) {
+    throw new ExperimentFoundationAliyunCloudPreflightError(
+      'blocked',
+      'ALIYUN_PUBLIC_RESOURCE_ID_FORBIDDEN',
+      'Public-resource mode requires the resource ID to be absent.',
+    );
+  }
+  const commonProfileComplete = profileValues.region_id !== null
+    && profileValues.workspace_id !== null
+    && profileValues.image_uri !== null;
+  const profileComplete = commonProfileComplete
+    && (resourceMode === 'public_resource' || profileValues.resource_id !== null);
   if (!profileComplete) {
     blockers.push({
       reason_code: 'ALIYUN_EXECUTION_PROFILE_INCOMPLETE',
-      summary: 'Region, workspace, DLC quota, and image refs are required for exact payload materialization.',
+      summary: resourceMode === 'exact_quota'
+        ? 'Region, workspace, exact DLC quota, and image refs are required for exact-quota payload materialization.'
+        : 'Region, workspace, and image refs are required for public-resource payload materialization.',
     });
   }
-  const profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV1 | null = profileComplete
+  const profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2 | null = profileComplete
     ? {
-      schema_version: 'AliyunPaiDlcExecutionProfile@v1',
+      schema_version: 'AliyunPaiDlcExecutionProfile@v2',
       region_id: profileValues.region_id!,
       workspace_id: profileValues.workspace_id!,
-      resource_id: profileValues.resource_id!,
+      resource_binding: resourceMode === 'exact_quota'
+        ? { mode: 'exact_quota', resource_id: profileValues.resource_id! }
+        : { mode: 'public_resource' },
       image_uri: profileValues.image_uri!,
       job_type: 'PyTorchJob',
       job_spec_type: 'Worker',
@@ -543,6 +575,7 @@ function resolveConfiguration(): ConfigResolution {
   }
   return {
     enabled,
+    resourceMode,
     profile,
     credential,
     policyEvidencePath,
@@ -742,7 +775,7 @@ async function writeTerminalSummary(
   reasonCode: string,
 ): Promise<void> {
   await writeJsonAtomic(args.outputPath, assertSanitizedJson({
-    schema_version: 'experiment-foundation-cloud-preflight@v1',
+    schema_version: 'experiment-foundation-cloud-preflight@v2',
     status,
     run_id: args.runId,
     generated_at: new Date().toISOString(),

@@ -138,6 +138,11 @@ variables:
     required: false
     default: false
     description: Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands.
+  EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only new ExperimentFoundation v2 scientific result recording and validation intake; this switch does not stop relay draining or replay of already committed integration events and requires the committed cutover.
   EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED:
     type: bool
     required: false
@@ -154,11 +159,17 @@ variables:
     required: false
     scopes: [dev]
     description: Exact PAI workspace ID inspected by the zero-write cloud preflight.
+  EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_MODE:
+    type: string
+    required: false
+    default: exact_quota
+    scopes: [dev]
+    description: Explicit Aliyun resource selector mode for the zero-write preflight; allowed values are exact_quota and public_resource.
   EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID:
     type: string
     required: false
     scopes: [dev]
-    description: Exact DLC resource quota ID inspected by the zero-write cloud preflight.
+    description: Exact DLC resource quota ID required only for exact_quota mode; it must be absent in public_resource mode.
   EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI:
     type: string
     required: false

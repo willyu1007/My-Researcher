@@ -2,7 +2,7 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-07-21T14:46:19Z`
+Generated at (UTC): `2026-07-22T23:38:18Z`
 
 ## Environments
 - `dev`, `dev.local`, `prod`, `staging`
@@ -31,8 +31,10 @@ Generated at (UTC): `2026-07-21T14:46:19Z`
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IDENTITY_POLICY_EVIDENCE_SHA256` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Independently supplied sha256:<lowercase-hex> digest of the exact repo-external reviewed identity-policy evidence file. |
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_IMAGE_URI` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact runtime image reference used only for offline CreateJob request materialization. |
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_REGION_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact Aliyun region ID for the zero-write PAI cloud preflight. |
-| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact DLC resource quota ID inspected by the zero-write cloud preflight. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact DLC resource quota ID required only for exact_quota mode; it must be absent in public_resource mode. |
+| `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_MODE` | `active` | `string` | no | no | `exact_quota` | `` | `dev` | `` | `` | `` | Explicit Aliyun resource selector mode for the zero-write preflight; allowed values are exact_quota and public_resource. |
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact PAI workspace ID inspected by the zero-write cloud preflight. |
+| `EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new ExperimentFoundation v2 scientific result recording and validation intake; this switch does not stop relay draining or replay of already committed integration events and requires the committed cutover. |
 | `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands. |
 | `HOST` | `active` | `string` | no | no | `0.0.0.0` | `` | `*` | `` | `` | `` | Service listen host. |
 | `LITERATURE_CONTENT_PROCESSING_ROOT` | `active` | `string` | no | no | `/Volumes/DataDisk/Data/PaperEngineer/literature-content-processing` | `` | `dev` | `` | `` | `` | Local root directory for literature raw files, normalized text, pipeline artifacts, indexes, and exports. Defaults to <PAPER_ENGINEER_LOCAL_DATA_ROOT>/literature-content-processing (portable fallback applies when the macOS dev volume is absent). |
