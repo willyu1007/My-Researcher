@@ -7,6 +7,16 @@ import {
   EXPERIMENT_V2_INT32_MIN,
   EXPERIMENT_V2_HASH_PATTERN,
 } from './experiment-v2-contract-limits.js';
+import {
+  evidenceCandidateQualifiedV1Schema,
+  type EvidenceCandidateQualifiedV1,
+} from './experiment-foundation-scientific-validation-v2-contracts.js';
+import {
+  runEvidenceUnitRegisteredV1Schema,
+  validationCycleClosedV1Schema,
+  type RunEvidenceUnitRegisteredV1,
+  type ValidationCycleClosedV1,
+} from './paper-implementation-evidence-v2-contracts.js';
 
 export const EXPERIMENT_V2_TOP_LEVEL_ERROR_CODES = [
   'INVALID_PAYLOAD',
@@ -106,6 +116,9 @@ export const EXPERIMENT_V2_EVENT_TYPES = [
   'WorkOrderRevisionAdmitted',
   'RunManifestFrozen',
   'BranchHeadAdvanced',
+  'EvidenceCandidateQualified',
+  'RunEvidenceUnitRegistered',
+  'ValidationCycleClosed@v1',
 ] as const;
 export type ExperimentV2EventType = (typeof EXPERIMENT_V2_EVENT_TYPES)[number];
 
@@ -329,10 +342,31 @@ export type BranchHeadAdvancedEventV1 = ExperimentV2EventEnvelopeBase<
   BranchHeadAdvancedPayloadV1
 >;
 
+export type EvidenceCandidateQualifiedEventV1 = ExperimentV2EventEnvelopeBase<
+  'EvidenceCandidateQualified',
+  'ExperimentFoundation',
+  EvidenceCandidateQualifiedV1
+>;
+
+export type RunEvidenceUnitRegisteredEventV1 = ExperimentV2EventEnvelopeBase<
+  'RunEvidenceUnitRegistered',
+  'PaperImplementation',
+  RunEvidenceUnitRegisteredV1
+>;
+
+export type ValidationCycleClosedEventV1 = ExperimentV2EventEnvelopeBase<
+  'ValidationCycleClosed@v1',
+  'PaperImplementation',
+  ValidationCycleClosedV1
+>;
+
 export type ExperimentV2IntegrationEvent =
   | WorkOrderRevisionAdmittedEventV1
   | RunManifestFrozenEventV1
-  | BranchHeadAdvancedEventV1;
+  | BranchHeadAdvancedEventV1
+  | EvidenceCandidateQualifiedEventV1
+  | RunEvidenceUnitRegisteredEventV1
+  | ValidationCycleClosedEventV1;
 
 export interface PaperImplementationExperimentIntegrationInboxV2 {
   inbox_id: string;
@@ -350,7 +384,11 @@ export interface PaperImplementationExperimentIntegrationInboxV2 {
 export interface PaperImplementationExperimentIntegrationOutboxV2 {
   outbox_id: string;
   aggregate_transition_key: string;
-  event: WorkOrderRevisionAdmittedEventV1 | BranchHeadAdvancedEventV1;
+  event:
+    | WorkOrderRevisionAdmittedEventV1
+    | BranchHeadAdvancedEventV1
+    | RunEvidenceUnitRegisteredEventV1
+    | ValidationCycleClosedEventV1;
   created_at: string;
 }
 
@@ -370,7 +408,7 @@ export interface ExperimentFoundationIntegrationInboxV2 {
 export interface ExperimentFoundationIntegrationOutboxV2 {
   outbox_id: string;
   aggregate_transition_key: string;
-  event: RunManifestFrozenEventV1;
+  event: RunManifestFrozenEventV1 | EvidenceCandidateQualifiedEventV1;
   created_at: string;
 }
 
@@ -919,10 +957,31 @@ export const branchHeadAdvancedEventV1Schema = integrationEventSchema(
   branchHeadAdvancedPayloadV1Schema,
 );
 
+export const evidenceCandidateQualifiedEventV1Schema = integrationEventSchema(
+  'EvidenceCandidateQualified',
+  'ExperimentFoundation',
+  evidenceCandidateQualifiedV1Schema,
+);
+
+export const runEvidenceUnitRegisteredEventV1Schema = integrationEventSchema(
+  'RunEvidenceUnitRegistered',
+  'PaperImplementation',
+  runEvidenceUnitRegisteredV1Schema,
+);
+
+export const validationCycleClosedEventV1Schema = integrationEventSchema(
+  'ValidationCycleClosed@v1',
+  'PaperImplementation',
+  validationCycleClosedV1Schema,
+);
+
 export const experimentV2IntegrationEventSchema = {
   oneOf: [
     workOrderRevisionAdmittedEventV1Schema,
     runManifestFrozenEventV1Schema,
     branchHeadAdvancedEventV1Schema,
+    evidenceCandidateQualifiedEventV1Schema,
+    runEvidenceUnitRegisteredEventV1Schema,
+    validationCycleClosedEventV1Schema,
   ],
 } as const;

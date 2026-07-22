@@ -302,6 +302,7 @@ test(
       await recordCompleteBatch(unsupportedFixture);
       const unsupportedService = new ExperimentFoundationV2ScientificValidationService({
         repository: repositoryWithUnsupportedRule(unsupportedFixture),
+        enabled: () => true,
         now: () => FIXED_NOW,
       });
       const stored = await unsupportedService.validateScientificBatch({
@@ -561,6 +562,7 @@ async function seedScientificFixture(
     repository,
     service: new ExperimentFoundationV2ScientificValidationService({
       repository,
+      enabled: () => true,
       now: () => FIXED_NOW,
     }),
     attempts,

@@ -9,9 +9,13 @@ import type {
 import type {
   CloseValidationCycleV2Request,
   CloseValidationCycleV2Response,
+  ValidationCycleReadinessEvaluationV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import {
+  PaperImplementationCycleReadinessV2ServiceError,
+} from '../services/paper-implementation-cycle-readiness-v2-service.js';
 
 export interface PaperImplementationExperimentV2AdmissionUseCase {
   admit(input: {
@@ -24,6 +28,10 @@ export interface PaperImplementationExperimentV2AdmissionUseCase {
 
 export interface PaperImplementationValidationCycleClosureV2UseCase {
   close(request: CloseValidationCycleV2Request): Promise<CloseValidationCycleV2Response>;
+}
+
+export interface PaperImplementationCycleReadinessV2UseCase {
+  evaluate(validationCycleId: string): Promise<ValidationCycleReadinessEvaluationV2>;
 }
 
 type AdmissionParams = {
@@ -55,14 +63,21 @@ function handleError(reply: FastifyReply, error: unknown) {
 
 export class PaperImplementationExperimentV2Controller {
   private readonly closure: PaperImplementationValidationCycleClosureV2UseCase;
+  private readonly readiness: PaperImplementationCycleReadinessV2UseCase;
 
   constructor(
     private readonly admission: PaperImplementationExperimentV2AdmissionUseCase,
     closure?: PaperImplementationValidationCycleClosureV2UseCase,
+    readiness?: PaperImplementationCycleReadinessV2UseCase,
   ) {
     this.closure = closure ?? {
       async close() {
         throw new Error('ValidationCycle v2 closure use case is not composed.');
+      },
+    };
+    this.readiness = readiness ?? {
+      async evaluate() {
+        throw new Error('ValidationCycle v2 readiness use case is not composed.');
       },
     };
   }
@@ -100,6 +115,27 @@ export class PaperImplementationExperimentV2Controller {
       const response = await this.closure.close(request.body);
       return reply.status(201).send(response);
     } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getValidationCycleReadiness = async (
+    request: FastifyRequest<{ Params: { validation_cycle_id: string } }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const evaluation = await this.readiness.evaluate(request.params.validation_cycle_id);
+      return reply.status(200).send(evaluation);
+    } catch (error) {
+      if (error instanceof PaperImplementationCycleReadinessV2ServiceError) {
+        const notFound = error.reasonCode === 'VALIDATION_CYCLE_NOT_FOUND';
+        return handleError(reply, new AppError(
+          notFound ? 404 : 422,
+          notFound ? 'NOT_FOUND' : 'GATE_CONSTRAINT_FAILED',
+          error.message,
+          { reason_code: 'CYCLE_CLOSURE_SCOPE_DRIFT' },
+        ));
+      }
       return handleError(reply, error);
     }
   };

@@ -124,12 +124,7 @@ export function decomposeExperimentV2Event(
   event: ExperimentV2IntegrationEvent,
 ): StoredExperimentV2EventColumns {
   const stored = encodeExperimentV2EventPayload(event);
-  const runId = event.event_type === 'WorkOrderRevisionAdmitted'
-    ? null
-    : event.payload.run_id;
-  const runManifestHash = event.event_type === 'WorkOrderRevisionAdmitted'
-    ? null
-    : event.payload.run_manifest_hash;
+  const runBinding = eventRunBinding(event);
   const columns: StoredExperimentV2EventColumns = {
     eventId: event.event_id,
     eventType: event.event_type,
@@ -148,8 +143,8 @@ export function decomposeExperimentV2Event(
     workOrderRevisionHash: event.work_order_revision_hash,
     cellPlanHash: event.cell_plan_hash,
     approvedPlanHash: event.approved_plan_hash,
-    runId,
-    runManifestHash,
+    runId: runBinding.run_id,
+    runManifestHash: runBinding.run_manifest_hash,
     eventPayloadJson: structuredClone(stored.payload),
     payloadHash: event.payload_hash,
     eventEnvelopeHash: stored.envelope_hash,
@@ -234,17 +229,27 @@ function assertRunBinding(
   row: StoredExperimentV2EventColumns,
   event: ExperimentV2IntegrationEvent,
 ): void {
-  if (event.event_type === 'WorkOrderRevisionAdmitted') {
-    if (row.runId !== null || row.runManifestHash !== null) {
+  if (event.event_type === 'ValidationCycleClosed@v1') {
+    const isOutboxMirror = row.runId === null && row.runManifestHash === null;
+    const isInboxMirror = row.runId === event.payload.closure_id
+      && row.runManifestHash === event.payload.closure_snapshot_hash;
+    if (!isOutboxMirror && !isInboxMirror) {
       throw new StoredExperimentV2EventIntegrityError(
-        'Admission event must not carry Run structural columns.',
+        'Cycle-closure structural columns do not match the exact closure identity.',
       );
     }
     return;
   }
-  if (
-    row.runId !== event.payload.run_id
-    || row.runManifestHash !== event.payload.run_manifest_hash
+  const runBinding = eventRunBinding(event);
+  if (runBinding.run_id === null) {
+    if (row.runId !== null || row.runManifestHash !== null) {
+      throw new StoredExperimentV2EventIntegrityError(
+        'Non-Run integration event must not carry Run structural columns.',
+      );
+    }
+  } else if (
+    row.runId !== runBinding.run_id
+    || row.runManifestHash !== runBinding.run_manifest_hash
   ) {
     throw new StoredExperimentV2EventIntegrityError(
       'Integration event Run structural columns do not match its typed payload.',
@@ -258,4 +263,20 @@ function assertRunBinding(
       'Branch-head event sequence does not match its structural scope.',
     );
   }
+}
+
+function eventRunBinding(event: ExperimentV2IntegrationEvent): {
+  run_id: string | null;
+  run_manifest_hash: string | null;
+} {
+  if (
+    event.event_type === 'WorkOrderRevisionAdmitted'
+    || event.event_type === 'ValidationCycleClosed@v1'
+  ) {
+    return { run_id: null, run_manifest_hash: null };
+  }
+  return {
+    run_id: event.payload.run_id,
+    run_manifest_hash: event.payload.run_manifest_hash,
+  };
 }

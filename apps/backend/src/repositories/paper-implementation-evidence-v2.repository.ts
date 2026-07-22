@@ -2,7 +2,11 @@ import type {
   PaperImplementationEvidenceTraceManifestV2,
   PaperImplementationEvidenceV2ReasonCode,
   PaperImplementationRunEvidenceUnitV2,
+  RunEvidenceUnitRegisteredV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
+import type {
+  RunEvidenceUnitRegisteredEventV1 as SharedRunEvidenceUnitRegisteredEventV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
@@ -42,36 +46,9 @@ export interface PaperImplementationEvidenceInboxReceiptV2 {
   processed_at: string;
 }
 
-export interface RunEvidenceUnitRegisteredPayloadV1 {
-  run_evidence_unit_id: string;
-  content_hash: string;
-  validation_cycle_id: string;
-  run_id: string;
-  run_manifest_hash: string;
-  evidence_candidate_id: string;
-}
-
-export interface RunEvidenceUnitRegisteredEventV1 {
-  event_id: string;
-  event_type: 'RunEvidenceUnitRegistered';
-  schema_version: 'v1';
-  producer_domain: 'PaperImplementation';
-  occurred_at: string;
-  correlation_id: string;
-  causation_id: string;
-  business_idempotency_key: string;
-  implementation_project_id: string;
-  validation_cycle_id: string;
-  branch_id: string;
-  branch_key: string;
-  work_order_revision_id: string;
-  work_order_revision_hash: string;
-  branch_revision_sequence: number;
-  cell_plan_hash: string;
-  approved_plan_hash: string;
-  payload_hash: string;
-  payload: RunEvidenceUnitRegisteredPayloadV1;
-}
+export type RunEvidenceUnitRegisteredPayloadV1 = RunEvidenceUnitRegisteredV1;
+export type RunEvidenceUnitRegisteredEventV1 =
+  SharedRunEvidenceUnitRegisteredEventV1;
 
 export interface PaperImplementationEvidenceOutboxV2 {
   outbox_id: string;

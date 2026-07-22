@@ -179,6 +179,7 @@ function makeHarness(input: {
     repository,
     service: new ExperimentFoundationV2ScientificValidationService({
       repository,
+      enabled: () => true,
       now: () => FIXED_NOW,
     }),
   };
@@ -238,6 +239,19 @@ async function assertReason(
     error instanceof AppError && error.details?.reason_code === reasonCode
   ));
 }
+
+test('scientific-validation capability rejects writes before repository access', async () => {
+  const { runs: [run], repository } = makeHarness();
+  const disabled = new ExperimentFoundationV2ScientificValidationService({
+    repository,
+    enabled: () => false,
+  });
+  await assertReason(
+    () => disabled.recordExperimentResult(makeResultInput(run!, 1)),
+    'EF_V2_SCIENTIFIC_VALIDATION_DISABLED',
+  );
+  assert.deepEqual(repository.snapshot(), { results: [], outcomes: [], outboxes: [] });
+});
 
 test('passed batch atomically persists report, Candidate and outbox with exact hash bindings', async () => {
   const { runs: [run], repository, service } = makeHarness();

@@ -9,12 +9,14 @@ import type {
 import type {
   CloseValidationCycleV2Request,
   CloseValidationCycleV2Response,
+  ValidationCycleReadinessEvaluationV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 
 import { buildApp } from '../app.js';
 import {
   PaperImplementationExperimentV2Controller,
   type PaperImplementationExperimentV2AdmissionUseCase,
+  type PaperImplementationCycleReadinessV2UseCase,
   type PaperImplementationValidationCycleClosureV2UseCase,
 } from '../controllers/paper-implementation-experiment-v2-controller.js';
 import { AppError } from '../errors/app-error.js';
@@ -172,6 +174,17 @@ function closureResponseFixture(): CloseValidationCycleV2Response {
   };
 }
 
+function readinessFixture(): ValidationCycleReadinessEvaluationV2 {
+  return {
+    schema_version: 'v1',
+    validation_cycle_id: 'cycle-1',
+    status: 'ready_no_evidence',
+    ordered_blockers: [],
+    watermark: closureResponseFixture().closure.closure_watermark,
+    eligible_run_evidence_unit_count: 0,
+  };
+}
+
 test('v2 admission route injects the server actor and delegates the validated exact scope', async () => {
   const captured: Array<Parameters<PaperImplementationExperimentV2AdmissionUseCase['admit']>[0]> = [];
   const useCase: PaperImplementationExperimentV2AdmissionUseCase = {
@@ -244,6 +257,34 @@ test('v2 closure route enforces strict cycle identity and maps the dedicated use
   });
   assert.equal(extraField.statusCode, 400, extraField.body);
   assert.equal(captured.length, 1);
+  await app.close();
+});
+
+test('v2 readiness GET exposes the strict server-derived closure input hash without a write gate', async () => {
+  const admission: PaperImplementationExperimentV2AdmissionUseCase = {
+    async admit() {
+      return responseFixture();
+    },
+  };
+  const readiness: PaperImplementationCycleReadinessV2UseCase = {
+    async evaluate(validationCycleId) {
+      assert.equal(validationCycleId, 'cycle-1');
+      return readinessFixture();
+    },
+  };
+  const app = Fastify({ logger: false });
+  await registerPaperImplementationExperimentV2Routes(
+    app,
+    new PaperImplementationExperimentV2Controller(admission, undefined, readiness),
+  );
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/paper-implementation/validation-cycles/cycle-1/closure/v2/readiness',
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().status, 'ready_no_evidence');
+  assert.equal(response.json().watermark.closure_input_hash, HASH);
   await app.close();
 });
 

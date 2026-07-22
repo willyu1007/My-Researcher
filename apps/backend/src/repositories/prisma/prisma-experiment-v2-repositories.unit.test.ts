@@ -31,6 +31,7 @@ import {
 import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
 import type {
   BranchHeadAdvancedEventV1,
+  EvidenceCandidateQualifiedEventV1,
   ExperimentFoundationIntegrationInboxV2,
   ExperimentFoundationIntegrationOutboxV2,
   ExperimentV2IntegrationEvent,
@@ -41,6 +42,8 @@ import type {
   PaperImplementationExperimentWorkOrderRevisionCellV2,
   PaperImplementationExperimentWorkOrderRevisionV2,
   RunManifestFrozenEventV1,
+  RunEvidenceUnitRegisteredEventV1,
+  ValidationCycleClosedEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
@@ -72,6 +75,7 @@ import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment
 import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from './prisma-experiment-foundation-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './prisma-paper-implementation-experiment-spine-v2-repository.js';
+import { decomposeExperimentV2Event } from '../experiment-v2-stored-integration-event.js';
 
 const NOW = '2026-07-13T00:00:00.000Z';
 const LATER = '2026-07-13T00:01:00.000Z';
@@ -93,6 +97,129 @@ const HASH_E = hash('e');
 const HASH_F = hash('f');
 const HASH_1 = hash('1');
 const HASH_2 = hash('2');
+
+function packCQualifiedEvent(): EvidenceCandidateQualifiedEventV1 {
+  const payload = {
+    event_schema: 'EvidenceCandidateQualified@v1' as const,
+    candidate_id: 'candidate-pack-c',
+    candidate_content_hash: HASH_A,
+    validation_report_id: 'report-pack-c',
+    validation_hash: HASH_B,
+    run_id: 'run-pack-c',
+    run_manifest_hash: HASH_C,
+    evaluation_protocol_revision_id: 'protocol-pack-c',
+    evaluation_protocol_content_hash: HASH_D,
+  };
+  return {
+    ...eventScope(piAdmissionInput().outbox.event),
+    event_id: 'event-qualified-pack-c',
+    event_type: 'EvidenceCandidateQualified',
+    schema_version: 'v1',
+    producer_domain: 'ExperimentFoundation',
+    occurred_at: NOW,
+    correlation_id: 'correlation-pack-c',
+    causation_id: 'event-head-pack-c',
+    business_idempotency_key: 'qualified-pack-c',
+    payload_hash: serverHashExperimentV2EventPayload(
+      'EvidenceCandidateQualified',
+      'v1',
+      payload,
+    ),
+    payload,
+  };
+}
+
+function packCRegisteredEvent(): RunEvidenceUnitRegisteredEventV1 {
+  const payload = {
+    run_evidence_unit_id: 'reu-pack-c',
+    content_hash: HASH_A,
+    validation_cycle_id: 'validation-cycle-1',
+    run_id: 'run-pack-c',
+    run_manifest_hash: HASH_C,
+    evidence_candidate_id: 'candidate-pack-c',
+  };
+  return {
+    ...eventScope(piAdmissionInput().outbox.event),
+    event_id: 'event-registered-pack-c',
+    event_type: 'RunEvidenceUnitRegistered',
+    schema_version: 'v1',
+    producer_domain: 'PaperImplementation',
+    occurred_at: NOW,
+    correlation_id: 'correlation-pack-c',
+    causation_id: 'event-qualified-pack-c',
+    business_idempotency_key: 'registered-pack-c',
+    payload_hash: serverHashExperimentV2EventPayload(
+      'RunEvidenceUnitRegistered',
+      'v1',
+      payload,
+    ),
+    payload,
+  };
+}
+
+function packCClosedEvent(): ValidationCycleClosedEventV1 {
+  const payload = {
+    event_schema: 'ValidationCycleClosed@v1' as const,
+    validation_cycle_id: 'validation-cycle-1',
+    closure_id: 'closure-pack-c',
+    closure_snapshot_hash: HASH_A,
+    closure_kind: 'control_flow_validated_no_paper_evidence' as const,
+    scientific_disposition: null,
+    closure_input_hash: HASH_B,
+  };
+  return {
+    ...eventScope(piAdmissionInput().outbox.event),
+    event_id: 'event-closed-pack-c',
+    event_type: 'ValidationCycleClosed@v1',
+    schema_version: 'v1',
+    producer_domain: 'PaperImplementation',
+    occurred_at: NOW,
+    correlation_id: 'closure-pack-c',
+    causation_id: HASH_B,
+    business_idempotency_key: 'closed-pack-c',
+    payload_hash: serverHashExperimentV2EventPayload(
+      'ValidationCycleClosed@v1',
+      'v1',
+      payload,
+    ),
+    payload,
+  };
+}
+
+function replaceOutboxStoredEvent(
+  row: Row,
+  event: ExperimentV2IntegrationEvent,
+  aggregateType: string,
+  aggregateId: string,
+): void {
+  const stored = decomposeExperimentV2Event(event);
+  Object.assign(row, {
+    eventId: stored.eventId,
+    eventType: stored.eventType,
+    schemaVersion: stored.schemaVersion,
+    producerDomain: stored.producerDomain,
+    occurredAt: stored.occurredAt,
+    correlationId: stored.correlationId,
+    causationId: stored.causationId,
+    businessIdempotencyKey: stored.businessIdempotencyKey,
+    implementationProjectId: stored.implementationProjectId,
+    validationCycleId: stored.validationCycleId,
+    branchId: stored.branchId,
+    branchKey: stored.branchKey,
+    workOrderRevisionId: stored.workOrderRevisionId,
+    revisionSequence: stored.revisionSequence,
+    workOrderRevisionHash: stored.workOrderRevisionHash,
+    cellPlanHash: stored.cellPlanHash,
+    approvedPlanHash: stored.approvedPlanHash,
+    runId: stored.runId,
+    runManifestHash: stored.runManifestHash,
+    eventPayloadJson: stored.eventPayloadJson,
+    payloadHash: stored.payloadHash,
+    eventEnvelopeHash: stored.eventEnvelopeHash,
+    aggregateType,
+    aggregateId,
+  });
+}
 
 type Row = Record<string, unknown>;
 type Tables = Record<string, Row[]>;
@@ -1588,6 +1715,60 @@ test('PI/EF Prisma integration storage persists only typed payload JSON and exac
   }
 });
 
+test('PI/EF Prisma claimers decode all three Pack C outbox events without terminalization', async () => {
+  const qualified = packCQualifiedEvent();
+  const efFake = makeFakePrismaClient();
+  const efPiRepository = new PrismaPaperImplementationExperimentSpineV2Repository(efFake.client);
+  const efRepository = new PrismaExperimentFoundationSpineV2Repository(efFake.client);
+  const admission = piAdmissionInput();
+  await efPiRepository.commitAdmission(admission);
+  seedExactReadiness(efFake.tables(), admission.outbox.event);
+  await efRepository.commitMaterialization(
+    efMaterialization(admission.outbox.event),
+    admission.outbox.event,
+  );
+  const efRow = efFake.tables().experimentFoundationIntegrationOutboxV2![0]!;
+  replaceOutboxStoredEvent(
+    efRow,
+    qualified,
+    'ExperimentFoundationEvidenceCandidateV2',
+    qualified.payload.candidate_id,
+  );
+  const efClaims = await efRepository.claimOutbox({
+    lease_owner: 'pack-c-ef-relay',
+    claimed_at: LATER,
+    lease_expires_at: '2026-07-13T00:05:00.000Z',
+    limit: 1,
+  });
+  assert.equal(efClaims[0]?.event.event_type, 'EvidenceCandidateQualified');
+  assert.notEqual(efRow.relayStatus, 'terminal');
+
+  for (const event of [packCRegisteredEvent(), packCClosedEvent()]) {
+    const piFake = makeFakePrismaClient();
+    const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(piFake.client);
+    await piRepository.commitAdmission(piAdmissionInput());
+    const piRow = piFake.tables().paperImplementationExperimentIntegrationOutboxV2![0]!;
+    replaceOutboxStoredEvent(
+      piRow,
+      event,
+      event.event_type === 'RunEvidenceUnitRegistered'
+        ? 'PaperImplementationRunEvidenceUnitV2'
+        : 'PaperImplementationValidationCycleClosureV2',
+      event.event_type === 'RunEvidenceUnitRegistered'
+        ? event.payload.run_evidence_unit_id
+        : event.payload.closure_id,
+    );
+    const piClaims = await piRepository.claimOutbox({
+      lease_owner: `pack-c-pi-relay-${event.event_type}`,
+      claimed_at: LATER,
+      lease_expires_at: '2026-07-13T00:05:00.000Z',
+      limit: 1,
+    });
+    assert.equal(piClaims[0]?.event.event_type, event.event_type);
+    assert.notEqual(piRow.relayStatus, 'terminal');
+  }
+});
+
 test('PI Prisma claim terminalizes structural, type, version, payload, and envelope-hash drift', async () => {
   const driftCases: Array<[string, (row: Row) => void]> = [
     ['structural correlation', (row) => { row.correlationId = 'drifted-correlation'; }],
@@ -2974,7 +3155,9 @@ function piAdmissionInput(): PaperImplementationExperimentV2CommitAdmissionInput
     admitted_by: 'server:test',
     admitted_at: NOW,
   };
-  const outbox: PaperImplementationExperimentIntegrationOutboxV2 = {
+  const outbox: PaperImplementationExperimentIntegrationOutboxV2 & {
+    event: WorkOrderRevisionAdmittedEventV1;
+  } = {
     outbox_id: 'pi-outbox-admitted-1',
     aggregate_transition_key: 'revision-admitted',
     event: workOrderEvent,
@@ -3186,7 +3369,9 @@ function piHeadInput(
     branchEvent.schema_version,
     branchEvent.payload,
   );
-  const outbox: PaperImplementationExperimentIntegrationOutboxV2 = {
+  const outbox: PaperImplementationExperimentIntegrationOutboxV2 & {
+    event: BranchHeadAdvancedEventV1;
+  } = {
     outbox_id: `pi-outbox-head-${identity}`,
     aggregate_transition_key:
       `${sourceEvent.branch_id}:revision:${sourceEvent.branch_revision_sequence}:head`,
@@ -3392,7 +3577,9 @@ function efMaterialization(
     payload: frozenPayload,
     payload_hash: serverHashExperimentV2EventPayload('RunManifestFrozen', 'v1', frozenPayload),
   };
-  const outbox: ExperimentFoundationIntegrationOutboxV2 = {
+  const outbox: ExperimentFoundationIntegrationOutboxV2 & {
+    event: RunManifestFrozenEventV1;
+  } = {
     outbox_id: 'ef-outbox-run-1',
     aggregate_transition_key: 'run-manifest-frozen',
     event: runFrozen,

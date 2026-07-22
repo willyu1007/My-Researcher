@@ -48,6 +48,7 @@ import {
   type PaperImplementationExperimentV2AdmissionBundle,
   type PaperImplementationExperimentV2CommitAdmissionInput,
   type PaperImplementationExperimentV2CommitHeadInput,
+  type PaperImplementationInboxSourceEventV2,
 } from '../experiment-spine-v2.repository.js';
 import {
   decodeExperimentV2InboxOutcome,
@@ -361,7 +362,7 @@ implements PaperImplementationExperimentSpineV2Repository {
 
   async recordInboxOutcome(
     inbox: PaperImplementationExperimentIntegrationInboxV2,
-    sourceEvent: RunManifestFrozenEventV1,
+    sourceEvent: PaperImplementationInboxSourceEventV2,
   ): Promise<PaperImplementationExperimentIntegrationInboxV2> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -734,6 +735,13 @@ function mapAdmissionBundleAuthority(
   const cells = cellRows.map((row) => mapCell(row, reasonCode));
   const admission = mapAdmission(admissionRow);
   const outbox = mapPiOutbox(outboxRow);
+  if (outbox.event.event_type !== 'WorkOrderRevisionAdmitted') {
+    throw constraint(
+      'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
+      `Stored admission outbox has the wrong event type: ${outbox.outbox_id}`,
+    );
+  }
+  const admissionOutbox = { ...outbox, event: outbox.event };
 
   assertStoredPlanHashes(branch, revision, cells, reasonCode);
   if (
@@ -752,8 +760,14 @@ function mapAdmissionBundleAuthority(
     );
   }
 
-  assertStoredAdmissionEventBindings({ branch, revision, cells, admission, outbox });
-  return { branch, revision, cells, admission, outbox };
+  assertStoredAdmissionEventBindings({
+    branch,
+    revision,
+    cells,
+    admission,
+    outbox: admissionOutbox,
+  });
+  return { branch, revision, cells, admission, outbox: admissionOutbox };
 }
 
 function mapBranch(
@@ -949,10 +963,14 @@ function mapAdmission(row: AdmissionRow): PaperImplementationExperimentWorkOrder
 function mapPiInbox(row: PiInboxRow): PaperImplementationExperimentIntegrationInboxV2 {
   const sourceEvent = storedEvent(row);
   const storedOutcome = storedInboxOutcome(row);
-  if (sourceEvent.event_type !== 'RunManifestFrozen') {
+  if (
+    sourceEvent.event_type !== 'RunManifestFrozen'
+    && sourceEvent.event_type !== 'RunEvidenceUnitRegistered'
+    && sourceEvent.event_type !== 'ValidationCycleClosed@v1'
+  ) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
-      `PI inbox contains a non-EF event: ${row.id}`,
+      `PI inbox contains an unsupported source event: ${row.id}`,
     );
   }
   return {
@@ -971,19 +989,17 @@ function mapPiInbox(row: PiInboxRow): PaperImplementationExperimentIntegrationIn
 
 function mapPiOutbox(row: PiOutboxRow): PaperImplementationExperimentIntegrationOutboxV2 {
   const event = storedEvent(row);
-  if (event.event_type === 'RunManifestFrozen') {
+  if (
+    event.event_type === 'RunManifestFrozen'
+    || event.event_type === 'EvidenceCandidateQualified'
+  ) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
       `PI outbox contains an EF-owned event: ${row.id}`,
     );
   }
-  const isAdmission = event.event_type === 'WorkOrderRevisionAdmitted';
-  if (
-    row.aggregateType !== (isAdmission
-      ? 'PaperImplementationExperimentWorkOrderRevisionV2'
-      : 'PaperImplementationExperimentWorkOrderBranchV2')
-    || row.aggregateId !== (isAdmission ? event.work_order_revision_id : event.branch_id)
-  ) {
+  const aggregate = expectedPiOutboxAggregate(event);
+  if (row.aggregateType !== aggregate.type || row.aggregateId !== aggregate.id) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
       `PI outbox aggregate binding drifted: ${row.id}`,
@@ -999,7 +1015,7 @@ function mapPiOutbox(row: PiOutboxRow): PaperImplementationExperimentIntegration
 
 function piInboxCreateData(
   inbox: PaperImplementationExperimentIntegrationInboxV2,
-  sourceEvent: RunManifestFrozenEventV1,
+  sourceEvent: PaperImplementationInboxSourceEventV2,
 ) {
   assertInboxMatchesEvent(inbox, sourceEvent);
   const stored = encodedEvent(sourceEvent);
@@ -1028,8 +1044,8 @@ function piInboxCreateData(
     workOrderRevisionHash: sourceEvent.work_order_revision_hash,
     cellPlanHash: sourceEvent.cell_plan_hash,
     approvedPlanHash: sourceEvent.approved_plan_hash,
-    runId: sourceEvent.payload.run_id,
-    runManifestHash: sourceEvent.payload.run_manifest_hash,
+    runId: inboxRunColumns(sourceEvent).run_id,
+    runManifestHash: inboxRunColumns(sourceEvent).run_manifest_hash,
     eventPayloadJson: toInputJson(stored.payload),
     payloadHash: sourceEvent.payload_hash,
     eventEnvelopeHash: stored.envelope_hash,
@@ -1044,14 +1060,13 @@ function piInboxCreateData(
 function piOutboxCreateData(outbox: PaperImplementationExperimentIntegrationOutboxV2) {
   const event = outbox.event;
   const stored = encodedEvent(event);
-  const isAdmission = event.event_type === 'WorkOrderRevisionAdmitted';
+  const aggregate = expectedPiOutboxAggregate(event);
+  const run = eventRunColumns(event);
   return {
     id: outbox.outbox_id,
     eventId: event.event_id,
-    aggregateType: isAdmission
-      ? 'PaperImplementationExperimentWorkOrderRevisionV2'
-      : 'PaperImplementationExperimentWorkOrderBranchV2',
-    aggregateId: isAdmission ? event.work_order_revision_id : event.branch_id,
+    aggregateType: aggregate.type,
+    aggregateId: aggregate.id,
     transitionKey: outbox.aggregate_transition_key,
     eventType: event.event_type,
     schemaVersion: event.schema_version,
@@ -1069,8 +1084,8 @@ function piOutboxCreateData(outbox: PaperImplementationExperimentIntegrationOutb
     workOrderRevisionHash: event.work_order_revision_hash,
     cellPlanHash: event.cell_plan_hash,
     approvedPlanHash: event.approved_plan_hash,
-    runId: isAdmission ? null : event.payload.run_id,
-    runManifestHash: isAdmission ? null : event.payload.run_manifest_hash,
+    runId: run.run_id,
+    runManifestHash: run.run_manifest_hash,
     eventPayloadJson: toInputJson(stored.payload),
     payloadHash: event.payload_hash,
     eventEnvelopeHash: stored.envelope_hash,
@@ -1084,7 +1099,7 @@ function piOutboxCreateData(outbox: PaperImplementationExperimentIntegrationOutb
 async function findPiInboxReplay(
   client: SpineClient,
   inbox: PaperImplementationExperimentIntegrationInboxV2,
-  sourceEvent: RunManifestFrozenEventV1,
+  sourceEvent: PaperImplementationInboxSourceEventV2,
 ): Promise<PaperImplementationExperimentIntegrationInboxV2 | null> {
   const byEvent = await client.paperImplementationExperimentIntegrationInboxV2.findFirst({
     where: { consumerName: inbox.consumer_name, eventId: sourceEvent.event_id },
@@ -1327,7 +1342,7 @@ async function assertStoredHeadAdvanceOutboxBinding(
 
 function assertInboxMatchesEvent(
   inbox: PaperImplementationExperimentIntegrationInboxV2,
-  event: RunManifestFrozenEventV1,
+  event: PaperImplementationInboxSourceEventV2,
 ): void {
   if (
     inbox.source_event_id !== event.event_id
@@ -1338,6 +1353,62 @@ function assertInboxMatchesEvent(
   ) {
     throw constraint('INTEGRATION_EVENT_PAYLOAD_CONFLICT', 'PI inbox receipt does not match its source event');
   }
+}
+
+function expectedPiOutboxAggregate(
+  event: PaperImplementationExperimentIntegrationOutboxV2['event'],
+): { type: string; id: string } {
+  switch (event.event_type) {
+    case 'WorkOrderRevisionAdmitted':
+      return {
+        type: 'PaperImplementationExperimentWorkOrderRevisionV2',
+        id: event.work_order_revision_id,
+      };
+    case 'BranchHeadAdvanced':
+      return { type: 'PaperImplementationExperimentWorkOrderBranchV2', id: event.branch_id };
+    case 'RunEvidenceUnitRegistered':
+      return {
+        type: 'PaperImplementationRunEvidenceUnitV2',
+        id: event.payload.run_evidence_unit_id,
+      };
+    case 'ValidationCycleClosed@v1':
+      return {
+        type: 'PaperImplementationValidationCycleClosureV2',
+        id: event.payload.closure_id,
+      };
+  }
+}
+
+function eventRunColumns(
+  event:
+    | PaperImplementationExperimentIntegrationOutboxV2['event']
+    | PaperImplementationInboxSourceEventV2,
+): { run_id: string | null; run_manifest_hash: string | null } {
+  if (
+    event.event_type === 'WorkOrderRevisionAdmitted'
+    || event.event_type === 'ValidationCycleClosed@v1'
+  ) {
+    return { run_id: null, run_manifest_hash: null };
+  }
+  return {
+    run_id: event.payload.run_id,
+    run_manifest_hash: event.payload.run_manifest_hash,
+  };
+}
+
+function inboxRunColumns(
+  event: PaperImplementationInboxSourceEventV2,
+): { run_id: string; run_manifest_hash: string } {
+  if (event.event_type === 'ValidationCycleClosed@v1') {
+    return {
+      run_id: event.payload.closure_id,
+      run_manifest_hash: event.payload.closure_snapshot_hash,
+    };
+  }
+  return {
+    run_id: event.payload.run_id,
+    run_manifest_hash: event.payload.run_manifest_hash,
+  };
 }
 
 function sameAdmissionBundle(

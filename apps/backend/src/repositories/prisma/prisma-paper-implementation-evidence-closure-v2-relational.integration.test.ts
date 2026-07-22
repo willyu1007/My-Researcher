@@ -502,6 +502,9 @@ async function admitAndDrainRevision(
       repository: fixture.efRepository,
       now: () => FIXED_NOW,
     }),
+    evidenceTrustGatewayConsumer: { async consume() {} },
+    runEvidenceProjectionConsumer: { async consume() {} },
+    validationCycleClosedProjectionConsumer: { async consume() {} },
     workerId: `${fixture.namespace}:relay:${revision}`,
     now: () => FIXED_NOW,
   });

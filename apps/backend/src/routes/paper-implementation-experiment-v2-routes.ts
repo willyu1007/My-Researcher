@@ -13,6 +13,7 @@ import {
 import {
   closeValidationCycleV2RequestSchema,
   closeValidationCycleV2ResponseSchema,
+  validationCycleReadinessEvaluationV2Schema,
   type CloseValidationCycleV2Request,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 
@@ -205,5 +206,20 @@ export async function registerPaperImplementationExperimentV2Routes(
       errorHandler: handleRouteError,
     },
     controller.closeValidationCycle,
+  );
+
+  fastify.get<{ Params: { validation_cycle_id: string } }>(
+    '/paper-implementation/validation-cycles/:validation_cycle_id/closure/v2/readiness',
+    {
+      schema: {
+        params: closureParamsSchema,
+        response: {
+          200: validationCycleReadinessEvaluationV2Schema,
+          ...standardErrorResponses,
+        },
+      },
+      errorHandler: handleRouteError,
+    },
+    controller.getValidationCycleReadiness,
   );
 }

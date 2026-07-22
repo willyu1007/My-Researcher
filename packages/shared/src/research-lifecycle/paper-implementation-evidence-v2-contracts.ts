@@ -76,6 +76,15 @@ export interface PaperImplementationEvidenceTraceManifestV2 {
   content_hash: string;
 }
 
+export interface RunEvidenceUnitRegisteredV1 {
+  run_evidence_unit_id: string;
+  content_hash: string;
+  validation_cycle_id: string;
+  run_id: string;
+  run_manifest_hash: string;
+  evidence_candidate_id: string;
+}
+
 /** Identity-only gateway ingress; server re-resolves every fact from EF. */
 export interface IngestQualifiedEvidenceCandidateV2Request {
   evidence_candidate_id: string;
@@ -300,6 +309,27 @@ export const paperImplementationEvidenceTraceManifestV2Schema = {
       },
     },
     content_hash: hashSchema,
+  },
+} as const;
+
+export const runEvidenceUnitRegisteredV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'run_evidence_unit_id',
+    'content_hash',
+    'validation_cycle_id',
+    'run_id',
+    'run_manifest_hash',
+    'evidence_candidate_id',
+  ],
+  properties: {
+    run_evidence_unit_id: stringId,
+    content_hash: hashSchema,
+    validation_cycle_id: stringId,
+    run_id: stringId,
+    run_manifest_hash: hashSchema,
+    evidence_candidate_id: stringId,
   },
 } as const;
 

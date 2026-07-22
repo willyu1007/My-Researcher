@@ -21,12 +21,14 @@ import { InMemoryExperimentFoundationExecutionRepository } from './repositories/
 import { InMemoryExperimentFoundationExecutionV2Repository } from './repositories/in-memory-experiment-foundation-execution-v2-repository.js';
 import { InMemoryExperimentFoundationRepository } from './repositories/in-memory-experiment-foundation-repository.js';
 import { InMemoryExperimentFoundationV2Repository } from './repositories/in-memory-experiment-foundation-v2-repository.js';
+import { InMemoryExperimentFoundationScientificValidationV2Repository } from './repositories/in-memory-experiment-foundation-scientific-validation-v2-repository.js';
 import {
   InMemoryExperimentFoundationExperimentSpineV2Repository,
   InMemoryPaperImplementationExperimentSpineV2Repository,
 } from './repositories/in-memory-experiment-spine-v2-repository.js';
 import { InMemoryLiteratureRepository } from './repositories/in-memory-literature-repository.js';
 import { InMemoryPaperImplementationRepository } from './repositories/in-memory-paper-implementation-repository.js';
+import { InMemoryPaperImplementationEvidenceV2Repository } from './repositories/in-memory-paper-implementation-evidence-v2-repository.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from './repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationMotiveRepository } from './repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from './repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
@@ -66,8 +68,10 @@ import { PrismaExperimentFoundationExecutionV2Repository } from './repositories/
 import { PrismaExperimentFoundationRepository } from './repositories/prisma/prisma-experiment-foundation-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from './repositories/prisma/prisma-experiment-foundation-v2-repository.js';
+import { PrismaExperimentFoundationScientificValidationV2Repository } from './repositories/prisma/prisma-experiment-foundation-scientific-validation-v2-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaPaperImplementationRepository } from './repositories/prisma/prisma-paper-implementation-repository.js';
+import { PrismaPaperImplementationEvidenceV2Repository } from './repositories/prisma/prisma-paper-implementation-evidence-v2-repository.js';
 import { PrismaPaperImplementationAiWorkflowHarnessRepository } from './repositories/prisma/prisma-paper-implementation-ai-workflow-harness-repository.js';
 import { PrismaPaperImplementationMotiveRepository } from './repositories/prisma/prisma-paper-implementation-motive-repository.js';
 import { PrismaPaperImplementationResultClaimDossierRepository } from './repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.js';
@@ -80,6 +84,7 @@ import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
 import { PrismaPaperImplementationWorkOrderRepository } from './repositories/prisma/prisma-paper-implementation-workorder-repository.js';
 import { PrismaPaperImplementationValidationCycleClosureV2Repository } from './repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
+import { PrismaPaperImplementationCycleReadinessV2Repository } from './repositories/prisma/prisma-paper-implementation-cycle-readiness-v2-repository.js';
 import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-research-lifecycle-repository.js';
 import { InMemoryTitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import { PrismaTitleCardManagementRepository } from './repositories/prisma/prisma-title-card-management-repository.js';
@@ -124,8 +129,10 @@ import type { ExperimentFoundationExecutionRepository } from './repositories/exp
 import type { ExperimentFoundationExecutionV2Repository } from './repositories/experiment-foundation-execution-v2.repository.js';
 import type { ExperimentFoundationRepository } from './repositories/experiment-foundation.repository.js';
 import type { ExperimentFoundationV2Repository } from './repositories/experiment-foundation-v2.repository.js';
+import type { ExperimentFoundationScientificValidationV2Repository } from './repositories/experiment-foundation-scientific-validation-v2.repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
+import type { PaperImplementationEvidenceV2Repository } from './repositories/paper-implementation-evidence-v2.repository.js';
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
@@ -139,6 +146,7 @@ import type {
   PaperImplementationExperimentSpineV2Repository,
 } from './repositories/experiment-spine-v2.repository.js';
 import type { PaperImplementationValidationCycleClosureV2Repository } from './repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
+import type { PaperImplementationCycleReadinessV2Repository } from './repositories/paper-implementation-cycle-readiness-v2.repository.js';
 import type { PaperImplementationTraceRepository } from './repositories/paper-implementation-trace.repository.js';
 import type { PaperImplementationValidationRepository } from './repositories/paper-implementation-validation.repository.js';
 import type { PaperImplementationWorkOrderRepository } from './repositories/paper-implementation-workorder.repository.js';
@@ -176,6 +184,7 @@ import {
   type ExperimentFoundationV2ReadinessResolver,
 } from './services/experiment-foundation-v2-materialization-service.js';
 import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
+import { ExperimentFoundationV2ScientificValidationService } from './services/experiment-foundation-v2-scientific-validation-service.js';
 import { ExperimentV2IntegrationRelayScheduler } from './services/experiment-v2-integration-relay-scheduler.js';
 import { ExperimentV2IntegrationRelayService } from './services/experiment-v2-integration-relay-service.js';
 import { LiteratureAutoAdvanceService } from './services/literature-auto-advance-service.js';
@@ -198,6 +207,9 @@ import {
   type PaperImplementationExperimentV2ScopeReader,
 } from './services/paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from './services/paper-implementation-experiment-v2-head-service.js';
+import { PaperImplementationCycleReadinessV2Service } from './services/paper-implementation-cycle-readiness-v2-service.js';
+import { PaperImplementationEvidenceTrustGatewayService } from './services/paper-implementation-evidence-trust-gateway-service.js';
+import { PaperImplementationProjectionFeedV2Consumer } from './services/paper-implementation-projection-feed-v2-consumer.js';
 import { PaperImplementationValidationCycleClosureV2Service } from './services/paper-implementation-validation-cycle-closure-v2-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from './services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationResultClaimDossierService } from './services/paper-implementation-result-claim-dossier-service.js';
@@ -306,14 +318,18 @@ export type BuildAppOptions = {
   paperImplementationHumanConfirmationRepository?: PaperImplementationHumanConfirmationRepository;
   paperImplementationExperimentSpineV2Repository?: PaperImplementationExperimentSpineV2Repository;
   paperImplementationValidationCycleClosureV2Repository?: PaperImplementationValidationCycleClosureV2Repository;
+  paperImplementationCycleReadinessV2Repository?: PaperImplementationCycleReadinessV2Repository;
+  paperImplementationEvidenceV2Repository?: PaperImplementationEvidenceV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
   experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
   experimentFoundationExecutionV2Repository?: ExperimentFoundationExecutionV2Repository;
+  experimentFoundationScientificValidationV2Repository?: ExperimentFoundationScientificValidationV2Repository;
   paperImplementationExperimentV2ScopeReader?: PaperImplementationExperimentV2ScopeReader;
   paperImplementationExperimentV2AdmissionEnabled?: () => boolean;
   paperImplementationValidationCycleClosureV2Enabled?: () => boolean;
   paperImplementationExperimentV2CutoverCommitted?: () => boolean;
   experimentFoundationV2WorkflowSimulationEnabled?: () => boolean;
+  experimentFoundationV2ScientificValidationEnabled?: () => boolean;
   backgroundWorkEnabled?: boolean;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
@@ -383,6 +399,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2WorkflowSimulationEnabled =
     options.experimentFoundationV2WorkflowSimulationEnabled?.()
     ?? isExperimentFoundationV2WorkflowSimulationEnabled();
+  const experimentV2ScientificValidationEnabled =
+    options.experimentFoundationV2ScientificValidationEnabled?.()
+    ?? isExperimentFoundationV2ScientificValidationEnabled();
   // TODO(T-132 C-PI env follow-up): replace this test/composition injection
   // with the reviewed env-contract key. Env-contract changes are out of this slice.
   const validationCycleClosureV2Enabled =
@@ -392,6 +411,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     admissionEnabled: experimentV2AdmissionEnabled,
     cutoverCommitted: experimentV2CutoverCommitted,
     workflowSimulationEnabled: experimentV2WorkflowSimulationEnabled,
+    scientificValidationEnabled: experimentV2ScientificValidationEnabled,
     cycleClosureEnabled: validationCycleClosureV2Enabled,
   });
 
@@ -472,10 +492,24 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationExperimentSpineV2Repository(
       storeConfig.paperImplementationStrategy,
     );
+  const paperImplementationCycleReadinessV2Repository =
+    options.paperImplementationCycleReadinessV2Repository
+    ?? createPaperImplementationCycleReadinessV2Repository(
+      storeConfig.paperImplementationStrategy,
+    );
   const paperImplementationValidationCycleClosureV2Repository =
     options.paperImplementationValidationCycleClosureV2Repository
     ?? createPaperImplementationValidationCycleClosureV2Repository(
       storeConfig.paperImplementationStrategy,
+      paperImplementationCycleReadinessV2Repository,
+    );
+  const paperImplementationEvidenceV2Repository =
+    options.paperImplementationEvidenceV2Repository
+    ?? createPaperImplementationEvidenceV2Repository(storeConfig.paperImplementationStrategy);
+  const experimentFoundationScientificValidationV2Repository =
+    options.experimentFoundationScientificValidationV2Repository
+    ?? createExperimentFoundationScientificValidationV2Repository(
+      storeConfig.experimentFoundationStrategy,
     );
   const hasDefaultDurableExperimentV2Composition =
     storeConfig.paperImplementationStrategy === 'prisma'
@@ -483,7 +517,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     && options.paperImplementationExperimentSpineV2Repository === undefined
     && options.experimentFoundationV2Repository === undefined
     && options.experimentFoundationExperimentSpineV2Repository === undefined
-    && options.experimentFoundationExecutionV2Repository === undefined;
+    && options.experimentFoundationExecutionV2Repository === undefined
+    && options.paperImplementationCycleReadinessV2Repository === undefined
+    && options.paperImplementationEvidenceV2Repository === undefined
+    && options.experimentFoundationScientificValidationV2Repository === undefined;
   const paperImplementationWorkOrderRepository = options.paperImplementationWorkOrderRepository
     ?? createPaperImplementationWorkOrderRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationResultClaimDossierRepository = options.paperImplementationResultClaimDossierRepository
@@ -611,11 +648,34 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         )
       ),
     });
+  const paperImplementationCycleReadinessV2Service =
+    new PaperImplementationCycleReadinessV2Service({
+      repository: paperImplementationCycleReadinessV2Repository,
+    });
   const paperImplementationExperimentV2Controller =
     new PaperImplementationExperimentV2Controller(
       paperImplementationExperimentV2AdmissionService,
       paperImplementationValidationCycleClosureV2Service,
+      paperImplementationCycleReadinessV2Service,
     );
+  const experimentFoundationScientificValidationV2Service =
+    new ExperimentFoundationV2ScientificValidationService({
+      repository: experimentFoundationScientificValidationV2Repository,
+      enabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2ScientificValidationEnabled
+      ),
+    });
+  const paperImplementationEvidenceTrustGatewayService =
+    new PaperImplementationEvidenceTrustGatewayService({
+      repository: paperImplementationEvidenceV2Repository,
+      scientificValidationReadRepository:
+        experimentFoundationScientificValidationV2Repository,
+    });
+  const paperImplementationProjectionFeedV2Consumer =
+    new PaperImplementationProjectionFeedV2Consumer({
+      repository: paperImplementationExperimentSpineV2Repository,
+    });
   const experimentFoundationV2MaterializationService =
     new ExperimentFoundationV2MaterializationService({
       repository: experimentFoundationExperimentSpineV2Repository,
@@ -637,7 +697,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     materializationConsumer: experimentFoundationV2MaterializationService,
     headConsumer: paperImplementationExperimentV2HeadService,
     acknowledgementConsumer: experimentFoundationV2AcknowledgementService,
+    evidenceTrustGatewayConsumer: paperImplementationEvidenceTrustGatewayService,
+    runEvidenceProjectionConsumer: paperImplementationProjectionFeedV2Consumer,
+    validationCycleClosedProjectionConsumer: paperImplementationProjectionFeedV2Consumer,
   });
+  app.decorate(
+    'experimentFoundationScientificValidationV2Service',
+    experimentFoundationScientificValidationV2Service,
+  );
+  app.decorate(
+    'paperImplementationEvidenceTrustGatewayService',
+    paperImplementationEvidenceTrustGatewayService,
+  );
+  app.decorate('experimentV2IntegrationRelayService', experimentV2IntegrationRelayService);
   const experimentV2IntegrationRelayScheduler = hasDefaultDurableExperimentV2Composition
     ? new ExperimentV2IntegrationRelayScheduler(experimentV2IntegrationRelayService, {
       onError: (error) => app.log.error(
@@ -1735,14 +1807,33 @@ function createPaperImplementationExperimentSpineV2Repository(
 
 function createPaperImplementationValidationCycleClosureV2Repository(
   strategy: RepositoryStrategy,
+  readinessRepository: PaperImplementationCycleReadinessV2Repository,
 ): PaperImplementationValidationCycleClosureV2Repository {
   if (strategy === 'prisma') {
     return new PrismaPaperImplementationValidationCycleClosureV2Repository(getPrismaClient());
   }
 
   return new InMemoryPaperImplementationValidationCycleClosureV2Repository({
-    readinessRepository: new InMemoryPaperImplementationCycleReadinessV2Repository(),
+    readinessRepository,
   });
+}
+
+function createPaperImplementationCycleReadinessV2Repository(
+  strategy: RepositoryStrategy,
+): PaperImplementationCycleReadinessV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaPaperImplementationCycleReadinessV2Repository(getPrismaClient());
+  }
+  return new InMemoryPaperImplementationCycleReadinessV2Repository();
+}
+
+function createPaperImplementationEvidenceV2Repository(
+  strategy: RepositoryStrategy,
+): PaperImplementationEvidenceV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaPaperImplementationEvidenceV2Repository(getPrismaClient());
+  }
+  return new InMemoryPaperImplementationEvidenceV2Repository();
 }
 
 function createExperimentFoundationV2Repository(
@@ -1773,6 +1864,15 @@ function createExperimentFoundationExecutionV2Repository(
   }
 
   return new InMemoryExperimentFoundationExecutionV2Repository();
+}
+
+function createExperimentFoundationScientificValidationV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationScientificValidationV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationScientificValidationV2Repository(getPrismaClient());
+  }
+  return new InMemoryExperimentFoundationScientificValidationV2Repository();
 }
 
 function createPaperImplementationExperimentV2ScopeReader(
@@ -1913,6 +2013,12 @@ function isExperimentFoundationV2WorkflowSimulationEnabled(): boolean {
   );
 }
 
+function isExperimentFoundationV2ScientificValidationEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
+  );
+}
+
 function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
   return parseExperimentV2BooleanEnvironmentVariable(
     'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
@@ -1923,6 +2029,7 @@ type ExperimentV2BooleanEnvironmentVariable =
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED'
   | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED'
+  | 'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 
 function parseExperimentV2BooleanEnvironmentVariable(
@@ -1948,6 +2055,7 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   admissionEnabled: boolean;
   cutoverCommitted: boolean;
   workflowSimulationEnabled: boolean;
+  scientificValidationEnabled: boolean;
   cycleClosureEnabled: boolean;
 }): void {
   if (input.admissionEnabled && !input.cutoverCommitted) {
@@ -1965,6 +2073,12 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   if (input.workflowSimulationEnabled && !input.cutoverCommitted) {
     throw new Error(
       'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.scientificValidationEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
     );
   }

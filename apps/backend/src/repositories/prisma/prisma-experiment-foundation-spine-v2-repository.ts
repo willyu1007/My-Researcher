@@ -736,6 +736,13 @@ export async function loadVerifiedExperimentFoundationV2Materialization(
   ));
   const mappedRun = mapRun(run, cells.length);
   assertRunAndManifestIntegrity(run, mappedRunCells, sourceEvent, recipe);
+  const mappedOutbox = mapEfOutbox(outbox);
+  if (mappedOutbox.event.event_type !== 'RunManifestFrozen') {
+    throw constraint(
+      'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
+      `Stored materialization outbox has the wrong event type: ${mappedOutbox.outbox_id}`,
+    );
+  }
   const bundle: ExperimentFoundationV2MaterializationBundle = {
     inbox: mapEfInbox(inbox),
     version_lock: mappedVersionLock,
@@ -744,7 +751,7 @@ export async function loadVerifiedExperimentFoundationV2Materialization(
     task_specs: mappedTaskSpecs,
     run: mappedRun,
     run_cells: mappedRunCells,
-    outbox: mapEfOutbox(outbox),
+    outbox: { ...mappedOutbox, event: mappedOutbox.event },
   };
   assertMaterializationParity(bundle, sourceEvent);
   return bundle;
@@ -1104,16 +1111,22 @@ function mapEfInbox(row: EfInboxRow): ExperimentFoundationIntegrationInboxV2 {
 
 function mapEfOutbox(row: EfOutboxRow): ExperimentFoundationIntegrationOutboxV2 {
   const event = storedEvent(row);
-  if (event.event_type !== 'RunManifestFrozen') {
+  if (
+    event.event_type !== 'RunManifestFrozen'
+    && event.event_type !== 'EvidenceCandidateQualified'
+  ) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
       `EF outbox contains a non-EF event: ${row.id}`,
     );
   }
-  if (
-    row.aggregateType !== 'ExperimentFoundationRunV2'
-    || row.aggregateId !== event.payload.run_id
-  ) {
+  const aggregate = event.event_type === 'RunManifestFrozen'
+    ? { type: 'ExperimentFoundationRunV2', id: event.payload.run_id }
+    : {
+      type: 'ExperimentFoundationEvidenceCandidateV2',
+      id: event.payload.candidate_id,
+    };
+  if (row.aggregateType !== aggregate.type || row.aggregateId !== aggregate.id) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
       `EF outbox aggregate binding drifted: ${row.id}`,

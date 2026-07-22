@@ -46,14 +46,20 @@ import {
   EXPERIMENT_V2_REASON_CODES,
   EXPERIMENT_V2_TOP_LEVEL_ERROR_CODES,
   branchHeadAdvancedEventV1Schema,
+  evidenceCandidateQualifiedEventV1Schema,
   experimentV2ErrorEnvelopeSchema,
   experimentV2IntegrationEventSchema,
   paperImplementationExperimentV2AdmissionRequestSchema,
   runManifestFrozenEventV1Schema,
+  runEvidenceUnitRegisteredEventV1Schema,
+  validationCycleClosedEventV1Schema,
   workOrderRevisionAdmittedEventV1Schema,
   type BranchHeadAdvancedEventV1,
+  type EvidenceCandidateQualifiedEventV1,
+  type RunEvidenceUnitRegisteredEventV1,
   type RunManifestFrozenEventV1,
   type WorkOrderRevisionAdmittedEventV1,
+  type ValidationCycleClosedEventV1,
   type WorkOrderRevisionAdmittedPayloadV1,
   type PaperImplementationExperimentV2ExactCellInput,
   type PaperImplementationExperimentV2WorkOrderRevisionSnapshot,
@@ -393,6 +399,94 @@ function headAdvancedEvent(): BranchHeadAdvancedEventV1 {
     business_idempotency_key: 'head-advance:branch-001:sequence-1',
     ...eventScope(),
     payload_hash: serverHashExperimentV2EventPayload('BranchHeadAdvanced', 'v1', payload),
+    payload,
+  };
+}
+
+function evidenceCandidateQualifiedEvent(): EvidenceCandidateQualifiedEventV1 {
+  const payload = {
+    event_schema: 'EvidenceCandidateQualified@v1' as const,
+    candidate_id: 'candidate_001',
+    candidate_content_hash: hashes.a,
+    validation_report_id: 'validation_report_001',
+    validation_hash: hashes.b,
+    run_id: 'run_001',
+    run_manifest_hash: hashes.c,
+    evaluation_protocol_revision_id: 'evaluation_protocol_revision_001',
+    evaluation_protocol_content_hash: hashes.d,
+  };
+  return {
+    event_id: 'event_candidate_qualified_001',
+    event_type: 'EvidenceCandidateQualified',
+    schema_version: 'v1',
+    producer_domain: 'ExperimentFoundation',
+    occurred_at: timestamp,
+    correlation_id: 'correlation_001',
+    causation_id: 'event_head_advanced_001',
+    business_idempotency_key: 'candidate-qualified:run-001',
+    ...eventScope(),
+    payload_hash: serverHashExperimentV2EventPayload(
+      'EvidenceCandidateQualified',
+      'v1',
+      payload,
+    ),
+    payload,
+  };
+}
+
+function runEvidenceUnitRegisteredEvent(): RunEvidenceUnitRegisteredEventV1 {
+  const payload = {
+    run_evidence_unit_id: 'run_evidence_unit_001',
+    content_hash: hashes.a,
+    validation_cycle_id: 'validation-cycle-001',
+    run_id: 'run_001',
+    run_manifest_hash: hashes.c,
+    evidence_candidate_id: 'candidate_001',
+  };
+  return {
+    event_id: 'event_run_evidence_registered_001',
+    event_type: 'RunEvidenceUnitRegistered',
+    schema_version: 'v1',
+    producer_domain: 'PaperImplementation',
+    occurred_at: timestamp,
+    correlation_id: 'correlation_001',
+    causation_id: 'event_candidate_qualified_001',
+    business_idempotency_key: 'run-evidence-unit:run-001',
+    ...eventScope(),
+    payload_hash: serverHashExperimentV2EventPayload(
+      'RunEvidenceUnitRegistered',
+      'v1',
+      payload,
+    ),
+    payload,
+  };
+}
+
+function validationCycleClosedEvent(): ValidationCycleClosedEventV1 {
+  const payload = {
+    event_schema: 'ValidationCycleClosed@v1' as const,
+    validation_cycle_id: 'validation-cycle-001',
+    closure_id: 'closure_001',
+    closure_snapshot_hash: hashes.a,
+    closure_kind: 'control_flow_validated_no_paper_evidence' as const,
+    scientific_disposition: null,
+    closure_input_hash: hashes.b,
+  };
+  return {
+    event_id: 'event_validation_cycle_closed_001',
+    event_type: 'ValidationCycleClosed@v1',
+    schema_version: 'v1',
+    producer_domain: 'PaperImplementation',
+    occurred_at: timestamp,
+    correlation_id: 'correlation_001',
+    causation_id: 'closure_001',
+    business_idempotency_key: 'validation-cycle-close:001',
+    ...eventScope(),
+    payload_hash: serverHashExperimentV2EventPayload(
+      'ValidationCycleClosed@v1',
+      'v1',
+      payload,
+    ),
     payload,
   };
 }
@@ -784,22 +878,55 @@ test('PI admission integer fields close the PostgreSQL Int boundary', async () =
   }
 });
 
-test('all three exact event envelopes validate and payload hashes are recomputed', async () => {
+test('all six exact event envelopes validate and payload/envelope hashes cover Pack C', async () => {
   const admitted = admittedEvent();
   const frozen = runFrozenEvent();
   const advanced = headAdvancedEvent();
+  const qualified = evidenceCandidateQualifiedEvent();
+  const registered = runEvidenceUnitRegisteredEvent();
+  const closed = validationCycleClosedEvent();
   assert.deepEqual(EXPERIMENT_V2_EVENT_TYPES, [
     'WorkOrderRevisionAdmitted',
     'RunManifestFrozen',
     'BranchHeadAdvanced',
+    'EvidenceCandidateQualified',
+    'RunEvidenceUnitRegistered',
+    'ValidationCycleClosed@v1',
   ]);
   assert.equal(await validates(workOrderRevisionAdmittedEventV1Schema, admitted), true);
   assert.equal(await validates(runManifestFrozenEventV1Schema, frozen), true);
   assert.equal(await validates(branchHeadAdvancedEventV1Schema, advanced), true);
-  for (const event of [admitted, frozen, advanced]) {
+  assert.equal(await validates(evidenceCandidateQualifiedEventV1Schema, qualified), true);
+  assert.equal(await validates(runEvidenceUnitRegisteredEventV1Schema, registered), true);
+  assert.equal(await validates(validationCycleClosedEventV1Schema, closed), true);
+  for (const event of [admitted, frozen, advanced, qualified, registered, closed]) {
     assert.equal(await validates(experimentV2IntegrationEventSchema, event), true);
     assert.equal(verifyExperimentV2EventPayloadHash(event), true);
     assert.doesNotThrow(() => assertExperimentV2EventPayloadHash(event));
+    assert.notEqual(
+      serverHashExperimentV2EventEnvelope(event),
+      serverHashExperimentV2EventEnvelope({ ...event, correlation_id: 'tampered' }),
+    );
+  }
+});
+
+test('Pack C integration envelopes reject payload tampering and producer substitution', async () => {
+  for (const event of [
+    evidenceCandidateQualifiedEvent(),
+    runEvidenceUnitRegisteredEvent(),
+    validationCycleClosedEvent(),
+  ]) {
+    const tampered = {
+      ...event,
+      payload: { ...event.payload, validation_cycle_id: 'cycle-tampered' },
+    };
+    assert.equal(verifyExperimentV2EventPayloadHash(tampered), false);
+    assert.equal(await validates(experimentV2IntegrationEventSchema, {
+      ...event,
+      producer_domain: event.producer_domain === 'PaperImplementation'
+        ? 'ExperimentFoundation'
+        : 'PaperImplementation',
+    }), false);
   }
 });
 

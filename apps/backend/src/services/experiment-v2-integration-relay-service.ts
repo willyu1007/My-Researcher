@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   BranchHeadAdvancedEventV1,
+  EvidenceCandidateQualifiedEventV1,
+  RunEvidenceUnitRegisteredEventV1,
   RunManifestFrozenEventV1,
+  ValidationCycleClosedEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
@@ -25,12 +28,27 @@ export interface ExperimentV2BranchHeadAdvancedConsumer {
   consume(event: BranchHeadAdvancedEventV1): Promise<unknown>;
 }
 
+export interface ExperimentV2EvidenceCandidateQualifiedConsumer {
+  consume(event: EvidenceCandidateQualifiedEventV1): Promise<unknown>;
+}
+
+export interface ExperimentV2RunEvidenceUnitRegisteredConsumer {
+  consume(event: RunEvidenceUnitRegisteredEventV1): Promise<unknown>;
+}
+
+export interface ExperimentV2ValidationCycleClosedConsumer {
+  consume(event: ValidationCycleClosedEventV1): Promise<unknown>;
+}
+
 export interface ExperimentV2IntegrationRelayServiceOptions {
   paperImplementationRepository: PaperImplementationExperimentSpineV2Repository;
   experimentFoundationRepository: ExperimentFoundationExperimentSpineV2Repository;
   materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   headConsumer: ExperimentV2RunManifestFrozenConsumer;
   acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
+  evidenceTrustGatewayConsumer: ExperimentV2EvidenceCandidateQualifiedConsumer;
+  runEvidenceProjectionConsumer: ExperimentV2RunEvidenceUnitRegisteredConsumer;
+  validationCycleClosedProjectionConsumer: ExperimentV2ValidationCycleClosedConsumer;
   workerId?: string;
   now?: () => string;
   leaseDurationMs?: number;
@@ -97,6 +115,9 @@ export class ExperimentV2IntegrationRelayService {
   private readonly materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   private readonly headConsumer: ExperimentV2RunManifestFrozenConsumer;
   private readonly acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
+  private readonly evidenceTrustGatewayConsumer: ExperimentV2EvidenceCandidateQualifiedConsumer;
+  private readonly runEvidenceProjectionConsumer: ExperimentV2RunEvidenceUnitRegisteredConsumer;
+  private readonly validationCycleClosedProjectionConsumer: ExperimentV2ValidationCycleClosedConsumer;
   private readonly workerId: string;
   private readonly now: () => string;
   private readonly leaseDurationMs: number;
@@ -108,6 +129,10 @@ export class ExperimentV2IntegrationRelayService {
     this.materializationConsumer = options.materializationConsumer;
     this.headConsumer = options.headConsumer;
     this.acknowledgementConsumer = options.acknowledgementConsumer;
+    this.evidenceTrustGatewayConsumer = options.evidenceTrustGatewayConsumer;
+    this.runEvidenceProjectionConsumer = options.runEvidenceProjectionConsumer;
+    this.validationCycleClosedProjectionConsumer =
+      options.validationCycleClosedProjectionConsumer;
     this.workerId = options.workerId ?? `experiment-v2-relay-${randomUUID()}`;
     this.now = options.now ?? (() => new Date().toISOString());
     this.leaseDurationMs = options.leaseDurationMs ?? 30_000;
@@ -225,6 +250,27 @@ export class ExperimentV2IntegrationRelayService {
       && claim.event.event_type === 'WorkOrderRevisionAdmitted'
     ) {
       await this.materializationConsumer.consume(claim.event);
+      return;
+    }
+    if (
+      claim.owner_domain === 'ExperimentFoundation'
+      && claim.event.event_type === 'EvidenceCandidateQualified'
+    ) {
+      await this.evidenceTrustGatewayConsumer.consume(claim.event);
+      return;
+    }
+    if (
+      claim.owner_domain === 'PaperImplementation'
+      && claim.event.event_type === 'RunEvidenceUnitRegistered'
+    ) {
+      await this.runEvidenceProjectionConsumer.consume(claim.event);
+      return;
+    }
+    if (
+      claim.owner_domain === 'PaperImplementation'
+      && claim.event.event_type === 'ValidationCycleClosed@v1'
+    ) {
+      await this.validationCycleClosedProjectionConsumer.consume(claim.event);
       return;
     }
     if (

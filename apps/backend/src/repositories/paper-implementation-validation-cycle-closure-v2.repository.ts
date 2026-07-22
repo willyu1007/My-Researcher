@@ -1,5 +1,7 @@
 import type {
-  ValidationCycleClosedV1,
+  ValidationCycleClosedEventV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import type {
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 import type {
@@ -10,7 +12,6 @@ import {
   serverHashExperimentV2EventPayload,
   serverHashPaperImplementationV2CycleClosure,
   serverHashPaperImplementationV2ClosureWatermark,
-  type ExperimentV2EventEnvelopeForHash,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import type {
@@ -23,12 +24,8 @@ import type {
 export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE =
   'ValidationCycleClosed@v1' as const;
 
-export interface PaperImplementationValidationCycleClosedEventV1
-extends ExperimentV2EventEnvelopeForHash<ValidationCycleClosedV1> {
-  event_type: typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE;
-  schema_version: 'v1';
-  producer_domain: 'PaperImplementation';
-}
+export type PaperImplementationValidationCycleClosedEventV1 =
+  ValidationCycleClosedEventV1;
 
 export interface PaperImplementationStoredValidationCycleClosureV2 {
   implementation_project_id: string;

@@ -1,5 +1,4 @@
 import type {
-  EvidenceCandidateQualifiedV1,
   EvidenceCandidateV2,
   ExperimentFoundationScientificValidationReasonCodeV2,
   ExperimentResultCellV2,
@@ -10,6 +9,9 @@ import type {
   ExperimentFoundationV2EvaluationProtocolRevisionContentV2,
   ExperimentFoundationV2ExactAssetRevisionRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
+import type {
+  EvidenceCandidateQualifiedEventV1 as SharedEvidenceCandidateQualifiedEventV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
 export class ExperimentFoundationScientificValidationV2ConstraintError extends Error {
   constructor(
@@ -74,27 +76,8 @@ export interface ExperimentFoundationScientificValidationV2ExecutionAttempt {
   provenance: 'non_production_fake_provider' | 'real_provider';
 }
 
-export interface EvidenceCandidateQualifiedEventV1 {
-  event_id: string;
-  event_type: 'EvidenceCandidateQualified';
-  schema_version: 'v1';
-  producer_domain: 'ExperimentFoundation';
-  occurred_at: string;
-  correlation_id: string;
-  causation_id: string;
-  business_idempotency_key: string;
-  implementation_project_id: string;
-  validation_cycle_id: string;
-  branch_id: string;
-  branch_key: string;
-  work_order_revision_id: string;
-  work_order_revision_hash: string;
-  branch_revision_sequence: number;
-  cell_plan_hash: string;
-  approved_plan_hash: string;
-  payload_hash: string;
-  payload: EvidenceCandidateQualifiedV1;
-}
+export type EvidenceCandidateQualifiedEventV1 =
+  SharedEvidenceCandidateQualifiedEventV1;
 
 export interface ExperimentFoundationScientificValidationV2Outbox {
   outbox_id: string;

@@ -18,7 +18,9 @@ import type {
   PaperImplementationExperimentWorkOrderBranchV2,
   PaperImplementationExperimentWorkOrderRevisionCellV2,
   PaperImplementationExperimentWorkOrderRevisionV2,
+  RunEvidenceUnitRegisteredEventV1,
   RunManifestFrozenEventV1,
+  ValidationCycleClosedEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
@@ -28,6 +30,16 @@ export const EXPERIMENT_FOUNDATION_V2_HEAD_ACKNOWLEDGEMENT_CONSUMER =
   'experiment-foundation-v2-head-acknowledger';
 export const EXPERIMENT_FOUNDATION_V2_MATERIALIZATION_CONSUMER =
   'experiment-foundation-v2-materializer';
+export const PAPER_IMPLEMENTATION_PROJECTION_FEED_V2_CONSUMER =
+  'pi-projection-feed-v2';
+
+export type PaperImplementationProjectionFeedV2Event =
+  | RunEvidenceUnitRegisteredEventV1
+  | ValidationCycleClosedEventV1;
+
+export type PaperImplementationInboxSourceEventV2 =
+  | RunManifestFrozenEventV1
+  | PaperImplementationProjectionFeedV2Event;
 
 export interface ExperimentV2RelayClaim {
   owner_domain: ExperimentV2RelayDomain;
@@ -89,7 +101,9 @@ export interface PaperImplementationExperimentV2AdmissionBundle {
   revision: PaperImplementationExperimentWorkOrderRevisionV2;
   cells: PaperImplementationExperimentWorkOrderRevisionCellV2[];
   admission: PaperImplementationExperimentWorkOrderAdmissionV2;
-  outbox: PaperImplementationExperimentIntegrationOutboxV2;
+  outbox: PaperImplementationExperimentIntegrationOutboxV2 & {
+    event: WorkOrderRevisionAdmittedEventV1;
+  };
 }
 
 export interface PaperImplementationExperimentV2CommitAdmissionInput
@@ -101,7 +115,9 @@ export interface PaperImplementationExperimentV2CommitHeadInput {
   expected_branch_state_version: number;
   branch: PaperImplementationExperimentWorkOrderBranchV2;
   inbox: PaperImplementationExperimentIntegrationInboxV2;
-  outbox: PaperImplementationExperimentIntegrationOutboxV2;
+  outbox: PaperImplementationExperimentIntegrationOutboxV2 & {
+    event: BranchHeadAdvancedEventV1;
+  };
 }
 
 export interface PaperImplementationExperimentSpineV2Repository {
@@ -145,7 +161,7 @@ export interface PaperImplementationExperimentSpineV2Repository {
 
   recordInboxOutcome(
     inbox: PaperImplementationExperimentIntegrationInboxV2,
-    sourceEvent: RunManifestFrozenEventV1,
+    sourceEvent: PaperImplementationInboxSourceEventV2,
   ): Promise<PaperImplementationExperimentIntegrationInboxV2>;
 
   commitHeadAdvance(
@@ -167,7 +183,9 @@ export interface ExperimentFoundationV2MaterializationBundle {
   task_specs: ExperimentFoundationTrainingTaskSpecV2[];
   run: ExperimentFoundationRunV2;
   run_cells: ExperimentFoundationRunCellV2[];
-  outbox: ExperimentFoundationIntegrationOutboxV2;
+  outbox: ExperimentFoundationIntegrationOutboxV2 & {
+    event: RunManifestFrozenEventV1;
+  };
 }
 
 export interface ExperimentFoundationV2MaterializationReadinessGuard {

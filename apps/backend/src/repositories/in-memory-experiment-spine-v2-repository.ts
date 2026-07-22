@@ -34,6 +34,7 @@ import {
   type PaperImplementationExperimentV2AdmissionBundle,
   type PaperImplementationExperimentV2CommitAdmissionInput,
   type PaperImplementationExperimentV2CommitHeadInput,
+  type PaperImplementationInboxSourceEventV2,
 } from './experiment-spine-v2.repository.js';
 import {
   decomposeExperimentV2Event,
@@ -108,6 +109,11 @@ export interface InMemoryExperimentFoundationExperimentSpineV2RepositoryOptions 
   assertMaterializationReadinessCurrent?: (
     guard: ExperimentFoundationV2MaterializationReadinessGuard,
   ) => void | Promise<void>;
+  initial_outboxes?: readonly ExperimentFoundationIntegrationOutboxV2[];
+}
+
+export interface InMemoryPaperImplementationExperimentSpineV2RepositoryOptions {
+  initial_outboxes?: readonly PaperImplementationExperimentIntegrationOutboxV2[];
 }
 
 function clone<T>(value: T): T {
@@ -331,7 +337,7 @@ function sameSemanticJson(left: unknown, right: unknown): boolean {
   return canonicalizeExperimentV2Json(left) === canonicalizeExperimentV2Json(right);
 }
 
-function runEventScope(event: RunManifestFrozenEventV1) {
+function runEventScope(event: ExperimentV2IntegrationEvent) {
   return {
     implementation_project_id: event.implementation_project_id,
     validation_cycle_id: event.validation_cycle_id,
@@ -676,6 +682,14 @@ implements PaperImplementationExperimentSpineV2Repository {
   private transactionTail: Promise<void> = Promise.resolve();
   private readonly faults = new Map<PiFaultOperation, Error[]>();
 
+  constructor(
+    options: InMemoryPaperImplementationExperimentSpineV2RepositoryOptions = {},
+  ) {
+    for (const outbox of options.initial_outboxes ?? []) {
+      this.insertPiOutbox(this.state, outbox);
+    }
+  }
+
   failNext(operation: PiFaultOperation, error = new Error(`INJECTED_${operation}`)): void {
     const queued = this.faults.get(operation) ?? [];
     queued.push(error);
@@ -888,7 +902,7 @@ implements PaperImplementationExperimentSpineV2Repository {
 
   async recordInboxOutcome(
     inbox: PaperImplementationExperimentIntegrationInboxV2,
-    sourceEvent: RunManifestFrozenEventV1,
+    sourceEvent: PaperImplementationInboxSourceEventV2,
   ) {
     return this.transact('recordInboxOutcome', (state) =>
       this.insertPiInbox(state, inbox, sourceEvent));
@@ -1045,7 +1059,7 @@ implements PaperImplementationExperimentSpineV2Repository {
   private insertPiInbox(
     state: PiState,
     inbox: PaperImplementationExperimentIntegrationInboxV2,
-    sourceEvent: RunManifestFrozenEventV1,
+    sourceEvent: PaperImplementationInboxSourceEventV2,
   ): PaperImplementationExperimentIntegrationInboxV2 {
     if (
       inbox.source_event_id !== sourceEvent.event_id
@@ -1165,6 +1179,9 @@ implements ExperimentFoundationExperimentSpineV2Repository {
   ) {
     this.assertMaterializationReadinessCurrent =
       options.assertMaterializationReadinessCurrent ?? (() => undefined);
+    for (const outbox of options.initial_outboxes ?? []) {
+      this.insertEfOutbox(this.state, outbox);
+    }
   }
 
   failNext(operation: EfFaultOperation, error = new Error(`INJECTED_${operation}`)): void {

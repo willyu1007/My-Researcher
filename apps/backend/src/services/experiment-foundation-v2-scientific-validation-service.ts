@@ -44,6 +44,7 @@ export type RecordExperimentResultV2Input = Omit<
 
 export interface ExperimentFoundationScientificValidationV2ServiceOptions {
   repository: ExperimentFoundationScientificValidationV2Repository;
+  enabled: () => boolean;
   now?: () => string;
 }
 
@@ -94,10 +95,12 @@ const resultValidator = new Ajv({
 
 export class ExperimentFoundationV2ScientificValidationService {
   private readonly repository: ExperimentFoundationScientificValidationV2Repository;
+  private readonly enabled: () => boolean;
   private readonly now: () => string;
 
   constructor(options: ExperimentFoundationScientificValidationV2ServiceOptions) {
     this.repository = options.repository;
+    this.enabled = options.enabled;
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -116,6 +119,7 @@ export class ExperimentFoundationV2ScientificValidationService {
   private async recordExperimentResultValidated(
     input: RecordExperimentResultV2Input,
   ): Promise<ExperimentResultCellV2> {
+    this.assertEnabled();
     assertExactInputKeys(input, RECORD_RESULT_KEYS, 'ExperimentResult envelope');
     const run = await this.requireRun(input.run_id, input.run_manifest_hash);
     const cell = run.ordered_cells.find((candidate) => candidate.run_cell_id === input.run_cell_id);
@@ -201,6 +205,7 @@ export class ExperimentFoundationV2ScientificValidationService {
   private async validateScientificBatchValidated(
     request: ValidateScientificBatchV2Request,
   ): Promise<ValidateScientificBatchV2Response> {
+    this.assertEnabled();
     assertExactInputKeys(request, VALIDATE_BATCH_KEYS, 'ValidateScientificBatch request');
     if (request.idempotency_key.trim().length === 0) {
       throw validationError('VALIDATION_SCOPE_DRIFT', 'idempotency_key is required.');
@@ -321,6 +326,15 @@ export class ExperimentFoundationV2ScientificValidationService {
       created_at: now,
     });
     return responseFromOutcome(committed);
+  }
+
+  private assertEnabled(): void {
+    if (!this.enabled()) {
+      throw validationError(
+        'EF_V2_SCIENTIFIC_VALIDATION_DISABLED',
+        'Experiment Foundation scientific validation is disabled.',
+      );
+    }
   }
 
   private async requireRun(
