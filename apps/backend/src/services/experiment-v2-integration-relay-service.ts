@@ -46,9 +46,9 @@ export interface ExperimentV2IntegrationRelayServiceOptions {
   materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   headConsumer: ExperimentV2RunManifestFrozenConsumer;
   acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
-  evidenceTrustGatewayConsumer: ExperimentV2EvidenceCandidateQualifiedConsumer;
-  runEvidenceProjectionConsumer: ExperimentV2RunEvidenceUnitRegisteredConsumer;
-  validationCycleClosedProjectionConsumer: ExperimentV2ValidationCycleClosedConsumer;
+  evidenceTrustGatewayConsumer?: ExperimentV2EvidenceCandidateQualifiedConsumer;
+  runEvidenceProjectionConsumer?: ExperimentV2RunEvidenceUnitRegisteredConsumer;
+  validationCycleClosedProjectionConsumer?: ExperimentV2ValidationCycleClosedConsumer;
   workerId?: string;
   now?: () => string;
   leaseDurationMs?: number;
@@ -109,15 +109,21 @@ function isTerminalIntegrationError(error: unknown): boolean {
   return error.details?.reason_code !== 'INTEGRATION_PREREQUISITE_NOT_READY';
 }
 
+function missingRelayConsumerError(eventType: string): Error {
+  const error = new Error(`No relay consumer is configured for ${eventType}.`);
+  error.name = 'INTEGRATION_RELAY_CONSUMER_NOT_CONFIGURED';
+  return error;
+}
+
 export class ExperimentV2IntegrationRelayService {
   private readonly paperImplementationRepository: PaperImplementationExperimentSpineV2Repository;
   private readonly experimentFoundationRepository: ExperimentFoundationExperimentSpineV2Repository;
   private readonly materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   private readonly headConsumer: ExperimentV2RunManifestFrozenConsumer;
   private readonly acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
-  private readonly evidenceTrustGatewayConsumer: ExperimentV2EvidenceCandidateQualifiedConsumer;
-  private readonly runEvidenceProjectionConsumer: ExperimentV2RunEvidenceUnitRegisteredConsumer;
-  private readonly validationCycleClosedProjectionConsumer: ExperimentV2ValidationCycleClosedConsumer;
+  private readonly evidenceTrustGatewayConsumer?: ExperimentV2EvidenceCandidateQualifiedConsumer;
+  private readonly runEvidenceProjectionConsumer?: ExperimentV2RunEvidenceUnitRegisteredConsumer;
+  private readonly validationCycleClosedProjectionConsumer?: ExperimentV2ValidationCycleClosedConsumer;
   private readonly workerId: string;
   private readonly now: () => string;
   private readonly leaseDurationMs: number;
@@ -256,6 +262,9 @@ export class ExperimentV2IntegrationRelayService {
       claim.owner_domain === 'ExperimentFoundation'
       && claim.event.event_type === 'EvidenceCandidateQualified'
     ) {
+      if (!this.evidenceTrustGatewayConsumer) {
+        throw missingRelayConsumerError(claim.event.event_type);
+      }
       await this.evidenceTrustGatewayConsumer.consume(claim.event);
       return;
     }
@@ -263,6 +272,9 @@ export class ExperimentV2IntegrationRelayService {
       claim.owner_domain === 'PaperImplementation'
       && claim.event.event_type === 'RunEvidenceUnitRegistered'
     ) {
+      if (!this.runEvidenceProjectionConsumer) {
+        throw missingRelayConsumerError(claim.event.event_type);
+      }
       await this.runEvidenceProjectionConsumer.consume(claim.event);
       return;
     }
@@ -270,6 +282,9 @@ export class ExperimentV2IntegrationRelayService {
       claim.owner_domain === 'PaperImplementation'
       && claim.event.event_type === 'ValidationCycleClosed@v1'
     ) {
+      if (!this.validationCycleClosedProjectionConsumer) {
+        throw missingRelayConsumerError(claim.event.event_type);
+      }
       await this.validationCycleClosedProjectionConsumer.consume(claim.event);
       return;
     }

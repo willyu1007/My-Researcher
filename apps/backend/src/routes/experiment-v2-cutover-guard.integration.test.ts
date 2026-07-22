@@ -22,6 +22,8 @@ type InjectCommand = {
 const EXPERIMENT_V2_BOOLEAN_ENV_KEYS = [
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED',
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED',
+  'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
+  'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED',
 ] as const;
 
@@ -192,6 +194,26 @@ test('workflow simulation enable without a committed cutover fails during app co
   );
 });
 
+test('scientific validation enable without a committed cutover fails during app composition', () => {
+  assert.throws(
+    () => buildApp({
+      paperImplementationExperimentV2CutoverCommitted: () => false,
+      experimentFoundationV2ScientificValidationEnabled: () => true,
+    }),
+    /EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED requires PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true/,
+  );
+});
+
+test('Cycle closure enable without a committed cutover fails during app composition', () => {
+  assert.throws(
+    () => buildApp({
+      paperImplementationExperimentV2CutoverCommitted: () => false,
+      paperImplementationValidationCycleClosureV2Enabled: () => true,
+    }),
+    /PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED requires PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true/,
+  );
+});
+
 test('cutover composition accepts the valid admission and simulation truth-table states', async () => {
   for (const state of [
     { admissionEnabled: false, simulationEnabled: false, cutoverCommitted: false },
@@ -203,6 +225,8 @@ test('cutover composition accepts the valid admission and simulation truth-table
     const app = buildApp({
       paperImplementationExperimentV2AdmissionEnabled: () => state.admissionEnabled,
       paperImplementationExperimentV2CutoverCommitted: () => state.cutoverCommitted,
+      paperImplementationValidationCycleClosureV2Enabled: () => false,
+      experimentFoundationV2ScientificValidationEnabled: () => false,
       experimentFoundationV2WorkflowSimulationEnabled: () => state.simulationEnabled,
     });
     await app.close();
@@ -217,6 +241,8 @@ test('unset or blank experiment v2 boolean env values default to false', async (
   try {
     delete process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED;
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = '   ';
+    delete process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED;
+    process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = '   ';
     delete process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED;
 
     const app = buildApp();
@@ -234,12 +260,16 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
   try {
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED = ' TRUE ';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'true';
+    process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = ' TRUE ';
+    process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = ' TRUE ';
     const enabledApp = buildApp();
     await enabledApp.close();
 
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED = 'false';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = ' FALSE ';
+    process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
+    process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' FALSE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
     const disabledApp = buildApp();
     await disabledApp.close();
@@ -247,10 +277,14 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
     for (const [key, malformed] of [
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED', 'on'],
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED', 'definitely'],
+      ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED', 'yes'],
+      ['EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED', 'enabled'],
       ['EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED', '1'],
     ] as const) {
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED = 'false';
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'false';
+      process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
+      process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
       process.env[key] = malformed;
 

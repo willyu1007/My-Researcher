@@ -113,11 +113,9 @@ async function fixture(input: {
   const repository = new InMemoryPaperImplementationValidationCycleClosureV2Repository({
     readinessRepository,
   });
-  let sequence = 0;
   const service = new PaperImplementationValidationCycleClosureV2Service({
     repository,
     enabled: () => input.enabled ?? true,
-    idFactory: (prefix) => `${prefix}_${++sequence}`,
     now: () => NOW,
   });
   const evaluation = await new PaperImplementationCycleReadinessV2Service({
@@ -193,6 +191,22 @@ test('control-only closure atomically writes one exact server-hashed closure and
     scientific_disposition: null,
     closure_input_hash: context.request.expected_closure_input_hash,
   });
+});
+
+test('production default derivation reconstructs identical closure, snapshot, event, and outbox ids', async () => {
+  const firstContext = await fixture();
+  const secondContext = await fixture();
+
+  const first = await firstContext.service.close(firstContext.request);
+  const second = await secondContext.service.close(secondContext.request);
+  const firstOutbox = firstContext.repository.snapshot().outboxes[0]!;
+  const secondOutbox = secondContext.repository.snapshot().outboxes[0]!;
+
+  assert.equal(second.closure.closure_id, first.closure.closure_id);
+  assert.equal(second.closure.closure_snapshot_hash, first.closure.closure_snapshot_hash);
+  assert.equal(secondOutbox.event.event_id, firstOutbox.event.event_id);
+  assert.equal(secondOutbox.outbox_id, firstOutbox.outbox_id);
+  assert.deepEqual(second.closure, first.closure);
 });
 
 test('readiness blockers and CAS drift reject with zero writes', async (t) => {

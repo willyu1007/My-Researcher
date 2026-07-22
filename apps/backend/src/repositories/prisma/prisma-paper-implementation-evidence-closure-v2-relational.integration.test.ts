@@ -112,7 +112,7 @@ test(
       const closureRepository = new PrismaPaperImplementationValidationCycleClosureV2Repository(
         prisma,
       );
-      const closureService = closureServiceFor(closureRepository, 'happy');
+      const closureService = closureServiceFor(closureRepository);
       const request = controlOnlyClosureRequest(
         happy.validationCycleId,
         firstEvaluation.watermark.expected_cycle_version,
@@ -252,7 +252,7 @@ test(
       const evaluation = await new PaperImplementationCycleReadinessV2Service({
         repository: new PrismaPaperImplementationCycleReadinessV2Repository(prisma),
       }).evaluate(fixture.validationCycleId);
-      await closureServiceFor(closureRepository, 'seal').close(controlOnlyClosureRequest(
+      await closureServiceFor(closureRepository).close(controlOnlyClosureRequest(
         fixture.validationCycleId,
         evaluation.watermark.expected_cycle_version,
         evaluation.watermark.closure_input_hash,
@@ -409,6 +409,67 @@ test(
           contentHash: hash(`${trace.id}:duplicate`),
         },
       }), ['pi_evidence_trace_reu_unique', 'runEvidenceUnitId']);
+
+      const superseded = await seedAcknowledgedRun(prisma, 'gateway-superseded');
+      const supersededEvent = await seedScientificGatewayFixture(
+        prisma,
+        scientificRepository,
+        superseded,
+        authorityFromEvent(superseded.admissionEvent),
+      );
+      await admitAndDrainRevision(superseded, 2);
+      await assertGatewayAuthorityRejection(
+        prisma,
+        scientificRepository,
+        supersededEvent,
+        /no longer the branch's current admitted revision/u,
+      );
+
+      const headAdvanced = await seedAcknowledgedRun(prisma, 'gateway-head-advanced');
+      const headAdvancedEvent = await seedScientificGatewayFixture(
+        prisma,
+        scientificRepository,
+        headAdvanced,
+        authorityFromEvent(headAdvanced.admissionEvent),
+      );
+      await prisma.paperImplementationExperimentWorkOrderBranchV2.update({
+        where: { id: headAdvanced.admissionEvent.branch_id },
+        data: {
+          headRunId: `${headAdvanced.runId}:advanced`,
+          headRunManifestHash: hash(`${headAdvanced.runManifestHash}:advanced`),
+        },
+      });
+      await assertGatewayAuthorityRejection(
+        prisma,
+        scientificRepository,
+        headAdvancedEvent,
+        /no longer the branch head Run/u,
+      );
+
+      const postClosure = await seedAcknowledgedRun(prisma, 'gateway-post-closure');
+      const postClosureEvent = await seedScientificGatewayFixture(
+        prisma,
+        scientificRepository,
+        postClosure,
+        authorityFromEvent(postClosure.admissionEvent),
+      );
+      const postClosureEvaluation = await new PaperImplementationCycleReadinessV2Service({
+        repository: new PrismaPaperImplementationCycleReadinessV2Repository(prisma),
+      }).evaluate(postClosure.validationCycleId);
+      await closureServiceFor(
+        new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma),
+      ).close(controlOnlyClosureRequest(
+        postClosure.validationCycleId,
+        postClosureEvaluation.watermark.expected_cycle_version,
+        postClosureEvaluation.watermark.closure_input_hash,
+        `${postClosure.namespace}:close`,
+      ));
+      await assertGatewayAuthorityRejection(
+        prisma,
+        scientificRepository,
+        postClosureEvent,
+        /already has immutable v2 closure/u,
+      );
     } finally {
       await prisma.$disconnect();
     }
@@ -785,7 +846,15 @@ function evidenceEvent(
     correlation_id: `${namespace}:correlation`,
     causation_id: `${namespace}:validation-event`,
     business_idempotency_key: `${namespace}:ingest`,
-    ...authority,
+    implementation_project_id: authority.implementation_project_id,
+    validation_cycle_id: authority.validation_cycle_id,
+    branch_id: authority.branch_id,
+    branch_key: authority.branch_key,
+    work_order_revision_id: authority.work_order_revision_id,
+    work_order_revision_hash: authority.work_order_revision_hash,
+    branch_revision_sequence: authority.branch_revision_sequence,
+    cell_plan_hash: authority.cell_plan_hash,
+    approved_plan_hash: authority.approved_plan_hash,
     payload_hash: serverHashExperimentV2EventPayload(
       'EvidenceCandidateQualified',
       'v1',
@@ -808,7 +877,49 @@ function authorityFromEvent(
     branch_revision_sequence: event.branch_revision_sequence,
     cell_plan_hash: event.cell_plan_hash,
     approved_plan_hash: event.approved_plan_hash,
+    current_work_order_revision_id: event.work_order_revision_id,
+    current_branch_revision_sequence: event.branch_revision_sequence,
+    head_work_order_revision_id: event.work_order_revision_id,
+    head_branch_revision_sequence: event.branch_revision_sequence,
+    head_run_id: null,
+    head_run_manifest_hash: null,
+    validation_cycle_closure_id: null,
   };
+}
+
+async function assertGatewayAuthorityRejection(
+  prisma: PrismaClient,
+  scientificRepository: PrismaExperimentFoundationScientificValidationV2Repository,
+  event: EvidenceCandidateQualifiedEventV1,
+  expectedMessage: RegExp,
+): Promise<void> {
+  const service = new PaperImplementationEvidenceTrustGatewayService({
+    repository: new PrismaPaperImplementationEvidenceV2Repository(prisma),
+    scientificValidationReadRepository: scientificRepository,
+    now: () => FIXED_NOW,
+  });
+  const first = await service.consume(event);
+  assert.equal(first.inbox.outcome, 'terminal_conflict');
+  assert.equal(first.inbox.reason_code, 'EVIDENCE_CANDIDATE_NOT_ELIGIBLE');
+  assert.match(first.rejection_message ?? '', expectedMessage);
+  assert.equal(first.run_evidence_unit, null);
+  assert.equal(first.trace_manifest, null);
+  assert.deepEqual(await gatewayCounts(prisma, event.validation_cycle_id), {
+    inboxes: 1,
+    evidenceUnits: 0,
+    traceManifests: 0,
+    registeredOutboxes: 0,
+  });
+
+  const replay = await service.consume(event);
+  assert.equal(replay.replayed, true);
+  assert.deepEqual(replay.inbox, first.inbox);
+  assert.deepEqual(await gatewayCounts(prisma, event.validation_cycle_id), {
+    inboxes: 1,
+    evidenceUnits: 0,
+    traceManifests: 0,
+    registeredOutboxes: 0,
+  });
 }
 
 function validationCycleData(
@@ -845,13 +956,10 @@ function validationCycleData(
 
 function closureServiceFor(
   repository: PrismaPaperImplementationValidationCycleClosureV2Repository,
-  suffix: string,
 ) {
-  let sequence = 0;
   return new PaperImplementationValidationCycleClosureV2Service({
     repository,
     enabled: () => true,
-    idFactory: (prefix) => `packc-pi:${suffix}:${prefix}:${++sequence}`,
     now: () => FIXED_NOW,
   });
 }

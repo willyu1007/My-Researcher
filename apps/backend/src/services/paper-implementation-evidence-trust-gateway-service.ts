@@ -55,6 +55,7 @@ export interface PaperImplementationEvidenceTrustGatewayOutcome {
   trace_manifest: PaperImplementationEvidenceTraceManifestV2 | null;
   replayed: boolean;
   reused_existing_evidence: boolean;
+  rejection_message: string | null;
 }
 
 const INGEST_READ_KEYS = [
@@ -184,6 +185,7 @@ export class PaperImplementationEvidenceTrustGatewayService {
         trace_manifest: null,
         replayed: true,
         reused_existing_evidence: false,
+        rejection_message: rejectionMessageForReason(receipt.reason_code),
       };
     }
     const stored = await this.repository.findEvidenceByCandidateId(event.payload.candidate_id);
@@ -198,6 +200,7 @@ export class PaperImplementationEvidenceTrustGatewayService {
       ...responseFromStoredEvidence(stored),
       replayed: true,
       reused_existing_evidence: true,
+      rejection_message: null,
     };
   }
 
@@ -214,6 +217,7 @@ export class PaperImplementationEvidenceTrustGatewayService {
       trace_manifest: null,
       replayed: false,
       reused_existing_evidence: false,
+      rejection_message: rejectionMessageForReason(reasonCode),
     };
   }
 
@@ -234,11 +238,22 @@ export class PaperImplementationEvidenceTrustGatewayService {
       outbox,
       created_at: createdAt,
     });
+    if (committed.evidence === null) {
+      return {
+        inbox: committed.inbox,
+        run_evidence_unit: null,
+        trace_manifest: null,
+        replayed: false,
+        reused_existing_evidence: false,
+        rejection_message: committed.rejection_message,
+      };
+    }
     return {
       inbox: committed.inbox,
       ...responseFromStoredEvidence(committed.evidence),
       replayed: false,
       reused_existing_evidence: committed.reused_existing_evidence,
+      rejection_message: null,
     };
   }
 }
@@ -510,4 +525,21 @@ function deterministicId(namespace: string, identity: string): string {
 
 function gatewayError(reasonCode: string, message: string): AppError {
   return new AppError(409, 'VERSION_CONFLICT', message, { reason_code: reasonCode });
+}
+
+function rejectionMessageForReason(
+  reasonCode: PaperImplementationEvidenceInboxReceiptV2['reason_code'],
+): string {
+  switch (reasonCode) {
+    case 'EVIDENCE_CANDIDATE_NOT_ELIGIBLE':
+      return 'Evidence candidate is not eligible for PI evidence ingestion.';
+    case 'EVIDENCE_PROVENANCE_REJECTED':
+      return 'Evidence candidate provenance is not eligible for PI evidence ingestion.';
+    case 'BRANCH_HEAD_SCOPE_CONFLICT':
+      return 'Evidence candidate does not match the admitted PI branch/revision scope.';
+    case 'INTEGRATION_EVENT_PAYLOAD_CONFLICT':
+      return 'Evidence candidate integration event conflicts with a stored delivery.';
+    case null:
+      return 'Evidence candidate delivery was rejected.';
+  }
 }

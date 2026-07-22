@@ -30,9 +30,12 @@ const FIXED_NOW = '2026-07-20T12:00:00.000Z';
 
 class ScientificValidationReadStub
 implements Pick<ExperimentFoundationScientificValidationV2Repository, 'loadValidationByRunId'> {
+  onLoad: (() => void) | null = null;
+
   constructor(public outcome: ExperimentFoundationScientificValidationV2StoredOutcome | null) {}
 
   async loadValidationByRunId(runId: string) {
+    this.onLoad?.();
     return this.outcome?.report.run_id === runId ? structuredClone(this.outcome) : null;
   }
 }
@@ -57,6 +60,13 @@ function fixture(): Fixture {
     branch_revision_sequence: 3,
     cell_plan_hash: testHash('cell-plan'),
     approved_plan_hash: testHash('approved-plan'),
+    current_work_order_revision_id: 'work-order-revision-1',
+    current_branch_revision_sequence: 3,
+    head_work_order_revision_id: 'work-order-revision-1',
+    head_branch_revision_sequence: 3,
+    head_run_id: 'run-1',
+    head_run_manifest_hash: testHash('run-manifest'),
+    validation_cycle_closure_id: null,
   };
   const reportWithoutHash: Omit<ScientificValidationReportV2, 'validation_hash'> = {
     report_id: 'validation-report-1',
@@ -152,7 +162,15 @@ function buildEvent(
     correlation_id: 'correlation-1',
     causation_id: 'validation-event-1',
     business_idempotency_key: overrides.business_idempotency_key ?? 'pi-ingest-key-1',
-    ...authority,
+    implementation_project_id: authority.implementation_project_id,
+    validation_cycle_id: authority.validation_cycle_id,
+    branch_id: authority.branch_id,
+    branch_key: authority.branch_key,
+    work_order_revision_id: authority.work_order_revision_id,
+    work_order_revision_hash: authority.work_order_revision_hash,
+    branch_revision_sequence: authority.branch_revision_sequence,
+    cell_plan_hash: authority.cell_plan_hash,
+    approved_plan_hash: authority.approved_plan_hash,
     payload_hash: serverHashExperimentV2EventPayload(
       'EvidenceCandidateQualified',
       'v1',
@@ -306,6 +324,67 @@ test('branch/revision scope drift records a rejected receipt and zero domain wri
       assert.equal(snapshot.run_evidence_units.length, 0);
       assert.equal(snapshot.trace_manifests.length, 0);
       assert.equal(snapshot.outboxes.length, 0);
+    });
+  }
+});
+
+test('transactional gateway authority rejects superseded, head-advanced, and closed scope', async (t) => {
+  const cases: Array<{
+    name: string;
+    mutate: (context: Fixture) => void;
+    message: RegExp;
+  }> = [
+    {
+      name: 'superseded revision delivery',
+      mutate: (context) => context.repository.replaceAuthority({
+        ...context.authority,
+        current_work_order_revision_id: 'work-order-revision-2',
+        current_branch_revision_sequence: 4,
+      }),
+      message: /no longer the branch's current admitted revision/u,
+    },
+    {
+      name: 'head-advanced delivery',
+      mutate: (context) => context.repository.replaceAuthority({
+        ...context.authority,
+        head_run_id: 'run-2',
+        head_run_manifest_hash: testHash('run-manifest-2'),
+      }),
+      message: /no longer the branch head Run/u,
+    },
+    {
+      name: 'post-closure delivery',
+      mutate: (context) => context.repository.closeValidationCycle(
+        context.event.validation_cycle_id,
+        'closure-1',
+      ),
+      message: /already has immutable v2 closure closure-1/u,
+    },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      const context = fixture();
+      context.readRepository.onLoad = () => scenario.mutate(context);
+
+      const first = await context.service.consume(context.event);
+      const snapshot = context.repository.snapshot();
+      assert.equal(first.inbox.outcome, 'terminal_conflict');
+      assert.equal(first.inbox.reason_code, 'EVIDENCE_CANDIDATE_NOT_ELIGIBLE');
+      assert.match(first.rejection_message ?? '', scenario.message);
+      assert.deepEqual(snapshot, {
+        inboxes: [first.inbox],
+        run_evidence_units: [],
+        trace_manifests: [],
+        outboxes: [],
+      });
+
+      context.readRepository.onLoad = null;
+      const replay = await context.service.consume(context.event);
+      assert.equal(replay.replayed, true);
+      assert.deepEqual(replay.inbox, first.inbox);
+      assert.equal(replay.run_evidence_unit, null);
+      assert.deepEqual(context.repository.snapshot(), snapshot);
     });
   }
 });

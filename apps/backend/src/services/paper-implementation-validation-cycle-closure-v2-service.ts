@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import type {
   CloseValidationCycleV2Request,
@@ -29,20 +29,17 @@ import {
 export interface PaperImplementationValidationCycleClosureV2ServiceOptions {
   repository: PaperImplementationValidationCycleClosureV2Repository;
   enabled: () => boolean;
-  idFactory?: (prefix: string) => string;
   now?: () => string;
 }
 
 export class PaperImplementationValidationCycleClosureV2Service {
   private readonly repository: PaperImplementationValidationCycleClosureV2Repository;
   private readonly enabled: () => boolean;
-  private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
   constructor(options: PaperImplementationValidationCycleClosureV2ServiceOptions) {
     this.repository = options.repository;
     this.enabled = options.enabled;
-    this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -156,7 +153,18 @@ export class PaperImplementationValidationCycleClosureV2Service {
       );
     }
     const createdAt = this.now();
-    const closureId = this.idFactory('pi_validation_cycle_closure_v2');
+    const closureId = deterministicId(
+      'pi_validation_cycle_closure_v2',
+      JSON.stringify({
+        validation_cycle_id: request.validation_cycle_id,
+        expected_cycle_version: request.expected_cycle_version,
+        closure_input_hash: request.expected_closure_input_hash,
+        closure_kind: request.closure_kind,
+        accepted_proposal_id: request.accepted_proposal_id,
+        accepted_proposal_hash: request.expected_proposal_hash,
+        idempotency_key: request.idempotency_key,
+      }),
+    );
     const closureWithoutHash: Omit<ValidationCycleClosureV2, 'closure_snapshot_hash'> = {
       closure_id: closureId,
       schema_version: 'v1',
@@ -183,7 +191,7 @@ export class PaperImplementationValidationCycleClosureV2Service {
       closure_input_hash: closure.closure_watermark.closure_input_hash,
     };
     const event = {
-      event_id: this.idFactory('pi_validation_cycle_closed_event_v1'),
+      event_id: deterministicId('pi_validation_cycle_closed_event_v1', closure.closure_id),
       event_type: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE,
       schema_version: 'v1' as const,
       producer_domain: 'PaperImplementation' as const,
@@ -222,7 +230,10 @@ export class PaperImplementationValidationCycleClosureV2Service {
         created_at: createdAt,
       },
       outbox: {
-        outbox_id: this.idFactory('pi_validation_cycle_closure_outbox_v2'),
+        outbox_id: deterministicId(
+          'pi_validation_cycle_closure_outbox_v2',
+          closure.closure_id,
+        ),
         aggregate_transition_key: `${closure.closure_id}:closed@v1`,
         event,
         event_envelope_hash: serverHashExperimentV2EventEnvelope(event),
@@ -247,6 +258,15 @@ export class PaperImplementationValidationCycleClosureV2Service {
       );
     });
   }
+}
+
+function deterministicId(namespace: string, identity: string): string {
+  const digest = createHash('sha256')
+    .update(namespace)
+    .update('\0')
+    .update(identity)
+    .digest('hex');
+  return `${namespace}_${digest}`;
 }
 
 function isClosableProductCycleStatus(

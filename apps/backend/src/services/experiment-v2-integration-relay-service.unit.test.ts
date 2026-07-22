@@ -206,6 +206,42 @@ test('relay delivers EvidenceCandidateQualified to the real trust gateway withou
   assert.equal(composed.evidenceRepository.snapshot().inboxes[0]?.outcome, 'terminal_conflict');
 });
 
+test('relay releases an unexpected Pack C event when its optional consumer is not configured', async () => {
+  const event = qualifiedEvent();
+  const outbox: ExperimentFoundationIntegrationOutboxV2 = {
+    outbox_id: 'outbox-qualified-without-consumer',
+    aggregate_transition_key: 'candidate-1:qualified-without-consumer@v1',
+    event,
+    created_at: NOW,
+  };
+  const pi = new InMemoryPaperImplementationExperimentSpineV2Repository();
+  const ef = new InMemoryExperimentFoundationExperimentSpineV2Repository({
+    initial_outboxes: [outbox],
+  });
+  const service = new ExperimentV2IntegrationRelayService({
+    paperImplementationRepository: pi,
+    experimentFoundationRepository: ef,
+    materializationConsumer: { async consume() {} },
+    headConsumer: { async consume() {} },
+    acknowledgementConsumer: { async consume() {} },
+    workerId: 'relay-without-pack-c-consumers',
+    now: () => NOW,
+    retryDelayMs: 0,
+  });
+
+  const outcome = await service.drainOnce();
+
+  assert.equal(outcome.delivered, 0);
+  assert.equal(outcome.released, 1);
+  assert.equal(outcome.terminalized, 0);
+  assert.equal(
+    outcome.failures[0]?.error_code,
+    'INTEGRATION_RELAY_CONSUMER_NOT_CONFIGURED',
+  );
+  assert.equal(outcome.failures[0]?.disposition, 'released_retry');
+  assert.equal(ef.snapshot().outboxes[0]?.status, 'retry');
+});
+
 test('relay durably receipts both PI projection-feed events with zero terminalization', async () => {
   const pi = new InMemoryPaperImplementationExperimentSpineV2Repository({
     initial_outboxes: [piOutbox(registeredEvent()), piOutbox(closedEvent())],

@@ -34,6 +34,13 @@ export interface PaperImplementationEvidenceV2Authority {
   branch_revision_sequence: number;
   cell_plan_hash: string;
   approved_plan_hash: string;
+  current_work_order_revision_id: string | null;
+  current_branch_revision_sequence: number | null;
+  head_work_order_revision_id: string | null;
+  head_branch_revision_sequence: number | null;
+  head_run_id: string | null;
+  head_run_manifest_hash: string | null;
+  validation_cycle_closure_id: string | null;
 }
 
 export interface PaperImplementationEvidenceInboxReceiptV2 {
@@ -74,10 +81,23 @@ export interface PaperImplementationEvidenceV2CommitInput {
   created_at: string;
 }
 
-export interface PaperImplementationEvidenceV2CommitResult {
-  inbox: PaperImplementationEvidenceInboxReceiptV2;
-  evidence: PaperImplementationStoredEvidenceV2;
-  reused_existing_evidence: boolean;
+export type PaperImplementationEvidenceV2CommitResult =
+  | {
+    inbox: PaperImplementationEvidenceInboxReceiptV2;
+    evidence: PaperImplementationStoredEvidenceV2;
+    reused_existing_evidence: boolean;
+    rejection_message: null;
+  }
+  | {
+    inbox: PaperImplementationEvidenceInboxReceiptV2;
+    evidence: null;
+    reused_existing_evidence: false;
+    rejection_message: string;
+  };
+
+export interface PaperImplementationEvidenceV2AuthorityViolation {
+  scope: 'superseded_revision' | 'head_advanced' | 'closed_cycle';
+  message: string;
 }
 
 export class PaperImplementationEvidenceV2RepositoryConstraintError extends Error {
@@ -143,6 +163,39 @@ export function authorityMatchesQualifiedEvent(
     && authority.branch_revision_sequence === event.branch_revision_sequence
     && authority.cell_plan_hash === event.cell_plan_hash
     && authority.approved_plan_hash === event.approved_plan_hash;
+}
+
+export function evidenceCandidateAuthorityViolation(
+  authority: PaperImplementationEvidenceV2Authority,
+  event: EvidenceCandidateQualifiedEventV1,
+): PaperImplementationEvidenceV2AuthorityViolation | null {
+  if (authority.validation_cycle_closure_id !== null) {
+    return {
+      scope: 'closed_cycle',
+      message: `Evidence candidate is not eligible because validation cycle ${event.validation_cycle_id} already has immutable v2 closure ${authority.validation_cycle_closure_id}.`,
+    };
+  }
+  if (
+    authority.current_work_order_revision_id !== event.work_order_revision_id
+    || authority.current_branch_revision_sequence !== event.branch_revision_sequence
+  ) {
+    return {
+      scope: 'superseded_revision',
+      message: `Evidence candidate is not eligible because WorkOrder revision ${event.work_order_revision_id}@${event.branch_revision_sequence} is no longer the branch's current admitted revision.`,
+    };
+  }
+  if (
+    authority.head_work_order_revision_id !== event.work_order_revision_id
+    || authority.head_branch_revision_sequence !== event.branch_revision_sequence
+    || authority.head_run_id !== event.payload.run_id
+    || authority.head_run_manifest_hash !== event.payload.run_manifest_hash
+  ) {
+    return {
+      scope: 'head_advanced',
+      message: `Evidence candidate is not eligible because Run ${event.payload.run_id} with manifest ${event.payload.run_manifest_hash} is no longer the branch head Run.`,
+    };
+  }
+  return null;
 }
 
 export function assertEvidenceCommitInput(input: PaperImplementationEvidenceV2CommitInput): void {

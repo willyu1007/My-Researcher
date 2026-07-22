@@ -27,6 +27,7 @@ import type { EvidenceCandidateQualifiedEventV1 } from '../experiment-foundation
 import {
   assertEvidenceCommitInput,
   authorityMatchesQualifiedEvent,
+  evidenceCandidateAuthorityViolation,
   PaperImplementationEvidenceV2RepositoryConstraintError,
   sameStoredEvidence,
   type PaperImplementationEvidenceInboxReceiptV2,
@@ -169,10 +170,12 @@ implements PaperImplementationEvidenceV2Repository {
       const replay = await findInboxReplay(transaction, input.inbox);
       if (replay) {
         if (replay.outcome !== 'processed') {
-          throw constraint(
-            'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
-            'A rejected PI evidence receipt cannot replay as processed.',
-          );
+          return {
+            inbox: replay,
+            evidence: null,
+            reused_existing_evidence: false,
+            rejection_message: 'Evidence candidate delivery already has a terminal rejected inbox receipt.',
+          };
         }
         const stored = await loadEvidenceByCandidate(
           transaction,
@@ -184,7 +187,12 @@ implements PaperImplementationEvidenceV2Repository {
             'Processed evidence receipt lost its exact REU/trace authority.',
           );
         }
-        return { inbox: replay, evidence: stored, reused_existing_evidence: true };
+        return {
+          inbox: replay,
+          evidence: stored,
+          reused_existing_evidence: true,
+          rejection_message: null,
+        };
       }
 
       const liveAuthority = await loadAuthority(
@@ -200,6 +208,26 @@ implements PaperImplementationEvidenceV2Repository {
           'BRANCH_HEAD_SCOPE_CONFLICT',
           'Exact admitted PI branch/revision authority drifted before evidence commit.',
         );
+      }
+      const authorityViolation = evidenceCandidateAuthorityViolation(
+        liveAuthority,
+        input.inbox.source_event,
+      );
+      if (authorityViolation) {
+        const rejectedInbox = {
+          ...input.inbox,
+          outcome: 'terminal_conflict' as const,
+          reason_code: 'EVIDENCE_CANDIDATE_NOT_ELIGIBLE' as const,
+        };
+        const row = await transaction.paperImplementationExperimentIntegrationInboxV2.create({
+          data: inboxCreateData(rejectedInbox),
+        });
+        return {
+          inbox: mapInbox(row),
+          evidence: null,
+          reused_existing_evidence: false,
+          rejection_message: authorityViolation.message,
+        };
       }
 
       const unit = input.evidence.run_evidence_unit;
@@ -233,6 +261,7 @@ implements PaperImplementationEvidenceV2Repository {
           inbox: mapInbox(inboxRow),
           evidence: stored,
           reused_existing_evidence: true,
+          rejection_message: null,
         };
       }
 
@@ -249,6 +278,7 @@ implements PaperImplementationEvidenceV2Repository {
         inbox: mapInbox(inboxRow),
         evidence: input.evidence,
         reused_existing_evidence: false,
+        rejection_message: null,
       };
     });
   }
@@ -280,6 +310,16 @@ async function loadAuthority(
     branch_revision_sequence: row.revisionSequence,
     cell_plan_hash: row.cellPlanHash,
     approved_plan_hash: row.admission.approvedPlanHash,
+    current_work_order_revision_id: row.branch.currentRevisionId,
+    current_branch_revision_sequence: row.branch.currentRevisionSequence,
+    head_work_order_revision_id: row.branch.headRevisionId,
+    head_branch_revision_sequence: row.branch.headRevisionSequence,
+    head_run_id: row.branch.headRunId,
+    head_run_manifest_hash: row.branch.headRunManifestHash,
+    validation_cycle_closure_id: (await client.paperImplementationValidationCycleClosureV2.findUnique({
+      where: { validationCycleId: row.branch.validationCycleId },
+      select: { id: true },
+    }))?.id ?? null,
   };
 }
 
@@ -305,8 +345,15 @@ async function findInboxReplay(
   if (
     stored.source_event.event_id !== event.event_id
     || stored.source_event_hash !== incoming.source_event_hash
-    || stored.outcome !== incoming.outcome
-    || stored.reason_code !== incoming.reason_code
+    || (
+      (stored.outcome !== incoming.outcome || stored.reason_code !== incoming.reason_code)
+      && !(
+        incoming.outcome === 'processed'
+        && incoming.reason_code === null
+        && stored.outcome === 'terminal_conflict'
+        && stored.reason_code === 'EVIDENCE_CANDIDATE_NOT_ELIGIBLE'
+      )
+    )
   ) {
     throw constraint(
       'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
