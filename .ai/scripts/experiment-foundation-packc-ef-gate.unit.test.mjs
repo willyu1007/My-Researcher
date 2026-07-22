@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   DEFAULT_POSTGRES_IMAGE,
   PACKC_EF_CHECK_REGISTRY,
+  PACKC_EF_REQUIRED_MIGRATIONS,
   assertExactSummaryKeysets,
   buildInitialSummary,
   canonicalJson,
@@ -39,6 +40,9 @@ test('Pack C EF check registry is exact and maps every check to durable evidence
     { id: 'PC07', evidence_refs: ['service_unit', 'relational'] },
     { id: 'PC19-EF', evidence_refs: ['legacy_writer_unit'] },
   ]);
+  assert.deepEqual(PACKC_EF_REQUIRED_MIGRATIONS, [
+    '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
+  ]);
 });
 
 test('summary publisher initializes exact evidence, zero-census and redaction keysets', () => {
@@ -49,6 +53,7 @@ test('summary publisher initializes exact evidence, zero-census and redaction ke
   );
   assert.doesNotThrow(() => assertExactSummaryKeysets(summary));
   assert.deepEqual(Object.values(summary.evidence), [null, null, null, null, null, null]);
+  assert.deepEqual(Object.keys(summary.migrations), PACKC_EF_REQUIRED_MIGRATIONS);
   assert.ok(Object.values(summary.zero_census).every((value) => value === 0));
   assert.deepEqual(summary.redaction, {
     database_url_stored: false,

@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   PACKC_CUTOVER_CHECK_REGISTRY,
+  PACKC_CUTOVER_SEALED_COMMIT_PATHS,
+  PACKC_CUTOVER_SUITE_REGISTRY,
   assertExactSummaryKeysets,
   buildInitialSummary,
   canonicalJson,
@@ -27,7 +29,13 @@ test('Pack C cutover registry closes PC17 and PC18 with exact evidence refs', ()
   assert.deepEqual(PACKC_CUTOVER_CHECK_REGISTRY, [
     {
       id: 'PC17',
-      evidence_refs: ['packet_dossier_unit', 'contracts_schema', 'static_census'],
+      evidence_refs: [
+        'packet_dossier_unit',
+        'contracts_schema',
+        'relay_routing_unit',
+        'relay_crash_window_unit',
+        'static_census',
+      ],
     },
     {
       id: 'PC18',
@@ -36,10 +44,56 @@ test('Pack C cutover registry closes PC17 and PC18 with exact evidence refs', ()
         'closure_authority_unit',
         'contracts_schema',
         'route_integration',
+        'relay_routing_unit',
+        'relay_crash_window_unit',
         'static_census',
       ],
     },
   ]);
+  assert.deepEqual(
+    PACKC_CUTOVER_SEALED_COMMIT_PATHS.map((entry) => entry.function_name),
+    ['commitAdmission', 'commitHeadAdvance', 'commitMaterialization', 'startWorkflowSimulation'],
+  );
+  assert.deepEqual(
+    PACKC_CUTOVER_SUITE_REGISTRY.map((suite) => suite.evidence_key),
+    [
+      'packet_dossier_unit',
+      'bridge_unit',
+      'closure_authority_unit',
+      'contracts_schema',
+      'route_integration',
+      'relay_routing_unit',
+      'relay_crash_window_unit',
+    ],
+  );
+  assert.deepEqual(
+    PACKC_CUTOVER_SUITE_REGISTRY.find(
+      (suite) => suite.evidence_key === 'relay_routing_unit',
+    )?.files,
+    ['src/services/experiment-v2-integration-relay-service.unit.test.ts'],
+  );
+  assert.deepEqual(
+    PACKC_CUTOVER_SUITE_REGISTRY.find(
+      (suite) => suite.evidence_key === 'relay_crash_window_unit',
+    )?.files,
+    ['src/services/experiment-v2-integration-spine.unit.test.ts'],
+  );
+  assert.deepEqual(
+    PACKC_CUTOVER_SUITE_REGISTRY.find(
+      (suite) => suite.evidence_key === 'relay_routing_unit',
+    )?.required_subtests,
+    [
+      'relay delivers EvidenceCandidateQualified to the real trust gateway without terminalization',
+      'relay durably receipts both PI projection-feed events with zero terminalization',
+      'projection-feed redelivery converges to one exact inbox receipt',
+    ],
+  );
+  assert.match(
+    PACKC_CUTOVER_SUITE_REGISTRY.find(
+      (suite) => suite.evidence_key === 'relay_crash_window_unit',
+    )?.required_subtests.at(-1) ?? '',
+    /consumer-committed marker failure through closure and exact redelivery/u,
+  );
 });
 
 test('summary publisher has exact keysets and records the no-PostgreSQL decision', () => {
@@ -48,7 +102,7 @@ test('summary publisher has exact keysets and records the no-PostgreSQL decision
     '2026-07-22T00:00:00.000Z',
   );
   assert.doesNotThrow(() => assertExactSummaryKeysets(summary));
-  assert.deepEqual(Object.values(summary.evidence), Array(6).fill(null));
+  assert.deepEqual(Object.values(summary.evidence), Array(8).fill(null));
   assert.ok(Object.values(summary.zero_census).every((value) => value === 0));
   assert.deepEqual(summary.postgres_decision, {
     required: false,
@@ -81,11 +135,12 @@ test('static census freezes PC17 and PC18 cutover negative space', async () => {
     validation_cycle_closed_other_producer_count: 0,
     dossier_project_accounting_marker_count: 0,
     dossier_closed_snapshot_contract_only: true,
-    reu_constructor_files: [
+    legacy_reu_prisma_mutation_files: [],
+    v2_reu_create_files: [
       'apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-v2-repository.ts',
-      'apps/backend/src/services/paper-implementation-evidence-trust-gateway-service.ts',
     ],
-    reu_constructor_files_outside_v2_lane: [],
+    v2_reu_create_files_outside_gateway_repository: [],
+    dossier_legacy_reu_point_lookup_count: 0,
     legacy_complete_route_count: 1,
     legacy_complete_delegate_count: 1,
     legacy_completion_closed_below_http: true,
@@ -93,14 +148,42 @@ test('static census freezes PC17 and PC18 cutover negative space', async () => {
     caller_conclusion_write_contract_occurrences: 0,
     stored_cycle_assessment_occurrences: 2,
     stored_decision_exit_occurrences: 2,
-    sealed_constructor_counts: {
-      PaperImplementationExperimentV2AdmissionService: 13,
-      PaperImplementationExperimentV2HeadService: 15,
-      ExperimentFoundationV2MaterializationService: 15,
-      ExperimentFoundationExecutionV2Service: 27,
-    },
-    sealed_constructor_population: 70,
-    missing_closure_lookup_constructors: 0,
+    sealed_commit_path_checks: [
+      {
+        id: 'pi_admission',
+        relative_path:
+          'apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts',
+        function_name: 'commitAdmission',
+        transaction_internal_closure_read: true,
+        replay_before_closure_fence: true,
+      },
+      {
+        id: 'pi_head_advance',
+        relative_path:
+          'apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts',
+        function_name: 'commitHeadAdvance',
+        transaction_internal_closure_read: true,
+        replay_before_closure_fence: true,
+      },
+      {
+        id: 'ef_materialization',
+        relative_path:
+          'apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts',
+        function_name: 'commitMaterialization',
+        transaction_internal_closure_read: true,
+        replay_before_closure_fence: true,
+      },
+      {
+        id: 'ef_simulation_start',
+        relative_path:
+          'apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts',
+        function_name: 'startWorkflowSimulation',
+        transaction_internal_closure_read: true,
+        replay_before_closure_fence: true,
+      },
+    ],
+    missing_transaction_internal_closure_read_paths: [],
+    missing_replay_before_closure_fence_paths: [],
     never_closed_default_occurrences: 0,
     dual_read_fallback_marker_occurrences: 0,
   });

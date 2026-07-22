@@ -12,6 +12,12 @@ import {
   parseArgs,
   updateConvergence,
 } from './experiment-foundation-packc-final-gate.mjs';
+import { PACKC_EF_REQUIRED_MIGRATIONS } from './experiment-foundation-packc-ef-gate.mjs';
+import { PACKC_PI_REQUIRED_SUBTEST_REGISTRY } from './experiment-foundation-packc-pi-gate.mjs';
+import {
+  PACKC_CUTOVER_CHECK_REGISTRY,
+  PACKC_CUTOVER_SUITE_REGISTRY,
+} from './experiment-foundation-packc-cutover-gate.mjs';
 
 test('Pack C final gate accepts only the frozen id and derives fresh sub-gate ids', () => {
   assert.deepEqual(parseArgs(['--run-id', 'packc-final-20260722-r1']), {
@@ -54,6 +60,21 @@ test('final registry is exactly PC01-PC20 and assigns PC17/PC18 to cutover', () 
     owner_sub_gates: ['packc_ef', 'packc_pi'],
     owner_checks: ['PC19-EF', 'PC19-PI'],
   });
+  assert.deepEqual(PACKC_EF_REQUIRED_MIGRATIONS, [
+    '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
+  ]);
+  assert.deepEqual(Object.keys(PACKC_PI_REQUIRED_SUBTEST_REGISTRY), [
+    'closure_unit',
+    'relational',
+  ]);
+  assert.ok(PACKC_CUTOVER_CHECK_REGISTRY.every((check) => (
+    check.evidence_refs.includes('relay_routing_unit')
+      && check.evidence_refs.includes('relay_crash_window_unit')
+  )));
+  assert.deepEqual(
+    PACKC_CUTOVER_SUITE_REGISTRY.slice(-2).map((suite) => suite.evidence_key),
+    ['relay_routing_unit', 'relay_crash_window_unit'],
+  );
 });
 
 test('final summary initializes exact evidence, SHA and registry keysets', () => {

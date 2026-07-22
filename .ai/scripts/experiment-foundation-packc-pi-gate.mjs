@@ -43,6 +43,18 @@ export const PACKC_PI_CHECK_REGISTRY = Object.freeze([
   { id: 'PC20', evidence_refs: ['evaluator_unit', 'static_census'] },
 ]);
 
+export const PACKC_PI_REQUIRED_SUBTEST_REGISTRY = Object.freeze({
+  closure_unit: Object.freeze([
+    'production default derivation reconstructs identical closure, snapshot, event, and outbox ids',
+  ]),
+  relational: Object.freeze([
+    'Pack C-PI two-client Serializable races preserve closure-vs-writer final-state invariants',
+  ]),
+});
+export const PACKC_PI_RELATIONAL_TEST_FILES = Object.freeze([
+  'src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts',
+]);
+
 const MIGRATIONS = Object.freeze([
   '20260720135725_add_paper_implementation_pack_c_evidence_closure_v2',
   '20260720141000_harden_paper_implementation_pack_c_closure_v2',
@@ -309,13 +321,25 @@ function extractStringArray(source, constantName) {
   return [...match[1].matchAll(/'([^']+)'/g)].map((row) => row[1]);
 }
 
-async function runTapSuite(name, cwd, files, artifactDir, environment = {}) {
+async function runTapSuite(
+  name,
+  cwd,
+  files,
+  artifactDir,
+  environment = {},
+  requiredSubtests = [],
+) {
   const result = await runCommand([
     'pnpm', 'exec', 'node', '--test', '--loader', 'ts-node/esm', ...files,
   ], { cwd, env: environment, timeoutMs: 300_000 });
   const outcome = exactPassingTapOutcome(result);
+  const missingRequiredSubtests = requiredSubtests.filter(
+    (subtest) => !outcome.combinedOutput.includes(`# Subtest: ${subtest}`),
+  );
   const evidence = {
-    status: outcome.executedWithoutSkip ? 'passed' : 'failed',
+    status: outcome.executedWithoutSkip && missingRequiredSubtests.length === 0
+      ? 'passed'
+      : 'failed',
     command_id: name,
     exit_code: result.exit_code,
     duration_ms: result.duration_ms,
@@ -323,6 +347,8 @@ async function runTapSuite(name, cwd, files, artifactDir, environment = {}) {
     passed: outcome.passed,
     failed: outcome.failed,
     skipped: outcome.skipped,
+    required_subtests: [...requiredSubtests],
+    missing_required_subtests: missingRequiredSubtests,
     output_sha256: `sha256:${crypto.createHash('sha256').update(outcome.combinedOutput).digest('hex')}`,
     sanitized_output_tail: safeCommandTail(outcome.combinedOutput, 4_000),
   };
@@ -425,7 +451,14 @@ async function main() {
         ['src/services/experiment-foundation-service.unit.test.ts']],
     ];
     for (const [key, name, cwd, files] of suites) {
-      summary.evidence[key] = await runTapSuite(name, cwd, files, artifactDir);
+      summary.evidence[key] = await runTapSuite(
+        name,
+        cwd,
+        files,
+        artifactDir,
+        {},
+        PACKC_PI_REQUIRED_SUBTEST_REGISTRY[key] ?? [],
+      );
       accumulateSuite(summary, summary.evidence[key]);
     }
     summary.evidence.static_census = await inspectStaticCensus();
@@ -475,7 +508,7 @@ async function main() {
     for (const id of MIGRATIONS) summary.migrations[id].applied_to_disposable_postgres = true;
     summary.evidence.relational = await runTapSuite(
       'relational', BACKEND_ROOT,
-      ['src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts'],
+      PACKC_PI_RELATIONAL_TEST_FILES,
       artifactDir,
       {
         DATABASE_URL: databaseUrl,
@@ -486,6 +519,7 @@ async function main() {
         PAPER_IMPLEMENTATION_PACKC_PI_DISPOSABLE_NONCE: disposable.nonce,
         PAPER_IMPLEMENTATION_EVIDENCE_CLOSURE_V2_RELATIONAL_PRISMA: '1',
       },
+      PACKC_PI_REQUIRED_SUBTEST_REGISTRY.relational,
     );
     accumulateSuite(summary, summary.evidence.relational);
   } catch (error) {

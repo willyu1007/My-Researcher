@@ -30,7 +30,13 @@ const ARTIFACT_ROOT = path.join(REPO_ROOT, '.ai/.tmp/experiment-foundation-produ
 export const PACKC_CUTOVER_CHECK_REGISTRY = Object.freeze([
   {
     id: 'PC17',
-    evidence_refs: ['packet_dossier_unit', 'contracts_schema', 'static_census'],
+    evidence_refs: [
+      'packet_dossier_unit',
+      'contracts_schema',
+      'relay_routing_unit',
+      'relay_crash_window_unit',
+      'static_census',
+    ],
   },
   {
     id: 'PC18',
@@ -39,6 +45,8 @@ export const PACKC_CUTOVER_CHECK_REGISTRY = Object.freeze([
       'closure_authority_unit',
       'contracts_schema',
       'route_integration',
+      'relay_routing_unit',
+      'relay_crash_window_unit',
       'static_census',
     ],
   },
@@ -50,6 +58,8 @@ const EVIDENCE_KEYS = Object.freeze([
   'closure_authority_unit',
   'contracts_schema',
   'route_integration',
+  'relay_routing_unit',
+  'relay_crash_window_unit',
   'static_census',
 ]);
 const SUMMARY_KEYS = Object.freeze([
@@ -58,21 +68,124 @@ const SUMMARY_KEYS = Object.freeze([
   'redaction', 'environment_isolation', 'blockers', 'canonical_summary_sha256',
 ]);
 const CHECK_KEYS = Object.freeze(['status', 'evidence_refs', 'details']);
-const SEALED_CONSTRUCTORS = Object.freeze([
-  'PaperImplementationExperimentV2AdmissionService',
-  'PaperImplementationExperimentV2HeadService',
-  'ExperimentFoundationV2MaterializationService',
-  'ExperimentFoundationExecutionV2Service',
+const GATEWAY_EVIDENCE_REPOSITORY =
+  'apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-v2-repository.ts';
+
+export const PACKC_CUTOVER_SEALED_COMMIT_PATHS = Object.freeze([
+  {
+    id: 'pi_admission',
+    relative_path:
+      'apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts',
+    function_name: 'commitAdmission',
+    replay_marker: 'const replay =',
+    closure_read_marker: 'await assertCycleOpen(transaction, input.branch.validation_cycle_id)',
+    helper_read_marker: 'client.paperImplementationValidationCycleClosureV2.findUnique',
+  },
+  {
+    id: 'pi_head_advance',
+    relative_path:
+      'apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.ts',
+    function_name: 'commitHeadAdvance',
+    replay_marker: 'const existingInbox =',
+    closure_read_marker: 'await assertCycleOpen(transaction, sourceEvent.validation_cycle_id)',
+    helper_read_marker: 'client.paperImplementationValidationCycleClosureV2.findUnique',
+  },
+  {
+    id: 'ef_materialization',
+    relative_path:
+      'apps/backend/src/repositories/prisma/prisma-experiment-foundation-spine-v2-repository.ts',
+    function_name: 'commitMaterialization',
+    replay_marker: 'const existing =',
+    closure_read_marker: 'await assertCycleOpen(transaction, sourceEvent.validation_cycle_id)',
+    helper_read_marker: 'client.paperImplementationValidationCycleClosureV2.findUnique',
+  },
+  {
+    id: 'ef_simulation_start',
+    relative_path:
+      'apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts',
+    function_name: 'startWorkflowSimulation',
+    replay_marker: 'const replayRows =',
+    closure_read_marker:
+      'transaction.paperImplementationValidationCycleClosureV2.findUnique',
+    helper_read_marker: null,
+  },
 ]);
-const EXPECTED_SEALED_CONSTRUCTOR_COUNTS = Object.freeze({
-  PaperImplementationExperimentV2AdmissionService: 13,
-  PaperImplementationExperimentV2HeadService: 15,
-  ExperimentFoundationV2MaterializationService: 15,
-  ExperimentFoundationExecutionV2Service: 27,
-});
-const ALLOWED_REU_CONSTRUCTOR_FILES = Object.freeze([
-  'apps/backend/src/repositories/prisma/prisma-paper-implementation-evidence-v2-repository.ts',
-  'apps/backend/src/services/paper-implementation-evidence-trust-gateway-service.ts',
+
+export const PACKC_CUTOVER_SUITE_REGISTRY = Object.freeze([
+  {
+    evidence_key: 'packet_dossier_unit',
+    command_id: 'packet-dossier-unit',
+    workspace: 'backend',
+    files: [
+      'src/services/paper-implementation-result-claim-dossier-service.unit.test.ts',
+      'src/services/paper-implementation-runtime-domain-gate-service.unit.test.ts',
+      'src/services/paper-implementation-contract-evaluation-suite.unit.test.ts',
+    ],
+    required_subtests: [],
+  },
+  {
+    evidence_key: 'bridge_unit',
+    command_id: 'bridge-unit',
+    workspace: 'backend',
+    files: [
+      'src/services/paper-implementation-workorder-experiment-bridge-service.unit.test.ts',
+      'src/services/paper-implementation-live-experiment-adapter-service.unit.test.ts',
+    ],
+    required_subtests: [],
+  },
+  {
+    evidence_key: 'closure_authority_unit',
+    command_id: 'closure-authority-unit',
+    workspace: 'backend',
+    files: [
+      'src/services/paper-implementation-validation-cycle-planning-service.unit.test.ts',
+      'src/services/paper-implementation-validation-cycle-closure-v2-service.unit.test.ts',
+      'src/services/experiment-foundation-execution-v2-service.unit.test.ts',
+    ],
+    required_subtests: [
+      'workflow simulation exact idempotency-key replay converges after Cycle closure',
+    ],
+  },
+  {
+    evidence_key: 'contracts_schema',
+    command_id: 'contracts-schema',
+    workspace: 'shared',
+    files: [
+      'src/research-lifecycle/paper-implementation-result-claim-dossier-contracts.schema.test.ts',
+      'src/research-lifecycle/paper-implementation-validation-contracts.schema.test.ts',
+    ],
+    required_subtests: [],
+  },
+  {
+    evidence_key: 'route_integration',
+    command_id: 'route-integration',
+    workspace: 'backend',
+    files: ['src/routes/paper-implementation-routes.integration.test.ts'],
+    required_subtests: [],
+  },
+  {
+    evidence_key: 'relay_routing_unit',
+    command_id: 'relay-routing-unit',
+    workspace: 'backend',
+    files: ['src/services/experiment-v2-integration-relay-service.unit.test.ts'],
+    required_subtests: [
+      'relay delivers EvidenceCandidateQualified to the real trust gateway without terminalization',
+      'relay durably receipts both PI projection-feed events with zero terminalization',
+      'projection-feed redelivery converges to one exact inbox receipt',
+    ],
+  },
+  {
+    evidence_key: 'relay_crash_window_unit',
+    command_id: 'relay-crash-window-unit',
+    workspace: 'backend',
+    files: ['src/services/experiment-v2-integration-spine.unit.test.ts'],
+    required_subtests: [
+      'PI admission exact business-key replay converges after Cycle closure',
+      'EF materialization exact inbox replay converges after Cycle closure',
+      'PI head-advance exact processed receipt replay converges after Cycle closure',
+      'relay converges consumer-committed marker failure through closure and exact redelivery without terminalization',
+    ],
+  },
 ]);
 
 export function parseArgs(argv) {
@@ -137,10 +250,13 @@ export function buildInitialSummary(gateId, startedAt = new Date().toISOString()
       preclosure_packet_repository_calls: 0,
       closure_event_other_producers: 0,
       dossier_project_accounting_markers: 0,
-      reu_constructor_files_outside_v2_lane: 0,
+      legacy_reu_prisma_mutation_files: 0,
+      v2_reu_create_files_outside_gateway_repository: 0,
+      dossier_legacy_reu_point_lookups: 0,
       legacy_completion_success_writes: 0,
       caller_conclusion_write_contract_occurrences: 0,
-      missing_closure_lookup_constructors: 0,
+      missing_transaction_internal_closure_reads: 0,
+      missing_replay_before_closure_fences: 0,
       never_closed_defaults: 0,
       dual_read_fallback_markers: 0,
       existing_database_connections: 0,
@@ -174,10 +290,13 @@ export function assertExactSummaryKeysets(summary) {
   ], 'summary.postgres_decision');
   assertExactKeys(summary.zero_census, [
     'preclosure_packet_repository_calls', 'closure_event_other_producers',
-    'dossier_project_accounting_markers', 'reu_constructor_files_outside_v2_lane',
+    'dossier_project_accounting_markers', 'legacy_reu_prisma_mutation_files',
+    'v2_reu_create_files_outside_gateway_repository',
+    'dossier_legacy_reu_point_lookups',
     'legacy_completion_success_writes',
     'caller_conclusion_write_contract_occurrences',
-    'missing_closure_lookup_constructors', 'never_closed_defaults',
+    'missing_transaction_internal_closure_reads',
+    'missing_replay_before_closure_fences', 'never_closed_defaults',
     'dual_read_fallback_markers', 'existing_database_connections',
   ], 'summary.zero_census');
   assertExactKeys(summary.redaction, [
@@ -209,6 +328,10 @@ export async function inspectStaticCensus(options = {}) {
     source('apps/backend/src/services/experiment-foundation-v2-materialization-service.ts'),
     source('apps/backend/src/services/experiment-foundation-execution-v2-service.ts'),
   ]);
+  const sealedCommitSources = Object.fromEntries(await Promise.all(
+    [...new Set(PACKC_CUTOVER_SEALED_COMMIT_PATHS.map((entry) => entry.relative_path))]
+      .map(async (relativePath) => [relativePath, await source(relativePath)]),
+  ));
 
   const directPacketWindow = sliceBetween(
     dossier,
@@ -242,15 +365,24 @@ export async function inspectStaticCensus(options = {}) {
     'apps/backend/src', 'packages/shared/src',
     '--glob', '!*.test.ts', '--glob', '!*.unit.test.ts', '--glob', '!*.integration.test.ts',
   ]);
-  const reuConstructorFiles = await grepFiles(execute, [
-    'rg', '-l',
-    'RunEvidenceUnit(V2)?[^\\n]*=\\s*\\{|runEvidenceUnit\\s*=\\s*\\{',
+  const legacyReuPrismaMutationFiles = await grepFiles(execute, [
+    'rg', '-l', '-U',
+    'paperImplementationRunEvidenceUnit\\s*\\.\\s*(create|update|upsert)\\s*\\(',
     'apps/backend/src',
     '--glob', '!*.test.ts', '--glob', '!*.unit.test.ts', '--glob', '!*.integration.test.ts',
   ]);
-  const reuConstructorFilesOutsideV2Lane = reuConstructorFiles.filter(
-    (file) => !ALLOWED_REU_CONSTRUCTOR_FILES.includes(file),
+  const v2ReuCreateFiles = await grepFiles(execute, [
+    'rg', '-l', '-U',
+    'paperImplementationRunEvidenceUnitV2\\s*\\.\\s*create\\s*\\(',
+    'apps/backend/src',
+    '--glob', '!*.test.ts', '--glob', '!*.unit.test.ts', '--glob', '!*.integration.test.ts',
+  ]);
+  const v2ReuCreateFilesOutsideGatewayRepository = v2ReuCreateFiles.filter(
+    (file) => file !== GATEWAY_EVIDENCE_REPOSITORY,
   );
+  const dossierLegacyReuPointLookups = (
+    dossier.match(/findRunEvidenceUnitById\s*\(/g) ?? []
+  ).length;
 
   const dossierSnapshotContractPassed = (
     dossierContracts.match(/closed_validation_cycle_snapshot_refs/g) ?? []
@@ -301,30 +433,31 @@ export async function inspectStaticCensus(options = {}) {
     (count, text) => count + (text.match(/NEVER_CLOSED|cycleClosureLookup\?/g) ?? []).length,
     0,
   );
-  const constructorFiles = await grepFiles(execute, [
-    'rg', '-l',
-    `new (${SEALED_CONSTRUCTORS.join('|')})\\(\\{`,
-    'apps/backend', '--glob', '*.ts',
-  ]);
-  const constructorCensus = Object.fromEntries(SEALED_CONSTRUCTORS.map((name) => [name, 0]));
-  let missingClosureLookupConstructors = 0;
-  for (const relativePath of constructorFiles) {
-    const text = await source(relativePath);
-    for (const name of SEALED_CONSTRUCTORS) {
-      const pattern = new RegExp(`new ${name}\\(\\{`, 'g');
-      for (const match of text.matchAll(pattern)) {
-        constructorCensus[name] += 1;
-        const window = text.slice(match.index, match.index + 2_000);
-        if (!window.includes('cycleClosureLookup')) missingClosureLookupConstructors += 1;
-      }
-    }
-  }
-  const expectedConstructorPopulation = Object.values(EXPECTED_SEALED_CONSTRUCTOR_COUNTS)
-    .reduce((total, count) => total + count, 0);
-  const actualConstructorPopulation = Object.values(constructorCensus)
-    .reduce((total, count) => total + count, 0);
-  const constructorCountsExact = JSON.stringify(constructorCensus)
-    === JSON.stringify(EXPECTED_SEALED_CONSTRUCTOR_COUNTS);
+  const sealedCommitPathChecks = PACKC_CUTOVER_SEALED_COMMIT_PATHS.map((entry) => {
+    const repositorySource = sealedCommitSources[entry.relative_path];
+    const methodSource = sliceMethod(repositorySource, entry.function_name);
+    const transactionIndex = methodSource.indexOf('this.prisma.$transaction(async (transaction) =>');
+    const replayIndex = methodSource.indexOf(entry.replay_marker);
+    const closureReadIndex = methodSource.indexOf(entry.closure_read_marker);
+    const helperReadsClosure = entry.helper_read_marker === null
+      || repositorySource.includes(entry.helper_read_marker);
+    return {
+      id: entry.id,
+      relative_path: entry.relative_path,
+      function_name: entry.function_name,
+      transaction_internal_closure_read: transactionIndex >= 0
+        && closureReadIndex > transactionIndex
+        && helperReadsClosure,
+      replay_before_closure_fence: replayIndex > transactionIndex
+        && closureReadIndex > replayIndex,
+    };
+  });
+  const missingTransactionInternalClosureReads = sealedCommitPathChecks.filter(
+    (entry) => !entry.transaction_internal_closure_read,
+  );
+  const missingReplayBeforeClosureFences = sealedCommitPathChecks.filter(
+    (entry) => !entry.replay_before_closure_fence,
+  );
 
   const dualReadFallbackMarkers = (
     `${dossier}\n${runtimeGate}\n${bridge}\n${liveAdapter}`.match(
@@ -340,8 +473,10 @@ export async function inspectStaticCensus(options = {}) {
     )
     && dossierForbidden.length === 0
     && dossierSnapshotContractPassed
-    && JSON.stringify(reuConstructorFiles) === JSON.stringify(ALLOWED_REU_CONSTRUCTOR_FILES)
-    && reuConstructorFilesOutsideV2Lane.length === 0
+    && legacyReuPrismaMutationFiles.length === 0
+    && JSON.stringify(v2ReuCreateFiles) === JSON.stringify([GATEWAY_EVIDENCE_REPOSITORY])
+    && v2ReuCreateFilesOutsideGatewayRepository.length === 0
+    && dossierLegacyReuPointLookups === 0
     && legacyCompleteRouteCount === 1
     && legacyCompleteDelegateCount === 1
     && legacyCompletionClosed
@@ -349,9 +484,8 @@ export async function inspectStaticCensus(options = {}) {
     && storedCycleAssessmentOccurrences === 2
     && storedDecisionExitOccurrences === 2
     && neverClosedDefaults === 0
-    && constructorCountsExact
-    && actualConstructorPopulation === expectedConstructorPopulation
-    && missingClosureLookupConstructors === 0
+    && missingTransactionInternalClosureReads.length === 0
+    && missingReplayBeforeClosureFences.length === 0
     && dualReadFallbackMarkers === 0;
 
   return {
@@ -362,8 +496,10 @@ export async function inspectStaticCensus(options = {}) {
     validation_cycle_closed_other_producer_count: Math.max(0, closureProducers.length - 1),
     dossier_project_accounting_marker_count: dossierForbidden.length,
     dossier_closed_snapshot_contract_only: dossierSnapshotContractPassed,
-    reu_constructor_files: reuConstructorFiles,
-    reu_constructor_files_outside_v2_lane: reuConstructorFilesOutsideV2Lane,
+    legacy_reu_prisma_mutation_files: legacyReuPrismaMutationFiles,
+    v2_reu_create_files: v2ReuCreateFiles,
+    v2_reu_create_files_outside_gateway_repository: v2ReuCreateFilesOutsideGatewayRepository,
+    dossier_legacy_reu_point_lookup_count: dossierLegacyReuPointLookups,
     legacy_complete_route_count: legacyCompleteRouteCount,
     legacy_complete_delegate_count: legacyCompleteDelegateCount,
     legacy_completion_closed_below_http: legacyCompletionClosed,
@@ -371,9 +507,11 @@ export async function inspectStaticCensus(options = {}) {
     caller_conclusion_write_contract_occurrences: callerConclusionWriteContractOccurrences,
     stored_cycle_assessment_occurrences: storedCycleAssessmentOccurrences,
     stored_decision_exit_occurrences: storedDecisionExitOccurrences,
-    sealed_constructor_counts: constructorCensus,
-    sealed_constructor_population: actualConstructorPopulation,
-    missing_closure_lookup_constructors: missingClosureLookupConstructors,
+    sealed_commit_path_checks: sealedCommitPathChecks,
+    missing_transaction_internal_closure_read_paths:
+      missingTransactionInternalClosureReads.map((entry) => entry.id),
+    missing_replay_before_closure_fence_paths:
+      missingReplayBeforeClosureFences.map((entry) => entry.id),
     never_closed_default_occurrences: neverClosedDefaults,
     dual_read_fallback_marker_occurrences: dualReadFallbackMarkers,
   };
@@ -400,14 +538,28 @@ function sliceBetween(source, startMarker, endMarker) {
   return source.slice(start, end);
 }
 
-async function runTapSuite(name, cwd, files, artifactDir) {
+function sliceMethod(source, functionName) {
+  const startMarker = `  async ${functionName}(`;
+  const start = source.indexOf(startMarker);
+  if (start < 0) return '';
+  const nextMethod = source.indexOf('\n  async ', start + startMarker.length);
+  return source.slice(start, nextMethod < 0 ? source.length : nextMethod);
+}
+
+async function runTapSuite(name, cwd, files, artifactDir, requiredSubtests = []) {
   const result = await runCommand([
     'pnpm', 'exec', 'node', '--test', '--loader', 'ts-node/esm', ...files,
   ], { cwd, timeoutMs: 300_000 });
   const outcome = exactPassingTapOutcome(result);
   const unavailable = result.exit_code === null || outcome.tests === null;
+  const missingRequiredSubtests = requiredSubtests.filter(
+    (subtest) => !outcome.combinedOutput.includes(`# Subtest: ${subtest}`),
+  );
   const evidence = {
-    status: unavailable ? 'blocked' : outcome.executedWithoutSkip ? 'passed' : 'failed',
+    status: unavailable ? 'blocked'
+      : outcome.executedWithoutSkip && missingRequiredSubtests.length === 0
+        ? 'passed'
+        : 'failed',
     command_id: name,
     exit_code: result.exit_code,
     duration_ms: result.duration_ms,
@@ -415,6 +567,8 @@ async function runTapSuite(name, cwd, files, artifactDir) {
     passed: outcome.passed,
     failed: outcome.failed,
     skipped: outcome.skipped,
+    required_subtests: [...requiredSubtests],
+    missing_required_subtests: missingRequiredSubtests,
     output_sha256: `sha256:${crypto.createHash('sha256').update(outcome.combinedOutput).digest('hex')}`,
     sanitized_output_tail: safeCommandTail(outcome.combinedOutput, 4_000),
   };
@@ -460,32 +614,16 @@ async function main() {
   await fs.mkdir(artifactDir, { recursive: true });
   const summary = buildInitialSummary(gateId);
   try {
-    const suites = [
-      ['packet_dossier_unit', 'packet-dossier-unit', BACKEND_ROOT, [
-        'src/services/paper-implementation-result-claim-dossier-service.unit.test.ts',
-        'src/services/paper-implementation-runtime-domain-gate-service.unit.test.ts',
-        'src/services/paper-implementation-contract-evaluation-suite.unit.test.ts',
-      ]],
-      ['bridge_unit', 'bridge-unit', BACKEND_ROOT, [
-        'src/services/paper-implementation-workorder-experiment-bridge-service.unit.test.ts',
-        'src/services/paper-implementation-live-experiment-adapter-service.unit.test.ts',
-      ]],
-      ['closure_authority_unit', 'closure-authority-unit', BACKEND_ROOT, [
-        'src/services/paper-implementation-validation-cycle-planning-service.unit.test.ts',
-        'src/services/paper-implementation-validation-cycle-closure-v2-service.unit.test.ts',
-        'src/services/experiment-v2-integration-spine.unit.test.ts',
-      ]],
-      ['contracts_schema', 'contracts-schema', SHARED_ROOT, [
-        'src/research-lifecycle/paper-implementation-result-claim-dossier-contracts.schema.test.ts',
-        'src/research-lifecycle/paper-implementation-validation-contracts.schema.test.ts',
-      ]],
-      ['route_integration', 'route-integration', BACKEND_ROOT, [
-        'src/routes/paper-implementation-routes.integration.test.ts',
-      ]],
-    ];
-    for (const [key, name, cwd, files] of suites) {
-      summary.evidence[key] = await runTapSuite(name, cwd, files, artifactDir);
-      accumulateSuite(summary, summary.evidence[key]);
+    for (const suite of PACKC_CUTOVER_SUITE_REGISTRY) {
+      const cwd = suite.workspace === 'shared' ? SHARED_ROOT : BACKEND_ROOT;
+      summary.evidence[suite.evidence_key] = await runTapSuite(
+        suite.command_id,
+        cwd,
+        suite.files,
+        artifactDir,
+        suite.required_subtests,
+      );
+      accumulateSuite(summary, summary.evidence[suite.evidence_key]);
     }
     summary.evidence.static_census = await inspectStaticCensus();
     await writeJsonAtomic(
@@ -498,14 +636,20 @@ async function main() {
       summary.evidence.static_census.validation_cycle_closed_other_producer_count;
     summary.zero_census.dossier_project_accounting_markers =
       summary.evidence.static_census.dossier_project_accounting_marker_count;
-    summary.zero_census.reu_constructor_files_outside_v2_lane =
-      summary.evidence.static_census.reu_constructor_files_outside_v2_lane.length;
+    summary.zero_census.legacy_reu_prisma_mutation_files =
+      summary.evidence.static_census.legacy_reu_prisma_mutation_files.length;
+    summary.zero_census.v2_reu_create_files_outside_gateway_repository =
+      summary.evidence.static_census.v2_reu_create_files_outside_gateway_repository.length;
+    summary.zero_census.dossier_legacy_reu_point_lookups =
+      summary.evidence.static_census.dossier_legacy_reu_point_lookup_count;
     summary.zero_census.legacy_completion_success_writes =
       summary.evidence.static_census.legacy_completion_success_write_count;
     summary.zero_census.caller_conclusion_write_contract_occurrences =
       summary.evidence.static_census.caller_conclusion_write_contract_occurrences;
-    summary.zero_census.missing_closure_lookup_constructors =
-      summary.evidence.static_census.missing_closure_lookup_constructors;
+    summary.zero_census.missing_transaction_internal_closure_reads =
+      summary.evidence.static_census.missing_transaction_internal_closure_read_paths.length;
+    summary.zero_census.missing_replay_before_closure_fences =
+      summary.evidence.static_census.missing_replay_before_closure_fence_paths.length;
     summary.zero_census.never_closed_defaults =
       summary.evidence.static_census.never_closed_default_occurrences;
     summary.zero_census.dual_read_fallback_markers =

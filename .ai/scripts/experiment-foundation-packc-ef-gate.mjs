@@ -39,9 +39,8 @@ export const PACKC_EF_CHECK_REGISTRY = Object.freeze([
   { id: 'PC19-EF', evidence_refs: ['legacy_writer_unit'] },
 ]);
 
-const MIGRATIONS = Object.freeze([
+export const PACKC_EF_REQUIRED_MIGRATIONS = Object.freeze([
   '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
-  '20260719120000_reconcile_index_names_and_topic_research_record',
 ]);
 const EVIDENCE_KEYS = Object.freeze([
   'engine_unit',
@@ -59,7 +58,7 @@ const SUMMARY_KEYS = Object.freeze([
 ]);
 const CHECK_KEYS = Object.freeze(['status', 'evidence_refs', 'details']);
 
-const MIGRATION_PATHS = Object.fromEntries(MIGRATIONS.map((id) => [
+const MIGRATION_PATHS = Object.fromEntries(PACKC_EF_REQUIRED_MIGRATIONS.map((id) => [
   id,
   path.join(REPO_ROOT, 'prisma/migrations', id, 'migration.sql'),
 ]));
@@ -123,7 +122,7 @@ export function buildInitialSummary(gateId, postgresImage, startedAt = new Date(
       skipped: 0,
       blocked: 0,
     },
-    migrations: Object.fromEntries(MIGRATIONS.map((id) => [id, {
+    migrations: Object.fromEntries(PACKC_EF_REQUIRED_MIGRATIONS.map((id) => [id, {
       source_present: false,
       source_sha256: null,
       applied_to_disposable_postgres: false,
@@ -169,6 +168,7 @@ export function assertExactSummaryKeysets(summary) {
   for (const [id, check] of Object.entries(summary.check_registry)) {
     assertExactKeys(check, CHECK_KEYS, `summary.check_registry.${id}`);
   }
+  assertExactKeys(summary.migrations, PACKC_EF_REQUIRED_MIGRATIONS, 'summary.migrations');
   assertExactKeys(summary.zero_census, [
     'generic_scientific_writes', 'route_scientific_writes',
     'adapter_scientific_writes', 'accept_partial_request_contract_occurrences',
@@ -302,7 +302,7 @@ export function updateChecks(summary) {
 }
 
 async function inspectMigrations(summary) {
-  for (const id of MIGRATIONS) {
+  for (const id of PACKC_EF_REQUIRED_MIGRATIONS) {
     try {
       const stat = await fs.stat(MIGRATION_PATHS[id]);
       summary.migrations[id].source_present = stat.isFile();
@@ -311,7 +311,7 @@ async function inspectMigrations(summary) {
       summary.migrations[id].source_present = false;
     }
   }
-  if (MIGRATIONS.some((id) => !summary.migrations[id].source_present)) {
+  if (PACKC_EF_REQUIRED_MIGRATIONS.some((id) => !summary.migrations[id].source_present)) {
     throw new Error('Required Pack C migration source is missing');
   }
 }
@@ -410,7 +410,9 @@ async function main() {
     });
     summary.disposable_postgres.identity_marker_verified = markerEvidence.marker_written;
     await deployMigrations(disposable.databaseUrls.packc, artifactDir);
-    for (const id of MIGRATIONS) summary.migrations[id].applied_to_disposable_postgres = true;
+    for (const id of PACKC_EF_REQUIRED_MIGRATIONS) {
+      summary.migrations[id].applied_to_disposable_postgres = true;
+    }
     summary.evidence.relational = await runTapSuite(
       'relational', BACKEND_ROOT,
       ['src/repositories/prisma/prisma-experiment-foundation-scientific-validation-v2-relational.integration.test.ts'],

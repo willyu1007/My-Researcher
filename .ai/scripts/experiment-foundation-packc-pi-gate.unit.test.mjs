@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   DEFAULT_POSTGRES_IMAGE,
   PACKC_PI_CHECK_REGISTRY,
+  PACKC_PI_RELATIONAL_TEST_FILES,
+  PACKC_PI_REQUIRED_SUBTEST_REGISTRY,
   assertExactSummaryKeysets,
   buildInitialSummary,
   canonicalJson,
@@ -42,6 +44,17 @@ test('Pack C-PI check registry is exact and PC17 remains an explicit cutover def
     { id: 'PC17', evidence_refs: ['static_census'] },
     { id: 'PC19-PI', evidence_refs: ['sidecar_unit', 'static_census'] },
     { id: 'PC20', evidence_refs: ['evaluator_unit', 'static_census'] },
+  ]);
+  assert.deepEqual(PACKC_PI_REQUIRED_SUBTEST_REGISTRY, {
+    closure_unit: [
+      'production default derivation reconstructs identical closure, snapshot, event, and outbox ids',
+    ],
+    relational: [
+      'Pack C-PI two-client Serializable races preserve closure-vs-writer final-state invariants',
+    ],
+  });
+  assert.deepEqual(PACKC_PI_RELATIONAL_TEST_FILES, [
+    'src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts',
   ]);
 });
 
