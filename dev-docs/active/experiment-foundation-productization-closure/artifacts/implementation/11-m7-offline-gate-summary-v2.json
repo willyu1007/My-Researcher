@@ -1,0 +1,365 @@
+{
+  "run_id": "t132-m7-offline-20260724-v2",
+  "status": "passed",
+  "phase": "M7-I3-offline-isolated",
+  "started_at": "2026-07-23T23:16:45.132Z",
+  "finished_at": "2026-07-23T23:17:06.935Z",
+  "source_population": {
+    "profile": "experiment-foundation-m7-source-population@v1",
+    "file_count": 14,
+    "digest": "f2d5f0892169835f28327909b4984308d24d3095d3b86422afcb863c34d5ee0d",
+    "files": [
+      {
+        "path": "env/contract.yaml",
+        "sha256": "50689f364c471bc3b3248006aa14904c3045040f74972fb923d9582f9fe72b5b"
+      },
+      {
+        "path": "packages/shared/src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.ts",
+        "sha256": "6905dd36e8079b7ad40b1fe768390bc644e54f62597bf40d06884764e72ff4b2"
+      },
+      {
+        "path": "packages/shared/src/research-lifecycle/experiment-foundation-execution-v2-contracts.ts",
+        "sha256": "764565b9b081ac82c436e467a24daad06249ac115f50791ea6fd382c48cd10bb"
+      },
+      {
+        "path": "packages/shared/src/research-lifecycle/experiment-v2-canonical-hash.ts",
+        "sha256": "411b43f8455f78cd45e307e30c34afaa950a5e45ec4011a5e8643debe6caf784"
+      },
+      {
+        "path": "apps/backend/src/app.ts",
+        "sha256": "7afd0d80fec75ed0b1423b0f03f86d935e8459afc3fca6cac5b04fdac072b00f"
+      },
+      {
+        "path": "apps/backend/src/services/experiment-foundation-execution-bundle-v2-service.ts",
+        "sha256": "cb796cb85dc7ebc10b4e91a0235a853e48596a93887d8a1e408dc70bcc82e7fa"
+      },
+      {
+        "path": "apps/backend/src/services/experiment-foundation-real-provider-payload-v2-service.ts",
+        "sha256": "707d6dac3b8e1f890b3193a10c228f40e9f75671b4f0ba170a0895c8bdce0e94"
+      },
+      {
+        "path": "apps/backend/src/services/experiment-foundation-real-provider-intake-v2-service.ts",
+        "sha256": "0a7b070d9071bddf2207a219bef3b9ad6b928dd7ee95be97ccd690d0561817b2"
+      },
+      {
+        "path": "apps/backend/src/services/experiment-foundation-aliyun-real-provider-v2-transport.ts",
+        "sha256": "c19722eb5e60f5de738d1df29da3088374ce1be133f2867f5ce3711fd8fe55af"
+      },
+      {
+        "path": "apps/backend/src/services/experiment-foundation-real-provider-command-v2-worker.ts",
+        "sha256": "7203230ef91210fc208d27fb9b6fb63e909694e3226e18dcb56311eb1a0f79c3"
+      },
+      {
+        "path": "apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-bundle-v2-repository.ts",
+        "sha256": "58799fed9652e96f575a9bf0cfdc7ecdd2f4bc26848cd2416646033f9ded0de3"
+      },
+      {
+        "path": "apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts",
+        "sha256": "96f150c9a05745d5ba64e6f5b87eb8f87fd8cef38887bf10130e3c3dc881261a"
+      },
+      {
+        "path": "prisma/schema.prisma",
+        "sha256": "28deaaa8a4c2af18b1109d938b9e1eab8f32a2d36d94daf07e307f79f2b5138c"
+      },
+      {
+        "path": "prisma/migrations/20260723100000_add_experiment_foundation_m7_real_provider_v2/migration.sql",
+        "sha256": "b9df5facb3f2ed47fc2b0cd5fb74ebbcfd3d4c0c2312af9aa28624eedd637bae"
+      }
+    ]
+  },
+  "environment_isolation": {
+    "policy": "explicit_allowlist@v1",
+    "inherited_key_allowlist": [
+      "CI",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "PATH",
+      "PNPM_HOME",
+      "TEMP",
+      "TERM",
+      "TMP",
+      "TMPDIR"
+    ],
+    "host_sensitive_key_count": 0,
+    "stripped_sensitive_key_count": 0,
+    "exposed_sensitive_keys": [],
+    "existing_database_url_present_but_ignored": false
+  },
+  "capabilities": {
+    "intake_default": false,
+    "control_drain_default": false,
+    "intake_requires_control_drain": true,
+    "live_transport_construction_in_app": false
+  },
+  "migration": {
+    "source_sha256": "b9df5facb3f2ed47fc2b0cd5fb74ebbcfd3d4c0c2312af9aa28624eedd637bae",
+    "statement_count": 41,
+    "created_tables": [
+      "ExperimentFoundationExecutionBundleDraftV2",
+      "ExperimentFoundationExecutionBundleIdentityV2",
+      "ExperimentFoundationExecutionBundleLifecycleEventV2",
+      "ExperimentFoundationExecutionBundleLifecycleProjectionV2",
+      "ExperimentFoundationExecutionBundleReadinessV2",
+      "ExperimentFoundationExecutionBundleRevisionV2"
+    ],
+    "foreign_key_count": 7,
+    "cross_domain_foreign_key_count": 0,
+    "data_mutation_statement_count": 0,
+    "excluded_family_reference_count": 0,
+    "provider_profile_column_rename_count": 1,
+    "exact_simulation_real_tuple_present": true
+  },
+  "schema_census": {
+    "exact": true,
+    "execution_bundle_table_count": 6,
+    "execution_bundle_fk_count": 7,
+    "cross_domain_fk_count": 0,
+    "provider_profile_column_present": true,
+    "legacy_simulation_profile_column_present": false,
+    "exact_tuple_checks_present": true,
+    "final_row_census": {
+      "ExperimentFoundationExternalTrainingJob": 0,
+      "ExperimentFoundationProviderCommandV2": 0,
+      "ExperimentFoundationExecutionAttemptEventV2": 0,
+      "ExperimentFoundationProvisionalOutputV2": 0,
+      "ExperimentFoundationProviderPayloadV2": 0,
+      "ExperimentFoundationExecutionAttemptV2": 0,
+      "ExperimentFoundationCollectionAttemptV2": 0,
+      "ExperimentFoundationExecutionBundleLifecycleProjectionV2": 0,
+      "ExperimentFoundationExecutionBundleReadinessV2": 0,
+      "ExperimentFoundationExecutionBundleIdentityV2": 0,
+      "ExperimentFoundationExecutionBundleDraftV2": 0,
+      "ExperimentFoundationExecutionBundleRevisionV2": 0,
+      "ExperimentFoundationExecutionBundleLifecycleEventV2": 0
+    }
+  },
+  "tests": {
+    "shared_typecheck": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 1714,
+      "output_tail": "\n> @paper-engineering-assistant/shared@0.1.0 typecheck /Volumes/DataDisk/Project/My-Researcher/packages/shared\n> tsc -p tsconfig.json --noEmit\n\n\n"
+    },
+    "backend_typecheck": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 10444,
+      "output_tail": "\n> @paper-engineering-assistant/backend@0.1.0 pretypecheck /Volumes/DataDisk/Project/My-Researcher/apps/backend\n> pnpm run prisma:generate\n\n\n> @paper-engineering-assistant/backend@0.1.0 prisma:generate /Volumes/DataDisk/Project/My-Researcher/apps/backend\n> prisma generate --schema ../../prisma/schema.prisma\n\nPrisma schema loaded from ../../prisma/schema.prisma\n\n✔ Generated Prisma Client (v5.22.0) to ./../../node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/@prisma/client in 716ms\n\nStart by importing your Prisma Client (See: https://pris.ly/d/importing-client)\n\nHelp us improve the Prisma ORM for everyone. Share your feedback in a short 2-min survey: https://pris.ly/orm/survey/release-5-22\n\n\n> @paper-engineering-assistant/backend@0.1.0 typecheck /Volumes/DataDisk/Project/My-Researcher/apps/backend\n> tsc -p tsconfig.json --noEmit\n\n\n"
+    },
+    "shared": {
+      "status": "passed",
+      "test_files": [
+        "src/research-lifecycle/experiment-foundation-execution-v2-contracts.schema.test.ts",
+        "src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.schema.test.ts"
+      ],
+      "exit_code": 0,
+      "duration_ms": 1015,
+      "tap": {
+        "tests": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      "output_tail": "TAP version 13\n# (node:44624) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: Pack B execution schemas accept the exact simulation-only records\nok 1 - Pack B execution schemas accept the exact simulation-only records\n  ---\n  duration_ms: 191.924125\n  ...\n# Subtest: Pack B provider manifests reject unknown, duplicate, and fourth output keys\nok 2 - Pack B provider manifests reject unknown, duplicate, and fourth output keys\n  ---\n  duration_ms: 55.957042\n  ...\n# Subtest: Pack B request schemas reject caller-authored execution authority\nok 3 - Pack B request schemas reject caller-authored execution authority\n  ---\n  duration_ms: 22.710958\n  ...\n# Subtest: Pack B schemas fail closed on non-simulation and scientific upgrades\nok 4 - Pack B schemas fail closed on non-simulation and scientific upgrades\n  ---\n  duration_ms: 61.082417\n  ...\n# Subtest: Pack B closed hash profiles are deterministic, tamper-evident, and domain separated\nok 5 - Pack B closed hash profiles are deterministic, tamper-evident, and domain separated\n  ---\n  duration_ms: 0.400959\n  ...\n# Subtest: Pack B reason-code extension is exact and additive\nok 6 - Pack B reason-code extension is exact and additive\n  ---\n  duration_ms: 0.051\n  ...\n# (node:44625) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: ExecutionBundle draft excludes caller hashes and revision accepts only server profile\nok 7 - ExecutionBundle draft excludes caller hashes and revision accepts only server profile\n  ---\n  duration_ms: 108.344167\n  ...\n# Subtest: executable WorkOrder v2 requires one exact ExecutionBundle revision\nok 8 - executable WorkOrder v2 requires one exact ExecutionBundle revision\n  ---\n  duration_ms: 15.455166\n  ...\n# Subtest: real provider payload rejects every simulation/real tuple mix\nok 9 - real provider payload rejects every simulation/real tuple mix\n  ---\n  duration_ms: 37.797958\n  ...\n# Subtest: normalized Aliyun outcomes use a closed status vocabulary and canonical hashes detect drift\nok 10 - normalized Aliyun outcomes use a closed status vocabulary and canonical hashes detect drift\n  ---\n  duration_ms: 13.623917\n  ...\n1..10\n# tests 10\n# suites 0\n# pass 10\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 990.857167\n\n"
+    },
+    "backend": {
+      "status": "passed",
+      "test_files": [
+        "src/services/experiment-v2-integration-spine.unit.test.ts",
+        "src/services/experiment-foundation-real-provider-intake-v2-service.unit.test.ts",
+        "src/services/experiment-foundation-real-provider-command-v2-worker.unit.test.ts",
+        "src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts",
+        "src/services/experiment-foundation-v2-provider-payload-service.unit.test.ts",
+        "src/services/experiment-foundation-v2-scientific-validation-service.unit.test.ts",
+        "src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.unit.test.ts",
+        "src/routes/experiment-foundation-real-provider-v2-routes.integration.test.ts"
+      ],
+      "exit_code": 0,
+      "duration_ms": 2936,
+      "tap": {
+        "tests": 88,
+        "passed": 88,
+        "failed": 0,
+        "skipped": 0
+      },
+      "output_tail": "ms: 4.049625\n  ...\n# Subtest: EF materialization exact inbox replay converges after Cycle closure\nok 57 - EF materialization exact inbox replay converges after Cycle closure\n  ---\n  duration_ms: 7.157792\n  ...\n# Subtest: PI head-advance exact processed receipt replay converges after Cycle closure\nok 58 - PI head-advance exact processed receipt replay converges after Cycle closure\n  ---\n  duration_ms: 5.149625\n  ...\n# Subtest: PI admission rejects inactive project or non-admitted Cycle with zero v2 writes\nok 59 - PI admission rejects inactive project or non-admitted Cycle with zero v2 writes\n  ---\n  duration_ms: 0.314\n  ...\n# Subtest: PI public services preserve stable repository read-integrity reason codes\nok 60 - PI public services preserve stable repository read-integrity reason codes\n  ---\n  duration_ms: 3.104209\n  ...\n# Subtest: B01/B05 T1 rolls back on injected failure and exact replay creates no duplicate\nok 61 - B01/B05 T1 rolls back on injected failure and exact replay creates no duplicate\n  ---\n  duration_ms: 2.533209\n  ...\n# Subtest: T1 rejects exhausted branch revision/state counters before commit and preserves replay\n    # Subtest: revision sequence\n    ok 1 - revision sequence\n      ---\n      duration_ms: 2.173042\n      ...\n    # Subtest: state version\n    ok 2 - state version\n      ---\n      duration_ms: 1.803333\n      ...\n    1..2\nok 62 - T1 rejects exhausted branch revision/state counters before commit and preserves replay\n  ---\n  duration_ms: 4.295292\n  ...\n# Subtest: B05 concurrent identical admission converges on one durable semantic command\nok 63 - B05 concurrent identical admission converges on one durable semantic command\n  ---\n  duration_ms: 2.128583\n  ...\n# Subtest: B02/B07 T2 is atomic and materializes 23 dependencies, 2 TaskSpecs and one ordered Run\nok 64 - B02/B07 T2 is atomic and materializes 23 dependencies, 2 TaskSpecs and one ordered Run\n  ---\n  duration_ms: 5.055292\n  ...\n# Subtest: M7-02 executable WorkOrder v2 preserves the exact ExecutionBundle through T1-T4\nok 65 - M7-02 executable WorkOrder v2 preserves the exact ExecutionBundle through T1-T4\n  ---\n  duration_ms: 4.610541\n  ...\n# Subtest: in-memory PI and EF relays refuse to lease saturated Int32 attempt counters\nok 66 - in-memory PI and EF relays refuse to lease saturated Int32 attempt counters\n  ---\n  duration_ms: 3.711625\n  ...\n# Subtest: A04/B02 exact readiness rejects missing, substituted, reordered and wrong target manifests\n    # Subtest: missing dependency\n    ok 1 - missing dependency\n      ---\n      duration_ms: 1.18325\n      ...\n    # Subtest: substituted dependency\n    ok 2 - substituted dependency\n      ---\n      duration_ms: 1.279792\n      ...\n    # Subtest: reordered dependency\n    ok 3 - reordered dependency\n      ---\n      duration_ms: 1.714792\n      ...\n    # Subtest: wrong readiness target\n    ok 4 - wrong readiness target\n      ---\n      duration_ms: 0.445459\n      ...\n    1..4\nok 67 - A04/B02 exact readiness rejects missing, substituted, reordered and wrong target manifests\n  ---\n  duration_ms: 6.960709\n  ...\n# Subtest: B02 T2 commit fence rejects readiness revoked after precheck with zero partial state\nok 68 - B02 T2 commit fence rejects readiness revoked after precheck with zero partial state\n  ---\n  duration_ms: 1.907625\n  ...\n# Subtest: B03/B04 T3 and T4 each rollback without partial inbox/head/ack state\nok 69 - B03/B04 T3 and T4 each rollback without partial inbox/head/ack state\n  ---\n  duration_ms: 5.84325\n  ...\n# Subtest: T3 business replay revalidates exact PI authority and maps drift fail closed\nok 70 - T3 business replay revalidates exact PI authority and maps drift fail closed\n  ---\n  duration_ms: 3.566208\n  ...\n# Subtest: processed T3 replay remains valid after a later exact revision advances the branch head\nok 71 - processed T3 replay remains valid after a later exact revision advances the branch head\n  ---\n  duration_ms: 7.545958\n  ...\n# Subtest: processed T3 replay rejects later-head authority drift\n    # Subtest: later revision cell\n    ok 1 - later revision cell\n      ---\n      duration_ms: 8.585791\n      ...\n    # Subtest: later T1 admission outbox\n    ok 2 - later T1 admission outbox\n      ---\n      duration_ms: 6.422375\n      ...\n    # Subtest: current head Run id\n    ok 3 - current head Run id\n      ---\n      duration_ms: 6.378125\n      ...\n    # Subtest: current head manifest hash\n    ok 4 - current head manifest hash\n      ---\n      duration_ms: 5.846958\n      ...\n    1..4\nok 72 - processed T3 replay rejects later-head authority drift\n  ---\n  duration_ms: 27.568791\n  ...\n# Subtest: T3 rejects an exhausted branch state counter before inbox/head/outbox commit\nok 73 - T3 rejects an exhausted branch state counter before inbox/head/outbox commit\n  ---\n  duration_ms: 3.068667\n  ...\n# Subtest: B06 lower sequence is durably ignored and a missing prerequisite writes nothing\nok 74 - B06 lower sequence is durably ignored and a missing prerequisite writes nothing\n  ---\n  duration_ms: 3.483958\n  ...\n# Subtest: B06 same sequence with a different Run is a terminal conflict\nok 75 - B06 same sequence with a different Run is a terminal conflict\n  ---\n  duration_ms: 2.509292\n  ...\n# Subtest: B05 exact replay rejects same-payload event envelope scope drift\nok 76 - B05 exact replay rejects same-payload event envelope scope drift\n  ---\n  duration_ms: 3.016833\n  ...\n# Subtest: relay terminalizes invalid integration poison without retrying or minting an acknowledgement\nok 77 - relay terminalizes invalid integration poison without retrying or minting an acknowledgement\n  ---\n  duration_ms: 1.784083\n  ...\n# Subtest: relay converges consumer-committed marker failure through closure and exact redelivery without terminalization\nok 78 - relay converges consumer-committed marker failure through closure and exact redelivery without terminalization\n  ---\n  duration_ms: 6.23125\n  ...\n1..78\n# tests 88\n# suites 0\n# pass 88\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2908.587125\n\n"
+    },
+    "migration_deploy": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 926,
+      "output_tail": "evidence_closure_v2`\nApplying migration `20260720141000_harden_paper_implementation_pack_c_closure_v2`\nApplying migration `20260723100000_add_experiment_foundation_m7_real_provider_v2`\n\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 20260222120000_init_research_lifecycle/\n    └─ migration.sql\n  └─ 20260225170000_add_literature_management/\n    └─ migration.sql\n  └─ 20260226103000_add_auto_pull_system/\n    └─ migration.sql\n  └─ 20260227163000_autopull_rule_topic_many_to_many/\n    └─ migration.sql\n  └─ 20260304120000_add_literature_pipeline_ssot/\n    └─ migration.sql\n  └─ 20260305130000_upgrade_literature_pipeline_v2/\n    └─ migration.sql\n  └─ 20260305190000_add_embedding_version_mapping/\n    └─ migration.sql\n  └─ 20260307112000_add_topic_initial_pull_pending/\n    └─ migration.sql\n  └─ 20260318120000_topic_management_v1/\n    └─ migration.sql\n  └─ 20260323153000_title_cards_root_and_promotion_updates/\n    └─ migration.sql\n  └─ 20260505083000_add_application_setting/\n    └─ migration.sql\n  └─ 20260505110000_add_literature_content_profiles_assets/\n    └─ migration.sql\n  └─ 20260505143000_add_literature_embedding_lifecycle/\n    └─ migration.sql\n  └─ 20260505170000_add_literature_content_processing_batch_jobs/\n    └─ migration.sql\n  └─ 20260505193000_add_literature_file_artifact_refs/\n    └─ migration.sql\n  └─ 20260508120000_add_literature_fulltext_acquisition/\n    └─ migration.sql\n  └─ 20260510133000_add_literature_clusters/\n    └─ migration.sql\n  └─ 20260513120000_add_topic_selection_control_plane/\n    └─ migration.sql\n  └─ 20260513143000_add_topic_selection_search_resource_inputs/\n    └─ migration.sql\n  └─ 20260513170000_add_topic_selection_evidence_map_strength/\n    └─ migration.sql\n  └─ 20260513200000_add_topic_selection_need_validation/\n    └─ migration.sql\n  └─ 20260513223000_add_topic_selection_recheck_risk_memory/\n    └─ migration.sql\n  └─ 20260513224500_add_topic_selection_offline_evaluation_replay/\n    └─ migration.sql\n  └─ 20260514090000_add_literature_evidence_activation/\n    └─ migration.sql\n  └─ 20260514110000_add_topic_selection_v1b_intake/\n    └─ migration.sql\n  └─ 20260514130000_add_topic_selection_v1b_research_slice/\n    └─ migration.sql\n  └─ 20260514160000_add_topic_selection_v1b_topic_question_contract/\n    └─ migration.sql\n  └─ 20260514170000_add_topic_selection_v1b_value_assessment/\n    └─ migration.sql\n  └─ 20260514183000_add_topic_selection_v1b_topic_package_draft/\n    └─ migration.sql\n  └─ 20260515100000_add_topic_selection_v1c_promotion_input_snapshot/\n    └─ migration.sql\n  └─ 20260515113000_add_topic_selection_v1c_promotion_gate_support/\n    └─ migration.sql\n  └─ 20260515143000_add_topic_selection_v1c_human_promotion_decision_profile/\n    └─ migration.sql\n  └─ 20260515170000_add_topic_selection_v1c_paper_project_bridge/\n    └─ migration.sql\n  └─ 20260516100000_add_topic_selection_v1c_downstream_feedback_recheck/\n    └─ migration.sql\n  └─ 20260517120000_add_topic_selection_resource_sampling/\n    └─ migration.sql\n  └─ 20260518090000_add_experiment_foundation_core/\n    └─ migration.sql\n  └─ 20260518130000_add_experiment_foundation_external_training_jobs/\n    └─ migration.sql\n  └─ 20260520100000_add_paper_implementation_intake_bootstrap/\n    └─ migration.sql\n  └─ 20260520130000_add_paper_implementation_trace_kernel/\n    └─ migration.sql\n  └─ 20260521100000_add_paper_implementation_motive_evidence_board/\n    └─ migration.sql\n  └─ 20260521140000_add_paper_implementation_validation_cycle_planning/\n    └─ migration.sql\n  └─ 20260521180000_add_paper_implementation_workorder_experiment_bridge/\n    └─ migration.sql\n  └─ 20260521220000_add_paper_implementation_result_claim_dossier/\n    └─ migration.sql\n  └─ 20260521230000_add_paper_implementation_ai_workflow_harness/\n    └─ migration.sql\n  └─ 20260530170000_add_topic_selection_prompt_packet_cache_index/\n    └─ migration.sql\n  └─ 20260601090000_drop_research_argument_legacy_models/\n    └─ migration.sql\n  └─ 20260603100000_add_paper_implementation_runtime_admission/\n    └─ migration.sql\n  └─ 20260605104000_add_literature_pgvector_phase1/\n    └─ migration.sql\n  └─ 20260606090000_finalize_literature_pgvector_cleanup/\n    └─ migration.sql\n  └─ 20260606100000_remove_literature_retrieval_rollout_setting/\n    └─ migration.sql\n  └─ 20260606113000_add_literature_discovery_candidate_staging/\n    └─ migration.sql\n  └─ 20260707090000_add_literature_pgvector_halfvec_hnsw_index/\n    └─ migration.sql\n  └─ 20260708120000_drop_literature_discovery_tables/\n    └─ migration.sql\n  └─ 20260708150000_grandfather_content_processing_quality_rows/\n    └─ migration.sql\n  └─ 20260710120000_add_paper_implementation_s0_governance_tables/\n    └─ migration.sql\n  └─ 20260711100000_add_paper_implementation_s1_coordinator_and_lineage/\n    └─ migration.sql\n  └─ 20260712090000_add_paper_implementation_runtime_identity_unique/\n    └─ migration.sql\n  └─ 20260713180000_add_experiment_foundation_d19_v2_spine/\n    └─ migration.sql\n  └─ 20260713210000_add_experiment_foundation_pack_b_provider_control_v2/\n    └─ migration.sql\n  └─ 20260714160000_harden_experiment_foundation_pack_b_v2/\n    └─ migration.sql\n  └─ 20260714190000_remove_experiment_foundation_v2_placeholders/\n    └─ migration.sql\n  └─ 20260714210000_normalize_experiment_v2_event_payloads/\n    └─ migration.sql\n  └─ 20260715120000_add_paper_implementation_s4_runtime_telemetry/\n    └─ migration.sql\n  └─ 20260716120000_add_human_confirmation_reviewed_claim_statement_hash/\n    └─ migration.sql\n  └─ 20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2/\n    └─ migration.sql\n  └─ 20260719120000_reconcile_index_names_and_topic_research_record/\n    └─ migration.sql\n  └─ 20260720135725_add_paper_implementation_pack_c_evidence_closure_v2/\n    └─ migration.sql\n  └─ 20260720141000_harden_paper_implementation_pack_c_closure_v2/\n    └─ migration.sql\n  └─ 20260723100000_add_experiment_foundation_m7_real_provider_v2/\n    └─ migration.sql\n      \nAll migrations have been successfully applied.\n\n"
+    },
+    "relational": {
+      "status": "passed",
+      "test_files": [
+        "src/repositories/prisma/prisma-experiment-foundation-execution-bundle-v2-relational.integration.test.ts",
+        "src/repositories/prisma/prisma-experiment-foundation-execution-v2-relational.integration.test.ts"
+      ],
+      "exit_code": 0,
+      "duration_ms": 3529,
+      "tap": {
+        "tests": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      "output_tail": "TAP version 13\n# (node:44722) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: M7 ExecutionBundle Prisma enforces draft CAS, immutable freeze replay, and exact readiness\nok 1 - M7 ExecutionBundle Prisma enforces draft CAS, immutable freeze replay, and exact readiness\n  ---\n  duration_ms: 743.403708\n  ...\n# (node:44723) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:\n# --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));'\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: Prisma EF execution v2 atomically persists E1 and rolls back an invalid E3 command chain\nok 2 - Prisma EF execution v2 atomically persists E1 and rolls back an invalid E3 command chain\n  ---\n  duration_ms: 204.639458\n  ...\n# Subtest: M7 Prisma accepts only the exact real-provider tuple and preserves typed repository reads\nok 3 - M7 Prisma accepts only the exact real-provider tuple and preserves typed repository reads\n  ---\n  duration_ms: 109.686917\n  ...\n# Subtest: Prisma EF execution v2 rejects a persisted TaskSpec snapshot tamper before every E1 write\nok 4 - Prisma EF execution v2 rejects a persisted TaskSpec snapshot tamper before every E1 write\n  ---\n  duration_ms: 120.923792\n  ...\n# Subtest: Prisma EF execution v2 concurrent E1 exact replay converges and rejects workflow binding drift\nok 5 - Prisma EF execution v2 concurrent E1 exact replay converges and rejects workflow binding drift\n  ---\n  duration_ms: 171.820416\n  ...\n# Subtest: Prisma EF execution v2 batches a large E1 cell set with bounded query shape\nok 6 - Prisma EF execution v2 batches a large E1 cell set with bounded query shape\n  ---\n  duration_ms: 173.19275\n  ...\n# Subtest: Prisma EF execution v2 pre-submit cancel commits command before its FK-bound event and replays\nok 7 - Prisma EF execution v2 pre-submit cancel commits command before its FK-bound event and replays\n  ---\n  duration_ms: 129.305292\n  ...\n# Subtest: Prisma EF execution v2 persists cancel during a submit lease and defers its claim until E3\nok 8 - Prisma EF execution v2 persists cancel during a submit lease and defers its claim until E3\n  ---\n  duration_ms: 134.228291\n  ...\n# Subtest: Prisma EF execution v2 cleanup migration restricts immutable updates and closes exact schema domains\nok 9 - Prisma EF execution v2 cleanup migration restricts immutable updates and closes exact schema domains\n  ---\n  duration_ms: 159.149958\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3504.695542\n\n"
+    }
+  },
+  "disposable_postgres": {
+    "image": "pgvector/pgvector@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
+    "existing_database_url_used": false,
+    "started": true,
+    "database_name": "packb_ca5c36d3e41d",
+    "marker": {
+      "database_name": "packb_ca5c36d3e41d",
+      "marker_sha256": "ae4061819db76fcf12ecd22d7cfade656642eb15e62a1c4eb597b5272a7e093f",
+      "marker_written": true
+    },
+    "cleaned_up": true
+  },
+  "provider_call_census": {
+    "live_create_job": 0,
+    "live_get_job": 0,
+    "live_list_jobs": 0,
+    "live_stop_job": 0,
+    "live_delete_job": 0,
+    "live_oss_write": 0,
+    "injected_official_sdk_fake_only": true
+  },
+  "cost_resource_census": {
+    "billable_jobs_created": 0,
+    "cloud_resources_created": 0,
+    "cloud_cost_incurred": 0
+  },
+  "write_census": {
+    "named_database_writes": 0,
+    "existing_database_migrations_applied": 0,
+    "scientific_result_writes": 0,
+    "evidence_candidate_writes": 0,
+    "run_evidence_unit_writes": 0,
+    "legacy_writes": 0
+  },
+  "handoff": {
+    "ownership_boundary_present": true,
+    "verdict_run_id_imported": true,
+    "duplicate_provider_implementation_count": 0,
+    "exact": true
+  },
+  "checks": {
+    "M7-01": {
+      "status": "passed",
+      "evidence": [
+        "migration",
+        "tests.relational"
+      ]
+    },
+    "M7-02": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend"
+      ]
+    },
+    "M7-03": {
+      "status": "passed",
+      "evidence": [
+        "tests.shared",
+        "tests.backend"
+      ]
+    },
+    "M7-04": {
+      "status": "passed",
+      "evidence": [
+        "capabilities",
+        "tests.backend"
+      ]
+    },
+    "M7-05": {
+      "status": "passed",
+      "evidence": [
+        "migration",
+        "schema_census",
+        "tests.shared",
+        "tests.relational"
+      ]
+    },
+    "M7-06": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend"
+      ]
+    },
+    "M7-07": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend"
+      ]
+    },
+    "M7-08": {
+      "status": "passed",
+      "evidence": [
+        "tests.shared",
+        "tests.backend"
+      ]
+    },
+    "M7-09": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend"
+      ]
+    },
+    "M7-10": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend"
+      ]
+    },
+    "M7-11": {
+      "status": "passed",
+      "evidence": [
+        "write_census",
+        "tests.backend",
+        "schema_census"
+      ]
+    },
+    "M7-12": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend",
+        "write_census"
+      ]
+    },
+    "M7-13": {
+      "status": "passed",
+      "evidence": [
+        "provider_call_census",
+        "cost_resource_census",
+        "write_census",
+        "redaction"
+      ]
+    },
+    "M7-14": {
+      "status": "passed",
+      "evidence": [
+        "capabilities",
+        "tests.backend"
+      ]
+    },
+    "M7-15": {
+      "status": "passed",
+      "evidence": [
+        "handoff"
+      ]
+    }
+  },
+  "redaction": {
+    "database_url_persisted": false,
+    "database_password_persisted": false,
+    "canonical_payload_bytes_persisted": false,
+    "raw_provider_response_persisted": false,
+    "raw_object_locator_persisted": false
+  },
+  "blockers": []
+}

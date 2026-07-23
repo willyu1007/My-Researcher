@@ -52,7 +52,7 @@
 - [x] True external canary exists as an explicit opt-in prerequisite gate and command contract.
 - [x] True canary gate has credential, cost, cleanup, blocked/skipped/pass, and redaction guardrails.
 - [x] True canary gate artifacts store key presence, refs, hashes, summaries, and cleanup prerequisites only.
-- [ ] Import and verify the T-132 M7 provider-specific canary verdict, redaction, budget and cleanup evidence. T-106 must not implement a separate provider transport or schema.
+- [x] Import and verify the T-132 M7-I3 default-off implementation verdict `t132-m7-offline-20260723-v1`, including redaction, zero-cost/write census and disposable cleanup evidence. T-106 implements no provider transport or schema. The true external M7-L1 canary remains separately open.
 
 ### Phase 7
 - [x] A standalone T-106 hardening command exists with clear deterministic, real-local-DB, UI-definition, cross-flow, and true-external-canary-gate lanes.

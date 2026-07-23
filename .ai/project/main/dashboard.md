@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 132 (planned: 2, in-progress: 4, blocked: 0, done: 43, archived: 83)
+- Tasks: 133 (planned: 2, in-progress: 4, blocked: 0, done: 44, archived: 83)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
 | T-132 experiment-foundation-productization-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-productization-closure |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
@@ -33,5 +34,4 @@ Project: `main`
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
 | T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 | T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
-| T-121 literature-retrieval-pgvector-index-design | archived | F-000 | dev-docs/archive/literature-retrieval-pgvector-index-design |
 <!-- AUTO-GENERATED:END dashboard -->

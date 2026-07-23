@@ -236,6 +236,23 @@ Results:
 - No credential value, SDK payload, raw provider log or object path was added to either task package.
 - Verification commands are the strict T-106/T-132 docs lints, governance sync/lint and `git diff --check` recorded in the T-132 handoff.
 
+## 2026-07-23: T-132 M7-I3 evidence import
+
+- Imported run: `t132-m7-offline-20260723-v1`.
+- Source: `.ai/.tmp/experiment-foundation-productization/t132-m7-offline-20260723-v1/summary.json`.
+- Before this import the same run passed M7-01..M7-14 and blocked only on `T106_M7_VERDICT_NOT_IMPORTED`, proving the bilateral handoff is an enforced gate step rather than a documentation convention.
+- Imported evidence reports shared 10/10, backend 88/88 and disposable relational 9/9 with zero skip; six ExecutionBundle tables, seven same-domain FKs, zero cross-domain FK and exact simulation/real tuple CHECKs.
+- Final imported verdict is `passed` with M7-01..M7-15 all passed; summary SHA-256 is `7bccf0b8bedd041f65374ce0e6ccff3cc26be662a008c1ff6951a57f71743679`.
+- Live `CreateJob/GetJob/ListJobs/StopJob/DeleteJob` and OSS-write censuses are all 0; billable jobs/resources/cost are 0; named database apply, scientific result, EvidenceCandidate, REU and legacy writes are 0. The disposable container was cleaned up.
+- This is default-off implementation conformance, not real connectivity or a true external canary. The provider-specific live acceptance checkbox remains open until M7-L1 receives workload, mirror/output, budget, least-privilege identity and explicit live authorization.
+
+## 2026-07-24: superseding import after independent review
+
+- Imported run: `t132-m7-offline-20260724-v2`, superseding `t132-m7-offline-20260723-v1`.
+- Source: `.ai/.tmp/experiment-foundation-productization/t132-m7-offline-20260724-v2/summary.json`; durable copy `11-m7-offline-gate-summary-v2.json` in the T-132 implementation artifacts.
+- Trigger: the T-132 independent review (Codex gpt-5.6-sol + Claude) confirmed the reconcile watchdog compared poll attempts instead of wall-clock TaskSpec timeout; the worker now derives the cancel-on-timeout deadline from the frozen `timeout_seconds` plus queue grace. All other review findings are dispositioned in the T-132 readiness review (fixed, refuted with evidence, or bound to M7-L1/L2/QR).
+- The same zero live-call, zero-cost, zero named-database/scientific/evidence-write boundary applies; T-106 still implements no provider transport or schema.
+
 ## Actual Local Full Baseline
 
 Commands run on 2026-05-27:

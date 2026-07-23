@@ -29,7 +29,7 @@
 - Production fix verification: focused backend tests 12/12, cloud gate meta 4/4, backend typecheck passed and experiment-foundation script typecheck passed. Tests assert `PageSize=10`, `AcceleratorType=CPU`, `ResourceType=ECS`, absent `SortBy/Order`, exact pagination, and safe provider status/code/RequestId retention without raw diagnostic leakage.
 - `cloud-preflight-public-resource-readonly-20260723-r6` returned `cloud_preflight_passed`; CP01-CP12 all passed. Workspace RequestId `019F8C15-90E7-5870-83CE-56A703091304` and resource RequestId `019F8C15-9156-572C-BA70-635AE5A51BA5` succeeded. Eleven successful DLC pages reported 108 visible CPU specs and 105 available; final RequestId `019F8C15-9E22-590D-BBDB-E75046DA155D`.
 - r6 write census: provider transport operations 13; provider write requests 0; CreateJob calls 0; provider writes 0; database writes 0; scientific writes 0. The server-enforced read-only fence covered 88 tables before/after with `changed_tables=[]`; scientific execution remained `not_started`, evidence eligibility remained false, and the product capability was restored to its default-off posture.
-- r6 summary path: `.ai/.tmp/experiment-foundation-productization/cloud-preflight-public-resource-readonly-20260723-r6/summary.json`; SHA-256 `ae524752ef64f658ddfb796e8c0834bf0903baadf1c8e79cfbc392887c516053`. External credential/evidence files, clipboard content and temporary debug/wrapper code were removed after the run. The result is read-only cloud acceptance only; it does not authorize or prove CreateJob, scheduler/image/runtime behavior or scientific output.
+- r6 summary path: `.ai/.tmp/experiment-foundation-productization/cloud-preflight-public-resource-readonly-20260723-r6/summary.json`; SHA-256 `ae524752ef64f658ddfb796e8c0834bf0903baadf1c8e79cfbc392887c516053`. External credential/evidence files, clipboard content and temporary debug/wrapper code were removed after the run. The result is read-only cloud acceptance only; the result does not authorize or prove CreateJob, scheduler/image/runtime behavior or scientific output.
 
 ## Zero-write Aliyun cloud-preflight implementation — 2026-07-18
 
@@ -1024,3 +1024,72 @@ git diff --check
 ```
 
 No live or mutating verification command is authorized by the readiness step.
+
+## 2026-07-23 — M7-I0..I3 default-off implementation closure
+
+Command:
+
+```bash
+node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-offline-20260723-v1
+```
+
+| Evidence | Final outcome |
+|---|---|
+| gate verdict | `passed`; M7-01 through M7-15 all `passed` |
+| summary | `.ai/.tmp/experiment-foundation-productization/t132-m7-offline-20260723-v1/summary.json` |
+| summary SHA-256 | `7bccf0b8bedd041f65374ce0e6ccff3cc26be662a008c1ff6951a57f71743679` |
+| source population | 14 files; SHA-256 `13a3e620e3d0f2f86845d0fc5aef2ea2c05021fff654478fd0e29a85e392c281` |
+| shared targeted tests | 10/10 passed; 0 failed/skipped |
+| backend targeted tests | 88/88 passed; 0 failed/skipped |
+| forced disposable PostgreSQL | 9/9 passed; 0 failed/skipped; marker/reset identity checks passed |
+| ExecutionBundle schema | 6 typed tables; 7 same-domain FKs; 0 PI↔EF cross-domain FK |
+| provider-control schema | exact simulation/fake and real-provider tuples; mixed tuples rejected |
+| capability behavior | intake and drain default `false`; capability-off intake zero writes; committed drain survives intake disable |
+| live provider/OSS calls | `CreateJob/GetJob/ListJobs/StopJob/DeleteJob` and OSS writes all 0 |
+| external effects | billable jobs/resources/cost, named-database apply, scientific/evidence/REU/legacy writes all 0 |
+| cleanup | disposable PostgreSQL container cleaned successfully |
+| T-106 handoff | exact run imported; no duplicate provider transport/schema/runner |
+
+The run proves the default-off implementation and crash-recovery contract only. The run does not prove live PAI-DLC connectivity, image pull, dataset mounts, output collection from OSS, scientific validity or evidence eligibility. Those remain fenced behind separately authorized M7-L1/M7-L2 work.
+
+### 2026-07-24 — independent review fix and superseding v2 convergence
+
+The pre-commit independent review (Codex `gpt-5.6-sol` + Claude; dispositions recorded in `artifacts/implementation/11-m7-real-provider-readiness-review.md`) confirmed one functional defect: the reconcile watchdog compared poll-attempt counts instead of wall-clock time against the frozen TaskSpec `timeout_seconds`, so a healthy long-running job would be cancelled after ~12 polls and a late transient transport error could terminalize it. The worker now derives the cancel-on-timeout deadline from `attempt.created_at + timeout_seconds + watchdogGraceMs` (default 15 min), keeping `maximumCommandAttempts` as the transport-retry bound for submit/cancel/collect; M7-09 was rewritten as a wall-clock regression test.
+
+Superseding convergence run:
+
+```bash
+node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-offline-20260724-v2
+```
+
+| Evidence | Final outcome |
+|---|---|
+| gate verdict | `passed`; M7-01 through M7-15 all `passed` |
+| summary | `.ai/.tmp/experiment-foundation-productization/t132-m7-offline-20260724-v2/summary.json`; durable copy `artifacts/implementation/11-m7-offline-gate-summary-v2.json` |
+| summary SHA-256 | `7794091061b7d2e920634d78d08d657776fa5515d5fe751b1f22026a1196d6e0` |
+| host full suites after fix | shared 390/390; backend 2,387 tests / 2,327 pass / 0 fail / 60 conditional-skip; gate scripts 18/18 |
+
+### Historical Pack B gate compatibility after M7
+
+The M7 schema evolution initially made the historical Pack B gate stale: the gate expected a 40-table V2 population, fake-only effective PostgreSQL domains and the old `real` fence label. The compatibility repair keeps the Pack B product writer simulation-only, measures all later V2 tables for zero writes, and verifies the evolved exact tuple schema.
+
+Final replay:
+
+```bash
+node .ai/scripts/experiment-foundation-packb-simulation-gate.mjs --run-id packb-m7-compat-20260723-r3
+```
+
+- PB01-PB16: all passed.
+- Shared targeted: 6/6; backend targeted: 95/95.
+- Pack A forced relational: 6/6; Pack B forced relational: 8/8; zero skipped.
+- Effective Pack B schema: 15 restrictive same-domain FKs, 31 CHECKs, 38 indexes and the Cycle-wide active-real fence index.
+- The simulation scenario wrote only the six Pack B families and made zero fetch/network/`CreateJob` calls; later V2 tables were included in the unchanged census.
+- Disposable PostgreSQL cleanup passed. Summary SHA-256: `ba0712beae4bbba32d26d0b93432d8f2fc4bbb5c3e7856d26338ccdc2ff2fa7d`.
+
+### Final repository regression
+
+- Shared full suite: 390/390 passed; 0 failed/skipped.
+- Backend full suite: 2,387 total; 2,327 passed; 0 failed; 60 conditional relational/live-provider skips; duration `447746.555916ms`.
+- The first backend full run exposed one stale static census (`45 !== 38`) because M7 added seven reviewed same-domain RESTRICT FKs. The corrected assertion independently freezes the historical Pack A 38 and the M7 delta 7; its focused file passed 31/31 before the final full-suite pass.
+- Prisma validate, shared/backend/script typechecks, env-contract validation, M7/Pack B gate meta, both strict docs lints, governance lint and `git diff --check` passed.
+- Conditional full-suite skips are not counted as database acceptance. M7 database acceptance remains the forced disposable PostgreSQL 9/9 lane; Pack A/Pack B compatibility acceptance remains the forced 6/6 and 8/8 lanes.

@@ -608,3 +608,50 @@ When adding an entry, use:
 - Fix/workaround:
 - Prevention:
 - References:
+
+### 2026-07-23 — Nullable JSON authority requires SQL NULL, not JSONB null
+- Symptom: the first M7 disposable relational run rejected an otherwise valid created AttemptEvent at `ef_attempt_event_external_ref_pair_check`.
+- Context: the test inserted a real-provider created event with no external job ref.
+- What was tried: writing `Prisma.JsonNull` for the absent `externalJobRefJson` alongside a SQL-null hash.
+- Why the attempt failed: `Prisma.JsonNull` stores the JSON value `null`, which is not SQL NULL; the pair CHECK correctly saw a present JSON column with an absent hash.
+- Fix/workaround: use `Prisma.DbNull` for an absent nullable JSON column. Production repository helpers already use the SQL-null representation; the direct relational fixture was corrected.
+- Prevention: for nullable JSON authority pairs, tests must distinguish database null from JSON null and exercise the exact CHECK.
+- References: `prisma-experiment-foundation-execution-v2-relational.integration.test.ts`; M7 gate run `t132-m7-offline-20260723-v1`.
+
+### 2026-07-23 — Generalized CHECK migrations invalidate old constraint-name assertions
+- Symptom: the first M7 relational run correctly rejected a mixed simulation/real Attempt, but the test reported failure.
+- Context: M7 replaced separate mode/provenance checks with one exact tuple CHECK.
+- What was tried: matching the historical `ef_execution_attempt_mode_check` name.
+- Why the attempt failed: PostgreSQL now rejects earlier at `ef_execution_attempt_exact_tuple_check`; the behavior remained fail-closed, but the evidence assertion encoded the pre-M7 schema.
+- Fix/workaround: update the negative test to require the new exact-tuple constraint and keep migration/schema census tests responsible for the renamed population.
+- Prevention: when a migration intentionally replaces constraints, search relational tests and gates for both semantic values and constraint names before the first full replay.
+- References: `20260723100000_add_experiment_foundation_m7_real_provider_v2/migration.sql`; M7 gate run `t132-m7-offline-20260723-v1`.
+
+### 2026-07-23 — Concurrent replay fixtures must preserve canonical identities
+
+- Symptom: the real-provider concurrent E1 relational test failed nondeterministically with either a hash conflict or an invalid row becoming the winning contender.
+- Context: the test cloned a valid start request, changed Attempt/event/command IDs, and raced both requests against the same Run cell.
+- What was tried: changing identifiers without rebuilding the event hash, command snapshot binding and command canonical hash.
+- Why the attempt failed: those identifiers are part of immutable authority. The malformed contender's outcome depended on which transaction won, and also exposed that initial event/command hashes were not revalidated on every pre-write path.
+- Fix/workaround: regenerate all dependent canonical identities in the fixture, validate event and command hashes plus bindings before repository writes, and add negative tests proving either hash drift yields `PROVIDER_RESPONSE_INVALID` with zero Attempts.
+- Prevention: any fixture mutation of an identity participating in a canonical snapshot must rebuild the complete dependent hash graph; repositories must still reject malformed input before relying on uniqueness or a race loser to protect persistence.
+- References: `prisma-experiment-foundation-execution-v2-relational.integration.test.ts`; `prisma-experiment-foundation-execution-v2-repository.ts`; M7 gate run `t132-m7-offline-20260723-v1`.
+
+### 2026-07-23 — Historical gates must census later additive families without owning them
+
+- Symptom: the post-M7 Pack B replay failed before its scenario because D-19 expected exactly the historical 40 V2 tables and Pack B expected fake-only effective CHECKs.
+- Context: Pack C and M7 had legitimately added 12 V2 tables and generalized the same six provider-control tables while preserving the simulation writer.
+- What was tried: replaying the unchanged historical gate against the repository's complete current migration history.
+- Why the attempt failed: the gate conflated its owned writer population with the whole repository's evolving additive schema, and its PB14 evidence used the obsolete `real` label instead of the canonical `real_provider` mode.
+- Fix/workaround: retain the 40-table D-19 named census, add every later V2 table to a zero-write before/after census, freeze the current 52-table schema population, update the effective Pack B digest to 15 FK/31 CHECK/38 index, keep the Pack B writer allowlist exactly `['simulation']`, and split the static relation assertion into historical Pack A 38 plus M7 delta 7.
+- Prevention: historical gates should freeze their writer authority but explicitly measure later additive families as unchanged; effective-schema digests must be refreshed by a fail-closed disposable replay whenever an authorized later migration changes shared storage semantics.
+- References: `run-experiment-foundation-d19-spine.ts`; `run-experiment-foundation-packb-simulation.ts`; `experiment-foundation-packb-simulation-gate.mjs`; replay `packb-m7-compat-20260723-r3`.
+
+### 2026-07-24 — A poll-count watchdog is not a timeout
+
+- Symptom: none in tests — the offline gate's fake provider converges within a few polls, so every suite stayed green while the reconcile watchdog would have cancelled any real job that ran longer than ~12 polls (a few minutes of backoff).
+- Context: the worker bounded reconcile by `maximumCommandAttempts`, reusing the transport-retry ceiling as the execution timeout, while the provider-side `JobMaxRunningTimeMinutes` correctly used the frozen TaskSpec `timeout_seconds`.
+- Why it survived review-by-testing: injected fakes reach terminal states quickly, so the attempt-count bound and a wall-clock bound are indistinguishable in fast tests. Only the independent code review caught the conflation.
+- Fix: the watchdog deadline is `attempt.created_at + timeout_seconds + watchdogGraceMs`; healthy nonterminal polling and retryable sync/reconcile transport errors release until that deadline, and `maximumCommandAttempts` stays as the transport-retry bound for submit/cancel/collect. M7-09 was rewritten to advance a fake clock across the deadline.
+- Prevention: any bound expressed as an attempt count must be justified against wall-clock semantics; tests for timeout paths must drive an injected clock across a real deadline instead of shrinking a counter.
+- References: `experiment-foundation-real-provider-command-v2-worker.ts`; `experiment-foundation-real-provider-command-v2-worker.unit.test.ts`; gate run `t132-m7-offline-20260724-v2`.

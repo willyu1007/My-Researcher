@@ -1,7 +1,7 @@
 # 01 Plan
 
 ## Execution posture
-- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing、Pack C 全部切片/最终 gate/named-local hardening apply，以及 zero-write Aliyun `public_resource` preflight 均已完成。正式 r6 为 `cloud_preflight_passed`、CP01-CP12 全绿、provider/CreateJob/database/scientific writes 全为 0。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight capability 均为 `false`。M7 readiness 已完成，但 default-off code/schema/test implementation、任何 provider write、scientific execution、UI/search 或 non-local rollout 仍是独立后续授权。
+- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing、Pack C 全部切片/最终 gate/named-local hardening apply、zero-write Aliyun `public_resource` preflight，以及 M7-I0..I3 default-off code/schema/test implementation 均已完成。M7 最终 run `t132-m7-offline-20260723-v1` 通过 M7-01..M7-15，且真实 provider/OSS、named DB apply、scientific/evidence/legacy writes 全为 0。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight/real-provider capability 均为 `false`。任何 provider write、scientific execution、UI/search 或 non-local rollout 仍是独立后续授权。
 - Pack A state: implementation and exact source-policy binding are complete; final run `packa-d19-source-policy-20260713-r2` passed A01-A04 and B01-B10 with `blockers=[]` on disposable PostgreSQL.
 - T-132 remains a single execution package. Internal workstreams may run in parallel only after the shared invariant contracts are frozen.
 - Every phase MUST add its own negative/integration evidence. A final control-plane scenario cannot compensate for missing phase-level proof.
@@ -70,7 +70,14 @@ Implementation sequencing is fixed in `artifacts/implementation/11-m7-real-provi
 5. M7-L1, only after a new explicit authorization, runs a cost-capped diagnostic canary and remains evidence-ineligible.
 6. M7-L2, under another source/budget/scientific authorization, runs the exact scientific workload and enters existing Pack C validation/evidence/closure gates.
 
-The current authorization stops before M7-I0 implementation. `CreateJob`, OSS upload/write, migration apply and capability enable are expressly excluded.
+M7-I0 through M7-I3 default-off code/schema/migration-file/test implementation was authorized and is implemented. The authorization still expressly excludes `CreateJob`, OSS upload/write, applying the migration to an existing/named database, capability enable, scientific activation and product rollout. M7-L1/L2 remain separate future authorizations.
+
+Implementation checkpoint:
+
+1. M7-I0 contracts, hash profiles, source-population lock and both default-false capabilities: complete.
+2. M7-I1 typed ExecutionBundle storage, executable T1-T4 materialization and additive/generalizing migration artifact: complete; tested only on disposable PostgreSQL.
+3. M7-I2 injected official-SDK transport, exact collection and recovery-only accepted-response-loss handling: complete; no live client composition or cloud call.
+4. M7-I3 gate: implemented at `.ai/scripts/experiment-foundation-m7-provider-gate.mjs`; run `t132-m7-offline-20260723-v1` passed M7-01..M7-14 before the required T-106 evidence import and is rerun after that import to close M7-15.
 
 ## Formal PI scope → Pack A product checkpoint — 2026-07-15
 

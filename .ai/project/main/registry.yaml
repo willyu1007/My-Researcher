@@ -1214,3 +1214,10 @@ tasks:
       - R-012
     dev_docs_path: dev-docs/active/experiment-foundation-productization-closure
     updated: 2026-07-13
+  - id: T-133
+    slug: paper-implementation-debate-disposition-closure
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/paper-implementation-debate-disposition-closure
+    updated: 2026-07-23

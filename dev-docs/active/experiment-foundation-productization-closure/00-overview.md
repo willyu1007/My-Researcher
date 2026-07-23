@@ -4,7 +4,17 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: **Pack C 与 Aliyun zero-write preflight 均已关闭**——Pack C 最终 gate `packc-final-20260722-r5` passed；Aliyun `public_resource` r6 于 2026-07-23 `cloud_preflight_passed`，CP01-CP12 全绿、108 个 CPU spec 可见且 105 个可用，provider/CreateJob/database/scientific writes 全为 0、88 张表 unchanged。HTTP 400 根因是 provider 拒绝可选 `SortBy=CPU`，不是 IAM 或控制台白屏；修复后 transport 使用 page-size 10、`ResourceType=ECS`、`AcceleratorType=CPU` 并省略 `SortBy/Order`。长期 closure 为 `artifacts/implementation/10-cloud-preflight-live-closure.md`。M7 readiness review 已冻结：既有 Run 必须保持 simulation-only，真实执行必须从新 PI WorkOrder revision 创建新 Run，并由 T-132 唯一实现、T-106 只消费证据；见 `artifacts/implementation/11-m7-real-provider-readiness-review.md`。下一步是独立授权 default-off M7 code/schema/test implementation；任何 `CreateJob`、migration apply、scientific activation、UI/search（M5）或非本地 rollout 仍需后续独立授权。
+- Next step: **M7-I0 至 M7-I3 default-off implementation 与 evidence import 已完成**——typed ExecutionBundle、executable WorkOrder/RunRecipe/TaskSpec v2、复用六张 provider-control authority 表的 exact real-provider tuple、注入式 Aliyun official-SDK transport、crash-recovery worker、默认关闭产品 route 与 disposable-Postgres gate 均已实现。最终 gate run `t132-m7-offline-20260723-v1` 的 M7-01..M7-15 全部通过，T-106 已导入同一 redacted verdict。整个阶段没有向现有数据库 apply migration、没有打开 capability、没有发出真实 provider/OSS 请求，也没有 scientific/evidence/legacy 写入。下一步是独立的 M7-L1 现场准备与授权；首个 `CreateJob` 仍受 exact workload/mirror/output/budget/least-privilege identity 与独立现场授权阻塞。
+
+## M7 default-off implementation — 2026-07-23
+
+- 新增六张 typed ExecutionBundle identity/draft/revision/lifecycle/readiness 表；draft 使用 expected-version CAS，freeze 为 server-hashed immutable revision，readiness 只能按 exact revision/hash 解析。
+- PI WorkOrder revision v2 绑定一个 exact ExecutionBundle。EF T2 物化 executable RunRecipe v2 与两个 ordered TaskSpec v2，T3/T4 仍复用唯一 PI head CAS 与 EF final inbox acknowledgement，不产生第二 saga 或 manifest authority。
+- 既有六张 Pack B provider-control 表以 exact discriminated tuple 同时接受 simulation/fake 与 `real_provider`，simulation history 不 backfill、不 trust-upgrade。simulation worker 与 real worker 分别按 execution mode claim，避免跨 lane 抢占。
+- real-provider intake 与 control drain 使用两个独立 default-false capability；关闭 intake 不会截断已提交 command。App composition 只接受显式注入的 official-SDK transport/profile/bundle resolver，不构造 live client。
+- official-SDK adapter 对 `CreateJob/GetJob/ListJobs/StopJob` 使用 bounded、no-autoretry 调用；accepted-response loss 只能 exact discovery，不能盲目再次 `CreateJob`。collect 校验 exact object name、canonical envelope、bundle/Run/cell/TaskSpec/parser binding，且产物仍为 diagnostic-only provisional output。
+- M7 gate 只使用注入式 SDK fake 和 digest-pinned disposable PostgreSQL；现有/named database、真实 provider、OSS、科学结果与证据写入均保持 0。
+- 最终 run `t132-m7-offline-20260723-v1` 通过 M7-01..M7-15：shared 10/10、backend 88/88、强制 disposable PostgreSQL 9/9 且 skip=0；summary SHA-256 为 `7bccf0b8bedd041f65374ce0e6ccff3cc26be662a008c1ff6951a57f71743679`。
 
 ## Aliyun public-resource preflight spine — 2026-07-22
 

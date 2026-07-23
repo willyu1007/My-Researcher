@@ -5,7 +5,7 @@ Date: 2026-07-23
 Owner: `T-132 experiment-foundation-productization-closure`
 
 Consuming acceptance: `T-106 experiment-foundation-real-interaction-hardening`
-Review verdict: `ready_for_default_off_implementation_planning`; `blocked_for_live_create_job`
+Review verdict: `default_off_implementation_passed`; `blocked_for_live_create_job`
 
 ## Goal and non-goals
 
@@ -180,6 +180,33 @@ Primary references:
 - After a committed submit: stop new intake, continue only sync/cancel/collect/cleanup until every provider job is terminal; do not delete durable Attempt/event/command lineage.
 - Never restore legacy external-job writers, reinterpret simulation rows as real, mutate the existing Run or mint evidence from diagnostic output.
 
+## Independent review (2026-07-24)
+
+Reviewers: Codex `gpt-5.6-sol` full working-tree review plus an independent Claude seam verification; every claim was source-verified before disposition. Host reruns after the fix: shared 390/390, backend full 2,387/2,327 pass/0 fail/60 conditional-skip, gate scripts 18/18.
+
+Fixed before commit:
+
+- **Local watchdog was poll-count, not wall-clock** (confirmed): reconcile previously cancelled a healthy nonterminal job after `maximumCommandAttempts` polls and let one late transient transport error terminalize a long job. The worker now derives a deadline from `attempt.created_at + task_spec.retry_snapshot.timeout_seconds + watchdogGraceMs` (default 15 min queue grace); healthy polling and retryable sync/reconcile transport errors release until the deadline, then cancel-on-timeout runs. `maximumCommandAttempts` remains the transport-retry bound for submit/cancel/collect. Regression test added (M7-09 rewritten wall-clock).
+
+Refuted after verification:
+
+- *Cancel racing provider success strands the Attempt*: the reconcile command created at submit commit stays pending after the cancel command terminalizes with `EXECUTION_ATTEMPT_STATE_CONFLICT`, so success converges through the normal reconcile→collection path. A dedicated race regression test remains a QR candidate.
+- *Repository/PG fake-real ref mixing* (as stated): a real external ref serialized without its discriminator throws at write time (`Fake external job ref cannot bind a region hash`), and read integrity re-verifies the ref hash against the stored wire shape, so the claimed silent mix fails closed. Residual hardening (explicit required discriminator end-to-end, PG JSON discriminator CHECKs, payload↔attempt mode coupling) is queued below.
+
+Binding dispositions (must close before the named live window):
+
+| Finding | Disposition |
+|---|---|
+| `recordExperimentResult` accepts a succeeded Attempt without a verified collection receipt | **M7-L2 entry condition** (extends the Pack C R2 record): before any scientific-validation intake is enabled for real-provider rows, the service must require an exact collected CollectionAttempt receipt (locator/content/parser bindings) built only by the trusted parser bridge |
+| Exact output-channel locator + executed trusted parser | already frozen **M7-L1/L2 blockers** (output channel and parser-profile decisions); `locatorHasExactObjectName` and the envelope `outputs` field harden then |
+| ExecutionBundle active/readiness revalidation inside T2/E1 transactions; projection sequence/hash recheck in `readFrozen` | **M7-L1 precondition** (no revoke writer exists yet; default-off means no production writes today) |
+| Recovery `jobDetailMatches` must compare resource/timeout fields and paginate to exhaustion | **M7-L1 precondition** |
+| Production bootstrap composition for profile resolver/transport/result reader (today `server.ts` fail-fasts when the flags are enabled, by design for I0..I3) | **M7-L1 precondition** |
+| Deterministic authority ids (bundle/payload/attempt/event/command/collection currently default to `randomUUID`; convergence holds via replay but first-pass determinism is preferred) | M7-QR candidate |
+| Gate hardening: measured (not declared) provider/write/redaction censuses, per-check predicates, pre-M7 seeded-row migration comparison, source-population digest comparison, transcript redaction in durable evidence | M7-QR candidate (QR-5-style package) |
+
 ## Readiness verdict
 
-The architecture is sufficiently constrained to begin a separate default-off M7 implementation authorization after the current documentation checkpoint is committed. Live execution remains blocked by the exact bundle/mirror/output/budget/credential decisions above and requires a new explicit authorization immediately before the first `CreateJob`.
+The default-off M7 implementation is complete. The original isolated run `t132-m7-offline-20260723-v1` (summary SHA-256 `7bccf0b8bedd041f65374ce0e6ccff3cc26be662a008c1ff6951a57f71743679`) passed M7-01..M7-15; after the review fix above, the gate was rerun as `t132-m7-offline-20260724-v2` with shared 10/10, backend 88/88 and forced disposable PostgreSQL 9/9, all without live provider/OSS requests, named-database apply or scientific/evidence/legacy writes. A byte-identical durable copy of the v2 summary is committed as `11-m7-offline-gate-summary-v2.json`.
+
+Live execution remains blocked by the exact workload/bundle, dataset mirror, output channel, cost ceiling, controller/runtime identity and accepted-response-loss decisions above. It requires a new explicit M7-L1 authorization immediately before the first `CreateJob`; the two real-provider capabilities remain default false.
