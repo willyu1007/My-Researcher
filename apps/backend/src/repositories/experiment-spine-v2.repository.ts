@@ -8,6 +8,10 @@ import type {
   ExperimentFoundationVersionLockV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import type {
+  ExperimentFoundationExecutableRunRecipeV2,
+  ExperimentFoundationExecutableTrainingTaskSpecV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import type {
   BranchHeadAdvancedEventV1,
   ExperimentFoundationIntegrationInboxV2,
   ExperimentFoundationIntegrationOutboxV2,
@@ -180,8 +184,10 @@ export interface ExperimentFoundationV2MaterializationBundle {
   inbox: ExperimentFoundationIntegrationInboxV2;
   version_lock: ExperimentFoundationVersionLockV2;
   version_lock_dependencies: ExperimentFoundationVersionLockDependencyV2[];
-  run_recipe: ExperimentFoundationRunRecipeV2;
-  task_specs: ExperimentFoundationTrainingTaskSpecV2[];
+  run_recipe: ExperimentFoundationRunRecipeV2 | ExperimentFoundationExecutableRunRecipeV2;
+  task_specs: Array<
+    ExperimentFoundationTrainingTaskSpecV2 | ExperimentFoundationExecutableTrainingTaskSpecV2
+  >;
   run: ExperimentFoundationRunV2;
   run_cells: ExperimentFoundationRunCellV2[];
   outbox: ExperimentFoundationIntegrationOutboxV2 & {

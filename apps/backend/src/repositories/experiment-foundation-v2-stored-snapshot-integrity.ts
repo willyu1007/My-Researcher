@@ -27,6 +27,12 @@ import {
   type ExperimentFoundationV2AssetType,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import {
+  experimentFoundationExecutableRunRecipeSnapshotV2Schema,
+  experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema,
+  type ExperimentFoundationExecutableRunRecipeSnapshotV2,
+  type ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import {
   serverHashExperimentFoundationV2AssetRevision,
   serverHashExperimentFoundationV2ReadinessAttestation,
   serverHashExperimentFoundationV2ReadinessDependencyManifest,
@@ -68,6 +74,12 @@ const runRecipeSnapshotValidator = ajv.compile(
 );
 const trainingTaskSpecSnapshotValidator = ajv.compile(
   experimentFoundationTrainingTaskSpecSnapshotV2Schema,
+);
+const executableRunRecipeSnapshotValidator = ajv.compile(
+  experimentFoundationExecutableRunRecipeSnapshotV2Schema,
+);
+const executableTrainingTaskSpecSnapshotValidator = ajv.compile(
+  experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema,
 );
 const readinessAttestationValidator = ajv.compile(
   experimentFoundationReadinessAttestationV2Schema,
@@ -193,17 +205,39 @@ export function assertStoredExperimentFoundationV2ReadinessIntegrity(
 export function decodeStoredExperimentFoundationV2RunRecipeSnapshot(
   value: unknown,
   label: string,
-): ExperimentFoundationRunRecipeSnapshotV2 {
-  assertSchema(runRecipeSnapshotValidator, value, label);
-  return value as ExperimentFoundationRunRecipeSnapshotV2;
+): ExperimentFoundationRunRecipeSnapshotV2 | ExperimentFoundationExecutableRunRecipeSnapshotV2 {
+  const validator = isSchemaVersion(value, 'recipe_schema_version', 'v2')
+    ? executableRunRecipeSnapshotValidator
+    : runRecipeSnapshotValidator;
+  assertSchema(validator, value, label);
+  return value as
+    | ExperimentFoundationRunRecipeSnapshotV2
+    | ExperimentFoundationExecutableRunRecipeSnapshotV2;
 }
 
 export function decodeStoredExperimentFoundationV2TrainingTaskSpecSnapshot(
   value: unknown,
   label: string,
-): ExperimentFoundationTrainingTaskSpecSnapshotV2 {
-  assertSchema(trainingTaskSpecSnapshotValidator, value, label);
-  return value as ExperimentFoundationTrainingTaskSpecSnapshotV2;
+): ExperimentFoundationTrainingTaskSpecSnapshotV2
+  | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2 {
+  const validator = isSchemaVersion(value, 'schema_version', 'v2')
+    ? executableTrainingTaskSpecSnapshotValidator
+    : trainingTaskSpecSnapshotValidator;
+  assertSchema(validator, value, label);
+  return value as
+    | ExperimentFoundationTrainingTaskSpecSnapshotV2
+    | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2;
+}
+
+function isSchemaVersion(
+  value: unknown,
+  field: string,
+  version: string,
+): boolean {
+  return typeof value === 'object'
+    && value !== null
+    && !Array.isArray(value)
+    && (value as Record<string, unknown>)[field] === version;
 }
 
 function assertSchema(

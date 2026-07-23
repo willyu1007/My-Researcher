@@ -674,7 +674,7 @@ function makePayload(
     adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1',
     execution_mode: 'simulation',
     provenance: 'non_production_fake_provider',
-    simulation_profile_version: 'v1',
+    provider_profile_version: 'v1',
     redacted_manifest: { manifest_schema_version: 'v1' },
     payload_hash: hash(String(ordinal + 4)),
     payload_byte_size: 100,
@@ -860,7 +860,7 @@ function activeRealAttemptRef(
     run_cell_id: 'run-cell-1',
     attempt_sequence: 1,
     state_version: 0,
-    execution_mode: 'real',
+    execution_mode: 'real_provider',
     lifecycle_state: 'submitted',
     ...overrides,
   };

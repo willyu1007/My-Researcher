@@ -44,6 +44,11 @@ import type {
   ExperimentFoundationVersionLockV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import type {
+  ExperimentFoundationExecutableRunRecipeV2,
+  ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+  ExperimentFoundationExecutableTrainingTaskSpecV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import type {
   BranchHeadAdvancedEventV1,
   ExperimentFoundationIntegrationInboxV2,
   ExperimentFoundationIntegrationOutboxV2,
@@ -205,9 +210,17 @@ implements ExperimentFoundationExperimentSpineV2Repository {
             readinessAttestationId: bundle.run_recipe.readiness_attestation_id,
             externalPiWorkOrderRevisionId: sourceEvent.work_order_revision_id,
             externalPiWorkOrderRevisionHash: sourceEvent.work_order_revision_hash,
-            recipeSchemaVersion: STORED_SCHEMA_VERSION_V1,
+            recipeSchemaVersion: bundle.run_recipe.recipe_snapshot.recipe_schema_version,
             recipeSnapshotJson: toInputJson(bundle.run_recipe.recipe_snapshot),
             recipeHash: bundle.run_recipe.recipe_hash,
+            executionBundleRevisionId:
+              'execution_bundle' in bundle.run_recipe
+                ? bundle.run_recipe.execution_bundle.execution_bundle_revision_id
+                : null,
+            executionBundleRevisionHash:
+              'execution_bundle' in bundle.run_recipe
+                ? bundle.run_recipe.execution_bundle.content_hash
+                : null,
             createdAt: new Date(bundle.run_recipe.created_at),
           },
         });
@@ -234,9 +247,18 @@ implements ExperimentFoundationExperimentSpineV2Repository {
               externalPiWorkOrderCellKey: sourceCell.cell_key,
               externalPiWorkOrderCellHash: taskSpec.external_pi_cell_hash,
               cellOrdinal: sourceCell.ordinal,
-              taskSpecSchemaVersion: STORED_SCHEMA_VERSION_V1,
+              taskSpecSchemaVersion:
+                'execution_bundle' in taskSpec ? 'v2' : STORED_SCHEMA_VERSION_V1,
               taskSpecSnapshotJson: toInputJson(taskSpecSnapshot(taskSpec)),
               taskSpecHash: taskSpec.task_spec_hash,
+              executionBundleRevisionId:
+                'execution_bundle' in taskSpec
+                  ? taskSpec.execution_bundle.execution_bundle_revision_id
+                  : null,
+              executionBundleRevisionHash:
+                'execution_bundle' in taskSpec
+                  ? taskSpec.execution_bundle.content_hash
+                  : null,
               createdAt: new Date(taskSpec.created_at),
             };
           }),
@@ -844,7 +866,9 @@ function mapVersionLockDependency(
   };
 }
 
-function mapRunRecipe(row: RunRecipeRow): ExperimentFoundationRunRecipeV2 {
+function mapRunRecipe(
+  row: RunRecipeRow,
+): ExperimentFoundationRunRecipeV2 | ExperimentFoundationExecutableRunRecipeV2 {
   const snapshot = decodeStoredSnapshot(
     () => decodeStoredExperimentFoundationV2RunRecipeSnapshot(
       row.recipeSnapshotJson,
@@ -852,15 +876,40 @@ function mapRunRecipe(row: RunRecipeRow): ExperimentFoundationRunRecipeV2 {
     ),
   );
   assertStoredSchemaVersion(row.recipeSchemaVersion, snapshot.recipe_schema_version, 'EF RunRecipe');
-  const mapped = {
-    run_recipe_id: row.id,
-    materialization_key: row.materializationKey,
-    version_lock_id: row.versionLockId,
-    readiness_attestation_id: row.readinessAttestationId,
-    recipe_snapshot: snapshot,
-    recipe_hash: row.recipeHash,
-    created_at: row.createdAt.toISOString(),
-  };
+  const mapped = snapshot.recipe_schema_version === 'v2'
+    ? {
+      run_recipe_id: row.id,
+      materialization_key: row.materializationKey,
+      version_lock_id: row.versionLockId,
+      readiness_attestation_id: row.readinessAttestationId,
+      recipe_snapshot: snapshot,
+      recipe_hash: row.recipeHash,
+      created_at: row.createdAt.toISOString(),
+      execution_bundle: snapshot.execution_bundle,
+    }
+    : {
+      run_recipe_id: row.id,
+      materialization_key: row.materializationKey,
+      version_lock_id: row.versionLockId,
+      readiness_attestation_id: row.readinessAttestationId,
+      recipe_snapshot: snapshot,
+      recipe_hash: row.recipeHash,
+      created_at: row.createdAt.toISOString(),
+    };
+  if (
+    (snapshot.recipe_schema_version === 'v1'
+      && (row.executionBundleRevisionId !== null || row.executionBundleRevisionHash !== null))
+    || (snapshot.recipe_schema_version === 'v2'
+      && (
+        row.executionBundleRevisionId !== snapshot.execution_bundle.execution_bundle_revision_id
+        || row.executionBundleRevisionHash !== snapshot.execution_bundle.content_hash
+      ))
+  ) {
+    throw constraint(
+      'MATERIALIZATION_KEY_CONFLICT',
+      `RunRecipe ExecutionBundle tuple drifted: ${row.id}`,
+    );
+  }
   if (row.recipeHash !== serverHashExperimentFoundationV2RunRecipe({
     materialization_key: row.materializationKey,
     version_lock_id: row.versionLockId,
@@ -881,7 +930,7 @@ function mapTaskSpec(
   versionLock: VersionLockRow,
   recipe: RunRecipeRow,
   sourceEvent: WorkOrderRevisionAdmittedEventV1,
-): ExperimentFoundationTrainingTaskSpecV2 {
+): ExperimentFoundationTrainingTaskSpecV2 | ExperimentFoundationExecutableTrainingTaskSpecV2 {
   const snapshot = decodeStoredSnapshot(
     () => decodeStoredExperimentFoundationV2TrainingTaskSpecSnapshot(
       row.taskSpecSnapshotJson,
@@ -893,21 +942,38 @@ function mapTaskSpec(
     snapshot.schema_version,
     'EF TrainingTaskSpec',
   );
-  const mapped = {
-    training_task_spec_id: row.id,
-    materialization_key: row.materializationKey,
-    run_recipe_id: row.runRecipeId,
-    external_pi_work_order_revision_id: row.externalPiWorkOrderRevisionId,
-    external_pi_work_order_revision_hash: row.externalPiWorkOrderRevisionHash,
-    external_pi_cell_id: row.externalPiWorkOrderCellId,
-    external_pi_cell_hash: row.externalPiWorkOrderCellHash,
-    command_snapshot: snapshot.command_snapshot,
-    io_snapshot: snapshot.io_snapshot,
-    resource_snapshot: snapshot.resource_snapshot,
-    retry_snapshot: snapshot.retry_snapshot,
-    task_spec_hash: row.taskSpecHash,
-    created_at: row.createdAt.toISOString(),
-  };
+  const mapped = snapshot.schema_version === 'v2'
+    ? {
+      training_task_spec_id: row.id,
+      materialization_key: row.materializationKey,
+      run_recipe_id: row.runRecipeId,
+      external_pi_work_order_revision_id: row.externalPiWorkOrderRevisionId,
+      external_pi_work_order_revision_hash: row.externalPiWorkOrderRevisionHash,
+      external_pi_cell_id: row.externalPiWorkOrderCellId,
+      external_pi_cell_hash: row.externalPiWorkOrderCellHash,
+      command_snapshot: snapshot.command_snapshot,
+      io_snapshot: snapshot.io_snapshot,
+      resource_snapshot: snapshot.resource_snapshot,
+      retry_snapshot: snapshot.retry_snapshot,
+      task_spec_hash: row.taskSpecHash,
+      created_at: row.createdAt.toISOString(),
+      execution_bundle: snapshot.execution_bundle,
+    }
+    : {
+      training_task_spec_id: row.id,
+      materialization_key: row.materializationKey,
+      run_recipe_id: row.runRecipeId,
+      external_pi_work_order_revision_id: row.externalPiWorkOrderRevisionId,
+      external_pi_work_order_revision_hash: row.externalPiWorkOrderRevisionHash,
+      external_pi_cell_id: row.externalPiWorkOrderCellId,
+      external_pi_cell_hash: row.externalPiWorkOrderCellHash,
+      command_snapshot: snapshot.command_snapshot,
+      io_snapshot: snapshot.io_snapshot,
+      resource_snapshot: snapshot.resource_snapshot,
+      retry_snapshot: snapshot.retry_snapshot,
+      task_spec_hash: row.taskSpecHash,
+      created_at: row.createdAt.toISOString(),
+    };
   if (
     row.runRecipeId !== recipe.id
     || row.materializationKey !== `${versionLock.materializationKey}:cell:${admittedCell.ordinal}`
@@ -917,7 +983,20 @@ function mapTaskSpec(
     || row.externalPiWorkOrderCellKey !== admittedCell.cell_key
     || row.externalPiWorkOrderCellHash !== admittedCell.cell_hash
     || row.cellOrdinal !== admittedCell.ordinal
+    || (snapshot.schema_version === 'v1'
+      && (row.executionBundleRevisionId !== null || row.executionBundleRevisionHash !== null))
+    || (snapshot.schema_version === 'v2'
+      && (
+        row.executionBundleRevisionId !== snapshot.execution_bundle.execution_bundle_revision_id
+        || row.executionBundleRevisionHash !== snapshot.execution_bundle.content_hash
+      ))
     || row.taskSpecHash !== serverHashExperimentFoundationV2TrainingTaskSpec({
+      ...(snapshot.schema_version === 'v2'
+        ? {
+          task_spec_schema_version: 'v2' as const,
+          execution_bundle: snapshot.execution_bundle,
+        }
+        : {}),
       materialization_key: row.materializationKey,
       run_recipe_id: row.runRecipeId,
       external_pi_work_order_revision_id: row.externalPiWorkOrderRevisionId,
@@ -968,7 +1047,7 @@ function mapRunCell(row: RunCellRow, taskSpec: TaskSpecRow): ExperimentFoundatio
 
 function assertRunRecipeBinding(
   row: RunRecipeRow,
-  mapped: ExperimentFoundationRunRecipeV2,
+  mapped: ExperimentFoundationRunRecipeV2 | ExperimentFoundationExecutableRunRecipeV2,
   versionLock: VersionLockRow,
   sourceEvent: WorkOrderRevisionAdmittedEventV1,
 ): void {
@@ -1287,8 +1366,10 @@ function assertMaterializationParity(
   const taskSpecsById = new Map(
     bundle.task_specs.map((taskSpec) => [taskSpec.training_task_spec_id, taskSpec]),
   );
+  const expectedMaterializationSchema =
+    event.payload.work_order_revision.work_order_schema_version;
   if (
-    bundle.run_recipe.recipe_snapshot.recipe_schema_version !== STORED_SCHEMA_VERSION_V1
+    bundle.run_recipe.recipe_snapshot.recipe_schema_version !== expectedMaterializationSchema
     || bundle.inbox.source_event_id !== event.event_id
     || bundle.inbox.payload_hash !== event.payload_hash
     || bundle.version_lock.readiness_attestation_id !== event.payload.readiness_attestation_id
@@ -1424,9 +1505,17 @@ function assertInboxMatchesEvent(
 }
 
 function taskSpecSnapshot(
-  taskSpec: ExperimentFoundationTrainingTaskSpecV2,
-): ExperimentFoundationTrainingTaskSpecSnapshotV2 {
-  return {
+  taskSpec: ExperimentFoundationTrainingTaskSpecV2 | ExperimentFoundationExecutableTrainingTaskSpecV2,
+): ExperimentFoundationTrainingTaskSpecSnapshotV2
+  | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2 {
+  return 'execution_bundle' in taskSpec ? {
+    schema_version: 'v2',
+    execution_bundle: taskSpec.execution_bundle,
+    command_snapshot: taskSpec.command_snapshot,
+    io_snapshot: taskSpec.io_snapshot,
+    resource_snapshot: taskSpec.resource_snapshot,
+    retry_snapshot: taskSpec.retry_snapshot,
+  } : {
     schema_version: STORED_SCHEMA_VERSION_V1,
     command_snapshot: taskSpec.command_snapshot,
     io_snapshot: taskSpec.io_snapshot,

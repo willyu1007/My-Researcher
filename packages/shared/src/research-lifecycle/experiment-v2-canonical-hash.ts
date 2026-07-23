@@ -24,6 +24,11 @@ import type {
   ExperimentFoundationTrainingTaskRetrySnapshotV2,
 } from './experiment-foundation-v2-contracts.js';
 import type {
+  ExperimentFoundationExecutableRunRecipeSnapshotV2,
+  ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+  ExperimentFoundationExecutionBundleExactRevisionRefV2,
+} from './experiment-foundation-real-provider-v2-contracts.js';
+import type {
   PaperImplementationExperimentV2BranchFrame,
   PaperImplementationExperimentV2ExactCellInput,
   PaperImplementationExperimentV2WorkOrderRevisionSnapshot,
@@ -60,6 +65,9 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'ef-run-manifest-json@v1',
   'ef-provider-payload-json@v1',
   'ef-provider-control-json@v1',
+  'ef-execution-bundle-semantic-json@v1',
+  'ef-real-provider-payload-json@v1',
+  'ef-real-provider-control-json@v1',
   'ef-execution-attempt-event-json@v1',
   'ef-provider-command-json@v1',
   'pi-work-order-branch-frame-json@v1',
@@ -152,10 +160,13 @@ export interface ExperimentFoundationV2RunRecipeHashInput {
   materialization_key: string;
   version_lock_id: string;
   readiness_attestation_id: string;
-  recipe_snapshot: ExperimentFoundationRunRecipeSnapshotV2;
+  recipe_snapshot:
+    | ExperimentFoundationRunRecipeSnapshotV2
+    | ExperimentFoundationExecutableRunRecipeSnapshotV2;
 }
 
 export interface ExperimentFoundationV2TrainingTaskSpecHashInput {
+  task_spec_schema_version?: 'v1' | 'v2';
   materialization_key: string;
   run_recipe_id: string;
   external_pi_work_order_revision_id: string;
@@ -163,10 +174,19 @@ export interface ExperimentFoundationV2TrainingTaskSpecHashInput {
   external_pi_cell_id: string;
   external_pi_cell_hash: string;
   admitted_cell: WorkOrderRevisionAdmittedCellV1;
-  command_snapshot: ExperimentFoundationTrainingTaskCommandSnapshotV2;
-  io_snapshot: ExperimentFoundationTrainingTaskIoSnapshotV2;
-  resource_snapshot: ExperimentFoundationTrainingTaskResourceSnapshotV2;
-  retry_snapshot: ExperimentFoundationTrainingTaskRetrySnapshotV2;
+  execution_bundle?: ExperimentFoundationExecutionBundleExactRevisionRefV2;
+  command_snapshot:
+    | ExperimentFoundationTrainingTaskCommandSnapshotV2
+    | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['command_snapshot'];
+  io_snapshot:
+    | ExperimentFoundationTrainingTaskIoSnapshotV2
+    | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['io_snapshot'];
+  resource_snapshot:
+    | ExperimentFoundationTrainingTaskResourceSnapshotV2
+    | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['resource_snapshot'];
+  retry_snapshot:
+    | ExperimentFoundationTrainingTaskRetrySnapshotV2
+    | ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['retry_snapshot'];
 }
 
 export type ExperimentFoundationV2RunManifestHashRow = Pick<
@@ -340,10 +360,21 @@ export function serverHashExperimentFoundationProviderControlV2Semantic(
   });
 }
 
-export function serverHashExperimentFoundationExternalJobRefV2(refId: string): string {
+export function serverHashExperimentFoundationExternalJobRefV2(
+  ref: string | {
+    ref_type: 'fake_aliyun_pai_dlc_job';
+    ref_id: string;
+  } | {
+    ref_type: 'aliyun_pai_dlc_job';
+    job_id: string;
+    region_id_hash: string;
+  },
+): string {
   return serverHashExperimentFoundationProviderControlV2Semantic(
     'ExperimentFoundationExternalJobRefV2',
-    { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: refId },
+    typeof ref === 'string'
+      ? { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: ref }
+      : ref,
   );
 }
 
@@ -419,7 +450,7 @@ export function serverHashExperimentFoundationV2TrainingTaskSpec(
 ): string {
   return serverHashExperimentV2SemanticContent({
     record_kind: 'ExperimentFoundationTrainingTaskSpecV2',
-    schema_version: 'v1',
+    schema_version: input.task_spec_schema_version ?? 'v1',
     hash_profile: 'ef-training-task-spec-json@v1',
     content: input,
   });

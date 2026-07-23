@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
 import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
+import { ExperimentFoundationRealProviderV2Controller } from './controllers/experiment-foundation-real-provider-v2-controller.js';
 import { ExperimentFoundationController } from './controllers/experiment-foundation-controller.js';
 import { LiteratureAcquisitionSettingsController } from './controllers/literature-acquisition-settings-controller.js';
 import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
@@ -65,6 +66,7 @@ import { PrismaApplicationSettingsRepository } from './repositories/prisma/prism
 import { PrismaAutoPullRepository } from './repositories/prisma/prisma-auto-pull-repository.js';
 import { PrismaExperimentFoundationExecutionRepository } from './repositories/prisma/prisma-experiment-foundation-execution-repository.js';
 import { PrismaExperimentFoundationExecutionV2Repository } from './repositories/prisma/prisma-experiment-foundation-execution-v2-repository.js';
+import { PrismaExperimentFoundationExecutionBundleV2Repository } from './repositories/prisma/prisma-experiment-foundation-execution-bundle-v2-repository.js';
 import { PrismaExperimentFoundationRepository } from './repositories/prisma/prisma-experiment-foundation-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from './repositories/prisma/prisma-experiment-foundation-v2-repository.js';
@@ -109,6 +111,7 @@ import { PrismaTopicSelectionV1cPromotionInputRepository } from './repositories/
 import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerExperimentFoundationExecutionRoutes } from './routes/experiment-foundation-execution-routes.js';
 import { registerExperimentFoundationExecutionV2Routes } from './routes/experiment-foundation-execution-v2-routes.js';
+import { registerExperimentFoundationRealProviderV2Routes } from './routes/experiment-foundation-real-provider-v2-routes.js';
 import { registerExperimentFoundationRoutes } from './routes/experiment-foundation-routes.js';
 import { registerLiteratureAcquisitionSettingsRoutes } from './routes/literature-acquisition-settings-routes.js';
 import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-routes.js';
@@ -174,13 +177,23 @@ import { AutoPullScheduler } from './services/auto-pull-scheduler.js';
 import { AutoPullService } from './services/auto-pull-service.js';
 import { ExperimentFoundationExecutionService } from './services/experiment-foundation-execution-service.js';
 import { ExperimentFoundationExecutionV2Service } from './services/experiment-foundation-execution-v2-service.js';
+import { ExperimentFoundationExecutionBundleV2Service } from './services/experiment-foundation-execution-bundle-v2-service.js';
 import { ExperimentFoundationProviderCommandV2Scheduler } from './services/experiment-foundation-provider-command-v2-scheduler.js';
 import { ExperimentFoundationProviderCommandV2Worker } from './services/experiment-foundation-provider-command-v2-worker.js';
+import { ExperimentFoundationRealProviderCommandV2Worker } from './services/experiment-foundation-real-provider-command-v2-worker.js';
+import {
+  ExperimentFoundationRealProviderIntakeV2Service,
+  type ExperimentFoundationRealProviderIntakeV2ServiceOptions,
+} from './services/experiment-foundation-real-provider-intake-v2-service.js';
+import type {
+  ExperimentFoundationAliyunRealProviderTransportV2,
+} from './services/experiment-foundation-aliyun-real-provider-v2-transport.js';
 import { DeterministicFakeAliyunPaiDlcTransport } from './services/experiment-foundation-v2-deterministic-fake-provider.js';
 import { ExperimentFoundationService } from './services/experiment-foundation-service.js';
 import { ExperimentFoundationV2AcknowledgementService } from './services/experiment-foundation-v2-acknowledgement-service.js';
 import {
   ExperimentFoundationV2MaterializationService,
+  type ExperimentFoundationV2ExecutionBundleResolver,
   type ExperimentFoundationV2ReadinessResolver,
 } from './services/experiment-foundation-v2-materialization-service.js';
 import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
@@ -323,12 +336,19 @@ export type BuildAppOptions = {
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
   experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
   experimentFoundationExecutionV2Repository?: ExperimentFoundationExecutionV2Repository;
+  experimentFoundationV2ExecutionBundleResolver?: ExperimentFoundationV2ExecutionBundleResolver;
   experimentFoundationScientificValidationV2Repository?: ExperimentFoundationScientificValidationV2Repository;
   paperImplementationExperimentV2ScopeReader?: PaperImplementationExperimentV2ScopeReader;
   paperImplementationExperimentV2AdmissionEnabled?: () => boolean;
   paperImplementationValidationCycleClosureV2Enabled?: () => boolean;
   paperImplementationExperimentV2CutoverCommitted?: () => boolean;
   experimentFoundationV2WorkflowSimulationEnabled?: () => boolean;
+  experimentFoundationV2RealProviderIntakeEnabled?: () => boolean;
+  experimentFoundationV2RealProviderControlDrainEnabled?: () => boolean;
+  experimentFoundationV2RealProviderProfileResolver?:
+    ExperimentFoundationRealProviderIntakeV2ServiceOptions['profileResolver'];
+  experimentFoundationV2AliyunRealProviderTransport?:
+    ExperimentFoundationAliyunRealProviderTransportV2;
   experimentFoundationV2ScientificValidationEnabled?: () => boolean;
   backgroundWorkEnabled?: boolean;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
@@ -399,6 +419,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2WorkflowSimulationEnabled =
     options.experimentFoundationV2WorkflowSimulationEnabled?.()
     ?? isExperimentFoundationV2WorkflowSimulationEnabled();
+  const experimentV2RealProviderIntakeEnabled =
+    options.experimentFoundationV2RealProviderIntakeEnabled?.()
+    ?? isExperimentFoundationV2RealProviderIntakeEnabled();
+  const experimentV2RealProviderControlDrainEnabled =
+    options.experimentFoundationV2RealProviderControlDrainEnabled?.()
+    ?? isExperimentFoundationV2RealProviderControlDrainEnabled();
   const experimentV2ScientificValidationEnabled =
     options.experimentFoundationV2ScientificValidationEnabled?.()
     ?? isExperimentFoundationV2ScientificValidationEnabled();
@@ -411,6 +437,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     admissionEnabled: experimentV2AdmissionEnabled,
     cutoverCommitted: experimentV2CutoverCommitted,
     workflowSimulationEnabled: experimentV2WorkflowSimulationEnabled,
+    realProviderIntakeEnabled: experimentV2RealProviderIntakeEnabled,
+    realProviderControlDrainEnabled: experimentV2RealProviderControlDrainEnabled,
     scientificValidationEnabled: experimentV2ScientificValidationEnabled,
     cycleClosureEnabled: validationCycleClosureV2Enabled,
   });
@@ -592,6 +620,36 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       };
     },
   };
+  const experimentFoundationV2ExecutionBundleResolver =
+    options.experimentFoundationV2ExecutionBundleResolver
+    ?? (storeConfig.experimentFoundationStrategy === 'prisma'
+      ? new ExperimentFoundationExecutionBundleV2Service({
+        repository: new PrismaExperimentFoundationExecutionBundleV2Repository(
+          getPrismaClient(),
+        ),
+      })
+      : undefined);
+  if (
+    experimentV2RealProviderIntakeEnabled
+    && (
+      !experimentFoundationV2ExecutionBundleResolver
+      || !options.experimentFoundationV2RealProviderProfileResolver
+    )
+  ) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED requires exact '
+      + 'ExecutionBundle and Aliyun execution-profile resolvers.',
+    );
+  }
+  if (
+    experimentV2RealProviderControlDrainEnabled
+    && !options.experimentFoundationV2AliyunRealProviderTransport
+  ) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED requires an '
+      + 'explicitly injected Aliyun real-provider transport.',
+    );
+  }
   const experimentFoundationExecutionV2Service =
     new ExperimentFoundationExecutionV2Service({
       repository: experimentFoundationExecutionV2Repository,
@@ -606,6 +664,27 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new ExperimentFoundationExecutionV2Controller(
       experimentFoundationExecutionV2Service,
     );
+  const unavailableRealProviderDependency = async (): Promise<never> => {
+    throw new Error('M7 real-provider dependency is not configured.');
+  };
+  const experimentFoundationRealProviderIntakeV2Service =
+    new ExperimentFoundationRealProviderIntakeV2Service({
+      repository: experimentFoundationExecutionV2Repository,
+      cycleClosureLookup: paperImplementationValidationCycleClosureV2Repository,
+      executionBundleResolver: experimentFoundationV2ExecutionBundleResolver ?? {
+        resolveActiveReadyExact: unavailableRealProviderDependency,
+      },
+      profileResolver: options.experimentFoundationV2RealProviderProfileResolver
+        ?? unavailableRealProviderDependency,
+      intakeEnabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2RealProviderIntakeEnabled
+      ),
+    });
+  const experimentFoundationRealProviderV2Controller =
+    new ExperimentFoundationRealProviderV2Controller(
+      experimentFoundationRealProviderIntakeV2Service,
+    );
   const experimentFoundationProviderCommandV2Scheduler =
     hasDefaultDurableExperimentV2Composition
       ? new ExperimentFoundationProviderCommandV2Scheduler(
@@ -617,6 +696,27 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           onError: (error) => app.log.error(
             { err: error },
             'experiment foundation v2 provider-command tick failed',
+          ),
+        },
+      )
+      : null;
+  const experimentFoundationRealProviderCommandV2Scheduler =
+    hasDefaultDurableExperimentV2Composition
+      && experimentFoundationV2ExecutionBundleResolver
+      && options.experimentFoundationV2RealProviderProfileResolver
+      && options.experimentFoundationV2AliyunRealProviderTransport
+      ? new ExperimentFoundationProviderCommandV2Scheduler(
+        new ExperimentFoundationRealProviderCommandV2Worker({
+          repository: experimentFoundationExecutionV2Repository,
+          transport: options.experimentFoundationV2AliyunRealProviderTransport,
+          executionBundleResolver: experimentFoundationV2ExecutionBundleResolver,
+          profileResolver: options.experimentFoundationV2RealProviderProfileResolver,
+          controlDrainEnabled: () => experimentV2RealProviderControlDrainEnabled,
+        }),
+        {
+          onError: (error) => app.log.error(
+            { err: error },
+            'experiment foundation v2 real-provider command tick failed',
           ),
         },
       )
@@ -681,6 +781,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       repository: experimentFoundationExperimentSpineV2Repository,
       readinessResolver: experimentFoundationV2ReadinessResolver,
       cycleClosureLookup: paperImplementationValidationCycleClosureV2Repository,
+      executionBundleResolver: experimentFoundationV2ExecutionBundleResolver,
     });
   const paperImplementationExperimentV2HeadService =
     new PaperImplementationExperimentV2HeadService({
@@ -1402,6 +1503,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     });
   }
 
+  if (backgroundWorkEnabled && experimentFoundationRealProviderCommandV2Scheduler) {
+    // Intake and drain are separate: after a submit commits, disabling new
+    // intake must not strand sync/cancel/collect/cleanup commands.
+    experimentFoundationRealProviderCommandV2Scheduler.start();
+    app.addHook('onClose', async () => {
+      await experimentFoundationRealProviderCommandV2Scheduler.stop();
+    });
+  }
+
   app.register(async (instance) => {
     await registerResearchLifecycleRoutes(instance, researchLifecycleController);
     await registerTitleCardManagementRoutes(instance, titleCardManagementController);
@@ -1418,6 +1528,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerExperimentFoundationExecutionV2Routes(
       instance,
       experimentFoundationExecutionV2Controller,
+    );
+    await registerExperimentFoundationRealProviderV2Routes(
+      instance,
+      experimentFoundationRealProviderV2Controller,
     );
     await registerTopicSelectionV1aRoutes(instance, topicSelectionV1aController, topicSelectionResourceSamplingController);
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
@@ -2013,6 +2127,18 @@ function isExperimentFoundationV2WorkflowSimulationEnabled(): boolean {
   );
 }
 
+function isExperimentFoundationV2RealProviderIntakeEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED',
+  );
+}
+
+function isExperimentFoundationV2RealProviderControlDrainEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED',
+  );
+}
+
 function isExperimentFoundationV2ScientificValidationEnabled(): boolean {
   return parseExperimentV2BooleanEnvironmentVariable(
     'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
@@ -2029,6 +2155,8 @@ type ExperimentV2BooleanEnvironmentVariable =
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED'
   | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED'
+  | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED'
+  | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 
@@ -2055,6 +2183,8 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   admissionEnabled: boolean;
   cutoverCommitted: boolean;
   workflowSimulationEnabled: boolean;
+  realProviderIntakeEnabled: boolean;
+  realProviderControlDrainEnabled: boolean;
   scientificValidationEnabled: boolean;
   cycleClosureEnabled: boolean;
 }): void {
@@ -2074,6 +2204,18 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
     throw new Error(
       'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.realProviderIntakeEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.realProviderIntakeEnabled && !input.realProviderControlDrainEnabled) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED requires '
+      + 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED=true',
     );
   }
   if (input.scientificValidationEnabled && !input.cutoverCommitted) {

@@ -69,8 +69,7 @@ export function assertValidAttemptUpdate(
     || event.event_type !== next.lifecycle_state
     || event.provider_command_id !== expectedCommandId
     || event.payload_hash !== current.provider_payload_hash
-    || event.external_job_ref !== next.external_job_ref
-    || event.external_job_ref_hash !== next.external_job_ref_hash
+    || !sameExternalJobRef(event, next)
   ) {
     throw constraint(
       'EXECUTION_ATTEMPT_STATE_CONFLICT',
@@ -83,14 +82,23 @@ export function assertAttemptTerminalStateReasonPair(
   attempt: ExperimentFoundationExecutionAttemptV2Record,
 ): void {
   const valid = attempt.lifecycle_state === 'succeeded'
-    ? attempt.terminal_reason_code === 'simulation_succeeded' && attempt.terminal_at !== null
+    ? attempt.terminal_reason_code === (attempt.execution_mode === 'real_provider'
+      ? 'real_provider_succeeded'
+      : 'simulation_succeeded') && attempt.terminal_at !== null
     : attempt.lifecycle_state === 'cancelled'
       ? attempt.terminal_reason_code === 'operator_cancelled' && attempt.terminal_at !== null
       : attempt.lifecycle_state === 'failed'
-        ? (
-          attempt.terminal_reason_code === 'simulation_failed'
-          || attempt.terminal_reason_code === 'provider_response_invalid'
-        ) && attempt.terminal_at !== null
+        ? (attempt.execution_mode === 'real_provider'
+          ? [
+            'real_provider_failed',
+            'provider_response_invalid',
+            'real_provider_timeout',
+            'real_provider_cleanup_unverified',
+          ].includes(attempt.terminal_reason_code ?? '')
+          : (
+            attempt.terminal_reason_code === 'simulation_failed'
+            || attempt.terminal_reason_code === 'provider_response_invalid'
+          )) && attempt.terminal_at !== null
         : attempt.terminal_reason_code === null && attempt.terminal_at === null;
   if (!valid) {
     throw constraint(
@@ -171,8 +179,7 @@ export function assertCollectionPreparationShape(
     reconcileCommand.operation !== 'reconcile'
     || reconcileCommand.execution_attempt_id !== current.id
     || reconcileCommand.payload_hash !== current.provider_payload_hash
-    || reconcileCommand.external_job_ref !== current.external_job_ref
-    || reconcileCommand.external_job_ref_hash !== current.external_job_ref_hash
+    || !sameExternalJobRef(reconcileCommand, current)
     || input.next_attempt.lifecycle_state !== 'succeeded'
     || input.succeeded_event.event_type !== 'succeeded'
     || input.succeeded_event.provider_command_id !== reconcileCommand.id
@@ -181,8 +188,7 @@ export function assertCollectionPreparationShape(
     || input.collection.state_version !== 0
     || input.collection.provider_payload_id !== current.provider_payload_id
     || input.collection.provider_payload_hash !== current.provider_payload_hash
-    || input.collection.external_job_ref !== input.next_attempt.external_job_ref
-    || input.collection.external_job_ref_hash !== input.next_attempt.external_job_ref_hash
+    || !sameExternalJobRef(input.collection, input.next_attempt)
     || input.collection_prepared_event.execution_attempt_id !== current.id
     || input.collection_prepared_event.event_type !== 'collection_prepared'
     || input.collection_prepared_event.prior_state !== 'succeeded'
@@ -192,8 +198,7 @@ export function assertCollectionPreparationShape(
     || input.collect_command.execution_attempt_id !== current.id
     || input.collect_command.collection_attempt_id !== input.collection.id
     || input.collect_command.payload_hash !== current.provider_payload_hash
-    || input.collect_command.external_job_ref !== input.next_attempt.external_job_ref
-    || input.collect_command.external_job_ref_hash !== input.next_attempt.external_job_ref_hash
+    || !sameExternalJobRef(input.collect_command, input.next_attempt)
   ) {
     throw constraint(
       'COLLECTION_ATTEMPT_CONFLICT',
@@ -214,8 +219,7 @@ export function assertCollectionCompletionShape(
     || collectCommand.collection_attempt_id !== collection.id
     || collectCommand.execution_attempt_id !== collection.execution_attempt_id
     || collectCommand.payload_hash !== attempt.provider_payload_hash
-    || collectCommand.external_job_ref !== attempt.external_job_ref
-    || collectCommand.external_job_ref_hash !== attempt.external_job_ref_hash
+    || !sameExternalJobRef(collectCommand, attempt)
     || collection.state_version !== input.expected_collection_state_version
     || input.next_collection.id !== collection.id
     || input.next_collection.state_version !== collection.state_version + 1
@@ -230,8 +234,7 @@ export function assertCollectionCompletionShape(
     || input.event.prior_state !== 'succeeded'
     || input.event.next_state !== 'succeeded'
     || input.event.payload_hash !== attempt.provider_payload_hash
-    || input.event.external_job_ref !== attempt.external_job_ref
-    || input.event.external_job_ref_hash !== attempt.external_job_ref_hash
+    || !sameExternalJobRef(input.event, attempt)
   ) {
     throw constraint('COLLECTION_ATTEMPT_CONFLICT', 'Collection completion scope drifted.');
   }
@@ -296,6 +299,8 @@ function controlCommandIntent(command: ExperimentFoundationProviderCommandV2Reco
     payload_hash: command.payload_hash,
     external_job_ref: command.external_job_ref,
     external_job_ref_hash: command.external_job_ref_hash,
+    external_job_ref_type: command.external_job_ref_type ?? null,
+    external_job_ref_region_hash: command.external_job_ref_region_hash ?? null,
   };
 }
 
@@ -312,12 +317,35 @@ function attemptImmutableScope(record: ExperimentFoundationExecutionAttemptV2Rec
     state_version: _stateVersion,
     external_job_ref: _externalJobRef,
     external_job_ref_hash: _externalJobRefHash,
+    external_job_ref_type: _externalJobRefType,
+    external_job_ref_region_hash: _externalJobRefRegionHash,
     terminal_reason_code: _terminalReasonCode,
     updated_at: _updatedAt,
     terminal_at: _terminalAt,
     ...scope
   } = record;
   return scope;
+}
+
+function sameExternalJobRef(
+  left: {
+    external_job_ref: string | null;
+    external_job_ref_hash: string | null;
+    external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job' | null;
+    external_job_ref_region_hash?: string | null;
+  },
+  right: {
+    external_job_ref: string | null;
+    external_job_ref_hash: string | null;
+    external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job' | null;
+    external_job_ref_region_hash?: string | null;
+  },
+): boolean {
+  return left.external_job_ref === right.external_job_ref
+    && left.external_job_ref_hash === right.external_job_ref_hash
+    && (left.external_job_ref_type ?? null) === (right.external_job_ref_type ?? null)
+    && (left.external_job_ref_region_hash ?? null)
+      === (right.external_job_ref_region_hash ?? null);
 }
 
 function sameCollectionImmutableScope(

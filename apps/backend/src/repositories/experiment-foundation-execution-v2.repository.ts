@@ -1,4 +1,7 @@
 import type {
+  ExperimentFoundationExecutableTrainingTaskSpecV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import type {
   ExperimentFoundationCollectionAttemptStateV2 as SharedCollectionAttemptStateV2,
   ExperimentFoundationExecutionAttemptEventTypeV2,
   ExperimentFoundationExecutionAttemptStateV2 as SharedExecutionAttemptStateV2,
@@ -81,6 +84,17 @@ export interface ExperimentFoundationExecutionV2Prerequisite {
   cells: ExperimentFoundationExecutionV2PrerequisiteCell[];
 }
 
+export interface ExperimentFoundationRealProviderExecutionV2PrerequisiteCell {
+  run_cell: ExperimentFoundationRunCellV2;
+  task_spec: ExperimentFoundationExecutableTrainingTaskSpecV2;
+  retry_ceiling: number;
+}
+
+export interface ExperimentFoundationRealProviderExecutionV2Prerequisite
+  extends Omit<ExperimentFoundationExecutionV2Prerequisite, 'cells'> {
+  cells: ExperimentFoundationRealProviderExecutionV2PrerequisiteCell[];
+}
+
 export interface ExperimentFoundationProviderPayloadV2Record {
   id: string;
   materialization_key: string;
@@ -90,11 +104,11 @@ export interface ExperimentFoundationProviderPayloadV2Record {
   cell_key: string;
   training_task_spec_id: string;
   training_task_spec_hash: string;
-  payload_schema: 'FakeAliyunPaiDlcSubmitPayload@v1';
-  adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1';
-  execution_mode: 'simulation';
-  provenance: 'non_production_fake_provider';
-  simulation_profile_version: string;
+  payload_schema: 'FakeAliyunPaiDlcSubmitPayload@v1' | 'AliyunPaiDlcCreateJobPayload@v1';
+  adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1' | 'aliyun_pai_dlc_official_sdk@v1';
+  execution_mode: ExperimentFoundationExecutionModeV2;
+  provenance: ExperimentFoundationExecutionProvenanceV2;
+  provider_profile_version: string;
   /** Untrusted JSON read from persistence; services must validate it before use. */
   redacted_manifest: unknown;
   payload_hash: string;
@@ -129,6 +143,8 @@ export interface ExperimentFoundationExecutionAttemptV2Record {
   state_version: number;
   external_job_ref: string | null;
   external_job_ref_hash: string | null;
+  external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job' | null;
+  external_job_ref_region_hash?: string | null;
   terminal_reason_code: ExperimentFoundationExecutionTerminalReasonCodeV2 | null;
   created_at: string;
   updated_at: string;
@@ -146,6 +162,8 @@ export interface ExperimentFoundationExecutionAttemptEventV2Record {
   payload_hash: string;
   external_job_ref: string | null;
   external_job_ref_hash: string | null;
+  external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job' | null;
+  external_job_ref_region_hash?: string | null;
   event_snapshot: Readonly<Record<string, unknown>>;
   event_hash: string;
   occurred_at: string;
@@ -163,6 +181,8 @@ export interface ExperimentFoundationProviderCommandV2Record {
   payload_hash: string;
   external_job_ref: string | null;
   external_job_ref_hash: string | null;
+  external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job' | null;
+  external_job_ref_region_hash?: string | null;
   state: ExperimentFoundationProviderCommandStateV2;
   lease_version: number;
   lease_owner: string | null;
@@ -184,6 +204,8 @@ export interface ExperimentFoundationCollectionAttemptV2Record {
   provider_payload_hash: string;
   external_job_ref: string;
   external_job_ref_hash: string;
+  external_job_ref_type?: 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job';
+  external_job_ref_region_hash?: string | null;
   business_idempotency_key: string;
   request_hash: string;
   collection_state: ExperimentFoundationCollectionAttemptStateV2;
@@ -220,8 +242,10 @@ export interface ExperimentFoundationExecutionV2StartInput {
   commands: ExperimentFoundationProviderCommandV2Record[];
 }
 
-export interface ExperimentFoundationExecutionV2StartOutcome {
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite;
+export interface ExperimentFoundationExecutionV2StartOutcome<
+  Prerequisite = ExperimentFoundationExecutionV2Prerequisite,
+> {
+  prerequisite: Prerequisite;
   payloads: ExperimentFoundationProviderPayloadV2Record[];
   attempts: ExperimentFoundationExecutionAttemptV2Record[];
   events: ExperimentFoundationExecutionAttemptEventV2Record[];
@@ -251,8 +275,7 @@ export interface ExperimentFoundationCycleActiveRealAttemptFenceInputV2 {
 
 /**
  * Minimal exact lineage returned by the D-18/PB14 Cycle-wide read fence.
- * This read model deliberately admits `real` while every Pack B write contract
- * remains simulation-only.
+ * This read model admits only the exact M7 `real_provider` tuple.
  */
 export interface ExperimentFoundationCycleActiveRealAttemptRefV2 {
   execution_attempt_id: string;
@@ -267,7 +290,7 @@ export interface ExperimentFoundationCycleActiveRealAttemptRefV2 {
   run_cell_id: string;
   attempt_sequence: number;
   state_version: number;
-  execution_mode: 'real';
+  execution_mode: 'real_provider';
   lifecycle_state: ExperimentFoundationActiveRealAttemptStateV2;
 }
 
@@ -277,6 +300,7 @@ export interface ExperimentFoundationExecutionV2CommandClaimInput {
   lease_expires_at: string;
   limit: number;
   command_kinds?: ExperimentFoundationProviderCommandKindV2[];
+  execution_modes?: ExperimentFoundationExecutionModeV2[];
 }
 
 export interface ExperimentFoundationExecutionV2CommandHeartbeatInput {
@@ -363,14 +387,36 @@ export interface ExperimentFoundationExecutionV2Repository {
     runCellId: string,
   ): Promise<ExperimentFoundationExecutionV2Prerequisite | null>;
 
+  resolveRealProviderRunPrerequisite(
+    runId: string,
+  ): Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null>;
+
+  resolveRealProviderRunCellPrerequisite(
+    runId: string,
+    runCellId: string,
+  ): Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null>;
+
   findWorkflowSimulationStart(
     runId: string,
     businessIdempotencyKey: string,
   ): Promise<ExperimentFoundationExecutionV2StartOutcome | null>;
 
+  findRealProviderExecutionStart(
+    runId: string,
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  > | null>;
+
   startWorkflowSimulation(
     input: ExperimentFoundationExecutionV2StartInput,
   ): Promise<ExperimentFoundationExecutionV2StartOutcome>;
+
+  startRealProviderExecution(
+    input: ExperimentFoundationExecutionV2StartInput,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >>;
 
   findAttempt(
     attemptId: string,

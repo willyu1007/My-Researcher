@@ -203,7 +203,7 @@ test('effective schema census requires 15 restrictive FKs, 38 indexes and the PB
       { constraint_name: 'ef_collection_attempt_state_check', definition: "CHECK state IN ('prepared','collected','failed')" },
       { constraint_name: 'ef_attempt_event_type_check', definition: "CHECK type IN ('created','collection_failed')" },
       { constraint_name: 'ef_execution_attempt_terminal_reason_check', definition: "CHECK reason IN ('simulation_failed')" },
-      ...Array.from({ length: 32 }, (_, index) => ({
+      ...Array.from({ length: 28 }, (_, index) => ({
         constraint_name: `reviewed_pack_b_check_${String(index).padStart(2, '0')}`,
         definition: `CHECK fixture_${index} IS NOT NULL`,
       })),
@@ -280,7 +280,7 @@ function fixtureDefinitionDigests(evidence) {
   };
 }
 
-test('PB14 meta-gate rejects a Run-scoped fence or any real writer/domain claim', () => {
+test('PB14 meta-gate rejects a Run-scoped fence or any real-provider writer claim', () => {
   const evidence = {
     pack_a_prerequisite: {
       implementation_project_id: 'project-1',
@@ -291,7 +291,7 @@ test('PB14 meta-gate rejects a Run-scoped fence or any real writer/domain claim'
       query_scope: {
         implementation_project_id: 'project-1',
         validation_cycle_id: 'cycle-1',
-        execution_mode: 'real',
+        execution_mode: 'real_provider',
         lifecycle_states: ['prepared', 'submitted', 'running'],
         run_filter: null,
         head_filter: null,
@@ -307,8 +307,8 @@ test('PB14 meta-gate rejects a Run-scoped fence or any real writer/domain claim'
   for (const drift of [
     { query_scope: { ...evidence.cycle_active_real_attempt_fence.query_scope, run_filter: 'run-1' } },
     { active_real_attempt_count: 1, active_real_attempt_refs: [{ execution_attempt_id: 'x' }] },
-    { pack_b_writer_execution_modes: ['simulation', 'real'] },
-    { attempt_persistence_execution_mode: 'real' },
+    { pack_b_writer_execution_modes: ['simulation', 'real_provider'] },
+    { attempt_persistence_execution_mode: 'real_provider' },
     { repository_query_invoked: false },
   ]) {
     assert.throws(() => inspectPB14ScenarioEvidence({
@@ -515,10 +515,14 @@ test('Pack B script typecheck covers only reviewed experiment producers before D
     ), 'utf8'),
   ]);
   assert.deepEqual(config.files, [
+    'scripts/experiment-foundation-named-local-evidence.ts',
     'scripts/experiment-foundation-d19-disposable-database.ts',
     'scripts/import-experiment-foundation-d19-typed-fixture.ts',
     'scripts/run-experiment-foundation-d19-spine.ts',
+    'scripts/run-experiment-foundation-cloud-preflight.ts',
+    'scripts/run-experiment-foundation-packa-product-landing.ts',
     'scripts/run-experiment-foundation-packb-local-app-smoke.ts',
+    'scripts/run-experiment-foundation-packb-product-landing.ts',
     'scripts/run-experiment-foundation-packb-simulation.ts',
   ]);
   assert.match(

@@ -27,6 +27,7 @@ import {
   type ExperimentFoundationExecutionV2EnqueueControlCommandInput,
   type ExperimentFoundationExecutionV2PrepareCollectionInput,
   type ExperimentFoundationExecutionV2Prerequisite,
+  type ExperimentFoundationRealProviderExecutionV2Prerequisite,
   type ExperimentFoundationExecutionV2ReleaseCommandInput,
   type ExperimentFoundationExecutionV2Repository,
   type ExperimentFoundationExecutionV2StartInput,
@@ -74,10 +75,14 @@ interface State {
 
 export interface InMemoryExperimentFoundationExecutionV2RepositoryOptions {
   prerequisites?: ExperimentFoundationExecutionV2Prerequisite[];
+  realProviderPrerequisites?: ExperimentFoundationRealProviderExecutionV2Prerequisite[];
   activeRealAttemptRefs?: readonly ExperimentFoundationCycleActiveRealAttemptRefV2[];
   prerequisiteResolver?: (
     runId: string,
   ) => Promise<ExperimentFoundationExecutionV2Prerequisite | null>;
+  realProviderPrerequisiteResolver?: (
+    runId: string,
+  ) => Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null>;
 }
 
 function emptyState(): State {
@@ -164,6 +169,27 @@ function compareActiveRealAttemptRefs(
     || left.execution_attempt_id.localeCompare(right.execution_attempt_id);
 }
 
+function isExactProviderTuple(
+  payload: ExperimentFoundationProviderPayloadV2Record,
+  attempt: ExperimentFoundationExecutionAttemptV2Record,
+  mode: 'simulation' | 'real_provider',
+): boolean {
+  if (
+    payload.execution_mode !== mode
+    || attempt.execution_mode !== mode
+    || payload.provenance !== attempt.provenance
+  ) return false;
+  return mode === 'simulation'
+    ? payload.payload_schema === 'FakeAliyunPaiDlcSubmitPayload@v1'
+      && payload.adapter_identity === 'deterministic_fake_aliyun_pai_dlc@v1'
+      && payload.provenance === 'non_production_fake_provider'
+      && attempt.provenance === 'non_production_fake_provider'
+    : payload.payload_schema === 'AliyunPaiDlcCreateJobPayload@v1'
+      && payload.adapter_identity === 'aliyun_pai_dlc_official_sdk@v1'
+      && payload.provenance === 'real_provider'
+      && attempt.provenance === 'real_provider';
+}
+
 function exactOrConflict<T>(
   existing: T,
   incoming: T,
@@ -195,6 +221,14 @@ implements ExperimentFoundationExecutionV2Repository {
     string,
     Map<string, ExperimentFoundationExecutionV2Prerequisite['cells'][number]>
   >();
+  private readonly realProviderPrerequisites = new Map<
+    string,
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >();
+  private readonly realProviderPrerequisiteCells = new Map<
+    string,
+    Map<string, ExperimentFoundationRealProviderExecutionV2Prerequisite['cells'][number]>
+  >();
   private readonly activeRealAttemptRefs: ExperimentFoundationCycleActiveRealAttemptRefV2[];
   private readonly faults = new Map<FaultOperation, Error[]>();
   private transactionTail: Promise<void> = Promise.resolve();
@@ -206,10 +240,19 @@ implements ExperimentFoundationExecutionV2Repository {
     for (const prerequisite of options.prerequisites ?? []) {
       this.storePrerequisite(prerequisite);
     }
+    for (const prerequisite of options.realProviderPrerequisites ?? []) {
+      this.storeRealProviderPrerequisite(prerequisite);
+    }
   }
 
   seedPrerequisite(prerequisite: ExperimentFoundationExecutionV2Prerequisite): void {
     this.storePrerequisite(prerequisite);
+  }
+
+  seedRealProviderPrerequisite(
+    prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite,
+  ): void {
+    this.storeRealProviderPrerequisite(prerequisite);
   }
 
   failNext(operation: FaultOperation, error = new Error(`INJECTED_${operation}`)): void {
@@ -256,6 +299,30 @@ implements ExperimentFoundationExecutionV2Repository {
     return cell ? clone({ ...resolved, cells: [cell] }) : null;
   }
 
+  async resolveRealProviderRunPrerequisite(
+    runId: string,
+  ): Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null> {
+    const resolved = this.options.realProviderPrerequisiteResolver
+      ? await this.options.realProviderPrerequisiteResolver(runId)
+      : this.realProviderPrerequisites.get(runId) ?? null;
+    return resolved ? clone(resolved) : null;
+  }
+
+  async resolveRealProviderRunCellPrerequisite(
+    runId: string,
+    runCellId: string,
+  ): Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null> {
+    const resolved = await this.resolveRealProviderRunPrerequisite(runId);
+    if (!resolved) return null;
+    const cell = this.options.realProviderPrerequisiteResolver
+      ? new Map(resolved.cells.map((candidate) => [
+        candidate.run_cell.run_cell_id,
+        candidate,
+      ])).get(runCellId)
+      : this.realProviderPrerequisiteCells.get(runId)?.get(runCellId);
+    return cell ? clone({ ...resolved, cells: [cell] }) : null;
+  }
+
   private storePrerequisite(prerequisite: ExperimentFoundationExecutionV2Prerequisite): void {
     const stored = clone(prerequisite);
     this.prerequisites.set(stored.run.run_id, stored);
@@ -265,11 +332,50 @@ implements ExperimentFoundationExecutionV2Repository {
     );
   }
 
+  private storeRealProviderPrerequisite(
+    prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite,
+  ): void {
+    const stored = clone(prerequisite);
+    this.realProviderPrerequisites.set(stored.run.run_id, stored);
+    this.realProviderPrerequisiteCells.set(
+      stored.run.run_id,
+      new Map(stored.cells.map((cell) => [cell.run_cell.run_cell_id, cell])),
+    );
+  }
+
   async findWorkflowSimulationStart(runId: string, businessIdempotencyKey: string) {
+    return this.findExecutionStart(runId, businessIdempotencyKey, 'simulation') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome | null
+    >;
+  }
+
+  async findRealProviderExecutionStart(
+    runId: string,
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  > | null> {
+    return this.findExecutionStart(runId, businessIdempotencyKey, 'real_provider') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome<
+        ExperimentFoundationRealProviderExecutionV2Prerequisite
+      > | null
+    >;
+  }
+
+  private async findExecutionStart(
+    runId: string,
+    businessIdempotencyKey: string,
+    executionMode: 'simulation' | 'real_provider',
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  > | null> {
     return this.withTransaction(undefined, async (draft) => {
       const receipt = draft.startReceipts.get(startReceiptKey(runId, businessIdempotencyKey));
       if (!receipt) return null;
-      const prerequisite = await this.resolveRunPrerequisite(runId);
+      const prerequisite = executionMode === 'real_provider'
+        ? await this.resolveRealProviderRunPrerequisite(runId)
+        : await this.resolveRunPrerequisite(runId);
       if (!prerequisite) {
         throw constraint('EXECUTION_SCOPE_DRIFT', 'Committed workflow start lost its prerequisite.');
       }
@@ -280,8 +386,34 @@ implements ExperimentFoundationExecutionV2Repository {
   async startWorkflowSimulation(
     input: ExperimentFoundationExecutionV2StartInput,
   ): Promise<ExperimentFoundationExecutionV2StartOutcome> {
+    return this.startExecution(input, 'simulation') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome
+    >;
+  }
+
+  async startRealProviderExecution(
+    input: ExperimentFoundationExecutionV2StartInput,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >> {
+    return this.startExecution(input, 'real_provider') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome<
+        ExperimentFoundationRealProviderExecutionV2Prerequisite
+      >
+    >;
+  }
+
+  private async startExecution(
+    input: ExperimentFoundationExecutionV2StartInput,
+    executionMode: 'simulation' | 'real_provider',
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >> {
     return this.withTransaction('startWorkflowSimulation', async (draft) => {
-      const prerequisite = await this.resolveRunPrerequisite(input.run_id);
+      const prerequisite = executionMode === 'real_provider'
+        ? await this.resolveRealProviderRunPrerequisite(input.run_id)
+        : await this.resolveRunPrerequisite(input.run_id);
       if (!prerequisite) {
         throw constraint('EXECUTION_SCOPE_DRIFT', `Run prerequisite not found: ${input.run_id}`);
       }
@@ -299,7 +431,7 @@ implements ExperimentFoundationExecutionV2Repository {
       }
 
       this.assertStartPrerequisite(prerequisite, input);
-      this.assertStartShape(draft, prerequisite, input);
+      this.assertStartShape(draft, prerequisite, input, executionMode);
 
       const payloadIds = input.payloads.map((payload) => {
         const existingId = draft.payloadByMaterializationKey.get(payload.materialization_key);
@@ -378,7 +510,7 @@ implements ExperimentFoundationExecutionV2Repository {
       .filter((attempt) => (
         attempt.implementation_project_id === input.implementation_project_id
         && attempt.validation_cycle_id === input.validation_cycle_id
-        && attempt.execution_mode === 'real'
+        && attempt.execution_mode === 'real_provider'
         && activeStates.has(attempt.lifecycle_state)
       ))
       .sort(compareActiveRealAttemptRefs)
@@ -447,6 +579,12 @@ implements ExperimentFoundationExecutionV2Repository {
           if (input.command_kinds && !input.command_kinds.includes(command.operation)) {
             return false;
           }
+          const attempt = draft.attempts.get(command.execution_attempt_id);
+          if (input.execution_modes && (
+            !attempt || !input.execution_modes.includes(attempt.execution_mode)
+          )) {
+            return false;
+          }
           // A cancellation requested after submit was leased is durable, but
           // it must wait until that submit outcome converges. While the
           // Attempt remains prepared there may already be an accepted provider
@@ -454,7 +592,7 @@ implements ExperimentFoundationExecutionV2Repository {
           // ref or terminalize the intent prematurely.
           if (
             command.operation === 'cancel'
-            && draft.attempts.get(command.execution_attempt_id)?.lifecycle_state === 'prepared'
+            && attempt?.lifecycle_state === 'prepared'
           ) {
             return false;
           }
@@ -932,7 +1070,9 @@ implements ExperimentFoundationExecutionV2Repository {
   }
 
   private assertStartPrerequisite(
-    prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+    prerequisite:
+      | ExperimentFoundationExecutionV2Prerequisite
+      | ExperimentFoundationRealProviderExecutionV2Prerequisite,
     input: ExperimentFoundationExecutionV2StartInput,
   ): void {
     if (prerequisite.run.run_manifest_hash !== input.expected_run_manifest_hash) {
@@ -991,8 +1131,11 @@ implements ExperimentFoundationExecutionV2Repository {
 
   private assertStartShape(
     state: State,
-    prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+    prerequisite:
+      | ExperimentFoundationExecutionV2Prerequisite
+      | ExperimentFoundationRealProviderExecutionV2Prerequisite,
     input: ExperimentFoundationExecutionV2StartInput,
+    executionMode: 'simulation' | 'real_provider',
   ): void {
     const requiredCells = new Map(
       prerequisite.cells.map((cell) => [cell.run_cell.run_cell_id, cell]),
@@ -1068,8 +1211,7 @@ implements ExperimentFoundationExecutionV2Repository {
         || payload.run_manifest_hash !== prerequisite.run.run_manifest_hash
         || payload.training_task_spec_id !== required.task_spec.training_task_spec_id
         || payload.training_task_spec_hash !== required.task_spec.task_spec_hash
-        || payload.execution_mode !== 'simulation'
-        || payload.provenance !== 'non_production_fake_provider'
+        || !isExactProviderTuple(payload, attempt, executionMode)
         || attempt.implementation_project_id !== prerequisite.implementation_project_id
         || attempt.validation_cycle_id !== prerequisite.validation_cycle_id
         || attempt.external_pi_branch_id !== prerequisite.external_pi_branch_id
@@ -1087,8 +1229,6 @@ implements ExperimentFoundationExecutionV2Repository {
         || attempt.head_acknowledgement_inbox_id !== prerequisite.head_acknowledgement.inbox_id
         || attempt.workflow_business_key !== input.business_idempotency_key
         || attempt.workflow_request_hash !== input.request_hash
-        || attempt.execution_mode !== 'simulation'
-        || attempt.provenance !== 'non_production_fake_provider'
         || attempt.lifecycle_state !== 'prepared'
         || attempt.state_version !== 0
         || !event
@@ -1254,10 +1394,15 @@ implements ExperimentFoundationExecutionV2Repository {
 
   private startOutcomeFromReceipt(
     state: State,
-    prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+    prerequisite:
+      | ExperimentFoundationExecutionV2Prerequisite
+      | ExperimentFoundationRealProviderExecutionV2Prerequisite,
     receipt: StartReceipt,
     replayed: boolean,
-  ): ExperimentFoundationExecutionV2StartOutcome {
+  ): ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  > {
     return {
       prerequisite: clone(prerequisite),
       payloads: receipt.payload_ids.map((id) => clone(state.payloads.get(id)!)),

@@ -44,10 +44,10 @@ const PACK_B_REMOVED_REDUNDANT_INDEXES = [
 ];
 const EXPECTED_EFFECTIVE_SCHEMA_DIGESTS = Object.freeze({
   foreign_keys: 'ce9f1a0866eaac5114921eaf4132d8652df308fbbab466aebde23689e1e8de71',
-  checks: '868ddb26146bec215b69c572ac54c8b0ab3f667a83b5ce3c672db590c45b9040',
-  indexes: '764a29546bba534cdfe3d1544662c58403a87fbbaff26e8d543c780b45bf4449',
+  checks: 'ab2b60f118b07d2c6f600b3f52da488a43d830e7dd646c26c175366d5fcce726',
+  indexes: 'b7bc57730d63f421b57ea04f254d728911e1d1a2518f15ec358acceb0e168af5',
 });
-const EXPECTED_PACK_B_CHECK_COUNT = 35;
+const EXPECTED_PACK_B_CHECK_COUNT = 31;
 const PACK_A_MIGRATION_PATH = path.join(
   REPO_ROOT,
   'prisma/migrations/20260713180000_add_experiment_foundation_d19_v2_spine/migration.sql',
@@ -689,7 +689,7 @@ export function inspectPB14ScenarioEvidence(evidence) {
     && typeof scope?.validation_cycle_id === 'string'
     && scope.validation_cycle_id.length > 0
     && scope.validation_cycle_id === evidence?.pack_a_prerequisite?.validation_cycle_id
-    && scope.execution_mode === 'real'
+    && scope.execution_mode === 'real_provider'
     && JSON.stringify(scope.lifecycle_states) === JSON.stringify([
       'prepared', 'submitted', 'running',
     ])

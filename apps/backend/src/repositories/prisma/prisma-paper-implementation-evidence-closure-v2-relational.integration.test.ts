@@ -1289,7 +1289,7 @@ async function seedActiveRealAttempt(
     adapterIdentity: 'deterministic_fake_aliyun_pai_dlc@v1',
     executionMode: 'simulation',
     provenance: 'non_production_fake_provider',
-    simulationProfileVersion: 'v1',
+    providerProfileVersion: 'v1',
     redactedManifestVersion: 'v1',
     redactedManifestJson: { fixture: 'packc-pi-active-real-parent' },
     payloadHash,

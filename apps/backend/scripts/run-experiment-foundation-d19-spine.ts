@@ -155,9 +155,10 @@ interface ExperimentFoundationV2Census {
 interface V2Census {
   pi: PaperImplementationV2Census;
   ef: ExperimentFoundationV2Census;
+  later_v2: Record<string, number>;
 }
 
-const V2_CENSUS_MODEL_NAMES = [
+const D19_CENSUS_MODEL_NAMES = [
   'PaperImplementationExperimentWorkOrderBranchV2',
   'PaperImplementationExperimentWorkOrderRevisionV2',
   'PaperImplementationExperimentWorkOrderRevisionCellV2',
@@ -198,6 +199,22 @@ const V2_CENSUS_MODEL_NAMES = [
   'ExperimentFoundationProviderCommandV2',
   'ExperimentFoundationCollectionAttemptV2',
   'ExperimentFoundationProvisionalOutputV2',
+] as const;
+
+const V2_CENSUS_MODEL_NAMES = [
+  ...D19_CENSUS_MODEL_NAMES,
+  'PaperImplementationRunEvidenceUnitV2',
+  'PaperImplementationEvidenceTraceManifestV2',
+  'PaperImplementationValidationCycleClosureV2',
+  'ExperimentFoundationExecutionBundleIdentityV2',
+  'ExperimentFoundationExecutionBundleDraftV2',
+  'ExperimentFoundationExecutionBundleRevisionV2',
+  'ExperimentFoundationExecutionBundleLifecycleEventV2',
+  'ExperimentFoundationExecutionBundleLifecycleProjectionV2',
+  'ExperimentFoundationExecutionBundleReadinessV2',
+  'ExperimentFoundationExperimentResultV2',
+  'ExperimentFoundationScientificValidationReportV2',
+  'ExperimentFoundationEvidenceCandidateV2',
 ] as const;
 
 interface ExcludedTableSnapshot {
@@ -1800,6 +1817,16 @@ async function v2Census(prisma: PrismaClient): Promise<V2Census> {
     [...V2_CENSUS_MODEL_NAMES].sort(),
     'V2 census model population drifted from the disposable database',
   );
+  const d19ModelNames = new Set<string>(D19_CENSUS_MODEL_NAMES);
+  const laterV2Entries: Array<[string, number]> = [];
+  for (const { table_name: tableName } of databaseV2Tables) {
+    if (d19ModelNames.has(tableName)) continue;
+    assert.match(tableName, /^[A-Za-z0-9_]+V2$/);
+    const rows = await prisma.$queryRawUnsafe<Array<{ row_count: bigint }>>(
+      `SELECT COUNT(*) AS row_count FROM "${tableName}"`,
+    );
+    laterV2Entries.push([tableName, Number(rows[0]?.row_count ?? 0)]);
+  }
   const counts = await Promise.all([
     prisma.paperImplementationExperimentWorkOrderBranchV2.count(),
     prisma.paperImplementationExperimentWorkOrderRevisionV2.count(),
@@ -1854,7 +1881,7 @@ async function v2Census(prisma: PrismaClient): Promise<V2Census> {
     efInbox, efOutbox, providerPayload, executionAttempt, executionAttemptEvent,
     providerCommand, collectionAttempt, provisionalOutput,
   ] = counts;
-  assert.equal(counts.length, V2_CENSUS_MODEL_NAMES.length);
+  assert.equal(counts.length, D19_CENSUS_MODEL_NAMES.length);
   return {
     pi: {
       work_order_branch: branch!,
@@ -1900,6 +1927,7 @@ async function v2Census(prisma: PrismaClient): Promise<V2Census> {
       collection_attempt: collectionAttempt!,
       provisional_output: provisionalOutput!,
     },
+    later_v2: Object.fromEntries(laterV2Entries),
   };
 }
 
@@ -2129,7 +2157,11 @@ async function sha256File(filePath: string): Promise<string> {
 }
 
 function sumNestedCounts(census: V2Census): number {
-  return [...Object.values(census.pi), ...Object.values(census.ef)]
+  return [
+    ...Object.values(census.pi),
+    ...Object.values(census.ef),
+    ...Object.values(census.later_v2),
+  ]
     .reduce((sum, count) => sum + count, 0);
 }
 

@@ -53,6 +53,16 @@ import {
 } from '../experiment-spine-v2.repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
+import {
+  createExecutionAttemptEventV2Record,
+  createProviderCommandV2Record,
+} from '../../services/experiment-foundation-execution-v2-service.js';
+import {
+  ExperimentFoundationRealProviderPayloadV2Service,
+} from '../../services/experiment-foundation-real-provider-payload-v2-service.js';
+import {
+  createRealProviderV2TestFixture,
+} from '../../services/experiment-foundation-real-provider-v2-test-fixture.js';
 
 const RUN_REAL_POSTGRES = process.env.EXPERIMENT_FOUNDATION_EXECUTION_V2_RELATIONAL_PRISMA === '1';
 const REAL_POSTGRES_SKIP_REASON =
@@ -197,6 +207,183 @@ test(
 );
 
 test(
+  'M7 Prisma accepts only the exact real-provider tuple and preserves typed repository reads',
+  {
+    skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON,
+    timeout: 90_000,
+  },
+  async () => {
+    const { prisma } = await openVerifiedDisposablePostgresTestDatabase(process.env, 'packb');
+    const fixture = await seedPackAPrerequisite(prisma);
+    const repository = new PrismaExperimentFoundationExecutionV2Repository(prisma);
+    try {
+      const prerequisite = await repository.resolveRunPrerequisite(fixture.runId);
+      assert.ok(prerequisite);
+      const simulationStart = makeStart(prerequisite, fixture);
+      const simulationPayload = simulationStart.payloads[0]!;
+      const simulationAttempt = simulationStart.attempts[0]!;
+      const materializedFixture = createRealProviderV2TestFixture();
+      const materialized = new ExperimentFoundationRealProviderPayloadV2Service().materialize({
+        run: materializedFixture.prerequisite.run,
+        run_cell: materializedFixture.prerequisite.cells[0]!.run_cell,
+        task_spec: materializedFixture.prerequisite.cells[0]!.task_spec,
+        execution_bundle_revision: materializedFixture.bundle,
+        provider_idempotency_key: `${fixture.prefix}-real-attempt:submit:1`,
+      }, materializedFixture.profile);
+      const realPayload: ExperimentFoundationProviderPayloadV2Record = {
+        ...simulationPayload,
+        id: `${fixture.prefix}-real-payload`,
+        materialization_key: `${fixture.prefix}-real-payload-materialization`,
+        payload_schema: 'AliyunPaiDlcCreateJobPayload@v1',
+        adapter_identity: 'aliyun_pai_dlc_official_sdk@v1',
+        execution_mode: 'real_provider',
+        provenance: 'real_provider',
+        provider_profile_version: 'AliyunPaiDlcExecutionProfile@v2',
+        redacted_manifest: {
+          ...materialized.record.redacted_manifest,
+          source_binding: {
+            ...materialized.record.redacted_manifest.source_binding,
+            run_id: simulationPayload.run_id,
+            run_manifest_hash: simulationPayload.run_manifest_hash,
+            run_cell_id: simulationPayload.run_cell_id,
+            cell_key: simulationPayload.cell_key,
+            training_task_spec_id: simulationPayload.training_task_spec_id,
+            training_task_spec_hash: simulationPayload.training_task_spec_hash,
+          },
+        },
+        payload_hash: fixtureHash(fixture.prefix, 'real-payload'),
+      };
+      const realAttempt: ExperimentFoundationExecutionAttemptV2Record = {
+        ...simulationAttempt,
+        id: `${fixture.prefix}-real-attempt`,
+        provider_payload_id: realPayload.id,
+        provider_payload_hash: realPayload.payload_hash,
+        workflow_business_key: `${fixture.prefix}-real-workflow`,
+        workflow_request_hash: fixtureHash(fixture.prefix, 'real-request'),
+        execution_mode: 'real_provider',
+        provenance: 'real_provider',
+        provider_idempotency_key: `${fixture.prefix}-real-attempt:submit:1`,
+      };
+      const realEvent = createExecutionAttemptEventV2Record({
+        id: `${fixture.prefix}-real-event`,
+        attempt: realAttempt,
+        sequence: 1,
+        eventType: 'created',
+        priorState: null,
+        nextState: 'prepared',
+        commandId: null,
+        reasonCode: null,
+        observedProviderState: null,
+        occurredAt: fixture.now,
+      });
+      const realCommand = createProviderCommandV2Record({
+        id: `${fixture.prefix}-real-command`,
+        attempt: realAttempt,
+        sequence: 1,
+        operation: 'submit',
+        providerIdempotencyKey: realAttempt.provider_idempotency_key,
+        externalJobRef: null,
+        collectionAttemptId: null,
+        cancellationReason: null,
+        now: fixture.now,
+      });
+
+      await prisma.$transaction([
+        prisma.experimentFoundationProviderPayloadV2.create({ data: {
+          id: realPayload.id,
+          materializationKey: realPayload.materialization_key,
+          runId: realPayload.run_id,
+          runManifestHash: realPayload.run_manifest_hash,
+          runCellId: realPayload.run_cell_id,
+          cellKey: realPayload.cell_key,
+          trainingTaskSpecId: realPayload.training_task_spec_id,
+          trainingTaskSpecHash: realPayload.training_task_spec_hash,
+          payloadSchemaVersion: realPayload.payload_schema,
+          adapterIdentity: realPayload.adapter_identity,
+          executionMode: realPayload.execution_mode,
+          provenance: realPayload.provenance,
+          providerProfileVersion: realPayload.provider_profile_version,
+          redactedManifestVersion: 'v1',
+          redactedManifestJson: realPayload.redacted_manifest as Prisma.InputJsonValue,
+          payloadHash: realPayload.payload_hash,
+          payloadByteSize: realPayload.payload_byte_size,
+          createdAt: new Date(realPayload.created_at),
+        } }),
+        prisma.experimentFoundationExecutionAttemptV2.create({ data: attemptData(realAttempt) }),
+        prisma.experimentFoundationExecutionAttemptEventV2.create({ data: {
+          id: realEvent.id,
+          executionAttemptId: realEvent.execution_attempt_id,
+          eventSequence: realEvent.event_sequence,
+          eventType: realEvent.event_type,
+          priorState: realEvent.prior_state,
+          nextState: realEvent.next_state,
+          providerCommandId: null,
+          providerPayloadHash: realEvent.payload_hash,
+          externalJobRefJson: Prisma.DbNull,
+          externalJobRefHash: null,
+          eventSchemaVersion: 'v1',
+          eventSnapshotJson: realEvent.event_snapshot as Prisma.InputJsonValue,
+          eventHash: realEvent.event_hash,
+          occurredAt: new Date(realEvent.occurred_at),
+        } }),
+        prisma.experimentFoundationProviderCommandV2.create({ data: {
+          id: realCommand.id,
+          executionAttemptId: realCommand.execution_attempt_id,
+          collectionAttemptId: null,
+          commandSequence: realCommand.command_sequence,
+          operation: realCommand.operation,
+          commandSchemaVersion: 'v1',
+          commandSnapshotJson: realCommand.command_snapshot as Prisma.InputJsonValue,
+          commandHash: realCommand.command_hash,
+          responseHash: null,
+          providerIdempotencyKey: realCommand.provider_idempotency_key,
+          providerPayloadHash: realCommand.payload_hash,
+          externalJobRefJson: Prisma.DbNull,
+          externalJobRefHash: null,
+          commandState: 'pending',
+          leaseVersion: 0,
+          attemptCount: 0,
+          createdAt: new Date(realCommand.created_at),
+          updatedAt: new Date(realCommand.updated_at),
+        } }),
+      ]);
+
+      assert.equal((await repository.findProviderPayload(realPayload.id))?.execution_mode, 'real_provider');
+      assert.equal((await repository.findAttempt(realAttempt.id))?.provenance, 'real_provider');
+      assert.equal((await repository.listAttemptCommands(realAttempt.id))[0]?.operation, 'submit');
+      assert.equal((await repository.listCycleActiveRealAttemptRefs({
+        implementation_project_id: realAttempt.implementation_project_id,
+        validation_cycle_id: realAttempt.validation_cycle_id,
+      })).length, 1);
+
+      await assert.rejects(prisma.experimentFoundationProviderPayloadV2.create({ data: {
+        id: `${fixture.prefix}-mixed-payload`,
+        materializationKey: `${fixture.prefix}-mixed-payload-materialization`,
+        runId: realPayload.run_id,
+        runManifestHash: realPayload.run_manifest_hash,
+        runCellId: realPayload.run_cell_id,
+        cellKey: realPayload.cell_key,
+        trainingTaskSpecId: realPayload.training_task_spec_id,
+        trainingTaskSpecHash: realPayload.training_task_spec_hash,
+        payloadSchemaVersion: 'AliyunPaiDlcCreateJobPayload@v1',
+        adapterIdentity: 'aliyun_pai_dlc_official_sdk@v1',
+        executionMode: 'simulation',
+        provenance: 'real_provider',
+        providerProfileVersion: 'mixed-profile',
+        redactedManifestVersion: 'v1',
+        redactedManifestJson: realPayload.redacted_manifest as Prisma.InputJsonValue,
+        payloadHash: fixtureHash(fixture.prefix, 'mixed-payload'),
+        payloadByteSize: 1,
+        createdAt: new Date(fixture.now),
+      } }));
+    } finally {
+      await cleanup(prisma, fixture.prefix);
+      await prisma.$disconnect();
+    }
+  },
+);
+
+test(
   'Prisma EF execution v2 rejects a persisted TaskSpec snapshot tamper before every E1 write',
   {
     skip: RUN_REAL_POSTGRES
@@ -289,6 +476,18 @@ test(
       const drifted = structuredClone(first);
       drifted.attempts[0]!.workflow_business_key = `${fixture.workflowKey}-drift`;
       await assert.rejects(repository.startWorkflowSimulation(drifted));
+      const eventHashDrift = structuredClone(first);
+      eventHashDrift.events[0]!.event_hash = hash('e');
+      await assert.rejects(
+        repository.startWorkflowSimulation(eventHashDrift),
+        reason('PROVIDER_RESPONSE_INVALID'),
+      );
+      const commandHashDrift = structuredClone(first);
+      commandHashDrift.commands[0]!.command_hash = hash('c');
+      await assert.rejects(
+        repository.startWorkflowSimulation(commandHashDrift),
+        reason('PROVIDER_RESPONSE_INVALID'),
+      );
       assert.equal(await prisma.experimentFoundationExecutionAttemptV2.count({
         where: { runId: fixture.runId },
       }), 0);
@@ -673,10 +872,10 @@ test(
             attemptSequence: 2,
             workflowBusinessKey: `${fixture.prefix}-rejected-real-workflow`,
             providerIdempotencyKey: `${fixture.prefix}-rejected-real-provider`,
-            executionMode: 'real',
+            executionMode: 'real_provider',
           },
         }),
-        databaseCheck('ef_execution_attempt_mode_check'),
+        databaseCheck('ef_execution_attempt_exact_tuple_check'),
       );
       assert.deepEqual(
         await repository.listCycleActiveRealAttemptRefs(activeRealFenceInput),
@@ -1428,7 +1627,7 @@ function makeStart(
       adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1',
       execution_mode: 'simulation',
       provenance: 'non_production_fake_provider',
-      simulation_profile_version: 'v1',
+      provider_profile_version: 'v1',
       redacted_manifest: {
         manifest_schema_version: 'v1',
         payload_schema: 'FakeAliyunPaiDlcSubmitPayload@v1',
@@ -1479,7 +1678,7 @@ function makeStart(
       workflow_request_hash: hash('f'),
       execution_mode: 'simulation',
       provenance: 'non_production_fake_provider',
-      provider_idempotency_key: `${fixture.prefix}-attempt${suffix}-provider`,
+      provider_idempotency_key: `${fixture.prefix}-attempt${suffix}:submit:1`,
       lifecycle_state: 'prepared',
       state_version: 0,
       external_job_ref: null,
@@ -1542,9 +1741,18 @@ function regenerateStartIdentities(
   attempt.provider_idempotency_key = `${attempt.id}:submit:1`;
   event.id = `${event.id}-${suffix}`;
   event.execution_attempt_id = attempt.id;
+  next.events[0] = rehashEvent(event, {});
   command.id = `${command.id}-${suffix}`;
   command.execution_attempt_id = attempt.id;
   command.provider_idempotency_key = attempt.provider_idempotency_key;
+  command.command_snapshot = {
+    ...command.command_snapshot,
+    provider_payload_id: payload.id,
+  };
+  command.command_hash = hashProviderCommand(
+    command.provider_idempotency_key,
+    command.command_snapshot,
+  );
   return next;
 }
 

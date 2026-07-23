@@ -8,6 +8,10 @@ import {
   EXPERIMENT_V2_HASH_PATTERN,
 } from './experiment-v2-contract-limits.js';
 import {
+  paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema,
+  type PaperImplementationExecutableWorkOrderRevisionSnapshotV2,
+} from './experiment-foundation-real-provider-v2-contracts.js';
+import {
   evidenceCandidateQualifiedV1Schema,
   type EvidenceCandidateQualifiedV1,
 } from './experiment-foundation-scientific-validation-v2-contracts.js';
@@ -178,7 +182,7 @@ export interface PaperImplementationExperimentV2RunPolicy {
   timeout_seconds: number;
 }
 
-export interface PaperImplementationExperimentV2WorkOrderRevisionSnapshot {
+export interface PaperImplementationExperimentV2WorkOrderRevisionSnapshotV1 {
   work_order_schema_version: 'v1';
   title: string;
   objective: string;
@@ -187,6 +191,10 @@ export interface PaperImplementationExperimentV2WorkOrderRevisionSnapshot {
   asset_dependencies: ExperimentFoundationV2ExactAssetRevisionRef[];
   run_policy: PaperImplementationExperimentV2RunPolicy;
 }
+
+export type PaperImplementationExperimentV2WorkOrderRevisionSnapshot =
+  | PaperImplementationExperimentV2WorkOrderRevisionSnapshotV1
+  | PaperImplementationExecutableWorkOrderRevisionSnapshotV2;
 
 export interface PaperImplementationExperimentV2AdmissionRequest {
   branch_key: string;
@@ -570,7 +578,7 @@ export const paperImplementationExperimentV2RunPolicySchema = {
   },
 } as const;
 
-export const paperImplementationExperimentV2WorkOrderRevisionSnapshotSchema = {
+export const paperImplementationExperimentV2WorkOrderRevisionSnapshotV1Schema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -595,6 +603,13 @@ export const paperImplementationExperimentV2WorkOrderRevisionSnapshotSchema = {
     },
     run_policy: paperImplementationExperimentV2RunPolicySchema,
   },
+} as const;
+
+export const paperImplementationExperimentV2WorkOrderRevisionSnapshotSchema = {
+  oneOf: [
+    paperImplementationExperimentV2WorkOrderRevisionSnapshotV1Schema,
+    paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema,
+  ],
 } as const;
 
 export const paperImplementationExperimentV2AdmissionRequestSchema = {

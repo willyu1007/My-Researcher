@@ -237,7 +237,7 @@ function providerPayload(): ProviderPayloadV2 {
     adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1' as const,
     execution_mode: 'simulation' as const,
     provenance: 'non_production_fake_provider' as const,
-    simulation_profile_version: 'profile-v1',
+    provider_profile_version: 'profile-v1',
     redacted_manifest: {
       manifest_schema_version: 'v1' as const,
       payload_schema: 'FakeAliyunPaiDlcSubmitPayload@v1' as const,

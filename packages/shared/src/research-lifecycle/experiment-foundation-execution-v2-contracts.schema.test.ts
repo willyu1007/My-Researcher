@@ -60,7 +60,7 @@ function providerPayload() {
     adapter_identity: EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2,
     execution_mode: 'simulation',
     provenance: 'non_production_fake_provider',
-    simulation_profile_version: 'profile-v1',
+    provider_profile_version: 'profile-v1',
     redacted_manifest: {
       manifest_schema_version: 'v1',
       payload_schema: EXPERIMENT_FOUNDATION_PROVIDER_PAYLOAD_SCHEMA_V2,

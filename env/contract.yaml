@@ -138,6 +138,16 @@ variables:
     required: false
     default: false
     description: Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands.
+  EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only new ExperimentFoundation v2 real-provider Attempts after committed cutover; disabling intake never stops draining already committed provider commands.
+  EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable the separately composed real-provider command drain; this must remain enabled until every committed real-provider submit, sync, reconcile, cancel and collect command is terminal.
   EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED:
     type: bool
     required: false

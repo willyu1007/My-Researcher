@@ -911,6 +911,8 @@ export function createExecutionAttemptEventV2Record(input: {
   return {
     id: input.id,
     ...content,
+    external_job_ref_type: input.attempt.external_job_ref_type ?? null,
+    external_job_ref_region_hash: input.attempt.external_job_ref_region_hash ?? null,
     event_hash: serverHashExperimentFoundationExecutionAttemptEventV2(content),
   };
 }
@@ -935,17 +937,42 @@ export function createProviderCommandV2Record(input: {
       'Cancel commands require cancellation_reason=operator_cancelled; every other operation forbids it.',
     );
   }
+  const externalJobRefType = input.externalJobRef === null
+    ? null
+    : input.attempt.external_job_ref_type
+      ?? (input.attempt.execution_mode === 'real_provider'
+        ? 'aliyun_pai_dlc_job'
+        : 'fake_aliyun_pai_dlc_job');
+  const externalJobRefRegionHash = input.externalJobRef === null
+    ? null
+    : input.attempt.external_job_ref_region_hash ?? null;
+  if (
+    externalJobRefType === 'aliyun_pai_dlc_job'
+    && externalJobRefRegionHash === null
+  ) {
+    throw errorForReason(
+      'PROVIDER_RESPONSE_INVALID',
+      'Real-provider commands require an exact external-job region hash.',
+    );
+  }
+  const externalJobRefSnapshot = input.externalJobRef === null
+    ? null
+    : externalJobRefType === 'aliyun_pai_dlc_job'
+      ? {
+        ref_type: externalJobRefType,
+        job_id: input.externalJobRef,
+        region_id_hash: externalJobRefRegionHash!,
+      }
+      : {
+        ref_type: 'fake_aliyun_pai_dlc_job' as const,
+        ref_id: input.externalJobRef,
+      };
   const commandSnapshot = {
     command_schema_version: 'v1',
     operation: input.operation,
     provider_payload_id: input.attempt.provider_payload_id,
     provider_payload_hash: input.attempt.provider_payload_hash,
-    external_job_ref: input.externalJobRef === null
-      ? null
-      : {
-        ref_type: 'fake_aliyun_pai_dlc_job',
-        ref_id: input.externalJobRef,
-      },
+    external_job_ref: externalJobRefSnapshot,
     cancellation_reason: input.cancellationReason,
   };
   return {
@@ -963,8 +990,10 @@ export function createProviderCommandV2Record(input: {
     payload_hash: input.attempt.provider_payload_hash,
     external_job_ref: input.externalJobRef,
     external_job_ref_hash: input.externalJobRef
-      ? serverHashExperimentFoundationExternalJobRefV2(input.externalJobRef)
+      ? serverHashExperimentFoundationExternalJobRefV2(externalJobRefSnapshot!)
       : null,
+    external_job_ref_type: externalJobRefType,
+    external_job_ref_region_hash: externalJobRefRegionHash,
     state: 'pending',
     lease_version: 0,
     lease_owner: null,
@@ -984,6 +1013,17 @@ function toProviderPayload(
   record: ExperimentFoundationProviderPayloadV2Record,
   payloadService: ExperimentFoundationV2ProviderPayloadService,
 ): ProviderPayloadV2 {
+  if (
+    record.payload_schema !== 'FakeAliyunPaiDlcSubmitPayload@v1'
+    || record.adapter_identity !== 'deterministic_fake_aliyun_pai_dlc@v1'
+    || record.execution_mode !== 'simulation'
+    || record.provenance !== 'non_production_fake_provider'
+  ) {
+    throw errorForReason(
+      'EXECUTION_SCOPE_DRIFT',
+      'Pack B cannot expose a real-provider payload as workflow simulation.',
+    );
+  }
   const persisted = payloadService.toPersistenceRecord(record);
   return {
     provider_payload_id: record.id,
@@ -994,11 +1034,11 @@ function toProviderPayload(
     cell_key: record.cell_key,
     training_task_spec_id: record.training_task_spec_id,
     training_task_spec_hash: record.training_task_spec_hash,
-    payload_schema: record.payload_schema,
-    adapter_identity: record.adapter_identity,
+    payload_schema: 'FakeAliyunPaiDlcSubmitPayload@v1',
+    adapter_identity: 'deterministic_fake_aliyun_pai_dlc@v1',
     execution_mode: 'simulation',
     provenance: 'non_production_fake_provider',
-    simulation_profile_version: record.simulation_profile_version,
+    provider_profile_version: record.provider_profile_version,
     redacted_manifest: persisted.redacted_manifest,
     payload_hash: record.payload_hash,
     payload_byte_size: record.payload_byte_size,

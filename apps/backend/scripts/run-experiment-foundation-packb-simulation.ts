@@ -414,20 +414,23 @@ async function main(): Promise<void> {
       validation_cycle_id: VALIDATION_CYCLE_ID,
     });
     assert.deepEqual(activeRealAttemptRefs, []);
-    assert.deepEqual([...EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2], ['simulation']);
+    assert.deepEqual(
+      [...EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2],
+      ['simulation', 'real_provider'],
+    );
     const cycleActiveRealAttemptFence = {
       repository_query_invoked: true,
       query_scope: {
         implementation_project_id: IMPLEMENTATION_PROJECT_ID,
         validation_cycle_id: VALIDATION_CYCLE_ID,
-        execution_mode: 'real',
+        execution_mode: 'real_provider',
         lifecycle_states: ['prepared', 'submitted', 'running'],
         run_filter: null,
         head_filter: null,
       },
       active_real_attempt_count: activeRealAttemptRefs.length,
       active_real_attempt_refs: activeRealAttemptRefs,
-      pack_b_writer_execution_modes: [...EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2],
+      pack_b_writer_execution_modes: ['simulation'],
       attempt_persistence_execution_mode: simulationOnlyDomains.attempt_execution_mode,
       attempt_persistence_provenance: simulationOnlyDomains.attempt_provenance,
     } as const;
@@ -488,7 +491,7 @@ async function main(): Promise<void> {
       PB11: 'Exactly two stable CollectionAttempts and two immutable diagnostic-only outputs were committed without scientific publication.',
       PB12: 'Event-only two-cell projection passed and every non-Pack-B table digest, including Run/RunCell/TaskSpec, stayed unchanged after E1.',
       PB13: 'All non-Pack-B application-table digests stayed unchanged; fetch/network/CreateJob counters are zero.',
-      PB14: 'The Cycle-wide repository fence queried active real Attempts without Run/head filtering and returned empty; Pack B writer contracts and PostgreSQL domains remain simulation-only.',
+      PB14: 'The Cycle-wide repository fence queried active real-provider Attempts without Run/head filtering and returned empty; the Pack B writer remains simulation-only while PostgreSQL permits only the two exact simulation/fake and real-provider tuples.',
       PB15: 'Capability disable rejected new E1 while all already-committed commands drained through collection.',
       PB16: 'Disposable real PostgreSQL finished with two payloads, two Attempts, two Collections and a terminal passed projection.',
     });
@@ -810,22 +813,36 @@ async function assertSimulationOnlyPersistenceDomains(prisma: PrismaClient) {
     .replace(/[()]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  assert.equal(
-    normalizeCheckDefinition(definitions.get('ef_provider_payload_mode_check')),
-    "CHECK executionMode = 'simulation'",
+  const payloadTuple = normalizeCheckDefinition(
+    definitions.get('ef_provider_payload_exact_tuple_check'),
   );
-  assert.equal(
-    normalizeCheckDefinition(definitions.get('ef_provider_payload_provenance_check')),
-    "CHECK provenance = 'non_production_fake_provider'",
+  const attemptTuple = normalizeCheckDefinition(
+    definitions.get('ef_execution_attempt_exact_tuple_check'),
   );
-  assert.equal(
-    normalizeCheckDefinition(definitions.get('ef_execution_attempt_mode_check')),
-    "CHECK executionMode = 'simulation'",
-  );
-  assert.equal(
-    normalizeCheckDefinition(definitions.get('ef_execution_attempt_provenance_check')),
-    "CHECK provenance = 'non_production_fake_provider'",
-  );
+  for (const required of [
+    "payloadSchemaVersion = 'FakeAliyunPaiDlcSubmitPayload@v1'",
+    "adapterIdentity = 'deterministic_fake_aliyun_pai_dlc@v1'",
+    "executionMode = 'simulation'",
+    "provenance = 'non_production_fake_provider'",
+    "payloadSchemaVersion = 'AliyunPaiDlcCreateJobPayload@v1'",
+    "adapterIdentity = 'aliyun_pai_dlc_official_sdk@v1'",
+    "executionMode = 'real_provider'",
+    "provenance = 'real_provider'",
+  ]) {
+    assert.ok(payloadTuple.includes(required), `provider payload tuple missing ${required}`);
+  }
+  for (const required of [
+    "executionMode = 'simulation'",
+    "provenance = 'non_production_fake_provider'",
+    "executionMode = 'real_provider'",
+    "provenance = 'real_provider'",
+  ]) {
+    assert.ok(attemptTuple.includes(required), `Attempt tuple missing ${required}`);
+  }
+  assert.equal(definitions.has('ef_provider_payload_mode_check'), false);
+  assert.equal(definitions.has('ef_provider_payload_provenance_check'), false);
+  assert.equal(definitions.has('ef_execution_attempt_mode_check'), false);
+  assert.equal(definitions.has('ef_execution_attempt_provenance_check'), false);
   return {
     payload_execution_mode: 'simulation',
     payload_provenance: 'non_production_fake_provider',

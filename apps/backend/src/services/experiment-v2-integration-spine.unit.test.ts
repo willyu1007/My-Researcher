@@ -37,6 +37,7 @@ import {
   type PaperImplementationExperimentV2ScopeReader,
 } from './paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from './paper-implementation-experiment-v2-head-service.js';
+import { createRealProviderV2TestFixture } from './experiment-foundation-real-provider-v2-test-fixture.js';
 
 const PROJECT_ID = 'implementation-project-d19';
 const CYCLE_ID = 'validation-cycle-d19';
@@ -729,6 +730,77 @@ test('B02/B07 T2 is atomic and materializes 23 dependencies, 2 TaskSpecs and one
   assert.deepEqual(
     materialized.run_cells.map((cell) => cell.training_task_spec_id),
     materialized.task_specs.map((spec) => spec.training_task_spec_id),
+  );
+});
+
+test('M7-02 executable WorkOrder v2 preserves the exact ExecutionBundle through T1-T4', async () => {
+  const services = makeServices({});
+  const fixture = createRealProviderV2TestFixture();
+  const request = admissionRequest(services.readiness, {
+    work_order_revision: {
+      ...admissionRequest(services.readiness).work_order_revision,
+      work_order_schema_version: 'v2',
+      execution_bundle: {
+        execution_bundle_id: fixture.bundle.execution_bundle_id,
+        execution_bundle_revision_id: fixture.bundle.execution_bundle_revision_id,
+        revision_sequence: fixture.bundle.revision_sequence,
+        content_hash: fixture.bundle.content_hash,
+      },
+    },
+    business_idempotency_key: 'admit-d19-executable-v2',
+  });
+
+  await admit(services.admission, request);
+  const admittedEvent = services.pi.snapshot().outboxes[0]!.outbox.event;
+  const materialization = new ExperimentFoundationV2MaterializationService({
+    repository: services.ef,
+    cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+    readinessResolver: {
+      async resolvePassedExactReadiness() {
+        return services.readiness;
+      },
+    },
+    executionBundleResolver: {
+      async resolveActiveReadyExact() {
+        return { revision: fixture.bundle };
+      },
+    },
+    idFactory: ids('m7-materialization'),
+    now: () => BASE_TIME,
+  });
+
+  const materialized = await materialization.consume(admittedEvent as never);
+  assert.equal(materialized.run_recipe.recipe_snapshot.recipe_schema_version, 'v2');
+  assert.equal('execution_bundle' in materialized.run_recipe, true);
+  assert.equal(materialized.task_specs.length, 2);
+  assert.deepEqual(
+    materialized.task_specs.map((spec) => spec.io_snapshot.output_keys),
+    [
+      ['real_provider_result_envelope'],
+      ['real_provider_result_envelope'],
+    ],
+  );
+  assert.equal(
+    materialized.task_specs.every(
+      (spec) => 'execution_bundle' in spec
+        && spec.execution_bundle.execution_bundle_revision_id
+          === fixture.bundle.execution_bundle_revision_id,
+    ),
+    true,
+  );
+
+  const headed = await services.head.consume(materialized.outbox.event);
+  assert.equal(headed.emitted_branch_head_advanced, true);
+  const headEvent = services.pi.snapshot().outboxes.at(-1)!.outbox.event;
+  assert.equal(headEvent.event_type, 'BranchHeadAdvanced');
+  const acknowledgement = await services.acknowledgement.consume(headEvent as never);
+  assert.equal(services.pi.snapshot().branches[0]!.head_run_id, materialized.run.run_id);
+  assert.equal(acknowledgement.outcome, 'processed');
+  assert.equal(
+    services.ef.snapshot().inboxes.filter(
+      (inbox) => inbox.consumer_name === ACKNOWLEDGEMENT_CONSUMER,
+    ).length,
+    1,
   );
 });
 

@@ -53,8 +53,8 @@ test('PB14 Prisma fence is Cycle-wide and does not filter by Run or head lineage
     ref.lifecycle_state,
     ref.execution_mode,
   ]), [
-    ['real-attempt-non-head', 'branch-a', 'run-superseded-non-head', 'running', 'real'],
-    ['real-attempt-head', 'branch-b', 'run-current-head', 'submitted', 'real'],
+    ['real-attempt-non-head', 'branch-a', 'run-superseded-non-head', 'running', 'real_provider'],
+    ['real-attempt-head', 'branch-b', 'run-current-head', 'submitted', 'real_provider'],
   ]);
   const capturedQuery = capturedQueries[0];
   assert.ok(capturedQuery);
@@ -62,7 +62,7 @@ test('PB14 Prisma fence is Cycle-wide and does not filter by Run or head lineage
   assert.deepEqual(where, {
     externalPiImplementationProjectId: 'project-1',
     externalPiValidationCycleId: 'cycle-1',
-    executionMode: 'real',
+    executionMode: 'real_provider',
     lifecycleState: { in: ['prepared', 'submitted', 'running'] },
   });
   assert.equal(Object.hasOwn(where, 'runId'), false);
@@ -451,7 +451,7 @@ test('Pack B Prisma payload mapper rejects fixed-literal and typed-manifest pois
   const original = payloadRow();
   for (const poisoned of [
     payloadRow({ adapterIdentity: 'self_consistent_but_unknown_adapter@v1' }),
-    payloadRow({ executionMode: 'real' }),
+    payloadRow({ executionMode: 'real_provider' }),
     payloadRow({
       redactedManifestJson: {
         ...(original.redactedManifestJson as Record<string, unknown>),
@@ -659,7 +659,7 @@ function baseAttemptRow() {
     runCellId: 'run-cell-1',
     attemptSequence: 1,
     stateVersion: 0,
-    executionMode: 'real',
+    executionMode: 'real_provider',
     lifecycleState: 'submitted',
   };
 }
@@ -702,7 +702,7 @@ function payloadRow(overrides: Record<string, unknown> = {}) {
     adapterIdentity: 'deterministic_fake_aliyun_pai_dlc@v1',
     executionMode: 'simulation',
     provenance: 'non_production_fake_provider',
-    simulationProfileVersion: 'simulation-profile-v1',
+    providerProfileVersion: 'simulation-profile-v1',
     redactedManifestVersion: 'v1',
     redactedManifestJson,
     payloadHash: hash('p'),

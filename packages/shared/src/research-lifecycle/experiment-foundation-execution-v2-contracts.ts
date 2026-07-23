@@ -6,18 +6,29 @@ import {
   EXPERIMENT_V2_HASH_PATTERN,
   EXPERIMENT_V2_INT32_MAX,
 } from './experiment-v2-contract-limits.js';
+import {
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2,
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2,
+  experimentFoundationRealProviderPayloadV2Schema,
+  type ExperimentFoundationAliyunRealExternalJobRefV1,
+  type ExperimentFoundationRealProviderPayloadV2,
+} from './experiment-foundation-real-provider-v2-contracts.js';
 
 export const EXPERIMENT_FOUNDATION_PROVIDER_PAYLOAD_SCHEMA_V2 =
   'FakeAliyunPaiDlcSubmitPayload@v1' as const;
 export const EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2 =
   'deterministic_fake_aliyun_pai_dlc@v1' as const;
 
-export const EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2 = ['simulation'] as const;
+export const EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2 = [
+  'simulation',
+  'real_provider',
+] as const;
 export type ExperimentFoundationExecutionModeV2 =
   (typeof EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2)[number];
 
 export const EXPERIMENT_FOUNDATION_EXECUTION_PROVENANCES_V2 = [
   'non_production_fake_provider',
+  'real_provider',
 ] as const;
 export type ExperimentFoundationExecutionProvenanceV2 =
   (typeof EXPERIMENT_FOUNDATION_EXECUTION_PROVENANCES_V2)[number];
@@ -58,6 +69,10 @@ export const EXPERIMENT_FOUNDATION_EXECUTION_TERMINAL_REASON_CODES_V2 = [
   'simulation_failed',
   'operator_cancelled',
   'provider_response_invalid',
+  'real_provider_succeeded',
+  'real_provider_failed',
+  'real_provider_timeout',
+  'real_provider_cleanup_unverified',
 ] as const;
 export type ExperimentFoundationExecutionTerminalReasonCodeV2 =
   (typeof EXPERIMENT_FOUNDATION_EXECUTION_TERMINAL_REASON_CODES_V2)[number];
@@ -110,10 +125,12 @@ export const EXPERIMENT_FOUNDATION_COLLECTION_ATTEMPT_STATES_V2 = [
 export type ExperimentFoundationCollectionAttemptStateV2 =
   (typeof EXPERIMENT_FOUNDATION_COLLECTION_ATTEMPT_STATES_V2)[number];
 
-export const EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2 =
-  EXPERIMENT_FOUNDATION_V2_TRAINING_TASK_OUTPUT_KEYS;
+export const EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2 = [
+  ...EXPERIMENT_FOUNDATION_V2_TRAINING_TASK_OUTPUT_KEYS,
+  ...EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2,
+] as const;
 export type ExperimentFoundationProvisionalOutputKindV2 =
-  ExperimentFoundationV2TrainingTaskOutputKey;
+  (typeof EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2)[number];
 
 export const EXPERIMENT_FOUNDATION_WORKFLOW_SIMULATION_STATUSES_V2 = [
   'not_started',
@@ -159,7 +176,7 @@ export interface SimulationExternalJobRefV2 {
   ref_id: string;
 }
 
-export interface ProviderPayloadV2 {
+export interface SimulationProviderPayloadV2 {
   provider_payload_id: string;
   materialization_key: string;
   run_id: string;
@@ -170,14 +187,22 @@ export interface ProviderPayloadV2 {
   training_task_spec_hash: string;
   payload_schema: typeof EXPERIMENT_FOUNDATION_PROVIDER_PAYLOAD_SCHEMA_V2;
   adapter_identity: typeof EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2;
-  execution_mode: ExperimentFoundationExecutionModeV2;
-  provenance: ExperimentFoundationExecutionProvenanceV2;
-  simulation_profile_version: string;
+  execution_mode: 'simulation';
+  provenance: 'non_production_fake_provider';
+  provider_profile_version: string;
   redacted_manifest: FakeAliyunPaiDlcRedactedManifestV1;
   payload_hash: string;
   payload_byte_size: number;
   created_at: string;
 }
+
+export type ProviderPayloadV2 =
+  | SimulationProviderPayloadV2
+  | ExperimentFoundationRealProviderPayloadV2;
+
+export type ExperimentFoundationExternalJobRefV2 =
+  | SimulationExternalJobRefV2
+  | ExperimentFoundationAliyunRealExternalJobRefV1;
 
 export interface ExecutionAttemptV2 {
   execution_attempt_id: string;
@@ -205,7 +230,7 @@ export interface ExecutionAttemptV2 {
   lifecycle_state: ExperimentFoundationExecutionAttemptStateV2;
   state_version: number;
   terminal_reason_code: ExperimentFoundationExecutionTerminalReasonCodeV2 | null;
-  external_job_ref: SimulationExternalJobRefV2 | null;
+  external_job_ref: ExperimentFoundationExternalJobRefV2 | null;
   external_job_ref_hash: string | null;
   created_at: string;
   updated_at: string;
@@ -228,7 +253,7 @@ export interface AttemptEventV2 {
   next_state: ExperimentFoundationExecutionAttemptStateV2;
   provider_command_id: string | null;
   provider_payload_hash: string;
-  external_job_ref: SimulationExternalJobRefV2 | null;
+  external_job_ref: ExperimentFoundationExternalJobRefV2 | null;
   external_job_ref_hash: string | null;
   event_snapshot: AttemptEventSnapshotV2;
   event_hash: string;
@@ -240,7 +265,7 @@ export interface ProviderCommandSnapshotV2 {
   operation: ExperimentFoundationProviderCommandOperationV2;
   provider_payload_id: string;
   provider_payload_hash: string;
-  external_job_ref: SimulationExternalJobRefV2 | null;
+  external_job_ref: ExperimentFoundationExternalJobRefV2 | null;
   cancellation_reason: string | null;
 }
 
@@ -255,7 +280,7 @@ export interface ProviderCommandV2 {
   response_hash: string | null;
   provider_idempotency_key: string;
   provider_payload_hash: string;
-  external_job_ref: SimulationExternalJobRefV2 | null;
+  external_job_ref: ExperimentFoundationExternalJobRefV2 | null;
   external_job_ref_hash: string | null;
   command_state: ExperimentFoundationProviderCommandStateV2;
   lease_version: number;
@@ -277,7 +302,7 @@ export interface CollectionAttemptV2 {
   collection_request_hash: string;
   provider_payload_id: string;
   provider_payload_hash: string;
-  external_job_ref: SimulationExternalJobRefV2;
+  external_job_ref: ExperimentFoundationExternalJobRefV2;
   external_job_ref_hash: string;
   collection_state: ExperimentFoundationCollectionAttemptStateV2;
   state_version: number;
@@ -340,6 +365,19 @@ export interface StartWorkflowSimulationV2Response {
   workflow_simulation_status: WorkflowSimulationStatusV2;
 }
 
+export interface StartRealProviderExecutionV2Request {
+  business_idempotency_key: string;
+}
+
+export interface StartRealProviderExecutionV2Response {
+  run_id: string;
+  run_manifest_hash: string;
+  business_idempotency_key: string;
+  provider_payloads: ExperimentFoundationRealProviderPayloadV2[];
+  execution_attempts: ExecutionAttemptV2[];
+  replayed: boolean;
+}
+
 export interface ControlExecutionAttemptV2Request {
   business_idempotency_key: string;
   reason_code?: ExperimentFoundationExecutionControlReasonCodeV2;
@@ -372,8 +410,19 @@ export const simulationExternalJobRefV2Schema = {
   },
 } as const;
 
+export const realProviderExternalJobRefV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ref_type', 'job_id', 'region_id_hash'],
+  properties: {
+    ref_type: { type: 'string', const: 'aliyun_pai_dlc_job' },
+    job_id: stringId,
+    region_id_hash: hashSchema,
+  },
+} as const;
+
 const nullableExternalJobRefSchema = {
-  anyOf: [simulationExternalJobRefV2Schema, { type: 'null' }],
+  anyOf: [simulationExternalJobRefV2Schema, realProviderExternalJobRefV2Schema, { type: 'null' }],
 } as const;
 
 export const fakeAliyunPaiDlcSourceBindingV1Schema = {
@@ -448,18 +497,18 @@ export const fakeAliyunPaiDlcRedactedManifestV1Schema = {
     output_keys: {
       type: 'array',
       minItems: 1,
-      maxItems: EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2.length,
+      maxItems: EXPERIMENT_FOUNDATION_V2_TRAINING_TASK_OUTPUT_KEYS.length,
       uniqueItems: true,
       items: {
         type: 'string',
-        enum: EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2,
+        enum: EXPERIMENT_FOUNDATION_V2_TRAINING_TASK_OUTPUT_KEYS,
       },
     },
     redacted_fields: { type: 'array', items: stringId },
   },
 } as const;
 
-export const providerPayloadV2Schema = {
+export const simulationProviderPayloadV2Schema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -475,7 +524,7 @@ export const providerPayloadV2Schema = {
     'adapter_identity',
     'execution_mode',
     'provenance',
-    'simulation_profile_version',
+    'provider_profile_version',
     'redacted_manifest',
     'payload_hash',
     'payload_byte_size',
@@ -498,17 +547,21 @@ export const providerPayloadV2Schema = {
       type: 'string',
       const: EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2,
     },
-    execution_mode: { type: 'string', enum: [...EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2] },
-    provenance: {
-      type: 'string',
-      enum: [...EXPERIMENT_FOUNDATION_EXECUTION_PROVENANCES_V2],
-    },
-    simulation_profile_version: stringId,
+    execution_mode: { type: 'string', const: 'simulation' },
+    provenance: { type: 'string', const: 'non_production_fake_provider' },
+    provider_profile_version: stringId,
     redacted_manifest: fakeAliyunPaiDlcRedactedManifestV1Schema,
     payload_hash: hashSchema,
     payload_byte_size: positiveInteger,
     created_at: timestampSchema,
   },
+} as const;
+
+export const providerPayloadV2Schema = {
+  anyOf: [
+    simulationProviderPayloadV2Schema,
+    experimentFoundationRealProviderPayloadV2Schema,
+  ],
 } as const;
 
 export const executionAttemptV2Schema = {
@@ -592,6 +645,60 @@ export const executionAttemptV2Schema = {
     updated_at: timestampSchema,
     terminal_at: nullableTimestampSchema,
   },
+  allOf: [{
+    oneOf: [
+      {
+        type: 'object',
+        properties: {
+          execution_mode: { type: 'string', const: 'simulation' },
+          provenance: { type: 'string', const: 'non_production_fake_provider' },
+          external_job_ref: {
+            anyOf: [simulationExternalJobRefV2Schema, { type: 'null' }],
+          },
+          terminal_reason_code: {
+            anyOf: [
+              {
+                type: 'string',
+                enum: [
+                  'simulation_succeeded',
+                  'simulation_failed',
+                  'operator_cancelled',
+                  'provider_response_invalid',
+                ],
+              },
+              { type: 'null' },
+            ],
+          },
+        },
+      },
+      {
+        type: 'object',
+        properties: {
+          execution_mode: { type: 'string', const: 'real_provider' },
+          provenance: { type: 'string', const: 'real_provider' },
+          external_job_ref: {
+            anyOf: [realProviderExternalJobRefV2Schema, { type: 'null' }],
+          },
+          terminal_reason_code: {
+            anyOf: [
+              {
+                type: 'string',
+                enum: [
+                  'real_provider_succeeded',
+                  'real_provider_failed',
+                  'operator_cancelled',
+                  'real_provider_timeout',
+                  'real_provider_cleanup_unverified',
+                  'provider_response_invalid',
+                ],
+              },
+              { type: 'null' },
+            ],
+          },
+        },
+      },
+    ],
+  }],
 } as const;
 
 export const attemptEventSnapshotV2Schema = {
@@ -762,7 +869,9 @@ export const collectionAttemptV2Schema = {
     collection_request_hash: hashSchema,
     provider_payload_id: stringId,
     provider_payload_hash: hashSchema,
-    external_job_ref: simulationExternalJobRefV2Schema,
+    external_job_ref: {
+      anyOf: [simulationExternalJobRefV2Schema, realProviderExternalJobRefV2Schema],
+    },
     external_job_ref_hash: hashSchema,
     collection_state: {
       type: 'string',
@@ -918,6 +1027,40 @@ export const startWorkflowSimulationV2ResponseSchema = {
   },
 } as const;
 
+export const startRealProviderExecutionV2RequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['business_idempotency_key'],
+  properties: {
+    business_idempotency_key: stringId,
+  },
+} as const;
+
+export const startRealProviderExecutionV2ResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'run_id',
+    'run_manifest_hash',
+    'business_idempotency_key',
+    'provider_payloads',
+    'execution_attempts',
+    'replayed',
+  ],
+  properties: {
+    run_id: stringId,
+    run_manifest_hash: hashSchema,
+    business_idempotency_key: stringId,
+    provider_payloads: {
+      type: 'array',
+      minItems: 1,
+      items: experimentFoundationRealProviderPayloadV2Schema,
+    },
+    execution_attempts: { type: 'array', minItems: 1, items: executionAttemptV2Schema },
+    replayed: { type: 'boolean' },
+  },
+} as const;
+
 export const controlExecutionAttemptV2RequestSchema = {
   type: 'object',
   additionalProperties: false,
@@ -969,7 +1112,10 @@ export const experimentFoundationExecutionV2ErrorResponseSchema = {
           properties: {
             reason_code: {
               type: 'string',
-              enum: [...EXPERIMENT_FOUNDATION_EXECUTION_REASON_CODES_V2],
+              enum: [
+                ...EXPERIMENT_FOUNDATION_EXECUTION_REASON_CODES_V2,
+                ...EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2,
+              ],
             },
           },
         },

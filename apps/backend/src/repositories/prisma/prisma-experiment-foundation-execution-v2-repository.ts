@@ -45,6 +45,12 @@ import type {
   ExperimentFoundationReadinessQualificationSnapshotV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import {
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2,
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2,
+  experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+  type ExperimentFoundationAliyunRealProviderRedactedManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import {
   serverHashExperimentFoundationExecutionAttemptEventV2,
   serverHashExperimentFoundationExternalJobRefV2,
   serverHashExperimentFoundationProviderCommandV2,
@@ -82,6 +88,7 @@ import {
   type ExperimentFoundationExecutionV2EnqueueControlCommandInput,
   type ExperimentFoundationExecutionV2PrepareCollectionInput,
   type ExperimentFoundationExecutionV2Prerequisite,
+  type ExperimentFoundationRealProviderExecutionV2Prerequisite,
   type ExperimentFoundationExecutionV2Readiness,
   type ExperimentFoundationExecutionV2ReleaseCommandInput,
   type ExperimentFoundationExecutionV2Repository,
@@ -120,6 +127,11 @@ const providerCommandSnapshotValidator = storedExecutionSnapshotAjv.compile(
 const providerPayloadManifestValidator = storedExecutionSnapshotAjv.compile(
   fakeAliyunPaiDlcRedactedManifestV1Schema,
 );
+const realProviderPayloadManifestValidator: ValidateFunction<
+  ExperimentFoundationAliyunRealProviderRedactedManifestV1
+> = storedExecutionSnapshotAjv.compile<
+ExperimentFoundationAliyunRealProviderRedactedManifestV1
+>(experimentFoundationAliyunRealProviderRedactedManifestV1Schema);
 const providerPayloadValidator = storedExecutionSnapshotAjv.compile(providerPayloadV2Schema);
 const executionAttemptValidator = storedExecutionSnapshotAjv.compile(executionAttemptV2Schema);
 const providerCommandValidator = storedExecutionSnapshotAjv.compile(providerCommandV2Schema);
@@ -157,14 +169,59 @@ implements ExperimentFoundationExecutionV2Repository {
     );
   }
 
-  async findWorkflowSimulationStart(runId: string, businessIdempotencyKey: string) {
+  resolveRealProviderRunPrerequisite(runId: string) {
+    return this.prisma.$transaction(
+      (transaction) => loadRunPrerequisite(transaction, runId, undefined, 'real_provider'),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
+  resolveRealProviderRunCellPrerequisite(runId: string, runCellId: string) {
+    return this.prisma.$transaction(
+      (transaction) => loadRunPrerequisite(transaction, runId, runCellId, 'real_provider'),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
+  async findWorkflowSimulationStart(
+    runId: string,
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome | null> {
+    return this.findExecutionStart(runId, businessIdempotencyKey, 'simulation') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome | null
+    >;
+  }
+
+  async findRealProviderExecutionStart(
+    runId: string,
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  > | null> {
+    return this.findExecutionStart(runId, businessIdempotencyKey, 'real_provider') as Promise<
+      ExperimentFoundationExecutionV2StartOutcome<
+        ExperimentFoundationRealProviderExecutionV2Prerequisite
+      > | null
+    >;
+  }
+
+  private async findExecutionStart(
+    runId: string,
+    businessIdempotencyKey: string,
+    executionMode: 'simulation' | 'real_provider',
+  ) {
     return this.prisma.$transaction(async (transaction) => {
       const attempts = await transaction.experimentFoundationExecutionAttemptV2.findMany({
         where: { runId, workflowBusinessKey: businessIdempotencyKey },
         orderBy: [{ runCellId: 'asc' }, { attemptSequence: 'asc' }, { id: 'asc' }],
       });
       if (attempts.length === 0) return null;
-      const prerequisite = await loadRunPrerequisite(transaction, runId);
+      const prerequisite = await loadRunPrerequisite(
+        transaction,
+        runId,
+        undefined,
+        executionMode,
+      );
       if (!prerequisite) {
         throw constraint('EXECUTION_SCOPE_DRIFT', 'Committed workflow start lost its prerequisite.');
       }
@@ -181,9 +238,40 @@ implements ExperimentFoundationExecutionV2Repository {
     input: ExperimentFoundationExecutionV2StartInput,
     serializationRetry = 0,
   ): Promise<ExperimentFoundationExecutionV2StartOutcome> {
+    return this.startExecution(input, 'simulation', serializationRetry) as Promise<
+      ExperimentFoundationExecutionV2StartOutcome
+    >;
+  }
+
+  async startRealProviderExecution(
+    input: ExperimentFoundationExecutionV2StartInput,
+    serializationRetry = 0,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >> {
+    return this.startExecution(input, 'real_provider', serializationRetry) as Promise<
+      ExperimentFoundationExecutionV2StartOutcome<
+        ExperimentFoundationRealProviderExecutionV2Prerequisite
+      >
+    >;
+  }
+
+  private async startExecution(
+    input: ExperimentFoundationExecutionV2StartInput,
+    executionMode: 'simulation' | 'real_provider',
+    serializationRetry: number,
+  ): Promise<ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        const prerequisite = await loadRunPrerequisite(transaction, input.run_id);
+        const prerequisite = await loadRunPrerequisite(
+          transaction,
+          input.run_id,
+          undefined,
+          executionMode,
+        );
         if (!prerequisite) {
           throw constraint('EXECUTION_SCOPE_DRIFT', `Run prerequisite not found: ${input.run_id}`);
         }
@@ -217,7 +305,7 @@ implements ExperimentFoundationExecutionV2Repository {
         }
         assertStartPrerequisite(prerequisite, input);
         await assertLiveReadinessSnapshot(transaction, prerequisite);
-        await assertStartShape(transaction, prerequisite, input);
+        await assertStartShape(transaction, prerequisite, input, executionMode);
 
         const existingPayloads = await transaction.experimentFoundationProviderPayloadV2.findMany({
           where: {
@@ -287,16 +375,17 @@ implements ExperimentFoundationExecutionV2Repository {
         error instanceof Prisma.PrismaClientKnownRequestError
         && (error.code === 'P2002' || error.code === 'P2034')
       ) {
-        const replay = await this.findWorkflowSimulationStart(
+        const replay = await this.findExecutionStart(
           input.run_id,
           input.business_idempotency_key,
+          executionMode,
         );
         if (replay) {
           assertStartReplayMatchesInput(replay, input);
           return replay;
         }
         if (error.code === 'P2034' && serializationRetry < 2) {
-          return this.startWorkflowSimulation(input, serializationRetry + 1);
+          return this.startExecution(input, executionMode, serializationRetry + 1);
         }
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
@@ -338,7 +427,7 @@ implements ExperimentFoundationExecutionV2Repository {
       where: {
         externalPiImplementationProjectId: input.implementation_project_id,
         externalPiValidationCycleId: input.validation_cycle_id,
-        executionMode: 'real',
+        executionMode: 'real_provider',
         lifecycleState: { in: [...EXPERIMENT_FOUNDATION_ACTIVE_REAL_ATTEMPT_STATES_V2] },
       },
       select: {
@@ -436,7 +525,11 @@ implements ExperimentFoundationExecutionV2Repository {
       throw constraint('PROVIDER_COMMAND_LEASE_CONFLICT', 'Command lease must expire after claim time.');
     }
     return this.prisma.$transaction(async (transaction) => {
-      const ready = commandReadyWhere(claimedAt, input.command_kinds);
+      const ready = commandReadyWhere(
+        claimedAt,
+        input.command_kinds,
+        input.execution_modes,
+      );
       const candidates = await transaction.experimentFoundationProviderCommandV2.findMany({
         where: ready,
         include: { executionAttempt: true },
@@ -1079,8 +1172,34 @@ export function resolveExperimentFoundationExecutionV2RunPrerequisiteInTransacti
 async function loadRunPrerequisite(
   client: Client,
   runId: string,
+  runCellId: string | undefined,
+  mode: 'real_provider',
+): Promise<ExperimentFoundationRealProviderExecutionV2Prerequisite | null>;
+async function loadRunPrerequisite(
+  client: Client,
+  runId: string,
   runCellId?: string,
-): Promise<ExperimentFoundationExecutionV2Prerequisite | null> {
+): Promise<ExperimentFoundationExecutionV2Prerequisite | null>;
+async function loadRunPrerequisite(
+  client: Client,
+  runId: string,
+  runCellId: string | undefined,
+  mode: 'simulation' | 'real_provider',
+): Promise<
+  | ExperimentFoundationExecutionV2Prerequisite
+  | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  | null
+>;
+async function loadRunPrerequisite(
+  client: Client,
+  runId: string,
+  runCellId?: string,
+  mode: 'simulation' | 'real_provider' = 'simulation',
+): Promise<
+  | ExperimentFoundationExecutionV2Prerequisite
+  | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  | null
+> {
   const run = await client.experimentFoundationRunV2.findUnique({ where: { id: runId } });
   if (!run) return null;
   const materialization = await loadExecutionMaterialization(client, run);
@@ -1140,7 +1259,7 @@ async function loadRunPrerequisite(
     task.training_task_spec_id,
     task,
   ]));
-  return {
+  const base = {
     run: materialization.run,
     run_recipe_id: materialization.run_recipe.run_recipe_id,
     implementation_project_id: exactAcknowledgement.implementation_project_id,
@@ -1149,12 +1268,46 @@ async function loadRunPrerequisite(
     readiness: mappedReadiness,
     head_acknowledgement: exactAcknowledgement,
     latest_branch_head_acknowledgement: latestAcknowledgement,
+  };
+  if (mode === 'real_provider') {
+    if (!('execution_bundle' in materialization.run_recipe)) {
+      throw constraint(
+        'EXECUTION_SCOPE_DRIFT',
+        'Real-provider execution requires an executable v2 RunRecipe.',
+      );
+    }
+    return {
+      ...base,
+      cells: selectedRunCells.map((cell) => {
+        const mappedTask = taskSpecById.get(cell.training_task_spec_id);
+        if (!mappedTask || !('execution_bundle' in mappedTask)) {
+          throw constraint(
+            'EXECUTION_SCOPE_DRIFT',
+            `Real-provider RunCell lost its executable TrainingTaskSpec: ${cell.run_cell_id}`,
+          );
+        }
+        return {
+          run_cell: cell,
+          task_spec: mappedTask,
+          retry_ceiling: mappedTask.retry_snapshot.max_attempts,
+        };
+      }),
+    };
+  }
+  return {
+    ...base,
     cells: selectedRunCells.map((cell) => {
       const mappedTask = taskSpecById.get(cell.training_task_spec_id);
       if (!mappedTask) {
         throw constraint(
           'EXECUTION_SCOPE_DRIFT',
           `Verified RunCell lost its exact TrainingTaskSpec: ${cell.run_cell_id}`,
+        );
+      }
+      if ('execution_bundle' in mappedTask) {
+        throw constraint(
+          'EXECUTION_SCOPE_DRIFT',
+          'Simulation execution cannot consume an executable real-provider TaskSpec.',
         );
       }
       return {
@@ -1318,9 +1471,14 @@ function assertExecutionReadinessMatchesMaterialization(
 
 async function loadStartReplay(
   client: Client,
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+  prerequisite:
+    | ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite,
   attempts: AttemptRow[],
-): Promise<ExperimentFoundationExecutionV2StartOutcome> {
+): Promise<ExperimentFoundationExecutionV2StartOutcome<
+  ExperimentFoundationExecutionV2Prerequisite
+  | ExperimentFoundationRealProviderExecutionV2Prerequisite
+>> {
   const ordinalByCell = new Map(
     prerequisite.cells.map((cell) => [cell.run_cell.run_cell_id, cell.run_cell.ordinal]),
   );
@@ -1363,7 +1521,10 @@ async function loadStartReplay(
 }
 
 function assertStartReplayMatchesInput(
-  replay: ExperimentFoundationExecutionV2StartOutcome,
+  replay: ExperimentFoundationExecutionV2StartOutcome<
+    ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite
+  >,
   input: ExperimentFoundationExecutionV2StartInput,
 ): void {
   const inputCells = new Set(input.attempts.map((attempt) => attempt.run_cell_id));
@@ -1387,7 +1548,9 @@ function assertStartReplayMatchesInput(
 }
 
 function isExactReplayAttemptSubset(
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+  prerequisite:
+    | ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite,
   attempts: AttemptRow[],
 ): boolean {
   const requiredCellIds = new Set(
@@ -1410,7 +1573,9 @@ function isExactReplayAttemptSubset(
 }
 
 function assertStartPrerequisite(
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+  prerequisite:
+    | ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite,
   input: ExperimentFoundationExecutionV2StartInput,
 ): void {
   if (prerequisite.run.run_manifest_hash !== input.expected_run_manifest_hash) {
@@ -1462,8 +1627,11 @@ function assertStartPrerequisite(
 
 async function assertStartShape(
   client: Client,
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+  prerequisite:
+    | ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite,
   input: ExperimentFoundationExecutionV2StartInput,
+  executionMode: 'simulation' | 'real_provider',
 ): Promise<void> {
   const required = new Map(prerequisite.cells.map((cell) => [cell.run_cell.run_cell_id, cell]));
   const latestByCell = await loadLatestRunAttemptsByCell(client, prerequisite.run.run_id);
@@ -1522,18 +1690,26 @@ async function assertStartShape(
     const event = startRecords.eventByAttemptId.get(attempt.id);
     const command = startRecords.commandByAttemptId.get(attempt.id);
     assertAttemptTerminalStateReasonPair(attempt);
+    if (!payload || !event || !command) {
+      throw constraint(
+        'EXECUTION_SCOPE_DRIFT',
+        'E1 payload/Attempt/event/command cardinality or identity drifted.',
+      );
+    }
+    if (!hasExactEventHash(event) || !hasExactCommandHash(command)) {
+      throw constraint(
+        'PROVIDER_RESPONSE_INVALID',
+        'E1 event or command canonical hash drifted before persistence.',
+      );
+    }
     if (
-      !payload
-      || !event
-      || !command
-      || payload.id !== attempt.provider_payload_id
+      payload.id !== attempt.provider_payload_id
       || payload.payload_hash !== attempt.provider_payload_hash
       || payload.run_id !== prerequisite.run.run_id
       || payload.run_manifest_hash !== prerequisite.run.run_manifest_hash
       || payload.training_task_spec_id !== cell.task_spec.training_task_spec_id
       || payload.training_task_spec_hash !== cell.task_spec.task_spec_hash
-      || payload.execution_mode !== 'simulation'
-      || payload.provenance !== 'non_production_fake_provider'
+      || !isExactProviderTuple(payload, attempt, executionMode)
       || attempt.implementation_project_id !== prerequisite.implementation_project_id
       || attempt.validation_cycle_id !== prerequisite.validation_cycle_id
       || attempt.external_pi_branch_id !== prerequisite.external_pi_branch_id
@@ -1554,20 +1730,28 @@ async function assertStartShape(
       || attempt.workflow_request_hash !== input.request_hash
       || attempt.lifecycle_state !== 'prepared'
       || attempt.state_version !== 0
-      || attempt.execution_mode !== 'simulation'
-      || attempt.provenance !== 'non_production_fake_provider'
       || event.event_sequence !== 1
       || event.event_type !== 'created'
       || event.prior_state !== null
       || event.next_state !== 'prepared'
       || event.provider_command_id !== null
       || event.payload_hash !== payload.payload_hash
+      || event.external_job_ref !== null
+      || event.external_job_ref_hash !== null
       || command.command_sequence !== 1
       || command.operation !== 'submit'
       || command.execution_attempt_id !== attempt.id
       || command.collection_attempt_id !== null
       || command.state !== 'pending'
       || command.payload_hash !== payload.payload_hash
+      || command.provider_idempotency_key !== attempt.provider_idempotency_key
+      || command.command_snapshot.operation !== 'submit'
+      || command.command_snapshot.provider_payload_id !== payload.id
+      || command.command_snapshot.provider_payload_hash !== payload.payload_hash
+      || command.command_snapshot.external_job_ref !== null
+      || command.command_snapshot.cancellation_reason !== null
+      || command.external_job_ref !== null
+      || command.external_job_ref_hash !== null
     ) {
       throw constraint('EXECUTION_SCOPE_DRIFT', 'E1 exact payload/Attempt/event/command scope drifted.');
     }
@@ -1576,7 +1760,9 @@ async function assertStartShape(
 
 async function assertLiveReadinessSnapshot(
   client: Client,
-  prerequisite: ExperimentFoundationExecutionV2Prerequisite,
+  prerequisite:
+    | ExperimentFoundationExecutionV2Prerequisite
+    | ExperimentFoundationRealProviderExecutionV2Prerequisite,
 ): Promise<void> {
   const exactRefs = [
     prerequisite.readiness.target,
@@ -1610,6 +1796,27 @@ async function assertLiveReadinessSnapshot(
       `Exact readiness lifecycle projection drifted: ${exactRef.asset_type}:${exactRef.revision_id}`,
     );
   }
+}
+
+function isExactProviderTuple(
+  payload: ExperimentFoundationProviderPayloadV2Record,
+  attempt: ExperimentFoundationExecutionAttemptV2Record,
+  mode: 'simulation' | 'real_provider',
+): boolean {
+  if (
+    payload.execution_mode !== mode
+    || attempt.execution_mode !== mode
+    || payload.provenance !== attempt.provenance
+  ) return false;
+  return mode === 'simulation'
+    ? payload.payload_schema === 'FakeAliyunPaiDlcSubmitPayload@v1'
+      && payload.adapter_identity === 'deterministic_fake_aliyun_pai_dlc@v1'
+      && payload.provenance === 'non_production_fake_provider'
+      && attempt.provenance === 'non_production_fake_provider'
+    : payload.payload_schema === 'AliyunPaiDlcCreateJobPayload@v1'
+      && payload.adapter_identity === 'aliyun_pai_dlc_official_sdk@v1'
+      && payload.provenance === 'real_provider'
+      && attempt.provenance === 'real_provider';
 }
 
 async function loadLatestRunAttemptsByCell(
@@ -1822,9 +2029,13 @@ function claimedCommandWhere(
 function commandReadyWhere(
   at: Date,
   operations?: ExperimentFoundationExecutionV2CommandClaimInput['command_kinds'],
+  executionModes?: ExperimentFoundationExecutionV2CommandClaimInput['execution_modes'],
 ) {
   return {
     ...(operations ? { operation: { in: operations } } : {}),
+    ...(executionModes
+      ? { executionAttempt: { executionMode: { in: executionModes } } }
+      : {}),
     AND: [
       {
         OR: [
@@ -1872,7 +2083,7 @@ function payloadCreateData(record: ExperimentFoundationProviderPayloadV2Record) 
     adapterIdentity: record.adapter_identity,
     executionMode: record.execution_mode,
     provenance: record.provenance,
-    simulationProfileVersion: record.simulation_profile_version,
+    providerProfileVersion: record.provider_profile_version,
     redactedManifestVersion: String(redactedManifest.manifest_schema_version),
     redactedManifestJson: toJson(redactedManifest),
     payloadHash: record.payload_hash,
@@ -1926,7 +2137,13 @@ function attemptCreateData(record: ExperimentFoundationExecutionAttemptV2Record)
     stateVersion: record.state_version,
     terminalReasonCode: record.terminal_reason_code,
     externalJobRefSchemaVersion: record.external_job_ref ? STORED_SCHEMA_VERSION_V1 : null,
-    externalJobRefJson: externalRefJson(record.external_job_ref),
+    externalJobRefJson: externalRefJson(
+      record.external_job_ref,
+      record.external_job_ref_type ?? (record.execution_mode === 'real_provider'
+        ? 'aliyun_pai_dlc_job'
+        : 'fake_aliyun_pai_dlc_job'),
+      record.external_job_ref_region_hash ?? null,
+    ),
     externalJobRefHash: record.external_job_ref_hash,
     createdAt: new Date(record.created_at),
     updatedAt: new Date(record.updated_at),
@@ -1940,7 +2157,13 @@ function attemptUpdateData(record: ExperimentFoundationExecutionAttemptV2Record)
     stateVersion: record.state_version,
     terminalReasonCode: record.terminal_reason_code,
     externalJobRefSchemaVersion: record.external_job_ref ? STORED_SCHEMA_VERSION_V1 : null,
-    externalJobRefJson: externalRefJson(record.external_job_ref),
+    externalJobRefJson: externalRefJson(
+      record.external_job_ref,
+      record.external_job_ref_type ?? (record.execution_mode === 'real_provider'
+        ? 'aliyun_pai_dlc_job'
+        : 'fake_aliyun_pai_dlc_job'),
+      record.external_job_ref_region_hash ?? null,
+    ),
     externalJobRefHash: record.external_job_ref_hash,
     updatedAt: new Date(record.updated_at),
     terminalAt: record.terminal_at ? new Date(record.terminal_at) : null,
@@ -1953,6 +2176,12 @@ function eventCreateData(record: ExperimentFoundationExecutionAttemptEventV2Reco
     'PROVIDER_RESPONSE_INVALID',
     'AttemptEvent snapshot',
   );
+  if (!hasExactEventHash(record)) {
+    throw constraint(
+      'PROVIDER_RESPONSE_INVALID',
+      'AttemptEvent write hash drifted from its typed v1 snapshot.',
+    );
+  }
   return {
     id: record.id,
     executionAttemptId: record.execution_attempt_id,
@@ -1962,7 +2191,11 @@ function eventCreateData(record: ExperimentFoundationExecutionAttemptEventV2Reco
     nextState: record.next_state,
     providerCommandId: record.provider_command_id,
     providerPayloadHash: record.payload_hash,
-    externalJobRefJson: externalRefJson(record.external_job_ref),
+    externalJobRefJson: externalRefJson(
+      record.external_job_ref,
+      record.external_job_ref_type ?? 'fake_aliyun_pai_dlc_job',
+      record.external_job_ref_region_hash ?? null,
+    ),
     externalJobRefHash: record.external_job_ref_hash,
     eventSchemaVersion: STORED_SCHEMA_VERSION_V1,
     eventSnapshotJson: toJson(record.event_snapshot),
@@ -1977,6 +2210,12 @@ function commandCreateData(record: ExperimentFoundationProviderCommandV2Record) 
     'PROVIDER_RESPONSE_INVALID',
     'ProviderCommand snapshot',
   );
+  if (!hasExactCommandHash(record)) {
+    throw constraint(
+      'PROVIDER_RESPONSE_INVALID',
+      'ProviderCommand write hash drifted from its typed v1 snapshot.',
+    );
+  }
   return {
     id: record.id,
     executionAttemptId: record.execution_attempt_id,
@@ -1989,7 +2228,11 @@ function commandCreateData(record: ExperimentFoundationProviderCommandV2Record) 
     responseHash: record.response_hash,
     providerIdempotencyKey: record.provider_idempotency_key,
     providerPayloadHash: record.payload_hash,
-    externalJobRefJson: externalRefJson(record.external_job_ref),
+    externalJobRefJson: externalRefJson(
+      record.external_job_ref,
+      record.external_job_ref_type ?? 'fake_aliyun_pai_dlc_job',
+      record.external_job_ref_region_hash ?? null,
+    ),
     externalJobRefHash: record.external_job_ref_hash,
     commandState: record.state,
     leaseVersion: record.lease_version,
@@ -2005,6 +2248,29 @@ function commandCreateData(record: ExperimentFoundationProviderCommandV2Record) 
   } satisfies Prisma.ExperimentFoundationProviderCommandV2UncheckedCreateInput;
 }
 
+function hasExactEventHash(record: ExperimentFoundationExecutionAttemptEventV2Record): boolean {
+  return record.event_hash === serverHashExperimentFoundationExecutionAttemptEventV2({
+    execution_attempt_id: record.execution_attempt_id,
+    event_sequence: record.event_sequence,
+    event_type: record.event_type,
+    prior_state: record.prior_state,
+    next_state: record.next_state,
+    provider_command_id: record.provider_command_id,
+    payload_hash: record.payload_hash,
+    external_job_ref: record.external_job_ref,
+    external_job_ref_hash: record.external_job_ref_hash,
+    event_snapshot: record.event_snapshot,
+    occurred_at: record.occurred_at,
+  });
+}
+
+function hasExactCommandHash(record: ExperimentFoundationProviderCommandV2Record): boolean {
+  return record.command_hash === serverHashExperimentFoundationProviderCommandV2({
+    provider_idempotency_key: record.provider_idempotency_key,
+    command_snapshot: record.command_snapshot,
+  });
+}
+
 function collectionCreateData(record: ExperimentFoundationCollectionAttemptV2Record) {
   return {
     id: record.id,
@@ -2013,7 +2279,11 @@ function collectionCreateData(record: ExperimentFoundationCollectionAttemptV2Rec
     collectionRequestHash: record.request_hash,
     providerPayloadId: record.provider_payload_id,
     providerPayloadHash: record.provider_payload_hash,
-    externalJobRefJson: externalRefRequiredJson(record.external_job_ref),
+    externalJobRefJson: externalRefRequiredJson(
+      record.external_job_ref,
+      record.external_job_ref_type ?? 'fake_aliyun_pai_dlc_job',
+      record.external_job_ref_region_hash ?? null,
+    ),
     externalJobRefHash: record.external_job_ref_hash,
     collectionState: record.collection_state,
     stateVersion: record.state_version,
@@ -2047,6 +2317,7 @@ function outputCreateData(record: ExperimentFoundationProvisionalOutputV2Record)
 }
 
 function mapPayload(row: PayloadRow): ExperimentFoundationProviderPayloadV2Record {
+  if (row.executionMode === 'real_provider') return mapRealProviderPayload(row);
   const redactedManifest = decodeStoredExecutionSnapshot(
     providerPayloadManifestValidator,
     row.redactedManifestJson,
@@ -2062,7 +2333,7 @@ function mapPayload(row: PayloadRow): ExperimentFoundationProviderPayloadV2Recor
     || redactedManifest.manifest_schema_version !== row.redactedManifestVersion
     || redactedManifest.payload_schema !== row.payloadSchemaVersion
     || redactedManifest.adapter_identity !== row.adapterIdentity
-    || redactedManifest.simulation_profile_version !== row.simulationProfileVersion
+    || redactedManifest.simulation_profile_version !== row.providerProfileVersion
     || !isDeepStrictEqual(redactedManifest.source_binding, {
       run_id: row.runId,
       run_manifest_hash: row.runManifestHash,
@@ -2095,7 +2366,7 @@ function mapPayload(row: PayloadRow): ExperimentFoundationProviderPayloadV2Recor
     adapter_identity: EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2,
     execution_mode: EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2[0],
     provenance: EXPERIMENT_FOUNDATION_EXECUTION_PROVENANCES_V2[0],
-    simulation_profile_version: row.simulationProfileVersion,
+    provider_profile_version: row.providerProfileVersion,
     redacted_manifest: redactedManifest,
     payload_hash: row.payloadHash,
     payload_byte_size: row.payloadByteSize,
@@ -2120,7 +2391,91 @@ function mapPayload(row: PayloadRow): ExperimentFoundationProviderPayloadV2Recor
     adapter_identity: EXPERIMENT_FOUNDATION_PROVIDER_ADAPTER_IDENTITY_V2,
     execution_mode: EXPERIMENT_FOUNDATION_EXECUTION_MODES_V2[0],
     provenance: EXPERIMENT_FOUNDATION_EXECUTION_PROVENANCES_V2[0],
-    simulation_profile_version: row.simulationProfileVersion,
+    provider_profile_version: row.providerProfileVersion,
+    redacted_manifest: redactedManifest,
+    payload_hash: row.payloadHash,
+    payload_byte_size: row.payloadByteSize,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+function mapRealProviderPayload(row: PayloadRow): ExperimentFoundationProviderPayloadV2Record {
+  const redactedManifest = decodeStoredExecutionSnapshot(
+    realProviderPayloadManifestValidator,
+    row.redactedManifestJson,
+    'Real ProviderPayload redacted manifest',
+    'PROVIDER_PAYLOAD_CONFLICT',
+  ) as unknown as ExperimentFoundationAliyunRealProviderRedactedManifestV1;
+  const source = redactedManifest.source_binding;
+  if (
+    row.payloadSchemaVersion !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2
+    || row.adapterIdentity !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2
+    || row.executionMode !== 'real_provider'
+    || row.provenance !== 'real_provider'
+    || row.redactedManifestVersion !== STORED_SCHEMA_VERSION_V1
+    || redactedManifest.manifest_schema_version !== row.redactedManifestVersion
+    || redactedManifest.payload_schema !== row.payloadSchemaVersion
+    || redactedManifest.adapter_identity !== row.adapterIdentity
+    || redactedManifest.provider_profile_version !== row.providerProfileVersion
+    || source.run_id !== row.runId
+    || source.run_manifest_hash !== row.runManifestHash
+    || source.run_cell_id !== row.runCellId
+    || source.cell_key !== row.cellKey
+    || source.training_task_spec_id !== row.trainingTaskSpecId
+    || source.training_task_spec_hash !== row.trainingTaskSpecHash
+    || !isDeepStrictEqual(redactedManifest.redacted_fields, [
+      'canonical_payload_bytes',
+      'WorkspaceId',
+      'ResourceId',
+      'JobSpecs[0].Image',
+      'UserCommand',
+      'Settings.Tags',
+    ])
+  ) {
+    throw constraint(
+      'PROVIDER_PAYLOAD_CONFLICT',
+      'Real ProviderPayload fixed identity or redacted-manifest binding drifted.',
+    );
+  }
+  const wireRecord = {
+    provider_payload_id: row.id,
+    materialization_key: row.materializationKey,
+    run_id: row.runId,
+    run_manifest_hash: row.runManifestHash,
+    run_cell_id: row.runCellId,
+    cell_key: row.cellKey,
+    training_task_spec_id: row.trainingTaskSpecId,
+    training_task_spec_hash: row.trainingTaskSpecHash,
+    payload_schema: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2,
+    adapter_identity: EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2,
+    execution_mode: 'real_provider' as const,
+    provenance: 'real_provider' as const,
+    provider_profile_version: row.providerProfileVersion,
+    redacted_manifest: redactedManifest,
+    payload_hash: row.payloadHash,
+    payload_byte_size: row.payloadByteSize,
+    created_at: row.createdAt.toISOString(),
+  };
+  assertStoredExecutionValue(
+    providerPayloadValidator,
+    wireRecord,
+    'Real ProviderPayload',
+    'PROVIDER_PAYLOAD_CONFLICT',
+  );
+  return {
+    id: row.id,
+    materialization_key: row.materializationKey,
+    run_id: row.runId,
+    run_manifest_hash: row.runManifestHash,
+    run_cell_id: row.runCellId,
+    cell_key: row.cellKey,
+    training_task_spec_id: row.trainingTaskSpecId,
+    training_task_spec_hash: row.trainingTaskSpecHash,
+    payload_schema: wireRecord.payload_schema,
+    adapter_identity: wireRecord.adapter_identity,
+    execution_mode: wireRecord.execution_mode,
+    provenance: wireRecord.provenance,
+    provider_profile_version: row.providerProfileVersion,
     redacted_manifest: redactedManifest,
     payload_hash: row.payloadHash,
     payload_byte_size: row.payloadByteSize,
@@ -2144,7 +2499,7 @@ function mapCycleActiveRealAttemptRef(row: {
   executionMode: string;
   lifecycleState: string;
 }): ExperimentFoundationCycleActiveRealAttemptRefV2 {
-  if (row.executionMode !== 'real' || !isActiveRealAttemptState(row.lifecycleState)) {
+  if (row.executionMode !== 'real_provider' || !isActiveRealAttemptState(row.lifecycleState)) {
     throw constraint(
       'EXECUTION_SCOPE_DRIFT',
       'Cycle active-real fence returned an invalid mode or non-active Attempt state.',
@@ -2163,7 +2518,7 @@ function mapCycleActiveRealAttemptRef(row: {
     run_cell_id: row.runCellId,
     attempt_sequence: row.attemptSequence,
     state_version: row.stateVersion,
-    execution_mode: 'real',
+    execution_mode: 'real_provider',
     lifecycle_state: row.lifecycleState,
   };
 }
@@ -2176,15 +2531,15 @@ function isActiveRealAttemptState(
 }
 
 function mapAttempt(row: AttemptRow): ExperimentFoundationExecutionAttemptV2Record {
-  const externalJobRef = readExactExternalJobRef(
+  const externalJob = readExactExternalJobRef(
     row.externalJobRefJson,
     row.externalJobRefHash,
     'EXECUTION_SCOPE_DRIFT',
     'ExecutionAttempt',
   );
   if (
-    (externalJobRef === null && row.externalJobRefSchemaVersion !== null)
-    || (externalJobRef !== null && row.externalJobRefSchemaVersion !== STORED_SCHEMA_VERSION_V1)
+    (externalJob === null && row.externalJobRefSchemaVersion !== null)
+    || (externalJob !== null && row.externalJobRefSchemaVersion !== STORED_SCHEMA_VERSION_V1)
   ) {
     throw constraint(
       'EXECUTION_SCOPE_DRIFT',
@@ -2243,8 +2598,10 @@ function mapAttempt(row: AttemptRow): ExperimentFoundationExecutionAttemptV2Reco
     lifecycle_state: lifecycleState,
     state_version: row.stateVersion,
     terminal_reason_code: terminalReasonCode,
-    external_job_ref: externalJobRef,
+    external_job_ref: externalJob?.id ?? null,
     external_job_ref_hash: row.externalJobRefHash,
+    external_job_ref_type: externalJob?.type ?? null,
+    external_job_ref_region_hash: externalJob?.regionHash ?? null,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
     terminal_at: row.terminalAt?.toISOString() ?? null,
@@ -2260,7 +2617,7 @@ function mapAttempt(row: AttemptRow): ExperimentFoundationExecutionAttemptV2Reco
 }
 
 function mapEvent(row: EventRow): ExperimentFoundationExecutionAttemptEventV2Record {
-  const externalJobRef = readExactExternalJobRef(
+  const externalJob = readExactExternalJobRef(
     row.externalJobRefJson,
     row.externalJobRefHash,
     'PROVIDER_RESPONSE_INVALID',
@@ -2305,7 +2662,7 @@ function mapEvent(row: EventRow): ExperimentFoundationExecutionAttemptEventV2Rec
     next_state: nextState,
     provider_command_id: row.providerCommandId,
     payload_hash: row.providerPayloadHash,
-    external_job_ref: externalJobRef,
+    external_job_ref: externalJob?.id ?? null,
     external_job_ref_hash: row.externalJobRefHash,
     event_snapshot: snapshot,
     occurred_at: row.occurredAt.toISOString(),
@@ -2325,8 +2682,10 @@ function mapEvent(row: EventRow): ExperimentFoundationExecutionAttemptEventV2Rec
     next_state: nextState,
     provider_command_id: row.providerCommandId,
     payload_hash: row.providerPayloadHash,
-    external_job_ref: externalJobRef,
+    external_job_ref: externalJob?.id ?? null,
     external_job_ref_hash: row.externalJobRefHash,
+    external_job_ref_type: externalJob?.type ?? null,
+    external_job_ref_region_hash: externalJob?.regionHash ?? null,
     event_snapshot: snapshot,
     event_hash: row.eventHash,
     occurred_at: row.occurredAt.toISOString(),
@@ -2345,7 +2704,7 @@ function mapCommand(
   row: CommandRow,
   owningAttempt: ExperimentFoundationExecutionAttemptV2Record,
 ): ExperimentFoundationProviderCommandV2Record {
-  const externalJobRef = readExactExternalJobRef(
+  const externalJob = readExactExternalJobRef(
     row.externalJobRefJson,
     row.externalJobRefHash,
     'PROVIDER_RESPONSE_INVALID',
@@ -2374,9 +2733,7 @@ function mapCommand(
     'ProviderCommand state',
     'PROVIDER_RESPONSE_INVALID',
   );
-  const expectedSnapshotExternalRef = externalJobRef === null
-    ? null
-    : { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: externalJobRef };
+  const expectedSnapshotExternalRef = externalJob?.wire ?? null;
   if (
     row.executionAttemptId !== owningAttempt.id
     || snapshot.operation !== operation
@@ -2415,8 +2772,10 @@ function mapCommand(
     response_hash: row.responseHash,
     provider_idempotency_key: row.providerIdempotencyKey,
     payload_hash: row.providerPayloadHash,
-    external_job_ref: externalJobRef,
+    external_job_ref: externalJob?.id ?? null,
     external_job_ref_hash: row.externalJobRefHash,
+    external_job_ref_type: externalJob?.type ?? null,
+    external_job_ref_region_hash: externalJob?.regionHash ?? null,
     state: commandState,
     lease_version: row.leaseVersion,
     lease_owner: row.leaseOwner,
@@ -2440,13 +2799,13 @@ function mapCommand(
 }
 
 function mapCollection(row: CollectionRow): ExperimentFoundationCollectionAttemptV2Record {
-  const ref = readExactExternalJobRef(
+  const externalJob = readExactExternalJobRef(
     row.externalJobRefJson,
     row.externalJobRefHash,
     'PROVIDER_RESPONSE_INVALID',
     'CollectionAttempt',
   );
-  if (!ref) {
+  if (!externalJob) {
     throw constraint('PROVIDER_RESPONSE_INVALID', 'Collection external ref is missing.');
   }
   const collectionState = decodeStoredEnum(
@@ -2460,8 +2819,10 @@ function mapCollection(row: CollectionRow): ExperimentFoundationCollectionAttemp
     execution_attempt_id: row.executionAttemptId,
     provider_payload_id: row.providerPayloadId,
     provider_payload_hash: row.providerPayloadHash,
-    external_job_ref: ref,
+    external_job_ref: externalJob.id,
     external_job_ref_hash: row.externalJobRefHash,
+    external_job_ref_type: externalJob.type,
+    external_job_ref_region_hash: externalJob.regionHash,
     business_idempotency_key: row.businessIdempotencyKey,
     request_hash: row.collectionRequestHash,
     collection_state: collectionState,
@@ -2507,16 +2868,27 @@ function mapOutput(row: OutputRow): ExperimentFoundationProvisionalOutputV2Recor
     'ProvisionalOutput manifest',
     'COLLECTION_ATTEMPT_CONFLICT',
   );
+  const isSimulationOutput = outputKind !== 'real_provider_result_envelope'
+    && outputKind !== 'real_provider_diagnostic_log';
+  const expectedLocator = outputKind === 'real_provider_result_envelope'
+    ? `result-manifest://${row.outputHash}`
+    : `diagnostic://${row.outputHash}`;
+  const expectedId = isSimulationOutput
+    ? `fake_diagnostic_output_${row.outputHash.slice(
+      'sha256:'.length,
+      'sha256:'.length + 32,
+    )}`
+    : `real_provider_output_${row.outputHash.slice(
+      'sha256:'.length,
+      'sha256:'.length + 32,
+    )}`;
   if (
     row.manifestSchemaVersion !== STORED_SCHEMA_VERSION_V1
     || manifest.manifest_schema_version !== row.manifestSchemaVersion
     || manifest.output_kind !== outputKind
     || manifest.output_class !== row.outputClass
-    || manifest.redacted_locator !== `diagnostic://${row.outputHash}`
-    || row.id !== `fake_diagnostic_output_${row.outputHash.slice(
-      'sha256:'.length,
-      'sha256:'.length + 32,
-    )}`
+    || manifest.redacted_locator !== expectedLocator
+    || row.id !== expectedId
   ) {
     throw constraint(
       'COLLECTION_ATTEMPT_CONFLICT',
@@ -2633,9 +3005,7 @@ function executionAttemptWireRecord(
     lifecycle_state: record.lifecycle_state,
     state_version: record.state_version,
     terminal_reason_code: record.terminal_reason_code,
-    external_job_ref: record.external_job_ref === null
-      ? null
-      : { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: record.external_job_ref },
+    external_job_ref: wireExternalRef(record),
     external_job_ref_hash: record.external_job_ref_hash,
     created_at: record.created_at,
     updated_at: record.updated_at,
@@ -2655,9 +3025,7 @@ function attemptEventWireRecord(
     next_state: record.next_state,
     provider_command_id: record.provider_command_id,
     provider_payload_hash: record.payload_hash,
-    external_job_ref: record.external_job_ref === null
-      ? null
-      : { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: record.external_job_ref },
+    external_job_ref: wireExternalRef(record),
     external_job_ref_hash: record.external_job_ref_hash,
     event_snapshot: record.event_snapshot,
     event_hash: record.event_hash,
@@ -2679,9 +3047,7 @@ function providerCommandWireRecord(
     response_hash: record.response_hash,
     provider_idempotency_key: record.provider_idempotency_key,
     provider_payload_hash: record.payload_hash,
-    external_job_ref: record.external_job_ref === null
-      ? null
-      : { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: record.external_job_ref },
+    external_job_ref: wireExternalRef(record),
     external_job_ref_hash: record.external_job_ref_hash,
     command_state: record.state,
     lease_version: record.lease_version,
@@ -2707,10 +3073,7 @@ function collectionAttemptWireRecord(
     collection_request_hash: record.request_hash,
     provider_payload_id: record.provider_payload_id,
     provider_payload_hash: record.provider_payload_hash,
-    external_job_ref: {
-      ref_type: 'fake_aliyun_pai_dlc_job',
-      ref_id: record.external_job_ref,
-    },
+    external_job_ref: wireExternalRef(record),
     external_job_ref_hash: record.external_job_ref_hash,
     collection_state: record.collection_state,
     state_version: record.state_version,
@@ -2763,10 +3126,25 @@ function assertProviderCommandStateShape(
   }
 }
 
-function externalRefJson(ref: string | null): Prisma.InputJsonValue | typeof Prisma.DbNull {
+type ExternalJobRefType = 'fake_aliyun_pai_dlc_job' | 'aliyun_pai_dlc_job';
+type ExternalJobRefWire =
+  | { ref_type: 'fake_aliyun_pai_dlc_job'; ref_id: string }
+  | { ref_type: 'aliyun_pai_dlc_job'; job_id: string; region_id_hash: string };
+interface DecodedExternalJobRef {
+  id: string;
+  type: ExternalJobRefType;
+  regionHash: string | null;
+  wire: ExternalJobRefWire;
+}
+
+function externalRefJson(
+  ref: string | null,
+  type: ExternalJobRefType,
+  regionHash: string | null,
+): Prisma.InputJsonValue | typeof Prisma.DbNull {
   return ref === null
     ? Prisma.DbNull
-    : { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: ref };
+    : externalRefRequiredJson(ref, type, regionHash);
 }
 
 function readExactExternalJobRef(
@@ -2774,25 +3152,54 @@ function readExactExternalJobRef(
   storedHash: string | null,
   reasonCode: ConstructorParameters<typeof ExperimentFoundationExecutionV2ConstraintError>[0],
   recordKind: string,
-): string | null {
+): DecodedExternalJobRef | null {
   if (value === null && storedHash === null) return null;
   if (
     value === null
     || storedHash === null
     || typeof value !== 'object'
     || Array.isArray(value)
-    || !isDeepStrictEqual(Object.keys(value).sort(), ['ref_id', 'ref_type'])
-    || value.ref_type !== 'fake_aliyun_pai_dlc_job'
-    || typeof value.ref_id !== 'string'
-    || value.ref_id.trim().length === 0
   ) {
     throw constraint(reasonCode, `${recordKind} external job ref shape drifted.`);
   }
-  const expectedHash = serverHashExperimentFoundationExternalJobRefV2(value.ref_id);
+  let wire: ExternalJobRefWire;
+  let id: string;
+  let type: ExternalJobRefType;
+  let regionHash: string | null;
+  if (
+    isDeepStrictEqual(Object.keys(value).sort(), ['ref_id', 'ref_type'])
+    && value.ref_type === 'fake_aliyun_pai_dlc_job'
+    && typeof value.ref_id === 'string'
+    && value.ref_id.trim().length > 0
+  ) {
+    wire = { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: value.ref_id };
+    id = value.ref_id;
+    type = 'fake_aliyun_pai_dlc_job';
+    regionHash = null;
+  } else if (
+    isDeepStrictEqual(Object.keys(value).sort(), ['job_id', 'ref_type', 'region_id_hash'])
+    && value.ref_type === 'aliyun_pai_dlc_job'
+    && typeof value.job_id === 'string'
+    && value.job_id.trim().length > 0
+    && typeof value.region_id_hash === 'string'
+    && /^sha256:[0-9a-f]{64}$/u.test(value.region_id_hash)
+  ) {
+    wire = {
+      ref_type: 'aliyun_pai_dlc_job',
+      job_id: value.job_id,
+      region_id_hash: value.region_id_hash,
+    };
+    id = value.job_id;
+    type = 'aliyun_pai_dlc_job';
+    regionHash = value.region_id_hash;
+  } else {
+    throw constraint(reasonCode, `${recordKind} external job ref shape drifted.`);
+  }
+  const expectedHash = serverHashExperimentFoundationExternalJobRefV2(wire);
   if (storedHash !== expectedHash) {
     throw constraint(reasonCode, `${recordKind} external job ref hash drifted.`);
   }
-  return value.ref_id;
+  return { id, type, regionHash, wire };
 }
 
 function toJson(value: Readonly<Record<string, unknown>>): Prisma.InputJsonValue {
@@ -2805,8 +3212,41 @@ function fromJson<T = Readonly<Record<string, unknown>>>(
   return value as T;
 }
 
-function externalRefRequiredJson(ref: string): Prisma.InputJsonValue {
-  return { ref_type: 'fake_aliyun_pai_dlc_job', ref_id: ref };
+function externalRefRequiredJson(
+  ref: string,
+  type: ExternalJobRefType,
+  regionHash: string | null,
+): Prisma.InputJsonValue {
+  if (type === 'fake_aliyun_pai_dlc_job') {
+    if (regionHash !== null) {
+      throw constraint('PROVIDER_RESPONSE_INVALID', 'Fake external job ref cannot bind a region hash.');
+    }
+    return { ref_type: type, ref_id: ref };
+  }
+  if (!regionHash) {
+    throw constraint('PROVIDER_RESPONSE_INVALID', 'Real external job ref requires a region hash.');
+  }
+  return { ref_type: type, job_id: ref, region_id_hash: regionHash };
+}
+
+function wireExternalRef(record: {
+  external_job_ref: string | null;
+  external_job_ref_type?: ExternalJobRefType | null;
+  external_job_ref_region_hash?: string | null;
+}): ExternalJobRefWire | null {
+  if (record.external_job_ref === null) return null;
+  const type = record.external_job_ref_type ?? 'fake_aliyun_pai_dlc_job';
+  if (type === 'fake_aliyun_pai_dlc_job') {
+    return { ref_type: type, ref_id: record.external_job_ref };
+  }
+  if (!record.external_job_ref_region_hash) {
+    throw constraint('PROVIDER_RESPONSE_INVALID', 'Real external job ref lost its region hash.');
+  }
+  return {
+    ref_type: type,
+    job_id: record.external_job_ref,
+    region_id_hash: record.external_job_ref_region_hash,
+  };
 }
 
 function toDate(value: string | null): Date | null {

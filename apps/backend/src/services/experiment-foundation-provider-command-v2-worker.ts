@@ -96,6 +96,7 @@ export class ExperimentFoundationProviderCommandV2Worker {
       lease_expires_at: addMilliseconds(claimedAt, this.leaseMs),
       limit: claimLimit,
       command_kinds: ['cancel'],
+      execution_modes: ['simulation'],
     });
     const remaining = Math.max(0, claimLimit - cancellations.length);
     const progressions = remaining === 0
@@ -106,6 +107,7 @@ export class ExperimentFoundationProviderCommandV2Worker {
         lease_expires_at: addMilliseconds(claimedAt, this.leaseMs),
         limit: remaining,
         command_kinds: ['submit', 'sync', 'reconcile', 'collect'],
+        execution_modes: ['simulation'],
       });
     const commands = [...cancellations, ...progressions];
     const result: ExperimentFoundationProviderCommandV2WorkerResult = {
@@ -551,6 +553,8 @@ export class ExperimentFoundationProviderCommandV2Worker {
         provider_payload_hash: attempt.provider_payload_hash,
         external_job_ref: externalJobRef,
         external_job_ref_hash: externalJobRefHash,
+        external_job_ref_type: nextAttempt.external_job_ref_type ?? 'fake_aliyun_pai_dlc_job',
+        external_job_ref_region_hash: nextAttempt.external_job_ref_region_hash ?? null,
         business_idempotency_key: `${attempt.id}:collection:1`,
         request_hash: serverHashExperimentFoundationProviderControlV2Semantic(
           'ExperimentFoundationCollectionRequestV2',
@@ -901,6 +905,8 @@ function transitionAttempt(
     ),
     external_job_ref: externalJobRef,
     external_job_ref_hash: externalJobRefHash,
+    external_job_ref_type: externalJobRef === null ? null : 'fake_aliyun_pai_dlc_job',
+    external_job_ref_region_hash: null,
     terminal_reason_code: terminalReason,
     updated_at: now,
     terminal_at: isExecutionAttemptTerminal(nextState) ? now : null,

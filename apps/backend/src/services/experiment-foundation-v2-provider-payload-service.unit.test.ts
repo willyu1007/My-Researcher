@@ -158,7 +158,7 @@ test('PB01 materializes deterministic canonical bytes and a persistence-safe red
     'simulated_job.arguments',
   ]);
   assert.equal(first.record.payload_schema, 'FakeAliyunPaiDlcSubmitPayload@v1');
-  assert.equal(first.record.simulation_profile_version, 'v1');
+  assert.equal(first.record.provider_profile_version, 'v1');
 
   const persistedJson = JSON.stringify(first.record);
   assert.equal(Object.hasOwn(first.record, 'canonical_payload_bytes'), false);

@@ -2,7 +2,7 @@
 
 This document is generated from `env/contract.yaml`. Do not hand-edit.
 
-Generated at (UTC): `2026-07-22T23:38:18Z`
+Generated at (UTC): `2026-07-23T00:07:58Z`
 
 ## Environments
 - `dev`, `dev.local`, `prod`, `staging`
@@ -34,6 +34,8 @@ Generated at (UTC): `2026-07-22T23:38:18Z`
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact DLC resource quota ID required only for exact_quota mode; it must be absent in public_resource mode. |
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_RESOURCE_MODE` | `active` | `string` | no | no | `exact_quota` | `` | `dev` | `` | `` | `` | Explicit Aliyun resource selector mode for the zero-write preflight; allowed values are exact_quota and public_resource. |
 | `EXPERIMENT_FOUNDATION_V2_ALIYUN_PREFLIGHT_WORKSPACE_ID` | `active` | `string` | no | no | `` | `` | `dev` | `` | `` | `` | Exact PAI workspace ID inspected by the zero-write cloud preflight. |
+| `EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable the separately composed real-provider command drain; this must remain enabled until every committed real-provider submit, sync, reconcile, cancel and collect command is terminal. |
+| `EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new ExperimentFoundation v2 real-provider Attempts after committed cutover; disabling intake never stops draining already committed provider commands. |
 | `EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new ExperimentFoundation v2 scientific result recording and validation intake; this switch does not stop relay draining or replay of already committed integration events and requires the committed cutover. |
 | `EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED` | `active` | `bool` | no | no | `False` | `` | `*` | `` | `` | `` | Enable only new non-production ExperimentFoundation v2 workflow simulations; this switch does not stop draining, reconciling, cancelling, or collecting already committed simulation commands. |
 | `HOST` | `active` | `string` | no | no | `0.0.0.0` | `` | `*` | `` | `` | `` | Service listen host. |

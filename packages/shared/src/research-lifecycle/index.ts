@@ -8,6 +8,7 @@ export * from './experiment-v2-contract-limits.js';
 export * from './experiment-foundation-v2-contracts.js';
 export * from './experiment-foundation-execution-v2-contracts.js';
 export * from './experiment-foundation-cloud-preflight-v2-contracts.js';
+export * from './experiment-foundation-real-provider-v2-contracts.js';
 export * from './experiment-foundation-scientific-validation-v2-contracts.js';
 export * from './paper-implementation-evidence-v2-contracts.js';
 export * from './paper-implementation-experiment-v2-contracts.js';

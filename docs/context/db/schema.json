@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-15T02:30:36.296Z",
+  "updatedAt": "2026-07-23T00:12:27.491Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -4009,6 +4009,15 @@
           "relationName": null,
           "fields": [],
           "references": []
+        },
+        {
+          "field": "validationReports",
+          "to": "ExperimentFoundationScientificValidationReportV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         }
       ],
       "indexes": [
@@ -4177,6 +4186,144 @@
           ],
           "name": null,
           "map": "ef_evaluation_protocol_v2_current_owner_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationEvidenceCandidateV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runManifestHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationReportId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "run",
+          "to": "ExperimentFoundationRunV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "runId",
+            "runManifestHash"
+          ],
+          "references": [
+            "id",
+            "runManifestHash"
+          ]
+        },
+        {
+          "field": "validationReport",
+          "to": "ExperimentFoundationScientificValidationReportV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "validationReportId",
+            "validationHash"
+          ],
+          "references": [
+            "id",
+            "validationHash"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "ef_evidence_candidate_exact_content_unique"
         }
       ]
     },
@@ -4787,6 +4934,15 @@
           "references": []
         },
         {
+          "field": "experimentResult",
+          "to": "ExperimentFoundationExperimentResultV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "headAcknowledgement",
           "to": "ExperimentFoundationIntegrationInboxV2",
           "optional": false,
@@ -4962,6 +5118,966 @@
           ],
           "name": null,
           "map": "ef_execution_attempt_workflow_business_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleDraftV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "draftSnapshotJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "draftVersion",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "1",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionBundle",
+          "to": "ExperimentFoundationExecutionBundleIdentityV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleIdentityV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "bundleKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "displayName",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "stateVersion",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "draft",
+          "to": "ExperimentFoundationExecutionBundleDraftV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "revisions",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleLifecycleEventV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "eventHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "eventSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "lifecycleStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "occurredAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reasonCode",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionBundleRevision",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleRevisionId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "unique",
+          "fields": [
+            "executionBundleRevisionId",
+            "eventHash"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_event_hash_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "executionBundleRevisionId",
+            "eventSequence"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_event_sequence_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleLifecycleProjectionV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "executionBundleRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "latestEventHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "latestEventSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lifecycleStatus",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stateVersion",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionBundleRevision",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleRevisionId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleReadinessV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "evaluatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "lifecycleEventHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "outcome",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "readinessHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reasonCodesJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionBundleRevision",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleRevisionId",
+            "executionBundleRevisionHash"
+          ],
+          "references": [
+            "id",
+            "contentHash"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "executionBundleRevisionId",
+            "outcome"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_readiness_outcome_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "executionBundleRevisionId",
+            "executionBundleRevisionHash",
+            "lifecycleEventHash"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_readiness_scope_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "readinessHash"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_readiness_hash_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExecutionBundleRevisionV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "hashProfile",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "revisionJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "revisionSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionBundle",
+          "to": "ExperimentFoundationExecutionBundleIdentityV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "lifecycleEvents",
+          "to": "ExperimentFoundationExecutionBundleLifecycleEventV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "lifecycleProjection",
+          "to": "ExperimentFoundationExecutionBundleLifecycleProjectionV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "readinessRecords",
+          "to": "ExperimentFoundationExecutionBundleReadinessV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "runRecipes",
+          "to": "ExperimentFoundationRunRecipeV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "taskSpecs",
+          "to": "ExperimentFoundationTrainingTaskSpecV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "contentHash"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_revision_hash_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "executionBundleId",
+            "revisionSequence"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_revision_sequence_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "ef_execution_bundle_revision_hash_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExperimentResultV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "artifactObservationCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "cellKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionAttemptId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "metricObservationCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "provenance",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "resultSnapshotJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runCellId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runManifestHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "trainingTaskSpecHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "trainingTaskSpecId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "executionAttempt",
+          "to": "ExperimentFoundationExecutionAttemptV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionAttemptId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "run",
+          "to": "ExperimentFoundationRunV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "runId",
+            "runManifestHash"
+          ],
+          "references": [
+            "id",
+            "runManifestHash"
+          ]
+        },
+        {
+          "field": "runCell",
+          "to": "ExperimentFoundationRunCellV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "runId",
+            "runCellId",
+            "trainingTaskSpecId",
+            "cellKey"
+          ],
+          "references": [
+            "runId",
+            "id",
+            "trainingTaskSpecId",
+            "cellKey"
+          ]
+        },
+        {
+          "field": "trainingTaskSpec",
+          "to": "ExperimentFoundationTrainingTaskSpecV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "trainingTaskSpecId",
+            "trainingTaskSpecHash"
+          ],
+          "references": [
+            "id",
+            "taskSpecHash"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "runId"
+          ],
+          "name": null,
+          "map": "ef_experiment_result_run_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "ef_experiment_result_exact_content_unique"
         }
       ]
     },
@@ -7062,6 +8178,17 @@
           "unique": false
         },
         {
+          "name": "providerProfileVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "redactedManifestJson",
           "type": "Json",
           "nullable": false,
@@ -7107,17 +8234,6 @@
         },
         {
           "name": "runManifestHash",
-          "type": "String",
-          "nullable": false,
-          "list": false,
-          "dbName": null,
-          "dbType": null,
-          "default": null,
-          "primaryKey": false,
-          "unique": false
-        },
-        {
-          "name": "simulationProfileVersion",
           "type": "String",
           "nullable": false,
           "list": false,
@@ -7265,7 +8381,7 @@
           "fields": [
             "runCellId",
             "payloadSchemaVersion",
-            "simulationProfileVersion"
+            "providerProfileVersion"
           ],
           "name": null,
           "map": "ef_provider_payload_cell_profile_unique"
@@ -8311,6 +9427,15 @@
           "references": []
         },
         {
+          "field": "experimentResults",
+          "to": "ExperimentFoundationExperimentResultV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "providerPayloads",
           "to": "ExperimentFoundationProviderPayloadV2",
           "optional": false,
@@ -8398,6 +9523,28 @@
           "list": false,
           "dbName": null,
           "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
           "default": null,
           "primaryKey": false,
           "unique": false
@@ -8504,6 +9651,21 @@
       ],
       "relations": [
         {
+          "field": "executionBundleRevision",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleRevisionId",
+            "executionBundleRevisionHash"
+          ],
+          "references": [
+            "id",
+            "contentHash"
+          ]
+        },
+        {
           "field": "readinessAttestation",
           "to": "ExperimentFoundationReadinessAttestationV2",
           "optional": false,
@@ -8549,6 +9711,14 @@
         }
       ],
       "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "executionBundleRevisionId"
+          ],
+          "name": null,
+          "map": "ef_run_recipe_execution_bundle_idx"
+        },
         {
           "type": "index",
           "fields": [
@@ -8672,8 +9842,26 @@
           "references": []
         },
         {
+          "field": "evidenceCandidates",
+          "to": "ExperimentFoundationEvidenceCandidateV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "executionAttempts",
           "to": "ExperimentFoundationExecutionAttemptV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "experimentResults",
+          "to": "ExperimentFoundationExperimentResultV2",
           "optional": false,
           "list": true,
           "relationName": null,
@@ -8701,6 +9889,15 @@
           "references": [
             "id"
           ]
+        },
+        {
+          "field": "validationReports",
+          "to": "ExperimentFoundationScientificValidationReportV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         }
       ],
       "indexes": [
@@ -8746,6 +9943,262 @@
       ]
     },
     {
+      "name": "ExperimentFoundationScientificValidationReportV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolContentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolRevisionSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "orderedCellResultCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "orderedRuleResultCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reportSnapshotJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runManifestHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validatorProfileHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validatorProfileVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "evaluationProtocolRevision",
+          "to": "ExperimentFoundationEvaluationProtocolRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "evaluationProtocolId",
+            "evaluationProtocolRevisionId",
+            "evaluationProtocolContentHash"
+          ],
+          "references": [
+            "evaluationProtocolId",
+            "id",
+            "contentHash"
+          ]
+        },
+        {
+          "field": "evidenceCandidates",
+          "to": "ExperimentFoundationEvidenceCandidateV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "run",
+          "to": "ExperimentFoundationRunV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "runId",
+            "runManifestHash"
+          ],
+          "references": [
+            "id",
+            "runManifestHash"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "evaluationProtocolRevisionId"
+          ],
+          "name": null,
+          "map": "ef_scientific_validation_protocol_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "validationHash"
+          ],
+          "name": null,
+          "map": "ef_scientific_validation_exact_hash_unique"
+        }
+      ]
+    },
+    {
       "name": "ExperimentFoundationTrainingTaskSpecV2",
       "dbName": null,
       "schema": null,
@@ -8768,6 +10221,28 @@
           "list": false,
           "dbName": null,
           "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionBundleRevisionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
           "default": null,
           "primaryKey": false,
           "unique": false
@@ -8905,6 +10380,30 @@
           "references": []
         },
         {
+          "field": "executionBundleRevision",
+          "to": "ExperimentFoundationExecutionBundleRevisionV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "executionBundleRevisionId",
+            "executionBundleRevisionHash"
+          ],
+          "references": [
+            "id",
+            "contentHash"
+          ]
+        },
+        {
+          "field": "experimentResults",
+          "to": "ExperimentFoundationExperimentResultV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "providerPayloads",
           "to": "ExperimentFoundationProviderPayloadV2",
           "optional": false,
@@ -8937,6 +10436,14 @@
         }
       ],
       "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "executionBundleRevisionId"
+          ],
+          "name": null,
+          "map": "ef_task_spec_execution_bundle_idx"
+        },
         {
           "type": "index",
           "fields": [
@@ -18637,6 +20144,116 @@
       ]
     },
     {
+      "name": "PaperImplementationEvidenceTraceManifestV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "orderedTraceRefCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runEvidenceUnitId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "traceRefsJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "runEvidenceUnit",
+          "to": "PaperImplementationRunEvidenceUnitV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "runEvidenceUnitId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "pi_evidence_trace_exact_content_unique"
+        }
+      ]
+    },
+    {
       "name": "PaperImplementationEvidenceTransferBinding",
       "dbName": null,
       "schema": null,
@@ -20579,6 +22196,15 @@
           "relationName": "PIExperimentWorkOrderBranchRevisionsV2",
           "fields": [],
           "references": []
+        },
+        {
+          "field": "runEvidenceUnits",
+          "to": "PaperImplementationRunEvidenceUnitV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         }
       ],
       "indexes": [
@@ -21032,6 +22658,15 @@
             "branchId",
             "id"
           ]
+        },
+        {
+          "field": "runEvidenceUnits",
+          "to": "PaperImplementationRunEvidenceUnitV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         }
       ],
       "indexes": [
@@ -22428,6 +24063,17 @@
           "name": "rationale",
           "type": "String",
           "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "reviewedClaimStatementHash",
+          "type": "String",
+          "nullable": true,
           "list": false,
           "dbName": null,
           "dbType": null,
@@ -26947,6 +28593,291 @@
       ]
     },
     {
+      "name": "PaperImplementationRunEvidenceUnitV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "branchId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "branchRevisionSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolContentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evaluationProtocolRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evidenceCandidateContentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "evidenceCandidateId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "ingestIdempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runManifestHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationCycleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationReportId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "workOrderRevisionHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "workOrderRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "branch",
+          "to": "PaperImplementationExperimentWorkOrderBranchV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "branchId"
+          ],
+          "references": [
+            "id"
+          ]
+        },
+        {
+          "field": "revision",
+          "to": "PaperImplementationExperimentWorkOrderRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "branchId",
+            "workOrderRevisionId",
+            "branchRevisionSequence"
+          ],
+          "references": [
+            "branchId",
+            "id",
+            "revisionSequence"
+          ]
+        },
+        {
+          "field": "traceManifest",
+          "to": "PaperImplementationEvidenceTraceManifestV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "validationCycleId"
+          ],
+          "name": null,
+          "map": "pi_reu_project_cycle_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "validationCycleId"
+          ],
+          "name": null,
+          "map": "pi_reu_cycle_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "pi_reu_exact_content_unique"
+        }
+      ]
+    },
+    {
       "name": "PaperImplementationRunMonitorIntake",
       "dbName": null,
       "schema": null,
@@ -30938,6 +32869,209 @@
           ],
           "name": null,
           "map": "pivc_question_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationValidationCycleClosureV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "acceptedProposalHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "acceptedProposalId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "closureInputHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "closureKind",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "closureSnapshotHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "closureWatermarkJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "cycleVersionAtClosure",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "orderedBranchCount",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "scientificDisposition",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "selectedExitKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationCycleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId"
+          ],
+          "name": null,
+          "map": "pi_cycle_closure_project_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "closureSnapshotHash"
+          ],
+          "name": null,
+          "map": "pi_cycle_closure_exact_snapshot_unique"
         }
       ]
     },

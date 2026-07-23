@@ -2,10 +2,21 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   ExperimentFoundationReadinessAttestationV2,
+  ExperimentFoundationRunRecipeSnapshotV2,
+  ExperimentFoundationRunRecipeV2,
   ExperimentFoundationTrainingTaskIoSnapshotV2,
+  ExperimentFoundationTrainingTaskSpecV2,
   ExperimentFoundationV2ExactAssetRevisionRef,
   ExperimentFoundationVersionLockDependencyV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
+import type {
+  ExperimentFoundationExecutableRunRecipeSnapshotV2,
+  ExperimentFoundationExecutableRunRecipeV2,
+  ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+  ExperimentFoundationExecutableTrainingTaskSpecV2,
+  ExperimentFoundationExecutionBundleExactRevisionRefV2,
+  ExperimentFoundationExecutionBundleRevisionV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   canonicalizeExperimentV2Json,
   serverHashExperimentFoundationV2ReadinessDependencyManifest,
@@ -66,8 +77,18 @@ export interface ExperimentFoundationV2MaterializationServiceOptions {
   repository: ExperimentFoundationExperimentSpineV2Repository;
   readinessResolver: ExperimentFoundationV2ReadinessResolver;
   cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
+  executionBundleResolver?: ExperimentFoundationV2ExecutionBundleResolver;
   idFactory?: (prefix: string) => string;
   now?: () => string;
+}
+
+export interface ExperimentFoundationV2ExecutionBundleResolver {
+  resolveActiveReadyExact(input: {
+    execution_bundle_revision_id: string;
+    content_hash: string;
+  }): Promise<{
+    revision: ExperimentFoundationExecutionBundleRevisionV2;
+  }>;
 }
 
 function integrationError(
@@ -285,6 +306,7 @@ export class ExperimentFoundationV2MaterializationService {
   private readonly repository: ExperimentFoundationExperimentSpineV2Repository;
   private readonly readinessResolver: ExperimentFoundationV2ReadinessResolver;
   private readonly cycleClosureLookup: PaperImplementationValidationCycleClosureV2Lookup;
+  private readonly executionBundleResolver?: ExperimentFoundationV2ExecutionBundleResolver;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
 
@@ -292,6 +314,7 @@ export class ExperimentFoundationV2MaterializationService {
     this.repository = options.repository;
     this.readinessResolver = options.readinessResolver;
     this.cycleClosureLookup = options.cycleClosureLookup;
+    this.executionBundleResolver = options.executionBundleResolver;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -404,6 +427,45 @@ export class ExperimentFoundationV2MaterializationService {
         'GATE_CONSTRAINT_FAILED',
       );
     }
+    const executableWorkOrder = event.payload.work_order_revision.work_order_schema_version === 'v2'
+      ? event.payload.work_order_revision
+      : null;
+    if (executableWorkOrder && event.payload.exact_cells.length !== 2) {
+      throw integrationError(
+        'M7 executable WorkOrders require the exact reviewed two-cell batch.',
+        'RUN_CELL_PARITY_MISMATCH',
+        'GATE_CONSTRAINT_FAILED',
+      );
+    }
+    if (executableWorkOrder && !this.executionBundleResolver) {
+      throw integrationError(
+        'ExecutionBundle resolver is unavailable for executable WorkOrder materialization.',
+        'INTEGRATION_PREREQUISITE_NOT_READY',
+        'GATE_CONSTRAINT_FAILED',
+      );
+    }
+    const executionBundle = executableWorkOrder
+      ? await this.executionBundleResolver!.resolveActiveReadyExact({
+        execution_bundle_revision_id:
+          executableWorkOrder.execution_bundle.execution_bundle_revision_id,
+        content_hash: executableWorkOrder.execution_bundle.content_hash,
+      })
+      : null;
+    if (
+      executableWorkOrder
+      && (
+        executionBundle!.revision.execution_bundle_id
+          !== executableWorkOrder.execution_bundle.execution_bundle_id
+        || executionBundle!.revision.revision_sequence
+          !== executableWorkOrder.execution_bundle.revision_sequence
+      )
+    ) {
+      throw integrationError(
+        'ExecutionBundle exact identity/sequence binding drifted.',
+        'INTEGRATION_PREREQUISITE_NOT_READY',
+        'GATE_CONSTRAINT_FAILED',
+      );
+    }
     const dependencyManifestHash = assertD19DependencyParity(
       event.payload.asset_dependencies,
       readiness,
@@ -441,30 +503,130 @@ export class ExperimentFoundationV2MaterializationService {
       }));
 
     const runRecipeId = this.idFactory('ef_run_recipe_v2');
-    const recipeSnapshot = {
-      recipe_schema_version: 'v1' as const,
+    const executionBundleRef: ExperimentFoundationExecutionBundleExactRevisionRefV2 | null =
+      executableWorkOrder ? structuredClone(executableWorkOrder.execution_bundle) : null;
+    const executableRecipeSnapshot: ExperimentFoundationExecutableRunRecipeSnapshotV2 | null =
+      executionBundleRef && executionBundle
+      ? {
+        recipe_schema_version: 'v2' as const,
+        execution_bundle: executionBundleRef,
+        entrypoint: executionBundle.revision.revision_content.entrypoint,
+        arguments: [...executionBundle.revision.revision_content.arguments],
+        dependency_lock_digest:
+          executionBundle.revision.revision_content.dependency_lock_digest,
+        environment_keys: [],
+        output_contract: structuredClone(
+          executionBundle.revision.revision_content.output_contract,
+        ),
+      }
+      : null;
+    const simulationRecipeSnapshot: ExperimentFoundationRunRecipeSnapshotV2 = {
+      recipe_schema_version: 'v1',
       entrypoint: 'experiment-foundation-v2://d19/materialize-only',
       arguments: [],
       environment_keys: [],
     };
+    const recipeSnapshot = executableRecipeSnapshot ?? simulationRecipeSnapshot;
     const recipeHash = serverHashExperimentFoundationV2RunRecipe({
       materialization_key: materializationKey,
       version_lock_id: versionLockId,
       readiness_attestation_id: event.payload.readiness_attestation_id,
       recipe_snapshot: recipeSnapshot,
     });
-    const runRecipe = {
+    const runRecipe: ExperimentFoundationRunRecipeV2
+      | ExperimentFoundationExecutableRunRecipeV2 =
+      executionBundleRef && executableRecipeSnapshot ? {
       run_recipe_id: runRecipeId,
       materialization_key: materializationKey,
       version_lock_id: versionLockId,
       readiness_attestation_id: event.payload.readiness_attestation_id,
-      recipe_snapshot: recipeSnapshot,
+      recipe_snapshot: executableRecipeSnapshot,
+      recipe_hash: recipeHash,
+      created_at: createdAt,
+      execution_bundle: executionBundleRef,
+    } : {
+      run_recipe_id: runRecipeId,
+      materialization_key: materializationKey,
+      version_lock_id: versionLockId,
+      readiness_attestation_id: event.payload.readiness_attestation_id,
+      recipe_snapshot: simulationRecipeSnapshot,
       recipe_hash: recipeHash,
       created_at: createdAt,
     };
 
-    const taskSpecs = event.payload.exact_cells.map((cell) => {
+    const taskSpecs: Array<
+      ExperimentFoundationTrainingTaskSpecV2 | ExperimentFoundationExecutableTrainingTaskSpecV2
+    > = event.payload.exact_cells.map((cell) => {
       const trainingTaskSpecId = this.idFactory('ef_training_task_spec_v2');
+      const taskMaterializationKey = `${materializationKey}:cell:${cell.ordinal}`;
+      const resourceSnapshot = { cpu_cores: 1, memory_mb: 512 };
+      if (executionBundleRef && executionBundle) {
+        const commandSnapshot: ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['command_snapshot'] = {
+          command: executionBundle.revision.revision_content.entrypoint,
+          arguments: [
+            ...executionBundle.revision.revision_content.arguments,
+            `--cell-key=${cell.cell_key}`,
+          ],
+        };
+        const ioSnapshot: ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['io_snapshot'] = {
+          input_keys: [
+            'version_lock',
+            'admitted_cell',
+            ...executionBundle.revision.revision_content.dataset_mirrors.map(
+              (mirror) => `dataset_mirror:${mirror.ordinal}`,
+            ),
+          ],
+          output_keys: ['real_provider_result_envelope'],
+          input_mirror_ordinals:
+            executionBundle.revision.revision_content.dataset_mirrors.map(
+              (mirror) => mirror.ordinal,
+            ),
+          result_object_name:
+            executionBundle.revision.revision_content.output_contract.result_object_name,
+          result_envelope_schema:
+            executionBundle.revision.revision_content.output_contract.result_envelope_schema,
+          parser_profile_version:
+            executionBundle.revision.revision_content.output_contract.parser_profile_version,
+          parser_profile_hash:
+            executionBundle.revision.revision_content.output_contract.parser_profile_hash,
+        };
+        const retrySnapshot = {
+          max_attempts: event.payload.work_order_revision.run_policy.max_attempts_per_cell,
+          timeout_seconds: event.payload.work_order_revision.run_policy.timeout_seconds,
+        };
+        const taskSpecHash = serverHashExperimentFoundationV2TrainingTaskSpec({
+          task_spec_schema_version: 'v2',
+          execution_bundle: executionBundleRef,
+          materialization_key: taskMaterializationKey,
+          run_recipe_id: runRecipeId,
+          external_pi_work_order_revision_id: event.work_order_revision_id,
+          external_pi_work_order_revision_hash: event.work_order_revision_hash,
+          external_pi_cell_id: cell.work_order_cell_id,
+          external_pi_cell_hash: cell.cell_hash,
+          admitted_cell: cell,
+          command_snapshot: commandSnapshot,
+          io_snapshot: ioSnapshot,
+          resource_snapshot: resourceSnapshot,
+          retry_snapshot: retrySnapshot,
+        });
+        return {
+          training_task_spec_id: trainingTaskSpecId,
+          materialization_key: taskMaterializationKey,
+          run_recipe_id: runRecipeId,
+          external_pi_work_order_revision_id: event.work_order_revision_id,
+          external_pi_work_order_revision_hash: event.work_order_revision_hash,
+          external_pi_cell_id: cell.work_order_cell_id,
+          external_pi_cell_hash: cell.cell_hash,
+          execution_bundle: executionBundleRef,
+          command_snapshot: commandSnapshot,
+          io_snapshot: ioSnapshot,
+          resource_snapshot: resourceSnapshot,
+          retry_snapshot: retrySnapshot,
+          task_spec_hash: taskSpecHash,
+          created_at: createdAt,
+        };
+      }
+
       const commandSnapshot = {
         command: 'experiment-foundation-v2:materialize-cell',
         arguments: [cell.cell_key],
@@ -473,12 +635,11 @@ export class ExperimentFoundationV2MaterializationService {
         input_keys: ['version_lock', 'admitted_cell'],
         output_keys: ['simulation_lifecycle_trace'],
       };
-      const resourceSnapshot = { cpu_cores: 1, memory_mb: 512 };
       const retrySnapshot = {
         max_attempts: event.payload.work_order_revision.run_policy.max_attempts_per_cell,
       };
       const taskSpecHash = serverHashExperimentFoundationV2TrainingTaskSpec({
-        materialization_key: `${materializationKey}:cell:${cell.ordinal}`,
+        materialization_key: taskMaterializationKey,
         run_recipe_id: runRecipeId,
         external_pi_work_order_revision_id: event.work_order_revision_id,
         external_pi_work_order_revision_hash: event.work_order_revision_hash,
@@ -492,7 +653,7 @@ export class ExperimentFoundationV2MaterializationService {
       });
       return {
         training_task_spec_id: trainingTaskSpecId,
-        materialization_key: `${materializationKey}:cell:${cell.ordinal}`,
+        materialization_key: taskMaterializationKey,
         run_recipe_id: runRecipeId,
         external_pi_work_order_revision_id: event.work_order_revision_id,
         external_pi_work_order_revision_hash: event.work_order_revision_hash,
