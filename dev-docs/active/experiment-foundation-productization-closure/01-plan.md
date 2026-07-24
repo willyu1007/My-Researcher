@@ -463,5 +463,12 @@ Pack B closed these technical exit requirements with PB01-PB16 on `packb-2026071
 | Recovery promises exceed provider guarantees | State at-least-once + idempotent reconciliation semantics explicitly. |
 | UI hides server-side scope gaps | Server read model is a Phase 5 entry gate; cross-project negative tests are mandatory. |
 
+## 2026-07-24 — M5-A1 implementation checkpoint
+
+- Completed the three OD-M5-1 read families: project Cycle summaries, admitted-branch effective-head lineage, and complete branch revision history.
+- Completed shared response schemas, server-side project-scoped Prisma reads, empty constructor-seeded in-memory composition, typed service/controller/route wiring, and local schema/service/route verification.
+- The guarded disposable-PostgreSQL isolation/completeness test is written and type-checked but remains a host-verification action because the sandbox has no PostgreSQL target.
+- M5-A2 projection persistence, M5-A3 closure preparation/actions, M5-A4 gate work, UI, semantic projection, migrations, and all mutations remain outside the M5-A1 checkpoint.
+
 ## Implementation start condition
 Implementation may start only after the user confirms the roadmap decisions and explicitly authorizes execution. Phase 1 identity/readiness must close first; the planned first cross-module acceptance slice is D-19's Phase 2 admission-to-head acknowledgement spine, never provider integration, full Cycle closure or UI polish.

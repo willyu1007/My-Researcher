@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: **M7-I0 至 M7-I3 default-off implementation 与 evidence import 已完成**——typed ExecutionBundle、executable WorkOrder/RunRecipe/TaskSpec v2、复用六张 provider-control authority 表的 exact real-provider tuple、注入式 Aliyun official-SDK transport、crash-recovery worker、默认关闭产品 route 与 disposable-Postgres gate 均已实现。最终 gate run `t132-m7-offline-20260723-v1` 的 M7-01..M7-15 全部通过，T-106 已导入同一 redacted verdict。整个阶段没有向现有数据库 apply migration、没有打开 capability、没有发出真实 provider/OSS 请求，也没有 scientific/evidence/legacy 写入。下一步是独立的 M7-L1 现场准备与授权；首个 `CreateJob` 仍受 exact workload/mirror/output/budget/least-privilege identity 与独立现场授权阻塞。
+- Next step: **M5-A1 project-scoped experiment-lineage read model is implemented and locally verified**. Run the guarded relational test on an authorized disposable PostgreSQL host, then continue with M5-A2 only under its separate projection-table/migration scope. M7-L1 remains a separate live-provider authorization boundary; M5-A1 did not enable a capability, apply a migration, or perform any write.
 
 ## M7 default-off implementation — 2026-07-23
 

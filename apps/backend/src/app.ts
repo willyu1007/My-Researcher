@@ -9,6 +9,7 @@ import { LiteratureBackfillController } from './controllers/literature-backfill-
 import { LiteratureContentProcessingSettingsController } from './controllers/literature-content-processing-settings-controller.js';
 import { LiteratureFulltextAcquisitionController } from './controllers/literature-fulltext-acquisition-controller.js';
 import { LiteratureController } from './controllers/literature-controller.js';
+import { PaperImplementationExperimentLineageV2Controller } from './controllers/paper-implementation-experiment-lineage-v2-controller.js';
 import { PaperImplementationExperimentV2Controller } from './controllers/paper-implementation-experiment-v2-controller.js';
 import { PaperImplementationController } from './controllers/paper-implementation-controller.js';
 import { TopicSettingsController } from './controllers/topic-settings-controller.js';
@@ -37,6 +38,7 @@ import { InMemoryPaperImplementationRuntimeRepository } from './repositories/in-
 import { InMemoryPaperImplementationCoordinatorRepository } from './repositories/in-memory-paper-implementation-coordinator-repository.js';
 import { InMemoryPaperImplementationRuntimeTelemetryRepository } from './repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
 import { InMemoryPaperImplementationHumanConfirmationRepository } from './repositories/in-memory-paper-implementation-human-confirmation-repository.js';
+import { InMemoryPaperImplementationExperimentLineageV2Repository } from './repositories/in-memory-paper-implementation-experiment-lineage-v2-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from './repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from './repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from './repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -81,6 +83,7 @@ import { PrismaPaperImplementationRuntimeRepository } from './repositories/prism
 import { PrismaPaperImplementationCoordinatorRepository } from './repositories/prisma/prisma-paper-implementation-coordinator-repository.js';
 import { PrismaPaperImplementationRuntimeTelemetryRepository } from './repositories/prisma/prisma-paper-implementation-runtime-telemetry-repository.js';
 import { PrismaPaperImplementationHumanConfirmationRepository } from './repositories/prisma/prisma-paper-implementation-human-confirmation-repository.js';
+import { PrismaPaperImplementationExperimentLineageV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
@@ -118,6 +121,7 @@ import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-r
 import { registerLiteratureContentProcessingSettingsRoutes } from './routes/literature-content-processing-settings-routes.js';
 import { registerLiteratureFulltextAcquisitionRoutes } from './routes/literature-fulltext-acquisition-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
+import { registerPaperImplementationExperimentLineageV2Routes } from './routes/paper-implementation-experiment-lineage-v2-routes.js';
 import { registerPaperImplementationExperimentV2Routes } from './routes/paper-implementation-experiment-v2-routes.js';
 import { registerPaperImplementationRoutes } from './routes/paper-implementation-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
@@ -136,6 +140,7 @@ import type { ExperimentFoundationScientificValidationV2Repository } from './rep
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
 import type { PaperImplementationEvidenceV2Repository } from './repositories/paper-implementation-evidence-v2.repository.js';
+import type { PaperImplementationExperimentLineageV2Repository } from './repositories/paper-implementation-experiment-lineage-v2.repository.js';
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
@@ -221,6 +226,7 @@ import {
 } from './services/paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from './services/paper-implementation-experiment-v2-head-service.js';
 import { PaperImplementationCycleReadinessV2Service } from './services/paper-implementation-cycle-readiness-v2-service.js';
+import { PaperImplementationExperimentLineageV2Service } from './services/paper-implementation-experiment-lineage-v2-service.js';
 import { PaperImplementationEvidenceTrustGatewayService } from './services/paper-implementation-evidence-trust-gateway-service.js';
 import { PaperImplementationProjectionFeedV2Consumer } from './services/paper-implementation-projection-feed-v2-consumer.js';
 import { PaperImplementationValidationCycleClosureV2Service } from './services/paper-implementation-validation-cycle-closure-v2-service.js';
@@ -332,6 +338,7 @@ export type BuildAppOptions = {
   paperImplementationExperimentSpineV2Repository?: PaperImplementationExperimentSpineV2Repository;
   paperImplementationValidationCycleClosureV2Repository?: PaperImplementationValidationCycleClosureV2Repository;
   paperImplementationCycleReadinessV2Repository?: PaperImplementationCycleReadinessV2Repository;
+  paperImplementationExperimentLineageV2Repository?: PaperImplementationExperimentLineageV2Repository;
   paperImplementationEvidenceV2Repository?: PaperImplementationEvidenceV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
   experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
@@ -524,6 +531,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     options.paperImplementationCycleReadinessV2Repository
     ?? createPaperImplementationCycleReadinessV2Repository(
       storeConfig.paperImplementationStrategy,
+    );
+  const paperImplementationExperimentLineageV2Repository =
+    options.paperImplementationExperimentLineageV2Repository
+    ?? createPaperImplementationExperimentLineageV2Repository(
+      storeConfig.paperImplementationStrategy,
+      storeConfig.experimentFoundationStrategy,
     );
   const paperImplementationValidationCycleClosureV2Repository =
     options.paperImplementationValidationCycleClosureV2Repository
@@ -752,6 +765,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new PaperImplementationCycleReadinessV2Service({
       repository: paperImplementationCycleReadinessV2Repository,
     });
+  const paperImplementationExperimentLineageV2Controller =
+    new PaperImplementationExperimentLineageV2Controller(
+      new PaperImplementationExperimentLineageV2Service({
+        repository: paperImplementationExperimentLineageV2Repository,
+      }),
+    );
   const paperImplementationExperimentV2Controller =
     new PaperImplementationExperimentV2Controller(
       paperImplementationExperimentV2AdmissionService,
@@ -1549,6 +1568,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       instance,
       paperImplementationExperimentV2Controller,
     );
+    await registerPaperImplementationExperimentLineageV2Routes(
+      instance,
+      paperImplementationExperimentLineageV2Controller,
+    );
     await registerLiteratureAcquisitionSettingsRoutes(instance, literatureAcquisitionSettingsController);
     await registerLiteratureContentProcessingSettingsRoutes(instance, literatureContentProcessingSettingsController);
     await registerLiteratureBackfillRoutes(instance, literatureBackfillController);
@@ -1939,6 +1962,19 @@ function createPaperImplementationCycleReadinessV2Repository(
     return new PrismaPaperImplementationCycleReadinessV2Repository(getPrismaClient());
   }
   return new InMemoryPaperImplementationCycleReadinessV2Repository();
+}
+
+function createPaperImplementationExperimentLineageV2Repository(
+  paperImplementationStrategy: RepositoryStrategy,
+  experimentFoundationStrategy: RepositoryStrategy,
+): PaperImplementationExperimentLineageV2Repository {
+  if (
+    paperImplementationStrategy === 'prisma'
+    && experimentFoundationStrategy === 'prisma'
+  ) {
+    return new PrismaPaperImplementationExperimentLineageV2Repository(getPrismaClient());
+  }
+  return new InMemoryPaperImplementationExperimentLineageV2Repository();
 }
 
 function createPaperImplementationEvidenceV2Repository(

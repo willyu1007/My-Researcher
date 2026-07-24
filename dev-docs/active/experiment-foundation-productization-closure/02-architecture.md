@@ -896,3 +896,11 @@ Intake and drain are separate capabilities. Intake requires cutover plus control
 The transport owns generated official-SDK request mapping and normalizes a closed provider status vocabulary. A first durably fenced submit may call `CreateJob` once. Any uncertain accepted response switches the command to recovery-only discovery by deterministic tag/display name plus exact detail comparison. Collection accepts only a canonical result envelope with exact bundle/Run/cell/TaskSpec/parser bindings and persists diagnostic-only provisional output; ScientificValidationService remains the sole later typed entry into scientific authority.
 
 Migration `20260723100000_add_experiment_foundation_m7_real_provider_v2` is an unapplied artifact for existing environments. It adds six typed ExecutionBundle tables, exact same-domain FKs and v2 binding columns, renames the Pack B profile column in place, and generalizes CHECKs to the two exact tuples without DML/backfill or cross-domain FK.
+
+## M5-A1 project-scoped lineage read boundary
+
+M5-A1 adds one read-only repository port consumed by an HTTP-free deterministic service. The Prisma adapter scopes every ORM predicate and every cross-domain SQL join by the server-supplied ImplementationProject id before returning rows. Scope mismatch therefore returns the same not-found result as absence and never requires client-side filtering.
+
+The per-Cycle read retains D-18 head authority: an effective head requires the branch head revision/sequence to equal the current admitted revision, an exact EF Run branch/revision/hash/sequence/manifest binding, and exactly one processed durable `BranchHeadAdvanced` acknowledgement. Anything else is represented by `BRANCH_HEAD_NOT_FROZEN`; the read model never creates a second head or readiness authority.
+
+Full revision history is a separate exact branch query. The query orders immutable revisions by sequence, retains superseded entries with explicit current/head flags, and attaches a Run only through the exact branch/revision/hash/sequence join. No lineage endpoint accepts hashes, revision ids, refs, request bodies, or query filters.

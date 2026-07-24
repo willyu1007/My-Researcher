@@ -1113,3 +1113,53 @@ node .ai/scripts/experiment-foundation-packb-simulation-gate.mjs --run-id packb-
 - The first backend full run exposed one stale static census (`45 !== 38`) because M7 added seven reviewed same-domain RESTRICT FKs. The corrected assertion independently freezes the historical Pack A 38 and the M7 delta 7; its focused file passed 31/31 before the final full-suite pass.
 - Prisma validate, shared/backend/script typechecks, env-contract validation, M7/Pack B gate meta, both strict docs lints, governance lint and `git diff --check` passed.
 - Conditional full-suite skips are not counted as database acceptance. M7 database acceptance remains the forced disposable PostgreSQL 9/9 lane; Pack A/Pack B compatibility acceptance remains the forced 6/6 and 8/8 lanes.
+
+## 2026-07-24 — M5-A1 project-scoped experiment lineage
+
+Required typechecks:
+
+```bash
+pnpm --filter @paper-engineering-assistant/shared typecheck \
+  && pnpm --filter @paper-engineering-assistant/backend typecheck
+```
+
+- Outcome: passed. Backend pretypecheck regenerated the unchanged Prisma client; shared and backend TypeScript checks completed with exit 0. The guarded relational test is included in the backend TypeScript population.
+
+Required shared schema test:
+
+```bash
+cd packages/shared
+node --test --loader ts-node/esm \
+  src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.schema.test.ts
+```
+
+- Outcome: 3/3 passed, 0 failed/skipped.
+
+Required backend service/route tests:
+
+```bash
+cd apps/backend
+node --test --loader ts-node/esm \
+  src/services/paper-implementation-experiment-lineage-v2-service.unit.test.ts \
+  src/routes/paper-implementation-experiment-lineage-v2-routes.integration.test.ts
+```
+
+- Outcome: 6/6 passed, 0 failed/skipped.
+
+Guarded relational load check:
+
+```bash
+cd apps/backend
+node --test --loader ts-node/esm \
+  src/repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-relational.integration.test.ts
+```
+
+- Outcome in this sandbox: test module loaded successfully and the one relational case was conditionally skipped because no disposable PostgreSQL identity/URL was supplied.
+- Host action: set `PAPER_IMPLEMENTATION_EXPERIMENT_LINEAGE_V2_RELATIONAL_PRISMA=1` plus the existing randomized `EXPERIMENT_V2_TEST_DATABASE_URL` disposable identity variables and require 1/1 passed with 0 skips.
+
+Static zero-write/scope census:
+
+- New repository/service files contain no `.create(`, `.update(`, `.delete(`, or `$executeRaw`.
+- Every Prisma ORM predicate and raw SQL query in the new Prisma adapter carries the requested ImplementationProject id in its `where`/`WHERE` scope.
+- Route/controller request inputs contain only `implementation_project_id`, `validation_cycle_id`, or `branch_id` path parameters; no request body/query/hash/ref/revision-id input exists.
+- Strict task-bundle documentation lint passed 96/96 with 0 warnings/errors, and `git diff --check` passed.
