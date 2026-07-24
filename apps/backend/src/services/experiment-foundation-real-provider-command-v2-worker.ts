@@ -3,13 +3,15 @@ import { randomUUID } from 'node:crypto';
 import type {
   ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
-import type {
-  ExperimentFoundationAliyunNormalizedProviderOutcomeV1,
-  ExperimentFoundationAliyunRealExternalJobRefV1,
+import {
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  type ExperimentFoundationAliyunNormalizedProviderOutcomeV1,
+  type ExperimentFoundationAliyunRealExternalJobRefV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   serverHashExperimentFoundationExternalJobRefV2,
   serverHashExperimentFoundationProviderControlV2Semantic,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
@@ -58,7 +60,10 @@ interface ExperimentFoundationRealProviderCommandV2WorkerOptions {
   maximumCommandAttempts?: number;
   watchdogGraceMs?: number;
   now?: () => string;
-  idGenerator?: (kind: 'event' | 'command' | 'collection') => string;
+  idGenerator?: (
+    kind: 'event' | 'command' | 'collection',
+    seed: string,
+  ) => string;
 }
 
 interface ExperimentFoundationRealProviderCommandV2WorkerResult {
@@ -102,7 +107,7 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
     this.watchdogGraceMs = Math.max(0, options.watchdogGraceMs ?? 900_000);
     this.now = options.now ?? (() => new Date().toISOString());
     this.idGenerator = options.idGenerator
-      ?? ((kind) => `ef_v2_real_${kind}_${randomUUID()}`);
+      ?? deterministicRealProviderWorkerId;
   }
 
   async runOnce(limit = 25): Promise<ExperimentFoundationRealProviderCommandV2WorkerResult> {
@@ -346,10 +351,11 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       requireExternalRef(outcome),
       nextState === 'cancelled' ? 'operator_cancelled' : null,
     );
+    const eventSequence = nextSequence(events.map((item) => item.event_sequence), 'event');
     const event = createExecutionAttemptEventV2Record({
-      id: this.idGenerator('event'),
+      id: this.idGenerator('event', idSeed(attempt.id, eventSequence)),
       attempt: nextAttempt,
-      sequence: nextSequence(events.map((item) => item.event_sequence), 'event'),
+      sequence: eventSequence,
       eventType: nextState,
       priorState: attempt.lifecycle_state,
       nextState,
@@ -358,10 +364,13 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       observedProviderState: outcome.provider_status,
       occurredAt: now,
     });
+    const commandSequence = nextOperation
+      ? nextSequence(commands.map((item) => item.command_sequence), 'command')
+      : null;
     const nextCommand = nextOperation ? createProviderCommandV2Record({
-      id: this.idGenerator('command'),
+      id: this.idGenerator('command', idSeed(attempt.id, commandSequence!)),
       attempt: nextAttempt,
-      sequence: nextSequence(commands.map((item) => item.command_sequence), 'command'),
+      sequence: commandSequence!,
       operation: nextOperation,
       providerIdempotencyKey: `${attempt.id}:${nextOperation}:1`,
       externalJobRef: nextAttempt.external_job_ref,
@@ -390,11 +399,18 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
     const now = this.now();
     const external = requireExternalRef(outcome);
     const externalHash = serverHashExperimentFoundationExternalJobRefV2(external);
-    const [events, commands] = await Promise.all([
+    const [events, commands, collections] = await Promise.all([
       this.repository.listAttemptEvents(attempt.id),
       this.repository.listAttemptCommands(attempt.id),
+      this.repository.listAttemptCollections(attempt.id),
     ]);
     const eventSequence = nextSequence(events.map((item) => item.event_sequence), 'event');
+    const preparedEventSequence = increment(eventSequence, 'event');
+    const commandSequence = nextSequence(
+      commands.map((item) => item.command_sequence),
+      'command',
+    );
+    const collectionSequence = increment(collections.length, 'collection');
     const nextAttempt = transitionAttempt(
       attempt,
       'succeeded',
@@ -403,7 +419,7 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       'real_provider_succeeded',
     );
     const succeededEvent = createExecutionAttemptEventV2Record({
-      id: this.idGenerator('event'),
+      id: this.idGenerator('event', idSeed(attempt.id, eventSequence)),
       attempt: nextAttempt,
       sequence: eventSequence,
       eventType: 'succeeded',
@@ -414,7 +430,10 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       observedProviderState: outcome.provider_status,
       occurredAt: now,
     });
-    const collectionId = this.idGenerator('collection');
+    const collectionId = this.idGenerator(
+      'collection',
+      idSeed(attempt.id, collectionSequence),
+    );
     const collection: ExperimentFoundationCollectionAttemptV2Record = {
       id: collectionId,
       execution_attempt_id: attempt.id,
@@ -440,9 +459,9 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       terminal_at: null,
     };
     const preparedEvent = createExecutionAttemptEventV2Record({
-      id: this.idGenerator('event'),
+      id: this.idGenerator('event', idSeed(attempt.id, preparedEventSequence)),
       attempt: nextAttempt,
-      sequence: increment(eventSequence, 'event'),
+      sequence: preparedEventSequence,
       eventType: 'collection_prepared',
       priorState: 'succeeded',
       nextState: 'succeeded',
@@ -452,9 +471,9 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       occurredAt: now,
     });
     const collectCommand = createProviderCommandV2Record({
-      id: this.idGenerator('command'),
+      id: this.idGenerator('command', idSeed(attempt.id, commandSequence)),
       attempt: nextAttempt,
-      sequence: nextSequence(commands.map((item) => item.command_sequence), 'command'),
+      sequence: commandSequence,
       operation: 'collect',
       providerIdempotencyKey: `${attempt.id}:collect:1`,
       externalJobRef: external.job_id,
@@ -518,10 +537,11 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       terminal_at: now,
     };
     const events = await this.repository.listAttemptEvents(attempt.id);
+    const eventSequence = nextSequence(events.map((item) => item.event_sequence), 'event');
     const event = createExecutionAttemptEventV2Record({
-      id: this.idGenerator('event'),
+      id: this.idGenerator('event', idSeed(attempt.id, eventSequence)),
       attempt,
-      sequence: nextSequence(events.map((item) => item.event_sequence), 'event'),
+      sequence: eventSequence,
       eventType: 'collection_collected',
       priorState: 'succeeded',
       nextState: 'succeeded',
@@ -616,10 +636,14 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
         updated_at: now,
         terminal_at: now,
       };
+      const eventSequence = nextSequence(
+        events.map((item) => item.event_sequence),
+        'event',
+      );
       const event = createExecutionAttemptEventV2Record({
-        id: this.idGenerator('event'),
+        id: this.idGenerator('event', idSeed(attempt.id, eventSequence)),
         attempt,
-        sequence: nextSequence(events.map((item) => item.event_sequence), 'event'),
+        sequence: eventSequence,
         eventType: 'collection_failed',
         priorState: 'succeeded',
         nextState: 'succeeded',
@@ -655,10 +679,11 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       terminalReason,
     );
     const events = await this.repository.listAttemptEvents(attempt.id);
+    const eventSequence = nextSequence(events.map((item) => item.event_sequence), 'event');
     const event = createExecutionAttemptEventV2Record({
-      id: this.idGenerator('event'),
+      id: this.idGenerator('event', idSeed(attempt.id, eventSequence)),
       attempt: nextAttempt,
-      sequence: nextSequence(events.map((item) => item.event_sequence), 'event'),
+      sequence: eventSequence,
       eventType: 'failed',
       priorState: attempt.lifecycle_state,
       nextState: 'failed',
@@ -831,6 +856,48 @@ function nextSequence(values: readonly number[], label: string): number {
       message,
     ),
   );
+}
+
+const REAL_PROVIDER_WORKER_ID_DOMAINS = {
+  event: {
+    prefix: 'ef_v2_real_event_',
+    recordKind: 'EfV2RealProviderEventId',
+    sequenceField: 'event_sequence',
+  },
+  command: {
+    prefix: 'ef_v2_real_command_',
+    recordKind: 'EfV2RealProviderCommandId',
+    sequenceField: 'command_sequence',
+  },
+  collection: {
+    prefix: 'ef_v2_real_collection_',
+    recordKind: 'EfV2RealProviderCollectionId',
+    sequenceField: 'collection_sequence',
+  },
+} as const;
+
+function deterministicRealProviderWorkerId(
+  kind: keyof typeof REAL_PROVIDER_WORKER_ID_DOMAINS,
+  seed: string,
+): string {
+  const domain = REAL_PROVIDER_WORKER_ID_DOMAINS[kind];
+  const separator = seed.lastIndexOf(':');
+  const executionAttemptId = seed.slice(0, separator);
+  const sequence = Number(seed.slice(separator + 1));
+  const digest = serverHashExperimentV2SemanticContent({
+    record_kind: domain.recordKind,
+    schema_version: 'v1',
+    hash_profile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+    content: {
+      execution_attempt_id: executionAttemptId,
+      [domain.sequenceField]: sequence,
+    },
+  }).slice('sha256:'.length, 'sha256:'.length + 40);
+  return `${domain.prefix}${digest}`;
+}
+
+function idSeed(executionAttemptId: string, sequence: number): string {
+  return `${executionAttemptId}:${sequence}`;
 }
 
 function scopeDrift(message: string): ExperimentFoundationExecutionV2ConstraintError {

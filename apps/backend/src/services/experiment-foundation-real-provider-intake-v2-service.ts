@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import type {
   ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
@@ -8,12 +6,16 @@ import type {
   StartRealProviderExecutionV2Request,
   StartRealProviderExecutionV2Response,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-execution-v2-contracts';
-import type {
-  ExperimentFoundationExecutionBundleRevisionV2,
-  ExperimentFoundationRealProviderPayloadV2,
+import {
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+  type ExperimentFoundationExecutionBundleRevisionV2,
+  type ExperimentFoundationRealProviderPayloadV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   serverHashExperimentFoundationProviderControlV2Semantic,
+  serverHashExperimentV2SemanticContent,
+  type ExperimentV2HashProfile,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
@@ -57,6 +59,9 @@ export interface ExperimentFoundationRealProviderIntakeV2ServiceOptions {
   idGenerator?: (kind: 'payload' | 'attempt' | 'event' | 'command') => string;
 }
 
+type ExperimentFoundationRealProviderIntakeV2IdKind =
+  'payload' | 'attempt' | 'event' | 'command';
+
 type ExperimentFoundationRealProviderIntakeV2ReasonCode =
   | 'EF_V2_REAL_PROVIDER_INTAKE_DISABLED'
   | 'REAL_PROVIDER_TUPLE_INVALID'
@@ -81,9 +86,8 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
   private readonly intakeEnabled: () => boolean;
   private readonly payloadService: ExperimentFoundationRealProviderPayloadV2Service;
   private readonly now: () => string;
-  private readonly idGenerator: NonNullable<
-    ExperimentFoundationRealProviderIntakeV2ServiceOptions['idGenerator']
-  >;
+  private readonly idGenerator:
+    ExperimentFoundationRealProviderIntakeV2ServiceOptions['idGenerator'];
 
   constructor(options: ExperimentFoundationRealProviderIntakeV2ServiceOptions) {
     this.repository = options.repository;
@@ -94,8 +98,7 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
     this.payloadService = options.payloadService
       ?? new ExperimentFoundationRealProviderPayloadV2Service();
     this.now = options.now ?? (() => new Date().toISOString());
-    this.idGenerator = options.idGenerator
-      ?? ((kind) => `ef_v2_real_${kind}_${randomUUID()}`);
+    this.idGenerator = options.idGenerator;
   }
 
   async startForApi(
@@ -185,7 +188,12 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
       const attemptSequence = priorAttempts.length === 0
         ? 1
         : Math.max(...priorAttempts.map((attempt) => attempt.attempt_sequence)) + 1;
-      const attemptId = this.idGenerator('attempt');
+      const attemptId = this.generateId('attempt', {
+        run_id: prerequisite.run.run_id,
+        run_cell_id: cell.run_cell.run_cell_id,
+        attempt_sequence: attemptSequence,
+        business_idempotency_key: businessIdempotencyKey,
+      });
       const providerIdempotencyKey = `${attemptId}:submit:1`;
       const materialized = this.payloadService.materialize({
         run: prerequisite.run,
@@ -195,7 +203,13 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
         provider_idempotency_key: providerIdempotencyKey,
       }, profile);
       const payload: ExperimentFoundationProviderPayloadV2Record = {
-        id: this.idGenerator('payload'),
+        id: this.generateId('payload', {
+          run_cell: cell.run_cell,
+          training_task_spec_hash: cell.task_spec.task_spec_hash,
+          execution_bundle: cell.task_spec.execution_bundle,
+          provider_profile_schema: profile.schema_version,
+          provider_idempotency_key: providerIdempotencyKey,
+        }),
         ...materialized.record,
         created_at: now,
       };
@@ -237,7 +251,10 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
         terminal_at: null,
       };
       const event = createExecutionAttemptEventV2Record({
-        id: this.idGenerator('event'),
+        id: this.generateId('event', {
+          execution_attempt_id: attemptId,
+          event_sequence: 1,
+        }),
         attempt,
         sequence: 1,
         eventType: 'created',
@@ -249,7 +266,11 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
         occurredAt: now,
       });
       const command = createProviderCommandV2Record({
-        id: this.idGenerator('command'),
+        id: this.generateId('command', {
+          execution_attempt_id: attemptId,
+          operation: 'submit',
+          command_sequence: 1,
+        }),
         attempt,
         sequence: 1,
         operation: 'submit',
@@ -293,6 +314,54 @@ export class ExperimentFoundationRealProviderIntakeV2Service {
       throw error;
     }
   }
+
+  private generateId(
+    kind: ExperimentFoundationRealProviderIntakeV2IdKind,
+    seed: Readonly<Record<string, unknown>>,
+  ): string {
+    return this.idGenerator?.(kind) ?? deterministicRealProviderIntakeId(kind, seed);
+  }
+}
+
+const REAL_PROVIDER_INTAKE_ID_DOMAINS = {
+  payload: {
+    prefix: 'ef_v2_real_payload_',
+    recordKind: 'EfV2RealProviderPayloadId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+  },
+  attempt: {
+    prefix: 'ef_v2_real_attempt_',
+    recordKind: 'EfV2RealProviderAttemptId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  },
+  event: {
+    prefix: 'ef_v2_real_event_',
+    recordKind: 'EfV2RealProviderEventId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  },
+  command: {
+    prefix: 'ef_v2_real_command_',
+    recordKind: 'EfV2RealProviderCommandId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  },
+} as const satisfies Record<ExperimentFoundationRealProviderIntakeV2IdKind, {
+  prefix: string;
+  recordKind: string;
+  hashProfile: ExperimentV2HashProfile;
+}>;
+
+function deterministicRealProviderIntakeId(
+  kind: ExperimentFoundationRealProviderIntakeV2IdKind,
+  seed: Readonly<Record<string, unknown>>,
+): string {
+  const domain = REAL_PROVIDER_INTAKE_ID_DOMAINS[kind];
+  const digest = serverHashExperimentV2SemanticContent({
+    record_kind: domain.recordKind,
+    schema_version: 'v1',
+    hash_profile: domain.hashProfile,
+    content: seed,
+  }).slice('sha256:'.length, 'sha256:'.length + 40);
+  return `${domain.prefix}${digest}`;
 }
 
 function assertExactPrerequisite(

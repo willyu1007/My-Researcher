@@ -19,6 +19,9 @@ import {
   type ExperimentFoundationAliyunPaiDlcSdkClientV2,
 } from './experiment-foundation-aliyun-real-provider-v2-transport.js';
 import {
+  createProviderCommandV2Record,
+} from './experiment-foundation-execution-v2-service.js';
+import {
   ExperimentFoundationRealProviderCommandV2Worker,
 } from './experiment-foundation-real-provider-command-v2-worker.js';
 import {
@@ -46,6 +49,7 @@ class WorkerPaiDlcSdkFake {
   listCount = 0;
   loseCreateResponse = false;
   visibleAfterListCount = 0;
+  failGetJobBodies = 0;
   initialStatus = 'Creating';
   readonly jobs = new Map<string, FakeJob>();
 
@@ -82,6 +86,10 @@ class WorkerPaiDlcSdkFake {
 
   readonly getJobWithOptions: ExperimentFoundationAliyunPaiDlcSdkClientV2['getJobWithOptions'] =
     async (jobId) => {
+      if (this.failGetJobBodies > 0) {
+        this.failGetJobBodies -= 1;
+        return new GetJobResponse({ statusCode: 500 });
+      }
       const job = this.jobs.get(jobId);
       return new GetJobResponse({ statusCode: job ? 200 : 404, body: job });
     };
@@ -137,6 +145,67 @@ test('M7-06/10 real worker converges two exact cells through durable collection 
   assert.equal(JSON.stringify(snapshot).includes('workspace-secret-ref'), false);
 });
 
+test('QR-2 production-default worker ids are deterministic and distinct across cells and sequences', async () => {
+  const [left, right] = await Promise.all([createHarness(), createHarness()]);
+  const leftWorker = left.worker({ idGenerator: undefined });
+  const rightWorker = right.worker({ idGenerator: undefined });
+
+  await Promise.all([leftWorker.runOnce(), rightWorker.runOnce()]);
+  for (const job of left.client.jobs.values()) job.status = 'Succeeded';
+  for (const job of right.client.jobs.values()) job.status = 'Succeeded';
+  await Promise.all([leftWorker.runOnce(), rightWorker.runOnce()]);
+  await Promise.all([leftWorker.runOnce(), rightWorker.runOnce()]);
+
+  const leftSnapshot = left.repository.snapshot();
+  const rightSnapshot = right.repository.snapshot();
+  const projectWorkerAuthority = (snapshot: typeof leftSnapshot) => ({
+    events: snapshot.events
+      .filter((event) => event.event_sequence > 1)
+      .map((event) => ({
+        id: event.id,
+        execution_attempt_id: event.execution_attempt_id,
+        event_sequence: event.event_sequence,
+        event_hash: event.event_hash,
+      })),
+    commands: snapshot.commands
+      .filter((command) => command.command_sequence > 1)
+      .map((command) => ({
+        id: command.id,
+        execution_attempt_id: command.execution_attempt_id,
+        command_sequence: command.command_sequence,
+        command_hash: command.command_hash,
+      })),
+    collections: snapshot.collections.map((collection) => ({
+      id: collection.id,
+      execution_attempt_id: collection.execution_attempt_id,
+      request_hash: collection.request_hash,
+    })),
+  });
+  const authority = projectWorkerAuthority(leftSnapshot);
+
+  assert.deepEqual(authority, projectWorkerAuthority(rightSnapshot));
+  assert.equal(new Set(authority.events.map(({ id }) => id)).size, authority.events.length);
+  assert.equal(new Set(authority.commands.map(({ id }) => id)).size, authority.commands.length);
+  assert.equal(
+    new Set(authority.collections.map(({ id }) => id)).size,
+    authority.collections.length,
+  );
+  assert.ok(authority.events.every(
+    ({ id }) => /^ef_v2_real_event_[a-f0-9]{40}$/.test(id),
+  ));
+  assert.ok(authority.commands.every(
+    ({ id }) => /^ef_v2_real_command_[a-f0-9]{40}$/.test(id),
+  ));
+  assert.ok(authority.collections.every(
+    ({ id }) => /^ef_v2_real_collection_[a-f0-9]{40}$/.test(id),
+  ));
+  assert.ok(leftSnapshot.attempts.every((attempt) => (
+    new Set(authority.events
+      .filter((event) => event.execution_attempt_id === attempt.id)
+      .map((event) => event.id)).size > 1
+  )));
+});
+
 test('M7-07 accepted-response loss retries discovery only and never issues a second CreateJob', async () => {
   let clock = REAL_PROVIDER_TEST_NOW;
   const harness = await createHarness({ now: () => clock });
@@ -189,6 +258,76 @@ test('M7-09 wall-clock watchdog timeout verifies StopJob cleanup before failing 
   )));
 });
 
+test('QR-3 cancel racing a Succeeded provider job defers convergence to the pending reconcile', async () => {
+  const harness = await createHarness();
+  const worker = harness.worker();
+
+  assert.equal((await worker.runOnce()).completed_count, 2);
+  for (const job of harness.client.jobs.values()) job.status = 'Succeeded';
+
+  for (const attempt of harness.repository.snapshot().attempts) {
+    const commands = await harness.repository.listAttemptCommands(attempt.id);
+    await harness.repository.enqueueControlCommand({
+      attempt_id: attempt.id,
+      expected_attempt_state_version: attempt.state_version,
+      command: createProviderCommandV2Record({
+        id: `cancel-${attempt.id}`,
+        attempt,
+        sequence: Math.max(...commands.map((command) => command.command_sequence)) + 1,
+        operation: 'cancel',
+        providerIdempotencyKey: `${attempt.id}:cancel:race-test`,
+        externalJobRef: attempt.external_job_ref,
+        collectionAttemptId: null,
+        cancellationReason: 'operator_cancelled',
+        now: REAL_PROVIDER_TEST_NOW,
+      }),
+    });
+  }
+
+  // One pass claims both cancels (priority) and both reconciles: the cancels
+  // terminalize as state conflicts without StopJob, the reconciles freeze
+  // success and prepare collection.
+  const race = await worker.runOnce();
+  assert.equal(race.terminal_count, 2);
+  assert.equal(race.completed_count, 2);
+  assert.equal(harness.client.stopCount, 0);
+  assert.equal((await worker.runOnce()).completed_count, 2);
+
+  const snapshot = harness.repository.snapshot();
+  assert.ok(snapshot.attempts.every((attempt) => (
+    attempt.lifecycle_state === 'succeeded'
+    && attempt.terminal_reason_code === 'real_provider_succeeded'
+  )));
+  assert.ok(snapshot.collections.every(
+    (collection) => collection.collection_state === 'collected',
+  ));
+});
+
+test('QR-3 a retryable transport error beyond the attempt cap releases inside the watchdog deadline', async () => {
+  let clock = REAL_PROVIDER_TEST_NOW;
+  const harness = await createHarness({ now: () => clock });
+  harness.client.initialStatus = 'Running';
+  const worker = harness.worker({
+    now: () => clock,
+    maximumCommandAttempts: 1,
+    watchdogGraceMs: 0,
+  });
+
+  assert.equal((await worker.runOnce()).completed_count, 2);
+  harness.client.failGetJobBodies = 2;
+  clock = '2026-07-23T00:05:00.000Z';
+  const flaky = await worker.runOnce();
+  assert.equal(flaky.released_count, 2);
+  assert.equal(flaky.terminal_count, 0);
+
+  for (const job of harness.client.jobs.values()) job.status = 'Succeeded';
+  clock = '2026-07-23T00:06:30.000Z';
+  assert.equal((await worker.runOnce()).completed_count, 2);
+  assert.ok(harness.repository.snapshot().attempts.every(
+    (attempt) => attempt.lifecycle_state === 'succeeded',
+  ));
+});
+
 test('M7-14 disabling intake does not stop the control drain for already committed commands', async () => {
   const harness = await createHarness();
   const disabledIntake = new ExperimentFoundationRealProviderIntakeV2Service({
@@ -220,11 +359,18 @@ async function createHarness(options: { now?: () => string } = {}) {
     realProviderPrerequisites: [fixture.prerequisite],
   });
   const counters = new Map<string, number>();
-  const idGenerator = (kind: string) => {
+  const nextId = (kind: string) => {
     const next = (counters.get(kind) ?? 0) + 1;
     counters.set(kind, next);
     return `${kind}-${next}`;
   };
+  const intakeIdGenerator = (kind: 'payload' | 'attempt' | 'event' | 'command') => (
+    nextId(kind)
+  );
+  const workerIdGenerator = (
+    kind: 'event' | 'command' | 'collection',
+    _seed: string,
+  ) => nextId(kind);
   const now = options.now ?? (() => REAL_PROVIDER_TEST_NOW);
   const intake = new ExperimentFoundationRealProviderIntakeV2Service({
     repository,
@@ -235,7 +381,7 @@ async function createHarness(options: { now?: () => string } = {}) {
     profileResolver: async () => fixture.profile,
     intakeEnabled: () => true,
     now,
-    idGenerator,
+    idGenerator: intakeIdGenerator,
   });
   await intake.start(fixture.prerequisite.run.run_id, 'real-worker-test');
   const client = new WorkerPaiDlcSdkFake();
@@ -281,7 +427,7 @@ async function createHarness(options: { now?: () => string } = {}) {
       profileResolver: async () => fixture.profile,
       controlDrainEnabled: () => true,
       now,
-      idGenerator,
+      idGenerator: workerIdGenerator,
       ...overrides,
     }),
   };

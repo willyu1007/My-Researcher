@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { Ajv, type ValidateFunction } from 'ajv';
 
 import {
@@ -12,7 +10,10 @@ import {
   type ExperimentFoundationExecutionBundleReadinessV2,
   type ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
-import { serverHashExperimentV2SemanticContent } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+import {
+  serverHashExperimentV2SemanticContent,
+  type ExperimentV2HashProfile,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
   ExperimentFoundationExecutionBundleV2ConstraintError,
@@ -27,6 +28,9 @@ interface ExperimentFoundationExecutionBundleV2ServiceOptions {
   idGenerator?: (kind: 'identity' | 'revision' | 'event' | 'readiness') => string;
 }
 
+type ExperimentFoundationExecutionBundleV2IdKind =
+  'identity' | 'revision' | 'event' | 'readiness';
+
 const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: false });
 const bundleContentValidator: ValidateFunction<ExperimentFoundationExecutionBundleContentV1> =
   ajv.compile<ExperimentFoundationExecutionBundleContentV1>(
@@ -36,15 +40,13 @@ const bundleContentValidator: ValidateFunction<ExperimentFoundationExecutionBund
 export class ExperimentFoundationExecutionBundleV2Service {
   private readonly repository: ExperimentFoundationExecutionBundleV2Repository;
   private readonly now: () => string;
-  private readonly idGenerator: NonNullable<
-    ExperimentFoundationExecutionBundleV2ServiceOptions['idGenerator']
-  >;
+  private readonly idGenerator:
+    ExperimentFoundationExecutionBundleV2ServiceOptions['idGenerator'];
 
   constructor(options: ExperimentFoundationExecutionBundleV2ServiceOptions) {
     this.repository = options.repository;
     this.now = options.now ?? (() => new Date().toISOString());
-    this.idGenerator = options.idGenerator
-      ?? ((kind) => `ef_execution_bundle_${kind}_${randomUUID()}`);
+    this.idGenerator = options.idGenerator;
   }
 
   async putDraft(input: {
@@ -58,7 +60,7 @@ export class ExperimentFoundationExecutionBundleV2Service {
     const existing = await this.repository.findDraftByBundleKey(input.bundle_key);
     const now = this.now();
     const executionBundleId = existing?.identity.execution_bundle_id
-      ?? this.idGenerator('identity');
+      ?? this.generateId('identity', { bundle_key: input.bundle_key });
     const nextDraftVersion = existing
       ? (input.expected_draft_version ?? existing.draft.draft_version) + 1
       : 1;
@@ -103,11 +105,15 @@ export class ExperimentFoundationExecutionBundleV2Service {
     assertBundleContent(draftBundle.draft.draft_content);
     const now = this.now();
     const contentHash = hashBundle('ExecutionBundleRevision', draftBundle.draft.draft_content);
-    const revisionId = this.idGenerator('revision');
+    const revisionSequence = input.expected_draft_version;
+    const revisionId = this.generateId('revision', {
+      execution_bundle_id: draftBundle.identity.execution_bundle_id,
+      revision_sequence: revisionSequence,
+    });
     const revision: ExperimentFoundationExecutionBundleRevisionV2 = {
       execution_bundle_revision_id: revisionId,
       execution_bundle_id: draftBundle.identity.execution_bundle_id,
-      revision_sequence: 1,
+      revision_sequence: revisionSequence,
       schema_version: 'v1',
       hash_profile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
       content_hash: contentHash,
@@ -122,7 +128,10 @@ export class ExperimentFoundationExecutionBundleV2Service {
       occurred_at: now,
     };
     const event: ExperimentFoundationExecutionBundleLifecycleEventV2 = {
-      lifecycle_event_id: this.idGenerator('event'),
+      lifecycle_event_id: this.generateId('event', {
+        execution_bundle_revision_id: revisionId,
+        event_sequence: eventContent.event_sequence,
+      }),
       ...eventContent,
       event_hash: hashControl('ExecutionBundleLifecycleEvent', eventContent),
     };
@@ -143,7 +152,10 @@ export class ExperimentFoundationExecutionBundleV2Service {
       evaluated_at: now,
     };
     const readiness: ExperimentFoundationExecutionBundleReadinessV2 = {
-      execution_bundle_readiness_id: this.idGenerator('readiness'),
+      execution_bundle_readiness_id: this.generateId('readiness', {
+        execution_bundle_revision_id: revisionId,
+        lifecycle_event_hash: event.event_hash,
+      }),
       ...readinessContent,
       readiness_hash: hashControl('ExecutionBundleReadiness', readinessContent),
     };
@@ -181,6 +193,54 @@ export class ExperimentFoundationExecutionBundleV2Service {
     }
     return bundle;
   }
+
+  private generateId(
+    kind: ExperimentFoundationExecutionBundleV2IdKind,
+    seed: Readonly<Record<string, unknown>>,
+  ): string {
+    return this.idGenerator?.(kind) ?? deterministicExecutionBundleId(kind, seed);
+  }
+}
+
+const EXECUTION_BUNDLE_ID_DOMAINS = {
+  identity: {
+    prefix: 'ef_execution_bundle_identity_',
+    recordKind: 'EfV2ExecutionBundleIdentityId',
+    hashProfile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
+  },
+  revision: {
+    prefix: 'ef_execution_bundle_revision_',
+    recordKind: 'EfV2ExecutionBundleRevisionId',
+    hashProfile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
+  },
+  event: {
+    prefix: 'ef_execution_bundle_event_',
+    recordKind: 'EfV2ExecutionBundleLifecycleEventId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  },
+  readiness: {
+    prefix: 'ef_execution_bundle_readiness_',
+    recordKind: 'EfV2ExecutionBundleReadinessId',
+    hashProfile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  },
+} as const satisfies Record<ExperimentFoundationExecutionBundleV2IdKind, {
+  prefix: string;
+  recordKind: string;
+  hashProfile: ExperimentV2HashProfile;
+}>;
+
+function deterministicExecutionBundleId(
+  kind: ExperimentFoundationExecutionBundleV2IdKind,
+  seed: Readonly<Record<string, unknown>>,
+): string {
+  const domain = EXECUTION_BUNDLE_ID_DOMAINS[kind];
+  const digest = serverHashExperimentV2SemanticContent({
+    record_kind: domain.recordKind,
+    schema_version: 'v1',
+    hash_profile: domain.hashProfile,
+    content: seed,
+  }).slice('sha256:'.length, 'sha256:'.length + 40);
+  return `${domain.prefix}${digest}`;
 }
 
 function assertBundleIdentity(bundleKey: string, displayName: string): void {

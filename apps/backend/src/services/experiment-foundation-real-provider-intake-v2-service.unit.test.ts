@@ -100,6 +100,48 @@ test('M7-02/03 real intake atomically creates two exact real tuples and replays 
   assert.equal(persistedJson.includes('ragperf.run'), false);
 });
 
+test('QR-2 production-default intake ids are deterministic and distinct across cells', async () => {
+  const [left, right] = await Promise.all([
+    startWithProductionDefaultIds(),
+    startWithProductionDefaultIds(),
+  ]);
+  const projectAuthority = (snapshot: typeof left) => ({
+    payloads: snapshot.payloads.map((payload) => ({
+      id: payload.id,
+      materialization_key: payload.materialization_key,
+      payload_hash: payload.payload_hash,
+    })),
+    attempts: snapshot.attempts.map((attempt) => ({
+      id: attempt.id,
+      provider_payload_id: attempt.provider_payload_id,
+      provider_payload_hash: attempt.provider_payload_hash,
+      provider_idempotency_key: attempt.provider_idempotency_key,
+      workflow_request_hash: attempt.workflow_request_hash,
+    })),
+    events: snapshot.events.map((event) => ({
+      id: event.id,
+      event_hash: event.event_hash,
+    })),
+    commands: snapshot.commands.map((command) => ({
+      id: command.id,
+      command_hash: command.command_hash,
+    })),
+  });
+
+  assert.deepEqual(projectAuthority(left), projectAuthority(right));
+  assert.equal(new Set(left.payloads.map(({ id }) => id)).size, 2);
+  assert.equal(new Set(left.attempts.map(({ id }) => id)).size, 2);
+  assert.equal(new Set(left.events.map(({ id }) => id)).size, 2);
+  assert.equal(new Set(left.commands.map(({ id }) => id)).size, 2);
+  assert.ok(left.payloads.every(({ id }) => /^ef_v2_real_payload_[a-f0-9]{40}$/.test(id)));
+  assert.ok(left.attempts.every(({ id }) => /^ef_v2_real_attempt_[a-f0-9]{40}$/.test(id)));
+  assert.ok(left.events.every(({ id }) => /^ef_v2_real_event_[a-f0-9]{40}$/.test(id)));
+  assert.ok(left.commands.every(({ id }) => /^ef_v2_real_command_[a-f0-9]{40}$/.test(id)));
+  assert.ok(left.attempts.every(
+    (attempt) => attempt.provider_idempotency_key === `${attempt.id}:submit:1`,
+  ));
+});
+
 test('M7-05 repository rejects a mixed real payload/simulation Attempt tuple atomically', async () => {
   const { prerequisite, bundle, profile } = createRealProviderV2TestFixture();
   const repository = new InMemoryExperimentFoundationExecutionV2Repository({
@@ -137,3 +179,23 @@ test('M7-05 repository rejects a mixed real payload/simulation Attempt tuple ato
   assert.equal(repository.snapshot().payloads.length, 0);
   assert.equal(repository.snapshot().attempts.length, 0);
 });
+
+async function startWithProductionDefaultIds() {
+  const { prerequisite, bundle, profile } = createRealProviderV2TestFixture();
+  const repository = new InMemoryExperimentFoundationExecutionV2Repository({
+    realProviderPrerequisites: [prerequisite],
+  });
+  const service = new ExperimentFoundationRealProviderIntakeV2Service({
+    repository,
+    cycleClosureLookup: { isCycleClosed: async () => false },
+    executionBundleResolver: {
+      resolveActiveReadyExact: async () => ({ revision: bundle }),
+    },
+    profileResolver: async () => profile,
+    intakeEnabled: () => true,
+    now: () => REAL_PROVIDER_TEST_NOW,
+  });
+
+  await service.start(prerequisite.run.run_id, 'qr-2-production-default-intake');
+  return repository.snapshot();
+}
