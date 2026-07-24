@@ -202,8 +202,8 @@ Binding dispositions (must close before the named live window):
 | ExecutionBundle active/readiness revalidation inside T2/E1 transactions; projection sequence/hash recheck in `readFrozen` | **M7-L1 precondition** (no revoke writer exists yet; default-off means no production writes today) |
 | Recovery `jobDetailMatches` must compare resource/timeout fields and paginate to exhaustion | **M7-L1 precondition** |
 | Production bootstrap composition for profile resolver/transport/result reader (today `server.ts` fail-fasts when the flags are enabled, by design for I0..I3) | **M7-L1 precondition** |
-| Deterministic authority ids (bundle/payload/attempt/event/command/collection currently default to `randomUUID`; convergence holds via replay but first-pass determinism is preferred) | M7-QR candidate |
-| Gate hardening: measured (not declared) provider/write/redaction censuses, per-check predicates, pre-M7 seeded-row migration comparison, source-population digest comparison, transcript redaction in durable evidence | M7-QR candidate (QR-5-style package) |
+| Deterministic authority ids (bundle/payload/attempt/event/command/collection currently default to `randomUUID`; convergence holds via replay but first-pass determinism is preferred) | **CLOSED 2026-07-24** — M7-QR-2 (see `12-m7-qr-hardening-plan.md`) |
+| Gate hardening: measured (not declared) provider/write/redaction censuses, per-check predicates, pre-M7 seeded-row migration comparison, source-population digest comparison, transcript redaction in durable evidence | **CLOSED 2026-07-24** — M7-QR-1; hardened convergence `t132-m7-offline-20260724-v3` passed |
 
 ## Readiness verdict
 

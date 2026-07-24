@@ -253,6 +253,12 @@ Results:
 - Trigger: the T-132 independent review (Codex gpt-5.6-sol + Claude) confirmed the reconcile watchdog compared poll attempts instead of wall-clock TaskSpec timeout; the worker now derives the cancel-on-timeout deadline from the frozen `timeout_seconds` plus queue grace. All other review findings are dispositioned in the T-132 readiness review (fixed, refuted with evidence, or bound to M7-L1/L2/QR).
 - The same zero live-call, zero-cost, zero named-database/scientific/evidence-write boundary applies; T-106 still implements no provider transport or schema.
 
+## 2026-07-24: M7-QR hardened-gate import
+
+- Imported run: `t132-m7-offline-20260724-v3`, superseding `-v2` after the T-132 M7-QR package hardened the gate from declared to measured evidence (executable pre-M7 seeded-row migration comparison, asserted zero excluded-write census, per-check predicates, measured duplicate-provider scan, transcript-free durable summary) and switched real-provider authority ids to deterministic derivations.
+- Source: `.ai/.tmp/experiment-foundation-productization/t132-m7-offline-20260724-v3/summary.json`; durable copy `12-m7-qr-gate-summary-v3.json` in the T-132 implementation artifacts.
+- The duplicate-provider census is now measured by source scan (`duplicate_provider_implementation_count` from git grep against the reviewed allowlist), not asserted by documentation wording; T-106 still implements no provider transport or schema.
+
 ## Actual Local Full Baseline
 
 Commands run on 2026-05-27:

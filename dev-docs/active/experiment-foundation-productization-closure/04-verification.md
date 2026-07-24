@@ -1069,6 +1069,26 @@ node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-off
 | summary SHA-256 | `7794091061b7d2e920634d78d08d657776fa5515d5fe751b1f22026a1196d6e0` |
 | host full suites after fix | shared 390/390; backend 2,387 tests / 2,327 pass / 0 fail / 60 conditional-skip; gate scripts 18/18 |
 
+### 2026-07-24 — named-local migration apply and M7-QR hardening closure
+
+Named-local apply of `20260723100000` was separately authorized and executed the same day: recovery point (8.4 GB dump, 2,197 TOC entries, SHA-256 `5ce0328b…`), `migrate deploy` 69/69, pre/post row census identical with the profile-column value preserved; full record in `artifacts/db/m7-real-provider-20260724/01-apply-record.md`.
+
+The M7-QR hardening package (`artifacts/implementation/12-m7-qr-hardening-plan.md`) then closed both QR candidates from the independent review plus regression tests. Final hardened convergence:
+
+```bash
+node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-offline-20260724-v3
+```
+
+| Evidence | Final outcome |
+|---|---|
+| gate verdict | `passed`; M7-01..15 all passed under per-check executable predicates |
+| summary SHA-256 | `de4b39855db87557f1ef220c6d2d4bddaf61d7c94c30aca8ecda8e1f63679882`; durable copy `artifacts/implementation/12-m7-qr-gate-summary-v3.json` |
+| pre-M7 row preservation | 68 pre-M7 migrations + replica-seeded provider-control family; semantic digest preserved across the M7 migration; mixed-tuple INSERT and `simulationProfileVersion` reference rejected post-apply |
+| measured censuses | excluded-write tables asserted exactly zero (real table names — the pre-QR bare-label census bug was caught by the first hardened run); duplicate-provider scan measured 0 |
+| durable redaction | summary contains no command transcripts and no absolute machine paths (self-checked) |
+
+The first v3 attempt failed on the newly-honest excluded-write assertion because the legacy `EXCLUDED_WRITE_TABLES` list used bare family labels matching no real table — evidence that the measured census does what the declared census could not.
+
 ### Historical Pack B gate compatibility after M7
 
 The M7 schema evolution initially made the historical Pack B gate stale: the gate expected a 40-table V2 population, fake-only effective PostgreSQL domains and the old `real` fence label. The compatibility repair keeps the Pack B product writer simulation-only, measures all later V2 tables for zero writes, and verifies the evolved exact tuple schema.

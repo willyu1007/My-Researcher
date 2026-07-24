@@ -655,3 +655,11 @@ When adding an entry, use:
 - Fix: the watchdog deadline is `attempt.created_at + timeout_seconds + watchdogGraceMs`; healthy nonterminal polling and retryable sync/reconcile transport errors release until that deadline, and `maximumCommandAttempts` stays as the transport-retry bound for submit/cancel/collect. M7-09 was rewritten to advance a fake clock across the deadline.
 - Prevention: any bound expressed as an attempt count must be justified against wall-clock semantics; tests for timeout paths must drive an injected clock across a real deadline instead of shrinking a counter.
 - References: `experiment-foundation-real-provider-command-v2-worker.ts`; `experiment-foundation-real-provider-command-v2-worker.unit.test.ts`; gate run `t132-m7-offline-20260724-v2`.
+
+### 2026-07-24 — A census that only reads what exists proves nothing
+
+- Symptom: the M7 gate's excluded-write census had always reported clean because three of its four "table names" (`ExperimentResult`, `EvidenceCandidate`, `RunEvidenceUnit`) were bare family labels matching no real table — `information_schema` enumeration silently returned nothing for them, and nothing was asserted.
+- Detection: the QR-1 hardening changed the census from collected-and-ignored to present-and-exactly-zero; the first hardened run failed immediately with only `ExperimentFoundationExternalTrainingJob` in the census, exposing the bug.
+- Fix: the list now names the real tables (`ExperimentFoundationRecord`, `ExperimentFoundationExperimentResultV2`, `ExperimentFoundationEvidenceCandidateV2`, `PaperImplementationRunEvidenceUnit`, `PaperImplementationRunEvidenceUnitV2`) and the assertion requires every listed table to be present with count 0 — a missing table is a failure, not a pass.
+- Prevention: any allowlist/denylist of database objects must be validated against the live catalog (existence is part of the assertion); "no rows found for X" and "X does not exist" must never be conflated.
+- References: `experiment-foundation-m7-provider-gate.mjs` (`assertExcludedWriteTablesZero`); failed lineage first-attempt `t132-m7-offline-20260724-v3`; passing rerun same id, SHA `de4b3985…`.
