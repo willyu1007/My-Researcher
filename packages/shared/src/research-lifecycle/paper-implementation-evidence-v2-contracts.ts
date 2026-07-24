@@ -181,7 +181,7 @@ export interface ValidationCycleReadinessEvaluationV2 {
  * `decision_exit` and free-form outputs are not representable.
  */
 export interface CloseValidationCycleV2Request {
-  validation_cycle_id: string;
+  validation_cycle_id?: string;
   expected_cycle_version: number;
   expected_closure_input_hash: string;
   closure_kind: ValidationCycleClosureKindV2;
@@ -490,7 +490,6 @@ export const closeValidationCycleV2RequestSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'validation_cycle_id',
     'expected_cycle_version',
     'expected_closure_input_hash',
     'closure_kind',

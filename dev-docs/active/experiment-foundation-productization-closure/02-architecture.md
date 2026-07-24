@@ -901,6 +901,14 @@ Migration `20260723100000_add_experiment_foundation_m7_real_provider_v2` is an u
 
 M5-A1 adds one read-only repository port consumed by an HTTP-free deterministic service. The Prisma adapter scopes every ORM predicate and every cross-domain SQL join by the server-supplied ImplementationProject id before returning rows. Scope mismatch therefore returns the same not-found result as absence and never requires client-side filtering.
 
+## M5-A3 derived agent-action boundary
+
+M5-A3 adds no repository. `PaperImplementationAgentActionsV2Service` injects the existing readiness evaluator and the A1 lineage service. Closure preparation is a pure transformation of the evaluator result. Available-actions obtains one internal A1 action context that preserves the established effective-head predicate while retaining each Attempt's Run-cell association; this avoids a second query implementation and leaves the public A1 lineage response unchanged.
+
+The available-actions response is derived only from project-scoped Cycle lineage, immutable closure summary, readiness, effective head cells and Attempt lifecycle state. Closed cycles short-circuit to an empty list plus closure summary. The real-provider start action is advertised as capability-gated without reading environment state. Scientific closure is represented only as an unavailable `M7-L2` marker and never as a prepared request.
+
+The closure compat easing is normalized at the controller boundary: absent body `validation_cycle_id` becomes the path id, while a present mismatch remains a typed 400. The closure service still receives a resolved required id and retains all existing transaction, CAS, idempotency, authority-field, and write semantics.
+
 The per-Cycle read retains D-18 head authority: an effective head requires the branch head revision/sequence to equal the current admitted revision, an exact EF Run branch/revision/hash/sequence/manifest binding, and exactly one processed durable `BranchHeadAdvanced` acknowledgement. Anything else is represented by `BRANCH_HEAD_NOT_FROZEN`; the read model never creates a second head or readiness authority.
 
 Full revision history is a separate exact branch query. The query orders immutable revisions by sequence, retains superseded entries with explicit current/head flags, and attaches a Run only through the exact branch/revision/hash/sequence join. No lineage endpoint accepts hashes, revision ids, refs, request bodies, or query filters.

@@ -241,6 +241,16 @@ test('v2 closure route enforces strict cycle identity and maps the dedicated use
   assert.equal(success.json().closure.closure_id, 'closure-1');
   assert.deepEqual(captured, [closureRequestFixture()]);
 
+  const { validation_cycle_id: _redundantCycleId, ...pathOnlyPayload } =
+    closureRequestFixture();
+  const pathOnly = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/validation-cycles/cycle-1/closure/v2',
+    payload: pathOnlyPayload,
+  });
+  assert.equal(pathOnly.statusCode, 201, pathOnly.body);
+  assert.deepEqual(captured[1], closureRequestFixture());
+
   const mismatch = await app.inject({
     method: 'POST',
     url: '/paper-implementation/validation-cycles/cycle-other/closure/v2',
@@ -248,7 +258,7 @@ test('v2 closure route enforces strict cycle identity and maps the dedicated use
   });
   assert.equal(mismatch.statusCode, 400, mismatch.body);
   assert.equal(mismatch.json().error.details.reason_code, 'V2_TYPED_SNAPSHOT_INVALID');
-  assert.equal(captured.length, 1);
+  assert.equal(captured.length, 2);
 
   const extraField = await app.inject({
     method: 'POST',
@@ -256,7 +266,7 @@ test('v2 closure route enforces strict cycle identity and maps the dedicated use
     payload: { ...closureRequestFixture(), decision_exit: 'proceed' },
   });
   assert.equal(extraField.statusCode, 400, extraField.body);
-  assert.equal(captured.length, 1);
+  assert.equal(captured.length, 2);
   await app.close();
 });
 

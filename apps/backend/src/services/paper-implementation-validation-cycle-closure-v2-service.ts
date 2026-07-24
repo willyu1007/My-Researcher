@@ -32,6 +32,10 @@ export interface PaperImplementationValidationCycleClosureV2ServiceOptions {
   now?: () => string;
 }
 
+type ResolvedCloseValidationCycleV2Request =
+  Omit<CloseValidationCycleV2Request, 'validation_cycle_id'>
+  & { validation_cycle_id: string };
+
 export class PaperImplementationValidationCycleClosureV2Service {
   private readonly repository: PaperImplementationValidationCycleClosureV2Repository;
   private readonly enabled: () => boolean;
@@ -50,6 +54,24 @@ export class PaperImplementationValidationCycleClosureV2Service {
     if (!this.enabled()) {
       throw closureDisabled('ValidationCycle v2 closure is disabled.');
     }
+    if (request.validation_cycle_id === undefined) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'ValidationCycle id must be resolved from the request path.',
+        { reason_code: 'V2_TYPED_SNAPSHOT_INVALID' },
+      );
+    }
+    return this.closeResolved({
+      ...request,
+      validation_cycle_id: request.validation_cycle_id,
+    }, serializationRetry);
+  }
+
+  private async closeResolved(
+    request: ResolvedCloseValidationCycleV2Request,
+    serializationRetry: number,
+  ): Promise<CloseValidationCycleV2Response> {
     if (request.closure_kind === 'scientific_evidence_assessed') {
       throw closureDisabled(
         'Scientific-evidence ValidationCycle closure is a later Pack C increment and is not implemented.',
@@ -97,7 +119,7 @@ export class PaperImplementationValidationCycleClosureV2Service {
 
   private async closeInTransaction(
     transaction: PaperImplementationValidationCycleClosureV2Transaction,
-    request: CloseValidationCycleV2Request,
+    request: ResolvedCloseValidationCycleV2Request,
   ): Promise<CloseValidationCycleV2Response> {
     const readiness = await new PaperImplementationCycleReadinessV2Service({
       repository: transaction,
@@ -254,7 +276,7 @@ export class PaperImplementationValidationCycleClosureV2Service {
   }
 
   private async resolveConcurrentReplay(
-    request: CloseValidationCycleV2Request,
+    request: ResolvedCloseValidationCycleV2Request,
   ): Promise<CloseValidationCycleV2Response> {
     return this.repository.withTransaction(async (transaction) => {
       const stored = await transaction.findStoredClosureByCycle(request.validation_cycle_id)
@@ -289,7 +311,7 @@ function isTerminalProductCycleStatus(status: string): boolean {
   return status === 'completed' || status === 'aborted' || status === 'superseded';
 }
 
-function assertControlOnlyRequest(request: CloseValidationCycleV2Request): void {
+function assertControlOnlyRequest(request: ResolvedCloseValidationCycleV2Request): void {
   if (
     request.accepted_proposal_id !== null
     || request.expected_proposal_hash !== null
@@ -306,7 +328,7 @@ function assertControlOnlyRequest(request: CloseValidationCycleV2Request): void 
 
 function replayOrAlreadyClosed(
   stored: PaperImplementationStoredValidationCycleClosureV2,
-  request: CloseValidationCycleV2Request,
+  request: ResolvedCloseValidationCycleV2Request,
 ): CloseValidationCycleV2Response {
   if (
     stored.closure.validation_cycle_id === request.validation_cycle_id

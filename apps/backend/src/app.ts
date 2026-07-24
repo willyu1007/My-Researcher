@@ -9,6 +9,7 @@ import { LiteratureBackfillController } from './controllers/literature-backfill-
 import { LiteratureContentProcessingSettingsController } from './controllers/literature-content-processing-settings-controller.js';
 import { LiteratureFulltextAcquisitionController } from './controllers/literature-fulltext-acquisition-controller.js';
 import { LiteratureController } from './controllers/literature-controller.js';
+import { PaperImplementationAgentActionsV2Controller } from './controllers/paper-implementation-agent-actions-v2-controller.js';
 import { PaperImplementationExperimentLineageV2Controller } from './controllers/paper-implementation-experiment-lineage-v2-controller.js';
 import { PaperImplementationExperimentV2Controller } from './controllers/paper-implementation-experiment-v2-controller.js';
 import { PaperImplementationController } from './controllers/paper-implementation-controller.js';
@@ -121,6 +122,7 @@ import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-r
 import { registerLiteratureContentProcessingSettingsRoutes } from './routes/literature-content-processing-settings-routes.js';
 import { registerLiteratureFulltextAcquisitionRoutes } from './routes/literature-fulltext-acquisition-routes.js';
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
+import { registerPaperImplementationAgentActionsV2Routes } from './routes/paper-implementation-agent-actions-v2-routes.js';
 import { registerPaperImplementationExperimentLineageV2Routes } from './routes/paper-implementation-experiment-lineage-v2-routes.js';
 import { registerPaperImplementationExperimentV2Routes } from './routes/paper-implementation-experiment-v2-routes.js';
 import { registerPaperImplementationRoutes } from './routes/paper-implementation-routes.js';
@@ -225,6 +227,7 @@ import {
   type PaperImplementationExperimentV2ScopeReader,
 } from './services/paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from './services/paper-implementation-experiment-v2-head-service.js';
+import { PaperImplementationAgentActionsV2Service } from './services/paper-implementation-agent-actions-v2-service.js';
 import { PaperImplementationCycleReadinessV2Service } from './services/paper-implementation-cycle-readiness-v2-service.js';
 import { PaperImplementationExperimentLineageV2Service } from './services/paper-implementation-experiment-lineage-v2-service.js';
 import { PaperImplementationEvidenceTrustGatewayService } from './services/paper-implementation-evidence-trust-gateway-service.js';
@@ -765,10 +768,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new PaperImplementationCycleReadinessV2Service({
       repository: paperImplementationCycleReadinessV2Repository,
     });
+  const paperImplementationExperimentLineageV2Service =
+    new PaperImplementationExperimentLineageV2Service({
+      repository: paperImplementationExperimentLineageV2Repository,
+    });
   const paperImplementationExperimentLineageV2Controller =
     new PaperImplementationExperimentLineageV2Controller(
-      new PaperImplementationExperimentLineageV2Service({
-        repository: paperImplementationExperimentLineageV2Repository,
+      paperImplementationExperimentLineageV2Service,
+    );
+  const paperImplementationAgentActionsV2Controller =
+    new PaperImplementationAgentActionsV2Controller(
+      new PaperImplementationAgentActionsV2Service({
+        readiness: paperImplementationCycleReadinessV2Service,
+        lineage: paperImplementationExperimentLineageV2Service,
       }),
     );
   const paperImplementationExperimentV2Controller =
@@ -1571,6 +1583,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerPaperImplementationExperimentLineageV2Routes(
       instance,
       paperImplementationExperimentLineageV2Controller,
+    );
+    await registerPaperImplementationAgentActionsV2Routes(
+      instance,
+      paperImplementationAgentActionsV2Controller,
     );
     await registerLiteratureAcquisitionSettingsRoutes(instance, literatureAcquisitionSettingsController);
     await registerLiteratureContentProcessingSettingsRoutes(instance, literatureContentProcessingSettingsController);

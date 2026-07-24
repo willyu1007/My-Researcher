@@ -231,6 +231,8 @@ test('close request carries identity, CAS expectations and the human decision on
     idempotency_key: 'close-cycle-001-v3',
   };
   assert.equal(await validates(closeValidationCycleV2RequestSchema, request), true);
+  const { validation_cycle_id: _pathRedundantId, ...pathOnlyRequest } = request;
+  assert.equal(await validates(closeValidationCycleV2RequestSchema, pathOnlyRequest), true);
   for (const forbidden of [
     { cycle_assessment: { disposition: 'positive' } },
     { decision_exit: 'proceed' },

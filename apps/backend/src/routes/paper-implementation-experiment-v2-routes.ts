@@ -181,25 +181,28 @@ export async function registerPaperImplementationExperimentV2Routes(
         },
       },
       preValidation: async (request, _reply) => {
-        if (request.params.validation_cycle_id === request.body.validation_cycle_id) {
-          const forbiddenField = findForbiddenNestedField(
-            request.body,
-            callerAuthoredClosureAuthorityFields,
-          );
-          if (!forbiddenField) {
-            return;
-          }
+        if (
+          request.body.validation_cycle_id !== undefined
+          && request.params.validation_cycle_id !== request.body.validation_cycle_id
+        ) {
           throw new AppError(
             400,
             'INVALID_PAYLOAD',
-            `Caller-authored closure authority field is not allowed: ${forbiddenField}`,
+            'Path and body validation_cycle_id must match.',
             { reason_code: 'V2_TYPED_SNAPSHOT_INVALID' },
           );
+        }
+        const forbiddenField = findForbiddenNestedField(
+          request.body,
+          callerAuthoredClosureAuthorityFields,
+        );
+        if (!forbiddenField) {
+          return;
         }
         throw new AppError(
           400,
           'INVALID_PAYLOAD',
-          'Path and body validation_cycle_id must match.',
+          `Caller-authored closure authority field is not allowed: ${forbiddenField}`,
           { reason_code: 'V2_TYPED_SNAPSHOT_INVALID' },
         );
       },

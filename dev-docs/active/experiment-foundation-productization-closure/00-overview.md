@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: **M5-A1 project-scoped experiment-lineage read model is implemented and locally verified**. Run the guarded relational test on an authorized disposable PostgreSQL host, then continue with M5-A2 only under its separate projection-table/migration scope. M7-L1 remains a separate live-provider authorization boundary; M5-A1 did not enable a capability, apply a migration, or perform any write.
+- Next step: **M5-A3 closure preparation, available-actions enumeration, and closure body/path compat easing are implemented and locally verified**. Run the guarded A1/closure relational cases on an authorized disposable PostgreSQL host, then continue with M5-A4 convergence-gate work. OD-M5-2 remains revised to no projection/no schema in M5-A. M7-L1/L2 remain separate authorization boundaries; M5-A3 did not enable a capability, apply a migration, add persistence, or perform a write.
 
 ## M7 default-off implementation — 2026-07-23
 

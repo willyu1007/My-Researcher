@@ -112,7 +112,10 @@ export class PaperImplementationExperimentV2Controller {
     reply: FastifyReply,
   ) => {
     try {
-      const response = await this.closure.close(request.body);
+      const response = await this.closure.close({
+        ...request.body,
+        validation_cycle_id: request.params.validation_cycle_id,
+      });
       return reply.status(201).send(response);
     } catch (error) {
       return handleError(reply, error);

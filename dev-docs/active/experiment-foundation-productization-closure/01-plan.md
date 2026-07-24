@@ -470,5 +470,12 @@ Pack B closed these technical exit requirements with PB01-PB16 on `packb-2026071
 - The guarded disposable-PostgreSQL isolation/completeness test is written and type-checked but remains a host-verification action because the sandbox has no PostgreSQL target.
 - M5-A2 projection persistence, M5-A3 closure preparation/actions, M5-A4 gate work, UI, semantic projection, migrations, and all mutations remain outside the M5-A1 checkpoint.
 
+## 2026-07-24 — M5-A3 implementation checkpoint
+
+- Completed OD-M5-3 with the zero-write closure-preparation GET. The endpoint reuses the existing readiness evaluator, emits ready/blocked plus the evaluator blockers, prepares only the no-evidence control-closure POST body template, and marks eligible-REU scientific closure unavailable behind M7-L2.
+- Completed OD-M5-4 with the project-scoped available-actions GET. It injects the A1 lineage service for opaque project/cycle scope, effective-head/cell/Attempt state, composes readiness plus closure existence, and returns deterministically ordered typed POST actions without probing capability env.
+- Made the closure POST body `validation_cycle_id` optional at the shared HTTP boundary. The controller always resolves the service command from the path; a supplied body id still must match exactly.
+- M5-A3 added no schema, migration, persistence, repository write, gate-script change, capability enable, provider call, or scientific authority. M5-A4 remains the next implementation slice; guarded A1/closure PostgreSQL cases remain host-verified-later.
+
 ## Implementation start condition
 Implementation may start only after the user confirms the roadmap decisions and explicitly authorizes execution. Phase 1 identity/readiness must close first; the planned first cross-module acceptance slice is D-19's Phase 2 admission-to-head acknowledgement spine, never provider integration, full Cycle closure or UI polish.

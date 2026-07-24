@@ -7,6 +7,7 @@ import type {
 
 import type {
   PaperImplementationExperimentLineageV2BranchRecord,
+  PaperImplementationExperimentLineageV2CycleReadModel,
   PaperImplementationExperimentLineageV2HeadRunRecord,
   PaperImplementationExperimentLineageV2Repository,
 } from '../repositories/paper-implementation-experiment-lineage-v2.repository.js';
@@ -28,6 +29,27 @@ export class PaperImplementationExperimentLineageV2ServiceError extends Error {
 
 export interface PaperImplementationExperimentLineageV2ServiceOptions {
   repository: PaperImplementationExperimentLineageV2Repository;
+}
+
+export interface PaperImplementationExperimentLineageV2ActionAttempt {
+  execution_attempt_id: string;
+  run_cell_id: string;
+  lifecycle_state: string;
+}
+
+export interface PaperImplementationExperimentLineageV2ActionHead {
+  branch_id: string;
+  run_id: string;
+  run_cell_ids: string[];
+  attempts: PaperImplementationExperimentLineageV2ActionAttempt[];
+}
+
+export interface PaperImplementationExperimentLineageV2ActionContext {
+  implementation_project_id: string;
+  validation_cycle_id: string;
+  lifecycle_status: string;
+  closure: ValidationCycleExperimentLineageV2Response['validation_cycle']['closure'];
+  effective_heads: PaperImplementationExperimentLineageV2ActionHead[];
 }
 
 function compareText(left: string, right: string): number {
@@ -137,16 +159,10 @@ export class PaperImplementationExperimentLineageV2Service {
     implementationProjectId: string,
     validationCycleId: string,
   ): Promise<ValidationCycleExperimentLineageV2Response> {
-    const readModel = await this.options.repository.findValidationCycleExperimentLineage(
+    const readModel = await this.requireValidationCycleReadModel(
       implementationProjectId,
       validationCycleId,
     );
-    if (!readModel) {
-      throw new PaperImplementationExperimentLineageV2ServiceError(
-        'VALIDATION_CYCLE_NOT_FOUND',
-        `ValidationCycle does not exist in the requested project: ${validationCycleId}`,
-      );
-    }
     const branches = [...readModel.branches].sort((left, right) => (
       compareText(left.branch_key, right.branch_key)
       || compareText(left.branch_id, right.branch_id)
@@ -188,6 +204,54 @@ export class PaperImplementationExperimentLineageV2Service {
             head_blocker: 'BRANCH_HEAD_NOT_FROZEN',
           };
       }),
+    };
+  }
+
+  async getValidationCycleActionContext(
+    implementationProjectId: string,
+    validationCycleId: string,
+  ): Promise<PaperImplementationExperimentLineageV2ActionContext> {
+    const readModel = await this.requireValidationCycleReadModel(
+      implementationProjectId,
+      validationCycleId,
+    );
+    const effectiveHeads = [...readModel.branches]
+      .sort((left, right) => (
+        compareText(left.branch_key, right.branch_key)
+        || compareText(left.branch_id, right.branch_id)
+      ))
+      .flatMap((branch) => {
+        if (!isEffectiveHead(branch, branch.head_run)) return [];
+        const cells = [...branch.head_run.cells].sort((left, right) => (
+          left.ordinal - right.ordinal
+          || compareText(left.run_cell_id, right.run_cell_id)
+        ));
+        const cellOrdinalById = new Map(
+          cells.map((cell) => [cell.run_cell_id, cell.ordinal]),
+        );
+        const attempts = [...branch.head_run.attempts].sort((left, right) => (
+          (cellOrdinalById.get(left.run_cell_id) ?? Number.MAX_SAFE_INTEGER)
+            - (cellOrdinalById.get(right.run_cell_id) ?? Number.MAX_SAFE_INTEGER)
+          || left.attempt_sequence - right.attempt_sequence
+          || compareText(left.execution_attempt_id, right.execution_attempt_id)
+        ));
+        return [{
+          branch_id: branch.branch_id,
+          run_id: branch.head_run.run_id,
+          run_cell_ids: cells.map((cell) => cell.run_cell_id),
+          attempts: attempts.map((attempt) => ({
+            execution_attempt_id: attempt.execution_attempt_id,
+            run_cell_id: attempt.run_cell_id,
+            lifecycle_state: attempt.lifecycle_state,
+          })),
+        }];
+      });
+    return {
+      implementation_project_id: readModel.implementation_project_id,
+      validation_cycle_id: readModel.validation_cycle_id,
+      lifecycle_status: readModel.lifecycle_status,
+      closure: readModel.closure,
+      effective_heads: effectiveHeads,
     };
   }
 
@@ -249,7 +313,24 @@ export class PaperImplementationExperimentLineageV2Service {
             run_ref: revision.run,
             cell_count: revision.cell_count,
           };
-        }),
+      }),
     };
+  }
+
+  private async requireValidationCycleReadModel(
+    implementationProjectId: string,
+    validationCycleId: string,
+  ): Promise<PaperImplementationExperimentLineageV2CycleReadModel> {
+    const readModel = await this.options.repository.findValidationCycleExperimentLineage(
+      implementationProjectId,
+      validationCycleId,
+    );
+    if (!readModel) {
+      throw new PaperImplementationExperimentLineageV2ServiceError(
+        'VALIDATION_CYCLE_NOT_FOUND',
+        `ValidationCycle does not exist in the requested project: ${validationCycleId}`,
+      );
+    }
+    return readModel;
   }
 }

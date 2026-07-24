@@ -1163,3 +1163,59 @@ Static zero-write/scope census:
 - Every Prisma ORM predicate and raw SQL query in the new Prisma adapter carries the requested ImplementationProject id in its `where`/`WHERE` scope.
 - Route/controller request inputs contain only `implementation_project_id`, `validation_cycle_id`, or `branch_id` path parameters; no request body/query/hash/ref/revision-id input exists.
 - Strict task-bundle documentation lint passed 96/96 with 0 warnings/errors, and `git diff --check` passed.
+
+## 2026-07-24 — M5-A3 closure preparation and available actions
+
+Required typechecks:
+
+```bash
+pnpm --filter @paper-engineering-assistant/shared typecheck
+pnpm --filter @paper-engineering-assistant/backend typecheck
+```
+
+- Outcome: both passed with exit 0. Backend pretypecheck regenerated the unchanged Prisma client.
+
+Shared new/closure schema tests:
+
+```bash
+cd packages/shared
+node --test --loader ts-node/esm \
+  src/research-lifecycle/paper-implementation-closure-preparation-v2-contracts.schema.test.ts \
+  src/research-lifecycle/paper-implementation-evidence-v2-contracts.schema.test.ts
+```
+
+- Outcome: 12/12 passed, 0 failed/skipped.
+
+Backend new/touched service and route tests:
+
+```bash
+cd apps/backend
+node --test --loader ts-node/esm \
+  src/services/paper-implementation-agent-actions-v2-service.unit.test.ts \
+  src/routes/paper-implementation-agent-actions-v2-routes.integration.test.ts \
+  src/routes/paper-implementation-experiment-v2-routes.integration.test.ts \
+  src/services/paper-implementation-experiment-lineage-v2-service.unit.test.ts \
+  src/routes/paper-implementation-experiment-lineage-v2-routes.integration.test.ts
+```
+
+- Outcome: 24/24 passed, 0 failed/skipped.
+
+Existing closure/readiness inventory:
+
+```bash
+cd apps/backend
+node --test --loader ts-node/esm \
+  src/services/paper-implementation-cycle-readiness-v2-service.unit.test.ts \
+  src/services/paper-implementation-validation-cycle-closure-v2-service.unit.test.ts \
+  src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts \
+  src/routes/paper-implementation-experiment-v2-routes.integration.test.ts
+```
+
+- Outcome: 31 passed, 0 failed, 4 guarded relational cases skipped.
+- Host action: run the relational file with `PAPER_IMPLEMENTATION_EVIDENCE_CLOSURE_V2_RELATIONAL_PRISMA=1` plus the existing randomized disposable database identity variables and require 4/4 passed with zero skips. This local skip is not PostgreSQL acceptance.
+
+Static checks:
+
+- `git diff --check` passed.
+- Strict task-bundle documentation lint passed 96/96 with 0 warnings/errors.
+- New service/controller/routes contain no transaction or mutation calls. M5-A3 adds no repository, schema, migration, persistence, or gate-script change.
