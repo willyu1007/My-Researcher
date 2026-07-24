@@ -227,11 +227,11 @@ The structure preview is a non-binding, early hypothesis; execution may refine l
 | M2 D-19 shared scope and Run spine | two-cell PI revision delegates exact cells through typed preparation into one Run/manifest and sequence-fenced head/ack | D-19 proves one revision/Run/head/ack, replay/crash/conflict convergence and zero Attempt/provider/result/evidence/closure writes |
 | M3 Durable provider control plane | exact locked payload drives crash-safe same-payload simulation | submit/sync/cancel/collect/reconcile survives restart/retry, changes only Attempt/control projection and cannot mint scientific evidence |
 | M4 Scientific/trusted closure | exact-batch validation/gateway contracts plus one D-18 Cycle closure authority | fixture-only scientific conformance is production-disabled; release performs only CAS-fenced no-evidence closure with zero real result/EvidenceCandidate/REU |
-| M5 Researcher product workflow | project/cycle/branch-head scoped UI, deterministic lineage queries and optional semantic discovery with typed actions and recoverable states | primary golden flow needs no manual ref/hash/JSON; structured queries remain authoritative when semantic indexing is unavailable; real DOM/Electron tests pass |
-| M6 Release closure + cloud preflight | Postgres, fault injection, UI usage-fit, docs and zero-write Aliyun preflight gates are green | control-plane scenario traces PI intent → typed v2 RAGPerf protocol → TaskSpec/payload → simulated lifecycle/Sidecar; T-131 v1 remains catalog history; exact cloud payload/read-only checks/fake lifecycle pass; zero writes and zero simulated evidence are proven |
+| M5 Agent-first researcher workflow (D-24 rescope) | project/cycle/branch-head scoped lineage read model, typed action surface and workflow automation consumable by an LLM agent or any future UI; UI product journey and semantic discovery deferred out of T-132 | primary golden flow needs no manual ref/hash/JSON through typed APIs; structured queries are the sole retrieval authority; automation (terminal sync/collect, Cycle-ready, proposals) verified at service/API level |
+| M6 Release closure + cloud preflight | Postgres, fault injection, workflow usage-fit on the actual interaction surface (agent/API; D-24), docs and zero-write Aliyun preflight gates are green | control-plane scenario traces PI intent → typed v2 RAGPerf protocol → TaskSpec/payload → simulated lifecycle/Sidecar; T-131 v1 remains catalog history; exact cloud payload/read-only checks/fake lifecycle pass; zero writes and zero simulated evidence are proven |
 | M7 Real provider execution and evidence closure (deferred) | optional minimum Aliyun execution behind explicit budget/credential/data/cleanup approval | outside the first release door; only M7 or another verified real provider may close real result, EvidenceCandidate and RunEvidenceUnit production claims |
 
-Current milestone state: M0-M4 are technically verified for their bounded default-off/control-plane scopes, and M6 read-only preflight is verified. M5 UI/search and M7 real execution/evidence remain planned or in progress behind independent gates.
+Current milestone state: M0-M4 are technically verified for their bounded default-off/control-plane scopes, M6 read-only preflight is verified, and M7-I0..I3 default-off implementation is verified with QR hardening. M5 (narrowed by D-24 to the agent-first workflow slice; UI journey and semantic discovery deferred to the future UI-redesign task) and M7 live execution remain planned behind independent gates.
 
 ## Step-by-step plan
 
@@ -345,7 +345,8 @@ Current milestone state: M0-M4 are technically verified for their bounded defaul
 - Rollback: disable validation/evidence/gateway/closure writers, preserve immutable readback and forward-fix v2 state; never restore legacy trusted authority.
 
 ### Phase 5 — Project-scoped researcher workflow
-- Objective: turn the engineering console into a coherent product journey.
+- **D-24 rescope (2026-07-24)**: this phase is narrowed to the agent-first workflow slice. Kept: the project-scoped lineage read model/queries, typed action surface with server-derived identities, workflow automation (terminal sync/collect, Cycle-ready detection, Result Analysis proposal, post-closure preparation) and typed blocker/approval/recovery actions. Deferred out of T-132 (to the future UI-redesign task): navigation/forms/owning-screen presentation/provenance views, the DOM/Electron test lane, and the entire semantic retrieval projection. Structured lineage queries are the sole retrieval authority. Existing desktop read-only views stay frozen.
+- Objective: expose the control plane as a coherent, typed, automated workflow consumable by an LLM agent or any future UI.
 - Deliverables:
   - navigation keyed by PaperProject/ImplementationProject → ValidationCycle → WorkOrder → Run;
   - lineage-scoped queries/read model and typed forms with explicit WorkOrder branch, revision and branch-head Run identities;
@@ -356,11 +357,11 @@ Current milestone state: M0-M4 are technically verified for their bounded defaul
   - clear blockers, approvals, retry/recovery actions and provenance views;
   - separate rendering of control-flow simulation, EF execution, EF protocol `passed | failed | unsupported`, PI proposal and closed-Cycle `positive | negative | inconclusive | null`; no mode-labelled Run or REU-disposition terminology.
   - raw JSON limited to advanced diagnostics.
-- Verification:
-  - real DOM/Electron tests click through each newly enabled slice;
+- Verification (per D-24, at HTTP/service/repository level):
   - multiple projects/recipes/runs cannot leak into one another's timeline;
-  - stale/missing embeddings cannot block structured retrieval or influence branch head, execution, readiness or evidence decisions;
-  - primary flow contains no manually entered internal IDs or hashes.
+  - the primary agent/API flow contains no manually entered internal IDs or hashes;
+  - automation behaviors (terminal sync/collect, Cycle-ready, proposals) are event-replayable and idempotent;
+  - deferred UI/semantic items carry no landed code, capability or schema in T-132.
 - Rollback:
   - retain current read-only asset views; gate new workflow actions independently.
 
@@ -382,7 +383,7 @@ Current milestone state: M0-M4 are technically verified for their bounded defaul
 - Verification:
   - shared/backend/desktop typecheck and tests;
   - disposable Postgres full chain;
-  - actual DOM/Electron E2E, restart/fault injection, duplicate replay and soak over the control-plane simulator;
+  - real HTTP/service/repository E2E (per D-24; existing desktop read-only views keep only their current tests), restart/fault injection, duplicate replay and soak over the control-plane simulator;
   - cloud-call audit contains only approved read/list operations and zero create/update/delete calls;
   - a deliberate `CreateJob` attempt is rejected before transport and also denied by the preflight credential policy;
   - materialized payload hash equals the payload hash consumed by the fake-provider lifecycle, and a DB/API scan proves zero simulated scientific evidence;
@@ -443,7 +444,7 @@ Current milestone state: M0-M4 are technically verified for their bounded defaul
 | simulator output is mistaken for scientific evidence | high | high | explicit non-production adapter identity; evidence writers reject LocalScript/fake provenance; separate `workflow_simulation_passed` vocabulary | product-route negative tests and zero-evidence DB scan | disable simulator product route and revoke any leaked records |
 | terminal simulation is mistaken for a terminal scientific Run | high | high | one Run with Attempt-level provenance; scientific state remains `not_started`; control status is a rebuildable projection and Cycle closure is explicitly no-evidence | state-transition negatives plus Run/Attempt/closure readback | discard/rebuild the control projection; never rewrite EF scientific history |
 | ranges or a generator become a second post-admission scientific authority | high | high | admission requires embedded exact cells plus `cell_plan_hash`; EF only validates/materializes one-to-one cells and cannot sample/default scientific fields/add/drop/substitute | range-only, generator-only, replay-drift and manifest-parity negatives | reject before Run/head/Attempt; revise the PI draft and admit a new revision |
-| control-plane E2E is another source-string/mock smoke | medium | high | require DOM interactions, real service/repository and simulator fault evidence | artifact inspection and required-test registry | reject release summary |
+| control-plane E2E is another source-string/mock smoke | medium | high | require real HTTP/service/repository interactions, real-database evidence and simulator fault evidence (DOM lane deferred with the UI layer per D-24) | artifact inspection and required-test registry | reject release summary |
 
 ## Optional detailed documentation layout
 T-132 uses the repository's complete bundle:

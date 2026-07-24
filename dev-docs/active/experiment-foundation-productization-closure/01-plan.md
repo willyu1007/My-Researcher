@@ -1,7 +1,7 @@
 # 01 Plan
 
 ## Execution posture
-- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing、Pack C 全部切片/最终 gate/named-local hardening apply、zero-write Aliyun `public_resource` preflight，以及 M7-I0..I3 default-off code/schema/test implementation 均已完成。M7 最终 run `t132-m7-offline-20260723-v1` 通过 M7-01..M7-15，且真实 provider/OSS、named DB apply、scientific/evidence/legacy writes 全为 0。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight/real-provider capability 均为 `false`。任何 provider write、scientific execution、UI/search 或 non-local rollout 仍是独立后续授权。
+- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing、Pack C 全部切片/最终 gate/named-local hardening apply、zero-write Aliyun `public_resource` preflight，以及 M7-I0..I3 default-off code/schema/test implementation 均已完成。M7 收敛 run 经独立评审与 M7-QR 硬化后为 `t132-m7-offline-20260724-v3`（passed，实测谓词），M7 迁移 `20260723100000` 已于 2026-07-24 经批准 apply 到 named-local（记录 `artifacts/db/m7-real-provider-20260724/`）。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight/real-provider capability 均为 `false`。任何 provider write、scientific execution 或 non-local rollout 仍是独立后续授权；M5 已按 D-24 收窄为 agent-first 工作流切片（UI 产品旅程与语义检索随未来 UI 重设计另立任务）。
 - Pack A state: implementation and exact source-policy binding are complete; final run `packa-d19-source-policy-20260713-r2` passed A01-A04 and B01-B10 with `blockers=[]` on disposable PostgreSQL.
 - T-132 remains a single execution package. Internal workstreams may run in parallel only after the shared invariant contracts are frozen.
 - Every phase MUST add its own negative/integration evidence. A final control-plane scenario cannot compensate for missing phase-level proof.
@@ -390,6 +390,8 @@ Pack B closed these technical exit requirements with PB01-PB16 on `packb-2026071
 
 ## Phase 5 — Project-scoped researcher workflow
 
+> **D-24 rescope (2026-07-24, see 03-implementation-notes)**: Phase 5 is narrowed to the agent-first workflow slice. Of this phase's numbered steps, the kept scope is the lineage read model and server-scoped queries (steps 2, 5, 7 minus rendering), the typed action surface with server-derived identities (step 8 minus forms), workflow automation and the fixed human gates as typed audited API actions (step 11), and structured-only retrieval (step 4 without semantic ranking). Deferred out of T-132 to the future UI-redesign task: all presentation/navigation/forms/screens (steps 1, 6, 9, 10, 12, 13), the DOM/Electron test lane, and the semantic retrieval projection (step 3 and the semantic parts of step 4). Structured lineage queries are the sole retrieval authority; existing desktop read-only views stay frozen.
+
 ### Entry gate
 - Project-scoped server queries/read model are available.
 - Typed preparation and recovery commands are stable.
@@ -409,12 +411,11 @@ Pack B closed these technical exit requirements with PB01-PB16 on `packb-2026071
 12. Keep advanced JSON in a clearly separated diagnostics surface.
 13. Follow the desktop `data-ui` contract and Tailwind B1-layout-only freeze; do not recreate legacy renderer styles.
 
-### Exit gate
-- The control-plane path requires no manual internal ID/hash or JSON maintenance.
-- Multiple projects/runs remain isolated in API and UI tests.
-- Semantic search never returns out-of-scope projects, never determines branch head/readiness/evidence and can be disabled/rebuilt without breaking structured lineage queries.
-- Search hits always re-resolve the exact PI/EF source revision/hash; stale projection candidates are discarded rather than used as workflow input.
-- Real DOM/Electron tests click every primary action and verify visible recovery/error states.
+### Exit gate (per D-24)
+- The control-plane path requires no manual internal ID/hash or JSON maintenance through the typed API surface.
+- Multiple projects/runs remain isolated in API tests.
+- Workflow automation (terminal sync/collect, Cycle-ready detection, proposals, post-closure preparation) is event-replayable, idempotent and verified at service/repository level.
+- No semantic projection, embedding or UI-journey code/schema/capability lands in T-132; structured lineage queries answer every retrieval need.
 
 ### Rollback
 - Gate each new action separately and retain stable read-only asset/result views.
