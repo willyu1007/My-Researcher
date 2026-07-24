@@ -1,0 +1,38 @@
+# T-132 M5-A agent-first workflow slice — plan
+
+Date: 2026-07-24
+
+Scope authority: D-24 (03-implementation-notes). Kept Phase 5 scope only: project-scoped lineage read model, typed action surface, workflow automation, typed gate actions. No UI, no semantic projection, no new scientific authority.
+
+## Pre-implementation census verdict (2026-07-24)
+
+Full inventory in the session record; the five load-bearing findings:
+
+1. The only assembled lineage read model is the cycle-readiness evaluator (pull-only GET, cycle-scoped, admitted-heads-only). No project-scoped cycle→branch→revision→run tree exists.
+2. Revision history (`parentRevisionId` chain, superseded revisions) is persisted but has no read surface at all.
+3. Terminal sync/reconcile/collect automation ALREADY exists in both provider worker chains (submit→sync/reconcile→collect auto-enqueued; caller never issues them). This M5 step is closed by census, not new work.
+4. The projection-feed consumer is a deliberate zero-write placeholder ("for future Phase-5 consumers") already wired to the relay for REU-registration and Cycle-closure events.
+5. Human gates run through single-use `HumanConfirmationRecord` refs threaded into admit/complete/resolve routes; no enumerable typed action surface exists for an agent.
+
+Existing v2 routes already hard-reject caller-authored authority fields (12/19/7-field rejection lists) — the no-manual-hash bar is the established pattern to extend, not new invention.
+
+## Decisions (OD-M5-1..4, frozen with D-24 delegation; revisitable before gate closure)
+
+- **OD-M5-1 read model shape**: three new project-scoped GET families, all server-scoped by `implementation_project_id`, read-only, deterministic ordering, no hash/ref request fields:
+  - `GET /paper-implementation/projects/:implementation_project_id/experiment-lineage/validation-cycles` — cycles with workflow summary (status, closure state, branch/run/attempt counts, readiness headline);
+  - `GET /paper-implementation/projects/:implementation_project_id/validation-cycles/:validation_cycle_id/experiment-lineage` — branches → current admitted revision (id/hash/sequence server-reported), effective head Run + ordered cells + attempt/collection summaries + per-branch blockers (reusing the readiness evaluator's repository components; head semantics identical to D-18);
+  - `GET /paper-implementation/projects/:implementation_project_id/workorder-branches/:branch_id/revision-history` — full revision chain (parent links, admission metadata, per-revision Run refs), non-head history explicitly labeled; exact lineage only, never a second head authority.
+- **OD-M5-2 workflow projection**: one rebuildable, non-authoritative per-cycle projection row (`PaperImplementationCycleWorkflowProjectionV2`) maintained idempotently by the existing projection-feed consumer from routed events (REU-registered, Cycle-closed) plus head-advance/ack events; drift-safe: a rebuild path recomputes from facts and the read model never gates writes. Additive migration follows the standard disposable-gate-first / named-local-apply-by-approval flow.
+- **OD-M5-3 readiness/closure preparation**: Cycle-ready detection stays pull-derived from the existing evaluator (no persisted "ready" state); new `GET .../validation-cycles/:validation_cycle_id/closure/v2/preparation` returns the server-derived closure request skeleton (closure kind, exact scope refs, readiness blockers) that the unchanged closure POST accepts — zero new closure authority; scientific Result Analysis invocation remains M7-L2-gated, only the no-evidence/control-only preparation is served today.
+- **OD-M5-4 action enumeration**: `GET .../validation-cycles/:validation_cycle_id/available-actions` derives (never persists) the currently legal typed actions (admission/closure/cancel/reconcile/queue-resolve) with target route + required human-confirmation scope; explicitly not a DecisionWorkQueue replacement — existing queues stay authoritative for their items.
+
+## Slices
+
+| Slice | Content | Verification |
+|---|---|---|
+| M5-A1 | shared contracts + repository queries + services + routes for the three read families | unit + route tests; multi-project isolation relational test; zero-write assertion on all reads |
+| M5-A2 | workflow projection table (additive migration) + projection-feed consumer upgrade + rebuild path | disposable-PG gate; replay/idempotency (exact redelivery converges, one receipt); rebuild-equivalence test |
+| M5-A3 | closure preparation GET + available-actions GET (+ closure body/path redundancy made optional-compat) | route tests incl. caller-authority rejection on any new POST-adjacent surface |
+| M5-A4 | `experiment-foundation-m5-agent-gate.mjs` + convergence run | measured censuses per QR-1 standard: route inventory (no hash/ref request fields), isolation, projection rebuild equivalence, zero-write read census, replay tests wired into registry |
+
+Exit = D-24 Phase 5 exit gate: typed API primary flow with zero manual id/hash beyond business keys and path ids; API-level project isolation; automation event-replayable and idempotent; no semantic/UI/schema beyond the one projection table.
