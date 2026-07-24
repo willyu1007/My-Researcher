@@ -1219,3 +1219,23 @@ Static checks:
 - `git diff --check` passed.
 - Strict task-bundle documentation lint passed 96/96 with 0 warnings/errors.
 - New service/controller/routes contain no transaction or mutation calls. M5-A3 adds no repository, schema, migration, persistence, or gate-script change.
+
+## 2026-07-24 — M5-A agent-first workflow slice closure
+
+Convergence run:
+
+```bash
+node .ai/scripts/experiment-foundation-m5-agent-gate.mjs --run-id t132-m5-agent-20260724-v1
+```
+
+| Evidence | Final outcome |
+|---|---|
+| gate verdict | `passed`; M5-01..M5-08 all passed under exact-count executable predicates |
+| summary SHA-256 | `0c840205c866747cca8e2124a0b79118a79c8be7394e8ffb60e5a91313496d51`; durable copy `artifacts/implementation/13-m5-agent-gate-summary-v1.json` |
+| typed-request census | five M5 GETs params-only (no body/querystring/hash/ref/revision fields), closure POST body cycle-id optional with mismatch-400 guard and test coverage |
+| in-gate relational lanes | lineage isolation 1/1 (d19 identity) and evidence-closure 4/4 (packc_pi identity) inside one disposable container |
+| zero-write and negative space | mutation-call scan 0 across the M5 read population; no embedding/semantic import; migration directory count pinned at 69; desktop untouched |
+| targeted suites | backend 87/87, shared contracts 15/15, both typechecks, gate unit tests 17/17 |
+| host full suites | shared 396/396; backend 2,407 / 2,346 pass / 0 fail / 61 conditional-skip |
+
+M5 as rescoped by D-24 is complete: the agent/API surface now covers project-scoped lineage reads, derived closure preparation, and enumerable typed actions with zero new schema and zero new authority.

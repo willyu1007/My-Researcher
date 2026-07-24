@@ -36,3 +36,16 @@ Existing v2 routes already hard-reject caller-authored authority fields (12/19/7
 | M5-A4 | `experiment-foundation-m5-agent-gate.mjs` + convergence run | measured censuses per QR-1 standard: route inventory (no hash/ref request fields), isolation, zero-write read census, replay/automation tests wired into registry |
 
 Exit = D-24 Phase 5 exit gate: typed API primary flow with zero manual id/hash beyond business keys and path ids; API-level project isolation; automation event-replayable and idempotent; zero new schema.
+
+## Completion record (2026-07-24)
+
+M5-A closed the same day it was planned. All slices Codex `gpt-5.6-sol` implementation + Claude review with host-decided verification:
+
+- **A1** (`fda572ed`): three project-scoped read families; host verification included the disposable-PostgreSQL isolation test under the full nonce/marker identity protocol, which caught one fixture defect the sandbox could not (serverActorId mismatch).
+- **A2**: dropped by the OD-M5-2 revision — zero new schema landed in M5-A.
+- **A3** (`82a9f1e0`): closure preparation GET (no-evidence skeleton verbatim-acceptable by the unchanged closure POST; scientific path explicitly labeled M7-L2-gated), available-actions derived enumeration (capability_gated + human-confirmation scopes; reconcile only from submitted/running), closure POST body cycle-id optional-compat.
+- **A4**: `experiment-foundation-m5-agent-gate.mjs` at the QR-1 measured standard — exact-count typed-request census over route sources, both relational lanes executed inside the gate's disposable container (d19 + packc_pi identities), mutation-call zero scan, automation-replay test registry, D-24 negative space (no embedding/semantic import, migration directory count pinned at 69, desktop untouched), transcript-free durable summary with redaction self-check.
+
+Convergence: `t132-m5-agent-20260724-v1` **passed** (M5-01..M5-08 all passed; summary SHA-256 `0c840205c866747cca8e2124a0b79118a79c8be7394e8ffb60e5a91313496d51`; durable copy `13-m5-agent-gate-summary-v1.json`). Gate unit tests 17/17. Host full suites after the slice: shared 396/396; backend 2,407 tests / 2,346 pass / 0 fail / 61 conditional-skip.
+
+M5 (as rescoped by D-24) is complete. The deferred UI journey and semantic projection remain outside T-132 per D-24; M6 workflow usage-fit consumes these endpoints as the agent/API interaction surface.

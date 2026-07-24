@@ -1,0 +1,460 @@
+{
+  "run_id": "t132-m5-agent-20260724-v1",
+  "status": "passed",
+  "phase": "M5-A4-agent-first-machine-gate",
+  "started_at": "2026-07-24T15:17:35.627Z",
+  "finished_at": "2026-07-24T15:18:30.444Z",
+  "source_population": {
+    "profile": "experiment-foundation-m5-agent-source-population@v1",
+    "file_count": 16,
+    "digest": "c1d4fe310d937331fb4b80ec297705bd917bcfde60062f518be80d62e1d7ccb5",
+    "digest_format_valid": true,
+    "files": [
+      {
+        "path": "packages/shared/src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.ts",
+        "sha256": "6078b282a2397607b34426c9257282b6ab481ff39a06af12edae877f2cbe8da2"
+      },
+      {
+        "path": "packages/shared/src/research-lifecycle/paper-implementation-closure-preparation-v2-contracts.ts",
+        "sha256": "f9e6851167b5bfc86778af6ec284f8efa691e24bd6f8c2043313b7463f2f5933"
+      },
+      {
+        "path": "packages/shared/src/research-lifecycle/paper-implementation-evidence-v2-contracts.ts",
+        "sha256": "bbc2eb39a213089d608f41a0a5a8bd26c8bfdd733a974bfdaf93e01c59afcb27"
+      },
+      {
+        "path": "apps/backend/src/app.ts",
+        "sha256": "b48955803f2c8492ba56989a80f3749d8739ede47626fbe6c760630e890c3376"
+      },
+      {
+        "path": "apps/backend/src/controllers/paper-implementation-agent-actions-v2-controller.ts",
+        "sha256": "423a41b1529e6e5f492acb6376d2af6f372f7b51dedc3d6817d35051235e09f0"
+      },
+      {
+        "path": "apps/backend/src/controllers/paper-implementation-experiment-lineage-v2-controller.ts",
+        "sha256": "17e09618d7e27fe1f066c6832be1cee8660738a72e2415630cad872d1c40f53c"
+      },
+      {
+        "path": "apps/backend/src/controllers/paper-implementation-experiment-v2-controller.ts",
+        "sha256": "27f4ea7082f25a69b27be5d9a805004b644630aa65415c2811c3f35eebdcdd04"
+      },
+      {
+        "path": "apps/backend/src/repositories/in-memory-paper-implementation-experiment-lineage-v2-repository.ts",
+        "sha256": "6f22d9387d11de1b2bcca921f48495101c06e45c0cdac7f655d0761b332c0fb2"
+      },
+      {
+        "path": "apps/backend/src/repositories/paper-implementation-experiment-lineage-v2.repository.ts",
+        "sha256": "fd023bcfb1da5f0a40559bc06cf9c40a9f3c6aa7510d1f58c682a2504a2ca674"
+      },
+      {
+        "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-repository.ts",
+        "sha256": "ea44c415ea7b30017621984260be275e0fa920ea86f54b8ba890a90f02be9c86"
+      },
+      {
+        "path": "apps/backend/src/routes/paper-implementation-agent-actions-v2-routes.ts",
+        "sha256": "6bbba5f8ef0694428db8e077567effdd271eac15a7c483b397a70e5803e807f5"
+      },
+      {
+        "path": "apps/backend/src/routes/paper-implementation-experiment-lineage-v2-routes.ts",
+        "sha256": "fa5dddf1415485d826cd9c2b9407507be274d1623da6c8c2aeda9306b1627342"
+      },
+      {
+        "path": "apps/backend/src/routes/paper-implementation-experiment-v2-routes.ts",
+        "sha256": "0685b9beeed3d8ac19a4c42882fd0e6503137d040231d6c0b9b3b795d8126831"
+      },
+      {
+        "path": "apps/backend/src/services/paper-implementation-agent-actions-v2-service.ts",
+        "sha256": "f16d43d14e36e5d8e08aefd2d0d519efa87723c994bc5dcbb954b63b036fdd63"
+      },
+      {
+        "path": "apps/backend/src/services/paper-implementation-experiment-lineage-v2-service.ts",
+        "sha256": "5bc8d3bb8562ba345d928506036cb9c5a29f107cb42ec3ff269f9a1b99f6095b"
+      },
+      {
+        "path": "apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts",
+        "sha256": "1fe33fdbb23be43f999af5fe6ac53d0e74404f6749771d8c59e866864ac42a35"
+      }
+    ]
+  },
+  "environment_isolation": {
+    "policy": "explicit_allowlist@v1",
+    "inherited_key_allowlist": [
+      "CI",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "PATH",
+      "PNPM_HOME",
+      "TEMP",
+      "TERM",
+      "TMP",
+      "TMPDIR"
+    ],
+    "host_sensitive_key_count": 0,
+    "stripped_sensitive_key_count": 0,
+    "exposed_sensitive_keys": [],
+    "existing_database_url_present_but_ignored": false
+  },
+  "typed_request_census": {
+    "expected_get_route_count": 5,
+    "discovered_get_route_count": 5,
+    "expected_get_paths_present": true,
+    "params_only_route_count": 5,
+    "params_schema_definition_count": 5,
+    "body_schema_route_count": 0,
+    "querystring_schema_route_count": 0,
+    "m5_get_request_schema_property_names": [
+      "branch_id",
+      "implementation_project_id",
+      "validation_cycle_id"
+    ],
+    "forbidden_m5_get_request_property_names": [],
+    "forbidden_m5_get_request_property_count": 0,
+    "response_contract_link_count": 5,
+    "closure_post_body_schema_linked": true,
+    "closure_post_validation_cycle_id_present": true,
+    "closure_post_validation_cycle_id_required": false,
+    "closure_post_optional_validation_cycle_id": true,
+    "closure_post_mismatch_guard_present": true,
+    "closure_post_mismatch_400_test_covered": true,
+    "exact": true
+  },
+  "zero_write_read_census": {
+    "scanned_file_count": 9,
+    "mutation_pattern_count": 8,
+    "mutation_call_counts": {
+      "create": 0,
+      "createMany": 0,
+      "update": 0,
+      "updateMany": 0,
+      "upsert": 0,
+      "delete": 0,
+      "deleteMany": 0,
+      "$executeRaw": 0
+    },
+    "mutation_call_count": 0,
+    "mutating_files": [],
+    "exact": true
+  },
+  "d24_negative_space": {
+    "forbidden_module_imports": {
+      "grep_pattern": "(from|import[[:space:]]*[machine-path]]]*['\"][^'\"]*(embedding|semantic|pgvector)|^[[:space:]]*import[[:space:]]*['\"][^'\"]*(embedding|semantic|pgvector)",
+      "match_count": 0,
+      "matched_file_count": 0,
+      "matched_files": [],
+      "transcript_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exact": true
+    },
+    "migrations": {
+      "expected_directory_count": 69,
+      "directory_count": 69,
+      "invalid_directory_name_count": 0,
+      "names_sha256": "a902f129d688bd1e58d2b597b9f478f2607b6bed5958b4873480d08014016944",
+      "exact": true
+    },
+    "desktop": {
+      "status_entry_count": 0,
+      "diff_file_count": 0,
+      "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exact": true
+    }
+  },
+  "tests": {
+    "forbidden_module_import_scan": {
+      "status": "passed",
+      "exit_code": 1,
+      "duration_ms": 18,
+      "transcript_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "desktop_status_scan": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 12,
+      "transcript_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "desktop_diff_scan": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 10,
+      "transcript_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "shared_typecheck": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 1719,
+      "transcript_sha256": "86ab3831065541d08b8be862baea3866362dfceab61d1cb25d87631348c70318"
+    },
+    "backend_typecheck": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 10521,
+      "transcript_sha256": "9e2018a79d08c3536a0459eee802bbbeaa0ceef9888f2adb37032e1907c4fa6a"
+    },
+    "shared_contracts": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 881,
+      "transcript_sha256": "5ac2806e7f89f0e2f04f3cba679f2196bed9b9c7571b1527371a45994d67acac",
+      "test_files": [
+        "src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.schema.test.ts",
+        "src/research-lifecycle/paper-implementation-closure-preparation-v2-contracts.schema.test.ts",
+        "src/research-lifecycle/paper-implementation-evidence-v2-contracts.schema.test.ts"
+      ],
+      "tap": {
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "backend_targeted": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 24671,
+      "transcript_sha256": "0c31859787b8e56d023474b40c3894e419eb2b7491778cee039bad81263b5cf8",
+      "test_files": [
+        "src/services/experiment-foundation-provider-command-v2-worker.unit.test.ts",
+        "src/services/experiment-foundation-real-provider-command-v2-worker.unit.test.ts",
+        "src/services/experiment-v2-integration-spine.unit.test.ts",
+        "src/services/paper-implementation-agent-actions-v2-service.unit.test.ts",
+        "src/services/paper-implementation-experiment-lineage-v2-service.unit.test.ts",
+        "src/routes/paper-implementation-experiment-lineage-v2-routes.integration.test.ts",
+        "src/routes/paper-implementation-agent-actions-v2-routes.integration.test.ts",
+        "src/routes/paper-implementation-experiment-v2-routes.integration.test.ts"
+      ],
+      "tap": {
+        "tests": 87,
+        "passed": 87,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "packc_pi_database_create": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 77,
+      "transcript_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    "d19_migration_deploy": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 940,
+      "transcript_sha256": "55b152cfc1d443379a41b5cc7c75f266d165886e6f24bb47166795d56bfdb8e3"
+    },
+    "lineage_relational": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 4715,
+      "transcript_sha256": "38865dcb3ea11de2d100132447c050b92790d410ec3f34aba33130754fc28ee5",
+      "test_files": [
+        "src/repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-relational.integration.test.ts"
+      ],
+      "tap": {
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "packc_pi_migration_deploy": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 911,
+      "transcript_sha256": "77b63b8f2fd82f55b7e18586c805a907e18675cc50233e2eef735cbf33e3a6ca"
+    },
+    "closure_relational": {
+      "status": "passed",
+      "exit_code": 0,
+      "duration_ms": 9207,
+      "transcript_sha256": "38fb2194d6873a72f84a5e12a7d7ae8e7aa90c1bd5c9b7f7f006bcd1550e297a",
+      "test_files": [
+        "src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts"
+      ],
+      "tap": {
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "disposable_postgres": {
+    "image": "pgvector/pgvector@sha256:a132765ec351c65111b5b675928a3a0515a466a40f97277329db8b8209ad8bc9",
+    "existing_database_url_used": false,
+    "started": true,
+    "container_database_count": 2,
+    "databases": {
+      "d19": {
+        "database_name": "d19_48271afc9e52",
+        "database_name_nonce_bound": true,
+        "marker": {
+          "database_name": "d19_48271afc9e52",
+          "marker_sha256": "d15cc4db588500343c0e103e8b410b3d94fad736d1fd122b3469b8c939305276",
+          "marker_written": true
+        },
+        "identity_environment_complete": true
+      },
+      "packc_pi": {
+        "database_name": "packc_pi_48271afc9e52",
+        "database_name_nonce_bound": true,
+        "marker": {
+          "database_name": "packc_pi_48271afc9e52",
+          "marker_sha256": "8ea37fbec8ce2c5bd214dc3fdac8aedd1424044302433c7c5ab225cc53c76bc2",
+          "marker_written": true
+        },
+        "identity_environment_complete": true
+      }
+    },
+    "cleaned_up": true
+  },
+  "checks": {
+    "M5-01": {
+      "status": "passed",
+      "evidence": [
+        "typed_request_census.expected_get_route_count === 5",
+        "typed_request_census.discovered_get_route_count === 5",
+        "typed_request_census.expected_get_paths_present === true",
+        "typed_request_census.params_only_route_count === 5",
+        "typed_request_census.params_schema_definition_count === 5",
+        "typed_request_census.body_schema_route_count === 0",
+        "typed_request_census.querystring_schema_route_count === 0",
+        "typed_request_census.forbidden_m5_get_request_property_count === 0",
+        "typed_request_census.response_contract_link_count === 5",
+        "typed_request_census.closure_post_body_schema_linked === true",
+        "typed_request_census.closure_post_validation_cycle_id_required === false",
+        "typed_request_census.closure_post_optional_validation_cycle_id === true",
+        "typed_request_census.closure_post_mismatch_guard_present === true",
+        "typed_request_census.closure_post_mismatch_400_test_covered === true",
+        "typed_request_census.exact === true"
+      ]
+    },
+    "M5-02": {
+      "status": "passed",
+      "evidence": [
+        "disposable_postgres.started === true",
+        "disposable_postgres.existing_database_url_used === false",
+        "disposable_postgres.container_database_count === 2",
+        "disposable_postgres.databases.d19.database_name_nonce_bound === true",
+        "disposable_postgres.databases.d19.marker.marker_written === true",
+        "disposable_postgres.databases.d19.identity_environment_complete === true",
+        "disposable_postgres.cleaned_up === true",
+        "tests.d19_migration_deploy.status === \"passed\"",
+        "tests.d19_migration_deploy.exit_code === 0",
+        "tests.lineage_relational.status === \"passed\"",
+        "tests.lineage_relational.exit_code === 0",
+        "tests.lineage_relational.tap.tests > 0",
+        "tests.lineage_relational.tap.passed === tests.lineage_relational.tap.tests",
+        "tests.lineage_relational.tap.failed === 0",
+        "tests.lineage_relational.tap.skipped === 0",
+        "tests.lineage_relational.test_files includes \"src/repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-relational.integration.test.ts\""
+      ]
+    },
+    "M5-03": {
+      "status": "passed",
+      "evidence": [
+        "disposable_postgres.container_database_count === 2",
+        "disposable_postgres.databases.packc_pi.database_name_nonce_bound === true",
+        "disposable_postgres.databases.packc_pi.marker.marker_written === true",
+        "disposable_postgres.databases.packc_pi.identity_environment_complete === true",
+        "disposable_postgres.cleaned_up === true",
+        "tests.packc_pi_database_create.status === \"passed\"",
+        "tests.packc_pi_database_create.exit_code === 0",
+        "tests.packc_pi_migration_deploy.status === \"passed\"",
+        "tests.packc_pi_migration_deploy.exit_code === 0",
+        "tests.closure_relational.status === \"passed\"",
+        "tests.closure_relational.exit_code === 0",
+        "tests.closure_relational.tap.tests > 0",
+        "tests.closure_relational.tap.passed === tests.closure_relational.tap.tests",
+        "tests.closure_relational.tap.failed === 0",
+        "tests.closure_relational.tap.skipped === 0",
+        "tests.closure_relational.test_files includes \"src/repositories/prisma/prisma-paper-implementation-evidence-closure-v2-relational.integration.test.ts\""
+      ]
+    },
+    "M5-04": {
+      "status": "passed",
+      "evidence": [
+        "zero_write_read_census.scanned_file_count === 9",
+        "zero_write_read_census.mutation_pattern_count === 8",
+        "zero_write_read_census.mutation_call_count === 0",
+        "zero_write_read_census.mutating_files.length === 0",
+        "zero_write_read_census.exact === true"
+      ]
+    },
+    "M5-05": {
+      "status": "passed",
+      "evidence": [
+        "tests.backend_targeted.status === \"passed\"",
+        "tests.backend_targeted.exit_code === 0",
+        "tests.backend_targeted.tap.tests > 0",
+        "tests.backend_targeted.tap.passed === tests.backend_targeted.tap.tests",
+        "tests.backend_targeted.tap.failed === 0",
+        "tests.backend_targeted.tap.skipped === 0",
+        "tests.backend_targeted.test_files includes \"src/services/experiment-foundation-provider-command-v2-worker.unit.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/services/experiment-foundation-real-provider-command-v2-worker.unit.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/services/experiment-v2-integration-spine.unit.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/services/paper-implementation-agent-actions-v2-service.unit.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/services/paper-implementation-experiment-lineage-v2-service.unit.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/routes/paper-implementation-experiment-lineage-v2-routes.integration.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/routes/paper-implementation-agent-actions-v2-routes.integration.test.ts\"",
+        "tests.backend_targeted.test_files includes \"src/routes/paper-implementation-experiment-v2-routes.integration.test.ts\""
+      ]
+    },
+    "M5-06": {
+      "status": "passed",
+      "evidence": [
+        "tests.shared_contracts.status === \"passed\"",
+        "tests.shared_contracts.exit_code === 0",
+        "tests.shared_contracts.tap.tests > 0",
+        "tests.shared_contracts.tap.passed === tests.shared_contracts.tap.tests",
+        "tests.shared_contracts.tap.failed === 0",
+        "tests.shared_contracts.tap.skipped === 0",
+        "tests.shared_contracts.test_files includes \"src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.schema.test.ts\"",
+        "tests.shared_contracts.test_files includes \"src/research-lifecycle/paper-implementation-closure-preparation-v2-contracts.schema.test.ts\"",
+        "tests.shared_contracts.test_files includes \"src/research-lifecycle/paper-implementation-evidence-v2-contracts.schema.test.ts\""
+      ]
+    },
+    "M5-07": {
+      "status": "passed",
+      "evidence": [
+        "tests.shared_typecheck.status === \"passed\"",
+        "tests.shared_typecheck.exit_code === 0",
+        "tests.backend_typecheck.status === \"passed\"",
+        "tests.backend_typecheck.exit_code === 0"
+      ]
+    },
+    "M5-08": {
+      "status": "passed",
+      "evidence": [
+        "d24_negative_space.forbidden_module_imports.match_count === 0",
+        "d24_negative_space.forbidden_module_imports.matched_file_count === 0",
+        "d24_negative_space.forbidden_module_imports.exact === true",
+        "d24_negative_space.migrations.expected_directory_count === 69",
+        "d24_negative_space.migrations.directory_count === 69",
+        "d24_negative_space.migrations.invalid_directory_name_count === 0",
+        "d24_negative_space.migrations.exact === true",
+        "d24_negative_space.desktop.status_entry_count === 0",
+        "d24_negative_space.desktop.diff_file_count === 0",
+        "d24_negative_space.desktop.exact === true",
+        "source_population.profile === \"experiment-foundation-m5-agent-source-population@v1\"",
+        "source_population.file_count === 16",
+        "source_population.digest_format_valid === true",
+        "redaction.summary_self_check_passed === true",
+        "tests.forbidden_module_import_scan.status === \"passed\"",
+        "tests.forbidden_module_import_scan.exit_code === 1",
+        "tests.desktop_status_scan.status === \"passed\"",
+        "tests.desktop_status_scan.exit_code === 0",
+        "tests.desktop_diff_scan.status === \"passed\"",
+        "tests.desktop_diff_scan.exit_code === 0"
+      ]
+    }
+  },
+  "redaction": {
+    "database_url_persisted": false,
+    "database_password_persisted": false,
+    "raw_command_output_persisted": false,
+    "absolute_machine_path_persisted": false,
+    "summary_self_check_passed": true
+  },
+  "blockers": []
+}
