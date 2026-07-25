@@ -33,3 +33,17 @@ Four hard gaps (full inventory in the session census):
 | M6-R5 | m6 release gate (OD-M6-2) + operator recovery runbook + productization summary + roadmap/OQ/T-131 closure docs | none |
 
 Exit = roadmap Phase 6 exit gate under D-24: replayable control-plane chain with machine-verifiable release evidence, the no-evidence Cycle closure live on named-local, T-131 consumption recorded, docs/context current, and the release gate green end-to-end.
+
+## Completion record (2026-07-25)
+
+All five slices closed:
+
+- **R1** (`39d74229`): LIT-0204 source-import path + D-17 negatives; disposable lane 1/1 on host and re-executed inside every release-gate run.
+- **R2** (`27c6461b`): OpenAPI +8 paths/+10 components (192→200 endpoints), path-coverage drift test; Codex quota exhaustion mid-slice, completed by Claude.
+- **R3** (`f326fec1`): usage-fit rubric 5/5/5 over the live P313 chain.
+- **R4** (`d541c914`, user-approved window): golden no-evidence closure of `validation_cycle_t132_packa_product_p313_v1`; closure input hash byte-equal to the M5 preparation CAS watermark; cycle `completed`; scientific writes zero.
+- **R5**: `experiment-foundation-m6-release-gate.mjs` + unit tests; operator runbook `docs/context/process/experiment-foundation-release-runbook.md`; T-131 consumption evidence written back and T-131 closed.
+
+Convergence lineage: v1 failed on the packc-final run-id grammar (fixed via `deriveChildRunId`); v2 failed because the packc-cutover sealed-path census still pointed at `startWorkflowSimulation` after the M7 refactor moved the fences into `startExecution` — a genuinely stale census the release gate existed to catch (gate + unit pins updated, standalone `packc-cutover-20260725-r903` re-passed); v3 exposed the composite-vs-bilateral handoff conflict (m7 gate gained `--imported-run-id`, verifying against the recorded `t132-m7-offline-20260724-v3` import); v4 failed on a nested status-field read in the productization-status extractor (fixed with shape test).
+
+**`t132-m6-release-20260725-v5` passed**: M6-01..M6-10 all green — four child gates re-passed (packb-simulation, packc-final r905, m5-agent, m7-provider), six durable records SHA-verified plus the preflight doc pin, LIT-0204 import lane 1/1, OpenAPI quality/index/coverage all green, usage-fit and golden-closure artifacts exact, productization statuses exactly the frozen vocabulary (`workflow_simulation_passed` / `cloud_preflight_passed` / `control_flow_validated_no_paper_evidence`). Summary SHA-256 `41c4f0bb41cd871bc6967e548d38ad30b7a7787e34b8c563853b43e77b35acaf`; durable copy `17-m6-release-gate-summary-v5.json`.

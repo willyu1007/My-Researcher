@@ -231,7 +231,7 @@ The structure preview is a non-binding, early hypothesis; execution may refine l
 | M6 Release closure + cloud preflight | Postgres, fault injection, workflow usage-fit on the actual interaction surface (agent/API; D-24), docs and zero-write Aliyun preflight gates are green | control-plane scenario traces PI intent → typed v2 RAGPerf protocol → TaskSpec/payload → simulated lifecycle/Sidecar; T-131 v1 remains catalog history; exact cloud payload/read-only checks/fake lifecycle pass; zero writes and zero simulated evidence are proven |
 | M7 Real provider execution and evidence closure (deferred) | optional minimum Aliyun execution behind explicit budget/credential/data/cleanup approval | outside the first release door; only M7 or another verified real provider may close real result, EvidenceCandidate and RunEvidenceUnit production claims |
 
-Current milestone state: M0-M4 are technically verified for their bounded default-off/control-plane scopes, M6 read-only preflight is verified, and M7-I0..I3 default-off implementation is verified with QR hardening. M5 (narrowed by D-24 to the agent-first workflow slice; UI journey and semantic discovery deferred to the future UI-redesign task) and M7 live execution remain planned behind independent gates.
+Current milestone state: M0-M6 are complete — M5 as narrowed by D-24 (agent-first workflow slice; `t132-m5-agent-20260724-v1`) and M6 release closure converged (`t132-m6-release-20260725-v5`, statuses `workflow_simulation_passed`/`cloud_preflight_passed`, golden no-evidence closure live on named-local, T-131 consumption closed). M7-I0..I3 default-off implementation is verified with QR hardening; only M7-L1/L2 live execution remains, behind its separate authorizations.
 
 ## Step-by-step plan
 

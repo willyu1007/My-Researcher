@@ -140,7 +140,7 @@ Project: `main`
 | T-128 topic-selection-product-readiness-closure | archived | F-001 | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
-| T-131 experiment-foundation-first-promotion-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
+| T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-132 experiment-foundation-productization-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-productization-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
 <!-- AUTO-GENERATED:END task-index -->

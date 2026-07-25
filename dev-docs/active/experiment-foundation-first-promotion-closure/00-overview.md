@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
+- State: done
 - Progress: A/B/C 段完成(晋升全链穿越 + playbook + 范围登记);原 D 段 consumption smoke 已由 T-132 D-17 收敛为不可豁免 runtime readiness。既有 v1 保持 catalog-only，真实消费须走新的 typed v2/versioned id；本包未实施 runtime 链。
 - Task ID: `T-131`
 - Feature / Milestone / Requirement: `F-001` / `M-001` / `R-012`

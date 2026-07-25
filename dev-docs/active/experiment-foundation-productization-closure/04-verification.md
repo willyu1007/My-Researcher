@@ -1309,3 +1309,24 @@ Static:
 - `node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-productization-closure --strict` passed 97/97 Markdown files with 0 warnings/errors.
 - No `any` type was added in the service, CLI, or tests.
 - Deviation: the authorized disposable PostgreSQL identity/marker environment was unavailable, so the relational proof and CLI success/source-binding output remain host-verified-later; no named-local fallback was attempted.
+
+## 2026-07-25 — M6 release closure convergence
+
+Full slice record: `artifacts/implementation/14-m6-release-closure-plan.md` (completion section). Final convergence:
+
+```bash
+node .ai/scripts/experiment-foundation-m6-release-gate.mjs --run-id t132-m6-release-20260725-v5
+```
+
+| Evidence | Final outcome |
+|---|---|
+| gate verdict | `passed`; M6-01..M6-10 all green |
+| summary SHA-256 | `41c4f0bb41cd871bc6967e548d38ad30b7a7787e34b8c563853b43e77b35acaf`; durable copy `artifacts/implementation/17-m6-release-gate-summary-v5.json` |
+| child gates re-passed | packb-simulation, packc-final (r905), m5-agent, m7-provider (bilateral T-106 handoff verified against the recorded `t132-m7-offline-20260724-v3` import) |
+| durable record pins | six SHA-256-exact records (packa verify-r5, packb verify-r2, m7 v3, m5 v1, usage-fit evidence, golden-closure apply) + cloud-preflight doc pin |
+| in-gate lanes | LIT-0204 source-import + D-17 negatives 1/1 on disposable PostgreSQL; OpenAPI quality/index-verify/path-coverage all green |
+| productization statuses | exactly `workflow_simulation_passed` / `cloud_preflight_passed` / closure kind `control_flow_validated_no_paper_evidence` |
+| golden closure (R4, user-approved window) | `validation_cycle_t132_packa_product_p313_v1` closed no-evidence; closure input hash byte-equal to the M5 preparation CAS watermark; scientific writes zero (record `artifacts/implementation/16-m6-golden-closure-record.md`) |
+| convergence lineage | v1 packc-final run-id grammar; v2 stale sealed-path census (`startWorkflowSimulation`→`startExecution` after M7 — the release gate's reason to exist); v3 composite-vs-bilateral handoff (`--imported-run-id`); v4 nested status-field read; v5 passed |
+
+M6 is complete: T-131 consumption evidence written back and T-131 closed (`done`); operator runbook `docs/context/process/experiment-foundation-release-runbook.md`; OpenAPI/api-index/context current with a path-coverage drift guard.

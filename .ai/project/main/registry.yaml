@@ -1198,13 +1198,13 @@ tasks:
     updated: 2026-07-08
   - id: T-131
     slug: experiment-foundation-first-promotion-closure
-    status: in-progress
+    status: done
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
     dev_docs_path: dev-docs/active/experiment-foundation-first-promotion-closure
-    updated: 2026-07-08
+    updated: 2026-07-25
   - id: T-132
     slug: experiment-foundation-productization-closure
     status: in-progress
