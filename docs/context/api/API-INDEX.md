@@ -1,15 +1,23 @@
 # API Index
 
-> Auto-generated at 2026-07-14T11:47:27.856Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `31951ef8dffb...`)
+> Auto-generated at 2026-07-25T01:05:49.579Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `1b8c06808e5e...`)
 
-Total endpoints: **192**
+Total endpoints: **200**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
 | GET | /health | Check service liveness. | none | — | ok | — |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
+| POST | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2 | Close one ValidationCycle against an exact server-derived closure watermark. | none | expected_cycle_version, expected_closure_input_hash, closure_kind, accepted_proposal_id, expected_proposal_hash, corrected_scientific_disposition, idempotency_key | closure | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/readiness | Rebuild closure readiness and the exact ValidationCycle closure watermark. | none | validation_cycle_id | schema_version, validation_cycle_id, status, ordered_blockers, watermark, eligible_run_evidence_unit_count | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/projects/{implementation_project_id}/experiment-lineage/validation-cycles | List experiment-lineage summaries for one ImplementationProject. | none | implementation_project_id | implementation_project_id, validation_cycles | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-lineage | Read current admitted branch, head Run, Attempt, and collection lineage for one ValidationCycle. | none | implementation_project_id, validation_cycle_id | implementation_project_id, validation_cycle, branches | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/projects/{implementation_project_id}/workorder-branches/{branch_id}/revision-history | Read all admitted and superseded WorkOrder revisions for one experiment branch. | none | implementation_project_id, branch_id | implementation_project_id, validation_cycle_id, branch_id, branch_key, parent_branch_key, history_includes_superseded_revisions, revisions | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation | Prepare the exact no-evidence closure request template for one ValidationCycle. | none | validation_cycle_id | readiness, derived_closure_kind, prepared_request | 400, 404, 409, 422, 500 |
+| GET | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/available-actions | List typed agent actions currently available for one ValidationCycle. | none | implementation_project_id, validation_cycle_id | implementation_project_id, validation_cycle_id, actions, closure | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/runs/{run_id}/workflow-simulations | Start or exact-replay simulation Attempts for every required Run cell. | none | business_idempotency_key | run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed, workflow_simulation_status | 400, 404, 409, 422, 500 |
+| POST | /experiment-foundation/v2/runs/{run_id}/real-provider-executions | Start or exact-replay real-provider Attempts for every required Run cell. | none | business_idempotency_key | run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/execution-attempts/{attempt_id}/cancel | Persist an idempotent cancellation intent for one simulation Attempt. | none | business_idempotency_key | execution_attempt | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/execution-attempts/{attempt_id}/reconcile | Enqueue an idempotent manual reconciliation for one simulation Attempt. | none | business_idempotency_key | execution_attempt | 400, 404, 409, 422, 500 |
 | GET | /experiment-foundation/v2/execution-attempts/{attempt_id} | Read one simulation Attempt authority record. | none | attempt_id | execution_attempt | 404, 500 |

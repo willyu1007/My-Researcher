@@ -30,9 +30,9 @@ tags:
   - name: topic-selection-v1c
     description: Topic selection v1c human promotion, bridge, downstream feedback, and frozen replay endpoints.
   - name: paper-implementation-experiment-v2
-    description: Default-off PI experiment WorkOrder v2 admission; committed sagas are relayed through domain-local database inbox/outbox consumers.
+    description: PI experiment v2 admission, closure, lineage, and agent-action surfaces; committed sagas are relayed through domain-local database inbox/outbox consumers.
   - name: experiment-foundation-execution-v2
-    description: Default-off, same-payload simulation Attempt and durable fake-provider control endpoints; no real provider or scientific evidence writes.
+    description: Default-off simulation and real-provider execution intake plus durable Attempt control endpoints; simulation and real-provider outputs remain ineligible for scientific evidence.
 
 paths:
   /health:
@@ -94,6 +94,229 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2:
+    post:
+      operationId: closePaperImplementationValidationCycleV2
+      summary: Close one ValidationCycle against an exact server-derived closure watermark.
+      description: |
+        The path owns ValidationCycle identity. The same identifier MAY be omitted from the body; when
+        supplied it must match the path. The server rejects caller-authored closure authority, stale
+        watermarks, active real Attempts, and non-frozen current branch heads before committing.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationValidationCycleClosureV2Request'
+      responses:
+        '201':
+          description: ValidationCycle closure committed or exact-replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleClosureV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/readiness:
+    get:
+      operationId: getPaperImplementationValidationCycleClosureReadinessV2
+      summary: Rebuild closure readiness and the exact ValidationCycle closure watermark.
+      description: The evaluation is server-derived and read-only; it is not a second closure authority.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Current closure readiness, blockers, and exact closure watermark.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleReadinessV2'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/projects/{implementation_project_id}/experiment-lineage/validation-cycles:
+    get:
+      operationId: listPaperImplementationProjectValidationCycleLineageV2
+      summary: List experiment-lineage summaries for one ImplementationProject.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+      responses:
+        '200':
+          description: Project-scoped ValidationCycle lineage summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationProjectValidationCyclesLineageV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-lineage:
+    get:
+      operationId: getPaperImplementationValidationCycleExperimentLineageV2
+      summary: Read current admitted branch, head Run, Attempt, and collection lineage for one ValidationCycle.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+      responses:
+        '200':
+          description: Exact current ValidationCycle experiment lineage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleExperimentLineageV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/projects/{implementation_project_id}/workorder-branches/{branch_id}/revision-history:
+    get:
+      operationId: getPaperImplementationWorkOrderBranchRevisionHistoryV2
+      summary: Read all admitted and superseded WorkOrder revisions for one experiment branch.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+        - name: branch_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+      responses:
+        '200':
+          description: Branch-local revision history including superseded revisions and exact Run refs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationWorkOrderBranchRevisionHistoryV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation:
+    get:
+      operationId: preparePaperImplementationValidationCycleClosureV2
+      summary: Prepare the exact no-evidence closure request template for one ValidationCycle.
+      description: |
+        Returns current readiness and, when ready, a server-derived closure body whose sole unresolved
+        caller value is the business idempotency key. Scientific closure remains explicitly gated.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+      responses:
+        '200':
+          description: Closure readiness and an optional exact request template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleClosurePreparationV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/available-actions:
+    get:
+      operationId: listPaperImplementationValidationCycleAvailableActionsV2
+      summary: List typed agent actions currently available for one ValidationCycle.
+      description: The read-only projection returns server-owned methods, paths, capability gates, confirmation scopes, and subjects.
+      tags: [paper-implementation-experiment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 512, pattern: '\S' }
+      responses:
+        '200':
+          description: Current project-scoped available actions and closure state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleAvailableActionsV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /experiment-foundation/v2/runs/{run_id}/workflow-simulations:
     post:
       operationId: startExperimentFoundationWorkflowSimulationV2
@@ -127,6 +350,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExperimentFoundationWorkflowSimulationV2StartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/runs/{run_id}/real-provider-executions:
+    post:
+      operationId: startExperimentFoundationRealProviderExecutionV2
+      summary: Start or exact-replay real-provider Attempts for every required Run cell.
+      description: |
+        Requires the exact current head acknowledgement, an active exact ExecutionBundle revision, and
+        the default-off real-provider intake capability. Provider payloads are server-materialized and
+        redacted; provisional outputs are diagnostic-only and cannot become scientific evidence.
+      tags: [experiment-foundation-execution-v2]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationRealProviderExecutionV2StartRequest'
+      responses:
+        '201':
+          description: Real-provider Attempts were created for the exact required cells.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationRealProviderExecutionV2StartResponse'
+        '200':
+          description: The exact business command was replayed without duplicate authority or provider intent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationRealProviderExecutionV2StartResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -12302,3 +12569,1766 @@ components:
       properties:
         paper_id: { type: string }
         decision_id: { type: string }
+
+    PaperImplementationValidationCycleClosureV2Request:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_cycle_version
+        - expected_closure_input_hash
+        - closure_kind
+        - accepted_proposal_id
+        - expected_proposal_hash
+        - corrected_scientific_disposition
+        - idempotency_key
+      properties:
+        validation_cycle_id:
+          type: string
+          minLength: 1
+        expected_cycle_version:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        expected_closure_input_hash:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+        closure_kind:
+          type: string
+          enum:
+            - control_flow_validated_no_paper_evidence
+            - scientific_evidence_assessed
+        accepted_proposal_id:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+        expected_proposal_hash:
+          anyOf:
+            - type: string
+              pattern: '^sha256:[0-9a-f]{64}$'
+            - type: 'null'
+        corrected_scientific_disposition:
+          anyOf:
+            - type: string
+              enum:
+                - positive
+                - negative
+                - inconclusive
+            - type: 'null'
+        idempotency_key:
+          type: string
+          minLength: 1
+
+    PaperImplementationValidationCycleClosureV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - closure
+      properties:
+        closure:
+          type: object
+          additionalProperties: false
+          required:
+            - closure_id
+            - schema_version
+            - validation_cycle_id
+            - cycle_version_at_closure
+            - closure_kind
+            - scientific_disposition
+            - selected_exit_key
+            - accepted_proposal_id
+            - accepted_proposal_hash
+            - closure_watermark
+            - closure_snapshot_hash
+          properties:
+            closure_id:
+              type: string
+              minLength: 1
+            schema_version:
+              type: string
+              const: v1
+            validation_cycle_id:
+              type: string
+              minLength: 1
+            cycle_version_at_closure:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+            closure_kind:
+              type: string
+              enum:
+                - control_flow_validated_no_paper_evidence
+                - scientific_evidence_assessed
+            scientific_disposition:
+              anyOf:
+                - type: string
+                  enum:
+                    - positive
+                    - negative
+                    - inconclusive
+                - type: 'null'
+            selected_exit_key:
+              anyOf:
+                - type: string
+                  minLength: 1
+                - type: 'null'
+            accepted_proposal_id:
+              anyOf:
+                - type: string
+                  minLength: 1
+                - type: 'null'
+            accepted_proposal_hash:
+              anyOf:
+                - type: string
+                  pattern: '^sha256:[0-9a-f]{64}$'
+                - type: 'null'
+            closure_watermark:
+              type: object
+              additionalProperties: false
+              required:
+                - schema_version
+                - validation_cycle_id
+                - expected_cycle_version
+                - ordered_branches
+                - active_real_attempt_count
+                - closure_input_hash
+              properties:
+                schema_version:
+                  type: string
+                  const: v1
+                validation_cycle_id:
+                  type: string
+                  minLength: 1
+                expected_cycle_version:
+                  type: integer
+                  minimum: 0
+                  maximum: 2147483647
+                ordered_branches:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - ordinal
+                      - branch_id
+                      - branch_key
+                      - current_admitted_revision_id
+                      - current_admitted_revision_hash
+                      - branch_revision_sequence
+                      - effective_head_run_id
+                      - effective_head_run_manifest_hash
+                      - head_blocker
+                      - ordered_cells
+                      - eligible_run_evidence_unit_refs
+                    properties:
+                      ordinal:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                      branch_id:
+                        type: string
+                        minLength: 1
+                      branch_key:
+                        type: string
+                        minLength: 1
+                      current_admitted_revision_id:
+                        type: string
+                        minLength: 1
+                      current_admitted_revision_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      branch_revision_sequence:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                      effective_head_run_id:
+                        anyOf:
+                          - type: string
+                            minLength: 1
+                          - type: 'null'
+                      effective_head_run_manifest_hash:
+                        anyOf:
+                          - type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          - type: 'null'
+                      head_blocker:
+                        anyOf:
+                          - type: string
+                            const: BRANCH_HEAD_NOT_FROZEN
+                          - type: 'null'
+                      ordered_cells:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - ordinal
+                            - run_cell_id
+                            - cell_key
+                            - ordered_attempts
+                            - complete_result_ref
+                            - eligibility_code
+                          properties:
+                            ordinal:
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            run_cell_id:
+                              type: string
+                              minLength: 1
+                            cell_key:
+                              type: string
+                              minLength: 1
+                            ordered_attempts:
+                              type: array
+                              items:
+                                type: object
+                                additionalProperties: false
+                                required:
+                                  - ordinal
+                                  - execution_attempt_id
+                                  - lifecycle_state
+                                  - execution_mode
+                                  - provenance
+                                properties:
+                                  ordinal:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 2147483647
+                                  execution_attempt_id:
+                                    type: string
+                                    minLength: 1
+                                  lifecycle_state:
+                                    type: string
+                                    minLength: 1
+                                  execution_mode:
+                                    type: string
+                                    minLength: 1
+                                  provenance:
+                                    type: string
+                                    minLength: 1
+                            complete_result_ref:
+                              anyOf:
+                                - type: object
+                                  additionalProperties: false
+                                  required:
+                                    - result_id
+                                    - result_content_hash
+                                  properties:
+                                    result_id:
+                                      type: string
+                                      minLength: 1
+                                    result_content_hash:
+                                      type: string
+                                      pattern: '^sha256:[0-9a-f]{64}$'
+                                - type: 'null'
+                            eligibility_code:
+                              anyOf:
+                                - type: string
+                                  minLength: 1
+                                - type: 'null'
+                      eligible_run_evidence_unit_refs:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - run_evidence_unit_id
+                            - content_hash
+                          properties:
+                            run_evidence_unit_id:
+                              type: string
+                              minLength: 1
+                            content_hash:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                active_real_attempt_count:
+                  type: integer
+                  minimum: 0
+                  maximum: 2147483647
+                closure_input_hash:
+                  type: string
+                  pattern: '^sha256:[0-9a-f]{64}$'
+            closure_snapshot_hash:
+              type: string
+              pattern: '^sha256:[0-9a-f]{64}$'
+
+    PaperImplementationValidationCycleReadinessV2:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - validation_cycle_id
+        - status
+        - ordered_blockers
+        - watermark
+        - eligible_run_evidence_unit_count
+      properties:
+        schema_version:
+          type: string
+          const: v1
+        validation_cycle_id:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum:
+            - ready_no_evidence
+            - ready_with_evidence
+            - blocked
+        ordered_blockers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - ordinal
+              - code
+              - branch_id
+            properties:
+              ordinal:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              code:
+                type: string
+                enum:
+                  - BRANCH_HEAD_NOT_FROZEN
+                  - CYCLE_ACTIVE_REAL_ATTEMPT
+                  - CYCLE_ALREADY_CLOSED
+              branch_id:
+                anyOf:
+                  - type: string
+                    minLength: 1
+                  - type: 'null'
+        watermark:
+          type: object
+          additionalProperties: false
+          required:
+            - schema_version
+            - validation_cycle_id
+            - expected_cycle_version
+            - ordered_branches
+            - active_real_attempt_count
+            - closure_input_hash
+          properties:
+            schema_version:
+              type: string
+              const: v1
+            validation_cycle_id:
+              type: string
+              minLength: 1
+            expected_cycle_version:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+            ordered_branches:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - ordinal
+                  - branch_id
+                  - branch_key
+                  - current_admitted_revision_id
+                  - current_admitted_revision_hash
+                  - branch_revision_sequence
+                  - effective_head_run_id
+                  - effective_head_run_manifest_hash
+                  - head_blocker
+                  - ordered_cells
+                  - eligible_run_evidence_unit_refs
+                properties:
+                  ordinal:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  branch_id:
+                    type: string
+                    minLength: 1
+                  branch_key:
+                    type: string
+                    minLength: 1
+                  current_admitted_revision_id:
+                    type: string
+                    minLength: 1
+                  current_admitted_revision_hash:
+                    type: string
+                    pattern: '^sha256:[0-9a-f]{64}$'
+                  branch_revision_sequence:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  effective_head_run_id:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: 'null'
+                  effective_head_run_manifest_hash:
+                    anyOf:
+                      - type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      - type: 'null'
+                  head_blocker:
+                    anyOf:
+                      - type: string
+                        const: BRANCH_HEAD_NOT_FROZEN
+                      - type: 'null'
+                  ordered_cells:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - ordinal
+                        - run_cell_id
+                        - cell_key
+                        - ordered_attempts
+                        - complete_result_ref
+                        - eligibility_code
+                      properties:
+                        ordinal:
+                          type: integer
+                          minimum: 1
+                          maximum: 2147483647
+                        run_cell_id:
+                          type: string
+                          minLength: 1
+                        cell_key:
+                          type: string
+                          minLength: 1
+                        ordered_attempts:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - ordinal
+                              - execution_attempt_id
+                              - lifecycle_state
+                              - execution_mode
+                              - provenance
+                            properties:
+                              ordinal:
+                                type: integer
+                                minimum: 1
+                                maximum: 2147483647
+                              execution_attempt_id:
+                                type: string
+                                minLength: 1
+                              lifecycle_state:
+                                type: string
+                                minLength: 1
+                              execution_mode:
+                                type: string
+                                minLength: 1
+                              provenance:
+                                type: string
+                                minLength: 1
+                        complete_result_ref:
+                          anyOf:
+                            - type: object
+                              additionalProperties: false
+                              required:
+                                - result_id
+                                - result_content_hash
+                              properties:
+                                result_id:
+                                  type: string
+                                  minLength: 1
+                                result_content_hash:
+                                  type: string
+                                  pattern: '^sha256:[0-9a-f]{64}$'
+                            - type: 'null'
+                        eligibility_code:
+                          anyOf:
+                            - type: string
+                              minLength: 1
+                            - type: 'null'
+                  eligible_run_evidence_unit_refs:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - run_evidence_unit_id
+                        - content_hash
+                      properties:
+                        run_evidence_unit_id:
+                          type: string
+                          minLength: 1
+                        content_hash:
+                          type: string
+                          pattern: '^sha256:[0-9a-f]{64}$'
+            active_real_attempt_count:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+            closure_input_hash:
+              type: string
+              pattern: '^sha256:[0-9a-f]{64}$'
+        eligible_run_evidence_unit_count:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+
+    PaperImplementationProjectValidationCyclesLineageV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - implementation_project_id
+        - validation_cycles
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+        validation_cycles:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - validation_cycle_id
+              - status
+              - target_ref
+              - created_at
+              - closure
+              - branch_count
+              - admitted_branch_count
+              - total_run_count
+              - active_real_attempt_count
+            properties:
+              validation_cycle_id:
+                type: string
+                minLength: 1
+              status:
+                type: string
+                minLength: 1
+              target_ref:
+                type: object
+                additionalProperties: false
+                required:
+                  - type
+                  - id
+                  - version
+                properties:
+                  type:
+                    type: string
+                    minLength: 1
+                  id:
+                    type: string
+                    minLength: 1
+                  version:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: 'null'
+              created_at:
+                type: string
+                minLength: 1
+              closure:
+                oneOf:
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - closed
+                      - kind
+                      - disposition
+                      - closed_at
+                    properties:
+                      closed:
+                        type: boolean
+                        const: false
+                      kind:
+                        type: 'null'
+                      disposition:
+                        type: 'null'
+                      closed_at:
+                        type: 'null'
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - closed
+                      - kind
+                      - disposition
+                      - closed_at
+                    properties:
+                      closed:
+                        type: boolean
+                        const: true
+                      kind:
+                        type: string
+                        enum:
+                          - control_flow_validated_no_paper_evidence
+                          - scientific_evidence_assessed
+                      disposition:
+                        anyOf:
+                          - type: string
+                            enum:
+                              - positive
+                              - negative
+                              - inconclusive
+                          - type: 'null'
+                      closed_at:
+                        type: string
+                        minLength: 1
+              branch_count:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              admitted_branch_count:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              total_run_count:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              active_real_attempt_count:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+
+    PaperImplementationValidationCycleExperimentLineageV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - implementation_project_id
+        - validation_cycle
+        - branches
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+        validation_cycle:
+          type: object
+          additionalProperties: false
+          required:
+            - validation_cycle_id
+            - status
+            - target_ref
+            - created_at
+            - closure
+          properties:
+            validation_cycle_id:
+              type: string
+              minLength: 1
+            status:
+              type: string
+              minLength: 1
+            target_ref:
+              type: object
+              additionalProperties: false
+              required:
+                - type
+                - id
+                - version
+              properties:
+                type:
+                  type: string
+                  minLength: 1
+                id:
+                  type: string
+                  minLength: 1
+                version:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                    - type: 'null'
+            created_at:
+              type: string
+              minLength: 1
+            closure:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - closed
+                    - kind
+                    - disposition
+                    - closed_at
+                  properties:
+                    closed:
+                      type: boolean
+                      const: false
+                    kind:
+                      type: 'null'
+                    disposition:
+                      type: 'null'
+                    closed_at:
+                      type: 'null'
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - closed
+                    - kind
+                    - disposition
+                    - closed_at
+                  properties:
+                    closed:
+                      type: boolean
+                      const: true
+                    kind:
+                      type: string
+                      enum:
+                        - control_flow_validated_no_paper_evidence
+                        - scientific_evidence_assessed
+                    disposition:
+                      anyOf:
+                        - type: string
+                          enum:
+                            - positive
+                            - negative
+                            - inconclusive
+                        - type: 'null'
+                    closed_at:
+                      type: string
+                      minLength: 1
+        branches:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                additionalProperties: false
+                required:
+                  - ordinal
+                  - branch_id
+                  - branch_key
+                  - parent_branch_key
+                  - current_admitted_revision
+                  - effective_head_run
+                  - head_blocker
+                properties:
+                  ordinal:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  branch_id:
+                    type: string
+                    minLength: 1
+                  branch_key:
+                    type: string
+                    minLength: 1
+                  parent_branch_key:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: 'null'
+                  current_admitted_revision:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - work_order_revision_id
+                      - work_order_revision_hash
+                      - revision_sequence
+                    properties:
+                      work_order_revision_id:
+                        type: string
+                        minLength: 1
+                      work_order_revision_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      revision_sequence:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                  effective_head_run:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - run_id
+                      - run_manifest_hash
+                      - ordered_cells
+                      - ordered_attempts
+                      - collection_summaries
+                    properties:
+                      run_id:
+                        type: string
+                        minLength: 1
+                      run_manifest_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      ordered_cells:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - ordinal
+                            - cell_key
+                            - training_task_spec_id
+                            - training_task_spec_hash
+                          properties:
+                            ordinal:
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            cell_key:
+                              type: string
+                              minLength: 1
+                            training_task_spec_id:
+                              type: string
+                              minLength: 1
+                            training_task_spec_hash:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                      ordered_attempts:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - execution_attempt_id
+                            - attempt_sequence
+                            - execution_mode
+                            - lifecycle_state
+                            - terminal_reason_code
+                            - updated_at
+                          properties:
+                            execution_attempt_id:
+                              type: string
+                              minLength: 1
+                            attempt_sequence:
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            execution_mode:
+                              type: string
+                              minLength: 1
+                            lifecycle_state:
+                              type: string
+                              minLength: 1
+                            terminal_reason_code:
+                              anyOf:
+                                - type: string
+                                  minLength: 1
+                                - type: 'null'
+                            updated_at:
+                              type: string
+                              minLength: 1
+                      collection_summaries:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - execution_attempt_id
+                            - collection_state
+                            - output_kinds
+                          properties:
+                            execution_attempt_id:
+                              type: string
+                              minLength: 1
+                            collection_state:
+                              type: string
+                              minLength: 1
+                            output_kinds:
+                              type: array
+                              uniqueItems: true
+                              items:
+                                type: string
+                                minLength: 1
+                  head_blocker:
+                    type: 'null'
+              - type: object
+                additionalProperties: false
+                required:
+                  - ordinal
+                  - branch_id
+                  - branch_key
+                  - parent_branch_key
+                  - current_admitted_revision
+                  - effective_head_run
+                  - head_blocker
+                properties:
+                  ordinal:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  branch_id:
+                    type: string
+                    minLength: 1
+                  branch_key:
+                    type: string
+                    minLength: 1
+                  parent_branch_key:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: 'null'
+                  current_admitted_revision:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - work_order_revision_id
+                      - work_order_revision_hash
+                      - revision_sequence
+                    properties:
+                      work_order_revision_id:
+                        type: string
+                        minLength: 1
+                      work_order_revision_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      revision_sequence:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                  effective_head_run:
+                    type: 'null'
+                  head_blocker:
+                    type: string
+                    const: BRANCH_HEAD_NOT_FROZEN
+
+    PaperImplementationWorkOrderBranchRevisionHistoryV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - implementation_project_id
+        - validation_cycle_id
+        - branch_id
+        - branch_key
+        - parent_branch_key
+        - history_includes_superseded_revisions
+        - revisions
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+        validation_cycle_id:
+          type: string
+          minLength: 1
+        branch_id:
+          type: string
+          minLength: 1
+        branch_key:
+          type: string
+          minLength: 1
+        parent_branch_key:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+        history_includes_superseded_revisions:
+          type: boolean
+          const: true
+        revisions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - work_order_revision_id
+              - revision_sequence
+              - content_hash
+              - parent_revision_id
+              - admission
+              - is_current_admitted
+              - is_head_run_source
+              - run_ref
+              - cell_count
+            properties:
+              work_order_revision_id:
+                type: string
+                minLength: 1
+              revision_sequence:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              content_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              parent_revision_id:
+                anyOf:
+                  - type: string
+                    minLength: 1
+                  - type: 'null'
+              admission:
+                anyOf:
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - admitted_at
+                      - business_idempotency_key
+                    properties:
+                      admitted_at:
+                        type: string
+                        minLength: 1
+                      business_idempotency_key:
+                        type: string
+                        minLength: 1
+                  - type: 'null'
+              is_current_admitted:
+                type: boolean
+              is_head_run_source:
+                type: boolean
+              run_ref:
+                anyOf:
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - run_id
+                      - run_manifest_hash
+                    properties:
+                      run_id:
+                        type: string
+                        minLength: 1
+                      run_manifest_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                  - type: 'null'
+              cell_count:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+
+    PaperImplementationValidationCycleClosurePreparationV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - readiness
+        - derived_closure_kind
+        - prepared_request
+      properties:
+        readiness:
+          type: object
+          additionalProperties: false
+          required:
+            - outcome
+            - blockers
+          properties:
+            outcome:
+              type: string
+              enum:
+                - ready
+                - blocked
+            blockers:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - ordinal
+                  - code
+                  - branch_id
+                properties:
+                  ordinal:
+                    type: integer
+                    minimum: 1
+                    maximum: 2147483647
+                  code:
+                    type: string
+                    enum:
+                      - BRANCH_HEAD_NOT_FROZEN
+                      - CYCLE_ACTIVE_REAL_ATTEMPT
+                      - CYCLE_ALREADY_CLOSED
+                  branch_id:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: 'null'
+        derived_closure_kind:
+          anyOf:
+            - type: string
+              const: control_flow_validated_no_paper_evidence
+            - type: object
+              additionalProperties: false
+              required:
+                - marker
+                - available
+                - gate
+              properties:
+                marker:
+                  type: string
+                  const: scientific_closure_blocked
+                available:
+                  type: boolean
+                  const: false
+                gate:
+                  type: string
+                  const: M7-L2
+            - type: 'null'
+        prepared_request:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              required:
+                - body
+                - required_template_fields
+              properties:
+                body:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - validation_cycle_id
+                    - expected_cycle_version
+                    - expected_closure_input_hash
+                    - closure_kind
+                    - accepted_proposal_id
+                    - expected_proposal_hash
+                    - corrected_scientific_disposition
+                    - idempotency_key
+                  properties:
+                    validation_cycle_id:
+                      type: string
+                      minLength: 1
+                    expected_cycle_version:
+                      type: integer
+                      minimum: 0
+                      maximum: 2147483647
+                    expected_closure_input_hash:
+                      type: string
+                      pattern: '^sha256:[0-9a-f]{64}$'
+                    closure_kind:
+                      type: string
+                      const: control_flow_validated_no_paper_evidence
+                    accepted_proposal_id:
+                      type: 'null'
+                    expected_proposal_hash:
+                      type: 'null'
+                    corrected_scientific_disposition:
+                      type: 'null'
+                    idempotency_key:
+                      type: 'null'
+                required_template_fields:
+                  type: array
+                  minItems: 1
+                  maxItems: 1
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - field
+                      - semantic
+                      - required
+                    properties:
+                      field:
+                        type: string
+                        const: idempotency_key
+                      semantic:
+                        type: string
+                        const: business_idempotency_key
+                      required:
+                        type: boolean
+                        const: true
+            - type: 'null'
+
+    PaperImplementationValidationCycleAvailableActionsV2Response:
+      type: object
+      additionalProperties: false
+      required:
+        - implementation_project_id
+        - validation_cycle_id
+        - actions
+        - closure
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+        validation_cycle_id:
+          type: string
+          minLength: 1
+        actions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - action_kind
+              - method
+              - path
+              - capability_gated
+              - required_human_confirmation_scope
+              - subject
+            properties:
+              action_kind:
+                type: string
+                enum:
+                  - admit_work_order_revision
+                  - start_workflow_simulation
+                  - start_real_provider_execution
+                  - cancel_execution_attempt
+                  - reconcile_execution_attempt
+                  - close_validation_cycle
+              method:
+                type: string
+                const: POST
+              path:
+                type: string
+                minLength: 1
+              capability_gated:
+                type: boolean
+              required_human_confirmation_scope:
+                anyOf:
+                  - type: string
+                    enum:
+                      - strong_claim_acceptance
+                      - motive_portfolio_decision
+                      - motive_evolution_decision
+                      - work_order_admission
+                      - dossier_export
+                      - expensive_run
+                  - type: 'null'
+              subject:
+                type: object
+                additionalProperties: false
+                properties:
+                  branch_id:
+                    type: string
+                    minLength: 1
+                  run_id:
+                    type: string
+                    minLength: 1
+                  execution_attempt_id:
+                    type: string
+                    minLength: 1
+        closure:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required:
+                - closed
+                - kind
+                - disposition
+                - closed_at
+              properties:
+                closed:
+                  type: boolean
+                  const: false
+                kind:
+                  type: 'null'
+                disposition:
+                  type: 'null'
+                closed_at:
+                  type: 'null'
+            - type: object
+              additionalProperties: false
+              required:
+                - closed
+                - kind
+                - disposition
+                - closed_at
+              properties:
+                closed:
+                  type: boolean
+                  const: true
+                kind:
+                  type: string
+                  enum:
+                    - control_flow_validated_no_paper_evidence
+                    - scientific_evidence_assessed
+                disposition:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - positive
+                        - negative
+                        - inconclusive
+                    - type: 'null'
+                closed_at:
+                  type: string
+                  minLength: 1
+
+    ExperimentFoundationRealProviderExecutionV2StartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - business_idempotency_key
+      properties:
+        business_idempotency_key:
+          type: string
+          minLength: 1
+
+    ExperimentFoundationRealProviderExecutionV2StartResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - run_id
+        - run_manifest_hash
+        - business_idempotency_key
+        - provider_payloads
+        - execution_attempts
+        - replayed
+      properties:
+        run_id:
+          type: string
+          minLength: 1
+        run_manifest_hash:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+        business_idempotency_key:
+          type: string
+          minLength: 1
+        provider_payloads:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - provider_payload_id
+              - materialization_key
+              - run_id
+              - run_manifest_hash
+              - run_cell_id
+              - cell_key
+              - training_task_spec_id
+              - training_task_spec_hash
+              - payload_schema
+              - adapter_identity
+              - execution_mode
+              - provenance
+              - provider_profile_version
+              - redacted_manifest
+              - payload_hash
+              - payload_byte_size
+              - created_at
+            properties:
+              provider_payload_id:
+                type: string
+                minLength: 1
+              materialization_key:
+                type: string
+                minLength: 1
+              run_id:
+                type: string
+                minLength: 1
+              run_manifest_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              run_cell_id:
+                type: string
+                minLength: 1
+              cell_key:
+                type: string
+                minLength: 1
+              training_task_spec_id:
+                type: string
+                minLength: 1
+              training_task_spec_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              payload_schema:
+                type: string
+                const: AliyunPaiDlcCreateJobPayload@v1
+              adapter_identity:
+                type: string
+                const: aliyun_pai_dlc_official_sdk@v1
+              execution_mode:
+                type: string
+                const: real_provider
+              provenance:
+                type: string
+                const: real_provider
+              provider_profile_version:
+                type: string
+                minLength: 1
+              redacted_manifest:
+                type: object
+                additionalProperties: false
+                required:
+                  - manifest_schema_version
+                  - payload_schema
+                  - adapter_identity
+                  - provider_profile_version
+                  - source_binding
+                  - request_summary
+                  - provider_binding_hashes
+                  - redacted_fields
+                properties:
+                  manifest_schema_version:
+                    type: string
+                    const: v1
+                  payload_schema:
+                    type: string
+                    const: AliyunPaiDlcCreateJobPayload@v1
+                  adapter_identity:
+                    type: string
+                    const: aliyun_pai_dlc_official_sdk@v1
+                  provider_profile_version:
+                    type: string
+                    minLength: 1
+                  source_binding:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - execution_bundle_revision_id
+                      - execution_bundle_revision_hash
+                      - run_id
+                      - run_manifest_hash
+                      - run_cell_id
+                      - cell_key
+                      - training_task_spec_id
+                      - training_task_spec_hash
+                    properties:
+                      execution_bundle_revision_id:
+                        type: string
+                        minLength: 1
+                      execution_bundle_revision_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      run_id:
+                        type: string
+                        minLength: 1
+                      run_manifest_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      run_cell_id:
+                        type: string
+                        minLength: 1
+                      cell_key:
+                        type: string
+                        minLength: 1
+                      training_task_spec_id:
+                        type: string
+                        minLength: 1
+                      training_task_spec_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                  request_summary:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - deterministic_display_name
+                      - deterministic_tag_hash
+                      - job_type
+                      - pod_count
+                      - cpu_cores
+                      - memory_mb
+                      - maximum_running_time_minutes
+                    properties:
+                      deterministic_display_name:
+                        type: string
+                        minLength: 1
+                      deterministic_tag_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      job_type:
+                        type: string
+                        const: PyTorchJob
+                      pod_count:
+                        type: integer
+                        const: 1
+                      cpu_cores:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                      memory_mb:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                      maximum_running_time_minutes:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                  provider_binding_hashes:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - execution_profile_hash
+                      - region_id_hash
+                      - workspace_id_hash
+                      - resource_mode
+                      - resource_id_hash
+                      - image_ref_hash
+                    properties:
+                      execution_profile_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      region_id_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      workspace_id_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      resource_mode:
+                        type: string
+                        enum:
+                          - exact_quota
+                          - public_resource
+                      resource_id_hash:
+                        anyOf:
+                          - type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          - type: 'null'
+                      image_ref_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                  redacted_fields:
+                    type: array
+                    minItems: 1
+                    uniqueItems: true
+                    items:
+                      type: string
+                      minLength: 1
+              payload_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              payload_byte_size:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              created_at:
+                type: string
+                minLength: 1
+        execution_attempts:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - execution_attempt_id
+              - external_pi_implementation_project_id
+              - external_pi_validation_cycle_id
+              - external_pi_branch_id
+              - external_pi_work_order_revision_id
+              - external_pi_work_order_revision_hash
+              - external_pi_revision_sequence
+              - run_id
+              - run_manifest_hash
+              - run_cell_id
+              - cell_key
+              - training_task_spec_id
+              - training_task_spec_hash
+              - provider_payload_id
+              - provider_payload_hash
+              - head_acknowledgement_inbox_id
+              - attempt_sequence
+              - workflow_business_key
+              - workflow_request_hash
+              - execution_mode
+              - provenance
+              - provider_idempotency_key
+              - lifecycle_state
+              - state_version
+              - terminal_reason_code
+              - external_job_ref
+              - external_job_ref_hash
+              - created_at
+              - updated_at
+              - terminal_at
+            properties:
+              execution_attempt_id:
+                type: string
+                minLength: 1
+              external_pi_implementation_project_id:
+                type: string
+                minLength: 1
+              external_pi_validation_cycle_id:
+                type: string
+                minLength: 1
+              external_pi_branch_id:
+                type: string
+                minLength: 1
+              external_pi_work_order_revision_id:
+                type: string
+                minLength: 1
+              external_pi_work_order_revision_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              external_pi_revision_sequence:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              run_id:
+                type: string
+                minLength: 1
+              run_manifest_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              run_cell_id:
+                type: string
+                minLength: 1
+              cell_key:
+                type: string
+                minLength: 1
+              training_task_spec_id:
+                type: string
+                minLength: 1
+              training_task_spec_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              provider_payload_id:
+                type: string
+                minLength: 1
+              provider_payload_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              head_acknowledgement_inbox_id:
+                type: string
+                minLength: 1
+              attempt_sequence:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              workflow_business_key:
+                type: string
+                minLength: 1
+              workflow_request_hash:
+                type: string
+                pattern: '^sha256:[0-9a-f]{64}$'
+              execution_mode:
+                type: string
+                enum:
+                  - simulation
+                  - real_provider
+              provenance:
+                type: string
+                enum:
+                  - non_production_fake_provider
+                  - real_provider
+              provider_idempotency_key:
+                type: string
+                minLength: 1
+              lifecycle_state:
+                type: string
+                enum:
+                  - prepared
+                  - submitted
+                  - running
+                  - succeeded
+                  - failed
+                  - cancelled
+              state_version:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              terminal_reason_code:
+                anyOf:
+                  - type: string
+                    enum:
+                      - simulation_succeeded
+                      - simulation_failed
+                      - operator_cancelled
+                      - provider_response_invalid
+                      - real_provider_succeeded
+                      - real_provider_failed
+                      - real_provider_timeout
+                      - real_provider_cleanup_unverified
+                  - type: 'null'
+              external_job_ref:
+                anyOf:
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - ref_type
+                      - ref_id
+                    properties:
+                      ref_type:
+                        type: string
+                        const: fake_aliyun_pai_dlc_job
+                      ref_id:
+                        type: string
+                        minLength: 1
+                  - type: object
+                    additionalProperties: false
+                    required:
+                      - ref_type
+                      - job_id
+                      - region_id_hash
+                    properties:
+                      ref_type:
+                        type: string
+                        const: aliyun_pai_dlc_job
+                      job_id:
+                        type: string
+                        minLength: 1
+                      region_id_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                  - type: 'null'
+              external_job_ref_hash:
+                anyOf:
+                  - type: string
+                    pattern: '^sha256:[0-9a-f]{64}$'
+                  - type: 'null'
+              created_at:
+                type: string
+                minLength: 1
+              updated_at:
+                type: string
+                minLength: 1
+              terminal_at:
+                anyOf:
+                  - type: string
+                    minLength: 1
+                  - type: 'null'
+            allOf:
+              - oneOf:
+                  - type: object
+                    properties:
+                      execution_mode:
+                        type: string
+                        const: simulation
+                      provenance:
+                        type: string
+                        const: non_production_fake_provider
+                      external_job_ref:
+                        anyOf:
+                          - type: object
+                            additionalProperties: false
+                            required:
+                              - ref_type
+                              - ref_id
+                            properties:
+                              ref_type:
+                                type: string
+                                const: fake_aliyun_pai_dlc_job
+                              ref_id:
+                                type: string
+                                minLength: 1
+                          - type: 'null'
+                      terminal_reason_code:
+                        anyOf:
+                          - type: string
+                            enum:
+                              - simulation_succeeded
+                              - simulation_failed
+                              - operator_cancelled
+                              - provider_response_invalid
+                          - type: 'null'
+                  - type: object
+                    properties:
+                      execution_mode:
+                        type: string
+                        const: real_provider
+                      provenance:
+                        type: string
+                        const: real_provider
+                      external_job_ref:
+                        anyOf:
+                          - type: object
+                            additionalProperties: false
+                            required:
+                              - ref_type
+                              - job_id
+                              - region_id_hash
+                            properties:
+                              ref_type:
+                                type: string
+                                const: aliyun_pai_dlc_job
+                              job_id:
+                                type: string
+                                minLength: 1
+                              region_id_hash:
+                                type: string
+                                pattern: '^sha256:[0-9a-f]{64}$'
+                          - type: 'null'
+                      terminal_reason_code:
+                        anyOf:
+                          - type: string
+                            enum:
+                              - real_provider_succeeded
+                              - real_provider_failed
+                              - operator_cancelled
+                              - real_provider_timeout
+                              - real_provider_cleanup_unverified
+                              - provider_response_invalid
+                          - type: 'null'
+        replayed:
+          type: boolean
