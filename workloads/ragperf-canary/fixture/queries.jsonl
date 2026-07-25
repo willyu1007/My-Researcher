@@ -1,0 +1,8 @@
+{"_id": "q0", "text": "recall document adapter benchmark corpus rank"}
+{"_id": "q1", "text": "rank rank query benchmark index benchmark"}
+{"_id": "q2", "text": "score rank token recall recall document"}
+{"_id": "q3", "text": "index query cpu chunk memory query"}
+{"_id": "q4", "text": "chunk latency chunk chunk pipeline score"}
+{"_id": "q5", "text": "adapter cpu cpu precision cpu query"}
+{"_id": "q6", "text": "vector pipeline rank embedding vector benchmark"}
+{"_id": "q7", "text": "rank latency vector recall vector precision"}

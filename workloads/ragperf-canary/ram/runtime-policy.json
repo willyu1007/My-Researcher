@@ -1,0 +1,26 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Sid": "M7L1RuntimeReadInput",
+      "Effect": "Allow",
+      "Action": ["oss:GetObject", "oss:ListObjects"],
+      "Resource": [
+        "acs:oss:*:*:BUCKET_NAME/input/*",
+        "acs:oss:*:*:BUCKET_NAME"
+      ]
+    },
+    {
+      "Sid": "M7L1RuntimeWriteOutputOnly",
+      "Effect": "Allow",
+      "Action": ["oss:PutObject"],
+      "Resource": "acs:oss:*:*:BUCKET_NAME/output/*"
+    },
+    {
+      "Sid": "M7L1RuntimeDenyControlPlane",
+      "Effect": "Deny",
+      "Action": ["paidlc:*", "oss:DeleteObject"],
+      "Resource": "*"
+    }
+  ]
+}

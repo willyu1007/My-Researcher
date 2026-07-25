@@ -1,0 +1,28 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Sid": "M7L1ControllerPaiDlcExact",
+      "Effect": "Allow",
+      "Action": [
+        "paidlc:CreateJob",
+        "paidlc:GetJob",
+        "paidlc:ListJobs",
+        "paidlc:StopJob"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "M7L1ControllerReadResultsOnly",
+      "Effect": "Allow",
+      "Action": ["oss:GetObject"],
+      "Resource": "acs:oss:*:*:BUCKET_NAME/output/*"
+    },
+    {
+      "Sid": "M7L1DenyDeleteAndEverythingElseOnBucket",
+      "Effect": "Deny",
+      "Action": ["oss:PutObject", "oss:DeleteObject", "paidlc:DeleteJob"],
+      "Resource": "*"
+    }
+  ]
+}
