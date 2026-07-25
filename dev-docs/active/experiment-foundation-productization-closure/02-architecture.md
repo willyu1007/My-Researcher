@@ -912,3 +912,11 @@ The closure compat easing is normalized at the controller boundary: absent body 
 The per-Cycle read retains D-18 head authority: an effective head requires the branch head revision/sequence to equal the current admitted revision, an exact EF Run branch/revision/hash/sequence/manifest binding, and exactly one processed durable `BranchHeadAdvanced` acknowledgement. Anything else is represented by `BRANCH_HEAD_NOT_FROZEN`; the read model never creates a second head or readiness authority.
 
 Full revision history is a separate exact branch query. The query orders immutable revisions by sequence, retains superseded entries with explicit current/head flags, and attaches a Run only through the exact branch/revision/hash/sequence join. No lineage endpoint accepts hashes, revision ids, refs, request bodies, or query filters.
+
+## M6-R1 original-source protocol import boundary
+
+The LIT-0204 mapper is a pure closed translation from the parsed immutable T-131 definition document plus caller-supplied exact Benchmark/MetricDefinition revision refs into one EvaluationProtocol v2 draft. The mapper preserves the source order of all 17 metric requirements, emits one `metric_contract@v1` rule per requirement, and prepends the D-19-shaped `text_pipeline_stats` `artifact_contract@v1`. Unknown fields, metrics, source/direction shapes, missing refs, extra refs, and malformed exact refs fail through the importer’s typed error taxonomy; canonical ids/hashes are never inferred from source prose.
+
+The importer owns only `createAssetDraft → freezeAssetDraft` for the new `lit0204-evaluation-protocol-ragperf-v2-source` / `ragperf-adapter-tier-v2-source` identity. The importer does not activate the revision, author readiness, change the D-19 product protocol, or claim catalog/scientific authority. `censusRuleEquivalence` projects both snapshots to exact rule-id/type/key/cardinality tuples and returns evidence-only set differences.
+
+The CLI has no implicit definition path or database fallback. The command requires `--definition`, validates `DATABASE_URL` against `requireDisposablePostgresTestDatabaseIdentity(..., 'd19')`, verifies the live randomized database marker, resolves the existing D-19 exact dependencies, and only then imports. The guard makes named-local and every non-disposable database unreachable through the command.

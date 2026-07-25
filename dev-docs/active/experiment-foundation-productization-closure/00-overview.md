@@ -4,7 +4,7 @@
 - State: in-progress
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
-- Next step: **M5-A3 closure preparation, available-actions enumeration, and closure body/path compat easing are implemented and locally verified**. Run the guarded A1/closure relational cases on an authorized disposable PostgreSQL host, then continue with M5-A4 convergence-gate work. OD-M5-2 remains revised to no projection/no schema in M5-A. M7-L1/L2 remain separate authorization boundaries; M5-A3 did not enable a capability, apply a migration, add persistence, or perform a write.
+- Next step: **M6-R1 implementation and local verification are complete; disposable-PostgreSQL acceptance remains host-verified-later**. Run `experiment-foundation-lit0204-protocol-import-service.relational.integration.test.ts` with `EXPERIMENT_FOUNDATION_LIT0204_IMPORT_RELATIONAL_PRISMA=1` plus the exact D-19 disposable identity/marker variables, then execute the guarded CLI with an explicit `--definition` path and record its source-binding/rule-census output as T-131 consumption evidence. The T-131 definition artifact, named-local database, and existing product protocol remain untouched.
 
 ## M7 default-off implementation — 2026-07-23
 

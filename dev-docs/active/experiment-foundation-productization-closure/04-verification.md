@@ -1239,3 +1239,73 @@ node .ai/scripts/experiment-foundation-m5-agent-gate.mjs --run-id t132-m5-agent-
 | host full suites | shared 396/396; backend 2,407 / 2,346 pass / 0 fail / 61 conditional-skip |
 
 M5 as rescoped by D-24 is complete: the agent/API surface now covers project-scoped lineage reads, derived closure preparation, and enumerable typed actions with zero new schema and zero new authority.
+
+## 2026-07-25 — M6-R1 LIT-0204 source-import local verification
+
+Fixture/source immutability:
+
+```bash
+cmp -s \
+  dev-docs/active/experiment-foundation-first-promotion-closure/artifacts/lit-0204-ragperf-protocol-definition.json \
+  apps/backend/src/services/test-fixtures/lit-0204-ragperf-protocol-definition.fixture.json
+shasum -a 256 \
+  dev-docs/active/experiment-foundation-first-promotion-closure/artifacts/lit-0204-ragperf-protocol-definition.json \
+  apps/backend/src/services/test-fixtures/lit-0204-ragperf-protocol-definition.fixture.json
+```
+
+- Passed: byte-for-byte comparison exit 0; both files SHA-256 `b15956e530e1aba392e4d5dea8874a1b9bd947f63c69209b3dbda0a14233365f`.
+- `git diff --exit-code -- <original-definition-path>` passed; the immutable T-131 source has no diff.
+
+Mapper and census:
+
+```bash
+cd apps/backend
+pnpm exec node --test --loader ts-node/esm \
+  src/services/experiment-foundation-lit0204-protocol-import-service.unit.test.ts \
+  src/services/experiment-foundation-lit0204-protocol-import-census.unit.test.ts
+```
+
+- Passed: 4 tests, 4 passed, 0 failed/skipped.
+- Tail: deterministic exact mapping and typed unknown-requirement rejection passed; product census and cardinality-drift evidence passed.
+
+Typechecks:
+
+```bash
+pnpm --filter @paper-engineering-assistant/shared typecheck
+pnpm --filter @paper-engineering-assistant/backend typecheck
+pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts
+```
+
+- Passed: shared, backend, and the script-specific TypeScript project all exited 0.
+
+Disposable guard negative:
+
+```bash
+cd apps/backend
+env -u DATABASE_URL \
+  -u EXPERIMENT_V2_TEST_DATABASE_URL \
+  -u EXPERIMENT_V2_TEST_DATABASE_NAME \
+  -u EXPERIMENT_V2_TEST_DISPOSABLE_NONCE \
+  node --loader ts-node/esm scripts/import-lit0204-ragperf-protocol-v2.ts \
+  --definition src/services/test-fixtures/lit-0204-ragperf-protocol-definition.fixture.json
+```
+
+- Expected refusal occurred before client construction: `EXPERIMENT_V2_TEST_DATABASE_URL is required; no DATABASE_URL fallback is allowed`.
+
+Relational lane:
+
+```bash
+cd apps/backend
+pnpm exec node --test --loader ts-node/esm \
+  src/services/experiment-foundation-lit0204-protocol-import-service.relational.integration.test.ts
+```
+
+- Local outcome: 1 guarded test discovered, 0 failed, 1 skipped with the exact instruction to set `EXPERIMENT_FOUNDATION_LIT0204_IMPORT_RELATIONAL_PRISMA=1` plus D-19 randomized disposable identity variables.
+- The local skip is **not** PostgreSQL acceptance. Host verification must rerun the same file with skip=0 and prove the imported server content hash plus both real D-17 reason codes.
+
+Static:
+
+- `git diff --check` passed.
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-productization-closure --strict` passed 97/97 Markdown files with 0 warnings/errors.
+- No `any` type was added in the service, CLI, or tests.
+- Deviation: the authorized disposable PostgreSQL identity/marker environment was unavailable, so the relational proof and CLI success/source-binding output remain host-verified-later; no named-local fallback was attempted.
