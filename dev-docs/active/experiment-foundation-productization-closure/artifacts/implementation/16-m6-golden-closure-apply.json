@@ -1,0 +1,86 @@
+{
+  "runner": "t132-m6-golden-closure@v1",
+  "approved_window": "process-scoped PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED",
+  "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+  "validation_cycle_id": "validation_cycle_t132_packa_product_p313_v1",
+  "business_idempotency_key": "m6-golden-closure-p313-v1",
+  "submitted_request": {
+    "validation_cycle_id": "validation_cycle_t132_packa_product_p313_v1",
+    "expected_cycle_version": 0,
+    "expected_closure_input_hash": "sha256:786e226799f22b1f74e17c0b48bb39d80447ace8ffe43f25ed126820f8eb67f3",
+    "closure_kind": "control_flow_validated_no_paper_evidence",
+    "accepted_proposal_id": null,
+    "expected_proposal_hash": null,
+    "corrected_scientific_disposition": null,
+    "idempotency_key": "m6-golden-closure-p313-v1"
+  },
+  "closure_response": {
+    "closure": {
+      "closure_id": "pi_validation_cycle_closure_v2_ec9e5603fedf8753e51a8ad57961c7cfcd7792924df355284bf4217af30ff434",
+      "schema_version": "v1",
+      "validation_cycle_id": "validation_cycle_t132_packa_product_p313_v1",
+      "cycle_version_at_closure": 0,
+      "closure_kind": "control_flow_validated_no_paper_evidence",
+      "scientific_disposition": null,
+      "selected_exit_key": null,
+      "accepted_proposal_id": null,
+      "accepted_proposal_hash": null,
+      "closure_watermark": {
+        "schema_version": "v1",
+        "validation_cycle_id": "validation_cycle_t132_packa_product_p313_v1",
+        "expected_cycle_version": 0,
+        "ordered_branches": [
+          {
+            "ordinal": 1,
+            "branch_id": "pi_experiment_branch_v2_82dfdc10-858a-4e19-955b-e265a420418c",
+            "branch_key": "ragperf-primary",
+            "current_admitted_revision_id": "pi_experiment_revision_v2_fed4f563-4717-4bb3-89d6-1295a1b751db",
+            "current_admitted_revision_hash": "sha256:a5be97e94ecc9e1b817b42016473f169834ac18ec6c53e24ecce8305b019e81b",
+            "branch_revision_sequence": 1,
+            "effective_head_run_id": "ef_run_v2_c4ab7919-2d7b-415c-ab53-201b11464aca",
+            "effective_head_run_manifest_hash": "sha256:8965ebdfd39f899a56ff242aedc968c0b29dd8048a2cecba1ac3ecdb9342d915",
+            "head_blocker": null,
+            "ordered_cells": [
+              {
+                "ordinal": 1,
+                "run_cell_id": "ef_run_cell_v2_08f23a75-a703-4ce9-85c5-0e3997102f10",
+                "cell_key": "retriever-top-k-5",
+                "ordered_attempts": [
+                  {
+                    "ordinal": 1,
+                    "execution_attempt_id": "ef_v2_attempt_0c749c9b-9fc4-4d82-8730-a7582c72c375",
+                    "lifecycle_state": "succeeded",
+                    "execution_mode": "simulation",
+                    "provenance": "non_production_fake_provider"
+                  }
+                ],
+                "complete_result_ref": null,
+                "eligibility_code": "SCIENTIFIC_EXECUTION_NOT_STARTED"
+              },
+              {
+                "ordinal": 2,
+                "run_cell_id": "ef_run_cell_v2_22adca85-e47b-4a56-8a79-e38363ba9d0f",
+                "cell_key": "retriever-top-k-10",
+                "ordered_attempts": [
+                  {
+                    "ordinal": 1,
+                    "execution_attempt_id": "ef_v2_attempt_88b1cd2a-5937-4479-bd5c-960319da1393",
+                    "lifecycle_state": "succeeded",
+                    "execution_mode": "simulation",
+                    "provenance": "non_production_fake_provider"
+                  }
+                ],
+                "complete_result_ref": null,
+                "eligibility_code": "SCIENTIFIC_EXECUTION_NOT_STARTED"
+              }
+            ],
+            "eligible_run_evidence_unit_refs": []
+          }
+        ],
+        "active_real_attempt_count": 0,
+        "closure_input_hash": "sha256:786e226799f22b1f74e17c0b48bb39d80447ace8ffe43f25ed126820f8eb67f3"
+      },
+      "closure_snapshot_hash": "sha256:cba742d8e7571ebd6b6de651738ede5f96429dd52ebaec6d704c8c90ed521654"
+    }
+  }
+}
