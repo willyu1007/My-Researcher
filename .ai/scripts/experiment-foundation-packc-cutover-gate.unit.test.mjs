@@ -52,7 +52,7 @@ test('Pack C cutover registry closes PC17 and PC18 with exact evidence refs', ()
   ]);
   assert.deepEqual(
     PACKC_CUTOVER_SEALED_COMMIT_PATHS.map((entry) => entry.function_name),
-    ['commitAdmission', 'commitHeadAdvance', 'commitMaterialization', 'startWorkflowSimulation'],
+    ['commitAdmission', 'commitHeadAdvance', 'commitMaterialization', 'startExecution'],
   );
   assert.deepEqual(
     PACKC_CUTOVER_SUITE_REGISTRY.map((suite) => suite.evidence_key),
@@ -177,7 +177,7 @@ test('static census freezes PC17 and PC18 cutover negative space', async () => {
         id: 'ef_simulation_start',
         relative_path:
           'apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts',
-        function_name: 'startWorkflowSimulation',
+        function_name: 'startExecution',
         transaction_internal_closure_read: true,
         replay_before_closure_fence: true,
       },

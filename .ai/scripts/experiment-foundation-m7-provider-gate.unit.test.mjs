@@ -29,8 +29,14 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 test('M7 gate accepts only a safe run id and the reviewed pinned image', () => {
   assert.deepEqual(parseArgs(['--run-id', 'm7-offline-1']), {
     runId: 'm7-offline-1',
+    importedRunId: 'm7-offline-1',
     postgresImage: DEFAULT_POSTGRES_IMAGE,
   });
+  assert.equal(
+    parseArgs(['--run-id', 'composite-x', '--imported-run-id', 'm7-offline-1']).importedRunId,
+    'm7-offline-1',
+  );
+  assert.throws(() => parseArgs(['--run-id', 'x', '--imported-run-id', '../escape']));
   assert.throws(() => parseArgs(['--run-id', '../escape']));
   assert.throws(() => parseArgs([
     '--run-id', 'm7', '--postgres-image', 'postgres:latest',

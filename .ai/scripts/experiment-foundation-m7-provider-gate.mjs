@@ -111,11 +111,21 @@ const SOURCE_POPULATION = [
 
 export function parseArgs(argv) {
   let runId = null;
+  let importedRunId = null;
   let postgresImage = DEFAULT_POSTGRES_IMAGE;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--run-id') {
       runId = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    // Composite callers (the M6 release gate) re-run this gate under a
+    // derived run id that T-106 cannot have pre-imported. The bilateral
+    // handoff stays enforced against the named already-imported run instead;
+    // standalone runs keep requiring an import of their own run id.
+    if (argument === '--imported-run-id') {
+      importedRunId = argv[index + 1] ?? null;
       index += 1;
       continue;
     }
@@ -129,6 +139,9 @@ export function parseArgs(argv) {
   if (!runId || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(runId)) {
     throw new Error('--run-id must contain 1..64 safe filename characters');
   }
+  if (importedRunId !== null && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(importedRunId)) {
+    throw new Error('--imported-run-id must contain 1..64 safe filename characters');
+  }
   const image = postgresImage.match(/^([^@]+)@sha256:([0-9a-f]{64})$/);
   if (
     !image
@@ -137,7 +150,7 @@ export function parseArgs(argv) {
   ) {
     throw new Error('postgres-image must equal the reviewed digest-pinned pgvector image');
   }
-  return { runId, postgresImage };
+  return { runId, importedRunId: importedRunId ?? runId, postgresImage };
 }
 
 export function selectPreM7MigrationDirectories(entries) {
@@ -1335,7 +1348,7 @@ export function evaluateM7Checks(summary) {
 }
 
 async function main() {
-  const { runId, postgresImage } = parseArgs(process.argv.slice(2));
+  const { runId, importedRunId, postgresImage } = parseArgs(process.argv.slice(2));
   const artifactDir = path.join(ARTIFACT_ROOT, runId);
   const summaryPath = path.join(artifactDir, 'summary.json');
   await fs.mkdir(artifactDir, { recursive: true });
@@ -1498,7 +1511,7 @@ async function main() {
       summary.schema_census.excluded_write_table_counts
         .ExperimentFoundationExternalTrainingJob;
     await writeJsonAtomic(path.join(artifactDir, 'schema-census.json'), summary.schema_census);
-    summary.handoff = await inspectT106Handoff(runId);
+    summary.handoff = await inspectT106Handoff(importedRunId);
     assertDurableSummaryRedaction(normalizeSummaryPaths(summary));
     summary.redaction.summary_self_check_passed = true;
     summary.checks = evaluateM7Checks(summary);

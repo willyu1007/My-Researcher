@@ -103,7 +103,10 @@ export const PACKC_CUTOVER_SEALED_COMMIT_PATHS = Object.freeze([
     id: 'ef_simulation_start',
     relative_path:
       'apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts',
-    function_name: 'startWorkflowSimulation',
+    // M7 moved the shared Serializable start transaction (replay-first +
+    // closure fence, covering simulation AND real-provider starts) into the
+    // private startExecution method that startWorkflowSimulation delegates to.
+    function_name: 'startExecution',
     replay_marker: 'const replayRows =',
     closure_read_marker:
       'transaction.paperImplementationValidationCycleClosureV2.findUnique',
@@ -539,9 +542,10 @@ function sliceBetween(source, startMarker, endMarker) {
 }
 
 function sliceMethod(source, functionName) {
-  const startMarker = `  async ${functionName}(`;
+  const markers = [`  async ${functionName}(`, `  private async ${functionName}(`];
+  const startMarker = markers.find((marker) => source.indexOf(marker) >= 0);
+  if (!startMarker) return '';
   const start = source.indexOf(startMarker);
-  if (start < 0) return '';
   const nextMethod = source.indexOf('\n  async ', start + startMarker.length);
   return source.slice(start, nextMethod < 0 ? source.length : nextMethod);
 }
