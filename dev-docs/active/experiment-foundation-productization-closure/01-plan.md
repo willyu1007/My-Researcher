@@ -1,12 +1,20 @@
 # 01 Plan
 
 ## Execution posture
-- Current state: `in-progress`; OQ-01 through OQ-22、Pack A/Pack B technical closure、named-local schema landing、深度清理、正式 PI scope → Pack A → Pack B product landing、Pack C 全部切片/最终 gate/named-local hardening apply、zero-write Aliyun `public_resource` preflight，以及 M7-I0..I3 default-off code/schema/test implementation 均已完成。M7 收敛 run 经独立评审与 M7-QR 硬化后为 `t132-m7-offline-20260724-v3`（passed，实测谓词），M7 迁移 `20260723100000` 已于 2026-07-24 经批准 apply 到 named-local（记录 `artifacts/db/m7-real-provider-20260724/`）。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight/real-provider capability 均为 `false`。任何 provider write、scientific execution 或 non-local rollout 仍是独立后续授权；M5 已按 D-24 收窄为 agent-first 工作流切片（UI 产品旅程与语义检索随未来 UI 重设计另立任务）。
+- Current state: `in-progress`; M0-M6 均已完成，M6 最终 run `t132-m6-release-20260725-v5` 通过 M6-01..M6-10，T-131 typed-v2 consumption、agent/API usage-fit、OpenAPI/context、named-local no-evidence Cycle closure 和 release runbook 均已收口。OQ-01 through OQ-22、Pack A/Pack B、Pack C、zero-write Aliyun `public_resource` preflight，以及 M7-I0..I3 default-off code/schema/test implementation 均已完成。M7 收敛 run 经独立评审与 M7-QR 硬化后为 `t132-m7-offline-20260724-v3`（passed，实测谓词），M7 迁移 `20260723100000` 已于 2026-07-24 经批准 apply 到 named-local（记录 `artifacts/db/m7-real-provider-20260724/`）。当前 named-local cutover=`true`，admission/simulation/scientific-validation/PI-closure/cloud-preflight/real-provider capability 均为 `false`。任何 provider write、scientific execution 或 non-local rollout 仍是独立后续授权；M5 已按 D-24 收窄为 agent-first 工作流切片（UI 产品旅程与语义检索随未来 UI 重设计另立任务）。
 - Pack A state: implementation and exact source-policy binding are complete; final run `packa-d19-source-policy-20260713-r2` passed A01-A04 and B01-B10 with `blockers=[]` on disposable PostgreSQL.
 - T-132 remains a single execution package. Internal workstreams may run in parallel only after the shared invariant contracts are frozen.
 - Every phase MUST add its own negative/integration evidence. A final control-plane scenario cannot compensate for missing phase-level proof.
 - Pack B 已完成 product code、default-off config、additive Prisma schema/migration artifacts、isolated disposable-Postgres tests、named local-development schema apply，以及 exact acknowledged Pack A Run 上的产品 E1-E5。所有非本地环境和真实 provider/scientific paths 仍关闭。
 - Any persisted-field change MUST use `sync-db-schema-from-code`; DB apply remains a separate approval gate.
+
+## Current remaining sequence — reconciled 2026-07-26
+
+1. Preserve/review the local delivery history before cloud work: the repository is clean before this documentation alignment, `origin/main` is an ancestor of local `main`, and local `main` is ahead by 41 commits. Preferred integration is a non-destructive `codex/t132-productization-closure` remote branch plus review/PR; do not rewrite or directly force-update `origin/main`.
+2. If the owner elects M7-L1, complete the owner-side A→D preparation in `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`: private OSS bucket, split RAM roles/policies, ACR RepoDigest, and immutable SciFact mirror manifests.
+3. Immediately before the first `CreateJob`, require a fresh short-lived controller STS supplied outside the repository and the exact in-session authorization string with date, ¥50 ceiling and two-job limit. Keep both capabilities false until then.
+4. Run M7-L1 as diagnostic-only and require `real_provider_canary_passed`, terminal/cleanup verification, zero duplicate jobs and zero ExperimentResult/EvidenceCandidate/REU. M7-L2 remains a separately authorized scientific closure.
+5. Before marking T-132 `done`, resolve the four non-M7 audit remainders: EF-P06 product candidate promotion, EF-P14 bound bootstrap/legacy-null handling, EF-P15 standalone attachment/revalidation, and EF-P21 semantic retrieval (already deferred by D-24). Each needs either implementation evidence or a named follow-up task; no silent scope loss.
 
 ## Pack C execution plan — authorized 2026-07-18
 

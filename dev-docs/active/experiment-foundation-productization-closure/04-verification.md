@@ -1330,3 +1330,61 @@ node .ai/scripts/experiment-foundation-m6-release-gate.mjs --run-id t132-m6-rele
 | convergence lineage | v1 packc-final run-id grammar; v2 stale sealed-path census (`startWorkflowSimulation`→`startExecution` after M7 — the release gate's reason to exist); v3 composite-vs-bilateral handoff (`--imported-run-id`); v4 nested status-field read; v5 passed |
 
 M6 is complete: T-131 consumption evidence written back and T-131 closed (`done`); operator runbook `docs/context/process/experiment-foundation-release-runbook.md`; OpenAPI/api-index/context current with a path-coverage drift guard.
+
+## 2026-07-26 — Progress-ledger and governance reconciliation
+
+Read-only evidence and Git topology:
+
+```bash
+git status --short --branch
+git rev-list --left-right --count origin/main...HEAD
+git merge-base --is-ancestor origin/main HEAD
+git diff --shortstat origin/main..HEAD
+```
+
+- Before the documentation update, the worktree was clean and local `main` was `0 behind / 41 ahead`; `origin/main` is an ancestor of HEAD.
+- The ahead range changes 264 files with 44,615 insertions and 3,411 deletions. Subject census found 40 T-132/ExperimentFoundation/PaperImplementation-related commits and one intervening Literature portability fix.
+- No branch, commit, remote ref or push was created during the reconciliation.
+
+Task/evidence assertions:
+
+```bash
+node <inline-ledger-and-summary-assertion>
+```
+
+- Passed: the audit table contains exactly 28 findings with 23 `verified`, 4 `open` and 1 `cut`; the open set is exactly EF-P06, EF-P14, EF-P15 and EF-P21.
+- Passed: every M6-01..M6-10 check in `artifacts/implementation/17-m6-release-gate-summary-v5.json` is `passed`.
+- Passed: every M7-01..M7-15 check in `artifacts/implementation/12-m7-qr-gate-summary-v3.json` is `passed`.
+
+Documentation lint:
+
+```bash
+node .ai/scripts/lint-docs.mjs \
+  --path dev-docs/active/experiment-foundation-productization-closure \
+  --strict
+```
+
+- First run: 0 errors and 2 strict-mode wording warnings in the newly reconciled sections; no structural/content error.
+- Fixed the vague-reference wording without changing semantics.
+- Final run: 101/101 Markdown files passed, 0 errors, 0 warnings.
+
+Project governance:
+
+```bash
+node .ai/scripts/ctl-project-governance.mjs sync --dry-run --project main --init-if-missing
+node .ai/scripts/ctl-project-governance.mjs sync --apply --project main
+node .ai/scripts/ctl-project-governance.mjs lint --check --project main
+```
+
+- Dry-run and apply both completed successfully. T-132 remains registered as `in-progress` at `dev-docs/active/experiment-foundation-productization-closure`; regenerated project views required no content delta beyond the task-bundle changes.
+- Final lint passed. Two pre-existing non-T-132 warnings remain for non-canonical `State:` prose in T-124 and T-133 task overviews; the reconciliation did not modify those tasks.
+
+Static diff integrity:
+
+```bash
+git diff --check
+```
+
+- Passed with no whitespace errors.
+- Scope is documentation/governance only: `.ai-task.yaml`, `00-overview.md`, `01-plan.md`, `03-implementation-notes.md`, `04-verification.md`, `06-audit-closure-matrix.md` and `roadmap.md`.
+- No product code, schema, migration, capability, cloud resource, credential, provider operation or scientific record changed.
