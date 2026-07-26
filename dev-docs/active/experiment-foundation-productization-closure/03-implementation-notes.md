@@ -2,8 +2,16 @@
 
 ## Status
 - Current status: `in-progress`
-- Last updated: 2026-07-23
+- Last updated: 2026-07-26
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance 均已验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；未执行非本地 rollout、provider write 或 scientific execution。
+
+## 2026-07-26 — M7-L1 OSS step A closure and RAM materialization
+
+- Console verification established the dedicated bucket `pea-m7-canary-6194-202607` in `cn-shanghai`, created `2026-07-26 17:03`, using Standard storage, locally redundant storage, private ACL, Block Public Access, and OSS-managed AES256 server-side encryption.
+- Lifecycle rule `pea-output-delete-30d` is enabled for prefix `output/`; both complete objects and incomplete multipart fragments are deleted after 30 days. `input/` intentionally has no lifecycle rule and remains subject to the explicit post-M7-L2 cleanup decision.
+- Replaced the policy-only `BUCKET_NAME` placeholders with the exact bucket. Final repository digests are controller `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c` and runtime `68d911b2ecfdac5d3ddb32c4d7294fb9d793b8aee527bec18c989f987e7ca5c8`.
+- This checkpoint creates no RAM policy/role, ACR resource, object upload, STS credential, PAI job or capability enablement. It changes no architecture or persisted interface; step B remains an owner-confirmed console action using the repository-finalized policy bodies.
+- The sole maintainer confirmed direct commits to `main`; no PR branch is required for this delivery.
 
 ## 2026-07-22 — Explicit Aliyun public-resource preflight mode
 

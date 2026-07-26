@@ -1,6 +1,6 @@
 # T-132 M7-L1 live-canary authorization materials (fill-in)
 
-Status: **materials in preparation** — items 2/3/4 decided 2026-07-25; item 1 workload draft prepared and locally verified; item 5 policy documents prepared for console review. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
+Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 workload draft prepared and locally verified; item 5 exact bucket-bound policy documents prepared for console review. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
 
 Submission protocol per item: edit the `DECISION:` lines in this file (or state the choice in chat and Claude records it here), then the final line of this document gets your explicit "M7-L1 authorized" statement. Claude prepares every artifact marked `[Claude prepares]` for your review before the window.
 
@@ -27,7 +27,8 @@ Required: approved bucket/prefix policy, encryption/retention, result object nam
 
 - Recommendation: one dedicated bucket `pea-m7-canary-<account-suffix>` in `cn-shanghai`; prefixes `input/` (runtime read-only) and `output/<run_id>/<cell_key>/result.json` (runtime write-once, controller read-only); SSE-OSS default encryption; lifecycle rule deleting `output/` after 30 days; no public access.
 - DECISION (owner, 2026-07-25): **approved per recommendation** — bucket pattern `pea-m7-canary-<account-suffix>` in cn-shanghai with the full recommended policy set; exact suffix fixed at console creation and recorded back here.
-  - `DECISION: recommended policy approved; suffix at creation`
+  - `DECISION (completed 2026-07-26): pea-m7-canary-6194-202607`
+- Verified console state: 华东2（上海）/`cn-shanghai`, created `2026-07-26 17:03`, Standard + local redundancy, private ACL + Block Public Access, SSE-OSS/AES256. Lifecycle rule `pea-output-delete-30d` is enabled for prefix `output/`, deleting complete objects and fragments after 30 days; `input/` has no lifecycle rule.
 
 ## 4. Cost ceiling
 
@@ -43,7 +44,7 @@ Required: short-lived least-privilege controller policy (exact allowlist `paidlc
 
 - [Claude prepares] the two exact RAM policy JSON documents for you to paste into the Aliyun console, plus the SHA-256 you record back here as the reviewed-policy digest (the EF-P16 pattern).
 - At window time you supply a fresh short-lived STS triplet for the controller role **only via process env to the runner invocation** (never a file in the repo, never chat if avoidable — a terminal env var export in your own shell is the cleanest channel).
-- Prepared: `workloads/ragperf-canary/ram/controller-policy.json` (sha256 `2f7ce3cfe9b3448b…`) and `runtime-policy.json` (sha256 `ced35204b7713672…`) — exact allowlists with explicit Deny statements for DeleteJob/DeleteObject and cross-role actions; replace `BUCKET_NAME` with the created bucket before pasting into the console, then record the final policy sha256 values here.
+- Prepared for console paste with the exact bucket already materialized: `workloads/ragperf-canary/ram/controller-policy.json` (sha256 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`) and `runtime-policy.json` (sha256 `68d911b2ecfdac5d3ddb32c4d7294fb9d793b8aee527bec18c989f987e7ca5c8`) — exact allowlists with explicit Deny statements for DeleteJob/DeleteObject and cross-role actions.
 - DECISION (owner): confirm the role-split design; record final policy digests after console review.
   - `DECISION: pending console creation + digest record`
 

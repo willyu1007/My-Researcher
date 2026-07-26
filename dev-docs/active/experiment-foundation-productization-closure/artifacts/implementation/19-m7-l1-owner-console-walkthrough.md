@@ -8,15 +8,17 @@ Order matters: **A (bucket) → B (RAM roles) → C (ACR image) → D (dataset u
 
 ## A. OSS bucket (Aliyun console → 对象存储 OSS)
 
+状态：**已完成并验证（2026-07-26）**。实际 Bucket 为 `pea-m7-canary-6194-202607`；地域、私有访问、SSE-OSS/AES256 和 `output/` 30 天生命周期规则均已确认。
+
 1. 创建 Bucket：名称 `pea-m7-canary-<你的后缀>`，地域 **华东2（上海）cn-shanghai**，存储类型 标准，读写权限 **私有**。
 2. 关闭公共读写与静态网站托管（默认即关，确认一眼）。
 3. 服务端加密：开启 **OSS 完全托管（SSE-OSS）**。
 4. 生命周期规则：前缀 `output/`，**30 天后删除**。（`input/` 不设规则，L2 收尾后手动删除。）
-5. 记下最终 bucket 名，告诉 Claude —— 后续所有文件里的 `BUCKET_NAME` 由 Claude 一次性替换并复算 policy 摘要。
+5. 已记录最终 Bucket 名，并已由 Codex 完成 `BUCKET_NAME` 替换与 policy 摘要复算。
 
 ## B. 两个 RAM 角色（console → 访问控制 RAM）
 
-先把 `workloads/ragperf-canary/ram/*.json` 里的 `BUCKET_NAME` 换成 A 步的真实桶名（告诉 Claude 桶名后由 Claude 替换并提交，你直接复制最终文件内容）。
+状态：**下一步**。`workloads/ragperf-canary/ram/*.json` 已绑定真实桶名并通过 JSON/摘要校验，你直接复制最终文件内容。
 
 1. **自定义权限策略 ×2**：
    - `pea-m7-canary-controller`：粘贴 `ram/controller-policy.json`

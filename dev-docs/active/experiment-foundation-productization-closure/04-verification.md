@@ -1,5 +1,17 @@
 # 04 Verification
 
+## M7-L1 OSS step A and RAM policy materialization — 2026-07-26
+
+- Aliyun OSS console showed bucket `pea-m7-canary-6194-202607` under 华东2（上海）/`cn-shanghai`, creation time `2026-07-26 17:03`, Standard storage, local redundancy, private ACL and “文件不可以被公共访问”.
+- The server-side encryption page showed OSS fully managed encryption with AES256. The lifecycle table showed `pea-output-delete-30d`, prefix `output/`, 30-day deletion for complete files and fragments, status `启用中`.
+- `jq empty workloads/ragperf-canary/ram/controller-policy.json workloads/ragperf-canary/ram/runtime-policy.json` passed after exact-bucket materialization.
+- `rg -n 'BUCKET_NAME' workloads/ragperf-canary/ram` returned no matches.
+- `shasum -a 256 workloads/ragperf-canary/ram/*.json` returned controller `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c` and runtime `68d911b2ecfdac5d3ddb32c4d7294fb9d793b8aee527bec18c989f987e7ca5c8`.
+- Exact `jq` assertions passed: controller has no OSS write Allow and explicitly denies `oss:PutObject`; runtime has no PAI-DLC Allow and explicitly denies `paidlc:*`; neither policy retains a placeholder.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` completed and `lint --check` passed. Two pre-existing migration warnings remain in unrelated T-124 bundles with non-canonical State text.
+- BYOC direction markers, credential-shaped token scan and `git diff --check` passed.
+- Scope result: OSS step A passed. RAM console acceptance, ACR, dataset objects/manifests, STS and every live provider/billable operation remain unverified and unauthorized.
+
 ## Aliyun public-resource preflight mode — 2026-07-22
 
 - Shared v2 schema tests passed 3/3 and cover both modes plus caller expansion, missing exact quota, fake public quota, manifest-mode/redaction mismatch and public non-null resource hash. Backend cloud-preflight tests passed 11/11, including official SDK omission round-trip, payload↔manifest and top-level execution-profile-hash substitution, exact-quota pagination, and rejection of a public transport ledger containing more than one `ListResources` read.

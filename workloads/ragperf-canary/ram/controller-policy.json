@@ -16,7 +16,7 @@
       "Sid": "M7L1ControllerReadResultsOnly",
       "Effect": "Allow",
       "Action": ["oss:GetObject"],
-      "Resource": "acs:oss:*:*:BUCKET_NAME/output/*"
+      "Resource": "acs:oss:*:*:pea-m7-canary-6194-202607/output/*"
     },
     {
       "Sid": "M7L1DenyDeleteAndEverythingElseOnBucket",

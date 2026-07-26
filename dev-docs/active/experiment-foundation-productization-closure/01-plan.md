@@ -10,11 +10,12 @@
 
 ## Current remaining sequence — reconciled 2026-07-26
 
-1. Preserve/review the local delivery history before cloud work: the repository is clean before this documentation alignment, `origin/main` is an ancestor of local `main`, and local `main` is ahead by 41 commits. Preferred integration is a non-destructive `codex/t132-productization-closure` remote branch plus review/PR; do not rewrite or directly force-update `origin/main`.
-2. If the owner elects M7-L1, complete the owner-side A→D preparation in `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`: private OSS bucket, split RAM roles/policies, ACR RepoDigest, and immutable SciFact mirror manifests.
-3. Immediately before the first `CreateJob`, require a fresh short-lived controller STS supplied outside the repository and the exact in-session authorization string with date, ¥50 ceiling and two-job limit. Keep both capabilities false until then.
-4. Run M7-L1 as diagnostic-only and require `real_provider_canary_passed`, terminal/cleanup verification, zero duplicate jobs and zero ExperimentResult/EvidenceCandidate/REU. M7-L2 remains a separately authorized scientific closure.
-5. Before marking T-132 `done`, resolve the four non-M7 audit remainders: EF-P06 product candidate promotion, EF-P14 bound bootstrap/legacy-null handling, EF-P15 standalone attachment/revalidation, and EF-P21 semantic retrieval (already deferred by D-24). Each needs either implementation evidence or a named follow-up task; no silent scope loss.
+1. **Completed 2026-07-26 — A / OSS:** created and console-verified private `pea-m7-canary-6194-202607` in `cn-shanghai`, SSE-OSS/AES256, Block Public Access, and enabled lifecycle rule `pea-output-delete-30d` for 30-day deletion of `output/` objects/fragments. Materialized the exact bucket into both RAM JSON files and recomputed their final digests.
+2. **Next — B / RAM:** create the two custom policies and split controller/runtime roles from the finalized JSON in `workloads/ragperf-canary/ram/`; verify the console bodies are unchanged and record their effective policy digests.
+3. Complete C→D preparation: private ACR RepoDigest and immutable SciFact mirror manifests. Direct commits to `main`, without a PR, are the owner-confirmed delivery strategy; do not rewrite or force-update history.
+4. Immediately before the first `CreateJob`, require a fresh short-lived controller STS supplied outside the repository and the exact in-session authorization string with date, ¥50 ceiling and two-job limit. Keep both capabilities false until then.
+5. Run M7-L1 as diagnostic-only and require `real_provider_canary_passed`, terminal/cleanup verification, zero duplicate jobs and zero ExperimentResult/EvidenceCandidate/REU. M7-L2 remains a separately authorized scientific closure.
+6. Before marking T-132 `done`, resolve the four non-M7 audit remainders: EF-P06 product candidate promotion, EF-P14 bound bootstrap/legacy-null handling, EF-P15 standalone attachment/revalidation, and EF-P21 semantic retrieval (already deferred by D-24). Each needs either implementation evidence or a named follow-up task; no silent scope loss.
 
 ## Pack C execution plan — authorized 2026-07-18
 

@@ -6,15 +6,15 @@
       "Effect": "Allow",
       "Action": ["oss:GetObject", "oss:ListObjects"],
       "Resource": [
-        "acs:oss:*:*:BUCKET_NAME/input/*",
-        "acs:oss:*:*:BUCKET_NAME"
+        "acs:oss:*:*:pea-m7-canary-6194-202607/input/*",
+        "acs:oss:*:*:pea-m7-canary-6194-202607"
       ]
     },
     {
       "Sid": "M7L1RuntimeWriteOutputOnly",
       "Effect": "Allow",
       "Action": ["oss:PutObject"],
-      "Resource": "acs:oss:*:*:BUCKET_NAME/output/*"
+      "Resource": "acs:oss:*:*:pea-m7-canary-6194-202607/output/*"
     },
     {
       "Sid": "M7L1RuntimeDenyControlPlane",
