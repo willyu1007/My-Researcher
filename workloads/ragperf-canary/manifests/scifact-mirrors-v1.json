@@ -1,0 +1,74 @@
+{
+  "schema": "RagperfCanaryDatasetMirrorManifest@v1",
+  "source": {
+    "dataset": "BEIR SciFact",
+    "archive_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "archive_md5": "5f7d1de60b170fc8027bb7898e2efca1",
+    "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+    "retrieved_at": "2026-07-27",
+    "license_evidence": {
+      "corpus": "ODC-By-1.0",
+      "queries": "CC-BY-4.0",
+      "upstream": "https://github.com/allenai/scifact/blob/master/LICENSE.md"
+    }
+  },
+  "slice": {
+    "corpus_rule": "retain the complete BEIR SciFact corpus",
+    "query_rule": "retain queries whose _id occurs in qrels/test.tsv; preserve source queries.jsonl order",
+    "qrels_uploaded": false,
+    "training_data_uploaded": false
+  },
+  "mirrors": [
+    {
+      "ordinal": 1,
+      "role": "corpus",
+      "filename": "corpus.jsonl",
+      "record_count": 5183,
+      "content_digest": "sha256:dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+      "byte_size": 8106566,
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/",
+      "object_file_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/corpus.jsonl",
+      "mount_access": "ro",
+      "dataset_revision_binding": null,
+      "upload_state": "uploaded_verified",
+      "remote_verification": {
+        "verified_at": "2026-07-27",
+        "endpoint": "oss-cn-shanghai.aliyuncs.com",
+        "content_length": 8106566,
+        "etag": "26537F8AE036FDB77D847EC4F7AC1858",
+        "crc64_ecma": "8566302686400034898",
+        "local_crc64_ecma_match": true
+      }
+    },
+    {
+      "ordinal": 2,
+      "role": "query_workload",
+      "filename": "queries.jsonl",
+      "record_count": 300,
+      "content_digest": "sha256:f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520",
+      "byte_size": 56640,
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/",
+      "object_file_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/queries.jsonl",
+      "mount_access": "ro",
+      "dataset_revision_binding": null,
+      "upload_state": "uploaded_verified",
+      "remote_verification": {
+        "verified_at": "2026-07-27",
+        "endpoint": "oss-cn-shanghai.aliyuncs.com",
+        "content_length": 56640,
+        "etag": "561E9AA7B1812659979305A94731E3E9",
+        "crc64_ecma": "14258960024956570564",
+        "local_crc64_ecma_match": true
+      }
+    }
+  ],
+  "retention": {
+    "policy": "retain through M7-L2 closure, then delete with a separately confirmed cleanup",
+    "bucket_lifecycle_applies": false
+  },
+  "authorization": {
+    "external_download_authorized": true,
+    "oss_write_authorized": true,
+    "create_job_authorized": false
+  }
+}

@@ -18,8 +18,9 @@ The frozen local upload plan is
 `manifests/workload-directory-v1.json`. Its `single-file-expanded-directory@v1`
 profile means the mounted directory contains exactly `entrypoint.py`, and the
 directory content digest/byte size are the digest/byte size of those exact
-file bytes. The manifest remains `not_uploaded`; it is not evidence that the
-OSS object exists.
+file bytes. The manifest is `uploaded_verified`: the exact object exists in
+the Shanghai Bucket, and remote content length plus CRC64-ECMA match the local
+file.
 
 Runtime contract: env `EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON`,
 `EXPERIMENT_FOUNDATION_INPUT_1_DIR`, `EXPERIMENT_FOUNDATION_INPUT_2_DIR`,
@@ -31,3 +32,15 @@ Dataset (per approved decision): BEIR SciFact slice — `corpus.jsonl` and
 `queries.jsonl` are separate content-addressed mirror directories under
 `oss://<bucket>/input/scifact/`, with digests recorded in the mirror
 manifests and cleanup after M7-L2.
+
+`manifests/scifact-mirrors-v1.json` freezes that slice as the complete
+5,183-document SciFact corpus plus the 300 test-query IDs from
+`qrels/test.tsv`, preserving source query order. Qrels and training data are
+not uploaded. The manifest records the BEIR archive checksum and the upstream
+SciFact corpus/query license split.
+
+Both mirrors are `uploaded_verified`. Their exact OSS object refs, content
+lengths, ETags and remote/local CRC64-ECMA matches are recorded in
+`manifests/scifact-mirrors-v1.json`. This closes object preparation only; it
+does not authorize or prove a DLC job, image pull, runtime mount or scientific
+result.

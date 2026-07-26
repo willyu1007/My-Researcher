@@ -16,7 +16,16 @@
       "path": "entrypoint.py",
       "source": "workloads/ragperf-canary/entrypoint.py",
       "content_digest": "sha256:9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d",
-      "byte_size": 7916
+      "byte_size": 7916,
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/workload/9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d/entrypoint.py",
+      "remote_verification": {
+        "verified_at": "2026-07-27",
+        "endpoint": "oss-cn-shanghai.aliyuncs.com",
+        "content_length": 7916,
+        "etag": "9FF79D3924DAA52B1473E4352CDEB5B1",
+        "crc64_ecma": "1815526306812411307",
+        "local_crc64_ecma_match": true
+      }
     }
   ],
   "runtime": {
@@ -26,10 +35,10 @@
     ],
     "dependency_model": "python-3.11-stdlib-only"
   },
-  "upload_state": "not_uploaded",
+  "upload_state": "uploaded_verified",
   "authorization": {
     "external_download_required": false,
-    "oss_write_authorized": false,
+    "oss_write_authorized": true,
     "create_job_authorized": false
   }
 }

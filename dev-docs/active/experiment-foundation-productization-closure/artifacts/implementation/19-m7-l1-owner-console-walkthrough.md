@@ -41,15 +41,21 @@ Order matters: **A (bucket) → B (RAM roles) → C (official-image/OSS payload 
 
 ## D. 代码与数据集镜像上传
 
-1. 安装并配置 ossutil（配置需 AK/SK，Codex 不读取或记录凭证）：`ossutil config`。
-2. Workload directory manifest 已准备：`workloads/ragperf-canary/manifests/workload-directory-v1.json`，精确绑定 `entrypoint.py` 的 SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d` 与 7,916 bytes，状态仍为 `not_uploaded`。下一步是准备 `corpus.jsonl` / `queries.jsonl` 两个有序镜像目录；外网下载和 OSS 写入仍分别需要明确确认。
-3. 配置完成后告诉 Codex；在独立确认的上传窗口中，使用最终 manifest 给出的 exact object names 上传，不使用下列占位符字面值：
+状态：**已完成并验证（2026-07-27）**。采用 Cloud Shell 临时凭证，无
+AK/SK 捕获；可选 NAS 创建已跳过。三个对象上传前均为 `NoSuchKey`，
+上传后字节数和 CRC64-ECMA 与本地匹配。
+
+1. Workload manifest `workloads/ragperf-canary/manifests/workload-directory-v1.json` 精确绑定 `entrypoint.py` 的 SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d` 与 7,916 bytes，现为 `uploaded_verified`。
+2. SciFact mirror manifest `workloads/ragperf-canary/manifests/scifact-mirrors-v1.json` 记录完整 5,183-record corpus、300-query test slice、官方 archive checksum、license evidence、精确对象 ref、ETag、字节数和 CRC64，两个 mirror 均为 `uploaded_verified`。
+3. 实际上传使用最终 manifest 给出的 exact object names，并显式指定上海 endpoint；以下占位命令仅保留为操作形状：
    ```
    ossutil cp <local>/entrypoint.py      oss://pea-m7-canary-6194-202607/input/workload/<manifest-sha256>/entrypoint.py
    ossutil cp <local>/corpus.jsonl     oss://pea-m7-canary-6194-202607/input/scifact/<sha256>/corpus.jsonl
    ossutil cp <local>/queries.jsonl    oss://pea-m7-canary-6194-202607/input/scifact/<sha256>/queries.jsonl
    ```
-4. Codex 做只读回查并生成 workload/mirror manifests（对象 ref + 内容摘要 + 字节数 + 访问策略 + 清理策略）入档。
+4. 只读回查和 durable closure 已完成：
+   `21-m7-l1-oss-input-upload-closure.md`。`create_job_authorized` 仍为
+   `false`；D 的完成不授权 E。
 
 ## E. 窗口执行（你 + Claude 同场）
 

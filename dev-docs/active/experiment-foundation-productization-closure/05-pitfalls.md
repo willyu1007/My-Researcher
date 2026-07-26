@@ -693,3 +693,23 @@ When adding an entry, use:
 - Fix/workaround: retain the exact URI and ImageId as provider evidence, keep the content-identity gate open, and never synthesize a metadata hash into `image_digest`.
 - Prevention: distinguish provider asset identity from content digest in the bundle schema and freeze review; decide the accepted provider-native pinning contract explicitly before any live-capable bundle is created.
 - References: `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
+
+### 2026-07-27 — Cloud Shell upload selection is not proof that a file landed
+
+- Symptom: the Cloud Shell browser upload panel successfully transferred the first file, but later file selections did not create files even though the native picker closed.
+- Context: browser automation had to cross both the Cloud Shell web menu and the macOS native file picker. The transfer panel retained the previous completed task and did not provide reliable evidence for subsequent selections.
+- What was tried: repeated native-picker selection, closing the old transfer panel, refreshing Cloud Shell and uploading a TAR bundle.
+- Why the attempt was insufficient: only terminal `ls` proved which files existed; UI selection/closure and a stale completed task were not durable transfer evidence.
+- Fix/workaround: verify every transfer from the Cloud Shell terminal. The two small remaining files were transferred in bounded Base64 chunks, decoded in Cloud Shell and accepted only after exact SHA-256/byte-count verification.
+- Prevention: treat the browser upload panel as transport only. Require shell-side existence and digest checks before any cloud upload command, and prefer a CLI/native file transfer path when multiple files are involved.
+- References: `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`.
+
+### 2026-07-27 — OSS wrong-endpoint 403 is not an IAM denial
+
+- Symptom: the first read-only `aliyun oss stat` returned HTTP 403 `AccessDenied`.
+- Context: Cloud Shell's OSS wrapper did not automatically select the Bucket's Shanghai endpoint.
+- What was tried: an unqualified `aliyun oss stat oss://...` request.
+- Why the request failed: the provider message required all future requests to address `oss-cn-shanghai.aliyuncs.com`; the request reached the wrong endpoint rather than failing the logged-in identity's object permission.
+- Fix/workaround: add `--endpoint oss-cn-shanghai.aliyuncs.com` to every `stat` and `cp`. The pre-upload checks then returned the expected `NoSuchKey`; all uploads and post-upload stats succeeded.
+- Prevention: pin the exact regional OSS endpoint in repeatable commands and classify provider error code/message before changing RAM policy.
+- References: `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`.

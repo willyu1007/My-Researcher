@@ -1,15 +1,46 @@
 # 04 Verification
 
+## M7-L1 SciFact source and OSS input upload closure — 2026-07-27
+
+Outcome: **passed for deterministic source/slice preparation, three exact OSS
+input objects and remote/local integrity; live provider execution remains
+unauthorized**.
+
+- Official BEIR archive MD5 matched
+  `5f7d1de60b170fc8027bb7898e2efca1`; downloaded archive SHA-256 is
+  `536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165`.
+- JSONL validation passed for the complete 5,183-record corpus and 300-query
+  test slice. Query IDs are unique and exactly match the unique IDs referenced
+  by `qrels/test.tsv`; source order is preserved.
+- Before upload, regional-endpoint `aliyun oss stat` returned `NoSuchKey` for
+  all three exact content-addressed targets. No existing object was overwritten.
+- All three `aliyun oss cp` commands reported one successful object and the
+  exact expected size: 7,916; 56,640; and 8,106,566 bytes.
+- Post-upload `aliyun oss stat` and local `ossutil hash` agree:
+
+| Object | Remote bytes | Local/remote CRC64-ECMA | Result |
+|---|---:|---:|---|
+| `entrypoint.py` | 7,916 | `1815526306812411307` | pass |
+| `corpus.jsonl` | 8,106,566 | `8566302686400034898` | pass |
+| `queries.jsonl` | 56,640 | `14258960024956570564` | pass |
+
+- Cloud Shell used temporary logged-in credentials; no AK/SK or STS value was
+  captured. The optional Cloud Shell NAS creation was declined.
+- Durable evidence:
+  `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`.
+- Negative-space result: NAS/ACR/DLC job count delta 0; capability changes 0;
+  `CreateJob` 0; provider compute 0; scientific/database/evidence writes 0.
+
 ## M7-L1 official-image address and DLC OSS authorization preflight — 2026-07-27
 
 Outcome: **provider image address and platform OSS dependency passed; immutable image-content identity remains unresolved; no write or billable action occurred**.
 
 - The workspace official-image table and read-only [`GetImage`](https://help.aliyun.com/zh/pai/developer-reference/api-aiworkspace-2021-02-04-getimage) request agreed on `ImageId=image-liuxvj7p2qcnflha84`. The API returned HTTP 200, RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`, and exact `ImageUri=dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`.
 - Returned metadata was region `cn-shanghai`, accessibility `PUBLIC`, source type `Import`, size `3803970629`, and create/modify time `2026-07-02T04:35:35.000Z`. The console row advertises CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support.
-- The response contained no content digest and returned null `Identity`/`Signature`. This passes exact address/provider-asset resolution but does not satisfy the existing ExecutionBundle `container_image.image_digest` contract. No surrogate tag, `ImageId` or metadata hash is accepted as that digest.
+- The response contained no content digest and returned null `Identity`/`Signature`. The response passes exact address/provider-asset resolution but does not satisfy the existing ExecutionBundle `container_image.image_digest` contract. No surrogate tag, `ImageId` or metadata hash is accepted as that digest.
 - The PAI account-level “开通和授权 → 全部云产品依赖” page showed DLC → OSS data storage `已开通`, consistent with the documented separate [DLC authorization prerequisite](https://help.aliyun.com/zh/pai/grant-the-permissions-that-are-required-to-use-dlc). The unsubmitted create-job form exposed OSS URI, mount path, read-only and RAM-role controls.
-- The local workload manifest resolves to one exact upload candidate: `entrypoint.py`, SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, 7,916 bytes, at a future internal OSS directory whose path contains the same digest. Local re-hashing and byte counting match the manifest; its `upload_state` remains `not_uploaded`.
-- The DLC task count remained zero. The form was not submitted; object uploads, capability changes, credential capture, `CreateJob`, provider/database/scientific writes and billable execution were all zero.
+- The local workload manifest resolved to one exact upload candidate: `entrypoint.py`, SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, 7,916 bytes, at a future internal OSS directory whose path contained the same digest. Local re-hashing and byte counting matched the manifest; its upload state at the preflight checkpoint was `not_uploaded`.
+- The DLC task count remained zero. The form was not submitted; object uploads, capability changes, credential capture, `CreateJob`, provider/database/scientific writes and billable execution were all zero at the preflight checkpoint. The `M7-L1 SciFact source and OSS input upload closure` section supersedes only the object-upload census.
 
 ## M7-L1 official-image + OSS provider-shape implementation — 2026-07-26
 
@@ -23,7 +54,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - OpenAPI: strict quality check passed; `ctl-api-index` regenerated 200 endpoints and strict checksum verification passed.
 - Negative coverage proves fail-closed behavior for unbound commands, digest/path substitution, nested mounts, mirror ordinal drift, full-profile expansion and role/artifact-size rematerialization drift.
 - The full backend test command ignores appended file arguments and therefore ran the complete suite; the focused suites were then invoked directly with Node. An earlier shared command appended a nonexistent explicit path and failed at invocation, after which both the direct focused test and the canonical full package suite passed. These were harness-invocation errors, not product failures.
-- Cloud write census for this increment: OSS uploads 0, `CreateJob` 0, provider writes 0, capability changes 0, credential capture 0, billable execution 0. The 2026-07-27 preflight separately verifies the exact provider image address and account-level PAI/DLC OSS authorization; neither checkpoint proves an actual image pull, OSS object existence, in-container runtime access or live result collection.
+- Cloud write census for the 2026-07-26 implementation increment: OSS uploads 0, `CreateJob` 0, provider writes 0, capability changes 0, credential capture 0, billable execution 0. The 2026-07-27 preflight separately verified the exact provider image address and account-level PAI/DLC OSS authorization. The `M7-L1 SciFact source and OSS input upload closure` section now proves exact object existence; no checkpoint proves an actual image pull, in-container runtime access or live result collection.
 
 ## M7-L1 official-image + OSS compatibility review — 2026-07-26
 
@@ -45,7 +76,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - Exact `jq` assertions passed: controller has no OSS write Allow and explicitly denies `oss:PutObject`; runtime has no PAI-DLC Allow and explicitly denies `paidlc:*`; neither policy retains a placeholder.
 - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` completed and `lint --check` passed. Two pre-existing migration warnings remain in unrelated T-124 bundles with non-canonical State text.
 - BYOC direction markers, credential-shaped token scan and `git diff --check` passed.
-- Scope result: OSS step A passed. RAM console acceptance, ACR, dataset objects/manifests, STS and every live provider/billable operation remain unverified and unauthorized.
+- Scope result at the 2026-07-26 checkpoint: OSS step A passed. RAM console acceptance, ACR, dataset objects/manifests, STS and every live provider/billable operation were then unverified and unauthorized. Later dated sections supersede the RAM and object-preparation state; STS and live provider/billable execution remain open.
 
 ## Aliyun public-resource preflight mode — 2026-07-22
 
@@ -161,7 +192,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - `pnpm db:dev:migrate` applied only `20260714160000_harden_experiment_foundation_pack_b_v2`; 60/60 migrations are applied. Source/database checksum is `05ddb7fa653e76b66fc6c0c4747b3680e3815a44dc672b8a61042310911dd5b8`; original Pack B checksum remains `c0c49f0f7a268f09619f6c693a1f41955ce6cb1b36b656dd9c8e1d51abe0f70e`.
 - Final read-only run `packb-quality-remediation-local-20260714-r5` passed: Pack A 34/34 with 208 rows/digest `sha256:1cad10a03db2343283cf3c313ab4585c9935a3f315f3335f6996939ec8490881`; Pack B 6/6 with 0 rows; legacy 257 rows/digest `sha256:f9e7a6875c9a3597ecb485abc978920e461a3af33f071c676665439dde17211d`.
 - App-smoke schema v5 passed over all 238 application tables using `sha256-length-prefixed-pg-jsonb-text-primary-key-order@v2`, read-only cursor fetch size 64, disabled background work and hard-denied fetch. Before/after table set and row digests matched; changed tables=0, external fetches=0, provider-command row delta=0.
-- Historical checkpoint before the final producer-provenance republish: local source evidence digests were gate `b0973025be9c94bdd127f30a877b9a87ae974cf39cef0025800609ddd830b0e1` and app smoke `08e588b98e836f5ea732e83411d0df2fede1efa6021dfbf79c64abd8f1baaa5c`; the then-published JSON SHA-256 values were `6003bc6a00c14ffbd0c890803ea8830a29d215ca1ea90e3d45f153c11d3536f2` and `572c4bc6b1acabc9fb62be7500cf58508972cf41c2ad12701ed6c4569aa2d417`. These are historical hashes, not the current checked-in file hashes recorded in the final deep-cleanup section above.
+- Historical checkpoint before the final producer-provenance republish: local source evidence digests were gate `b0973025be9c94bdd127f30a877b9a87ae974cf39cef0025800609ddd830b0e1` and app smoke `08e588b98e836f5ea732e83411d0df2fede1efa6021dfbf79c64abd8f1baaa5c`; the then-published JSON SHA-256 values were `6003bc6a00c14ffbd0c890803ea8830a29d215ca1ea90e3d45f153c11d3536f2` and `572c4bc6b1acabc9fb62be7500cf58508972cf41c2ad12701ed6c4569aa2d417`. These are historical hashes, not the current checked-in file hashes recorded in the final deep-cleanup section.
 
 ### Repository-wide closure checks
 
