@@ -12,6 +12,9 @@ import {
   experimentFoundationExecutionBundleLifecycleProjectionV2Schema,
   experimentFoundationExecutionBundleReadinessV2Schema,
   experimentFoundationExecutionBundleRevisionV2Schema,
+  experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+  experimentFoundationAliyunRealProviderProfileV2Schema,
+  experimentFoundationAliyunWorkloadBindingV2Schema,
   experimentFoundationRealProviderPayloadV2Schema,
   paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema,
 } from './experiment-foundation-real-provider-v2-contracts.js';
@@ -175,6 +178,118 @@ test('executable WorkOrder v2 requires one exact ExecutionBundle revision', asyn
   }), false);
 });
 
+test('real-provider workload and CreateJob schemas close OSS mounts and credential injection', async () => {
+  const workloadBinding = {
+    schema_version: 'AliyunPaiDlcWorkloadBinding@v1',
+    runtime_role_arn: 'acs:ram::1183869713036194:role/pea-m7-canary-runtime',
+    code_mount_path: '/mnt/pea-code',
+    input_mount_root: '/mnt/pea-input',
+    output_mount_path: '/mnt/pea-output',
+    output_uri_prefix:
+      'oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/output/',
+  };
+  assert.equal(
+    await validates(experimentFoundationAliyunWorkloadBindingV2Schema, workloadBinding),
+    true,
+  );
+  assert.equal(await validates(experimentFoundationAliyunWorkloadBindingV2Schema, {
+    ...workloadBinding,
+    runtime_role_arn: 'acs:ram::*:role/admin',
+  }), false);
+  const realProviderProfile = {
+    schema_version: 'AliyunPaiDlcRealProviderProfile@v1',
+    region_id: 'cn-shanghai',
+    workspace_id: 'workspace-1',
+    resource_binding: { mode: 'public_resource' },
+    image_uri: 'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/image:py311-cpu',
+    job_type: 'PyTorchJob',
+    job_spec_type: 'Worker',
+    pod_count: 1,
+    workload_binding: workloadBinding,
+  };
+  assert.equal(
+    await validates(experimentFoundationAliyunRealProviderProfileV2Schema, realProviderProfile),
+    true,
+  );
+  assert.equal(await validates(experimentFoundationAliyunRealProviderProfileV2Schema, {
+    ...realProviderProfile,
+    unreviewed_mount: '/mnt/other',
+  }), false);
+
+  const request = {
+    WorkspaceId: 'workspace-1',
+    DisplayName: 'ef-v2-real-1-abc',
+    JobType: 'PyTorchJob',
+    JobSpecs: [{
+      Type: 'Worker',
+      Image: 'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/image:py311-cpu',
+      PodCount: 1,
+      ResourceConfig: { CPU: '1', Memory: '1024Mi' },
+    }],
+    UserCommand: 'python3 /mnt/pea-code/entrypoint.py --cell-key=cell-a',
+    JobMaxRunningTimeMinutes: 10,
+    Settings: { Tags: { 'ef-provider-idempotency': 'a'.repeat(64) } },
+    DataSources: [
+      {
+        Uri: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'1'.repeat(64)}/`,
+        MountPath: '/mnt/pea-code',
+        MountAccess: 'RO',
+      },
+      {
+        Uri: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'2'.repeat(64)}/`,
+        MountPath: '/mnt/pea-input/1',
+        MountAccess: 'RO',
+      },
+      {
+        Uri: 'oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/output/run-1/cell-a/',
+        MountPath: '/mnt/pea-output',
+        MountAccess: 'RW',
+      },
+    ],
+    Envs: {
+      EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON: '{"run_id":"run-1"}',
+      EXPERIMENT_FOUNDATION_CODE_DIR: '/mnt/pea-code',
+      EXPERIMENT_FOUNDATION_INPUT_1_DIR: '/mnt/pea-input/1',
+      EXPERIMENT_FOUNDATION_OUTPUT_DIR: '/mnt/pea-output',
+    },
+    CredentialConfig: {
+      EnableCredentialInject: true,
+      AliyunEnvRoleKey: '0',
+      CredentialConfigItems: [{
+        Key: '0',
+        Type: 'Role',
+        Roles: [{
+          AssumeRoleFor: '1183869713036194',
+          RoleType: 'service',
+          RoleArn: 'acs:ram::1183869713036194:role/pea-m7-canary-runtime',
+        }],
+      }],
+    },
+    Accessibility: 'PRIVATE',
+  };
+  assert.equal(
+    await validates(experimentFoundationAliyunRealProviderCreateJobRequestV1Schema, request),
+    true,
+  );
+  assert.equal(await validates(
+    experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+    {
+      ...request,
+      CredentialConfig: {
+        ...request.CredentialConfig,
+        CredentialConfigItems: [{
+          ...request.CredentialConfig.CredentialConfigItems[0],
+          Type: 'RoleChain',
+        }],
+      },
+    },
+  ), false);
+  assert.equal(await validates(
+    experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+    { ...request, Envs: { ...request.Envs, ALIBABA_CLOUD_ACCESS_KEY_SECRET: 'forbidden' } },
+  ), false);
+});
+
 test('real provider payload rejects every simulation/real tuple mix', async () => {
   const payload = {
     provider_payload_id: 'payload-1',
@@ -213,6 +328,8 @@ test('real provider payload rejects every simulation/real tuple mix', async () =
         cpu_cores: 1,
         memory_mb: 512,
         maximum_running_time_minutes: 10,
+        data_source_count: 3,
+        environment_variable_count: 4,
       },
       provider_binding_hashes: {
         execution_profile_hash: hash('1'),
@@ -221,10 +338,45 @@ test('real provider payload rejects every simulation/real tuple mix', async () =
         resource_mode: 'public_resource',
         resource_id_hash: null,
         image_ref_hash: hash('4'),
+        image_digest: hash('5'),
+        runtime_role_arn_hash: hash('6'),
       },
-      redacted_fields: ['canonical_payload_bytes', 'workspace_id'],
+      artifact_bindings: {
+        code_artifact: {
+          artifact_ref_hash: hash('7'),
+          content_digest: hash('8'),
+          byte_size: 1024,
+          mount_path_hash: hash('9'),
+        },
+        dataset_mirrors: [{
+          ordinal: 1,
+          dataset_revision_hash: hash('a'),
+          object_ref_hash: hash('b'),
+          content_digest: hash('c'),
+          byte_size: 2048,
+          mount_path_hash: hash('d'),
+        }],
+        output: {
+          output_uri_hash: hash('e'),
+          mount_path_hash: hash('f'),
+          result_object_name_hash: hash('0'),
+        },
+        environment_hash: hash('1'),
+      },
+      redacted_fields: [
+        'canonical_payload_bytes',
+        'WorkspaceId',
+        'ResourceId',
+        'JobSpecs[0].Image',
+        'UserCommand',
+        'DataSources[*].Uri',
+        'DataSources[*].MountPath',
+        'Envs',
+        'CredentialConfig',
+        'Settings.Tags',
+      ],
     },
-    payload_hash: hash('5'),
+    payload_hash: hash('2'),
     payload_byte_size: 1024,
     created_at: '2026-07-23T00:00:00.000Z',
   };

@@ -1,7 +1,4 @@
 import type {
-  ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
-} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
-import type {
   ExecutionAttemptV2,
   StartRealProviderExecutionV2Request,
   StartRealProviderExecutionV2Response,
@@ -9,6 +6,7 @@ import type {
 import {
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+  type ExperimentFoundationAliyunRealProviderProfileV2,
   type ExperimentFoundationExecutionBundleRevisionV2,
   type ExperimentFoundationRealProviderPayloadV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
@@ -52,7 +50,7 @@ export interface ExperimentFoundationRealProviderIntakeV2ServiceOptions {
   executionBundleResolver: ExperimentFoundationRealProviderExecutionBundleResolverV2;
   profileResolver: (
     prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite,
-  ) => Promise<ExperimentFoundationAliyunPaiDlcExecutionProfileV2>;
+  ) => Promise<ExperimentFoundationAliyunRealProviderProfileV2>;
   intakeEnabled: () => boolean;
   payloadService?: ExperimentFoundationRealProviderPayloadV2Service;
   now?: () => string;

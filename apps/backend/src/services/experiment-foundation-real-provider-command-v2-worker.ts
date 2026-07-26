@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import type {
-  ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
-} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
 import {
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
+  type ExperimentFoundationAliyunRealProviderProfileV2,
   type ExperimentFoundationAliyunNormalizedProviderOutcomeV1,
   type ExperimentFoundationAliyunRealExternalJobRefV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
@@ -52,7 +50,7 @@ interface ExperimentFoundationRealProviderCommandV2WorkerOptions {
   executionBundleResolver: ExperimentFoundationRealProviderExecutionBundleResolverV2;
   profileResolver: (
     prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite,
-  ) => Promise<ExperimentFoundationAliyunPaiDlcExecutionProfileV2>;
+  ) => Promise<ExperimentFoundationAliyunRealProviderProfileV2>;
   controlDrainEnabled: () => boolean;
   payloadService?: ExperimentFoundationRealProviderPayloadV2Service;
   leaseOwner?: string;

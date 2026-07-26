@@ -97,7 +97,8 @@ test('M7-02/03 real intake atomically creates two exact real tuples and replays 
   const persistedJson = JSON.stringify(snapshot.payloads);
   assert.equal(persistedJson.includes(profile.workspace_id), false);
   assert.equal(persistedJson.includes(bundle.revision_content.container_image.image_ref), false);
-  assert.equal(persistedJson.includes('ragperf.run'), false);
+  assert.equal(persistedJson.includes(bundle.revision_content.code_artifact.artifact_ref), false);
+  assert.equal(persistedJson.includes(profile.workload_binding.runtime_role_arn), false);
 });
 
 test('QR-2 production-default intake ids are deterministic and distinct across cells', async () => {

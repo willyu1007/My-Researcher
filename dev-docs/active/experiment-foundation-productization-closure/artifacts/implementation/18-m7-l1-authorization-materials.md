@@ -1,6 +1,6 @@
 # T-132 M7-L1 live-canary authorization materials (fill-in)
 
-Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 workload draft is locally verified and its no-ACR delivery route is decided, but provider bindings and immutable image identity remain pending; item 5 custom policies, role split, trust policies and attachments completed and verified 2026-07-26. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
+Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 workload draft and default-off provider bindings are locally verified, while the actual official image identity, mount-service authorization and object manifests remain pending; item 5 custom policies, role split, trust policies and attachments completed and verified 2026-07-26. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
 
 Submission protocol per item: edit the `DECISION:` lines in this file (or state the choice in chat and Codex records it here), then the final line of this document gets your explicit "M7-L1 authorized" statement. Codex prepares every artifact marked `[Codex prepares]` for your review before the window.
 
@@ -8,18 +8,18 @@ Submission protocol per item: edit the `DECISION:` lines in this file (or state 
 
 Required: reviewed ExecutionBundle revision — immutable code artifact ref + content digest + byte size; container image ref + digest; provider-neutral entrypoint/args; dependency-lock digest; typed output contract + parser profile version/hash.
 
-- [Codex prepares] a runnable RAGPerf adapter-tier workload draft whose code archive is delivered through a content-addressed OSS object and whose entrypoint emits the exact `ExperimentFoundationProviderResultEnvelope@v1` JSON for the two cells `retriever-top-k-5/10`.
+- [Codex prepares] a runnable RAGPerf adapter-tier workload draft whose mounted code directory is delivered through a content-addressed OSS prefix and whose entrypoint emits the exact `ExperimentFoundationProviderResultEnvelope@v1` JSON for the two cells `retriever-top-k-5/10`.
 - Prepared: `workloads/ragperf-canary/` — stdlib-only deterministic CPU retrieval pipeline (canary profile `ragperf_canary_stats@v1`, honesty boundary documented), Dockerfile pinned to the verified upstream digest `python:3.11-slim@sha256:00af38ae…db045`, two cell configs, fixture. Verified: local + `--network none` container selftests pass; emitted `result.json` is schema-valid and byte-identical under the repository canonicalizer.
-- DECISION (owner, 2026-07-26): **approved route change** — do not use ACR. Use a PAI official CPU image plus exact OSS bindings for content-addressed code/input/output. Before freeze, extend the provider payload to bind `DataSources`, `Envs` and runtime-role `CredentialConfig`, resolve the actual official `ImageUri`/immutable image identity, and record the workload archive ref + digest + byte size.
-  - `DECISION: official-image + OSS route accepted; payload increment, image identity and workload archive manifest pending`
+- DECISION (owner, 2026-07-26): **approved route change** — do not use ACR. Use a PAI official CPU image plus exact OSS bindings for content-addressed code/input/output. The provider payload now binds `DataSources`, `Envs` and runtime-role `CredentialConfig`; before freeze, resolve the actual official `ImageUri`/immutable image identity and record the mounted workload directory ref + digest + byte size.
+  - `DECISION: official-image + OSS route accepted; payload increment completed offline; image identity, mount authorization and workload directory manifest pending`
 
 ## 2. Dataset mirrors
 
 Required: two immutable source-backed mirror manifests — exact Dataset revisions, object refs, content digests, byte sizes, access policy, cleanup/retention.
 
-- [Codex prepares] the mirror manifests once the workload payload increment is verified; upload commands are run only in a separately approved window.
-- DECISION (owner, 2026-07-25): **approved per recommendation** — BEIR SciFact slice (`corpus.jsonl` + `queries.jsonl`) mirrored once to `oss://<bucket>/input/scifact/`, retained until M7-L2 closes then deleted.
-  - `DECISION: scifact-slice, single mirror, delete-after-L2`
+- [Codex prepares] two ordered mirror manifests once the workload payload increment is verified; upload commands are run only in a separately approved window.
+- DECISION (owner, 2026-07-25): **approved per recommendation** — one BEIR SciFact slice, represented by ordered content-addressed `corpus.jsonl` and `queries.jsonl` mirror directories below `oss://<bucket>/input/scifact/`, retained until M7-L2 closes then deleted.
+  - `DECISION: scifact-slice, two ordered object mirrors, delete-after-L2`
 
 ## 3. Output channel (OSS)
 

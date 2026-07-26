@@ -13,14 +13,15 @@ submit→run→collect acceptance; it does not claim quality metrics
 canonical JSON bytes are identical between this writer and the JS verifier.
 
 Runtime inputs (all injected by the CreateJob payload, never baked in):
-  RAGPERF_SOURCE_BINDING_JSON  exact envelope lineage fields as one JSON object
-  RAGPERF_CORPUS_PATH          mounted/downloaded corpus.jsonl path
-  RAGPERF_QUERIES_PATH         queries.jsonl path
-  RAGPERF_TOP_K                5 or 10 (the cell parameter)
-  RAGPERF_OUTPUT_DIR           directory for result.json + text_pipeline_stats.txt
+  EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON  exact envelope lineage JSON
+  EXPERIMENT_FOUNDATION_INPUT_1_DIR          corpus.jsonl mount directory
+  EXPERIMENT_FOUNDATION_INPUT_2_DIR          queries.jsonl mount directory
+  EXPERIMENT_FOUNDATION_OUTPUT_DIR           result output mount directory
+  --cell-key                                  approved top-k cell selector
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
@@ -32,6 +33,10 @@ from collections import Counter
 EMBEDDING_DIMENSIONS = 512
 PARSER_PROFILE_VERSION = "ragperf_canary_stats@v1"
 RESULT_ENVELOPE_SCHEMA = "ExperimentFoundationProviderResultEnvelope@v1"
+TOP_K_BY_CELL_KEY = {
+    "retriever-top-k-5": 5,
+    "retriever-top-k-10": 10,
+}
 
 
 def canonical_json(value: object) -> str:
@@ -91,13 +96,26 @@ def load_jsonl(path: str, text_fields: tuple[str, ...]) -> list[str]:
 
 
 def main() -> int:
-    source_binding = json.loads(os.environ["RAGPERF_SOURCE_BINDING_JSON"])
-    corpus_path = os.environ["RAGPERF_CORPUS_PATH"]
-    queries_path = os.environ["RAGPERF_QUERIES_PATH"]
-    top_k = int(os.environ["RAGPERF_TOP_K"])
-    output_dir = os.environ["RAGPERF_OUTPUT_DIR"]
-    if top_k not in (5, 10):
-        raise SystemExit("RAGPERF_TOP_K must be 5 or 10")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cell-key", required=True, choices=sorted(TOP_K_BY_CELL_KEY))
+    arguments = parser.parse_args()
+    source_binding = json.loads(
+        os.environ["EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON"]
+    )
+    corpus_path = os.path.join(
+        os.environ["EXPERIMENT_FOUNDATION_INPUT_1_DIR"],
+        "corpus.jsonl",
+    )
+    queries_path = os.path.join(
+        os.environ["EXPERIMENT_FOUNDATION_INPUT_2_DIR"],
+        "queries.jsonl",
+    )
+    top_k = TOP_K_BY_CELL_KEY[arguments.cell_key]
+    output_dir = os.environ["EXPERIMENT_FOUNDATION_OUTPUT_DIR"]
+    if source_binding.get("parser_profile_version") != PARSER_PROFILE_VERSION:
+        raise SystemExit("parser profile version does not match the canary workload")
+    if source_binding.get("result_envelope_schema") != RESULT_ENVELOPE_SCHEMA:
+        raise SystemExit("result envelope schema does not match the canary workload")
     os.makedirs(output_dir, exist_ok=True)
 
     pipeline_start = time.monotonic_ns()
@@ -143,8 +161,6 @@ def main() -> int:
         handle.write(stats_text)
 
     envelope = dict(source_binding)
-    envelope["result_envelope_schema"] = RESULT_ENVELOPE_SCHEMA
-    envelope["parser_profile_version"] = PARSER_PROFILE_VERSION
     envelope["outputs"] = {
         "profile": PARSER_PROFILE_VERSION,
         "diagnostic_only": True,

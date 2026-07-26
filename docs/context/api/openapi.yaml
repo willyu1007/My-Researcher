@@ -13938,6 +13938,7 @@ components:
                   - source_binding
                   - request_summary
                   - provider_binding_hashes
+                  - artifact_bindings
                   - redacted_fields
                 properties:
                   manifest_schema_version:
@@ -14000,6 +14001,8 @@ components:
                       - cpu_cores
                       - memory_mb
                       - maximum_running_time_minutes
+                      - data_source_count
+                      - environment_variable_count
                     properties:
                       deterministic_display_name:
                         type: string
@@ -14025,6 +14028,14 @@ components:
                         type: integer
                         minimum: 1
                         maximum: 2147483647
+                      data_source_count:
+                        type: integer
+                        minimum: 3
+                        maximum: 34
+                      environment_variable_count:
+                        type: integer
+                        minimum: 4
+                        maximum: 35
                   provider_binding_hashes:
                     type: object
                     additionalProperties: false
@@ -14035,6 +14046,8 @@ components:
                       - resource_mode
                       - resource_id_hash
                       - image_ref_hash
+                      - image_digest
+                      - runtime_role_arn_hash
                     properties:
                       execution_profile_hash:
                         type: string
@@ -14058,13 +14071,111 @@ components:
                       image_ref_hash:
                         type: string
                         pattern: '^sha256:[0-9a-f]{64}$'
+                      image_digest:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                      runtime_role_arn_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
+                  artifact_bindings:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - code_artifact
+                      - dataset_mirrors
+                      - output
+                      - environment_hash
+                    properties:
+                      code_artifact:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - artifact_ref_hash
+                          - content_digest
+                          - byte_size
+                          - mount_path_hash
+                        properties:
+                          artifact_ref_hash:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          content_digest:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          byte_size:
+                            type: integer
+                            minimum: 1
+                            maximum: 2147483647
+                          mount_path_hash:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                      dataset_mirrors:
+                        type: array
+                        minItems: 1
+                        maxItems: 32
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required:
+                            - ordinal
+                            - dataset_revision_hash
+                            - object_ref_hash
+                            - content_digest
+                            - byte_size
+                            - mount_path_hash
+                          properties:
+                            ordinal:
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            dataset_revision_hash:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                            object_ref_hash:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                            content_digest:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                            byte_size:
+                              type: integer
+                              minimum: 1
+                              maximum: 2147483647
+                            mount_path_hash:
+                              type: string
+                              pattern: '^sha256:[0-9a-f]{64}$'
+                      output:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - output_uri_hash
+                          - mount_path_hash
+                          - result_object_name_hash
+                        properties:
+                          output_uri_hash:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          mount_path_hash:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                          result_object_name_hash:
+                            type: string
+                            pattern: '^sha256:[0-9a-f]{64}$'
+                      environment_hash:
+                        type: string
+                        pattern: '^sha256:[0-9a-f]{64}$'
                   redacted_fields:
                     type: array
-                    minItems: 1
-                    uniqueItems: true
-                    items:
-                      type: string
-                      minLength: 1
+                    const:
+                      - canonical_payload_bytes
+                      - WorkspaceId
+                      - ResourceId
+                      - JobSpecs[0].Image
+                      - UserCommand
+                      - DataSources[*].Uri
+                      - DataSources[*].MountPath
+                      - Envs
+                      - CredentialConfig
+                      - Settings.Tags
               payload_hash:
                 type: string
                 pattern: '^sha256:[0-9a-f]{64}$'

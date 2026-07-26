@@ -1,5 +1,19 @@
 # 04 Verification
 
+## M7-L1 official-image + OSS provider-shape implementation — 2026-07-26
+
+Outcome: **offline compatibility increment passed; cloud execution remains unauthorized and unproven**.
+
+- Shared full suite: `pnpm --filter @paper-engineering-assistant/shared test` → 397/397 passed.
+- Shared/backend type checks: `pnpm --filter @paper-engineering-assistant/shared typecheck` and `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed; backend precheck regenerated Prisma Client without schema changes.
+- Backend full suite: `pnpm --filter @paper-engineering-assistant/backend test` → 2,416 tests, 2,354 passed, 0 failed, 62 conditional skips.
+- Focused provider/OpenAPI regression: direct Node test invocation over payload, transport, intake, OpenAPI drift and route coverage → 14/14 passed.
+- Workload selftest: both `retriever-top-k-5` and `retriever-top-k-10` completed against local mounted-directory fixtures; result envelopes matched the repository canonical JSON bytes and diagnostic stats were non-empty.
+- OpenAPI: strict quality check passed; `ctl-api-index` regenerated 200 endpoints and strict checksum verification passed.
+- Negative coverage proves fail-closed behavior for unbound commands, digest/path substitution, nested mounts, mirror ordinal drift, full-profile expansion and role/artifact-size rematerialization drift.
+- The full backend test command ignores appended file arguments and therefore ran the complete suite; the focused suites were then invoked directly with Node. An earlier shared command appended a nonexistent explicit path and failed at invocation, after which both the direct focused test and the canonical full package suite passed. These were harness-invocation errors, not product failures.
+- Cloud write census for this increment: OSS uploads 0, `CreateJob` 0, provider writes 0, capability changes 0, credential capture 0, billable execution 0. This evidence does not prove the actual official image pull, PAI/DLC mount authorization, OSS object existence or live result collection.
+
 ## M7-L1 official-image + OSS compatibility review — 2026-07-26
 
 - The ACR personal-instance submission was rejected by the provider with `个人版仅限个人用户使用，请实名认证为个人账号。`; the ACR resource census stayed zero and no fee was incurred.

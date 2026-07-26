@@ -1,4 +1,7 @@
 import type {
+  ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+} from './experiment-foundation-cloud-preflight-v2-contracts.js';
+import type {
   ExperimentFoundationV2ExactAssetRevisionRef,
 } from './experiment-foundation-v2-contracts.js';
 import { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
@@ -15,13 +18,73 @@ export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2 =
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2 =
   'aliyun_pai_dlc_official_sdk@v1' as const;
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2 =
-  'AliyunPaiDlcExecutionProfile@v2' as const;
+  'AliyunPaiDlcRealProviderProfile@v1' as const;
+export const EXPERIMENT_FOUNDATION_ALIYUN_WORKLOAD_BINDING_SCHEMA_V2 =
+  'AliyunPaiDlcWorkloadBinding@v1' as const;
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2 = [
   'real_provider_result_envelope',
   'real_provider_diagnostic_log',
 ] as const;
 export type ExperimentFoundationRealProviderOutputKeyV2 =
   (typeof EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2)[number];
+
+export interface ExperimentFoundationAliyunWorkloadBindingV2 {
+  schema_version: typeof EXPERIMENT_FOUNDATION_ALIYUN_WORKLOAD_BINDING_SCHEMA_V2;
+  runtime_role_arn: string;
+  code_mount_path: string;
+  input_mount_root: string;
+  output_mount_path: string;
+  output_uri_prefix: string;
+}
+
+export interface ExperimentFoundationAliyunRealProviderProfileV2
+  extends Omit<ExperimentFoundationAliyunPaiDlcExecutionProfileV2, 'schema_version'> {
+  schema_version: typeof EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2;
+  workload_binding: ExperimentFoundationAliyunWorkloadBindingV2;
+}
+
+export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV1 {
+  WorkspaceId: string;
+  ResourceId?: string;
+  DisplayName: string;
+  JobType: 'PyTorchJob';
+  JobSpecs: [{
+    Type: 'Worker';
+    Image: string;
+    PodCount: 1;
+    ResourceConfig: {
+      CPU: string;
+      Memory: string;
+    };
+  }];
+  UserCommand: string;
+  JobMaxRunningTimeMinutes: number;
+  Settings: {
+    Tags: {
+      'ef-provider-idempotency': string;
+    };
+  };
+  DataSources: Array<{
+    Uri: string;
+    MountPath: string;
+    MountAccess: 'RO' | 'RW';
+  }>;
+  Envs: Record<string, string>;
+  CredentialConfig: {
+    EnableCredentialInject: true;
+    AliyunEnvRoleKey: '0';
+    CredentialConfigItems: [{
+      Key: '0';
+      Type: 'Role';
+      Roles: [{
+        AssumeRoleFor: string;
+        RoleType: 'service';
+        RoleArn: string;
+      }];
+    }];
+  };
+  Accessibility: 'PRIVATE';
+}
 
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2 = [
   'EF_V2_REAL_PROVIDER_INTAKE_DISABLED',
@@ -254,6 +317,8 @@ export interface ExperimentFoundationAliyunRealProviderRedactedManifestV1 {
     cpu_cores: number;
     memory_mb: number;
     maximum_running_time_minutes: number;
+    data_source_count: number;
+    environment_variable_count: number;
   };
   provider_binding_hashes: {
     execution_profile_hash: string;
@@ -262,6 +327,30 @@ export interface ExperimentFoundationAliyunRealProviderRedactedManifestV1 {
     resource_mode: 'exact_quota' | 'public_resource';
     resource_id_hash: string | null;
     image_ref_hash: string;
+    image_digest: string;
+    runtime_role_arn_hash: string;
+  };
+  artifact_bindings: {
+    code_artifact: {
+      artifact_ref_hash: string;
+      content_digest: string;
+      byte_size: number;
+      mount_path_hash: string;
+    };
+    dataset_mirrors: Array<{
+      ordinal: number;
+      dataset_revision_hash: string;
+      object_ref_hash: string;
+      content_digest: string;
+      byte_size: number;
+      mount_path_hash: string;
+    }>;
+    output: {
+      output_uri_hash: string;
+      mount_path_hash: string;
+      result_object_name_hash: string;
+    };
+    environment_hash: string;
   };
   redacted_fields: string[];
 }
@@ -349,6 +438,23 @@ const hashSchema = { type: 'string', pattern: EXPERIMENT_V2_HASH_PATTERN } as co
 const positiveInteger = { type: 'integer', minimum: 1, maximum: 2_147_483_647 } as const;
 const nonNegativeInteger = { type: 'integer', minimum: 0, maximum: 2_147_483_647 } as const;
 const timestampSchema = { type: 'string', minLength: 1 } as const;
+const absoluteMountPathSchema = {
+  type: 'string',
+  pattern: '^/(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$',
+  minLength: 2,
+  maxLength: 256,
+} as const;
+const internalOssDirectoryUriSchema = {
+  type: 'string',
+  pattern: '^oss://[a-z0-9][a-z0-9-]{1,62}\\.oss-[a-z0-9-]+-internal\\.aliyuncs\\.com/.+/$',
+  minLength: 16,
+  maxLength: 2048,
+} as const;
+const runtimeRoleArnSchema = {
+  type: 'string',
+  pattern: '^acs:ram::[0-9]{6,32}:role/[A-Za-z0-9@._-]{1,64}$',
+  maxLength: 160,
+} as const;
 
 const exactDatasetRevisionRefSchema = {
   type: 'object',
@@ -360,6 +466,228 @@ const exactDatasetRevisionRefSchema = {
     revision_id: nonEmptyString,
     revision_sequence: positiveInteger,
     content_hash: hashSchema,
+  },
+} as const;
+
+export const experimentFoundationAliyunWorkloadBindingV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'runtime_role_arn',
+    'code_mount_path',
+    'input_mount_root',
+    'output_mount_path',
+    'output_uri_prefix',
+  ],
+  properties: {
+    schema_version: {
+      type: 'string',
+      const: EXPERIMENT_FOUNDATION_ALIYUN_WORKLOAD_BINDING_SCHEMA_V2,
+    },
+    runtime_role_arn: runtimeRoleArnSchema,
+    code_mount_path: absoluteMountPathSchema,
+    input_mount_root: absoluteMountPathSchema,
+    output_mount_path: absoluteMountPathSchema,
+    output_uri_prefix: internalOssDirectoryUriSchema,
+  },
+} as const;
+
+export const experimentFoundationAliyunRealProviderProfileV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'region_id',
+    'workspace_id',
+    'resource_binding',
+    'image_uri',
+    'job_type',
+    'job_spec_type',
+    'pod_count',
+    'workload_binding',
+  ],
+  properties: {
+    schema_version: {
+      type: 'string',
+      const: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2,
+    },
+    region_id: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{1,62}$' },
+    workspace_id: nonEmptyString,
+    resource_binding: {
+      oneOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['mode', 'resource_id'],
+          properties: {
+            mode: { type: 'string', const: 'exact_quota' },
+            resource_id: nonEmptyString,
+          },
+        },
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['mode'],
+          properties: {
+            mode: { type: 'string', const: 'public_resource' },
+          },
+        },
+      ],
+    },
+    image_uri: { type: 'string', minLength: 3, maxLength: 2048 },
+    job_type: { type: 'string', const: 'PyTorchJob' },
+    job_spec_type: { type: 'string', const: 'Worker' },
+    pod_count: { type: 'integer', const: 1 },
+    workload_binding: experimentFoundationAliyunWorkloadBindingV2Schema,
+  },
+} as const;
+
+export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'WorkspaceId',
+    'DisplayName',
+    'JobType',
+    'JobSpecs',
+    'UserCommand',
+    'JobMaxRunningTimeMinutes',
+    'Settings',
+    'DataSources',
+    'Envs',
+    'CredentialConfig',
+    'Accessibility',
+  ],
+  properties: {
+    WorkspaceId: nonEmptyString,
+    ResourceId: nonEmptyString,
+    DisplayName: {
+      type: 'string',
+      minLength: 1,
+      maxLength: 256,
+      pattern: '^[A-Za-z0-9_.-]+$',
+    },
+    JobType: { type: 'string', const: 'PyTorchJob' },
+    JobSpecs: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 1,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['Type', 'Image', 'PodCount', 'ResourceConfig'],
+        properties: {
+          Type: { type: 'string', const: 'Worker' },
+          Image: { type: 'string', minLength: 3, maxLength: 2048 },
+          PodCount: { type: 'integer', const: 1 },
+          ResourceConfig: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['CPU', 'Memory'],
+            properties: {
+              CPU: { type: 'string', pattern: '^[1-9][0-9]*$' },
+              Memory: { type: 'string', pattern: '^[1-9][0-9]*Mi$' },
+            },
+          },
+        },
+      },
+    },
+    UserCommand: nonEmptyString,
+    JobMaxRunningTimeMinutes: { type: 'integer', minimum: 1, maximum: 60 },
+    Settings: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['Tags'],
+      properties: {
+        Tags: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['ef-provider-idempotency'],
+          properties: {
+            'ef-provider-idempotency': {
+              type: 'string',
+              pattern: '^[a-f0-9]{64}$',
+            },
+          },
+        },
+      },
+    },
+    DataSources: {
+      type: 'array',
+      minItems: 3,
+      maxItems: 34,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['Uri', 'MountPath', 'MountAccess'],
+        properties: {
+          Uri: internalOssDirectoryUriSchema,
+          MountPath: absoluteMountPathSchema,
+          MountAccess: { type: 'string', enum: ['RO', 'RW'] },
+        },
+      },
+    },
+    Envs: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON',
+        'EXPERIMENT_FOUNDATION_CODE_DIR',
+        'EXPERIMENT_FOUNDATION_OUTPUT_DIR',
+      ],
+      properties: {
+        EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON: nonEmptyString,
+        EXPERIMENT_FOUNDATION_CODE_DIR: absoluteMountPathSchema,
+        EXPERIMENT_FOUNDATION_OUTPUT_DIR: absoluteMountPathSchema,
+      },
+      patternProperties: {
+        '^EXPERIMENT_FOUNDATION_INPUT_[1-9][0-9]*_DIR$': absoluteMountPathSchema,
+      },
+    },
+    CredentialConfig: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'EnableCredentialInject',
+        'AliyunEnvRoleKey',
+        'CredentialConfigItems',
+      ],
+      properties: {
+        EnableCredentialInject: { type: 'boolean', const: true },
+        AliyunEnvRoleKey: { type: 'string', const: '0' },
+        CredentialConfigItems: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 1,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['Key', 'Type', 'Roles'],
+            properties: {
+              Key: { type: 'string', const: '0' },
+              Type: { type: 'string', const: 'Role' },
+              Roles: {
+                type: 'array',
+                minItems: 1,
+                maxItems: 1,
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['AssumeRoleFor', 'RoleType', 'RoleArn'],
+                  properties: {
+                    AssumeRoleFor: { type: 'string', pattern: '^[0-9]{6,32}$' },
+                    RoleType: { type: 'string', const: 'service' },
+                    RoleArn: runtimeRoleArnSchema,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    Accessibility: { type: 'string', const: 'PRIVATE' },
   },
 } as const;
 
@@ -760,6 +1088,7 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
     'source_binding',
     'request_summary',
     'provider_binding_hashes',
+    'artifact_bindings',
     'redacted_fields',
   ],
   properties: {
@@ -811,6 +1140,8 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
         'cpu_cores',
         'memory_mb',
         'maximum_running_time_minutes',
+        'data_source_count',
+        'environment_variable_count',
       ],
       properties: {
         deterministic_display_name: nonEmptyString,
@@ -820,6 +1151,8 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
         cpu_cores: positiveInteger,
         memory_mb: positiveInteger,
         maximum_running_time_minutes: positiveInteger,
+        data_source_count: { type: 'integer', minimum: 3, maximum: 34 },
+        environment_variable_count: { type: 'integer', minimum: 4, maximum: 35 },
       },
     },
     provider_binding_hashes: {
@@ -832,6 +1165,8 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
         'resource_mode',
         'resource_id_hash',
         'image_ref_hash',
+        'image_digest',
+        'runtime_role_arn_hash',
       ],
       properties: {
         execution_profile_hash: hashSchema,
@@ -840,13 +1175,92 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
         resource_mode: { type: 'string', enum: ['exact_quota', 'public_resource'] },
         resource_id_hash: { anyOf: [hashSchema, { type: 'null' }] },
         image_ref_hash: hashSchema,
+        image_digest: hashSchema,
+        runtime_role_arn_hash: hashSchema,
+      },
+    },
+    artifact_bindings: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'code_artifact',
+        'dataset_mirrors',
+        'output',
+        'environment_hash',
+      ],
+      properties: {
+        code_artifact: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'artifact_ref_hash',
+            'content_digest',
+            'byte_size',
+            'mount_path_hash',
+          ],
+          properties: {
+            artifact_ref_hash: hashSchema,
+            content_digest: hashSchema,
+            byte_size: positiveInteger,
+            mount_path_hash: hashSchema,
+          },
+        },
+        dataset_mirrors: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 32,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'ordinal',
+              'dataset_revision_hash',
+              'object_ref_hash',
+              'content_digest',
+              'byte_size',
+              'mount_path_hash',
+            ],
+            properties: {
+              ordinal: positiveInteger,
+              dataset_revision_hash: hashSchema,
+              object_ref_hash: hashSchema,
+              content_digest: hashSchema,
+              byte_size: positiveInteger,
+              mount_path_hash: hashSchema,
+            },
+          },
+        },
+        output: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'output_uri_hash',
+            'mount_path_hash',
+            'result_object_name_hash',
+          ],
+          properties: {
+            output_uri_hash: hashSchema,
+            mount_path_hash: hashSchema,
+            result_object_name_hash: hashSchema,
+          },
+        },
+        environment_hash: hashSchema,
       },
     },
     redacted_fields: {
       type: 'array',
-      minItems: 1,
-      uniqueItems: true,
-      items: nonEmptyString,
+      const: [
+        'canonical_payload_bytes',
+        'WorkspaceId',
+        'ResourceId',
+        'JobSpecs[0].Image',
+        'UserCommand',
+        'DataSources[*].Uri',
+        'DataSources[*].MountPath',
+        'Envs',
+        'CredentialConfig',
+        'Settings.Tags',
+      ],
     },
   },
 } as const;

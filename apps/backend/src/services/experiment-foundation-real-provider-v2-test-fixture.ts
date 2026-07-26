@@ -1,7 +1,5 @@
 import type {
-  ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
-} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts';
-import type {
+  ExperimentFoundationAliyunRealProviderProfileV2,
   ExperimentFoundationExecutableTrainingTaskSpecV2,
   ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
@@ -16,7 +14,7 @@ export const realProviderTestHash = (character: string) => `sha256:${character.r
 export function createRealProviderV2TestFixture(): {
   prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite;
   bundle: ExperimentFoundationExecutionBundleRevisionV2;
-  profile: ExperimentFoundationAliyunPaiDlcExecutionProfileV2;
+  profile: ExperimentFoundationAliyunRealProviderProfileV2;
 } {
   const hash = realProviderTestHash;
   const bundle: ExperimentFoundationExecutionBundleRevisionV2 = {
@@ -29,12 +27,12 @@ export function createRealProviderV2TestFixture(): {
     revision_content: {
       execution_bundle_schema_version: 'v1',
       code_artifact: {
-        artifact_ref: 'artifact://ragperf/code/v1',
+        artifact_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'2'.repeat(64)}/`,
         content_digest: hash('2'),
         byte_size: 1024,
       },
       container_image: {
-        image_ref: 'registry.example/ragperf@sha256:abc',
+        image_ref: 'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/ragperf-official:py311-cpu',
         image_digest: hash('3'),
       },
       dataset_mirrors: [{
@@ -46,12 +44,12 @@ export function createRealProviderV2TestFixture(): {
           revision_sequence: 1,
           content_hash: hash('4'),
         },
-        object_ref: 'object://dataset/revision-1',
+        object_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'5'.repeat(64)}/`,
         content_digest: hash('5'),
         byte_size: 2048,
       }],
-      entrypoint: 'python',
-      arguments: ['-m', 'ragperf.run'],
+      entrypoint: 'python3',
+      arguments: ['/mnt/pea-code/entrypoint.py'],
       dependency_lock_digest: hash('6'),
       output_contract: {
         result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1',
@@ -86,8 +84,8 @@ export function createRealProviderV2TestFixture(): {
       content_hash: bundle.content_hash,
     },
     command_snapshot: {
-      command: 'python',
-      arguments: ['-m', 'ragperf.run', '--cell', suffix],
+      command: 'python3',
+      arguments: ['/mnt/pea-code/entrypoint.py', `--cell-key=cell-${suffix}`],
     },
     io_snapshot: {
       input_keys: ['dataset-mirror-1'],
@@ -172,14 +170,23 @@ export function createRealProviderV2TestFixture(): {
     prerequisite,
     bundle,
     profile: {
-      schema_version: 'AliyunPaiDlcExecutionProfile@v2',
-      region_id: 'cn-hangzhou',
+      schema_version: 'AliyunPaiDlcRealProviderProfile@v1',
+      region_id: 'cn-shanghai',
       workspace_id: 'workspace-secret-ref',
       resource_binding: { mode: 'public_resource' },
       image_uri: bundle.revision_content.container_image.image_ref,
       job_type: 'PyTorchJob',
       job_spec_type: 'Worker',
       pod_count: 1,
+      workload_binding: {
+        schema_version: 'AliyunPaiDlcWorkloadBinding@v1',
+        runtime_role_arn: 'acs:ram::1183869713036194:role/pea-m7-canary-runtime',
+        code_mount_path: '/mnt/pea-code',
+        input_mount_root: '/mnt/pea-input',
+        output_mount_path: '/mnt/pea-output',
+        output_uri_prefix:
+          'oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/output/',
+      },
     },
   };
 }

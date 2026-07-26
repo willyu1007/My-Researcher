@@ -32,20 +32,20 @@ Order matters: **A (bucket) → B (RAM roles) → C (official-image/OSS payload 
 
 ## C. 官方镜像 + OSS payload 兼容
 
-状态：**路线已决定，仓库实现待完成（2026-07-26）**。
+状态：**默认关闭的仓库兼容实现已完成并离线验证；镜像身份与挂载服务授权待确认（2026-07-26）**。
 
 1. ACR 个人版创建已终止。控制台提交返回 `个人版仅限个人用户使用，请实名认证为个人账号。`；没有创建 ACR 资源，也不为本次 canary 开通企业版。
 2. 采用 PAI 官方 CPU 镜像。当前控制台标签 `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` 仅作候选，Codex 还需通过 provider/官方 API 固定实际 `ImageUri` 和可接受的不可变身份。
-3. Codex 先完成默认关闭的 payload 增量：精确绑定只读代码/输入挂载、读写输出挂载、entrypoint 所需环境变量，以及 runtime role `acs:ram::1183869713036194:role/pea-m7-canary-runtime` 的 credential injection。
-4. 离线 schema、canonical hash/redaction、官方 SDK wire map 和负例全部通过后，才进入 D。此步骤不上传对象、不启用 capability、不调用 `CreateJob`。
+3. 已完成默认关闭的 payload 增量：精确绑定只读代码/输入挂载、读写输出挂载、entrypoint 所需标准环境变量，以及 runtime role `acs:ram::1183869713036194:role/pea-m7-canary-runtime` 的 credential injection。
+4. 离线 schema、canonical hash/redaction、官方 SDK wire map、完整共享/后端回归和负例均已通过。进入 D 前仍须固定实际 `ImageUri`/不可变身份，并单独确认 PAI/DLC 挂载服务授权。此步骤未上传对象、未启用 capability、未调用 `CreateJob`。
 
 ## D. 代码与数据集镜像上传
 
 1. 安装并配置 ossutil（配置需 AK/SK，Codex 不读取或记录凭证）：`ossutil config`。
-2. Codex 先准备 content-addressed workload archive，以及 `corpus.jsonl` / `queries.jsonl` 两个切片，并记录每个对象的 SHA-256 与字节数（外网下载和 OSS 写入分别需要明确确认）。
+2. Codex 先准备 content-addressed workload directory manifest，以及 `corpus.jsonl` / `queries.jsonl` 两个有序镜像目录，并记录每个对象的 SHA-256 与字节数（外网下载和 OSS 写入分别需要明确确认）。
 3. 配置完成后告诉 Codex；在独立确认的上传窗口中，使用最终 manifest 给出的 exact object names 上传，不使用下列占位符字面值：
    ```
-   ossutil cp <local-workload-archive> oss://pea-m7-canary-6194-202607/input/workload/<sha256>/ragperf-canary.tar.gz
+   ossutil cp <local>/entrypoint.py      oss://pea-m7-canary-6194-202607/input/workload/<manifest-sha256>/entrypoint.py
    ossutil cp <local>/corpus.jsonl     oss://pea-m7-canary-6194-202607/input/scifact/<sha256>/corpus.jsonl
    ossutil cp <local>/queries.jsonl    oss://pea-m7-canary-6194-202607/input/scifact/<sha256>/queries.jsonl
    ```
