@@ -18,15 +18,15 @@ Order matters: **A (bucket) → B (RAM roles) → C (ACR image) → D (dataset u
 
 ## B. 两个 RAM 角色（console → 访问控制 RAM）
 
-状态：**进行中**。两个自定义策略已创建并验证；controller 为当前 v1，runtime 为收紧后的当前 v2。下一步仅创建两个角色并分别附加对应策略。
+状态：**已完成并验证（2026-07-26）**。两个自定义策略、两个独立角色、精确可信主体和一对一策略绑定均已确认；未发现交叉授权。
 
 1. **自定义权限策略 ×2（已完成 2026-07-26）**：
    - `pea-m7-canary-controller`：粘贴 `ram/controller-policy.json`
    - `pea-m7-canary-runtime`：粘贴 `ram/runtime-policy.json`
    - 当前摘要：controller v1 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`；runtime v2 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`。
-2. **角色 ×2**：
-   - controller 角色（可信实体：阿里云账号 / 你自己），附加 `pea-m7-canary-controller` 策略。窗口期由你用它换取短时 STS。
-   - runtime 角色（可信实体：**阿里云服务 → PAI**），附加 `pea-m7-canary-runtime` 策略。DLC 作业以此身份读 `input/`、写 `output/`。
+2. **角色 ×2（已完成 2026-07-26）**：
+   - controller 角色 `pea-m7-canary-controller`：ID `300042892692129613`，ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`，仅信任 `acs:ram::1183869713036194:user/user_0002`，仅附加同名 controller 策略。窗口期由你用它换取短时 STS。
+   - runtime 角色 `pea-m7-canary-runtime`：ID `300525928077898732`，ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`，仅信任阿里云服务 PAI（`pai.aliyuncs.com`），仅附加同名 runtime 策略。DLC 作业以此身份读 `input/`、写 `output/`。
 3. 两条策略保存后，把控制台里最终生效的策略正文各自算一次 SHA-256（或直接告诉 Claude 你未改动，Claude 用仓库文件复算），记入 `18-m7-l1-authorization-materials.md` 第 5 项。
 4. 自检：controller 角色不应具备任何 OSS 写权限；runtime 角色不应具备任何 `paidlc:*`。两份策略里都有显式 Deny 兜底。
 

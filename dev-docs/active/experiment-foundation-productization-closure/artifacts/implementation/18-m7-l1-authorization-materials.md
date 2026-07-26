@@ -1,6 +1,6 @@
 # T-132 M7-L1 live-canary authorization materials (fill-in)
 
-Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 workload draft prepared and locally verified; item 5 custom policies created and verified, with role creation/attachment still pending. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
+Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 workload draft prepared and locally verified; item 5 custom policies, role split, trust policies and attachments completed and verified 2026-07-26. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
 
 Submission protocol per item: edit the `DECISION:` lines in this file (or state the choice in chat and Claude records it here), then the final line of this document gets your explicit "M7-L1 authorized" statement. Claude prepares every artifact marked `[Claude prepares]` for your review before the window.
 
@@ -45,8 +45,10 @@ Required: short-lived least-privilege controller policy (exact allowlist `paidlc
 - [Claude prepares] the two exact RAM policy JSON documents for you to paste into the Aliyun console, plus the SHA-256 you record back here as the reviewed-policy digest (the EF-P16 pattern).
 - At window time you supply a fresh short-lived STS triplet for the controller role **only via process env to the runner invocation** (never a file in the repo, never chat if avoidable — a terminal env var export in your own shell is the cleanest channel).
 - Created and console-verified with the exact bucket already materialized: `workloads/ragperf-canary/ram/controller-policy.json` is current custom-policy v1 (sha256 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`); `runtime-policy.json` is current custom-policy v2 (sha256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`). Runtime v2 separates Bucket listing from object IO and limits `oss:ListObjects` to `input` / `input/*`; both policies retain the explicit Deny boundaries.
+- Controller role: ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`, exact owner-user trust `acs:ram::1183869713036194:user/user_0002`, attached policy `pea-m7-canary-controller` only.
+- Runtime role: ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`, PAI service trust `pai.aliyuncs.com`, attached policy `pea-m7-canary-runtime` only.
 - DECISION (owner): confirm the role-split design; record final policy digests after console review.
-  - `DECISION (policies completed 2026-07-26): controller v1 sha256 ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c; runtime v2 sha256 1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b; roles pending`
+  - `DECISION (completed 2026-07-26): controller v1 sha256 ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c; runtime v2 sha256 1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b; separate roles and one-to-one attachments verified`
 
 ## Final authorization line
 

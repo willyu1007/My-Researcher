@@ -1415,4 +1415,7 @@ shasum -a 256 workloads/ragperf-canary/ram/runtime-policy.json
 - Controller JSON passed and remains SHA-256 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`.
 - Runtime JSON passed at SHA-256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`.
 - Console detail verified `pea-m7-canary-controller` as custom-policy current v1 and `pea-m7-canary-runtime` as custom-policy current v2. The runtime v2 editor passed with 0 errors, 0 security warnings, 0 warnings and 0 suggestions.
-- Runtime v2 source separates Bucket listing, input-object read and output-object write; `oss:Prefix` is limited to `input` / `input/*`. Controller/runtime roles and policy attachments remain absent at the v2 checkpoint.
+- Runtime v2 source separates Bucket listing, input-object read and output-object write; `oss:Prefix` is limited to `input` / `input/*`.
+- Controller role detail verified role ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`, exact-user trust `acs:ram::1183869713036194:user/user_0002`, and one attached custom policy `pea-m7-canary-controller` at authorization time `2026年7月26日 21:18:52`.
+- Runtime role detail verified role ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`, exact PAI service trust `pai.aliyuncs.com`, and one attached custom policy `pea-m7-canary-runtime` at authorization time `2026年7月26日 21:29:39`.
+- Neither role lists the other lane's custom policy. No credential or STS value was viewed or recorded; no provider call, capability enable, `CreateJob` or billable execution occurred.

@@ -819,6 +819,7 @@ Official references:
 - The runtime has no PAI-DLC control-plane permission. The runtime may list only the `input` prefix using a Bucket-scoped `oss:ListObjects` statement with `oss:Prefix` restricted to `input` / `input/*`, read only `input/*` objects, and write only `output/*` objects.
 - Bucket listing, object read and object write remain separate policy statements. The separation prevents action/resource-type ambiguity in policy review and prevents runtime enumeration outside the input prefix.
 - Repository policy bytes and SHA-256 are the review authority; console versions are verified against those bytes before either role is attached or used.
+- The live role trust boundary is exact rather than account-wide: controller role `acs:ram::1183869713036194:role/pea-m7-canary-controller` trusts only `acs:ram::1183869713036194:user/user_0002`; runtime role `acs:ram::1183869713036194:role/pea-m7-canary-runtime` trusts only the PAI service principal `pai.aliyuncs.com`. Each role carries exactly the matching same-name custom policy and no policy from the other lane.
 
 ### Layer C — Same-payload fake lifecycle
 - Feed the exact Layer A payload/hash into the fake Aliyun transport.
