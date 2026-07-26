@@ -663,3 +663,13 @@ When adding an entry, use:
 - Fix: the list now names the real tables (`ExperimentFoundationRecord`, `ExperimentFoundationExperimentResultV2`, `ExperimentFoundationEvidenceCandidateV2`, `PaperImplementationRunEvidenceUnit`, `PaperImplementationRunEvidenceUnitV2`) and the assertion requires every listed table to be present with count 0 — a missing table is a failure, not a pass.
 - Prevention: any allowlist/denylist of database objects must be validated against the live catalog (existence is part of the assertion); "no rows found for X" and "X does not exist" must never be conflated.
 - References: `experiment-foundation-m7-provider-gate.mjs` (`assertExcludedWriteTablesZero`); failed lineage first-attempt `t132-m7-offline-20260724-v3`; passing rerun same id, SHA `de4b3985…`.
+
+### 2026-07-26 — Do not combine OSS Bucket and object actions in one review statement
+
+- Symptom: RAM accepted the first runtime policy, but its summary reported “one or more resources have no matching operation” and collapsed list/read/write into an ambiguous row.
+- Context: `oss:ListObjects` targets the Bucket resource while `oss:GetObject` targets object resources. The first policy placed both actions and both resource types in one statement and allowed unrestricted Bucket listing.
+- What was tried: relying on successful JSON validation and the effective cross-product behavior of the combined statement.
+- Why the attempt was insufficient: the policy remained executable, but review evidence could not show an exact action-to-resource mapping, and unrestricted Bucket listing exposed object names outside `input/`.
+- Fix/workaround: runtime v2 uses separate statements for Bucket listing, input-object read and output-object write; the list statement adds `oss:Prefix` `StringLike` for `input` / `input/*`.
+- Prevention: keep OSS Bucket-level and object-level actions in separate statements, condition prefix listing explicitly, and resolve analyzer ambiguity before attaching a policy to a role.
+- References: `workloads/ragperf-canary/ram/runtime-policy.json`; `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`.

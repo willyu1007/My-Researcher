@@ -18,11 +18,12 @@ Order matters: **A (bucket) → B (RAM roles) → C (ACR image) → D (dataset u
 
 ## B. 两个 RAM 角色（console → 访问控制 RAM）
 
-状态：**下一步**。`workloads/ragperf-canary/ram/*.json` 已绑定真实桶名并通过 JSON/摘要校验，你直接复制最终文件内容。
+状态：**进行中**。两个自定义策略已创建并验证；controller 为当前 v1，runtime 为收紧后的当前 v2。下一步仅创建两个角色并分别附加对应策略。
 
-1. **自定义权限策略 ×2**：
+1. **自定义权限策略 ×2（已完成 2026-07-26）**：
    - `pea-m7-canary-controller`：粘贴 `ram/controller-policy.json`
    - `pea-m7-canary-runtime`：粘贴 `ram/runtime-policy.json`
+   - 当前摘要：controller v1 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`；runtime v2 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`。
 2. **角色 ×2**：
    - controller 角色（可信实体：阿里云账号 / 你自己），附加 `pea-m7-canary-controller` 策略。窗口期由你用它换取短时 STS。
    - runtime 角色（可信实体：**阿里云服务 → PAI**），附加 `pea-m7-canary-runtime` 策略。DLC 作业以此身份读 `input/`、写 `output/`。

@@ -4,7 +4,7 @@
 
 - T-132 is the sole implementation owner for the provider-specific canary; T-106 is an acceptance consumer and must not own a second transport, schema or runner.
 - Existing Pack A/Pack B Run, Recipe, TaskSpecs, payloads and Attempts are immutable simulation-only history. Real execution always starts from a new branch-local PI WorkOrder revision and a new T1-T4 materialization/head acknowledgement.
-- A named typed `ExecutionBundleV2` exact revision/hash binds code, container image, ordered dataset mirrors, dependency lock, provider-neutral command and typed output parser. It is EF authority; PI carries only exact admitted refs/hashes.
+- A named typed `ExecutionBundleV2` exact revision/hash binds code, container image, ordered dataset mirrors, dependency lock, provider-neutral command and typed output parser. The exact revision/hash is EF authority; PI carries only exact admitted refs/hashes.
 - Existing six Pack B provider-control families remain the sole durable execution authority. Their future real-provider support is an exact discriminated tuple extension, never a parallel table family, dual read/write or legacy job upgrade.
 - `CreateJob` acceptance is not atomically coupled to the database. A deterministic provider tag/display name plus `ListJobs`/`GetJob` exact recovery fence handles accepted-response loss; ambiguity blocks and never blind-retries a second job.
 - Provider logs are diagnostic only. Scientific trust begins only after exact collected output hash/schema/parser verification and the existing ScientificValidationService accepts a complete `real_provider` batch.
@@ -813,6 +813,13 @@ Official references:
 - Enforce a code-level provider-operation allowlist; create/update/delete operations are rejected before transport.
 - Record operation names, request IDs, redacted resource identities and outcomes; never record credentials or raw provider payloads.
 
+### M7-L1 controller/runtime IAM split
+
+- The controller and DLC runtime are separate RAM roles with no shared credentials. The controller may perform only the exact PAI-DLC job-control allowlist and read exact `output/*` objects; the controller cannot write or delete OSS objects.
+- The runtime has no PAI-DLC control-plane permission. The runtime may list only the `input` prefix using a Bucket-scoped `oss:ListObjects` statement with `oss:Prefix` restricted to `input` / `input/*`, read only `input/*` objects, and write only `output/*` objects.
+- Bucket listing, object read and object write remain separate policy statements. The separation prevents action/resource-type ambiguity in policy review and prevents runtime enumeration outside the input prefix.
+- Repository policy bytes and SHA-256 are the review authority; console versions are verified against those bytes before either role is attached or used.
+
 ### Layer C — Same-payload fake lifecycle
 - Feed the exact Layer A payload/hash into the fake Aliyun transport.
 - Exercise submit, sync, cancel, collect, reconcile, idempotency conflict and recovery paths.
@@ -891,11 +898,11 @@ M7 retains one authority chain. A WorkOrder v2 carries only an exact EF-owned Ex
 
 The real provider path reuses the six Pack B provider-control tables through two closed tuple variants. Simulation and real workers use disjoint claim filters, but they share repository invariants, Attempt/event/command/collection authority and Cycle active-real fencing. There is no parallel real-provider job table, fallback to `ExperimentFoundationExternalTrainingJob`, or persisted eligibility flag.
 
-Intake and drain are separate capabilities. Intake requires cutover plus control drain; drain can remain enabled after intake closes. App composition never constructs an Aliyun client: a reviewed outer composition must inject the transport, exact profile resolver and ExecutionBundle resolver. This makes I0-I3 testable without conferring live cloud authority.
+Intake and drain are separate capabilities. Intake requires cutover plus control drain; drain can remain enabled after intake closes. App composition never constructs an Aliyun client: a reviewed outer composition must inject the transport, exact profile resolver and ExecutionBundle resolver. The injection boundary makes I0-I3 testable without conferring live cloud authority.
 
 The transport owns generated official-SDK request mapping and normalizes a closed provider status vocabulary. A first durably fenced submit may call `CreateJob` once. Any uncertain accepted response switches the command to recovery-only discovery by deterministic tag/display name plus exact detail comparison. Collection accepts only a canonical result envelope with exact bundle/Run/cell/TaskSpec/parser bindings and persists diagnostic-only provisional output; ScientificValidationService remains the sole later typed entry into scientific authority.
 
-Migration `20260723100000_add_experiment_foundation_m7_real_provider_v2` is an unapplied artifact for existing environments. It adds six typed ExecutionBundle tables, exact same-domain FKs and v2 binding columns, renames the Pack B profile column in place, and generalizes CHECKs to the two exact tuples without DML/backfill or cross-domain FK.
+Migration `20260723100000_add_experiment_foundation_m7_real_provider_v2` is an unapplied artifact for existing environments. The migration adds six typed ExecutionBundle tables, exact same-domain FKs and v2 binding columns, renames the Pack B profile column in place, and generalizes CHECKs to the two exact tuples without DML/backfill or cross-domain FK.
 
 ## M5-A1 project-scoped lineage read boundary
 
@@ -903,7 +910,7 @@ M5-A1 adds one read-only repository port consumed by an HTTP-free deterministic 
 
 ## M5-A3 derived agent-action boundary
 
-M5-A3 adds no repository. `PaperImplementationAgentActionsV2Service` injects the existing readiness evaluator and the A1 lineage service. Closure preparation is a pure transformation of the evaluator result. Available-actions obtains one internal A1 action context that preserves the established effective-head predicate while retaining each Attempt's Run-cell association; this avoids a second query implementation and leaves the public A1 lineage response unchanged.
+M5-A3 adds no repository. `PaperImplementationAgentActionsV2Service` injects the existing readiness evaluator and the A1 lineage service. Closure preparation is a pure transformation of the evaluator result. Available-actions obtains one internal A1 action context that preserves the established effective-head predicate while retaining each Attempt's Run-cell association; reusing the context avoids a second query implementation and leaves the public A1 lineage response unchanged.
 
 The available-actions response is derived only from project-scoped Cycle lineage, immutable closure summary, readiness, effective head cells and Attempt lifecycle state. Closed cycles short-circuit to an empty list plus closure summary. The real-provider start action is advertised as capability-gated without reading environment state. Scientific closure is represented only as an unavailable `M7-L2` marker and never as a prepared request.
 

@@ -2,13 +2,21 @@
   "Version": "1",
   "Statement": [
     {
-      "Sid": "M7L1RuntimeReadInput",
+      "Sid": "M7L1RuntimeListInput",
       "Effect": "Allow",
-      "Action": ["oss:GetObject", "oss:ListObjects"],
-      "Resource": [
-        "acs:oss:*:*:pea-m7-canary-6194-202607/input/*",
-        "acs:oss:*:*:pea-m7-canary-6194-202607"
-      ]
+      "Action": ["oss:ListObjects"],
+      "Resource": "acs:oss:*:*:pea-m7-canary-6194-202607",
+      "Condition": {
+        "StringLike": {
+          "oss:Prefix": ["input", "input/*"]
+        }
+      }
+    },
+    {
+      "Sid": "M7L1RuntimeReadInputObjects",
+      "Effect": "Allow",
+      "Action": ["oss:GetObject"],
+      "Resource": "acs:oss:*:*:pea-m7-canary-6194-202607/input/*"
     },
     {
       "Sid": "M7L1RuntimeWriteOutputOnly",

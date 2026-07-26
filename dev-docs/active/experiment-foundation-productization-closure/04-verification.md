@@ -1066,7 +1066,7 @@ The run proves the default-off implementation and crash-recovery contract only. 
 
 ### 2026-07-24 — independent review fix and superseding v2 convergence
 
-The pre-commit independent review (Codex `gpt-5.6-sol` + Claude; dispositions recorded in `artifacts/implementation/11-m7-real-provider-readiness-review.md`) confirmed one functional defect: the reconcile watchdog compared poll-attempt counts instead of wall-clock time against the frozen TaskSpec `timeout_seconds`, so a healthy long-running job would be cancelled after ~12 polls and a late transient transport error could terminalize it. The worker now derives the cancel-on-timeout deadline from `attempt.created_at + timeout_seconds + watchdogGraceMs` (default 15 min), keeping `maximumCommandAttempts` as the transport-retry bound for submit/cancel/collect; M7-09 was rewritten as a wall-clock regression test.
+The pre-commit independent review (Codex `gpt-5.6-sol` + Claude; dispositions recorded in `artifacts/implementation/11-m7-real-provider-readiness-review.md`) confirmed one functional defect: the reconcile watchdog compared poll-attempt counts instead of wall-clock time against the frozen TaskSpec `timeout_seconds`, so a healthy long-running job would be cancelled after ~12 polls and a late transient transport error could terminalize the job. The worker now derives the cancel-on-timeout deadline from `attempt.created_at + timeout_seconds + watchdogGraceMs` (default 15 min), keeping `maximumCommandAttempts` as the transport-retry bound for submit/cancel/collect; M7-09 was rewritten as a wall-clock regression test.
 
 Superseding convergence run:
 
@@ -1166,7 +1166,7 @@ node --test --loader ts-node/esm \
   src/repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-relational.integration.test.ts
 ```
 
-- Outcome in this sandbox: test module loaded successfully and the one relational case was conditionally skipped because no disposable PostgreSQL identity/URL was supplied.
+- Sandbox outcome: test module loaded successfully and the one relational case was conditionally skipped because no disposable PostgreSQL identity/URL was supplied.
 - Host action: set `PAPER_IMPLEMENTATION_EXPERIMENT_LINEAGE_V2_RELATIONAL_PRISMA=1` plus the existing randomized `EXPERIMENT_V2_TEST_DATABASE_URL` disposable identity variables and require 1/1 passed with 0 skips.
 
 Static zero-write/scope census:
@@ -1224,7 +1224,7 @@ node --test --loader ts-node/esm \
 ```
 
 - Outcome: 31 passed, 0 failed, 4 guarded relational cases skipped.
-- Host action: run the relational file with `PAPER_IMPLEMENTATION_EVIDENCE_CLOSURE_V2_RELATIONAL_PRISMA=1` plus the existing randomized disposable database identity variables and require 4/4 passed with zero skips. This local skip is not PostgreSQL acceptance.
+- Host action: run the relational file with `PAPER_IMPLEMENTATION_EVIDENCE_CLOSURE_V2_RELATIONAL_PRISMA=1` plus the existing randomized disposable database identity variables and require 4/4 passed with zero skips. The local skip is not PostgreSQL acceptance.
 
 Static checks:
 
@@ -1400,3 +1400,19 @@ git diff --check
 - Passed with no whitespace errors.
 - Scope is documentation/governance only: `.ai-task.yaml`, `00-overview.md`, `01-plan.md`, `03-implementation-notes.md`, `04-verification.md`, `06-audit-closure-matrix.md` and `roadmap.md`.
 - No product code, schema, migration, capability, cloud resource, credential, provider operation or scientific record changed.
+
+## 2026-07-26 — M7-L1 RAM custom-policy verification
+
+Repository policy checks:
+
+```bash
+jq -e . workloads/ragperf-canary/ram/controller-policy.json
+jq -e . workloads/ragperf-canary/ram/runtime-policy.json
+shasum -a 256 workloads/ragperf-canary/ram/controller-policy.json
+shasum -a 256 workloads/ragperf-canary/ram/runtime-policy.json
+```
+
+- Controller JSON passed and remains SHA-256 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`.
+- Runtime JSON passed at SHA-256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`.
+- Console detail verified `pea-m7-canary-controller` as custom-policy current v1 and `pea-m7-canary-runtime` as custom-policy current v2. The runtime v2 editor passed with 0 errors, 0 security warnings, 0 warnings and 0 suggestions.
+- Runtime v2 source separates Bucket listing, input-object read and output-object write; `oss:Prefix` is limited to `input` / `input/*`. Controller/runtime roles and policy attachments remain absent at the v2 checkpoint.
