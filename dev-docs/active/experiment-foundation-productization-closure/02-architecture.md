@@ -821,6 +821,15 @@ Official references:
 - Repository policy bytes and SHA-256 are the review authority; console versions are verified against those bytes before either role is attached or used.
 - The live role trust boundary is exact rather than account-wide: controller role `acs:ram::1183869713036194:role/pea-m7-canary-controller` trusts only `acs:ram::1183869713036194:user/user_0002`; runtime role `acs:ram::1183869713036194:role/pea-m7-canary-runtime` trusts only the PAI service principal `pai.aliyuncs.com`. Each role carries exactly the matching same-name custom policy and no policy from the other lane.
 
+### M7-L1 official-image + OSS workload delivery boundary
+
+- A custom ACR image is not an architectural requirement. The accepted canary route uses a PAI official CPU image and delivers the repository workload, immutable dataset inputs and result directory through explicit OSS bindings.
+- The workload archive and dataset objects use content-addressed object names and retain content digest + byte size in the reviewed ExecutionBundle/mirror manifests. The provider request must bind those exact refs; a mutable prefix, console display label or unbound local file is not executable authority.
+- The canonical `CreateJob` payload must carry exact `DataSources` mount refs/access modes/paths, the workload environment required by `entrypoint.py`, and a `CredentialConfig` binding for `acs:ram::1183869713036194:role/pea-m7-canary-runtime`. These fields must participate in schema validation, payload hashing, redacted evidence and official-SDK mapping.
+- Direct DLC OSS mounting has its own PAI/DLC storage-authorization prerequisite. Runtime credential injection and the runtime role policy do not by themselves prove that the platform mount service can read or write the selected OSS prefixes. Both the mount-service authorization and the in-container runtime identity must be verified separately before a live submission.
+- The previously recorded `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` value is a console-visible official image label, not yet a proven full `ImageUri` or digest. A live-capable bundle remains blocked until the exact provider image reference and acceptable immutable identity are resolved and reviewed.
+- Capabilities stay default false throughout this increment. Provider-shape implementation and offline SDK mapping do not authorize OSS upload, `CreateJob`, scheduler use or scientific evidence creation.
+
 ### Layer C — Same-payload fake lifecycle
 - Feed the exact Layer A payload/hash into the fake Aliyun transport.
 - Exercise submit, sync, cancel, collect, reconcile, idempotency conflict and recovery paths.

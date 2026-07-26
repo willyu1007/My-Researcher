@@ -5,6 +5,16 @@
 - Last updated: 2026-07-26
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing，以及 zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance 均已验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight capability 均为 `false`；未执行非本地 rollout、provider write 或 scientific execution。
 
+## 2026-07-26 — M7-L1 ACR exit and official-image + OSS compatibility review
+
+- The owner attempted to create a free personal ACR instance in `cn-shanghai`. After accepting the two required agreements and submitting the form, the console rejected the request with `个人版仅限个人用户使用，请实名认证为个人账号。`; no ACR instance, namespace, repository or charge was created.
+- The owner accepted the no-ACR route: use a PAI official CPU image and place the canary code, SciFact inputs and result objects under the dedicated OSS bucket. The project intentionally does not upgrade to enterprise ACR for this diagnostic canary.
+- Official PAI-DLC documentation and the pinned `@alicloud/pai-dlc20201203@1.10.0` SDK confirm that `CreateJob` can carry an official image, OSS `DataSources`, environment variables and `CredentialConfig`. DLC supports direct OSS mounts, while the custom DLC role provides short-lived in-container credentials without embedding AK/SK.
+- Repository review found a real compatibility gap: `experiment-foundation-real-provider-payload-v2-service.ts` currently materializes only workspace/resource/display/job/spec/command/time/tag/access fields; the shared cloud-preflight schema and SDK mapping do not emit `DataSources`, `Envs` or `CredentialConfig`.
+- The typed ExecutionBundle already records a code artifact, image identity and dataset mirrors, but those refs/digests are not yet bound into the provider request or its durable redacted/hash evidence. `workloads/ragperf-canary/entrypoint.py` is stdlib-only and compatible with an official Python CPU image, but it currently receives its paths through environment variables, so the payload must bind those variables to the reviewed mount paths.
+- The console label `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` is not treated as an immutable image digest. `ListImages` can provide an actual `ImageUri`; immutable provider image identity still requires an explicit review decision before bundle freeze.
+- This checkpoint changed documentation only. It performed no OSS upload, credential issue, capability enable, `CreateJob`, provider write or billable execution.
+
 ## 2026-07-26 — M7-L1 OSS step A closure and RAM materialization
 
 - Console verification established the dedicated bucket `pea-m7-canary-6194-202607` in `cn-shanghai`, created `2026-07-26 17:03`, using Standard storage, locally redundant storage, private ACL, Block Public Access, and OSS-managed AES256 server-side encryption.
@@ -793,4 +803,4 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - The final runtime repository SHA-256 is `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`. RAM console syntax validation reported 0 errors, 0 security warnings, 0 warnings and 0 suggestions before v2 activation.
 - Created controller role `pea-m7-canary-controller` (role ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`) with trust restricted to exact owner RAM user `acs:ram::1183869713036194:user/user_0002`; attached only custom policy `pea-m7-canary-controller`.
 - Created runtime role `pea-m7-canary-runtime` (role ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`) with service trust restricted to PAI principal `pai.aliyuncs.com`; attached only custom policy `pea-m7-canary-runtime`.
-- Console role detail verification found one matching custom policy on each role and no controller/runtime cross-attachment. No credential, STS session, provider operation, OSS object mutation, capability enable, `CreateJob` or billable execution occurred. Step B is complete; ACR step C is next.
+- Console role detail verification found one matching custom policy on each role and no controller/runtime cross-attachment. No credential, STS session, provider operation, OSS object mutation, capability enable, `CreateJob` or billable execution occurred. Step B is complete; the former ACR step C was subsequently replaced by the official-image + OSS route recorded above.

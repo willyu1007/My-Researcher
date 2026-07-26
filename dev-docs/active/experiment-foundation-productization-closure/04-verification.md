@@ -1,5 +1,15 @@
 # 04 Verification
 
+## M7-L1 official-image + OSS compatibility review — 2026-07-26
+
+- The ACR personal-instance submission was rejected by the provider with `个人版仅限个人用户使用，请实名认证为个人账号。`; the ACR resource census stayed zero and no fee was incurred.
+- Official PAI `CreateJob` documentation exposes `JobSpecs[].Image`, `UserCommand`, `DataSources`, `Envs` and `CredentialConfig`; official DLC storage documentation confirms OSS direct mounts and read/write access at the mounted path.
+- The pinned Aliyun SDK model independently exposes `CreateJobRequest.dataSources`, `envs` and `credentialConfig`; each data source supports `Uri`, `MountPath`, `MountAccess` and `RoleChain`, while credential configuration supports role ARN injection.
+- Static repository inspection confirmed the current shared schema/materializer/official-SDK wire map omit all three required binding families. The existing ExecutionBundle contains code/image/dataset identity fields, but the provider request does not consume them. The review therefore classifies the route as provider-supported but repository-incomplete.
+- The accepted remediation is a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The exact official `ImageUri`/immutable identity and the platform-side OSS mount authorization remain explicit pre-live gates.
+- Full evidence and primary-source links are recorded in `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
+- Scope result: documentation/research only; OSS uploads, credentials, capabilities, `CreateJob`, provider writes, database writes, scientific writes and billable execution all remained zero.
+
 ## M7-L1 OSS step A and RAM policy materialization — 2026-07-26
 
 - Aliyun OSS console showed bucket `pea-m7-canary-6194-202607` under 华东2（上海）/`cn-shanghai`, creation time `2026-07-26 17:03`, Standard storage, local redundancy, private ACL and “文件不可以被公共访问”.

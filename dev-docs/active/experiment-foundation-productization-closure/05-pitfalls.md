@@ -673,3 +673,13 @@ When adding an entry, use:
 - Fix/workaround: runtime v2 uses separate statements for Bucket listing, input-object read and output-object write; the list statement adds `oss:Prefix` `StringLike` for `input` / `input/*`.
 - Prevention: keep OSS Bucket-level and object-level actions in separate statements, condition prefix listing explicitly, and resolve analyzer ambiguity before attaching a policy to a role.
 - References: `workloads/ragperf-canary/ram/runtime-policy.json`; `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`.
+
+### 2026-07-26 — ACR personal edition is an account-eligibility gate, not a canary prerequisite
+
+- Symptom: the free ACR personal-instance form was fully configured in `cn-shanghai`, but submission failed with `个人版仅限个人用户使用，请实名认证为个人账号。`.
+- Context: the current Aliyun account is not eligible for personal-edition ACR, while the canary workload itself is stdlib-only and can run on a PAI official CPU image.
+- What was tried: accepting both required agreements and submitting the personal-instance creation form.
+- Why the attempt failed: provider account-verification eligibility, not namespace, region, repository or workload configuration.
+- Fix/workaround: stop the ACR route without creating a paid enterprise instance; use a reviewed PAI official image and content-addressed OSS bindings for code, data and output.
+- Prevention: check registry-edition eligibility before making ACR a blocking dependency, and model custom images as an optional delivery route when an official image plus immutable external code is sufficient.
+- References: `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`; `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`.
