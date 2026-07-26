@@ -1,5 +1,16 @@
 # 04 Verification
 
+## M7-L1 official-image address and DLC OSS authorization preflight — 2026-07-27
+
+Outcome: **provider image address and platform OSS dependency passed; immutable image-content identity remains unresolved; no write or billable action occurred**.
+
+- The workspace official-image table and read-only [`GetImage`](https://help.aliyun.com/zh/pai/developer-reference/api-aiworkspace-2021-02-04-getimage) request agreed on `ImageId=image-liuxvj7p2qcnflha84`. The API returned HTTP 200, RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`, and exact `ImageUri=dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`.
+- Returned metadata was region `cn-shanghai`, accessibility `PUBLIC`, source type `Import`, size `3803970629`, and create/modify time `2026-07-02T04:35:35.000Z`. The console row advertises CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support.
+- The response contained no content digest and returned null `Identity`/`Signature`. This passes exact address/provider-asset resolution but does not satisfy the existing ExecutionBundle `container_image.image_digest` contract. No surrogate tag, `ImageId` or metadata hash is accepted as that digest.
+- The PAI account-level “开通和授权 → 全部云产品依赖” page showed DLC → OSS data storage `已开通`, consistent with the documented separate [DLC authorization prerequisite](https://help.aliyun.com/zh/pai/grant-the-permissions-that-are-required-to-use-dlc). The unsubmitted create-job form exposed OSS URI, mount path, read-only and RAM-role controls.
+- The local workload manifest resolves to one exact upload candidate: `entrypoint.py`, SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, 7,916 bytes, at a future internal OSS directory whose path contains the same digest. Local re-hashing and byte counting match the manifest; its `upload_state` remains `not_uploaded`.
+- The DLC task count remained zero. The form was not submitted; object uploads, capability changes, credential capture, `CreateJob`, provider/database/scientific writes and billable execution were all zero.
+
 ## M7-L1 official-image + OSS provider-shape implementation — 2026-07-26
 
 Outcome: **offline compatibility increment passed; cloud execution remains unauthorized and unproven**.
@@ -12,7 +23,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - OpenAPI: strict quality check passed; `ctl-api-index` regenerated 200 endpoints and strict checksum verification passed.
 - Negative coverage proves fail-closed behavior for unbound commands, digest/path substitution, nested mounts, mirror ordinal drift, full-profile expansion and role/artifact-size rematerialization drift.
 - The full backend test command ignores appended file arguments and therefore ran the complete suite; the focused suites were then invoked directly with Node. An earlier shared command appended a nonexistent explicit path and failed at invocation, after which both the direct focused test and the canonical full package suite passed. These were harness-invocation errors, not product failures.
-- Cloud write census for this increment: OSS uploads 0, `CreateJob` 0, provider writes 0, capability changes 0, credential capture 0, billable execution 0. This evidence does not prove the actual official image pull, PAI/DLC mount authorization, OSS object existence or live result collection.
+- Cloud write census for this increment: OSS uploads 0, `CreateJob` 0, provider writes 0, capability changes 0, credential capture 0, billable execution 0. The 2026-07-27 preflight separately verifies the exact provider image address and account-level PAI/DLC OSS authorization; neither checkpoint proves an actual image pull, OSS object existence, in-container runtime access or live result collection.
 
 ## M7-L1 official-image + OSS compatibility review — 2026-07-26
 
@@ -20,7 +31,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - Official PAI `CreateJob` documentation exposes `JobSpecs[].Image`, `UserCommand`, `DataSources`, `Envs` and `CredentialConfig`; official DLC storage documentation confirms OSS direct mounts and read/write access at the mounted path.
 - The pinned Aliyun SDK model independently exposes `CreateJobRequest.dataSources`, `envs` and `credentialConfig`; each data source supports `Uri`, `MountPath`, `MountAccess` and `RoleChain`, while credential configuration supports role ARN injection.
 - Static repository inspection confirmed the current shared schema/materializer/official-SDK wire map omit all three required binding families. The existing ExecutionBundle contains code/image/dataset identity fields, but the provider request does not consume them. The review therefore classifies the route as provider-supported but repository-incomplete.
-- The accepted remediation is a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The exact official `ImageUri`/immutable identity and the platform-side OSS mount authorization remain explicit pre-live gates.
+- The accepted remediation is a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The 2026-07-27 preflight closes the exact `ImageUri` and platform-side OSS authorization gates; immutable image-content identity remains explicit and unresolved.
 - Full evidence and primary-source links are recorded in `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
 - Scope result: documentation/research only; OSS uploads, credentials, capabilities, `CreateJob`, provider writes, database writes, scientific writes and billable execution all remained zero.
 

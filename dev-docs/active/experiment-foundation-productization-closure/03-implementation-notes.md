@@ -2,8 +2,18 @@
 
 ## Status
 - Current status: `in-progress`
-- Last updated: 2026-07-26
+- Last updated: 2026-07-27
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；未执行非本地 rollout、provider write、OSS upload 或 scientific execution。
+
+## 2026-07-27 — M7-L1 official-image and DLC OSS authorization preflight
+
+- The PAI official-image inventory and read-only `GetImage` API resolved asset `image-liuxvj7p2qcnflha84` to `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`. The response was HTTP 200 with RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`; the asset is `PUBLIC`, source type `Import`, region `cn-shanghai`, size `3803970629`, created/modified `2026-07-02T04:35:35.000Z`.
+- The same official-image row is visible in the workspace and declares CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support. This proves provider addressability, not a successful image pull.
+- `GetImage` did not expose an OCI/content digest; both `Identity` and `Signature` were null. The exact `ImageUri` and PAI `ImageId` may be retained as provider evidence, but neither may be relabeled as the existing ExecutionBundle `image_digest`. Bundle freeze remains blocked until the content-identity policy/contract is explicitly resolved.
+- The account-level PAI “开通和授权 → 全部云产品依赖” page reports DLC → OSS data storage as `已开通`, and the unsubmitted create-job form exposes the expected OSS URI, mount path, read-only and RAM-role controls. This closes the separate platform mount-service authorization preflight but not live runtime-role/object access.
+- `workloads/ragperf-canary/manifests/workload-directory-v1.json` now freezes the local expanded workload directory as exactly one root file, `entrypoint.py`, using `single-file-expanded-directory@v1`. Its file/directory content digest is `sha256:9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, byte size is 7,916, and the future exact internal OSS prefix contains that digest. The manifest explicitly remains `not_uploaded` with all write/job authorizations false.
+- The create-job form was not submitted and the DLC task count remained zero. No object was uploaded, no capability was enabled, no credential was captured, and no provider write or billable compute occurred.
+- Remaining preparation is the separately authorized SciFact download and mirror manifests, the separately authorized OSS upload, an explicit image-content identity decision, fresh short-lived controller STS and the final two-job live-window authorization.
 
 ## 2026-07-26 — M7-L1 official-image + OSS provider-shape increment
 
@@ -13,7 +23,7 @@
 - Durable redacted evidence binds image digest, runtime-role hash, artifact/mirror ref and mount hashes, raw content digests/byte sizes, output binding hash and environment hash. Raw payload bytes, workspace/resource selectors, image ref, command, URIs, mount paths, env values, credentials and tags remain transient and are forbidden from persistence.
 - `workloads/ragperf-canary/entrypoint.py` now consumes the standard mounted-directory contract and derives top-k only from the approved cell key. It verifies result-envelope and parser-profile lineage before producing canonical diagnostic output. ACR remains optional/offline; no image or object was pushed.
 - Verification added exact SDK-wire, persistence-redaction, profile expansion, command/mount/content-address/order drift and rematerialization conflict cases. No capability, credential, OSS object, provider job, database authority or scientific evidence was changed.
-- Remaining pre-live issues: resolve the provider's actual official `ImageUri` and acceptable immutable identity; verify PAI/DLC mount-service authorization; materialize two ordered SciFact mirror directories plus the content-addressed workload directory; obtain a separate upload window and, later, the explicit two-job live authorization.
+- Superseded by the 2026-07-27 read-only preflight: the exact provider `ImageUri` and DLC OSS service authorization are now resolved. Remaining pre-live issues are the image content-identity contract, the content-addressed workload/two ordered SciFact manifests and objects, a separate upload window and, later, the explicit two-job live authorization.
 
 ## 2026-07-26 — M7-L1 ACR exit and official-image + OSS compatibility review
 
@@ -22,7 +32,7 @@
 - Official PAI-DLC documentation and the pinned `@alicloud/pai-dlc20201203@1.10.0` SDK confirm that `CreateJob` can carry an official image, OSS `DataSources`, environment variables and `CredentialConfig`. DLC supports direct OSS mounts, while the custom DLC role provides short-lived in-container credentials without embedding AK/SK.
 - At review time the repository had a real compatibility gap: `experiment-foundation-real-provider-payload-v2-service.ts` materialized only workspace/resource/display/job/spec/command/time/tag/access fields; the shared cloud-preflight schema and SDK mapping did not emit `DataSources`, `Envs` or `CredentialConfig`. The 2026-07-26 provider-shape increment closes that gap.
 - At review time the typed ExecutionBundle recorded a code artifact, image identity and dataset mirrors without binding those refs/digests into the provider request or durable redacted/hash evidence. The 2026-07-26 increment now binds them, and `workloads/ragperf-canary/entrypoint.py` consumes the reviewed standard mount environment.
-- The console label `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` is not treated as an immutable image digest. `ListImages` can provide an actual `ImageUri`; immutable provider image identity still requires an explicit review decision before bundle freeze.
+- The console label `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` is not treated as an immutable image digest. The 2026-07-27 `GetImage` lookup supplied the actual `ImageUri` and stable PAI asset ID, but no content digest; immutable content identity still requires an explicit review decision before bundle freeze.
 - This review checkpoint changed documentation only and performed no OSS upload, credential issue, capability enable, `CreateJob`, provider write or billable execution.
 
 ## 2026-07-26 — M7-L1 OSS step A closure and RAM materialization

@@ -1,0 +1,35 @@
+{
+  "schema": "RagperfCanaryWorkloadDirectoryManifest@v1",
+  "digest_profile": "single-file-expanded-directory@v1",
+  "delivery": {
+    "kind": "oss-expanded-directory",
+    "region_id": "cn-shanghai",
+    "bucket": "pea-m7-canary-6194-202607",
+    "artifact_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/workload/9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d/",
+    "content_digest": "sha256:9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d",
+    "byte_size": 7916,
+    "mount_access": "ro",
+    "mount_path": "/mnt/pea-code"
+  },
+  "files": [
+    {
+      "path": "entrypoint.py",
+      "source": "workloads/ragperf-canary/entrypoint.py",
+      "content_digest": "sha256:9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d",
+      "byte_size": 7916
+    }
+  ],
+  "runtime": {
+    "entrypoint": "python3",
+    "arguments_prefix": [
+      "/mnt/pea-code/entrypoint.py"
+    ],
+    "dependency_model": "python-3.11-stdlib-only"
+  },
+  "upload_state": "not_uploaded",
+  "authorization": {
+    "external_download_required": false,
+    "oss_write_authorized": false,
+    "create_job_authorized": false
+  }
+}

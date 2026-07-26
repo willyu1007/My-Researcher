@@ -32,17 +32,17 @@ Order matters: **A (bucket) → B (RAM roles) → C (official-image/OSS payload 
 
 ## C. 官方镜像 + OSS payload 兼容
 
-状态：**默认关闭的仓库兼容实现已完成并离线验证；镜像身份与挂载服务授权待确认（2026-07-26）**。
+状态：**默认关闭的仓库兼容实现已完成并离线验证；镜像地址/PAI 资产身份与挂载服务授权已确认，镜像内容身份仍待决（更新于 2026-07-27）**。
 
 1. ACR 个人版创建已终止。控制台提交返回 `个人版仅限个人用户使用，请实名认证为个人账号。`；没有创建 ACR 资源，也不为本次 canary 开通企业版。
-2. 采用 PAI 官方 CPU 镜像。当前控制台标签 `torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04` 仅作候选，Codex 还需通过 provider/官方 API 固定实际 `ImageUri` 和可接受的不可变身份。
+2. 采用 PAI 官方 CPU 镜像。只读 `GetImage` 已将 `image-liuxvj7p2qcnflha84` 固定为 `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`。API 未返回 OCI/content digest，`Identity`/`Signature` 均为空，因此该 URI 与 ImageId 只作为 provider 资产证据，不能代替 ExecutionBundle 的 `image_digest`。
 3. 已完成默认关闭的 payload 增量：精确绑定只读代码/输入挂载、读写输出挂载、entrypoint 所需标准环境变量，以及 runtime role `acs:ram::1183869713036194:role/pea-m7-canary-runtime` 的 credential injection。
-4. 离线 schema、canonical hash/redaction、官方 SDK wire map、完整共享/后端回归和负例均已通过。进入 D 前仍须固定实际 `ImageUri`/不可变身份，并单独确认 PAI/DLC 挂载服务授权。此步骤未上传对象、未启用 capability、未调用 `CreateJob`。
+4. 离线 schema、canonical hash/redaction、官方 SDK wire map、完整共享/后端回归和负例均已通过。PAI “全部云产品依赖”已显示 DLC → OSS 数据存储 `已开通`，任务表单也显示 OSS URI、挂载路径、只读与 RAM 角色控件。进入 D 前仍须解决镜像内容身份契约；此步骤未上传对象、未启用 capability、未调用 `CreateJob`。
 
 ## D. 代码与数据集镜像上传
 
 1. 安装并配置 ossutil（配置需 AK/SK，Codex 不读取或记录凭证）：`ossutil config`。
-2. Codex 先准备 content-addressed workload directory manifest，以及 `corpus.jsonl` / `queries.jsonl` 两个有序镜像目录，并记录每个对象的 SHA-256 与字节数（外网下载和 OSS 写入分别需要明确确认）。
+2. Workload directory manifest 已准备：`workloads/ragperf-canary/manifests/workload-directory-v1.json`，精确绑定 `entrypoint.py` 的 SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d` 与 7,916 bytes，状态仍为 `not_uploaded`。下一步是准备 `corpus.jsonl` / `queries.jsonl` 两个有序镜像目录；外网下载和 OSS 写入仍分别需要明确确认。
 3. 配置完成后告诉 Codex；在独立确认的上传窗口中，使用最终 manifest 给出的 exact object names 上传，不使用下列占位符字面值：
    ```
    ossutil cp <local>/entrypoint.py      oss://pea-m7-canary-6194-202607/input/workload/<manifest-sha256>/entrypoint.py

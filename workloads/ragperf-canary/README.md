@@ -14,6 +14,13 @@ Delivery route: a PAI official CPU image plus content-addressed OSS mounts.
 `input/workload/<entrypoint-sha256>/`; the Dockerfile remains an offline,
 network-disabled compatibility fixture and is not pushed to ACR.
 
+The frozen local upload plan is
+`manifests/workload-directory-v1.json`. Its `single-file-expanded-directory@v1`
+profile means the mounted directory contains exactly `entrypoint.py`, and the
+directory content digest/byte size are the digest/byte size of those exact
+file bytes. The manifest remains `not_uploaded`; it is not evidence that the
+OSS object exists.
+
 Runtime contract: env `EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON`,
 `EXPERIMENT_FOUNDATION_INPUT_1_DIR`, `EXPERIMENT_FOUNDATION_INPUT_2_DIR`,
 `EXPERIMENT_FOUNDATION_OUTPUT_DIR`, plus

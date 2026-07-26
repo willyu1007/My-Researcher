@@ -683,3 +683,13 @@ When adding an entry, use:
 - Fix/workaround: stop the ACR route without creating a paid enterprise instance; use a reviewed PAI official image and content-addressed OSS bindings for code, data and output.
 - Prevention: check registry-edition eligibility before making ACR a blocking dependency, and model custom images as an optional delivery route when an official image plus immutable external code is sufficient.
 - References: `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`; `artifacts/implementation/19-m7-l1-owner-console-walkthrough.md`.
+
+### 2026-07-27 — PAI ImageId and a versioned ImageUri are not an OCI content digest
+
+- Symptom: the official-image console and `GetImage` API provide an exact versioned URI and stable PAI asset ID, while the ExecutionBundle requires `container_image.image_digest`.
+- Context: `GetImage` resolved `image-liuxvj7p2qcnflha84` and the exact regional URI, but returned null `Identity`/`Signature` and no OCI/content digest.
+- What was tried: console inventory/copy inspection followed by the provider's read-only `GetImage` API.
+- Why that is insufficient: provider asset identity proves which catalog row and address were selected; it does not prove immutable image bytes. A tag, PAI `ImageId`, request ID or hash of returned metadata would be a different semantic value.
+- Fix/workaround: retain the exact URI and ImageId as provider evidence, keep the content-identity gate open, and never synthesize a metadata hash into `image_digest`.
+- Prevention: distinguish provider asset identity from content digest in the bundle schema and freeze review; decide the accepted provider-native pinning contract explicitly before any live-capable bundle is created.
+- References: `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
