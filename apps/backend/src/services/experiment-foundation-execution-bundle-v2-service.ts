@@ -3,8 +3,8 @@ import { Ajv, type ValidateFunction } from 'ajv';
 import {
   EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_CONTROL_HASH_PROFILE_V2,
-  experimentFoundationExecutionBundleContentV1Schema,
-  type ExperimentFoundationExecutionBundleContentV1,
+  experimentFoundationExecutionBundleContentSchema,
+  type ExperimentFoundationExecutionBundleContent,
   type ExperimentFoundationExecutionBundleLifecycleEventV2,
   type ExperimentFoundationExecutionBundleLifecycleProjectionV2,
   type ExperimentFoundationExecutionBundleReadinessV2,
@@ -32,9 +32,9 @@ type ExperimentFoundationExecutionBundleV2IdKind =
   'identity' | 'revision' | 'event' | 'readiness';
 
 const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: false });
-const bundleContentValidator: ValidateFunction<ExperimentFoundationExecutionBundleContentV1> =
-  ajv.compile<ExperimentFoundationExecutionBundleContentV1>(
-    experimentFoundationExecutionBundleContentV1Schema,
+const bundleContentValidator: ValidateFunction<ExperimentFoundationExecutionBundleContent> =
+  ajv.compile<ExperimentFoundationExecutionBundleContent>(
+    experimentFoundationExecutionBundleContentSchema,
   );
 
 export class ExperimentFoundationExecutionBundleV2Service {
@@ -53,7 +53,7 @@ export class ExperimentFoundationExecutionBundleV2Service {
     bundle_key: string;
     display_name: string;
     expected_draft_version: number | null;
-    draft_content: ExperimentFoundationExecutionBundleContentV1;
+    draft_content: ExperimentFoundationExecutionBundleContent;
   }): Promise<ExperimentFoundationExecutionBundleDraftBundleV2> {
     assertBundleIdentity(input.bundle_key, input.display_name);
     assertBundleContent(input.draft_content);
@@ -114,7 +114,7 @@ export class ExperimentFoundationExecutionBundleV2Service {
       execution_bundle_revision_id: revisionId,
       execution_bundle_id: draftBundle.identity.execution_bundle_id,
       revision_sequence: revisionSequence,
-      schema_version: 'v1',
+      schema_version: draftBundle.draft.draft_content.execution_bundle_schema_version,
       hash_profile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
       content_hash: contentHash,
       revision_content: structuredClone(draftBundle.draft.draft_content),
@@ -185,7 +185,12 @@ export class ExperimentFoundationExecutionBundleV2Service {
       );
     }
     assertBundleContent(bundle.revision.revision_content);
-    if (hashBundle('ExecutionBundleRevision', bundle.revision.revision_content) !== input.content_hash) {
+    if (
+      bundle.revision.schema_version
+        !== bundle.revision.revision_content.execution_bundle_schema_version
+      || hashBundle('ExecutionBundleRevision', bundle.revision.revision_content)
+        !== input.content_hash
+    ) {
       throw new ExperimentFoundationExecutionBundleV2ConstraintError(
         'EXECUTION_BUNDLE_SCOPE_DRIFT',
         'ExecutionBundle stored content does not match its server hash.',
@@ -252,11 +257,11 @@ function assertBundleIdentity(bundleKey: string, displayName: string): void {
   }
 }
 
-function assertBundleContent(value: unknown): asserts value is ExperimentFoundationExecutionBundleContentV1 {
+function assertBundleContent(value: unknown): asserts value is ExperimentFoundationExecutionBundleContent {
   if (!bundleContentValidator(value)) {
     throw new ExperimentFoundationExecutionBundleV2ConstraintError(
       'EXECUTION_BUNDLE_INVALID',
-      'ExecutionBundle content failed its exact v1 schema.',
+      'ExecutionBundle content failed its exact versioned schema.',
     );
   }
   const ordinals = value.dataset_mirrors.map((mirror) => mirror.ordinal);
@@ -272,12 +277,28 @@ function assertBundleContent(value: unknown): asserts value is ExperimentFoundat
       'ExecutionBundle dataset mirrors must be contiguous, ordered, and exact-unique.',
     );
   }
+  if (value.execution_bundle_schema_version === 'v1') return;
+  const image = value.container_image;
+  if (
+    Number.isNaN(Date.parse(image.provider_managed_asset.modified_at))
+    || !image.image_ref.startsWith(
+      `dsw-registry-vpc.${image.provider_managed_asset.region_id}.cr.aliyuncs.com/`,
+    )
+  ) {
+    throw new ExperimentFoundationExecutionBundleV2ConstraintError(
+      'EXECUTION_BUNDLE_INVALID',
+      'Provider-managed image identity must bind a valid modified time and matching regional PAI image reference.',
+    );
+  }
 }
 
-function hashBundle(recordKind: string, content: unknown): string {
+function hashBundle(
+  recordKind: string,
+  content: ExperimentFoundationExecutionBundleContent,
+): string {
   return serverHashExperimentV2SemanticContent({
     record_kind: recordKind,
-    schema_version: 'v1',
+    schema_version: content.execution_bundle_schema_version,
     hash_profile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
     content,
   });

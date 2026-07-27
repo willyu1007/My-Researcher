@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type {
+  ExperimentFoundationExecutionBundleContentV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+
+import type {
   ExperimentFoundationExecutionBundleDraftBundleV2,
   ExperimentFoundationExecutionBundleFreezeInputV2,
   ExperimentFoundationExecutionBundleFrozenBundleV2,
@@ -107,6 +111,89 @@ test('QR-2 production-default bundle ids are deterministic and distinct across k
     second.readiness.execution_bundle_readiness_id,
   );
 });
+
+test('provider-managed image identity fails closed on regional address drift', async () => {
+  const fixture = createRealProviderV2TestFixture();
+  const repository = new InMemoryExecutionBundleV2Repository();
+  const service = new ExperimentFoundationExecutionBundleV2Service({
+    repository,
+    now: () => REAL_PROVIDER_TEST_NOW,
+  });
+  await assert.rejects(
+    service.putDraft({
+      bundle_key: 'provider-image-region-drift',
+      display_name: 'Provider image region drift',
+      expected_draft_version: null,
+      draft_content: providerManagedContent(
+        fixture.bundle.revision_content,
+        'dsw-registry-vpc.cn-hangzhou.cr.aliyuncs.com/pai/torcheasyrec:version',
+      ),
+    }),
+    (error: unknown) => (
+      error instanceof Error
+      && 'reasonCode' in error
+      && error.reasonCode === 'EXECUTION_BUNDLE_INVALID'
+    ),
+  );
+});
+
+test('provider-managed image freezes and resolves as an exact v2 revision', async () => {
+  const fixture = createRealProviderV2TestFixture();
+  const repository = new InMemoryExecutionBundleV2Repository();
+  const service = new ExperimentFoundationExecutionBundleV2Service({
+    repository,
+    now: () => REAL_PROVIDER_TEST_NOW,
+  });
+  await service.putDraft({
+    bundle_key: 'provider-image-v2',
+    display_name: 'Provider image v2',
+    expected_draft_version: null,
+    draft_content: providerManagedContent(fixture.bundle.revision_content),
+  });
+  const frozen = await service.freezeActiveRevision({
+    bundle_key: 'provider-image-v2',
+    expected_draft_version: 1,
+  });
+
+  assert.equal(frozen.revision.schema_version, 'v2');
+  assert.equal(
+    frozen.revision.revision_content.execution_bundle_schema_version,
+    'v2',
+  );
+  assert.deepEqual(
+    await service.resolveActiveReadyExact({
+      execution_bundle_revision_id:
+        frozen.revision.execution_bundle_revision_id,
+      content_hash: frozen.revision.content_hash,
+    }),
+    frozen,
+  );
+});
+
+function providerManagedContent(
+  content: ReturnType<typeof createRealProviderV2TestFixture>['bundle']['revision_content'],
+  imageRef =
+    'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04',
+): ExperimentFoundationExecutionBundleContentV2 {
+  return {
+    ...content,
+    execution_bundle_schema_version: 'v2',
+    container_image: {
+      image_identity_kind: 'provider_managed_asset',
+      image_ref: imageRef,
+      provider_managed_asset: {
+        provider: 'aliyun_pai',
+        asset_id: 'image-liuxvj7p2qcnflha84',
+        region_id: 'cn-shanghai',
+        modified_at: '2026-07-02T04:35:35.000Z',
+        size_bytes: 3_803_970_629,
+        accessibility: 'PUBLIC',
+        source_type: 'Import',
+        permitted_scope: 'm7_l1_diagnostic_only',
+      },
+    },
+  };
+}
 
 async function freezeWithProductionDefaultIds(
   bundleKey: string,

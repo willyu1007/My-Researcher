@@ -690,9 +690,18 @@ When adding an entry, use:
 - Context: `GetImage` resolved `image-liuxvj7p2qcnflha84` and the exact regional URI, but returned null `Identity`/`Signature` and no OCI/content digest.
 - What was tried: console inventory/copy inspection followed by the provider's read-only `GetImage` API.
 - Why that is insufficient: provider asset identity proves which catalog row and address were selected; it does not prove immutable image bytes. A tag, PAI `ImageId`, request ID or hash of returned metadata would be a different semantic value.
-- Fix/workaround: retain the exact URI and ImageId as provider evidence, keep the content-identity gate open, and never synthesize a metadata hash into `image_digest`.
-- Prevention: distinguish provider asset identity from content digest in the bundle schema and freeze review; decide the accepted provider-native pinning contract explicitly before any live-capable bundle is created.
+- Fix/workaround: preserve `ExecutionBundle@v1` as the OCI-digest contract and add an explicit `ExecutionBundle@v2` provider-managed identity limited to M7-L1 diagnostics. Its redacted evidence stores a typed provider-asset hash, never an `image_digest`.
+- Prevention: distinguish provider asset identity from content digest in the bundle schema and version the new shape; require fresh provider metadata comparison before submission and an OCI/content digest for M7-L2 scientific evidence.
 - References: `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
+
+### 2026-07-27 — Provider image metadata size is not a PostgreSQL Int32 counter
+
+- Symptom: the first provider-managed bundle schema test rejected the official image size `3,803,970,629`.
+- Context: the repository's generic `positiveInteger` intentionally caps values at PostgreSQL signed Int32 because most such fields reach `Int` columns; provider image metadata remains nested JSON.
+- What was tried: initially reusing the generic `positiveInteger` schema.
+- Why that failed: the real provider value exceeds `2,147,483,647`, even though it is a valid JSON safe integer and is never persisted into an Int32 column.
+- Fix/workaround: use the existing JSON-safe integer ceiling only for `provider_managed_asset.size_bytes`; retain every Int32-backed limit unchanged.
+- Prevention: choose numeric bounds from the destination storage contract, and test schemas with exact provider metadata rather than small fixtures.
 
 ### 2026-07-27 — Cloud Shell upload selection is not proof that a file landed
 

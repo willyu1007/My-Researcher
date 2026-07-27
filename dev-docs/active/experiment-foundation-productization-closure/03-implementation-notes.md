@@ -5,6 +5,15 @@
 - Last updated: 2026-07-27
 - Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验，仍未执行非本地 rollout、provider job write 或 scientific execution。
 
+## 2026-07-27 — M7-L1 provider-managed image identity contract
+
+- Preserved the existing `ExecutionBundle@v1` OCI-digest schema and its redacted manifest v1 rather than silently widening a frozen version.
+- Added `ExecutionBundle@v2` for the PAI-managed diagnostic image. It requires the explicit discriminator `provider_managed_asset`, exact provider metadata (`ImageId`, region, modified time, safe-integer byte size, accessibility and source type), and the only permitted scope `m7_l1_diagnostic_only`.
+- Bundle freeze records v1/v2 consistently and hashes content using the matching schema version. Stored revision schema/content-version drift, invalid timestamps and regional PAI URI drift fail closed.
+- Added redacted manifest v2 for this branch. It stores `image_identity_kind`, the server-derived provider-asset identity hash and diagnostic scope; the exact non-secret ImageId/URI live only in the immutable ExecutionBundle, not the ProviderPayload record, and no `image_digest` field exists in the v2 provider binding.
+- The first schema test exposed that the official image size `3,803,970,629` exceeds PostgreSQL Int32. Because this metadata remains inside JSON rather than an Int column, the field now uses the existing JSON-safe integer ceiling without weakening any Int32-backed contract.
+- Remaining operational gate: bind exact Dataset revisions, freeze the reviewed bundle, rerun offline same-payload verification, then re-query `GetImage` read-only immediately before a separately authorized live window.
+
 ## 2026-07-27 — M7-L1 SciFact source, slice and OSS input closure
 
 - Downloaded the official BEIR SciFact archive from the recorded TU Darmstadt URL. The official MD5 matched `5f7d1de60b170fc8027bb7898e2efca1`; the downloaded archive SHA-256 is `536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165`.
@@ -12,13 +21,13 @@
 - Used verified Alibaba Cloud Shell temporary credentials rather than creating or recording a long-lived AK/SK. Declined the optional performance NAS prompt; no NAS resource was created. The three exact OSS targets returned `NoSuchKey` before upload.
 - Uploaded `entrypoint.py` (7,916 bytes), `corpus.jsonl` (8,106,566 bytes) and `queries.jsonl` (56,640 bytes) to their content-addressed keys in `pea-m7-canary-6194-202607`, explicitly using `oss-cn-shanghai.aliyuncs.com`.
 - Post-upload `stat` content lengths match local byte counts. Remote CRC64-ECMA values `1815526306812411307`, `8566302686400034898` and `14258960024956570564` match local `ossutil hash` in workload/corpus/query order. Both manifests are now `uploaded_verified`.
-- Durable closure: `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`. No capability was enabled; no controller STS value, `CreateJob`, DLC compute, output object or scientific evidence was created. The unresolved official-image content identity remains the next pre-live gate.
+- Durable closure: `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`. No capability was enabled; no controller STS value, `CreateJob`, DLC compute, output object or scientific evidence was created. At that checkpoint the official-image identity decision was next; the later provider-managed identity section above supersedes that blocker.
 
 ## 2026-07-27 — M7-L1 official-image and DLC OSS authorization preflight
 
 - The PAI official-image inventory and read-only `GetImage` API resolved asset `image-liuxvj7p2qcnflha84` to `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`. The response was HTTP 200 with RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`; the asset is `PUBLIC`, source type `Import`, region `cn-shanghai`, size `3803970629`, created/modified `2026-07-02T04:35:35.000Z`.
 - The same official-image row is visible in the workspace and declares CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support. The matching row proves provider addressability, not a successful image pull.
-- `GetImage` did not expose an OCI/content digest; both `Identity` and `Signature` were null. The exact `ImageUri` and PAI `ImageId` may be retained as provider evidence, but neither may be relabeled as the existing ExecutionBundle `image_digest`. Bundle freeze remains blocked until the content-identity policy/contract is explicitly resolved.
+- `GetImage` did not expose an OCI/content digest; both `Identity` and `Signature` were null. The exact `ImageUri` and PAI `ImageId` may be retained as provider evidence, but neither may be relabeled as the existing ExecutionBundle `image_digest`. At this historical checkpoint bundle freeze was blocked; the later v2 provider-managed identity contract resolves that decision without weakening v1.
 - The account-level PAI “开通和授权 → 全部云产品依赖” page reports DLC → OSS data storage as `已开通`, and the unsubmitted create-job form exposes the expected OSS URI, mount path, read-only and RAM-role controls. The console evidence closes the separate platform mount-service authorization preflight but not live runtime-role/object access.
 - At the preflight checkpoint, `workloads/ragperf-canary/manifests/workload-directory-v1.json` froze the local expanded workload directory as exactly one root file, `entrypoint.py`, using `single-file-expanded-directory@v1`. Its file/directory content digest was `sha256:9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, byte size was 7,916, and the future exact internal OSS prefix contained that digest. The manifest was then `not_uploaded` with all write/job authorizations false.
 - The create-job form was not submitted and the DLC task count remained zero. At the same checkpoint no object was uploaded, no capability was enabled, no credential was captured, and no provider write or billable compute occurred.

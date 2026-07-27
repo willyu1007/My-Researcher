@@ -2,7 +2,7 @@
 
 Date: 2026-07-26; updated 2026-07-27
 
-Status: **route accepted; repository compatibility increment verified offline; exact ImageUri/PAI ImageId and DLC OSS service authorization verified read-only; image content identity and object manifests remain before upload or live submission**
+Status: **route accepted; repository compatibility and provider-managed image identity increments verified offline; exact ImageUri/PAI ImageId, DLC OSS service authorization and three input objects verified; Dataset revision binding/final bundle freeze remain before live submission**
 
 ## Question
 
@@ -21,7 +21,7 @@ The accepted route is:
 5. inject the exact runtime role through `CredentialConfig`;
 6. keep both real-provider capabilities false until the complete request is schema-valid, canonical-hashed, redacted, SDK-mapped and negatively tested.
 
-Read-only `GetImage` resolved PAI asset `image-liuxvj7p2qcnflha84` to `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`. This is now the accepted provider address, but not an immutable content digest: the response exposed no digest and returned null `Identity`/`Signature`.
+Read-only `GetImage` resolved PAI asset `image-liuxvj7p2qcnflha84` to `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`. This is the accepted provider address, but not an immutable content digest: the response exposed no digest and returned null `Identity`/`Signature`. The repository now models that distinction explicitly: unchanged `ExecutionBundle@v1` remains OCI-digest based, while `ExecutionBundle@v2` admits the exact PAI provider-managed asset only for `m7_l1_diagnostic_only`.
 
 ## Evidence table
 
@@ -38,13 +38,13 @@ Read-only `GetImage` resolved PAI asset `image-liuxvj7p2qcnflha84` to `dsw-regis
 
 | Surface | Current state | Required delta |
 |---|---|---|
-| ExecutionBundle | Already separates `code_artifact`, `container_image` and `dataset_mirrors`. | Require exact refs/digests/byte sizes to be consumed by materialization, not merely stored. |
-| Real-provider profile/schema | `AliyunPaiDlcRealProviderProfile@v1`, workload binding and exact transient request schema implemented. | Resolve the image content-identity contract and construct the final reviewed profile. |
-| Real-provider payload materializer | Exact content-addressed RO code/input mounts, exact RW run/cell output mount, standard env bindings and runtime-role binding implemented. Local workload manifest now freezes the exact future code ref/digest/size. | Populate the two final immutable dataset mirror refs after object preparation. |
+| ExecutionBundle | v1 remains OCI-digest exact; v2 adds a separate typed PAI provider-managed asset restricted to M7-L1 diagnostic use. | Bind exact Dataset revisions and freeze the final reviewed v2 bundle. |
+| Real-provider profile/schema | `AliyunPaiDlcRealProviderProfile@v1`, workload binding and exact transient request schema implemented. | Construct the final reviewed profile and compare a fresh `GetImage` observation before submission. |
+| Real-provider payload materializer | Exact content-addressed RO code/input mounts, exact RW run/cell output mount, standard env bindings and runtime-role binding implemented. Workload and both SciFact objects are uploaded/verified. | Populate the two exact Dataset revision bindings and rerun same-payload verification. |
 | Official SDK map | Exact `DataSources`, `Envs` and `CredentialConfig` mapping plus closed `toMap()` validation implemented. | Reuse unchanged for the final frozen bundle. |
 | Durable payload evidence | Artifact/mirror digest + byte size, role/image/mount/ref/output/environment hashes and exact redaction census implemented. | Record the final materialization evidence without raw cloud refs. |
 | Canary entrypoint | Consumes standard mounted directories and approved `--cell-key`, and validates parser/result lineage. | Package it as an expanded mounted directory, not only a compressed archive. |
-| Official image identity | Exact `ImageUri` and PAI `ImageId` verified; `Identity`/`Signature` null and no content digest returned. | Define the content identity accepted by bundle freeze without misusing a tag, ImageId or metadata hash as `image_digest`. |
+| Official image identity | Exact provider metadata is represented by the v2 `provider_managed_asset` branch; redacted evidence stores only its typed hash and diagnostic scope. | Fresh read-only metadata comparison remains mandatory immediately before live submission; M7-L2 requires OCI/content digest identity. |
 
 ## Required implementation increment
 
@@ -55,10 +55,12 @@ This is a bounded default-off extension of the existing M7 provider shape, not l
 3. bind every workload/dataset artifact ref, digest and byte size into payload evidence;
 4. map the exact request through the pinned official SDK;
 5. add substitution, omission, access-mode, path, role and payload-size negative tests;
-6. **Address/authorization completed 2026-07-27; content identity pending:** exact ImageUri/ImageId and PAI OSS mount authorization are verified, while the immutable content-identity contract remains unresolved;
-7. **Workload manifest completed; pending after dataset manifests:** rerun the offline same-payload gate with provider writes and `CreateJob` still zero.
+6. **Completed 2026-07-27:** exact ImageUri/ImageId, PAI OSS mount authorization and the separate diagnostic-only provider-managed identity contract are verified;
+7. **Objects completed; bundle pending:** bind exact Dataset revisions, freeze the v2 bundle and rerun the offline same-payload gate with provider writes and `CreateJob` still zero.
 
 Items 1-5 were implemented and verified on 2026-07-26. Shared full tests passed 397/397; backend full tests reported 2,354 passed, 0 failed and 62 conditional skips out of 2,416; focused provider/OpenAPI tests passed 14/14. OpenAPI quality and regenerated API index verification passed. The 2026-07-27 preflight added only provider reads and console inspection: no cloud write, upload, capability enable, `CreateJob` or billable execution occurred.
+
+The 2026-07-27 provider-managed identity increment passed shared full tests 398/398 and backend full tests 2,356 passed, 0 failed and 62 conditional skips out of 2,418, plus shared/backend type checks. That increment performed no cloud/provider/database/scientific write and did not enable either real-provider capability.
 
 ## Explicit non-authorization
 

@@ -1,5 +1,21 @@
 # 04 Verification
 
+## M7-L1 provider-managed image identity contract — 2026-07-27
+
+Outcome: **targeted checks, type checks and full shared/backend regression passed**.
+
+- `pnpm --filter @paper-engineering-assistant/shared typecheck` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed after the normal Prisma Client generation precheck; no Prisma schema changed.
+- Shared direct schema test for `experiment-foundation-real-provider-v2-contracts.schema.test.ts` → 6/6 passed.
+- Backend direct tests for ExecutionBundle service and real-provider payload materializer → final 7/7 passed, including exact v2 freeze/resolve.
+- Shared full suite: `pnpm --filter @paper-engineering-assistant/shared test` → 398/398 passed.
+- Backend full suite: `pnpm --filter @paper-engineering-assistant/backend test` → 2,418 tests, 2,356 passed, 0 failed and 62 conditional skips.
+- After the full run, one additional positive v2 freeze/resolve assertion was added; the final direct 7/7 suite and backend typecheck passed against that exact source state.
+- Positive coverage accepts the exact PAI provider-managed v2 identity and redacted manifest v2. Negative coverage rejects a surrogate `image_digest`, a scientific scope value and cross-region image URI drift.
+- Compatibility coverage retains the original v1 OCI digest and v1 redacted manifest path. Provider-managed durable JSON contains neither raw ImageId nor raw ImageUri.
+- The first shared schema run failed because `size_bytes=3,803,970,629` exceeded the generic Int32 schema. The corrected JSON-only safe-integer field passed; this did not alter any PostgreSQL Int boundary.
+- Provider/cloud writes, capability changes, credentials, `CreateJob`, database writes and scientific evidence writes were all zero.
+
 ## M7-L1 SciFact source and OSS input upload closure — 2026-07-27
 
 Outcome: **passed for deterministic source/slice preparation, three exact OSS
@@ -33,7 +49,7 @@ unauthorized**.
 
 ## M7-L1 official-image address and DLC OSS authorization preflight — 2026-07-27
 
-Outcome: **provider image address and platform OSS dependency passed; immutable image-content identity remains unresolved; no write or billable action occurred**.
+Outcome at this historical checkpoint: **provider image address and platform OSS dependency passed; image identity was then unresolved; no write or billable action occurred**. The provider-managed v2 verification section above supersedes the identity blocker.
 
 - The workspace official-image table and read-only [`GetImage`](https://help.aliyun.com/zh/pai/developer-reference/api-aiworkspace-2021-02-04-getimage) request agreed on `ImageId=image-liuxvj7p2qcnflha84`. The API returned HTTP 200, RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`, and exact `ImageUri=dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`.
 - Returned metadata was region `cn-shanghai`, accessibility `PUBLIC`, source type `Import`, size `3803970629`, and create/modify time `2026-07-02T04:35:35.000Z`. The console row advertises CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support.
@@ -62,7 +78,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - Official PAI `CreateJob` documentation exposes `JobSpecs[].Image`, `UserCommand`, `DataSources`, `Envs` and `CredentialConfig`; official DLC storage documentation confirms OSS direct mounts and read/write access at the mounted path.
 - The pinned Aliyun SDK model independently exposes `CreateJobRequest.dataSources`, `envs` and `credentialConfig`; each data source supports `Uri`, `MountPath`, `MountAccess` and `RoleChain`, while credential configuration supports role ARN injection.
 - Static repository inspection confirmed the current shared schema/materializer/official-SDK wire map omit all three required binding families. The existing ExecutionBundle contains code/image/dataset identity fields, but the provider request does not consume them. The review therefore classifies the route as provider-supported but repository-incomplete.
-- The accepted remediation is a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The 2026-07-27 preflight closes the exact `ImageUri` and platform-side OSS authorization gates; immutable image-content identity remains explicit and unresolved.
+- The accepted remediation was a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The 2026-07-27 preflight closed the exact `ImageUri` and platform-side OSS authorization gates; the later provider-managed v2 verification above closes the diagnostic identity decision.
 - Full evidence and primary-source links are recorded in `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
 - Scope result: documentation/research only; OSS uploads, credentials, capabilities, `CreateJob`, provider writes, database writes, scientific writes and billable execution all remained zero.
 

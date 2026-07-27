@@ -11,7 +11,7 @@ import {
   type PrismaClient,
 } from '@prisma/client';
 import type {
-  ExperimentFoundationExecutionBundleContentV1,
+  ExperimentFoundationExecutionBundleContent,
   ExperimentFoundationExecutionBundleDraftV2,
   ExperimentFoundationExecutionBundleIdentityV2,
   ExperimentFoundationExecutionBundleLifecycleEventV2,
@@ -274,7 +274,7 @@ function mapDraft(row: DraftRow): ExperimentFoundationExecutionBundleDraftV2 {
   return {
     execution_bundle_id: row.executionBundleId,
     draft_version: row.draftVersion,
-    draft_content: structuredClone(row.draftSnapshotJson) as unknown as ExperimentFoundationExecutionBundleContentV1,
+    draft_content: structuredClone(row.draftSnapshotJson) as unknown as ExperimentFoundationExecutionBundleContent,
     updated_at: row.updatedAt.toISOString(),
   };
 }
@@ -287,7 +287,7 @@ function mapRevision(row: RevisionRow): ExperimentFoundationExecutionBundleRevis
     schema_version: 'v1',
     hash_profile: 'ef-execution-bundle-semantic-json@v1',
     content_hash: row.contentHash,
-    revision_content: structuredClone(row.revisionJson) as unknown as ExperimentFoundationExecutionBundleContentV1,
+    revision_content: structuredClone(row.revisionJson) as unknown as ExperimentFoundationExecutionBundleContent,
     created_at: row.createdAt.toISOString(),
   };
 }

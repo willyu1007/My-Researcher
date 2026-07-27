@@ -20,7 +20,9 @@ import {
   type ExperimentFoundationAliyunRealProviderCreateJobRequestV1,
   type ExperimentFoundationAliyunRealProviderProfileV2,
   type ExperimentFoundationAliyunRealProviderRedactedManifestV1,
+  type ExperimentFoundationAliyunRealProviderRedactedManifestV2,
   type ExperimentFoundationExecutableTrainingTaskSpecV2,
+  type ExperimentFoundationExecutionBundleContainerImage,
   type ExperimentFoundationExecutionBundleRevisionV2,
   type ExperimentFoundationRealProviderPayloadV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
@@ -212,8 +214,30 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
       'AliyunPaiDlcRealProviderProfile',
       profile,
     );
-    const redactedManifest: ExperimentFoundationAliyunRealProviderRedactedManifestV1 = {
-      manifest_schema_version: 'v1',
+    const imageManifestBinding = materializeContainerImageManifestBinding(
+      prerequisite.execution_bundle_revision.revision_content.container_image,
+      {
+        execution_profile_hash: executionProfileHash,
+        region_id_hash: hashProviderRef('region_id', profile.region_id),
+        workspace_id_hash: hashProviderRef('workspace_id', profile.workspace_id),
+        resource_mode: profile.resource_binding.mode,
+        resource_id_hash: profile.resource_binding.mode === 'exact_quota'
+          ? hashProviderRef('resource_id', profile.resource_binding.resource_id)
+          : null,
+        image_ref_hash: hashProviderRef(
+          'image_ref',
+          prerequisite.execution_bundle_revision.revision_content.container_image.image_ref,
+        ),
+        runtime_role_arn_hash: hashProviderRef(
+          'runtime_role_arn',
+          profile.workload_binding.runtime_role_arn,
+        ),
+      },
+    );
+    const redactedManifest:
+      | ExperimentFoundationAliyunRealProviderRedactedManifestV1
+      | ExperimentFoundationAliyunRealProviderRedactedManifestV2 = {
+      ...imageManifestBinding,
       payload_schema: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2,
       adapter_identity: EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2,
       provider_profile_version: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2,
@@ -231,25 +255,6 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
         maximum_running_time_minutes: maximumRunningTimeMinutes,
         data_source_count: workload.data_sources.length,
         environment_variable_count: Object.keys(workload.envs).length,
-      },
-      provider_binding_hashes: {
-        execution_profile_hash: executionProfileHash,
-        region_id_hash: hashProviderRef('region_id', profile.region_id),
-        workspace_id_hash: hashProviderRef('workspace_id', profile.workspace_id),
-        resource_mode: profile.resource_binding.mode,
-        resource_id_hash: profile.resource_binding.mode === 'exact_quota'
-          ? hashProviderRef('resource_id', profile.resource_binding.resource_id)
-          : null,
-        image_ref_hash: hashProviderRef(
-          'image_ref',
-          prerequisite.execution_bundle_revision.revision_content.container_image.image_ref,
-        ),
-        image_digest:
-          prerequisite.execution_bundle_revision.revision_content.container_image.image_digest,
-        runtime_role_arn_hash: hashProviderRef(
-          'runtime_role_arn',
-          profile.workload_binding.runtime_role_arn,
-        ),
       },
       artifact_bindings: {
         code_artifact: {
@@ -437,6 +442,49 @@ function assertProfile(
   ) {
     throw invalid('Aliyun execution profile does not match the exact ExecutionBundle image.');
   }
+}
+
+type ProviderBindingCommon = Omit<
+  ExperimentFoundationAliyunRealProviderRedactedManifestV1['provider_binding_hashes'],
+  'image_digest'
+>;
+
+type ContainerImageManifestBinding =
+  | Pick<
+    ExperimentFoundationAliyunRealProviderRedactedManifestV1,
+    'manifest_schema_version' | 'provider_binding_hashes'
+  >
+  | Pick<
+    ExperimentFoundationAliyunRealProviderRedactedManifestV2,
+    'manifest_schema_version' | 'provider_binding_hashes'
+  >;
+
+function materializeContainerImageManifestBinding(
+  image: ExperimentFoundationExecutionBundleContainerImage,
+  common: ProviderBindingCommon,
+): ContainerImageManifestBinding {
+  if ('image_digest' in image) {
+    return {
+      manifest_schema_version: 'v1',
+      provider_binding_hashes: {
+        ...common,
+        image_digest: image.image_digest,
+      },
+    };
+  }
+  return {
+    manifest_schema_version: 'v2',
+    provider_binding_hashes: {
+      ...common,
+      image_identity_kind: image.image_identity_kind,
+      provider_managed_asset_identity_hash: hashRealProviderValue(
+        'AliyunPaiProviderManagedImageAsset',
+        image.provider_managed_asset,
+      ),
+      provider_managed_asset_scope:
+        image.provider_managed_asset.permitted_scope,
+    },
+  };
 }
 
 function materializeWorkloadBindings(

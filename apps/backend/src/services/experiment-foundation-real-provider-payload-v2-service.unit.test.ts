@@ -103,6 +103,17 @@ test('real-provider payload binds exact OSS mounts, environment and runtime role
         materialized.record.redacted_manifest.artifact_bindings.code_artifact.mount_path_hash,
     },
   );
+  assert.equal('image_digest' in bundle.revision_content.container_image, true);
+  assert.equal(
+    'image_digest' in materialized.record.redacted_manifest.provider_binding_hashes,
+    true,
+  );
+  if (
+    !('image_digest' in bundle.revision_content.container_image)
+    || !('image_digest' in materialized.record.redacted_manifest.provider_binding_hashes)
+  ) {
+    assert.fail('OCI image identity did not retain its content digest.');
+  }
   assert.equal(
     materialized.record.redacted_manifest.provider_binding_hashes.image_digest,
     bundle.revision_content.container_image.image_digest,
@@ -110,6 +121,53 @@ test('real-provider payload binds exact OSS mounts, environment and runtime role
   const persistedJson = JSON.stringify(materialized.record);
   assert.equal(persistedJson.includes('pea-m7-canary-test'), false);
   assert.equal(persistedJson.includes(profile.workload_binding.runtime_role_arn), false);
+  assert.equal(persistedJson.includes(bundle.revision_content.container_image.image_ref), false);
+});
+
+test('real-provider payload keeps PAI asset identity distinct from an OCI digest', () => {
+  const { payloadPrerequisite, bundle, profile } = firstCellFixture();
+  bundle.schema_version = 'v2';
+  bundle.revision_content = {
+    ...bundle.revision_content,
+    execution_bundle_schema_version: 'v2',
+    container_image: {
+      image_identity_kind: 'provider_managed_asset',
+      image_ref:
+        'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04',
+      provider_managed_asset: {
+        provider: 'aliyun_pai',
+        asset_id: 'image-liuxvj7p2qcnflha84',
+        region_id: 'cn-shanghai',
+        modified_at: '2026-07-02T04:35:35.000Z',
+        size_bytes: 3_803_970_629,
+        accessibility: 'PUBLIC',
+        source_type: 'Import',
+        permitted_scope: 'm7_l1_diagnostic_only',
+      },
+    },
+  };
+  const materialized = new ExperimentFoundationRealProviderPayloadV2Service().materialize(
+    {
+      ...payloadPrerequisite,
+      execution_bundle_revision: bundle,
+    },
+    {
+      ...profile,
+      image_uri: bundle.revision_content.container_image.image_ref,
+    },
+  );
+  const binding = materialized.record.redacted_manifest.provider_binding_hashes;
+
+  assert.equal('image_digest' in binding, false);
+  assert.equal('image_identity_kind' in binding, true);
+  if (!('image_identity_kind' in binding)) {
+    assert.fail('Provider-managed image identity was not materialized.');
+  }
+  assert.equal(binding.image_identity_kind, 'provider_managed_asset');
+  assert.equal(binding.provider_managed_asset_scope, 'm7_l1_diagnostic_only');
+  assert.match(binding.provider_managed_asset_identity_hash, /^sha256:[a-f0-9]{64}$/);
+  const persistedJson = JSON.stringify(materialized.record);
+  assert.equal(persistedJson.includes('image-liuxvj7p2qcnflha84'), false);
   assert.equal(persistedJson.includes(bundle.revision_content.container_image.image_ref), false);
 });
 

@@ -4,7 +4,10 @@ import type {
 import type {
   ExperimentFoundationV2ExactAssetRevisionRef,
 } from './experiment-foundation-v2-contracts.js';
-import { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
+import {
+  EXPERIMENT_V2_HASH_PATTERN,
+  EXPERIMENT_V2_JSON_SAFE_INTEGER_MAX,
+} from './experiment-v2-contract-limits.js';
 
 export const EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2 =
   'ef-execution-bundle-semantic-json@v1' as const;
@@ -141,6 +144,21 @@ export interface ExperimentFoundationExecutionBundleOutputContractV1 {
   parser_profile_hash: string;
 }
 
+export interface ExperimentFoundationExecutionBundleProviderManagedContainerImageV2 {
+  image_identity_kind: 'provider_managed_asset';
+  image_ref: string;
+  provider_managed_asset: {
+    provider: 'aliyun_pai';
+    asset_id: string;
+    region_id: string;
+    modified_at: string;
+    size_bytes: number;
+    accessibility: 'PUBLIC';
+    source_type: 'Import';
+    permitted_scope: 'm7_l1_diagnostic_only';
+  };
+}
+
 export interface ExperimentFoundationExecutionBundleContentV1 {
   execution_bundle_schema_version: 'v1';
   code_artifact: {
@@ -159,6 +177,22 @@ export interface ExperimentFoundationExecutionBundleContentV1 {
   output_contract: ExperimentFoundationExecutionBundleOutputContractV1;
 }
 
+export interface ExperimentFoundationExecutionBundleContentV2
+  extends Omit<
+    ExperimentFoundationExecutionBundleContentV1,
+    'execution_bundle_schema_version' | 'container_image'
+  > {
+  execution_bundle_schema_version: 'v2';
+  container_image: ExperimentFoundationExecutionBundleProviderManagedContainerImageV2;
+}
+
+export type ExperimentFoundationExecutionBundleContent =
+  | ExperimentFoundationExecutionBundleContentV1
+  | ExperimentFoundationExecutionBundleContentV2;
+
+export type ExperimentFoundationExecutionBundleContainerImage =
+  ExperimentFoundationExecutionBundleContent['container_image'];
+
 export interface ExperimentFoundationExecutionBundleIdentityV2 {
   execution_bundle_id: string;
   bundle_key: string;
@@ -171,7 +205,7 @@ export interface ExperimentFoundationExecutionBundleIdentityV2 {
 export interface ExperimentFoundationExecutionBundleDraftV2 {
   execution_bundle_id: string;
   draft_version: number;
-  draft_content: ExperimentFoundationExecutionBundleContentV1;
+  draft_content: ExperimentFoundationExecutionBundleContent;
   updated_at: string;
 }
 
@@ -179,10 +213,10 @@ export interface ExperimentFoundationExecutionBundleRevisionV2 {
   execution_bundle_revision_id: string;
   execution_bundle_id: string;
   revision_sequence: number;
-  schema_version: 'v1';
+  schema_version: 'v1' | 'v2';
   hash_profile: typeof EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2;
   content_hash: string;
-  revision_content: ExperimentFoundationExecutionBundleContentV1;
+  revision_content: ExperimentFoundationExecutionBundleContent;
   created_at: string;
 }
 
@@ -355,6 +389,22 @@ export interface ExperimentFoundationAliyunRealProviderRedactedManifestV1 {
   redacted_fields: string[];
 }
 
+export interface ExperimentFoundationAliyunRealProviderRedactedManifestV2
+  extends Omit<
+    ExperimentFoundationAliyunRealProviderRedactedManifestV1,
+    'manifest_schema_version' | 'provider_binding_hashes'
+  > {
+  manifest_schema_version: 'v2';
+  provider_binding_hashes: Omit<
+    ExperimentFoundationAliyunRealProviderRedactedManifestV1['provider_binding_hashes'],
+    'image_digest'
+  > & {
+    image_identity_kind: 'provider_managed_asset';
+    provider_managed_asset_identity_hash: string;
+    provider_managed_asset_scope: 'm7_l1_diagnostic_only';
+  };
+}
+
 export interface ExperimentFoundationRealProviderPayloadV2 {
   provider_payload_id: string;
   materialization_key: string;
@@ -369,7 +419,9 @@ export interface ExperimentFoundationRealProviderPayloadV2 {
   execution_mode: 'real_provider';
   provenance: 'real_provider';
   provider_profile_version: string;
-  redacted_manifest: ExperimentFoundationAliyunRealProviderRedactedManifestV1;
+  redacted_manifest:
+    | ExperimentFoundationAliyunRealProviderRedactedManifestV1
+    | ExperimentFoundationAliyunRealProviderRedactedManifestV2;
   payload_hash: string;
   payload_byte_size: number;
   created_at: string;
@@ -437,6 +489,11 @@ const nonEmptyString = { type: 'string', minLength: 1 } as const;
 const hashSchema = { type: 'string', pattern: EXPERIMENT_V2_HASH_PATTERN } as const;
 const positiveInteger = { type: 'integer', minimum: 1, maximum: 2_147_483_647 } as const;
 const nonNegativeInteger = { type: 'integer', minimum: 0, maximum: 2_147_483_647 } as const;
+const jsonSafePositiveInteger = {
+  type: 'integer',
+  minimum: 1,
+  maximum: EXPERIMENT_V2_JSON_SAFE_INTEGER_MAX,
+} as const;
 const timestampSchema = { type: 'string', minLength: 1 } as const;
 const absoluteMountPathSchema = {
   type: 'string',
@@ -783,6 +840,64 @@ export const experimentFoundationExecutionBundleContentV1Schema = {
   },
 } as const;
 
+export const experimentFoundationExecutionBundleContentV2Schema = {
+  ...experimentFoundationExecutionBundleContentV1Schema,
+  properties: {
+    ...experimentFoundationExecutionBundleContentV1Schema.properties,
+    execution_bundle_schema_version: { type: 'string', const: 'v2' },
+    container_image: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'image_identity_kind',
+        'image_ref',
+        'provider_managed_asset',
+      ],
+      properties: {
+        image_identity_kind: {
+          type: 'string',
+          const: 'provider_managed_asset',
+        },
+        image_ref: nonEmptyString,
+        provider_managed_asset: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'provider',
+            'asset_id',
+            'region_id',
+            'modified_at',
+            'size_bytes',
+            'accessibility',
+            'source_type',
+            'permitted_scope',
+          ],
+          properties: {
+            provider: { type: 'string', const: 'aliyun_pai' },
+            asset_id: nonEmptyString,
+            region_id: nonEmptyString,
+            modified_at: timestampSchema,
+            size_bytes: jsonSafePositiveInteger,
+            accessibility: { type: 'string', const: 'PUBLIC' },
+            source_type: { type: 'string', const: 'Import' },
+            permitted_scope: {
+              type: 'string',
+              const: 'm7_l1_diagnostic_only',
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+export const experimentFoundationExecutionBundleContentSchema = {
+  oneOf: [
+    experimentFoundationExecutionBundleContentV1Schema,
+    experimentFoundationExecutionBundleContentV2Schema,
+  ],
+} as const;
+
 export const experimentFoundationExecutionBundleIdentityV2Schema = {
   type: 'object',
   additionalProperties: false,
@@ -811,7 +926,7 @@ export const experimentFoundationExecutionBundleDraftV2Schema = {
   properties: {
     execution_bundle_id: nonEmptyString,
     draft_version: positiveInteger,
-    draft_content: experimentFoundationExecutionBundleContentV1Schema,
+    draft_content: experimentFoundationExecutionBundleContentSchema,
     updated_at: timestampSchema,
   },
 } as const;
@@ -833,13 +948,13 @@ export const experimentFoundationExecutionBundleRevisionV2Schema = {
     execution_bundle_revision_id: nonEmptyString,
     execution_bundle_id: nonEmptyString,
     revision_sequence: positiveInteger,
-    schema_version: { type: 'string', const: 'v1' },
+    schema_version: { type: 'string', enum: ['v1', 'v2'] },
     hash_profile: {
       type: 'string',
       const: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
     },
     content_hash: hashSchema,
-    revision_content: experimentFoundationExecutionBundleContentV1Schema,
+    revision_content: experimentFoundationExecutionBundleContentSchema,
     created_at: timestampSchema,
   },
 } as const;
@@ -1265,6 +1380,51 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
   },
 } as const;
 
+export const experimentFoundationAliyunRealProviderRedactedManifestV2Schema = {
+  ...experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+  properties: {
+    ...experimentFoundationAliyunRealProviderRedactedManifestV1Schema.properties,
+    manifest_schema_version: {
+      type: 'string',
+      const: 'v2',
+    },
+    provider_binding_hashes: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'execution_profile_hash',
+        'region_id_hash',
+        'workspace_id_hash',
+        'resource_mode',
+        'resource_id_hash',
+        'image_ref_hash',
+        'image_identity_kind',
+        'provider_managed_asset_identity_hash',
+        'provider_managed_asset_scope',
+        'runtime_role_arn_hash',
+      ],
+      properties: {
+        execution_profile_hash: hashSchema,
+        region_id_hash: hashSchema,
+        workspace_id_hash: hashSchema,
+        resource_mode: { type: 'string', enum: ['exact_quota', 'public_resource'] },
+        resource_id_hash: { anyOf: [hashSchema, { type: 'null' }] },
+        image_ref_hash: hashSchema,
+        image_identity_kind: {
+          type: 'string',
+          const: 'provider_managed_asset',
+        },
+        provider_managed_asset_identity_hash: hashSchema,
+        provider_managed_asset_scope: {
+          type: 'string',
+          const: 'm7_l1_diagnostic_only',
+        },
+        runtime_role_arn_hash: hashSchema,
+      },
+    },
+  },
+} as const;
+
 export const experimentFoundationRealProviderPayloadV2Schema = {
   type: 'object',
   additionalProperties: false,
@@ -1307,7 +1467,12 @@ export const experimentFoundationRealProviderPayloadV2Schema = {
     execution_mode: { type: 'string', const: 'real_provider' },
     provenance: { type: 'string', const: 'real_provider' },
     provider_profile_version: nonEmptyString,
-    redacted_manifest: experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+    redacted_manifest: {
+      oneOf: [
+        experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+        experimentFoundationAliyunRealProviderRedactedManifestV2Schema,
+      ],
+    },
     payload_hash: hashSchema,
     payload_byte_size: positiveInteger,
     created_at: timestampSchema,

@@ -73,6 +73,28 @@ function bundleContent() {
   };
 }
 
+function providerManagedBundleContent() {
+  return {
+    ...bundleContent(),
+    execution_bundle_schema_version: 'v2',
+    container_image: {
+      image_identity_kind: 'provider_managed_asset',
+      image_ref:
+        'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04',
+      provider_managed_asset: {
+        provider: 'aliyun_pai',
+        asset_id: 'image-liuxvj7p2qcnflha84',
+        region_id: 'cn-shanghai',
+        modified_at: '2026-07-02T04:35:35.000Z',
+        size_bytes: 3_803_970_629,
+        accessibility: 'PUBLIC',
+        source_type: 'Import',
+        permitted_scope: 'm7_l1_diagnostic_only',
+      },
+    },
+  };
+}
+
 test('ExecutionBundle draft excludes caller hashes and revision accepts only server profile', async () => {
   assert.equal(await validates(experimentFoundationExecutionBundleIdentityV2Schema, {
     execution_bundle_id: 'bundle-1',
@@ -147,6 +169,48 @@ test('ExecutionBundle draft excludes caller hashes and revision accepts only ser
       evaluated_at: '2026-07-23T00:00:00.000Z',
     },
   ), true);
+});
+
+test('ExecutionBundle accepts a diagnostic-only provider asset without relabeling it as a digest', async () => {
+  const draft = {
+    execution_bundle_id: 'bundle-provider-image-1',
+    draft_version: 1,
+    draft_content: providerManagedBundleContent(),
+    updated_at: '2026-07-27T00:00:00.000Z',
+  };
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, draft),
+    true,
+  );
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, {
+      ...draft,
+      draft_content: {
+        ...draft.draft_content,
+        container_image: {
+          ...draft.draft_content.container_image,
+          image_digest: hash('2'),
+        },
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, {
+      ...draft,
+      draft_content: {
+        ...draft.draft_content,
+        container_image: {
+          ...draft.draft_content.container_image,
+          provider_managed_asset: {
+            ...draft.draft_content.container_image.provider_managed_asset,
+            permitted_scope: 'scientific_evidence',
+          },
+        },
+      },
+    }),
+    false,
+  );
 });
 
 test('executable WorkOrder v2 requires one exact ExecutionBundle revision', async () => {
@@ -381,6 +445,42 @@ test('real provider payload rejects every simulation/real tuple mix', async () =
     created_at: '2026-07-23T00:00:00.000Z',
   };
   assert.equal(await validates(experimentFoundationRealProviderPayloadV2Schema, payload), true);
+  const providerManagedPayload = {
+    ...payload,
+    redacted_manifest: {
+      ...payload.redacted_manifest,
+      manifest_schema_version: 'v2',
+      provider_binding_hashes: {
+        execution_profile_hash: hash('1'),
+        region_id_hash: hash('2'),
+        workspace_id_hash: hash('3'),
+        resource_mode: 'public_resource',
+        resource_id_hash: null,
+        image_ref_hash: hash('4'),
+        image_identity_kind: 'provider_managed_asset',
+        provider_managed_asset_identity_hash: hash('5'),
+        provider_managed_asset_scope: 'm7_l1_diagnostic_only',
+        runtime_role_arn_hash: hash('6'),
+      },
+    },
+  };
+  assert.equal(
+    await validates(experimentFoundationRealProviderPayloadV2Schema, providerManagedPayload),
+    true,
+  );
+  assert.equal(
+    await validates(experimentFoundationRealProviderPayloadV2Schema, {
+      ...providerManagedPayload,
+      redacted_manifest: {
+        ...providerManagedPayload.redacted_manifest,
+        provider_binding_hashes: {
+          ...providerManagedPayload.redacted_manifest.provider_binding_hashes,
+          image_digest: hash('7'),
+        },
+      },
+    }),
+    false,
+  );
   assert.equal(await validates(
     experimentFoundationRealProviderPayloadV2Schema,
     { ...payload, execution_mode: 'simulation' },
