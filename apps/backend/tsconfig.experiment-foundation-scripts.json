@@ -11,6 +11,8 @@
     "scripts/experiment-foundation-d19-disposable-database.ts",
     "scripts/import-experiment-foundation-d19-typed-fixture.ts",
     "scripts/import-lit0204-ragperf-protocol-v2.ts",
+    "scripts/plan-experiment-foundation-scifact-authority.ts",
+    "scripts/plan-experiment-foundation-scifact-authority.unit.test.ts",
     "scripts/run-experiment-foundation-d19-spine.ts",
     "scripts/run-experiment-foundation-cloud-preflight.ts",
     "scripts/run-experiment-foundation-packa-product-landing.ts",

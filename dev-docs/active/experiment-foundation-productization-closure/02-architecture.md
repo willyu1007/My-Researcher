@@ -1,5 +1,13 @@
 # 02 Architecture
 
+## M7-L1 SciFact authority lineage — 2026-07-27
+
+- OSS object identity is not Dataset authority. The two uploaded SciFact mirrors require their own immutable Dataset revisions and may not be rebound to the historical Pack A Wikipedia corpus or Natural Questions workload.
+- License scope is split at the upstream source: SciFact claims/queries use `CC-BY-4.0`, while corpus abstracts inherit S2ORC `ODC-By-1.0`. Each therefore receives a distinct DataPolicy revision before its Dataset is frozen.
+- `workloads/ragperf-canary/manifests/scifact-authority-v1.json` is the reviewed authoring input. It pins the exact BEIR archive MD5/SHA-256, upstream SciFact license revision, two policy snapshots, two dataset source/split/checksum snapshots, deterministic server revision IDs and idempotency keys. It contains no credential, cloud capability or live execution grant.
+- `plan-experiment-foundation-scifact-authority.ts` executes the normal EF service against the injection-only in-memory transactional repository. Policies freeze first; Datasets then consume exact policy refs. The planner also requires exact role/ordinal/file/byte/digest agreement with `scifact-mirrors-v1.json`.
+- Named-local apply remains a distinct authorization boundary and must use the same service/repository semantics with the reviewed target fingerprint, exact replay and protected-table negative-space checks. Only after apply may mirror bindings and an ExecutionBundle revision become canonical.
+
 ## M7 real-provider boundary — 2026-07-23
 
 - T-132 is the sole implementation owner for the provider-specific canary; T-106 is an acceptance consumer and must not own a second transport, schema or runner.

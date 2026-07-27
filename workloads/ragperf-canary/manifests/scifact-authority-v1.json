@@ -1,0 +1,160 @@
+{
+  "schema": "RagperfCanarySciFactAuthorityManifest@v1",
+  "review_scope": "t132-m7-l1-diagnostic-only",
+  "source_evidence": {
+    "dataset": "BEIR SciFact",
+    "archive_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "archive_md5": "5f7d1de60b170fc8027bb7898e2efca1",
+    "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+    "upstream_revision": "68b98a56d93e0f9da0d2aab4e6c3294699a0f72e",
+    "upstream_license_uri": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md"
+  },
+  "data_policies": [
+    {
+      "role": "corpus",
+      "logical_id": "t132-scifact-corpus-data-policy",
+      "server_revision_id": "ef_asset_revision_t132_scifact_corpus_policy_v1",
+      "freeze_idempotency_key": "t132-m7-l1-freeze:DataPolicy:scifact-corpus:v1",
+      "draft_content": {
+        "schema_version": "v1",
+        "policy_key": "scifact-corpus-odc-by-1.0",
+        "display_name": "SciFact corpus abstracts reuse policy",
+        "license_expression": "ODC-By-1.0",
+        "access_level": "open",
+        "source_terms_uri": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md#abstracts",
+        "redistribution_allowed": true,
+        "commercial_use_allowed": true,
+        "use_constraints": [
+          "attribution_required",
+          "license_notice_required_on_redistribution",
+          "database_license_does_not_clear_individual_content_rights",
+          "preserve_upstream_notices",
+          "indicate_modifications",
+          "privacy_content_and_third_party_rights_review_required",
+          "m7_l1_diagnostic_only",
+          "scientific_evidence_ineligible"
+        ]
+      }
+    },
+    {
+      "role": "query_workload",
+      "logical_id": "t132-scifact-query-data-policy",
+      "server_revision_id": "ef_asset_revision_t132_scifact_query_policy_v1",
+      "freeze_idempotency_key": "t132-m7-l1-freeze:DataPolicy:scifact-query:v1",
+      "draft_content": {
+        "schema_version": "v1",
+        "policy_key": "scifact-claims-cc-by-4.0",
+        "display_name": "SciFact claims reuse policy",
+        "license_expression": "CC-BY-4.0",
+        "access_level": "open",
+        "source_terms_uri": "https://github.com/allenai/scifact/blob/68b98a56d93e0f9da0d2aab4e6c3294699a0f72e/LICENSE.md#claims",
+        "redistribution_allowed": true,
+        "commercial_use_allowed": true,
+        "use_constraints": [
+          "appropriate_credit_required",
+          "license_link_required",
+          "indicate_modifications",
+          "no_additional_legal_or_technical_restrictions",
+          "privacy_publicity_moral_and_third_party_rights_review_required",
+          "test_query_ids_only",
+          "qrels_and_training_data_excluded",
+          "m7_l1_diagnostic_only",
+          "scientific_evidence_ineligible"
+        ]
+      }
+    }
+  ],
+  "datasets": [
+    {
+      "role": "corpus",
+      "logical_id": "t132-scifact-corpus-dataset",
+      "server_revision_id": "ef_asset_revision_t132_scifact_corpus_dataset_v1",
+      "freeze_idempotency_key": "t132-m7-l1-freeze:Dataset:scifact-corpus:v1",
+      "data_policy_role": "corpus",
+      "mirror_ordinal": 1,
+      "draft_content": {
+        "schema_version": "v1",
+        "dataset_key": "beir-scifact-corpus",
+        "display_name": "BEIR SciFact complete corpus",
+        "version_label": "beir-scifact-536e14446a0b-corpus-full",
+        "dataset_role": "corpus",
+        "source_identity": {
+          "source_name": "beir-scifact",
+          "source_revision": "beir-scifact.zip@sha256:536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+          "source_uri": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip"
+        },
+        "checksum_manifest": {
+          "manifest_version": "v1",
+          "algorithm": "sha256",
+          "entries": [
+            {
+              "path": "corpus.jsonl",
+              "byte_size": 8106566,
+              "checksum": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6"
+            }
+          ],
+          "aggregate_checksum": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6"
+        },
+        "split_protocol": {
+          "protocol_version": "v1",
+          "splits": [
+            {
+              "ordinal": 1,
+              "split_key": "corpus",
+              "split_role": "corpus",
+              "source_selector": "retain complete BEIR SciFact corpus; records=5183; preserve source bytes"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "role": "query_workload",
+      "logical_id": "t132-scifact-query-workload-dataset",
+      "server_revision_id": "ef_asset_revision_t132_scifact_query_dataset_v1",
+      "freeze_idempotency_key": "t132-m7-l1-freeze:Dataset:scifact-query-workload:v1",
+      "data_policy_role": "query_workload",
+      "mirror_ordinal": 2,
+      "draft_content": {
+        "schema_version": "v1",
+        "dataset_key": "beir-scifact-test-query-workload",
+        "display_name": "BEIR SciFact test query workload",
+        "version_label": "beir-scifact-536e14446a0b-test-queries-300",
+        "dataset_role": "query_workload",
+        "source_identity": {
+          "source_name": "beir-scifact",
+          "source_revision": "beir-scifact.zip@sha256:536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+          "source_uri": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip"
+        },
+        "checksum_manifest": {
+          "manifest_version": "v1",
+          "algorithm": "sha256",
+          "entries": [
+            {
+              "path": "queries.jsonl",
+              "byte_size": 56640,
+              "checksum": "f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520"
+            }
+          ],
+          "aggregate_checksum": "f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520"
+        },
+        "split_protocol": {
+          "protocol_version": "v1",
+          "splits": [
+            {
+              "ordinal": 1,
+              "split_key": "test_queries",
+              "split_role": "query",
+              "source_selector": "retain unique query ids referenced by qrels/test.tsv; preserve source queries.jsonl order; records=300; qrels excluded"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "authorization": {
+    "named_local_apply_authorized": false,
+    "execution_bundle_freeze_authorized": false,
+    "create_job_authorized": false
+  }
+}

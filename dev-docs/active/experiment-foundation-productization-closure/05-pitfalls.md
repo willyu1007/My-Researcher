@@ -24,7 +24,7 @@
 - Context: one-off controlled `public_resource` read-only acceptance using a 3600-second AssumeRole credential and a repo-external `0600` evidence file.
 - What was tried: copy the provider `Credentials.Expiration` string directly into the evidence `expires_at` field.
 - Why the attempt failed: the evidence contract requires exact `YYYY-MM-DDTHH:mm:ss.sssZ`, while STS returns an RFC3339 timestamp without guaranteeing that millisecond component. The raw value therefore failed canonical-time validation before SDK construction.
-- Fix/workaround: parse the provider timestamp, reject invalid/expired/out-of-bound values, and serialize the expiration with `new Date(epoch).toISOString()` before writing and independently hashing evidence. Treat this as local evidence normalization; do not weaken the canonical parser.
+- Fix/workaround: parse the provider timestamp, reject invalid/expired/out-of-bound values, and serialize the expiration with `new Date(epoch).toISOString()` before writing and independently hashing evidence. Treat timestamp conversion as local evidence normalization; do not weaken the canonical parser.
 - Prevention: exercise the external STS timestamp shape in the temporary harness before consuming the single live-provider attempt, and preserve unconditional credential cleanup on every blocked/failed/passed exit.
 - References: `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
@@ -340,7 +340,7 @@
 - Symptom: the first named-local post-cleanup gate reported an index-definition digest mismatch even though the intended indexes were present.
 - Context: comparing checked-in Prisma/migration expectations to `pg_get_indexdef` on schema `my_researcher_dev`.
 - What was tried: stripping only quoted schema qualification.
-- Why the attempt failed: PostgreSQL emitted the legal unquoted form for this schema, so semantically identical definitions hashed differently.
+- Why the attempt failed: PostgreSQL emitted the legal unquoted form for the test schema, so semantically identical definitions hashed differently.
 - Fix/workaround: centralize normalization in the evidence helper and remove either quoted or unquoted current-schema qualification before exact sorting and hashing.
 - Prevention: definition normalization must cover PostgreSQL's equivalent rendering forms but must not drop names, predicates, expressions or ordering semantics.
 - References: `.ai/scripts/lib/experiment-v2-evidence.mjs`; `artifacts/db/pack-b-local-development-20260714/07-quality-remediation-addendum.md`.
@@ -651,7 +651,7 @@ When adding an entry, use:
 
 - Symptom: none in tests — the offline gate's fake provider converges within a few polls, so every suite stayed green while the reconcile watchdog would have cancelled any real job that ran longer than ~12 polls (a few minutes of backoff).
 - Context: the worker bounded reconcile by `maximumCommandAttempts`, reusing the transport-retry ceiling as the execution timeout, while the provider-side `JobMaxRunningTimeMinutes` correctly used the frozen TaskSpec `timeout_seconds`.
-- Why it survived review-by-testing: injected fakes reach terminal states quickly, so the attempt-count bound and a wall-clock bound are indistinguishable in fast tests. Only the independent code review caught the conflation.
+- Why the bug survived review-by-testing: injected fakes reach terminal states quickly, so the attempt-count bound and a wall-clock bound are indistinguishable in fast tests. Only the independent code review caught the conflation.
 - Fix: the watchdog deadline is `attempt.created_at + timeout_seconds + watchdogGraceMs`; healthy nonterminal polling and retryable sync/reconcile transport errors release until that deadline, and `maximumCommandAttempts` stays as the transport-retry bound for submit/cancel/collect. M7-09 was rewritten to advance a fake clock across the deadline.
 - Prevention: any bound expressed as an attempt count must be justified against wall-clock semantics; tests for timeout paths must drive an injected clock across a real deadline instead of shrinking a counter.
 - References: `experiment-foundation-real-provider-command-v2-worker.ts`; `experiment-foundation-real-provider-command-v2-worker.unit.test.ts`; gate run `t132-m7-offline-20260724-v2`.
@@ -689,7 +689,7 @@ When adding an entry, use:
 - Symptom: the official-image console and `GetImage` API provide an exact versioned URI and stable PAI asset ID, while the ExecutionBundle requires `container_image.image_digest`.
 - Context: `GetImage` resolved `image-liuxvj7p2qcnflha84` and the exact regional URI, but returned null `Identity`/`Signature` and no OCI/content digest.
 - What was tried: console inventory/copy inspection followed by the provider's read-only `GetImage` API.
-- Why that is insufficient: provider asset identity proves which catalog row and address were selected; it does not prove immutable image bytes. A tag, PAI `ImageId`, request ID or hash of returned metadata would be a different semantic value.
+- Why that is insufficient: provider asset identity proves which catalog row and address were selected; provider asset identity does not prove immutable image bytes. A tag, PAI `ImageId`, request ID or hash of returned metadata would be a different semantic value.
 - Fix/workaround: preserve `ExecutionBundle@v1` as the OCI-digest contract and add an explicit `ExecutionBundle@v2` provider-managed identity limited to M7-L1 diagnostics. Its redacted evidence stores a typed provider-asset hash, never an `image_digest`.
 - Prevention: distinguish provider asset identity from content digest in the bundle schema and version the new shape; require fresh provider metadata comparison before submission and an OCI/content digest for M7-L2 scientific evidence.
 - References: `artifacts/implementation/18-m7-l1-authorization-materials.md`; `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
@@ -699,7 +699,7 @@ When adding an entry, use:
 - Symptom: the first provider-managed bundle schema test rejected the official image size `3,803,970,629`.
 - Context: the repository's generic `positiveInteger` intentionally caps values at PostgreSQL signed Int32 because most such fields reach `Int` columns; provider image metadata remains nested JSON.
 - What was tried: initially reusing the generic `positiveInteger` schema.
-- Why that failed: the real provider value exceeds `2,147,483,647`, even though it is a valid JSON safe integer and is never persisted into an Int32 column.
+- Why that failed: the real provider value exceeds `2,147,483,647`, even though the value is a valid JSON safe integer and is never persisted into an Int32 column.
 - Fix/workaround: use the existing JSON-safe integer ceiling only for `provider_managed_asset.size_bytes`; retain every Int32-backed limit unchanged.
 - Prevention: choose numeric bounds from the destination storage contract, and test schemas with exact provider metadata rather than small fixtures.
 
@@ -722,3 +722,12 @@ When adding an entry, use:
 - Fix/workaround: add `--endpoint oss-cn-shanghai.aliyuncs.com` to every `stat` and `cp`. The pre-upload checks then returned the expected `NoSuchKey`; all uploads and post-upload stats succeeded.
 - Prevention: pin the exact regional OSS endpoint in repeatable commands and classify provider error code/message before changing RAM policy.
 - References: `artifacts/implementation/21-m7-l1-oss-input-upload-closure.md`.
+
+### 2026-07-27 — An uploaded mirror cannot inherit an unrelated Dataset revision
+
+- Symptom: the two SciFact mirror manifest bindings were null, while named-local already contained one corpus Dataset revision and one query-workload Dataset revision that superficially matched the required roles.
+- Root cause: those revisions describe Wikipedia and Natural Questions source/checksum/split snapshots, not the uploaded SciFact bytes. Dataset role compatibility is necessary but not sufficient for exact lineage.
+- What was tried: a server-enforced read-only inventory of Dataset/DataPolicy identities, immutable snapshots and hashes; no binding or write was attempted.
+- Fix/workaround: define separate SciFact corpus/query DataPolicies and Datasets, validate them in memory through the normal service, and keep named-local apply as an explicit bounded authorization gate.
+- Prevention: require source identity, checksum manifest, split protocol and DataPolicy exactness before binding any mirror. Never select a revision solely because its `dataset_role` matches.
+- References: `workloads/ragperf-canary/manifests/scifact-authority-v1.json`; `apps/backend/scripts/plan-experiment-foundation-scifact-authority.ts`; `03-implementation-notes.md`; `04-verification.md`.

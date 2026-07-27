@@ -1,5 +1,21 @@
 # 04 Verification
 
+## M7-L1 SciFact authority planning — 2026-07-27
+
+Outcome: **read-only named-local inventory and database-free authority planning passed; named-local apply remains unauthorized**.
+
+- Named-local inventory ran in `REPEATABLE READ` with server-enforced `SET TRANSACTION READ ONLY`; `transaction_read_only=on`.
+- The inventory found exactly the historical `ragperf-wikipedia-corpus` and `ragperf-natural-questions-workload` Dataset revisions plus their two DataPolicy revisions. No SciFact identity/revision existed.
+- Official source-policy review reconfirmed the upstream SciFact split: claims use `CC-BY-4.0`; corpus abstracts use S2ORC `ODC-By-1.0`. The authoring manifest pins upstream commit `68b98a56d93e0f9da0d2aab4e6c3294699a0f72e`.
+- `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts` → passed, including Prisma Client generation and the new planner.
+- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.unit.test.ts` → 3/3 passed: exact stable refs/hashes, mirror-digest drift rejection and broadened-authorization rejection.
+- Direct planner execution → `status=passed`, `database_access=none`, `cloud_access=none`.
+- The planner froze 2 DataPolicy and 2 Dataset revisions in memory, and verified exact mirror role/ordinal/path/record-count/byte/SHA-256 agreement. Planned exact hashes are recorded in `03-implementation-notes.md`.
+- Planned future write census: 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events, 0 readiness attestations and 0 ExecutionBundle revisions.
+- An initial post-run JSON extraction wrapped the planner with `pnpm`, whose human-readable package banner made the redirected file non-JSON. Direct Node invocation produced the exact machine summary; no planner assertion, database operation or cloud operation failed.
+- Final server-enforced read-only census remained unchanged at 2 Dataset identities/revisions and 2 DataPolicy identities/revisions; SciFact Dataset and DataPolicy identity counts remained 0.
+- No database/cloud/provider access, capability change, credential, bundle freeze, `CreateJob` or scientific write occurred. All manifest authorization booleans remain `false`.
+
 ## M7-L1 provider-managed image identity contract — 2026-07-27
 
 Outcome: **targeted checks, type checks and full shared/backend regression passed**.
@@ -49,7 +65,7 @@ unauthorized**.
 
 ## M7-L1 official-image address and DLC OSS authorization preflight — 2026-07-27
 
-Outcome at this historical checkpoint: **provider image address and platform OSS dependency passed; image identity was then unresolved; no write or billable action occurred**. The provider-managed v2 verification section above supersedes the identity blocker.
+Outcome at this historical checkpoint: **provider image address and platform OSS dependency passed; image identity was then unresolved; no write or billable action occurred**. The `M7-L1 provider-managed image identity contract` verification section supersedes the identity blocker.
 
 - The workspace official-image table and read-only [`GetImage`](https://help.aliyun.com/zh/pai/developer-reference/api-aiworkspace-2021-02-04-getimage) request agreed on `ImageId=image-liuxvj7p2qcnflha84`. The API returned HTTP 200, RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`, and exact `ImageUri=dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`.
 - Returned metadata was region `cn-shanghai`, accessibility `PUBLIC`, source type `Import`, size `3803970629`, and create/modify time `2026-07-02T04:35:35.000Z`. The console row advertises CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support.
@@ -78,7 +94,7 @@ Outcome: **offline compatibility increment passed; cloud execution remains unaut
 - Official PAI `CreateJob` documentation exposes `JobSpecs[].Image`, `UserCommand`, `DataSources`, `Envs` and `CredentialConfig`; official DLC storage documentation confirms OSS direct mounts and read/write access at the mounted path.
 - The pinned Aliyun SDK model independently exposes `CreateJobRequest.dataSources`, `envs` and `credentialConfig`; each data source supports `Uri`, `MountPath`, `MountAccess` and `RoleChain`, while credential configuration supports role ARN injection.
 - Static repository inspection confirmed the current shared schema/materializer/official-SDK wire map omit all three required binding families. The existing ExecutionBundle contains code/image/dataset identity fields, but the provider request does not consume them. The review therefore classifies the route as provider-supported but repository-incomplete.
-- The accepted remediation was a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The 2026-07-27 preflight closed the exact `ImageUri` and platform-side OSS authorization gates; the later provider-managed v2 verification above closes the diagnostic identity decision.
+- The accepted remediation was a bounded default-off implementation increment with schema, canonical payload, redaction/hash, SDK mapping and negative tests. The 2026-07-27 preflight closed the exact `ImageUri` and platform-side OSS authorization gates; the `M7-L1 provider-managed image identity contract` verification closes the diagnostic identity decision.
 - Full evidence and primary-source links are recorded in `artifacts/implementation/20-m7-l1-official-image-oss-compatibility.md`.
 - Scope result: documentation/research only; OSS uploads, credentials, capabilities, `CreateJob`, provider writes, database writes, scientific writes and billable execution all remained zero.
 
@@ -315,7 +331,7 @@ Documentation checks after the named-local evidence update:
 - Disposable database: `pgvector/pgvector:0.8.0-pg16`; existing database URL unused; cleaned up
 - Product capability default: `false`; external fetch count: 0
 
-The final run preserved the exact one-revision/two-cell/one-Run/one-head/one-ack authority state, four domain-local commits, three delivered events, 197-table non-v2 digest parity and zero excluded writes. EF-P25 is verified. At the time of the source-backed run, EF-P27 remained in progress pending separately authorized DB apply and product-writer cutover; the named-local landing above later verified EF-P27 for the local-development target only.
+The final run preserved the exact one-revision/two-cell/one-Run/one-head/one-ack authority state, four domain-local commits, three delivered events, 197-table non-v2 digest parity and zero excluded writes. EF-P25 is verified. At the time of the source-backed run, EF-P27 remained in progress pending separately authorized DB apply and product-writer cutover; the later Pack A named-local landing verified EF-P27 for the local-development target only.
 
 Final regression evidence:
 

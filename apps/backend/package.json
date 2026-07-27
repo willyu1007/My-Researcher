@@ -14,6 +14,7 @@
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
+    "experiment-foundation:scifact-authority:plan": "node --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.ts",
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
     "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
