@@ -78,7 +78,7 @@ export interface SciFactMirrorManifest {
     content_digest: string;
     byte_size: number;
     object_ref: string;
-    dataset_revision_binding: null;
+    dataset_revision_binding: ExperimentFoundationV2ExactAssetRevisionRef | null;
     upload_state: 'uploaded_verified';
   }>;
   authorization: {
@@ -184,6 +184,7 @@ export async function buildSciFactAuthorityPlan(
       expected_state_version: 1,
       business_idempotency_key: dataset.freeze_idempotency_key,
     });
+    assertMirrorBindingMatches(mirror, frozen.exact_ref);
     datasetRefs.set(dataset.role, frozen.exact_ref);
   }
 
@@ -274,11 +275,26 @@ export function parseSciFactMirrorManifest(value: unknown): SciFactMirrorManifes
   assertUniqueRoles(record.mirrors, 'mirrors');
   for (const rawMirror of record.mirrors) {
     const mirror = requireRecord(rawMirror, 'mirror');
-    if (
-      mirror.upload_state !== 'uploaded_verified'
-      || mirror.dataset_revision_binding !== null
-    ) {
-      throw new Error('SciFact mirrors must be uploaded_verified and unbound during planning');
+    if (mirror.upload_state !== 'uploaded_verified') {
+      throw new Error('SciFact mirrors must be uploaded_verified');
+    }
+    if (mirror.dataset_revision_binding !== null) {
+      const binding = requireRecord(
+        mirror.dataset_revision_binding,
+        'mirror dataset_revision_binding',
+      );
+      if (
+        binding.asset_type !== 'Dataset'
+        || typeof binding.logical_id !== 'string'
+        || binding.logical_id.length === 0
+        || typeof binding.revision_id !== 'string'
+        || binding.revision_id.length === 0
+        || binding.revision_sequence !== 1
+        || typeof binding.content_hash !== 'string'
+        || !/^sha256:[a-f0-9]{64}$/.test(binding.content_hash)
+      ) {
+        throw new Error('SciFact mirror Dataset revision binding is invalid');
+      }
     }
   }
   const authorization = requireRecord(record.authorization, 'mirror authorization');
@@ -318,6 +334,23 @@ function assertDatasetMatchesMirror(
   const expectedRecordCount = mirror.role === 'corpus' ? 5183 : 300;
   if (mirror.record_count !== expectedRecordCount) {
     throw new Error(`SciFact mirror record count drifted for ${mirror.role}`);
+  }
+}
+
+function assertMirrorBindingMatches(
+  mirror: SciFactMirrorManifest['mirrors'][number],
+  exactRef: ExperimentFoundationV2ExactAssetRevisionRef,
+): void {
+  const binding = mirror.dataset_revision_binding;
+  if (binding === null) return;
+  if (
+    binding.asset_type !== exactRef.asset_type
+    || binding.logical_id !== exactRef.logical_id
+    || binding.revision_id !== exactRef.revision_id
+    || binding.revision_sequence !== exactRef.revision_sequence
+    || binding.content_hash !== exactRef.content_hash
+  ) {
+    throw new Error(`SciFact mirror Dataset revision binding drifted for ${mirror.role}`);
   }
 }
 

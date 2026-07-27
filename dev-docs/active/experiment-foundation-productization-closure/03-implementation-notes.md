@@ -3,7 +3,16 @@
 ## Status
 - Current status: `in-progress`
 - Last updated: 2026-07-27
-- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验，并完成 SciFact 2 DataPolicy + 2 Dataset 的 default-off 离线 authority plan和 restart-safe importer。最初 22-row 授权清单漏计 4 条强制 lifecycle projection；代码在数据库连接前拒绝该旧授权，named-local apply、bundle freeze、非本地 rollout、provider job write 和 scientific execution均未执行。
+- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验。SciFact 2 DataPolicy + 2 Dataset 的 26-row named-local authority apply、零新增 replay 和 mirror exact binding 已完成；bundle freeze、非本地 rollout、provider job write 和 scientific execution均未执行。
+
+## 2026-07-27 — M7-L1 SciFact named-local authority landing
+
+- Supplemental authorization covered exactly 26 rows and explicitly excluded bundle freeze/cloud access. Run r5 created 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections; the scoped census was exactly 26.
+- Run r6 replay created zero rows and exact-reused all 4 identities, 4 revisions, 10 events and 4 projections. Both runs reported 242 protected application tables unchanged, external fetch 0, cloud/provider/CreateJob/scientific writes 0.
+- Negative-space evidence now hashes ordered primary-key values plus PostgreSQL `xmin` for every protected table. The row-version signature detects insert/update/delete without materializing large vector or payload fields.
+- `scifact-mirrors-v1.json` now binds the corpus and query mirrors to exact Dataset revision IDs, sequence 1 and the returned immutable content hashes. The planner accepts null pre-apply bindings or exact matching persisted bindings and rejects any binding drift.
+- Durable gitignored evidence: r5 apply SHA-256 `f4fc920b1f36e82b4774e1ae5531bfb101162f9eb98ed838fdca23a67ae09d6a`; r6 replay SHA-256 `b875ca7f29f158269b6e24028a138b6d5bec6eff4a33f5689dd0b23c1d120066`.
+- Next boundary: a separate approval is required before creating/freezing `ExecutionBundle@v2`. No capability, credential, provider operation or scientific execution was introduced by the authority landing.
 
 ## 2026-07-27 — M7-L1 SciFact authority plan
 
@@ -12,7 +21,7 @@
 - Added a default-off planner that freezes those two policies first and then freezes two Dataset drafts against the exact policy refs through the normal EF v2 service and injection-only transactional repository. The planner requires exact role/ordinal/path/byte/SHA-256 agreement with the uploaded mirror manifest.
 - The stable planned DataPolicy hashes are `sha256:3a19555e64e6a0e008d6ffda5c08bded06d73986629ad90401f58b118bf4aa70` and `sha256:5199b666600d1aa09b25aaa7992d5b45f9434fea3a9ecf458e0af0fe46e73231`; planned Dataset hashes are `sha256:29e0535234976085ca18a7c7fff80a1a93207ecbaf8a5912a4bd712341ff50ff` and `sha256:5e37b54c4aee0798f67070e9b9148d5ebe30e50ad3c0175382de6cc3cb8a86fa`.
 - Added `apply-experiment-foundation-scifact-authority.ts` as a restart-safe named-local importer. It requires the reviewed target URL/fingerprint and an exact 26-row process authorization; validates reserved draft/revision/lifecycle prefixes; applies policies before Datasets; reuses exact identities, revisions, receipts, events and projections on replay; rejects semantic drift; denies global fetch; and compares every application table outside the eight expected table families before/after.
-- The corrected bounded write, still unauthorized, is exactly 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections on the reviewed named-local target (26 rows total). The earlier 22-row approval request omitted the projections maintained by lifecycle compare-and-swap and was caught before any database write. No readiness, ExecutionBundle, provider, scientific or cloud rows are part of this write.
+- The corrected bounded write was subsequently authorized and completed exactly as 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections on the reviewed named-local target (26 rows total). The earlier 22-row approval request omitted the projections maintained by lifecycle compare-and-swap and was caught before any database write. No readiness, ExecutionBundle, provider, scientific or cloud rows were part of the completed write.
 
 ## 2026-07-27 — M7-L1 provider-managed image identity contract
 
@@ -21,7 +30,7 @@
 - Bundle freeze records v1/v2 consistently and hashes content using the matching schema version. Stored revision schema/content-version drift, invalid timestamps and regional PAI URI drift fail closed.
 - Added redacted manifest v2 for the provider-managed branch. Redacted manifest v2 stores `image_identity_kind`, the server-derived provider-asset identity hash and diagnostic scope; the exact non-secret ImageId/URI live only in the immutable ExecutionBundle, not the ProviderPayload record, and no `image_digest` field exists in the v2 provider binding.
 - The first schema test exposed that the official image size `3,803,970,629` exceeds PostgreSQL Int32. Because provider image metadata remains inside JSON rather than an Int column, the field now uses the existing JSON-safe integer ceiling without weakening any Int32-backed contract.
-- Remaining operational gate: bind exact Dataset revisions, freeze the reviewed bundle, rerun offline same-payload verification, then re-query `GetImage` read-only immediately before a separately authorized live window.
+- Remaining operational gate: under separate approval, freeze the reviewed bundle from the now-bound exact Dataset revisions, rerun offline same-payload verification, then re-query `GetImage` read-only immediately before a separately authorized live window.
 
 ## 2026-07-27 — M7-L1 SciFact source, slice and OSS input closure
 

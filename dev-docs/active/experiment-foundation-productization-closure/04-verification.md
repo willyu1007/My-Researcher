@@ -1,21 +1,34 @@
 # 04 Verification
 
+## M7-L1 SciFact named-local authority landing — 2026-07-27
+
+Outcome: **bounded named-local apply, zero-new replay and exact mirror binding passed; bundle/cloud/provider/scientific work remained zero**.
+
+- Authorization: exact 26-row named-local SciFact authority apply only; bundle freeze and cloud access explicitly excluded.
+- r5 apply: `status=passed`; exact census 2 DataPolicy identities/revisions/receipts + 2 Dataset identities/revisions/receipts + 10 lifecycle events + 4 lifecycle projections = 26 rows. Counters created 4 identities, 4 revisions, 10 events and 4 projections.
+- r6 replay: `status=passed`; exact census remained 26. Counters created 0 and exact-reused 4 identities, 4 revisions, 10 events and 4 projections.
+- Both successful runs validated the reviewed local target fingerprint, 242 protected application tables unchanged, external fetch 0, cloud operations 0, provider writes 0, `CreateJob` 0 and scientific writes 0.
+- `scifact-mirrors-v1.json` binds both uploaded mirrors to the exact persisted Dataset revision IDs, revision sequence 1 and immutable content hashes. Direct planner verification accepts both bindings and rejects exact-ref drift.
+- r5 evidence SHA-256: `f4fc920b1f36e82b4774e1ae5531bfb101162f9eb98ed838fdca23a67ae09d6a`; r6 evidence SHA-256: `b875ca7f29f158269b6e24028a138b6d5bec6eff4a33f5689dd0b23c1d120066`.
+- Pre-write failure evidence remained fail-safe: r1 rejected an `id`-less protected table; r2 and r4 were manually stopped while still in the before-digest; r3 rejected an unsupported `information_schema.sql_identifier` result. An independent server-enforced read-only census after every attempt confirmed all eight SciFact families remained zero before r5.
+- Final implementation uses each table's `id` or exact primary-key columns plus PostgreSQL `xmin` as the ordered negative-space signature. The signature detects insert/update/delete across all protected tables without materializing 3072-dimensional vectors.
+
 ## M7-L1 SciFact authority planning — 2026-07-27
 
-Outcome: **read-only named-local inventory, database-free authority planning and offline importer verification passed; named-local apply remains unauthorized**.
+Outcome at the planning checkpoint: **read-only named-local inventory, database-free authority planning and offline importer verification passed; the later authority-landing section supersedes the apply status**.
 
 - Named-local inventory ran in `REPEATABLE READ` with server-enforced `SET TRANSACTION READ ONLY`; `transaction_read_only=on`.
 - The inventory found exactly the historical `ragperf-wikipedia-corpus` and `ragperf-natural-questions-workload` Dataset revisions plus their two DataPolicy revisions. No SciFact identity/revision existed.
 - Official source-policy review reconfirmed the upstream SciFact split: claims use `CC-BY-4.0`; corpus abstracts use S2ORC `ODC-By-1.0`. The authoring manifest pins upstream commit `68b98a56d93e0f9da0d2aab4e6c3294699a0f72e`.
 - `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts` → passed, including Prisma Client generation and the new planner.
-- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.unit.test.ts scripts/apply-experiment-foundation-scifact-authority.unit.test.ts` → 6/6 passed: exact stable refs/hashes, mirror-digest drift rejection, broadened manifest authorization rejection, first-apply 26-row census, exact zero-new replay, reserved-draft drift rejection, and obsolete 22-row process authorization rejection.
+- At the planning checkpoint, the focused suite was 6/6. After mirror binding validation was added, the same command passed 7/7, including persisted Dataset binding drift rejection.
 - Direct planner execution → `status=passed`, `database_access=none`, `cloud_access=none`.
 - The planner froze 2 DataPolicy and 2 Dataset revisions in memory, and verified exact mirror role/ordinal/path/record-count/byte/SHA-256 agreement. Planned exact hashes are recorded in `03-implementation-notes.md`.
 - Corrected planned future write census: 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections = 26 rows total; 0 readiness attestations and 0 ExecutionBundle revisions. The original 22-row list omitted the repository-maintained projections and therefore did not authorize an apply.
 - CLI negative-space check with `T132_SCIFACT_NAMED_LOCAL_APPLY_AUTHORIZATION` absent failed closed before database connection with the exact corrected-scope error. The importer also requires the reviewed named-local target fingerprint, denies global fetch, and digests every application table outside the eight expected families.
 - An initial post-run JSON extraction wrapped the planner with `pnpm`, whose human-readable package banner made the redirected file non-JSON. Direct Node invocation produced the exact machine summary; no planner assertion, database operation or cloud operation failed.
-- Final server-enforced read-only census remained unchanged at 2 Dataset identities/revisions and 2 DataPolicy identities/revisions; SciFact Dataset and DataPolicy identity counts remained 0.
-- No database write, cloud/provider access, capability change, credential, bundle freeze, `CreateJob` or scientific write occurred. The read-only inventory is the only database access in the SciFact authority-planning phase, and all manifest authorization booleans remain `false`.
+- The planning checkpoint's final server-enforced read-only census remained unchanged at 2 historical Dataset identities/revisions and 2 historical DataPolicy identities/revisions; SciFact counts remained 0. The later bounded landing intentionally supersedes only the SciFact row census.
+- No database write occurred during planning. The later landing wrote exactly the separately authorized 26 named-local rows; cloud/provider access, capability change, credential, bundle freeze, `CreateJob` and scientific write remained 0 throughout.
 
 ## M7-L1 provider-managed image identity contract — 2026-07-27
 

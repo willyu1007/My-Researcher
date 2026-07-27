@@ -29,7 +29,13 @@
       "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/",
       "object_file_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/corpus.jsonl",
       "mount_access": "ro",
-      "dataset_revision_binding": null,
+      "dataset_revision_binding": {
+        "asset_type": "Dataset",
+        "logical_id": "t132-scifact-corpus-dataset",
+        "revision_id": "ef_asset_revision_t132_scifact_corpus_dataset_v1",
+        "revision_sequence": 1,
+        "content_hash": "sha256:29e0535234976085ca18a7c7fff80a1a93207ecbaf8a5912a4bd712341ff50ff"
+      },
       "upload_state": "uploaded_verified",
       "remote_verification": {
         "verified_at": "2026-07-27",
@@ -50,7 +56,13 @@
       "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/",
       "object_file_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/queries.jsonl",
       "mount_access": "ro",
-      "dataset_revision_binding": null,
+      "dataset_revision_binding": {
+        "asset_type": "Dataset",
+        "logical_id": "t132-scifact-query-workload-dataset",
+        "revision_id": "ef_asset_revision_t132_scifact_query_dataset_v1",
+        "revision_sequence": 1,
+        "content_hash": "sha256:5e37b54c4aee0798f67070e9b9148d5ebe30e50ad3c0175382de6cc3cb8a86fa"
+      },
       "upload_state": "uploaded_verified",
       "remote_verification": {
         "verified_at": "2026-07-27",

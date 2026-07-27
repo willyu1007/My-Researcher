@@ -50,6 +50,22 @@ test('SciFact authority plan rejects mirror digest drift', async () => {
   );
 });
 
+test('SciFact authority plan rejects persisted Dataset revision binding drift', async () => {
+  const { authority, mirrors } = await loadManifests();
+  const drifted = structuredClone(mirrors) as {
+    mirrors: Array<{
+      dataset_revision_binding: { revision_id: string };
+    }>;
+  };
+  drifted.mirrors[0]!.dataset_revision_binding.revision_id =
+    'ef_asset_revision_drifted';
+
+  await assert.rejects(
+    buildSciFactAuthorityPlan(authority, drifted),
+    /Dataset revision binding drifted for corpus/,
+  );
+});
+
 test('SciFact authority plan rejects any broadened authorization', async () => {
   const { authority, mirrors } = await loadManifests();
   const broadened = structuredClone(authority) as {

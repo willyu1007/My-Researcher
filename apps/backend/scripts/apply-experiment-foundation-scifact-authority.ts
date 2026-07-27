@@ -36,8 +36,9 @@ import {
   requireLocalExperimentFoundationD19DatabaseUrl,
 } from '../src/services/experiment-foundation-d19-fixture-import-cli.js';
 import {
+  canonicalizeExperimentFoundationEvidenceJson,
   countExperimentFoundationNamedLocalTables,
-  digestExperimentFoundationNamedLocalTables,
+  type ExperimentFoundationNamedLocalRowDigest,
 } from './experiment-foundation-named-local-evidence.js';
 import {
   buildSciFactAuthorityPlan,
@@ -47,6 +48,7 @@ import {
   type SciFactRole,
 } from './plan-experiment-foundation-scifact-authority.js';
 import {
+  sha256Bytes,
   writeJsonAtomic,
 } from '../../../.ai/scripts/lib/experiment-v2-evidence.mjs';
 
@@ -78,6 +80,11 @@ const EXPECTED_WRITE_TABLES = [
 
 interface ScriptArgs {
   outputPath: string;
+}
+
+interface ApplicationTableDescriptor {
+  name: string;
+  orderColumns: string[];
 }
 
 interface LifecycleStep {
@@ -523,9 +530,12 @@ async function main(): Promise<void> {
     const targetFingerprint = requireExperimentFoundationD19LocalTargetFingerprint(identityRows[0]);
     const applicationTables = await listApplicationTables(prisma);
     const expectedWriteTableSet = new Set<string>(EXPECTED_WRITE_TABLES);
-    const protectedTables = applicationTables.filter((name) => !expectedWriteTableSet.has(name));
+    const protectedTableDescriptors = applicationTables.filter(
+      (table) => !expectedWriteTableSet.has(table.name),
+    );
+    const protectedTables = protectedTableDescriptors.map((table) => table.name);
     const [protectedBefore, expectedBefore] = await Promise.all([
-      digestExperimentFoundationNamedLocalTables(prisma, protectedTables),
+      digestApplicationTableRowVersions(prisma, protectedTableDescriptors),
       countExperimentFoundationNamedLocalTables(prisma, EXPECTED_WRITE_TABLES),
     ]);
 
@@ -536,7 +546,7 @@ async function main(): Promise<void> {
     );
 
     const [protectedAfter, expectedAfter, scopedCensus] = await Promise.all([
-      digestExperimentFoundationNamedLocalTables(prisma, protectedTables),
+      digestApplicationTableRowVersions(prisma, protectedTableDescriptors),
       countExperimentFoundationNamedLocalTables(prisma, EXPECTED_WRITE_TABLES),
       readScopedCensus(prisma, authority, plan),
     ]);
@@ -625,22 +635,94 @@ export function requireSciFactNamedLocalAuthorization(value: string | undefined)
   }
 }
 
-async function listApplicationTables(prisma: PrismaClient): Promise<string[]> {
-  const rows = await prisma.$queryRawUnsafe<Array<{ table_name: string }>>(
-    `SELECT table_name
-     FROM information_schema.tables
-     WHERE table_schema = current_schema()
-       AND table_type = 'BASE TABLE'
-       AND table_name <> '_prisma_migrations'
-     ORDER BY table_name COLLATE "C" ASC`,
+async function listApplicationTables(
+  prisma: PrismaClient,
+): Promise<ApplicationTableDescriptor[]> {
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    table_name: string;
+    order_columns: string[];
+  }>>(
+    `SELECT table_row.table_name::text AS table_name,
+            CASE
+              WHEN EXISTS (
+                SELECT 1
+                FROM information_schema.columns AS id_column
+                WHERE id_column.table_schema = table_row.table_schema
+                  AND id_column.table_name = table_row.table_name
+                  AND id_column.column_name = 'id'
+              )
+                THEN ARRAY['id']::text[]
+              ELSE ARRAY(
+                SELECT key_column.column_name::text
+                FROM information_schema.table_constraints AS table_constraint
+                JOIN information_schema.key_column_usage AS key_column
+                  ON key_column.constraint_schema = table_constraint.constraint_schema
+                 AND key_column.constraint_name = table_constraint.constraint_name
+                 AND key_column.table_schema = table_constraint.table_schema
+                 AND key_column.table_name = table_constraint.table_name
+                WHERE table_constraint.table_schema = table_row.table_schema
+                  AND table_constraint.table_name = table_row.table_name
+                  AND table_constraint.constraint_type = 'PRIMARY KEY'
+                ORDER BY key_column.ordinal_position
+              )
+            END AS order_columns
+     FROM information_schema.tables AS table_row
+     WHERE table_row.table_schema = current_schema()
+       AND table_row.table_type = 'BASE TABLE'
+       AND table_row.table_name <> '_prisma_migrations'
+     ORDER BY table_row.table_name COLLATE "C" ASC`,
   );
-  const names = rows.map((row) => row.table_name);
+  const tables = rows.map((row) => ({
+    name: row.table_name,
+    orderColumns: row.order_columns,
+  }));
+  for (const table of tables) {
+    if (table.orderColumns.length === 0) {
+      throw new Error(`Application table lacks a stable primary-key order: ${table.name}`);
+    }
+  }
   for (const expected of EXPECTED_WRITE_TABLES) {
-    if (!names.includes(expected)) {
+    if (!tables.some((table) => table.name === expected)) {
       throw new Error(`SciFact expected write table is missing: ${expected}`);
     }
   }
-  return names;
+  return tables;
+}
+
+async function digestApplicationTableRowVersions(
+  prisma: PrismaClient,
+  tablesToDigest: readonly ApplicationTableDescriptor[],
+): Promise<Record<string, ExperimentFoundationNamedLocalRowDigest>> {
+  const tables: Record<string, ExperimentFoundationNamedLocalRowDigest> = {};
+  for (const table of tablesToDigest) {
+    if (
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(table.name)
+      || table.orderColumns.some((column) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(column))
+    ) {
+      throw new Error('Unsafe application table identifier');
+    }
+    const orderBy = table.orderColumns
+      .map((column) => `table_row."${column}" ASC`)
+      .join(', ');
+    const rowSignature = [
+      ...table.orderColumns.map((column) => `table_row."${column}"`),
+      'table_row.xmin::text',
+    ].join(', ');
+    const rows = await prisma.$queryRawUnsafe<Array<{ row_json: unknown }>>(
+      `SELECT jsonb_build_array(${rowSignature}) AS row_json
+       FROM "${table.name}" AS table_row
+       ORDER BY ${orderBy}`,
+    );
+    tables[table.name] = {
+      count: rows.length,
+      digest: `sha256:${sha256Bytes(
+        canonicalizeExperimentFoundationEvidenceJson(
+          rows.map((row) => row.row_json),
+        ),
+      )}`,
+    };
+  }
+  return tables;
 }
 
 async function readScopedCensus(
