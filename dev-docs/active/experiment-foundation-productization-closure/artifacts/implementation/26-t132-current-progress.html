@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>T-132 当前进度｜Experiment Foundation Productization Closure</title>
+  <style>
+    :root {
+      --ink: #172031;
+      --muted: #667085;
+      --line: #d9e0ea;
+      --paper: #f4f7fb;
+      --surface: #ffffff;
+      --navy: #173968;
+      --blue: #1d63d8;
+      --blue-soft: #eaf2ff;
+      --green: #0f7a4f;
+      --green-soft: #e8f7f0;
+      --amber: #9a5b05;
+      --amber-soft: #fff4dc;
+      --red: #b42318;
+      --red-soft: #feeeee;
+      --shadow: 0 10px 28px rgba(25, 48, 84, 0.08);
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+        sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, #e5efff 0, transparent 28rem),
+        var(--paper);
+      line-height: 1.55;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      padding: 0.12rem 0.34rem;
+      border: 1px solid #dce5f4;
+      border-radius: 0.32rem;
+      color: #173968;
+      background: #f5f8fd;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 34px;
+      border-radius: 22px;
+      color: #fff;
+      background:
+        linear-gradient(125deg, rgba(255,255,255,0.08), transparent 45%),
+        linear-gradient(135deg, #142f57, #1d63d8);
+      box-shadow: 0 18px 50px rgba(18, 55, 109, 0.22);
+    }
+
+    .hero::after {
+      position: absolute;
+      top: -90px;
+      right: -70px;
+      width: 270px;
+      height: 270px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #cfe1ff;
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.8rem);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-summary {
+      max-width: 850px;
+      margin: 18px 0 0;
+      color: #e9f1ff;
+      font-size: 1.04rem;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(255,255,255,0.1);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #58e7aa;
+      box-shadow: 0 0 0 4px rgba(88, 231, 170, 0.16);
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0 0;
+    }
+
+    .metric,
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      min-height: 142px;
+      padding: 20px;
+      border-radius: 16px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      color: var(--navy);
+      font-size: 2rem;
+      font-weight: 820;
+      letter-spacing: -0.04em;
+    }
+
+    .metric-note {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .section {
+      margin-top: 34px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1.45rem;
+      letter-spacing: -0.025em;
+    }
+
+    .section-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .panel {
+      padding: 24px;
+      border-radius: 18px;
+    }
+
+    .milestones {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .milestone {
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .milestone.is-complete {
+      border-color: #bde5d1;
+      background: linear-gradient(180deg, #fff, var(--green-soft));
+    }
+
+    .milestone.is-active {
+      border-color: #f1d29a;
+      background: linear-gradient(180deg, #fff, var(--amber-soft));
+    }
+
+    .milestone strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--navy);
+    }
+
+    .milestone span {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .status {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .status.done {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .status.next {
+      color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 16px;
+    }
+
+    .lineage {
+      display: grid;
+      gap: 11px;
+    }
+
+    .lineage-row {
+      display: grid;
+      grid-template-columns: 135px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding-bottom: 11px;
+      border-bottom: 1px dashed var(--line);
+    }
+
+    .lineage-row:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .lineage-row dt {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 750;
+    }
+
+    .lineage-row dd {
+      min-width: 0;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .checks {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .checks li {
+      position: relative;
+      padding: 10px 12px 10px 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfe;
+    }
+
+    .checks li::before {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      display: grid;
+      width: 21px;
+      height: 21px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--green);
+      content: "✓";
+      font-size: 0.76rem;
+      font-weight: 900;
+    }
+
+    .checks strong {
+      display: block;
+      color: var(--navy);
+      font-size: 0.9rem;
+    }
+
+    .checks span {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th,
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      background: #f8fafc;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 780;
+      white-space: nowrap;
+    }
+
+    .badge.complete {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .badge.pending {
+      color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .badge.blocked {
+      color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .next-steps {
+      display: grid;
+      counter-reset: step;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .next-steps li {
+      position: relative;
+      min-height: 66px;
+      padding: 12px 14px 12px 62px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fff;
+      counter-increment: step;
+    }
+
+    .next-steps li::before {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 10px;
+      color: #fff;
+      background: var(--blue);
+      content: counter(step);
+      font-weight: 850;
+    }
+
+    .next-steps strong {
+      display: block;
+      color: var(--navy);
+    }
+
+    .next-steps span {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .callout {
+      padding: 16px 18px;
+      border: 1px solid #f1d29a;
+      border-left: 5px solid #d48a16;
+      border-radius: 12px;
+      color: #744704;
+      background: var(--amber-soft);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 900px) {
+      .top-grid,
+      .milestones {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 580px) {
+      .shell {
+        width: min(100% - 20px, 1180px);
+        padding-top: 10px;
+      }
+
+      .hero {
+        padding: 24px 20px;
+        border-radius: 16px;
+      }
+
+      .top-grid,
+      .milestones {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .lineage-row {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+
+      .section-head,
+      .footer {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .shell {
+        width: 100%;
+        padding: 0;
+      }
+
+      .hero,
+      .metric,
+      .panel {
+        box-shadow: none;
+      }
+
+      .section {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="eyebrow">My-Researcher · T-132 · 2026-07-28</p>
+      <h1>Experiment Foundation 产品化闭环进度</h1>
+      <p class="hero-summary">
+        M0–M6 已完成；M7-L1 的本地 authority、冻结 ExecutionBundle、resource-exact
+        successor lineage 和零云 live-runner 预检均已闭环。当前只剩云端控制策略激活、
+        新 STS、fresh GetImage 与已授权的两任务诊断窗口。
+      </p>
+      <div class="hero-meta">
+        <span class="pill"><span class="dot"></span>任务状态：in-progress</span>
+        <span class="pill">交付：直接 main，无 PR</span>
+        <span class="pill">最新提交：b8b3e7e3</span>
+        <span class="pill">云能力：保持关闭</span>
+      </div>
+    </header>
+
+    <section class="top-grid" aria-label="关键指标">
+      <article class="metric">
+        <div class="metric-label">Successor 新增</div>
+        <div class="metric-value">40</div>
+        <div class="metric-note">正常 T1–T4；exact replay 新增 0</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">保护表</div>
+        <div class="metric-value">236</div>
+        <div class="metric-note">全部 unchanged；旧 revision / Run 未改</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">运行资源</div>
+        <div class="metric-value">2 / 8 GiB</div>
+        <div class="metric-note">每个 cell：2 CPU、8192 MiB、30 分钟</div>
+      </article>
+      <article class="metric">
+        <div class="metric-label">实时副作用</div>
+        <div class="metric-value">0</div>
+        <div class="metric-note">Attempt / Job / 结果 / 证据均为零</div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>里程碑总览</h2>
+        <p class="section-note">结论优先：本地执行谱系已就绪，云端 paid window 尚未启动。</p>
+      </div>
+      <div class="milestones">
+        <article class="milestone is-complete">
+          <span class="status done">完成</span>
+          <strong>M0–M4 · 核心控制面</strong>
+          <span>领域边界、typed contracts、Pack A/B、科学与证据资格边界已建立。</span>
+        </article>
+        <article class="milestone is-complete">
+          <span class="status done">完成</span>
+          <strong>M5–M6 · 产品工作流</strong>
+          <span>Agent-first API/workflow、release gate、T-131 typed-v2 consumption 已闭环。</span>
+        </article>
+        <article class="milestone is-complete">
+          <span class="status done">完成</span>
+          <strong>M7-L1 · 本地准备</strong>
+          <span>SciFact authority、OSS 输入、ExecutionBundle v2、sequence 2 和离线预检通过。</span>
+        </article>
+        <article class="milestone is-active">
+          <span class="status next">下一步</span>
+          <strong>M7-L1 · 云端诊断</strong>
+          <span>激活 controller policy，更新 STS，fresh GetImage，再运行最多两个 PAI Job。</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section two-col">
+      <article class="panel">
+        <div class="section-head">
+          <h2>当前可执行谱系</h2>
+        </div>
+        <dl class="lineage">
+          <div class="lineage-row">
+            <dt>ImplementationProject</dt>
+            <dd><code>implementation_project_642a1879-1137-40f5-b340-330b66509975</code></dd>
+          </div>
+          <div class="lineage-row">
+            <dt>ValidationCycle</dt>
+            <dd><code>validation_cycle_t132_m7_l1_p313_v1</code> · admitted / not_started / no closure</dd>
+          </div>
+          <div class="lineage-row">
+            <dt>Branch</dt>
+            <dd><code>pi_experiment_branch_v2_t132_m7_l1_p313_v1_1</code> · ragperf-primary · head sequence 2</dd>
+          </div>
+          <div class="lineage-row">
+            <dt>WorkOrder</dt>
+            <dd><code>pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1</code></dd>
+          </div>
+          <div class="lineage-row">
+            <dt>Run</dt>
+            <dd><code>ef_run_v2_t132_m7_l1_resource_successor_v2_1</code></dd>
+          </div>
+          <div class="lineage-row">
+            <dt>Run manifest</dt>
+            <dd><code>sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232</code></dd>
+          </div>
+          <div class="lineage-row">
+            <dt>ExecutionBundle</dt>
+            <dd><code>ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48</code></dd>
+          </div>
+          <div class="lineage-row">
+            <dt>Bundle hash</dt>
+            <dd><code>sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e</code></dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h2>已通过的关键验证</h2>
+        </div>
+        <ul class="checks">
+          <li>
+            <strong>资源与计费规格精确</strong>
+            <span>两条 TaskSpec 均为 ecs.g6.large：2 CPU / 8192 MiB / 1800 秒 / 1 attempt。</span>
+          </li>
+          <li>
+            <strong>正常 T1–T4 完整收敛</strong>
+            <span>revision、cells、admission、23 dependencies、RunRecipe、Run、head ack 全部到位。</span>
+          </li>
+          <li>
+            <strong>幂等与负空间成立</strong>
+            <span>exact replay 0 新增；236 张保护表、旧 revision 和旧 Run 未变化。</span>
+          </li>
+          <li>
+            <strong>禁止写保持为零</strong>
+            <span>无 live Attempt、PAI Job、ExperimentResult、EvidenceCandidate 或 REU。</span>
+          </li>
+          <li>
+            <strong>零云 runner 预检通过</strong>
+            <span>existing Attempt=0、cloud call=0、database write=0，两任务/¥50 ceiling 已绑定。</span>
+          </li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>基础设施与云资源状态</h2>
+        <p class="section-note">“已创建”不等于“已启用付费执行”。</p>
+      </div>
+      <article class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>对象</th>
+              <th>当前状态</th>
+              <th>证据 / 约束</th>
+              <th>下一动作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OSS Bucket</td>
+              <td><span class="badge complete">已创建</span></td>
+              <td><code>pea-m7-canary-6194-202607</code>；Shanghai endpoint 固定。</td>
+              <td>保持现有 input，只允许 exact output 路径。</td>
+            </tr>
+            <tr>
+              <td>SciFact 输入</td>
+              <td><span class="badge complete">已验证</span></td>
+              <td>entrypoint、corpus、queries 三对象 byte/CRC64 对齐。</td>
+              <td>无需重新上传。</td>
+            </tr>
+            <tr>
+              <td>Runtime role</td>
+              <td><span class="badge complete">已配置</span></td>
+              <td>PAI service trust；OSS list/read/write 分离；禁止 delete。</td>
+              <td>执行前只读复核 attachment。</td>
+            </tr>
+            <tr>
+              <td>Controller policy</td>
+              <td><span class="badge pending">待激活新版</span></td>
+              <td>仓库 digest <code>c014cac58a79…19be</code>，新增只读 <code>paiimage:GetImage</code>。</td>
+              <td>在 RAM 控制台更新并激活。</td>
+            </tr>
+            <tr>
+              <td>Controller STS</td>
+              <td><span class="badge pending">需刷新</span></td>
+              <td>必须是临时凭据，剩余时间至少 55 分钟，文件权限 0600。</td>
+              <td>激活 policy 后重新签发。</td>
+            </tr>
+            <tr>
+              <td>PAI DLC Job</td>
+              <td><span class="badge blocked">尚未创建</span></td>
+              <td>最多 2 个，合计 ceiling ¥50；当前 provider/Job/Attempt 均为 0。</td>
+              <td>仅在 fresh GetImage 精确匹配后启动。</td>
+            </tr>
+            <tr>
+              <td>ACR</td>
+              <td><span class="badge complete">非阻断</span></td>
+              <td>个人版受账号资格限制；当前 workload 使用 PAI 官方镜像 + OSS。</td>
+              <td>本次 canary 不需要 ACR。</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="section two-col">
+      <article class="panel">
+        <div class="section-head">
+          <h2>下一步执行顺序</h2>
+        </div>
+        <ol class="next-steps">
+          <li>
+            <strong>激活 controller policy</strong>
+            <span>在 RAM 中把当前版本更新为仓库 digest <code>c014…19be</code>，只新增 GetImage 读取。</span>
+          </li>
+          <li>
+            <strong>签发新的短期 STS</strong>
+            <span>RAM 用户完成身份确认；凭据不写入仓库、不进入日志，剩余时长必须 ≥55 分钟。</span>
+          </li>
+          <li>
+            <strong>运行 fresh GetImage gate</strong>
+            <span>精确比较 ImageId、URI、region、modified time、size、accessibility 和 source type。</span>
+          </li>
+          <li>
+            <strong>执行两任务诊断窗口</strong>
+            <span>只有上一步通过才创建最多两个 Job；预算 ceiling ¥50，每个 Job 最长 30 分钟。</span>
+          </li>
+          <li>
+            <strong>收集、清理、replay</strong>
+            <span>读取 exact OSS result.json，终态收敛，零新增 replay，更新账本与 durable closure。</span>
+          </li>
+        </ol>
+      </article>
+
+      <article class="panel">
+        <div class="section-head">
+          <h2>产品化方向</h2>
+        </div>
+        <ul class="checks">
+          <li>
+            <strong>Local-first 保持主路线</strong>
+            <span>下载后由用户自行配置 OSS、对象存储或其他 provider，不强制购买托管云方案。</span>
+          </li>
+          <li>
+            <strong>BYOC 是配置边界</strong>
+            <span>产品提供 typed adapter、资源绑定、预检和安全 guard；用户掌握账号、费用和凭据。</span>
+          </li>
+          <li>
+            <strong>云执行是可选 capability</strong>
+            <span>默认关闭；本地研究管理、谱系与审阅工作流不依赖云资源。</span>
+          </li>
+          <li>
+            <strong>科学证据仍需更高门槛</strong>
+            <span>M7-L1 仅为 diagnostic-only；M7-L2 需要 OCI/content digest 和独立科学闭环授权。</span>
+          </li>
+        </ul>
+        <div class="callout" style="margin-top: 14px;">
+          <strong>当前不应宣称产品已完成</strong>
+          EF-P06、EF-P14、EF-P15 与 EF-P21 的语义检索部分仍需实现或转移到具名后续任务，
+          T-132 才能归档为 done。
+        </div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>验证账本</h2>
+        <p class="section-note">当前快照只记录可复核结果，不保存凭据或 provider 原始敏感响应。</p>
+      </div>
+      <article class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>验证项</th>
+              <th>结果</th>
+              <th>规模</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Backend typecheck</td>
+              <td><span class="badge complete">Pass</span></td>
+              <td>完整 backend TypeScript</td>
+            </tr>
+            <tr>
+              <td>Experiment Foundation scripts typecheck</td>
+              <td><span class="badge complete">Pass</span></td>
+              <td>包含 named-local apply 与 live runner</td>
+            </tr>
+            <tr>
+              <td>Provider / OSS targeted tests</td>
+              <td><span class="badge complete">24 / 24</span></td>
+              <td>读取、recovery、worker、intake、payload</td>
+            </tr>
+            <tr>
+              <td>T1–T4 integration spine</td>
+              <td><span class="badge complete">35 / 35</span></td>
+              <td>含 later-head replay 与 executable v2</td>
+            </tr>
+            <tr>
+              <td>Shared real-provider schema</td>
+              <td><span class="badge complete">6 / 6</span></td>
+              <td>ExecutionBundle、WorkOrder、payload、outcome</td>
+            </tr>
+            <tr>
+              <td>Task documentation lint</td>
+              <td><span class="badge complete">112 / 112</span></td>
+              <td>0 errors / 0 warnings</td>
+            </tr>
+            <tr>
+              <td>Git delivery</td>
+              <td><span class="badge complete">已推送</span></td>
+              <td><code>b8b3e7e3</code> · main → origin/main · 无 PR</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <span>Source of truth: T-132 dev-docs + named-local verification evidence</span>
+      <span>Snapshot date: 2026-07-28 · No secrets included</span>
+    </footer>
+  </main>
+</body>
+</html>

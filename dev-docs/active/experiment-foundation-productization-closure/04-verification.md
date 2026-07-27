@@ -1,5 +1,13 @@
 # 04 Verification
 
+## Current-progress HTML snapshot — 2026-07-28
+
+Outcome: **passed; self-contained HTML rendered successfully and contains no credential material**.
+
+- Quick Look rendered `artifacts/implementation/26-t132-current-progress.html` to a 1400 px preview without runtime failure; responsive cards, milestone status, lineage and verification sections were visually inspected.
+- The file contains no external asset/script dependency. Secret-name scan found no AccessKey, secret or security-token value. `git diff --check` passed.
+- Strict task-doc lint passed 112/112 with zero errors and zero warnings after adding the overview link and implementation note.
+
 ## M7-L1 resource-exact successor apply and replay — 2026-07-28
 
 Outcome: **passed on the reviewed named-local PostgreSQL target; successor scope is exactly 40 rows and replay is zero-write**.

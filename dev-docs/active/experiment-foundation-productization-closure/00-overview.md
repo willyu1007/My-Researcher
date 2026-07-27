@@ -8,6 +8,7 @@
 - Current frontier: **the resource-exact successor lineage and zero-cloud live-runner preflight are complete**. Same-Cycle WorkOrder sequence 2 is now branch head at Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1`, manifest `sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232`; both TaskSpecs are exact `ecs.g6.large = 2 vCPU / 8192 MiB / 30 min`, `max_attempts=1`, and retain the frozen ExecutionBundle revision/hash. The bounded apply created exactly 40 rows, exact replay created zero, 236 protected tables and the old revision/Run remained unchanged, and Attempt/scientific/evidence rows remain zero. The controller policy still needs its prepared read-only `paiimage:GetImage` addition activated in RAM; repository SHA-256 is `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`.
 - Open audit disposition: EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 remain open but do not block M7-L1. Before T-132 can be marked `done`, each must be implemented here or transferred to a named follow-up task; D-24 already excludes the UI journey and semantic retrieval implementation from this package.
 - Next step: activate controller policy digest `c014…19be` in RAM, obtain a fresh ≥55-minute STS, run the runner's fresh `GetImage` gate and only then consume the existing two-job/¥50 authorization. Direct commits to `main` without a PR remain the delivery strategy.
+- Current HTML progress snapshot: `artifacts/implementation/26-t132-current-progress.html`.
 
 ## M7 default-off implementation — 2026-07-23
 
