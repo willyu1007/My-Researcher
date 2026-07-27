@@ -788,3 +788,11 @@ When adding an entry, use:
 - What was tried: no retry or compensating write was attempted. A server-enforced read-only census first proved the exact 40-row lineage, sequence/head 2, exact resource/Bundle bindings and zero prohibited rows.
 - Fix/workaround: require `stateVersion +2` and `headVersion +1` for a fresh successor; accept only an empty or exactly complete successor prefix so a completed invocation can run the normal idempotent replay verifier without creating rows.
 - Prevention: derive CAS expectations from every event consumer in the saga, not only from row deltas. When a post-commit assertion fails, census the exact prefix before deciding whether any recovery write is needed.
+
+### 2026-07-28 — An in-conversation HTML view is not a repo documentation artifact
+
+- Symptom: a request to organize progress “using HTML” opened a standalone file from `dev-docs/**` in the desktop browser instead of rendering a thread-scoped interactive visualization.
+- Root cause: the request was classified from the T-132 context as developer-documentation authoring. The classification skipped the Codex visualization contract and inferred repository persistence without an explicit request for a project file.
+- What was tried: the standalone file was authored, linked from the task overview, rendered with Quick Look and committed to `main`; those checks verified the wrong delivery surface.
+- Fix/workaround: remove the repo artifact/link, create a fragment in the exact thread visualization directory, render the fragment with the bundled wrapper for validation and return the fragment through the inline visualization directive.
+- Prevention: for “show/organize/explore in HTML” inside Codex desktop, default to the visualization surface. Use repository HTML only when the user explicitly asks for a project file, site, app page or exported artifact.

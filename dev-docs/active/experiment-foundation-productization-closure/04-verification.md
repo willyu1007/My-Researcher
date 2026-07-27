@@ -1,12 +1,13 @@
 # 04 Verification
 
-## Current-progress HTML snapshot — 2026-07-28
+## Visualization placement and scope correction — 2026-07-28
 
-Outcome: **passed; self-contained HTML rendered successfully and contains no credential material**.
+Outcome: **corrected; the visualization is no longer a repository artifact and the active plan is personal-use-first**.
 
-- Quick Look rendered `artifacts/implementation/26-t132-current-progress.html` to a 1400 px preview without runtime failure; responsive cards, milestone status, lineage and verification sections were visually inspected.
-- The file contains no external asset/script dependency. Secret-name scan found no AccessKey, secret or security-token value. `git diff --check` passed.
-- Strict task-doc lint passed 112/112 with zero errors and zero warnings after adding the overview link and implementation note.
+- Root `AGENTS.md`, task-continuity guidance and the full `visualize` skill were re-read. The original repo HTML violated the thread-scoped fragment/directory/inline-directive contract.
+- Replacement fragment: `/Users/yurui/.codex/visualizations/2026/07/26/019f9bf3-41ce-7580-9bb9-f0a1b68b1b11/t132-personal-experiment-base.html`.
+- The bundled visualization renderer successfully wrapped the fragment as `/tmp/t132-personal-experiment-base-rendered.html`. The fragment uses a unique root, local-only interactions, no fetch/XHR/WebSocket and no external data.
+- Overview, plan and roadmap now identify the personal-use experiment loop as the active milestone and explicitly park productization work.
 
 ## M7-L1 resource-exact successor apply and replay — 2026-07-28
 

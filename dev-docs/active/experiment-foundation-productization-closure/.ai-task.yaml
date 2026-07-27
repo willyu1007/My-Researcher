@@ -3,10 +3,12 @@ task_id: T-132
 project: main
 slug: experiment-foundation-productization-closure
 status: in-progress
-updated: "2026-07-26"
+updated: "2026-07-28"
 keywords:
   - experiment-foundation
   - productization
+  - personal-use
+  - experiment-base
   - trust-kernel
   - immutable-revisions
   - canonical-hash

@@ -2,10 +2,11 @@
 
 ## Current execution state — 2026-07-28
 
+- **Scope override:** current delivery targets a repeatable personal-use experiment base for the sole maintainer. Product packaging, multi-user delivery, generalized BYOC and managed-cloud rollout are parked. The historical task name and the longer-term sections below remain for decision history, not as the active execution queue.
 - M0-M6 are complete. The final M6 convergence `t132-m6-release-20260725-v5` passed M6-01..M6-10, including fresh Pack B/Pack C/M5/M7 child gates, the disposable LIT-0204 typed-v2 import, OpenAPI/context verification, 5/5/5 workflow usage-fit, and the named-local `control_flow_validated_no_paper_evidence` closure with zero scientific writes.
 - M7-I0..I3, the named-local M7 migration and QR hardening are complete; `t132-m7-offline-20260724-v3` passed M7-01..M7-15. Both real-provider capabilities remain default `false`, and no live provider job or scientific evidence has been created.
-- The current frontier is M7-L1 executable-lineage preparation. OSS input, RAM roles/policies, frozen SciFact authority, the named-local ExecutionBundle v2 and the provider-managed image comparison are complete; ACR was deliberately abandoned in favor of the official-image + OSS route. The owner supplied a short-lived controller STS and authorized a 2026-07-28 two-job/¥50 live window, but final zero-write preflight found that named-local still has only the historical simulation WorkOrder/Run v1. The subsequently authorized 40-row same-branch successor apply also remained unexecuted because M6 already durably closed the owning ValidationCycle; D-18 forbids reopening or bypassing it. No job or database write occurred. A separately authorized new P313 M7-L1 ValidationCycle plus Cycle-local branch/T1-T4 executable Run (at most 44 rows) is now the immediate prerequisite.
-- EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 remain open but are not M7-L1 prerequisites. They require explicit implementation or named-task transfer before T-132 archival; UI journey and semantic retrieval delivery remain outside T-132 under D-24.
+- The executable-lineage prerequisite is now complete. Open Cycle `validation_cycle_t132_m7_l1_p313_v1` owns `ragperf-primary` sequence 2 and Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1`; both TaskSpecs are exact 2 CPU / 8192 MiB / 1800 seconds / one attempt. Normal T1-T4 added exactly 40 rows, exact replay added zero, 236 protected tables and prior history remained unchanged, and the successor-bound zero-cloud preflight passed.
+- The current frontier is one personal real-experiment loop: activate the reviewed controller policy, obtain fresh STS, pass fresh `GetImage`, run/collect the two-cell diagnostic, then expose Run/Attempt/result/replay state in the local desktop workflow. EF-P06, EF-P14, EF-P15, semantic EF-P21 and broader product delivery remain parked and do not gate this milestone.
 
 ### Historical delivery detail through 2026-07-25
 
@@ -26,6 +27,8 @@
 
 ## Goal
 - 在不推翻既有领域分层的前提下，把 ExperimentFoundation 产品化为 **PaperImplementation 的云实验控制面与可信实验事实边界**：PaperImplementation 发起并拥有论文项目、ValidationCycle、WorkOrder branch/revision、研究语义、项目级检索投影与证据使用决策，ExperimentFoundation 拥有实验资产、Recipe/TaskSpec、Run/ExecutionAttempt、provider 执行状态、科学验证与 EvidenceCandidate；双方共享精确范围身份而不复制语义，首版完成桌面控制流、零写云 preflight 和同 payload 模拟，不把本地模拟伪装成真实实验或科研证据。
+
+The goal above is the historical long-term framing. For the current execution window, “done enough to proceed” means the sole maintainer can repeat one exact real diagnostic from the desktop/local workflow through collection and replay; no packaging or product-market delivery claim is required.
 
 ## Product interaction target with PaperImplementation
 - PaperImplementation 是面向论文目标的主流程和编排入口，负责回答“为什么做、在哪个项目/验证周期做、结果是否被论文采用”。

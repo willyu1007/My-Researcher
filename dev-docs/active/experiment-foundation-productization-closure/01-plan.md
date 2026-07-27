@@ -504,3 +504,16 @@ Implementation may start only after the user confirms the roadmap decisions and 
 4. [x] Run zero-cloud named-local preflight. It stopped before intake because the frozen Run has `1 CPU / 512 MiB`, not the approved `ecs.g6.large = 2 CPU / 8192 MiB`.
 5. [x] After explicit authorization, create one successor WorkOrder revision on `validation_cycle_t132_m7_l1_p313_v1` with `resource_snapshot={2,8192}`, two unchanged scientific cells, the same frozen ExecutionBundle and 30-minute/one-attempt policy; deliver normal T1-T4 and exact replay without modifying the old revision/Run. Completed as sequence 2 / Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1`: 40 new rows, zero-new replay, 236 protected tables unchanged.
 6. [ ] Activate controller policy SHA-256 `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`, obtain fresh ≥55-minute STS, run fresh `GetImage`, then execute/collect the exact two-job diagnostic under the ¥50 ceiling.
+7. [ ] Complete the personal-use landing: make the exact Run/Attempt/collection/replay state inspectable through the existing desktop workflow and prove a second invocation is safe and comprehensible to the sole maintainer.
+
+## 2026-07-28 — Personal-use focus override
+
+Current execution priority is the sole-maintainer version, not productization.
+
+1. [x] Freeze exact local authority, inputs, ExecutionBundle, WorkOrder sequence 2 and resource intent.
+2. [x] Pass named-local T1-T4, exact replay, protected-history and zero-cloud offline preflight.
+3. [ ] Run and collect one bounded two-cell real-provider diagnostic with cancel/recovery coverage.
+4. [ ] Close the local desktop review loop for Run, Attempt, result and replay state.
+5. [ ] Record a repeatable personal operating procedure and recovery checklist.
+
+Not in the current queue: multi-user/tenant support, generalized BYOC packaging, installer/distribution, managed-cloud delivery, semantic retrieval expansion and product audit closure. These remain recorded future directions and MUST NOT displace steps 3-5.

@@ -1,9 +1,10 @@
 # 03 Implementation Notes
 
-## 2026-07-28 — Current-progress HTML snapshot
+## 2026-07-28 — Visualization placement correction and personal-use scope override
 
-- Added `artifacts/implementation/26-t132-current-progress.html`, a self-contained Chinese progress dashboard with no external runtime dependency. The dashboard summarizes milestone status, exact successor lineage, validation evidence, cloud-resource readiness, cost/safety boundaries, BYOC productization direction and the next five operational actions.
-- The snapshot contains no credentials, temporary-token values or provider-sensitive response payloads. `00-overview.md` links it as the current visual status entrypoint.
+- The prior request for an HTML progress view was incorrectly classified as repository developer documentation. That produced a standalone HTML file under `dev-docs/**`, even though the user requested an in-conversation desktop visualization and did not ask for a project artifact.
+- The repository HTML artifact and overview link are removed. The replacement is a thread-scoped interactive fragment under the Codex visualization directory, using the inline visualization contract and keeping generated presentation state outside the project source tree.
+- Active delivery is now the sole-maintainer personal-use experiment base: run/observe/cancel/recover/collect/replay one exact real diagnostic and inspect it locally. Product packaging, generalized BYOC, multi-user/tenant work, managed-cloud delivery and non-blocking product audit items are parked.
 
 ## 2026-07-28 — M7-L1 resource-exact successor landing
 
