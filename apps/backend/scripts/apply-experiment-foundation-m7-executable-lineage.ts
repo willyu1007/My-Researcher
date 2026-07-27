@@ -43,6 +43,10 @@ import {
 const AUTHORIZATION_ENV = 'T132_M7_EXECUTABLE_LINEAGE_APPLY_AUTHORIZATION';
 const AUTHORIZATION_VALUE =
   'authorized-2026-07-28-p313-m7-l1-vcycle-executable-lineage-max44-no-cloud';
+const RECOVERY_AUTHORIZATION_ENV =
+  'T132_M7_EXECUTABLE_LINEAGE_RECOVERY_AUTHORIZATION';
+const RECOVERY_AUTHORIZATION_VALUE =
+  'authorized-2026-07-28-p313-m7-l1-requeue-one-terminal-pi-outbox-no-new-row';
 const TARGET = Object.freeze({
   database: 'postgres',
   schema: 'my_researcher_dev',
@@ -58,6 +62,9 @@ const HISTORICAL_RUN_ID = 'ef_run_v2_c4ab7919-2d7b-415c-ab53-201b11464aca';
 const NEW_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
 const NEW_INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t132_m7_l1_p313_v1';
 const NEW_TRACE_ID = 'trace_manifest_t132_m7_l1_p313_v1';
+const NEW_BRANCH_ID = 'pi_experiment_branch_v2_t132_m7_l1_p313_v1_1';
+const NEW_REVISION_ID = 'pi_experiment_revision_v2_t132_m7_l1_p313_v1_1';
+const NEW_PI_T1_OUTBOX_ID = 'pi_experiment_outbox_v2_t132_m7_l1_p313_v1_1';
 const BRANCH_KEY = 'ragperf-primary';
 const BUSINESS_KEY = 't132-m7-l1-executable-lineage-p313-v1';
 const BUNDLE_REVISION_ID =
@@ -115,6 +122,8 @@ async function main(): Promise<void> {
     const beforeCounts = await countExperimentFoundationNamedLocalTables(prisma, writeTables);
     const historicalBefore = await historicalSentinels(prisma);
     const authorizedPrefixBefore = await authorizedPrefixCensus(prisma);
+    const recoveredTerminalOutbox =
+      await recoverExactTerminalMaterializationOutbox(prisma, authorizedPrefixBefore);
 
     const repositories = buildRepositories(prisma);
     const historical = await requireHistoricalAuthority(repositories);
@@ -296,6 +305,7 @@ async function main(): Promise<void> {
         relay: applyRelay,
         row_deltas: rowDeltas(beforeCounts, afterCounts),
         preexisting_authorized_rows: authorizedPrefixBefore.total,
+        recovered_terminal_outbox: recoveredTerminalOutbox,
         new_rows_this_invocation: totalDelta(beforeCounts, afterCounts),
         total_authorized_rows: authorizedPrefixBefore.total
           + totalDelta(beforeCounts, afterCounts),
@@ -628,15 +638,12 @@ function assertExactDeltas(
   after: Record<string, number>,
   authorizedPrefixBefore: Awaited<ReturnType<typeof authorizedPrefixCensus>>,
 ): void {
-  const expected = {
-    ...EXPECTED_WRITE_TABLE_DELTAS,
-    PaperImplementationValidationCycleInputSnapshot:
-      1 - authorizedPrefixBefore.inputSnapshot,
-    PaperImplementationValidationCycle:
-      1 - authorizedPrefixBefore.cycle,
-    PaperImplementationTraceManifest:
-      1 - authorizedPrefixBefore.trace,
-  };
+  const expected = Object.fromEntries(
+    Object.entries(EXPECTED_WRITE_TABLE_DELTAS).map(([table, maximum]) => [
+      table,
+      maximum - (authorizedPrefixBefore.tableCounts[table] ?? 0),
+    ]),
+  );
   assert.deepEqual(rowDeltas(before, after), expected);
   assert.equal(
     authorizedPrefixBefore.total + totalDelta(before, after),
@@ -645,12 +652,10 @@ function assertExactDeltas(
 }
 
 async function authorizedPrefixCensus(prisma: PrismaClient): Promise<{
-  inputSnapshot: number;
-  cycle: number;
-  trace: number;
+  tableCounts: Record<string, number>;
   total: number;
 }> {
-  const [inputSnapshot, cycle, trace] = await Promise.all([
+  const counts = await Promise.all([
     prisma.paperImplementationValidationCycleInputSnapshot.count({
       where: { id: NEW_INPUT_SNAPSHOT_ID },
     }),
@@ -660,16 +665,120 @@ async function authorizedPrefixCensus(prisma: PrismaClient): Promise<{
     prisma.paperImplementationTraceManifest.count({
       where: { id: NEW_TRACE_ID },
     }),
+    prisma.paperImplementationExperimentWorkOrderBranchV2.count({
+      where: { id: NEW_BRANCH_ID, validationCycleId: NEW_CYCLE_ID },
+    }),
+    prisma.paperImplementationExperimentWorkOrderRevisionV2.count({
+      where: { id: NEW_REVISION_ID, branchId: NEW_BRANCH_ID },
+    }),
+    prisma.paperImplementationExperimentWorkOrderRevisionCellV2.count({
+      where: { revisionId: NEW_REVISION_ID },
+    }),
+    prisma.paperImplementationExperimentWorkOrderAdmissionV2.count({
+      where: { revisionId: NEW_REVISION_ID },
+    }),
+    prisma.paperImplementationExperimentIntegrationOutboxV2.count({
+      where: { validationCycleId: NEW_CYCLE_ID },
+    }),
+    prisma.paperImplementationExperimentIntegrationInboxV2.count({
+      where: { validationCycleId: NEW_CYCLE_ID },
+    }),
+    prisma.experimentFoundationIntegrationInboxV2.count({
+      where: { validationCycleId: NEW_CYCLE_ID },
+    }),
+    prisma.experimentFoundationVersionLockV2.count({
+      where: { externalPiWorkOrderRevisionId: NEW_REVISION_ID },
+    }),
+    prisma.experimentFoundationVersionLockDependencyV2.count({
+      where: {
+        versionLock: { externalPiWorkOrderRevisionId: NEW_REVISION_ID },
+      },
+    }),
+    prisma.experimentFoundationRunRecipeV2.count({
+      where: { externalPiWorkOrderRevisionId: NEW_REVISION_ID },
+    }),
+    prisma.experimentFoundationTrainingTaskSpecV2.count({
+      where: { externalPiWorkOrderRevisionId: NEW_REVISION_ID },
+    }),
+    prisma.experimentFoundationRunV2.count({
+      where: { externalPiWorkOrderRevisionId: NEW_REVISION_ID },
+    }),
+    prisma.experimentFoundationRunCellV2.count({
+      where: { run: { externalPiWorkOrderRevisionId: NEW_REVISION_ID } },
+    }),
+    prisma.experimentFoundationIntegrationOutboxV2.count({
+      where: { validationCycleId: NEW_CYCLE_ID },
+    }),
   ]);
-  assert.ok(inputSnapshot === 0 || inputSnapshot === 1);
-  assert.ok(cycle === 0 || cycle === 1);
-  assert.ok(trace === 0 || trace === 1);
+  const tableCounts = Object.fromEntries(
+    Object.keys(EXPECTED_WRITE_TABLE_DELTAS).map((table, index) => [table, counts[index] ?? 0]),
+  );
+  for (const [table, maximum] of Object.entries(EXPECTED_WRITE_TABLE_DELTAS)) {
+    const actual = tableCounts[table] ?? 0;
+    assert.ok(actual >= 0 && actual <= maximum, `${table} exceeded the authorized row ceiling`);
+  }
   return {
-    inputSnapshot,
-    cycle,
-    trace,
-    total: inputSnapshot + cycle + trace,
+    tableCounts,
+    total: Object.values(tableCounts).reduce((sum, count) => sum + count, 0),
   };
+}
+
+async function recoverExactTerminalMaterializationOutbox(
+  prisma: PrismaClient,
+  census: Awaited<ReturnType<typeof authorizedPrefixCensus>>,
+): Promise<boolean> {
+  const outbox = await prisma.paperImplementationExperimentIntegrationOutboxV2.findUnique({
+    where: { id: NEW_PI_T1_OUTBOX_ID },
+  });
+  if (!outbox || outbox.relayStatus !== 'terminal') return false;
+  if (process.env[RECOVERY_AUTHORIZATION_ENV] !== RECOVERY_AUTHORIZATION_VALUE) {
+    throw new Error(
+      `${RECOVERY_AUTHORIZATION_ENV} must equal the exact reviewed one-row recovery token`,
+    );
+  }
+  assert.equal(outbox.eventType, 'WorkOrderRevisionAdmitted');
+  assert.equal(outbox.validationCycleId, NEW_CYCLE_ID);
+  assert.equal(outbox.branchId, NEW_BRANCH_ID);
+  assert.equal(outbox.workOrderRevisionId, NEW_REVISION_ID);
+  assert.equal(outbox.lastRelayErrorCode, 'MATERIALIZATION_KEY_CONFLICT');
+  assert.equal(outbox.relayAttemptCount, 1);
+  assert.equal(outbox.publishedAt, null);
+  assert.equal(outbox.deliveredAt, null);
+  assert.equal(outbox.relayLeaseOwner, null);
+  assert.equal(outbox.relayLeaseExpiresAt, null);
+  for (const table of [
+    'ExperimentFoundationIntegrationInboxV2',
+    'ExperimentFoundationVersionLockV2',
+    'ExperimentFoundationVersionLockDependencyV2',
+    'ExperimentFoundationRunRecipeV2',
+    'ExperimentFoundationTrainingTaskSpecV2',
+    'ExperimentFoundationRunV2',
+    'ExperimentFoundationRunCellV2',
+    'ExperimentFoundationIntegrationOutboxV2',
+  ]) {
+    assert.equal(census.tableCounts[table], 0, `${table} must remain empty before recovery`);
+  }
+  const recoveredAt = new Date();
+  const result = await prisma.paperImplementationExperimentIntegrationOutboxV2.updateMany({
+    where: {
+      id: NEW_PI_T1_OUTBOX_ID,
+      relayStatus: 'terminal',
+      relayAttemptCount: 1,
+      lastRelayErrorCode: 'MATERIALIZATION_KEY_CONFLICT',
+      publishedAt: null,
+      deliveredAt: null,
+      relayLeaseOwner: null,
+      relayLeaseExpiresAt: null,
+    },
+    data: {
+      relayStatus: 'pending',
+      relayNextAttemptAt: null,
+      lastRelayErrorCode: null,
+      updatedAt: recoveredAt,
+    },
+  });
+  assert.equal(result.count, 1);
+  return true;
 }
 
 function rowDeltas(
