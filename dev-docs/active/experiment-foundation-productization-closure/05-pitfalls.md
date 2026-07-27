@@ -758,3 +758,12 @@ When adding an entry, use:
 - Fix/workaround: persist/read the content discriminator exactly, validate stored discriminator/content/hash-profile agreement, add a new additive migration that admits only v1/v2 and relationally binds each discriminator to its JSON snapshot, convert the bundle relational test to v2 and make the provider reader/test derive v1/v2 manifest/profile identity from the production materializer. Final disposable run `t132-m7-bundle-freeze-20260727-v6` passed.
 - Prevention: every additive JSON contract version must include a real-database roundtrip against the full migration history and a negative discriminator/JSON mismatch assertion. Never edit an applied migration, and never treat a row-only authorization as permission to apply a newly discovered schema migration.
 - References: `prisma/migrations/20260727170000_enable_execution_bundle_schema_v2/migration.sql`; `apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-bundle-v2-relational.integration.test.ts`; `04-verification.md`.
+
+### 2026-07-27 — AIWorkspace CLI does not derive its endpoint from RegionId
+
+- Symptom: the first fresh `GetImage` CLI attempt returned `unknown endpoint for aiworkspace/cn-shanghai` and the downstream JSON projection failed on empty input.
+- Root cause: Alibaba Cloud CLI knew the service and RegionId but did not resolve the AIWorkspace regional endpoint automatically. The failure occurred locally before a provider request and produced no RequestId.
+- What was tried: one command using only `--RegionId cn-shanghai`, followed by the provider-directed explicit-endpoint form.
+- Fix/workaround: pin `--endpoint aiworkspace.cn-shanghai.aliyuncs.com` together with the exact RegionId and ImageId. The successful responses produced RequestIds and matched every frozen provider-managed asset field.
+- Prevention: include the exact regional AIWorkspace endpoint in repeatable read-only commands and count a provider operation only when a RequestId is returned. When compacting output, use the provider's actual `GmtCreateTime`/`GmtModifiedTime` field names.
+- References: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`; `04-verification.md`.

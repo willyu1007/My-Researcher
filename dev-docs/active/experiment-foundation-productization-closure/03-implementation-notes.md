@@ -16,6 +16,14 @@
 - Final disposable run `t132-m7-bundle-freeze-20260727-v6` passed M7-01..M7-15, including 9/9 real PostgreSQL tests. Named-local was never connected by the gate. The first six-row-only authorization correctly stopped before the newly discovered schema migration; a later exact supplemental authorization covered the reviewed migration, accepted the no-backup local-development risk, then covered the six-row freeze and zero-new replay.
 - Named-local migration status is now up to date. Bundle r1 created exactly 6 rows and r2 created 0/exact-reused 6. The frozen revision is `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` with content hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`; readiness is `passed`. Both runs reported 244 protected application tables unchanged, external fetch 0 and cloud/provider/`CreateJob`/scientific writes 0.
 
+## 2026-07-27 — M7-L1 fresh pre-submit GetImage comparison
+
+- A separate read-only cloud authorization covered only the exact `cn-shanghai` asset `image-liuxvj7p2qcnflha84`; it excluded credential capture, capability changes, `CreateJob`, provider writes and paid execution.
+- The first CLI attempt failed locally before transport because AIWorkspace does not derive its endpoint from `RegionId`. Retrying with the explicit regional endpoint succeeded. A second successful `GetImage` selected the provider's `GmtCreateTime`/`GmtModifiedTime` names that were absent from the first compact projection.
+- Fresh observation matches the frozen `ExecutionBundle@v2` exactly: URI `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`, create/modify time `2026-07-02T04:35:35.000Z`, size `3803970629`, accessibility `PUBLIC` and source type `Import`. `Identity` and `Signature` remain null.
+- Successful provider reads: 2; failed-before-transport attempts: 1; cloud writes, `CreateJob`, capability changes, credential capture, provider compute and scientific/evidence writes: 0. Durable closure: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.
+- This observation is procedural freshness evidence, not an OCI digest or live-job authorization. If the two-job live window is delayed, repeat the same read-only comparison.
+
 ## 2026-07-27 — M7-L1 SciFact named-local authority landing
 
 - Supplemental authorization covered exactly 26 rows and explicitly excluded bundle freeze/cloud access. Run r5 created 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections; the scoped census was exactly 26.

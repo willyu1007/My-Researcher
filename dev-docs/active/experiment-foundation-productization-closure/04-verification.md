@@ -1,5 +1,17 @@
 # 04 Verification
 
+## M7-L1 fresh pre-submit GetImage comparison — 2026-07-27
+
+Outcome: **passed for exact provider-managed image metadata; no write, capability or paid action occurred**.
+
+- Authorization scope: read-only comparison of `cn-shanghai / image-liuxvj7p2qcnflha84` only.
+- One initial CLI attempt stopped locally with `unknown endpoint` and produced no provider RequestId. The explicit endpoint `aiworkspace.cn-shanghai.aliyuncs.com` was then used.
+- Successful read 1 RequestId: `019FA414-79EA-53A0-BF7D-B0F7B48266D9`. It returned the exact ImageId and frozen regional URI, size `3803970629`, accessibility `PUBLIC`, source type `Import`, `Identity=null` and `Signature=null`.
+- Successful read 2 RequestId: `019FA414-E2BA-5365-BF54-A72B87AF7825`. It returned exact `GmtCreateTime=2026-07-02T04:35:35.000Z` and `GmtModifiedTime=2026-07-02T04:35:35.000Z`.
+- Comparison against `workloads/ragperf-canary/manifests/execution-bundle-v2.json`: no field drift.
+- Provider operation census: successful `GetImage` 2; cloud/provider writes 0; `CreateJob` 0; capability changes 0; credential capture 0; provider compute 0; database/scientific/evidence writes 0.
+- This is not image-pull, mount, runtime or scientific acceptance and not a live-window authorization. Durable evidence: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.
+
 ## M7-L1 reviewed ExecutionBundle v2 preparation — 2026-07-27
 
 Outcome: **offline plan, exact same-payload replay, additive migration, disposable PostgreSQL persistence and explicitly authorized named-local migration/freeze/replay passed**.
