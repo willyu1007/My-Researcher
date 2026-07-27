@@ -1,5 +1,15 @@
 # 04 Verification
 
+## M7-L1 authorized executable-lineage apply closed-Cycle preflight — 2026-07-28
+
+Outcome: **the authorized 40-row same-branch apply was not executed because its owning ValidationCycle is durably closed**.
+
+- Authorization was exact for a successor revision on P313/`ragperf-primary`, T1-T4, at most 40 new rows, replay and prohibited-write verification.
+- Read-only scope resolution found active ImplementationProject `implementation_project_642a1879-1137-40f5-b340-330b66509975`, but Cycle `validation_cycle_t132_packa_product_p313_v1` is product `completed/completed`.
+- Exact closure: `pi_validation_cycle_closure_v2_ec9e5603fedf8753e51a8ad57961c7cfcd7792924df355284bf4217af30ff434`, kind `control_flow_validated_no_paper_evidence`, created `2026-07-25T01:21:34.163Z`, snapshot hash `sha256:cba742d8e7571ebd6b6de651738ede5f96429dd52ebaec6d704c8c90ed521654`.
+- The production admission/T2 fences would return `CYCLE_ALREADY_CLOSED` before new lineage writes. No bypass was attempted.
+- Effect census: database writes 0/40; cloud/provider calls 0; capability changes 0; `CreateJob` 0/2; billable jobs 0; scientific/evidence writes 0. A new, separately authorized P313 M7-L1 ValidationCycle and Cycle-local branch are required.
+
 ## M7-L1 live-window final zero-write preflight — 2026-07-28
 
 Outcome: **blocked before provider submission because the D-23 executable Run lineage is absent; paid authorization was not consumed**.
