@@ -1,5 +1,35 @@
 # 04 Verification
 
+## M7-L1 resource-exact successor apply and replay — 2026-07-28
+
+Outcome: **passed on the reviewed named-local PostgreSQL target; successor scope is exactly 40 rows and replay is zero-write**.
+
+- Target: `postgres` / `my_researcher_dev` / `127.0.0.1:5432`, fingerprint `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`.
+- WorkOrder: `pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1`, parent sequence 1, sequence 2. Run: `ef_run_v2_t132_m7_l1_resource_successor_v2_1`, manifest `sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232`.
+- Exact runtime intent: two TaskSpecs, each `2 CPU / 8192 MiB`, `max_attempts=1`, `timeout_seconds=1800`; frozen Bundle revision/hash unchanged.
+- Row census: revision 1, cells 2, admission 1, PI outbox 2, PI inbox 1, EF inbox 2, VersionLock 1, dependencies 23, RunRecipe 1, TaskSpecs 2, Run 1, RunCells 2, EF outbox 1 = 40.
+- Exact replay: admission replayed, relay claimed/delivered/released/terminalized 0, all allowed table deltas 0. Protected tables: 236, changed 0. Prior revision/Run sentinels unchanged. Cycle Attempts, successor ExperimentResult/EvidenceCandidate/REU: 0.
+
+Passed:
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend exec \
+  tsc -p tsconfig.experiment-foundation-scripts.json --noEmit
+
+T132_M7_RESOURCE_EXACT_SUCCESSOR_APPLY_AUTHORIZATION=\
+authorized-2026-07-28-p313-m7-l1-resource-exact-successor-max40-no-cloud \
+node --env-file=../../.env.local --loader ts-node/esm \
+  scripts/apply-experiment-foundation-m7-executable-lineage.ts
+
+pnpm --filter @paper-engineering-assistant/backend \
+  experiment-foundation:m7-l1:live -- --mode offline-preflight
+```
+
+- The live runner preflight passed against the successor Run with `job_ceiling=2`, `monetary_ceiling_cny=50`, exact `ecs.g6.large`, `existing_attempt_count=0`, `cloud_call_count=0`, `database_write_count=0`.
+- The first post-apply verification invocation failed only on the incorrect branch-state expectation `4 !== 3`; a read-only census proved the complete 40-row lineage and zero prohibited rows before the assertion fix and exact replay verifier.
+- Final backend typecheck passed. Provider/OSS targeted suites passed 24/24; the T1-T4 integration spine passed 35/35, including exact executable v2 resource/Bundle propagation and later-head replay cases; shared real-provider schema passed 6/6.
+- Strict task-doc lint passed 112/112 with zero errors and zero warnings. `git diff --check` passed.
+
 ## M7-L1 P313 ValidationCycle + executable lineage apply — 2026-07-28
 
 Outcome: **passed on the reviewed named-local PostgreSQL target; exact replay added zero rows and no cloud/scientific effect occurred**.

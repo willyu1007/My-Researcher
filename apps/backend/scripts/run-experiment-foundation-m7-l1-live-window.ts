@@ -72,15 +72,15 @@ const TARGET = Object.freeze({
   port: '5432',
   fingerprint: 'sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0',
 });
-const RUN_ID = 'ef_run_v2_t132_m7_l1_p313_v1_1';
+const RUN_ID = 'ef_run_v2_t132_m7_l1_resource_successor_v2_1';
 const RUN_MANIFEST_HASH =
-  'sha256:e0c6c92d3c4a8179cf5d91147e4dff5ef2079d6614a95bf1ce0ca214334094a5';
+  'sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232';
 const BUNDLE_REVISION_ID =
   'ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48';
 const BUNDLE_REVISION_HASH =
   'sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e';
 const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
-const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v1';
+const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v2';
 const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
 const LIVE_AUTHORIZATION_VALUE =
   'authorized-2026-07-28-ceiling-cny50-two-jobs';

@@ -780,3 +780,11 @@ When adding an entry, use:
 - Root cause: executable v2 materialization used a code-owned default resource snapshot, and the real-provider payload emitted `ResourceConfig` even for `public_resource`. Current PAI documentation identifies public resources by ECS specification; `ecs.g6.large` is `2 vCPU / 8 GiB`.
 - Fix/workaround: public profiles now require exact `ecs_spec/cpu_cores/memory_mb`, public payloads emit `EcsSpec`, recovery checks it, and new WorkOrder v2 revisions may carry an exact resource snapshot. The old Run remains immutable and ineligible.
 - Prevention: freeze provider-neutral resource intent before T1, reconcile the resource intent with the provider's exact billable SKU before T2, and run the live runner's offline preflight before creating any Attempt or cloud job.
+
+### 2026-07-28 — Branch state advances at both T1 and T3
+
+- Symptom: the authorized successor completed normal T1-T4, but the first final-state assertion failed with `4 !== 3`.
+- Root cause: the verifier counted the T1 admission CAS but omitted the T3 head-advance CAS. `stateVersion` advances at both transitions; `headVersion` advances only at T3.
+- What was tried: no retry or compensating write was attempted. A server-enforced read-only census first proved the exact 40-row lineage, sequence/head 2, exact resource/Bundle bindings and zero prohibited rows.
+- Fix/workaround: require `stateVersion +2` and `headVersion +1` for a fresh successor; accept only an empty or exactly complete successor prefix so a completed invocation can run the normal idempotent replay verifier without creating rows.
+- Prevention: derive CAS expectations from every event consumer in the saga, not only from row deltas. When a post-commit assertion fails, census the exact prefix before deciding whether any recovery write is needed.

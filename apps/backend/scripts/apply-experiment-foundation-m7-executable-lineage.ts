@@ -91,6 +91,37 @@ const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   ExperimentFoundationIntegrationOutboxV2: 1,
 });
 const EXPECTED_TOTAL_DELTA = 44;
+const SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_RESOURCE_EXACT_SUCCESSOR_APPLY_AUTHORIZATION';
+const SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-28-p313-m7-l1-resource-exact-successor-max40-no-cloud';
+const SUCCESSOR_BRANCH_ID = NEW_BRANCH_ID;
+const SUCCESSOR_PARENT_REVISION_ID = NEW_REVISION_ID;
+const SUCCESSOR_PARENT_RUN_ID = 'ef_run_v2_t132_m7_l1_p313_v1_1';
+const SUCCESSOR_REVISION_ID =
+  'pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1';
+const SUCCESSOR_RUN_ID =
+  'ef_run_v2_t132_m7_l1_resource_successor_v2_1';
+const SUCCESSOR_BUSINESS_KEY =
+  't132-m7-l1-resource-exact-successor-p313-v2';
+const SUCCESSOR_ID_SCOPE = 't132_m7_l1_resource_successor_v2';
+const SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
+  PaperImplementationExperimentWorkOrderBranchV2: 0,
+  PaperImplementationExperimentWorkOrderRevisionV2: 1,
+  PaperImplementationExperimentWorkOrderRevisionCellV2: 2,
+  PaperImplementationExperimentWorkOrderAdmissionV2: 1,
+  PaperImplementationExperimentIntegrationOutboxV2: 2,
+  PaperImplementationExperimentIntegrationInboxV2: 1,
+  ExperimentFoundationIntegrationInboxV2: 2,
+  ExperimentFoundationVersionLockV2: 1,
+  ExperimentFoundationVersionLockDependencyV2: 23,
+  ExperimentFoundationRunRecipeV2: 1,
+  ExperimentFoundationTrainingTaskSpecV2: 2,
+  ExperimentFoundationRunV2: 1,
+  ExperimentFoundationRunCellV2: 2,
+  ExperimentFoundationIntegrationOutboxV2: 1,
+});
+const SUCCESSOR_EXPECTED_TOTAL_DELTA = 40;
 const CAPABILITY_KEYS = [
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED',
@@ -335,7 +366,10 @@ async function main(): Promise<void> {
   }
 }
 
-function buildRepositories(prisma: PrismaClient) {
+function buildRepositories(
+  prisma: PrismaClient,
+  idScope = 't132_m7_l1_p313_v1',
+) {
   const projectRepository = new PrismaPaperImplementationRepository(prisma);
   const motiveRepository = new PrismaPaperImplementationMotiveRepository(prisma);
   const traceRepository = new PrismaPaperImplementationTraceRepository(prisma);
@@ -350,7 +384,7 @@ function buildRepositories(prisma: PrismaClient) {
   const bundleService = new ExperimentFoundationExecutionBundleV2Service({
     repository: new PrismaExperimentFoundationExecutionBundleV2Repository(prisma),
   });
-  const ids = deterministicIdFactory();
+  const ids = deterministicIdFactory(idScope);
   const now = () => new Date().toISOString();
   const traceService = new PaperImplementationTraceKernelService({
     projectRepository,
@@ -449,14 +483,17 @@ function buildRepositories(prisma: PrismaClient) {
   };
 }
 
-function buildRelay(repositories: ReturnType<typeof buildRepositories>) {
+function buildRelay(
+  repositories: ReturnType<typeof buildRepositories>,
+  workerId = 't132-m7-l1-executable-lineage-relay',
+) {
   return new ExperimentV2IntegrationRelayService({
     paperImplementationRepository: repositories.piRepository,
     experimentFoundationRepository: repositories.efRepository,
     materializationConsumer: repositories.materializationService,
     headConsumer: repositories.headService,
     acknowledgementConsumer: repositories.acknowledgementService,
-    workerId: 't132-m7-l1-executable-lineage-relay',
+    workerId,
     retryDelayMs: 0,
   });
 }
@@ -556,12 +593,14 @@ function buildCycleRequest(
   };
 }
 
-function deterministicIdFactory(): (prefix: string) => string {
+function deterministicIdFactory(
+  idScope = 't132_m7_l1_p313_v1',
+): (prefix: string) => string {
   const counters = new Map<string, number>();
   return (prefix) => {
     const next = (counters.get(prefix) ?? 0) + 1;
     counters.set(prefix, next);
-    return `${prefix}_t132_m7_l1_p313_v1_${next}`;
+    return `${prefix}_${idScope}_${next}`;
   };
 }
 
@@ -781,6 +820,621 @@ async function recoverExactTerminalMaterializationOutbox(
   return true;
 }
 
+async function successorMain(): Promise<void> {
+  requireSuccessorAuthorization();
+  assertCapabilitiesRemainDisabled();
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error('DATABASE_URL is required');
+  assertExperimentFoundationNamedLocalDatabaseUrl(
+    databaseUrl,
+    TARGET,
+    'T132_M7_RESOURCE_EXACT_SUCCESSOR_TARGET_MISMATCH',
+  );
+
+  const prisma = new PrismaClient();
+  await prisma.$connect();
+  try {
+    const target = await assertExperimentFoundationLiveNamedLocalTarget(prisma, TARGET);
+    const writeTables = Object.keys(SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS);
+    const applicationTables =
+      await listExperimentFoundationNamedLocalApplicationTables(prisma, writeTables);
+    const protectedTables = applicationTables.filter(
+      (table) => !writeTables.includes(table.name),
+    );
+    const beforeProtected =
+      await digestExperimentFoundationNamedLocalTableRowVersions(prisma, protectedTables);
+    const beforeCounts =
+      await countExperimentFoundationNamedLocalTables(prisma, writeTables);
+    const scopeBefore = await successorPrefixCensus(prisma);
+    const scopeWasEmpty = scopeBefore.total === 0;
+    const scopeWasComplete = isExpectedSuccessorCensus(scopeBefore);
+    assert.equal(
+      scopeWasEmpty || scopeWasComplete,
+      true,
+      'The resource-exact successor scope must be empty or already exactly complete',
+    );
+    const lineageBefore = await successorProtectedLineageSentinels(prisma);
+    const branchBefore =
+      await prisma.paperImplementationExperimentWorkOrderBranchV2.findUnique({
+        where: { id: SUCCESSOR_BRANCH_ID },
+      });
+    assert.ok(branchBefore);
+    assert.equal(branchBefore.validationCycleId, NEW_CYCLE_ID);
+    assert.equal(branchBefore.branchKey, BRANCH_KEY);
+    assert.equal(branchBefore.stateVersion, scopeWasEmpty ? 2 : 4);
+    assert.equal(
+      branchBefore.currentRevisionId,
+      scopeWasEmpty ? SUCCESSOR_PARENT_REVISION_ID : SUCCESSOR_REVISION_ID,
+    );
+    assert.equal(branchBefore.currentRevisionSequence, scopeWasEmpty ? 1 : 2);
+    assert.equal(branchBefore.headVersion, scopeWasEmpty ? 1 : 2);
+    assert.equal(
+      branchBefore.headRevisionId,
+      scopeWasEmpty ? SUCCESSOR_PARENT_REVISION_ID : SUCCESSOR_REVISION_ID,
+    );
+    assert.equal(branchBefore.headRevisionSequence, scopeWasEmpty ? 1 : 2);
+    assert.equal(
+      branchBefore.headRunId,
+      scopeWasEmpty ? SUCCESSOR_PARENT_RUN_ID : SUCCESSOR_RUN_ID,
+    );
+
+    const repositories = buildRepositories(prisma, SUCCESSOR_ID_SCOPE);
+    const project = await repositories.projectRepository.findProjectById(PROJECT_ID);
+    assert.ok(project);
+    assert.equal(project.lifecycle_status, 'active');
+    const cycle = await repositories.validationRepository.findValidationCycleById(
+      PROJECT_ID,
+      NEW_CYCLE_ID,
+    );
+    assert.ok(cycle);
+    assert.equal(cycle.lifecycle_status, 'admitted');
+    assert.equal(cycle.execution_status, 'not_started');
+    assert.equal(
+      await repositories.cycleClosureLookup.isCycleClosed(NEW_CYCLE_ID),
+      false,
+    );
+
+    const current = await repositories.piRepository.findRevisionBundle(
+      SUCCESSOR_BRANCH_ID,
+      SUCCESSOR_PARENT_REVISION_ID,
+    );
+    assert.ok(current);
+    assert.equal(current.branch.branch_key, BRANCH_KEY);
+    assert.equal(current.branch.validation_cycle_id, NEW_CYCLE_ID);
+    assert.equal(
+      current.branch.current_admitted_revision_id,
+      scopeWasEmpty ? SUCCESSOR_PARENT_REVISION_ID : SUCCESSOR_REVISION_ID,
+    );
+    assert.equal(
+      current.branch.current_admitted_revision_sequence,
+      scopeWasEmpty ? 1 : 2,
+    );
+    assert.equal(
+      current.branch.head_run_id,
+      scopeWasEmpty ? SUCCESSOR_PARENT_RUN_ID : SUCCESSOR_RUN_ID,
+    );
+    assert.equal(current.revision.revision_sequence, 1);
+    assert.equal(
+      current.revision.work_order_revision.work_order_schema_version,
+      'v2',
+    );
+    assert.equal(current.cells.length, 2);
+
+    const frozenBundle = await repositories.bundleService.resolveActiveReadyExact({
+      execution_bundle_revision_id: BUNDLE_REVISION_ID,
+      content_hash: BUNDLE_REVISION_HASH,
+    });
+    const request: PaperImplementationExperimentV2AdmissionRequest = {
+      branch_key: BRANCH_KEY,
+      branch_frame: structuredClone(current.branch.branch_frame),
+      work_order_revision: {
+        ...structuredClone(current.revision.work_order_revision),
+        work_order_schema_version: 'v2',
+        resource_snapshot: {
+          cpu_cores: 2,
+          memory_mb: 8192,
+        },
+        run_policy: {
+          max_attempts_per_cell: 1,
+          timeout_seconds: 1800,
+        },
+        execution_bundle: {
+          execution_bundle_id: frozenBundle.revision.execution_bundle_id,
+          execution_bundle_revision_id:
+            frozenBundle.revision.execution_bundle_revision_id,
+          revision_sequence: frozenBundle.revision.revision_sequence,
+          content_hash: frozenBundle.revision.content_hash,
+        },
+      },
+      exact_cells: current.cells.map((cell) => ({
+        cell_key: cell.cell_key,
+        seed: cell.seed,
+        repeat_index: cell.repeat_index,
+        parameters: structuredClone(cell.parameters),
+        required_result_contract: structuredClone(cell.required_result_contract),
+      })),
+      business_idempotency_key: SUCCESSOR_BUSINESS_KEY,
+    };
+
+    const admitted = await repositories.admissionService.admit({
+      implementation_project_id: PROJECT_ID,
+      validation_cycle_id: NEW_CYCLE_ID,
+      request,
+      admitted_by: 'system',
+    });
+    assert.equal(admitted.replayed, !scopeWasEmpty);
+    assert.equal(admitted.branch.branch_id, SUCCESSOR_BRANCH_ID);
+    assert.equal(admitted.revision.work_order_revision_id, SUCCESSOR_REVISION_ID);
+    assert.equal(admitted.revision.revision_sequence, 2);
+
+    const relay = buildRelay(
+      repositories,
+      't132-m7-l1-resource-exact-successor-relay',
+    );
+    const applyRelay = await relay.drainUntilIdle({
+      max_passes: 10,
+      limit_per_domain: 10,
+    });
+    assert.equal(applyRelay.idle, true);
+    assert.deepEqual(applyRelay.failures, []);
+    assert.equal(applyRelay.terminalized, 0);
+    assert.equal(applyRelay.released, 0);
+
+    const finalState = await requireSuccessorFinalState(
+      prisma,
+      branchBefore,
+      SUCCESSOR_REVISION_ID,
+      scopeWasEmpty,
+    );
+    const afterCounts =
+      await countExperimentFoundationNamedLocalTables(prisma, writeTables);
+    const expectedInvocationDeltas = Object.fromEntries(
+      Object.entries(SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS).map(
+        ([table, delta]) => [table, scopeWasEmpty ? delta : 0],
+      ),
+    );
+    assert.deepEqual(
+      successorRowDeltas(beforeCounts, afterCounts),
+      expectedInvocationDeltas,
+    );
+    assert.equal(
+      successorTotalDelta(beforeCounts, afterCounts),
+      scopeWasEmpty ? SUCCESSOR_EXPECTED_TOTAL_DELTA : 0,
+    );
+    assert.deepEqual(
+      await successorPrefixCensus(prisma),
+      expectedSuccessorCensus(),
+    );
+    const afterProtected =
+      await digestExperimentFoundationNamedLocalTableRowVersions(prisma, protectedTables);
+    assert.deepEqual(
+      changedExperimentFoundationNamedLocalTables(beforeProtected, afterProtected),
+      [],
+    );
+    assert.deepEqual(
+      await successorProtectedLineageSentinels(prisma),
+      lineageBefore,
+    );
+    await assertSuccessorProhibitedRowsZero(prisma);
+
+    const replayed = await repositories.admissionService.admit({
+      implementation_project_id: PROJECT_ID,
+      validation_cycle_id: NEW_CYCLE_ID,
+      request,
+      admitted_by: 'system',
+    });
+    assert.equal(replayed.replayed, true);
+    assert.equal(
+      replayed.revision.work_order_revision_id,
+      admitted.revision.work_order_revision_id,
+    );
+    const replayRelay = await relay.drainUntilIdle({
+      max_passes: 10,
+      limit_per_domain: 10,
+    });
+    assert.equal(replayRelay.idle, true);
+    assert.deepEqual(replayRelay.failures, []);
+    assert.equal(replayRelay.terminalized, 0);
+    assert.equal(replayRelay.released, 0);
+
+    const replayCounts =
+      await countExperimentFoundationNamedLocalTables(prisma, writeTables);
+    assert.deepEqual(replayCounts, afterCounts);
+    const replayProtected =
+      await digestExperimentFoundationNamedLocalTableRowVersions(prisma, protectedTables);
+    assert.deepEqual(
+      changedExperimentFoundationNamedLocalTables(afterProtected, replayProtected),
+      [],
+    );
+    assert.deepEqual(
+      await successorProtectedLineageSentinels(prisma),
+      lineageBefore,
+    );
+    assert.deepEqual(
+      await successorPrefixCensus(prisma),
+      expectedSuccessorCensus(),
+    );
+    await assertSuccessorProhibitedRowsZero(prisma);
+    assertCapabilitiesRemainDisabled();
+
+    console.log(JSON.stringify({
+      schema_version: 't132-m7-resource-exact-successor-apply@v1',
+      status: 'passed',
+      target,
+      authorization: {
+        named_local_apply: true,
+        maximum_new_rows: SUCCESSOR_EXPECTED_TOTAL_DELTA,
+        branch_cas_update: true,
+        cloud_access: false,
+        capability_enable: false,
+        create_job: false,
+        scientific_evidence_write: false,
+      },
+      scope: {
+        implementation_project_id: PROJECT_ID,
+        validation_cycle_id: NEW_CYCLE_ID,
+        branch_id: SUCCESSOR_BRANCH_ID,
+        branch_key: BRANCH_KEY,
+        parent_work_order_revision_id: SUCCESSOR_PARENT_REVISION_ID,
+        work_order_revision_id: admitted.revision.work_order_revision_id,
+        revision_sequence: admitted.revision.revision_sequence,
+        run_id: finalState.run.id,
+        run_manifest_hash: finalState.run.runManifestHash,
+        execution_bundle_revision_id: BUNDLE_REVISION_ID,
+        execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
+        resource_snapshot: {
+          cpu_cores: 2,
+          memory_mb: 8192,
+        },
+        run_policy: {
+          max_attempts: 1,
+          timeout_seconds: 1800,
+        },
+      },
+      apply: {
+        admission_replayed: admitted.replayed,
+        relay: applyRelay,
+        row_deltas: successorRowDeltas(beforeCounts, afterCounts),
+        new_rows: successorTotalDelta(beforeCounts, afterCounts),
+        preexisting_successor_rows: scopeBefore.total,
+        branch_state_version: finalState.branch.stateVersion,
+        branch_head_version: finalState.branch.headVersion,
+        protected_table_count: protectedTables.length,
+        protected_changed_tables: [],
+        prior_revision_and_run_unchanged: true,
+      },
+      replay: {
+        admission_replayed: replayed.replayed,
+        relay: replayRelay,
+        new_rows: 0,
+        protected_changed_tables: [],
+        prior_revision_and_run_unchanged: true,
+      },
+      prohibited_effects: {
+        cloud_provider_calls: 0,
+        capability_changes: 0,
+        create_job_calls: 0,
+        live_attempts: 0,
+        experiment_results: 0,
+        evidence_candidates: 0,
+        run_evidence_units: 0,
+      },
+    }, null, 2));
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function successorPrefixCensus(prisma: PrismaClient): Promise<{
+  tableCounts: Record<string, number>;
+  total: number;
+}> {
+  const tableCounts = {
+    PaperImplementationExperimentWorkOrderBranchV2: 0,
+    PaperImplementationExperimentWorkOrderRevisionV2:
+      await prisma.paperImplementationExperimentWorkOrderRevisionV2.count({
+        where: { id: SUCCESSOR_REVISION_ID, branchId: SUCCESSOR_BRANCH_ID },
+      }),
+    PaperImplementationExperimentWorkOrderRevisionCellV2:
+      await prisma.paperImplementationExperimentWorkOrderRevisionCellV2.count({
+        where: { revisionId: SUCCESSOR_REVISION_ID },
+      }),
+    PaperImplementationExperimentWorkOrderAdmissionV2:
+      await prisma.paperImplementationExperimentWorkOrderAdmissionV2.count({
+        where: { revisionId: SUCCESSOR_REVISION_ID },
+      }),
+    PaperImplementationExperimentIntegrationOutboxV2:
+      await prisma.paperImplementationExperimentIntegrationOutboxV2.count({
+        where: { workOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    PaperImplementationExperimentIntegrationInboxV2:
+      await prisma.paperImplementationExperimentIntegrationInboxV2.count({
+        where: { workOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationIntegrationInboxV2:
+      await prisma.experimentFoundationIntegrationInboxV2.count({
+        where: { workOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationVersionLockV2:
+      await prisma.experimentFoundationVersionLockV2.count({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationVersionLockDependencyV2:
+      await prisma.experimentFoundationVersionLockDependencyV2.count({
+        where: {
+          versionLock: {
+            externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID,
+          },
+        },
+      }),
+    ExperimentFoundationRunRecipeV2:
+      await prisma.experimentFoundationRunRecipeV2.count({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationTrainingTaskSpecV2:
+      await prisma.experimentFoundationTrainingTaskSpecV2.count({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationRunV2:
+      await prisma.experimentFoundationRunV2.count({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+    ExperimentFoundationRunCellV2:
+      await prisma.experimentFoundationRunCellV2.count({
+        where: {
+          run: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
+        },
+      }),
+    ExperimentFoundationIntegrationOutboxV2:
+      await prisma.experimentFoundationIntegrationOutboxV2.count({
+        where: { workOrderRevisionId: SUCCESSOR_REVISION_ID },
+      }),
+  };
+  return {
+    tableCounts,
+    total: Object.values(tableCounts).reduce((sum, count) => sum + count, 0),
+  };
+}
+
+function expectedSuccessorCensus(): Awaited<ReturnType<typeof successorPrefixCensus>> {
+  return {
+    tableCounts: { ...SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS },
+    total: SUCCESSOR_EXPECTED_TOTAL_DELTA,
+  };
+}
+
+function isExpectedSuccessorCensus(
+  census: Awaited<ReturnType<typeof successorPrefixCensus>>,
+): boolean {
+  return census.total === SUCCESSOR_EXPECTED_TOTAL_DELTA
+    && Object.entries(SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS)
+      .every(([table, expected]) => census.tableCounts[table] === expected);
+}
+
+async function successorProtectedLineageSentinels(
+  prisma: PrismaClient,
+): Promise<unknown> {
+  const parentRun = await prisma.experimentFoundationRunV2.findUnique({
+    where: { id: SUCCESSOR_PARENT_RUN_ID },
+  });
+  assert.ok(parentRun);
+  return JSON.parse(JSON.stringify({
+    cycle: await prisma.paperImplementationValidationCycle.findUnique({
+      where: { id: NEW_CYCLE_ID },
+    }),
+    closure: await prisma.paperImplementationValidationCycleClosureV2.findUnique({
+      where: { validationCycleId: NEW_CYCLE_ID },
+    }),
+    parent_revision:
+      await prisma.paperImplementationExperimentWorkOrderRevisionV2.findUnique({
+        where: { id: SUCCESSOR_PARENT_REVISION_ID },
+        include: {
+          cells: { orderBy: { ordinal: 'asc' } },
+          admission: true,
+        },
+      }),
+    parent_pi_outboxes:
+      await prisma.paperImplementationExperimentIntegrationOutboxV2.findMany({
+        where: { workOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        orderBy: { id: 'asc' },
+      }),
+    parent_pi_inboxes:
+      await prisma.paperImplementationExperimentIntegrationInboxV2.findMany({
+        where: { workOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        orderBy: { id: 'asc' },
+      }),
+    parent_run: parentRun,
+    parent_run_recipe:
+      await prisma.experimentFoundationRunRecipeV2.findUnique({
+        where: { id: parentRun.runRecipeId },
+      }),
+    parent_task_specs:
+      await prisma.experimentFoundationTrainingTaskSpecV2.findMany({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        orderBy: { cellOrdinal: 'asc' },
+      }),
+    parent_run_cells:
+      await prisma.experimentFoundationRunCellV2.findMany({
+        where: { runId: SUCCESSOR_PARENT_RUN_ID },
+        orderBy: { ordinal: 'asc' },
+      }),
+    parent_version_lock:
+      await prisma.experimentFoundationVersionLockV2.findFirst({
+        where: { externalPiWorkOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        include: { dependencies: { orderBy: { ordinal: 'asc' } } },
+      }),
+    parent_ef_outboxes:
+      await prisma.experimentFoundationIntegrationOutboxV2.findMany({
+        where: { workOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        orderBy: { id: 'asc' },
+      }),
+    parent_ef_inboxes:
+      await prisma.experimentFoundationIntegrationInboxV2.findMany({
+        where: { workOrderRevisionId: SUCCESSOR_PARENT_REVISION_ID },
+        orderBy: { id: 'asc' },
+      }),
+  }));
+}
+
+async function requireSuccessorFinalState(
+  prisma: PrismaClient,
+  branchBefore: { stateVersion: number; headVersion: number },
+  revisionId: string,
+  expectBranchAdvance: boolean,
+) {
+  const revision =
+    await prisma.paperImplementationExperimentWorkOrderRevisionV2.findUnique({
+      where: { id: revisionId },
+      include: { cells: { orderBy: { ordinal: 'asc' } }, admission: true },
+    });
+  assert.ok(revision);
+  assert.equal(revision.branchId, SUCCESSOR_BRANCH_ID);
+  assert.equal(revision.revisionSequence, 2);
+  assert.equal(revision.parentRevisionId, SUCCESSOR_PARENT_REVISION_ID);
+  assert.equal(revision.workOrderSnapshotSchemaVersion, 'v2');
+  const workOrder = revision.workOrderSnapshotJson as {
+    work_order_schema_version?: string;
+    resource_snapshot?: { cpu_cores?: number; memory_mb?: number };
+    run_policy?: { max_attempts_per_cell?: number; timeout_seconds?: number };
+    execution_bundle?: {
+      execution_bundle_revision_id?: string;
+      content_hash?: string;
+    };
+  };
+  assert.equal(workOrder.work_order_schema_version, 'v2');
+  assert.deepEqual(workOrder.resource_snapshot, {
+    cpu_cores: 2,
+    memory_mb: 8192,
+  });
+  assert.deepEqual(workOrder.run_policy, {
+    max_attempts_per_cell: 1,
+    timeout_seconds: 1800,
+  });
+  assert.equal(
+    workOrder.execution_bundle?.execution_bundle_revision_id,
+    BUNDLE_REVISION_ID,
+  );
+  assert.equal(workOrder.execution_bundle?.content_hash, BUNDLE_REVISION_HASH);
+  assert.equal(revision.cells.length, 2);
+  assert.ok(revision.admission);
+
+  const run = await prisma.experimentFoundationRunV2.findUnique({
+    where: { externalPiWorkOrderRevisionId: revisionId },
+    include: {
+      runRecipe: true,
+      cells: { orderBy: { ordinal: 'asc' } },
+    },
+  });
+  assert.ok(run);
+  assert.equal(run.externalPiRevisionSequence, 2);
+  assert.equal(run.runRecipe.recipeSchemaVersion, 'v2');
+  assert.equal(run.runRecipe.executionBundleRevisionId, BUNDLE_REVISION_ID);
+  assert.equal(run.runRecipe.executionBundleRevisionHash, BUNDLE_REVISION_HASH);
+  assert.equal(run.cells.length, 2);
+
+  const taskSpecs =
+    await prisma.experimentFoundationTrainingTaskSpecV2.findMany({
+      where: { externalPiWorkOrderRevisionId: revisionId },
+      orderBy: { cellOrdinal: 'asc' },
+    });
+  assert.equal(taskSpecs.length, 2);
+  for (const taskSpec of taskSpecs) {
+    assert.equal(taskSpec.executionBundleRevisionId, BUNDLE_REVISION_ID);
+    assert.equal(taskSpec.executionBundleRevisionHash, BUNDLE_REVISION_HASH);
+    const snapshot = taskSpec.taskSpecSnapshotJson as {
+      resource_snapshot?: { cpu_cores?: number; memory_mb?: number };
+      retry_snapshot?: { max_attempts?: number; timeout_seconds?: number };
+    };
+    assert.deepEqual(snapshot.resource_snapshot, {
+      cpu_cores: 2,
+      memory_mb: 8192,
+    });
+    assert.deepEqual(snapshot.retry_snapshot, {
+      max_attempts: 1,
+      timeout_seconds: 1800,
+    });
+  }
+
+  const branch =
+    await prisma.paperImplementationExperimentWorkOrderBranchV2.findUnique({
+      where: { id: SUCCESSOR_BRANCH_ID },
+    });
+  assert.ok(branch);
+  assert.equal(
+    branch.stateVersion,
+    branchBefore.stateVersion + (expectBranchAdvance ? 2 : 0),
+  );
+  assert.equal(branch.currentRevisionId, revisionId);
+  assert.equal(branch.currentRevisionSequence, 2);
+  assert.equal(
+    branch.headVersion,
+    branchBefore.headVersion + (expectBranchAdvance ? 1 : 0),
+  );
+  assert.equal(branch.headRevisionId, revisionId);
+  assert.equal(branch.headRevisionSequence, 2);
+  assert.equal(branch.headRunId, run.id);
+  assert.equal(branch.headRunManifestHash, run.runManifestHash);
+  const finalAck = await prisma.experimentFoundationIntegrationInboxV2.findFirst({
+    where: {
+      workOrderRevisionId: revisionId,
+      eventType: 'BranchHeadAdvanced',
+      status: 'processed',
+      outcome: 'processed',
+    },
+  });
+  assert.ok(finalAck);
+  return { revision, run, branch, taskSpecs, finalAck };
+}
+
+async function assertSuccessorProhibitedRowsZero(
+  prisma: PrismaClient,
+): Promise<void> {
+  assert.equal(
+    await prisma.experimentFoundationExecutionAttemptV2.count({
+      where: { externalPiValidationCycleId: NEW_CYCLE_ID },
+    }),
+    0,
+  );
+  assert.equal(
+    await prisma.experimentFoundationExperimentResultV2.count({
+      where: { run: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID } },
+    }),
+    0,
+  );
+  assert.equal(
+    await prisma.experimentFoundationEvidenceCandidateV2.count({
+      where: { run: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID } },
+    }),
+    0,
+  );
+  assert.equal(
+    await prisma.paperImplementationRunEvidenceUnitV2.count({
+      where: { workOrderRevisionId: SUCCESSOR_REVISION_ID },
+    }),
+    0,
+  );
+}
+
+function successorRowDeltas(
+  before: Record<string, number>,
+  after: Record<string, number>,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.keys(SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS).map((table) => [
+      table,
+      (after[table] ?? 0) - (before[table] ?? 0),
+    ]),
+  );
+}
+
+function successorTotalDelta(
+  before: Record<string, number>,
+  after: Record<string, number>,
+): number {
+  return Object.values(successorRowDeltas(before, after))
+    .reduce((sum, delta) => sum + delta, 0);
+}
+
 function rowDeltas(
   before: Record<string, number>,
   after: Record<string, number>,
@@ -805,6 +1459,17 @@ function requireAuthorization(): void {
   }
 }
 
+function requireSuccessorAuthorization(): void {
+  if (
+    process.env[SUCCESSOR_AUTHORIZATION_ENV]
+      !== SUCCESSOR_AUTHORIZATION_VALUE
+  ) {
+    throw new Error(
+      `${SUCCESSOR_AUTHORIZATION_ENV} must equal the exact reviewed 2026-07-28 max-40 token`,
+    );
+  }
+}
+
 function assertCapabilitiesRemainDisabled(): void {
   for (const key of CAPABILITY_KEYS) {
     const value = process.env[key];
@@ -814,7 +1479,11 @@ function assertCapabilitiesRemainDisabled(): void {
   }
 }
 
-main().catch((error: unknown) => {
+const selectedMain = process.env[SUCCESSOR_AUTHORIZATION_ENV] === undefined
+  ? main
+  : successorMain;
+
+selectedMain().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

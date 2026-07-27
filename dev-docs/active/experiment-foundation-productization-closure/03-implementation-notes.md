@@ -1,5 +1,14 @@
 # 03 Implementation Notes
 
+## 2026-07-28 — M7-L1 resource-exact successor landing
+
+- Extended the guarded named-local lineage runner with a separate exact max-40 successor authorization. It accepts only the reviewed target, open Cycle, existing `ragperf-primary` branch at sequence/head 1, empty successor prefix, active frozen ExecutionBundle and default-false capabilities.
+- Normal T1-T4 created one WorkOrder sequence 2, two unchanged cells, one admission, the exact 23-dependency EF executable lineage and final acknowledgement. T1 and T3 performed the two authorized branch CAS updates; the old revision and Run remained immutable.
+- New Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1` has manifest `sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232`. Both TaskSpecs carry `2 CPU / 8192 MiB`, `max_attempts=1`, `timeout_seconds=1800` and Bundle hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- The first verifier pass stopped after T1-T4 because it counted only the admission CAS and expected branch `stateVersion=3`; head advancement correctly performs the second state CAS, producing `stateVersion=4`. The validator was corrected to assert `+2` state / `+1` head, without adding or changing lineage rows.
+- The completion/replay verifier then passed with all 40 successor rows exact, zero-new replay, 236 protected tables unchanged, old revision/Run sentinels unchanged, and zero cloud calls, capabilities, Attempts, ExperimentResult, EvidenceCandidate or REU.
+- The live runner now binds the successor Run/manifest and uses workflow business key `t132-m7-l1-live-p313-v2`. Its zero-cloud offline preflight passes against exact `ecs.g6.large`, reports `existing_attempt_count=0`, `cloud_call_count=0` and `database_write_count=0`.
+
 ## 2026-07-28 — P313 M7-L1 executable lineage apply
 
 - Added `apps/backend/scripts/apply-experiment-foundation-m7-executable-lineage.ts` to the Experiment Foundation script typecheck. The runner locks the named-local fingerprint, exact P313/new-Cycle/bundle identities, 44-row ceiling, historical sentinels, protected-table row versions, default-false capabilities and forbidden scientific/evidence tables.
