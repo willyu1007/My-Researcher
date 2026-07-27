@@ -1,5 +1,18 @@
 # 04 Verification
 
+## M7-L1 P313 ValidationCycle + executable lineage apply — 2026-07-28
+
+Outcome: **passed on the reviewed named-local PostgreSQL target; exact replay added zero rows and no cloud/scientific effect occurred**.
+
+- Target fingerprint: `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`, database `postgres`, schema `my_researcher_dev`, `127.0.0.1:5432`.
+- New scope: Cycle `validation_cycle_t132_m7_l1_p313_v1`, trace `trace_manifest_t132_m7_l1_p313_v1`, branch `pi_experiment_branch_v2_t132_m7_l1_p313_v1_1`, WorkOrder `pi_experiment_revision_v2_t132_m7_l1_p313_v1_1`, Run `ef_run_v2_t132_m7_l1_p313_v1_1`.
+- Exact bundle: revision `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48`, hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`. Frozen Run manifest: `sha256:e0c6c92d3c4a8179cf5d91147e4dff5ef2079d6614a95bf1ce0ca214334094a5`.
+- First T2 attempt failed closed on a stale EF v1-only readback assertion and left EF inbox/VersionLock/recipe/task/Run/outbox rows at zero. After exact v1/v2 repository fixes, `pnpm exec tsc -p tsconfig.json --noEmit` and `pnpm exec tsc -p tsconfig.experiment-foundation-scripts.json --noEmit` passed; `node --loader ts-node/esm --test src/repositories/prisma/prisma-experiment-v2-repositories.unit.test.ts` passed 33/33.
+- Separately authorized recovery changed only outbox `pi_experiment_outbox_v2_t132_m7_l1_p313_v1_1` from terminal to pending, retained its first attempt count and created no row. Apply relay: claimed 3, delivered 3, released 0, terminalized 0, failures 0, idle after 4 passes.
+- Row accounting: 9 authorized rows already present + 35 rows from the final invocation = exact ceiling 44. Exact replay: claimed/delivered 0, new rows 0, idle after 1 pass.
+- Integrity: 233 protected application tables unchanged; historical Cycle/closure/branch/Run unchanged. Cloud/provider calls 0, capability changes 0, `CreateJob` 0, billable jobs 0, ExperimentResult 0, EvidenceCandidate 0, RunEvidenceUnit 0.
+- Durable closure: `artifacts/implementation/23-m7-l1-executable-lineage-closure.md`.
+
 ## M7-L1 authorized executable-lineage apply closed-Cycle preflight — 2026-07-28
 
 Outcome: **the authorized 40-row same-branch apply was not executed because its owning ValidationCycle is durably closed**.

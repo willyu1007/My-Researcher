@@ -2,6 +2,13 @@
 
 `05-pitfalls.md` is append-only for resolved failures and dead ends encountered while executing T-132. Active findings belong in `06-audit-closure-matrix.md`.
 
+## M7 executable-lineage persistence findings — 2026-07-28
+
+- Do not add v2 contract/materializer support while leaving Prisma readback discriminators hard-coded to v1. T1/T2 transactions read their own writes before commit; stale readback fences will reject valid v2 state and can look like a generic materialization conflict.
+- Do not diagnose `MATERIALIZATION_KEY_CONFLICT` as a unique-key collision without reproducing the consumer error. The final message was `EF RunRecipe schema version drifted from v1`; the T2 transaction was fully rolled back.
+- Do not directly consume a terminalized relay event or silently reset it after a product fix. First prove the failed domain transaction left zero target rows, then require a separate exact one-row authorization, retain the attempt counter and resume through the normal relay.
+- Do not make restart accounting aware only of the earliest prefix. A bounded apply can stop after T1; the runner must census every authorized table family and subtract the exact already-committed scope from the final ceiling.
+
 ## Cloud-preflight implementation findings — 2026-07-18
 
 - Do not interpret a controlled `blocked` summary as `cloud_preflight_passed`. Missing profile, temporary STS or reviewed policy evidence must remain explicit blockers even when zero-write safety checks pass.

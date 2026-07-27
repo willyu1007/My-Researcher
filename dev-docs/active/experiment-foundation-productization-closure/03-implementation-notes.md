@@ -1,5 +1,14 @@
 # 03 Implementation Notes
 
+## 2026-07-28 — P313 M7-L1 executable lineage apply
+
+- Added `apps/backend/scripts/apply-experiment-foundation-m7-executable-lineage.ts` and included it in the Experiment Foundation script typecheck. The runner locks the named-local fingerprint, exact P313/new-Cycle/bundle identities, 44-row ceiling, historical sentinels, protected-table row versions, default-false capabilities and forbidden scientific/evidence tables.
+- `PrismaPaperImplementationExperimentSpineV2Repository` now persists the actual WorkOrder snapshot discriminator and accepts only exact relational/snapshot `v1 | v2` binding. `PrismaExperimentFoundationSpineV2Repository` applies the same rule to RunRecipe and TrainingTaskSpec readback while continuing to verify exact ExecutionBundle tuples and canonical hashes.
+- Added positive Prisma replay regressions for executable PI WorkOrder v2 and executable EF RunRecipe/TaskSpec v2. Backend typecheck and the targeted repository suite pass.
+- The first admitted T1 transaction committed 6 rows after the new Cycle/trace prefix had committed 3. T2 wrote no durable row: its serializable transaction rolled back when the stale EF v1-only readback fence rejected its own v2 rows. The relay correctly terminalized the PI outbox.
+- The runner's restart census now covers all 17 authorized table families rather than only the initial three-row Cycle prefix. Separately authorized recovery is exact to one outbox, requires the expected terminal/error/attempt/no-EF-row state, retains `relayAttemptCount=1`, and adds no row.
+- Final apply recovered the one marker and drained all three relay events. The resulting executable Run is `ef_run_v2_t132_m7_l1_p313_v1_1`, manifest `sha256:e0c6c92d3c4a8179cf5d91147e4dff5ef2079d6614a95bf1ce0ca214334094a5`; commits `4b9c5955` and `45ea8208` contain the implementation and bounded recovery guard.
+
 ## Status
 - Current status: `in-progress`
 - Last updated: 2026-07-27

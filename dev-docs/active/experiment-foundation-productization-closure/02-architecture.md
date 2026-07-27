@@ -851,6 +851,12 @@ Official references:
 - A fresh read-only `GetImage` observation must match the frozen v2 asset fields immediately before the live window. The comparison is a pre-submission procedural gate; the current product materializer enforces typed shape, exact profile URI equality and regional URI consistency but does not itself call AIWorkspace.
 - Capabilities stay default false throughout the provider-shape increment. Provider-shape implementation and offline SDK mapping do not authorize OSS upload, `CreateJob`, scheduler use or scientific evidence creation.
 
+### M7-L1 executable lineage and relay recovery boundary
+
+- Executable PI WorkOrder, EF RunRecipe and EF TrainingTaskSpec persistence use exact discriminator binding: relational schema version must equal the decoded immutable snapshot version and the only admitted values are `v1 | v2`. A v2 snapshot must carry the exact frozen ExecutionBundle tuple; a v1 snapshot must carry no bundle tuple.
+- The live diagnostic never mutates or trust-upgrades the historical simulation Cycle/branch/Run. It owns a new admitted `probe_execution` ValidationCycle and Cycle-local branch, then reuses the ordinary T1 admission → T2 materialization → T3 branch-head CAS → T4 acknowledgement saga.
+- A terminal relay marker may be recovered only through an exact, separately authorized one-row operation after proving the failed T2 transaction left every EF materialization table empty. Recovery changes only `terminal → pending`, retains the attempt counter, requires the exact outbox/event/scope/error identity and creates no row. It is not a generic terminal-outbox requeue facility.
+
 ### Layer C — Same-payload fake lifecycle
 - Feed the exact Layer A payload/hash into the fake Aliyun transport.
 - Exercise submit, sync, cancel, collect, reconcile, idempotency conflict and recovery paths.
