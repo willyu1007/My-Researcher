@@ -2,7 +2,7 @@
 
 ## M7-L1 reviewed ExecutionBundle v2 preparation — 2026-07-27
 
-Outcome: **offline plan, exact same-payload replay, additive migration and disposable PostgreSQL persistence passed; named-local migration/freeze remains unexecuted pending expanded authorization**.
+Outcome: **offline plan, exact same-payload replay, additive migration, disposable PostgreSQL persistence and explicitly authorized named-local migration/freeze/replay passed**.
 
 - `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
 - `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` → passed.
@@ -12,7 +12,13 @@ Outcome: **offline plan, exact same-payload replay, additive migration and dispo
 - First disposable run `v1` correctly rejected v2 at the existing v1-only draft CHECK. After the additive migration, the bundle relational test passed exact v2 draft/freeze/replay/resolve and rejected relational discriminator/JSON mismatch.
 - Runs `v2` through `v5` exposed a stale real-provider relational fixture/reader that still assumed redacted manifest v1, its old redacted field set and an obsolete profile literal. Production reader and fixture were corrected to the existing v1/v2 shared contract; no capability or provider behavior changed.
 - Final `node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-bundle-freeze-20260727-v6 --imported-run-id t132-m7-offline-20260724-v3` → passed M7-01..M7-15. Shared targeted 12/12, backend targeted 92/92 and forced disposable relational 9/9 passed with zero skips; named database writes, provider/OSS calls, `CreateJob`, cloud cost and scientific/evidence writes were 0.
-- Named-local status after the discovered authorization mismatch: migration unapplied; all six ExecutionBundle tables remain 0 rows. No partial bundle prefix exists.
+- Before named-local apply, the reviewed target fingerprint was `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`; all six bundle tables were 0 and the only pending migration was `20260727170000_enable_execution_bundle_schema_v2`.
+- With the exact supplemental authorization, `prisma migrate deploy` applied only that migration. `prisma migrate status` then reported up to date, and readback proved both CHECKs admit only v1/v2 while binding the relational discriminator to the JSON snapshot version.
+- Named-local r1 → passed; created rows 6, exact reused 0. Scoped census is exactly one identity, draft, revision, lifecycle event, lifecycle projection and readiness. r1 SHA-256: `c39d59beb540fd72c76eac544518e41656e6cfabc316f9227ea275ffc53b0f50`.
+- Named-local r2 exact replay → passed; created rows 0, exact reused 6; scoped census remained exactly 6. r2 SHA-256: `4bc96801bb88896b4d25dd0aa4215bae8d8476573fb8504b74b5902a37d0358c`.
+- Both named-local runs validated the reviewed target fingerprint, 244 protected application tables unchanged, external fetch 0, cloud operations 0, provider writes 0, `CreateJob` 0 and scientific writes 0.
+- Independent server-enforced read-only post-check returned table counts `[1,1,1,1,1,1]`, revision schema `v2`, hash profile `ef-execution-bundle-semantic-json@v1`, the reviewed content hash and readiness `passed`.
+- Post-apply `ctl-db-ssot sync-to-context` and `node .ai/tests/run.mjs --suite database` passed. No capability, credential, cloud read/write, PAI Job, scientific result or evidence row was introduced.
 
 ## M7-L1 SciFact named-local authority landing — 2026-07-27
 
