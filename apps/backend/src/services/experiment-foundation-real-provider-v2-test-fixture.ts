@@ -173,7 +173,12 @@ export function createRealProviderV2TestFixture(): {
       schema_version: 'AliyunPaiDlcRealProviderProfile@v1',
       region_id: 'cn-shanghai',
       workspace_id: 'workspace-secret-ref',
-      resource_binding: { mode: 'public_resource' },
+      resource_binding: {
+        mode: 'public_resource',
+        ecs_spec: 'ecs.test.large',
+        cpu_cores: 1,
+        memory_mb: 1024,
+      },
       image_uri: bundle.revision_content.container_image.image_ref,
       job_type: 'PyTorchJob',
       job_spec_type: 'Worker',

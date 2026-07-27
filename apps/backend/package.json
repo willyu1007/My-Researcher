@@ -18,6 +18,7 @@
     "experiment-foundation:scifact-authority:plan": "node --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.ts",
     "experiment-foundation:scifact-bundle:apply": "node --env-file=../../.env.local --loader ts-node/esm scripts/apply-experiment-foundation-scifact-execution-bundle.ts",
     "experiment-foundation:scifact-bundle:plan": "node --loader ts-node/esm scripts/plan-experiment-foundation-scifact-execution-bundle.ts",
+    "experiment-foundation:m7-l1:live": "node --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts",
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
     "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
@@ -32,6 +33,7 @@
     "@paper-engineering-assistant/shared": "workspace:*",
     "@prisma/client": "^5.22.0",
     "ajv": "^8.18.0",
+    "ali-oss": "^6.23.0",
     "fast-xml-parser": "^5.7.3",
     "fastify": "^5.10.0"
   },

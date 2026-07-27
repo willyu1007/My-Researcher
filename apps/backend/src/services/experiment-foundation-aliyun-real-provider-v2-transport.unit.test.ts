@@ -36,10 +36,26 @@ const NOW = '2026-07-23T00:00:00.000Z';
 interface FakeJob {
   jobId: string;
   workspaceId: string;
+  resourceId?: string;
   displayName: string;
+  accessibility: string;
   jobType: string;
   userCommand: string;
-  jobSpecs: Array<{ type: string; image: string; podCount: number }>;
+  envs: Record<string, string>;
+  dataSources: Array<{ uri?: string; mountPath?: string }>;
+  credentialConfig: NonNullable<
+    ExperimentFoundationAliyunRealProviderTransportInputV2[
+      'materialized'
+    ]['create_job_request']['credentialConfig']
+  >;
+  jobSpecs: Array<{
+    type: string;
+    image: string;
+    podCount: number;
+    resourceConfig?: { CPU?: string; memory?: string };
+    quotaId?: string;
+    ecsSpec?: string;
+  }>;
   settings: { tags: Record<string, string> };
   status: string;
 }
@@ -47,6 +63,7 @@ interface FakeJob {
 class InjectedPaiDlcSdkFake {
   createCount = 0;
   listCount = 0;
+  readonly listedPageNumbers: number[] = [];
   getCount = 0;
   stopCount = 0;
   visibleAfterListCount = 0;
@@ -61,13 +78,29 @@ class InjectedPaiDlcSdkFake {
       this.jobs.set(jobId, {
         jobId,
         workspaceId: request.workspaceId!,
+        resourceId: request.resourceId,
         displayName: request.displayName!,
+        accessibility: request.accessibility!,
         jobType: request.jobType!,
         userCommand: request.userCommand!,
+        envs: { ...(request.envs ?? {}) },
+        dataSources: (request.dataSources ?? []).map((source) => ({
+          uri: source.uri,
+          mountPath: source.mountPath,
+        })),
+        credentialConfig: request.credentialConfig!,
         jobSpecs: request.jobSpecs!.map((spec) => ({
           type: spec.type!,
           image: spec.image!,
           podCount: spec.podCount!,
+          resourceConfig: spec.resourceConfig
+            ? {
+              CPU: spec.resourceConfig.CPU,
+              memory: spec.resourceConfig.memory,
+            }
+            : undefined,
+          quotaId: spec.quotaId,
+          ecsSpec: spec.ecsSpec,
         })),
         settings: { tags: { ...(request.settings?.tags ?? {}) } },
         status: this.nextStatus,
@@ -77,18 +110,22 @@ class InjectedPaiDlcSdkFake {
     };
 
   readonly listJobsWithOptions: ExperimentFoundationAliyunPaiDlcSdkClientV2['listJobsWithOptions'] =
-    async () => {
+    async (request) => {
       this.listCount += 1;
-      const jobs = this.listCount > this.visibleAfterListCount
+      const allJobs = this.listCount > this.visibleAfterListCount
         ? [...this.jobs.values()].map((job) => ({
           jobId: job.jobId,
           displayName: job.displayName,
           status: job.status,
         }))
         : [];
+      const pageNumber = request.pageNumber ?? 1;
+      const pageSize = request.pageSize ?? 50;
+      this.listedPageNumbers.push(pageNumber);
+      const jobs = allJobs.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
       return new ListJobsResponse({
         statusCode: 200,
-        body: { jobs, totalCount: jobs.length, requestId: 'redacted' },
+        body: { jobs, totalCount: allJobs.length, requestId: 'redacted' },
       });
     };
 
@@ -215,7 +252,12 @@ function fixture(): {
     schema_version: 'AliyunPaiDlcRealProviderProfile@v1',
     region_id: 'cn-shanghai',
     workspace_id: 'workspace-1',
-    resource_binding: { mode: 'public_resource' },
+    resource_binding: {
+      mode: 'public_resource',
+      ecs_spec: 'ecs.test.large',
+      cpu_cores: 1,
+      memory_mb: 1024,
+    },
     image_uri: bundle.revision_content.container_image.image_ref,
     job_type: 'PyTorchJob',
     job_spec_type: 'Worker',
@@ -344,6 +386,28 @@ test('M7-06 duplicate discovery and M7-08 unknown status fail closed', async () 
   );
 });
 
+test('M7-L1 recovery paginates to exhaustion and exact-matches full job detail', async () => {
+  const sdk = new InjectedPaiDlcSdkFake();
+  const { input } = fixture();
+  for (let index = 0; index < 50; index += 1) {
+    seedExactJob(sdk, input, `job-decoy-${index}`, 'Running');
+    sdk.jobs.get(`job-decoy-${index}`)!.workspaceId = 'wrong-workspace';
+  }
+  seedExactJob(sdk, input, 'job-page-2', 'Running');
+  const transport = new ExperimentFoundationAliyunRealProviderTransportV2({ client: sdk });
+  const recovered = await transport.submit({ ...input, create_permitted: false });
+
+  assert.equal(recovered.external_job_ref?.job_id, 'job-page-2');
+  assert.deepEqual(sdk.listedPageNumbers, [1, 2]);
+  assert.equal(sdk.createCount, 0);
+
+  sdk.jobs.get('job-page-2')!.jobSpecs[0]!.ecsSpec = 'ecs.other.large';
+  await assert.rejects(
+    () => transport.submit({ ...input, create_permitted: false }),
+    isReason('REAL_PROVIDER_RECOVERY_NOT_FOUND', true),
+  );
+});
+
 test('M7-09 cancel verifies Stopped and M7-10 collection verifies exact canonical binding', async () => {
   const sdk = new InjectedPaiDlcSdkFake();
   const { input, resultEnvelope } = fixture();
@@ -395,13 +459,29 @@ function seedExactJob(
   sdk.jobs.set(jobId, {
     jobId,
     workspaceId: request.workspaceId!,
+    resourceId: request.resourceId,
     displayName: request.displayName!,
+    accessibility: request.accessibility!,
     jobType: request.jobType!,
     userCommand: request.userCommand!,
+    envs: { ...(request.envs ?? {}) },
+    dataSources: (request.dataSources ?? []).map((source) => ({
+      uri: source.uri,
+      mountPath: source.mountPath,
+    })),
+    credentialConfig: request.credentialConfig!,
     jobSpecs: request.jobSpecs!.map((spec) => ({
       type: spec.type!,
       image: spec.image!,
       podCount: spec.podCount!,
+      resourceConfig: spec.resourceConfig
+        ? {
+          CPU: spec.resourceConfig.CPU,
+          memory: spec.resourceConfig.memory,
+        }
+        : undefined,
+      quotaId: spec.quotaId,
+      ecsSpec: spec.ecsSpec,
     })),
     settings: { tags: { ...(request.settings?.tags ?? {}) } },
     status,

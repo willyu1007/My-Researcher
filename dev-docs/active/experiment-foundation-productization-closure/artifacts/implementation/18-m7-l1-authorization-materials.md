@@ -37,9 +37,8 @@ Required: approved bucket/prefix policy, encryption/retention, result object nam
 
 Required: exact resource profile, maximum two jobs, per-job runtime cap, explicit monetary limit.
 
-- Recommendation: public-resource CPU profile `ecs.g6.large`-class (from the 108 preflight-visible specs), `JobMaxRunningTimeMinutes=30` per job, exactly 2 jobs (one per cell), hard monetary ceiling **¥50** for the whole window; exceeding triggers cancel-on-timeout/StopJob and window abort.
-- DECISION (owner, 2026-07-25): **confirmed** — `ecs.g6.large`-class public-resource CPU profile, `JobMaxRunningTimeMinutes=30`, exactly 2 jobs, hard ceiling **¥50**.
-  - `DECISION: ¥50 / 2 jobs / 30 min / g6.large-class`
+- Recommendation/decision, normalized 2026-07-28: exact public-resource `ecs.g6.large` (`2 vCPU / 8 GiB`), `JobMaxRunningTimeMinutes=30` per job, exactly 2 jobs (one per cell), hard monetary ceiling **¥50** for the whole window. The provider's documented Shanghai example prices the larger `ecs.g6.2xlarge` at ¥2.02/hour, so two 30-minute `g6.large` jobs remain safely below the ceiling; the console remains the final price authority.
+  - `DECISION: ¥50 / 2 jobs / 30 min / ecs.g6.large (2 vCPU / 8 GiB)`
 
 ## 5. Controller / runtime identities
 
@@ -47,7 +46,7 @@ Required: short-lived least-privilege controller policy (exact allowlist `paidlc
 
 - [Codex prepares] the two exact RAM policy JSON documents for you to paste into the Aliyun console, plus the SHA-256 you record back here as the reviewed-policy digest (the EF-P16 pattern).
 - At window time you supply a fresh short-lived STS triplet for the controller role **only via process env to the runner invocation** (never a file in the repo, never chat if avoidable — a terminal env var export in your own shell is the cleanest channel).
-- Created and console-verified with the exact bucket already materialized: `workloads/ragperf-canary/ram/controller-policy.json` is current custom-policy v1 (sha256 `ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c`); `runtime-policy.json` is current custom-policy v2 (sha256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`). Runtime v2 separates Bucket listing from object IO and limits `oss:ListObjects` to `input` / `input/*`; both policies retain the explicit Deny boundaries.
+- Controller policy update prepared 2026-07-28: add read-only `paiimage:GetImage` so the same short-lived controller STS can perform the mandatory fresh image comparison before CreateJob. Repository SHA-256 is `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`; console activation remains pending owner confirmation. Runtime policy remains SHA-256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`.
 - Controller role: ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`, exact owner-user trust `acs:ram::1183869713036194:user/user_0002`, attached policy `pea-m7-canary-controller` only.
 - Runtime role: ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`, PAI service trust `pai.aliyuncs.com`, attached policy `pea-m7-canary-runtime` only.
 - DECISION (owner): confirm the role-split design; record final policy digests after console review.

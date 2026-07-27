@@ -41,8 +41,22 @@ export interface ExperimentFoundationAliyunWorkloadBindingV2 {
 }
 
 export interface ExperimentFoundationAliyunRealProviderProfileV2
-  extends Omit<ExperimentFoundationAliyunPaiDlcExecutionProfileV2, 'schema_version'> {
+  extends Omit<
+    ExperimentFoundationAliyunPaiDlcExecutionProfileV2,
+    'schema_version' | 'resource_binding'
+  > {
   schema_version: typeof EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2;
+  resource_binding:
+    | {
+      mode: 'exact_quota';
+      resource_id: string;
+    }
+    | {
+      mode: 'public_resource';
+      ecs_spec: string;
+      cpu_cores: number;
+      memory_mb: number;
+    };
   workload_binding: ExperimentFoundationAliyunWorkloadBindingV2;
 }
 
@@ -55,7 +69,8 @@ export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV1 {
     Type: 'Worker';
     Image: string;
     PodCount: 1;
-    ResourceConfig: {
+    EcsSpec?: string;
+    ResourceConfig?: {
       CPU: string;
       Memory: string;
     };
@@ -65,6 +80,7 @@ export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV1 {
   Settings: {
     Tags: {
       'ef-provider-idempotency': string;
+      'ef-request-binding': string;
     };
   };
   DataSources: Array<{
@@ -258,6 +274,10 @@ export interface PaperImplementationExecutableWorkOrderRevisionSnapshotV2 {
   readiness_attestation_hash: string;
   asset_dependencies: ExperimentFoundationV2ExactAssetRevisionRef[];
   execution_bundle: ExperimentFoundationExecutionBundleExactRevisionRefV2;
+  resource_snapshot?: {
+    cpu_cores: number;
+    memory_mb: number;
+  };
   run_policy: {
     max_attempts_per_cell: number;
     timeout_seconds: number;
@@ -585,9 +605,15 @@ export const experimentFoundationAliyunRealProviderProfileV2Schema = {
         {
           type: 'object',
           additionalProperties: false,
-          required: ['mode'],
+          required: ['mode', 'ecs_spec', 'cpu_cores', 'memory_mb'],
           properties: {
             mode: { type: 'string', const: 'public_resource' },
+            ecs_spec: {
+              type: 'string',
+              pattern: '^ecs\\.[a-z0-9-]+\\.[a-z0-9-]+$',
+            },
+            cpu_cores: positiveInteger,
+            memory_mb: positiveInteger,
           },
         },
       ],
@@ -633,11 +659,15 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['Type', 'Image', 'PodCount', 'ResourceConfig'],
+        required: ['Type', 'Image', 'PodCount'],
         properties: {
           Type: { type: 'string', const: 'Worker' },
           Image: { type: 'string', minLength: 3, maxLength: 2048 },
           PodCount: { type: 'integer', const: 1 },
+          EcsSpec: {
+            type: 'string',
+            pattern: '^ecs\\.[a-z0-9-]+\\.[a-z0-9-]+$',
+          },
           ResourceConfig: {
             type: 'object',
             additionalProperties: false,
@@ -648,6 +678,10 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
             },
           },
         },
+        oneOf: [
+          { required: ['EcsSpec'], not: { required: ['ResourceConfig'] } },
+          { required: ['ResourceConfig'], not: { required: ['EcsSpec'] } },
+        ],
       },
     },
     UserCommand: nonEmptyString,
@@ -660,9 +694,13 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
         Tags: {
           type: 'object',
           additionalProperties: false,
-          required: ['ef-provider-idempotency'],
+          required: ['ef-provider-idempotency', 'ef-request-binding'],
           properties: {
             'ef-provider-idempotency': {
+              type: 'string',
+              pattern: '^[a-f0-9]{64}$',
+            },
+            'ef-request-binding': {
               type: 'string',
               pattern: '^[a-f0-9]{64}$',
             },
@@ -1073,6 +1111,15 @@ export const paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema = {
       },
     },
     execution_bundle: experimentFoundationExecutionBundleExactRevisionRefV2Schema,
+    resource_snapshot: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['cpu_cores', 'memory_mb'],
+      properties: {
+        cpu_cores: positiveInteger,
+        memory_mb: positiveInteger,
+      },
+    },
     run_policy: {
       type: 'object',
       additionalProperties: false,

@@ -746,6 +746,10 @@ test('M7-02 executable WorkOrder v2 preserves the exact ExecutionBundle through 
         revision_sequence: fixture.bundle.revision_sequence,
         content_hash: fixture.bundle.content_hash,
       },
+      resource_snapshot: {
+        cpu_cores: 2,
+        memory_mb: 8192,
+      },
     },
     business_idempotency_key: 'admit-d19-executable-v2',
   });
@@ -784,7 +788,9 @@ test('M7-02 executable WorkOrder v2 preserves the exact ExecutionBundle through 
     materialized.task_specs.every(
       (spec) => 'execution_bundle' in spec
         && spec.execution_bundle.execution_bundle_revision_id
-          === fixture.bundle.execution_bundle_revision_id,
+          === fixture.bundle.execution_bundle_revision_id
+        && spec.resource_snapshot.cpu_cores === 2
+        && spec.resource_snapshot.memory_mb === 8192,
     ),
     true,
   );

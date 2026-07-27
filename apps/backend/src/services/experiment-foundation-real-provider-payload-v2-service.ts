@@ -43,6 +43,8 @@ const EXPERIMENT_FOUNDATION_REAL_PROVIDER_MAX_RUNNING_MINUTES_V2 = 60;
 const EXPERIMENT_FOUNDATION_REAL_PROVIDER_MAX_DATASET_MIRRORS_V2 = 32;
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2 =
   'ef-provider-idempotency' as const;
+export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2 =
+  'ef-request-binding' as const;
 const SOURCE_BINDING_ENV_KEY = 'EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON';
 const CODE_DIR_ENV_KEY = 'EXPERIMENT_FOUNDATION_CODE_DIR';
 const OUTPUT_DIR_ENV_KEY = 'EXPERIMENT_FOUNDATION_OUTPUT_DIR';
@@ -141,7 +143,7 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
       EXPERIMENT_FOUNDATION_REAL_PROVIDER_MAX_RUNNING_MINUTES_V2,
       Math.max(1, Math.ceil(prerequisite.task_spec.retry_snapshot.timeout_seconds / 60)),
     );
-    const request = new CreateJobRequest({
+    const requestWithoutSettings = {
       workspaceId: profile.workspace_id,
       ...(profile.resource_binding.mode === 'exact_quota'
         ? { resourceId: profile.resource_binding.resource_id }
@@ -171,23 +173,39 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
         type: profile.job_spec_type,
         image: prerequisite.execution_bundle_revision.revision_content.container_image.image_ref,
         podCount: profile.pod_count,
-        resourceConfig: {
-          CPU: String(prerequisite.task_spec.resource_snapshot.cpu_cores),
-          memory: `${prerequisite.task_spec.resource_snapshot.memory_mb}Mi`,
-        },
+        ...(profile.resource_binding.mode === 'public_resource'
+          ? { ecsSpec: profile.resource_binding.ecs_spec }
+          : {
+            resourceConfig: {
+              CPU: String(prerequisite.task_spec.resource_snapshot.cpu_cores),
+              memory: `${prerequisite.task_spec.resource_snapshot.memory_mb}Mi`,
+            },
+          }),
       }],
       userCommand: renderPosixCommand(
         prerequisite.task_spec.command_snapshot.command,
         prerequisite.task_spec.command_snapshot.arguments,
       ),
       jobMaxRunningTimeMinutes: maximumRunningTimeMinutes,
+      accessibility: 'PRIVATE',
+    };
+    const deterministicRequestBindingValue = hashRealProviderValue(
+      'AliyunPaiDlcRecoveryRequestBinding',
+      {
+        ...new CreateJobRequest(requestWithoutSettings).toMap(),
+        provider_idempotency_tag: deterministicTagValue,
+      },
+    ).slice('sha256:'.length);
+    const request = new CreateJobRequest({
+      ...requestWithoutSettings,
       settings: {
         tags: {
           [EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2]:
             deterministicTagValue,
+          [EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2]:
+            deterministicRequestBindingValue,
         },
       },
-      accessibility: 'PRIVATE',
     });
     try {
       request.validate();
@@ -438,6 +456,15 @@ function assertProfile(
     || profile.pod_count !== 1
     || profile.image_uri
       !== prerequisite.execution_bundle_revision.revision_content.container_image.image_ref
+    || (
+      profile.resource_binding.mode === 'public_resource'
+      && (
+        profile.resource_binding.cpu_cores
+          !== prerequisite.task_spec.resource_snapshot.cpu_cores
+        || profile.resource_binding.memory_mb
+          !== prerequisite.task_spec.resource_snapshot.memory_mb
+      )
+    )
     || !profileValidator(profile)
   ) {
     throw invalid('Aliyun execution profile does not match the exact ExecutionBundle image.');

@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
   GetJobRequest,
@@ -29,6 +30,7 @@ import type {
 } from './experiment-foundation-real-provider-payload-v2-service.js';
 import {
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2,
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2,
 } from './experiment-foundation-real-provider-payload-v2-service.js';
 
 const require = createRequire(import.meta.url);
@@ -44,10 +46,11 @@ export type ExperimentFoundationAliyunPaiDlcSdkClientV2 = Pick<
   | 'stopJobWithOptions'
 >;
 
-interface ExperimentFoundationAliyunExactResultReaderV2 {
+export interface ExperimentFoundationAliyunExactResultReaderV2 {
   readExactResult(input: {
     job_id: string;
     result_object_name: string;
+    output_directory_uri: string;
   }): Promise<{
     object_locator: string;
     canonical_result_bytes: string;
@@ -104,6 +107,8 @@ const NO_AUTORETRY_RUNTIME = Object.freeze({
 }) as CreateRuntime;
 const EMPTY_HEADERS = Object.freeze({}) as Record<string, string>;
 const MAX_RESULT_BYTES = 4 * 1024 * 1024;
+const RECOVERY_PAGE_SIZE = 50;
+const MAX_RECOVERY_PAGES = 20;
 const KNOWN_STATUS = new Set<string>(EXPERIMENT_FOUNDATION_ALIYUN_JOB_STATUSES_V2);
 const resultAjv = new Ajv({ allErrors: true, strict: false, removeAdditional: false });
 const resultEnvelopeValidator: ValidateFunction<ExperimentFoundationProviderResultEnvelopeV1> =
@@ -245,6 +250,7 @@ export class ExperimentFoundationAliyunRealProviderTransportV2 {
     const collected = await this.resultReader.readExactResult({
       job_id: exact.external_job_ref.job_id,
       result_object_name: input.task_spec.io_snapshot.result_object_name,
+      output_directory_uri: requireOutputDirectoryUri(input),
     });
     const byteSize = Buffer.byteLength(collected.canonical_result_bytes, 'utf8');
     if (
@@ -292,24 +298,49 @@ export class ExperimentFoundationAliyunRealProviderTransportV2 {
     maximumPolls: number,
   ): Promise<ExactProviderJob | null> {
     for (let poll = 0; poll < maximumPolls; poll += 1) {
-      const response = await this.client.listJobsWithOptions(
-        new ListJobsRequest({
-          workspaceId: requestWorkspaceId(input),
-          displayName: input.materialized.deterministic_display_name,
-          tags: {
-            [EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2]:
-              input.materialized.deterministic_tag_value,
-          },
-          pageNumber: 1,
-          pageSize: 3,
-        }),
-        EMPTY_HEADERS,
-        NO_AUTORETRY_RUNTIME,
-      );
-      const ids = [...new Set((response.body?.jobs ?? [])
-        .filter((job) => job.displayName === input.materialized.deterministic_display_name)
-        .map((job) => job.jobId)
-        .filter((jobId): jobId is string => typeof jobId === 'string' && jobId.length > 0))];
+      const ids = new Set<string>();
+      let exhausted = false;
+      for (let pageNumber = 1; pageNumber <= MAX_RECOVERY_PAGES; pageNumber += 1) {
+        const response = await this.client.listJobsWithOptions(
+          new ListJobsRequest({
+            workspaceId: requestWorkspaceId(input),
+            displayName: input.materialized.deterministic_display_name,
+            tags: {
+              [EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2]:
+                input.materialized.deterministic_tag_value,
+            },
+            pageNumber,
+            pageSize: RECOVERY_PAGE_SIZE,
+          }),
+          EMPTY_HEADERS,
+          NO_AUTORETRY_RUNTIME,
+        );
+        const jobs = response.body?.jobs ?? [];
+        for (const job of jobs) {
+          if (
+            job.displayName === input.materialized.deterministic_display_name
+            && typeof job.jobId === 'string'
+            && job.jobId.length > 0
+          ) {
+            ids.add(job.jobId);
+          }
+        }
+        const totalCount = response.body?.totalCount;
+        if (
+          jobs.length < RECOVERY_PAGE_SIZE
+          || (typeof totalCount === 'number' && pageNumber * RECOVERY_PAGE_SIZE >= totalCount)
+        ) {
+          exhausted = true;
+          break;
+        }
+      }
+      if (!exhausted) {
+        throw transportError(
+          'REAL_PROVIDER_ACCEPTANCE_AMBIGUOUS',
+          false,
+          'Recovery search exceeded the bounded pagination ceiling.',
+        );
+      }
       const matches: ExactProviderJob[] = [];
       for (const jobId of ids) {
         const detail = await this.readJob(jobId);
@@ -452,6 +483,37 @@ function requestWorkspaceId(
   return workspaceId;
 }
 
+function requireOutputDirectoryUri(
+  input: ExperimentFoundationAliyunRealProviderTransportInputV2,
+): string {
+  const outputMountPath =
+    input.materialized.record.redacted_manifest.artifact_bindings.output.mount_path_hash;
+  const candidates = input.materialized.create_job_request.dataSources?.filter((source) => (
+    source.mountAccess === 'RW'
+    && payloadRefHash('output_mount_path', source.mountPath ?? '') === outputMountPath
+  )) ?? [];
+  if (candidates.length !== 1 || !candidates[0]?.uri) {
+    throw transportError(
+      'REAL_PROVIDER_PAYLOAD_CONFLICT',
+      false,
+      'Materialized payload has no unique exact output directory.',
+    );
+  }
+  return candidates[0].uri;
+}
+
+function payloadRefHash(kind: string, value: string): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'AliyunPaiDlcRedactedProviderRef',
+    schema_version: 'v1',
+    hash_profile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+    content: {
+      ref_kind: kind,
+      ref_value: value,
+    },
+  });
+}
+
 function expectedRegionHash(
   input: ExperimentFoundationAliyunRealProviderTransportInputV2,
 ): string {
@@ -476,17 +538,67 @@ function jobDetailMatches(
   const expected = input.materialized.create_job_request;
   const expectedSpec = expected.jobSpecs?.[0];
   const actualSpec = detail.jobSpecs?.[0];
+  const expectedDataSources = expected.dataSources?.map((source) => ({
+    uri: source.uri,
+    mountPath: source.mountPath,
+  }));
+  const actualDataSources = detail.dataSources?.map((source) => ({
+    uri: source.uri,
+    mountPath: source.mountPath,
+  }));
   return detail.jobId !== undefined
     && detail.workspaceId === expected.workspaceId
+    && nullishEqual(detail.resourceId, expected.resourceId)
     && detail.displayName === input.materialized.deterministic_display_name
+    && detail.accessibility === expected.accessibility
     && detail.jobType === expected.jobType
     && detail.userCommand === expected.userCommand
+    && isDeepStrictEqual(detail.envs, expected.envs)
+    && isDeepStrictEqual(expectedDataSources, actualDataSources)
+    && credentialConfigMatches(detail.credentialConfig, expected.credentialConfig)
     && detail.jobSpecs?.length === 1
     && actualSpec?.type === expectedSpec?.type
     && actualSpec?.image === expectedSpec?.image
     && actualSpec?.podCount === expectedSpec?.podCount
+    && nullishEqual(actualSpec?.quotaId, expectedSpec?.quotaId)
+    && nullishEqual(actualSpec?.ecsSpec, expectedSpec?.ecsSpec)
+    && actualSpec?.resourceConfig?.CPU === expectedSpec?.resourceConfig?.CPU
+    && actualSpec?.resourceConfig?.memory === expectedSpec?.resourceConfig?.memory
     && detail.settings?.tags?.[EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2]
-      === input.materialized.deterministic_tag_value;
+      === input.materialized.deterministic_tag_value
+    && detail.settings?.tags?.[EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2]
+      === expected.settings?.tags?.[
+        EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2
+      ];
+}
+
+function credentialConfigMatches(
+  actual: GetJobBody['credentialConfig'],
+  expected: ExperimentFoundationMaterializedRealProviderPayloadV2[
+    'create_job_request'
+  ]['credentialConfig'],
+): boolean {
+  const normalize = (value: typeof actual | typeof expected) => value
+    ? {
+      enableCredentialInject: value.enableCredentialInject,
+      aliyunEnvRoleKey: value.aliyunEnvRoleKey,
+      credentialConfigItems: value.credentialConfigItems?.map((item) => ({
+        key: item.key,
+        type: item.type,
+        roles: item.roles?.map((role) => ({
+          assumeRoleFor: role.assumeRoleFor,
+          roleType: role.roleType,
+          roleArn: role.roleArn,
+          policy: role.policy,
+        })),
+      })),
+    }
+    : null;
+  return isDeepStrictEqual(normalize(actual), normalize(expected));
+}
+
+function nullishEqual(left: string | undefined, right: string | undefined): boolean {
+  return (left ?? null) === (right ?? null);
 }
 
 function requireKnownStatus(value: string | undefined): ExperimentFoundationAliyunJobStatusV2 {

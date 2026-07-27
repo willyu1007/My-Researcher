@@ -264,7 +264,12 @@ test('real-provider workload and CreateJob schemas close OSS mounts and credenti
     schema_version: 'AliyunPaiDlcRealProviderProfile@v1',
     region_id: 'cn-shanghai',
     workspace_id: 'workspace-1',
-    resource_binding: { mode: 'public_resource' },
+    resource_binding: {
+      mode: 'public_resource',
+      ecs_spec: 'ecs.g6.large',
+      cpu_cores: 2,
+      memory_mb: 8192,
+    },
     image_uri: 'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/image:py311-cpu',
     job_type: 'PyTorchJob',
     job_spec_type: 'Worker',
@@ -292,7 +297,12 @@ test('real-provider workload and CreateJob schemas close OSS mounts and credenti
     }],
     UserCommand: 'python3 /mnt/pea-code/entrypoint.py --cell-key=cell-a',
     JobMaxRunningTimeMinutes: 10,
-    Settings: { Tags: { 'ef-provider-idempotency': 'a'.repeat(64) } },
+    Settings: {
+      Tags: {
+        'ef-provider-idempotency': 'a'.repeat(64),
+        'ef-request-binding': 'b'.repeat(64),
+      },
+    },
     DataSources: [
       {
         Uri: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'1'.repeat(64)}/`,

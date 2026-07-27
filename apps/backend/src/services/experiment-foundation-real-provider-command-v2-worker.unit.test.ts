@@ -35,10 +35,24 @@ import {
 interface FakeJob {
   jobId: string;
   workspaceId: string;
+  resourceId?: string;
   displayName: string;
+  accessibility: string;
   jobType: string;
   userCommand: string;
-  jobSpecs: Array<{ type: string; image: string; podCount: number }>;
+  envs: Record<string, string>;
+  dataSources: Array<{ uri?: string; mountPath?: string }>;
+  credentialConfig: NonNullable<
+    Parameters<WorkerPaiDlcSdkFake['createJobWithOptions']>[0]['credentialConfig']
+  >;
+  jobSpecs: Array<{
+    type: string;
+    image: string;
+    podCount: number;
+    resourceConfig?: { CPU?: string; memory?: string };
+    quotaId?: string;
+    ecsSpec?: string;
+  }>;
   settings: { tags: Record<string, string> };
   status: string;
 }
@@ -60,11 +74,29 @@ class WorkerPaiDlcSdkFake {
       this.jobs.set(jobId, {
         jobId,
         workspaceId: request.workspaceId!,
+        resourceId: request.resourceId,
         displayName: request.displayName!,
+        accessibility: request.accessibility!,
         jobType: request.jobType!,
         userCommand: request.userCommand!,
+        envs: { ...(request.envs ?? {}) },
+        dataSources: (request.dataSources ?? []).map((source) => ({
+          uri: source.uri,
+          mountPath: source.mountPath,
+        })),
+        credentialConfig: request.credentialConfig!,
         jobSpecs: request.jobSpecs!.map((spec) => ({
-          type: spec.type!, image: spec.image!, podCount: spec.podCount!,
+          type: spec.type!,
+          image: spec.image!,
+          podCount: spec.podCount!,
+          resourceConfig: spec.resourceConfig
+            ? {
+              CPU: spec.resourceConfig.CPU,
+              memory: spec.resourceConfig.memory,
+            }
+            : undefined,
+          quotaId: spec.quotaId,
+          ecsSpec: spec.ecsSpec,
         })),
         settings: { tags: { ...(request.settings?.tags ?? {}) } },
         status: this.initialStatus,
@@ -74,14 +106,20 @@ class WorkerPaiDlcSdkFake {
     };
 
   readonly listJobsWithOptions: ExperimentFoundationAliyunPaiDlcSdkClientV2['listJobsWithOptions'] =
-    async () => {
+    async (request) => {
       this.listCount += 1;
-      const jobs = this.listCount > this.visibleAfterListCount
+      const allJobs = this.listCount > this.visibleAfterListCount
         ? [...this.jobs.values()].map(({ jobId, displayName, status }) => ({
           jobId, displayName, status,
         }))
         : [];
-      return new ListJobsResponse({ statusCode: 200, body: { jobs, totalCount: jobs.length } });
+      const pageNumber = request.pageNumber ?? 1;
+      const pageSize = request.pageSize ?? 50;
+      const jobs = allJobs.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
+      return new ListJobsResponse({
+        statusCode: 200,
+        body: { jobs, totalCount: allJobs.length },
+      });
     };
 
   readonly getJobWithOptions: ExperimentFoundationAliyunPaiDlcSdkClientV2['getJobWithOptions'] =

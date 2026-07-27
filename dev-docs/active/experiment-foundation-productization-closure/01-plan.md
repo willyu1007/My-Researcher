@@ -496,3 +496,11 @@ Pack B closed these technical exit requirements with PB01-PB16 on `packb-2026071
 
 ## Implementation start condition
 Implementation may start only after the user confirms the roadmap decisions and explicitly authorizes execution. Phase 1 identity/readiness must close first; the planned first cross-module acceptance slice is D-19's Phase 2 admission-to-head acknowledgement spine, never provider integration, full Cycle closure or UI polish.
+## 2026-07-28 — M7-L1 resource-exact successor correction
+
+1. [x] Add a dedicated resumable live-window runner with named-local fingerprint, exact Run/Bundle, fresh `GetImage`, at-most-two `CreateJob` calls, 30-minute provider cap, OSS exact-result collection, protected-table census, zero scientific/evidence writes and exact replay.
+2. [x] Harden accepted-response-loss recovery to paginate to exhaustion and exact-match workspace, resource mode/spec, image, command, environment, mounts, runtime credential configuration and deterministic request-binding tags.
+3. [x] Add the official `ali-oss` reader with STS-only credentials, public controller endpoint, exact internal-object locator reconstruction, range/UTF-8/4 MiB fences and no OSS write path.
+4. [x] Run zero-cloud named-local preflight. It stopped before intake because the frozen Run has `1 CPU / 512 MiB`, not the approved `ecs.g6.large = 2 CPU / 8192 MiB`.
+5. [ ] After explicit authorization, create one successor WorkOrder revision on `validation_cycle_t132_m7_l1_p313_v1` with `resource_snapshot={2,8192}`, two unchanged scientific cells, the same frozen ExecutionBundle and 30-minute/one-attempt policy; deliver normal T1-T4 and exact replay without modifying the old revision/Run.
+6. [ ] Activate controller policy SHA-256 `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`, obtain fresh ≥55-minute STS, run fresh `GetImage`, then execute/collect the exact two-job diagnostic under the ¥50 ceiling.

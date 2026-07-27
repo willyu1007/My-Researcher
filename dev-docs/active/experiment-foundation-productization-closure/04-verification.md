@@ -1596,3 +1596,31 @@ shasum -a 256 workloads/ragperf-canary/ram/runtime-policy.json
 - Controller role detail verified role ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`, exact-user trust `acs:ram::1183869713036194:user/user_0002`, and one attached custom policy `pea-m7-canary-controller` at authorization time `2026年7月26日 21:18:52`.
 - Runtime role detail verified role ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`, exact PAI service trust `pai.aliyuncs.com`, and one attached custom policy `pea-m7-canary-runtime` at authorization time `2026年7月26日 21:29:39`.
 - Neither role lists the other lane's custom policy. No credential or STS value was viewed or recorded; no provider call, capability enable, `CreateJob` or billable execution occurred.
+## 2026-07-28 — M7-L1 runner hardening and fail-closed resource gate
+
+Passed:
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend typecheck
+pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts
+node --test --loader ts-node/esm \
+  src/services/experiment-foundation-aliyun-oss-exact-result-reader-v2.unit.test.ts \
+  src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts \
+  src/services/experiment-foundation-real-provider-command-v2-worker.unit.test.ts \
+  src/services/experiment-foundation-real-provider-intake-v2-service.unit.test.ts \
+  src/services/experiment-foundation-real-provider-payload-v2-service.unit.test.ts
+```
+
+- OSS reader: 2/2 passed.
+- Transport recovery: 6/6 passed, including second-page recovery and ECS-spec mismatch rejection.
+- Worker/intake/payload targeted suites passed after public-resource `EcsSpec` conversion.
+- Shared real-provider schema suite: 6/6 passed.
+
+Expected fail-closed result:
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend \
+  experiment-foundation:m7-l1:live -- --mode offline-preflight
+```
+
+The command connected only to the verified named-local target and stopped on the exact TaskSpec/profile mismatch (`512 MiB` actual versus the then-declared `4096 MiB`). Provider calls, CreateJob, DB writes and billable jobs were zero. The manifest/profile was subsequently corrected to exact `ecs.g6.large = 2 CPU / 8192 MiB`; the same command must remain blocked until an authorized successor T1-T4 lineage exists.

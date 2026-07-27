@@ -559,7 +559,8 @@ export class ExperimentFoundationV2MaterializationService {
     > = event.payload.exact_cells.map((cell) => {
       const trainingTaskSpecId = this.idFactory('ef_training_task_spec_v2');
       const taskMaterializationKey = `${materializationKey}:cell:${cell.ordinal}`;
-      const resourceSnapshot = { cpu_cores: 1, memory_mb: 512 };
+      const resourceSnapshot = executableWorkOrder?.resource_snapshot
+        ?? { cpu_cores: 1, memory_mb: 512 };
       if (executionBundleRef && executionBundle) {
         const commandSnapshot: ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['command_snapshot'] = {
           command: executionBundle.revision.revision_content.entrypoint,

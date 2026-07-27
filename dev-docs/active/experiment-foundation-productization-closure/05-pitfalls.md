@@ -774,3 +774,9 @@ When adding an entry, use:
 - Fix/workaround: pin `--endpoint aiworkspace.cn-shanghai.aliyuncs.com` together with the exact RegionId and ImageId. The successful responses produced RequestIds and matched every frozen provider-managed asset field.
 - Prevention: include the exact regional AIWorkspace endpoint in repeatable read-only commands and count a provider operation only when a RequestId is returned. When compacting output, use the provider's actual `GmtCreateTime`/`GmtModifiedTime` field names.
 - References: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`; `04-verification.md`.
+### 2026-07-28 — A public-resource class is not an arbitrary ResourceConfig
+
+- Symptom: the live runner's first zero-cloud preflight found the frozen executable TaskSpecs at `1 CPU / 512 MiB`, while the authorization materials described a `g6.large`-class profile using inconsistent `1 CPU / 4 GiB` shorthand.
+- Root cause: executable v2 materialization used a code-owned default resource snapshot, and the real-provider payload emitted `ResourceConfig` even for `public_resource`. Current PAI documentation identifies public resources by ECS specification; `ecs.g6.large` is `2 vCPU / 8 GiB`.
+- Fix/workaround: public profiles now require exact `ecs_spec/cpu_cores/memory_mb`, public payloads emit `EcsSpec`, recovery checks it, and new WorkOrder v2 revisions may carry an exact resource snapshot. The old Run remains immutable and ineligible.
+- Prevention: freeze provider-neutral resource intent before T1, reconcile the resource intent with the provider's exact billable SKU before T2, and run the live runner's offline preflight before creating any Attempt or cloud job.

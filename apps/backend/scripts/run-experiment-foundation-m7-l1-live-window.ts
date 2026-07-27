@@ -1,0 +1,589 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+import { GetImageRequest } from '@alicloud/aiworkspace20210204';
+import { $OpenApiUtil } from '@alicloud/openapi-core';
+import { PrismaClient } from '@prisma/client';
+import type {
+  ExperimentFoundationAliyunRealProviderProfileV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+
+import {
+  PrismaExperimentFoundationExecutionBundleV2Repository,
+} from '../src/repositories/prisma/prisma-experiment-foundation-execution-bundle-v2-repository.js';
+import {
+  PrismaExperimentFoundationExecutionV2Repository,
+} from '../src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.js';
+import {
+  PrismaPaperImplementationValidationCycleClosureV2Repository,
+} from '../src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
+import {
+  createExperimentFoundationAliyunOssSdkClientV2,
+  ExperimentFoundationAliyunOssExactResultReaderV2,
+} from '../src/services/experiment-foundation-aliyun-oss-exact-result-reader-v2.js';
+import {
+  type ExperimentFoundationAliyunPaiDlcSdkClientV2,
+  ExperimentFoundationAliyunRealProviderTransportV2,
+} from '../src/services/experiment-foundation-aliyun-real-provider-v2-transport.js';
+import {
+  ExperimentFoundationExecutionBundleV2Service,
+} from '../src/services/experiment-foundation-execution-bundle-v2-service.js';
+import {
+  ExperimentFoundationRealProviderCommandV2Worker,
+} from '../src/services/experiment-foundation-real-provider-command-v2-worker.js';
+import {
+  ExperimentFoundationRealProviderIntakeV2Service,
+} from '../src/services/experiment-foundation-real-provider-intake-v2-service.js';
+import {
+  assertExperimentFoundationLiveNamedLocalTarget,
+  assertExperimentFoundationNamedLocalDatabaseUrl,
+  changedExperimentFoundationNamedLocalTables,
+  countExperimentFoundationNamedLocalTables,
+  digestExperimentFoundationNamedLocalTableRowVersions,
+  listExperimentFoundationNamedLocalApplicationTables,
+} from './experiment-foundation-named-local-evidence.js';
+
+type RunnerMode = 'offline-preflight' | 'execute';
+
+const require = createRequire(import.meta.url);
+const AIWorkspaceClientConstructor = require('@alicloud/aiworkspace20210204').default as
+  typeof import('@alicloud/aiworkspace20210204').default;
+const PaiDlcClientConstructor = require('@alicloud/pai-dlc20201203').default as
+  typeof import('@alicloud/pai-dlc20201203').default;
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const MANIFEST_PATH = path.join(
+  REPO_ROOT,
+  'workloads/ragperf-canary/manifests/execution-bundle-v2.json',
+);
+const CONTROLLER_POLICY_PATH = path.join(
+  REPO_ROOT,
+  'workloads/ragperf-canary/ram/controller-policy.json',
+);
+const TARGET = Object.freeze({
+  database: 'postgres',
+  schema: 'my_researcher_dev',
+  host: '127.0.0.1',
+  port: '5432',
+  fingerprint: 'sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0',
+});
+const RUN_ID = 'ef_run_v2_t132_m7_l1_p313_v1_1';
+const RUN_MANIFEST_HASH =
+  'sha256:e0c6c92d3c4a8179cf5d91147e4dff5ef2079d6614a95bf1ce0ca214334094a5';
+const BUNDLE_REVISION_ID =
+  'ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48';
+const BUNDLE_REVISION_HASH =
+  'sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e';
+const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
+const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v1';
+const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
+const LIVE_AUTHORIZATION_VALUE =
+  'authorized-2026-07-28-ceiling-cny50-two-jobs';
+const CONTROLLER_ROLE_ARN =
+  'acs:ram::1183869713036194:role/pea-m7-canary-controller';
+const CONTROLLER_POLICY_SHA256 =
+  'c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be';
+const BUCKET_NAME = 'pea-m7-canary-6194-202607';
+const REGION_ID = 'cn-shanghai';
+const WORKSPACE_ID = '1450165';
+const IMAGE_ID = 'image-liuxvj7p2qcnflha84';
+const MAXIMUM_CREATE_JOB_CALLS = 2;
+const MAXIMUM_WINDOW_COST_CNY = 50;
+const MAXIMUM_RUNNING_MINUTES_PER_JOB = 30;
+const MINIMUM_STS_REMAINING_MS = 55 * 60 * 1_000;
+const RUNNER_DEADLINE_MS = 50 * 60 * 1_000;
+const POLL_INTERVAL_MS = 5_000;
+const PACK_B_TABLES = [
+  'ExperimentFoundationProviderPayloadV2',
+  'ExperimentFoundationExecutionAttemptV2',
+  'ExperimentFoundationExecutionAttemptEventV2',
+  'ExperimentFoundationProviderCommandV2',
+  'ExperimentFoundationCollectionAttemptV2',
+  'ExperimentFoundationProvisionalOutputV2',
+] as const;
+const CAPABILITY_KEYS = [
+  'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED',
+  'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED',
+  'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
+  'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
+] as const;
+
+interface AuthoringManifest {
+  container_image: {
+    image_ref: string;
+    provider_managed_asset: {
+      asset_id: string;
+      region_id: string;
+      modified_at: string;
+      size_bytes: number;
+      accessibility: string;
+      source_type: string;
+    };
+  };
+  offline_preview_profile: ExperimentFoundationAliyunRealProviderProfileV2;
+  offline_preview_cells: Array<{
+    ordinal: number;
+    cell_key: string;
+    cpu_cores: number;
+    memory_mb: number;
+    timeout_seconds: number;
+  }>;
+}
+
+interface TemporaryCredential {
+  access_key_id: string;
+  access_key_secret: string;
+  security_token: string;
+  expiration: string;
+}
+
+async function main(): Promise<void> {
+  const mode = parseMode(process.argv.slice(2));
+  assertCapabilitiesRemainDisabled();
+  const databaseUrl = requireEnvironment('DATABASE_URL');
+  assertExperimentFoundationNamedLocalDatabaseUrl(
+    databaseUrl,
+    TARGET,
+    'T132_M7_L1_LIVE_TARGET_MISMATCH',
+  );
+  const [manifest, policyBytes] = await Promise.all([
+    readManifest(),
+    fs.readFile(CONTROLLER_POLICY_PATH),
+  ]);
+  assert.equal(sha256(policyBytes), CONTROLLER_POLICY_SHA256);
+
+  const prisma = new PrismaClient();
+  await prisma.$connect();
+  try {
+    const target = await assertExperimentFoundationLiveNamedLocalTarget(prisma, TARGET);
+    const dependencies = buildDependencies(prisma, manifest.offline_preview_profile);
+    const prerequisite = await dependencies.executionRepository
+      .resolveRealProviderRunPrerequisite(RUN_ID);
+    assert.ok(prerequisite, 'Exact M7-L1 executable Run prerequisite is missing.');
+    assert.equal(prerequisite.run.run_manifest_hash, RUN_MANIFEST_HASH);
+    assert.equal(prerequisite.validation_cycle_id, VALIDATION_CYCLE_ID);
+    assert.equal(prerequisite.cells.length, MAXIMUM_CREATE_JOB_CALLS);
+    assert.deepEqual(
+      prerequisite.cells.map(({ run_cell: cell, task_spec: task }) => ({
+        ordinal: cell.ordinal,
+        cell_key: cell.cell_key,
+        cpu_cores: task.resource_snapshot.cpu_cores,
+        memory_mb: task.resource_snapshot.memory_mb,
+        timeout_seconds: task.retry_snapshot.timeout_seconds,
+        max_attempts: task.retry_snapshot.max_attempts,
+      })),
+      manifest.offline_preview_cells.map((cell) => ({
+        ...cell,
+        max_attempts: 1,
+      })),
+    );
+    assert.ok(prerequisite.cells.every(
+      ({ task_spec: task }) => (
+        task.execution_bundle.execution_bundle_revision_id === BUNDLE_REVISION_ID
+        && task.execution_bundle.content_hash === BUNDLE_REVISION_HASH
+        && Math.ceil(task.retry_snapshot.timeout_seconds / 60)
+          === MAXIMUM_RUNNING_MINUTES_PER_JOB
+      ),
+    ));
+    assert.equal(
+      await dependencies.cycleClosureRepository.isCycleClosed(VALIDATION_CYCLE_ID),
+      false,
+    );
+    const frozenBundle = await dependencies.bundleService.resolveActiveReadyExact({
+      execution_bundle_revision_id: BUNDLE_REVISION_ID,
+      content_hash: BUNDLE_REVISION_HASH,
+    });
+    assert.equal(
+      frozenBundle.revision.revision_content.container_image.image_ref,
+      manifest.container_image.image_ref,
+    );
+
+    const existingAttempts = await dependencies.executionRepository.listRunAttempts(RUN_ID);
+    assert.ok(existingAttempts.length === 0 || existingAttempts.length === 2);
+    assert.ok(existingAttempts.every((attempt) => (
+      attempt.workflow_business_key === BUSINESS_IDEMPOTENCY_KEY
+      && attempt.execution_mode === 'real_provider'
+      && attempt.provenance === 'real_provider'
+    )));
+
+    if (mode === 'offline-preflight') {
+      console.log(JSON.stringify({
+        schema_version: 't132-m7-l1-live-window-offline-preflight@v1',
+        status: 'passed',
+        target_fingerprint: target.fingerprint,
+        run_id: RUN_ID,
+        run_manifest_hash: RUN_MANIFEST_HASH,
+        execution_bundle_revision_id: BUNDLE_REVISION_ID,
+        execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
+        job_ceiling: MAXIMUM_CREATE_JOB_CALLS,
+        monetary_ceiling_cny: MAXIMUM_WINDOW_COST_CNY,
+        per_job: {
+          ecs_spec: 'ecs.g6.large',
+          cpu_cores: 2,
+          memory_mb: 8192,
+          maximum_running_minutes: MAXIMUM_RUNNING_MINUTES_PER_JOB,
+        },
+        controller_policy_sha256: CONTROLLER_POLICY_SHA256,
+        existing_attempt_count: existingAttempts.length,
+        cloud_call_count: 0,
+        database_write_count: 0,
+      }));
+      return;
+    }
+
+    requireLiveAuthorization();
+    const credential = readTemporaryCredential();
+    const imageRequestHash = await freshImagePreflight(manifest, credential);
+    const applicationTables =
+      await listExperimentFoundationNamedLocalApplicationTables(prisma, [...PACK_B_TABLES]);
+    const protectedTables = applicationTables.filter(
+      (table) => !PACK_B_TABLES.includes(table.name as typeof PACK_B_TABLES[number]),
+    );
+    const [protectedBefore, packBBefore] = await Promise.all([
+      digestExperimentFoundationNamedLocalTableRowVersions(prisma, protectedTables),
+      countExperimentFoundationNamedLocalTables(prisma, [...PACK_B_TABLES]),
+    ]);
+
+    const live = buildLiveTransport(credential);
+    const intake = new ExperimentFoundationRealProviderIntakeV2Service({
+      repository: dependencies.executionRepository,
+      cycleClosureLookup: dependencies.cycleClosureRepository,
+      executionBundleResolver: dependencies.bundleService,
+      profileResolver: async () => structuredClone(manifest.offline_preview_profile),
+      intakeEnabled: () => true,
+    });
+    const started = await intake.start(RUN_ID, BUSINESS_IDEMPOTENCY_KEY);
+    assert.equal(started.attempts.length, MAXIMUM_CREATE_JOB_CALLS);
+    const attemptIds = started.attempts.map((attempt) => attempt.id);
+    const worker = new ExperimentFoundationRealProviderCommandV2Worker({
+      repository: dependencies.executionRepository,
+      transport: live.transport,
+      executionBundleResolver: dependencies.bundleService,
+      profileResolver: async () => structuredClone(manifest.offline_preview_profile),
+      controlDrainEnabled: () => true,
+      leaseOwner: `t132-m7-l1-live-${process.pid}`,
+    });
+    const deadline = Date.now() + RUNNER_DEADLINE_MS;
+    const drain = {
+      passes: 0,
+      claimed_count: 0,
+      completed_count: 0,
+      released_count: 0,
+      terminal_count: 0,
+    };
+    while (Date.now() < deadline) {
+      const outcome = await worker.runOnce(20);
+      drain.passes += 1;
+      drain.claimed_count += outcome.claimed_count;
+      drain.completed_count += outcome.completed_count;
+      drain.released_count += outcome.released_count;
+      drain.terminal_count += outcome.terminal_count;
+      const attempts = await prisma.experimentFoundationExecutionAttemptV2.findMany({
+        where: { id: { in: attemptIds } },
+        include: {
+          collectionAttempt: {
+            include: { provisionalOutputs: true },
+          },
+        },
+        orderBy: { cellKey: 'asc' },
+      });
+      const allTerminal = attempts.length === MAXIMUM_CREATE_JOB_CALLS
+        && attempts.every((attempt) => (
+          ['succeeded', 'failed', 'cancelled'].includes(attempt.lifecycleState)
+        ));
+      const allCollected = attempts.every((attempt) => (
+        attempt.lifecycleState !== 'succeeded'
+        || (
+          attempt.collectionAttempt?.collectionState === 'collected'
+          && attempt.collectionAttempt.provisionalOutputs.length === 1
+        )
+      ));
+      const pendingCommands = await prisma.experimentFoundationProviderCommandV2.count({
+        where: {
+          executionAttemptId: { in: attemptIds },
+          commandState: { in: ['pending', 'claimed'] },
+        },
+      });
+      if (allTerminal && allCollected && pendingCommands === 0) break;
+      await delay(POLL_INTERVAL_MS);
+    }
+
+    const attempts = await prisma.experimentFoundationExecutionAttemptV2.findMany({
+      where: { id: { in: attemptIds } },
+      include: {
+        collectionAttempt: {
+          include: { provisionalOutputs: true },
+        },
+      },
+      orderBy: { cellKey: 'asc' },
+    });
+    assert.equal(attempts.length, MAXIMUM_CREATE_JOB_CALLS);
+    assert.ok(attempts.every((attempt) => (
+      attempt.lifecycleState === 'succeeded'
+      && attempt.terminalReasonCode === 'real_provider_succeeded'
+      && attempt.collectionAttempt?.collectionState === 'collected'
+      && attempt.collectionAttempt.provisionalOutputs.length === 1
+      && attempt.collectionAttempt.provisionalOutputs[0]?.outputClass === 'diagnostic_only'
+    )));
+    assert.ok(live.createJobCallCount() <= MAXIMUM_CREATE_JOB_CALLS);
+    assert.equal(new Set(
+      attempts.map((attempt) => JSON.stringify(attempt.externalJobRefJson)),
+    ).size, MAXIMUM_CREATE_JOB_CALLS);
+
+    const packBAfter = await countExperimentFoundationNamedLocalTables(
+      prisma,
+      [...PACK_B_TABLES],
+    );
+    const protectedAfter =
+      await digestExperimentFoundationNamedLocalTableRowVersions(prisma, protectedTables);
+    assert.deepEqual(
+      changedExperimentFoundationNamedLocalTables(protectedBefore, protectedAfter),
+      [],
+    );
+    const replayCountsBefore = structuredClone(packBAfter);
+    const replay = await intake.start(RUN_ID, BUSINESS_IDEMPOTENCY_KEY);
+    assert.equal(replay.replayed, true);
+    assert.deepEqual(
+      await countExperimentFoundationNamedLocalTables(prisma, [...PACK_B_TABLES]),
+      replayCountsBefore,
+    );
+    assertCapabilitiesRemainDisabled();
+
+    console.log(JSON.stringify({
+      schema_version: 't132-m7-l1-live-window-result@v1',
+      status: 'real_provider_canary_passed',
+      target_fingerprint: target.fingerprint,
+      run_id: RUN_ID,
+      run_manifest_hash: RUN_MANIFEST_HASH,
+      execution_bundle_revision_id: BUNDLE_REVISION_ID,
+      execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
+      image_preflight_request_hash: imageRequestHash,
+      job_ceiling: MAXIMUM_CREATE_JOB_CALLS,
+      create_job_call_count: live.createJobCallCount(),
+      distinct_terminal_job_count: MAXIMUM_CREATE_JOB_CALLS,
+      monetary_ceiling_cny: MAXIMUM_WINDOW_COST_CNY,
+      per_job_maximum_running_minutes: MAXIMUM_RUNNING_MINUTES_PER_JOB,
+      drain,
+      pack_b_row_deltas: rowDeltas(packBBefore, packBAfter),
+      replay_new_row_count: 0,
+      protected_table_change_count: 0,
+      scientific_evidence_write_count: 0,
+      evidence_eligibility: false,
+      capability_persistence_count: 0,
+      secret_output_count: 0,
+    }));
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+function buildDependencies(
+  prisma: PrismaClient,
+  profile: ExperimentFoundationAliyunRealProviderProfileV2,
+) {
+  const executionRepository = new PrismaExperimentFoundationExecutionV2Repository(prisma);
+  const cycleClosureRepository =
+    new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
+  const bundleService = new ExperimentFoundationExecutionBundleV2Service({
+    repository: new PrismaExperimentFoundationExecutionBundleV2Repository(prisma),
+  });
+  return {
+    executionRepository,
+    cycleClosureRepository,
+    bundleService,
+    profileResolver: async () => structuredClone(profile),
+  };
+}
+
+function buildLiveTransport(
+  credential: TemporaryCredential,
+): {
+  transport: ExperimentFoundationAliyunRealProviderTransportV2;
+  createJobCallCount: () => number;
+} {
+  const dlcClient = new PaiDlcClientConstructor(new $OpenApiUtil.Config({
+    accessKeyId: credential.access_key_id,
+    accessKeySecret: credential.access_key_secret,
+    securityToken: credential.security_token,
+    endpoint: `pai-dlc.${REGION_ID}.aliyuncs.com`,
+    regionId: REGION_ID,
+    protocol: 'https',
+    connectTimeout: 10_000,
+    readTimeout: 15_000,
+  }));
+  let createJobCallCount = 0;
+  const boundedClient: ExperimentFoundationAliyunPaiDlcSdkClientV2 = {
+    createJobWithOptions: async (request, headers, runtime) => {
+      if (createJobCallCount >= MAXIMUM_CREATE_JOB_CALLS) {
+        throw new Error('T132_M7_L1_CREATE_JOB_CEILING_EXCEEDED');
+      }
+      createJobCallCount += 1;
+      return dlcClient.createJobWithOptions(request, headers, runtime);
+    },
+    getJobWithOptions: dlcClient.getJobWithOptions.bind(dlcClient),
+    listJobsWithOptions: dlcClient.listJobsWithOptions.bind(dlcClient),
+    stopJobWithOptions: dlcClient.stopJobWithOptions.bind(dlcClient),
+  };
+  const ossClient = createExperimentFoundationAliyunOssSdkClientV2({
+    bucket_name: BUCKET_NAME,
+    region_id: REGION_ID,
+    credential,
+  });
+  return {
+    transport: new ExperimentFoundationAliyunRealProviderTransportV2({
+      client: boundedClient,
+      resultReader: new ExperimentFoundationAliyunOssExactResultReaderV2({
+        client: ossClient,
+        bucket_name: BUCKET_NAME,
+        region_id: REGION_ID,
+      }),
+    }),
+    createJobCallCount: () => createJobCallCount,
+  };
+}
+
+async function freshImagePreflight(
+  manifest: AuthoringManifest,
+  credential: TemporaryCredential,
+): Promise<string> {
+  const client = new AIWorkspaceClientConstructor(new $OpenApiUtil.Config({
+    accessKeyId: credential.access_key_id,
+    accessKeySecret: credential.access_key_secret,
+    securityToken: credential.security_token,
+    endpoint: `aiworkspace.${REGION_ID}.aliyuncs.com`,
+    regionId: REGION_ID,
+    protocol: 'https',
+    connectTimeout: 10_000,
+    readTimeout: 15_000,
+  }));
+  const response = await client.getImage(IMAGE_ID, new GetImageRequest({ verbose: false }));
+  const body = response.body;
+  assert.ok(body?.requestId);
+  assert.equal(body.imageUri, manifest.container_image.image_ref);
+  assert.equal(body.workspaceId, WORKSPACE_ID);
+  assert.equal(body.gmtModifiedTime, manifest.container_image.provider_managed_asset.modified_at);
+  assert.equal(body.size, manifest.container_image.provider_managed_asset.size_bytes);
+  assert.equal(body.accessibility, manifest.container_image.provider_managed_asset.accessibility);
+  assert.equal(body.sourceType, manifest.container_image.provider_managed_asset.source_type);
+  return sha256(Buffer.from(JSON.stringify({
+    operation: 'GetImage',
+    image_id: IMAGE_ID,
+    request_id: body.requestId,
+    image_uri: body.imageUri,
+    workspace_id: body.workspaceId,
+    gmt_modified_time: body.gmtModifiedTime,
+    size: body.size,
+    accessibility: body.accessibility,
+    source_type: body.sourceType,
+  }), 'utf8'));
+}
+
+function readTemporaryCredential(): TemporaryCredential {
+  const credential = {
+    access_key_id: requireEnvironment('ALIBABA_CLOUD_ACCESS_KEY_ID'),
+    access_key_secret: requireEnvironment('ALIBABA_CLOUD_ACCESS_KEY_SECRET'),
+    security_token:
+      process.env.ALIBABA_CLOUD_SECURITY_TOKEN
+      ?? requireEnvironment('ALIBABA_CLOUD_SESSION_TOKEN'),
+    expiration: requireEnvironment('ALIBABA_CLOUD_STS_EXPIRATION'),
+  };
+  if (!credential.access_key_id.startsWith('STS.')) {
+    throw new Error('M7-L1 requires a temporary STS AccessKey ID.');
+  }
+  const expirationMs = Date.parse(credential.expiration);
+  if (
+    !Number.isFinite(expirationMs)
+    || expirationMs - Date.now() < MINIMUM_STS_REMAINING_MS
+  ) {
+    throw new Error('M7-L1 STS must have at least 55 minutes remaining.');
+  }
+  assert.equal(requireEnvironment('T132_M7_L1_CONTROLLER_ROLE_ARN'), CONTROLLER_ROLE_ARN);
+  assert.equal(
+    requireEnvironment('T132_M7_L1_CONTROLLER_POLICY_SHA256'),
+    CONTROLLER_POLICY_SHA256,
+  );
+  return credential;
+}
+
+async function readManifest(): Promise<AuthoringManifest> {
+  const parsed = JSON.parse(await fs.readFile(MANIFEST_PATH, 'utf8')) as AuthoringManifest;
+  assert.equal(parsed.container_image.provider_managed_asset.asset_id, IMAGE_ID);
+  assert.equal(parsed.container_image.provider_managed_asset.region_id, REGION_ID);
+  assert.equal(parsed.offline_preview_profile.region_id, REGION_ID);
+  assert.equal(parsed.offline_preview_profile.workspace_id, WORKSPACE_ID);
+  assert.equal(
+    parsed.offline_preview_profile.workload_binding.output_uri_prefix,
+    `oss://${BUCKET_NAME}.oss-${REGION_ID}-internal.aliyuncs.com/output/`,
+  );
+  assert.deepEqual(
+    parsed.offline_preview_cells.map(({ cpu_cores, memory_mb, timeout_seconds }) => ({
+      cpu_cores,
+      memory_mb,
+      timeout_seconds,
+    })),
+    [
+      { cpu_cores: 2, memory_mb: 8192, timeout_seconds: 1800 },
+      { cpu_cores: 2, memory_mb: 8192, timeout_seconds: 1800 },
+    ],
+  );
+  return parsed;
+}
+
+function parseMode(args: string[]): RunnerMode {
+  const modeIndex = args.indexOf('--mode');
+  const mode = modeIndex >= 0 ? args[modeIndex + 1] : undefined;
+  if (mode !== 'offline-preflight' && mode !== 'execute') {
+    throw new Error('Usage: --mode offline-preflight|execute');
+  }
+  return mode;
+}
+
+function requireLiveAuthorization(): void {
+  if (process.env[LIVE_AUTHORIZATION_ENV] !== LIVE_AUTHORIZATION_VALUE) {
+    throw new Error(
+      `${LIVE_AUTHORIZATION_ENV} must equal the exact recorded two-job/¥50 authorization token.`,
+    );
+  }
+}
+
+function assertCapabilitiesRemainDisabled(): void {
+  for (const key of CAPABILITY_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined && !['false', '0', ''].includes(value.trim().toLowerCase())) {
+      throw new Error(`${key} must remain disabled; the runner uses process-local dependencies.`);
+    }
+  }
+}
+
+function requireEnvironment(key: string): string {
+  const value = process.env[key]?.trim();
+  if (!value) throw new Error(`${key} is required.`);
+  return value;
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function rowDeltas(
+  before: Record<string, number>,
+  after: Record<string, number>,
+): Record<string, number> {
+  return Object.fromEntries(
+    Object.keys(after).sort().map((table) => [
+      table,
+      (after[table] ?? 0) - (before[table] ?? 0),
+    ]),
+  );
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+await main();

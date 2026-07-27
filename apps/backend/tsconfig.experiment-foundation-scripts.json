@@ -22,6 +22,7 @@
     "scripts/plan-experiment-foundation-scifact-authority.unit.test.ts",
     "scripts/run-experiment-foundation-d19-spine.ts",
     "scripts/run-experiment-foundation-cloud-preflight.ts",
+    "scripts/run-experiment-foundation-m7-l1-live-window.ts",
     "scripts/run-experiment-foundation-packa-product-landing.ts",
     "scripts/run-experiment-foundation-packb-local-app-smoke.ts",
     "scripts/run-experiment-foundation-packb-product-landing.ts",

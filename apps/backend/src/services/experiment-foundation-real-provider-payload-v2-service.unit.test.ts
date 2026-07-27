@@ -69,6 +69,11 @@ test('real-provider payload binds exact OSS mounts, environment and runtime role
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_CODE_DIR, '/mnt/pea-code');
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_INPUT_1_DIR, '/mnt/pea-input/1');
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_OUTPUT_DIR, '/mnt/pea-output');
+  assert.equal(request.JobSpecs[0].EcsSpec, profile.resource_binding.mode === 'public_resource'
+    ? profile.resource_binding.ecs_spec
+    : undefined);
+  assert.equal('ResourceConfig' in request.JobSpecs[0], false);
+  assert.match(request.Settings.Tags['ef-request-binding'], /^[a-f0-9]{64}$/u);
   assert.deepEqual(
     JSON.parse(request.Envs.EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON),
     {
