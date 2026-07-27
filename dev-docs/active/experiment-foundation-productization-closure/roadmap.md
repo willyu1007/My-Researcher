@@ -1,10 +1,10 @@
 # T-132 Experiment Foundation Productization Closure — Roadmap
 
-## Current execution state — 2026-07-26
+## Current execution state — 2026-07-28
 
 - M0-M6 are complete. The final M6 convergence `t132-m6-release-20260725-v5` passed M6-01..M6-10, including fresh Pack B/Pack C/M5/M7 child gates, the disposable LIT-0204 typed-v2 import, OpenAPI/context verification, 5/5/5 workflow usage-fit, and the named-local `control_flow_validated_no_paper_evidence` closure with zero scientific writes.
 - M7-I0..I3, the named-local M7 migration and QR hardening are complete; `t132-m7-offline-20260724-v3` passed M7-01..M7-15. Both real-provider capabilities remain default `false`, and no live provider job or scientific evidence has been created.
-- The current frontier is M7-L1 material preparation and explicit authorization. OSS step A is complete for private `pea-m7-canary-6194-202607` in `cn-shanghai`, including SSE-OSS/AES256 and enabled 30-day `output/` cleanup; final bucket-bound RAM policy JSON/digests are prepared. RAM roles/policies, ACR, immutable mirror manifests, short-lived controller STS and final authorization do not yet exist.
+- The current frontier is M7-L1 executable-lineage preparation. OSS input, RAM roles/policies, frozen SciFact authority, the named-local ExecutionBundle v2 and the provider-managed image comparison are complete; ACR was deliberately abandoned in favor of the official-image + OSS route. The owner supplied a short-lived controller STS and authorized a 2026-07-28 two-job/¥50 live window, but final zero-write preflight found that named-local still has only the historical simulation WorkOrder/Run v1. No job was submitted. A separately authorized successor WorkOrder v2 → T1-T4 → executable Run apply is now the immediate prerequisite.
 - EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 remain open but are not M7-L1 prerequisites. They require explicit implementation or named-task transfer before T-132 archival; UI journey and semantic retrieval delivery remain outside T-132 under D-24.
 
 ### Historical delivery detail through 2026-07-25

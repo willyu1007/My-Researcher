@@ -1,5 +1,15 @@
 # 04 Verification
 
+## M7-L1 live-window final zero-write preflight — 2026-07-28
+
+Outcome: **blocked before provider submission because the D-23 executable Run lineage is absent; paid authorization was not consumed**.
+
+- Recorded authorization: `M7-L1 authorized: 2026-07-28, ceiling ¥50, 2 jobs`.
+- Temporary STS preflight: repo-external file present, owner `yurui`, mode `0600`, four required variables present and unexpired at inspection; no credential value was printed or persisted.
+- Named-local census: one PI branch, one admitted WorkOrder revision sequence 1 with `work_order_schema_version=v1`, one EF Run and two RunCells.
+- Exact blocker: the sole RunRecipe has `recipe_schema_version=v1`, `entrypoint=experiment-foundation-v2://d19/materialize-only`, and null `executionBundleRevisionId/Hash`. No successor WorkOrder/Run v2 is bound to frozen bundle revision `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48`.
+- Effect census: database writes 0; capability changes 0; cloud/provider calls 0; `CreateJob` 0/2; billable jobs 0; scientific/evidence writes 0. The next gate is separately authorized named-local successor lineage apply and exact replay, not provider submission.
+
 ## M7-L1 fresh pre-submit GetImage comparison — 2026-07-27
 
 Outcome: **passed for exact provider-managed image metadata; no write, capability or paid action occurred**.
