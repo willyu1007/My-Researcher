@@ -1643,14 +1643,18 @@ function assertStoredSchemaVersion(
   label: string,
 ): void {
   if (
-    relationalVersion !== STORED_SCHEMA_VERSION_V1
-    || snapshotVersion !== STORED_SCHEMA_VERSION_V1
+    relationalVersion !== snapshotVersion
+    || !isStoredMaterializationSchemaVersion(relationalVersion)
   ) {
     throw constraint(
       'MATERIALIZATION_KEY_CONFLICT',
-      `${label} schema version drifted from v1`,
+      `${label} schema version must bind exact v1/v2 content`,
     );
   }
+}
+
+function isStoredMaterializationSchemaVersion(value: unknown): value is 'v1' | 'v2' {
+  return value === STORED_SCHEMA_VERSION_V1 || value === 'v2';
 }
 
 function constraint(
@@ -1682,7 +1686,15 @@ function mapEfWriteError(
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === 'P2002') {
-      return constraint(fallback, 'EF v2 uniqueness constraint rejected a changed replay');
+      const target = Array.isArray(error.meta?.target)
+        ? error.meta.target.join(', ')
+        : typeof error.meta?.target === 'string'
+          ? error.meta.target
+          : 'unknown unique target';
+      return constraint(
+        fallback,
+        `EF v2 uniqueness constraint rejected a changed replay (${target})`,
+      );
     }
     if (error.code === 'P2003') {
       return constraint(

@@ -30,6 +30,11 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
 import type {
+  ExperimentFoundationExecutableRunRecipeV2,
+  ExperimentFoundationExecutableTrainingTaskSpecV2,
+  ExperimentFoundationExecutionBundleExactRevisionRefV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import type {
   BranchHeadAdvancedEventV1,
   EvidenceCandidateQualifiedEventV1,
   ExperimentFoundationIntegrationInboxV2,
@@ -71,6 +76,7 @@ import {
   HEAD_CONSUMER,
   PaperImplementationExperimentV2HeadService,
 } from '../../services/paper-implementation-experiment-v2-head-service.js';
+import { createRealProviderV2TestFixture } from '../../services/experiment-foundation-real-provider-v2-test-fixture.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from './prisma-experiment-foundation-v2-repository.js';
@@ -1565,6 +1571,34 @@ test('PI Prisma spine rejects persisted typed snapshot, canonical hash, and plan
   revision.approvedPlanHash = originalApprovedPlanHash;
 });
 
+test('PI Prisma spine persists and replays an exact executable WorkOrder v2 revision', async () => {
+  const fake = makeFakePrismaClient();
+  const repository = new PrismaPaperImplementationExperimentSpineV2Repository(fake.client);
+  const admission = piExecutableAdmissionInput();
+
+  const committed = await repository.commitAdmission(admission);
+  assert.equal(
+    committed.revision.work_order_revision.work_order_schema_version,
+    'v2',
+  );
+  assert.equal(
+    (fake.tables().paperImplementationExperimentWorkOrderRevisionV2 ?? [])[0]
+      ?.workOrderSnapshotSchemaVersion,
+    'v2',
+  );
+
+  const replay = await repository.findRevisionBundle(
+    admission.branch.branch_id,
+    admission.revision.work_order_revision_id,
+  );
+  assert.ok(replay);
+  assert.equal(replay.revision.content_hash, admission.revision.content_hash);
+  assert.equal(
+    replay.revision.work_order_revision.work_order_schema_version,
+    'v2',
+  );
+});
+
 test('PI T1 rollback leaves no branch/revision/admission when outbox insert fails', async () => {
   const fake = makeFakePrismaClient([
     'paperImplementationExperimentIntegrationOutboxV2',
@@ -2072,6 +2106,43 @@ test('Pack B prerequisite resolution trusts only the exact validated EF head ack
       );
     }
   }
+});
+
+test('EF Prisma spine persists and replays exact executable recipe and task-spec v2 snapshots', async () => {
+  const fake = makeFakePrismaClient();
+  const repository = new PrismaExperimentFoundationSpineV2Repository(fake.client);
+  const sourceEvent = executablePiAdmissionEvent();
+  const bundle = efExecutableMaterialization(sourceEvent);
+  seedExactReadiness(fake.tables(), sourceEvent);
+
+  const committed = await repository.commitMaterialization(bundle, sourceEvent);
+  assert.equal(committed.run_recipe.recipe_snapshot.recipe_schema_version, 'v2');
+  assert.equal('execution_bundle' in committed.run_recipe, true);
+  assert.equal(sourceEvent.payload.work_order_revision.work_order_schema_version, 'v2');
+  if (
+    !('execution_bundle' in committed.run_recipe)
+    || sourceEvent.payload.work_order_revision.work_order_schema_version !== 'v2'
+  ) {
+    assert.fail('Expected exact executable v2 materialization');
+  }
+  const expectedExecutionBundle = sourceEvent.payload.work_order_revision.execution_bundle;
+  assert.equal(
+    committed.run_recipe.execution_bundle.execution_bundle_revision_id,
+    expectedExecutionBundle.execution_bundle_revision_id,
+  );
+  assert.equal(
+    committed.task_specs.every(
+      (taskSpec) => 'execution_bundle' in taskSpec
+        && taskSpec.execution_bundle.content_hash
+          === expectedExecutionBundle.content_hash,
+    ),
+    true,
+  );
+
+  const replayed = await repository.commitMaterialization(bundle, sourceEvent);
+  assert.deepEqual(replayed, committed);
+  assert.equal((fake.tables().experimentFoundationRunRecipeV2 ?? []).length, 1);
+  assert.equal((fake.tables().experimentFoundationTrainingTaskSpecV2 ?? []).length, 2);
 });
 
 test('EF Prisma spine rejects persisted recipe and task-spec schema-version drift', async () => {
@@ -3174,6 +3245,38 @@ function piAdmissionInput(): PaperImplementationExperimentV2CommitAdmissionInput
   };
 }
 
+function piExecutableAdmissionInput(): PaperImplementationExperimentV2CommitAdmissionInput {
+  const input = piAdmissionInput();
+  input.revision.work_order_revision = {
+    ...input.revision.work_order_revision,
+    work_order_schema_version: 'v2',
+    execution_bundle: {
+      execution_bundle_id: 'execution-bundle-1',
+      execution_bundle_revision_id: 'execution-bundle-revision-1',
+      revision_sequence: 1,
+      content_hash: HASH_D,
+    },
+  };
+  input.revision.content_hash = serverHashPaperImplementationExperimentV2WorkOrderRevision(
+    input.revision.work_order_revision,
+  );
+  input.revision.approved_plan_hash = serverHashPaperImplementationExperimentV2ApprovedPlan({
+    branch_frame_hash: input.branch.branch_frame_hash,
+    work_order_revision_hash: input.revision.content_hash,
+    cell_plan_hash: input.revision.cell_plan_hash,
+  });
+  input.admission.approved_plan_hash = input.revision.approved_plan_hash;
+  input.outbox.event.work_order_revision_hash = input.revision.content_hash;
+  input.outbox.event.approved_plan_hash = input.revision.approved_plan_hash;
+  input.outbox.event.payload.work_order_revision = input.revision.work_order_revision;
+  input.outbox.event.payload_hash = serverHashExperimentV2EventPayload(
+    input.outbox.event.event_type,
+    input.outbox.event.schema_version,
+    input.outbox.event.payload,
+  );
+  return input;
+}
+
 function nextPiAdmissionInput(
   previous: PaperImplementationExperimentV2CommitAdmissionInput,
   currentBranch: PaperImplementationExperimentWorkOrderBranchV2,
@@ -3417,6 +3520,159 @@ function branchHeadEventForMaterialization(
       'v1',
       payload,
     ),
+  };
+}
+
+function executablePiAdmissionEvent(): WorkOrderRevisionAdmittedEventV1 {
+  const base = piAdmissionInput().outbox.event as WorkOrderRevisionAdmittedEventV1;
+  const fixture = createRealProviderV2TestFixture();
+  const executionBundle: ExperimentFoundationExecutionBundleExactRevisionRefV2 = {
+    execution_bundle_id: fixture.bundle.execution_bundle_id,
+    execution_bundle_revision_id: fixture.bundle.execution_bundle_revision_id,
+    revision_sequence: fixture.bundle.revision_sequence,
+    content_hash: fixture.bundle.content_hash,
+  };
+  const workOrderRevision = {
+    ...base.payload.work_order_revision,
+    work_order_schema_version: 'v2' as const,
+    execution_bundle: executionBundle,
+  };
+  const workOrderRevisionHash =
+    serverHashPaperImplementationExperimentV2WorkOrderRevision(workOrderRevision);
+  const approvedPlanHash = serverHashPaperImplementationExperimentV2ApprovedPlan({
+    branch_frame_hash: base.payload.branch_frame_hash,
+    work_order_revision_hash: workOrderRevisionHash,
+    cell_plan_hash: base.cell_plan_hash,
+  });
+  const payload = {
+    ...base.payload,
+    work_order_revision: workOrderRevision,
+  };
+  return {
+    ...base,
+    work_order_revision_hash: workOrderRevisionHash,
+    approved_plan_hash: approvedPlanHash,
+    payload,
+    payload_hash: serverHashExperimentV2EventPayload(
+      'WorkOrderRevisionAdmitted',
+      'v1',
+      payload,
+    ),
+  };
+}
+
+function efExecutableMaterialization(
+  sourceEvent: WorkOrderRevisionAdmittedEventV1,
+): ExperimentFoundationV2MaterializationBundle {
+  assert.equal(sourceEvent.payload.work_order_revision.work_order_schema_version, 'v2');
+  const fixture = createRealProviderV2TestFixture();
+  const base = efMaterialization(sourceEvent);
+  const executionBundle = sourceEvent.payload.work_order_revision.execution_bundle;
+  const recipeSnapshot = {
+    recipe_schema_version: 'v2' as const,
+    execution_bundle: executionBundle,
+    entrypoint: fixture.bundle.revision_content.entrypoint,
+    arguments: [...fixture.bundle.revision_content.arguments],
+    dependency_lock_digest: fixture.bundle.revision_content.dependency_lock_digest,
+    environment_keys: [],
+    output_contract: structuredClone(fixture.bundle.revision_content.output_contract),
+  };
+  const runRecipe: ExperimentFoundationExecutableRunRecipeV2 = {
+    ...base.run_recipe,
+    execution_bundle: executionBundle,
+    recipe_snapshot: recipeSnapshot,
+    recipe_hash: serverHashExperimentFoundationV2RunRecipe({
+      materialization_key: base.run_recipe.materialization_key,
+      version_lock_id: base.run_recipe.version_lock_id,
+      readiness_attestation_id: base.run_recipe.readiness_attestation_id,
+      recipe_snapshot: recipeSnapshot,
+    }),
+  };
+  const taskSpecs: ExperimentFoundationExecutableTrainingTaskSpecV2[] =
+    base.task_specs.map((taskSpec, index): ExperimentFoundationExecutableTrainingTaskSpecV2 => {
+      const admittedCell = sourceEvent.payload.exact_cells[index]!;
+      const commandSnapshot = {
+        command: fixture.bundle.revision_content.entrypoint,
+        arguments: [
+          ...fixture.bundle.revision_content.arguments,
+          `--cell-key=${admittedCell.cell_key}`,
+        ],
+      };
+      const ioSnapshot = {
+        input_keys: ['version_lock', 'admitted_cell', 'dataset_mirror:1'],
+        output_keys: [
+          'real_provider_result_envelope',
+        ] as Array<'real_provider_result_envelope' | 'real_provider_diagnostic_log'>,
+        input_mirror_ordinals: [1],
+        result_object_name: fixture.bundle.revision_content.output_contract.result_object_name,
+        result_envelope_schema:
+          fixture.bundle.revision_content.output_contract.result_envelope_schema,
+        parser_profile_version:
+          fixture.bundle.revision_content.output_contract.parser_profile_version,
+        parser_profile_hash:
+          fixture.bundle.revision_content.output_contract.parser_profile_hash,
+      };
+      const retrySnapshot = {
+        max_attempts: sourceEvent.payload.work_order_revision.run_policy.max_attempts_per_cell,
+        timeout_seconds: sourceEvent.payload.work_order_revision.run_policy.timeout_seconds,
+      };
+      const executable: ExperimentFoundationExecutableTrainingTaskSpecV2 = {
+        ...taskSpec,
+        execution_bundle: executionBundle,
+        command_snapshot: commandSnapshot,
+        io_snapshot: ioSnapshot,
+        retry_snapshot: retrySnapshot,
+        task_spec_hash: '',
+      };
+      executable.task_spec_hash = serverHashExperimentFoundationV2TrainingTaskSpec({
+        task_spec_schema_version: 'v2',
+        execution_bundle: executionBundle,
+        materialization_key: executable.materialization_key,
+        run_recipe_id: executable.run_recipe_id,
+        external_pi_work_order_revision_id: executable.external_pi_work_order_revision_id,
+        external_pi_work_order_revision_hash: executable.external_pi_work_order_revision_hash,
+        external_pi_cell_id: executable.external_pi_cell_id,
+        external_pi_cell_hash: executable.external_pi_cell_hash,
+        admitted_cell: admittedCell,
+        command_snapshot: commandSnapshot,
+        io_snapshot: ioSnapshot,
+        resource_snapshot: executable.resource_snapshot,
+        retry_snapshot: retrySnapshot,
+      });
+      return executable;
+    });
+  const runCells = base.run_cells.map((cell, index) => ({
+    ...cell,
+    training_task_spec_hash: taskSpecs[index]!.task_spec_hash,
+  }));
+  const runManifestHash = serverHashExperimentFoundationV2RunManifest(runCells);
+  const frozenPayload = {
+    ...base.outbox.event.payload,
+    run_recipe_hash: runRecipe.recipe_hash,
+    run_manifest_hash: runManifestHash,
+    task_spec_bindings: base.outbox.event.payload.task_spec_bindings.map((binding, index) => ({
+      ...binding,
+      training_task_spec_hash: taskSpecs[index]!.task_spec_hash,
+    })),
+  };
+  return {
+    ...base,
+    run_recipe: runRecipe,
+    task_specs: taskSpecs,
+    run: { ...base.run, run_manifest_hash: runManifestHash },
+    run_cells: runCells,
+    outbox: {
+      ...base.outbox,
+      event: {
+        ...base.outbox.event,
+        payload: frozenPayload,
+        payload_hash: serverHashExperimentV2EventPayload(
+          'RunManifestFrozen',
+          'v1',
+          frozenPayload,
+        ),
+      },
+    },
   };
 }
 

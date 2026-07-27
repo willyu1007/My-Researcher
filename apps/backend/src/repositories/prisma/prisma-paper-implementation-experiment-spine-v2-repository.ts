@@ -175,7 +175,8 @@ implements PaperImplementationExperimentSpineV2Repository {
             branchId: input.branch.branch_id,
             revisionSequence: input.revision.revision_sequence,
             parentRevisionId: persistedBranch.currentRevisionId,
-            workOrderSnapshotSchemaVersion: STORED_SCHEMA_VERSION_V1,
+            workOrderSnapshotSchemaVersion:
+              input.revision.work_order_revision.work_order_schema_version,
             workOrderSnapshotJson: toInputJson(input.revision.work_order_revision),
             contentHash: input.revision.content_hash,
             cellPlanHash: input.revision.cell_plan_hash,
@@ -847,7 +848,7 @@ function mapRevision(
     reasonCode,
     `PI WorkOrder revision snapshot ${row.id}`,
   );
-  assertStoredSchemaVersion(
+  assertStoredWorkOrderSchemaVersion(
     row.workOrderSnapshotSchemaVersion,
     snapshot.work_order_schema_version,
     reasonCode,
@@ -1167,7 +1168,9 @@ function assertAdmissionScope(
 ): void {
   if (
     input.branch.branch_frame.frame_schema_version !== STORED_SCHEMA_VERSION_V1
-    || input.revision.work_order_revision.work_order_schema_version !== STORED_SCHEMA_VERSION_V1
+    || !isStoredWorkOrderSchemaVersion(
+      input.revision.work_order_revision.work_order_schema_version,
+    )
     || input.revision.branch_id !== input.branch.branch_id
     || input.admission.work_order_revision_id !== input.revision.work_order_revision_id
     || input.admission.approved_plan_hash !== input.revision.approved_plan_hash
@@ -1599,6 +1602,24 @@ function assertStoredSchemaVersion(
   ) {
     throw constraint(reasonCode, `${label} schema version drifted from v1`);
   }
+}
+
+function assertStoredWorkOrderSchemaVersion(
+  relationalVersion: string,
+  snapshotVersion: unknown,
+  reasonCode: ConstructorParameters<typeof ExperimentSpineV2RepositoryConstraintError>[0],
+  label: string,
+): void {
+  if (
+    relationalVersion !== snapshotVersion
+    || !isStoredWorkOrderSchemaVersion(relationalVersion)
+  ) {
+    throw constraint(reasonCode, `${label} schema version must bind exact v1/v2 content`);
+  }
+}
+
+function isStoredWorkOrderSchemaVersion(value: unknown): value is 'v1' | 'v2' {
+  return value === 'v1' || value === 'v2';
 }
 
 function constraint(

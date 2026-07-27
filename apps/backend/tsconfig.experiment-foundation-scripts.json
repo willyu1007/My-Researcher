@@ -7,6 +7,7 @@
     "types": ["node"]
   },
   "files": [
+    "scripts/apply-experiment-foundation-m7-executable-lineage.ts",
     "scripts/apply-experiment-foundation-scifact-execution-bundle.ts",
     "scripts/apply-experiment-foundation-scifact-execution-bundle.unit.test.ts",
     "scripts/apply-experiment-foundation-scifact-authority.ts",
