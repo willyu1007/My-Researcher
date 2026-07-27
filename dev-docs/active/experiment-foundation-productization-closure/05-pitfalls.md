@@ -731,3 +731,12 @@ When adding an entry, use:
 - Fix/workaround: define separate SciFact corpus/query DataPolicies and Datasets, validate them in memory through the normal service, and keep named-local apply as an explicit bounded authorization gate.
 - Prevention: require source identity, checksum manifest, split protocol and DataPolicy exactness before binding any mirror. Never select a revision solely because its `dataset_role` matches.
 - References: `workloads/ragperf-canary/manifests/scifact-authority-v1.json`; `apps/backend/scripts/plan-experiment-foundation-scifact-authority.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-27 — Lifecycle operations must be counted by persisted table rows
+
+- Symptom: the first bounded authorization list totaled 22 rows—four identities, four revisions, four freeze receipts and 10 lifecycle events—but omitted four `ExperimentFoundationAssetLifecycleProjectionV2` rows.
+- Root cause: the census counted append-only lifecycle events as semantic operations without following the repository's `compareAndSwapLifecycleProjection` persistence path. Every one of the four assets must also maintain one rebuildable current-state projection.
+- What was tried: immediately before apply, the repository and Prisma write paths were re-inspected against the proposed authorization. The mismatch was found before setting the process authorization or connecting the writable importer; no database write occurred.
+- Fix/workaround: correct the bound to 26 rows, make the importer accept only the exact 26-row authorization string, reject the obsolete 22-row string before database access, and test first apply plus zero-new exact replay.
+- Prevention: derive future write censuses from concrete table-level mutations, including event-maintained projections and receipts, rather than from high-level service operations alone. Keep the exact row total in both the authorization gate and tests.
+- References: `apps/backend/scripts/apply-experiment-foundation-scifact-authority.ts`; `apps/backend/scripts/apply-experiment-foundation-scifact-authority.unit.test.ts`; `01-plan.md`; `02-architecture.md`; `04-verification.md`.

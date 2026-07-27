@@ -3,7 +3,7 @@
 ## Status
 - Current status: `in-progress`
 - Last updated: 2026-07-27
-- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验，并完成 SciFact 2 DataPolicy + 2 Dataset 的 default-off 离线 authority plan；named-local apply、bundle freeze、非本地 rollout、provider job write 和 scientific execution 均未执行。
+- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验，并完成 SciFact 2 DataPolicy + 2 Dataset 的 default-off 离线 authority plan和 restart-safe importer。最初 22-row 授权清单漏计 4 条强制 lifecycle projection；代码在数据库连接前拒绝该旧授权，named-local apply、bundle freeze、非本地 rollout、provider job write 和 scientific execution均未执行。
 
 ## 2026-07-27 — M7-L1 SciFact authority plan
 
@@ -11,7 +11,8 @@
 - Added `workloads/ragperf-canary/manifests/scifact-authority-v1.json`. The manifest pins the BEIR archive MD5/SHA-256, upstream SciFact license file at commit `68b98a56d93e0f9da0d2aab4e6c3294699a0f72e`, separate `ODC-By-1.0` corpus and `CC-BY-4.0` query policies, and exact single-file Dataset checksum/split snapshots.
 - Added a default-off planner that freezes those two policies first and then freezes two Dataset drafts against the exact policy refs through the normal EF v2 service and injection-only transactional repository. The planner requires exact role/ordinal/path/byte/SHA-256 agreement with the uploaded mirror manifest.
 - The stable planned DataPolicy hashes are `sha256:3a19555e64e6a0e008d6ffda5c08bded06d73986629ad90401f58b118bf4aa70` and `sha256:5199b666600d1aa09b25aaa7992d5b45f9434fea3a9ecf458e0af0fe46e73231`; planned Dataset hashes are `sha256:29e0535234976085ca18a7c7fff80a1a93207ecbaf8a5912a4bd712341ff50ff` and `sha256:5e37b54c4aee0798f67070e9b9148d5ebe30e50ad3c0175382de6cc3cb8a86fa`.
-- The next bounded write, still unauthorized, is exactly 4 identities, 4 revisions, 4 freeze receipts and 10 lifecycle events on the reviewed named-local target. No readiness, ExecutionBundle, provider, scientific or cloud rows are part of that write.
+- Added `apply-experiment-foundation-scifact-authority.ts` as a restart-safe named-local importer. It requires the reviewed target URL/fingerprint and an exact 26-row process authorization; validates reserved draft/revision/lifecycle prefixes; applies policies before Datasets; reuses exact identities, revisions, receipts, events and projections on replay; rejects semantic drift; denies global fetch; and compares every application table outside the eight expected table families before/after.
+- The corrected bounded write, still unauthorized, is exactly 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections on the reviewed named-local target (26 rows total). The earlier 22-row approval request omitted the projections maintained by lifecycle compare-and-swap and was caught before any database write. No readiness, ExecutionBundle, provider, scientific or cloud rows are part of this write.
 
 ## 2026-07-27 — M7-L1 provider-managed image identity contract
 

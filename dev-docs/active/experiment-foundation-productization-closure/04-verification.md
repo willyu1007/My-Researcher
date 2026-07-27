@@ -2,19 +2,20 @@
 
 ## M7-L1 SciFact authority planning — 2026-07-27
 
-Outcome: **read-only named-local inventory and database-free authority planning passed; named-local apply remains unauthorized**.
+Outcome: **read-only named-local inventory, database-free authority planning and offline importer verification passed; named-local apply remains unauthorized**.
 
 - Named-local inventory ran in `REPEATABLE READ` with server-enforced `SET TRANSACTION READ ONLY`; `transaction_read_only=on`.
 - The inventory found exactly the historical `ragperf-wikipedia-corpus` and `ragperf-natural-questions-workload` Dataset revisions plus their two DataPolicy revisions. No SciFact identity/revision existed.
 - Official source-policy review reconfirmed the upstream SciFact split: claims use `CC-BY-4.0`; corpus abstracts use S2ORC `ODC-By-1.0`. The authoring manifest pins upstream commit `68b98a56d93e0f9da0d2aab4e6c3294699a0f72e`.
 - `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts` → passed, including Prisma Client generation and the new planner.
-- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.unit.test.ts` → 3/3 passed: exact stable refs/hashes, mirror-digest drift rejection and broadened-authorization rejection.
+- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.unit.test.ts scripts/apply-experiment-foundation-scifact-authority.unit.test.ts` → 6/6 passed: exact stable refs/hashes, mirror-digest drift rejection, broadened manifest authorization rejection, first-apply 26-row census, exact zero-new replay, reserved-draft drift rejection, and obsolete 22-row process authorization rejection.
 - Direct planner execution → `status=passed`, `database_access=none`, `cloud_access=none`.
 - The planner froze 2 DataPolicy and 2 Dataset revisions in memory, and verified exact mirror role/ordinal/path/record-count/byte/SHA-256 agreement. Planned exact hashes are recorded in `03-implementation-notes.md`.
-- Planned future write census: 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events, 0 readiness attestations and 0 ExecutionBundle revisions.
+- Corrected planned future write census: 4 identities, 4 revisions, 4 freeze receipts, 10 lifecycle events and 4 lifecycle projections = 26 rows total; 0 readiness attestations and 0 ExecutionBundle revisions. The original 22-row list omitted the repository-maintained projections and therefore did not authorize an apply.
+- CLI negative-space check with `T132_SCIFACT_NAMED_LOCAL_APPLY_AUTHORIZATION` absent failed closed before database connection with the exact corrected-scope error. The importer also requires the reviewed named-local target fingerprint, denies global fetch, and digests every application table outside the eight expected families.
 - An initial post-run JSON extraction wrapped the planner with `pnpm`, whose human-readable package banner made the redirected file non-JSON. Direct Node invocation produced the exact machine summary; no planner assertion, database operation or cloud operation failed.
 - Final server-enforced read-only census remained unchanged at 2 Dataset identities/revisions and 2 DataPolicy identities/revisions; SciFact Dataset and DataPolicy identity counts remained 0.
-- No database/cloud/provider access, capability change, credential, bundle freeze, `CreateJob` or scientific write occurred. All manifest authorization booleans remain `false`.
+- No database write, cloud/provider access, capability change, credential, bundle freeze, `CreateJob` or scientific write occurred. The read-only inventory is the only database access in the SciFact authority-planning phase, and all manifest authorization booleans remain `false`.
 
 ## M7-L1 provider-managed image identity contract — 2026-07-27
 
@@ -29,7 +30,7 @@ Outcome: **targeted checks, type checks and full shared/backend regression passe
 - After the full run, one additional positive v2 freeze/resolve assertion was added; the final direct 7/7 suite and backend typecheck passed against that exact source state.
 - Positive coverage accepts the exact PAI provider-managed v2 identity and redacted manifest v2. Negative coverage rejects a surrogate `image_digest`, a scientific scope value and cross-region image URI drift.
 - Compatibility coverage retains the original v1 OCI digest and v1 redacted manifest path. Provider-managed durable JSON contains neither raw ImageId nor raw ImageUri.
-- The first shared schema run failed because `size_bytes=3,803,970,629` exceeded the generic Int32 schema. The corrected JSON-only safe-integer field passed; this did not alter any PostgreSQL Int boundary.
+- The first shared schema run failed because `size_bytes=3,803,970,629` exceeded the generic Int32 schema. The corrected JSON-only safe-integer field passed without altering any PostgreSQL Int boundary.
 - Provider/cloud writes, capability changes, credentials, `CreateJob`, database writes and scientific evidence writes were all zero.
 
 ## M7-L1 SciFact source and OSS input upload closure — 2026-07-27
@@ -65,7 +66,7 @@ unauthorized**.
 
 ## M7-L1 official-image address and DLC OSS authorization preflight — 2026-07-27
 
-Outcome at this historical checkpoint: **provider image address and platform OSS dependency passed; image identity was then unresolved; no write or billable action occurred**. The `M7-L1 provider-managed image identity contract` verification section supersedes the identity blocker.
+Outcome at the historical preflight checkpoint: **provider image address and platform OSS dependency passed; image identity was then unresolved; no write or billable action occurred**. The `M7-L1 provider-managed image identity contract` verification section supersedes the identity blocker.
 
 - The workspace official-image table and read-only [`GetImage`](https://help.aliyun.com/zh/pai/developer-reference/api-aiworkspace-2021-02-04-getimage) request agreed on `ImageId=image-liuxvj7p2qcnflha84`. The API returned HTTP 200, RequestId `019FA081-E47D-52E2-8468-FBCF1C11B46F`, and exact `ImageUri=dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`.
 - Returned metadata was region `cn-shanghai`, accessibility `PUBLIC`, source type `Import`, size `3803970629`, and create/modify time `2026-07-02T04:35:35.000Z`. The console row advertises CPU, PyTorch 2.12, Python 3.11 and DSW/DLC support.

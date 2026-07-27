@@ -27,9 +27,9 @@ const MIRROR_MANIFEST_PATH = path.join(
 );
 const PLAN_TIME = '2026-07-27T00:00:00.000Z';
 
-type SciFactRole = 'corpus' | 'query_workload';
+export type SciFactRole = 'corpus' | 'query_workload';
 
-interface SciFactAuthorityManifest {
+export interface SciFactAuthorityManifest {
   schema: 'RagperfCanarySciFactAuthorityManifest@v1';
   review_scope: 't132-m7-l1-diagnostic-only';
   source_evidence: {
@@ -63,7 +63,7 @@ interface SciFactAuthorityManifest {
   };
 }
 
-interface SciFactMirrorManifest {
+export interface SciFactMirrorManifest {
   schema: 'RagperfCanaryDatasetMirrorManifest@v1';
   source: {
     archive_url: string;
@@ -99,6 +99,7 @@ export interface SciFactAuthorityPlan {
     dataset_revisions: 2;
     freeze_command_receipts: 4;
     lifecycle_events_after_apply: 10;
+    lifecycle_projections_after_apply: 4;
     readiness_attestations: 0;
     execution_bundle_revisions: 0;
   };
@@ -121,8 +122,8 @@ export async function buildSciFactAuthorityPlan(
   authorityValue: unknown,
   mirrorValue: unknown,
 ): Promise<SciFactAuthorityPlan> {
-  const authority = parseAuthorityManifest(authorityValue);
-  const mirrors = parseMirrorManifest(mirrorValue);
+  const authority = parseSciFactAuthorityManifest(authorityValue);
+  const mirrors = parseSciFactMirrorManifest(mirrorValue);
   assertSourceEvidenceMatches(authority, mirrors);
 
   const revisionIds = [
@@ -203,6 +204,7 @@ export async function buildSciFactAuthorityPlan(
       dataset_revisions: 2,
       freeze_command_receipts: 4,
       lifecycle_events_after_apply: 10,
+      lifecycle_projections_after_apply: 4,
       readiness_attestations: 0,
       execution_bundle_revisions: 0,
     },
@@ -225,7 +227,7 @@ export async function buildSciFactAuthorityPlan(
   };
 }
 
-function parseAuthorityManifest(value: unknown): SciFactAuthorityManifest {
+export function parseSciFactAuthorityManifest(value: unknown): SciFactAuthorityManifest {
   const record = requireRecord(value, 'authority manifest');
   if (
     record.schema !== 'RagperfCanarySciFactAuthorityManifest@v1'
@@ -261,7 +263,7 @@ function parseAuthorityManifest(value: unknown): SciFactAuthorityManifest {
   return value as SciFactAuthorityManifest;
 }
 
-function parseMirrorManifest(value: unknown): SciFactMirrorManifest {
+export function parseSciFactMirrorManifest(value: unknown): SciFactMirrorManifest {
   const record = requireRecord(value, 'mirror manifest');
   if (record.schema !== 'RagperfCanaryDatasetMirrorManifest@v1') {
     throw new Error('SciFact mirror manifest schema is invalid');

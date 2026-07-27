@@ -7,6 +7,8 @@
     "types": ["node"]
   },
   "files": [
+    "scripts/apply-experiment-foundation-scifact-authority.ts",
+    "scripts/apply-experiment-foundation-scifact-authority.unit.test.ts",
     "scripts/experiment-foundation-named-local-evidence.ts",
     "scripts/experiment-foundation-d19-disposable-database.ts",
     "scripts/import-experiment-foundation-d19-typed-fixture.ts",
