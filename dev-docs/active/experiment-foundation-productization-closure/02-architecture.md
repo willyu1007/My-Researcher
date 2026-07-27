@@ -1,5 +1,13 @@
 # 02 Architecture
 
+## M7-L1 reviewed ExecutionBundle v2 freeze boundary — 2026-07-27
+
+- `workloads/ragperf-canary/manifests/execution-bundle-v2.json` is the reviewed authoring SSOT. It binds the exact uploaded code prefix/digest/size, the two exact Dataset revision/hash and OSS mirror tuples, the provider-managed PAI image identity, stdlib-only dependency-lock hash, output-parser profile/hash and two bounded offline preview cells.
+- The planner uses the production bundle service and real-provider payload materializer against an injection-only repository. It freezes one deterministic `ExecutionBundle@v2`, resolves its exact revision/hash, materializes each of the two payloads twice, and requires byte-identical replay with network/provider/`CreateJob`/scientific counters at zero.
+- Named-local persistence is exactly six rows across identity, draft, immutable revision, lifecycle event, lifecycle projection and readiness. The apply command requires the reviewed database fingerprint and a process-scoped exact authorization, denies external fetch, fingerprints all non-target application tables by ordered primary key plus `xmin`, requires the six target tables to contain only this scope and supports exact zero-new replay.
+- The original M7 migration closed both stored bundle schema discriminators to `v1`. Additive migration `20260727170000_enable_execution_bundle_schema_v2` keeps v1 valid, admits only v1/v2, and relationally binds each discriminator to its JSON snapshot's `execution_bundle_schema_version`. Editing the already-applied M7 migration is forbidden.
+- Migration apply and six-row bundle freeze are one explicitly reviewed named-local boundary but remain distinct from cloud access. Neither operation enables a capability, supplies credentials, calls Aliyun, creates a PAI Job or creates scientific/evidence rows.
+
 ## M7-L1 SciFact authority lineage — 2026-07-27
 
 - OSS object identity is not Dataset authority. The two uploaded SciFact mirrors require their own immutable Dataset revisions and may not be rebound to the historical Pack A Wikipedia corpus or Natural Questions workload.

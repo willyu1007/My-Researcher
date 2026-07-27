@@ -10,14 +10,15 @@ import {
   type ExperimentFoundationExecutionBundleRevisionV2 as RevisionRow,
   type PrismaClient,
 } from '@prisma/client';
-import type {
-  ExperimentFoundationExecutionBundleContent,
-  ExperimentFoundationExecutionBundleDraftV2,
-  ExperimentFoundationExecutionBundleIdentityV2,
-  ExperimentFoundationExecutionBundleLifecycleEventV2,
-  ExperimentFoundationExecutionBundleLifecycleProjectionV2,
-  ExperimentFoundationExecutionBundleReadinessV2,
-  ExperimentFoundationExecutionBundleRevisionV2,
+import {
+  EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
+  type ExperimentFoundationExecutionBundleContent,
+  type ExperimentFoundationExecutionBundleDraftV2,
+  type ExperimentFoundationExecutionBundleIdentityV2,
+  type ExperimentFoundationExecutionBundleLifecycleEventV2,
+  type ExperimentFoundationExecutionBundleLifecycleProjectionV2,
+  type ExperimentFoundationExecutionBundleReadinessV2,
+  type ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 
 import {
@@ -73,7 +74,8 @@ implements ExperimentFoundationExecutionBundleV2Repository {
               draft: {
                 create: {
                   draftVersion: 1,
-                  schemaVersion: 'v1',
+                  schemaVersion:
+                    input.draft.draft_content.execution_bundle_schema_version,
                   draftSnapshotJson: toJson(input.draft.draft_content),
                   updatedAt: new Date(input.draft.updated_at),
                 },
@@ -119,6 +121,8 @@ implements ExperimentFoundationExecutionBundleV2Repository {
             draft: {
               update: {
                 draftVersion: input.draft.draft_version,
+                schemaVersion:
+                  input.draft.draft_content.execution_bundle_schema_version,
                 draftSnapshotJson: toJson(input.draft.draft_content),
                 updatedAt: new Date(input.draft.updated_at),
               },
@@ -271,23 +275,39 @@ function mapIdentity(row: IdentityRow): ExperimentFoundationExecutionBundleIdent
 }
 
 function mapDraft(row: DraftRow): ExperimentFoundationExecutionBundleDraftV2 {
+  const draftContent = structuredClone(
+    row.draftSnapshotJson,
+  ) as unknown as ExperimentFoundationExecutionBundleContent;
+  if (row.schemaVersion !== draftContent.execution_bundle_schema_version) {
+    throw conflict('ExecutionBundle draft schema version drifted from stored content.');
+  }
   return {
     execution_bundle_id: row.executionBundleId,
     draft_version: row.draftVersion,
-    draft_content: structuredClone(row.draftSnapshotJson) as unknown as ExperimentFoundationExecutionBundleContent,
+    draft_content: draftContent,
     updated_at: row.updatedAt.toISOString(),
   };
 }
 
 function mapRevision(row: RevisionRow): ExperimentFoundationExecutionBundleRevisionV2 {
+  const revisionContent = structuredClone(
+    row.revisionJson,
+  ) as unknown as ExperimentFoundationExecutionBundleContent;
+  if (
+    (row.schemaVersion !== 'v1' && row.schemaVersion !== 'v2')
+    || row.schemaVersion !== revisionContent.execution_bundle_schema_version
+    || row.hashProfile !== EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2
+  ) {
+    throw conflict('ExecutionBundle revision schema/hash profile drifted from stored content.');
+  }
   return {
     execution_bundle_revision_id: row.id,
     execution_bundle_id: row.executionBundleId,
     revision_sequence: row.revisionSequence,
-    schema_version: 'v1',
-    hash_profile: 'ef-execution-bundle-semantic-json@v1',
+    schema_version: row.schemaVersion,
+    hash_profile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
     content_hash: row.contentHash,
-    revision_content: structuredClone(row.revisionJson) as unknown as ExperimentFoundationExecutionBundleContent,
+    revision_content: revisionContent,
     created_at: row.createdAt.toISOString(),
   };
 }

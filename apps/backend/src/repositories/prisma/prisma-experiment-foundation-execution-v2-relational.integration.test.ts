@@ -238,7 +238,7 @@ test(
         adapter_identity: 'aliyun_pai_dlc_official_sdk@v1',
         execution_mode: 'real_provider',
         provenance: 'real_provider',
-        provider_profile_version: 'AliyunPaiDlcExecutionProfile@v2',
+        provider_profile_version: materialized.record.provider_profile_version,
         redacted_manifest: {
           ...materialized.record.redacted_manifest,
           source_binding: {
@@ -303,7 +303,8 @@ test(
           executionMode: realPayload.execution_mode,
           provenance: realPayload.provenance,
           providerProfileVersion: realPayload.provider_profile_version,
-          redactedManifestVersion: 'v1',
+          redactedManifestVersion:
+            materialized.record.redacted_manifest.manifest_schema_version,
           redactedManifestJson: realPayload.redacted_manifest as Prisma.InputJsonValue,
           payloadHash: realPayload.payload_hash,
           payloadByteSize: realPayload.payload_byte_size,

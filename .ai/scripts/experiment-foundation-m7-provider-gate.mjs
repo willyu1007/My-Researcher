@@ -107,6 +107,7 @@ const SOURCE_POPULATION = [
   'apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts',
   'prisma/schema.prisma',
   'prisma/migrations/20260723100000_add_experiment_foundation_m7_real_provider_v2/migration.sql',
+  'prisma/migrations/20260727170000_enable_execution_bundle_schema_v2/migration.sql',
 ];
 
 export function parseArgs(argv) {
@@ -157,13 +158,14 @@ export function selectPreM7MigrationDirectories(entries) {
   const migrations = [...new Set(entries)]
     .filter((entry) => /^\d{14}_[A-Za-z0-9_]+$/.test(entry))
     .sort();
+  const m7Index = migrations.indexOf(M7_MIGRATION_DIRECTORY);
   if (
-    migrations.filter((entry) => entry === M7_MIGRATION_DIRECTORY).length !== 1
-    || migrations.at(-1) !== M7_MIGRATION_DIRECTORY
+    m7Index < 0
+    || migrations.filter((entry) => entry === M7_MIGRATION_DIRECTORY).length !== 1
   ) {
-    throw new Error('M7 migration must be the unique final lexical migration');
+    throw new Error('M7 migration must be present exactly once');
   }
-  return migrations.slice(0, -1);
+  return migrations.slice(0, m7Index);
 }
 
 export function buildPreM7ProviderControlSeedSql() {

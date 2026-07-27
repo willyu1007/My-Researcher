@@ -48,7 +48,9 @@ import {
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2,
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2,
   experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+  experimentFoundationAliyunRealProviderRedactedManifestV2Schema,
   type ExperimentFoundationAliyunRealProviderRedactedManifestV1,
+  type ExperimentFoundationAliyunRealProviderRedactedManifestV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   serverHashExperimentFoundationExecutionAttemptEventV2,
@@ -127,11 +129,19 @@ const providerCommandSnapshotValidator = storedExecutionSnapshotAjv.compile(
 const providerPayloadManifestValidator = storedExecutionSnapshotAjv.compile(
   fakeAliyunPaiDlcRedactedManifestV1Schema,
 );
+type ExperimentFoundationAliyunRealProviderRedactedManifest =
+  | ExperimentFoundationAliyunRealProviderRedactedManifestV1
+  | ExperimentFoundationAliyunRealProviderRedactedManifestV2;
 const realProviderPayloadManifestValidator: ValidateFunction<
-  ExperimentFoundationAliyunRealProviderRedactedManifestV1
+  ExperimentFoundationAliyunRealProviderRedactedManifest
 > = storedExecutionSnapshotAjv.compile<
-ExperimentFoundationAliyunRealProviderRedactedManifestV1
->(experimentFoundationAliyunRealProviderRedactedManifestV1Schema);
+ExperimentFoundationAliyunRealProviderRedactedManifest
+>({
+  oneOf: [
+    experimentFoundationAliyunRealProviderRedactedManifestV1Schema,
+    experimentFoundationAliyunRealProviderRedactedManifestV2Schema,
+  ],
+});
 const providerPayloadValidator = storedExecutionSnapshotAjv.compile(providerPayloadV2Schema);
 const executionAttemptValidator = storedExecutionSnapshotAjv.compile(executionAttemptV2Schema);
 const providerCommandValidator = storedExecutionSnapshotAjv.compile(providerCommandV2Schema);
@@ -2405,36 +2415,47 @@ function mapRealProviderPayload(row: PayloadRow): ExperimentFoundationProviderPa
     row.redactedManifestJson,
     'Real ProviderPayload redacted manifest',
     'PROVIDER_PAYLOAD_CONFLICT',
-  ) as unknown as ExperimentFoundationAliyunRealProviderRedactedManifestV1;
+  ) as unknown as ExperimentFoundationAliyunRealProviderRedactedManifest;
   const source = redactedManifest.source_binding;
-  if (
-    row.payloadSchemaVersion !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2
-    || row.adapterIdentity !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2
-    || row.executionMode !== 'real_provider'
-    || row.provenance !== 'real_provider'
-    || row.redactedManifestVersion !== STORED_SCHEMA_VERSION_V1
-    || redactedManifest.manifest_schema_version !== row.redactedManifestVersion
-    || redactedManifest.payload_schema !== row.payloadSchemaVersion
-    || redactedManifest.adapter_identity !== row.adapterIdentity
-    || redactedManifest.provider_profile_version !== row.providerProfileVersion
-    || source.run_id !== row.runId
-    || source.run_manifest_hash !== row.runManifestHash
-    || source.run_cell_id !== row.runCellId
-    || source.cell_key !== row.cellKey
-    || source.training_task_spec_id !== row.trainingTaskSpecId
-    || source.training_task_spec_hash !== row.trainingTaskSpecHash
-    || !isDeepStrictEqual(redactedManifest.redacted_fields, [
+  const expectedRedactedFields = [
       'canonical_payload_bytes',
       'WorkspaceId',
       'ResourceId',
       'JobSpecs[0].Image',
       'UserCommand',
+      'DataSources[*].Uri',
+      'DataSources[*].MountPath',
+      'Envs',
+      'CredentialConfig',
       'Settings.Tags',
-    ])
-  ) {
+  ];
+  const bindingDrifts = [
+    row.payloadSchemaVersion !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2
+      && 'payload_schema_version',
+    row.adapterIdentity !== EXPERIMENT_FOUNDATION_REAL_PROVIDER_ADAPTER_IDENTITY_V2
+      && 'adapter_identity',
+    row.executionMode !== 'real_provider' && 'execution_mode',
+    row.provenance !== 'real_provider' && 'provenance',
+    !['v1', 'v2'].includes(row.redactedManifestVersion) && 'stored_manifest_version',
+    redactedManifest.manifest_schema_version !== row.redactedManifestVersion
+      && 'manifest_version',
+    redactedManifest.payload_schema !== row.payloadSchemaVersion && 'manifest_payload_schema',
+    redactedManifest.adapter_identity !== row.adapterIdentity && 'manifest_adapter_identity',
+    redactedManifest.provider_profile_version !== row.providerProfileVersion
+      && 'manifest_provider_profile',
+    source.run_id !== row.runId && 'source_run_id',
+    source.run_manifest_hash !== row.runManifestHash && 'source_run_manifest_hash',
+    source.run_cell_id !== row.runCellId && 'source_run_cell_id',
+    source.cell_key !== row.cellKey && 'source_cell_key',
+    source.training_task_spec_id !== row.trainingTaskSpecId && 'source_task_spec_id',
+    source.training_task_spec_hash !== row.trainingTaskSpecHash && 'source_task_spec_hash',
+    !isDeepStrictEqual(redactedManifest.redacted_fields, expectedRedactedFields)
+      && 'redacted_fields',
+  ].filter((value): value is string => typeof value === 'string');
+  if (bindingDrifts.length > 0) {
     throw constraint(
       'PROVIDER_PAYLOAD_CONFLICT',
-      'Real ProviderPayload fixed identity or redacted-manifest binding drifted.',
+      `Real ProviderPayload fixed identity or redacted-manifest binding drifted: ${bindingDrifts.join(',')}.`,
     );
   }
   const wireRecord = {

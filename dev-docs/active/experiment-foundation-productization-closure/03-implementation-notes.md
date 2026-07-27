@@ -3,7 +3,17 @@
 ## Status
 - Current status: `in-progress`
 - Last updated: 2026-07-27
-- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验。SciFact 2 DataPolicy + 2 Dataset 的 26-row named-local authority apply、零新增 replay 和 mirror exact binding 已完成；bundle freeze、非本地 rollout、provider job write 和 scientific execution均未执行。
+- Implementation Pack A、control-plane source binding、named-local Pack A/Pack B schema landing、Pack B technical implementation、深度清理、正式 PI scope → Pack A → Pack B product landing、zero-write cloud-preflight implementation/真实 Aliyun read-only acceptance，以及 M7-L1 official-image + OSS provider-shape 增量均已离线验证。当前 named-local cutover=`true`，admission/simulation/cloud-preflight/real-provider capability 均为 `false`；已完成独立授权的三个 content-addressed OSS 输入对象上传与只读校验。SciFact 2 DataPolicy + 2 Dataset 的 26-row named-local authority apply、零新增 replay 和 mirror exact binding 已完成；reviewed bundle planner/apply 和 disposable-PostgreSQL v2 gate 已通过，但 named-local v2 CHECK migration 与六行 freeze 尚未授权执行。非本地 rollout、provider job write 和 scientific execution均未执行。
+
+## 2026-07-27 — M7-L1 reviewed ExecutionBundle v2 preparation
+
+- Added `execution-bundle-v2.json` as the default-off reviewed authoring SSOT and added database-free plan tests for exact uploaded artifact bindings, bound Dataset mirrors, provider-managed image identity, dependency/parser hashes and authorization negative space.
+- Added a planner that freezes one deterministic v2 revision and uses the production real-provider payload materializer twice for each of the two reviewed cells. Payload hashes are `sha256:1655360027fbf970e6d11f1e82e70712376375c5ceff968607c03c15090fd921` and `sha256:a671fe0a31bd94b612352e530ff2e934032f9dfc2ea4f353290518b235a7742b`; both replays are byte-exact with all side-effect counters zero.
+- Corrected the Prisma bundle repository so draft/revision schema versions are persisted and read as v1/v2 instead of being hard-coded to v1, and so stored discriminator/content/hash-profile drift fails closed.
+- Added `apply-experiment-foundation-scifact-execution-bundle.ts`: reviewed local target fingerprint, exact six-row process authorization, protected-table row-version digest, target-only table census, exact frozen-plan comparison, exact readiness resolve, replay counters and global-fetch denial.
+- Disposable PostgreSQL found the original `ef_execution_bundle_*_schema_check` constraints still allowed only v1. Added `20260727170000_enable_execution_bundle_schema_v2` rather than editing applied history; the migration admits only v1/v2 and binds relational discriminators to the JSON content version.
+- The same convergence run found stale relational coverage/reader assumptions for provider redacted manifest v2. The Prisma reader now validates both manifest v1/v2 and the current expanded redacted-field census; the test derives exact profile/manifest versions from the production materializer.
+- Final disposable run `t132-m7-bundle-freeze-20260727-v6` passed M7-01..M7-15, including 9/9 real PostgreSQL tests. Named-local was never connected by the gate. Because the current user authorization covered only six row writes and not a schema migration, the named-local migration and freeze were deliberately not run; all six bundle tables remain empty.
 
 ## 2026-07-27 — M7-L1 SciFact named-local authority landing
 

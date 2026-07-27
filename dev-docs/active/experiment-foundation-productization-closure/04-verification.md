@@ -1,5 +1,19 @@
 # 04 Verification
 
+## M7-L1 reviewed ExecutionBundle v2 preparation — 2026-07-27
+
+Outcome: **offline plan, exact same-payload replay, additive migration and disposable PostgreSQL persistence passed; named-local migration/freeze remains unexecuted pending expanded authorization**.
+
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` → passed.
+- Focused planner/apply/service tests → 8/8 passed. The plan freezes one v2 revision from two exact Dataset mirror bindings, rejects artifact/binding/authorization drift and requires the exact six-row apply authorization.
+- Direct planner → `status=passed`, database/cloud access `none`, provider operations 0. Planned revision ID is `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48`; content hash is `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- Both preview cells materialized twice to byte-identical canonical payloads: top-k-5 `sha256:1655360027fbf970e6d11f1e82e70712376375c5ceff968607c03c15090fd921` (2,796 bytes); top-k-10 `sha256:a671fe0a31bd94b612352e530ff2e934032f9dfc2ea4f353290518b235a7742b` (2,799 bytes). Network/provider/`CreateJob`/scientific writes were 0.
+- First disposable run `v1` correctly rejected v2 at the existing v1-only draft CHECK. After the additive migration, the bundle relational test passed exact v2 draft/freeze/replay/resolve and rejected relational discriminator/JSON mismatch.
+- Runs `v2` through `v5` exposed a stale real-provider relational fixture/reader that still assumed redacted manifest v1, its old redacted field set and an obsolete profile literal. Production reader and fixture were corrected to the existing v1/v2 shared contract; no capability or provider behavior changed.
+- Final `node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-bundle-freeze-20260727-v6 --imported-run-id t132-m7-offline-20260724-v3` → passed M7-01..M7-15. Shared targeted 12/12, backend targeted 92/92 and forced disposable relational 9/9 passed with zero skips; named database writes, provider/OSS calls, `CreateJob`, cloud cost and scientific/evidence writes were 0.
+- Named-local status after the discovered authorization mismatch: migration unapplied; all six ExecutionBundle tables remain 0 rows. No partial bundle prefix exists.
+
 ## M7-L1 SciFact named-local authority landing — 2026-07-27
 
 Outcome: **bounded named-local apply, zero-new replay and exact mirror binding passed; bundle/cloud/provider/scientific work remained zero**.

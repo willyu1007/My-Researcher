@@ -16,6 +16,8 @@
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
     "experiment-foundation:scifact-authority:apply": "node --env-file=../../.env.local --loader ts-node/esm scripts/apply-experiment-foundation-scifact-authority.ts",
     "experiment-foundation:scifact-authority:plan": "node --loader ts-node/esm scripts/plan-experiment-foundation-scifact-authority.ts",
+    "experiment-foundation:scifact-bundle:apply": "node --env-file=../../.env.local --loader ts-node/esm scripts/apply-experiment-foundation-scifact-execution-bundle.ts",
+    "experiment-foundation:scifact-bundle:plan": "node --loader ts-node/esm scripts/plan-experiment-foundation-scifact-execution-bundle.ts",
     "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
     "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",

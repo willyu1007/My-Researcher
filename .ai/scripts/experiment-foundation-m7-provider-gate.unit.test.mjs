@@ -85,6 +85,7 @@ test('M7 gate rejects DML, cross-domain FKs, and live transport construction', a
 test('M7 gate builds a fail-closed lexical pre-M7 migration plan', () => {
   assert.deepEqual(selectPreM7MigrationDirectories([
     'migration_lock.toml',
+    '20260727170000_enable_execution_bundle_schema_v2',
     '20260723100000_add_experiment_foundation_m7_real_provider_v2',
     '20260714160000_harden_experiment_foundation_pack_b_v2',
     '20260713210000_add_experiment_foundation_pack_b_provider_control_v2',
@@ -95,10 +96,10 @@ test('M7 gate builds a fail-closed lexical pre-M7 migration plan', () => {
   assert.throws(() => selectPreM7MigrationDirectories([
     '20260713210000_add_experiment_foundation_pack_b_provider_control_v2',
   ]));
-  assert.throws(() => selectPreM7MigrationDirectories([
+  assert.deepEqual(selectPreM7MigrationDirectories([
     '20260723100000_add_experiment_foundation_m7_real_provider_v2',
     '20260724100000_later_migration',
-  ]));
+  ]), []);
 });
 
 test('M7 gate builds the exact six-table pre-M7 seed and negative tuple SQL', () => {

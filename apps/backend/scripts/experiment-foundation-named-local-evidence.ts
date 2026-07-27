@@ -25,6 +25,11 @@ export interface ExperimentFoundationNamedLocalRowDigest {
   digest: string;
 }
 
+export interface ExperimentFoundationNamedLocalApplicationTableDescriptor {
+  name: string;
+  orderColumns: string[];
+}
+
 type ReadClient = PrismaClient | Prisma.TransactionClient;
 
 export function assertExperimentFoundationNamedLocalDatabaseUrl(
@@ -119,6 +124,91 @@ export async function countExperimentFoundationNamedLocalTables(
     counts[tableName] = rows[0]?.count ?? 0;
   }
   return counts;
+}
+
+export async function listExperimentFoundationNamedLocalApplicationTables(
+  client: ReadClient,
+  expectedWriteTables: readonly string[] = [],
+): Promise<ExperimentFoundationNamedLocalApplicationTableDescriptor[]> {
+  const rows = await client.$queryRawUnsafe<Array<{
+    table_name: string;
+    order_columns: string[];
+  }>>(
+    `SELECT table_row.table_name::text AS table_name,
+            CASE
+              WHEN EXISTS (
+                SELECT 1
+                FROM information_schema.columns AS id_column
+                WHERE id_column.table_schema = table_row.table_schema
+                  AND id_column.table_name = table_row.table_name
+                  AND id_column.column_name = 'id'
+              )
+                THEN ARRAY['id']::text[]
+              ELSE ARRAY(
+                SELECT key_column.column_name::text
+                FROM information_schema.table_constraints AS table_constraint
+                JOIN information_schema.key_column_usage AS key_column
+                  ON key_column.constraint_schema = table_constraint.constraint_schema
+                 AND key_column.constraint_name = table_constraint.constraint_name
+                 AND key_column.table_schema = table_constraint.table_schema
+                 AND key_column.table_name = table_constraint.table_name
+                WHERE table_constraint.table_schema = table_row.table_schema
+                  AND table_constraint.table_name = table_row.table_name
+                  AND table_constraint.constraint_type = 'PRIMARY KEY'
+                ORDER BY key_column.ordinal_position
+              )
+            END AS order_columns
+     FROM information_schema.tables AS table_row
+     WHERE table_row.table_schema = current_schema()
+       AND table_row.table_type = 'BASE TABLE'
+       AND table_row.table_name <> '_prisma_migrations'
+     ORDER BY table_row.table_name COLLATE "C" ASC`,
+  );
+  const tables = rows.map((row) => ({
+    name: row.table_name,
+    orderColumns: row.order_columns,
+  }));
+  for (const table of tables) {
+    if (table.orderColumns.length === 0) {
+      throw new Error(`Application table lacks a stable primary-key order: ${table.name}`);
+    }
+  }
+  for (const expected of expectedWriteTables) {
+    if (!tables.some((table) => table.name === expected)) {
+      throw new Error(`Expected write table is missing: ${expected}`);
+    }
+  }
+  return tables;
+}
+
+export async function digestExperimentFoundationNamedLocalTableRowVersions(
+  client: ReadClient,
+  tablesToDigest: readonly ExperimentFoundationNamedLocalApplicationTableDescriptor[],
+): Promise<Record<string, ExperimentFoundationNamedLocalRowDigest>> {
+  const tables: Record<string, ExperimentFoundationNamedLocalRowDigest> = {};
+  for (const table of tablesToDigest) {
+    assertSafeIdentifier(table.name);
+    table.orderColumns.forEach(assertSafeIdentifier);
+    const orderBy = table.orderColumns
+      .map((column) => `table_row."${column}" ASC`)
+      .join(', ');
+    const rowSignature = [
+      ...table.orderColumns.map((column) => `table_row."${column}"`),
+      'table_row.xmin::text',
+    ].join(', ');
+    const rows = await client.$queryRawUnsafe<Array<{ row_json: Prisma.JsonValue }>>(
+      `SELECT jsonb_build_array(${rowSignature}) AS row_json
+       FROM "${table.name}" AS table_row
+       ORDER BY ${orderBy}`,
+    );
+    tables[table.name] = {
+      count: rows.length,
+      digest: `sha256:${sha256Bytes(canonicalizeExperimentFoundationEvidenceJson(
+        rows.map((row) => row.row_json),
+      ))}`,
+    };
+  }
+  return tables;
 }
 
 export function changedExperimentFoundationNamedLocalTables(
