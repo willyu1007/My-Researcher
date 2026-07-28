@@ -2,7 +2,7 @@
 
 ## M7-L1 provider-manifest v2 persistence recovery — 2026-07-28
 
-Outcome: **fix passed code, migration, disposable PostgreSQL and drift gates; named-local apply and paid execution remain pending**.
+Outcome: **fix passed code, migration, disposable PostgreSQL, drift and named-local apply gates; paid execution remains pending**.
 
 - Live attempt effect census before the fix: one provider read (`GetImage`); provider writes 0; `CreateJob` 0/2; billable jobs 0; Attempt rows 0; database/scientific/evidence writes 0. The failure occurred while mapping the in-memory v2 manifest, before the persistence transaction and provider submission.
 - `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
@@ -13,7 +13,10 @@ Outcome: **fix passed code, migration, disposable PostgreSQL and drift gates; na
 - `pnpm ci:prisma-drift -- --shadow-url <disposable-pgvector-url> --artifacts-dir .ai/.tmp/t-132/prisma-drift-manifest-v2` → no drift. The dedicated disposable container was stopped and removed.
 - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` → all checksums up to date; context DB contract updated.
 - `node .ai/tests/run.mjs --suite database` → passed.
-- No named-local migration or business-row write occurred. No cloud call was made during the fix/verification phase.
+- Separately authorized named-local apply: `pnpm db:dev:migrate` applied only `20260728140500_enable_real_provider_payload_manifest_v2`; post-status reported 71/71 up to date.
+- Named-local before/after: 250 application tables, 3,370,691 rows and primary-key/xmin digest `sha256:f0a58c6b836698a830a8b55df27435d2b9a70d763f5a47e1aa0ef72d4949679a` were identical; Pack B counts remained `2/2/12/8/2/2`; exact Run Attempt count remained 0.
+- Constraint readback proves simulation=v1, real-provider=v1/v2 and exact relational/JSON discriminator binding. Post-apply production offline-preflight passed with cloud calls 0 and database writes 0.
+- Durable evidence: `artifacts/db/m7-l1-provider-manifest-v2-20260728/`.
 
 ## M7-L1 controller v2 and production image preflight — 2026-07-28
 
