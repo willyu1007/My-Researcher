@@ -52,7 +52,10 @@ import {
   type ExperimentFoundationV2MaterializationBundle,
 } from '../experiment-spine-v2.repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment-foundation-spine-v2-repository.js';
-import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
+import {
+  mapExperimentFoundationProviderPayloadV2CreateData,
+  PrismaExperimentFoundationExecutionV2Repository,
+} from './prisma-experiment-foundation-execution-v2-repository.js';
 import {
   createExecutionAttemptEventV2Record,
   createProviderCommandV2Record,
@@ -207,7 +210,7 @@ test(
 );
 
 test(
-  'M7 Prisma accepts only the exact real-provider tuple and preserves typed repository reads',
+  'M7 Prisma maps exact v2 real-provider manifests and preserves typed repository reads',
   {
     skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON,
     timeout: 90_000,
@@ -222,7 +225,9 @@ test(
       const simulationStart = makeStart(prerequisite, fixture);
       const simulationPayload = simulationStart.payloads[0]!;
       const simulationAttempt = simulationStart.attempts[0]!;
-      const materializedFixture = createRealProviderV2TestFixture();
+      const materializedFixture = createRealProviderV2TestFixture({
+        container_image_identity: 'provider_managed_asset',
+      });
       const materialized = new ExperimentFoundationRealProviderPayloadV2Service().materialize({
         run: materializedFixture.prerequisite.run,
         run_cell: materializedFixture.prerequisite.cells[0]!.run_cell,
@@ -287,29 +292,19 @@ test(
         cancellationReason: null,
         now: fixture.now,
       });
+      const realPayloadData =
+        mapExperimentFoundationProviderPayloadV2CreateData(realPayload);
+      assert.equal(realPayloadData.redactedManifestVersion, 'v2');
+      assert.throws(
+        () => mapExperimentFoundationProviderPayloadV2CreateData({
+          ...simulationPayload,
+          redacted_manifest: realPayload.redacted_manifest,
+        }),
+        reason('PROVIDER_PAYLOAD_CONFLICT'),
+      );
 
       await prisma.$transaction([
-        prisma.experimentFoundationProviderPayloadV2.create({ data: {
-          id: realPayload.id,
-          materializationKey: realPayload.materialization_key,
-          runId: realPayload.run_id,
-          runManifestHash: realPayload.run_manifest_hash,
-          runCellId: realPayload.run_cell_id,
-          cellKey: realPayload.cell_key,
-          trainingTaskSpecId: realPayload.training_task_spec_id,
-          trainingTaskSpecHash: realPayload.training_task_spec_hash,
-          payloadSchemaVersion: realPayload.payload_schema,
-          adapterIdentity: realPayload.adapter_identity,
-          executionMode: realPayload.execution_mode,
-          provenance: realPayload.provenance,
-          providerProfileVersion: realPayload.provider_profile_version,
-          redactedManifestVersion:
-            materialized.record.redacted_manifest.manifest_schema_version,
-          redactedManifestJson: realPayload.redacted_manifest as Prisma.InputJsonValue,
-          payloadHash: realPayload.payload_hash,
-          payloadByteSize: realPayload.payload_byte_size,
-          createdAt: new Date(realPayload.created_at),
-        } }),
+        prisma.experimentFoundationProviderPayloadV2.create({ data: realPayloadData }),
         prisma.experimentFoundationExecutionAttemptV2.create({ data: attemptData(realAttempt) }),
         prisma.experimentFoundationExecutionAttemptEventV2.create({ data: {
           id: realEvent.id,
@@ -350,12 +345,31 @@ test(
       ]);
 
       assert.equal((await repository.findProviderPayload(realPayload.id))?.execution_mode, 'real_provider');
+      assert.equal((await prisma.experimentFoundationProviderPayloadV2.findUniqueOrThrow({
+        where: { id: realPayload.id },
+        select: { redactedManifestVersion: true },
+      })).redactedManifestVersion, 'v2');
       assert.equal((await repository.findAttempt(realAttempt.id))?.provenance, 'real_provider');
       assert.equal((await repository.listAttemptCommands(realAttempt.id))[0]?.operation, 'submit');
       assert.equal((await repository.listCycleActiveRealAttemptRefs({
         implementation_project_id: realAttempt.implementation_project_id,
         validation_cycle_id: realAttempt.validation_cycle_id,
       })).length, 1);
+      await assert.rejects(prisma.experimentFoundationProviderPayloadV2.create({ data: {
+        ...realPayloadData,
+        id: `${fixture.prefix}-manifest-mirror-drift`,
+        materializationKey: `${fixture.prefix}-manifest-mirror-drift-materialization`,
+        redactedManifestVersion: 'v1',
+      } }));
+      const simulationPayloadData =
+        mapExperimentFoundationProviderPayloadV2CreateData(simulationPayload);
+      await assert.rejects(prisma.experimentFoundationProviderPayloadV2.create({ data: {
+        ...simulationPayloadData,
+        id: `${fixture.prefix}-simulation-manifest-v2`,
+        materializationKey: `${fixture.prefix}-simulation-manifest-v2-materialization`,
+        redactedManifestVersion: 'v2',
+        redactedManifestJson: realPayload.redacted_manifest as Prisma.InputJsonValue,
+      } }));
 
       await assert.rejects(prisma.experimentFoundationProviderPayloadV2.create({ data: {
         id: `${fixture.prefix}-mixed-payload`,

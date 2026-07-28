@@ -98,6 +98,7 @@ const SOURCE_POPULATION = [
   'packages/shared/src/research-lifecycle/experiment-foundation-execution-v2-contracts.ts',
   'packages/shared/src/research-lifecycle/experiment-v2-canonical-hash.ts',
   'apps/backend/src/app.ts',
+  'apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts',
   'apps/backend/src/services/experiment-foundation-execution-bundle-v2-service.ts',
   'apps/backend/src/services/experiment-foundation-real-provider-payload-v2-service.ts',
   'apps/backend/src/services/experiment-foundation-real-provider-intake-v2-service.ts',
@@ -108,6 +109,7 @@ const SOURCE_POPULATION = [
   'prisma/schema.prisma',
   'prisma/migrations/20260723100000_add_experiment_foundation_m7_real_provider_v2/migration.sql',
   'prisma/migrations/20260727170000_enable_execution_bundle_schema_v2/migration.sql',
+  'prisma/migrations/20260728140500_enable_real_provider_payload_manifest_v2/migration.sql',
 ];
 
 export function parseArgs(argv) {
@@ -610,6 +612,8 @@ function isApprovedProviderImplementationPath(relativePath) {
       .test(relativePath)
     || relativePath
       === 'apps/backend/scripts/run-experiment-foundation-cloud-preflight.ts'
+    || relativePath
+      === 'apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts'
     || /(?:^|\/)[^/]+(?:\.unit|\.integration|\.schema)?\.test\.[cm]?[jt]sx?$/u
       .test(relativePath)
     || /^packages\/shared\/src\/.*contracts\.[cm]?[jt]sx?$/u.test(relativePath);

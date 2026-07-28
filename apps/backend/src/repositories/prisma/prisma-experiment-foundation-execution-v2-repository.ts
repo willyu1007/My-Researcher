@@ -356,7 +356,9 @@ implements ExperimentFoundationExecutionV2Repository {
         });
         if (payloadsToCreate.length > 0) {
           await transaction.experimentFoundationProviderPayloadV2.createMany({
-            data: payloadsToCreate.map(payloadCreateData),
+            data: payloadsToCreate.map(
+              mapExperimentFoundationProviderPayloadV2CreateData,
+            ),
           });
         }
         await transaction.experimentFoundationExecutionAttemptV2.createMany({
@@ -2078,8 +2080,11 @@ function completedCommandData(at: string, responseHash: string, terminalErrorCod
   } satisfies Prisma.ExperimentFoundationProviderCommandV2UpdateManyMutationInput;
 }
 
-function payloadCreateData(record: ExperimentFoundationProviderPayloadV2Record) {
-  const redactedManifest = providerPayloadManifestForWrite(record.redacted_manifest);
+export function mapExperimentFoundationProviderPayloadV2CreateData(
+  record: ExperimentFoundationProviderPayloadV2Record,
+) {
+  const redactedManifest =
+    providerPayloadManifestForWrite(record);
   return {
     id: record.id,
     materializationKey: record.materialization_key,
@@ -2103,17 +2108,28 @@ function payloadCreateData(record: ExperimentFoundationProviderPayloadV2Record) 
 }
 
 function providerPayloadManifestForWrite(
-  value: unknown,
+  record: ExperimentFoundationProviderPayloadV2Record,
 ): Readonly<Record<string, unknown>> {
+  const value = record.redacted_manifest;
+  const manifestSchemaVersion = value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    ? (value as Record<string, unknown>).manifest_schema_version
+    : undefined;
+  const versionAllowed = record.execution_mode === 'simulation'
+    ? manifestSchemaVersion === STORED_SCHEMA_VERSION_V1
+    : manifestSchemaVersion === STORED_SCHEMA_VERSION_V1 || manifestSchemaVersion === 'v2';
   if (
     value === null
     || typeof value !== 'object'
     || Array.isArray(value)
-    || (value as Record<string, unknown>).manifest_schema_version !== STORED_SCHEMA_VERSION_V1
+    || !versionAllowed
   ) {
     throw constraint(
       'PROVIDER_PAYLOAD_CONFLICT',
-      'Provider payload redacted manifest must be a v1 JSON object.',
+      record.execution_mode === 'simulation'
+        ? 'Simulation ProviderPayload redacted manifest must be a v1 JSON object.'
+        : 'Real ProviderPayload redacted manifest must be a v1 or v2 JSON object.',
     );
   }
   return value as Readonly<Record<string, unknown>>;

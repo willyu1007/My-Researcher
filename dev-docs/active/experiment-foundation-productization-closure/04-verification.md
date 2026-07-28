@@ -1,5 +1,20 @@
 # 04 Verification
 
+## M7-L1 provider-manifest v2 persistence recovery — 2026-07-28
+
+Outcome: **fix passed code, migration, disposable PostgreSQL and drift gates; named-local apply and paid execution remain pending**.
+
+- Live attempt effect census before the fix: one provider read (`GetImage`); provider writes 0; `CreateJob` 0/2; billable jobs 0; Attempt rows 0; database/scientific/evidence writes 0. The failure occurred while mapping the in-memory v2 manifest, before the persistence transaction and provider submission.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` → passed.
+- Focused backend repository/intake tests → 20/20 passed; focused fixture/payload/bundle/intake tests → 11/11 passed; M7 gate unit tests → 11/11 passed.
+- `node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-manifest-v2-20260728-v3 --imported-run-id t132-m7-offline-20260724-v3` → passed M7-01..M7-15. Backend 93/93, shared 12/12 and forced disposable PostgreSQL relational 9/9 passed with zero skips; migration preservation held for all 6 seeded rows and the container was cleaned.
+- Gate source population contained 17 exact files with digest `4047ae5e512c2ba7ae1a58f4bfdbc74564067168db382ee1237727e8d679790d`; non-allowlisted provider implementations and duplicate provider implementation counts were both zero.
+- `pnpm ci:prisma-drift -- --shadow-url <disposable-pgvector-url> --artifacts-dir .ai/.tmp/t-132/prisma-drift-manifest-v2` → no drift. The dedicated disposable container was stopped and removed.
+- `node .ai/scripts/ctl-db-ssot.mjs sync-to-context` → all checksums up to date; context DB contract updated.
+- `node .ai/tests/run.mjs --suite database` → passed.
+- No named-local migration or business-row write occurred. No cloud call was made during the fix/verification phase.
+
 ## M7-L1 controller v2 and production image preflight — 2026-07-28
 
 Outcome: **passed read-only pre-submit boundary; paid execution not started**.

@@ -200,6 +200,7 @@ test('M7 gate measures duplicate provider implementations against the exact allo
     'apps/backend/src/services/experiment-foundation-real-provider-payload-v2-service.ts',
     'apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts',
     'apps/backend/src/services/transport.unit.test.ts',
+    'apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts',
     'packages/shared/src/research-lifecycle/provider-contracts.ts',
     'apps/backend/src/services/unapproved-provider.ts',
   ].join('\n'));

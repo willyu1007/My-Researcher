@@ -5,6 +5,9 @@
 ## M7 executable-lineage persistence findings — 2026-07-28
 
 - Do not add v2 contract/materializer support while leaving Prisma readback discriminators hard-coded to v1. T1/T2 transactions read their own writes before commit; stale readback fences will reject valid v2 state and can look like a generic materialization conflict.
+- Do not treat a v2 materializer and v2 read parser as end-to-end persistence support. The normal repository create mapper and the database CHECK must admit the same execution-mode/discriminator tuple; direct Prisma fixture inserts can bypass the product mapper and conceal the gap.
+- Do not broaden simulation while admitting a real-provider schema revision. Keep simulation redacted manifests v1-only, admit real-provider v1/v2 explicitly, and bind the relational version to the JSON `manifest_schema_version` in both mapper tests and PostgreSQL negative cases.
+- Do not add an executable provider runner without registering its exact path in the M7 implementation/source population. The full gate must fail on an unreviewed provider construction path even when focused product tests pass.
 - Do not diagnose `MATERIALIZATION_KEY_CONFLICT` as a unique-key collision without reproducing the consumer error. The final message was `EF RunRecipe schema version drifted from v1`; the T2 transaction was fully rolled back.
 - Do not directly consume a terminalized relay event or silently reset the event after a product fix. First prove the failed domain transaction left zero target rows, then require a separate exact one-row authorization, retain the attempt counter and resume through the normal relay.
 - Do not make restart accounting aware only of the earliest prefix. A bounded apply can stop after T1; the runner must census every authorized table family and subtract the exact already-committed scope from the final ceiling.

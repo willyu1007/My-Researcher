@@ -1,5 +1,14 @@
 # 03 Implementation Notes
 
+## 2026-07-28 — M7-L1 provider-manifest v2 persistence recovery
+
+- The first paid-window execute invocation resolved the exact named-local Run/Bundle and completed one fresh read-only `GetImage`, then stopped before `CreateJob` with `Provider payload redacted manifest must be a v1 JSON object`. Provider writes, Jobs, billable compute, Attempt rows and database/scientific/evidence writes were all zero; the temporary controller credential files were deleted.
+- Root cause was a split contract boundary: the production provider-managed materializer correctly emits redacted manifest v2 and the Prisma reader already accepts v1/v2, but the normal `startExecution` write mapper and `ef_provider_payload_manifest_version_check` still admitted only v1. The prior relational test inserted the real payload with raw Prisma data and therefore bypassed the production mapper.
+- `mapExperimentFoundationProviderPayloadV2CreateData` is now the single tested create-data mapper. Simulation remains v1-only; `real_provider` accepts v1 or v2. Migration `20260728140500_enable_real_provider_payload_manifest_v2` replaces only the existing CHECK, binds the relational version to the JSON discriminator and performs no data update/backfill.
+- The relational test now materializes an explicit provider-managed ExecutionBundle v2, persists it through the repository mapper, proves typed readback, rejects simulation/v2 and rejects relational/JSON discriminator drift. The live-window runner is also registered as an exact reviewed M7 implementation/source-population path; unknown provider implementations remain rejected.
+- Convergence history is preserved: disposable run v1 exposed the stale v1 fixture (8/9 relational); v2 passed the product tests but M7-15 correctly rejected the unregistered live runner; v3 passed M7-01..M7-15 with backend 93/93, shared 12/12 and relational PostgreSQL 9/9, zero skips, full cleanup, `named_database_writes=0` and `existing_database_migrations_applied=0`. Prisma migration drift is empty and the DB context contract is synchronized.
+- The fix is repository-complete but not named-local-applied. The next boundary is a separate approval for that one additive migration, followed by read-only preflight/zero-row verification. Cloud execution requires a later fresh STS and new action-time confirmation.
+
 ## 2026-07-28 — controller v2 activation and production image preflight
 
 - The owner activated controller policy v2 as the default RAM policy version and retained v1 as rollback. The console policy is semantically identical to repository digest `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`; its only image addition is read-only `paiimage:GetImage`.

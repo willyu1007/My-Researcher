@@ -1,6 +1,7 @@
 import type {
   ExperimentFoundationAliyunRealProviderProfileV2,
   ExperimentFoundationExecutableTrainingTaskSpecV2,
+  ExperimentFoundationExecutionBundleContent,
   ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 
@@ -11,53 +12,104 @@ import type {
 export const REAL_PROVIDER_TEST_NOW = '2026-07-23T00:00:00.000Z';
 export const realProviderTestHash = (character: string) => `sha256:${character.repeat(64)}`;
 
-export function createRealProviderV2TestFixture(): {
+export function createRealProviderV2TestFixture(options: {
+  container_image_identity?: 'content_digest' | 'provider_managed_asset';
+} = {}): {
   prerequisite: ExperimentFoundationRealProviderExecutionV2Prerequisite;
   bundle: ExperimentFoundationExecutionBundleRevisionV2;
   profile: ExperimentFoundationAliyunRealProviderProfileV2;
 } {
   const hash = realProviderTestHash;
+  const imageRef =
+    'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/ragperf-official:py311-cpu';
+  const revisionContent: ExperimentFoundationExecutionBundleContent =
+    options.container_image_identity === 'provider_managed_asset'
+      ? {
+        execution_bundle_schema_version: 'v2',
+        code_artifact: {
+          artifact_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'2'.repeat(64)}/`,
+          content_digest: hash('2'),
+          byte_size: 1024,
+        },
+        container_image: {
+          image_identity_kind: 'provider_managed_asset',
+          image_ref: imageRef,
+          provider_managed_asset: {
+            provider: 'aliyun_pai',
+            asset_id: 'image-test-provider-managed-v2',
+            region_id: 'cn-shanghai',
+            modified_at: '2026-07-02T04:35:35.000Z',
+            size_bytes: 3_803_970_629,
+            accessibility: 'PUBLIC',
+            source_type: 'Import',
+            permitted_scope: 'm7_l1_diagnostic_only',
+          },
+        },
+        dataset_mirrors: [{
+          ordinal: 1,
+          dataset_revision: {
+            asset_type: 'Dataset',
+            logical_id: 'dataset-1',
+            revision_id: 'dataset-revision-1',
+            revision_sequence: 1,
+            content_hash: hash('4'),
+          },
+          object_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'5'.repeat(64)}/`,
+          content_digest: hash('5'),
+          byte_size: 2048,
+        }],
+        entrypoint: 'python3',
+        arguments: ['/mnt/pea-code/entrypoint.py'],
+        dependency_lock_digest: hash('6'),
+        output_contract: {
+          result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1',
+          result_object_name: 'result.json',
+          parser_profile_version: 'ragperf-parser-v1',
+          parser_profile_hash: hash('7'),
+        },
+      }
+      : {
+        execution_bundle_schema_version: 'v1',
+        code_artifact: {
+          artifact_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'2'.repeat(64)}/`,
+          content_digest: hash('2'),
+          byte_size: 1024,
+        },
+        container_image: {
+          image_ref: imageRef,
+          image_digest: hash('3'),
+        },
+        dataset_mirrors: [{
+          ordinal: 1,
+          dataset_revision: {
+            asset_type: 'Dataset',
+            logical_id: 'dataset-1',
+            revision_id: 'dataset-revision-1',
+            revision_sequence: 1,
+            content_hash: hash('4'),
+          },
+          object_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'5'.repeat(64)}/`,
+          content_digest: hash('5'),
+          byte_size: 2048,
+        }],
+        entrypoint: 'python3',
+        arguments: ['/mnt/pea-code/entrypoint.py'],
+        dependency_lock_digest: hash('6'),
+        output_contract: {
+          result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1',
+          result_object_name: 'result.json',
+          parser_profile_version: 'ragperf-parser-v1',
+          parser_profile_hash: hash('7'),
+        },
+      };
   const bundle: ExperimentFoundationExecutionBundleRevisionV2 = {
     execution_bundle_revision_id: 'execution-bundle-revision-1',
     execution_bundle_id: 'execution-bundle-1',
     revision_sequence: 1,
-    schema_version: 'v1',
+    schema_version: revisionContent.execution_bundle_schema_version,
     hash_profile: 'ef-execution-bundle-semantic-json@v1',
     content_hash: hash('1'),
-    revision_content: {
-      execution_bundle_schema_version: 'v1',
-      code_artifact: {
-        artifact_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'2'.repeat(64)}/`,
-        content_digest: hash('2'),
-        byte_size: 1024,
-      },
-      container_image: {
-        image_ref: 'dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/ragperf-official:py311-cpu',
-        image_digest: hash('3'),
-      },
-      dataset_mirrors: [{
-        ordinal: 1,
-        dataset_revision: {
-          asset_type: 'Dataset',
-          logical_id: 'dataset-1',
-          revision_id: 'dataset-revision-1',
-          revision_sequence: 1,
-          content_hash: hash('4'),
-        },
-        object_ref: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'5'.repeat(64)}/`,
-        content_digest: hash('5'),
-        byte_size: 2048,
-      }],
-      entrypoint: 'python3',
-      arguments: ['/mnt/pea-code/entrypoint.py'],
-      dependency_lock_digest: hash('6'),
-      output_contract: {
-        result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1',
-        result_object_name: 'result.json',
-        parser_profile_version: 'ragperf-parser-v1',
-        parser_profile_hash: hash('7'),
-      },
-    },
+    revision_content: revisionContent,
     created_at: REAL_PROVIDER_TEST_NOW,
   };
   const run = {
@@ -179,7 +231,7 @@ export function createRealProviderV2TestFixture(): {
         cpu_cores: 1,
         memory_mb: 1024,
       },
-      image_uri: bundle.revision_content.container_image.image_ref,
+      image_uri: imageRef,
       job_type: 'PyTorchJob',
       job_spec_type: 'Worker',
       pod_count: 1,
