@@ -1,17 +1,26 @@
 # 03 Implementation Notes
 
+## 2026-07-28 — controller v2 activation and production image preflight
+
+- The owner activated controller policy v2 as the default RAM policy version and retained v1 as rollback. The console policy is semantically identical to repository digest `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`; its only image addition is read-only `paiimage:GetImage`.
+- A fresh controller-role STS supplied outside the repository produced two independent HTTP 200 `GetImage` reads. Every frozen provider-managed field matched, but the public official-image response omitted optional `WorkspaceId` (and did not echo `ImageId`). The response shape proved that image ownership metadata is not the DLC Job target workspace.
+- Under debug run `dbg-20260728-001258-9f3a`, the owner approved the no-instrumentation diagnosis and minimal fix. `run-experiment-foundation-m7-l1-live-window.ts` no longer requires optional image `workspaceId`; an absent observed value is encoded as `null` in the request evidence hash. Exact URI, modification time, size, accessibility and source-type fences remain unchanged.
+- The runner now has an explicit `image-preflight` mode. The new mode uses the same production credential, manifest and `freshImagePreflight` path as `execute`, but returns immediately after one cloud read and reports zero provider writes, `CreateJob` calls and database writes. Only `execute` consumes the recorded live authorization gate.
+- Script typecheck, named-local `offline-preflight` and the production `image-preflight` all passed. The latter bound Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1`, the frozen ExecutionBundle revision/hash and image request hash `00886de40a879706e6395f5261af18b861b35b958826cb10b303cc59375014d3`.
+- No capability was enabled, no PAI Job/Attempt was created, and the recorded two-job/¥50 authorization remains unconsumed. Temporary STS files remained repository-external with owner-only permissions; no credential value was printed or recorded.
+
 ## 2026-07-28 — Visualization placement correction and personal-use scope override
 
 - The prior request for an HTML progress view was incorrectly classified as repository developer documentation. That produced a standalone HTML file under `dev-docs/**`, even though the user requested an in-conversation desktop visualization and did not ask for a project artifact.
 - The repository HTML artifact and overview link are removed. The replacement is a thread-scoped interactive fragment under the Codex visualization directory, using the inline visualization contract and keeping generated presentation state outside the project source tree.
-- Active delivery is now the sole-maintainer personal-use experiment base: run/observe/cancel/recover/collect/replay one exact real diagnostic and inspect it locally. Product packaging, generalized BYOC, multi-user/tenant work, managed-cloud delivery and non-blocking product audit items are parked.
+- Active delivery is now the sole-maintainer personal-use experiment base: run/observe/cancel/recover/collect/replay one exact real diagnostic and inspect the diagnostic locally. Product packaging, generalized BYOC, multi-user/tenant work, managed-cloud delivery and non-blocking product audit items are parked.
 
 ## 2026-07-28 — M7-L1 resource-exact successor landing
 
 - Extended the guarded named-local lineage runner with a separate exact max-40 successor authorization. The runner accepts only the reviewed target, open Cycle, existing `ragperf-primary` branch at sequence/head 1, empty successor prefix, active frozen ExecutionBundle and default-false capabilities.
 - Normal T1-T4 created one WorkOrder sequence 2, two unchanged cells, one admission, the exact 23-dependency EF executable lineage and final acknowledgement. T1 and T3 performed the two authorized branch CAS updates; the old revision and Run remained immutable.
 - New Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1` has manifest `sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232`. Both TaskSpecs carry `2 CPU / 8192 MiB`, `max_attempts=1`, `timeout_seconds=1800` and Bundle hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
-- The first verifier pass stopped after T1-T4 because it counted only the admission CAS and expected branch `stateVersion=3`; head advancement correctly performs the second state CAS, producing `stateVersion=4`. The validator was corrected to assert `+2` state / `+1` head, without adding or changing lineage rows.
+- The first verifier pass stopped after T1-T4 because the verifier counted only the admission CAS and expected branch `stateVersion=3`; head advancement correctly performs the second state CAS, producing `stateVersion=4`. The validator was corrected to assert `+2` state / `+1` head, without adding or changing lineage rows.
 - The completion/replay verifier then passed with all 40 successor rows exact, zero-new replay, 236 protected tables unchanged, old revision/Run sentinels unchanged, and zero cloud calls, capabilities, Attempts, ExperimentResult, EvidenceCandidate or REU.
 - The live runner now binds the successor Run/manifest and uses workflow business key `t132-m7-l1-live-p313-v2`. Its zero-cloud offline preflight passes against exact `ecs.g6.large`, reports `existing_attempt_count=0`, `cloud_call_count=0` and `database_write_count=0`.
 

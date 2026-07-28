@@ -1,5 +1,17 @@
 # 04 Verification
 
+## M7-L1 controller v2 and production image preflight — 2026-07-28
+
+Outcome: **passed read-only pre-submit boundary; paid execution not started**.
+
+- RAM controller policy v2 is default, v1 remains rollback, and the effective document is semantically identical to repository SHA-256 `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`.
+- Two independent diagnostic `GetImage` calls returned HTTP 200 with RequestIds `019FA610-3339-5FD0-B94A-D96DE46A36A9` and `019FA610-B208-50B3-9CDA-95A2C3819B9F`. The exact URI, modified time, size, `PUBLIC` accessibility and `Import` source type matched. The public response omitted optional `WorkspaceId`; the installed SDK also types `workspaceId` as optional.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` — passed.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight` — passed against the exact named-local target, Run and frozen ExecutionBundle; existing Attempt count 0, cloud calls 0 and database writes 0.
+- With a fresh controller-role STS loaded from a repository-external mode-`0600` file, `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode image-preflight` — passed. Output schema `t132-m7-l1-live-window-image-preflight@v1` reported image request hash `00886de40a879706e6395f5261af18b861b35b958826cb10b303cc59375014d3`, cloud calls 1, provider writes 0, `CreateJob` calls 0 and database writes 0.
+- Debug cleanup found no `DEBUG-MODE` or `[DBG:` markers in the changed runner. Deterministic verification threshold: 1/1.
+- Final effect census for the production preflight invocation: provider reads 1; provider writes 0; `CreateJob` 0/2; billable jobs 0; Attempt rows 0; database/scientific/evidence writes 0; capability changes 0. The recorded authorization `M7-L1 authorized: 2026-07-28, ceiling ¥50, 2 jobs` remains unconsumed.
+
 ## Visualization placement and scope correction — 2026-07-28
 
 Outcome: **corrected; the visualization is no longer a repository artifact and the active plan is personal-use-first**.
@@ -78,8 +90,8 @@ Outcome: **passed for exact provider-managed image metadata; no write, capabilit
 
 - Authorization scope: read-only comparison of `cn-shanghai / image-liuxvj7p2qcnflha84` only.
 - One initial CLI attempt stopped locally with `unknown endpoint` and produced no provider RequestId. The explicit endpoint `aiworkspace.cn-shanghai.aliyuncs.com` was then used.
-- Successful read 1 RequestId: `019FA414-79EA-53A0-BF7D-B0F7B48266D9`. It returned the exact ImageId and frozen regional URI, size `3803970629`, accessibility `PUBLIC`, source type `Import`, `Identity=null` and `Signature=null`.
-- Successful read 2 RequestId: `019FA414-E2BA-5365-BF54-A72B87AF7825`. It returned exact `GmtCreateTime=2026-07-02T04:35:35.000Z` and `GmtModifiedTime=2026-07-02T04:35:35.000Z`.
+- Successful read 1 RequestId: `019FA414-79EA-53A0-BF7D-B0F7B48266D9`. The response returned the exact ImageId and frozen regional URI, size `3803970629`, accessibility `PUBLIC`, source type `Import`, `Identity=null` and `Signature=null`.
+- Successful read 2 RequestId: `019FA414-E2BA-5365-BF54-A72B87AF7825`. The response returned exact `GmtCreateTime=2026-07-02T04:35:35.000Z` and `GmtModifiedTime=2026-07-02T04:35:35.000Z`.
 - Comparison against `workloads/ragperf-canary/manifests/execution-bundle-v2.json`: no field drift.
 - Provider operation census: successful `GetImage` 2; cloud/provider writes 0; `CreateJob` 0; capability changes 0; credential capture 0; provider compute 0; database/scientific/evidence writes 0.
 - This is not image-pull, mount, runtime or scientific acceptance and not a live-window authorization. Durable evidence: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.

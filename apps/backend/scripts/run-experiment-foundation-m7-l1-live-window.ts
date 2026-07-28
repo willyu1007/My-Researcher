@@ -48,7 +48,7 @@ import {
   listExperimentFoundationNamedLocalApplicationTables,
 } from './experiment-foundation-named-local-evidence.js';
 
-type RunnerMode = 'offline-preflight' | 'execute';
+type RunnerMode = 'offline-preflight' | 'image-preflight' | 'execute';
 
 const require = createRequire(import.meta.url);
 const AIWorkspaceClientConstructor = require('@alicloud/aiworkspace20210204').default as
@@ -236,9 +236,25 @@ async function main(): Promise<void> {
       return;
     }
 
-    requireLiveAuthorization();
+    if (mode === 'execute') requireLiveAuthorization();
     const credential = readTemporaryCredential();
     const imageRequestHash = await freshImagePreflight(manifest, credential);
+    if (mode === 'image-preflight') {
+      console.log(JSON.stringify({
+        schema_version: 't132-m7-l1-live-window-image-preflight@v1',
+        status: 'passed',
+        target_fingerprint: target.fingerprint,
+        run_id: RUN_ID,
+        execution_bundle_revision_id: BUNDLE_REVISION_ID,
+        execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
+        image_request_hash: imageRequestHash,
+        cloud_call_count: 1,
+        provider_write_count: 0,
+        create_job_call_count: 0,
+        database_write_count: 0,
+      }));
+      return;
+    }
     const applicationTables =
       await listExperimentFoundationNamedLocalApplicationTables(prisma, [...PACK_B_TABLES]);
     const protectedTables = applicationTables.filter(
@@ -465,7 +481,6 @@ async function freshImagePreflight(
   const body = response.body;
   assert.ok(body?.requestId);
   assert.equal(body.imageUri, manifest.container_image.image_ref);
-  assert.equal(body.workspaceId, WORKSPACE_ID);
   assert.equal(body.gmtModifiedTime, manifest.container_image.provider_managed_asset.modified_at);
   assert.equal(body.size, manifest.container_image.provider_managed_asset.size_bytes);
   assert.equal(body.accessibility, manifest.container_image.provider_managed_asset.accessibility);
@@ -475,7 +490,7 @@ async function freshImagePreflight(
     image_id: IMAGE_ID,
     request_id: body.requestId,
     image_uri: body.imageUri,
-    workspace_id: body.workspaceId,
+    workspace_id: body.workspaceId ?? null,
     gmt_modified_time: body.gmtModifiedTime,
     size: body.size,
     accessibility: body.accessibility,
@@ -537,10 +552,10 @@ async function readManifest(): Promise<AuthoringManifest> {
 function parseMode(args: string[]): RunnerMode {
   const modeIndex = args.indexOf('--mode');
   const mode = modeIndex >= 0 ? args[modeIndex + 1] : undefined;
-  if (mode !== 'offline-preflight' && mode !== 'execute') {
-    throw new Error('Usage: --mode offline-preflight|execute');
+  if (mode === 'offline-preflight' || mode === 'image-preflight' || mode === 'execute') {
+    return mode;
   }
-  return mode;
+  throw new Error('Usage: --mode offline-preflight|image-preflight|execute');
 }
 
 function requireLiveAuthorization(): void {

@@ -6,7 +6,7 @@
 
 - Do not add v2 contract/materializer support while leaving Prisma readback discriminators hard-coded to v1. T1/T2 transactions read their own writes before commit; stale readback fences will reject valid v2 state and can look like a generic materialization conflict.
 - Do not diagnose `MATERIALIZATION_KEY_CONFLICT` as a unique-key collision without reproducing the consumer error. The final message was `EF RunRecipe schema version drifted from v1`; the T2 transaction was fully rolled back.
-- Do not directly consume a terminalized relay event or silently reset it after a product fix. First prove the failed domain transaction left zero target rows, then require a separate exact one-row authorization, retain the attempt counter and resume through the normal relay.
+- Do not directly consume a terminalized relay event or silently reset the event after a product fix. First prove the failed domain transaction left zero target rows, then require a separate exact one-row authorization, retain the attempt counter and resume through the normal relay.
 - Do not make restart accounting aware only of the earliest prefix. A bounded apply can stop after T1; the runner must census every authorized table family and subtract the exact already-committed scope from the final ceiling.
 
 ## Cloud-preflight implementation findings — 2026-07-18
@@ -778,7 +778,7 @@ When adding an entry, use:
 
 - Symptom: the live runner's first zero-cloud preflight found the frozen executable TaskSpecs at `1 CPU / 512 MiB`, while the authorization materials described a `g6.large`-class profile using inconsistent `1 CPU / 4 GiB` shorthand.
 - Root cause: executable v2 materialization used a code-owned default resource snapshot, and the real-provider payload emitted `ResourceConfig` even for `public_resource`. Current PAI documentation identifies public resources by ECS specification; `ecs.g6.large` is `2 vCPU / 8 GiB`.
-- Fix/workaround: public profiles now require exact `ecs_spec/cpu_cores/memory_mb`, public payloads emit `EcsSpec`, recovery checks it, and new WorkOrder v2 revisions may carry an exact resource snapshot. The old Run remains immutable and ineligible.
+- Fix/workaround: public profiles now require exact `ecs_spec/cpu_cores/memory_mb`, public payloads emit `EcsSpec`, recovery checks the value, and new WorkOrder v2 revisions may carry an exact resource snapshot. The old Run remains immutable and ineligible.
 - Prevention: freeze provider-neutral resource intent before T1, reconcile the resource intent with the provider's exact billable SKU before T2, and run the live runner's offline preflight before creating any Attempt or cloud job.
 
 ### 2026-07-28 — Branch state advances at both T1 and T3
@@ -796,3 +796,12 @@ When adding an entry, use:
 - What was tried: the standalone file was authored, linked from the task overview, rendered with Quick Look and committed to `main`; those checks verified the wrong delivery surface.
 - Fix/workaround: remove the repo artifact/link, create a fragment in the exact thread visualization directory, render the fragment with the bundled wrapper for validation and return the fragment through the inline visualization directive.
 - Prevention: for “show/organize/explore in HTML” inside Codex desktop, default to the visualization surface. Use repository HTML only when the user explicitly asks for a project file, site, app page or exported artifact.
+
+### 2026-07-28 — Public official-image ownership metadata is not the Job workspace
+
+- Symptom: `GetImage` returned HTTP 200 and every frozen provider-managed field matched, but the live runner would reject the response because `workspaceId` was absent and therefore unequal to DLC target workspace `1450165`.
+- Root cause: the runner conflated optional image ownership metadata with the independently frozen workspace where the DLC Job will run. The installed SDK declares `workspaceId` optional, and the public official-image response omitted that field.
+- What was tried: two independent read-only provider calls with distinct RequestIds, a safe response-key projection, comparison with the SDK type and a production-path preflight after the minimal fix.
+- Fix/workaround: remove the image-response workspace equality assertion, encode an absent observed workspace as `null` in the request evidence hash, and add `image-preflight` mode so the exact production image gate can be exercised without authorization consumption or `CreateJob`.
+- Prevention: freeze and validate image asset identity only from fields the provider actually returns for that asset class. Bind the DLC target workspace in the Job payload/profile gate; never infer the target workspace from optional image ownership metadata.
+- References: `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `03-implementation-notes.md`; `04-verification.md`.

@@ -1,6 +1,6 @@
 # T-132 M7-L1 live-canary authorization materials (fill-in)
 
-Status: **materials in preparation** — items 2/4 decided 2026-07-25; item 3 OSS bucket and lifecycle completed 2026-07-26; item 1 code/data objects are uploaded and remotely verified and the diagnostic-only provider-managed image contract is implemented offline, while exact Dataset revision bindings, final bundle freeze and same-payload verification remain pending; item 5 custom policies, role split, trust policies and attachments completed and verified 2026-07-26. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
+Status: **materials complete; paid execution pending** — exact SciFact Dataset revisions, frozen ExecutionBundle v2, resource-exact executable lineage, OSS input/output bindings, cost ceiling and split RAM identities are complete. Controller policy v2 is active and the production read-only image preflight passed on 2026-07-28. No PAI Job has been created; the two-job/¥50 authorization remains unconsumed. This document collects the five blocking inputs from `11-m7-real-provider-readiness-review.md` § "Blocking inputs before any live call". Non-secret decisions and digests are committed here; credentials are NEVER committed — they are supplied process-scoped at window time only (the M6-R4 pattern).
 
 Submission protocol per item: edit the `DECISION:` lines in this file (or state the choice in chat and Codex records it here), then the final line of this document gets your explicit "M7-L1 authorized" statement. Codex prepares every artifact marked `[Codex prepares]` for your review before the window.
 
@@ -14,7 +14,7 @@ Required: reviewed ExecutionBundle revision — immutable code artifact ref + co
 - VERIFIED (read-only, 2026-07-27): PAI asset `image-liuxvj7p2qcnflha84` resolves to `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`; DLC OSS data storage is `已开通`. The lookup exposed no OCI/content digest and returned null `Identity`/`Signature`.
 - CONTRACT DECISION (2026-07-27): preserve `ExecutionBundle@v1` for OCI digests. Use `ExecutionBundle@v2` only for the exact typed PAI provider asset with `permitted_scope=m7_l1_diagnostic_only`; redacted manifest v2 stores its identity hash and contains no `image_digest`. M7-L2 still requires content-digest image identity.
 - UPLOADED/VERIFIED (2026-07-27): `workloads/ragperf-canary/manifests/workload-directory-v1.json` binds one expanded `entrypoint.py` object at SHA-256 `9b2a82298dfa969146e5e223893d3d86c6254cb16a995be72b65709a55b4f05d`, 7,916 bytes. Remote length and CRC64-ECMA match local.
-  - `DECISION: official-image + OSS route accepted; provider-managed v2 diagnostic identity and exact uploads verified; Dataset revision bindings, bundle freeze and same-payload gate pending`
+  - `DECISION: official-image + OSS route accepted; provider-managed v2 diagnostic identity, exact uploads, Dataset revision bindings, bundle freeze, executable lineage and same-payload preflight verified`
 
 ## 2. Dataset mirrors
 
@@ -46,11 +46,12 @@ Required: short-lived least-privilege controller policy (exact allowlist `paidlc
 
 - [Codex prepares] the two exact RAM policy JSON documents for you to paste into the Aliyun console, plus the SHA-256 you record back here as the reviewed-policy digest (the EF-P16 pattern).
 - At window time you supply a fresh short-lived STS triplet for the controller role **only via process env to the runner invocation** (never a file in the repo, never chat if avoidable — a terminal env var export in your own shell is the cleanest channel).
-- Controller policy update prepared 2026-07-28: add read-only `paiimage:GetImage` so the same short-lived controller STS can perform the mandatory fresh image comparison before CreateJob. Repository SHA-256 is `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`; console activation remains pending owner confirmation. Runtime policy remains SHA-256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`.
+- Controller policy v2 activated and made default 2026-07-28: it adds read-only `paiimage:GetImage` so the same short-lived controller STS can perform the mandatory fresh image comparison before `CreateJob`. The console document is semantically identical to repository SHA-256 `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`; v1 remains available as rollback. Runtime policy remains SHA-256 `1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b`.
+- Production read-only `image-preflight` passed 2026-07-28 with one `GetImage` read, zero provider writes, zero `CreateJob` calls and zero database writes. The public official-image response omitted optional image ownership `WorkspaceId`; the runner now correctly keeps that metadata separate from the exact DLC Job target workspace.
 - Controller role: ID `300042892692129613`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-controller`, exact owner-user trust `acs:ram::1183869713036194:user/user_0002`, attached policy `pea-m7-canary-controller` only.
 - Runtime role: ID `300525928077898732`, ARN `acs:ram::1183869713036194:role/pea-m7-canary-runtime`, PAI service trust `pai.aliyuncs.com`, attached policy `pea-m7-canary-runtime` only.
 - DECISION (owner): confirm the role-split design; record final policy digests after console review.
-  - `DECISION (completed 2026-07-26): controller v1 sha256 ddde63f223f8d1982da124414ff8224aa7a431f56b51af834030b4fb681f4d8c; runtime v2 sha256 1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b; separate roles and one-to-one attachments verified`
+  - `DECISION (completed 2026-07-28): controller v2 sha256 c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be active with v1 rollback; runtime v2 sha256 1eb7de00aceacc14817b058291eb4f2e85cdbb4c10ea467c91084a75094b1a4b; separate roles, one-to-one attachments and read-only production image preflight verified`
 
 ## Final authorization line
 
