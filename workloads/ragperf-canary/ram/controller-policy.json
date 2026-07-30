@@ -13,6 +13,14 @@
       "Resource": "*"
     },
     {
+      "Sid": "M7L1ControllerPassRuntimeRoleToPai",
+      "Effect": "Allow",
+      "Action": [
+        "ram:PassRole"
+      ],
+      "Resource": "acs:ram::1183869713036194:role/pea-m7-canary-runtime"
+    },
+    {
       "Sid": "M7L1ControllerFreshImageRead",
       "Effect": "Allow",
       "Action": ["paiimage:GetImage"],

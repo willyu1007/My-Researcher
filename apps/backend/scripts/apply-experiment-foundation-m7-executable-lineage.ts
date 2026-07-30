@@ -95,16 +95,202 @@ const SUCCESSOR_AUTHORIZATION_ENV =
   'T132_M7_RESOURCE_EXACT_SUCCESSOR_APPLY_AUTHORIZATION';
 const SUCCESSOR_AUTHORIZATION_VALUE =
   'authorized-2026-07-28-p313-m7-l1-resource-exact-successor-max40-no-cloud';
-const SUCCESSOR_BRANCH_ID = NEW_BRANCH_ID;
-const SUCCESSOR_PARENT_REVISION_ID = NEW_REVISION_ID;
-const SUCCESSOR_PARENT_RUN_ID = 'ef_run_v2_t132_m7_l1_p313_v1_1';
-const SUCCESSOR_REVISION_ID =
-  'pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1';
-const SUCCESSOR_RUN_ID =
-  'ef_run_v2_t132_m7_l1_resource_successor_v2_1';
-const SUCCESSOR_BUSINESS_KEY =
-  't132-m7-l1-resource-exact-successor-p313-v2';
-const SUCCESSOR_ID_SCOPE = 't132_m7_l1_resource_successor_v2';
+const DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_DIAGNOSTIC_SUCCESSOR_APPLY_AUTHORIZATION';
+const DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-28-p313-m7-l1-diagnostic-successor-max40-no-cloud';
+const PASSROLE_FIX_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_PASSROLE_FIX_SUCCESSOR_APPLY_AUTHORIZATION';
+const PASSROLE_FIX_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-29-p313-m7-l1-passrole-fix-successor-max40-no-cloud';
+const OPTIONS_FIX_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_OPTIONS_FIX_SUCCESSOR_APPLY_AUTHORIZATION';
+const OPTIONS_FIX_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-29-p313-m7-l1-options-fix-successor-max40-no-cloud';
+const ROLE_SHAPE_FIX_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_ROLE_SHAPE_FIX_SUCCESSOR_APPLY_AUTHORIZATION';
+const ROLE_SHAPE_FIX_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-29-p313-m7-l1-role-shape-fix-successor-max40-no-cloud';
+const INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_APPLY_AUTHORIZATION';
+const INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-29-p313-m7-l1-instrumented-diagnostic-successor-max40-no-cloud';
+const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_CONSOLE_DEFAULT_ACCESS_SUCCESSOR_APPLY_AUTHORIZATION';
+const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_VALUE =
+  'authorized-2026-07-30-p313-m7-l1-console-default-access-successor-max40-no-cloud';
+const RESOURCE_EXACT_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code: 'T132_M7_RESOURCE_EXACT_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-resource-exact-successor-apply@v1',
+  worker_id: 't132-m7-l1-resource-exact-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id: NEW_REVISION_ID,
+  parent_run_id: 'ef_run_v2_t132_m7_l1_p313_v1_1',
+  parent_revision_sequence: 1,
+  parent_branch_state_version: 2,
+  parent_branch_head_version: 1,
+  revision_id: 'pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1',
+  run_id: 'ef_run_v2_t132_m7_l1_resource_successor_v2_1',
+  revision_sequence: 2,
+  business_key: 't132-m7-l1-resource-exact-successor-p313-v2',
+  id_scope: 't132_m7_l1_resource_successor_v2',
+});
+const DIAGNOSTIC_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code: 'T132_M7_DIAGNOSTIC_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-diagnostic-successor-apply@v1',
+  worker_id: 't132-m7-l1-diagnostic-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_resource_successor_v2_1',
+  parent_run_id: 'ef_run_v2_t132_m7_l1_resource_successor_v2_1',
+  parent_revision_sequence: 2,
+  parent_branch_state_version: 4,
+  parent_branch_head_version: 2,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_diagnostic_successor_v3_1',
+  run_id: 'ef_run_v2_t132_m7_l1_diagnostic_successor_v3_1',
+  revision_sequence: 3,
+  business_key: 't132-m7-l1-diagnostic-successor-p313-v3',
+  id_scope: 't132_m7_l1_diagnostic_successor_v3',
+});
+const PASSROLE_FIX_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: PASSROLE_FIX_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: PASSROLE_FIX_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code: 'T132_M7_PASSROLE_FIX_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-passrole-fix-successor-apply@v1',
+  worker_id: 't132-m7-l1-passrole-fix-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_diagnostic_successor_v3_1',
+  parent_run_id: 'ef_run_v2_t132_m7_l1_diagnostic_successor_v3_1',
+  parent_revision_sequence: 3,
+  parent_branch_state_version: 6,
+  parent_branch_head_version: 3,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_passrole_fix_successor_v4_1',
+  run_id: 'ef_run_v2_t132_m7_l1_passrole_fix_successor_v4_1',
+  revision_sequence: 4,
+  business_key: 't132-m7-l1-passrole-fix-successor-p313-v4',
+  id_scope: 't132_m7_l1_passrole_fix_successor_v4',
+});
+const OPTIONS_FIX_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: OPTIONS_FIX_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: OPTIONS_FIX_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code: 'T132_M7_OPTIONS_FIX_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-options-fix-successor-apply@v1',
+  worker_id: 't132-m7-l1-options-fix-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_passrole_fix_successor_v4_1',
+  parent_run_id: 'ef_run_v2_t132_m7_l1_passrole_fix_successor_v4_1',
+  parent_revision_sequence: 4,
+  parent_branch_state_version: 8,
+  parent_branch_head_version: 4,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_options_fix_successor_v5_1',
+  run_id: 'ef_run_v2_t132_m7_l1_options_fix_successor_v5_1',
+  revision_sequence: 5,
+  business_key: 't132-m7-l1-options-fix-successor-p313-v5',
+  id_scope: 't132_m7_l1_options_fix_successor_v5',
+});
+const ROLE_SHAPE_FIX_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: ROLE_SHAPE_FIX_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: ROLE_SHAPE_FIX_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code: 'T132_M7_ROLE_SHAPE_FIX_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-role-shape-fix-successor-apply@v1',
+  worker_id: 't132-m7-l1-role-shape-fix-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_options_fix_successor_v5_1',
+  parent_run_id: 'ef_run_v2_t132_m7_l1_options_fix_successor_v5_1',
+  parent_revision_sequence: 5,
+  parent_branch_state_version: 10,
+  parent_branch_head_version: 5,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_role_shape_fix_successor_v6_1',
+  run_id: 'ef_run_v2_t132_m7_l1_role_shape_fix_successor_v6_1',
+  revision_sequence: 6,
+  business_key: 't132-m7-l1-role-shape-fix-successor-p313-v6',
+  id_scope: 't132_m7_l1_role_shape_fix_successor_v6',
+});
+const INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code:
+    'T132_M7_INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-instrumented-diagnostic-successor-apply@v1',
+  worker_id: 't132-m7-l1-instrumented-diagnostic-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_role_shape_fix_successor_v6_1',
+  parent_run_id:
+    'ef_run_v2_t132_m7_l1_role_shape_fix_successor_v6_1',
+  parent_revision_sequence: 6,
+  parent_branch_state_version: 12,
+  parent_branch_head_version: 6,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1',
+  run_id:
+    'ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1',
+  revision_sequence: 7,
+  business_key: 't132-m7-l1-instrumented-diagnostic-successor-p313-v7',
+  id_scope: 't132_m7_l1_instrumented_diagnostic_successor_v7',
+});
+const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code:
+    'T132_M7_CONSOLE_DEFAULT_ACCESS_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-console-default-access-successor-apply@v1',
+  worker_id: 't132-m7-l1-console-default-access-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1',
+  parent_run_id:
+    'ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1',
+  parent_revision_sequence: 7,
+  parent_branch_state_version: 14,
+  parent_branch_head_version: 7,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_console_default_access_successor_v8_1',
+  run_id:
+    'ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1',
+  revision_sequence: 8,
+  business_key: 't132-m7-l1-console-default-access-successor-p313-v8',
+  id_scope: 't132_m7_l1_console_default_access_successor_v8',
+});
+const SUCCESSOR_SCOPES = [
+  RESOURCE_EXACT_SUCCESSOR_SCOPE,
+  DIAGNOSTIC_SUCCESSOR_SCOPE,
+  PASSROLE_FIX_SUCCESSOR_SCOPE,
+  OPTIONS_FIX_SUCCESSOR_SCOPE,
+  ROLE_SHAPE_FIX_SUCCESSOR_SCOPE,
+  INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE,
+  CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE,
+] as const;
+const CONFIGURED_SUCCESSOR_SCOPES = SUCCESSOR_SCOPES.filter(
+  (scope) => process.env[scope.authorization_env] !== undefined,
+);
+const SUCCESSOR_SCOPE =
+  CONFIGURED_SUCCESSOR_SCOPES[0] ?? RESOURCE_EXACT_SUCCESSOR_SCOPE;
+const SUCCESSOR_BRANCH_ID = SUCCESSOR_SCOPE.branch_id;
+const SUCCESSOR_PARENT_REVISION_ID = SUCCESSOR_SCOPE.parent_revision_id;
+const SUCCESSOR_PARENT_RUN_ID = SUCCESSOR_SCOPE.parent_run_id;
+const SUCCESSOR_PARENT_REVISION_SEQUENCE =
+  SUCCESSOR_SCOPE.parent_revision_sequence;
+const SUCCESSOR_PARENT_BRANCH_STATE_VERSION =
+  SUCCESSOR_SCOPE.parent_branch_state_version;
+const SUCCESSOR_PARENT_BRANCH_HEAD_VERSION =
+  SUCCESSOR_SCOPE.parent_branch_head_version;
+const SUCCESSOR_REVISION_ID = SUCCESSOR_SCOPE.revision_id;
+const SUCCESSOR_RUN_ID = SUCCESSOR_SCOPE.run_id;
+const SUCCESSOR_REVISION_SEQUENCE = SUCCESSOR_SCOPE.revision_sequence;
+const SUCCESSOR_BUSINESS_KEY = SUCCESSOR_SCOPE.business_key;
+const SUCCESSOR_ID_SCOPE = SUCCESSOR_SCOPE.id_scope;
 const SUCCESSOR_EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   PaperImplementationExperimentWorkOrderBranchV2: 0,
   PaperImplementationExperimentWorkOrderRevisionV2: 1,
@@ -828,7 +1014,7 @@ async function successorMain(): Promise<void> {
   assertExperimentFoundationNamedLocalDatabaseUrl(
     databaseUrl,
     TARGET,
-    'T132_M7_RESOURCE_EXACT_SUCCESSOR_TARGET_MISMATCH',
+    SUCCESSOR_SCOPE.target_mismatch_code,
   );
 
   const prisma = new PrismaClient();
@@ -851,7 +1037,7 @@ async function successorMain(): Promise<void> {
     assert.equal(
       scopeWasEmpty || scopeWasComplete,
       true,
-      'The resource-exact successor scope must be empty or already exactly complete',
+      'The selected successor scope must be empty or already exactly complete',
     );
     const lineageBefore = await successorProtectedLineageSentinels(prisma);
     const branchBefore =
@@ -861,18 +1047,38 @@ async function successorMain(): Promise<void> {
     assert.ok(branchBefore);
     assert.equal(branchBefore.validationCycleId, NEW_CYCLE_ID);
     assert.equal(branchBefore.branchKey, BRANCH_KEY);
-    assert.equal(branchBefore.stateVersion, scopeWasEmpty ? 2 : 4);
+    assert.equal(
+      branchBefore.stateVersion,
+      scopeWasEmpty
+        ? SUCCESSOR_PARENT_BRANCH_STATE_VERSION
+        : SUCCESSOR_PARENT_BRANCH_STATE_VERSION + 2,
+    );
     assert.equal(
       branchBefore.currentRevisionId,
       scopeWasEmpty ? SUCCESSOR_PARENT_REVISION_ID : SUCCESSOR_REVISION_ID,
     );
-    assert.equal(branchBefore.currentRevisionSequence, scopeWasEmpty ? 1 : 2);
-    assert.equal(branchBefore.headVersion, scopeWasEmpty ? 1 : 2);
+    assert.equal(
+      branchBefore.currentRevisionSequence,
+      scopeWasEmpty
+        ? SUCCESSOR_PARENT_REVISION_SEQUENCE
+        : SUCCESSOR_REVISION_SEQUENCE,
+    );
+    assert.equal(
+      branchBefore.headVersion,
+      scopeWasEmpty
+        ? SUCCESSOR_PARENT_BRANCH_HEAD_VERSION
+        : SUCCESSOR_PARENT_BRANCH_HEAD_VERSION + 1,
+    );
     assert.equal(
       branchBefore.headRevisionId,
       scopeWasEmpty ? SUCCESSOR_PARENT_REVISION_ID : SUCCESSOR_REVISION_ID,
     );
-    assert.equal(branchBefore.headRevisionSequence, scopeWasEmpty ? 1 : 2);
+    assert.equal(
+      branchBefore.headRevisionSequence,
+      scopeWasEmpty
+        ? SUCCESSOR_PARENT_REVISION_SEQUENCE
+        : SUCCESSOR_REVISION_SEQUENCE,
+    );
     assert.equal(
       branchBefore.headRunId,
       scopeWasEmpty ? SUCCESSOR_PARENT_RUN_ID : SUCCESSOR_RUN_ID,
@@ -907,13 +1113,18 @@ async function successorMain(): Promise<void> {
     );
     assert.equal(
       current.branch.current_admitted_revision_sequence,
-      scopeWasEmpty ? 1 : 2,
+      scopeWasEmpty
+        ? SUCCESSOR_PARENT_REVISION_SEQUENCE
+        : SUCCESSOR_REVISION_SEQUENCE,
     );
     assert.equal(
       current.branch.head_run_id,
       scopeWasEmpty ? SUCCESSOR_PARENT_RUN_ID : SUCCESSOR_RUN_ID,
     );
-    assert.equal(current.revision.revision_sequence, 1);
+    assert.equal(
+      current.revision.revision_sequence,
+      SUCCESSOR_PARENT_REVISION_SEQUENCE,
+    );
     assert.equal(
       current.revision.work_order_revision.work_order_schema_version,
       'v2',
@@ -930,6 +1141,32 @@ async function successorMain(): Promise<void> {
       work_order_revision: {
         ...structuredClone(current.revision.work_order_revision),
         work_order_schema_version: 'v2',
+        title: SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
+          ? 'T-132 M7-L1 console-default access fix verification'
+          : SUCCESSOR_SCOPE === INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE
+          ? 'T-132 M7-L1 instrumented provider rejection diagnostic'
+          : SUCCESSOR_SCOPE === ROLE_SHAPE_FIX_SUCCESSOR_SCOPE
+          ? 'T-132 M7-L1 custom-role shape fix verification'
+          : SUCCESSOR_SCOPE === OPTIONS_FIX_SUCCESSOR_SCOPE
+            ? 'T-132 M7-L1 direct OSS Options fix verification'
+          : SUCCESSOR_SCOPE === PASSROLE_FIX_SUCCESSOR_SCOPE
+            ? 'T-132 M7-L1 PassRole fix verification'
+            : SUCCESSOR_SCOPE === DIAGNOSTIC_SUCCESSOR_SCOPE
+              ? 'T-132 M7-L1 provider rejection diagnostic'
+              : current.revision.work_order_revision.title,
+        objective: SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
+          ? 'Verify bounded CreateJob submission with explicit RO code/input mounts and console-default omitted output access; scientific evidence remains excluded.'
+          : SUCCESSOR_SCOPE === INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE
+          ? 'Reproduce bounded CreateJob rejection with dbg-20260729-142414-8438 whitelist-only status, code and RequestId observation; scientific evidence remains excluded.'
+          : SUCCESSOR_SCOPE === ROLE_SHAPE_FIX_SUCCESSOR_SCOPE
+          ? 'Verify bounded CreateJob submission with console-parity RoleArn and RoleType only, omitting optional AssumeRoleFor; scientific evidence remains excluded.'
+          : SUCCESSOR_SCOPE === OPTIONS_FIX_SUCCESSOR_SCOPE
+            ? 'Verify bounded CreateJob submission with canonical empty-object Options on every direct OSS DataSource; scientific evidence remains excluded.'
+          : SUCCESSOR_SCOPE === PASSROLE_FIX_SUCCESSOR_SCOPE
+            ? 'Verify bounded CreateJob submission after the exact controller PassRole repair; scientific evidence remains excluded.'
+            : SUCCESSOR_SCOPE === DIAGNOSTIC_SUCCESSOR_SCOPE
+              ? 'Reproduce the bounded CreateJob rejection with whitelist-only error observation; scientific evidence remains excluded.'
+              : current.revision.work_order_revision.objective,
         resource_snapshot: {
           cpu_cores: 2,
           memory_mb: 8192,
@@ -965,11 +1202,14 @@ async function successorMain(): Promise<void> {
     assert.equal(admitted.replayed, !scopeWasEmpty);
     assert.equal(admitted.branch.branch_id, SUCCESSOR_BRANCH_ID);
     assert.equal(admitted.revision.work_order_revision_id, SUCCESSOR_REVISION_ID);
-    assert.equal(admitted.revision.revision_sequence, 2);
+    assert.equal(
+      admitted.revision.revision_sequence,
+      SUCCESSOR_REVISION_SEQUENCE,
+    );
 
     const relay = buildRelay(
       repositories,
-      't132-m7-l1-resource-exact-successor-relay',
+      SUCCESSOR_SCOPE.worker_id,
     );
     const applyRelay = await relay.drainUntilIdle({
       max_passes: 10,
@@ -1058,7 +1298,7 @@ async function successorMain(): Promise<void> {
     assertCapabilitiesRemainDisabled();
 
     console.log(JSON.stringify({
-      schema_version: 't132-m7-resource-exact-successor-apply@v1',
+      schema_version: SUCCESSOR_SCOPE.schema_version,
       status: 'passed',
       target,
       authorization: {
@@ -1286,10 +1526,10 @@ async function requireSuccessorFinalState(
     await prisma.paperImplementationExperimentWorkOrderRevisionV2.findUnique({
       where: { id: revisionId },
       include: { cells: { orderBy: { ordinal: 'asc' } }, admission: true },
-    });
+  });
   assert.ok(revision);
   assert.equal(revision.branchId, SUCCESSOR_BRANCH_ID);
-  assert.equal(revision.revisionSequence, 2);
+  assert.equal(revision.revisionSequence, SUCCESSOR_REVISION_SEQUENCE);
   assert.equal(revision.parentRevisionId, SUCCESSOR_PARENT_REVISION_ID);
   assert.equal(revision.workOrderSnapshotSchemaVersion, 'v2');
   const workOrder = revision.workOrderSnapshotJson as {
@@ -1326,7 +1566,7 @@ async function requireSuccessorFinalState(
     },
   });
   assert.ok(run);
-  assert.equal(run.externalPiRevisionSequence, 2);
+  assert.equal(run.externalPiRevisionSequence, SUCCESSOR_REVISION_SEQUENCE);
   assert.equal(run.runRecipe.recipeSchemaVersion, 'v2');
   assert.equal(run.runRecipe.executionBundleRevisionId, BUNDLE_REVISION_ID);
   assert.equal(run.runRecipe.executionBundleRevisionHash, BUNDLE_REVISION_HASH);
@@ -1365,13 +1605,13 @@ async function requireSuccessorFinalState(
     branchBefore.stateVersion + (expectBranchAdvance ? 2 : 0),
   );
   assert.equal(branch.currentRevisionId, revisionId);
-  assert.equal(branch.currentRevisionSequence, 2);
+  assert.equal(branch.currentRevisionSequence, SUCCESSOR_REVISION_SEQUENCE);
   assert.equal(
     branch.headVersion,
     branchBefore.headVersion + (expectBranchAdvance ? 1 : 0),
   );
   assert.equal(branch.headRevisionId, revisionId);
-  assert.equal(branch.headRevisionSequence, 2);
+  assert.equal(branch.headRevisionSequence, SUCCESSOR_REVISION_SEQUENCE);
   assert.equal(branch.headRunId, run.id);
   assert.equal(branch.headRunManifestHash, run.runManifestHash);
   const finalAck = await prisma.experimentFoundationIntegrationInboxV2.findFirst({
@@ -1391,7 +1631,7 @@ async function assertSuccessorProhibitedRowsZero(
 ): Promise<void> {
   assert.equal(
     await prisma.experimentFoundationExecutionAttemptV2.count({
-      where: { externalPiValidationCycleId: NEW_CYCLE_ID },
+      where: { externalPiWorkOrderRevisionId: SUCCESSOR_REVISION_ID },
     }),
     0,
   );
@@ -1460,12 +1700,17 @@ function requireAuthorization(): void {
 }
 
 function requireSuccessorAuthorization(): void {
+  if (CONFIGURED_SUCCESSOR_SCOPES.length !== 1) {
+    throw new Error(
+      'Exactly one reviewed successor authorization environment variable must be set',
+    );
+  }
   if (
-    process.env[SUCCESSOR_AUTHORIZATION_ENV]
-      !== SUCCESSOR_AUTHORIZATION_VALUE
+    process.env[SUCCESSOR_SCOPE.authorization_env]
+      !== SUCCESSOR_SCOPE.authorization_value
   ) {
     throw new Error(
-      `${SUCCESSOR_AUTHORIZATION_ENV} must equal the exact reviewed 2026-07-28 max-40 token`,
+      `${SUCCESSOR_SCOPE.authorization_env} must equal its exact reviewed max-40 token`,
     );
   }
 }
@@ -1479,9 +1724,10 @@ function assertCapabilitiesRemainDisabled(): void {
   }
 }
 
-const selectedMain = process.env[SUCCESSOR_AUTHORIZATION_ENV] === undefined
-  ? main
-  : successorMain;
+const selectedMain =
+  CONFIGURED_SUCCESSOR_SCOPES.length === 0
+    ? main
+    : successorMain;
 
 selectedMain().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));

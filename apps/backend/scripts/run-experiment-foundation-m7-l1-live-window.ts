@@ -30,15 +30,32 @@ import {
   type ExperimentFoundationAliyunPaiDlcSdkClientV2,
   ExperimentFoundationAliyunRealProviderTransportV2,
 } from '../src/services/experiment-foundation-aliyun-real-provider-v2-transport.js';
+// DEBUG-MODE: BEGIN dbg-20260729-142414-8438
+import {
+  observeExperimentFoundationM7L1CreateJobError,
+  T132_CREATE_JOB_ERROR_DEBUG_RUN_ID,
+} from '../src/services/experiment-foundation-m7-l1-create-job-error-observation.js';
+// DEBUG-MODE: END dbg-20260729-142414-8438
 import {
   ExperimentFoundationExecutionBundleV2Service,
 } from '../src/services/experiment-foundation-execution-bundle-v2-service.js';
+// DEBUG-MODE: BEGIN dbg-20260729-151747-2ddb
+import {
+  observeExperimentFoundationM7L1CreateJobThroughSdkOffline,
+  T132_CREATE_JOB_WIRE_DEBUG_RUN_ID,
+} from '../src/services/experiment-foundation-m7-l1-create-job-wire-observation.js';
+// DEBUG-MODE: END dbg-20260729-151747-2ddb
 import {
   ExperimentFoundationRealProviderCommandV2Worker,
 } from '../src/services/experiment-foundation-real-provider-command-v2-worker.js';
 import {
   ExperimentFoundationRealProviderIntakeV2Service,
 } from '../src/services/experiment-foundation-real-provider-intake-v2-service.js';
+// DEBUG-MODE: BEGIN dbg-20260729-151747-2ddb
+import {
+  ExperimentFoundationRealProviderPayloadV2Service,
+} from '../src/services/experiment-foundation-real-provider-payload-v2-service.js';
+// DEBUG-MODE: END dbg-20260729-151747-2ddb
 import {
   assertExperimentFoundationLiveNamedLocalTarget,
   assertExperimentFoundationNamedLocalDatabaseUrl,
@@ -72,22 +89,23 @@ const TARGET = Object.freeze({
   port: '5432',
   fingerprint: 'sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0',
 });
-const RUN_ID = 'ef_run_v2_t132_m7_l1_resource_successor_v2_1';
+const RUN_ID =
+  'ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1';
 const RUN_MANIFEST_HASH =
-  'sha256:221824f852a55aae19370c6ceae086b55eac54a9aca383b51baf472980d5a232';
+  'sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96';
 const BUNDLE_REVISION_ID =
   'ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48';
 const BUNDLE_REVISION_HASH =
   'sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e';
 const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
-const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v2';
+const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v8';
 const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
 const LIVE_AUTHORIZATION_VALUE =
-  'authorized-2026-07-28-ceiling-cny50-two-jobs';
+  'authorized-2026-07-30-console-default-access-verification-ceiling-cny50-two-jobs';
 const CONTROLLER_ROLE_ARN =
   'acs:ram::1183869713036194:role/pea-m7-canary-controller';
 const CONTROLLER_POLICY_SHA256 =
-  'c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be';
+  'f6b63cd73a57c6d8cfade1a177681ad4463cbd4d6d0a116e26a40ceee85ed497';
 const BUCKET_NAME = 'pea-m7-canary-6194-202607';
 const REGION_ID = 'cn-shanghai';
 const WORKSPACE_ID = '1450165';
@@ -212,6 +230,37 @@ async function main(): Promise<void> {
     )));
 
     if (mode === 'offline-preflight') {
+      // DEBUG-MODE: BEGIN dbg-20260729-151747-2ddb
+      if (existingAttempts.length === MAXIMUM_CREATE_JOB_CALLS) {
+        const payloadService = new ExperimentFoundationRealProviderPayloadV2Service();
+        for (const { run_cell: runCell, task_spec: taskSpec } of prerequisite.cells) {
+          const attempt = existingAttempts.find(
+            (candidate) => candidate.run_cell_id === runCell.run_cell_id,
+          );
+          assert.ok(attempt, `Missing exact attempt for ordinal ${runCell.ordinal}.`);
+          const materialized = payloadService.materialize({
+            run: prerequisite.run,
+            run_cell: runCell,
+            task_spec: taskSpec,
+            execution_bundle_revision: frozenBundle.revision,
+            provider_idempotency_key: attempt.provider_idempotency_key,
+          }, manifest.offline_preview_profile);
+          const observation =
+            await observeExperimentFoundationM7L1CreateJobThroughSdkOffline(
+              materialized.create_job_request,
+            );
+          console.error(JSON.stringify({
+            run_id: T132_CREATE_JOB_WIRE_DEBUG_RUN_ID,
+            marker: `[DBG:${T132_CREATE_JOB_WIRE_DEBUG_RUN_ID}]`,
+            event: 'pai_dlc.create_job.offline_final_wire_observed',
+            sequence: 8,
+            cell_ordinal: runCell.ordinal,
+            network_blocked_before_send: true,
+            ...observation,
+          }));
+        }
+      }
+      // DEBUG-MODE: END dbg-20260729-151747-2ddb
       console.log(JSON.stringify({
         schema_version: 't132-m7-l1-live-window-offline-preflight@v1',
         status: 'passed',
@@ -439,7 +488,20 @@ function buildLiveTransport(
         throw new Error('T132_M7_L1_CREATE_JOB_CEILING_EXCEEDED');
       }
       createJobCallCount += 1;
-      return dlcClient.createJobWithOptions(request, headers, runtime);
+      try {
+        return await dlcClient.createJobWithOptions(request, headers, runtime);
+      } catch (error) {
+        // DEBUG-MODE: BEGIN dbg-20260729-142414-8438
+        console.error(JSON.stringify({
+          run_id: T132_CREATE_JOB_ERROR_DEBUG_RUN_ID,
+          marker: `[DBG:${T132_CREATE_JOB_ERROR_DEBUG_RUN_ID}]`,
+          event: 'pai_dlc.create_job.error',
+          operation: 'CreateJob',
+          ...observeExperimentFoundationM7L1CreateJobError(error),
+        }));
+        // DEBUG-MODE: END dbg-20260729-142414-8438
+        throw error;
+      }
     },
     getJobWithOptions: dlcClient.getJobWithOptions.bind(dlcClient),
     listJobsWithOptions: dlcClient.listJobsWithOptions.bind(dlcClient),
