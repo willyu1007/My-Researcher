@@ -489,7 +489,7 @@ function requireOutputDirectoryUri(
   const outputMountPath =
     input.materialized.record.redacted_manifest.artifact_bindings.output.mount_path_hash;
   const candidates = input.materialized.create_job_request.dataSources?.filter((source) => (
-    source.mountAccess === 'RW'
+    (source.mountAccess === undefined || source.mountAccess === 'RW')
     && payloadRefHash('output_mount_path', source.mountPath ?? '') === outputMountPath
   )) ?? [];
   if (candidates.length !== 1 || !candidates[0]?.uri) {
@@ -586,7 +586,6 @@ function credentialConfigMatches(
         key: item.key,
         type: item.type,
         roles: item.roles?.map((role) => ({
-          assumeRoleFor: role.assumeRoleFor,
           roleType: role.roleType,
           roleArn: role.roleArn,
           policy: role.policy,

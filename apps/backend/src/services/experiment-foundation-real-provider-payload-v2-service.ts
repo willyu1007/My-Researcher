@@ -16,8 +16,10 @@ import {
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
   EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_SCHEMA_V2,
   experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+  experimentFoundationAliyunRealProviderCreateJobRequestV2Schema,
   experimentFoundationAliyunRealProviderProfileV2Schema,
   type ExperimentFoundationAliyunRealProviderCreateJobRequestV1,
+  type ExperimentFoundationAliyunRealProviderCreateJobRequestV2,
   type ExperimentFoundationAliyunRealProviderProfileV2,
   type ExperimentFoundationAliyunRealProviderRedactedManifestV1,
   type ExperimentFoundationAliyunRealProviderRedactedManifestV2,
@@ -48,6 +50,7 @@ export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2 =
 const SOURCE_BINDING_ENV_KEY = 'EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON';
 const CODE_DIR_ENV_KEY = 'EXPERIMENT_FOUNDATION_CODE_DIR';
 const OUTPUT_DIR_ENV_KEY = 'EXPERIMENT_FOUNDATION_OUTPUT_DIR';
+const DEFAULT_DIRECT_OSS_OPTIONS = '{}' as const;
 const REDACTED_FIELDS = [
   'canonical_payload_bytes',
   'WorkspaceId',
@@ -56,15 +59,22 @@ const REDACTED_FIELDS = [
   'UserCommand',
   'DataSources[*].Uri',
   'DataSources[*].MountPath',
+  'DataSources[*].Options',
   'Envs',
   'CredentialConfig',
   'Settings.Tags',
 ] as const;
 
 const ajv = new Ajv({ allErrors: true, strict: false, removeAdditional: false });
-const requestValidator: ValidateFunction<ExperimentFoundationAliyunRealProviderCreateJobRequestV1> =
+const requestV1Validator:
+  ValidateFunction<ExperimentFoundationAliyunRealProviderCreateJobRequestV1> =
   ajv.compile<ExperimentFoundationAliyunRealProviderCreateJobRequestV1>(
     experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+  );
+const requestV2Validator:
+  ValidateFunction<ExperimentFoundationAliyunRealProviderCreateJobRequestV2> =
+  ajv.compile<ExperimentFoundationAliyunRealProviderCreateJobRequestV2>(
+    experimentFoundationAliyunRealProviderCreateJobRequestV2Schema,
   );
 const profileValidator: ValidateFunction<ExperimentFoundationAliyunRealProviderProfileV2> =
   ajv.compile<ExperimentFoundationAliyunRealProviderProfileV2>(
@@ -157,7 +167,6 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
             type: 'Role',
             roles: [
               new CredentialRole({
-                assumeRoleFor: workload.runtime_account_id,
                 roleType: 'service',
                 roleArn: profile.workload_binding.runtime_role_arn,
               }),
@@ -213,7 +222,10 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
       throw invalid('Aliyun CreateJob request failed official SDK validation.');
     }
     const requestMap = request.toMap();
-    if (!requestValidator(requestMap)) {
+    if (
+      !requestV2Validator(requestMap)
+      || !hasOrderedDataSourceAccessSemantics(requestMap, 'missing')
+    ) {
       throw invalid('Aliyun CreateJob request failed the exact real-provider payload schema.');
     }
     const canonicalPayloadBytes = canonicalizeExperimentV2Json(requestMap);
@@ -367,6 +379,17 @@ export class ExperimentFoundationRealProviderPayloadV2Service {
       parsed = JSON.parse(materialized.canonical_payload_bytes);
     } catch {
       throw conflict('Aliyun CreateJob canonical bytes are not valid JSON.');
+    }
+    const isLegacyV1Request = requestV1Validator(parsed);
+    const isConsoleDefaultV2Request = (
+      requestV2Validator(parsed)
+      && hasOrderedDataSourceAccessSemantics(parsed, 'missing')
+    );
+    if (
+      !(isLegacyV1Request && hasOrderedDataSourceAccessSemantics(parsed, 'RW'))
+      && !isConsoleDefaultV2Request
+    ) {
+      throw conflict('Aliyun CreateJob canonical payload schema drifted.');
     }
     const canonical = canonicalizeExperimentV2Json(parsed);
     if (
@@ -597,16 +620,18 @@ function materializeWorkloadBindings(
       uri: content.code_artifact.artifact_ref,
       mountPath: binding.code_mount_path,
       mountAccess: 'RO',
+      options: DEFAULT_DIRECT_OSS_OPTIONS,
     }),
     ...mirrors.map((mirror) => new CreateJobRequestDataSources({
       uri: mirror.object_ref,
       mountPath: datasetMountPath(binding.input_mount_root, mirror.ordinal),
       mountAccess: 'RO',
+      options: DEFAULT_DIRECT_OSS_OPTIONS,
     })),
     new CreateJobRequestDataSources({
       uri: outputUri,
       mountPath: binding.output_mount_path,
-      mountAccess: 'RW',
+      options: DEFAULT_DIRECT_OSS_OPTIONS,
     }),
   ];
   const roleMatch = /^acs:ram::([0-9]{6,32}):role\/[A-Za-z0-9@._-]{1,64}$/u.exec(
@@ -701,6 +726,32 @@ function datasetMountPath(inputMountRoot: string, ordinal: number): string {
 
 function renderPosixCommand(command: string, arguments_: string[]): string {
   return [command, ...arguments_].map(posixQuote).join(' ');
+}
+
+function hasOrderedDataSourceAccessSemantics(
+  value: unknown,
+  outputAccess: 'RW' | 'missing',
+): boolean {
+  if (!isRecord(value) || !Array.isArray(value.DataSources)) return false;
+  const dataSources = value.DataSources;
+  if (dataSources.length < 3) return false;
+  const readonlySources = dataSources.slice(0, -1);
+  const outputSource = dataSources.at(-1);
+  return (
+    readonlySources.every(
+      (source) => isRecord(source) && source.MountAccess === 'RO',
+    )
+    && isRecord(outputSource)
+    && (
+      outputAccess === 'RW'
+        ? outputSource.MountAccess === 'RW'
+        : !Object.hasOwn(outputSource, 'MountAccess')
+    )
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function posixQuote(value: string): string {

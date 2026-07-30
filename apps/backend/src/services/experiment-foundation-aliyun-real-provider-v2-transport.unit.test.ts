@@ -401,6 +401,14 @@ test('M7-L1 recovery paginates to exhaustion and exact-matches full job detail',
   assert.deepEqual(sdk.listedPageNumbers, [1, 2]);
   assert.equal(sdk.createCount, 0);
 
+  sdk.jobs.get('job-page-2')!.credentialConfig
+    .credentialConfigItems![0]!.roles![0]!.assumeRoleFor = '1183869713036194';
+  const recoveredWithProviderEcho = await transport.submit({
+    ...input,
+    create_permitted: false,
+  });
+  assert.equal(recoveredWithProviderEcho.external_job_ref?.job_id, 'job-page-2');
+
   sdk.jobs.get('job-page-2')!.jobSpecs[0]!.ecsSpec = 'ecs.other.large';
   await assert.rejects(
     () => transport.submit({ ...input, create_permitted: false }),

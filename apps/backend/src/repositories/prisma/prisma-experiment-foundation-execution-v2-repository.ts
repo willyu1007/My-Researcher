@@ -2441,6 +2441,7 @@ function mapRealProviderPayload(row: PayloadRow): ExperimentFoundationProviderPa
       'UserCommand',
       'DataSources[*].Uri',
       'DataSources[*].MountPath',
+      'DataSources[*].Options',
       'Envs',
       'CredentialConfig',
       'Settings.Tags',

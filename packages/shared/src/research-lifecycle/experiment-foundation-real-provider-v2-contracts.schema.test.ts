@@ -13,6 +13,7 @@ import {
   experimentFoundationExecutionBundleReadinessV2Schema,
   experimentFoundationExecutionBundleRevisionV2Schema,
   experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+  experimentFoundationAliyunRealProviderCreateJobRequestV2Schema,
   experimentFoundationAliyunRealProviderProfileV2Schema,
   experimentFoundationAliyunWorkloadBindingV2Schema,
   experimentFoundationRealProviderPayloadV2Schema,
@@ -308,16 +309,19 @@ test('real-provider workload and CreateJob schemas close OSS mounts and credenti
         Uri: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'1'.repeat(64)}/`,
         MountPath: '/mnt/pea-code',
         MountAccess: 'RO',
+        Options: '{}',
       },
       {
         Uri: `oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'2'.repeat(64)}/`,
         MountPath: '/mnt/pea-input/1',
         MountAccess: 'RO',
+        Options: '{}',
       },
       {
         Uri: 'oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/output/run-1/cell-a/',
         MountPath: '/mnt/pea-output',
         MountAccess: 'RW',
+        Options: '{}',
       },
     ],
     Envs: {
@@ -333,7 +337,6 @@ test('real-provider workload and CreateJob schemas close OSS mounts and credenti
         Key: '0',
         Type: 'Role',
         Roles: [{
-          AssumeRoleFor: '1183869713036194',
           RoleType: 'service',
           RoleArn: 'acs:ram::1183869713036194:role/pea-m7-canary-runtime',
         }],
@@ -345,6 +348,79 @@ test('real-provider workload and CreateJob schemas close OSS mounts and credenti
     await validates(experimentFoundationAliyunRealProviderCreateJobRequestV1Schema, request),
     true,
   );
+  const consoleDefaultRequest = {
+    ...request,
+    DataSources: request.DataSources.map((source, index) => (
+      index === request.DataSources.length - 1
+        ? {
+            Uri: source.Uri,
+            MountPath: source.MountPath,
+            Options: source.Options,
+          }
+        : {
+            ...source,
+            MountAccess: 'RO',
+          }
+    )),
+  };
+  assert.equal(
+    await validates(
+      experimentFoundationAliyunRealProviderCreateJobRequestV2Schema,
+      consoleDefaultRequest,
+    ),
+    true,
+  );
+  assert.equal(
+    await validates(
+      experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+      consoleDefaultRequest,
+    ),
+    false,
+  );
+  assert.equal(
+    await validates(
+      experimentFoundationAliyunRealProviderCreateJobRequestV2Schema,
+      request,
+    ),
+    false,
+  );
+  assert.equal(await validates(
+    experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+    {
+      ...request,
+      CredentialConfig: {
+        ...request.CredentialConfig,
+        CredentialConfigItems: [{
+          ...request.CredentialConfig.CredentialConfigItems[0],
+          Roles: [{
+            ...request.CredentialConfig.CredentialConfigItems[0]!.Roles[0],
+            AssumeRoleFor: '1183869713036194',
+          }],
+        }],
+      },
+    },
+  ), false);
+  assert.equal(await validates(
+    experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+    {
+      ...request,
+      DataSources: request.DataSources.map((source) => ({
+        Uri: source.Uri,
+        MountPath: source.MountPath,
+        MountAccess: source.MountAccess,
+      })),
+    },
+  ), false);
+  assert.equal(await validates(
+    experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+    {
+      ...request,
+      DataSources: request.DataSources.map((source, index) => ({
+        ...source,
+        Options: index === 0 ? '{"mountType":"ossfs"}' : source.Options,
+      })),
+    },
+  ), false);
   assert.equal(await validates(
     experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
     {
@@ -445,6 +521,7 @@ test('real provider payload rejects every simulation/real tuple mix', async () =
         'UserCommand',
         'DataSources[*].Uri',
         'DataSources[*].MountPath',
+        'DataSources[*].Options',
         'Envs',
         'CredentialConfig',
         'Settings.Tags',

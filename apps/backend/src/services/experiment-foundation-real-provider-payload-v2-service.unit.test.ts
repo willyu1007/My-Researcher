@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import {
   canonicalizeExperimentV2Json,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
@@ -41,24 +45,31 @@ test('real-provider payload binds exact OSS mounts, environment and runtime role
       Uri: bundle.revision_content.code_artifact.artifact_ref,
       MountAccess: 'RO',
       MountPath: '/mnt/pea-code',
+      Options: '{}',
     },
     {
       Uri: bundle.revision_content.dataset_mirrors[0]!.object_ref,
       MountAccess: 'RO',
       MountPath: '/mnt/pea-input/1',
+      Options: '{}',
     },
     {
       Uri: 'oss://pea-m7-canary-test.oss-cn-shanghai-internal.aliyuncs.com/output/run-real-1/cell-a/',
-      MountAccess: 'RW',
       MountPath: '/mnt/pea-output',
+      Options: '{}',
     },
   ]);
+  assert.equal('MountAccess' in request.DataSources.at(-1)!, false);
+  assert.ok(
+    request.DataSources.slice(0, -1).every(
+      (source: Record<string, unknown>) => source.MountAccess === 'RO',
+    ),
+  );
   assert.deepEqual(request.CredentialConfig, {
     AliyunEnvRoleKey: '0',
     CredentialConfigItems: [{
       Key: '0',
       Roles: [{
-        AssumeRoleFor: '1183869713036194',
         RoleArn: profile.workload_binding.runtime_role_arn,
         RoleType: 'service',
       }],
@@ -66,6 +77,10 @@ test('real-provider payload binds exact OSS mounts, environment and runtime role
     }],
     EnableCredentialInject: true,
   });
+  assert.equal(
+    'AssumeRoleFor' in request.CredentialConfig.CredentialConfigItems[0]!.Roles[0]!,
+    false,
+  );
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_CODE_DIR, '/mnt/pea-code');
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_INPUT_1_DIR, '/mnt/pea-input/1');
   assert.equal(request.Envs.EXPERIMENT_FOUNDATION_OUTPUT_DIR, '/mnt/pea-output');
@@ -270,6 +285,81 @@ test('rematerialization binds runtime role and artifact byte-size evidence', () 
     hasReason('REAL_PROVIDER_PAYLOAD_CONFLICT'),
   );
 });
+
+test('payload verification accepts legacy v1 and rejects invalid ordered v2 access', () => {
+  const service = new ExperimentFoundationRealProviderPayloadV2Service();
+  const { payloadPrerequisite, profile } = firstCellFixture();
+  const materialized = service.materialize(payloadPrerequisite, profile);
+  const request = asRecord(materialized.create_job_request.toMap());
+  const dataSources = request.DataSources;
+  assert.ok(Array.isArray(dataSources));
+
+  const legacyRequest = {
+    ...request,
+    DataSources: dataSources.map((source, index) => ({
+      ...asRecord(source),
+      ...(index === dataSources.length - 1 ? { MountAccess: 'RW' } : {}),
+    })),
+  };
+  assert.doesNotThrow(() => service.verify(
+    withCanonicalRequest(materialized, legacyRequest),
+  ));
+
+  const weakenedV2Request = {
+    ...request,
+    DataSources: dataSources.map((source, index) => {
+      const normalized = { ...asRecord(source) };
+      if (index === 0) delete normalized.MountAccess;
+      return normalized;
+    }),
+  };
+  assert.throws(
+    () => service.verify(withCanonicalRequest(materialized, weakenedV2Request)),
+    hasReason('REAL_PROVIDER_PAYLOAD_CONFLICT'),
+  );
+
+  const readonlyOutputV2Request = {
+    ...request,
+    DataSources: dataSources.map((source, index) => ({
+      ...asRecord(source),
+      ...(index === dataSources.length - 1 ? { MountAccess: 'RO' } : {}),
+    })),
+  };
+  assert.throws(
+    () => service.verify(withCanonicalRequest(materialized, readonlyOutputV2Request)),
+    hasReason('REAL_PROVIDER_PAYLOAD_CONFLICT'),
+  );
+});
+
+type MaterializedPayload = ReturnType<
+  ExperimentFoundationRealProviderPayloadV2Service['materialize']
+>;
+
+function withCanonicalRequest(
+  materialized: MaterializedPayload,
+  request: Record<string, unknown>,
+): MaterializedPayload {
+  const canonicalPayloadBytes = canonicalizeExperimentV2Json(request);
+  return {
+    ...materialized,
+    canonical_payload_bytes: canonicalPayloadBytes,
+    record: {
+      ...materialized.record,
+      payload_hash: serverHashExperimentV2SemanticContent({
+        record_kind: 'AliyunPaiDlcCreateJobPayload',
+        schema_version: 'v1',
+        hash_profile: EXPERIMENT_FOUNDATION_REAL_PROVIDER_PAYLOAD_HASH_PROFILE_V2,
+        content: request,
+      }),
+      payload_byte_size: Buffer.byteLength(canonicalPayloadBytes, 'utf8'),
+    },
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value));
+  return value as Record<string, unknown>;
+}
 
 function hasReason(reasonCode: string): (error: unknown) => boolean {
   return (error) => (

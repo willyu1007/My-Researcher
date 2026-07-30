@@ -87,6 +87,7 @@ export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV1 {
     Uri: string;
     MountPath: string;
     MountAccess: 'RO' | 'RW';
+    Options: '{}';
   }>;
   Envs: Record<string, string>;
   CredentialConfig: {
@@ -96,13 +97,22 @@ export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV1 {
       Key: '0';
       Type: 'Role';
       Roles: [{
-        AssumeRoleFor: string;
         RoleType: 'service';
         RoleArn: string;
       }];
     }];
   };
   Accessibility: 'PRIVATE';
+}
+
+export interface ExperimentFoundationAliyunRealProviderCreateJobRequestV2
+  extends Omit<ExperimentFoundationAliyunRealProviderCreateJobRequestV1, 'DataSources'> {
+  DataSources: Array<{
+    Uri: string;
+    MountPath: string;
+    MountAccess?: 'RO';
+    Options: '{}';
+  }>;
 }
 
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2 = [
@@ -715,11 +725,12 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['Uri', 'MountPath', 'MountAccess'],
+        required: ['Uri', 'MountPath', 'MountAccess', 'Options'],
         properties: {
           Uri: internalOssDirectoryUriSchema,
           MountPath: absoluteMountPathSchema,
           MountAccess: { type: 'string', enum: ['RO', 'RW'] },
+          Options: { type: 'string', const: '{}' },
         },
       },
     },
@@ -769,9 +780,8 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
                 items: {
                   type: 'object',
                   additionalProperties: false,
-                  required: ['AssumeRoleFor', 'RoleType', 'RoleArn'],
+                  required: ['RoleType', 'RoleArn'],
                   properties: {
-                    AssumeRoleFor: { type: 'string', pattern: '^[0-9]{6,32}$' },
                     RoleType: { type: 'string', const: 'service' },
                     RoleArn: runtimeRoleArnSchema,
                   },
@@ -783,6 +793,26 @@ export const experimentFoundationAliyunRealProviderCreateJobRequestV1Schema = {
       },
     },
     Accessibility: { type: 'string', const: 'PRIVATE' },
+  },
+} as const;
+
+export const experimentFoundationAliyunRealProviderCreateJobRequestV2Schema = {
+  ...experimentFoundationAliyunRealProviderCreateJobRequestV1Schema,
+  properties: {
+    ...experimentFoundationAliyunRealProviderCreateJobRequestV1Schema.properties,
+    DataSources: {
+      ...experimentFoundationAliyunRealProviderCreateJobRequestV1Schema.properties.DataSources,
+      items: {
+        ...experimentFoundationAliyunRealProviderCreateJobRequestV1Schema.properties.DataSources
+          .items,
+        required: ['Uri', 'MountPath', 'Options'],
+        properties: {
+          ...experimentFoundationAliyunRealProviderCreateJobRequestV1Schema.properties.DataSources
+            .items.properties,
+          MountAccess: { type: 'string', const: 'RO' },
+        },
+      },
+    },
   },
 } as const;
 
@@ -1419,6 +1449,7 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV1Schema = {
         'UserCommand',
         'DataSources[*].Uri',
         'DataSources[*].MountPath',
+        'DataSources[*].Options',
         'Envs',
         'CredentialConfig',
         'Settings.Tags',
