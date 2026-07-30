@@ -1,5 +1,28 @@
 # 03 Implementation Notes
 
+## 2026-07-30 — Cloud Shell repair and cross-workstation handoff
+
+- Debug handoff run `dbg-20260730-083419-7171` verified that the prior Cloud Shell failure was exactly the RAM-user bootstrap action, not a controller/runtime-role or PAI execution permission.
+- After `APPROVE FIX` and `APPROVE OPENAPI FALLBACK`, the official RAM OpenAPI path created custom policy `pea-t132-cloudshell-create-session` with exact document `Allow cloudshell:CreateSession` on `Resource: "*"`, then attached the policy only to `user_0002`. Pre-write `GetPolicy` returned not found; post-write `GetPolicy` reported attachment count 1 and exact document; `ListPoliciesForUser` returned the same custom policy.
+- A fresh login as `user_0002@1183869713036194.onaliyun.com` created one Cloud Shell replacement session successfully. The startup alert cleared and the file tree plus terminal input became ready. No STS command was executed during that functional check.
+- The current workstation restored declared packages with `pnpm install --frozen-lockfile`; neither source nor `pnpm-lock.yaml` changed. Its local PostgreSQL 17 server has no `my_researcher_dev` schema in any database, and `/Volumes/DataDisk` is not mounted.
+- A temporary env-local reconstruction was used only to reach the named-target gate. The gate observed `current_schema=null` instead of `my_researcher_dev`; cleanup then removed the temporary `.env.local` and mock secret reference and restored generated env context. STS, `GetImage`, `CreateJob`, provider/database writes, capabilities, PAI Jobs and cost remained zero.
+- An empty database is not a valid substitute: the live runner requires the exact sequence-8 Run/manifest/two cells/open Cycle/frozen Bundle, while the lineage importer is predecessor-bound through sequence 1-8 and the historical P313 product chain. Resume on the original workstation rather than rebuilding authority locally.
+- Reader-test continuation:
+  1. `git pull --ff-only origin main`, then confirm the worktree and original `.env.local` are intact.
+  2. From `apps/backend`, run `pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight`; require exact sequence-8 identity, Attempts 0 and zero cloud/database writes.
+  3. Only under a current dated authorization, obtain a fresh six-key controller STS (`0600`, at least 55 whole minutes), execute once at the two-Job/¥50 ceiling, clean all credential copies and run independent Job/database/cost censuses.
+
+## 2026-07-30 — T-132 scope closure and T-134 audit transfer
+
+- The user narrowed T-132 to the personal PAI experiment-base landing. Its live acceptance is one exact PI-bound immutable two-cell Run, two terminal-success PAI Jobs, exact result collection and zero-new replay.
+- Desktop UI was removed. No renderer, form, navigation, presentation or DOM/Electron work is required to finish T-132.
+- EF-P06, EF-P14, EF-P15 and semantic EF-P21 moved to the new planned task T-134. The change is an ownership transfer, not implementation or verification credit, and T-134 does not block T-132.
+- Failure/reconcile/cancel remains part of operational confidence through existing API/CLI and deterministic tests. The live two-cell success path should not be intentionally degraded merely to demonstrate cancel.
+- PAI remains the hard blocker: sequence 8 is landed and read-only verified, Cloud Shell session creation is repaired, and the authorized paid verification now waits for the original workstation's reviewed named-local database.
+- Results remain diagnostic-only and must not automatically create scientific or paper evidence.
+- The scope update modified only task/governance documentation; no code, configuration, database or cloud state changed.
+
 ## 2026-07-30 — M7-L1 sequence-7 final SDK wire-boundary diagnosis
 
 - The owner approved Debug Mode instrumentation only. Run `dbg-20260729-151747-2ddb` added a removable observer around the official SDK's final Darabonba `doAction` boundary. It replaces the writable dependency-scoped `doAction`, reads only the final `BytesReadable.value`, blocks network before send, restores the original function in `finally` and uses fixed dummy credentials.

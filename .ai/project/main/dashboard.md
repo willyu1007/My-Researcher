@@ -8,15 +8,16 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 133 (planned: 2, in-progress: 3, blocked: 0, done: 45, archived: 83)
+- Tasks: 134 (planned: 3, in-progress: 3, blocked: 0, done: 45, archived: 83)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-132 experiment-foundation-productization-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-productization-closure |
+| T-134 experiment-foundation-audit-remainders-closure | planned | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-132 experiment-foundation-productization-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-productization-closure |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
 | T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
@@ -33,5 +34,4 @@ Project: `main`
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
 | T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
-| T-124 paper-implementation-productization-hardening | in-progress | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 <!-- AUTO-GENERATED:END dashboard -->

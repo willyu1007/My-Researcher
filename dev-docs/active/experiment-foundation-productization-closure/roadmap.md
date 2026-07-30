@@ -1,12 +1,12 @@
 # T-132 Experiment Foundation Productization Closure — Roadmap
 
-## Current execution state — 2026-07-28
+## Current execution state — 2026-07-30
 
-- **Scope override:** current delivery targets a repeatable personal-use experiment base for the sole maintainer. Product packaging, multi-user delivery, generalized BYOC and managed-cloud rollout are parked. The historical task name and the longer-term sections below remain for decision history, not as the active execution queue.
+- **Scope freeze:** current delivery targets the sole maintainer's exact two-cell PAI submit → terminal success → collect → replay loop. Desktop UI is removed. Product packaging, multi-user delivery, generalized BYOC and managed-cloud rollout remain out of scope. The historical task name and longer-term sections remain for decision history, not as the active execution queue.
 - M0-M6 are complete. The final M6 convergence `t132-m6-release-20260725-v5` passed M6-01..M6-10, including fresh Pack B/Pack C/M5/M7 child gates, the disposable LIT-0204 typed-v2 import, OpenAPI/context verification, 5/5/5 workflow usage-fit, and the named-local `control_flow_validated_no_paper_evidence` closure with zero scientific writes.
 - M7-I0..I3, the named-local M7 migration and QR hardening are complete; `t132-m7-offline-20260724-v3` passed M7-01..M7-15. Both real-provider capabilities remain default `false`, and no live provider job or scientific evidence has been created.
 - The executable-lineage prerequisite is now complete. Open Cycle `validation_cycle_t132_m7_l1_p313_v1` owns `ragperf-primary` sequence 2 and Run `ef_run_v2_t132_m7_l1_resource_successor_v2_1`; both TaskSpecs are exact 2 CPU / 8192 MiB / 1800 seconds / one attempt. Normal T1-T4 added exactly 40 rows, exact replay added zero, 236 protected tables and prior history remained unchanged, and the successor-bound zero-cloud preflight passed.
-- The current frontier is one personal real-experiment loop: activate the reviewed controller policy, obtain fresh STS, pass fresh `GetImage`, run/collect the two-cell diagnostic, then expose Run/Attempt/result/replay state in the local desktop workflow. EF-P06, EF-P14, EF-P15, semantic EF-P21 and broader product delivery remain parked and do not gate this milestone.
+- The current frontier is sequence 8: obtain a fresh bounded STS, pass the exact image gate, submit both PAI Jobs, observe terminal success, collect exact outputs, then prove zero-new replay through the existing backend/API/CLI path. The four audit remainders moved to T-134 and do not gate this milestone.
 
 ### Historical delivery detail through 2026-07-25
 
@@ -19,16 +19,18 @@
 - Named-local gate/app smoke `packb-deep-cleanup-final-local-20260714-r18` remains the exact source: 40/40 approved v2 tables, the same 257-row legacy digest, 238-table parity, all flags false and prohibited effects zero. Strict exact-keyset/redaction publication preserves source digests `37d262fa11fc45015d5e24320e963459034df77f2857074e3fea9476891de1b9` and `53e269275d5b082d2b1f82ad6b2ed47a324380470479de3b0598be6a62a16a0c`; republished durable SHAs are `9f4e0e5f81d4f127ac1cd5c956c639a8f89a9406d0af873e5d06d2d039f10e4e` and `bd702c6aca7104248839da1bb224e711d9eee64ddf6a98e4824f713b03e8eaad`, producer `982119a31989bbad1da51ae96892241bab90add1ee084031596f550350838c38`.
 - Residual cleanup removed 14 zero-consumer shared row schemas/dead helpers while preserving owned interfaces and request/event/error/IO contracts. D-19 and Pack B share one database identity validator/marker assertion and one portable reviewed source digest with frozen slots; gate meta is 70/70, backend identity/guard is 10/10 with skip=0 and shared full is 330/330. Explicit frozen event/command/provider-control hash profiles and exact evidence keysets are mandatory. ProviderCommand binds the authoritative Attempt payload id/hash across read/claim/heartbeat/release/outcome/collection, and cancel-reason drift fails before write/transport. Pending 210000 apply still requires a named 0/0/0/0 event-table census; nonempty or partial targets fail closed without implied apply authorization. `.ai/.tmp` summaries are ephemeral and are deleted after durable publication.
 - Zero-write Aliyun cloud-preflight supports the explicit v2 `public_resource` selector and is now closed. Formal r6 passed CP01-CP12 with 13 official-SDK reads, 108 visible/105 available CPU specs, 88-table parity and zero provider/CreateJob/database/scientific writes; durable closure is `artifacts/implementation/10-cloud-preflight-live-closure.md`.
-- The roadmap remains `in-progress`: M0-M6 and M7-I0..I3 are verified. Live M7-L1/L2 execution and the four explicitly retained/transferred audit remainders above remain incomplete; D-24-defers UI/semantic delivery without weakening the agent/API first-release gate.
+- The roadmap remains `in-progress`: M0-M6 and M7-I0..I3 are verified. The exact sequence-8 PAI execution/collection/replay gate remains incomplete. T-134 independently owns the four audit remainders; desktop UI is removed from T-132 rather than deferred within T-132.
 - M7 implementation preserves the frozen new-lineage design: the existing immutable simulation Run cannot be dispatched as real; a new PI WorkOrder revision binds an exact typed ExecutionBundle and creates a new Run through T1-T4. T-132 owns M7; T-106 consumed final hardened run `t132-m7-offline-20260724-v3` without adding provider authority. The next gate is separately authorized M7-L1 live diagnostic preparation/execution; any `CreateJob`, scientific enable or non-local rollout remains independently fenced.
 - Source defaults remain off. Current named-local cutover is committed, while admission, simulation and cloud preflight are off. Historical enabled probes remain guard evidence only; no non-local database, provider, scientific path or product traffic was changed.
 - Source-policy PASS does not mean full-corpus download/extraction, scientific alignment, provider execution, DB apply or cutover.
 - Backend full suite after r19/r16 completed with 2,083 tests: 2,034 passed, 0 failed, 49 conditional database/provider-canary skips, 0 todo, duration `396225.938458ms`. Those skips are not database acceptance; the forced disposable PostgreSQL 6/6 and 7/7 lanes both have skip=0.
 
 ## Goal
-- 在不推翻既有领域分层的前提下，把 ExperimentFoundation 产品化为 **PaperImplementation 的云实验控制面与可信实验事实边界**：PaperImplementation 发起并拥有论文项目、ValidationCycle、WorkOrder branch/revision、研究语义、项目级检索投影与证据使用决策，ExperimentFoundation 拥有实验资产、Recipe/TaskSpec、Run/ExecutionAttempt、provider 执行状态、科学验证与 EvidenceCandidate；双方共享精确范围身份而不复制语义，首版完成桌面控制流、零写云 preflight 和同 payload 模拟，不把本地模拟伪装成真实实验或科研证据。
+- 完成 sole-maintainer 的真实 PAI 实验基座：精确 PI WorkOrder → immutable two-cell Run → two terminal-success Jobs → exact collect → zero-new replay，并通过 backend/API/CLI 验证恢复边界。
+- 输出保持 diagnostic-only；不得自动进入 EvidenceCandidate、RunEvidenceUnit 或论文证据。
+- 桌面 UI 与 T-134 的四个审计余项不属于本 roadmap 的完成条件。
 
-The goal above is the historical long-term framing. For the current execution window, “done enough to proceed” means the sole maintainer can repeat one exact real diagnostic from the desktop/local workflow through collection and replay; no packaging or product-market delivery claim is required.
+The longer product-interaction sections are historical framing and do not expand the active goal.
 
 ## Product interaction target with PaperImplementation
 - PaperImplementation 是面向论文目标的主流程和编排入口，负责回答“为什么做、在哪个项目/验证周期做、结果是否被论文采用”。

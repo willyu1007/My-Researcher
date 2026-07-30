@@ -3,7 +3,7 @@ task_id: T-132
 project: main
 slug: experiment-foundation-productization-closure
 status: in-progress
-updated: "2026-07-28"
+updated: "2026-07-30"
 keywords:
   - experiment-foundation
   - productization
@@ -36,4 +36,6 @@ keywords:
   - coordinates-with:T-106
   - coordinates-with:T-124
   - coordinates-with:T-131
+  - transfers-to:T-134
+  - no-desktop-ui
   - R-012

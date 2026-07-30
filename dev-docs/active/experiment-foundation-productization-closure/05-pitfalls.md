@@ -2,6 +2,22 @@
 
 `05-pitfalls.md` is append-only for resolved failures and dead ends encountered while executing T-132. Active findings belong in `06-audit-closure-matrix.md`.
 
+## A second workstation's empty PostgreSQL is not the reviewed named-local authority — 2026-07-30
+
+- Symptom: after Cloud Shell bootstrap was repaired, the zero-cloud runner on the second workstation could not resolve `my_researcher_dev`; local PostgreSQL returned no current target schema.
+- Root cause: the second workstation has a different Homebrew PostgreSQL 17 cluster and no mounted original `DataDisk`. T-132 sequence 8 exists only in the original named-local authority chain.
+- What was tried: frozen dependency installation plus a temporary env-local reconstruction sufficient to reach the named-target gate. Read-only inspection confirmed the schema was absent; no empty database or replacement authority was created.
+- Fix/workaround: remove the temporary environment and hand off through Git. Resume on the original workstation, verify its exact sequence-8 Run/manifest/Bundle with `offline-preflight`, and only then acquire a fresh STS.
+- Prevention: before cloud credential work on another workstation, verify the authoritative database/schema and exact Run are readable. Do not treat migrations, a logical empty schema or durable JSON evidence as a replacement for the predecessor-bound P313/sequence-1-8 database lineage.
+
+## Historical product scope obscured the active completion boundary — 2026-07-30
+
+- Symptom: the personal-use override said four audit findings were parked, while older plan and acceptance text still made product UI and the same findings look like T-132 completion requirements.
+- Root cause: the task retained its productization history without an explicit receiving task or one authoritative completion section.
+- What was tried: describing product work as a non-current queue. That preserved context but did not eliminate contradictory ownership signals.
+- Fix/workaround: freeze the exact PAI backend/API/CLI completion boundary, remove desktop UI, and transfer EF-P06/P14/P15 plus semantic EF-P21 to T-134.
+- Prevention: do not reintroduce desktop work or T-134 audit items into T-132. Do not count a default-off adapter, offline payload gate or read-only provider check as the required live two-cell PAI acceptance.
+
 ## Darabonba dependency-scoped interception finding — 2026-07-30
 
 - Symptom: direct `require('@darabonba/typescript/dist/core')` from `apps/backend` failed even though the PAI SDK and OpenAPI Core use that module at runtime.

@@ -6,10 +6,41 @@
 - Mapping: `M-001 > F-001 > R-012 > T-132`
 - Current delivery mode: **personal-use experiment base**. Product packaging, multi-user delivery and generalized BYOC work are parked; the historical task slug remains unchanged for continuity.
 - Current milestone: **M0-M6 are complete**. M5 closed as the D-24 agent-first API/workflow slice; M6 release run `t132-m6-release-20260725-v5` passed M6-01..M6-10, closed T-131 typed-v2 consumption and the named-local no-evidence Cycle, and preserved zero simulated scientific evidence. M7-I0..I3, named-local migration/QR verification and the bounded official-image + OSS provider-shape increment are also complete with both real-provider capabilities still default `false`.
-- Current frontier: **sequence 8 is ready, but its paid provider verification is paused before STS acquisition**. The owner opened the exact 2026-07-30 two-Job/¥50 window. A new zero-cloud offline preflight passed with the exact sequence-8 Run, manifest, frozen ExecutionBundle, controller-policy hash and Attempts 0; an independent `SERIALIZABLE READ ONLY` census again confirmed ProviderPayload/Attempt/Event/Command/Collection/Output/Result/EvidenceCandidate all 0. The expired Cloud Shell then failed to create its replacement session because RAM user `user_0002` lacks `cloudshell:CreateSession`. The STS-generation command never executed, so fresh STS, `GetImage`, `CreateJob`, provider/database writes, capability changes, NAS/PAI Jobs and billable runtime were all 0. The earlier read-only image identity remains verified, and debug runs `dbg-20260729-142414-8438` and `dbg-20260729-151747-2ddb` remain active pending provider verification or diagnostic termination.
-- Personal-use completion boundary: one maintainer can select the exact local scope, execute the two-cell real diagnostic, observe/cancel/recover the diagnostic, collect exact results, inspect lineage locally and replay without duplicate job creation or evidence promotion.
-- Parked scope: EF-P06, EF-P14, EF-P15, the semantic half of EF-P21, multi-user/tenant concerns, installer/distribution work, generalized BYOC packaging and managed-cloud product delivery do not block the personal-use milestone.
-- Next step: sign in with the Alibaba Cloud owner/admin identity and grant RAM user `user_0002` the narrow Cloud Shell session permission required for `cloudshell:CreateSession`; do not add that control-plane permission to the frozen controller role or runtime role. Then repeat the fresh six-key/`0600`/55-minute STS gate and invoke the sequence-8 live runner once under the existing authorization only if it is still 2026-07-30; otherwise obtain a new dated authorization. Stop at two `CreateJob` calls/¥50, clean Cloud Shell, `/tmp` and Downloads credentials immediately, and run independent Job/database censuses. Direct commits to `main` without a PR remain the delivery strategy.
+- Current frontier: **sequence 8 is ready, Cloud Shell bootstrap is repaired, and paid provider verification is paused only because the current workstation does not contain the reviewed named-local database**. The owner opened the exact 2026-07-30 two-Job/¥50 window. Zero-cloud offline preflight previously passed with Run `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`, manifest `sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96`, frozen ExecutionBundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`, controller-policy hash and Attempts 0. Custom RAM policy `pea-t132-cloudshell-create-session` now grants only `cloudshell:CreateSession` on `*` to `user_0002`; exact policy readback/attachment checks passed and one replacement Cloud Shell session reached a ready terminal. On the second workstation, dependencies were restored from the frozen lockfile, but local PostgreSQL 17 has no `my_researcher_dev` schema and `/Volumes/DataDisk` is absent. The diagnostic temporary env was removed, so STS, `GetImage`, `CreateJob`, provider/database writes, capability changes, NAS/PAI Jobs and billable runtime for this resumed window remain 0. Debug runs `dbg-20260729-142414-8438`, `dbg-20260729-151747-2ddb` and handoff run `dbg-20260730-083419-7171` remain the active evidence lineage.
+- Personal-use completion boundary: one maintainer can take the exact PI-bound WorkOrder through an immutable two-cell Run, obtain two terminal successful PAI Jobs, collect exact Run/Cell/TaskSpec/parser-bound results and replay with zero duplicate Jobs. Failure/reconcile/cancel remains covered through the existing API/CLI and deterministic tests; the successful live two-cell acceptance is not consumed merely to demonstrate cancellation.
+- Transferred scope: EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 are owned by `T-134 experiment-foundation-audit-remainders-closure` and no longer block T-132.
+- Removed/out-of-scope: desktop UI, Electron/DOM acceptance, multi-user/tenant concerns, installer/distribution work, generalized BYOC packaging and managed-cloud product delivery are not part of T-132 completion.
+- Next step on the original workstation: pull `main`, confirm its existing `.env.local` still resolves the reviewed `postgres?schema=my_researcher_dev` target, and from `apps/backend` run `pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight`. Continue only if the exact sequence-8 Run/manifest/Bundle, open Cycle, Attempts 0 and zero-cloud/database-write census pass. If it is still 2026-07-30, create a fresh six-key controller STS with local mode `0600` and at least 55 whole minutes remaining; otherwise obtain a new dated two-Job/¥50 authorization first. Invoke the live runner once, stop at two `CreateJob` calls/¥50, clean Cloud Shell, `/tmp` and Downloads credentials immediately, and run independent Job/database/cost censuses. Do not recreate the authority chain on an empty database and do not add Cloud Shell permission to the frozen controller or runtime role. After T-132 closure, separately confirm detaching/deleting the bootstrap-only RAM policy. Direct commits to `main` without a PR remain the delivery strategy.
+
+## 2026-07-30 scope freeze — personal PAI execution closure
+
+The 2026-07-30 scope freeze is the authoritative T-132 completion boundary. Longer productization, desktop and semantic-retrieval sections are retained as decision history and do not override the scope freeze.
+
+### In scope
+
+- Resolve one exact PI-bound WorkOrder into one immutable two-cell Run with exact frozen ExecutionBundle, manifest, cell and TaskSpec identity.
+- Submit exactly two bounded Alibaba Cloud PAI Jobs, observe both reach a successful terminal state and collect both outputs through the existing real-provider control path.
+- Verify each collected result binds the exact Run, RunCell, TaskSpec, output-parser profile and immutable provider payload identity.
+- Replay the same operation and prove zero duplicate provider Job, payload, Attempt, command, collection or output creation.
+- Verify failure, reconcile and cancel behavior through the existing typed API/CLI and deterministic test coverage. Do not destroy one of the two required successful live Jobs solely to exercise cancellation.
+- Close budget/cost, short-lived credential cleanup, provider Job/database census, and the repeatable operating/recovery runbook.
+- Keep every collected output diagnostic-only: no automatic ExperimentResult trust upgrade, EvidenceCandidate, RunEvidenceUnit or paper-evidence claim.
+
+### Out of scope
+
+- Desktop UI, renderer navigation, forms, presentation work and DOM/Electron acceptance.
+- EF-P06 promotion/canonicalization, EF-P14 bound bootstrap/legacy-null handling, EF-P15 standalone attachment/revalidation and EF-P21 semantic retrieval; these are transferred to T-134.
+- Multi-user/tenant delivery, generalized BYOC, installer/distribution, managed-cloud packaging and broad provider abstraction.
+- Semantic retrieval, scientific conclusion automation or any automatic paper-evidence promotion.
+
+### Completion checks
+
+- [ ] Two exact PAI Jobs are accepted and reach terminal success under the bounded authorization.
+- [ ] Two exact outputs are collected and identity/parser verification passes.
+- [ ] Exact replay produces zero duplicate provider or database execution records.
+- [ ] Failure/reconcile/cancel API/CLI and deterministic tests pass without weakening the successful-live-run requirement.
+- [ ] Job/database/cost/credential cleanup censuses and operating/recovery runbook are recorded.
+- [ ] Scientific/evidence writers remain zero and all outputs remain diagnostic-only.
 
 ## M7 default-off implementation — 2026-07-23
 
@@ -135,7 +166,10 @@
 - 本地 scope 缺口不是 Pack A authority-spine 失败：D-19 的 pre-bound scope 是明确 prerequisite，产品 bootstrap 不在 Pack A。完整四事务/三事件/唯一 acknowledgement 仍由 source-backed disposable PostgreSQL gate `packa-d19-source-policy-20260713-r2` 提供验收。
 
 ## Goal
-保留现有 ExperimentFoundation 领域分层，把 ExperimentFoundation 夯实为 PaperImplementation 的云实验控制面与可信实验事实边界：由 PI-owned 项目/ValidationCycle/WorkOrder branch/revision 发起论文实验意图，由 EF 完成冻结输入、provider 控制、科学验证规则和证据资格边界。PI 与 EF 共享一套精确的 Cycle→branch→revision→Run→ExecutionAttempt 范围身份；PI 维护项目级检索投影并使用结构化范围过滤加语义排序理解工作流，EF 只提供确定性执行事实。首版只验证桌面控制流、精确云 payload、真实只读 preflight 与同 payload 模拟，不执行训练，也不让模拟输出进入科研证据链。
+
+T-132 当前目标是完成 sole-maintainer 的真实 PAI 实验基座闭环：从 PI-owned exact WorkOrder/Run 身份出发，完成两单元提交、终态成功、精确收集、无重复重放与安全恢复，并保持输出仅为 diagnostic-only。桌面 UI、语义检索和四个审计余项不是本任务完成条件。
+
+下文保留的产品交互目标是历史长期设计背景；其产品化、UI 与语义检索内容不覆盖 2026-07-30 scope freeze。
 
 ## Product interaction target — confirmed 2026-07-11
 | Direction | PaperImplementation responsibility | ExperimentFoundation responsibility | Trust rule |
@@ -236,7 +270,9 @@ The approved readiness closure freezes the exact D-19 asset allowlist to five to
 - Apply DB migrations or submit external jobs without their explicit approval gates.
 - Keep raw JSON and manual IDs/hashes as the primary product workflow.
 
-## Acceptance criteria
+## Historical productization acceptance inventory
+
+The historical checklist is retained for design history. Only the completion checks in the 2026-07-30 scope freeze determine whether T-132 can be marked done; EF-P06/P14/P15/P21 moved to T-134 and desktop acceptance was removed.
 - [ ] Frozen EF objects use stable logical identities plus immutable revisions and server canonical semantic hashes; frozen changes always create new revisions.
 - [ ] Draft updates require CAS/expected hash and cannot receive readiness; execution rejects logical-only refs.
 - [ ] Readiness is an immutable attestation bound to the exact target revision/hash and a deterministically ordered recursive dependency revision/hash manifest.
@@ -325,7 +361,7 @@ The approved readiness closure freezes the exact D-19 asset allowlist to five to
 - [ ] Existing non-v2/null-bound/simulation-era rows remain unchanged in the database and are mechanically rejected with `LEGACY_RECORD_NOT_ELIGIBLE` by all v2 writers, selectors, execution, evidence and PI paths.
 - [ ] Legacy reads are limited to existing fields through diagnostics/admin compatibility access; no summary, reason narrative, recommendation, archive UI, revalidation, comparability or cross-module legacy model is introduced.
 - [ ] Standalone EF exploration remains possible, but paper consumption requires explicit WorkOrder attachment and full trust-gateway revalidation.
-- [ ] A project-scoped desktop flow completes the control-plane scenario without manual internal IDs, hashes or raw JSON.
+- [x] Removed from T-132: no project-scoped desktop flow or DOM/Electron acceptance is required.
 - [ ] Real Postgres, HTTP/service/repository, DOM/Electron, fault-injection and usage-fit gates are machine-verifiable.
 - [ ] The first release materializes the exact Aliyun `CreateJob` payload, validates the payload offline, performs only allowlisted read-only cloud checks, and proves zero cloud writes.
 - [ ] The cloud preflight credential lacks `paidlc:CreateJob`; an attempted write is blocked before transport and cannot be authorized by RAM.
@@ -337,7 +373,9 @@ The approved readiness closure freezes the exact D-19 asset allowlist to five to
 - [ ] T-131's promoted v1 RAGPerf protocol remains immutable catalog history and is not execution-ready; original-source content is imported as a new typed v2 protocol and only that v2 identity is consumed by RunRecipe/TaskSpec/provider payload in the control-plane trace without claiming a real run.
 - [ ] OpenAPI, API index, context registry, task docs and governance views match the delivered runtime.
 
-## Definition of productized
+## Historical first-release control-plane definition
+
+This definition is superseded as the T-132 completion boundary and remains only as decision history.
 The first release productizes the experiment control plane, not experiment execution: a researcher can author constraints, automatically preview/compile the exact scientific cell plan, approve the WorkOrder once, materialize exact provider payloads, inspect/recover Attempt-level simulated lifecycle state and complete real read-only cloud preflight without manual refs/hashes/JSON. Real persistence and DOM/Electron interaction must prove that control flow. `workflow_simulation_passed`, `cloud_preflight_passed` and `control_flow_validated_no_paper_evidence` never imply a terminal scientific Run, real scheduling, training, results, scientific validation, EvidenceCandidate or RunEvidenceUnit; those production claims remain deferred until a separately authorized real-provider execution gate.
 
 ## 2026-07-22 QR-1 checkpoint

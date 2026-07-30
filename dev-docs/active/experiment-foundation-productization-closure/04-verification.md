@@ -1,5 +1,18 @@
 # 04 Verification
 
+## T-132 scope split and T-134 transfer — 2026-07-30
+
+Outcome: **documentation scope is frozen; runtime/provider acceptance is still pending**.
+
+- T-132 authoritative completion checks now cover exact sequence-8 two-cell PAI success, exact collection, zero-new replay, deterministic recovery coverage and cleanup/runbook evidence.
+- Desktop UI and DOM/Electron acceptance are explicitly absent from the active boundary.
+- EF-P06, EF-P14, EF-P15 and semantic EF-P21 have a named receiving task, T-134, and no longer block T-132.
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-productization-closure` → passed with 0 errors; existing long-document vague-reference warnings remain.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` → regenerated derived views; T-132 query reports `in-progress`, `F-001`, `M-001`, updated `2026-07-30`.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` → passed with two unrelated pre-existing T-124/T-133 state-format warnings.
+- `git diff --check` → passed.
+- No product/runtime tests were run because the scope change modifies only task and governance documentation.
+
 ## M7-L1 sequence-7 final SDK wire-boundary diagnosis — 2026-07-30
 
 Outcome: **the official SDK final wire is exact; SDK serialization is ruled out as the source of the provider-internal `src` failure**.
@@ -2587,3 +2600,45 @@ Documentation and commit boundary:
 - `git diff --check` — passed;
 - scoped T-132 credential-value scan — passed;
 - unrelated governance, hook, root-instruction, generated-skill and archived T-124 worktree changes are excluded from the T-132 commits.
+
+## 2026-07-30 — Cloud Shell IAM repair and workstation handoff verification
+
+Debug run: `dbg-20260730-083419-7171`.
+
+IAM control-plane verification:
+
+- pre-write `GetPolicy` for `pea-t132-cloudshell-create-session` — `EntityNotExist.Policy`;
+- `CreatePolicy` — HTTP 200, custom policy v1;
+- exact document — one Allow for `cloudshell:CreateSession` on `Resource: "*"`;
+- `AttachPolicyToUser` — HTTP 200 for exact target `user_0002`;
+- post-write `GetPolicy` — attachment count 1 and exact document;
+- post-write `ListPoliciesForUser` — exact custom policy attached to `user_0002`;
+- wildcard Cloud Shell actions, controller/runtime-role changes and credential reads — 0.
+
+Functional verification:
+
+- authenticated identity — `user_0002@1183869713036194.onaliyun.com`;
+- replacement Cloud Shell session creation — passed, 1/1;
+- ready terminal and file tree — present;
+- recurring `cloudshell:CreateSession` denial — absent;
+- STS generation, `GetImage`, `CreateJob`, database writes, PAI Jobs and cost — `0/0/0/0/0/0`.
+
+Current-workstation diagnosis:
+
+- `pnpm install --frozen-lockfile` restored missing SDK packages; source and `pnpm-lock.yaml` were unchanged;
+- active PostgreSQL — Homebrew 17.9 at `/opt/homebrew/var/postgresql@17`;
+- `my_researcher_dev` schema — absent from every local database;
+- `/Volumes/DataDisk` — not mounted;
+- temporary `.env.local`, mock secret reference and generated context delta — removed/restored;
+- final tracked env diff and credential-value findings — 0.
+
+Handoff result: **Cloud Shell bootstrap passed; sequence-8 paid acceptance remains 0/1 and must resume on the original workstation**. An empty or newly migrated database is insufficient because the live runner requires the exact sequence-8 authority. Pull `main`, rerun the zero-cloud offline preflight against the original named-local database, then acquire STS only under a current dated two-Job/¥50 authorization.
+
+Commit-readiness checks:
+
+- T-132 whole-bundle document lint — passed with 0 errors and 8 historical vague-reference warnings; strict mode reports those warnings as expected;
+- T-134 strict document lint — passed, 7/7 files with 0 errors and 0 warnings;
+- project-governance sync apply — idempotent; registry/dashboard/feature-map/task-index SHA-256 values were unchanged across the final apply;
+- project-governance lint — passed with two unrelated pre-existing T-124/T-133 state-format warnings;
+- `git diff --check` — passed;
+- scoped credential/private-key value scan — no findings.

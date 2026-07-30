@@ -1,0 +1,76 @@
+# T-134 Experiment Foundation Audit Remainders Closure — Roadmap
+
+## Planning context
+
+- Runtime signal: Default mode; the roadmap records scope and sequencing only.
+- Delivery state: `planned`.
+- Mapping: `M-001 > F-001 > R-012 > T-134`.
+- Source baseline: T-132 audit findings EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21.
+- Precedence decision: the 2026-07-30 user decision supersedes the earlier T-132 wording that required these findings to close inside T-132. T-134 now owns them independently and does not block T-132's personal PAI completion.
+- Host artifact: none. The planning change does not modify code, schema, configuration, local data or cloud resources.
+
+## Goal
+
+Close the four Experiment Foundation audit remainders as typed, server-owned and independently verifiable backend trust boundaries:
+
+1. EF-P14: require a bound PaperProject at bootstrap and handle legacy null bindings safely.
+2. EF-P06: make primary candidate promotion/canonicalization atomic and server-derived.
+3. EF-P15: attach standalone EF work to a Paper WorkOrder only through full revalidation.
+4. EF-P21: add project-scoped semantic retrieval while structured lineage remains the fallback authority.
+
+## Non-goals
+
+- The T-132 PAI sequence-8 submit/terminal/collect/replay loop.
+- Desktop UI, renderer work, navigation, forms or Electron/DOM acceptance.
+- Generalized BYOC, multi-user/tenant support, installer/distribution or managed-cloud delivery.
+- A second project truth, generic policy engine or model-authored trust decision.
+- Replacing the existing structured lineage authority or allowing semantic rank to drive control, trust or head selection.
+- Applying schema migrations or enabling product capabilities during planning.
+
+## Workstream order
+
+| Phase | Finding | Ordering rationale | Exit signal |
+|---|---|---|---|
+| 0 | Cross-cutting census | Freeze current writers, routes, schema and tests before implementation | Reviewed modification allowlist and exact verification matrix |
+| 1 | EF-P14 | Current bootstrap can persist a null binding, making EF-P14 the nearest admission-safety gap | Unbound bootstrap is zero-write rejected; bound bootstrap is idempotent; legacy null rows cannot enter v2 |
+| 2 | EF-P06 | Promotion is the primary server-owned preparation boundary | One atomic decision/canonical/candidate/outbox outcome with crash and replay convergence |
+| 3 | EF-P15 | Attachment must reuse the corrected bound scope and promotion identities | Standalone output stays untrusted until exact WorkOrder attachment and full revalidation pass |
+| 4 | EF-P21 semantic half | Retrieval depends on stable project and lineage ownership | Project filter precedes rank; stale candidates drop; index outage falls back to structured lineage |
+| 5 | Convergence | Prevent four local fixes from creating a second authority | Full writer census, relational negatives, context/docs and governance gates pass |
+
+## Structure-change preview
+
+Potential implementation areas, subject to a separate implementation authorization and Phase 0 census:
+
+- `packages/shared/`: typed commands, responses and stable failure codes.
+- `apps/backend/`: services, routes, repositories and project-scoped retrieval.
+- `prisma/schema.prisma`: only if an invariant cannot be enforced with current storage; use `sync-db-schema-from-code`.
+- `docs/context/`: regenerate API/DB context only when its SSOT changes.
+- `dev-docs/active/experiment-foundation-audit-remainders-closure/`: decisions, evidence and handoff.
+
+No `apps/desktop/` or `ui/` implementation path belongs to T-134.
+
+## Verification strategy
+
+- L0/L1: typed schema and deterministic canonicalization tests.
+- L2: service/repository transaction, idempotency, replay and bypass negatives.
+- L3: forced disposable PostgreSQL constraints, crash boundaries and zero-partial-write assertions.
+- L5/L6: real HTTP/API project-scope and permission isolation.
+- Retrieval: deterministic ranking fixtures, stale-index rejection and structured fallback under index outage.
+- Governance: context regeneration where applicable, docs lint, project sync/lint and `git diff --check`.
+
+## Risk and rollback
+
+- Capabilities remain default off until their workstream has relational acceptance.
+- Rollback disables new admission/attachment/retrieval entrances without deleting typed history or reopening legacy writers.
+- Persisted changes, if required, are additive and must have an explicit schema/migration review.
+- A failed semantic index never weakens structured project filters or becomes a product blocker.
+
+## Planning checklist
+
+- [x] Goal and non-goals reflect the 2026-07-30 scope split.
+- [x] Four audit remainders have one named owner task.
+- [x] Workstream order prioritizes the current null-binding safety gap.
+- [x] Desktop UI is excluded explicitly.
+- [x] Verification and rollback boundaries are defined.
+- [ ] Obtain separate implementation authorization before changing code, configuration, schema or data.

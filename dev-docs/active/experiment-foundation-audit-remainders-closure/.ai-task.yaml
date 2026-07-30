@@ -1,0 +1,16 @@
+version: 1
+task_id: T-134
+project: main
+slug: experiment-foundation-audit-remainders-closure
+status: planned
+updated: "2026-07-30"
+keywords:
+  - experiment-foundation
+  - audit-remainders
+  - candidate-promotion
+  - bound-bootstrap
+  - standalone-attachment
+  - semantic-retrieval
+  - no-desktop-ui
+  - follows:T-132
+  - R-012

@@ -1,5 +1,13 @@
 # 02 Architecture
 
+## 2026-07-30 active completion boundary
+
+- T-132 closes one backend/API/CLI-controlled personal PAI execution loop. The remaining external-integration boundary is the exact sequence-8 two-cell submit → terminal success → collect → replay path.
+- Desktop renderer, forms, navigation, presentation and DOM/Electron verification are excluded. Existing desktop surfaces remain frozen and are not acceptance evidence.
+- EF-P06, EF-P14, EF-P15 and semantic EF-P21 are transferred to T-134. Their historical architecture remains context only and does not expand T-132.
+- The live result boundary stays diagnostic-only. Exact parser/Run/Cell/TaskSpec verification must not automatically create ExperimentResult trust, EvidenceCandidate, RunEvidenceUnit or paper evidence.
+- Failure/reconcile/cancel is verified through the typed backend/API/CLI and deterministic tests; the two-cell live success acceptance is not weakened to demonstrate a destructive cancel.
+
 ## M7-L1 direct OSS Options contract — 2026-07-29
 
 - Every direct PAI-DLC OSS DataSource—code, ordered dataset mirror and output—carries the exact string `Options: '{}'`. This preserves the provider-default JindoFuse mount path; selecting `{"mountType":"ossfs"}` or another advanced configuration is outside the reviewed personal-use canary.
