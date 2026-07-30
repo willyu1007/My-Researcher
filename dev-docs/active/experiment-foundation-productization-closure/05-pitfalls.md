@@ -2,6 +2,24 @@
 
 `05-pitfalls.md` is append-only for resolved failures and dead ends encountered while executing T-132. Active findings belong in `06-audit-closure-matrix.md`.
 
+## Darabonba dependency-scoped interception finding — 2026-07-30
+
+- Symptom: direct `require('@darabonba/typescript/dist/core')` from `apps/backend` failed even though the PAI SDK and OpenAPI Core use that module at runtime.
+- Root cause: pnpm exposes `@darabonba/typescript` only inside `@alicloud/openapi-core`'s dependency scope; it is not a direct backend dependency. Resolving it from the backend package crosses pnpm's declared dependency boundary.
+- What was tried: direct backend resolution first, which failed before any instrumentation or network activity.
+- Fix/workaround: create a second `require` rooted at `require.resolve('@alicloud/openapi-core')`, then resolve its own `@darabonba/typescript/dist/core`. The resulting `doAction` export is writable/configurable, and the final request `BytesReadable.value` can be copied before throwing the offline network blocker. Always restore the original function in `finally`.
+- Prevention: when instrumenting a transitive SDK boundary under pnpm, resolve through the direct dependency that owns it instead of adding an unnecessary product dependency or using a hard-coded `.pnpm` path. Prove the descriptor and no-network restoration behavior in a focused test before exact runner use.
+- References: `apps/backend/src/services/experiment-foundation-m7-l1-create-job-wire-observation.ts`; `apps/backend/src/services/experiment-foundation-m7-l1-create-job-wire-observation.unit.test.ts`.
+
+## Provider accepted-response-loss observability finding — 2026-07-29
+
+- Symptom: sequence-6 consumed two bounded `CreateJob` calls but the accepted-response-loss transport discarded the synchronous SDK exception before exact recovery, leaving only `REAL_PROVIDER_RECOVERY_NOT_FOUND` and no provider status/code/RequestId.
+- Root cause: the transport correctly avoids blind retry when a synchronous exception might hide an accepted Job, but that policy also erased the safe diagnostic identity needed to distinguish provider rejection from transport ambiguity.
+- What was tried: offline request/model/console-shape comparison isolated and removed optional `AssumeRoleFor`; the next paid sequence still returned the same provider rejection, so the role-shape differential was not sufficient.
+- Fix/workaround: add a removable, whitelist-only catch-boundary observer that reads only own scalar status/code/RequestId fields and their closed source labels, then rethrows the original exception unchanged. Sequence 7 proved all three useful fields are top-level and official diagnosis mapped both RequestIds to the same `src property must be a valid json object` response.
+- Prevention: for future accepted-response-loss integrations, design a permanent redacted provider-error identity projection before live verification. Never retain message/stack/body/headers beyond a closed allowlist, and never let diagnostic capture relax no-blind-retry or exact discovery.
+- References: `apps/backend/src/services/experiment-foundation-m7-l1-create-job-error-observation.ts`; `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
 ## M7 executable-lineage persistence findings — 2026-07-28
 
 - Do not add v2 contract/materializer support while leaving Prisma readback discriminators hard-coded to v1. T1/T2 transactions read their own writes before commit; stale readback fences will reject valid v2 state and can look like a generic materialization conflict.
@@ -65,6 +83,14 @@
 - Fix: use provider-accepted `PageSize=10`, `ResourceType=ECS`, `AcceleratorType=CPU`; omit `SortBy/Order`; paginate deterministically and preserve only safe status/code/RequestId on failure. r6 then passed all 12 checks with zero writes and unchanged 88-table digests.
 - Prevention: isolate optional provider parameters one at a time before changing IAM, maintain separate service-specific page-size constants, and test that optional fields are absent from the SDK wire request. Treat a recoverable console white screen as a frontend symptom unless API evidence correlates the symptom with the provider failure.
 - References: `apps/backend/src/services/experiment-foundation-v2-aliyun-read-only-preflight-service.ts`; `apps/backend/src/services/experiment-foundation-v2-aliyun-cloud-preflight.unit.test.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-29 — Validate the live-runner STS environment contract before provider reads
+
+- Symptom: the first downloaded temporary environment file used `T132_STS_EXPIRATION`, while the live runner requires `ALIBABA_CLOUD_STS_EXPIRATION`.
+- Impact: the mismatch was found by local structure validation before sourcing the file or invoking the provider. The incorrect local copy was isolated at mode `0600`; no credential value was printed and no cloud call used that file.
+- Fix: rename only the expiration key in Cloud Shell, verify the exact six-key census without values, download again, and require temporary identity, exact role/policy hash, mode `0600` and at least 55 minutes remaining before preflight.
+- Prevention: treat the six environment variable names as an exact runner contract. Validate names and non-empty values before every provider read, and delete Cloud Shell, `/tmp` and Downloads copies after the authorized operation.
+- References: `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `03-implementation-notes.md`; `04-verification.md`.
 
 ## Pack A execution findings — 2026-07-13
 
@@ -808,3 +834,138 @@ When adding an entry, use:
 - Fix/workaround: remove the image-response workspace equality assertion, encode an absent observed workspace as `null` in the request evidence hash, and add `image-preflight` mode so the exact production image gate can be exercised without authorization consumption or `CreateJob`.
 - Prevention: freeze and validate image asset identity only from fields the provider actually returns for that asset class. Bind the DLC target workspace in the Job payload/profile gate; never infer the target workspace from optional image ownership metadata.
 - References: `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-28 — A successor revision must express new immutable intent
+
+- Symptom: the first authorized sequence-3 diagnostic successor failed in T1 with `PI v2 uniqueness constraint rejected a changed replay`.
+- Root cause: the proposed WorkOrder copied sequence 2 byte-for-byte while changing only its external business/id scope. PI correctly enforces one `contentHash` per branch, so a semantically identical revision cannot masquerade as a new successor.
+- What was tried: the initial admission ran through the normal service and was allowed to hit the database uniqueness fence; no bypass or compensating write was attempted.
+- Fix/workaround: read-only census first proved the complete T1 rollback. The successor then received a truthful diagnostic title/objective describing whitelist-only reproduction of the provider rejection; resources, cells, Bundle and run policy stayed exact. The max-40 apply and zero-new replay passed.
+- Prevention: before admitting a successor, compare the canonical WorkOrder content with the parent. If no scientific, execution or diagnostic intent changes, use exact replay instead of minting a revision; if intent changes, encode that change explicitly in the immutable WorkOrder.
+- References: `apps/backend/scripts/apply-experiment-foundation-m7-executable-lineage.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-29 — A fixed IAM boundary can expose the next provider validation boundary
+
+- Symptom: after the exact controller `ram:PassRole` repair, both fresh `CreateJob` calls stopped returning PAI 4001 `NoPermission` but still failed with HTTP 400; provider self-diagnosis now reports `src property must be a valid json object`.
+- Root cause status: the prior IAM root cause is fixed and verified. The new error's exact source is not yet proven; direct-OSS mount translation, credential configuration, environment/settings fields and undocumented provider-side transformation remain alternatives.
+- What was tried: the runner stopped at the authorized two-call ceiling, preserved both Attempts and commands, performed recovery-only discovery, inspected the official SDK wire conversion, compared SDK `1.10.0` with `1.10.2`, and reviewed the documented console/API contracts. No Job was created.
+- Fix/workaround: none yet. Treat the changed error as evidence that execution advanced to the next boundary, not as evidence that the PassRole repair failed. Require a new Gate 1 for secret-safe request-shape diagnostics before selecting any behavior change.
+- Prevention: capture the exact provider RequestId and diagnostic at every boundary; stop at the authorization ceiling; preserve immutable lineage; rule out SDK/wire alternatives read-only; never reset old Attempts or speculate a payload fix into production.
+- References: `.ai/.tmp/T-132/journal.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-29 — Exact redaction fields are a write/read contract
+
+- Symptom: the Options-only materializer, shared schema and focused tests passed, but the first full disposable-PostgreSQL gate failed one relational read with `redacted_fields` drift.
+- Root cause: `DataSources[*].Options` was added to the materializer and manifest schema while the Prisma real-provider readback fence still compared against the old exact field census.
+- What was tried: the full gate was allowed to fail closed; no persisted fixture or validation rule was weakened, and no named-local/cloud operation was attempted.
+- Fix/workaround: add the same Options field to the Prisma read fence and rerun the entire M7 gate. The second run passed shared 12/12, backend 93/93 and relational 9/9.
+- Prevention: treat the redaction census as an atomic interface across materialization, JSON Schema, persistence mapping and readback validation; include a real repository round-trip whenever that census changes.
+- References: `apps/backend/src/services/experiment-foundation-real-provider-payload-v2-service.ts`; `apps/backend/src/repositories/prisma/prisma-experiment-foundation-execution-v2-repository.ts`; `04-verification.md`.
+
+### 2026-07-29 — Do not run a Prisma-dependent runner during client generation
+
+- Symptom: sequence-5 offline-preflight failed during ESM module initialization with a missing named `Prisma` export immediately after its script typecheck had passed.
+- Root cause: the offline runner and `typecheck:experiment-foundation-scripts` were launched concurrently; the latter runs `prisma generate`, so the runner observed the generated CommonJS client during its transient replacement window.
+- What was tried: no application, database or provider fix was applied. The completed typecheck was allowed to finish, then the same offline-preflight command was rerun alone.
+- Fix/workaround: serialize Prisma generation/typecheck before any runtime process importing `@prisma/client`. The sequential rerun passed against sequence 5 with cloud and database writes 0.
+- Prevention: parallelize independent tests, but treat `prisma generate` as a workspace mutation barrier for every Prisma-dependent process.
+- References: `apps/backend/package.json`; `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `04-verification.md`.
+
+### 2026-07-29 — A console default is a differential, not a provider root cause
+
+- Symptom: the PAI console initialized OSS advanced settings to `{}`, so the product added exact `Options: '{}'`; the next two live `CreateJob` requests included that field on all four mounts but received the same `src property must be a valid json object` rejection.
+- Root cause status: missing Options is ruled out as the sole cause. The provider-owned internal `src` origin remains unresolved.
+- What was tried: exact shared type/schema and redaction/read fences, isolated full gate, fresh immutable sequence-5 lineage, whitelist-only wire observation and two separately authorized live requests.
+- Fix/workaround: retain the result as a controlled negative, stop at the call ceiling, preserve immutable Attempts/commands and return to no-cloud request-shape comparison. Do not stack another speculative field change onto the payload.
+- Prevention: UI defaults may identify a useful differential, but require one-variable live acceptance before labeling them causal. Phrase pre-live changes as hypotheses and keep rollback/lineage boundaries explicit.
+- References: `.ai/.tmp/T-132/journal.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-30 — A console CreateJob guard must cover the generic proxy
+
+- Symptom: a supposedly abort-before-network PAI console comparison created one real synthetic Job.
+- Root cause: the first interceptor was too broad and stalled an unrelated `HEAD /favicon.ico`; the replacement was too narrow and matched `/api/v1/jobs` / `CreateJob` routes while the console sent the operation through generic POST `/data/api.json`. The later page observer discovered that proxy only after the request had escaped.
+- What was tried: global CDP Fetch interception, route-specific CDP interception and temporary page-level `fetch`/XHR observation. The Job completed successfully in 2 minutes 21 seconds before the stop command could change it.
+- Fix/workaround: stop further submits, clear all interception/wrapper state, retain the terminal task list for review and treat the Job as incident-only cloud history. Estimated charge at the displayed rate is about CNY 0.022.
+- Prevention: never infer a console control-plane route from the public API route. Before touching the final submit button, prove a fail-closed interceptor against the console's actual generic proxy envelope, including nested/stringified body detection and a false-negative test. If the interceptor cannot prove it blocked, do not submit.
+- References: `.ai/.tmp/T-132/journal.md`; `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-30 — Fail closed on an unparseable top-level proxy body
+
+- Symptom: the first offline detector test expected a malformed POST `/data/api.json` body to be blocked, but the guard passed it to the fake fetch transport.
+- Root cause: recursive inspection correctly treated ordinary nested strings as harmless leaves, but applied the same rule to an unparseable top-level body. At the control-plane proxy boundary, inability to inspect the outer envelope must be a blocking condition.
+- What was tried: a network-disabled temporary harness with explicit original-transport counters. The failure occurred before any browser, cloud or database operation.
+- Fix/workaround: mark only an unparseable top-level proxy body, recursion overflow or unsupported container as opaque and block it; retain ordinary nested explanatory text as a false-negative case. Restart the stability count after the fix.
+- Prevention: test malformed/over-depth inputs as first-class positive cases and assert the original transport count, not merely the thrown error. Require consecutive fresh passes and remove the temporary harness afterward.
+- References: `.ai/.tmp/T-132/journal.md`; `02-architecture.md`; `04-verification.md`.
+
+### 2026-07-30 — An automation evaluation context is not proof of the application main realm
+
+- Symptom: installing the approved XHR guard through the browser automation evaluation API failed with `XMLHttpRequest.prototype` unavailable even though the visible DLC page itself uses XHR.
+- Root cause: the evaluation ran in an isolated automation context whose globals did not establish access to the application page's main JavaScript realm.
+- What was tried: one installation expression failed before creating state or touching the form. No retry was made through that context.
+- Fix/workaround: use the Chrome DevTools Console in the top-page context for main-realm runtime instrumentation, run a transport-counter self-test before the real action and independently verify restoration afterward.
+- Prevention: never infer realm coverage from DOM access or evaluation success alone. Assert the exact runtime primitive, wrapper identity and original-transport count before touching a side-effecting control.
+- References: `.ai/.tmp/T-132/journal.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-30 — A blocked clone request is not accepted-console evidence
+
+- Symptom: the first summary described the safely captured clone-form structure as an accepted console serializer shape.
+- Root cause: two different requests were conflated. The earlier incident request reached the provider and created one Job but its body was not captured; the later clone request was captured structurally but blocked before transport.
+- What was tried: a value-free type-path comparison against sequence 7. It localizes differences but cannot prove the blocked clone body would be accepted or that its retained types have equal values.
+- Fix/workaround: label the evidence `console-clone structural projection`; use the terminal incident Job only to prove that its one RW output mount executed. Keep provider acceptance, structural parity and value parity as separate claims.
+- Prevention: every console comparison must record three independent booleans: body observed, transport reached, provider accepted. Never promote evidence across a missing edge.
+- References: `00-overview.md`; `02-architecture.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — SDK-valid is neither provider-causal nor execution-safe
+
+- Symptom: all three in-memory sequence-7 variants validate and serialize exactly through the official SDK, which can look like permission to choose one for sequence 8.
+- Root cause: SDK validation proves only model/wire representability. It does not prove provider acceptance, preserve the frozen scientific workload or retain evidence-boundary semantics.
+- What was tried: baseline, omitted `MountAccess`, output-only and omitted `Envs` variants for both exact cells, all blocked before network.
+- Fix/workaround: keep the result as a feasibility matrix. Reject output-only and omit-Envs as existing-lineage candidates; hold omit-MountAccess until the console's RO/RW default behavior is proven.
+- Prevention: every compatibility variant must pass three independent gates: SDK representability, provider causality and scientific/evidence-contract preservation. Passing the first never implies the other two.
+- References: `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — Untouched RW and explicitly disabled RW are different serialized states
+
+- Symptom: a blocked console clone omitted `DataSources[].MountAccess`, which can be misread as evidence that the console omits the field for every mount.
+- Root cause: DLC `1.90.2` initializes a new direct mount without an access value. The switch writes `RO` when enabled and writes `RW` only after an explicit disable transition; the serializer simply forwards the current value.
+- What was tried: public static tracing from mount initialization and the read-only control through the direct-mount mapper and final CreateJob content builder. No form or provider request was needed.
+- Fix/workaround: model console parity as a three-state transition. Preserve explicit `RO` on immutable code/input mounts and omit access only from an untouched default-RW output mount.
+- Prevention: when comparing UI-generated requests, distinguish visual state from interaction history. A control that appears off may serialize undefined or an explicit false-equivalent depending on whether it was touched.
+- References: `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — Optional access in an item schema is broader than output-only omission
+
+- Symptom: making `DataSources[].MountAccess` optional appears to be the smallest schema change for console parity.
+- Root cause: a homogeneous JSON Schema item rule cannot distinguish the variable-length RO code/input prefix from the final RW output solely by making one property optional.
+- What was tried: the exact in-memory variant proved the desired ordered shape is three explicit RO values plus one final missing value, with all other semantics unchanged.
+- Fix/workaround: preserve the historical v1 request schema, introduce a v2 item shape that disallows explicit RW, and pair it with an ordered application invariant at materialization and verification that requires every non-final source to be RO and the final source to omit access. Gate-2 tests also prove legacy v1 verification and weakened-v2-prefix rejection.
+- Prevention: whenever a schema relaxation represents a positional exception, add a semantic validator at both materialization and verification boundaries; never rely on broad optionality alone.
+- References: `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — Shape-based version fallback still needs disjoint ordered semantics
+
+- Symptom: the new negative test expected a v2-like request with explicit `RO` on the final output to fail, but verification accepted it.
+- Root cause: the request satisfied the broad historical v1 schema before the v2 ordered predicate was considered. The v1 and v2 schema languages overlap even though their valid output-position semantics do not.
+- What was tried: the failure was reproduced entirely in the focused payload unit test; no database or provider operation was involved.
+- Fix/workaround: apply the same ordered predicate to both branches. Legacy v1 requires an RO prefix and explicit final RW; v2 requires an RO prefix and a missing final access property.
+- Prevention: when multiple schema versions are selected from payload shape without an embedded discriminator, prove that every overlapping shape is either semantically equivalent or explicitly rejected.
+- References: `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — Do not verify macOS `/tmp` cleanup with a non-following directory scan
+
+- Symptom: the first local cleanup command reported zero matching files even though the exact `/tmp/t132-seq8-controller-sts.env` path had not been explicitly unlinked.
+- Root cause: on macOS, `/tmp` resolves through a symbolic link. `find /tmp -maxdepth 1` inspected the link path without traversing the target directory and therefore produced a false-negative residual census.
+- What was tried: a combined `/tmp` and Downloads prefix scan returned `T132_SEQ8_LOCAL_STS_REMOVED`, but the verification method itself was not trustworthy.
+- Fix/workaround: unlink the exact `/tmp` credential path explicitly, clean Downloads separately, then assert `test ! -e` on the exact `/tmp` path and a zero Downloads prefix count. The corrected marker was `T132_SEQ8_LOCAL_STS_REMOVED_EXACT`.
+- Prevention: credential cleanup must verify every exact temporary path directly. Use directory scans only for duplicate Downloads copies, and never treat a symlinked-directory scan as proof that an exact secret file is absent.
+- References: `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-30 — Output discovery must understand both canonical access versions
+
+- Symptom: the console-default v2 payload and all focused materialization tests passed, but the first commit-readiness transport suite failed M7-10 collection with `Materialized payload has no unique exact output directory`.
+- Root cause: collection still identified the output only by explicit `MountAccess: RW`. The approved v2 representation intentionally omits that property on the final output, while immutable legacy v1 payloads retain explicit `RW`.
+- What was tried: the unchanged focused transport/payload/observer suite was run after authoritative typechecks. It failed exactly 1/18 at collection; no database or cloud operation occurred.
+- Fix/workaround: accept the two version-valid output access states—legacy explicit `RW` or v2 missing—while retaining exact output mount-path hash and unique-candidate checks. Explicit `RO` remains invalid for output discovery.
+- Prevention: whenever a versioned payload changes a field from explicit to omission, audit every downstream selector, collector and recovery comparator, not only schema/materialization/readback validation. Keep at least one end-to-end collection test on the new canonical shape.
+- References: `apps/backend/src/services/experiment-foundation-aliyun-real-provider-v2-transport.ts`; `03-implementation-notes.md`; `04-verification.md`.

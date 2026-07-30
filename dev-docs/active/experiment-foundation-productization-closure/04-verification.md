@@ -1,5 +1,274 @@
 # 04 Verification
 
+## M7-L1 sequence-7 final SDK wire-boundary diagnosis — 2026-07-30
+
+Outcome: **the official SDK final wire is exact; SDK serialization is ruled out as the source of the provider-internal `src` failure**.
+
+- Authorization: `APPROVE INSTRUMENTATION`; run_id `dbg-20260729-151747-2ddb`; cloud calls, database writes, capability changes and sequence-8 creation prohibited.
+- Marker scope: the observer, unit test and exact runner import/offline block use `DEBUG-MODE: BEGIN/END dbg-20260729-151747-2ddb`; emitted records use `[DBG:dbg-20260729-151747-2ddb]`.
+- `pnpm exec node --test --loader ts-node/esm src/services/experiment-foundation-m7-l1-create-job-wire-observation.unit.test.ts src/services/experiment-foundation-m7-l1-create-job-error-observation.unit.test.ts src/services/experiment-foundation-real-provider-payload-v2-service.unit.test.ts` → 11/11 passed.
+- Privacy negative: hostile workspace, role, URI, mount, command, image, environment, credential-like and dynamic tag/key values are absent from serialized observations.
+- `pnpm run typecheck` → passed.
+- `pnpm run typecheck:experiment-foundation-scripts` → passed.
+- `pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight` → passed against the exact named-local sequence-7 Run/frozen Bundle with existing Attempts 2, cloud calls 0 and database writes 0.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` → completed; T-132 derived project views reconciled.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` and `git diff --check` → passed; only two pre-existing unrelated task-state warnings remain.
+- `node .ai/scripts/lint-docs.mjs` → passed with warnings only; no document-format errors.
+- Cell 1: model/wire SHA-256 `sha256:bdb5d86fa62e4f1c807da20670553e0fe91185508ab58eb1e4f1ff61d70c1680`, bytes `2989/2989`, byte/semantic/round-trip equality true, recursive `src` `0/0`.
+- Cell 2: model/wire SHA-256 `sha256:e8ce6ee982e6afac48906bbefcb1ecccd8aa1bd830be53ae9f2faf2009b47a90`, bytes `2992/2992`, byte/semantic/round-trip equality true, recursive `src` `0/0`.
+- Both cells: four DataSource Options are wire strings and parse as JSON objects; source-binding is a wire string and parses as a JSON object; RoleArn/RoleType are strings; `AssumeRoleFor` and `ResourceId` are absent.
+- Official CreateJob reference check: `DataSources[].Options` is documented as `string`; the documentation does not support changing it to an object.
+- Interpretation: model-to-wire transformation is ruled out; malformed known JSON strings are ruled out. A provider-internal direct-OSS translation or another service-side compatibility issue remains uncertain. No Gate-2 fix is authorized or proposed.
+
+## M7-L1 instrumented diagnostic sequence-7 paid provider rejection — 2026-07-29
+
+Outcome: **the bounded reproduction captured safe provider evidence but created no Job; provider causality remains unresolved**.
+
+- Authorization: `M7-L1 instrumented diagnostic reproduction authorized: 2026-07-29, ceiling ¥50, 2 jobs`.
+- Action-time `offline-preflight` → passed; exact Run/manifest/Bundle, Attempts 0, cloud/database writes 0, two-Job/¥50 and 2 CPU / 8192 MiB / 30-minute ceilings.
+- Fresh STS: RAM-user caller/account exact; six keys; mode `0600`; temporary identity; controller role/policy exact; 59 whole minutes remaining; values printed 0.
+- Execute command: `T132_M7_L1_LIVE_AUTHORIZATION=<exact recorded token> node --env-file=/tmp/t132-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode execute`.
+- Instrumented calls: exactly 2 `CreateJob`; both observation records contained top-level `status_code=400`, `provider_code=BadRequest` and distinct top-level RequestIds. No message, stack, body, URI, role, environment or credential value was emitted.
+- Official authenticated diagnosis: both RequestIds identify `PaiDlc / 2020-12-03 / CreateJob / cn-shanghai`, HTTP 400, flow control `FC.PASS`, response `src property must be a valid json object`.
+- Runner result: non-zero final success assertion after normal recovery convergence; no third submission.
+- Read-only PostgreSQL transaction with server-enforced read-only mode: ProviderPayload 2; Attempt 2; AttemptEvent 4; ProviderCommand 2; both Attempts `failed / stateVersion 1 / real_provider_cleanup_unverified / no external ref`; both commands `terminal / attemptCount 12 / REAL_PROVIDER_RECOVERY_NOT_FOUND / unleased / no external ref`.
+- Negative-space census: CollectionAttempt 0; ProvisionalOutput 0; ExperimentResult 0; ScientificValidationReport 0; EvidenceCandidate 0; REU 0.
+- Provider outcome: returned/discovered Jobs 0; external refs 0; observed billable runtime 0. The authorization is exhausted.
+- Credential cleanup: Cloud Shell `T132_SEQ7_PAID_CLOUD_STS_REMOVED`; local `/tmp` and Downloads `T132_SEQ7_PAID_LOCAL_STS_REMOVED`.
+- Post-run `offline-preflight` → passed with existing Attempts 2, cloud calls 0 and database writes 0.
+- Interpretation: H1 (safe error fields are top-level) is supported; H4 (no safe metadata available) is ruled out; missing DataSource `Options` and custom-role `AssumeRoleFor` are both ruled out as sole causes. The internal `src` producer remains uncertain. No Gate-2 fix is authorized.
+
+## M7-L1 instrumented diagnostic sequence-7 production image preflight — 2026-07-29
+
+Outcome: **the separately authorized sequence-7 read-only image verification passed; no paid execution permission was inferred or consumed**.
+
+- Authorization: exact sequence-7 read-only image-preflight scope; `CreateJob`, OSS writes, capability changes, database writes and NAS/PAI Job creation prohibited.
+- Pre-run local residual scan: no matching STS file in `/tmp` or Downloads.
+- Cloud Shell identity assertion: exact account plus RAM-user caller matched; NAS creation was declined.
+- STS generation: exactly six keys, Cloud Shell mode `0600`, credential values printed 0.
+- Local contract: exact six keys, mode `0600`, all values non-empty, temporary `STS.` AK prefix, exact controller role, exact policy hash and 59 whole minutes remaining.
+- `node --env-file=/tmp/t132-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode image-preflight` → passed.
+- Exact Run: `ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1`.
+- Exact frozen Bundle: `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- Image request: `cn-shanghai` / `image-liuxvj7p2qcnflha84`; target fingerprint `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`; request hash `09e466d5af908f548b362c37753050921a9e12a9deade4c9ce5b6ed6acf64c50`.
+- Effect census: cloud calls 1 (`GetImage`); provider writes 0; `CreateJob` 0; database writes 0; capability changes 0; NAS/PAI Jobs and billable runtime 0.
+- Credential cleanup: Cloud Shell `T132_SEQ7_CLOUD_STS_REMOVED`; local `/tmp` and Downloads `T132_SEQ7_LOCAL_STS_REMOVED`.
+- Instrumentation objective remains 1/1 offline; provider reproduction remains 0/1. `dbg-20260729-142414-8438` stays active for a separately authorized paid reproduction.
+
+## M7-L1 instrumented diagnostic sequence-7 named-local landing — 2026-07-29
+
+Outcome: **sequence-7 landed through exact max-40 T1-T4 and two zero-new replays; cloud reproduction remains unauthorized**.
+
+- Authorization: exact sequence-7 named-local successor, max 40 rows, normal T1-T4/CAS/replay/protected verification; no cloud/capability/PAI/scientific-evidence effects.
+- Read-only preflight: named-local fingerprint exact; branch `12/6`; sequence-6 parent revision/Run `1/1`; parent Attempts 2 terminal failed; sequence-7 revision/Run `0/0`; Cycle closure 0.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` before apply → passed.
+- First repo-root invocation: failed before app startup with `ERR_MODULE_NOT_FOUND` for package-local `ts-node`; database/provider operations 0.
+- Correct backend-directory apply → passed; exactly 40 new rows, relay claimed/delivered `3/3`, released/terminalized/failures 0, branch state/head `14/7`, 236 protected tables changed 0.
+- Exact WorkOrder/Run: `pi_experiment_revision_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1` / `ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1`.
+- Exact manifest: `sha256:ad9196472551d493501884d02e6620d3ac5d7f680611a929c3e0c0eb069a56a1`; frozen Bundle revision/hash unchanged.
+- In-process replay: admission replayed, row delta 0, relay `0/0`, protected changes 0.
+- Independent-process replay: all 14 controlled-table deltas 0, relay `0/0`, branch `14/7`, protected changes 0.
+- Post-read: revision/cells/admission `1/2/1`; Run/RunCells `1/2`; sequence-7 Attempt/result/candidate/REU `0/0/0/0`; sequence-6 Attempt/Command unchanged `2/2`.
+- Live-runner rebind typecheck → passed.
+- Sequence-7 offline-preflight → passed; exact Run/manifest/Bundle, Attempts 0, cloud calls 0, database writes 0.
+- Prohibited effects: cloud/provider calls 0; `CreateJob` 0; capability changes 0; PAI Jobs 0; ExperimentResult/EvidenceCandidate/REU 0.
+- Next gates remain separate: one-read image preflight, then instrumented two-Job/¥50 diagnostic reproduction. Instrumentation `dbg-20260729-142414-8438` remains active.
+
+## M7-L1 sequence-6 SDK-error observation instrumentation — 2026-07-29
+
+Outcome: **the removable observer is offline-verified and ready; no provider reproduction or behavior fix occurred**.
+
+- Authorization: `APPROVE INSTRUMENTATION`; run_id `dbg-20260729-142414-8438`.
+- Marker search scope: new debug module/test plus exact runner import/catch blocks use `DEBUG-MODE: BEGIN/END dbg-20260729-142414-8438`; the emitted structured line includes `[DBG:dbg-20260729-142414-8438]`.
+- `node --loader ts-node/esm --test src/services/experiment-foundation-m7-l1-create-job-error-observation.unit.test.ts` → 5/5 passed.
+- `node --loader ts-node/esm --test src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts src/services/experiment-foundation-m7-l1-create-job-error-observation.unit.test.ts` → 11/11 passed.
+- Privacy negatives: invalid status/token shapes normalize to null; hostile message/stack/request/credential/URI/role/command/environment sentinels absent; accessor getter reads 0.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight` → passed; exact sequence-6 Run/Bundle, existing Attempts 2, cloud calls 0, database writes 0.
+- Effect census: `CreateJob` 0; other cloud calls 0; database writes 0; capability changes 0; sequence-6 rows unchanged.
+- Instrumentation objective: 1/1. Provider reproduction: 0/1. Instrumentation remains active pending separately authorized sequence-7 lineage/read/paid gates; no Gate-2 fix plan exists yet.
+
+## M7-L1 custom-role-shape sequence-6 paid provider verification — 2026-07-29
+
+Outcome: **the two-call window found no accepted Job; the provider rejection remains unclassified because the accepted-response-loss fence discarded the SDK exception**.
+
+- Authorization: `M7-L1 custom-role-shape-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight` → passed; exact Run/Bundle, Attempts 0, cloud/database writes 0.
+- Fresh STS: exact six keys, mode `0600`, all non-empty, temporary AK, exact controller role/policy hash and 59 whole minutes remaining; values printed 0.
+- Execute command: `T132_M7_L1_LIVE_AUTHORIZATION=<exact recorded token> node --env-file=/tmp/t132-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode execute`.
+- Submission ceiling: at most 2 `CreateJob`; two Attempts/submit commands entered the lane, and subsequent worker passes were recovery-only.
+- Provider outcome: returned Job IDs 0; exact discovered Jobs 0; external refs 0; observed billable runtime 0. The transport did not retain synchronous status/code/RequestId.
+- Terminal census: ProviderPayload 2; Attempts 2, both `failed` / stateVersion 1 / `real_provider_cleanup_unverified` / no external ref; AttemptEvents 4; submit ProviderCommands 2, both terminal / attemptCount 12 / `REAL_PROVIDER_RECOVERY_NOT_FOUND`; CollectionAttempt 0; ProvisionalOutput 0; ExperimentResult 0; EvidenceCandidate 0; REU 0.
+- Runner outcome: non-zero final success assertion because neither Attempt succeeded; no third submission and no direct command/Attempt reset.
+- Credential cleanup: Cloud Shell `T132_PAID_CLOUD_STS_REMOVED`; local `/tmp` and Downloads `T132_PAID_LOCAL_STS_REMOVED`.
+- Interpretation: sequence-6 is immutable terminal evidence, not a successful provider canary. Next work requires a separately approved no-cloud, whitelist-only SDK-error instrumentation gate before any fix/successor/paid retry.
+
+## M7-L1 custom-role-shape sequence-6 production image preflight — 2026-07-29
+
+Outcome: **read-only sequence-6 image verification passed; no paid execution permission was inferred or consumed**.
+
+- Authorization: exact sequence-6 read-only image-preflight scope; `CreateJob`, OSS writes, capability changes, database writes and NAS/PAI Job creation prohibited.
+- Cloud Shell identity assertion: target account plus RAM-user caller matched; NAS creation remained skipped.
+- STS generation output: `T132_CLOUD_STS_READY keys=6 mode=600`; credential values printed 0.
+- Local contract: exact six keys, mode `0600`, all values non-empty, temporary AK prefix true, controller role true, policy hash true, 58 whole minutes remaining.
+- `node --env-file=/tmp/t132-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode image-preflight` → passed.
+- Exact Run: `ef_run_v2_t132_m7_l1_role_shape_fix_successor_v6_1`.
+- Exact frozen Bundle: `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- Image request: `cn-shanghai` / `image-liuxvj7p2qcnflha84`; request hash `ebcc558c0fd09b771277101942102d3e6d1bdc1dd3ebbec8ca276d98ab554ae5`.
+- Effect census: cloud calls 1 (`GetImage`); provider writes 0; `CreateJob` 0; database writes 0; capability changes 0; NAS/PAI Jobs and billable runtime 0.
+- Credential cleanup: Cloud Shell `T132_CLOUD_STS_REMOVED`; local `/tmp` and Downloads `T132_LOCAL_STS_REMOVED`.
+- Documentation closure: `ctl-project-governance sync --apply`, `lint --check` and `git diff --check` passed; two pre-existing unrelated T-124 State-format warnings remain.
+- Next gate: a separately worded and time-bounded sequence-6 paid authorization plus a newly issued STS; this verification grants neither.
+
+## M7-L1 Options-fix sequence-5 paid provider verification — 2026-07-29
+
+Outcome: **explicit Options did not resolve the provider rejection; no Job or billable runtime was created**.
+
+- Authorization: `M7-L1 Options-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`.
+- Fresh STS: exact six keys, mode `0600`, temporary AK, role/policy hash match and 58 whole minutes remaining; values printed 0.
+- Exact provider calls: 2/2 `CreateJob`; no third call.
+- Call 1: wire JSON 2,979 bytes; four DataSources with `Options`; recursive `src` count 0; RequestId `019FAB35-0B06-54F8-94C0-964A48F91F0F`; HTTP 400 `BadRequest`.
+- Call 2: wire JSON 2,976 bytes; four DataSources with `Options`; recursive `src` count 0; RequestId `019FAB35-11B0-518B-ADE8-B6833097FD32`; HTTP 400 `BadRequest`.
+- OpenAPI self-diagnosis for both RequestIds: `src property must be a valid json object`; caller was the exact controller role; API was regional PAI-DLC `CreateJob`; gateway flow-control passed.
+- Provider outcome: returned Job IDs 0; discovered Jobs 0; external refs 0; billable Job runtime 0.
+- Final named-local read-only census: ProviderPayload 2; Attempts 2 prepared/stateVersion 0/no terminal reason/no external ref; AttemptEvents 2; submit ProviderCommands 2 with attemptCount 8, `REAL_PROVIDER_RECOVERY_NOT_FOUND`, expired claimed leases and no external ref; CollectionAttempt 0; ProvisionalOutput 0; ExperimentResult 0; EvidenceCandidate 0; REU 0.
+- The runner was stopped after the two synchronous provider rejections and exact diagnostics; no direct command release/reset was performed.
+- Credential cleanup: Cloud Shell source absent; local `/tmp` absent; Downloads T-132 STS files absent.
+- Interpretation: missing Options as the sole cause is ruled out. Provider-side `src` origin remains unresolved; next work is no-cloud Gate 1 only.
+
+## M7-L1 Options-fix sequence-5 production image preflight — 2026-07-29
+
+Outcome: **read-only provider image verification passed; paid `CreateJob` remains unauthorized and unconsumed**.
+
+- Chrome Cloud Shell reconnected successfully; NAS creation was explicitly skipped.
+- STS generation output: success marker only; no AccessKey, secret or token value was printed.
+- Downloaded credential contract: mode `0600`, six exact keys, all non-empty, temporary AK prefix true, controller role match true, controller policy hash match true, 58 whole minutes remaining.
+- `node --env-file=/tmp/t132-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode image-preflight` → passed.
+- Exact Run: `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1`.
+- Exact Bundle: `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- Image request hash: `d74c81437c8ebf215cb052f22b34a883538c8536632edfcdd288f4621c04ef92`.
+- Effect census: cloud calls 1 (`GetImage`); provider writes 0; `CreateJob` 0; database writes 0; capability changes 0; billable Jobs 0.
+- Credential cleanup: Cloud Shell `T132_CLOUD_STS_REMOVED`; local `/tmp` and Downloads absence check `T132_LOCAL_STS_REMOVED`.
+- Next authorization is distinct and must be explicit: `M7-L1 Options-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`.
+
+## M7-L1 Options-fix sequence-5 named-local apply — 2026-07-29
+
+Outcome: **named-local sequence-5 apply, restart replay and zero-cloud offline-preflight passed; provider execution remains unauthorized**.
+
+- Script typecheck passed after adding the exact sequence-5 successor scope.
+- Read-only preflight target: `postgres` / `my_researcher_dev` / `127.0.0.1:5432`, fingerprint `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`.
+- Read-only state: branch state/head `8/4`; sequence-4 parent revision/Run counts 1/1; sequence-5 revision/Run counts 0/0; Cycle closure count 0.
+- Apply command used only the exact local successor token `authorized-2026-07-29-p313-m7-l1-options-fix-successor-max40-no-cloud`.
+- Apply result: 40 new rows; relay claimed/delivered 3/3; released/terminalized/failures 0; branch state/head `10/5`; 236 protected tables changed 0.
+- Exact lineage: WorkOrder `pi_experiment_revision_v2_t132_m7_l1_options_fix_successor_v5_1`; Run `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1`; manifest `sha256:1b5be3de672f067f8e19677181c5c181699a0c595c71bd1e768dbf48f17ffc72`; frozen Bundle revision/hash unchanged.
+- Built-in replay and independent-process replay: admission replayed; every allowed-table delta 0; relay claimed/delivered 0/0; protected changes 0; prior lineage unchanged.
+- Prohibited effects: cloud/provider calls 0; capability changes 0; `CreateJob` 0; live Attempts 0; ExperimentResult 0; EvidenceCandidate 0; REU 0.
+- Script typecheck rerun passed after rebinding the live runner to sequence 5.
+- First offline-preflight process failed during module initialization because it raced a concurrent `prisma generate`; it did not reach target resolution or any database/provider operation. Sequential rerun passed:
+  - Run/manifest exact;
+  - Attempts 0;
+  - two-job/¥50 ceiling encoded but not authorized;
+  - cloud calls 0;
+  - database writes 0.
+- `git diff --check` and governance sync/lint are required after the documentation update.
+
+## M7-L1 Gate-2 direct-OSS Options fix — 2026-07-29
+
+Outcome: **code/contract fix passed the no-network and disposable-PostgreSQL gates; provider verification is pending a fresh successor and separate authorization**.
+
+- Gate 2 approval: `APPROVE FIX`; debug run ID remains `dbg-20260729-071348-src-shape`.
+- Focused shared schema test → 6/6 passed, including rejection of missing Options and non-canonical `{"mountType":"ossfs"}`.
+- Focused backend payload + debug-observation tests → 8/8 passed; all three direct OSS binding classes emitted `Options: '{}'`.
+- `pnpm typecheck` in `packages/shared` → passed.
+- `pnpm typecheck` in `apps/backend` → passed.
+- `pnpm typecheck:experiment-foundation-scripts` in `apps/backend` → passed.
+- First full isolated run `t132-m7-options-empty-object-20260729-v1` → failed closed: shared 12/12 and backend 93/93 passed; relational 8/9 exposed a stale Prisma real-provider `redacted_fields` read fence. No cloud or named-local operation occurred.
+- After adding `DataSources[*].Options` to that exact read fence, `node .ai/scripts/experiment-foundation-m7-provider-gate.mjs --run-id t132-m7-options-empty-object-20260729-v2 --imported-run-id t132-m7-offline-20260724-v3` → passed.
+- Final gate detail: shared 12/12, backend 93/93, relational 9/9, migration deploy passed, both typechecks passed, skip 0. Summary SHA-256: `4c35342cf01839ae4e28151068307c7d96ee9dee9432ec6f82faee18e97d7d7b`.
+- `git diff --check` → passed.
+- Effect census: named-local database writes 0; cloud calls 0; `CreateJob` 0; capability changes 0; billable actions 0. Historical sequence-4 payloads/Attempts/commands were unchanged.
+- Deliberate non-check: named-local sequence-4 offline rematerialization was not rerun after the behavior change because its persisted payload hash is immutable and now intentionally differs. A new successor must establish the new payload lineage.
+
+## M7-L1 Gate-1 direct-OSS request-shape diagnosis — 2026-07-29
+
+Outcome: **the direct-OSS missing-Options hypothesis is supported; behavior fix awaits Gate 2**.
+
+- Gate 1 approval: `APPROVE INSTRUMENTATION`; run ID `dbg-20260729-071348-src-shape`.
+- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/services/experiment-foundation-m7-l1-create-job-debug-observation.unit.test.ts` → 4/4 passed. Hostile values and unknown field names were absent from emitted observations.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` → passed.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed.
+- Exact sequence-4 offline rematerialization: two JSON-roundtrippable wire maps, 2,923/2,920 bytes, recursive `src` count 0, unknown-key counts 0.
+- Both exact payloads: top-level object kinds correct; DataSources 4, each exactly `MountAccess`/`MountPath`/`Uri` with `Options` absent; CredentialConfig one item/one role; Envs five string values; JobSpecs one object; Settings two string tags.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight` → passed with exact sequence-4 Run/Bundle, existing Attempts 2, cloud calls 0 and database writes 0.
+- Chrome read-only comparison: PAI create form loaded under the authenticated RAM session; adding one OSS storage mount immediately produced an Advanced Settings editor containing exactly `{}`. No URI/role/command was entered and `确定` was not clicked.
+- Official current PAI documentation confirms JindoFuse is the default OSS mount and advanced settings are JSON; `{"mountType":"ossfs"}` explicitly opts into ossfs.
+- Effect census: console submissions 0; `CreateJob` 0; provider writes 0; database writes 0; capability changes 0; billable actions 0.
+- Interpretation: `CredentialConfig` was structurally parsed in the prior PassRole rejection and remains well-formed; the exact request itself contains no `src`. The single provider-console differential is omitted DataSource `Options`, supporting canonical `{}` as the minimal next fix. Live confirmation still requires a new immutable successor and separate paid authorization.
+
+## M7-L1 PassRole-fix paid provider verification — 2026-07-29
+
+Outcome: **the PassRole repair crossed the old IAM boundary, but end-to-end provider execution failed at a new request-validation boundary**.
+
+- Authorization: `M7-L1 PassRole-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`.
+- Exact provider calls: 2/2 `CreateJob`; RequestIds `019FAAF0-A1C4-533C-8E04-CBA65A115550` and `019FAAF0-A776-5709-ADD4-803987A9FE10`.
+- Both calls returned SDK `ClientError`, HTTP 400 `BadRequest`. Alibaba Cloud OpenAPI self-diagnosis resolved both RequestIds to the exact message `src property must be a valid json object`.
+- The prior PAI 4001 `NoPermission` / PassRole diagnostic did not recur. This verifies the IAM repair, not the full execution path.
+- No third call was made. Returned Job IDs 0, recovered Jobs 0, external refs 0 and billable Job runtime 0.
+- Final named-local census: ProviderPayload 2; Attempts 2, both `prepared`/stateVersion 0/no terminal reason/no external ref; AttemptEvents 2; submit ProviderCommands 2, both pending/attemptCount 7/`REAL_PROVIDER_RECOVERY_NOT_FOUND`/unleased/no external ref; CollectionAttempt 0; ProvisionalOutput 0; ExperimentResult 0; EvidenceCandidate 0. An independent Prisma read against `postgres` at `127.0.0.1:5432` confirmed sequence-4 RunEvidenceUnit 0.
+- SDK production `parseToMap` inspection produced ordinary JSON objects for `DataSources`, `CredentialConfig`, `JobSpecs` and `Settings`. Installed `1.10.0` versus current `1.10.2` comparison showed no relevant CreateJob/DataSources structural change.
+- Official contract review continues to support direct OSS directory URIs and structured DataSources; the contract does not identify which internal provider `src` rejected the request. Direct-OSS backend, role credential source, env/settings or another provider transformation therefore remain unresolved alternatives.
+- Credential cleanup passed across Cloud Shell, local temporary storage and Downloads. No capability was enabled and no ExperimentResult, EvidenceCandidate or REU was written.
+- Verification result: PassRole fix 1/1; end-to-end provider path 0/1. The paid authorization is exhausted.
+
+## M7-L1 PassRole-fix verification successor — 2026-07-29
+
+Outcome: **named-local sequence-4 apply and exact replay passed; cloud execution remains separately gated**.
+
+- Read-only preflight: branch state/head `6/3`, current/head sequence 3; sequence-4 Revision/Run/Attempt rows 0; protected sequence-3 Attempt/ProviderCommand rows 2/2.
+- Backend typecheck passed before and after the runner binding update.
+- Apply target: `postgres` / `my_researcher_dev` / `127.0.0.1:5432`, fingerprint `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`.
+- Apply result: exactly 40 new rows; relay claimed/delivered 3/3, failures/released/terminalized 0; branch state/head `8/4`; 236 protected tables changed 0.
+- Exact lineage: WorkOrder `pi_experiment_revision_v2_t132_m7_l1_passrole_fix_successor_v4_1`, Run `ef_run_v2_t132_m7_l1_passrole_fix_successor_v4_1`, manifest `sha256:9e39a40d56121a255ac83656a46a89ea8d6b487b920e16873675a59b410d5045`; exact frozen Bundle revision/hash unchanged.
+- In-process replay and a second independent-process replay both reported admission replay, all allowed-table deltas 0, relay claimed/delivered 0/0, protected changes 0 and prior lineage unchanged.
+- Independent post-read: two cells, one admission, one Run and two RunCells; sequence-4 Attempt/ExperimentResult/EvidenceCandidate/REU counts 0; sequence-3 Attempt/ProviderCommand counts remained 2/2.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight` passed for sequence 4 with `existing_attempt_count=0`, job ceiling 2, monetary ceiling ¥50, 2 CPU / 8192 MiB / 30 minutes, cloud calls 0 and database writes 0.
+- Fresh controller STS contract check passed with six exact keys, mode `0600`, temporary identity, exact controller role/policy hash and 57 whole minutes remaining; credential values printed 0.
+- `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode image-preflight` passed for sequence 4. Image request hash: `fbbbfecf1af20f009fcc0c0cadaeb08a51a91b53ab343b52b88c3e896eed7595`; cloud calls 1, provider writes 0, `CreateJob` 0, database writes 0.
+- Credential cleanup passed: Cloud Shell source absent; local `/tmp` correct/isolated files absent; Downloads contains no `t132-controller-sts*` file.
+- Prohibited effect census: capability changes 0, cloud/provider calls 0, `CreateJob` 0, PAI Jobs 0, billable compute 0, scientific/evidence writes 0.
+
+## M7-L1 exact controller PassRole recovery — 2026-07-29
+
+Outcome: **repository and owner-confirmed cloud policy fix passed non-billable verification; provider-level `CreateJob` verification remains separately gated**.
+
+- `sha256sum workloads/ragperf-canary/ram/controller-policy.json` → `f6b63cd73a57c6d8cfade1a177681ad4463cbd4d6d0a116e26a40ceee85ed497`.
+- Exact `jq -e` policy assertion passed: one and only one `ram:PassRole` Allow, exact runtime-role ARN resource, and existing `oss:PutObject` / `oss:DeleteObject` / `paidlc:DeleteJob` Deny actions retained.
+- Experiment-foundation script typecheck passed.
+- Backend typecheck passed.
+- Whitelist/privacy observation tests passed 2/2.
+- Named-local `offline-preflight` passed for sequence-3 exact Run/Bundle with pinned candidate policy hash, `existing_attempt_count=2`, cloud calls 0 and database writes 0.
+- Owner-confirmed `CreatePolicyVersion` returned v3 with `IsDefaultVersion=true`.
+- Read-only live verification: default version v3; versions v1/v2 retained non-default; canonical policy hash `6d6d091f68705f175aa33d19cc1f3d15a9fcd54d89ba3f826c045ad994c15b61` matches the repository; one PassRole Allow has the exact runtime role ARN; runtime trust is exactly `["pai.aliyuncs.com"]`; temporary policy file removed.
+- Fresh controller STS production `image-preflight` → passed; image request hash `8ed5bea6bc36377cbd47e82cc50c7b797d841b3d05d2333b0e23e1ec4884bb35`; cloud reads 1, provider writes 0, `CreateJob` 0, database writes 0.
+- Credential cleanup: Cloud Shell `T132_CLOUD_STS_REMOVED`; local `/tmp` and Downloads absence check `T132_LOCAL_STS_REMOVED`.
+- Cloud effect census: one approved RAM policy-version write; `CreateJob` 0; Job/billable compute 0.
+
+## M7-L1 paid rejection instrumentation + diagnostic successor — 2026-07-28
+
+Outcome: **whitelist instrumentation passed offline; named-local sequence-3 apply/replay passed; a new paid action-time authorization is required before reproduction**.
+
+- First paid diagnostic: exact SDK `CreateJob` boundary invoked 2/2; returned Job IDs 0; exact recovered Jobs 0; ActionTrail `CreateJob` events 0; external Job refs 0; billable compute 0. Both sequence-2 Attempts/submit commands are terminal failed, preserving `REAL_PROVIDER_RECOVERY_NOT_FOUND`.
+- `pnpm --filter @paper-engineering-assistant/backend exec node --test --loader ts-node/esm src/services/experiment-foundation-m7-l1-create-job-debug-observation.unit.test.ts` → 2/2 passed. Hostile message/header/token/body fields were absent from the emitted line.
+- Backend and experiment-foundation script typechecks passed; `git diff --check` passed. Instrumentation cloud calls/database writes: 0/0.
+- Apply preflight: branch sequence/head 2, state/head versions 4/2; sequence-3 revision/cells/admission/Run/Attempts all 0. Existing sequence-2 Attempts 2 and commands 2, all terminal, external refs 0.
+- First authorized sequence-3 apply → failed closed in T1 with changed-replay uniqueness because the proposed WorkOrder content was identical to sequence 2. Post-failure read-only census proved branch unchanged and all sequence-3 counts zero.
+- Corrected diagnostic intent changed only WorkOrder title/objective. Resource snapshot remained 2 CPU / 8192 MiB; `max_attempts=1`, timeout 1800, cells and frozen Bundle were unchanged.
+- Final apply: revision 1, cells 2, admission 1, PI outbox 2, PI inbox 1, EF inbox 2, VersionLock 1, dependencies 23, RunRecipe 1, TaskSpecs 2, Run 1, RunCells 2, EF outbox 1 = exactly 40 new rows. Relay claimed/delivered 3/3, released/terminalized 0, failures 0.
+- Resulting Run: `ef_run_v2_t132_m7_l1_diagnostic_successor_v3_1`; manifest `sha256:ae92cacda8c9cd049b105b4a6324181881ea86de6c4917bbab84003a329a5bcc`. Branch state/head versions 6/3.
+- In-process replay and independent restart replay: admission replayed, relay claimed/delivered 0, every allowed-table delta 0. Protected tables 236, changed 0; prior revision/Run/Attempt/ProviderCommand unchanged; new-run Attempt, ExperimentResult, EvidenceCandidate and REU counts 0.
+- Updated live runner `offline-preflight` → passed with exact target/Run/Bundle, job ceiling 2, monetary ceiling ¥50, `ecs.g6.large`, existing Attempt count 0, cloud calls 0 and database writes 0.
+
 ## M7-L1 provider-manifest v2 persistence recovery — 2026-07-28
 
 Outcome: **fix passed code, migration, disposable PostgreSQL, drift and named-local apply gates; paid execution remains pending**.
@@ -112,7 +381,7 @@ Outcome: **passed for exact provider-managed image metadata; no write, capabilit
 - Successful read 2 RequestId: `019FA414-E2BA-5365-BF54-A72B87AF7825`. The response returned exact `GmtCreateTime=2026-07-02T04:35:35.000Z` and `GmtModifiedTime=2026-07-02T04:35:35.000Z`.
 - Comparison against `workloads/ragperf-canary/manifests/execution-bundle-v2.json`: no field drift.
 - Provider operation census: successful `GetImage` 2; cloud/provider writes 0; `CreateJob` 0; capability changes 0; credential capture 0; provider compute 0; database/scientific/evidence writes 0.
-- This is not image-pull, mount, runtime or scientific acceptance and not a live-window authorization. Durable evidence: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.
+- The GetImage closure is not image-pull, mount, runtime or scientific acceptance and is not a live-window authorization. Durable evidence: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.
 
 ## M7-L1 reviewed ExecutionBundle v2 preparation — 2026-07-27
 
@@ -1693,3 +1962,628 @@ pnpm --filter @paper-engineering-assistant/backend \
 ```
 
 The command connected only to the verified named-local target and stopped on the exact TaskSpec/profile mismatch (`512 MiB` actual versus the then-declared `4096 MiB`). Provider calls, CreateJob, DB writes and billable jobs were zero. The manifest/profile was subsequently corrected to exact `ecs.g6.large = 2 CPU / 8192 MiB`; the same command must remain blocked until an authorized successor T1-T4 lineage exists.
+
+## 2026-07-29 — no-cloud SDK boundary / console differential run
+
+Focused removable instrumentation:
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend exec node --test \
+  --loader ts-node/esm \
+  src/services/experiment-foundation-m7-l1-create-job-debug-observation.unit.test.ts
+pnpm --filter @paper-engineering-assistant/backend exec \
+  tsc -p tsconfig.json --noEmit --pretty false
+pnpm --filter @paper-engineering-assistant/backend exec \
+  tsc -p tsconfig.experiment-foundation-scripts.json --noEmit --pretty false
+```
+
+- Observation suite: 6/6 passed. The real SDK boundary was intercepted before network; action/version/protocol/method/style/path/body types all matched, request JSON round-tripped, model/body bytes were exact, recursive `src` count was 0 and hostile secret-like values were absent from output.
+- Backend typecheck: passed.
+- Experiment-foundation script typecheck: passed.
+- The initial focused test load failed on a missing `RuntimeOptions` model cast; after correcting the debug test only, one assertion expected ten top-level keys instead of the observed nine. Both instrumentation-only issues were corrected before the final 6/6 pass and caused no network/database operation.
+
+Exact named-local read-only reproduction:
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend \
+  experiment-foundation:m7-l1:live -- --mode offline-preflight
+```
+
+- Passed for sequence-5 Run `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1`.
+- Both immutable payloads remained valid JSON with 4 direct OSS mounts and zero `src` keys.
+- Both custom-role observations contained exactly `AssumeRoleFor`, `RoleArn`, `RoleType`; provider console DLC `1.90.2` custom-role serialization contains only `RoleArn`, `RoleType`.
+- Effect census from the runner: existing Attempts 2; `cloud_call_count=0`; `database_write_count=0`. No STS file was read, no command lease was changed, and no `CreateJob` or billable action occurred.
+
+## 2026-07-29 — Gate-2 custom-role omission and cleaned-code verification
+
+Approved product change:
+
+- New official-SDK requests omit optional `AssumeRoleFor` and retain exact `RoleArn + RoleType`.
+- The closed shared schema rejects `AssumeRoleFor`.
+- Recovery accepts an optional provider echo while retaining exact role ARN/type and credential-configuration matching.
+
+Verification before cleanup:
+
+- Shared real-provider schema suite: 6/6 passed.
+- Backend payload, transport and debug-observation suites: 16/16 passed.
+- Shared, backend and experiment-foundation script TypeScript checks: passed.
+
+Verification after mandatory debug cleanup:
+
+- Shared real-provider schema suite: 6/6 passed.
+- Backend payload and transport suites: 10/10 passed.
+- Shared, backend and experiment-foundation script TypeScript checks: passed.
+- Product-source search found zero `DEBUG-MODE: BEGIN/END` markers and zero `[DBG:]` logs.
+- `CreateJob`, cloud/provider calls, named-local writes, sequence-5 mutations, capability changes and billable actions: 0.
+
+Result: deterministic offline fix threshold passed 1/1. End-to-end provider verification remains 0/1 and must use a new separately authorized successor.
+
+## 2026-07-29 — sequence-6 successor planning and authorization fence
+
+Read-only named-local census:
+
+- Transaction mode: `READ ONLY`; database/schema: `postgres / my_researcher_dev`.
+- Cycle: admitted, execution not started, closure count 0.
+- Branch: state version 10, current sequence 5, head version 5, head sequence 5.
+- Exact revisions/Runs: sequences 1-5 present with an unbroken parent chain; sequence 5 Run manifest remains `sha256:1b5be3de672f067f8e19677181c5c181699a0c595c71bd1e768dbf48f17ffc72`.
+- Sequence-5 ProviderPayload/Attempt/ProviderCommand: 2/2/2; ExperimentResult/EvidenceCandidate/REU: 0/0/0.
+- Prospective sequence-6 revision/Run/scoped IDs: 0/0/0.
+- The transaction ended with `ROLLBACK`; database writes and cloud calls were 0.
+
+Static and fail-closed verification:
+
+- Experiment-foundation script TypeScript check: passed.
+- `git diff --check`: passed.
+- Two preliminary authorization-guard commands used an incorrect `.env.local` relative path and stopped in Node before script startup; neither could connect to PostgreSQL.
+- The corrected no-`DATABASE_URL` guard run selected the sequence-6 scope and rejected `not-authorized` with the exact max-40 token error before any database connection.
+- The apply token was not set to its approved value; T1-T4, branch CAS, provider access and capability changes did not run.
+
+## 2026-07-29 — sequence-6 named-local apply, replay and negative-space verification
+
+Authorized execution:
+
+- Exact token: `T132_M7_ROLE_SHAPE_FIX_SUCCESSOR_APPLY_AUTHORIZATION=authorized-2026-07-29-p313-m7-l1-role-shape-fix-successor-max40-no-cloud`.
+- Script TypeScript check passed immediately before execution.
+- The runner accepted the verified local target and exact sequence-5 parent, then completed normal T1-T4.
+
+Independent read-only verification after apply:
+
+- Branch state/head/current/head sequence: `12/6/6/6`.
+- Sequence-6 revision/cells/admission/Run: 1/2/1/1.
+- WorkOrder content hash: `sha256:071b24c460d95501efa58cd27ca905c3e15d10b4af6ce0a9096abc970bf0722a`.
+- Run manifest hash: `sha256:3fe438fa92d0c92dfcb099c560680a5cba86fec3ec65f9c3f172fbfc232022e5`.
+- Exact 13-category lineage census: 40 rows.
+
+Replay and prohibited effects:
+
+- A second authorized invocation completed the exact complete-prefix path; the post-replay census remained 40, so new rows were 0.
+- Sequence-5 Attempts remained 2 prepared rows at stateVersion 0 with no external refs.
+- Sequence-5 commands remained 2 claimed rows at attemptCount 8 with `REAL_PROVIDER_RECOVERY_NOT_FOUND` and no external refs.
+- Sequence-6 ProviderPayload/Attempt/ExperimentResult/EvidenceCandidate/REU: 0/0/0/0/0.
+- Cloud/provider calls, capability changes, PAI Jobs and billable actions: 0.
+- Both independent verification transactions used `READ ONLY` and ended with `ROLLBACK`.
+
+## 2026-07-29 — sequence-6 zero-cloud live-window offline preflight
+
+```bash
+pnpm --filter @paper-engineering-assistant/backend exec \
+  tsc -p tsconfig.experiment-foundation-scripts.json --noEmit --pretty false
+pnpm --filter @paper-engineering-assistant/backend \
+  experiment-foundation:m7-l1:live -- --mode offline-preflight
+```
+
+- Script TypeScript check: passed.
+- Offline preflight: passed for sequence-6 Run and exact manifest.
+- Frozen ExecutionBundle revision/hash matched.
+- Two cell resource contracts matched `ecs.g6.large`, 2 CPU, 8192 MiB, one attempt and 1800 seconds.
+- Controller policy file hash matched `f6b63cd73a57c6d8cfade1a177681ad4463cbd4d6d0a116e26a40ceee85ed497`.
+- Existing Attempt count: 0; reported cloud calls: 0; reported database writes: 0.
+- Independent read-only final census retained branch `12/6`; ProviderPayload/Attempt/ProviderCommand/ExperimentResult/EvidenceCandidate/REU remained 0/0/0/0/0/0.
+- No STS file was read, no cloud client was constructed, no capability was enabled and no paid authorization was inferred.
+
+## 2026-07-30 — console serializer incident verification
+
+Observed browser evidence:
+
+- Console transport path: POST `/data/api.json` proxy envelopes.
+- Unintended Job: `dlc1jao16y748fu4` / `t132-console-serializer-probe`.
+- Provider-visible terminal state: `已成功`.
+- Create/end times: `2026-07-30 05:48:57` / `05:51:18` Asia/Shanghai.
+- Runtime: 2 minutes 21 seconds.
+- Resource: public `ecs.g6.large`, 2 CPU, 8 GiB.
+- Displayed rate: CNY 0.0092/minute; estimated charge CNY 0.02162.
+- Active stop control disappeared after the terminal state was read; no continuing runtime was observed.
+
+Boundary result:
+
+- Abort-before-network objective: **failed**.
+- Zero-Job objective: **failed** (1 unintended synthetic Job).
+- Exact console-versus-sequence-7 body comparison: **incomplete**.
+- Named-local database writes, STS use, capability changes and repository instrumentation files: 0.
+- Temporary CDP Fetch patterns and page-level `fetch`/XHR wrappers: cleared/restored.
+
+Required before retry:
+
+- A locally demonstrated `/data/api.json` proxy-envelope detector. **Completed by `dbg-20260730-055847-1139`.**
+- Positive and false-negative tests for nested/stringified Job bodies. **Completed offline with three consecutive passes.**
+- A new action-time authorization; the existing instrumentation approval is exhausted by the incident.
+
+## 2026-07-30 — read-only Job detail and offline `/data/api.json` guard verification
+
+Read-only browser evidence:
+
+- Job `dlc1jao16y748fu4` remained `已成功`; no active instance or continuing billable runtime was observed.
+- Lifecycle: created `05:48:56`, environment ready `05:50:51`, succeeded `05:51:18`, total 2 minutes 21 seconds.
+- Resource: one public `ecs.g6.large` Worker, 2 vCPU / 8 GiB.
+- Command: `echo t132-console-serializer-probe`.
+- Storage: one non-read-only OSS output mount, advanced options `{}`, target `/mnt/pea-output`.
+- No edit, retry, clone, stop, log download or cloud write was performed.
+
+Offline Gate-1 verification:
+
+```bash
+for t132_pass in 1 2 3; do
+  node .ai/.tmp/T-132/console-proxy-interceptor-offline.mjs || exit 1
+done
+```
+
+- Initial run: failed locally because an unparseable top-level string was not marked opaque. Transport and real-network counters remained zero.
+- Corrected runs: 3/3 consecutive passes.
+- Per pass: blocked cases 5; allowed cases 3; allowed fake-fetch calls 3; blocked fake-XHR sends 0; forbidden network calls 0; safe log events 6.
+- Positive cases: nested stringified `CreateJob`, embedded `/api/v1/jobs`, form-encoded `apiName=CreateJob`, opaque malformed body and credential-like body.
+- False-negative controls: benign `GetWorkspace` proxy envelope containing only explanatory `CreateJob` text, non-proxy POST and read-only proxy GET.
+- Secret marker was absent from serialized logs. The temporary harness was deleted after verification.
+- Cloud/provider calls, database writes, capability changes, STS use, PAI Job creation and billable actions: 0.
+
+Result: the local body-classification and before-transport invariants are proven. Live page injection, frame/lifetime coverage and console serializer capture remain unverified and separately gated.
+
+## 2026-07-30 — static console serializer verification
+
+- Loaded script inventory identified `@alife/pai-console-dlc/1.90.2/js/index.js` and `js/3070.js`.
+- Both public static assets returned HTTP 200 and were SHA-256 pinned; adjacent source maps returned 404.
+- Exact static call chain:
+  - module `238021`: `product=pai-dlc`, `action=CreateJob`;
+  - module `841701`: common request composition;
+  - module `659112`: form-encoded POST `/data/api.json?_fetcher=CreateJob_pai-dlc`;
+  - module `695466`: string passthrough or `JSON.stringify` for `params`/`content`.
+- The exact route appears twice in the main bundle, `CreateJob` appears eleven times, and `/api/v1/jobs` appears thirty-one times. The public REST route is not the console submit transport and remains an invalid interception boundary.
+- Source inspection did not require the new-create page, a form submit or runtime wrapper.
+- Effect census: public CDN GETs 4 including two 404 source-map checks; PAI control-plane calls 0; `/data/api.json` calls 0; provider writes 0; Jobs 0; STS 0; database/capability changes 0.
+
+Result: static serializer inspection is complete. Main-realm guard installation and synthetic pre-send proof remain unverified and require a new Gate-1 approval.
+
+## 2026-07-30 — main-realm synthetic XHR guard verification
+
+Run: `dbg-20260730-065837-de14`.
+
+Three-cycle result:
+
+- wrapper installed: `true / true / true`;
+- synthetic request blocked: `1 / 1 / 1`;
+- synthetic original `send` calls: `0 / 0 / 0`;
+- benign control blocked: `false / false / false`;
+- original prototype restored: `true / true / true`.
+
+Safe blocked projection per pass:
+
+- method `POST`;
+- path `/data/api.json`;
+- exact fetcher `true`;
+- exact product/action `true`;
+- opaque `false`;
+- outer keys `action`, `params`, `product`;
+- original send called `false`.
+
+Independent cleanup check:
+
+- wrapper function names absent: `true`;
+- T-132/debug window state keys: `0`;
+- DevTools closed after inspection.
+
+Effect census:
+
+- Job form opens/submits: 0/0;
+- original XHR sends from synthetic tests: 0;
+- `/data/api.json` calls: 0;
+- provider writes / PAI Jobs / billable runtime: 0/0/0;
+- STS, database writes and capability changes: 0/0/0;
+- repo debug files or runtime wrapper residue: 0.
+
+Result: main-realm install, exact detection, block-before-send and cleanup are proven for synthetic traffic. Real-form structural capture remains unverified and separately authorized.
+
+## 2026-07-30 — real-form abort-before-send structural verification
+
+Run: `dbg-20260730-071132-e186`.
+
+Pre-submit guard proof:
+
+- real-main-realm XHR and fetch wrappers installed: `true`;
+- synthetic XHR/fetch blocks: `2`;
+- synthetic target classifications: `2`;
+- synthetic original XHR/fetch transports: `0 / 0`;
+- counters cleared before the real-form action: `true`.
+
+Real-form target projection:
+
+- channel/method/path: `xhr` / `POST` / `/data/api.json`;
+- exact fetcher and product/action: `true / true`;
+- body length / outer key count: `1457 / 7`;
+- outer keys: `action`, `content`, `params`, `product`, `region`, `sec_token`, `umid`;
+- parsed `params`: empty object, length `2`, hash `fnv1a32:5465b825`;
+- parsed `content`: object, length `915`, hash `fnv1a32:a87c9183`;
+- top-level content groups: accessibility, credential configuration, data sources, display/runtime limits, job specifications, resource/scheduling/settings, success policy, command and workspace;
+- recursive `src` keys: `0`;
+- target original XHR sends: `0`.
+
+Cleanup and zero-effect verification:
+
+- armed-window proxy blocks / target blocks: `5 / 1`;
+- original XHR sends: `0`;
+- allowed non-proxy background fetches: `10`;
+- restored XHR `open` / XHR `send` / fetch: `true / true / true`;
+- independent wrapper-absence checks: `true / true / true`;
+- residual debug-state keys: `0`;
+- clone Job rows after read-only refresh: `0`;
+- provider writes / new Jobs / billable runtime: `0 / 0 / 0`;
+- STS / database writes / capability changes / sequence-8 lineage: `0 / 0 / 0 / 0`.
+
+Result: the authorized real console serializer structure was captured with the target transport suppressed and cleanup independently proven. The observed console/SDK shape difference is evidence for the next offline comparison, not yet proof of the provider error's root cause.
+
+## 2026-07-30 — console-clone versus sequence-7 static matrix verification
+
+Run: `dbg-20260730-073606-f1c5`.
+
+Structural set result:
+
+- clone-form paths: `36`;
+- sequence-7 paths: `40`;
+- exact shared type paths: `31`;
+- clone-only paths: `5`;
+- sequence-7-only paths: `9`;
+- retained sensitive values: `0`.
+
+Clone-only projection:
+
+- `ResourceId:string`;
+- `SchedulingStrategy:string`;
+- `SuccessPolicy:string`;
+- `Settings.JobReservedMinutes:number`;
+- `Settings.Tags.CloneFromJobID:string`.
+
+Sequence-7-only projection:
+
+- `DataSources[].MountAccess:string`;
+- `Envs:object` plus source-binding/code/input-1/input-2/output string paths;
+- `Settings.Tags.ef-provider-idempotency:string`;
+- `Settings.Tags.ef-request-binding:string`.
+
+Pinned SDK feasibility check:
+
+```text
+sdk_version=1.10.0
+with_access_keys=MountAccess,MountPath,Options,Uri
+without_access_keys=MountPath,Options,Uri
+without_access_has_mount_access=false
+both_json_roundtrip=true
+```
+
+Evidence classification:
+
+- `CredentialConfig` type-path parity: supported;
+- `JobSpecs` type-path parity: supported;
+- SDK permits omitted `MountAccess`: supported locally;
+- omitted `ResourceId` is the documented public-resource representation: supported;
+- successful one-output-mount console Job proves all four sequence-7 mounts are compatible: ruled out;
+- `MountAccess` is the provider root cause: unverified;
+- `Envs` is the provider root cause: unverified;
+- direct OSS composition is the highest-value next diagnostic domain: supported.
+
+Effect census:
+
+- product/debug source changes: `0`;
+- SDK/provider network calls: `0`;
+- STS/database/capability/lineage writes: `0/0/0/0`;
+- PAI Jobs/billable runtime: `0/0`.
+
+Result: the static matrix passed once deterministically and narrows the next experiment without supporting a behavior-changing fix. A network-blocked in-memory variant matrix is the next Gate-1 candidate; sequence 8 and paid provider verification remain unauthorized.
+
+## 2026-07-30 — exact sequence-7 network-blocked variant verification
+
+Run: `dbg-20260730-074202-25a0`.
+
+Pre-exact verification:
+
+- focused temporary observer tests: `3/3` passed;
+- backend typecheck: passed;
+- experiment-foundation scripts typecheck: passed;
+- privacy negative for URI/path/role/environment/idempotency values: passed.
+
+Exact variant results:
+
+| Cell | Variant | DataSources | MountAccess present | Envs | Bytes | SHA-256 |
+|---|---|---:|---:|---|---:|---|
+| 1 | baseline | 4 | 4 | yes | 2989 | `bdb5d86fa62e4f1c807da20670553e0fe91185508ab58eb1e4f1ff61d70c1680` |
+| 1 | omit MountAccess | 4 | 0 | yes | 2913 | `43cefe3e28dd514f7aa739ec86dad539865d5c1a66114132b017c6df7b56bf50` |
+| 1 | output only | 1 | 1 | yes | 2316 | `578c5e0a81c0ed47eaf567a5a592c21398677fe29fd5d223ac8b3a58ac00c0d8` |
+| 1 | omit Envs | 4 | 4 | no | 1768 | `794f879bba32dc06e8bb85f651e8565d39aeae32fded6680dc699cd0f371bf93` |
+| 2 | baseline | 4 | 4 | yes | 2992 | `e8ce6ee982e6afac48906bbefcb1ecccd8aa1bd830be53ae9f2faf2009b47a90` |
+| 2 | omit MountAccess | 4 | 0 | yes | 2916 | `547d676ad4e1c7532fdf07ec7af30fb835e8e80e399b190773f168018c30ae25` |
+| 2 | output only | 1 | 1 | yes | 2319 | `ff190ae6f4d677eabae39beca5788ad415860aad765d23f1f972041f6a3807d3` |
+| 2 | omit Envs | 4 | 4 | no | 1770 | `08b5c802577db1092c909a3f58eb198a6508e95e0b83feed5c2adb4a8ca427d6` |
+
+Every row:
+
+- official SDK validation: passed;
+- network blocked before send: true;
+- model/wire byte equality: true;
+- model/wire semantic equality: true;
+- JSON roundtrip equality: true;
+- recursive `src` keys: 0;
+- Settings tag-key count: 2.
+
+Exact offline-preflight effect census:
+
+- existing Attempts: `2`;
+- cloud calls / database writes: `0 / 0`;
+- STS / capabilities / lineage writes: `0 / 0 / 0`;
+- PAI Jobs / billable runtime: `0 / 0`.
+
+Cleanup verification:
+
+- current-run markers/log tags in `apps`, `packages`, `.ai/scripts`: `0`;
+- original observer tests after cleanup: `2/2` passed;
+- backend and runner typechecks after cleanup: passed;
+- baseline sequence-7 offline-preflight after cleanup: passed with cloud/database writes `0/0`;
+- `git diff --check`: passed.
+
+Result: local SDK feasibility is proven for all three variants, but provider causality remains unverified. The next evidence must determine console RO/RW `MountAccess` serialization without creating a Job; no Gate-2 fix or sequence 8 is authorized.
+
+## 2026-07-30 — pinned console RO/RW `MountAccess` static verification
+
+Run: `dbg-20260730-075057-6d1c`.
+
+Pinned assets:
+
+- DLC index: 1,178,525 bytes; SHA-256 `ebbbbd76ec71e1395622090537cc1e3119353fd9bc917c0e75c72c078b3f06eb`;
+- DLC vendor: 885,169 bytes; SHA-256 `5a9586605a31dd19fa1e76c094a1e1916295b80b72e35cf7dc6c500ca51273a5`;
+- `JobCreateV2`: 2,297 bytes; SHA-256 `bf900ac7826c577a6ab7241e5238521baf51d9e3d6221fa3762bbfd70263d50c`;
+- shared create-form chunk `9696`: 736,977 bytes; SHA-256 `d8242805a348a50e0e9e0a79df8c901821daacf0d365a48f330fc7e3d4fa037e`.
+
+Static branch assertions:
+
+- direct-mount append value contains `MountAccess`: false;
+- read-only field unforced default: undefined;
+- switch enabled value: `RO`;
+- switch explicitly disabled value: `RW`;
+- direct-mount mapper copies the field: true;
+- final builder includes mapped direct mounts in `DataSources`: true;
+- untouched RW JSON contains `MountAccess`: false;
+- explicitly selected RO JSON contains `MountAccess`: true.
+
+Effect census:
+
+- Job form opens/submits: `0 / 0`;
+- `/data/api.json` and provider API calls: `0 / 0`;
+- STS/database/capability/lineage writes: `0 / 0 / 0 / 0`;
+- PAI Jobs/billable runtime: `0 / 0`;
+- repository product/debug source changes: `0`.
+
+Result: the static branch is unambiguous, so the fallback RO+RW form Gate is unnecessary. Console parity for sequence 7 is three explicit `RO` values plus an omitted access key on the untouched RW output. The static result does not prove provider acceptance or authorize a fix; the next step is a separately authorized, network-blocked exact in-memory variant.
+
+## 2026-07-30 — exact console-default access variant verification
+
+Run: `dbg-20260730-080744-3c58`.
+
+Pre-exact verification:
+
+- temporary focused suite: `12/12` passed;
+- backend typecheck: passed;
+- experiment-foundation script typecheck: passed;
+- fail-closed baseline/variant shape and non-access equality assertions: passed.
+
+Exact results:
+
+| Cell | Baseline bytes | Variant bytes | Variant SHA-256 | Sources | Baseline RO/RW | Variant RO/RW/missing | Changed entries |
+|---|---:|---:|---|---:|---|---|---:|
+| 1 | 2989 | 2970 | `91975d0483938a4354de65fcdd064a1501d9d9a486d923dced99f01849da0c4b` | 4 | 3/1 | 3/0/1 | 1 |
+| 2 | 2992 | 2973 | `7ccc046912c26dd37c045e633d7e61b3545a6deaaec83cef78d0b3fb1dc40ab8` | 4 | 3/1 | 3/0/1 | 1 |
+
+Every exact variant:
+
+- network blocked before send: true;
+- non-`MountAccess` semantics equal to baseline: true;
+- model/wire byte equality: true;
+- model/wire semantic equality: true;
+- JSON roundtrip equality: true;
+- recursive model/wire `src` keys: `0/0`;
+- four string `Options` values remained object-parseable.
+
+Effect census:
+
+- existing Attempts: `2`;
+- cloud calls/database writes: `0/0`;
+- STS/capability/lineage writes: `0/0/0`;
+- PAI Jobs/billable runtime: `0/0`.
+
+Cleanup:
+
+- current-run residual markers in `apps`, `packages`, `.ai/scripts`: `0`;
+- original focused suite after removal: `11/11` passed;
+- backend and runner typechecks after removal: passed;
+- baseline exact offline-preflight after removal: passed with cloud/database writes `0/0`;
+- `git diff --check`: passed.
+
+One initial default `ts-node` test process stopped on current workspace source-export diagnostics without executing tests. Independent `tsc` passed; the runtime suite was therefore executed with `TS_NODE_TRANSPILE_ONLY=1` while both authoritative typechecks ran separately and passed. The harness detail did not affect the exact runner or evidence.
+
+Result: the console-default candidate is locally representable, exact and RO-boundary-safe. The repository's explicit-RW console-parity defect is supported; provider acceptance remains unverified. A permanent versioned contract/materializer change requires Gate 2, and lineage/cloud actions remain outside that gate.
+
+## 2026-07-30 — Gate-2 console-default access fix verification
+
+Authorization: `APPROVE FIX`; local code/tests only. Sequence-8 lineage, named-local writes, STS, provider calls, Jobs and cost were prohibited.
+
+Commands and results:
+
+- `packages/shared: pnpm run typecheck` — passed.
+- `apps/backend: pnpm run typecheck` — passed after Prisma generation.
+- `apps/backend: pnpm run typecheck:experiment-foundation-scripts` — passed after Prisma generation.
+- `packages/shared: TS_NODE_TRANSPILE_ONLY=1 pnpm exec node --test --loader ts-node/esm src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.schema.test.ts` — 6/6 passed.
+- `apps/backend: TS_NODE_TRANSPILE_ONLY=1 pnpm exec node --test --loader ts-node/esm src/services/experiment-foundation-m7-l1-create-job-wire-observation.unit.test.ts src/services/experiment-foundation-m7-l1-create-job-error-observation.unit.test.ts src/services/experiment-foundation-real-provider-payload-v2-service.unit.test.ts` — 12/12 passed.
+- `apps/backend: pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight` — passed.
+
+Contract assertions:
+
+- legacy v1 explicit-RW request schema remains valid;
+- console-default v2 request schema is valid;
+- explicit RW is invalid under v2;
+- generation emits explicit `RO` for every code/input source and omits access only from the final output;
+- verification accepts only the canonical legacy RO-prefix/final-RW v1 shape;
+- verification rejects a v2 payload with a missing RO-prefix access value;
+- verification rejects an all-RO payload whose final output would otherwise escape through the v1 schema overlap.
+
+Exact offline wire:
+
+| Cell | Bytes | SHA-256 | Model/wire bytes | Model/wire semantics | JSON round trip | Recursive `src` |
+|---|---:|---|---|---|---|---:|
+| 1 | 2970 | `68531cd05903eff736c0f7a89e63fa33164ed3e0e172468d1811140f94c07502` | equal | equal | equal | 0 |
+| 2 | 2973 | `90b600879076c736fcd85faeb4676661fb994cdcc8869aa7d735569e733c34a7` | equal | equal | equal | 0 |
+
+Effect census:
+
+- existing Attempts: `2`;
+- network blocked before send: true for both cells;
+- cloud calls/database writes: `0/0`;
+- STS/capability/lineage writes: `0/0/0`;
+- PAI Jobs/billable runtime: `0/0`.
+
+Result: the demonstrated repository/console access-serialization defect is fixed locally with legacy verification preserved and ordered RO semantics enforced. Provider acceptance and the provider-owned `src` root cause remain unverified. Sequence 8 and all cloud actions require separate authorization.
+
+One added output-position negative assertion initially failed: an all-RO request matched the broad v1 schema, so schema-only dual validation did not reject the malformed v2 output. The verifier was corrected to require the exact legacy v1 ordered shape as well as the exact v2 ordered shape. The focused suite returned to 12/12, backend typecheck passed and the exact offline preflight passed again with unchanged hashes and zero cloud/database writes.
+
+Documentation and governance checks:
+
+- task-bundle document lint passed with 0 errors and 7 whole-bundle vague-reference warnings; strict mode reported the same warnings as failures;
+- project-governance lint passed with two unrelated T-124 state-format warnings;
+- project-governance sync dry-run completed and proposed derived-view refreshes only; no apply was needed because T-132 remains `in-progress`;
+- `git diff --check` passed.
+
+## 2026-07-30 — sequence-8 named-local successor verification
+
+Authorization: owner `授权` in direct response to the documented next step. Execution was bounded to the named-local sequence-8 successor, max 40 T1-T4 rows and exact replay. STS, cloud/provider calls, capabilities, Jobs and scientific evidence were excluded.
+
+Pre-apply:
+
+- sequence-8 scope addition plus `pnpm run typecheck:experiment-foundation-scripts` — passed;
+- sequence-7 `offline-preflight` — passed with exact Run/Bundle, existing Attempts 2 and cloud/database writes `0/0`;
+- independent serializable `READ ONLY` transaction — branch state/head `14/7`, current/head revision and Run exact sequence 7, all 13 sequence-8 prefix families 0.
+
+First apply:
+
+- schema: `t132-m7-console-default-access-successor-apply@v1`;
+- target fingerprint: `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`;
+- new rows: 40;
+- relay claimed/delivered/released/terminalized/failures: `3/3/0/0/0`;
+- branch state/head: `16/8`;
+- protected tables/changed: `236/0`;
+- prior revision and Run unchanged: true;
+- prohibited cloud/capability/CreateJob/Attempt/Result/EvidenceCandidate/REU effects: all 0.
+
+Exact lineage:
+
+- revision: `pi_experiment_revision_v2_t132_m7_l1_console_default_access_successor_v8_1`;
+- Run: `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`;
+- Run manifest: `sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96`;
+- frozen Bundle: `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`;
+- resource/policy: `2 CPU / 8192 MiB`, `max_attempts=1`, timeout 1,800 seconds.
+
+Replay and post-apply:
+
+- built-in replay: admission replayed, new rows 0, relay claimed/delivered 0/0;
+- independent-process replay: complete-prefix 40, every row delta 0, protected changes 0;
+- post-rebind script typecheck: passed;
+- sequence-8 offline preflight: passed with Attempts 0, cloud calls 0 and database writes 0;
+- final independent `READ ONLY` census: lineage count vector `1/2/1/2/1/2/1/23/1/2/1/2/1`, total 40; branch/head/current sequence 8; Attempt/ExperimentResult/EvidenceCandidate/REU `0/0/0/0`.
+- task-bundle document lint passed with 0 errors and 7 whole-bundle warnings; governance lint passed with the same two unrelated T-124 state-format warnings; governance sync dry-run and `git diff --check` passed.
+
+Result: sequence 8 is the sole fresh lineage for testing the console-default access fix. No read-only cloud preflight or paid verification authority was consumed.
+
+## 2026-07-30 — sequence-8 read-only image-preflight verification
+
+Authorization: exact owner-provided sequence-8 read-only image-preflight scope. One fresh STS and one `GetImage` were allowed; `CreateJob`, OSS/provider writes, capabilities, database writes, NAS/PAI Jobs and training cost were prohibited.
+
+Credential preparation:
+
+- Cloud Shell reconnected; NAS creation was declined;
+- caller account/RAM-user check: passed;
+- Cloud Shell STS output: `T132_SEQ8_CLOUD_STS_READY keys=6 mode=600`; secret values printed 0;
+- local residual scan before download: 0;
+- local file: `/tmp/t132-seq8-controller-sts.env`, mode `0600`, six exact non-empty keys;
+- temporary `STS.` AK, controller role and controller-policy hash: matched;
+- remaining validity at local gate: 57 whole minutes.
+
+Execution:
+
+- command: `node --env-file=/tmp/t132-seq8-controller-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode image-preflight`;
+- exact Run: `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`;
+- exact Bundle: `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`;
+- image: `cn-shanghai / image-liuxvj7p2qcnflha84`;
+- request hash: `fbcba6059e58d7d7366f2872fbcaaf1e9297f5567087ccdeec157d4f7e95dcd1`;
+- cloud calls/provider writes/`CreateJob`/database writes: `1/0/0/0`.
+
+Cleanup and independent verification:
+
+- Cloud Shell source: `T132_SEQ8_CLOUD_STS_REMOVED`;
+- local exact `/tmp` file and Downloads prefix matches: `T132_SEQ8_LOCAL_STS_REMOVED_EXACT`;
+- final independent local residual check: `T132_SEQ8_LOCAL_STS_ABSENT_FINAL`;
+- independent serializable `READ ONLY` census: ProviderPayload/Attempt/AttemptEvent/ProviderCommand/CollectionAttempt/ProvisionalOutput/ExperimentResult/EvidenceCandidate/REU all 0;
+- capability changes/NAS/PAI Jobs/billable training runtime: `0/0/0/0`.
+- task-bundle document lint passed with 0 errors and 7 whole-bundle warnings; governance lint passed with the same two unrelated T-124 state-format warnings; governance sync dry-run and `git diff --check` passed.
+
+Result: sequence-8 provider-managed image identity is freshly verified and credentials are fully removed. The read-only gate grants no paid execution authority.
+
+## 2026-07-30 — sequence-8 paid-window pre-STS verification
+
+Authorization: owner-provided `M7-L1 console-default-access verification authorized: 2026-07-30, ceiling ¥50, 2 jobs`.
+
+Zero-cloud gates:
+
+- `pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight` — passed;
+- exact Run/manifest/Bundle/controller-policy bindings — matched;
+- job/monetary ceiling — `2 / ¥50`;
+- existing Attempts/cloud calls/database writes — `0/0/0`;
+- exact local paid credential path before browser work — absent.
+
+Independent database census:
+
+- transaction: `SERIALIZABLE READ ONLY`;
+- database/read-only mode: `postgres / on`;
+- ProviderPayload/Attempt/AttemptEvent/ProviderCommand/CollectionAttempt/ProvisionalOutput/ExperimentResult/EvidenceCandidate — `0/0/0/0/0/0/0/0`;
+- transaction ended with `ROLLBACK`.
+
+Cloud Shell bootstrap:
+
+- expired session reconnect and NAS decline completed;
+- replacement session creation returned `NoPermission`;
+- exact denied action: `cloudshell:CreateSession`;
+- STS-generation command execution/credential files — `0/0`;
+- fresh STS/`GetImage`/`CreateJob`/provider writes/database writes/PAI Jobs/billable runtime — `0/0/0/0/0/0/0`.
+
+Result: **inconclusive before provider verification and zero cost**. The owner/admin must grant only the RAM-user Cloud Shell bootstrap permission and then repeat the fresh credential gate. The active whitelist-only observers remain pending; no provider hypothesis changed and the paid runner was not invoked.
+
+Commit-readiness regression and fix:
+
+- shared typecheck, backend typecheck and experiment-foundation script typecheck — passed;
+- direct shared test under Node 26/default `ts-node` stopped at loader initialization with an opaque diagnostic; the same already-typechecked suite under `TS_NODE_TRANSPILE_ONLY=1` passed 6/6;
+- first focused backend runtime suite — 17/18, with M7-10 collection failing because output discovery still required explicit `RW`;
+- minimal fix — output discovery now accepts only legacy explicit `RW` or v2 missing access, plus the existing exact output mount-path hash and uniqueness fences;
+- focused backend rerun — 18/18;
+- post-fix backend typecheck — passed;
+- post-fix sequence-8 offline preflight — passed with Attempts/cloud/database writes `0/0/0`.
+
+Documentation and commit boundary:
+
+- task-bundle document lint — 117 Markdown files, 0 errors and 7 existing whole-bundle vague-reference warnings;
+- project-governance lint — passed with two unrelated T-124 state-format warnings;
+- project-governance sync dry-run — proposed registry/derived-view refreshes only; no apply was required because the T-132 authoritative state remains `in-progress`;
+- `git diff --check` — passed;
+- scoped T-132 credential-value scan — passed;
+- unrelated governance, hook, root-instruction, generated-skill and archived T-124 worktree changes are excluded from the T-132 commits.

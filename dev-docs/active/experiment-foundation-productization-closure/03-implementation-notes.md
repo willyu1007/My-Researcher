@@ -1,11 +1,159 @@
 # 03 Implementation Notes
 
+## 2026-07-30 — M7-L1 sequence-7 final SDK wire-boundary diagnosis
+
+- The owner approved Debug Mode instrumentation only. Run `dbg-20260729-151747-2ddb` added a removable observer around the official SDK's final Darabonba `doAction` boundary. It replaces the writable dependency-scoped `doAction`, reads only the final `BytesReadable.value`, blocks network before send, restores the original function in `finally` and uses fixed dummy credentials.
+- Durable output is restricted to model/wire SHA-256 and byte counts, byte/semantic/JSON-round-trip equality, static allowlisted field paths and value kinds, known JSON-string parse kinds, and recursive `src` counts. It never emits bodies, headers, credentials, role/URI/command values, environment values, tags or dynamic keys.
+- The sequence-7 `offline-preflight` rematerializes both exact requests from the frozen Bundle and existing per-cell provider idempotency bindings. Cell 1 model/wire hashes both equal `sha256:bdb5d86fa62e4f1c807da20670553e0fe91185508ab58eb1e4f1ff61d70c1680` at 2,989 bytes; cell 2 hashes both equal `sha256:e8ce6ee982e6afac48906bbefcb1ecccd8aa1bd830be53ae9f2faf2009b47a90` at 2,992 bytes.
+- Both cells pass byte equality, semantic equality and JSON round-trip. Model/wire recursive `src` count is 0. Each final request contains four `DataSources[].Options` strings, all parseable as JSON objects; the source-binding environment value is likewise a string parseable as an object. `AssumeRoleFor` and `ResourceId` remain absent.
+- Official CreateJob documentation declares `DataSources[].Options` as `string`, matching the observed wire type. Therefore the provider message does not authorize coercing Options to an object. The supported conclusion is only that the SDK does not rewrite or corrupt the request between model and final bytes.
+- Verification used no STS, cloud API, capability, database write, PAI Job or billable runtime. Both debug runs remain active because provider causality is unresolved and no fix/termination cleanup has been authorized.
+
+## 2026-07-29 — M7-L1 instrumented diagnostic sequence-7 paid rejection
+
+- The owner authorized exactly `M7-L1 instrumented diagnostic reproduction authorized: 2026-07-29, ceiling ¥50, 2 jobs`. Action-time zero-cloud preflight matched the exact sequence-7 Run/manifest/Bundle, Attempts 0, two-Job/¥50 ceiling and 2 CPU / 8192 MiB / 30-minute per-Job resources.
+- The logged-in RAM Cloud Shell issued one 3600-second controller STS. Local validation passed six exact keys, mode `0600`, temporary identity, exact role/policy and 59 whole minutes remaining. Credential values were not displayed or recorded.
+- The runner passed its fresh image read, created 2 ProviderPayloads/Attempts/submit commands and invoked the bounded `CreateJob` boundary exactly twice. The approved observer emitted only top-level status `400`, code `BadRequest`, RequestIds `019FAE67-BF8E-559F-B8C2-BA53A07E18FF` / `019FAE67-C4F5-5B79-B0F4-9FC2C96FA435` and their source labels.
+- Authenticated Alibaba OpenAPI diagnosis showed both calls reached `PaiDlc CreateJob` in `cn-shanghai`, passed gateway flow control, and returned `src property must be a valid json object`. This is the same provider response seen for sequence 5. It proves the role-shape omission did not cross the provider boundary; it does not identify which internal JSON-valued field produces `src`.
+- Exact recovery found no accepted Job or external ref. After 12 passes, both commands terminalized with `REAL_PROVIDER_RECOVERY_NOT_FOUND`; both Attempts terminalized `failed / real_provider_cleanup_unverified`. Final counts are ProviderPayload 2, Attempt 2, AttemptEvent 4 and ProviderCommand 2; CollectionAttempt, ProvisionalOutput, ExperimentResult, ScientificValidationReport, EvidenceCandidate and REU are all 0.
+- The runner exited at its final all-success assertion, as expected for two failed Attempts. No third submission or manual state reset occurred. Observed billable runtime is 0 because no returned/discovered Job or external ref exists. Cloud Shell, `/tmp` and Downloads STS copies were verified absent.
+- `dbg-20260729-142414-8438` achieved its observation objective: SDK error status/code/RequestId are top-level own properties. Provider causality remains unresolved, so no fix is proposed. The next boundary is a new, separately approved no-cloud request-serialization evidence plan; sequence 8 and any new provider window remain unauthorized.
+
+## 2026-07-29 — M7-L1 instrumented diagnostic sequence-7 production image preflight
+
+- The owner authorized only one sequence-7 read-only image preflight. The expired Cloud Shell VM reconnected, the NAS prompt was explicitly declined, and a read-only `GetCallerIdentity` assertion confirmed the exact account plus RAM-user caller.
+- Cloud Shell assumed `pea-m7-canary-controller` for 3600 seconds and wrote exactly six required variables to a `0600` file without displaying credential values. The downloaded copy was moved immediately from Downloads to `/tmp`, changed to `0600`, and validated for six exact non-empty keys, temporary `STS.` identity, exact role, exact controller-policy SHA-256 and 59 whole minutes remaining.
+- Sequence-7 `image-preflight` passed for Run `ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1` and frozen Bundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`. The sole cloud call was `GetImage` for `cn-shanghai` / `image-liuxvj7p2qcnflha84`; request hash `09e466d5af908f548b362c37753050921a9e12a9deade4c9ce5b6ed6acf64c50`.
+- Effect census was cloud calls 1, provider writes 0, `CreateJob` 0 and database writes 0. No capability, NAS, PAI Job or billable training runtime was created. Cloud Shell, `/tmp` and Downloads credential copies were verified absent.
+- Debug instrumentation `dbg-20260729-142414-8438` remains active but was not exercised by this read-only path. A later paid diagnostic reproduction still requires its own action-time two-Job/¥50 authorization and another fresh STS.
+
+## 2026-07-29 — M7-L1 instrumented diagnostic sequence-7 named-local landing
+
+- The owner authorized one exact sequence-7 named-local successor and prohibited cloud/provider/capability/scientific-evidence effects. Server-enforced read-only preflight matched the named-local fingerprint, branch state/head `12/6`, one sequence-6 parent revision/Run, two unchanged terminal parent Attempts, empty sequence-7 revision/Run prefix and no Cycle closure.
+- The guarded successor table now includes one instrumentation-specific scope with parent sequence 6, expected branch versions `12/6`, sequence 7 IDs/business key/id scope and an exact max-40 authorization token. Its title/objective state that it exists only to reproduce the provider rejection under `dbg-20260729-142414-8438`; resources, frozen Bundle, two cells, `max_attempts=1` and timeout 1800 remain exact.
+- The first direct launch from repository root failed before `ts-node` module resolution/application startup. It made no database connection or write. Re-running from `apps/backend` used the package-local loader and the same authorization.
+- Normal T1-T4 added exactly 40 rows and delivered relay work 3/3. WorkOrder `pi_experiment_revision_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1` produced Run `ef_run_v2_t132_m7_l1_instrumented_diagnostic_successor_v7_1` with manifest `sha256:ad9196472551d493501884d02e6620d3ac5d7f680611a929c3e0c0eb069a56a1`; branch advanced to state/head `14/7`.
+- The apply's built-in replay and a second independent-process invocation each created 0 rows and claimed/delivered 0/0 relay work. Across apply/replay, 236 protected tables changed 0; sequence-6 Attempt/ProviderCommand counts stayed `2/2`; sequence-7 Attempt/ExperimentResult/EvidenceCandidate/REU stayed 0.
+- The live runner is rebound to sequence 7 with future business key `t132-m7-l1-live-p313-v7` and a dormant, not-yet-authorized instrumented diagnostic paid token. Script typecheck and zero-cloud offline-preflight passed with exact Run/manifest/Bundle/resources, Attempts 0, cloud calls 0 and database writes 0.
+- Debug instrumentation remains active. Named-local authorization does not imply STS issuance, image read or paid reproduction; each is a later distinct gate.
+
+## 2026-07-29 — M7-L1 sequence-6 SDK-error observation instrumentation
+
+- The owner approved only Debug Mode instrumentation. Run `dbg-20260729-142414-8438` adds a removable pure observer in `experiment-foundation-m7-l1-create-job-error-observation.ts` and one catch/rethrow observation point around the bounded SDK `CreateJob` call.
+- The observer uses own data properties only and never evaluates getters. Its closed allowlist accepts HTTP status `100..599`, diagnostic tokens matching `[A-Za-z0-9_.:-]{1,128}`, exact code/RequestId field variants and only the `x-acs-request-id` header. It records source labels (`top_level`, `data`, `response`, `response_data`, `headers`) without serializing source objects.
+- The runner emits one structured line containing run marker, stable event/operation and the six safe projected fields, then rethrows the original SDK exception. Accepted-response-loss recovery, call ceiling, request materialization and command state transitions are unchanged.
+- Hostile-value tests prove message, stack, request/response body, non-whitelisted headers, role/account, URI, command, environment and credential sentinels do not appear. A getter trap remains unread. Top-level, nested, header, precedence and metadata-absent cases all behave deterministically.
+- No cloud or database mutation was used for verification. Observer tests passed 5/5; combined transport/observer tests passed 11/11; backend and experiment-foundation script typechecks passed; sequence-6 offline-preflight passed with existing Attempts 2, cloud calls 0 and database writes 0.
+- Instrumentation intentionally remains active until one separately authorized diagnostic reproduction captures evidence. Sequence 6 is terminal and cannot be reused; any sequence-7 successor, STS, image read or paid call is a separate gate. No fix is proposed.
+
+## 2026-07-29 — M7-L1 custom-role-shape sequence-6 paid provider verification
+
+- The owner authorized exactly `M7-L1 custom-role-shape-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`. Zero-cloud offline preflight passed first with exact sequence-6 Run/manifest/Bundle, Attempts 0, two-Job/¥50 ceiling, 2 CPU / 8192 MiB per cell and zero cloud/database writes.
+- Chrome reused the authenticated RAM Cloud Shell. The current account/RAM-user identity matched, and a new 3600-second controller STS was written/downloaded without printing values. Local validation passed six exact keys, mode `0600`, temporary AK, exact role/policy hash and 59 whole minutes remaining.
+- The execute runner passed its fresh `GetImage`, materialized 2 ProviderPayloads and created 2 Attempts/2 submit commands. The bounded SDK wrapper consumed at most two `CreateJob` calls; later worker passes were recovery-only and could not issue a third call.
+- Exact discovery never found a provider Job or external ref. After 12 command passes, both commands terminalized with `REAL_PROVIDER_RECOVERY_NOT_FOUND`; both Attempts terminalized `failed` with `real_provider_cleanup_unverified`. Final row census is ProviderPayload 2, Attempt 2, AttemptEvent 4, ProviderCommand 2, CollectionAttempt 0, ProvisionalOutput 0, ExperimentResult 0, EvidenceCandidate 0 and REU 0.
+- The process exited on its final all-success assertion, as expected for two failed Attempts. No direct release/reset or historical-row mutation was performed. Cloud Shell, `/tmp` and Downloads credential copies were verified absent.
+- This window does not validate or disprove the `RoleArn + RoleType` compatibility change. `ExperimentFoundationAliyunRealProviderTransportV2.submit` intentionally catches and discards any synchronous SDK exception before bounded discovery because response loss may hide an accepted Job. Without separate safe instrumentation at that catch boundary, status/code/RequestId are unavailable. The next action is no-cloud instrumentation approval, not another provider retry.
+
+## 2026-07-29 — M7-L1 custom-role-shape sequence-6 production image preflight
+
+- The owner authorized only one sequence-6 read-only image preflight. Chrome reconnected the authenticated RAM Cloud Shell and retained the earlier `暂不创建` NAS choice, so no NAS resource or persistent-storage fee was created.
+- A read-only `GetCallerIdentity` assertion confirmed the target account and RAM-user identity. Cloud Shell then assumed `pea-m7-canary-controller` for 3600 seconds and wrote the six required variables directly to an owner-only file; terminal output contained only key-count/mode success markers and no credential value.
+- The browser download initially arrived in Downloads at the platform default `0644`; it was moved immediately to `/tmp/t132-controller-sts.env`, changed to `0600`, and validated for six exact non-empty keys, temporary `STS.` AK prefix, exact controller role, exact policy SHA-256 and 58 whole minutes remaining.
+- Sequence-6 `image-preflight` passed for Run `ef_run_v2_t132_m7_l1_role_shape_fix_successor_v6_1` and frozen Bundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`. The sole provider call was `GetImage` for `cn-shanghai` / `image-liuxvj7p2qcnflha84`; request hash `ebcc558c0fd09b771277101942102d3e6d1bdc1dd3ebbec8ca276d98ab554ae5`.
+- Effect census was cloud calls 1, provider writes 0, `CreateJob` 0 and database writes 0. The Cloud Shell source, local `/tmp` file and all matching Downloads files were then verified absent. The read-only authorization does not permit or imply a paid sequence-6 execution window.
+
+## 2026-07-29 — M7-L1 Options-fix sequence-5 paid provider rejection
+
+- Owner authorized exactly `M7-L1 Options-fix verification authorized: 2026-07-29, ceiling ¥50, 2 jobs`. A newly issued controller STS passed six-key, mode-`0600`, temporary-AK, exact role/policy and 58-minute checks; Cloud Shell and local copies were removed after the run.
+- The sequence-5 runner completed its fresh image read, then invoked the official SDK `CreateJob` boundary exactly twice. Whitelist-only observations showed wire sizes 2,979/2,976 bytes, valid JSON round trips, zero recursive `src` keys and four DataSources each containing exactly `MountAccess`, `MountPath`, `Options`, and `Uri`.
+- Both calls returned `ClientError` / HTTP 400 `BadRequest`. OpenAPI self-diagnosis resolved RequestIds `019FAB35-0B06-54F8-94C0-964A48F91F0F` and `019FAB35-11B0-518B-ADE8-B6833097FD32` to the same response: `src property must be a valid json object`.
+- The missing-Options hypothesis is therefore ruled out as the sole cause. The result does not prove canonical empty Options are invalid; the result proves only that adding them did not cross the current provider boundary.
+- The runner was stopped after both synchronous rejections and diagnostic confirmation to avoid the remaining 50-minute recovery polling. Final read-only census found ProviderPayload/Attempt/Event/Command counts `2/2/2/2`; both Attempts remain prepared with no terminal reason or external ref. Both submit commands retain `REAL_PROVIDER_RECOVERY_NOT_FOUND`, attempt count 8 and an already expired lease owned by the stopped process. No direct release/reset write was attempted.
+- CollectionAttempt, ProvisionalOutput, ExperimentResult, EvidenceCandidate and REU counts are all 0. No Job, external ref or billable runtime exists; capability defaults remain false. Further work returns to a no-cloud Gate 1 and must not infer a new successor or paid authorization.
+
+## 2026-07-29 — M7-L1 Options-fix sequence-5 production image preflight
+
+- Chrome reconnected the authenticated Cloud Shell and selected `暂不创建` on the NAS prompt, so no persistent NAS resource or related fee was created.
+- Cloud Shell assumed the exact controller role with the reviewed bounded policy and wrote the response directly to a `0600` environment file. Only `T132_STS_READY` and cleanup markers were displayed; credential values were never printed or recorded.
+- The downloaded file was moved immediately from Downloads to `/tmp`, restricted to mode `0600`, and validated for six exact non-empty keys, temporary `STS.` AK prefix, controller role ARN, controller policy SHA-256 and 58 whole minutes remaining.
+- Sequence-5 `image-preflight` passed with image request hash `d74c81437c8ebf215cb052f22b34a883538c8536632edfcdd288f4621c04ef92`. The preflight bound Run `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1`, the exact frozen Bundle revision/hash and one read-only `GetImage`; provider writes, `CreateJob` and database writes were 0.
+- Cloud Shell source, local `/tmp` file and Downloads copy were removed after verification. A later paid execute therefore requires a newly issued STS after exact owner authorization; the read-only continuation did not infer or consume that authorization.
+
+## 2026-07-29 — M7-L1 Options-fix sequence-5 named-local landing
+
+- Extended the existing guarded successor runner with one exact sequence-5 scope. Its immutable title/objective state only the direct-OSS Options compatibility verification; the two cells, frozen Bundle, 2 CPU / 8192 MiB resource snapshot, `max_attempts=1` and 1800-second timeout remain exact.
+- A server-enforced read-only preflight matched the reviewed local target fingerprint, branch state/head `8/4`, one exact sequence-4 parent revision/Run, zero sequence-5 revision/Run rows and no Cycle closure.
+- Under the owner-authorized named-local apply, normal T1-T4 created exactly 40 rows, delivered relay events 3/3 and advanced branch state/head to `10/5`. WorkOrder `pi_experiment_revision_v2_t132_m7_l1_options_fix_successor_v5_1` produced Run `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1` with manifest `sha256:1b5be3de672f067f8e19677181c5c181699a0c595c71bd1e768dbf48f17ffc72`.
+- The apply invocation's built-in replay and a second independent process both created zero rows and claimed zero relay events. Across both invocations, 236 protected tables changed 0; sequence-4 and older revision/Run authority was unchanged; sequence-5 Attempt/ExperimentResult/EvidenceCandidate/REU counts remained 0.
+- The live runner now targets sequence 5 and uses business key `t132-m7-l1-live-p313-v5`. Its future execute token is distinct from the exhausted sequence-4 authorization. Offline-preflight passed with exact resources, Attempts 0, cloud calls 0 and database writes 0.
+- One offline-preflight launch failed before application startup because the launch ran concurrently with `prisma generate` and observed a transient CommonJS client export. Sequential rerun passed without any code or data correction. Provider verification, STS issuance and billable actions remain separate.
+
+## 2026-07-29 — M7-L1 Gate-2 direct-OSS Options fix
+
+- Owner approved `APPROVE FIX` for the bounded Options-only change. The real-provider materializer now supplies exact `options: '{}'` to code, each dataset mirror and output `CreateJobRequestDataSources`; the materializer does not opt into ossfs.
+- The shared wire type and schema now require `Options: '{}'`. Tests cover all emitted mounts and reject both omission and `{"mountType":"ossfs"}`. `DataSources[*].Options` was added to the redacted-manifest census.
+- The first complete isolated gate correctly exposed a stale Prisma readback census: all focused/unit checks passed, but the real-provider relational read failed because its exact field list omitted Options. Updating that same read fence resolved the mismatch; no schema migration was needed.
+- Final isolated run `t132-m7-options-empty-object-20260729-v2` passed shared 12/12, backend 93/93 and disposable-PostgreSQL relational 9/9. Shared/backend/script typechecks and focused 14/14 tests also passed; cloud calls, named-local writes and paid actions were zero.
+- Existing sequence-4 rows were not rematerialized or modified. Because canonical request bytes and payload hashes change, the next executable verification must use a new immutable successor under separate named-local authorization, followed by separately authorized provider execution.
+- Debug instrumentation remains uncommitted and active until one fresh provider verification resolves the original `src property must be a valid json object` failure. The Options product fix is offline-verified, not yet provider-verified.
+
+## 2026-07-29 — M7-L1 Gate-1 direct-OSS request-shape diagnosis
+
+- Added removable `dbg-20260729-071348-src-shape` instrumentation to the existing debug observation module and exact SDK call boundary. The new observer only emits whitelisted schema keys, JSON kinds/counts, serialized byte size, unknown-key counts and recursive `src` count.
+- Hostile-value tests prove the observer does not emit URI, mount paths, role/account identifiers, commands, environment names/values, tag values or unknown field names.
+- The runner's offline-preflight now read-only rematerializes the two persisted sequence-4 payloads and observes their exact SDK wire shape. Both requests round-trip as JSON; sizes are 2,923/2,920 bytes; unknown-key and `src` counts are zero.
+- Each request contains four DataSources with exactly `MountAccess`, `MountPath` and `Uri`. None contains `Options`. CredentialConfig, Envs, JobSpecs and Settings all have the expected object/array/value kinds.
+- Chrome opened the logged-in PAI create form. Adding an OSS storage mount, without entering any value, exposes an Advanced Settings editor initialized to `{}`. The browser-control surface did not expose a reliable request-abort primitive, so the form was deliberately not submitted.
+- Current evidence supports one minimal compatibility change: every direct OSS DataSource should carry canonical `Options: '{}'`, keeping the documented default JindoFuse. The compatibility change alters request/payload hashes and therefore cannot be applied to or verified by existing sequence-4 rows.
+- All changes remain uncommitted debug work pending Gate 2; no product fix, database write, capability change, cloud write or billable action occurred.
+
+## 2026-07-29 — M7-L1 bounded paid PassRole-fix verification
+
+- The exact action-time authorization allowed at most two Jobs and ¥50. A fresh controller STS passed the six-key, file-mode, identity, policy-hash and lifetime checks without exposing values.
+- Sequence 4 invoked the official SDK `CreateJob` boundary exactly twice. RequestIds `019FAAF0-A1C4-533C-8E04-CBA65A115550` and `019FAAF0-A776-5709-ADD4-803987A9FE10` both returned HTTP 400 `BadRequest`; provider self-diagnosis resolved both to `src property must be a valid json object`.
+- The old `check permission for ram role failed` / 4001 rejection did not recur, so the exact PassRole fix crossed its intended boundary. No third call was made and no Job/external ref or billable runtime resulted.
+- Recovery-only `ListJobs` did not discover an accepted Job. Final named-local state retains two immutable `prepared` Attempts and two pending submit commands with `REAL_PROVIDER_RECOVERY_NOT_FOUND`; no historical revision, Run or Attempt was reset.
+- Read-only SDK inspection proved its production `parseToMap` output contains ordinary JSON objects for the relevant nested models. Comparison with current SDK `1.10.2` found no relevant CreateJob/DataSources structural change. The remaining direct-OSS / credential / env / settings alternatives are hypotheses, not a root-cause finding.
+- All temporary STS copies were removed. The two-call authorization is exhausted; further work is limited to a new no-cloud Debug Mode Gate 1 until an exact source is supported.
+
+## 2026-07-29 — M7-L1 PassRole-fix verification successor
+
+- Added a third exact successor mode to the existing named-local lineage script. The mode requires `T132_M7_PASSROLE_FIX_SUCCESSOR_APPLY_AUTHORIZATION=authorized-2026-07-29-p313-m7-l1-passrole-fix-successor-max40-no-cloud` and rejects ambiguous invocations with more than one successor authorization environment variable.
+- Read-only preflight proved the branch was exactly at sequence 3 with state/head versions `6/3`, the sequence-4 scope was empty, and the protected sequence-3 lineage contained 2 Attempts and 2 ProviderCommands.
+- The new immutable WorkOrder intent is specifically the bounded post-`PassRole` verification; its exact resources remain 2 CPU / 8192 MiB, `max_attempts=1`, timeout 1800, two cells and the existing frozen ExecutionBundle revision/hash.
+- Normal T1-T4 created exactly 40 rows and advanced the branch to state/head `8/4`. WorkOrder `pi_experiment_revision_v2_t132_m7_l1_passrole_fix_successor_v4_1` produced Run `ef_run_v2_t132_m7_l1_passrole_fix_successor_v4_1` with manifest `sha256:9e39a40d56121a255ac83656a46a89ea8d6b487b920e16873675a59b410d5045`.
+- Both the in-process replay and a second independent invocation added zero rows and claimed zero relay events. Across apply and replay, 236 protected tables changed 0; sequence-3 Attempts/ProviderCommands stayed 2/2; sequence-4 Attempt/ExperimentResult/EvidenceCandidate/REU counts stayed 0.
+- The live runner now targets sequence 4 with business key `t132-m7-l1-live-p313-v4` and the 2026-07-29 action-time token contract. Offline preflight passed with zero cloud calls and zero database writes. No paid authorization has been inferred or consumed.
+- A fresh one-hour controller STS was issued from Cloud Shell with the exact v3 session policy. Local contract validation checked only six required keys, temporary identity, exact role/policy hash, mode `0600` and at least 55 minutes remaining; no credential value was printed. Production `image-preflight` then passed for sequence 4 with image request hash `fbbbfecf1af20f009fcc0c0cadaeb08a51a91b53ab343b52b88c3e896eed7595`, one `GetImage`, zero provider writes, zero `CreateJob` and zero database writes.
+- The Cloud Shell source, local `/tmp` files and Downloads copies were removed after preflight. Because that STS was deliberately destroyed before paid authorization, execute must use a newly issued credential after the owner confirms the action-time window.
+
+## 2026-07-29 — M7-L1 exact controller PassRole recovery
+
+- Alibaba Cloud OpenAPI self-diagnosis resolved both paid-reproduction RequestIds to the same provider response: `check permission for ram role failed, error code: 4001, error message: NoPermission`. The provider response replaces the SDK's generic HTTP 400 surface with an exact delegated-role authorization failure.
+- Live read-only RAM inspection proved controller custom policy `pea-m7-canary-controller` default v2 has no `ram:PassRole`. The runtime role itself is not the defect: `pea-m7-canary-runtime` trusts only `pai.aliyuncs.com`, as designed.
+- Debug Gate 2 approved the minimal repair. `controller-policy.json` now has one new Allow statement: `ram:PassRole` scoped only to `acs:ram::1183869713036194:role/pea-m7-canary-runtime`; no wildcard role resource, OSS write/delete expansion or other RAM action was added.
+- The new raw policy SHA-256 is `f6b63cd73a57c6d8cfade1a177681ad4463cbd4d6d0a116e26a40ceee85ed497`, and the live-window runner pin now requires the exact SHA-256 value. Controller v3 is the live default; v1/v2 remain rollback versions.
+- IAM application was intentionally owner-confirmed rather than automatic. The authenticated Cloud Shell created v3 and set v3 as default; v1/v2 remain available for rollback. Read-only policy reconstruction produced canonical semantic SHA-256 `6d6d091f68705f175aa33d19cc1f3d15a9fcd54d89ba3f826c045ad994c15b61`, matching the repository, with exactly one PassRole statement on the runtime ARN.
+- A fresh one-hour controller STS carrying the v3 session policy passed the production `image-preflight`: one `GetImage`, provider writes 0, `CreateJob` 0, database writes 0. Cloud Shell, local `/tmp` and Downloads temporary credential files were then removed and independently checked absent.
+
+## 2026-07-28 — first paid rejection diagnosis and sequence-3 diagnostic successor
+
+- The bounded live runner invoked the `CreateJob` SDK boundary exactly twice. Neither call returned a Job ID; subsequent retries were discovery-only, no Attempt received an external ref, and ActionTrail returned no `CreateJob` event in the execution interval. The two Attempts and submit commands later converged to terminal failed/`REAL_PROVIDER_RECOVERY_NOT_FOUND`; no PAI Job or billable compute existed.
+- The provider transport intentionally swallowed the raw SDK exception to preserve accepted-response-loss safety, but that also discarded the minimum reason needed to distinguish validation, IAM and local transport failures. Debug run `dbg-20260728-151457-a9c4` adds removable observation at the runner-owned SDK wrapper and rethrows the same error unchanged.
+- The observation accepts only closed-format error name/code, HTTP status, RequestId and call index. Messages, bodies, headers and credentials are never inspected for output. Hostile-fixture no-network tests pass 2/2; backend/script typechecks and `git diff --check` pass. Instrumentation remains intentionally present and uncommitted until the next reproduction, then must be removed.
+- Existing sequence-2 Attempts cannot be reset or resubmitted: each TaskSpec freezes `max_attempts=1`. The lineage apply script now retains its historical resource-successor mode and adds a separate exact diagnostic-successor authorization/mode.
+- The first sequence-3 apply attempt failed inside T1 with the branch/content uniqueness fence because an exact copy of sequence 2 has the same WorkOrder `contentHash`. Read-only census proved complete rollback: branch remained at sequence 2 and every sequence-3 table count was zero. The diagnostic successor was then given a truthful new title/objective for reproducing the provider rejection; resources, cells, Bundle and run policy remained unchanged.
+- The authorized retry created exactly 40 rows and delivered T1-T4 3/3. WorkOrder `pi_experiment_revision_v2_t132_m7_l1_diagnostic_successor_v3_1` is sequence 3; Run `ef_run_v2_t132_m7_l1_diagnostic_successor_v3_1` has manifest `sha256:ae92cacda8c9cd049b105b4a6324181881ea86de6c4917bbab84003a329a5bcc`. Branch state/head versions are 6/3. All 236 protected tables, sequence-2 Attempts/commands and prior lineage remained unchanged.
+- In-process replay and a second independent invocation both added zero rows and claimed zero relay events. The live runner now targets the sequence-3 Run and business key `t132-m7-l1-live-p313-v3`; offline-preflight passes with exact 2 CPU / 8192 MiB / 30 minutes, `max_attempts=1`, existing Attempts 0 and zero cloud/database writes.
+- The next boundary is a new action-time two-job/¥50 authorization and fresh ≥55-minute controller STS. The prior two-call authorization is exhausted even though no billable Job was created.
+
 ## 2026-07-28 — M7-L1 provider-manifest v2 persistence recovery
 
 - The first paid-window execute invocation resolved the exact named-local Run/Bundle and completed one fresh read-only `GetImage`, then stopped before `CreateJob` with `Provider payload redacted manifest must be a v1 JSON object`. Provider writes, Jobs, billable compute, Attempt rows and database/scientific/evidence writes were all zero; the temporary controller credential files were deleted.
 - Root cause was a split contract boundary: the production provider-managed materializer correctly emits redacted manifest v2 and the Prisma reader already accepts v1/v2, but the normal `startExecution` write mapper and `ef_provider_payload_manifest_version_check` still admitted only v1. The prior relational test inserted the real payload with raw Prisma data and therefore bypassed the production mapper.
 - `mapExperimentFoundationProviderPayloadV2CreateData` is now the single tested create-data mapper. Simulation remains v1-only; `real_provider` accepts v1 or v2. Migration `20260728140500_enable_real_provider_payload_manifest_v2` replaces only the existing CHECK, binds the relational version to the JSON discriminator and performs no data update/backfill.
-- The relational test now materializes an explicit provider-managed ExecutionBundle v2, persists it through the repository mapper, proves typed readback, rejects simulation/v2 and rejects relational/JSON discriminator drift. The live-window runner is also registered as an exact reviewed M7 implementation/source-population path; unknown provider implementations remain rejected.
+- The relational test now materializes an explicit provider-managed ExecutionBundle v2, persists the Bundle through the repository mapper, proves typed readback, rejects simulation/v2 and rejects relational/JSON discriminator drift. The live-window runner is also registered as an exact reviewed M7 implementation/source-population path; unknown provider implementations remain rejected.
 - Convergence history is preserved: disposable run v1 exposed the stale v1 fixture (8/9 relational); v2 passed the product tests but M7-15 correctly rejected the unregistered live runner; v3 passed M7-01..M7-15 with backend 93/93, shared 12/12 and relational PostgreSQL 9/9, zero skips, full cleanup, `named_database_writes=0` and `existing_database_migrations_applied=0`. Prisma migration drift is empty and the DB context contract is synchronized.
 - After separate authorization, `pnpm db:dev:migrate` applied exactly `20260728140500_enable_real_provider_payload_manifest_v2` to the reviewed named-local database. Migration status is 71/71; CHECK readback matches the reviewed discriminator contract. The pre/post census covered 250 application tables and 3,370,691 rows: primary-key/xmin digest remained `sha256:f0a58c6b836698a830a8b55df27435d2b9a70d763f5a47e1aa0ef72d4949679a`, six Pack B counts remained `2/2/12/8/2/2`, and exact Run Attempt count remained zero. Post-apply offline-preflight passed with cloud/database writes zero. Durable evidence: `artifacts/db/m7-l1-provider-manifest-v2-20260728/`.
 - The next boundary is cloud execution, which requires a fresh controller STS and new action-time paid-window confirmation.
@@ -65,7 +213,7 @@
 - The first CLI attempt failed locally before transport because AIWorkspace does not derive its endpoint from `RegionId`. Retrying with the explicit regional endpoint succeeded. A second successful `GetImage` selected the provider's `GmtCreateTime`/`GmtModifiedTime` names that were absent from the first compact projection.
 - Fresh observation matches the frozen `ExecutionBundle@v2` exactly: URI `dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04`, create/modify time `2026-07-02T04:35:35.000Z`, size `3803970629`, accessibility `PUBLIC` and source type `Import`. `Identity` and `Signature` remain null.
 - Successful provider reads: 2; failed-before-transport attempts: 1; cloud writes, `CreateJob`, capability changes, credential capture, provider compute and scientific/evidence writes: 0. Durable closure: `artifacts/implementation/22-m7-l1-fresh-getimage-closure.md`.
-- This observation is procedural freshness evidence, not an OCI digest or live-job authorization. If the two-job live window is delayed, repeat the same read-only comparison.
+- The GetImage observation is procedural freshness evidence, not an OCI digest or live-job authorization. If the two-job live window is delayed, repeat the same read-only comparison.
 
 ## 2026-07-27 — M7-L1 SciFact named-local authority landing
 
@@ -911,7 +1059,7 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - Re-read the task SoT, roadmap, audit matrix, M5/M6/M7 durable summaries and current Git topology after M6 closure. Corrected the stale `00-overview.md` next step: the disposable LIT-0204 lane and T-131 consumption were completed by `t132-m6-release-20260725-v5`; the active frontier is M7-L1 preparation/authorization.
 - Reconciled the audit matrix against Pack C final/QR, M5-A and M6 evidence. The current finding census is 23 verified, 4 open and 1 cut. The retained opens are EF-P06, EF-P14, EF-P15 and EF-P21; none blocks M7-L1, but each needs implementation evidence or transfer to a named follow-up task before T-132 archival.
 - Recorded D-24 consistently: the agent/API first-release interaction layer is verified; DOM/Electron UI and semantic retrieval implementation are not silently credited and remain outside T-132. EF-P21 therefore stays open for its semantic half.
-- Recorded the non-destructive Git integration posture. `origin/main` is an ancestor of local `main`; local `main` was clean before the documentation update and is 41 commits ahead, touching 264 files with 40 T-132/related subjects plus one intervening literature fix. The recommended safety boundary is a remote `codex/t132-productization-closure` branch and review/PR, not history rewriting or a direct force update of `origin/main`.
+- Recorded the non-destructive Git integration posture. `origin/main` is an ancestor of local `main`; local `main` was clean before the documentation update and is 41 commits ahead, touching 264 files with 40 T-132 subjects plus one intervening literature fix. The recommended safety boundary is a remote `codex/t132-productization-closure` branch and review/PR, not history rewriting or a direct force update of `origin/main`.
 - No product code, schema, migration, capability, cloud resource, credential, provider call or scientific authority changed. `02-architecture.md` and `05-pitfalls.md` require no update because the reconciliation changes reporting/governance only and discovered no new architecture decision or resolved failure.
 
 ## 2026-07-26 — M7-L1 RAM custom-policy creation and runtime v2 tightening
@@ -944,3 +1092,191 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - Corrected public-resource payloads to use exact `EcsSpec`; quota mode alone uses `ResourceConfig`. Added optional WorkOrder v2 `resource_snapshot` so the next immutable revision can materialize an exact TaskSpec without rewriting prior v2 rows.
 - The first offline runner execution correctly failed: current Run `ef_run_v2_t132_m7_l1_p313_v1_1` contains `1 CPU / 512 MiB`; the approved profile is exact `ecs.g6.large = 2 CPU / 8192 MiB`. Cloud calls, DB writes and live Attempts remained zero.
 - Controller policy adds only `paiimage:GetImage`; its new repository digest is `c014cac58a794f2bc4849c0c05993ee85fc660dcb6d3206438b08bf7d5c219be`. Console activation remains owner-confirmed work.
+
+## 2026-07-29 — no-cloud SDK boundary and provider-console differential instrumentation
+
+- Gate 1 was explicitly approved with `approve instrumentation`. Added removable run `dbg-20260729-012924-sdk-boundary`; all new code uses matching `DEBUG-MODE` markers and `[DBG:...]` output.
+- Added a real PAI-DLC SDK boundary probe that replaces `callApi` before network, then records only protocol/path/body-shape booleans, byte counts and equality. The probe does not record credentials, headers, endpoint, payload values, URI, command, account or role ARN.
+- The probe proves the generated `CreateJob` request body is byte-identical to the model map before OpenAPI core performs its direct `JSON.stringify`; local SDK/ROA transformation is not the source of an injected or malformed `src`.
+- Read-only inspection of PAI console DLC `1.90.2` found its new-create direct OSS serializer emits `MountPath`, `Uri`, `MountAccess` and optional `Options`, matching the sequence-5 mount shape. Its custom credential-role serializer emits `RoleArn` and `RoleType` but omits optional `AssumeRoleFor`.
+- Added a whitelist-only role differential observation to sequence-5 `offline-preflight`. Exact rematerialization of both immutable payloads reported one role with `AssumeRoleFor/RoleArn/RoleType`, so `AssumeRoleFor` is the next single compatibility candidate. The observation is strong differential evidence but not yet a provider-verified causal result.
+- No production behavior, contract, payload row, Attempt, ProviderCommand, capability, credential, cloud resource or scientific/evidence state changed. The expired sequence-5 command leases remain untouched.
+
+## 2026-07-29 — Gate-2 custom-role console-parity fix and debug cleanup
+
+- The owner approved the bounded fix with `approve fix`. New real-provider materialization now emits a credential role containing only exact `RoleArn` and `RoleType`; optional `AssumeRoleFor` is no longer generated.
+- The shared request type and closed JSON Schema remove `AssumeRoleFor`. A negative schema test rejects any reintroduction, and the materializer test proves the official-SDK request map omits the field.
+- Recovery comparison remains exact for `RoleArn`, `RoleType`, credential mode and role type. The transport deliberately ignores a provider-side `AssumeRoleFor` echo because the submitted request no longer owns that optional value; exact `RoleArn` continues to bind the account and runtime role.
+- The change modifies canonical request bytes and hashes only for future materializations. No existing sequence-5 payload, Attempt, command, Run or branch was rematerialized or updated.
+- After deterministic offline verification, all temporary instrumentation for `dbg-20260728-151457-a9c4`, `dbg-20260729-071348-src-shape` and `dbg-20260729-012924-sdk-boundary` was removed. Product source contains no `DEBUG-MODE` marker or `[DBG:]` log.
+- Provider causality is intentionally not claimed. A future sequence-6 successor and paid `CreateJob` window require independent named-local and cloud authorizations.
+
+## 2026-07-29 — sequence-6 custom-role-shape successor preparation
+
+- Project orchestration reused T-132 under `M-001 > F-001 > R-012`; no new task or productization scope was created.
+- A PostgreSQL `READ ONLY` transaction verified database `postgres`, schema `my_researcher_dev`, admitted/not-started Cycle `validation_cycle_t132_m7_l1_p313_v1`, zero Cycle closure, and branch `ragperf-primary` at exact state/head `10/5`.
+- The branch contains exact revision sequences 1-5. Sequence 5 is current/head with Run `ef_run_v2_t132_m7_l1_options_fix_successor_v5_1`; its provider payload/Attempt/command census remains 2/2/2 and ExperimentResult/EvidenceCandidate/REU remains 0/0/0.
+- The prospective sequence-6 revision, Run and deterministic ID scope were all empty. The new immutable title/objective truthfully express bounded verification of console-parity `RoleArn + RoleType` with optional `AssumeRoleFor` omitted; two cells, frozen Bundle, 2 CPU / 8192 MiB, one attempt and 1800-second timeout remain unchanged.
+- Added one fail-closed successor scope with exact parent sequence 5, expected branch state/head `10/5`, revision sequence 6, max-40 T1-T4 census, exact replay and protected-history checks. The scope cannot run unless its exact named-local token is the sole configured successor authorization.
+- Lineage apply does not create ProviderPayload or determine provider payload hashes. T1-T4 authoritatively create the new WorkOrder/Run hashes; payload materialization remains a later separately authorized execution step.
+
+## 2026-07-29 — authorized sequence-6 named-local landing
+
+- The owner authorized the exact max-40 custom-role-shape successor apply on the verified local PostgreSQL target, excluding cloud access, capability changes, PAI Jobs and scientific/evidence writes.
+- The runner matched Cycle `validation_cycle_t132_m7_l1_p313_v1`, branch `ragperf-primary`, parent sequence 5 and branch state/head `10/5`. Normal T1-T4 created the exact sequence-6 revision, two cells, one admission and the complete EF lineage.
+- The 13 counted write categories total exactly 40 rows: revision 1, cells 2, admission 1, PI outbox/inbox 2/1, EF inbox 2, VersionLock/dependencies 1/23, RunRecipe 1, TaskSpecs 2, Run 1, RunCells 2 and EF outbox 1.
+- Branch state/head advanced to `12/6`. WorkOrder content hash is `sha256:071b24c460d95501efa58cd27ca905c3e15d10b4af6ce0a9096abc970bf0722a`; Run manifest hash is `sha256:3fe438fa92d0c92dfcb099c560680a5cba86fec3ec65f9c3f172fbfc232022e5`.
+- An independent second runner invocation exercised the complete-prefix replay path. A final read-only census remained exactly 40 rows, proving replay added zero rows.
+- The terminal integration retained only the Node loader warning rather than the runner JSON summary, so authoritative final evidence came from the runner's completed invariant checks plus independent read-only PostgreSQL censuses.
+- Sequence-5 Attempts and ProviderCommands remained unchanged at 2/2 with no external refs. Sequence-6 ProviderPayload/Attempt/ExperimentResult/EvidenceCandidate/REU counts are 0/0/0/0/0.
+
+## 2026-07-29 — sequence-6 live-runner binding and zero-cloud preflight
+
+- Rebound the live runner from sequence 5 to Run `ef_run_v2_t132_m7_l1_role_shape_fix_successor_v6_1`, exact Run manifest `sha256:3fe438fa92d0c92dfcb099c560680a5cba86fec3ec65f9c3f172fbfc232022e5` and business key `t132-m7-l1-live-p313-v6`.
+- Replaced the exhausted sequence-5 paid token value with a distinct future sequence-6 role-shape-fix token namespace. Defining the guard does not grant or consume authorization.
+- Static review confirmed `offline-preflight` resolves only the named-local target, lineage, Cycle, frozen Bundle, local manifest and controller-policy file before returning. The branch does not construct a cloud SDK client, read STS, start intake or execute a provider command.
+- Offline preflight passed with the exact frozen Bundle, two cells, `ecs.g6.large`, 2 CPU / 8192 MiB, 30-minute maximum, job ceiling 2 and monetary ceiling ¥50 as dormant limits only.
+- A final PostgreSQL `READ ONLY` transaction confirmed branch `12/6` and sequence-6 ProviderPayload/Attempt/ProviderCommand/ExperimentResult/EvidenceCandidate/REU counts all zero.
+
+## 2026-07-30 — PAI console serializer instrumentation incident
+
+- Debug run `dbg-20260729-212445-d534` prepared a synthetic console form with one OSS mount, `{}` advanced options, public `ecs.g6.large` resources and the existing runtime role.
+- The first CDP Fetch pattern paused all XHR/Fetch traffic. It intercepted an unrelated `HEAD /favicon.ico`; the request could not be resumed through the tab-scoped interception id and the console timed out after 30 seconds.
+- The replacement interceptor matched `/api/v1/jobs` and `CreateJob` variants only. Page-level `fetch`/XHR observation then revealed that the console actually posts proxy envelopes to `/data/api.json`.
+- Because the route-only guard did not cover the proxy, one unintended Job escaped: `dlc1jao16y748fu4`, display name `t132-console-serializer-probe`.
+- The task list recorded create/end times `2026-07-30 05:48:57` / `05:51:18`, duration 2 minutes 21 seconds, state `已成功`, public `ecs.g6.large`, 2 CPU and 8 GiB. The displayed rate was CNY 0.0092/minute, yielding an estimated charge of CNY 0.02162.
+- A stop action was issued immediately after discovery, but the Job was already terminal. No active cloud runtime remained.
+- The temporary CDP patterns were cleared. The page-level wrappers restored original `fetch` and XHR methods and deleted their in-memory state. No instrumentation source file was added to the repository.
+- The synthetic Job is not exact sequence 7 and is not bound to the frozen ExecutionBundle, Run, Attempt or ProviderCommand. Its success proves only that one console-generated proxy request was accepted; it does not identify the field responsible for the SDK-side `src` rejection.
+- The console comparison lane is paused. No sequence-8 lineage, provider payload, database row, result or evidence object was created.
+
+## 2026-07-30 — read-only Job closure and offline proxy-guard proof
+
+- Chrome read-only inspection confirmed Job `dlc1jao16y748fu4` remained terminal `已成功`, with one `ecs.g6.large` Worker, 2 CPU / 8 GiB, no maximum runtime, no automatic fault tolerance and no health check.
+- The exact synthetic command was `echo t132-console-serializer-probe`. The one OSS output mount was non-read-only, used advanced options `{}` and mounted at `/mnt/pea-output`; no cloud field was edited.
+- Gate-1 run `dbg-20260730-055847-1139` added one temporary `.ai/.tmp/T-132/console-proxy-interceptor-offline.mjs` harness. The harness never imported project cloud/database clients and replaced global `fetch` with a throwing sentinel.
+- The first run failed locally because malformed top-level string bodies were treated as ordinary leaves instead of opaque envelopes. The temporary detector was changed to mark an unparseable top-level proxy string opaque and block it before transport.
+- Three fresh runs then passed. Each run blocked five nested/route/form/opaque/secret-bearing cases before transport, allowed three benign/non-proxy/read-only cases exactly once, reported `forbidden_network_calls=0`, and retained no request body or secret marker in logs.
+- The temporary harness was deleted immediately after verification. No product source, browser wrapper, cloud resource, database row, capability or sequence lineage changed.
+- This result closes only the local detector prerequisite. Static serializer inspection, browser installation/self-test and any console form interaction remain separate work with a new action-time authorization.
+
+## 2026-07-30 — static DLC `1.90.2` serializer closure
+
+- Read-only Chrome inspection found the exact loaded DLC assets: `js/index.js` and vendor chunk `js/3070.js` from `@alife/pai-console-dlc/1.90.2`.
+- Public CDN GETs returned HTTP 200. `index.js` was 1,178,525 bytes with SHA-256 `ebbbbd76ec71e1395622090537cc1e3119353fd9bc917c0e75c72c078b3f06eb`; `3070.js` was 885,169 bytes with SHA-256 `5a9586605a31dd19fa1e76c094a1e1916295b80b72e35cf7dc6c500ca51273a5`. Both adjacent `.map` URLs returned 404.
+- Webpack module `238021` binds the DLC `CreateJob` wrapper to `product=pai-dlc` and `action=CreateJob`, then delegates to common request module `841701`.
+- Request interceptor module `659112` forces POST `/data/api.json?_fetcher=CreateJob_pai-dlc`, `application/x-www-form-urlencoded`, credentials enabled and a 30-second timeout.
+- The outer form contains console security/risk tokens plus `region`, `product`, `action`; optional `params` and `content` are serialized by module `695466` as either the existing string or `JSON.stringify(value)`.
+- No page form was opened or submitted. The inspection used only DOM script inventory and public static asset reads; no `/data/api.json` request, provider write, Job, STS, database write or capability change occurred.
+- The next Gate-1 scope is limited to main-realm XHR guard installation and a synthetic self-test that must block before original `send`. A later form interaction remains separately authorized.
+
+## 2026-07-30 — main-realm XHR guard synthetic verification
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-065837-de14`; the scope explicitly excluded the Job form.
+- Chrome DevTools Console executed one in-memory IIFE bounded by `DEBUG-MODE` run markers. The IIFE captured the original `XMLHttpRequest.prototype.open/send`, installed exact wrappers, ran one synthetic request and restored both prototypes inside `finally`; this complete cycle repeated three times.
+- All three synthetic requests used POST `/data/api.json?_fetcher=CreateJob_pai-dlc` with form fields `product`, `action`, `params`. Each matched exact fetcher and exact product/action, threw `T132_DATA_API_PROXY_WRITE_BLOCKED`, recorded `original_send_calls=0` and exposed no field values.
+- Each cycle directly classified a benign `GetWorkspace` form body as unblocked without sending it. No benign or blocked self-test invoked a real transport.
+- The per-cycle identity assertions reported `installed=true`, `restored=true`. Final aggregate status was `passed`, `prototype_restored=true`, `no_job_form=true`.
+- An independent Console expression after the IIFE found no `wrappedOpen`/`wrappedSend` function name and `debug_state_key_count=0`. DevTools was then closed.
+- No runtime wrapper or debug state remains. Repository product source, Job form, `/data/api.json`, STS, database, capability and provider state were untouched.
+
+## 2026-07-30 — real-form abort-before-send structural capture
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-071132-e186`: one exact PAI DLC clone-form interaction, structural-only projection, fail-closed `/data/api.json` interception and zero-Job success.
+- An initial browser automation evaluation failed before installation because that isolated context exposed no `XMLHttpRequest.prototype`. It produced no wrapper, submit, request or cloud effect. The same approved plan then moved to the Chrome DevTools Console, which executes in the application main realm.
+- The runtime-only guard wrapped XHR `open/send` and `window.fetch`, classified exact `_fetcher` or `product/action` identity, and failed closed on every POST `/data/api.json` during the narrow armed window. A synthetic XHR/fetch self-test passed with `blocked=2`, target count 2 and original-transport counts 0, then the counters were cleared.
+- The exact clone form was submitted once. The guard observed five proxy calls and blocked all five: four non-target background proxy reads and one target CreateJob. The target used XHR, matched both exact identities, had a 1,457-byte seven-key outer form, a two-byte empty-object `params` value and a 915-byte JSON `content` value.
+- The safe `content` projection contained credential configuration, data sources, job specifications, scheduling/settings and command metadata. It contained no recursive `src` key. No token, ARN, URI, command value, display value or credential value was logged.
+- The target threw synchronously from the wrapper before the Axios XHR path could call the original `send`. Snapshot counters were `blocked=5`, `target=1`, `origXhr=0`, `origFetch=10`; the ten allowed fetches were non-proxy form/background reads, not CreateJob transport.
+- Cleanup restored the original XHR `open/send` and `fetch` references and removed the debug state. An independent check found all wrapper names absent and zero state keys; DevTools was closed and the clone form was cancelled.
+- A read-only Job-list check found zero rows named `t132-console-serializer-probe_clone` and retained the one earlier incident row `t132-console-serializer-probe`. No Job, billable runtime, STS, database write, capability, sequence-8 lineage or provider mutation occurred.
+- The result narrows the diagnosis to an offline console-versus-SDK structural comparison. It does not yet identify a provider root cause or authorize a fix.
+
+## 2026-07-30 — console-clone versus sequence-7 static field matrix
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-073606-f1c5`. The approved scope used no new instrumentation code: it read the pinned SDK, existing materializer/schema, exact sequence-7 wire observations and the safe clone-form key paths.
+- The deterministic set comparison found 31 shared paths, five clone-only paths and nine sequence-7-only paths. No request value, URI, ARN, command, environment value, token or credential was read or emitted.
+- `CredentialConfig` and `JobSpecs` are structurally identical at the retained type-path level. The prior role-shape and local SDK-serialization hypotheses remain ruled out.
+- Clone-only paths are public-resource/default/retention/clone metadata: `ResourceId`, `SchedulingStrategy`, `SuccessPolicy`, `Settings.JobReservedMinutes` and `Settings.Tags.CloneFromJobID`. The blocked clone request is not itself provider-acceptance evidence.
+- Sequence-7-only paths are `DataSources[].MountAccess`, the `Envs` object with five string entries, and two deterministic Settings tag keys. The exact sequence-7 cardinality is four mounts versus the clone's one.
+- A local pinned-SDK `1.10.0` constructor check proved `CreateJobRequestDataSources` validates and JSON-roundtrips with or without `MountAccess`; the omitted form serializes exactly `MountPath`, `Options`, `Uri`. This is SDK feasibility, not provider acceptance.
+- The accepted incident Job used one RW output mount. Sequence 7 additionally carries one RO code mount and two RO input mounts. That negative-space evidence makes direct OSS composition the next diagnostic domain, but it does not distinguish explicit `MountAccess`, mount cardinality/category or `Envs`.
+- No product source, schema, payload, lineage, STS, database, capability, cloud resource or provider state changed. No Gate-2 fix is proposed.
+
+## 2026-07-30 — exact sequence-7 network-blocked variant matrix
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-074202-25a0`: exact named-local sequence-7 read-only resolution, removable in-memory variants and pre-`doAction` network blocking only.
+- Temporary run-id-marked code added four variants to the existing SDK wire observer: baseline, all `MountAccess` omitted, only the single RW output source retained, and `Envs` omitted. Logs allowed only fixed variant IDs, static top-level keys, counts, booleans, byte sizes and SHA-256 hashes.
+- The focused observer suite passed 3/3, including a negative assertion against idempotency values, OSS URIs, mount paths, role ARNs and environment names. Backend and experiment-foundation runner typechecks passed sequentially.
+- Exact sequence-7 offline-preflight observed both cells. All eight variant observations reported `sdk_validation_passed=true`, model/wire byte and semantic equality, JSON roundtrip equality, recursive `src=0`, two Settings tag keys and network blocked before send.
+- Cell 1 byte counts were baseline `2989`, omit-MountAccess `2913`, output-only `2316`, omit-Envs `1768`. Cell 2 counts were `2992`, `2916`, `2319`, `1770`.
+- Omit-MountAccess retained four DataSources and reduced access-key count from four to zero. Output-only retained one RW DataSource. Omit-Envs retained all four DataSources and removed only the top-level Envs group.
+- The run completed with exact Run/manifest/Bundle, existing Attempts `2`, cloud calls `0` and database writes `0`. No STS, capability, lineage, Job or billable runtime was used.
+- All `dbg-20260730-074202-25a0` code and test instrumentation was removed. Root-level residual search returned zero; cleanup regression passed the original observer suite 2/2, both typechecks and the baseline exact offline-preflight.
+- No variant is promoted to a fix. Output-only and omit-Envs break the frozen workload contract; omit-MountAccess remains blocked on unknown RO-default semantics.
+
+## 2026-07-30 — pinned console RO/RW `MountAccess` static trace
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-075057-6d1c`, limited to public static inspection of pinned PAI DLC `1.90.2`. The Job form, `/data/api.json`, provider API, STS, database, capability, lineage and product source remained out of scope.
+- The inspected index/vendor assets matched the previously pinned DLC version. Lazy create-form dependencies localized the relevant code to the create-form shared chunk; the public assets were inspected in memory and were not copied into the repository.
+- The direct-mount append initializer does not set an access field. The read-only field defaults to undefined unless the backing dataset is forced RO; its switch writes `RO` when enabled and `RW` when explicitly disabled.
+- The direct OSS mapper copies the form access value into the `DataSources` entry, and the final CreateJob builder concatenates that result into the request without a per-entry access default. Consequently JSON omits the key for an untouched default-RW row, preserves `RO` for a selected read-only row and preserves `RW` after an explicit off transition.
+- This resolves the prior semantic block: universal omission is not console parity and would weaken three sequence-7 RO sources. The next safe variant must retain the code/input `RO` values and omit access only from the RW output.
+- The temporary Chrome tab was closed and large in-memory asset strings were cleared. Repository instrumentation/source changes, form opens/submits, proxy/provider calls, STS/database/capability/lineage writes, Jobs and billable runtime were all `0`.
+- No behavior fix or sequence-8 lineage is proposed. A new Gate-1 authorization is required for the exact network-blocked `console-default-access` variant.
+
+## 2026-07-30 — exact sequence-7 console-default access variant
+
+- Owner approved `APPROVE INSTRUMENTATION` for run `dbg-20260730-080744-3c58`: removable exact sequence-7 in-memory mutation behind the existing SDK network blocker, with no cloud/database/STS/capability/lineage/Job effects.
+- Temporary run-id-marked code added one fail-closed variant helper, one focused test and one exact offline-preflight observation. Baseline shape had to be exactly four sources with three RO and one RW. Variant shape had to be four sources with three RO, zero RW and one missing access; exactly one source could differ and all non-access semantics had to remain equal.
+- The focused three-file suite passed 12/12 with the temporary test. Backend and experiment-foundation script typechecks passed sequentially after Prisma generation.
+- Both exact cells passed. Cell 1 changed from 2,989 bytes to 2,970 with hash `sha256:91975d0483938a4354de65fcdd064a1501d9d9a486d923dced99f01849da0c4b`; cell 2 changed from 2,992 to 2,973 with hash `sha256:7ccc046912c26dd37c045e633d7e61b3545a6deaaec83cef78d0b3fb1dc40ab8`. Each model/wire pair matched byte-for-byte and semantically, JSON roundtrip passed and recursive `src` count was zero.
+- Exact offline-preflight retained existing Attempts 2, cloud calls 0 and database writes 0. No STS, capability, lineage, Job or billable action occurred.
+- All `dbg-20260730-080744-3c58` code/test/runner instrumentation was removed. Root residual scan returned zero. Cleanup regression passed the original 11/11 focused suite, both typechecks and baseline exact offline-preflight with cloud/database writes `0/0`.
+- The candidate is now locally exact and execution-semantics-safe. A permanent change still requires Gate 2; sequence 8 and any provider call remain separate later gates.
+
+## 2026-07-30 — Gate-2 console-default access fix
+
+- Owner approved `APPROVE FIX` for local code/tests only. The scope excluded sequence-8 lineage, named-local writes, STS, provider calls, Jobs and cost.
+- `packages/shared/src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.ts` now retains the v1 CreateJob request type/schema and adds a v2 request contract. V2 accepts only explicit `RO` or missing access and rejects explicit `RW`.
+- `apps/backend/src/services/experiment-foundation-real-provider-payload-v2-service.ts` now generates v2 requests, omits `MountAccess` from the final output mount and applies one ordered semantic validator at materialization and verification. All code/input mounts must remain explicit `RO`; only the final output may omit access.
+- Verification remains backward-compatible with exact legacy v1 canonical payloads: all code/input sources must be `RO` and the final output must be `RW`. V2 requires the same RO prefix and a missing final access property.
+- The first output-position negative test exposed an overlap: an all-RO request satisfied the broad v1 schema and bypassed the v2 positional check. Verification now applies the ordered predicate to both schema branches. Missing RO-prefix access and explicit RO on the v2 output both fail with `REAL_PROVIDER_PAYLOAD_CONFLICT`.
+- Shared schema tests cover v1 explicit-RW acceptance, v2 console-default acceptance and v2 explicit-RW rejection. Backend tests cover new generation, exact legacy verification, weakened-prefix rejection and explicit-RO-output rejection.
+- Shared, backend and experiment-foundation script typechecks passed. Shared schema tests passed 6/6; the focused backend observer/payload suite passed 12/12.
+- Exact sequence-7 offline preflight remained network-blocked before send. The two final SDK wire bodies were 2,970 and 2,973 bytes with hashes `sha256:68531cd05903eff736c0f7a89e63fa33164ed3e0e172468d1811140f94c07502` and `sha256:90b600879076c736fcd85faeb4676661fb994cdcc8869aa7d735569e733c34a7`; model/wire bytes and semantics matched, JSON round trips matched and recursive `src` counts were zero.
+- Existing Attempts remained 2; cloud calls and database writes were `0/0`. No new instrumentation was introduced for Gate 2. Provider acceptance and the internal `src` cause remain unverified.
+
+## 2026-07-30 — sequence-8 console-default-access named-local lineage
+
+- The owner authorized the next named-local successor after Gate 2. The scope was restricted to local code, the reviewed PostgreSQL target, max-40 normal T1-T4 and exact replay; STS, cloud calls, capabilities, Jobs and scientific evidence remained excluded.
+- `apply-experiment-foundation-m7-executable-lineage.ts` gained one exact fail-closed scope with parent sequence 7, expected branch state/head `14/7`, sequence-8 IDs, a truthful compatibility-verification title/objective and token `authorized-2026-07-30-p313-m7-l1-console-default-access-successor-max40-no-cloud`.
+- Script typecheck passed. The existing zero-cloud offline preflight passed against sequence 7, then an independent `READ ONLY` transaction confirmed the exact parent/head and a zero-row sequence-8 prefix across all 13 lineage families.
+- First apply created WorkOrder `pi_experiment_revision_v2_t132_m7_l1_console_default_access_successor_v8_1`, two cells, one admission and Run `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`. The Run manifest is `sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96`.
+- Normal T1-T4 added exactly 40 rows. Relay claimed/delivered 3/3 with zero release, terminalization or failure; branch advanced to state/head `16/8`; 236 protected tables changed 0 and prior revision/Run state remained unchanged.
+- Built-in replay and a second authorized independent-process invocation both replayed the admission, claimed/delivered 0/0 and added 0 rows.
+- The live runner now binds the exact sequence-8 Run/manifest/business key. Its paid authorization value was replaced with the ungranted sequence-8 token, preventing reuse of the sequence-7 authorization. Offline preflight accepts the valid zero-Attempt state and reports cloud/database writes `0/0`.
+- Final independent `READ ONLY` census confirmed the 13-family count vector `1/2/1/2/1/2/1/23/1/2/1/2/1`, total 40, branch/head/current sequence 8 and zero Attempt/ExperimentResult/EvidenceCandidate/REU rows.
+
+## 2026-07-30 — sequence-8 read-only image preflight
+
+- The owner supplied the exact read-only authorization: one fresh controller STS, local six-key validation, one regional `GetImage`, exact Bundle comparison and complete credential cleanup. `CreateJob`, OSS/provider writes, capabilities, database writes, NAS/PAI Jobs and training cost were prohibited.
+- The existing Chrome Cloud Shell had expired. It reconnected successfully and the NAS creation offer was explicitly declined.
+- Cloud Shell first verified the caller belonged to account `1183869713036194` and had RAM-user identity, then assumed `pea-m7-canary-controller` for 3,600 seconds. The generated file had exactly six keys and mode `0600`; terminal output retained only success markers and no credential value.
+- The Cloud Shell download command opened its own confirmation dialog. Browser download-event observation timed out, but the exact file appeared once in Downloads and was resolved from the local filesystem without reading its contents.
+- The file was moved immediately to `/tmp/t132-seq8-controller-sts.env`, changed to `0600` and parsed through Node `--env-file`. Validation passed: six exact non-empty keys, `STS.` access-key prefix, exact role, exact controller-policy hash and 57 whole minutes remaining.
+- `image-preflight` passed for Run `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`, frozen Bundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e` and `cn-shanghai / image-liuxvj7p2qcnflha84`. Request hash: `fbcba6059e58d7d7366f2872fbcaaf1e9297f5567087ccdeec157d4f7e95dcd1`.
+- Effect census from the runner: cloud calls 1 (`GetImage`); provider writes, `CreateJob` and database writes `0/0/0`.
+- Cloud Shell source deletion returned `T132_SEQ8_CLOUD_STS_REMOVED`. The local exact `/tmp` file and every Downloads prefix match were deleted and verified absent as `T132_SEQ8_LOCAL_STS_REMOVED_EXACT`.
+- An independent serializable `READ ONLY` census confirmed sequence-8 ProviderPayload, Attempt, AttemptEvent, ProviderCommand, CollectionAttempt, ProvisionalOutput, ExperimentResult, EvidenceCandidate and REU counts were all 0.
+
+## 2026-07-30 — sequence-8 paid-window preflight stopped before STS
+
+- The owner authorized `M7-L1 console-default-access verification` for 2026-07-30 with a total ceiling of ¥50 and two Jobs. The runner remained bound to sequence-8 Run `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`, manifest `sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96` and frozen ExecutionBundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- The pre-execution `offline-preflight` passed with job ceiling 2, monetary ceiling ¥50, exact controller-policy hash, existing Attempts 0, cloud calls 0 and database writes 0.
+- An independent PostgreSQL transaction used `SERIALIZABLE READ ONLY` and returned ProviderPayload/Attempt/AttemptEvent/ProviderCommand/CollectionAttempt/ProvisionalOutput/ExperimentResult/EvidenceCandidate counts all 0. The exact local paid-STS path was absent before browser work.
+- The expired Cloud Shell attempted to allocate a replacement session. Alibaba Cloud rejected it with `NoPermission` for exact action `cloudshell:CreateSession` before a usable terminal existed. The prepared STS-generation command did not execute and no credential file was created.
+- This is an owner-user bootstrap permission gap, not a controller-role, runtime-role, sequence-8 request or provider acceptance result. No `GetImage`, `CreateJob`, provider/database write, capability change, NAS, PAI Job or billable runtime occurred.
+- Chrome was handed off at the Alibaba Cloud owner-login page and the Cloud Shell error page. The next action is to authorize the narrow Cloud Shell session capability on RAM user `user_0002`, then repeat the fresh STS gate. If the dated paid window has expired, obtain a new action-time authorization before starting the runner.
+- Commit-readiness tests exposed one local v2 collection regression: `requireOutputDirectoryUri` still required explicit `RW`, while the approved console-default request intentionally omits `MountAccess` from the final output. The smallest correction accepts only the two valid output access states—legacy explicit `RW` or v2 missing—while retaining the exact output mount-path hash and single-candidate checks. It does not weaken explicit `RO` input boundaries.
+- The first focused backend run failed 1/18 at M7-10 collection. After the correction, the same suite passed 18/18, backend typecheck passed and the exact sequence-8 offline preflight remained green with Attempts/cloud/database writes `0/0/0`.

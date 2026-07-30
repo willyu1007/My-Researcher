@@ -1,5 +1,12 @@
 # 02 Architecture
 
+## M7-L1 direct OSS Options contract — 2026-07-29
+
+- Every direct PAI-DLC OSS DataSource—code, ordered dataset mirror and output—carries the exact string `Options: '{}'`. This preserves the provider-default JindoFuse mount path; selecting `{"mountType":"ossfs"}` or another advanced configuration is outside the reviewed personal-use canary.
+- The wire type and JSON Schema require the exact empty-object string and reject omission or alternate values. The payload materializer, redacted-manifest field census and Prisma readback binding use the same closed list so persisted payload authority cannot drift across write/read boundaries.
+- `Options` changes canonical request bytes and the provider payload hash. Historical sequence-4 ProviderPayloads, Attempts and ProviderCommands remain immutable; verification requires a successor WorkOrder/Run and freshly materialized payloads.
+- Rollout remains default-off and two-gated: a fresh successor needs exact named-local authorization, while any `CreateJob` needs a later action-time paid authorization. The code/contract fix itself performs no database migration or cloud action.
+
 ## M7-L1 reviewed ExecutionBundle v2 freeze boundary — 2026-07-27
 
 - `workloads/ragperf-canary/manifests/execution-bundle-v2.json` is the reviewed authoring SSOT. The manifest binds the exact uploaded code prefix/digest/size, the two exact Dataset revision/hash and OSS mirror tuples, the provider-managed PAI image identity, stdlib-only dependency-lock hash, output-parser profile/hash and two bounded offline preview cells.
@@ -971,3 +978,112 @@ The M7-L1 live runner may not translate an arbitrary TaskSpec CPU/memory pair in
 Executable WorkOrder v2 gains an optional provider-neutral `resource_snapshot`. Existing v2 rows without `resource_snapshot` retain the historical `1 CPU / 512 MiB` materialization and remain immutable/readable; new successor revisions can freeze an exact resource request without a schema migration. The current M7-L1 successor must freeze `2 CPU / 8192 MiB`, matching `ecs.g6.large`. Recovery binds the exact resource through observable `GetJob.JobSpecs.EcsSpec` and the deterministic full-request tag, which also covers timeout and request fields not echoed by GetJob.
 
 The D-25 change is a forward-only lineage correction. The existing Run is never updated, relabeled or submitted.
+
+## D-26 — PAI console instrumentation must guard the generic proxy boundary
+
+The PAI console serializes control-plane operations into POST requests to the generic `/data/api.json` proxy. A URL allowlist limited to `/api/v1/jobs` or `CreateJob` does not guard the actual console write boundary. Future console comparison instrumentation must therefore identify and synchronously block the proxy envelope before the original `fetch`/XHR implementation is called.
+
+The guard must be fail-closed for nested or stringified Job payloads, must be validated first on a harmless synthetic proxy request, and must prove both positive detection and a false-negative case before the Job form is used. If the guard cannot prove that it blocked the exact proxy call, the operation stops; timeout, UI state or later Job-list inspection is not an acceptable substitute.
+
+Console-created diagnostic Jobs never inherit PI/EF lineage. A Job created outside the live runner cannot be attached after the fact, cannot create ProviderPayload/Attempt/ProviderCommand/result/evidence rows and cannot satisfy M7 acceptance. The 2026-07-30 probe Job remains incident history only.
+
+## D-27 — The generic-proxy guard classifies body semantics before transport
+
+The `/data/api.json` guard cannot classify a request from the proxy path alone because the same endpoint carries unrelated console traffic. For POST requests it must recursively inspect bounded JSON, nested stringified JSON and form-encoded containers before calling the original transport. It blocks semantic `CreateJob` action/API values, embedded Job routes, recognizable Job payload structure and any opaque or over-depth top-level proxy body. Explanatory text containing only the word `CreateJob` is not sufficient to classify an otherwise benign envelope.
+
+The guard's safety invariant is transport ordering: a blocked request leaves the original `fetch`/XHR call count at zero. A well-formed non-Job proxy request, a non-proxy request and a read-only proxy request must each pass exactly once. Logs retain only booleans, event type, tag and run ID; they never retain proxy body content or credential-like values.
+
+Offline proof establishes detector semantics only. It does not prove injection lifetime, console-frame coverage or abort behavior in the live PAI page. Browser installation therefore needs its own pre-submit synthetic self-test and a new action-time authorization; the offline result cannot authorize clicking the Job submit control.
+
+## D-28 — DLC `1.90.2` exposes an exact proxy-envelope identity
+
+Static bundle inspection resolves the generic-proxy ambiguity for the current PAI console version. The `CreateJob` API wrapper calls the common request layer with `product="pai-dlc"` and `action="CreateJob"`. The request interceptor sends form-encoded POST `/data/api.json?_fetcher=CreateJob_pai-dlc`; the outer form contains `sec_token`, `umid`, `region`, `product`, `action` and optional `params`, `content`, `httpMethod`. Non-string `params` and `content` are JSON-stringified before form encoding.
+
+The browser guard should therefore use exact identity first: POST proxy path plus exact `_fetcher`, or decoded outer `product/action`. Nested Job-shape inspection remains a fallback for malformed or variant envelopes, not the primary classifier. During the narrow armed window an opaque POST proxy body fails closed. Read-only and unrelated envelopes remain outside the block condition.
+
+The first browser verification is synthetic only. The guard installs in the same JavaScript realm as the console XHR implementation, proves that a synthetic `CreateJob` form body throws before the original `send`, proves a benign detector input is not classified, verifies the wrapper identity and restores the original prototype. No Job form control is touched under that Gate-1 scope.
+
+Run `dbg-20260730-065837-de14` verified this design in the live page main realm for three complete install/test/restore cycles. Each synthetic request matched both exact `_fetcher` and decoded `product/action`, was blocked with original-send count zero, and left the benign `GetWorkspace` control unblocked. Each cycle restored the original `open`/`send` references; an independent post-run check found no wrapper function name and no T-132 debug state key.
+
+This proof does not collapse the next authorization boundary. A real-form structural capture would arm the same guard, submit once, retain only field names/types/counts/hashes, require the guarded request to throw before original `send`, and then restore immediately. It must use a separate action-time authorization because touching the form is materially different from a synthetic XHR.
+
+## D-29 — The real console envelope is a structural oracle, not provider-causality proof
+
+Run `dbg-20260730-071132-e186` captured the current DLC clone form at the pre-transport boundary. The exact request was an XHR POST to `/data/api.json` identified by both `_fetcher=CreateJob_pai-dlc` and outer `product=pai-dlc` / `action=CreateJob`. Its form envelope had seven keys: `action`, `content`, `params`, `product`, `region`, `sec_token` and `umid`. The `params` value decoded to an empty object. Only names, types, lengths, counts and non-reversible FNV-1a hashes were retained.
+
+The decoded `content` structure had top-level `Accessibility`, `CredentialConfig`, `DataSources`, `DisplayName`, `JobMaxRunningTimeMinutes`, `JobSpecs`, `JobType`, `ResourceId`, `SchedulingStrategy`, `Settings`, `SuccessPolicy`, `UserCommand` and `WorkspaceId`. Runtime credential intent was nested under `CredentialConfig` as an environment-role key plus typed role items. Mounts were top-level `DataSources`, and each `Options` value was a string. `JobSpecs` carried `EcsSpec`, `Image`, `PodCount` and `Type`. No recursive `src` key and no top-level `RoleArn`, `RoleType` or `AssumeRoleFor` key was present.
+
+This schema is a comparison oracle only. It proves that the blocked clone-form serializer shape differs from the exact sequence-7 SDK model, but it does not prove that this exact clone body would be accepted or which difference caused the provider-owned `src property must be a valid json object` response. The earlier incident Job proves only that its separately generated one-output-mount console request was accepted. A sequence-8 successor, provider-model mutation or live one-variable control remains separately gated.
+
+The guard safety boundary is also fixed by this run. During the armed window every POST `/data/api.json` request failed closed; the one target CreateJob reached neither original XHR `send` nor original fetch. Non-proxy background reads were allowed. Cleanup restored the original `open`, `send` and `fetch` references, removed the debug state, and a read-only Job-list check proved the clone display name did not exist.
+
+## D-30 — Structural parity localizes the next diagnostic to direct OSS variants
+
+Run `dbg-20260730-073606-f1c5` compared the allowlisted type paths from the blocked clone form with the exact sequence-7 schema and final-wire observations. The clone projection had 36 paths, sequence 7 had 40, and 31 were identical. The shared spine includes all `CredentialConfig` paths, `DataSources` container/URI/mount/options types, the one public `JobSpecs` shape, command/runtime/display fields and the `Settings.Tags` container.
+
+The five clone-only paths are `ResourceId`, `SchedulingStrategy`, `SuccessPolicy`, `Settings.JobReservedMinutes` and `Settings.Tags.CloneFromJobID`. They are not a coherent `src` candidate: the pinned SDK contract explicitly defines omitted `ResourceId` as public-resource selection; `SuccessPolicy` is documented for distributed TensorFlow rather than this single-Worker PyTorch job; the reservation field concerns post-terminal retention; and the tag is generated by the clone workflow. `SchedulingStrategy` remains a default-value differential but has no direct-OSS or JSON-object signal.
+
+The nine sequence-7-only paths are `DataSources[].MountAccess`, the `Envs` object plus five exact string entries, and two deterministic recovery tag keys. The pinned SDK `1.10.0` model validates and JSON-roundtrips an OSS data source both with and without `MountAccess`; omission produces exactly `MountPath`, `Options` and `Uri`. The repository's closed sequence-7 schema currently requires `MountAccess`, so using the optional SDK form would be a behavior-changing payload revision, not a transparent serialization correction.
+
+Cardinality is a separate unresolved dimension. The successful incident Job used one RW output mount, whereas each sequence-7 request uses four mounts: one RO code artifact, two RO dataset mirrors and one RW output. The blocked clone projection cannot establish value parity because URI, path, role, command and environment values were deliberately not retained. Therefore the supported conclusion is only that direct OSS mount composition is the highest-value next diagnostic domain. No individual field is a proven root cause.
+
+The next safe evidence step is an offline, network-blocked variant matrix produced from the exact sequence-7 request. Each observation changes one dimension in memory and records only validation, key sets, counts and hashes: all `MountAccess` fields omitted; three RO sources removed while the RW output is retained; or `Envs` omitted. Persisted payloads, lineage and provider behavior remain unchanged until a separately approved result supports a single live control.
+
+## D-31 — SDK feasibility does not make a diagnostic variant execution-safe
+
+Run `dbg-20260730-074202-25a0` exercised four in-memory variants for each exact sequence-7 cell behind the existing pre-`doAction` network blocker. Baseline, omitted `MountAccess`, output-only DataSources and omitted `Envs` all passed official SDK validation; every model body was byte- and semantically identical to its final SDK wire, JSON-roundtripped exactly and contained zero recursive `src` keys. The result rules out local serializer feasibility as a discriminator among the three candidates.
+
+The variants are not equivalent at the experiment boundary. Output-only removes the frozen code artifact and two input mirrors while the command and TaskSpec still bind them. Omitted `Envs` removes source/result binding and mount-directory inputs needed by the entrypoint contract. Neither variant may be persisted under the existing WorkOrder, Run, TaskSpec or ExecutionBundle, and neither is a sequence-8 candidate without recompiling scientific intent.
+
+Omitted `MountAccess` preserves URI/path/options cardinality but leaves access semantics to a provider default. The SDK accepts that representation, yet the EF contract intentionally marks code/input mounts RO and output RW. Until the console's read-only toggle serialization is known, omission could silently weaken immutable-source guarantees even if the provider accepts the request. Provider compatibility cannot override that evidence boundary.
+
+Therefore the next zero-write discriminator is console-side and narrower than another paid control: determine whether DLC `1.90.2` emits `MountAccess` for an explicitly RO mount, an RW mount, both or neither. Static conditional inspection is preferred. If minification cannot close the branch, a separately authorized fail-closed form with one RO and one RW mount may retain only entry key sets/types and must prove target original-send count zero.
+
+## D-32 — Console parity preserves explicit RO and omits only untouched default RW access
+
+Static run `dbg-20260730-075057-6d1c` inspected the public DLC `1.90.2` lazy create-form assets and closed the remaining `MountAccess` branch without opening the Job form. The direct-mount append initializer creates the mount identity/path/storage fields but no access field. The shared read-only control binds directly to the request-side access name: its unforced default is undefined, enabling the switch writes `RO`, and explicitly disabling it writes `RW`. The direct-mount mapper then copies that value into each `DataSources` entry without applying a default; ordinary JSON serialization omits the property only when the form value remains undefined.
+
+This distinguishes three states that must not be collapsed:
+
+- untouched default-RW mount → no `MountAccess` property;
+- explicitly selected read-only mount → `MountAccess: "RO"`;
+- switch changed back from RO to RW → `MountAccess: "RW"`.
+
+The blocked clone projection's one RW output mount therefore explains its missing access path without implying universal omission. Sequence 7 has three frozen RO sources and one RW output. Removing access from all four would discard an intentional immutable-source boundary and is rejected as console-inexact. The narrow console-parity hypothesis keeps the three explicit `RO` values and omits only the untouched RW output value.
+
+The static result is a serializer fact, not provider-causality evidence. It authorizes neither a payload change nor sequence 8. The next discriminator remains network-blocked and in memory: materialize the exact two sequence-7 requests, change only the RW output access-key presence, verify the official SDK and final-wire invariants, and remove the instrumentation. A live control or product fix remains a later separately authorized decision.
+
+## D-33 — Encode console-default RW omission without weakening ordered RO invariants
+
+Gate-1 run `dbg-20260730-080744-3c58` proved that the exact sequence-7 request can match the pinned console's untouched-RW serialization while retaining all frozen input protections. For both cells, the in-memory variant asserted an exact baseline of four sources with three `RO` and one `RW`, removed access only from the RW source, then asserted four sources with three `RO`, zero `RW`, one missing access, one changed entry and semantic equality after normalizing only `MountAccess`. The official SDK model and blocked final wire were byte- and semantically equal and JSON-roundtripped exactly.
+
+The permanent contract must not express the change as universally optional access. A JSON Schema item rule that merely removes `MountAccess` from `required` would also accept missing access on code/input sources and weaken the evidence boundary. The minimal compatible design is:
+
+- preserve the existing v1 CreateJob request schema for historical payload interpretation;
+- add a v2 request contract whose individual source allows `MountAccess: "RO"` or no access and disallows explicit `RW`;
+- add an ordered semantic validator used during both materialization and verification: every source except the final output must be explicit `RO`, while the final output must omit access;
+- keep URI, mount path, options, source order/cardinality, environment, credential, tags and resource bindings unchanged.
+
+The supported root cause is the repository's console-parity defect: the materializer emits explicit `RW` where the pinned console leaves an untouched RW value undefined. The provider's internal `src` rejection remains unproven. Gate 2 may correct the demonstrated parity defect and establish a testable successor payload, but provider acceptance still requires separate lineage and cloud authorization.
+
+## D-34 — Generate v2, verify v1 or ordered v2
+
+The Gate-2 implementation separates new request generation from immutable historical interpretation. `ExperimentFoundationAliyunRealProviderCreateJobRequestV1` and its schema remain unchanged as the legacy explicit-`RO`/`RW` representation. New materialization validates against `ExperimentFoundationAliyunRealProviderCreateJobRequestV2`, whose item schema accepts only explicit `RO` or a missing access property and therefore rejects explicit `RW`.
+
+Schema optionality is not the full authority. The payload service also applies one ordered semantic predicate during both materialization and verification: the array must retain the required code/input/output cardinality and every entry except the final output must carry `MountAccess: "RO"`. The final entry must be explicit `RW` for a legacy v1 payload and must omit the property for a v2 payload. Schema-only selection is insufficient because an all-RO request satisfies v1 while also being a malformed v2 output shape; a negative test exposed that overlap, and the ordered predicate now rejects it. New output sources omit the field, while URI, mount path, `Options`, environment, credential, resource and tag bindings remain unchanged.
+
+This dual boundary avoids rewriting or invalidating prior canonical payloads and prevents a broad schema relaxation from weakening source immutability. It does not upgrade sequence 7, create sequence 8 or establish provider acceptance. A new immutable successor and every cloud observation remain separately gated.
+
+## D-35 — Sequence 8 binds the compatibility fix without inheriting cloud authority
+
+The console-default behavior is represented by a new immutable WorkOrder revision and Run rather than by modifying sequence 7. Sequence 8 keeps the same admitted Cycle, `ragperf-primary` branch, two scientific cells, frozen ExecutionBundle, `2 CPU / 8192 MiB` resource snapshot, `max_attempts=1` and 1,800-second timeout. Its changed title/objective states only the new compatibility verification intent.
+
+The named-local runner fixes the parent at sequence 7 and branch state/head `14/7`, requires an empty or exactly complete sequence-8 prefix, caps normal T1-T4 at 40 new rows and protects all other application tables by digest. Successful admission advances the branch to `16/8`; exact replay must add zero rows. The live runner is then rebound to the exact sequence-8 Run/manifest and a new paid authorization token, so no prior sequence token can launch the successor.
+
+Lineage admission grants no provider authority. Offline preflight is zero-cloud and accepts an empty Attempt set. Read-only `GetImage` and paid `CreateJob` require separate credentials and independent authorization gates; capabilities remain disabled throughout.
+
+## D-36 — Cloud Shell bootstrap permission is not controller/runtime authority
+
+Cloud Shell session creation and the experiment provider roles are separate authorization planes. RAM user `user_0002` must be able to create the short-lived Cloud Shell session that issues an `AssumeRole` request, but `cloudshell:CreateSession` is not part of the frozen controller policy and must not be added to `pea-m7-canary-controller` or `pea-m7-canary-runtime`. The controller role continues to own only the bounded provider-control permissions and exact `ram:PassRole`; the runtime role continues to own only workload OSS access.
+
+A Cloud Shell `NoPermission` before the terminal session exists is therefore a credential-bootstrap blocker, not a sequence-8/provider result. It cannot create a ProviderPayload, Attempt, command, PAI Job or billable runtime and must not consume the two-call runner ceiling. Recovery is owner/admin authorization of the RAM user, followed by a new caller-identity check and a fresh 3,600-second STS that passes the existing exact-six-key, `0600`, role, policy-hash and 55-minute gates. A prior STS or prior-dated paid token is never reused.
