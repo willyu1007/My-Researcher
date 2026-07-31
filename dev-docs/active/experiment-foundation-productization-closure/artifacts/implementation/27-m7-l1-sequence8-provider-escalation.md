@@ -3,7 +3,9 @@
 ## Status
 
 - Drafted: 2026-07-31
-- Submission status: not submitted
+- Submission status: submitted 2026-07-31 22:05 Asia/Shanghai
+- Alibaba Cloud ticket: `000F4RKW18`
+- Current provider status: `已分派`; engineer progress update estimated in 5-120 minutes
 - Authorization status: the 2026-07-31 two-Job/¥50 window is exhausted
 - Further `CreateJob` calls: prohibited until provider guidance is reviewed and a new dated window is authorized
 

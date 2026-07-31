@@ -994,3 +994,12 @@ When adding an entry, use:
 - Fix/workaround: none. Both Attempts and commands were terminalized safely, credentials were removed and the runner authorization was disabled. Escalate the exact RequestIds and wire evidence to Alibaba Cloud; do not stack another speculative field change or mint sequence 9/10.
 - Prevention: treat UI structural parity, SDK validity and provider acceptance as three separate gates. A one-variable request change is causal only after provider acceptance changes under an otherwise identical bounded run.
 - References: `00-overview.md`; `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.
+
+### 2026-07-31 — Support submission is an external gate, not execution evidence
+
+- Symptom: a successfully created and assigned provider ticket can look like forward progress on live acceptance or permission to prepare another successor.
+- Root cause: support workflow state (`已分派`) proves only that Alibaba Cloud accepted the communication. It does not validate the `CreateJob` request, identify the internal `src` field, authorize a request-shape change or reopen the paid execution window.
+- What was tried: the reviewed sequence-8 escalation was submitted with exact RequestIds and structural hashes, no sensitive attachment and an SMS-verified contact.
+- Fix/workaround: hold T-132 at the provider boundary until the response identifies a supported correction or confirmed service defect. Review any requested sensitive material before using a provider-approved secure channel.
+- Prevention: track ticket lifecycle, provider technical conclusion and paid-run authorization as three independent gates. Never convert `submitted`, `assigned` or an estimated response time into provider acceptance or permission for sequence 9/10.
+- References: `00-overview.md`; `01-plan.md`; `03-implementation-notes.md`; `04-verification.md`; `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`.

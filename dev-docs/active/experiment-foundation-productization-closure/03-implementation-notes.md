@@ -1316,3 +1316,11 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - Cloud Shell source, local `/tmp` and Downloads credential copies were removed and verified absent. The authorization is exhausted.
 - Provider escalation draft: `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`. It contains the two RequestIds, exact wire hashes, structural evidence and zero-Job/zero-evidence census without credentials or unredacted payload values. Submission requires explicit action-time confirmation.
 - Current action: submit the reviewed escalation through Alibaba Cloud support. Do not create sequence 9/10, mutate sequence 8 or run another paid request without a provider-supported correction and a new authorization.
+
+## 2026-07-31 — Alibaba Cloud provider escalation submitted
+
+- The owner explicitly authorized creating and submitting the support request through the active Alibaba Cloud Chrome session. The reviewed credential-free body from `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md` was submitted under `人工智能平台 PAI` with urgency `产品使用咨询`.
+- Contact verification used the owner-provided mobile number through Alibaba Cloud's SMS challenge. The durable record retains only the masked value `181****3485`; the one-time verification code is not recorded. The call preference is `工作日9:00-18:00`, and `设置为默认联系方式` remained disabled to avoid changing account-wide defaults.
+- Alibaba Cloud created ticket `000F4RKW18` at `2026-07-31 22:05` Asia/Shanghai. The detail page reports `已分派`, has assigned the engineer-dispatch stage and estimates an initial progress update within 5-120 minutes.
+- The ticket contains no STS value, local env file, full unredacted request, OSS object value or database dump. Additional material must be reviewed and transferred only through a provider-approved secure channel.
+- Current action: wait for the provider response, then map its answer to one of the four requested outcomes before proposing any code or request-shape change. Sequence 8 remains immutable and terminal; sequence 9/10, live authorization and further `CreateJob` calls remain prohibited without a supported correction and a new dated window.

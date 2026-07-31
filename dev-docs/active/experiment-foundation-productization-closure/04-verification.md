@@ -2665,3 +2665,16 @@ Outcome: **bounded execution rejected by the provider; recovery and cleanup pass
 - Project-governance lint — passed with the same two unrelated T-124/T-133 state-format warnings.
 - `git diff --check` and scoped secret-pattern scan — passed.
 - Provider escalation draft — `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`; no credentials, unredacted payload values or database dumps included; submission pending explicit confirmation.
+
+## 2026-07-31 — provider escalation submission verification
+
+Outcome: **submitted and assigned; provider response pending**.
+
+- Authenticated session — RAM user `user_0002@1183869713036194.onaliyun.com` visibly confirmed before submission.
+- Support scope — `人工智能平台 PAI`, urgency `产品使用咨询`, reviewed 1,432-character credential-free sequence-8 escalation body.
+- Contact verification — Alibaba Cloud SMS challenge succeeded for masked mobile `181****3485`; call preference `工作日9:00-18:00`; account-wide default-contact checkbox remained disabled.
+- Submission result — ticket `000F4RKW18`, submitted `2026-07-31 22:05` Asia/Shanghai.
+- Detail-page state — `已分派`; engineer dispatch stage active; portal estimate 5-120 minutes for a progress update.
+- Safety census — ticket attachments 0; STS values, one-time verification code, local env files, unredacted request bodies, OSS object values and database dumps recorded in the ticket/task docs 0.
+- Execution boundary — `CreateJob`, provider Job, database write, capability change and billable runtime caused by support submission `0/0/0/0/0`.
+- Next verification — review the provider reply against the four questions in `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`; do not treat ticket assignment as provider acceptance or as authorization for another paid run.
