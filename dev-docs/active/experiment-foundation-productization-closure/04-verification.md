@@ -2664,3 +2664,4 @@ Outcome: **bounded execution rejected by the provider; recovery and cleanup pass
 - T-132 document lint — 117 files, 0 errors and 7 pre-existing vague-reference warnings.
 - Project-governance lint — passed with the same two unrelated T-124/T-133 state-format warnings.
 - `git diff --check` and scoped secret-pattern scan — passed.
+- Provider escalation draft — `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`; no credentials, unredacted payload values or database dumps included; submission pending explicit confirmation.
