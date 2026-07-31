@@ -100,8 +100,7 @@ const BUNDLE_REVISION_HASH =
 const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
 const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v8';
 const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
-const LIVE_AUTHORIZATION_VALUE =
-  'authorized-2026-07-30-console-default-access-verification-ceiling-cny50-two-jobs';
+const LIVE_AUTHORIZATION_VALUE: string | null = null;
 const CONTROLLER_ROLE_ARN =
   'acs:ram::1183869713036194:role/pea-m7-canary-controller';
 const CONTROLLER_POLICY_SHA256 =
@@ -621,9 +620,12 @@ function parseMode(args: string[]): RunnerMode {
 }
 
 function requireLiveAuthorization(): void {
-  if (process.env[LIVE_AUTHORIZATION_ENV] !== LIVE_AUTHORIZATION_VALUE) {
+  if (
+    LIVE_AUTHORIZATION_VALUE === null
+    || process.env[LIVE_AUTHORIZATION_ENV] !== LIVE_AUTHORIZATION_VALUE
+  ) {
     throw new Error(
-      `${LIVE_AUTHORIZATION_ENV} must equal the exact recorded two-job/¥50 authorization token.`,
+      `No active two-job/¥50 authorization is recorded for ${LIVE_AUTHORIZATION_ENV}.`,
     );
   }
 }

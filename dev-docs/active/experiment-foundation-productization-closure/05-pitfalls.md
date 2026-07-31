@@ -985,3 +985,12 @@ When adding an entry, use:
 - Fix/workaround: accept the two version-valid output access states—legacy explicit `RW` or v2 missing—while retaining exact output mount-path hash and unique-candidate checks. Explicit `RO` remains invalid for output discovery.
 - Prevention: whenever a versioned payload changes a field from explicit to omission, audit every downstream selector, collector and recovery comparator, not only schema/materialization/readback validation. Keep at least one end-to-end collection test on the new canonical shape.
 - References: `apps/backend/src/services/experiment-foundation-aliyun-real-provider-v2-transport.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-07-31 — Console parity is not provider causality
+
+- Symptom: sequence 8 emitted the reviewed console-default access shape—three explicit `RO` sources and one final output with missing `MountAccess`—yet both bounded `CreateJob` calls received the same HTTP 400 `src property must be a valid json object` response as earlier sequences.
+- Root cause status: omitted final-output access is ruled out as the sole cause. The provider-owned `src` producer remains unresolved; the public SDK model/wire boundary still contains no recursive `src` key.
+- What was tried: exact named-local successor and replay, fresh `GetImage`, a dated two-call/¥50 window, whitelist-only error/wire observers, exhaustive exact recovery and official RequestId diagnosis.
+- Fix/workaround: none. Both Attempts and commands were terminalized safely, credentials were removed and the runner authorization was disabled. Escalate the exact RequestIds and wire evidence to Alibaba Cloud; do not stack another speculative field change or mint sequence 9/10.
+- Prevention: treat UI structural parity, SDK validity and provider acceptance as three separate gates. A one-variable request change is causal only after provider acceptance changes under an otherwise identical bounded run.
+- References: `00-overview.md`; `02-architecture.md`; `03-implementation-notes.md`; `04-verification.md`; `.ai/.tmp/T-132/journal.md`.

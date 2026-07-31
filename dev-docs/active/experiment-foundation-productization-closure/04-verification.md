@@ -2642,3 +2642,25 @@ Commit-readiness checks:
 - project-governance lint — passed with two unrelated pre-existing T-124/T-133 state-format warnings;
 - `git diff --check` — passed;
 - scoped credential/private-key value scan — no findings.
+
+## 2026-07-31 — sequence-8 paid provider verification
+
+Outcome: **bounded execution rejected by the provider; recovery and cleanup passed; T-132 live-success acceptance remains open**.
+
+- Authorization: exact owner-provided 2026-07-31 sequence-8 window, maximum 2 Jobs and total ceiling ¥50.
+- `pnpm run typecheck:experiment-foundation-scripts` — passed after the dated authorization update.
+- Pre-action `pnpm run experiment-foundation:m7-l1:live -- --mode offline-preflight` — passed; exact Run/manifest/Bundle/policy, Attempts 0, cloud/database writes `0/0`.
+- Fresh STS contract — six exact non-empty keys, temporary `STS.` identity, mode `0600`, exact controller role/policy hash and 59 whole minutes remaining.
+- `image-preflight` — passed; cloud calls 1 (`GetImage`), provider writes/`CreateJob`/database writes `0/0/0`; request hash `f8ab30f6a780850b7aed81102409dda4ab4654eaba9f3f3074507c3331162c26`.
+- Execute — exactly two `CreateJob` calls, both top-level HTTP 400 `BadRequest`; RequestIds `019FB7D9-E94A-5AD4-B2FD-5FCC96C741A6` and `019FB7D9-F017-5B8D-AC24-549D21FDA76E`; no third call.
+- Official OpenAPI diagnosis — both calls reached `PaiDlc/CreateJob` in `cn-shanghai`, `FC.PASS`, response `src property must be a valid json object`; diagnostic solution unavailable.
+- Runner terminal assertion — failed closed because neither Attempt reached `succeeded`.
+- Post-run offline preflight — passed with existing Attempts 2, cloud calls 0 and database writes 0; sequence-8 model/wire equality remained true with zero recursive `src`.
+- Serializable read-only database census — ProviderPayload/Attempt/Event/Command `2/2/4/2`; both Attempts `failed / real_provider_cleanup_unverified`; both commands `terminal / attemptCount 12 / REAL_PROVIDER_RECOVERY_NOT_FOUND`; CollectionAttempt/ProvisionalOutput/ExperimentResult/ScientificValidationReport/EvidenceCandidate/REU `0/0/0/0/0/0`.
+- Credential cleanup — expired pre-window STS removed; live Cloud Shell source, `/tmp` and Downloads copies removed; final residual count 0.
+- Authorization cleanup — runner reset to `LIVE_AUTHORIZATION_VALUE=null`; no environment value can enable another execute without a source change and review.
+- Verdict — console-default output access omission is ruled out as the sole cause. Provider escalation is required before any successor, behavior change or live retry.
+- Final `pnpm run typecheck:experiment-foundation-scripts` — passed with the no-active-authorization guard.
+- T-132 document lint — 117 files, 0 errors and 7 pre-existing vague-reference warnings.
+- Project-governance lint — passed with the same two unrelated T-124/T-133 state-format warnings.
+- `git diff --check` and scoped secret-pattern scan — passed.
