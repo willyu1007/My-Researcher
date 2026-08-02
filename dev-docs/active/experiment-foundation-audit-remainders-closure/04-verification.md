@@ -65,3 +65,10 @@ Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/c
 - An earlier disposable run `d19_b6fbc609ada1` reached the relational test and exposed only an over-specific error-message assertion; the assertion was corrected to the stable integrity outcome and that container was also removed.
 - `ctl-api-index verify --strict` passed with the API unchanged; `git diff --check` passed.
 - Capability/runtime/data effects remain zero: the promotion flag is still default false, and no named-local/staging/production database, cloud/provider resource or UI surface was changed.
+
+## Phase 3 authorization verification — 2026-08-02
+
+- `node .ai/scripts/ctl-project-governance.mjs resume --task T-134 --json` → resolved the request to existing in-progress T-134 at `M-001 > F-001 > R-012`; no duplicate task or mapping change is required.
+- Rechecked the Phase 0 EF-P15 census against current v2 admission contracts/service: all typed Run/TaskSpec/Attempt/result paths remain non-null PI-bound, while the existing admission command already owns exact project/Cycle/branch/revision/cell-plan authority and its atomic outbox.
+- Architecture decision → P15-03 option 1 authorized; option 2 standalone execution/result lineage rejected. Product code, Prisma schema, migration, generated context, runtime flags, databases and external systems remain unchanged by this authorization step.
+- Implementation verification remains pending and must include closed shared/API schemas, service zero-write negatives, existing spine/trust regressions and a nonce-bound disposable-PostgreSQL atomicity/concurrency test with skip=0.

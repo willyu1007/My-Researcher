@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14 and Phase 2 EF-P06, including the Phase 2 relay/integrity quality hardening, are implemented and verified. Phase 3-4 implementation has not started.
-- Next step: resolve and separately authorize the Phase 3 EF-P15 typed exploration-source model. Phase 3 remains implementation-blocked until that model is decided.
+- Current phase: Phase 1 EF-P14 and Phase 2 EF-P06 are implemented and verified. Phase 3 EF-P15 option 1 is explicitly authorized; implementation has not started. Phase 4 has not started.
+- Next step: implement Phase 3A: the immutable typed exploration-specification aggregate, closed contracts and default-off capability, followed by the PI-owned atomic attachment/admission seam.
 
 ## Goal
 
@@ -38,10 +38,17 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - [ ] The four paths reuse existing PI/EF authority boundaries and introduce no generic trust writer, manual internal ID/hash workflow or second truth.
 - [ ] Required relational, API, regression, context and governance verification passes with capabilities default off.
 
+## Phase 3 authorization — 2026-08-02
+
+- Authorized model: P15-03 option 1 only — create a new immutable typed exploration specification, explicitly attach that specification to an exact PI WorkOrder scope, and execute a new PI-bound Run through the existing admission/materialization/scientific-validation/gateway chain.
+- Rejected model: no standalone Run/Attempt/Result lineage, result import, identity-only attachment, legacy conversion or trust reuse.
+- Authorization includes additive contracts, backend routes/services/repositories, Prisma SSOT schema and migration files, generated API/DB/env context, default-off capability wiring and disposable-PostgreSQL verification.
+- Authorization excludes named-local/staging/production migration, backfill/repair, capability enablement, provider/cloud effects and desktop UI.
+
 ## Constraints
 
-- Implementation is not authorized by this planning package alone.
-- Phase 0 authorization does not authorize Phase 1-4 product/schema/data work.
+- Phase 3 implementation authority comes from the explicit 2026-08-02 user authorization and is limited to option 1 plus the boundaries above; the planning package alone grants no broader authority.
+- Earlier Phase 0 authorization did not authorize Phase 1-4 product/schema/data work; each later phase still requires its own recorded authorization.
 - Any persisted-field change follows the repo Prisma SSOT and `sync-db-schema-from-code`.
 - Each workstream must preserve legacy immutability and prove zero partial writes on rejected or crashed operations.
 - EF-P21 is backend retrieval only; presentation remains outside this task.

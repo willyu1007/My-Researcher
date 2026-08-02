@@ -116,7 +116,7 @@ The following is the maximum implementation surface. A phase may use fewer files
 - Targeted unit, route, OpenAPI and disposable-PostgreSQL relational tests.
 - Existing materialization service/repository may be changed only to consume the exact new event or prepared payload without acquiring promotion authority.
 
-### Phase 3 allowlist — EF-P15, not yet implementation-authorized
+### Phase 3 allowlist — EF-P15, authorization pending at Phase 0 close
 
 - A separately reviewed typed standalone exploration source contract/model selected by P15-03.
 - One explicit attachment command/receipt owned by PI, with idempotency and exact scope binding.
@@ -184,3 +184,5 @@ Phase-specific tests are additive to impacted existing suites; a phase cannot re
 - Phase 2 EF-P06: architecture is bounded; additive schema work will require the Prisma SSOT workflow.
 - Phase 3 EF-P15: blocked from implementation until P15-03 is explicitly decided.
 - Phase 4 EF-P21: architecture is bounded; PI-owned projection and schema review are required.
+
+Post-Phase0 resolution (2026-08-02): P15-03 option 1 was explicitly selected and Phase 3 implementation was authorized. The historical blocker above is resolved; the current contract and scope are recorded in `02-architecture.md` and `01-plan.md`. Option 2 remains unauthorized.

@@ -31,14 +31,16 @@ Exit: met on 2026-08-02. One canonical result and one durable event outcome conv
 
 ## Phase 3 — EF-P15 attachment and full revalidation
 
-1. Resolve the Phase 0 architecture blocker first: current typed EF Runs/results are already PI-bound and legacy standalone rows are ineligible. Approve the recommended typed-exploration-spec attachment plus new PI-bound execution, or explicitly authorize a larger standalone typed lineage.
-2. Introduce one explicit command from the approved typed standalone source to one exact Paper WorkOrder scope; never attach legacy output by identity.
-3. Re-resolve project, Cycle, branch, revision, Run/cells where applicable, readiness, result hashes and validation at the owning boundary.
-4. Reject cross-project, stale, incomplete, simulation-only, legacy and caller-substituted inputs.
-5. Route any later eligible evidence only through the existing PI Evidence Trust Gateway.
-6. Make repeated exact attachment idempotent and different-scope reuse a stable conflict.
+1. [x] Resolve P15-03 by authorizing option 1: an immutable typed exploration specification is attached and restated as a new PI-owned admitted WorkOrder revision; existing or historical outputs are never imported. Option 2 standalone Run/Attempt/Result lineage is rejected for T-134.
+2. [ ] Phase 3A — add the EF-owned immutable exploration-specification identity/revision contract and persistence. Freeze proposed branch frame, WorkOrder revision snapshot and exact ordered cells under server-derived ids/hashes; reject result, Attempt, validation, evidence, legacy and caller-authored authority fields.
+3. [ ] Phase 3B — add one PI-owned attachment command over `spec_id + spec_revision`, exact project/Cycle/branch target and business idempotency key. Server-resolve the spec/hash and all target scope; atomically persist the attachment receipt with the new PI branch/revision/cells/admission/outbox authority commit.
+4. [ ] Re-resolve active project, admitted/open Cycle, exact branch frame, typed assets, readiness attestation and dependency hashes before commit. Existing materialization must revalidate exact cell/asset/readiness parity before creating a new TaskSpec/Run lineage.
+5. [ ] Reject cross-project, stale/revoked/incomplete specs, changed branch frame, changed scope, simulation/legacy/result references and caller-substituted ids/hashes with zero PI trust/materialization writes.
+6. [ ] Route only the newly executed PI-bound Run through existing Attempt/result/scientific-validation and PI Evidence Trust Gateway writers; attachment itself creates no EvidenceCandidate or RunEvidenceUnit.
+7. [ ] Make same-key and different-key exact replay zero-new. Bind one exact spec revision to one PI scope; reuse against a different project/Cycle/branch is a stable conflict and requires a new spec revision.
+8. [ ] Keep the feature default off. Generate schema/context artifacts from SSOT and verify on nonce-bound disposable PostgreSQL only; named database apply and runtime enablement remain outside this authorization.
 
-Exit: standalone output remains non-paper-trusted; the approved attachment flow leads to a newly valid PI-bound lineage, and bypass/crash tests prove zero partial trust.
+Exit: standalone output remains non-paper-trusted; the approved spec attachment produces a newly admitted PI revision and newly executed PI-bound lineage; only the existing validation/gateway path can produce evidence, and bypass/crash/concurrency tests prove zero partial trust.
 
 ## Phase 4 — EF-P21 project-scoped semantic retrieval
 

@@ -11,7 +11,7 @@
 
 ## Open implementation decisions
 
-- EF-P15 source model remains open and blocks Phase 3 only. Recommended choice: attach a typed exploration specification, then execute a new PI-bound Run; do not trust-reuse prior output.
+- EF-P15 source model was resolved on 2026-08-02: option 1 typed exploration specification plus a new PI-bound execution is authorized. The larger standalone execution lineage is rejected for T-134.
 - Exact embedding provider/profile and vector dimension for EF-P21 remain a Phase 4 implementation detail, but storage ownership and structured-first filtering are frozen.
 
 ## 2026-08-02 — Phase 0 census and implementation freeze
@@ -52,3 +52,11 @@
 - Expanded service and disposable-PostgreSQL coverage from the original DataPolicy-centered path to exact canonical reuse across DataPolicy, Dataset, MetricDefinition, Benchmark and EvaluationProtocol.
 - Hardened the runtime request boundary against non-string idempotency keys and added `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` to the node-test environment scrub list.
 - The hardening pass required no Prisma schema, migration, API shape, env SSOT, named database, enabled capability, provider or UI change.
+
+## 2026-08-02 — Phase 3 EF-P15 authorization
+
+- Reused T-134 (`REUSE_TASK`, `M-001 > F-001 > R-012 > T-134`); no new task or project mapping is needed.
+- Authorized only P15-03 option 1. The positive source is a new immutable typed EF exploration specification whose proposed branch frame, WorkOrder snapshot and exact cells become PI authority only through an explicit attachment/admission command.
+- The attachment receipt and normal v2 admission bundle/outbox must commit atomically in PI. The existing cross-domain relay then materializes a new PI-bound Run; attachment itself writes no TaskSpec, Run, result, validation, EvidenceCandidate, REU or trust trace.
+- Full revalidation is split by ownership: attachment checks exact spec/project/Cycle/branch/assets/readiness; existing EF materialization checks exact parity; the new execution's result and validation are checked by existing scientific services; the existing PI Evidence Trust Gateway alone admits evidence.
+- Phase 3 implementation is authorized in slices 3A source aggregate, 3B atomic PI attachment/admission and 3C end-to-end trust/bypass verification. Additive Prisma migration files and generated context are in scope; applying them to a named database, enabling capabilities or calling providers is not.

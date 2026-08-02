@@ -3,7 +3,7 @@
 ## Planning context
 
 - Runtime signal: Default mode; the roadmap records scope and sequencing only.
-- Delivery state: `in-progress`; Phase 0, Phase 1 and Phase 2 complete, Phase 3-4 not started.
+- Delivery state: `in-progress`; Phase 0, Phase 1 and Phase 2 complete, Phase 3 option 1 authorized but not implemented, and Phase 4 not started.
 - Mapping: `M-001 > F-001 > R-012 > T-134`.
 - Source baseline: T-132 audit findings EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21.
 - Precedence decision: the 2026-07-30 user decision supersedes the earlier T-132 wording that required these findings to close inside T-132. T-134 now owns them independently and does not block T-132's personal PAI completion.
@@ -34,13 +34,13 @@ Close the four Experiment Foundation audit remainders as typed, server-owned and
 | 0 | Cross-cutting census | Freeze current writers, routes, schema and tests before implementation | Complete 2026-08-02: reviewed modification allowlist and exact verification matrix |
 | 1 | EF-P14 | Current bootstrap could persist a null binding, making EF-P14 the nearest admission-safety gap | Complete 2026-08-02: unbound bootstrap is zero-write rejected; bound bootstrap is idempotent; legacy null rows are diagnostics-only |
 | 2 | EF-P06 | Promotion is the primary server-owned preparation boundary | Complete 2026-08-02: one atomic decision/canonical/Candidate/receipt/outbox outcome with crash, replay and concurrent convergence |
-| 3 | EF-P15 | Current v2 output is already PI-bound and legacy is ineligible; source-model choice must precede coding | Approved typed exploration source attaches to a new PI-bound lineage; prior output stays untrusted |
+| 3 | EF-P15 | Option 1 was authorized on 2026-08-02: immutable typed exploration specification plus new PI-bound execution | Exact spec attachment atomically admits a PI revision; prior output stays untrusted and only the existing gateway can create evidence |
 | 4 | EF-P21 semantic half | Retrieval depends on stable project and lineage ownership | Project filter precedes rank; stale candidates drop; index outage falls back to structured lineage |
 | 5 | Convergence | Prevent four local fixes from creating a second authority | Full writer census, relational negatives, context/docs and governance gates pass |
 
 ## Structure-change preview
 
-Potential implementation areas, subject to a separate implementation authorization and Phase 0 census:
+Potential implementation areas, subject to the phase-specific authorization and Phase 0 census:
 
 - `packages/shared/`: typed commands, responses and stable failure codes.
 - `apps/backend/`: services, routes, repositories and project-scoped retrieval.
@@ -50,7 +50,7 @@ Potential implementation areas, subject to a separate implementation authorizati
 
 No `apps/desktop/` or `ui/` implementation path belongs to T-134.
 
-Phase 0 narrowed the preview: EF-P14 needs no migration; EF-P06 and EF-P21 need additive owned persistence; EF-P15 schema scope is intentionally unresolved until its source-model decision. See `06-phase0-census-and-freeze.md`.
+Phase 0 and later authorization narrowed the preview: EF-P14 needs no migration; EF-P06 and EF-P21 need additive owned persistence; EF-P15 may add only the immutable EF exploration-spec aggregate and PI attachment receipt/admission binding required by option 1. See `06-phase0-census-and-freeze.md` and `02-architecture.md`.
 
 ## Verification strategy
 
@@ -78,4 +78,5 @@ Phase 0 narrowed the preview: EF-P14 needs no migration; EF-P06 and EF-P21 need 
 - [x] Phase 0 writer/route/schema/test census and implementation freeze are complete.
 - [x] Phase 1 EF-P14 implementation and verification are complete.
 - [x] Phase 2 EF-P06 implementation was authorized, implemented and verified.
-- [ ] Resolve the EF-P15 typed exploration-source model before requesting Phase 3 implementation authorization.
+- [x] Phase 3 EF-P15 option 1 source model and implementation boundary are explicitly authorized.
+- [ ] Implement Phase 3A typed exploration specification and its default-off contract/schema slice.

@@ -73,6 +73,31 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - A valid promotion event is a terminal catalog/audit notification. Relay delivery marks the event as `delivered` without invoking TaskSpec, Run, readiness, scientific-validation, evidence or projection writers, so relay completion cannot become a second authority.
 - `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` defaults false and is invalid unless v2 cutover is committed. Disabling the promotion capability stops only new intake; immutable outcomes remain retained. No named database was migrated or capability enabled.
 
+## Phase 3 authorized attachment contract — 2026-08-02
+
+P15-03 option 1 is selected. T-134 will model standalone exploration as an immutable EF-owned specification, not as a second execution lineage:
+
+```text
+EF immutable exploration specification
+  -> explicit PI attach command
+  -> PI scope/spec/readiness revalidation
+  -> one atomic PI attachment + admission + outbox commit
+  -> existing EF materialization and new PI-bound Run
+  -> existing real Attempt/result/scientific validation
+  -> existing PI Evidence Trust Gateway
+```
+
+- The exploration specification freezes proposed `branch_frame`, the typed WorkOrder revision snapshot and the exact ordered cell plan. Its ids, revision, content hash and canonical bytes are server-derived. The contract contains no Run, Attempt, result, validation, EvidenceCandidate, REU or legacy record reference.
+- The PI command accepts only an exact public spec identity/revision, target ImplementationProject/ValidationCycle/branch key and business idempotency key. PI resolves the stored spec/hash and owns the act of adopting its proposed scientific plan; callers cannot submit WorkOrder revision ids, admission ids, approved-plan hashes, event payloads or trust outcomes.
+- An existing target branch must have the exact proposed branch-frame hash. A new branch may be created only from the proposed frame during the same explicit attachment/admission command. Project/Cycle scope must be active, admitted and open.
+- PI stores an attachment receipt binding the exact spec revision/hash to the resulting branch, WorkOrder revision/hash, admission and approved-plan hash in the same authority transaction that writes the existing admission outbox. No cross-domain foreign key or shared transaction is introduced.
+- EF materialization receives the ordinary `WorkOrderRevisionAdmitted` event and revalidates typed asset refs, readiness and exact cell parity. The resulting TaskSpecs and Run are new PI-bound facts; no historical exploratory output is rebound or copied.
+- Scientific result hashes and validation are checked only on the newly executed PI-bound lineage by the existing EF validation path. The existing PI Evidence Trust Gateway remains the sole REU/trace/outbox writer.
+- Exact attachment replay is zero-new. One exact spec revision may bind to only one project/Cycle/branch scope; different-scope reuse fails closed. Reuse requires an explicitly new spec revision rather than rebinding an immutable receipt.
+- Rollback disables the new spec/attachment entrances and drains already-committed admission sagas. It preserves immutable specs, receipts and PI-bound lineage and never reopens legacy writers.
+
+Option 2 — a standalone Run/Attempt/Result lineage plus result-import trust boundary — is explicitly not authorized under T-134.
+
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.
