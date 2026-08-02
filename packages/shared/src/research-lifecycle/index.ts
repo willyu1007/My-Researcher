@@ -12,6 +12,7 @@ export * from './experiment-foundation-real-provider-v2-contracts.js';
 export * from './experiment-foundation-scientific-validation-v2-contracts.js';
 export * from './paper-implementation-evidence-v2-contracts.js';
 export * from './paper-implementation-experiment-v2-contracts.js';
+export * from './paper-implementation-exploration-attachment-v2-contracts.js';
 export * from './paper-implementation-experiment-lineage-v2-contracts.js';
 export * from './paper-implementation-closure-preparation-v2-contracts.js';
 export * from './topic-selection-control-plane-contracts.js';

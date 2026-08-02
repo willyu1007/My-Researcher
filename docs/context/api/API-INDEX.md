@@ -1,14 +1,15 @@
 # API Index
 
-> Auto-generated at 2026-08-02T12:49:34.269Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `dbc893902aa9...`)
+> Auto-generated at 2026-08-02T13:54:31.268Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `9597a18fe367...`)
 
-Total endpoints: **202**
+Total endpoints: **203**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
 | GET | /health | Check service liveness. | none | — | ok | — |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
+| POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach | Adopt one exact immutable exploration specification as a new PI WorkOrder admission. | none | branch_key, business_idempotency_key | attachment, branch, revision, cells, admission, replayed | 400, 404, 409, 500 |
 | POST | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2 | Close one ValidationCycle against an exact server-derived closure watermark. | none | expected_cycle_version, expected_closure_input_hash, closure_kind, accepted_proposal_id, expected_proposal_hash, corrected_scientific_disposition, idempotency_key | closure | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/readiness | Rebuild closure readiness and the exact ValidationCycle closure watermark. | none | validation_cycle_id | schema_version, validation_cycle_id, status, ordered_blockers, watermark, eligible_run_evidence_unit_count | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/projects/{implementation_project_id}/experiment-lineage/validation-cycles | List experiment-lineage summaries for one ImplementationProject. | none | implementation_project_id | implementation_project_id, validation_cycles | 400, 404, 409, 422, 500 |

@@ -31,6 +31,8 @@ tags:
     description: Topic selection v1c human promotion, bridge, downstream feedback, and frozen replay endpoints.
   - name: paper-implementation-experiment-v2
     description: PI experiment v2 admission, closure, lineage, and agent-action surfaces; committed sagas are relayed through domain-local database inbox/outbox consumers.
+  - name: paper-implementation-exploration-attachment-v2
+    description: Default-off PI adoption of one exact immutable EF exploration specification as a new ordinary PI admission; attachment itself grants no execution or evidence authority.
   - name: experiment-foundation-execution-v2
     description: Default-off simulation and real-provider execution intake plus durable Attempt control endpoints; simulation and real-provider outputs remain ineligible for scientific evidence.
   - name: experiment-foundation-promotion-v2
@@ -93,6 +95,62 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach:
+    post:
+      operationId: attachPaperImplementationExplorationSpecificationV2
+      summary: Adopt one exact immutable exploration specification as a new PI WorkOrder admission.
+      description: |
+        The server resolves the stored EF specification revision and hashes, revalidates exact readiness,
+        and atomically commits the PI attachment, branch revision, cells, admission and ordinary admission
+        outbox. Historical exact replay skips current-readiness drift and creates no new authority; a
+        different business key may add only a receipt. No TaskSpec, Run, result, validation or evidence
+        record is created by this command.
+      tags: [paper-implementation-exploration-attachment-v2]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: validation_cycle_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: spec_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: spec_revision
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationExplorationAttachmentV2Request'
+      responses:
+        '200':
+          description: Exact attachment replay returned without new PI authority.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationExplorationAttachmentV2Response'
+        '201':
+          description: Attachment and ordinary PI admission committed atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationExplorationAttachmentV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -5795,6 +5853,14 @@ components:
             $ref: '#/components/schemas/PaperImplementationExperimentV2ExactCellInput'
         business_idempotency_key: { type: string, minLength: 1 }
 
+    PaperImplementationExplorationAttachmentV2Request:
+      type: object
+      additionalProperties: false
+      required: [branch_key, business_idempotency_key]
+      properties:
+        branch_key: { type: string, minLength: 1 }
+        business_idempotency_key: { type: string, minLength: 1 }
+
     PaperImplementationExperimentV2AdmissionResponse:
       type: object
       additionalProperties: false
@@ -5897,6 +5963,42 @@ components:
             business_idempotency_key: { type: string, minLength: 1 }
             admitted_by: { type: string, minLength: 1 }
             admitted_at: { type: string, minLength: 1 }
+        replayed: { type: boolean }
+
+    PaperImplementationExplorationAttachmentV2:
+      type: object
+      additionalProperties: false
+      required: [attachment_id, spec_id, spec_revision, spec_revision_id, spec_content_hash, implementation_project_id, validation_cycle_id, branch_id, branch_key, work_order_revision_id, admission_id, approved_plan_hash, attached_at]
+      properties:
+        attachment_id: { type: string, minLength: 1 }
+        spec_id: { type: string, minLength: 1 }
+        spec_revision: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        spec_revision_id: { type: string, minLength: 1 }
+        spec_content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        implementation_project_id: { type: string, minLength: 1 }
+        validation_cycle_id: { type: string, minLength: 1 }
+        branch_id: { type: string, minLength: 1 }
+        branch_key: { type: string, minLength: 1 }
+        work_order_revision_id: { type: string, minLength: 1 }
+        admission_id: { type: string, minLength: 1 }
+        approved_plan_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        attached_at: { type: string, minLength: 1 }
+
+    PaperImplementationExplorationAttachmentV2Response:
+      type: object
+      additionalProperties: false
+      required: [attachment, branch, revision, cells, admission, replayed]
+      properties:
+        attachment:
+          $ref: '#/components/schemas/PaperImplementationExplorationAttachmentV2'
+        branch:
+          $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionResponse/properties/branch'
+        revision:
+          $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionResponse/properties/revision'
+        cells:
+          $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionResponse/properties/cells'
+        admission:
+          $ref: '#/components/schemas/PaperImplementationExperimentV2AdmissionResponse/properties/admission'
         replayed: { type: boolean }
 
     ErrorResponse:

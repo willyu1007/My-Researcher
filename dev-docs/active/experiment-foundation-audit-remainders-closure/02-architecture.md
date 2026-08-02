@@ -110,3 +110,12 @@ Option 2 — a standalone Run/Attempt/Result lineage plus result-import trust bo
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.
+
+## Phase 3B landed PI attachment/admission seam — 2026-08-02
+
+- `POST /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach` accepts only `branch_key` and `business_idempotency_key` in its closed body.
+- The orchestration service resolves the exact immutable EF revision, checks committed exact replay before current readiness, then revalidates one EvaluationProtocol target plus its ordered dependencies. Historical exact replay therefore survives later readiness drift without creating new authority.
+- The existing PI admission service remains the only admission algorithm. Its existing UoW optionally persists one PI-owned attachment and receipt in the same transaction as branch/revision/cells/admission/outbox.
+- PI attachment storage keeps EF identities as scalar exact refs without a cross-domain foreign key. Composite PI foreign keys bind exact project/Cycle/branch, revision/approved-plan and admission authority.
+- One spec revision binds one PI project/Cycle/branch. Same-key replay is zero-new; a different key may add only one receipt; changed scope/plan conflicts.
+- `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED` defaults false and requires committed cutover plus ordinary PI v2 admission. The attachment capability does not require the Phase 3A authoring flag because already committed immutable specs remain eligible.

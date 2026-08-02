@@ -351,7 +351,12 @@ test('A01 capability-off performs zero scope/repository work and rejects before 
   );
   assert.equal(counter.calls, 0);
   assert.deepEqual(pi.snapshot(), {
-    branches: [], admission_bundles: [], inboxes: [], outboxes: [],
+    branches: [],
+    admission_bundles: [],
+    exploration_attachments: [],
+    exploration_attachment_receipts: [],
+    inboxes: [],
+    outboxes: [],
   });
 });
 
@@ -373,7 +378,12 @@ test('closed-Cycle seal blocks PI admission/head and EF materialization with zer
   );
   assert.equal(scopeCalls.calls, 1);
   assert.deepEqual(admissionRepository.snapshot(), {
-    branches: [], admission_bundles: [], inboxes: [], outboxes: [],
+    branches: [],
+    admission_bundles: [],
+    exploration_attachments: [],
+    exploration_attachment_receipts: [],
+    inboxes: [],
+    outboxes: [],
   });
 
   const open = makeServices({});
@@ -506,7 +516,12 @@ test('PI admission rejects inactive project or non-admitted Cycle with zero v2 w
         && error.details?.reason_code === 'BRANCH_SCOPE_CONFLICT',
     );
     assert.deepEqual(pi.snapshot(), {
-      branches: [], admission_bundles: [], inboxes: [], outboxes: [],
+      branches: [],
+      admission_bundles: [],
+      exploration_attachments: [],
+      exploration_attachment_receipts: [],
+      inboxes: [],
+      outboxes: [],
     });
   }
 });

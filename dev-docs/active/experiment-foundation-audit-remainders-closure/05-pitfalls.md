@@ -22,6 +22,8 @@
 - Do not add a product capability env key without adding it to the node-test environment scrub list.
 - Do not use one global forbidden-field set when legitimate nested exact asset refs reuse names such as `revision_id` or `content_hash`; distinguish command-level authority from typed nested references.
 - Do not rely on PostgreSQL to preserve generated relation names longer than 63 bytes; pin short names in both Prisma and migration SQL and run full-history drift replay.
+- Do not rely on Fastify `additionalProperties: false` alone when the default AJV mode may remove caller-authored authority fields; reject unexpected authority before dispatch and test zero service calls.
+- Do not bind PI attachment scope with independent scalar foreign keys only; use composite project/Cycle/branch, revision/plan and admission bindings plus durable read-time recomputation.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
@@ -78,3 +80,10 @@
 - What was tried: the initial full-history drift replay on the disposable database; the replay correctly failed and preserved the one-statement diff.
 - Fix/workaround: replace both promotion relation constraints with explicit short names and pin the same names using Prisma `map:`. A clean disposable replay then reported zero drift.
 - Prevention: every additive migration must use explicit sub-63-byte relation names, pin them in Prisma and pass full-history replay before the phase exits.
+
+## Attachment route initially stripped forbidden authority fields — 2026-08-02
+
+- Symptom: an HTTP request carrying caller-authored `admission_id` reached the controller because Fastify's default AJV configuration removed the extra property while validating the closed body.
+- Root cause: the first 3B route relied only on `additionalProperties: false`; closed schema validation did not preserve the original payload for semantic rejection.
+- Fix/workaround: add a route pre-validation authority guard that rejects every body key except `branch_key` and `business_idempotency_key`, and assert the use case receives zero calls.
+- Prevention: every public authority-minting route must test forbidden extra fields at the dispatch boundary, not only validate its shared JSON schema in isolation.

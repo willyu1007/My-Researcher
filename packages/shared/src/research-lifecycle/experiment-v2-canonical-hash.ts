@@ -65,6 +65,7 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'ef-promotion-event-json@v1',
   'ef-exploration-spec-json@v1',
   'ef-exploration-spec-command-json@v1',
+  'pi-exploration-attachment-command-json@v1',
   'ef-readiness-dependency-manifest-json@v1',
   'ef-version-lock-json@v1',
   'ef-run-recipe-json@v1',
@@ -217,6 +218,16 @@ export interface PaperImplementationExperimentV2ApprovedPlanHashInput {
   branch_frame_hash: string;
   work_order_revision_hash: string;
   cell_plan_hash: string;
+}
+
+export interface PaperImplementationExplorationAttachmentV2CommandHashInput {
+  spec_id: string;
+  spec_revision: number;
+  spec_revision_id: string;
+  spec_content_hash: string;
+  implementation_project_id: string;
+  validation_cycle_id: string;
+  branch_key: string;
 }
 
 export interface ExperimentFoundationExecutionAttemptEventV2HashInput {
@@ -453,6 +464,33 @@ export function serverExperimentFoundationExplorationSpecV2Id(
   const digest = serverHashExperimentFoundationExplorationSpecCommandV2({ prefix, content })
     .slice('sha256:'.length, 'sha256:'.length + 32);
   return `ef_exploration_${prefix}_${digest}`;
+}
+
+export function serverHashPaperImplementationExplorationAttachmentCommandV2(
+  content: PaperImplementationExplorationAttachmentV2CommandHashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationExplorationAttachmentCommandV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-exploration-attachment-command-json@v1',
+    content,
+  });
+}
+
+export function serverPaperImplementationExplorationAttachmentV2Id(
+  prefix: 'attachment' | 'receipt',
+  content: PaperImplementationExplorationAttachmentV2CommandHashInput | {
+    business_idempotency_key: string;
+  },
+): string {
+  const digest = serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationExplorationAttachmentIdentityV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-exploration-attachment-command-json@v1',
+    content: { prefix, content },
+  })
+    .slice('sha256:'.length, 'sha256:'.length + 32);
+  return `pi_exploration_${prefix}_${digest}`;
 }
 
 export function serverHashExperimentFoundationV2ReadinessDependencyManifest(

@@ -10,6 +10,12 @@
 - Target env(s): all environments; disabled by default
 - Affected service(s)/component(s): backend ExperimentFoundation v2 exploration-specification intake
 
+## Phase 3B summary
+
+- Change type: add
+- Target env(s): all environments; disabled by default
+- Affected service(s)/component(s): backend PaperImplementation v2 exploration-specification attachment intake
+
 ## Context
 
 - T-134 Phase 3A authorizes immutable exploration-specification intake behind an explicit capability flag.
@@ -19,6 +25,7 @@
 
 - The independent flag prevents an additive Phase 3A route from becoming reachable merely because another ExperimentFoundation v2 capability is enabled.
 - The flag remains subordinate to the committed ExperimentFoundation v2 cutover guard.
+- The Phase 3B flag is also subordinate to PI v2 admission because attachment atomically creates one ordinary PI admission.
 
 ## Risk assessment
 

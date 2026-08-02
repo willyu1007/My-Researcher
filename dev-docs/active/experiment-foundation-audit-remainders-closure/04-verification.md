@@ -87,3 +87,14 @@ Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/c
 - Capability/runtime/data effects: the exploration-spec flag remains false; no named-local/staging/production migration, external provider/cloud action, UI change, PI attachment/admission, execution or evidence write occurred.
 
 Phase 3A is complete and is a verified rollback point. EF-P15 as a whole remains open pending Phase 3B atomic PI attachment/admission and Phase 3C trust/bypass verification.
+
+## Phase 3B EF-P15 atomic attachment verification — 2026-08-02
+
+- TypeScript: shared and backend typechecks passed independently; Prisma Client generation and placeholder-URL schema validation passed.
+- Shared/service/API: attachment schema/hash 2/2, orchestration/admission 4/4 and route 2/2 passed. Coverage includes closed input, default-off before reads, first commit, same/different-key replay, readiness-drift replay, drift zero-write, injected crash rollback and cross-branch conflict.
+- Cutover/env: attachment requires both committed cutover and PI admission; strict boolean parsing/default-off coverage passed. Env SSOT validation/generation and `node .ai/tests/run.mjs --suite environment` passed without secrets.
+- Disposable PostgreSQL final run: nonce-bound database `d19_e92361364987` on the pinned pgvector digest applied full migration history; relational test passed 1/1 with skip=0; crash after attachment insert rolled back branch/revision/cells/admission/outbox/attachment/receipt; concurrent different keys converged to one authority bundle/two receipts; different-key replay added only a third receipt; durable attachment tamper failed closed. Container removal passed.
+- Drift/context/API: actual disposable database to Prisma SSOT diff passed with zero changes; DB context regenerated; OpenAPI quality and API-index freshness passed with 203 endpoints; `git diff --check` passed.
+- Effects: no named-local/staging/production database, cloud/provider, capability enablement, UI, TaskSpec, Run, result, validation, EvidenceCandidate, REU or trace write occurred.
+
+Phase 3B is complete and is a verified rollback point. EF-P15 remains open only for Phase 3C downstream materialization/trust and bypass verification.

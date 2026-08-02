@@ -27,6 +27,9 @@ import type {
   ValidationCycleClosedEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import type {
+  PaperImplementationExplorationAttachmentV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-exploration-attachment-v2-contracts';
 
 export type ExperimentV2RelayDomain = 'PaperImplementation' | 'ExperimentFoundation';
 
@@ -114,6 +117,34 @@ export interface PaperImplementationExperimentV2AdmissionBundle {
 export interface PaperImplementationExperimentV2CommitAdmissionInput
   extends PaperImplementationExperimentV2AdmissionBundle {
   expected_branch_state_version: number | null;
+  exploration_attachment?: PaperImplementationExplorationAttachmentV2Commit;
+}
+
+export interface PaperImplementationExplorationAttachmentV2CommandReceipt {
+  receipt_id: string;
+  business_idempotency_key: string;
+  command_hash: string;
+  attachment_id: string;
+  spec_revision_id: string;
+  created_at: string;
+}
+
+export interface PaperImplementationExplorationAttachmentV2Commit {
+  attachment: PaperImplementationExplorationAttachmentV2;
+  command_receipt: PaperImplementationExplorationAttachmentV2CommandReceipt;
+}
+
+export interface PaperImplementationExplorationAttachmentV2Bundle
+  extends PaperImplementationExperimentV2AdmissionBundle {
+  attachment: PaperImplementationExplorationAttachmentV2;
+}
+
+export interface PaperImplementationExplorationAttachmentV2ReplayInput {
+  expected_attachment: Omit<
+    PaperImplementationExplorationAttachmentV2,
+    'attachment_id' | 'branch_id' | 'work_order_revision_id' | 'admission_id' | 'attached_at'
+  >;
+  command_receipt: PaperImplementationExplorationAttachmentV2CommandReceipt;
 }
 
 export interface PaperImplementationExperimentV2CommitHeadInput {
@@ -178,6 +209,24 @@ export interface PaperImplementationExperimentSpineV2Repository {
   markOutboxDelivered(outboxId: string, leaseOwner: string, deliveredAt: string): Promise<void>;
   markOutboxTerminal(input: ExperimentV2RelayTerminalInput): Promise<void>;
   releaseOutbox(input: ExperimentV2RelayReleaseInput): Promise<void>;
+}
+
+/**
+ * Additive repository surface for EF specification attachment. Keeping it
+ * separate preserves the existing PI admission port for non-attachment users.
+ */
+export interface PaperImplementationExplorationAttachmentV2Repository {
+  findExplorationAttachmentByBusinessKey(
+    businessIdempotencyKey: string,
+  ): Promise<PaperImplementationExplorationAttachmentV2Bundle | null>;
+
+  findExplorationAttachmentBySpecRevision(
+    specRevisionId: string,
+  ): Promise<PaperImplementationExplorationAttachmentV2Bundle | null>;
+
+  recordExplorationAttachmentReplay(
+    input: PaperImplementationExplorationAttachmentV2ReplayInput,
+  ): Promise<PaperImplementationExplorationAttachmentV2Bundle>;
 }
 
 export interface ExperimentFoundationV2MaterializationBundle {

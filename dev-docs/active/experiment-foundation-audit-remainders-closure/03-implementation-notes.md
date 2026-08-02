@@ -71,8 +71,17 @@
 - Added the default-false `EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED` env contract and committed-cutover composition guard. The flag remains disabled everywhere.
 - Updated OpenAPI/API index, DB context and env artifacts from their SSOTs. No named-local/staging/production database, provider/cloud operation, UI, TaskSpec, Run, result, validation or evidence writer was changed.
 
-### Phase 3B continuation
+## 2026-08-02 — Phase 3B atomic PI exploration attachment
 
-1. Add the PI-owned exact-spec attachment contract over `spec_id + spec_revision` and target project/Cycle/branch scope; begin from the shared contract and existing PI admission UoW.
-2. Server-resolve and revalidate the immutable EF revision plus active PI scope/assets/readiness, then atomically persist the attachment receipt with the normal PI revision/cells/admission/outbox commit.
-3. Prove zero-write cross-project/stale/drift/bypass failures and exact replay before proceeding to Phase 3C materialization/trust regressions.
+- Added the closed attachment contract, deterministic command hash/attachment/receipt ids, HTTP controller/route and an orchestration service that performs exact spec resolution, replay-before-readiness and exact readiness revalidation.
+- Extended the existing PI admission UoW rather than creating a second admission path. In-memory and Prisma repositories atomically persist attachment and receipt with branch/revision/cells/admission/outbox and revalidate every stored cross-binding on read.
+- Added two PI-owned additive tables in migration `20260802220000_add_pi_exploration_attachment_v2`. Composite foreign keys bind project/Cycle/branch, revision/approved-plan, admission and receipt/attachment parity; EF refs remain scalar to preserve domain ownership.
+- Added a standalone additive repository port for attachment replay so existing admission users and test doubles remain unchanged.
+- Added default-false `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED`; startup requires committed cutover and ordinary admission, while Phase 3A authoring may remain disabled.
+- Updated OpenAPI/API index, Prisma DB context and env generated artifacts. No named database was migrated, no capability was enabled and no provider/UI/TaskSpec/Run/result/validation/evidence writer changed.
+
+### Phase 3C continuation
+
+1. Drive the ordinary `WorkOrderRevisionAdmitted` relay/materialization path from a committed 3B attachment and prove exact cell/asset/readiness parity before a new PI-bound Run exists.
+2. Prove prior exploratory output, legacy/simulation identities and caller-substituted authority cannot enter result, validation or evidence paths.
+3. Route only the newly executed PI-bound lineage through existing scientific validation and Evidence Trust Gateway writers, with crash/replay/bypass zero-partial-trust assertions.

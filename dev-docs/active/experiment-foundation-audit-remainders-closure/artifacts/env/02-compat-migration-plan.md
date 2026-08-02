@@ -12,11 +12,18 @@
 - Requires coordinated rollout: no
 - Requires secret manager changes: no
 
+## Phase 3B change classification
+
+- Backward compatible: yes
+- Requires coordinated rollout: no
+- Requires secret manager changes: no
+
 ## Migration steps
 
 1. Merge the contract and generated artifacts with the Phase 3A implementation.
 2. Keep the key unset or `false`; T-134 Phase 3A does not authorize local, cloud, staging, or production enablement.
 3. A later explicit rollout decision may set the key only after the committed ExperimentFoundation v2 cutover is enabled and verified.
+4. Keep the Phase 3B attachment key unset or `false`; later enablement additionally requires PI v2 admission to be enabled.
 
 ## Rename / deprecation policy
 

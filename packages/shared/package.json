@@ -17,6 +17,7 @@
     "./research-lifecycle/experiment-foundation-v2-contracts": "./src/research-lifecycle/experiment-foundation-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-promotion-v2-contracts": "./src/research-lifecycle/experiment-foundation-promotion-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-exploration-spec-v2-contracts": "./src/research-lifecycle/experiment-foundation-exploration-spec-v2-contracts.ts",
+    "./research-lifecycle/paper-implementation-exploration-attachment-v2-contracts": "./src/research-lifecycle/paper-implementation-exploration-attachment-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-execution-v2-contracts": "./src/research-lifecycle/experiment-foundation-execution-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts": "./src/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-real-provider-v2-contracts": "./src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.ts",

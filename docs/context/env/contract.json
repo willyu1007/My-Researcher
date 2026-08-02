@@ -5,7 +5,7 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-08-02T12:43:29Z",
+  "generated_at_utc": "2026-08-02T13:47:04Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "ALIBABA_CLOUD_ACCESS_KEY_ID": {
@@ -774,6 +774,23 @@
       "default": false,
       "deprecate_after": null,
       "description": "Enable only the dedicated PaperImplementation v2 ValidationCycle closure lane (the sole first-release live path is the no-evidence closure); this switch does not gate readback, replay or draining of committed events and requires the committed cutover.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    },
+    "PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable only new PI adoption of immutable ExperimentFoundation v2 exploration-specification revisions; this switch grants no execution or evidence authority and requires both committed v2 cutover and PI v2 admission.",
       "legacy": {
         "deprecated": false,
         "replaced_by": null

@@ -6170,13 +6170,15 @@ model PaperImplementationExperimentWorkOrderBranchV2 {
   createdAt                DateTime @db.Timestamptz(6)
   updatedAt                DateTime @db.Timestamptz(6)
 
-  revisions        PaperImplementationExperimentWorkOrderRevisionV2[]  @relation("PIExperimentWorkOrderBranchRevisionsV2")
-  currentRevision  PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderCurrentRevisionV2", fields: [id, currentRevisionId, currentRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_current_exact_fkey")
-  headRevision     PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderHeadRevisionV2", fields: [id, headRevisionId, headRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_head_exact_fkey")
-  admissions       PaperImplementationExperimentWorkOrderAdmissionV2[]
-  runEvidenceUnits PaperImplementationRunEvidenceUnitV2[]
+  revisions              PaperImplementationExperimentWorkOrderRevisionV2[]  @relation("PIExperimentWorkOrderBranchRevisionsV2")
+  currentRevision        PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderCurrentRevisionV2", fields: [id, currentRevisionId, currentRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_current_exact_fkey")
+  headRevision           PaperImplementationExperimentWorkOrderRevisionV2?   @relation("PIExperimentWorkOrderHeadRevisionV2", fields: [id, headRevisionId, headRevisionSequence], references: [branchId, id, revisionSequence], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_branch_head_exact_fkey")
+  admissions             PaperImplementationExperimentWorkOrderAdmissionV2[]
+  explorationAttachments PaperImplementationExplorationSpecAttachmentV2[]
+  runEvidenceUnits       PaperImplementationRunEvidenceUnitV2[]
 
   @@unique([validationCycleId, branchKey], map: "pi_ewo_branch_cycle_key_unique")
+  @@unique([id, implementationProjectId, validationCycleId, branchKey], map: "pi_ewo_branch_attachment_scope_unique")
   @@unique([id, currentRevisionId, currentRevisionSequence], map: "pi_ewo_branch_current_exact_unique")
   @@unique([id, headRevisionId, headRevisionSequence], map: "pi_ewo_branch_head_exact_unique")
   @@index([implementationProjectId, validationCycleId], map: "pi_ewo_branch_project_cycle_idx")
@@ -6198,14 +6200,15 @@ model PaperImplementationExperimentWorkOrderRevisionV2 {
   createdByActorId               String?
   createdAt                      DateTime @db.Timestamptz(6)
 
-  branch           PaperImplementationExperimentWorkOrderBranchV2         @relation("PIExperimentWorkOrderBranchRevisionsV2", fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  parentRevision   PaperImplementationExperimentWorkOrderRevisionV2?      @relation("PIExperimentWorkOrderParentRevisionV2", fields: [branchId, parentRevisionId], references: [branchId, id], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_revision_parent_owner_fkey")
-  childRevisions   PaperImplementationExperimentWorkOrderRevisionV2[]     @relation("PIExperimentWorkOrderParentRevisionV2")
-  currentForBranch PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderCurrentRevisionV2")
-  headForBranch    PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderHeadRevisionV2")
-  cells            PaperImplementationExperimentWorkOrderRevisionCellV2[]
-  admission        PaperImplementationExperimentWorkOrderAdmissionV2?
-  runEvidenceUnits PaperImplementationRunEvidenceUnitV2[]
+  branch                PaperImplementationExperimentWorkOrderBranchV2         @relation("PIExperimentWorkOrderBranchRevisionsV2", fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentRevision        PaperImplementationExperimentWorkOrderRevisionV2?      @relation("PIExperimentWorkOrderParentRevisionV2", fields: [branchId, parentRevisionId], references: [branchId, id], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_revision_parent_owner_fkey")
+  childRevisions        PaperImplementationExperimentWorkOrderRevisionV2[]     @relation("PIExperimentWorkOrderParentRevisionV2")
+  currentForBranch      PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderCurrentRevisionV2")
+  headForBranch         PaperImplementationExperimentWorkOrderBranchV2?        @relation("PIExperimentWorkOrderHeadRevisionV2")
+  cells                 PaperImplementationExperimentWorkOrderRevisionCellV2[]
+  admission             PaperImplementationExperimentWorkOrderAdmissionV2?
+  explorationAttachment PaperImplementationExplorationSpecAttachmentV2?
+  runEvidenceUnits      PaperImplementationRunEvidenceUnitV2[]
 
   @@unique([branchId, revisionSequence], map: "pi_ewo_revision_branch_sequence_unique")
   @@unique([branchId, contentHash], map: "pi_ewo_revision_branch_content_unique")
@@ -6247,12 +6250,57 @@ model PaperImplementationExperimentWorkOrderAdmissionV2 {
   admittedByActorId      String?
   admittedAt             DateTime @db.Timestamptz(6)
 
-  branch   PaperImplementationExperimentWorkOrderBranchV2   @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  revision PaperImplementationExperimentWorkOrderRevisionV2 @relation(fields: [branchId, revisionId, approvedPlanHash], references: [branchId, id, approvedPlanHash], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_admission_revision_exact_fkey")
+  branch                PaperImplementationExperimentWorkOrderBranchV2   @relation(fields: [branchId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revision              PaperImplementationExperimentWorkOrderRevisionV2 @relation(fields: [branchId, revisionId, approvedPlanHash], references: [branchId, id, approvedPlanHash], onDelete: Restrict, onUpdate: Restrict, map: "pi_ewo_admission_revision_exact_fkey")
+  explorationAttachment PaperImplementationExplorationSpecAttachmentV2?
 
   @@unique([branchId, revisionId, approvedPlanHash], map: "pi_ewo_admission_revision_exact_unique")
+  @@unique([id, branchId, revisionId, approvedPlanHash], map: "pi_ewo_admission_attachment_exact_unique")
   @@unique([branchId, businessIdempotencyKey], map: "pi_ewo_admission_branch_business_unique")
   @@index([approvedPlanHash], map: "pi_ewo_admission_approved_plan_idx")
+}
+
+// T-134 EF-P15 Phase 3B: PI-owned adoption of one immutable EF spec revision.
+// EF identities remain exact scalar references without cross-domain foreign keys.
+model PaperImplementationExplorationSpecAttachmentV2 {
+  id                      String   @id(map: "pi_exploration_attachment_pkey")
+  specId                  String
+  specRevision            Int
+  specRevisionId          String   @unique(map: "pi_exploration_attachment_spec_revision_id_unique")
+  specContentHash         String
+  implementationProjectId String
+  validationCycleId       String
+  branchId                String
+  branchKey               String
+  revisionId              String   @unique(map: "pi_exploration_attachment_revision_unique")
+  admissionId             String   @unique(map: "pi_exploration_attachment_admission_unique")
+  approvedPlanHash        String
+  attachedAt              DateTime @db.Timestamptz(6)
+
+  branch          PaperImplementationExperimentWorkOrderBranchV2          @relation(fields: [branchId, implementationProjectId, validationCycleId, branchKey], references: [id, implementationProjectId, validationCycleId, branchKey], onDelete: Restrict, onUpdate: Restrict, map: "pi_exploration_attachment_branch_exact_fkey")
+  revision        PaperImplementationExperimentWorkOrderRevisionV2        @relation(fields: [branchId, revisionId, approvedPlanHash], references: [branchId, id, approvedPlanHash], onDelete: Restrict, onUpdate: Restrict, map: "pi_exploration_attachment_revision_exact_fkey")
+  admission       PaperImplementationExperimentWorkOrderAdmissionV2       @relation(fields: [admissionId, branchId, revisionId, approvedPlanHash], references: [id, branchId, revisionId, approvedPlanHash], onDelete: Restrict, onUpdate: Restrict, map: "pi_exploration_attachment_admission_exact_fkey")
+  commandReceipts PaperImplementationExplorationSpecAttachmentReceiptV2[]
+
+  @@unique([specId, specRevision], map: "pi_exploration_attachment_spec_exact_unique")
+  @@unique([id, specRevisionId], map: "pi_exploration_attachment_identity_unique")
+  @@unique([branchId, revisionId, approvedPlanHash], map: "pi_exploration_attachment_revision_exact_unique")
+  @@unique([admissionId, branchId, revisionId, approvedPlanHash], map: "pi_exploration_attachment_admission_exact_unique")
+  @@index([implementationProjectId, validationCycleId], map: "pi_exploration_attachment_scope_idx")
+  @@index([branchId, branchKey], map: "pi_exploration_attachment_branch_idx")
+}
+
+model PaperImplementationExplorationSpecAttachmentReceiptV2 {
+  id                     String   @id(map: "pi_exploration_attachment_receipt_pkey")
+  businessIdempotencyKey String   @unique(map: "pi_exploration_attachment_receipt_business_unique")
+  commandHash            String
+  attachmentId           String
+  specRevisionId         String
+  createdAt              DateTime @db.Timestamptz(6)
+
+  attachment PaperImplementationExplorationSpecAttachmentV2 @relation(fields: [attachmentId, specRevisionId], references: [id, specRevisionId], onDelete: Restrict, onUpdate: Restrict, map: "pi_exploration_attachment_receipt_attachment_fkey")
+
+  @@index([attachmentId], map: "pi_exploration_attachment_receipt_attachment_idx")
 }
 
 model PaperImplementationExperimentIntegrationInboxV2 {

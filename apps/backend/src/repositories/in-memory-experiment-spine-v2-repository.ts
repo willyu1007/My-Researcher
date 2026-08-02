@@ -17,6 +17,8 @@ import {
   serverHashPaperImplementationExperimentV2Cell,
   serverHashPaperImplementationExperimentV2CellPlan,
   serverHashPaperImplementationExperimentV2WorkOrderRevision,
+  serverHashPaperImplementationExplorationAttachmentCommandV2,
+  serverPaperImplementationExplorationAttachmentV2Id,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
 
@@ -31,6 +33,10 @@ import {
   type ExperimentV2RelayReleaseInput,
   type ExperimentV2RelayTerminalInput,
   type PaperImplementationExperimentSpineV2Repository,
+  type PaperImplementationExplorationAttachmentV2Repository,
+  type PaperImplementationExplorationAttachmentV2Bundle,
+  type PaperImplementationExplorationAttachmentV2CommandReceipt,
+  type PaperImplementationExplorationAttachmentV2ReplayInput,
   type PaperImplementationExperimentV2AdmissionBundle,
   type PaperImplementationExperimentV2CommitAdmissionInput,
   type PaperImplementationExperimentV2CommitHeadInput,
@@ -45,6 +51,7 @@ import {
 
 type PiFaultOperation =
   | 'commitAdmission'
+  | 'recordExplorationAttachmentReplay'
   | 'recordInboxOutcome'
   | 'commitHeadAdvance'
   | 'claimOutbox'
@@ -85,6 +92,12 @@ interface PiState {
   revisionBySequence: Map<string, string>;
   revisionByContent: Map<string, string>;
   admissionsByRevision: Map<string, string>;
+  explorationAttachmentsById: Map<string, PaperImplementationExplorationAttachmentV2Bundle['attachment']>;
+  explorationAttachmentBySpecRevision: Map<string, string>;
+  explorationAttachmentReceiptsByBusiness: Map<
+    string,
+    PaperImplementationExplorationAttachmentV2CommandReceipt
+  >;
   inboxesByEvent: Map<string, PaperImplementationExperimentIntegrationInboxV2>;
   inboxesByBusiness: Map<string, PaperImplementationExperimentIntegrationInboxV2>;
   inboxSourceEvents: Map<string, StoredExperimentV2EventColumns>;
@@ -133,6 +146,9 @@ function emptyPiState(): PiState {
     revisionBySequence: new Map(),
     revisionByContent: new Map(),
     admissionsByRevision: new Map(),
+    explorationAttachmentsById: new Map(),
+    explorationAttachmentBySpecRevision: new Map(),
+    explorationAttachmentReceiptsByBusiness: new Map(),
     inboxesByEvent: new Map(),
     inboxesByBusiness: new Map(),
     inboxSourceEvents: new Map(),
@@ -151,6 +167,11 @@ function clonePiState(source: PiState): PiState {
     revisionBySequence: new Map(source.revisionBySequence),
     revisionByContent: new Map(source.revisionByContent),
     admissionsByRevision: new Map(source.admissionsByRevision),
+    explorationAttachmentsById: cloneMap(source.explorationAttachmentsById),
+    explorationAttachmentBySpecRevision: new Map(source.explorationAttachmentBySpecRevision),
+    explorationAttachmentReceiptsByBusiness: cloneMap(
+      source.explorationAttachmentReceiptsByBusiness,
+    ),
     inboxesByEvent: cloneMap(source.inboxesByEvent),
     inboxesByBusiness: cloneMap(source.inboxesByBusiness),
     inboxSourceEvents: cloneMap(source.inboxSourceEvents),
@@ -200,6 +221,75 @@ function revisionSequenceKey(branchId: string, sequence: number): string {
 
 function revisionContentKey(branchId: string, contentHash: string): string {
   return `${branchId}\u0000${contentHash}`;
+}
+
+function attachmentCommandContent(
+  attachment: PaperImplementationExplorationAttachmentV2Bundle['attachment'],
+) {
+  return {
+    spec_id: attachment.spec_id,
+    spec_revision: attachment.spec_revision,
+    spec_revision_id: attachment.spec_revision_id,
+    spec_content_hash: attachment.spec_content_hash,
+    implementation_project_id: attachment.implementation_project_id,
+    validation_cycle_id: attachment.validation_cycle_id,
+    branch_key: attachment.branch_key,
+  };
+}
+
+function attachmentMatchesExpected(
+  attachment: PaperImplementationExplorationAttachmentV2Bundle['attachment'],
+  expected: PaperImplementationExplorationAttachmentV2ReplayInput['expected_attachment'],
+): boolean {
+  return attachment.spec_id === expected.spec_id
+    && attachment.spec_revision === expected.spec_revision
+    && attachment.spec_revision_id === expected.spec_revision_id
+    && attachment.spec_content_hash === expected.spec_content_hash
+    && attachment.implementation_project_id === expected.implementation_project_id
+    && attachment.validation_cycle_id === expected.validation_cycle_id
+    && attachment.branch_key === expected.branch_key
+    && attachment.approved_plan_hash === expected.approved_plan_hash;
+}
+
+function attachmentExpected(
+  attachment: PaperImplementationExplorationAttachmentV2Bundle['attachment'],
+): PaperImplementationExplorationAttachmentV2ReplayInput['expected_attachment'] {
+  return {
+    spec_id: attachment.spec_id,
+    spec_revision: attachment.spec_revision,
+    spec_revision_id: attachment.spec_revision_id,
+    spec_content_hash: attachment.spec_content_hash,
+    implementation_project_id: attachment.implementation_project_id,
+    validation_cycle_id: attachment.validation_cycle_id,
+    branch_key: attachment.branch_key,
+    approved_plan_hash: attachment.approved_plan_hash,
+  };
+}
+
+function assertAttachmentReceiptIntegrity(
+  attachment: PaperImplementationExplorationAttachmentV2Bundle['attachment'],
+  receipt: PaperImplementationExplorationAttachmentV2CommandReceipt,
+): void {
+  const commandContent = attachmentCommandContent(attachment);
+  if (
+    attachment.spec_revision < 1
+    || attachment.attachment_id !== serverPaperImplementationExplorationAttachmentV2Id(
+      'attachment',
+      commandContent,
+    )
+    || receipt.receipt_id !== serverPaperImplementationExplorationAttachmentV2Id('receipt', {
+      business_idempotency_key: receipt.business_idempotency_key,
+    })
+    || receipt.command_hash
+      !== serverHashPaperImplementationExplorationAttachmentCommandV2(commandContent)
+    || receipt.attachment_id !== attachment.attachment_id
+    || receipt.spec_revision_id !== attachment.spec_revision_id
+  ) {
+    throw new ExperimentSpineV2RepositoryConstraintError(
+      'ADMISSION_IDEMPOTENCY_CONFLICT',
+      'Exploration attachment receipt does not match its exact command and attachment.',
+    );
+  }
 }
 
 function inboxEventKey(consumer: string, eventId: string): string {
@@ -677,7 +767,8 @@ function verifyInMemoryProcessedHeadReplayState(
  * and publishes it only after all invariant checks and injected faults pass.
  */
 export class InMemoryPaperImplementationExperimentSpineV2Repository
-implements PaperImplementationExperimentSpineV2Repository {
+implements PaperImplementationExperimentSpineV2Repository,
+PaperImplementationExplorationAttachmentV2Repository {
   private state = emptyPiState();
   private transactionTail: Promise<void> = Promise.resolve();
   private readonly faults = new Map<PiFaultOperation, Error[]>();
@@ -701,6 +792,10 @@ implements PaperImplementationExperimentSpineV2Repository {
       branches: [...this.state.branchesById.values()].map(clone),
       admission_bundles: [...this.state.bundlesByRevision.values()].map((bundle) =>
         this.withCurrentBranch(bundle)),
+      exploration_attachments: [...this.state.explorationAttachmentsById.values()].map(clone),
+      exploration_attachment_receipts: [
+        ...this.state.explorationAttachmentReceiptsByBusiness.values(),
+      ].map(clone),
       inboxes: [...this.state.inboxesByEvent.values()].map(clone),
       outboxes: [...this.state.outboxes.values()].map(relayRecordSnapshot),
     };
@@ -727,6 +822,70 @@ implements PaperImplementationExperimentSpineV2Repository {
     return bundle?.revision.branch_id === branchId ? this.withCurrentBranch(bundle) : null;
   }
 
+  async findExplorationAttachmentByBusinessKey(businessIdempotencyKey: string) {
+    const receipt = this.state.explorationAttachmentReceiptsByBusiness.get(
+      businessIdempotencyKey,
+    );
+    if (!receipt) return null;
+    const bundle = this.explorationAttachmentBundle(this.state, receipt.attachment_id);
+    if (!bundle) {
+      throw new ExperimentSpineV2RepositoryConstraintError(
+        'BRANCH_REVISION_CONFLICT',
+        'Exploration attachment receipt lost its exact attachment.',
+      );
+    }
+    assertAttachmentReceiptIntegrity(bundle.attachment, receipt);
+    return bundle;
+  }
+
+  async findExplorationAttachmentBySpecRevision(specRevisionId: string) {
+    const attachmentId = this.state.explorationAttachmentBySpecRevision.get(specRevisionId);
+    return attachmentId ? this.explorationAttachmentBundle(this.state, attachmentId) : null;
+  }
+
+  async recordExplorationAttachmentReplay(
+    input: PaperImplementationExplorationAttachmentV2ReplayInput,
+  ) {
+    return this.transact('recordExplorationAttachmentReplay', (state) => {
+      const existingReceipt = state.explorationAttachmentReceiptsByBusiness.get(
+        input.command_receipt.business_idempotency_key,
+      );
+      if (existingReceipt) {
+        const existing = this.explorationAttachmentBundle(state, existingReceipt.attachment_id);
+        if (
+          !existing
+          || !attachmentMatchesExpected(existing.attachment, input.expected_attachment)
+          || existingReceipt.command_hash !== input.command_receipt.command_hash
+        ) {
+          throw new ExperimentSpineV2RepositoryConstraintError(
+            'ADMISSION_IDEMPOTENCY_CONFLICT',
+            'Exploration attachment idempotency key was reused with changed scope or content.',
+          );
+        }
+        assertAttachmentReceiptIntegrity(existing.attachment, existingReceipt);
+        return existing;
+      }
+      const attachmentId = state.explorationAttachmentBySpecRevision.get(
+        input.expected_attachment.spec_revision_id,
+      );
+      const existing = attachmentId
+        ? this.explorationAttachmentBundle(state, attachmentId)
+        : null;
+      if (!existing || !attachmentMatchesExpected(existing.attachment, input.expected_attachment)) {
+        throw new ExperimentSpineV2RepositoryConstraintError(
+          'BRANCH_SCOPE_CONFLICT',
+          'Exploration specification revision is not attached to this exact PI scope and plan.',
+        );
+      }
+      assertAttachmentReceiptIntegrity(existing.attachment, input.command_receipt);
+      state.explorationAttachmentReceiptsByBusiness.set(
+        input.command_receipt.business_idempotency_key,
+        clone(input.command_receipt),
+      );
+      return existing;
+    });
+  }
+
   async commitAdmission(input: PaperImplementationExperimentV2CommitAdmissionInput) {
     return this.transact('commitAdmission', (state) => {
       const scopeKey = branchKey(
@@ -738,12 +897,71 @@ implements PaperImplementationExperimentSpineV2Repository {
       const existingBranch = existingBranchId
         ? state.branchesById.get(existingBranchId)
         : undefined;
+      if (input.exploration_attachment) {
+        const { attachment, command_receipt: receipt } = input.exploration_attachment;
+        if (
+          attachment.branch_id !== input.branch.branch_id
+          || attachment.work_order_revision_id !== input.revision.work_order_revision_id
+          || attachment.admission_id !== input.admission.admission_id
+          || attachment.approved_plan_hash !== input.revision.approved_plan_hash
+        ) {
+          throw new ExperimentSpineV2RepositoryConstraintError(
+            'BRANCH_REVISION_CONFLICT',
+            'Exploration attachment does not bind the candidate admission exactly.',
+          );
+        }
+        assertAttachmentReceiptIntegrity(attachment, receipt);
+        const receiptReplay = state.explorationAttachmentReceiptsByBusiness.get(
+          receipt.business_idempotency_key,
+        );
+        if (receiptReplay) {
+          const replay = this.explorationAttachmentBundle(state, receiptReplay.attachment_id);
+          if (
+            !replay
+            || !attachmentMatchesExpected(replay.attachment, attachmentExpected(attachment))
+            || receiptReplay.command_hash !== receipt.command_hash
+          ) {
+            throw new ExperimentSpineV2RepositoryConstraintError(
+              'ADMISSION_IDEMPOTENCY_CONFLICT',
+              'Exploration attachment idempotency key changed scope or content.',
+            );
+          }
+          assertAttachmentReceiptIntegrity(replay.attachment, receiptReplay);
+          return this.withCurrentBranch(replay, state);
+        }
+        const attachmentReplayId = state.explorationAttachmentBySpecRevision.get(
+          attachment.spec_revision_id,
+        );
+        if (attachmentReplayId) {
+          const replay = this.explorationAttachmentBundle(state, attachmentReplayId);
+          if (!replay || !attachmentMatchesExpected(
+            replay.attachment,
+            attachmentExpected(attachment),
+          )) {
+            throw new ExperimentSpineV2RepositoryConstraintError(
+              'BRANCH_SCOPE_CONFLICT',
+              'Exploration specification revision is already attached to another PI scope.',
+            );
+          }
+          state.explorationAttachmentReceiptsByBusiness.set(
+            receipt.business_idempotency_key,
+            clone(receipt),
+          );
+          return this.withCurrentBranch(replay, state);
+        }
+      }
       const businessKey = admissionBusinessKey(
         existingBranch?.branch_id ?? input.branch.branch_id,
         input.admission.business_idempotency_key,
       );
       const replayRevisionId = state.admissionByBusiness.get(businessKey);
       if (replayRevisionId) {
+        if (input.exploration_attachment) {
+          throw new ExperimentSpineV2RepositoryConstraintError(
+            'ADMISSION_IDEMPOTENCY_CONFLICT',
+            'Exploration attachment business key is already owned by a direct admission.',
+          );
+        }
         const replay = state.bundlesByRevision.get(replayRevisionId)!;
         if (
           replay.branch.implementation_project_id !== input.branch.implementation_project_id
@@ -869,6 +1087,30 @@ implements PaperImplementationExperimentSpineV2Repository {
         input.revision.work_order_revision_id,
         input.admission.admission_id,
       );
+      if (input.exploration_attachment) {
+        const { attachment, command_receipt: receipt } = input.exploration_attachment;
+        if (
+          state.explorationAttachmentsById.has(attachment.attachment_id)
+          || state.explorationAttachmentBySpecRevision.has(attachment.spec_revision_id)
+          || state.explorationAttachmentReceiptsByBusiness.has(
+            receipt.business_idempotency_key,
+          )
+        ) {
+          throw new ExperimentSpineV2RepositoryConstraintError(
+            'ADMISSION_IDEMPOTENCY_CONFLICT',
+            'Exploration attachment uniqueness conflict.',
+          );
+        }
+        state.explorationAttachmentsById.set(attachment.attachment_id, clone(attachment));
+        state.explorationAttachmentBySpecRevision.set(
+          attachment.spec_revision_id,
+          attachment.attachment_id,
+        );
+        state.explorationAttachmentReceiptsByBusiness.set(
+          receipt.business_idempotency_key,
+          clone(receipt),
+        );
+      }
       return this.withCurrentBranch(bundle, state);
     });
   }
@@ -1053,6 +1295,33 @@ implements PaperImplementationExperimentSpineV2Repository {
     return {
       ...clone(bundle),
       branch: clone(state.branchesById.get(bundle.branch.branch_id) ?? bundle.branch),
+    };
+  }
+
+  private explorationAttachmentBundle(
+    state: PiState,
+    attachmentId: string,
+  ): PaperImplementationExplorationAttachmentV2Bundle | null {
+    const attachment = state.explorationAttachmentsById.get(attachmentId);
+    if (!attachment) return null;
+    const admission = state.bundlesByRevision.get(attachment.work_order_revision_id);
+    if (
+      !admission
+      || admission.admission.admission_id !== attachment.admission_id
+      || admission.revision.approved_plan_hash !== attachment.approved_plan_hash
+      || admission.branch.implementation_project_id !== attachment.implementation_project_id
+      || admission.branch.validation_cycle_id !== attachment.validation_cycle_id
+      || admission.branch.branch_id !== attachment.branch_id
+      || admission.branch.branch_key !== attachment.branch_key
+    ) {
+      throw new ExperimentSpineV2RepositoryConstraintError(
+        'BRANCH_REVISION_CONFLICT',
+        'Exploration attachment no longer resolves to its exact admitted PI revision.',
+      );
+    }
+    return {
+      ...this.withCurrentBranch(admission, state),
+      attachment: clone(attachment),
     };
   }
 

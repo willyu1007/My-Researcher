@@ -15,11 +15,17 @@
 - Type changes: none
 - Default changes: none
 
+## Phase 3B high-level change list
+
+- Added: `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED`
+- Removed, renamed, deprecated, type/default changes: none
+
 ## Detailed notes
 
 - The added key is a non-secret optional boolean with default `false`, applicable to every environment.
 - It gates only immutable ExperimentFoundation v2 exploration-specification revision intake, grants no execution or evidence authority, and still requires the committed v2 cutover.
 - The addition is backward compatible because an unset key preserves the disabled behavior.
+- The Phase 3B key gates only new PI adoption of immutable exploration specifications. It requires both committed v2 cutover and PI v2 admission, and grants no execution or evidence authority.
 
 ## Security notes
 

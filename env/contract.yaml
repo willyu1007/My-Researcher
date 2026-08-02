@@ -128,6 +128,11 @@ variables:
     required: false
     default: false
     description: Enable only new PaperImplementation experiment v2 admissions; this switch does not gate replay or draining of already committed PI/EF integration events.
+  PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only new PI adoption of immutable ExperimentFoundation v2 exploration-specification revisions; this switch grants no execution or evidence authority and requires both committed v2 cutover and PI v2 admission.
   PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED:
     type: bool
     required: false

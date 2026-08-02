@@ -5,6 +5,7 @@ import { ExperimentFoundationExecutionV2Controller } from './controllers/experim
 import { ExperimentFoundationRealProviderV2Controller } from './controllers/experiment-foundation-real-provider-v2-controller.js';
 import { ExperimentFoundationPromotionV2Controller } from './controllers/experiment-foundation-promotion-v2-controller.js';
 import { ExperimentFoundationExplorationSpecV2Controller } from './controllers/experiment-foundation-exploration-spec-v2-controller.js';
+import { PaperImplementationExplorationAttachmentV2Controller } from './controllers/paper-implementation-exploration-attachment-v2-controller.js';
 import { ExperimentFoundationController } from './controllers/experiment-foundation-controller.js';
 import { LiteratureAcquisitionSettingsController } from './controllers/literature-acquisition-settings-controller.js';
 import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
@@ -131,6 +132,7 @@ import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerPaperImplementationAgentActionsV2Routes } from './routes/paper-implementation-agent-actions-v2-routes.js';
 import { registerPaperImplementationExperimentLineageV2Routes } from './routes/paper-implementation-experiment-lineage-v2-routes.js';
 import { registerPaperImplementationExperimentV2Routes } from './routes/paper-implementation-experiment-v2-routes.js';
+import { registerPaperImplementationExplorationAttachmentV2Routes } from './routes/paper-implementation-exploration-attachment-v2-routes.js';
 import { registerPaperImplementationRoutes } from './routes/paper-implementation-routes.js';
 import { registerResearchLifecycleRoutes } from './routes/research-lifecycle-routes.js';
 import { registerTitleCardManagementRoutes } from './routes/title-card-management.js';
@@ -162,6 +164,7 @@ import type { PaperImplementationHumanConfirmationRepository } from './repositor
 import type {
   ExperimentFoundationExperimentSpineV2Repository,
   PaperImplementationExperimentSpineV2Repository,
+  PaperImplementationExplorationAttachmentV2Repository,
 } from './repositories/experiment-spine-v2.repository.js';
 import type { PaperImplementationValidationCycleClosureV2Repository } from './repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import type { PaperImplementationCycleReadinessV2Repository } from './repositories/paper-implementation-cycle-readiness-v2.repository.js';
@@ -214,6 +217,7 @@ import {
 import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
 import { ExperimentFoundationPromotionV2Service } from './services/experiment-foundation-promotion-v2-service.js';
 import { ExperimentFoundationExplorationSpecV2Service } from './services/experiment-foundation-exploration-spec-v2-service.js';
+import { PaperImplementationExplorationAttachmentV2Service } from './services/paper-implementation-exploration-attachment-v2-service.js';
 import { ExperimentFoundationV2ScientificValidationService } from './services/experiment-foundation-v2-scientific-validation-service.js';
 import { ExperimentV2IntegrationRelayScheduler } from './services/experiment-v2-integration-relay-scheduler.js';
 import { ExperimentV2IntegrationRelayService } from './services/experiment-v2-integration-relay-service.js';
@@ -362,6 +366,7 @@ export type BuildAppOptions = {
   experimentFoundationScientificValidationV2Repository?: ExperimentFoundationScientificValidationV2Repository;
   paperImplementationExperimentV2ScopeReader?: PaperImplementationExperimentV2ScopeReader;
   paperImplementationExperimentV2AdmissionEnabled?: () => boolean;
+  paperImplementationExperimentV2ExplorationAttachmentEnabled?: () => boolean;
   paperImplementationValidationCycleClosureV2Enabled?: () => boolean;
   paperImplementationExperimentV2CutoverCommitted?: () => boolean;
   experimentFoundationV2WorkflowSimulationEnabled?: () => boolean;
@@ -437,6 +442,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2AdmissionEnabled =
     options.paperImplementationExperimentV2AdmissionEnabled?.()
     ?? isPaperImplementationExperimentV2AdmissionEnabled();
+  const experimentV2ExplorationAttachmentEnabled =
+    options.paperImplementationExperimentV2ExplorationAttachmentEnabled?.()
+    ?? isPaperImplementationExperimentV2ExplorationAttachmentEnabled();
   const experimentV2CutoverCommitted =
     options.paperImplementationExperimentV2CutoverCommitted?.()
     ?? isPaperImplementationExperimentV2CutoverCommitted();
@@ -465,6 +473,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? isPaperImplementationExperimentV2CycleClosureEnabled();
   assertPaperImplementationExperimentV2CutoverConfig({
     admissionEnabled: experimentV2AdmissionEnabled,
+    explorationAttachmentEnabled: experimentV2ExplorationAttachmentEnabled,
     cutoverCommitted: experimentV2CutoverCommitted,
     workflowSimulationEnabled: experimentV2WorkflowSimulationEnabled,
     realProviderIntakeEnabled: experimentV2RealProviderIntakeEnabled,
@@ -807,6 +816,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const paperImplementationExperimentV2AdmissionService =
     new PaperImplementationExperimentV2AdmissionService({
       repository: paperImplementationExperimentSpineV2Repository,
+      explorationAttachmentRepository: isExplorationAttachmentRepository(
+        paperImplementationExperimentSpineV2Repository,
+      )
+        ? paperImplementationExperimentSpineV2Repository
+        : undefined,
       scopeReader: paperImplementationExperimentV2ScopeReader,
       admissionEnabled: () => (
         hasDefaultDurableExperimentV2Composition
@@ -814,6 +828,30 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       ),
       cycleClosureLookup: paperImplementationValidationCycleClosureV2Repository,
     });
+  const paperImplementationExplorationAttachmentV2Service =
+    new PaperImplementationExplorationAttachmentV2Service({
+      specReader: experimentFoundationExplorationSpecV2Repository,
+      readinessRevalidator: {
+        async revalidate(input) {
+          const result = await experimentFoundationV2Service.revalidateReadiness({
+            target: input.target,
+            readiness_attestation_id: input.readiness_attestation_id,
+            expected_dependencies: input.ordered_dependencies,
+          });
+          return result.attestation.status === 'passed'
+            && result.attestation.attestation_hash === input.readiness_attestation_hash;
+        },
+      },
+      admission: paperImplementationExperimentV2AdmissionService,
+      enabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2ExplorationAttachmentEnabled
+      ),
+    });
+  const paperImplementationExplorationAttachmentV2Controller =
+    new PaperImplementationExplorationAttachmentV2Controller(
+      paperImplementationExplorationAttachmentV2Service,
+    );
   const paperImplementationValidationCycleClosureV2Service =
     new PaperImplementationValidationCycleClosureV2Service({
       repository: paperImplementationValidationCycleClosureV2Repository,
@@ -1650,6 +1688,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       instance,
       paperImplementationExperimentV2Controller,
     );
+    await registerPaperImplementationExplorationAttachmentV2Routes(
+      instance,
+      paperImplementationExplorationAttachmentV2Controller,
+    );
     await registerPaperImplementationExperimentLineageV2Routes(
       instance,
       paperImplementationExperimentLineageV2Controller,
@@ -2255,6 +2297,12 @@ function isPaperImplementationExperimentV2AdmissionEnabled(): boolean {
   );
 }
 
+function isPaperImplementationExperimentV2ExplorationAttachmentEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED',
+  );
+}
+
 function isPaperImplementationExperimentV2CutoverCommitted(): boolean {
   return parseExperimentV2BooleanEnvironmentVariable(
     'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED',
@@ -2303,8 +2351,19 @@ function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
   );
 }
 
+function isExplorationAttachmentRepository(
+  repository: PaperImplementationExperimentSpineV2Repository,
+): repository is PaperImplementationExperimentSpineV2Repository
+  & PaperImplementationExplorationAttachmentV2Repository {
+  const candidate = repository as Partial<PaperImplementationExplorationAttachmentV2Repository>;
+  return typeof candidate.findExplorationAttachmentByBusinessKey === 'function'
+    && typeof candidate.findExplorationAttachmentBySpecRevision === 'function'
+    && typeof candidate.recordExplorationAttachmentReplay === 'function';
+}
+
 type ExperimentV2BooleanEnvironmentVariable =
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED'
+  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED'
   | 'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED'
@@ -2335,6 +2394,7 @@ function parseExperimentV2BooleanEnvironmentVariable(
 
 function assertPaperImplementationExperimentV2CutoverConfig(input: {
   admissionEnabled: boolean;
+  explorationAttachmentEnabled: boolean;
   cutoverCommitted: boolean;
   workflowSimulationEnabled: boolean;
   realProviderIntakeEnabled: boolean;
@@ -2344,10 +2404,22 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   explorationSpecEnabled: boolean;
   cycleClosureEnabled: boolean;
 }): void {
+  if (input.explorationAttachmentEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
   if (input.admissionEnabled && !input.cutoverCommitted) {
     throw new Error(
       'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.explorationAttachmentEnabled && !input.admissionEnabled) {
+    throw new Error(
+      'PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED=true',
     );
   }
   if (input.cycleClosureEnabled && !input.cutoverCommitted) {

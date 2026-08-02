@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-02T12:49:34.114Z",
+  "updatedAt": "2026-08-02T14:03:09.097Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -23063,6 +23063,15 @@
           ]
         },
         {
+          "field": "explorationAttachment",
+          "to": "PaperImplementationExplorationSpecAttachmentV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "revision",
           "to": "PaperImplementationExperimentWorkOrderRevisionV2",
           "optional": false,
@@ -23107,6 +23116,17 @@
           ],
           "name": null,
           "map": "pi_ewo_admission_revision_exact_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ],
+          "name": null,
+          "map": "pi_ewo_admission_attachment_exact_unique"
         }
       ]
     },
@@ -23342,6 +23362,15 @@
           ]
         },
         {
+          "field": "explorationAttachments",
+          "to": "PaperImplementationExplorationSpecAttachmentV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "headRevision",
           "to": "PaperImplementationExperimentWorkOrderRevisionV2",
           "optional": true,
@@ -23422,6 +23451,17 @@
           ],
           "name": null,
           "map": "pi_ewo_branch_head_exact_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "implementationProjectId",
+            "validationCycleId",
+            "branchKey"
+          ],
+          "name": null,
+          "map": "pi_ewo_branch_attachment_scope_unique"
         },
         {
           "type": "unique",
@@ -23806,6 +23846,15 @@
           "references": []
         },
         {
+          "field": "explorationAttachment",
+          "to": "PaperImplementationExplorationSpecAttachmentV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
           "field": "headForBranch",
           "to": "PaperImplementationExperimentWorkOrderBranchV2",
           "optional": true,
@@ -23903,6 +23952,381 @@
           ],
           "name": null,
           "map": "pi_ewo_revision_branch_sequence_unique"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationExplorationSpecAttachmentReceiptV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "attachmentId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "businessIdempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "commandHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "attachment",
+          "to": "PaperImplementationExplorationSpecAttachmentV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "attachmentId",
+            "specRevisionId"
+          ],
+          "references": [
+            "id",
+            "specRevisionId"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "attachmentId"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_receipt_attachment_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationExplorationSpecAttachmentV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "admissionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "approvedPlanHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "attachedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "branchId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "branchKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "revisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specContentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specRevision",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationCycleId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "admission",
+          "to": "PaperImplementationExperimentWorkOrderAdmissionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "admissionId",
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ],
+          "references": [
+            "id",
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ]
+        },
+        {
+          "field": "branch",
+          "to": "PaperImplementationExperimentWorkOrderBranchV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "branchId",
+            "implementationProjectId",
+            "validationCycleId",
+            "branchKey"
+          ],
+          "references": [
+            "id",
+            "implementationProjectId",
+            "validationCycleId",
+            "branchKey"
+          ]
+        },
+        {
+          "field": "commandReceipts",
+          "to": "PaperImplementationExplorationSpecAttachmentReceiptV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "revision",
+          "to": "PaperImplementationExperimentWorkOrderRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ],
+          "references": [
+            "branchId",
+            "id",
+            "approvedPlanHash"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "branchId",
+            "branchKey"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_branch_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "validationCycleId"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_scope_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "admissionId",
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_admission_exact_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "branchId",
+            "revisionId",
+            "approvedPlanHash"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_revision_exact_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "specRevisionId"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_identity_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "specId",
+            "specRevision"
+          ],
+          "name": null,
+          "map": "pi_exploration_attachment_spec_exact_unique"
         }
       ]
     },

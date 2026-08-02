@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14, Phase 2 EF-P06 and Phase 3A EF-P15 immutable exploration-specification intake are implemented and verified. Phase 3B/3C and Phase 4 have not started.
-- Next step: implement Phase 3B: the PI-owned exact-spec attachment command and atomic attachment/admission seam, without granting execution or evidence authority at attachment time.
+- Current phase: Phase 1 EF-P14, Phase 2 EF-P06 and Phase 3A/3B EF-P15 are implemented and verified. Phase 3C and Phase 4 have not started.
+- Next step: execute Phase 3C trust/bypass verification across the existing materialization, new PI-bound execution, scientific validation and Evidence Trust Gateway path; add no second execution or evidence writer.
 
 ## Goal
 
