@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14, Phase 2 EF-P06 and Phase 3A/3B EF-P15 are implemented and verified. Phase 3C and Phase 4 have not started.
-- Next step: execute Phase 3C trust/bypass verification across the existing materialization, new PI-bound execution, scientific validation and Evidence Trust Gateway path; add no second execution or evidence writer.
+- Current phase: Phase 1 EF-P14, Phase 2 EF-P06 and all Phase 3 EF-P15 slices are implemented and verified. Phase 4 has not started.
+- Next step: discuss and authorize Phase 4 EF-P21 backend project-scoped semantic retrieval before implementation; structured lineage remains the complete fallback and control/trust authority.
 
 ## Goal
 
@@ -33,7 +33,7 @@ Close exactly four previously open Experiment Foundation audit findings without 
 
 - [x] EF-P14: unbound bootstrap fails before PI writes; bound bootstrap is idempotent; existing null-bound rows cannot enter bootstrap replay/project reads and receive the explicit `LEGACY_RECORD_NOT_ELIGIBLE` diagnostics-only classification.
 - [x] EF-P06: a single server-owned transaction converges promotion decision, canonical asset, Candidate and outbox state; exact replay is zero-new and conflicts fail closed.
-- [ ] EF-P15: standalone EF output remains non-paper-trusted until an explicit WorkOrder attachment re-resolves project, Cycle, revision, Run, readiness and validation identity; cross-project and bypass paths are zero-write rejected.
+- [x] EF-P15: standalone EF output remains non-paper-trusted until an explicit WorkOrder attachment re-resolves project, Cycle, revision, Run, readiness and validation identity; cross-project and bypass paths are zero-write rejected.
 - [ ] EF-P21: authorization and project filters run before semantic ranking; deterministic lineage documents bind source revision/hash; stale hits are dropped; index failure falls back to structured lineage.
 - [ ] The four paths reuse existing PI/EF authority boundaries and introduce no generic trust writer, manual internal ID/hash workflow or second truth.
 - [ ] Required relational, API, regression, context and governance verification passes with capabilities default off.

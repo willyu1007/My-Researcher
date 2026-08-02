@@ -3,6 +3,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import test from 'node:test';
 
 import { Prisma, PrismaClient } from '@prisma/client';
+import type {
+  ExperimentFoundationV2ArtifactContractRuleV1,
+  ExperimentFoundationV2MetricContractRuleV1,
+  ExperimentFoundationV2RequiredRuleV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import {
   EXPERIMENT_FOUNDATION_EVIDENCE_CANDIDATE_QUALIFIED_EVENT_V2,
   EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
@@ -28,18 +33,25 @@ import {
   requireDisposablePostgresDatabaseIdentity,
 } from '../../test-support/disposable-postgres-test-database.js';
 import { buildExperimentFoundationD19TypedFixture } from '../../services/experiment-foundation-d19-fixture.js';
+import { ExperimentFoundationExplorationSpecV2Service } from '../../services/experiment-foundation-exploration-spec-v2-service.js';
 import { ExperimentFoundationExecutionV2Service } from '../../services/experiment-foundation-execution-v2-service.js';
 import { ExperimentFoundationService } from '../../services/experiment-foundation-service.js';
 import { ExperimentFoundationV2AcknowledgementService } from '../../services/experiment-foundation-v2-acknowledgement-service.js';
 import { ExperimentFoundationV2MaterializationService } from '../../services/experiment-foundation-v2-materialization-service.js';
+import {
+  ExperimentFoundationV2ScientificValidationService,
+  type RecordExperimentResultV2Input,
+} from '../../services/experiment-foundation-v2-scientific-validation-service.js';
 import { ExperimentFoundationV2Service } from '../../services/experiment-foundation-v2-service.js';
 import { ExperimentV2IntegrationRelayService } from '../../services/experiment-v2-integration-relay-service.js';
 import { PaperImplementationCycleReadinessV2Service } from '../../services/paper-implementation-cycle-readiness-v2-service.js';
 import { PaperImplementationEvidenceTrustGatewayService } from '../../services/paper-implementation-evidence-trust-gateway-service.js';
+import { PaperImplementationExplorationAttachmentV2Service } from '../../services/paper-implementation-exploration-attachment-v2-service.js';
 import { PaperImplementationExperimentV2AdmissionService } from '../../services/paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from '../../services/paper-implementation-experiment-v2-head-service.js';
 import { PaperImplementationValidationCycleClosureV2Service } from '../../services/paper-implementation-validation-cycle-closure-v2-service.js';
 import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
+import { PrismaExperimentFoundationExplorationSpecV2Repository } from './prisma-experiment-foundation-exploration-spec-v2-repository.js';
 import { PrismaExperimentFoundationRepository } from './prisma-experiment-foundation-repository.js';
 import { PrismaExperimentFoundationScientificValidationV2Repository } from './prisma-experiment-foundation-scientific-validation-v2-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment-foundation-spine-v2-repository.js';
@@ -74,6 +86,10 @@ interface AcknowledgedRunFixture {
   foundationService: ExperimentFoundationV2Service;
   piRepository: PrismaPaperImplementationExperimentSpineV2Repository;
   efRepository: PrismaExperimentFoundationSpineV2Repository;
+}
+
+interface AttachedAcknowledgedRunFixture extends AcknowledgedRunFixture {
+  attachmentWorkOrderRevisionId: string;
 }
 
 type AcknowledgedRunSeedContext = Omit<
@@ -493,6 +509,140 @@ test(
   },
 );
 
+test(
+  'T-134 Phase 3C trusts only a newly materialized PI Run from an exploration attachment',
+  { skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON, timeout: 240_000 },
+  async () => {
+    const { prisma } = await openPackCPiDatabase();
+    try {
+      const fixture = await seedAttachedAcknowledgedRun(prisma, 'phase3c-trust');
+      assert.deepEqual(await attachedRunCounts(prisma, fixture), {
+        taskSpecs: fixture.admissionRequest.exact_cells.length,
+        runs: 1,
+        results: 0,
+        validationReports: 0,
+        evidenceCandidates: 0,
+        evidenceUnits: 0,
+      });
+
+      const scientificRepository = new PrismaExperimentFoundationScientificValidationV2Repository(
+        prisma,
+      );
+      const scientificService = new ExperimentFoundationV2ScientificValidationService({
+        repository: scientificRepository,
+        enabled: () => true,
+        now: () => FIXED_NOW,
+      });
+      const realAttemptIds = await seedSucceededRealAttempts(prisma, fixture);
+      const callerSubstituted = await scientificResultInput(
+        scientificRepository,
+        fixture,
+        realAttemptIds,
+        1,
+      );
+      callerSubstituted.execution_attempt_id = `${fixture.namespace}:caller-substituted-attempt`;
+      await assert.rejects(
+        scientificService.recordExperimentResult(callerSubstituted),
+        appReason('VALIDATION_SUBJECT_INCOMPLETE'),
+      );
+      assert.equal(await prisma.experimentFoundationExperimentResultV2.count({
+        where: { runId: fixture.runId },
+      }), 0);
+
+      for (let ordinal = 1; ordinal <= realAttemptIds.length; ordinal += 1) {
+        await scientificService.recordExperimentResult(await scientificResultInput(
+          scientificRepository,
+          fixture,
+          realAttemptIds,
+          ordinal,
+        ));
+      }
+      const validated = await scientificService.validateScientificBatch({
+        run_id: fixture.runId,
+        expected_run_manifest_hash: fixture.runManifestHash,
+        idempotency_key: `${fixture.namespace}:scientific-validation`,
+      });
+      assert.equal(validated.report.status, 'passed');
+      assert.ok(validated.evidence_candidate);
+      assert.deepEqual(await gatewayCounts(prisma, fixture.validationCycleId), {
+        inboxes: 0,
+        evidenceUnits: 0,
+        traceManifests: 0,
+        registeredOutboxes: 0,
+      });
+
+      await drainEvidenceGateway(prisma, fixture);
+      assert.deepEqual(await gatewayCounts(prisma, fixture.validationCycleId), {
+        inboxes: 1,
+        evidenceUnits: 1,
+        traceManifests: 1,
+        registeredOutboxes: 1,
+      });
+      const evidenceUnit = await prisma.paperImplementationRunEvidenceUnitV2.findFirstOrThrow({
+        where: { validationCycleId: fixture.validationCycleId },
+      });
+      assert.equal(evidenceUnit.implementationProjectId, fixture.implementationProjectId);
+      assert.equal(evidenceUnit.branchId, fixture.admissionEvent.branch_id);
+      assert.equal(
+        evidenceUnit.workOrderRevisionId,
+        fixture.attachmentWorkOrderRevisionId,
+      );
+      assert.equal(evidenceUnit.runId, fixture.runId);
+      assert.equal(evidenceUnit.runManifestHash, fixture.runManifestHash);
+
+      const simulation = await seedAttachedAcknowledgedRun(prisma, 'phase3c-simulation');
+      const simulated = await new ExperimentFoundationExecutionV2Service({
+        repository: new PrismaExperimentFoundationExecutionV2Repository(prisma),
+        readinessRevalidator: simulation.foundationService,
+        intakeEnabled: () => true,
+        cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+        now: () => FIXED_NOW,
+      }).startWorkflowSimulation(simulation.runId, {
+        business_idempotency_key: `${simulation.namespace}:simulation`,
+      });
+      const firstSimulationAttempt = simulated.execution_attempts[0];
+      assert.ok(firstSimulationAttempt);
+      await prisma.experimentFoundationExecutionAttemptV2.update({
+        where: { id: firstSimulationAttempt.execution_attempt_id },
+        data: {
+          lifecycleState: 'succeeded',
+          stateVersion: firstSimulationAttempt.state_version + 1,
+          terminalReasonCode: 'simulation_succeeded',
+          terminalAt: new Date(FIXED_NOW),
+          updatedAt: new Date(FIXED_NOW),
+        },
+      });
+      const simulationRepository = new PrismaExperimentFoundationScientificValidationV2Repository(
+        prisma,
+      );
+      const simulationInput = await scientificResultInput(
+        simulationRepository,
+        simulation,
+        simulated.execution_attempts.map((attempt) => attempt.execution_attempt_id),
+        1,
+      );
+      await assert.rejects(
+        new ExperimentFoundationV2ScientificValidationService({
+          repository: simulationRepository,
+          enabled: () => true,
+          now: () => FIXED_NOW,
+        }).recordExperimentResult(simulationInput),
+        appReason('EVIDENCE_PROVENANCE_REJECTED'),
+      );
+      assert.deepEqual(await attachedRunCounts(prisma, simulation), {
+        taskSpecs: simulation.admissionRequest.exact_cells.length,
+        runs: 1,
+        results: 0,
+        validationReports: 0,
+        evidenceCandidates: 0,
+        evidenceUnits: 0,
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
+  },
+);
+
 async function openPackCPiDatabase(): Promise<{ prisma: PrismaClient }> {
   requireDisposablePostgresDatabaseIdentity(process.env, 'packc_pi', {
     databaseUrlKey: 'PAPER_IMPLEMENTATION_PACKC_PI_DATABASE_URL',
@@ -722,6 +872,110 @@ async function seedAcknowledgedRun(
   return { ...context, ...seeded };
 }
 
+async function seedAttachedAcknowledgedRun(
+  prisma: PrismaClient,
+  purpose: string,
+): Promise<AttachedAcknowledgedRunFixture> {
+  const namespace = `packc-pi-${purpose}-${randomUUID()}`;
+  const implementationProjectId = `${namespace}:project`;
+  const validationCycleId = `${namespace}:cycle`;
+  const branchKey = `${namespace}:attached`;
+  await prisma.paperImplementationProject.create({
+    data: implementationProjectData(implementationProjectId, namespace),
+  });
+  await prisma.paperImplementationValidationCycle.create({
+    data: validationCycleData(implementationProjectId, validationCycleId),
+  });
+
+  const foundationService = new ExperimentFoundationV2Service(
+    new PrismaExperimentFoundationV2Repository(prisma),
+  );
+  foundationFixturePromise ??= buildExperimentFoundationD19TypedFixture(foundationService);
+  const foundationFixture = await foundationFixturePromise;
+  const admissionRequest = admissionRequestFromD19(foundationFixture, namespace, branchKey);
+  const specRepository = new PrismaExperimentFoundationExplorationSpecV2Repository(prisma);
+  const spec = await new ExperimentFoundationExplorationSpecV2Service(specRepository, {
+    enabled: () => true,
+    now: () => FIXED_NOW,
+  }).createRevision(`${namespace}:exploration-spec`, {
+    expected_state_version: 0,
+    business_idempotency_key: `${namespace}:spec-command`,
+    specification: {
+      schema_version: 'v1',
+      proposed_branch_frame: structuredClone(admissionRequest.branch_frame),
+      work_order_revision: structuredClone(admissionRequest.work_order_revision),
+      exact_cells: structuredClone(admissionRequest.exact_cells),
+    },
+  });
+  const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
+  const efRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
+  const admission = admissionServiceFor(
+    piRepository,
+    implementationProjectId,
+    validationCycleId,
+    namespace,
+    OPEN_CYCLE_LOOKUP,
+    'system:paper-implementation-experiment-v2-admission',
+  );
+  const attached = await new PaperImplementationExplorationAttachmentV2Service({
+    specReader: specRepository,
+    readinessRevalidator: {
+      async revalidate(input) {
+        const resolved = await foundationService.revalidateReadiness({
+          target: input.target,
+          readiness_attestation_id: input.readiness_attestation_id,
+          expected_dependencies: input.ordered_dependencies,
+        });
+        return resolved.attestation.attestation_hash === input.readiness_attestation_hash;
+      },
+    },
+    admission,
+    enabled: () => true,
+  }).attach({
+    implementation_project_id: implementationProjectId,
+    validation_cycle_id: validationCycleId,
+    spec_id: spec.identity.spec_id,
+    spec_revision: spec.revision.spec_revision,
+  }, {
+    branch_key: branchKey,
+    business_idempotency_key: `${namespace}:attach`,
+  });
+
+  const attachmentOnlyCounts = await Promise.all([
+    prisma.experimentFoundationTrainingTaskSpecV2.count({
+      where: { externalPiWorkOrderRevisionId: attached.revision.work_order_revision_id },
+    }),
+    prisma.experimentFoundationRunV2.count({
+      where: { externalPiWorkOrderRevisionId: attached.revision.work_order_revision_id },
+    }),
+    prisma.paperImplementationRunEvidenceUnitV2.count({
+      where: { implementationProjectId },
+    }),
+  ]);
+  assert.deepEqual(attachmentOnlyCounts, [0, 0, 0]);
+
+  const context: AcknowledgedRunSeedContext = {
+    namespace,
+    implementationProjectId,
+    validationCycleId,
+    branchKey,
+    admissionRequest,
+    foundationService,
+    piRepository,
+    efRepository,
+  };
+  const seeded = await drainAdmittedRevision(
+    context,
+    attached.branch.branch_id,
+    attached.revision.work_order_revision_id,
+  );
+  return {
+    ...context,
+    ...seeded,
+    attachmentWorkOrderRevisionId: attached.attachment.work_order_revision_id,
+  };
+}
+
 async function admitAndDrainRevision(
   fixture: AcknowledgedRunSeedContext,
   revision: number,
@@ -744,9 +998,24 @@ async function admitAndDrainRevision(
     request,
     admitted_by: `system:${fixture.namespace}`,
   });
-  const admissionBundle = await fixture.piRepository.findRevisionBundle(
+  return drainAdmittedRevision(
+    fixture,
     admitted.branch.branch_id,
     admitted.revision.work_order_revision_id,
+  );
+}
+
+async function drainAdmittedRevision(
+  fixture: AcknowledgedRunSeedContext,
+  branchId: string,
+  workOrderRevisionId: string,
+): Promise<Pick<
+  AcknowledgedRunFixture,
+  'admissionEvent' | 'frozenEvent' | 'runId' | 'runManifestHash'
+>> {
+  const admissionBundle = await fixture.piRepository.findRevisionBundle(
+    branchId,
+    workOrderRevisionId,
   );
   assert.ok(admissionBundle);
   const materializer = new ExperimentFoundationV2MaterializationService({
@@ -771,7 +1040,7 @@ async function admitAndDrainRevision(
     evidenceTrustGatewayConsumer: { async consume() {} },
     runEvidenceProjectionConsumer: { async consume() {} },
     validationCycleClosedProjectionConsumer: { async consume() {} },
-    workerId: `${fixture.namespace}:relay:${revision}`,
+    workerId: `${fixture.namespace}:relay:${workOrderRevisionId}`,
     now: () => FIXED_NOW,
   });
   const drained = await relay.drainUntilIdle({ max_passes: 8 });
@@ -782,7 +1051,7 @@ async function admitAndDrainRevision(
     || failure.event_type === 'BranchHeadAdvanced'
   )), []);
   const materialization = await fixture.efRepository.findMaterializationByRevision(
-    admitted.revision.work_order_revision_id,
+    workOrderRevisionId,
   );
   assert.ok(materialization);
   assert.equal(admissionBundle.outbox.event.event_type, 'WorkOrderRevisionAdmitted');
@@ -807,6 +1076,7 @@ function admissionServiceFor(
   cycleClosureLookup:
     | PrismaPaperImplementationValidationCycleClosureV2Repository
     | typeof OPEN_CYCLE_LOOKUP = OPEN_CYCLE_LOOKUP,
+  serverActorId = `system:${namespace}`,
 ) {
   const nextSequence = (): number => {
     const next = (admissionIdSequences.get(namespace) ?? 0) + 1;
@@ -815,6 +1085,7 @@ function admissionServiceFor(
   };
   return new PaperImplementationExperimentV2AdmissionService({
     repository,
+    explorationAttachmentRepository: repository,
     scopeReader: {
       async resolveExactScope(projectId, cycleId) {
         return projectId === implementationProjectId && cycleId === validationCycleId
@@ -829,7 +1100,7 @@ function admissionServiceFor(
     },
     admissionEnabled: () => true,
     cycleClosureLookup,
-    serverActorId: `system:${namespace}`,
+    serverActorId,
     idFactory: (prefix) => `${namespace}:${prefix}:${nextSequence()}`,
     now: () => FIXED_NOW,
   });
@@ -1092,6 +1363,212 @@ function authorityFromEvent(
   };
 }
 
+async function seedSucceededRealAttempts(
+  prisma: PrismaClient,
+  fixture: AttachedAcknowledgedRunFixture,
+): Promise<string[]> {
+  // Phase 2 intentionally exposes only the simulation provider. Phase 3C uses
+  // durable real-provider fixture rows so the production scientific validator
+  // and trust gateway can be exercised without inventing a second runtime path.
+  await widenAttemptFixtureChecks(prisma);
+  const run = await prisma.experimentFoundationRunV2.findUniqueOrThrow({
+    where: { id: fixture.runId },
+    include: {
+      cells: {
+        include: { trainingTaskSpec: { select: { taskSpecHash: true } } },
+        orderBy: { ordinal: 'asc' },
+      },
+    },
+  });
+  const acknowledgement = await prisma.experimentFoundationIntegrationInboxV2.findFirstOrThrow({
+    where: {
+      validationCycleId: fixture.validationCycleId,
+      runId: fixture.runId,
+      eventType: 'BranchHeadAdvanced',
+      outcome: 'processed',
+    },
+  });
+  const attemptIds: string[] = [];
+  for (const cell of run.cells) {
+    const payloadId = `${fixture.namespace}:real-payload:${cell.ordinal}`;
+    const payloadHash = hash(payloadId);
+    await prisma.experimentFoundationProviderPayloadV2.create({ data: {
+      id: payloadId,
+      materializationKey: `${payloadId}:materialization`,
+      runId: fixture.runId,
+      runManifestHash: fixture.runManifestHash,
+      runCellId: cell.id,
+      cellKey: cell.cellKey,
+      trainingTaskSpecId: cell.trainingTaskSpecId,
+      trainingTaskSpecHash: cell.trainingTaskSpec.taskSpecHash,
+      payloadSchemaVersion: 'FakeAliyunPaiDlcSubmitPayload@v1',
+      adapterIdentity: 'deterministic_fake_aliyun_pai_dlc@v1',
+      executionMode: 'simulation',
+      provenance: 'non_production_fake_provider',
+      providerProfileVersion: 'v1',
+      redactedManifestVersion: 'v1',
+      redactedManifestJson: { fixture: 't134-phase3c-real-provider-parent' },
+      payloadHash,
+      payloadByteSize: 1,
+      createdAt: new Date(FIXED_NOW),
+    } });
+    const attemptId = `${fixture.namespace}:real-attempt:${cell.ordinal}`;
+    attemptIds.push(attemptId);
+    await prisma.experimentFoundationExecutionAttemptV2.create({ data: {
+      id: attemptId,
+      externalPiImplementationProjectId: fixture.implementationProjectId,
+      externalPiValidationCycleId: fixture.validationCycleId,
+      externalPiBranchId: fixture.admissionEvent.branch_id,
+      externalPiWorkOrderRevisionId: fixture.attachmentWorkOrderRevisionId,
+      externalPiWorkOrderRevisionHash: fixture.admissionEvent.work_order_revision_hash,
+      externalPiRevisionSequence: fixture.admissionEvent.branch_revision_sequence,
+      runId: fixture.runId,
+      runManifestHash: fixture.runManifestHash,
+      runCellId: cell.id,
+      cellKey: cell.cellKey,
+      trainingTaskSpecId: cell.trainingTaskSpecId,
+      trainingTaskSpecHash: cell.trainingTaskSpec.taskSpecHash,
+      providerPayloadId: payloadId,
+      providerPayloadHash: payloadHash,
+      headAcknowledgementInboxId: acknowledgement.id,
+      attemptSequence: 1,
+      workflowBusinessKey: `${fixture.namespace}:real-workflow`,
+      workflowRequestHash: hash(`${fixture.namespace}:real-workflow`),
+      executionMode: 'real_provider',
+      provenance: 'real_provider',
+      providerIdempotencyKey: `${fixture.namespace}:real-provider:${cell.ordinal}`,
+      lifecycleState: 'succeeded',
+      stateVersion: 1,
+      terminalReasonCode: 'real_provider_succeeded',
+      createdAt: new Date(FIXED_NOW),
+      updatedAt: new Date(FIXED_NOW),
+      terminalAt: new Date(FIXED_NOW),
+    } });
+  }
+  return attemptIds;
+}
+
+async function scientificResultInput(
+  repository: PrismaExperimentFoundationScientificValidationV2Repository,
+  fixture: AcknowledgedRunFixture,
+  attemptIds: readonly string[],
+  ordinal: number,
+): Promise<RecordExperimentResultV2Input> {
+  const [run, protocol] = await Promise.all([
+    repository.loadRun(fixture.runId, fixture.runManifestHash),
+    repository.resolveEvaluationProtocol(fixture.runId),
+  ]);
+  assert.ok(run);
+  assert.ok(protocol);
+  const cell = run.ordered_cells[ordinal - 1];
+  const executionAttemptId = attemptIds[ordinal - 1];
+  assert.ok(cell);
+  assert.ok(executionAttemptId);
+  return {
+    schema_version: 'v1',
+    run_id: fixture.runId,
+    run_manifest_hash: fixture.runManifestHash,
+    run_cell_id: cell.run_cell_id,
+    cell_key: cell.cell_key,
+    training_task_spec_id: cell.training_task_spec_id,
+    training_task_spec_hash: cell.training_task_spec_hash,
+    execution_attempt_id: executionAttemptId,
+    provenance: 'real_provider',
+    metric_observations: protocol.protocol_snapshot.required_rules
+      .filter(isMetricRule)
+      .map((rule, index) => ({
+        metric_key: rule.metric_key,
+        split_key: rule.split_key,
+        value: ordinal + index / 10,
+        value_type: rule.value_type,
+        unit: rule.unit,
+      })),
+    artifact_observations: protocol.protocol_snapshot.required_rules
+      .filter(isArtifactRule)
+      .map((rule, index) => ({
+        artifact_kind: rule.artifact_kind,
+        file_name: rule.file_name,
+        content_hash: hash(`${fixture.namespace}:artifact:${ordinal}:${index}`),
+        byte_size: ordinal + index + 1,
+        parser_binding: rule.parser_binding,
+      })),
+  };
+}
+
+function isMetricRule(
+  rule: ExperimentFoundationV2RequiredRuleV1,
+): rule is ExperimentFoundationV2MetricContractRuleV1 {
+  return rule.rule_type === 'metric_contract@v1';
+}
+
+function isArtifactRule(
+  rule: ExperimentFoundationV2RequiredRuleV1,
+): rule is ExperimentFoundationV2ArtifactContractRuleV1 {
+  return rule.rule_type === 'artifact_contract@v1';
+}
+
+async function drainEvidenceGateway(
+  prisma: PrismaClient,
+  fixture: AttachedAcknowledgedRunFixture,
+): Promise<void> {
+  const relay = new ExperimentV2IntegrationRelayService({
+    paperImplementationRepository: fixture.piRepository,
+    experimentFoundationRepository: fixture.efRepository,
+    materializationConsumer: new ExperimentFoundationV2MaterializationService({
+      repository: fixture.efRepository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+      readinessResolver: exactReadinessResolver(fixture.foundationService),
+      now: () => FIXED_NOW,
+    }),
+    headConsumer: new PaperImplementationExperimentV2HeadService({
+      repository: fixture.piRepository,
+      cycleClosureLookup: OPEN_CYCLE_LOOKUP,
+      now: () => FIXED_NOW,
+    }),
+    acknowledgementConsumer: new ExperimentFoundationV2AcknowledgementService({
+      repository: fixture.efRepository,
+      now: () => FIXED_NOW,
+    }),
+    evidenceTrustGatewayConsumer: new PaperImplementationEvidenceTrustGatewayService({
+      repository: new PrismaPaperImplementationEvidenceV2Repository(prisma),
+      scientificValidationReadRepository:
+        new PrismaExperimentFoundationScientificValidationV2Repository(prisma),
+      now: () => FIXED_NOW,
+    }),
+    runEvidenceProjectionConsumer: { async consume() {} },
+    validationCycleClosedProjectionConsumer: { async consume() {} },
+    workerId: `${fixture.namespace}:phase3c-gateway-relay`,
+    now: () => FIXED_NOW,
+  });
+  const drained = await relay.drainUntilIdle({ max_passes: 8 });
+  assert.equal(drained.idle, true);
+  assert.deepEqual(drained.failures.filter((failure) => (
+    failure.event_type === 'EvidenceCandidateQualified'
+  )), []);
+}
+
+async function attachedRunCounts(
+  prisma: PrismaClient,
+  fixture: AttachedAcknowledgedRunFixture,
+) {
+  const [taskSpecs, runs, results, validationReports, evidenceCandidates, evidenceUnits] =
+    await Promise.all([
+      prisma.experimentFoundationTrainingTaskSpecV2.count({
+        where: { externalPiWorkOrderRevisionId: fixture.attachmentWorkOrderRevisionId },
+      }),
+      prisma.experimentFoundationRunV2.count({
+        where: { externalPiWorkOrderRevisionId: fixture.attachmentWorkOrderRevisionId },
+      }),
+      prisma.experimentFoundationExperimentResultV2.count({ where: { runId: fixture.runId } }),
+      prisma.experimentFoundationScientificValidationReportV2.count({
+        where: { runId: fixture.runId },
+      }),
+      prisma.experimentFoundationEvidenceCandidateV2.count({ where: { runId: fixture.runId } }),
+      prisma.paperImplementationRunEvidenceUnitV2.count({ where: { runId: fixture.runId } }),
+    ]);
+  return { taskSpecs, runs, results, validationReports, evidenceCandidates, evidenceUnits };
+}
+
 async function assertGatewayAuthorityRejection(
   prisma: PrismaClient,
   scientificRepository: PrismaExperimentFoundationScientificValidationV2Repository,
@@ -1156,6 +1633,26 @@ function validationCycleData(
     createdAt: new Date(FIXED_NOW),
     updatedAt: new Date(FIXED_NOW),
     admittedAt: new Date(FIXED_NOW),
+  };
+}
+
+function implementationProjectData(
+  implementationProjectId: string,
+  namespace: string,
+): Prisma.PaperImplementationProjectUncheckedCreateInput {
+  return {
+    id: implementationProjectId,
+    intakeSnapshotId: `${namespace}:intake`,
+    titleCardId: `${namespace}:title-card`,
+    paperProjectBridgeId: `${namespace}:bridge`,
+    bridgePayloadHash: hash(`${namespace}:bridge`),
+    lifecycleStatus: 'active',
+    freshnessStatus: 'fresh',
+    sourceStatus: 'active',
+    versionNumber: 1,
+    createdBy: 't134-phase3c-relational-test',
+    createdAt: new Date(FIXED_NOW),
+    updatedAt: new Date(FIXED_NOW),
   };
 }
 

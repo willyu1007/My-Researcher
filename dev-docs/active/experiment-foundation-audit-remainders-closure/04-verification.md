@@ -111,3 +111,16 @@ Phase 3B is complete and is a verified rollback point. EF-P15 remains open only 
 - `git diff --check` passed after the code and test changes.
 
 The two Phase 3B review findings are resolved. Phase 3C remains the next authorized implementation slice.
+
+## Phase 3C EF-P15 trust/bypass verification — 2026-08-02
+
+- Backend TypeScript: `pnpm --filter @paper-engineering-assistant/backend typecheck` passed after Prisma Client generation; `git diff --check` passed.
+- Targeted composition/negative suites: attachment orchestration, materialization, execution, scientific validation, Evidence Trust Gateway and existing integration spine ran with the Node 26 transpile-only loader after the independent typecheck → 97/97 executable tests passed; 5 disposable-only tests skipped by their default flags.
+- The targeted suites cover cross-project/different-branch attachment conflict, readiness/scope drift, injected rollback, incomplete scientific batches, simulation/fake provenance, caller-owned result authority, manifest drift, absent head acknowledgement, Candidate/report/hash/protocol drift, superseded/head-advanced/closed authority, gateway rollback and duplicate convergence.
+- Final nonce-bound disposable PostgreSQL run used the repository-pinned pgvector digest, applied the complete migration history and ran `T-134 Phase 3C trusts only a newly materialized PI Run from an exploration attachment` with skip=0 → 1/1 passed in 3.7 seconds. The container was removed.
+- Positive relational assertions: durable spec plus attachment creates zero TaskSpec/Run/REU before relay; ordinary relay creates exactly the attached revision's two TaskSpecs and one Run; caller-substituted Attempt id creates zero results; exact real-provider fixture results create one passed report/Candidate but zero PI evidence before gateway; the existing gateway then creates exactly one inbox/REU/trace/registration outbox bound to the attachment project, branch, revision, Run and manifest.
+- Simulation relational assertions: a second attached Run starts through the production workflow-simulation service; even after its fixture Attempt reaches `succeeded`, scientific result intake rejects its simulation provenance and leaves result/report/Candidate/REU counts at zero.
+- The repository Pack C-PI gate was attempted twice but its hermetic child environment invokes the Node 26 `ts-node/esm` typechecking loader without the documented transpile-only workaround, so all TypeScript suites failed before test execution. Static census passed. This is a gate-runner/runtime compatibility limitation, not a Phase 3C assertion failure; type safety and runtime evidence are supplied separately by the successful `tsc --noEmit`, targeted suites and nonce-bound relational run.
+- Effects remain zero outside disposable verification: no named database, runtime capability, provider/cloud resource, UI, production code, schema, migration or trust writer changed.
+
+Phase 3 is complete. EF-P15 is closed under P15-03 option 1; T-134 remains in progress for Phase 4 EF-P21.

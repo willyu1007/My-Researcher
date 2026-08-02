@@ -93,3 +93,13 @@
 1. Drive the ordinary `WorkOrderRevisionAdmitted` relay/materialization path from a committed 3B attachment and prove exact cell/asset/readiness parity before a new PI-bound Run exists.
 2. Prove prior exploratory output, legacy/simulation identities and caller-substituted authority cannot enter result, validation or evidence paths.
 3. Route only the newly executed PI-bound lineage through existing scientific validation and Evidence Trust Gateway writers, with crash/replay/bypass zero-partial-trust assertions.
+
+## 2026-08-02 — Phase 3C downstream trust and bypass closure
+
+- Added no production writer, route, schema, migration or capability. Phase 3C is a composition/authority verification slice over the already-authorized 3A specification, 3B attachment/admission and existing PI/EF integration spine.
+- Added a nonce-bound PostgreSQL scenario that creates a durable exploration-spec revision from the D19 typed asset/readiness fixture, attaches it through the production attachment service and confirms attachment alone creates zero TaskSpec, Run or REU rows.
+- Reused the ordinary admission relay, EF materializer, PI head advance and EF acknowledgement consumers. The scenario proves the attachment revision alone owns the newly materialized TaskSpecs and Run before any scientific result exists.
+- Used durable succeeded `real_provider` Attempt fixture rows only at the provider boundary because Phase 2 intentionally ships a simulation provider but no live real-provider adapter. Result recording, exact-batch validation, Candidate/outbox creation, relay delivery and PI trust admission all execute through production services and repositories.
+- Confirmed the scientific validator rejects a caller-substituted Attempt id before result persistence and rejects a succeeded simulation Attempt produced from a second attached Run as `EVIDENCE_PROVENANCE_REJECTED`; neither branch creates a result, report, Candidate or REU.
+- Confirmed the positive Candidate remains non-paper-trusted until the existing Evidence Trust Gateway consumes its existing qualified event, after which exactly one scope-bound REU, trace manifest and registration outbox exist.
+- No named-local/staging/production database, provider/cloud system, runtime flag, UI or historical output was touched. Phase 3 is complete; T-134 remains open for Phase 4 EF-P21.
