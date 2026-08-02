@@ -1003,3 +1003,29 @@ When adding an entry, use:
 - Fix/workaround: hold T-132 at the provider boundary until the response identifies a supported correction or confirmed service defect. Review any requested sensitive material before using a provider-approved secure channel.
 - Prevention: track ticket lifecycle, provider technical conclusion and paid-run authorization as three independent gates. Never convert `submitted`, `assigned` or an estimated response time into provider acceptance or permission for sequence 9/10.
 - References: `00-overview.md`; `01-plan.md`; `03-implementation-notes.md`; `04-verification.md`; `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`.
+
+### 2026-08-01 — Provider detail APIs may echo omitted optional strings as empty strings
+
+- Symptom: sequence 9 successfully created a Job, but the first exact sync failed with `REAL_PROVIDER_PAYLOAD_CONFLICT` even though tags, identity and substantive payload fields matched.
+- Root cause: `GetJob` normalized omitted optional values into `""` for top-level `ResourceId`, credential-role `Policy` and empty `ResourceConfig` scalars. The comparator treated absent and empty-string values as different.
+- What was tried: stop after the already-consumed one-call ceiling, discover the Job read-only, inspect only structural provider fields, and reproduce the echo shape in a focused fake-provider test. No second `CreateJob` or database write was allowed.
+- Fix/workaround: normalize empty string to absent only at nullable provider-echo string boundaries. Preserve fail-closed comparison for every non-empty mismatch and run recovery with `maximumCreateJobCalls=0`.
+- Prevention: exact provider recovery tests must cover both omission-preserving and omission-to-empty-string serializers. When acceptance has already occurred, separate zero-create recovery from submission so a comparator defect cannot trigger a duplicate Job.
+- References: `apps/backend/src/services/experiment-foundation-aliyun-real-provider-v2-transport.ts`; `apps/backend/src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-08-01 — The repository test wrapper does not scope to one file
+
+- Symptom: `pnpm --filter @paper-engineering-assistant/backend test -- <unit-file>` launched the package's broad test runner and produced unrelated Node 26/ts-node loader initialization failures.
+- Root cause: the package test script does not forward the trailing path as a strict file filter.
+- Fix/workaround: run the focused ESM test directly with `TS_NODE_TRANSPILE_ONLY=1 node --test --loader ts-node/esm <unit-file>`. The intended transport suite passed 6/6.
+- Prevention: inspect package test scripts before assuming `-- <path>` narrows scope; record broad-run infrastructure failures separately from the focused unit result.
+- References: `apps/backend/package.json`; `04-verification.md`.
+
+### 2026-08-02 — A consumed dated authorization must not remain executable
+
+- Symptom: the first commit candidate retained `sequence9-probe` and its exact dated authorization string after the only permitted `CreateJob` had already succeeded and consumed the window.
+- Root cause: the diagnostic mode correctly enforced a one-call ceiling per process, but source-level retention would allow a future process to replay the historical environment token.
+- What was tried: self-review the complete staged candidate against the documented exhausted authorization rather than relying only on the successful runtime census.
+- Fix/workaround: remove the probe mode, its monetary/Job constants and authorization check before commit. Retain only `sequence9-recover`, whose transport is constructed with a zero `CreateJob` ceiling.
+- Prevention: every dated paid-run mode must have an explicit post-run retirement gate before landing. Per-process counters do not replace revoking the source-level authorization path.
+- References: `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `00-overview.md`; `03-implementation-notes.md`; `04-verification.md`.

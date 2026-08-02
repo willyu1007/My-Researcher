@@ -1101,3 +1101,15 @@ A Cloud Shell `NoPermission` before the terminal session exists is therefore a c
 The 2026-07-31 sequence-8 window preserved explicit `RO` on the code/input prefix and omitted `MountAccess` only from the final output source, exactly matching the reviewed console-default transition. Both exact requests still received HTTP 400 `BadRequest` with the same provider-owned `src property must be a valid json object` response. Therefore the final-output access differential is ruled out as the sole cause; retaining the v2 shape remains valid for console parity but does not constitute provider acceptance.
 
 The next authority boundary is provider escalation, not another immutable successor. The escalation package consists of the two RequestIds, model/wire SHA-256 and byte counts, exact type-path census, zero recursive `src` proof, official diagnostic output and zero-Job/zero-evidence database census. Sequence 8 remains immutable, sequence 9/10 are prohibited, and the live runner has no active authorization until a provider-supported correction is reviewed and the owner opens a new dated window.
+
+## D-38 — Controller workspace lookup is part of CreateJob authorization
+
+Alibaba Cloud confirmed that the DLC creation path resolves the workspace name before admitting the Job. Therefore the caller that signs `CreateJob`—`pea-m7-canary-controller`—must also hold `paiworkspace:GetWorkspace` on the exact workspace ARN. The runtime role does not satisfy this check because it is passed inside `CredentialConfig` for the admitted workload and is not the API caller.
+
+The least-privilege correction is one workspace-scoped Allow on `acs:paiworkspace:cn-shanghai:1183869713036194:workspace/1450165`. It does not broaden runtime OSS permissions, trust policies or cross-role attachments. Configuration parity and a separate one-shot functional read are distinct gates; both passed before sequence 9 was authorized.
+
+## D-39 — Provider echo normalization is narrow and recovery remains exact
+
+The accepted Job's `GetJob` response normalized several omitted optional request strings to `""`: top-level `ResourceId`, credential-role `Policy` and empty `ResourceConfig` scalar fields. Exact recovery must treat only `undefined` and the provider's empty-string echo as equivalent for these nullable string positions. Every non-empty mismatch, identity mismatch, tag mismatch, mount mismatch and payload hash mismatch remains fail-closed.
+
+Sequence 9 used two bounded operations during the authorized window. The temporary probe path permitted at most one `CreateJob`, performed no database/scientific/evidence write and stopped after the authorized call. The landed runner removes that consumed write path and its dated authorization string. `sequence9-recover` remains available with a hard maximum of zero `CreateJob` calls and can only discover, exact-compare and collect the already-created Job. This diagnostic design proves provider acceptance and comparator correctness without mutating historical sequence-8 Attempts. It does not replace the normal durable two-cell execution path required for T-132 closure.

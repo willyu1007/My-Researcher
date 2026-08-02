@@ -2678,3 +2678,67 @@ Outcome: **submitted and assigned; provider response pending**.
 - Safety census — ticket attachments 0; STS values, one-time verification code, local env files, unredacted request bodies, OSS object values and database dumps recorded in the ticket/task docs 0.
 - Execution boundary — `CreateJob`, provider Job, database write, capability change and billable runtime caused by support submission `0/0/0/0/0`.
 - Next verification — review the provider reply against the four questions in `artifacts/implementation/27-m7-l1-sequence8-provider-escalation.md`; do not treat ticket assignment as provider acceptance or as authorization for another paid run.
+
+## 2026-08-01 — controller GetWorkspace policy v4 verification
+
+Outcome: **exact controller permission published and configuration parity verified; functional provider verification remains gated**.
+
+- Repository policy JSON parse — passed.
+- Repository policy SHA-256 — `6566a47ee9c07ce6a75c9aeedcbc721d299ae52e7620bbbf91e14564b04220d8`.
+- Exact statement — one Allow for `paiworkspace:GetWorkspace` on `acs:paiworkspace:cn-shanghai:1183869713036194:workspace/1450165`.
+- Pre-write version census — `v1=false`, `v2=false`, `v3=true`; version slots available and deletions 0.
+- Rejected CLI attempt — unsupported local flag `--PolicyType`, exit code 2, policy/API mutation 0.
+- Successful publish — custom policy `pea-m7-canary-controller` v4, `IsDefaultVersion=true`, `CreateDate=2026-08-01T08:07:44Z`, RequestId `019FBC5D-615E-5915-B388-0612E619C520`.
+- Post-write version census — `v1/v2/v3=false`, `v4=true`.
+- Post-write document verification — cloud v4 SHA-256 exactly equals the repository SHA-256; exact Action/Resource assertion returned 0.
+- Unchanged boundaries — runtime policy, controller/runtime trust, role attachments and older non-default versions unchanged; temporary files removed.
+- Effect census — STS, `GetWorkspace`, `CreateJob`, PAI Job, database/capability/scientific write and billable runtime `0/0/0/0/0/0/0`.
+- Next gate — separately authorize a fresh controller STS and one read-only `GetWorkspace` call before interpreting the permission as functionally effective. A paid retry requires a separate new dated authorization.
+
+## 2026-08-01 — controller GetWorkspace one-shot functional verification
+
+Outcome: **exact controller workspace-read permission functionally verified; no paid execution performed**.
+
+- Authorization boundary — one temporary controller STS, one read-only `GetWorkspace(1450165)` service request and credential cleanup; no `CreateJob` authorization.
+- STS restriction — `DurationSeconds=900`; inline session policy allowed only `paiworkspace:GetWorkspace` on `acs:paiworkspace:cn-shanghai:1183869713036194:workspace/1450165`; assumed-role ARN validation passed.
+- Local endpoint-resolution attempt — stopped before network dispatch with no RequestId; temporary files removed. This did not consume the one authorized service request.
+- Actual service request — exactly one call to `aiworkspace.cn-shanghai.aliyuncs.com`; `WorkspaceId=1450165`, `Status=ENABLED`, RequestId `019FBC8E-4067-5E2E-9055-FD3C5D674F28`.
+- Credential hygiene — environment-only temporary credentials, profile lookup disabled, mode-`0600` credential/response files, exit-trap deletion and post-command absence check passed.
+- Effect census — AssumeRole credential issuances 2; actual `GetWorkspace` requests 1; `CreateJob`, PAI Job, database/capability/scientific writes, billable runtime and incremental cost `0/0/0/0/0/0`.
+- Resulting gate — `pea-m7-canary-controller` can read exact workspace `1450165`; any paid Job retry remains blocked pending a new dated Job-count and monetary ceiling.
+- Support handoff — credential-free verification reply submitted to ticket `000F4RKW18` at `2026-08-01 17:12:45` Asia/Shanghai; reply visibility check passed and ticket status became `处理中`. The reply explicitly recorded that no new `CreateJob` was submitted and requested confirmation of retry readiness or any remaining prerequisite.
+
+## 2026-08-01 — sequence-9 one-Job provider acceptance verification
+
+Outcome: **one authorized Job succeeded and its exact result was recovered/collected; durable two-cell acceptance remains open**.
+
+- Authorization boundary — dated `2026-08-01`, maximum `1` Job, total ceiling `¥25`; exact `CreateJob` count `1`, second call `0`.
+- Created Job — `dlc1b1qk22drb4au`; display name `ef-v2-real-1-86d9e9fec835b388729f31d3`.
+- Lifecycle — `Creating -> EnvPreparing -> Running -> Succeeded`; create `2026-08-01T09:23:55Z`, submitted `09:25:24Z`, running `09:26:05Z`, finish/success `09:26:13Z`; observed running interval about 8 seconds.
+- Terminal provider read — RequestId `019FBCA5-6727-5AA5-9B1F-851C2994B1BC`; later detail reads remained `Succeeded`.
+- Recovery boundary — `sequence9-recover` enforced `maximumCreateJobCalls=0`; exact discovery/sync/collection succeeded without a second provider write.
+- Collection result — schema `t132-m7-l1-sequence9-recovery-result@v1`; status `real_provider_probe_recovered_and_collected`; result-manifest hash `sha256:40a5efb0cffc55ddd91dd0dfa495761508c1b3b2aeaec3b0dfe5e592665edd86`.
+- Echo-comparator coverage — focused direct test passed `6/6`, including empty-string provider echoes for optional `ResourceId`, credential-role `Policy` and `ResourceConfig` scalars.
+- Typechecks — backend `typecheck`, package-local `typecheck:experiment-foundation-scripts` passed.
+- Post-run offline preflight — exact sequence-8 model/wire equality remained stable; cell hashes `sha256:aa258e2263e31421225b04933c27f87d90fe8bcd7a6b8abb48258d30d95c5416` and `sha256:ed52f3804e3386c70054c10ca6218cbbd2f2b4483cb4a2e45aa7d796e128c3d4`; recursive `src` count 0; historical Attempt count 2; cloud/database writes 0.
+- Safety census — diagnostic database writes 0, scientific-evidence writes 0, capability persistence 0, secret output 0; Cloud Shell, exact `/tmp` and Downloads credential residuals 0.
+- Cost boundary — observed runtime and selected CPU scale are safely below ¥25; this record does not claim an exact charge before provider billing finalization.
+- Remaining acceptance — one of two cells, no durable Pack B Attempt/output and no replay proof. T-132 completion checks remain unchecked until a fresh immutable successor completes the normal two-cell path and exact zero-duplicate replay.
+
+## 2026-08-02 — commit-readiness verification
+
+Outcome: **sequence-9 recovery checkpoint is verified and safe to commit; T-132 remains in progress**.
+
+- Scope review — target diff contains only the live-window runner, Aliyun real-provider transport and focused unit test, exact controller policy, and T-132 `00`-`05` docs. Repo-wide unrelated modifications are not staged.
+- Authorization retirement — source search confirms `sequence9-probe` and its dated one-Job/¥25 authorization string are absent; `sequence9-recover` remains and constructs a zero-create transport.
+- Focused transport test — `TS_NODE_TRANSPILE_ONLY=1 node --test --loader ts-node/esm src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts`; passed 6/6.
+- Backend typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck`; passed.
+- Runner typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts`; passed.
+- Offline preflight — `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight`; passed against the exact sequence-8 Run/Bundle with Attempt count 2, cloud calls 0, database writes 0, current controller-policy hash, stable two-cell wire hashes and recursive `src` count 0.
+- Documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors; warnings are repository-wide advisory findings.
+- Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --json`; passed; two state-format warnings belong to unrelated T-124-era bundles.
+- Scoped whitespace/error check — `git diff --check -- <T-132 files>`; passed.
+- Secret-pattern check — scoped diff high-risk credential/private-key match count 0.
+- Policy parity — repository policy JSON parsed; file SHA-256 exactly matched the live-runner constant `6566a47ee9c07ce6a75c9aeedcbc721d299ae52e7620bbbf91e14564b04220d8`.
+- Staged-scope check — required immediately before commit; commit must contain no unrelated file and exactly one `Task: T-132` trailer.
+- Push target — current branch `main`, remote `origin`; fetch/rebase safety check required before direct push, with no force push.

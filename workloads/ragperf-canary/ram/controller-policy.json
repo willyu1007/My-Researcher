@@ -13,6 +13,12 @@
       "Resource": "*"
     },
     {
+      "Sid": "M7L1ControllerGetExactWorkspace",
+      "Effect": "Allow",
+      "Action": ["paiworkspace:GetWorkspace"],
+      "Resource": "acs:paiworkspace:cn-shanghai:1183869713036194:workspace/1450165"
+    },
+    {
       "Sid": "M7L1ControllerPassRuntimeRoleToPai",
       "Effect": "Allow",
       "Action": [

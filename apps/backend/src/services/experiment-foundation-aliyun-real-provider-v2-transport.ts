@@ -562,8 +562,8 @@ function jobDetailMatches(
     && actualSpec?.podCount === expectedSpec?.podCount
     && nullishEqual(actualSpec?.quotaId, expectedSpec?.quotaId)
     && nullishEqual(actualSpec?.ecsSpec, expectedSpec?.ecsSpec)
-    && actualSpec?.resourceConfig?.CPU === expectedSpec?.resourceConfig?.CPU
-    && actualSpec?.resourceConfig?.memory === expectedSpec?.resourceConfig?.memory
+    && nullishEqual(actualSpec?.resourceConfig?.CPU, expectedSpec?.resourceConfig?.CPU)
+    && nullishEqual(actualSpec?.resourceConfig?.memory, expectedSpec?.resourceConfig?.memory)
     && detail.settings?.tags?.[EXPERIMENT_FOUNDATION_REAL_PROVIDER_IDEMPOTENCY_TAG_KEY_V2]
       === input.materialized.deterministic_tag_value
     && detail.settings?.tags?.[EXPERIMENT_FOUNDATION_REAL_PROVIDER_REQUEST_BINDING_TAG_KEY_V2]
@@ -588,7 +588,7 @@ function credentialConfigMatches(
         roles: item.roles?.map((role) => ({
           roleType: role.roleType,
           roleArn: role.roleArn,
-          policy: role.policy,
+          policy: emptyStringAsUndefined(role.policy),
         })),
       })),
     }
@@ -597,7 +597,11 @@ function credentialConfigMatches(
 }
 
 function nullishEqual(left: string | undefined, right: string | undefined): boolean {
-  return (left ?? null) === (right ?? null);
+  return (emptyStringAsUndefined(left) ?? null) === (emptyStringAsUndefined(right) ?? null);
+}
+
+function emptyStringAsUndefined(value: string | undefined): string | undefined {
+  return value === '' ? undefined : value;
 }
 
 function requireKnownStatus(value: string | undefined): ExperimentFoundationAliyunJobStatusV2 {

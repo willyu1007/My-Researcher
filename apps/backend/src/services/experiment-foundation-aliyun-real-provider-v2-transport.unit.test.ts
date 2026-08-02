@@ -409,6 +409,20 @@ test('M7-L1 recovery paginates to exhaustion and exact-matches full job detail',
   });
   assert.equal(recoveredWithProviderEcho.external_job_ref?.job_id, 'job-page-2');
 
+  const providerNormalized = sdk.jobs.get('job-page-2')!;
+  providerNormalized.resourceId = '';
+  providerNormalized.credentialConfig
+    .credentialConfigItems![0]!.roles![0]!.policy = '';
+  providerNormalized.jobSpecs[0]!.resourceConfig = { CPU: '', memory: '' };
+  const recoveredWithProviderEmptyDefaults = await transport.submit({
+    ...input,
+    create_permitted: false,
+  });
+  assert.equal(
+    recoveredWithProviderEmptyDefaults.external_job_ref?.job_id,
+    'job-page-2',
+  );
+
   sdk.jobs.get('job-page-2')!.jobSpecs[0]!.ecsSpec = 'ecs.other.large';
   await assert.rejects(
     () => transport.submit({ ...input, create_permitted: false }),

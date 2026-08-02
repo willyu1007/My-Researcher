@@ -65,7 +65,11 @@ import {
   listExperimentFoundationNamedLocalApplicationTables,
 } from './experiment-foundation-named-local-evidence.js';
 
-type RunnerMode = 'offline-preflight' | 'image-preflight' | 'execute';
+type RunnerMode =
+  | 'offline-preflight'
+  | 'image-preflight'
+  | 'sequence9-recover'
+  | 'execute';
 
 const require = createRequire(import.meta.url);
 const AIWorkspaceClientConstructor = require('@alicloud/aiworkspace20210204').default as
@@ -104,7 +108,7 @@ const LIVE_AUTHORIZATION_VALUE: string | null = null;
 const CONTROLLER_ROLE_ARN =
   'acs:ram::1183869713036194:role/pea-m7-canary-controller';
 const CONTROLLER_POLICY_SHA256 =
-  'f6b63cd73a57c6d8cfade1a177681ad4463cbd4d6d0a116e26a40ceee85ed497';
+  '6566a47ee9c07ce6a75c9aeedcbc721d299ae52e7620bbbf91e14564b04220d8';
 const BUCKET_NAME = 'pea-m7-canary-6194-202607';
 const REGION_ID = 'cn-shanghai';
 const WORKSPACE_ID = '1450165';
@@ -285,7 +289,63 @@ async function main(): Promise<void> {
     }
 
     if (mode === 'execute') requireLiveAuthorization();
-    const credential = readTemporaryCredential();
+    const credential = readTemporaryCredential(
+      mode === 'sequence9-recover' ? 5 * 60 * 1_000 : MINIMUM_STS_REMAINING_MS,
+    );
+    if (mode === 'sequence9-recover') {
+      assert.equal(existingAttempts.length, MAXIMUM_CREATE_JOB_CALLS);
+      const first = prerequisite.cells[0];
+      assert.ok(first, 'Sequence-9 recovery requires the first exact sequence-8 cell.');
+      const attempt = existingAttempts.find(
+        (candidate) => candidate.run_cell_id === first.run_cell.run_cell_id,
+      );
+      assert.ok(attempt, 'Sequence-9 recovery requires the prior exact first-cell attempt.');
+      const materialized = new ExperimentFoundationRealProviderPayloadV2Service().materialize({
+        run: prerequisite.run,
+        run_cell: first.run_cell,
+        task_spec: first.task_spec,
+        execution_bundle_revision: frozenBundle.revision,
+        provider_idempotency_key: attempt.provider_idempotency_key,
+      }, manifest.offline_preview_profile);
+      const live = buildLiveTransport(credential, 0);
+      const input = {
+        materialized,
+        task_spec: first.task_spec,
+        provider_idempotency_key: attempt.provider_idempotency_key,
+        create_permitted: false,
+        external_job_ref: null,
+      };
+      const recovered = await live.transport.submit(input);
+      assert.equal(live.createJobCallCount(), 0);
+      const externalJobRef = recovered.external_job_ref;
+      assert.ok(externalJobRef, 'Sequence-9 recovery returned no external Job reference.');
+      const synced = await live.transport.sync({
+        ...input,
+        external_job_ref: externalJobRef,
+      });
+      assert.equal(synced.normalized_state, 'succeeded');
+      const collected = await live.transport.collect({
+        ...input,
+        external_job_ref: externalJobRef,
+      });
+      console.log(JSON.stringify({
+        schema_version: 't132-m7-l1-sequence9-recovery-result@v1',
+        status: 'real_provider_probe_recovered_and_collected',
+        target_fingerprint: target.fingerprint,
+        run_id: RUN_ID,
+        cell_ordinal: first.run_cell.ordinal,
+        job_id: externalJobRef.job_id,
+        provider_status: synced.provider_status,
+        normalized_state: synced.normalized_state,
+        result_manifest_hash: collected.result_manifest_hash,
+        create_job_call_count: live.createJobCallCount(),
+        database_write_count: 0,
+        scientific_evidence_write_count: 0,
+        capability_persistence_count: 0,
+        secret_output_count: 0,
+      }));
+      return;
+    }
     const imageRequestHash = await freshImagePreflight(manifest, credential);
     if (mode === 'image-preflight') {
       console.log(JSON.stringify({
@@ -466,6 +526,7 @@ function buildDependencies(
 
 function buildLiveTransport(
   credential: TemporaryCredential,
+  maximumCreateJobCalls = MAXIMUM_CREATE_JOB_CALLS,
 ): {
   transport: ExperimentFoundationAliyunRealProviderTransportV2;
   createJobCallCount: () => number;
@@ -483,7 +544,7 @@ function buildLiveTransport(
   let createJobCallCount = 0;
   const boundedClient: ExperimentFoundationAliyunPaiDlcSdkClientV2 = {
     createJobWithOptions: async (request, headers, runtime) => {
-      if (createJobCallCount >= MAXIMUM_CREATE_JOB_CALLS) {
+      if (createJobCallCount >= maximumCreateJobCalls) {
         throw new Error('T132_M7_L1_CREATE_JOB_CEILING_EXCEEDED');
       }
       createJobCallCount += 1;
@@ -559,7 +620,7 @@ async function freshImagePreflight(
   }), 'utf8'));
 }
 
-function readTemporaryCredential(): TemporaryCredential {
+function readTemporaryCredential(minimumRemainingMs: number): TemporaryCredential {
   const credential = {
     access_key_id: requireEnvironment('ALIBABA_CLOUD_ACCESS_KEY_ID'),
     access_key_secret: requireEnvironment('ALIBABA_CLOUD_ACCESS_KEY_SECRET'),
@@ -574,9 +635,11 @@ function readTemporaryCredential(): TemporaryCredential {
   const expirationMs = Date.parse(credential.expiration);
   if (
     !Number.isFinite(expirationMs)
-    || expirationMs - Date.now() < MINIMUM_STS_REMAINING_MS
+    || expirationMs - Date.now() < minimumRemainingMs
   ) {
-    throw new Error('M7-L1 STS must have at least 55 minutes remaining.');
+    throw new Error(
+      `M7-L1 STS must have at least ${Math.ceil(minimumRemainingMs / 60_000)} minutes remaining.`,
+    );
   }
   assert.equal(requireEnvironment('T132_M7_L1_CONTROLLER_ROLE_ARN'), CONTROLLER_ROLE_ARN);
   assert.equal(
@@ -613,10 +676,17 @@ async function readManifest(): Promise<AuthoringManifest> {
 function parseMode(args: string[]): RunnerMode {
   const modeIndex = args.indexOf('--mode');
   const mode = modeIndex >= 0 ? args[modeIndex + 1] : undefined;
-  if (mode === 'offline-preflight' || mode === 'image-preflight' || mode === 'execute') {
+  if (
+    mode === 'offline-preflight'
+    || mode === 'image-preflight'
+    || mode === 'sequence9-recover'
+    || mode === 'execute'
+  ) {
     return mode;
   }
-  throw new Error('Usage: --mode offline-preflight|image-preflight|execute');
+  throw new Error(
+    'Usage: --mode offline-preflight|image-preflight|sequence9-recover|execute',
+  );
 }
 
 function requireLiveAuthorization(): void {
