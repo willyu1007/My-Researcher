@@ -128,6 +128,24 @@ project-scoped structured lineage read
 - Semantic text is the canonical JSON representation of the closed typed content. Only current Cycle snapshots and effective heads enter the batch; blocked heads and historical WorkOrder revisions/Runs do not.
 - The service has no ranker/index/provider dependency and no HTTP wiring. Phase 4B/4C must not bypass the Phase 4A candidate contract or add post-ranking project filtering.
 
+## Phase 4B rebuildable projection — 2026-08-03
+
+```text
+Phase 4A authorized documents
+  -> compare exact document hash + embedding profile
+  -> embed only new/drifted documents through an injected port
+  -> normalize and server-hash vectors
+  -> atomic project upsert + stale prune
+  -> PI-owned rebuildable pgvector projection
+```
+
+- `PaperImplementationSemanticDocumentProjectionV2` stores one current row for each `(project, source type, source id)`. The projection table has a project cascade foreign key because projection rows are disposable technical state, not retained authority.
+- The fixed 3072-dimension normalized vector supports a halfvec inner-product HNSW expression index. Profile id/provider/model/dimension and an embedding hash are persisted beside the exact Phase 4A source/document hashes; no literature identity or table is reused.
+- The index service obtains documents only through `listAuthorizedDocuments(project)`. Embedding receives only that bounded document set and runs before the repository transaction; a provider failure preserves the prior projection.
+- Exact document/profile replay reuses the verified stored vector and performs zero provider calls and zero row updates. Corrupt stored projection disables reuse, after which a full rebuild repairs rows from structured truth.
+- Repository replacement locks the exact project, validates server-derived document/vector identities, upserts changed rows and prunes stale rows inside one transaction. A project deletion/scope loss or injected crash leaves the prior projection intact.
+- Phase 4B adds no real embedding adapter, scheduler, application wiring, capability, HTTP route or query. Phase 4C owns ranking, timeout/corruption fallback and current-source hit re-resolution.
+
 ## Phase 3B landed PI attachment/admission seam — 2026-08-02
 
 - `POST /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach` accepts only `branch_key` and `business_idempotency_key` in its closed body.

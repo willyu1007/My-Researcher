@@ -3906,21 +3906,22 @@ model PaperImplementationIntakeSnapshot {
 }
 
 model PaperImplementationProject {
-  id                    String   @id
-  intakeSnapshotId      String   @unique(map: "pip_intake_snapshot_unique")
-  workspaceId           String?
-  titleCardId           String
-  paperProjectBridgeId  String   @unique(map: "pip_bridge_unique")
-  bridgePayloadHash     String
-  targetPaperProjectRef Json?
-  lifecycleStatus       String
-  freshnessStatus       String
-  sourceStatus          String
-  versionNumber         Int
-  policyVersionId       String?
-  createdBy             String
-  createdAt             DateTime @db.Timestamptz(6)
-  updatedAt             DateTime @db.Timestamptz(6)
+  id                          String                                            @id
+  intakeSnapshotId            String                                            @unique(map: "pip_intake_snapshot_unique")
+  workspaceId                 String?
+  titleCardId                 String
+  paperProjectBridgeId        String                                            @unique(map: "pip_bridge_unique")
+  bridgePayloadHash           String
+  targetPaperProjectRef       Json?
+  lifecycleStatus             String
+  freshnessStatus             String
+  sourceStatus                String
+  versionNumber               Int
+  policyVersionId             String?
+  createdBy                   String
+  createdAt                   DateTime                                          @db.Timestamptz(6)
+  updatedAt                   DateTime                                          @db.Timestamptz(6)
+  semanticDocumentProjections PaperImplementationSemanticDocumentProjectionV2[]
 
   @@index([titleCardId, createdAt(sort: Desc)], map: "pip_title_created_idx")
   @@index([bridgePayloadHash], map: "pip_bridge_hash_idx")
@@ -3928,6 +3929,36 @@ model PaperImplementationProject {
   @@index([freshnessStatus], map: "pip_freshness_status_idx")
   @@index([sourceStatus], map: "pip_source_status_idx")
   @@index([policyVersionId], map: "pip_policy_version_idx")
+}
+
+model PaperImplementationSemanticDocumentProjectionV2 {
+  id                      String                      @id(map: "pi_semantic_projection_pkey")
+  implementationProjectId String
+  schemaVersion           String
+  sourceType              String
+  sourceId                String
+  sourceVersion           String
+  sourceHash              String
+  semanticText            String
+  documentHash            String
+  content                 Json
+  embeddingProfileId      String
+  embeddingProvider       String
+  embeddingModel          String
+  embeddingDimension      Int
+  embeddingHash           String
+  retrievalVector         Unsupported("vector(3072)")
+  indexedAt               DateTime                    @db.Timestamptz(6)
+  createdAt               DateTime                    @db.Timestamptz(6)
+  updatedAt               DateTime                    @db.Timestamptz(6)
+
+  implementationProject PaperImplementationProject @relation(fields: [implementationProjectId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "pi_semantic_projection_project_fkey")
+
+  @@unique([implementationProjectId, sourceType, sourceId], map: "pi_semantic_projection_project_source_unique")
+  @@index([implementationProjectId, sourceType], map: "pi_semantic_projection_project_type_idx")
+  @@index([implementationProjectId, documentHash], map: "pi_semantic_projection_project_doc_hash_idx")
+  @@index([implementationProjectId, sourceHash], map: "pi_semantic_projection_project_source_hash_idx")
+  @@index([embeddingProfileId, embeddingModel], map: "pi_semantic_projection_embedding_profile_idx")
 }
 
 model PaperImplementationFeedbackEvent {

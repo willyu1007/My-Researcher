@@ -156,6 +156,18 @@ export class PaperImplementationSemanticCandidateV2Service {
       );
     }
 
+    const documents = await this.listAuthorizedDocuments(implementationProjectId);
+    return {
+      schema_version: PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2,
+      implementation_project_id: implementationProjectId,
+      query: normalizedQuery,
+      candidates: documents,
+    };
+  }
+
+  async listAuthorizedDocuments(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationSemanticDocumentV2[]> {
     // This first call is the project authorization/candidate boundary. No
     // semantic adapter can run before it succeeds.
     const projectLineage = await this.options.structuredLineageReader
@@ -243,11 +255,6 @@ export class PaperImplementationSemanticCandidateV2Service {
       || compareText(left.source.source_id, right.source.source_id)
       || compareText(left.document_id, right.document_id)
     ));
-    return {
-      schema_version: PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2,
-      implementation_project_id: implementationProjectId,
-      query: normalizedQuery,
-      candidates: documents,
-    };
+    return documents;
   }
 }

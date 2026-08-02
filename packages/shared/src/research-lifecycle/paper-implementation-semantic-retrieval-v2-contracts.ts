@@ -22,6 +22,7 @@ export type PaperImplementationSemanticDocumentSourceTypeV2 =
 
 export const PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2 = 'v1' as const;
 export const PAPER_IMPLEMENTATION_SEMANTIC_QUERY_MAX_LENGTH_V2 = 4_000;
+export const PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2 = 3_072 as const;
 
 export interface PaperImplementationSemanticDocumentSourceRefV2 {
   source_type: PaperImplementationSemanticDocumentSourceTypeV2;

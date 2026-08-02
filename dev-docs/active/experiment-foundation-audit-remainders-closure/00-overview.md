@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14, Phase 2 EF-P06, all Phase 3 EF-P15 slices and Phase 4A EF-P21 deterministic-document/authorized-candidate contracts are implemented and verified.
-- Next step: discuss and authorize Phase 4B PI-owned rebuildable projection persistence/indexing. Phase 4C retrieval/fallback remains separately gated; structured lineage remains the complete fallback and control/trust authority.
+- Current phase: Phase 1 EF-P14, Phase 2 EF-P06, all Phase 3 EF-P15 slices and Phase 4A/4B EF-P21 document/candidate/projection slices are implemented and verified.
+- Next step: discuss and authorize Phase 4C retrieval, current-source hit re-resolution and structured fallback. Structured lineage remains the complete fallback and control/trust authority.
 
 ## Goal
 
@@ -51,6 +51,13 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - The existing structured lineage reader must resolve the project before any Cycle/head enumeration. Historical revisions, non-effective heads and foreign-project identities are excluded from the candidate batch.
 - Authorization includes shared schema/hash tests, backend service tests and T-134 documentation/governance sync.
 - Authorization excludes Prisma schema/migration/projection storage, embedding or ranking provider calls, index workers, final retrieval HTTP, fallback/hit re-resolution, capability enablement, named database work, UI and every workflow/trust writer.
+
+## Phase 4B authorization — 2026-08-03
+
+- Authorized scope: one PI-owned rebuildable semantic document/vector projection, additive Prisma SSOT migration, repository implementations and an index rebuild service that consumes only Phase 4A-authorized documents.
+- Embedding is an injected typed port. Phase 4B may validate and persist deterministic test vectors and profile metadata, but adds no real provider adapter, credentials, network call, scheduler or runtime composition.
+- Projection replacement is project-scoped and atomic: exact replay is zero-change, stale documents are pruned only inside the same authorized project, and source/workflow rows remain untouched.
+- Authorization includes reviewed migration SQL, generated DB context and nonce/marker/password-guarded disposable PostgreSQL application. It excludes named-local/staging/production apply, backfill, capability enablement, final retrieval/ranking HTTP, hit re-resolution/fallback, UI and all workflow/trust writers.
 
 ## Constraints
 

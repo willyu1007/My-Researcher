@@ -120,3 +120,13 @@
 - Added a backend-only candidate service over the existing structured lineage service contract. It resolves the project list first, repeats project scope on each Cycle read, checks project/Cycle/header parity and excludes blocked heads before preparing the bounded future-ranker input.
 - The service performs no index lookup, persistence, embedding, ranking, external call or HTTP response. No Prisma schema/migration, repository query, capability, OpenAPI, named database, UI or workflow/trust writer changed.
 - Added strict schema tests and service tests for closed input, deterministic ordering/text/hashes, project-first scope, structured snapshot drift, blocked-head exclusion, source hash drift and query rejection before repository access.
+
+## 2026-08-03 — Phase 4B PI-owned semantic projection
+
+- Added `PaperImplementationSemanticDocumentProjectionV2` to the Prisma SSOT and migration `20260803070000_add_pi_semantic_projection_v2`. The additive table owns exact document/source/profile/hash metadata plus normalized `vector(3072)`, project/source uniqueness, integrity checks and a halfvec HNSW expression index.
+- Added Prisma-free repository records and both in-memory and Prisma implementations. Project replacement validates server ids/hashes/vector norm, locks the exact project, upserts only changed rows and prunes stale project rows atomically.
+- Added durable read validation that reconstructs and verifies the Phase 4A schema, canonical semantic text, source/document/embedding hashes and normalized vector before returning projection state.
+- Added a backend index service with a typed injected embedding port. No production provider adapter or runtime composition exists; tests use a stable document-derived fake. Exact replay reuses unchanged vectors without another embedding call, while corrupt projection triggers a full repair rebuild.
+- Quantized normalized vectors to float32 before server hashing and canonicalized database text readback to float32 because pgvector `vector` stores float32 components. Persisted embedding hashes therefore survive database round trips for ordinary dense provider vectors, not only exactly representable sparse test vectors.
+- Added unit and disposable-PostgreSQL coverage for project-first inputs, zero-change replay, embedding failure, missing output, stale prune, cross-project isolation, transaction rollback, stored corruption detection/repair and HNSW presence.
+- Regenerated the DB context from Prisma SSOT. No named database, real provider/network call, scheduler, capability, HTTP route, UI or workflow/trust writer changed.

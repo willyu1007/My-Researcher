@@ -51,13 +51,15 @@ Phase 3C checkpoint: met on 2026-08-02 after quality remediation. Both Pack C-EF
 ## Phase 4 — EF-P21 project-scoped semantic retrieval
 
 1. [x] Phase 4A — define deterministic ValidationCycle/effective-branch-head documents from authoritative structured lineage, bind exact source type/id/version/hash plus canonical document hash, and emit a bounded project-authorized ranking input without an index/provider/route.
-2. [ ] Phase 4B — add the PI-owned rebuildable document/vector projection schema, repository and indexer; populate only Phase 4A documents after structured project scoping.
+2. [x] Phase 4B — add the PI-owned rebuildable document/vector projection schema, repository and indexer; populate only Phase 4A documents after structured project scoping.
 3. [ ] Phase 4C — add retrieval/ranking plus exact current-source re-resolution; drop stale, deleted, foreign or superseded hits and preserve complete structured fallback.
 4. [ ] Prove index outage, partial/corrupt index, ranking ties and two-project isolation without allowing semantic state to drive workflow/trust transitions.
 
 Exit: semantic retrieval improves discovery but cannot select a head, authorize an action, qualify evidence or block structured use.
 
 Phase 4A checkpoint: met on 2026-08-03. The deterministic document/hash contract and project-first candidate batch are verified without projection persistence, provider calls or a product retrieval entrance.
+
+Phase 4B checkpoint: met on 2026-08-03. One PI-owned atomic current-document projection can be rebuilt from Phase 4A, reuses unchanged vectors, repairs corrupt rows and prunes stale rows per project. No provider adapter, scheduler, runtime entrance or retrieval endpoint is composed.
 
 ## Phase 5 — Convergence and handoff
 

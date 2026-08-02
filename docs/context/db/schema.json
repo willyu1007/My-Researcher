@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-02T14:03:09.097Z",
+  "updatedAt": "2026-08-02T22:16:17.832Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -27964,7 +27964,17 @@
           "unique": false
         }
       ],
-      "relations": [],
+      "relations": [
+        {
+          "field": "semanticDocumentProjections",
+          "to": "PaperImplementationSemanticDocumentProjectionV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
       "indexes": [
         {
           "type": "index",
@@ -32583,6 +32593,285 @@
           ],
           "name": null,
           "map": "pi_runtime_telemetry_project_run_idx"
+        }
+      ]
+    },
+    {
+      "name": "PaperImplementationSemanticDocumentProjectionV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "content",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "documentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "embeddingDimension",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "embeddingHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "embeddingModel",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "embeddingProfileId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "embeddingProvider",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "implementationProjectId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "indexedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "retrievalVector",
+          "type": "Unsupported(\"vector(3072)\")",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "semanticText",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceType",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "implementationProject",
+          "to": "PaperImplementationProject",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "implementationProjectId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "embeddingProfileId",
+            "embeddingModel"
+          ],
+          "name": null,
+          "map": "pi_semantic_projection_embedding_profile_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "documentHash"
+          ],
+          "name": null,
+          "map": "pi_semantic_projection_project_doc_hash_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "sourceHash"
+          ],
+          "name": null,
+          "map": "pi_semantic_projection_project_source_hash_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "implementationProjectId",
+            "sourceType"
+          ],
+          "name": null,
+          "map": "pi_semantic_projection_project_type_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "implementationProjectId",
+            "sourceType",
+            "sourceId"
+          ],
+          "name": null,
+          "map": "pi_semantic_projection_project_source_unique"
         }
       ]
     },

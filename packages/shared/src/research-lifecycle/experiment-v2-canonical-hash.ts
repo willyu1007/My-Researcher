@@ -98,6 +98,7 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-cycle-closure-json@v1',
   'pi-semantic-source-json@v1',
   'pi-semantic-document-json@v1',
+  'pi-semantic-embedding-json@v1',
 ] as const);
 export type ExperimentV2HashProfile = (typeof EXPERIMENT_V2_HASH_PROFILES)[number];
 
@@ -391,6 +392,27 @@ export function serverPaperImplementationSemanticDocumentV2Id(input: {
     content: input,
   }).slice('sha256:'.length, 'sha256:'.length + 32);
   return `pi_semantic_document_${digest}`;
+}
+
+export interface PaperImplementationSemanticEmbeddingV2HashInput {
+  document_id: string;
+  document_hash: string;
+  profile_id: string;
+  provider: string;
+  model: string;
+  dimension: number;
+  normalized_vector: readonly number[];
+}
+
+export function serverHashPaperImplementationSemanticEmbeddingV2(
+  content: PaperImplementationSemanticEmbeddingV2HashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationSemanticEmbeddingV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-semantic-embedding-json@v1',
+    content,
+  });
 }
 
 export function serverHashExperimentFoundationExecutionAttemptEventV2(

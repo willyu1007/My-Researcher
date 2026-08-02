@@ -27,6 +27,23 @@
 - Do not hand-seed a `real_provider` Attempt over a simulation ProviderPayload; positive evidence tests must enter through executable v2 materialization and the existing real-provider intake/worker path.
 - Do not trust an Attempt row alone at scientific ingress; re-resolve its canonical payload and event lineage before accepting real-provider provenance.
 - Do not use colon-delimited fixture Run or cell identities in real-provider tests; they must satisfy the production-safe provider path-segment contract.
+- Do not make an embedding fake depend on batch position; the same document/profile must produce the same vector in incremental and full rebuilds.
+- Do not hash double-precision embedding components before `vector` persistence; quantize to float32 first so the stored vector and server hash remain identical.
+
+## pgvector float32 storage could invalidate embedding hashes — 2026-08-03
+
+- Symptom: final review showed that arbitrary provider vectors would be normalized and hashed as JavaScript float64 values, then rounded by pgvector `vector` storage and rejected as corrupt on readback.
+- Root cause: the first relational fake produced sparse basis vectors whose components were exactly representable in both float64 and float32, masking the persistence precision boundary.
+- Fix/workaround: quantize every normalized component with `Math.fround` before embedding hash calculation, canonicalize database text readback with the same operation and accept the bounded float32 norm error on write/read validation.
+- Prevention: relational vector tests must include deterministic dense fractional components and prove an exact write/read/replay cycle through the real pgvector type.
+
+## Batch-position embedding fake broke incremental/full rebuild parity — 2026-08-03
+
+- Symptom: the corruption-repair relational assertion reported two changed rows although only one stored semantic text had been corrupted.
+- Root cause: the deterministic test embedding fake selected a basis vector from each document's current batch index. A newly indexed document had index zero during incremental build but index one during the later full repair batch.
+- What was tried: two identity-fenced disposable runs confirmed migration success, transaction cleanup and the same `2 !== 1` repair count before the assertion received a semantic label.
+- Fix/workaround: derive the fake vector position from stable document identity. Full and incremental batches now produce identical vectors for the same document/profile, and repair updates only the corrupted row.
+- Prevention: every embedding adapter test double must be a pure function of document content/identity plus profile, never batch ordering or batch size.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
