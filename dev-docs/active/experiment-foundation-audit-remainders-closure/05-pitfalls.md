@@ -15,3 +15,11 @@
 - Do not repair legacy null bindings through silent backfill or trust upgrade.
 - Do not attach standalone EF output by identity-only linkage; full project/readiness/validation revalidation is mandatory.
 - Do not split promotion decision, canonicalization, Candidate and outbox into partial commits.
+
+## Standalone attachment assumed a source authority that does not exist — 2026-08-02
+
+- Symptom: the plan required attaching a standalone typed EF output, but the current v2 Run, TaskSpec, Attempt and Result schemas all require exact PI scope.
+- Root cause: D-09 preserved an independent exploration concept while Pack A/C implemented only the PI-bound typed execution/scientific spine; legacy standalone rows are simultaneously barred by D-08.
+- What was tried: inventorying legacy result/generic records and current v2 scientific ingress as potential sources. Legacy would create a forbidden trust migration, and v2 rows are already attached by construction.
+- Fix/workaround: block Phase 3 implementation until a typed source model is approved. Prefer attaching an exploration specification and performing a new PI-bound execution; keep the prior output diagnostic-only.
+- Prevention: before planning an attachment or migration command, prove that both source and destination have authoritative typed identities and that the source is eligible under legacy/cutover policy.

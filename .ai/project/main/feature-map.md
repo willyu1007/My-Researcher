@@ -147,7 +147,7 @@ Project: `main`
 | T-130 literature-productization-hardening | archived | dev-docs/archive/literature-productization-hardening |
 | T-131 experiment-foundation-first-promotion-closure | done | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-132 experiment-foundation-productization-closure | archived | dev-docs/archive/experiment-foundation-productization-closure |
-| T-134 experiment-foundation-audit-remainders-closure | planned | dev-docs/active/experiment-foundation-audit-remainders-closure |
+| T-134 experiment-foundation-audit-remainders-closure | in-progress | dev-docs/active/experiment-foundation-audit-remainders-closure |
 
 ### F-002 Desktop Frontend Foundation
 

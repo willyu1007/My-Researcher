@@ -45,6 +45,14 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - New mutation capabilities default off. Retrieval may degrade to structured-only without disabling the project.
 - Rollback closes new entrances and workers; it does not delete typed history or reopen legacy writers.
 
+## Phase 0 frozen architecture decisions — 2026-08-02
+
+- EF-P14 reuses the existing bootstrap route and atomic repository UoW. Both bridge refs are mandatory at the product entrance; historical nullable storage remains unchanged and reject-only.
+- EF-P06 adds a typed preparation Candidate and terminal promotion UoW. It does not reuse scientific `EvidenceCandidateV2`, reopen the generic route or duplicate admitted-cell materialization.
+- EF-P15 cannot safely attach a current “standalone typed result” because no such authority exists: every v2 Run/result is PI-bound and legacy is ineligible. The recommended model attaches a new typed exploration specification and requires a new PI-bound execution; Phase 3 needs an explicit model decision before coding.
+- EF-P21 uses a PI-owned rebuildable projection. Structured project scope produces the only candidate set before semantic rank; literature tables and historical Run documents are excluded.
+- Exact files, prohibited writes, tests and rollback entrances are frozen in `06-phase0-census-and-freeze.md`.
+
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.

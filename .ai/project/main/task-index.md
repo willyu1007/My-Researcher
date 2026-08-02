@@ -143,5 +143,5 @@ Project: `main`
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-134 experiment-foundation-audit-remainders-closure | planned | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
+| T-134 experiment-foundation-audit-remainders-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
 <!-- AUTO-GENERATED:END task-index -->

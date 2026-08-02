@@ -2,12 +2,12 @@
 
 ## Phase 0 — Census and invariant freeze
 
-1. Inventory every current promotion, bootstrap, attachment, retrieval and trust writer across shared contracts, HTTP routes, services, repositories and Prisma.
-2. Map existing capability flags, legacy-null rows, project-scope resolvers, structured lineage queries and relevant context contracts.
-3. Freeze exact modification and prohibited-write allowlists.
-4. Convert EF-P06/P14/P15/P21 exit criteria into one runnable verification matrix.
+1. [x] Inventory every current promotion, bootstrap, attachment, retrieval and trust writer across shared contracts, HTTP routes, services, repositories and Prisma.
+2. [x] Map existing capability flags, null-capable legacy schema, project-scope resolvers, structured lineage queries and relevant context contracts. Named-local row counts remain separately authorized database work.
+3. [x] Freeze exact modification and prohibited-write allowlists.
+4. [x] Convert EF-P06/P14/P15/P21 exit criteria into one runnable verification matrix.
 
-Exit: architecture and modification boundaries are reviewed; no code/config/schema/data change has occurred.
+Exit: met on 2026-08-02 in `06-phase0-census-and-freeze.md`; architecture and modification boundaries were reviewed and no code/config/schema/data change occurred.
 
 ## Phase 1 — EF-P14 bound bootstrap safety
 
@@ -31,13 +31,14 @@ Exit: one canonical result and one durable event outcome converge under replay a
 
 ## Phase 3 — EF-P15 attachment and full revalidation
 
-1. Introduce an explicit attachment command from a standalone EF result to one exact Paper WorkOrder scope.
-2. Re-resolve project, Cycle, branch, revision, Run, cells, readiness, result hashes and validation at attachment time.
-3. Reject cross-project, stale, incomplete, simulation-only, legacy and caller-substituted inputs.
-4. Route any eligible evidence only through the existing PI Evidence Trust Gateway.
-5. Make repeated exact attachment idempotent and different-scope reuse a stable conflict.
+1. Resolve the Phase 0 architecture blocker first: current typed EF Runs/results are already PI-bound and legacy standalone rows are ineligible. Approve the recommended typed-exploration-spec attachment plus new PI-bound execution, or explicitly authorize a larger standalone typed lineage.
+2. Introduce one explicit command from the approved typed standalone source to one exact Paper WorkOrder scope; never attach legacy output by identity.
+3. Re-resolve project, Cycle, branch, revision, Run/cells where applicable, readiness, result hashes and validation at the owning boundary.
+4. Reject cross-project, stale, incomplete, simulation-only, legacy and caller-substituted inputs.
+5. Route any later eligible evidence only through the existing PI Evidence Trust Gateway.
+6. Make repeated exact attachment idempotent and different-scope reuse a stable conflict.
 
-Exit: standalone state remains non-paper-trusted until all checks pass; bypass and crash tests prove zero partial trust.
+Exit: standalone output remains non-paper-trusted; the approved attachment flow leads to a newly valid PI-bound lineage, and bypass/crash tests prove zero partial trust.
 
 ## Phase 4 — EF-P21 project-scoped semantic retrieval
 

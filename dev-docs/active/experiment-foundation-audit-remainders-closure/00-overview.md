@@ -2,13 +2,13 @@
 
 ## Status
 
-- State: planned
+- State: in-progress
 - Task ID: `T-134`
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: planning complete; implementation has not started.
-- Next step: perform the Phase 0 writer/route/schema/test census, freeze the modification allowlist and obtain separate implementation authorization.
+- Current phase: Phase 0 census and implementation freeze complete; product implementation has not started.
+- Next step: obtain separate authorization for Phase 1 EF-P14 bound-bootstrap safety. EF-P15 remains implementation-blocked until its typed standalone source model is decided.
 
 ## Goal
 
@@ -41,6 +41,7 @@ Close exactly four previously open Experiment Foundation audit findings without 
 ## Constraints
 
 - Implementation is not authorized by this planning package alone.
+- Phase 0 authorization does not authorize Phase 1-4 product/schema/data work.
 - Any persisted-field change follows the repo Prisma SSOT and `sync-db-schema-from-code`.
 - Each workstream must preserve legacy immutability and prove zero partial writes on rejected or crashed operations.
 - EF-P21 is backend retrieval only; presentation remains outside this task.
@@ -50,3 +51,4 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - Source audit matrix: `dev-docs/archive/experiment-foundation-productization-closure/06-audit-closure-matrix.md`.
 - Transfer decision: 2026-07-30 T-132 scope freeze.
 - Current counts at transfer: 23 verified, 4 open, 1 cut.
+- Phase 0 implementation freeze: `06-phase0-census-and-freeze.md`.
