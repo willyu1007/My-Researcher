@@ -11,13 +11,13 @@ Exit: met on 2026-08-02 in `06-phase0-census-and-freeze.md`; architecture and mo
 
 ## Phase 1 — EF-P14 bound bootstrap safety
 
-1. Make active PaperProject plus exact active binding a server-resolved prerequisite.
-2. Reject unbound bootstrap before any PI domain or outbox write.
-3. Make bound bootstrap replay return the exact stored outcome.
-4. Classify legacy null bindings explicitly and route them to a bounded recovery path; do not silently trust-upgrade or backfill.
-5. Keep related admission capabilities default off until relational acceptance passes.
+1. [x] Make completed PaperProject intake plus its exact active bridge binding a server-resolved prerequisite.
+2. [x] Reject unbound bootstrap before any PI domain or outbox write.
+3. [x] Make bound bootstrap replay return the exact stored outcome.
+4. [x] Classify legacy null bindings explicitly as diagnostics-only; do not silently trust-upgrade or backfill.
+5. [x] Preserve the existing route/repository transaction and capability defaults; no schema, migration, data or runtime configuration change was needed.
 
-Exit: unbound, stale, cross-project and legacy-null negatives prove zero partial write; exact bound replay is idempotent.
+Exit: met on 2026-08-02. Unbound, half-bound, stale-hash, cross-title-card, mirror-drift and legacy-null negatives prove zero partial write; exact bound replay is idempotent through service/API and existing Prisma race tests.
 
 ## Phase 2 — EF-P06 atomic promotion/canonicalization
 

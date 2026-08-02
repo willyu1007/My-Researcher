@@ -53,6 +53,14 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - EF-P21 uses a PI-owned rebuildable projection. Structured project scope produces the only candidate set before semantic rank; literature tables and historical Run documents are excluded.
 - Exact files, prohibited writes, tests and rollback entrances are frozen in `06-phase0-census-and-freeze.md`.
 
+## Phase 1 landed binding contract — 2026-08-02
+
+- `PaperImplementationIntakeBootstrapService` remains the sole product bootstrap business boundary; route, controller and repository layering is unchanged.
+- A usable handoff contains the same non-null `paper_project_intake` and `paper_project` refs in both the handoff and embedded bridge. Both refs bind the bridge title-card id and exact bridge payload hash.
+- Fully unbound upstream bridges fail with `PAPER_PROJECT_BINDING_REQUIRED`; half-bound, malformed, stale or mirror-drifted pairs fail with `PAPER_PROJECT_BINDING_CONFLICT`. Both fail before `createBootstrap`.
+- Existing stored bootstrap replay and the two project read methods revalidate the immutable project/snapshot/source-handoff binding. Any missing historical binding returns `LEGACY_RECORD_NOT_ELIGIBLE` with `recovery=diagnostics_only` and leaves rows untouched.
+- Nullable Prisma fields remain historical storage only. No migration, repair writer, late binding or second bootstrap endpoint was added.
+
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.

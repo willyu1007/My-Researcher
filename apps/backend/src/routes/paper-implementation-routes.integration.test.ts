@@ -422,8 +422,16 @@ function makeBridgeHandoff(): TopicSelectionPaperProjectBridgeHandoff {
     working_copy_payload: workingCopy,
     working_copy_payload_hash: 'working_copy_payload_hash_001',
     bridge_payload_hash: 'bridge_payload_hash_001',
-    paper_project_intake_ref: null,
-    target_paper_project_ref: null,
+    paper_project_intake_ref: ref(
+      'paper_project_intake',
+      'paper_project_intake_001',
+      'bridge_payload_hash_001',
+    ),
+    target_paper_project_ref: ref(
+      'paper_project',
+      'paper_project_001',
+      'bridge_payload_hash_001',
+    ),
     source_promotion_handoff: {} as never,
     artifact_refs: [],
     policy_version_id: 'policy_v1',
@@ -462,7 +470,7 @@ function makeBridgeHandoff(): TopicSelectionPaperProjectBridgeHandoff {
 }
 
 class StubBridgeService {
-  private readonly handoff = makeBridgeHandoff();
+  constructor(private readonly handoff = makeBridgeHandoff()) {}
 
   async getPaperProjectBridgeHandoff(
     paperProjectBridgeId: string,
@@ -1046,6 +1054,43 @@ test('buildApp registers PaperImplementation routes and drives bootstrap happy p
     });
     assert.equal(fetchedTrace.statusCode, 200);
     assert.equal((fetchedTrace.json() as TraceManifest).trace_status, 'broken');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation bootstrap rejects an unbound bridge with zero project writes', async () => {
+  const repository = new InMemoryPaperImplementationRepository();
+  const unboundHandoff = makeBridgeHandoff();
+  unboundHandoff.paper_project_intake_ref = null;
+  unboundHandoff.target_paper_project_ref = null;
+  unboundHandoff.bridge.paper_project_intake_ref = null;
+  unboundHandoff.bridge.target_paper_project_ref = null;
+  const app = buildApp({
+    paperImplementationRepository: repository,
+    paperImplementationBridgeService: new StubBridgeService(unboundHandoff),
+    paperImplementationDownstreamFeedbackService: new RecordingDownstreamFeedbackService(),
+  });
+  try {
+    const rejected = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/projects/bootstrap',
+      payload: {
+        paper_project_bridge_id: 'paper_project_bridge_001',
+        bridge_payload_hash: 'bridge_payload_hash_001',
+      },
+    });
+    assert.equal(rejected.statusCode, 409);
+    assert.deepEqual(rejected.json(), {
+      error: {
+        code: 'GATE_CONSTRAINT_FAILED',
+        message: 'PaperProjectBridge paper_project_bridge_001 has not completed PaperProject intake.',
+        details: {
+          reason_code: 'PAPER_PROJECT_BINDING_REQUIRED',
+        },
+      },
+    });
+    assert.equal(await repository.findProjectByBridgeId('paper_project_bridge_001'), null);
   } finally {
     await app.close();
   }

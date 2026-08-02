@@ -23,3 +23,11 @@
 - What was tried: inventorying legacy result/generic records and current v2 scientific ingress as potential sources. Legacy would create a forbidden trust migration, and v2 rows are already attached by construction.
 - Fix/workaround: block Phase 3 implementation until a typed source model is approved. Prefer attaching an exploration specification and performing a new PI-bound execution; keep the prior output diagnostic-only.
 - Prevention: before planning an attachment or migration command, prove that both source and destination have authoritative typed identities and that the source is eligible under legacy/cutover policy.
+
+## Node 26 ts-node loader hid diagnostics in targeted tests — 2026-08-02
+
+- Symptom: a direct `node --test --loader ts-node/esm` invocation failed at module load with an anonymous null-prototype object and no test cases.
+- Root cause: the local Node `v26.5.0` and ts-node typechecking-loader path emitted an opaque loader failure even though the project TypeScript compiler passed.
+- What was tried: rerunning with `TS_NODE_LOG_ERROR=true` exposed noisy, inconsistent loader diagnostics and allowed tests to execute, but did not provide a trustworthy type gate.
+- Fix/workaround: run targeted tests with `TS_NODE_TRANSPILE_ONLY=true` and run `pnpm run typecheck` separately as the authoritative TypeScript check.
+- Prevention: record both commands and outcomes; never treat transpile-only test execution as type verification.

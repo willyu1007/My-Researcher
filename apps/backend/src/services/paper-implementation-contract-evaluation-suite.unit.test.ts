@@ -294,8 +294,16 @@ function makeBridgeHandoff(
     working_copy_payload: workingCopy,
     working_copy_payload_hash: 'working_copy_payload_hash_001',
     bridge_payload_hash: BRIDGE_HASH,
-    paper_project_intake_ref: null,
-    target_paper_project_ref: null,
+    paper_project_intake_ref: ref(
+      'paper_project_intake',
+      'paper_project_intake_001',
+      BRIDGE_HASH,
+    ),
+    target_paper_project_ref: ref(
+      'paper_project',
+      'paper_project_001',
+      BRIDGE_HASH,
+    ),
     source_promotion_handoff: {} as never,
     artifact_refs: [ref('artifact_ref', 'artifact_ref_001')],
     policy_version_id: 'policy_v1',

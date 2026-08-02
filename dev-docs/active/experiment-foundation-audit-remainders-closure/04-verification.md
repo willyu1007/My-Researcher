@@ -22,4 +22,21 @@
 - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` → updated T-134 and regenerated registry/dashboard/feature map/task index.
 - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` → passed with only the two unrelated pre-existing T-124/T-133 state-format warnings.
 
-Implementation, runtime, database and cloud verification have not started. The task is now `in-progress`; Phase 0 is documentation-complete and all implementation effects remain zero.
+At Phase 0 close, implementation, runtime, database and cloud verification had not started; all implementation effects were zero.
+
+## Phase 1 EF-P14 verification — 2026-08-02
+
+- `pnpm run typecheck` from `apps/backend` → passed after Prisma client generation; `tsc -p tsconfig.json --noEmit` reported zero errors.
+- `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/services/paper-implementation-intake-bootstrap-service.unit.test.ts` → 18/18 passed. Covers bound creation/replay, repository race result, inactive/source/hash failures, unbound zero-write, both half-pairs, handoff/bridge drift, cross-title-card, wrong ref type, stale binding hash, legacy-null replay/read classification and feedback regressions.
+- `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/routes/paper-implementation-routes.integration.test.ts` → 7/7 passed. Covers the stable `409 GATE_CONSTRAINT_FAILED` / `PAPER_PROJECT_BINDING_REQUIRED` HTTP envelope and zero project writes plus the existing PaperImplementation route flows.
+- `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/services/paper-implementation-contract-evaluation-suite.unit.test.ts` → 5/5 passed.
+- `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/repositories/prisma/prisma-paper-implementation-repository.unit.test.ts` → 2/2 passed; same-hash race converges and changed-hash race conflicts.
+- `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/services/topic-selection-v1c-paper-project-bridge-service.unit.test.ts` → 12/12 passed; confirms upstream intake creates and atomically attaches the exact paired refs, replays once and rolls back on attachment conflict.
+- The direct ts-node typechecking loader fails anonymously under local Node `v26.5.0`; tests therefore use transpile-only while the separate successful backend TypeScript check remains the type authority.
+- No database suite was required or run: Phase 1 changes only pre-repository service admission, and the existing Prisma transaction/schema were unchanged. Zero-write rejection is asserted against the repository boundary; durable race behavior is covered by the unchanged Prisma repository unit suite.
+- `node .ai/scripts/lint-docs.mjs --path dev-docs/active/experiment-foundation-audit-remainders-closure --strict` → passed, 8/8 files, 0 errors and 0 warnings.
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` → passed with no generated-view change required; T-134 remains `in-progress`.
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` → passed with only the two unrelated pre-existing T-124/T-133 state-format warnings.
+- `git diff --check` → passed.
+
+Phase 1 is complete. EF-P14 is verified at service, HTTP, contract-regression and repository-race layers without schema/data/runtime effects.

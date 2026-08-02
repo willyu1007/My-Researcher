@@ -23,3 +23,13 @@
 - Confirmed all current typed v2 scientific results are already PI-bound. This invalidates the original assumption that an eligible typed standalone output already exists and creates a mandatory Phase 3 architecture decision.
 - Confirmed PI structured lineage already filters by project in repository queries and that the only native vector table is literature-owned. EF-P21 must own a separate rebuildable projection and rank only pre-authorized candidates.
 - Recorded the complete modification allowlist, prohibited surface, named verification matrix and rollback table in `06-phase0-census-and-freeze.md`.
+
+## 2026-08-02 — Phase 1 EF-P14 bound bootstrap safety
+
+- Changed `paper-implementation-intake-bootstrap-service.ts` only at the service business boundary. New bootstrap validates paired handoff/bridge refs before creating ids, hashes or calling the repository.
+- Exact binding requires `paper_project_intake` plus `paper_project` ref types, non-empty identities, matching title-card id, exact bridge payload hash and byte-equivalent handoff/embedded-bridge refs.
+- Bound bootstrap stores the validated target ref in the snapshot hash, ImplementationProject and intake snapshot; exact replay still returns the existing repository outcome.
+- Existing project replay and project reads now validate stored project/snapshot/source-handoff parity. Null-bound history is rejected as `LEGACY_RECORD_NOT_ELIGIBLE` with diagnostics-only recovery and is never rewritten.
+- Updated only three test fixtures that instantiate the bootstrap service so their normal path represents a completed upstream PaperProject intake. Prisma repository null fixtures remain unchanged to preserve historical-null storage coverage.
+- Added service tests for zero-write unbound/half-bound/type/title/hash/mirror failures and legacy replay/read rejection; added real HTTP coverage for the stable unbound error envelope; retained contract-suite and Prisma race regressions.
+- No route, controller, shared request/response contract, repository implementation, Prisma schema, migration, local data, capability flag or cloud state changed.

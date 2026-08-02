@@ -76,6 +76,16 @@ function makeBridgeHandoff(
     package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
     promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
   };
+  const paperProjectIntakeRef = ref(
+    'paper_project_intake',
+    'paper_project_intake_001',
+    'bridge_payload_hash_001',
+  );
+  const targetPaperProjectRef = ref(
+    'paper_project',
+    'paper_project_001',
+    'bridge_payload_hash_001',
+  );
   const workingCopy: TopicSelectionPaperProjectBridgeWorkingCopyPayload = {
     editable_title: 'Working paper title',
     problem_statement: 'A concise problem statement.',
@@ -135,8 +145,8 @@ function makeBridgeHandoff(
     working_copy_payload: workingCopy,
     working_copy_payload_hash: 'working_copy_payload_hash_001',
     bridge_payload_hash: 'bridge_payload_hash_001',
-    paper_project_intake_ref: null,
-    target_paper_project_ref: null,
+    paper_project_intake_ref: paperProjectIntakeRef,
+    target_paper_project_ref: targetPaperProjectRef,
     source_promotion_handoff: {} as never,
     artifact_refs: [ref('artifact_ref', 'artifact_ref_001')],
     policy_version_id: 'policy_v1',
@@ -342,6 +352,12 @@ test('bootstrap from active PaperProjectBridge creates immutable intake snapshot
   assert.equal(result.intake_snapshot.source_refs.length > 0, true);
   assert.equal(result.intake_snapshot.condition_refs[0]?.ref_id, 'verify_claim_ceiling');
   assert.equal(result.handoff_to_motive.intake_snapshot_id, result.intake_snapshot.intake_snapshot_id);
+  assert.equal(result.intake_snapshot.source_handoff.paper_project_intake_ref?.ref_type, 'paper_project_intake');
+  assert.equal(result.implementation_project.target_paper_project_ref?.ref_type, 'paper_project');
+  assert.deepEqual(
+    result.implementation_project.target_paper_project_ref,
+    result.intake_snapshot.target_paper_project_ref,
+  );
 });
 
 test('duplicate bootstrap with same bridge/hash returns existing project idempotently', async () => {
@@ -440,6 +456,194 @@ test('missing source refs blocks PaperImplementation intake', async () => {
       bridge_payload_hash: 'bridge_payload_hash_001',
     }),
     (error: unknown) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+});
+
+test('unbound PaperProjectBridge fails before PaperImplementation writes', async () => {
+  const handoff = makeBridgeHandoff({
+    bridge: {
+      paper_project_intake_ref: null,
+      target_paper_project_ref: null,
+    },
+    handoff: {
+      paper_project_intake_ref: null,
+      target_paper_project_ref: null,
+    },
+  });
+  const { repository, service } = makeSubject(handoff);
+
+  await assert.rejects(
+    () => service.bootstrapProject({
+      paper_project_bridge_id: 'paper_project_bridge_001',
+      bridge_payload_hash: 'bridge_payload_hash_001',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+      && error.details?.reason_code === 'PAPER_PROJECT_BINDING_REQUIRED',
+  );
+  assert.equal(await repository.findProjectByBridgeId('paper_project_bridge_001'), null);
+});
+
+test('partial and mismatched PaperProject bindings fail closed before writes', async (t) => {
+  const intakeRef = ref(
+    'paper_project_intake',
+    'paper_project_intake_001',
+    'bridge_payload_hash_001',
+  );
+  const targetRef = ref('paper_project', 'paper_project_001', 'bridge_payload_hash_001');
+  const cases: Array<{
+    name: string;
+    handoff: TopicSelectionPaperProjectBridgeHandoff;
+  }> = [
+    {
+      name: 'intake-only half binding',
+      handoff: makeBridgeHandoff({
+        bridge: { paper_project_intake_ref: intakeRef, target_paper_project_ref: null },
+        handoff: { paper_project_intake_ref: intakeRef, target_paper_project_ref: null },
+      }),
+    },
+    {
+      name: 'target-only half binding',
+      handoff: makeBridgeHandoff({
+        bridge: { paper_project_intake_ref: null, target_paper_project_ref: targetRef },
+        handoff: { paper_project_intake_ref: null, target_paper_project_ref: targetRef },
+      }),
+    },
+    {
+      name: 'handoff and bridge ref drift',
+      handoff: makeBridgeHandoff({
+        handoff: {
+          target_paper_project_ref: ref(
+            'paper_project',
+            'paper_project_drifted',
+            'bridge_payload_hash_001',
+          ),
+        },
+      }),
+    },
+    {
+      name: 'cross-title-card target',
+      handoff: makeBridgeHandoff({
+        bridge: {
+          target_paper_project_ref: {
+            ...targetRef,
+            title_card_id: 'title_card_foreign',
+          },
+        },
+        handoff: {
+          target_paper_project_ref: {
+            ...targetRef,
+            title_card_id: 'title_card_foreign',
+          },
+        },
+      }),
+    },
+    {
+      name: 'wrong intake ref type',
+      handoff: makeBridgeHandoff({
+        bridge: {
+          paper_project_intake_ref: ref(
+            'paper_project',
+            'paper_project_intake_001',
+            'bridge_payload_hash_001',
+          ),
+        },
+        handoff: {
+          paper_project_intake_ref: ref(
+            'paper_project',
+            'paper_project_intake_001',
+            'bridge_payload_hash_001',
+          ),
+        },
+      }),
+    },
+    {
+      name: 'stale bridge-hash binding',
+      handoff: makeBridgeHandoff({
+        bridge: {
+          target_paper_project_ref: {
+            ...targetRef,
+            version_id: 'stale_bridge_hash',
+          },
+        },
+        handoff: {
+          target_paper_project_ref: {
+            ...targetRef,
+            version_id: 'stale_bridge_hash',
+          },
+        },
+      }),
+    },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      const { repository, service } = makeSubject(scenario.handoff);
+      await assert.rejects(
+        () => service.bootstrapProject({
+          paper_project_bridge_id: 'paper_project_bridge_001',
+          bridge_payload_hash: 'bridge_payload_hash_001',
+        }),
+        (error: unknown) => error instanceof AppError
+          && error.statusCode === 409
+          && error.errorCode === 'VERSION_CONFLICT'
+          && error.details?.reason_code === 'PAPER_PROJECT_BINDING_CONFLICT',
+      );
+      assert.equal(await repository.findProjectByBridgeId('paper_project_bridge_001'), null);
+    });
+  }
+});
+
+test('legacy null-bound project is diagnostics-only on replay and project reads', async () => {
+  const source = makeSubject();
+  const admitted = await source.service.bootstrapProject({
+    paper_project_bridge_id: 'paper_project_bridge_001',
+    bridge_payload_hash: 'bridge_payload_hash_001',
+  });
+  const legacyRepository = new InMemoryPaperImplementationRepository();
+  const legacySourceHandoff = structuredClone(admitted.intake_snapshot.source_handoff);
+  legacySourceHandoff.paper_project_intake_ref = null;
+  legacySourceHandoff.target_paper_project_ref = null;
+  legacySourceHandoff.bridge.paper_project_intake_ref = null;
+  legacySourceHandoff.bridge.target_paper_project_ref = null;
+  await legacyRepository.createBootstrap({
+    implementation_project: {
+      ...admitted.implementation_project,
+      target_paper_project_ref: null,
+    },
+    intake_snapshot: {
+      ...admitted.intake_snapshot,
+      source_handoff: legacySourceHandoff,
+      target_paper_project_ref: null,
+    },
+  });
+  const { service } = makeSubject(makeBridgeHandoff(), { repository: legacyRepository });
+  const isLegacyRejection = (error: unknown) => error instanceof AppError
+    && error.statusCode === 409
+    && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+    && error.details?.reason_code === 'LEGACY_RECORD_NOT_ELIGIBLE'
+    && error.details?.recovery === 'diagnostics_only';
+
+  await assert.rejects(
+    () => service.bootstrapProject({
+      paper_project_bridge_id: 'paper_project_bridge_001',
+      bridge_payload_hash: 'bridge_payload_hash_001',
+    }),
+    isLegacyRejection,
+  );
+  await assert.rejects(
+    () => service.getProject(admitted.implementation_project.implementation_project_id),
+    isLegacyRejection,
+  );
+  await assert.rejects(
+    () => service.getProjectByBridge('paper_project_bridge_001'),
+    isLegacyRejection,
+  );
+  assert.equal(
+    (await legacyRepository.findProjectByBridgeId('paper_project_bridge_001'))
+      ?.target_paper_project_ref,
+    null,
   );
 });
 

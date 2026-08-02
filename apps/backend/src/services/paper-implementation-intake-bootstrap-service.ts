@@ -61,6 +61,10 @@ const FEEDBACK_SIGNAL_BY_TYPE: Record<ImplementationFeedbackType, TopicSelection
   research_slice_too_broad: 'boundary_drift',
 };
 
+const PAPER_PROJECT_BINDING_REQUIRED_REASON_CODE = 'PAPER_PROJECT_BINDING_REQUIRED';
+const PAPER_PROJECT_BINDING_CONFLICT_REASON_CODE = 'PAPER_PROJECT_BINDING_CONFLICT';
+const LEGACY_RECORD_NOT_ELIGIBLE_REASON_CODE = 'LEGACY_RECORD_NOT_ELIGIBLE';
+
 export class PaperImplementationIntakeBootstrapService {
   private readonly repository: PaperImplementationRepository;
   private readonly paperProjectBridgeService: TopicSelectionPaperProjectBridgeHandoffProvider;
@@ -105,13 +109,14 @@ export class PaperImplementationIntakeBootstrapService {
           `ImplementationProject ${existingProject.implementation_project_id} is missing its intake snapshot.`,
         );
       }
+      this.assertStoredBootstrapBinding(existingProject, existingSnapshot);
       return this.toBootstrapResponse(existingProject, existingSnapshot, false);
     }
 
     const handoff = await this.paperProjectBridgeService.getPaperProjectBridgeHandoff(
       request.paper_project_bridge_id,
     );
-    this.assertUsableHandoff(handoff, request);
+    const targetPaperProjectRef = this.assertUsableHandoff(handoff, request);
 
     const createdAt = this.now();
     const createdBy = request.created_by ?? 'system';
@@ -135,7 +140,7 @@ export class PaperImplementationIntakeBootstrapService {
       condition_refs: conditionRefs,
       early_check_obligations: handoff.early_check_obligations,
       working_copy_payload_hash: handoff.working_copy_payload_hash,
-      target_paper_project_ref: handoff.target_paper_project_ref ?? null,
+      target_paper_project_ref: targetPaperProjectRef,
     });
 
     const project: ImplementationProject = {
@@ -145,7 +150,7 @@ export class PaperImplementationIntakeBootstrapService {
       title_card_id: handoff.bridge.title_card_id,
       paper_project_bridge_id: handoff.paper_project_bridge_id,
       bridge_payload_hash: handoff.bridge_payload_hash,
-      target_paper_project_ref: handoff.target_paper_project_ref ?? null,
+      target_paper_project_ref: targetPaperProjectRef,
       lifecycle_status: 'active',
       freshness_status: 'fresh',
       source_status: 'active',
@@ -181,7 +186,7 @@ export class PaperImplementationIntakeBootstrapService {
       working_copy_payload: handoff.working_copy_payload,
       working_copy_payload_hash: handoff.working_copy_payload_hash,
       source_handoff: handoff,
-      target_paper_project_ref: handoff.target_paper_project_ref ?? null,
+      target_paper_project_ref: targetPaperProjectRef,
       intake_snapshot_hash: snapshotHash,
       policy_version_id: policyVersionId,
       created_by: createdBy,
@@ -217,6 +222,7 @@ export class PaperImplementationIntakeBootstrapService {
         `ImplementationProject ${implementationProjectId} is missing its intake snapshot.`,
       );
     }
+    this.assertStoredBootstrapBinding(project, snapshot);
     return this.toBootstrapResponse(project, snapshot, false);
   }
 
@@ -242,6 +248,7 @@ export class PaperImplementationIntakeBootstrapService {
         `ImplementationProject ${project.implementation_project_id} is missing its intake snapshot.`,
       );
     }
+    this.assertStoredBootstrapBinding(project, snapshot);
     return this.toBootstrapResponse(project, snapshot, false);
   }
 
@@ -379,7 +386,7 @@ export class PaperImplementationIntakeBootstrapService {
   private assertUsableHandoff(
     handoff: TopicSelectionPaperProjectBridgeHandoff,
     request: BootstrapImplementationProjectRequest,
-  ): void {
+  ): TopicSelectionFunctionalRef {
     if (
       handoff.bridge_status !== 'active'
       || handoff.bridge.bridge_status !== 'active'
@@ -411,6 +418,129 @@ export class PaperImplementationIntakeBootstrapService {
       );
     }
     this.assertRequiredSource(handoff);
+    return this.assertBoundPaperProjectHandoff(handoff);
+  }
+
+  private assertBoundPaperProjectHandoff(
+    handoff: TopicSelectionPaperProjectBridgeHandoff,
+  ): TopicSelectionFunctionalRef {
+    const handoffIntakeRef = handoff.paper_project_intake_ref;
+    const handoffTargetRef = handoff.target_paper_project_ref;
+    const bridgeIntakeRef = handoff.bridge?.paper_project_intake_ref;
+    const bridgeTargetRef = handoff.bridge?.target_paper_project_ref;
+
+    if (!handoffIntakeRef && !handoffTargetRef && !bridgeIntakeRef && !bridgeTargetRef) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `PaperProjectBridge ${handoff.paper_project_bridge_id} has not completed PaperProject intake.`,
+        { reason_code: PAPER_PROJECT_BINDING_REQUIRED_REASON_CODE },
+      );
+    }
+    if (!handoffIntakeRef || !handoffTargetRef || !bridgeIntakeRef || !bridgeTargetRef) {
+      throw this.paperProjectBindingConflict(
+        handoff.paper_project_bridge_id,
+        'PaperProject intake refs are incomplete.',
+      );
+    }
+
+    this.assertBindingRef(
+      handoff.paper_project_bridge_id,
+      handoffIntakeRef,
+      'paper_project_intake',
+      handoff.bridge.title_card_id,
+      handoff.bridge_payload_hash,
+    );
+    this.assertBindingRef(
+      handoff.paper_project_bridge_id,
+      handoffTargetRef,
+      'paper_project',
+      handoff.bridge.title_card_id,
+      handoff.bridge_payload_hash,
+    );
+    if (
+      !this.sameFunctionalRef(handoffIntakeRef, bridgeIntakeRef)
+      || !this.sameFunctionalRef(handoffTargetRef, bridgeTargetRef)
+    ) {
+      throw this.paperProjectBindingConflict(
+        handoff.paper_project_bridge_id,
+        'PaperProject handoff refs do not match the admitted bridge refs.',
+      );
+    }
+    return handoffTargetRef;
+  }
+
+  private assertStoredBootstrapBinding(
+    project: ImplementationProject,
+    snapshot: ImplementationIntakeSnapshot,
+  ): void {
+    const sourceHandoff = snapshot.source_handoff;
+    if (
+      !project.target_paper_project_ref
+      || !snapshot.target_paper_project_ref
+      || !sourceHandoff?.paper_project_intake_ref
+      || !sourceHandoff.target_paper_project_ref
+      || !sourceHandoff.bridge?.paper_project_intake_ref
+      || !sourceHandoff.bridge.target_paper_project_ref
+    ) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `ImplementationProject ${project.implementation_project_id} has a legacy null PaperProject binding and is not eligible for the product path.`,
+        {
+          reason_code: LEGACY_RECORD_NOT_ELIGIBLE_REASON_CODE,
+          recovery: 'diagnostics_only',
+        },
+      );
+    }
+
+    this.assertBoundPaperProjectHandoff(sourceHandoff);
+    if (
+      project.paper_project_bridge_id !== snapshot.paper_project_bridge_id
+      || project.paper_project_bridge_id !== sourceHandoff.paper_project_bridge_id
+      || project.bridge_payload_hash !== snapshot.bridge_payload_hash
+      || project.bridge_payload_hash !== sourceHandoff.bridge_payload_hash
+      || project.title_card_id !== snapshot.title_card_id
+      || project.title_card_id !== sourceHandoff.bridge.title_card_id
+      || !this.sameFunctionalRef(project.target_paper_project_ref, snapshot.target_paper_project_ref)
+      || !this.sameFunctionalRef(project.target_paper_project_ref, sourceHandoff.target_paper_project_ref)
+    ) {
+      throw this.paperProjectBindingConflict(
+        project.paper_project_bridge_id,
+        'Stored ImplementationProject binding does not match its immutable intake snapshot.',
+      );
+    }
+  }
+
+  private assertBindingRef(
+    bridgeId: string,
+    value: unknown,
+    expectedRefType: 'paper_project_intake' | 'paper_project',
+    expectedTitleCardId: string,
+    expectedVersionId: string,
+  ): asserts value is TopicSelectionFunctionalRef {
+    if (!this.isFunctionalRef(value)) {
+      throw this.paperProjectBindingConflict(bridgeId, `${expectedRefType} ref is malformed.`);
+    }
+    if (
+      value.ref_type !== expectedRefType
+      || value.title_card_id !== expectedTitleCardId
+      || value.version_id !== expectedVersionId
+    ) {
+      throw this.paperProjectBindingConflict(
+        bridgeId,
+        `${expectedRefType} ref does not bind the admitted title card and bridge hash.`,
+      );
+    }
+  }
+
+  private paperProjectBindingConflict(bridgeId: string, message: string): AppError {
+    return new AppError(
+      409,
+      'VERSION_CONFLICT',
+      `PaperProjectBridge ${bridgeId} has an invalid PaperProject binding. ${message}`,
+      { reason_code: PAPER_PROJECT_BINDING_CONFLICT_REASON_CODE },
+    );
   }
 
   private assertRequiredSource(handoff: TopicSelectionPaperProjectBridgeHandoff): void {
@@ -517,5 +647,26 @@ export class PaperImplementationIntakeBootstrapService {
 
   private hasText(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  private isFunctionalRef(value: unknown): value is TopicSelectionFunctionalRef {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
+    }
+    const candidate = value as Record<string, unknown>;
+    return this.hasText(candidate.ref_type)
+      && this.hasText(candidate.ref_id)
+      && (candidate.title_card_id === null || this.hasText(candidate.title_card_id))
+      && (candidate.version_id === null || this.hasText(candidate.version_id));
+  }
+
+  private sameFunctionalRef(
+    left: TopicSelectionFunctionalRef,
+    right: TopicSelectionFunctionalRef,
+  ): boolean {
+    return left.ref_type === right.ref_type
+      && left.ref_id === right.ref_id
+      && (left.title_card_id ?? null) === (right.title_card_id ?? null)
+      && (left.version_id ?? null) === (right.version_id ?? null);
   }
 }
