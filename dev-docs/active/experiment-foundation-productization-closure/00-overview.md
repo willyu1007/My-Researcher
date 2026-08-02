@@ -12,7 +12,7 @@
 - Transferred scope: EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 are owned by `T-134 experiment-foundation-audit-remainders-closure` and no longer block T-132.
 - Removed/out-of-scope: desktop UI, Electron/DOM acceptance, multi-user/tenant concerns, installer/distribution work, generalized BYOC packaging and managed-cloud product delivery are not part of T-132 completion.
 - Read-only cloud checkpoint: **the separately authorized sequence-9 production image gate passed on 2026-08-02**. One fresh controller STS was restricted by session policy to `paiimage:GetImage`; one and only one regional `GetImage` matched the pinned Run/Bundle and produced request hash `26ecc9878fc066d675ca011f83890884a05e3d4cf314eb2e66737e1c6932d08e`. Provider writes, `CreateJob`, database/capability/scientific writes and paid runtime were all 0. Cloud Shell and local credential copies were deleted.
-- Next step: request a new dated paid authorization with an explicit maximum-two-Job and monetary ceiling for the normal durable sequence-9 execution path. The read-only authorization is consumed and does not grant this next step.
+- Authorized execution checkpoint: **the owner confirmed the exact 2026-08-02 durable sequence-9 window with a maximum of two PAI Jobs and total ceiling ¥50**. Action-time offline preflight passed with Attempt/cloud/database-write counts `0/0/0`; the one-shot source token is active only for this Run and window. Obtain a fresh controller STS, execute once through the normal database-controlled path, collect both exact diagnostic-only outputs, prove zero-new replay, remove credentials and retire the token. No capability or scientific-evidence promotion is authorized.
 
 ## 2026-07-30 scope freeze — personal PAI execution closure
 

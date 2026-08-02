@@ -1400,3 +1400,10 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - The sole `image-preflight` passed with request hash `26ecc9878fc066d675ca011f83890884a05e3d4cf314eb2e66737e1c6932d08e`. Cloud calls were exactly 1; provider writes, `CreateJob` and database writes were 0.
 - The Cloud Shell source JSON/env files were removed after local validation. The exact local `/tmp` file and Downloads file/residual prefix were deleted and independently confirmed absent.
 - Next three actions: (1) obtain a new dated maximum-two-Job and monetary ceiling; (2) issue a new controller STS and execute the normal sequence-9 two-cell path; (3) collect both exact results and prove replay creates no duplicate Job, Attempt, command or output.
+
+## 2026-08-02 — durable two-cell paid execution authorization checkpoint
+
+- The owner confirmed the frozen execution boundary: date `2026-08-02`, exact durable sequence-9 Run, maximum two PAI Jobs and total ceiling ¥50. The authorization permits the normal Pack B Attempt/command/collection writes and required controller reads/writes only; capability changes and scientific/evidence promotion remain prohibited.
+- The one-shot source token is `authorized-2026-08-02-durable-two-cell-successor-ceiling-cny50-two-jobs`. It must be reset to `null` after the window regardless of pass or fail.
+- Action-time zero-cloud preflight passed against exact Run `ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1`, manifest hash `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`, Bundle hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`, two cells, two-Job/¥50 source ceilings and Attempt/cloud/database-write counts `0/0/0`.
+- Next actions: create one fresh controller STS under the current reviewed controller policy, execute once with the exact token, retain the process session id if the command yields, then census Job/database/cost state before any recovery or replay.

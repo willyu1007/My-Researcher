@@ -2804,3 +2804,14 @@ Outcome: **the exact sequence-9 production image gate passed with one cloud read
 - Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The two state-format warnings belong to unrelated T-124-era bundles.
 - Scoped whitespace and credential-value scans — target diff passed `git diff --check`; no concrete STS/AK/private-key value pattern was present.
 - Resulting gate — the read-only authorization is consumed. Normal durable two-cell execution requires a separate new dated maximum-two-Job and monetary authorization.
+
+## 2026-08-02 — durable two-cell paid execution preflight
+
+Outcome: **the exact two-Job/¥50 action-time gate passed; authorization is recorded but not yet consumed**.
+
+- Owner authorization — date `2026-08-02`, exact durable sequence-9 normal path, maximum two PAI Jobs and total ceiling ¥50.
+- Offline command — `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight`; passed.
+- Exact identity — Run `ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1`, manifest `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`, Bundle `ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48` / `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`.
+- Resource/cost fence — two cells; `ecs.g6.large`; `2 CPU / 8192 MiB`; maximum 30 minutes per Job; maximum two `CreateJob` calls; total ceiling ¥50.
+- Action-time census — existing Attempts 0; cloud calls 0; database writes 0; named-local target fingerprint unchanged.
+- Safety boundary — capability and scientific/evidence promotion are not authorized; any yielded execute command must retain its session id, and no second process may start before authoritative Job/database census.
