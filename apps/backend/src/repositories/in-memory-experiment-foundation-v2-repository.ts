@@ -16,6 +16,15 @@ import {
   type ExperimentFoundationV2Repository,
   type ExperimentFoundationV2UnitOfWork,
 } from './experiment-foundation-v2.repository.js';
+import {
+  ExperimentFoundationPromotionV2RepositoryConstraintError,
+  type ExperimentFoundationPreparationCandidateV2Record,
+  type ExperimentFoundationPromotionCommandReceiptV2Record,
+  type ExperimentFoundationPromotionDecisionV2Record,
+  type ExperimentFoundationPromotionOutboxV2Record,
+  type ExperimentFoundationPromotionV2Repository,
+  type ExperimentFoundationPromotionV2UnitOfWork,
+} from './experiment-foundation-promotion-v2.repository.js';
 
 interface InMemoryExperimentFoundationV2State {
   assets: Map<string, ExperimentFoundationV2AssetIdentityRecord>;
@@ -29,6 +38,11 @@ interface InMemoryExperimentFoundationV2State {
   readinessAttestations: Map<string, ExperimentFoundationReadinessAttestationV2>;
   readinessByIdentity: Map<string, string>;
   readinessDependencies: Map<string, ExperimentFoundationReadinessDependencyV2[]>;
+  promotionCandidates: Map<string, ExperimentFoundationPreparationCandidateV2Record>;
+  promotionDecisions: Map<string, ExperimentFoundationPromotionDecisionV2Record>;
+  promotionDecisionByCandidate: Map<string, string>;
+  promotionReceipts: Map<string, ExperimentFoundationPromotionCommandReceiptV2Record>;
+  promotionOutboxByDecision: Map<string, ExperimentFoundationPromotionOutboxV2Record>;
 }
 
 /**
@@ -36,7 +50,7 @@ interface InMemoryExperimentFoundationV2State {
  * only after successful completion, matching an EF-local database transaction.
  */
 export class InMemoryExperimentFoundationV2Repository
-implements ExperimentFoundationV2Repository {
+implements ExperimentFoundationV2Repository, ExperimentFoundationPromotionV2Repository {
   private state = emptyState();
   private transactionTail: Promise<void> = Promise.resolve();
 
@@ -59,11 +73,42 @@ implements ExperimentFoundationV2Repository {
       releaseTransaction();
     }
   }
+
+  async runPromotionInTransaction<T>(
+    operation: (unitOfWork: ExperimentFoundationPromotionV2UnitOfWork) => Promise<T>,
+  ): Promise<T> {
+    return this.runSerializedTransaction(operation);
+  }
+
+  private async runSerializedTransaction<T>(
+    operation: (unitOfWork: InMemoryExperimentFoundationV2UnitOfWork) => Promise<T>,
+  ): Promise<T> {
+    let releaseTransaction!: () => void;
+    const previousTransaction = this.transactionTail;
+    this.transactionTail = new Promise<void>((resolve) => {
+      releaseTransaction = resolve;
+    });
+
+    await previousTransaction;
+    const workingState = cloneState(this.state);
+    try {
+      const unitOfWork = new InMemoryExperimentFoundationV2UnitOfWork(workingState);
+      const result = await operation(unitOfWork);
+      this.state = workingState;
+      return result;
+    } finally {
+      releaseTransaction();
+    }
+  }
 }
 
 class InMemoryExperimentFoundationV2UnitOfWork
-implements ExperimentFoundationV2UnitOfWork {
+implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2UnitOfWork {
   constructor(private readonly state: InMemoryExperimentFoundationV2State) {}
+
+  async lockPreparationCandidate(): Promise<void> {
+    // runPromotionInTransaction already serializes the in-memory aggregate.
+  }
 
   async findAssetIdentity(
     assetType: ExperimentFoundationV2AssetType,
@@ -351,6 +396,139 @@ implements ExperimentFoundationV2UnitOfWork {
       ordered.map((dependency) => clone(dependency)),
     );
   }
+
+  async findPreparationCandidate(
+    candidateId: string,
+    candidateRevision: number,
+  ): Promise<ExperimentFoundationPreparationCandidateV2Record | null> {
+    return cloneNullable(this.state.promotionCandidates.get(
+      promotionCandidateKey(candidateId, candidateRevision),
+    ));
+  }
+
+  async insertPreparationCandidate(
+    record: ExperimentFoundationPreparationCandidateV2Record,
+  ): Promise<void> {
+    const key = promotionCandidateKey(
+      record.candidate.candidate_id,
+      record.candidate.candidate_revision,
+    );
+    const duplicateAssetRevision = [...this.state.promotionCandidates.values()].some((candidate) => (
+      candidate.candidate.asset_type === record.candidate.asset_type
+      && candidate.candidate.logical_id === record.candidate.logical_id
+      && candidate.candidate.candidate_revision === record.candidate.candidate_revision
+    ));
+    if (this.state.promotionCandidates.has(key) || duplicateAssetRevision) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Preparation candidate already exists: ${key}`,
+      );
+    }
+    this.state.promotionCandidates.set(key, clone(record));
+  }
+
+  async compareAndSwapPreparationCandidate(
+    candidateId: string,
+    candidateRevision: number,
+    expectedStateVersion: number,
+    next: ExperimentFoundationPreparationCandidateV2Record,
+  ): Promise<boolean> {
+    const key = promotionCandidateKey(candidateId, candidateRevision);
+    const current = this.state.promotionCandidates.get(key);
+    if (
+      !current
+      || current.state_version !== expectedStateVersion
+      || next.candidate.candidate_id !== candidateId
+      || next.candidate.candidate_revision !== candidateRevision
+    ) {
+      return false;
+    }
+    this.state.promotionCandidates.set(key, clone(next));
+    return true;
+  }
+
+  async findPromotionDecisionByCandidate(
+    candidateId: string,
+    candidateRevision: number,
+  ): Promise<ExperimentFoundationPromotionDecisionV2Record | null> {
+    const decisionId = this.state.promotionDecisionByCandidate.get(
+      promotionCandidateKey(candidateId, candidateRevision),
+    );
+    return decisionId ? cloneNullable(this.state.promotionDecisions.get(decisionId)) : null;
+  }
+
+  async findPromotionDecisionById(
+    promotionDecisionId: string,
+  ): Promise<ExperimentFoundationPromotionDecisionV2Record | null> {
+    return cloneNullable(this.state.promotionDecisions.get(promotionDecisionId));
+  }
+
+  async insertPromotionDecision(record: ExperimentFoundationPromotionDecisionV2Record): Promise<void> {
+    const candidateKey = promotionCandidateKey(
+      record.decision.candidate_id,
+      record.decision.candidate_revision,
+    );
+    if (
+      this.state.promotionDecisions.has(record.decision.promotion_decision_id)
+      || this.state.promotionDecisionByCandidate.has(candidateKey)
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_DECISION_CONFLICT',
+        `Promotion decision already exists: ${candidateKey}`,
+      );
+    }
+    this.state.promotionDecisions.set(record.decision.promotion_decision_id, clone(record));
+    this.state.promotionDecisionByCandidate.set(
+      candidateKey,
+      record.decision.promotion_decision_id,
+    );
+  }
+
+  async findPromotionCommandReceipt(
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationPromotionCommandReceiptV2Record | null> {
+    return cloneNullable(this.state.promotionReceipts.get(businessIdempotencyKey));
+  }
+
+  async insertPromotionCommandReceipt(
+    record: ExperimentFoundationPromotionCommandReceiptV2Record,
+  ): Promise<void> {
+    const current = this.state.promotionReceipts.get(record.business_idempotency_key);
+    if (current) {
+      if (
+        current.command_hash === record.command_hash
+        && current.promotion_decision_id === record.promotion_decision_id
+      ) {
+        return;
+      }
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_IDEMPOTENCY_CONFLICT',
+        `Promotion idempotency key has drifted: ${record.business_idempotency_key}`,
+      );
+    }
+    this.state.promotionReceipts.set(record.business_idempotency_key, clone(record));
+  }
+
+  async findPromotionOutboxByDecision(
+    promotionDecisionId: string,
+  ): Promise<ExperimentFoundationPromotionOutboxV2Record | null> {
+    return cloneNullable(this.state.promotionOutboxByDecision.get(promotionDecisionId));
+  }
+
+  async insertPromotionOutbox(record: ExperimentFoundationPromotionOutboxV2Record): Promise<void> {
+    if (this.state.promotionOutboxByDecision.has(record.promotion_decision_id)) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox already exists: ${record.promotion_decision_id}`,
+      );
+    }
+    this.state.promotionOutboxByDecision.set(record.promotion_decision_id, clone(record));
+  }
+
+  bindPromotionCanonicalRevision(): void {
+    // In-memory revisions have no pending commit guard. Prisma clears its
+    // pending-revision invariant through the same method.
+  }
 }
 
 function emptyState(): InMemoryExperimentFoundationV2State {
@@ -366,6 +544,11 @@ function emptyState(): InMemoryExperimentFoundationV2State {
     readinessAttestations: new Map(),
     readinessByIdentity: new Map(),
     readinessDependencies: new Map(),
+    promotionCandidates: new Map(),
+    promotionDecisions: new Map(),
+    promotionDecisionByCandidate: new Map(),
+    promotionReceipts: new Map(),
+    promotionOutboxByDecision: new Map(),
   };
 }
 
@@ -382,6 +565,11 @@ function cloneState(state: InMemoryExperimentFoundationV2State): InMemoryExperim
     readinessAttestations: cloneMap(state.readinessAttestations),
     readinessByIdentity: new Map(state.readinessByIdentity),
     readinessDependencies: cloneMap(state.readinessDependencies),
+    promotionCandidates: cloneMap(state.promotionCandidates),
+    promotionDecisions: cloneMap(state.promotionDecisions),
+    promotionDecisionByCandidate: new Map(state.promotionDecisionByCandidate),
+    promotionReceipts: cloneMap(state.promotionReceipts),
+    promotionOutboxByDecision: cloneMap(state.promotionOutboxByDecision),
   };
 }
 
@@ -399,6 +587,10 @@ function cloneNullable<T>(value: T | undefined): T | null {
 
 function assetKey(assetType: ExperimentFoundationV2AssetType, logicalId: string): string {
   return `${assetType}:${logicalId}`;
+}
+
+function promotionCandidateKey(candidateId: string, candidateRevision: number): string {
+  return `${candidateId}:${candidateRevision}`;
 }
 
 function assetFamilyKey(record: ExperimentFoundationV2AssetIdentityRecord): string {

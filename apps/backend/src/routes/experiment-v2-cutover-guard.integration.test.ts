@@ -204,6 +204,16 @@ test('scientific validation enable without a committed cutover fails during app 
   );
 });
 
+test('typed promotion enable without a committed cutover fails during app composition', () => {
+  assert.throws(
+    () => buildApp({
+      paperImplementationExperimentV2CutoverCommitted: () => false,
+      experimentFoundationV2PromotionEnabled: () => true,
+    }),
+    /EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED requires PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true/,
+  );
+});
+
 test('Cycle closure enable without a committed cutover fails during app composition', () => {
   assert.throws(
     () => buildApp({

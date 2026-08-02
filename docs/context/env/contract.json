@@ -5,7 +5,7 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-07-23T00:07:58Z",
+  "generated_at_utc": "2026-08-02T11:28:19Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "ALIBABA_CLOUD_ACCESS_KEY_ID": {
@@ -436,6 +436,23 @@
       "secret_ref": null,
       "state": "active",
       "type": "string"
+    },
+    "EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable only the server-owned ExperimentFoundation v2 typed candidate promotion/canonicalization command; this switch does not reopen legacy promotion and requires the committed v2 cutover.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
     },
     "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED": {
       "default": false,

@@ -15,6 +15,8 @@
 - Do not repair legacy null bindings through silent backfill or trust upgrade.
 - Do not attach standalone EF output by identity-only linkage; full project/readiness/validation revalidation is mandatory.
 - Do not split promotion decision, canonicalization, Candidate and outbox into partial commits.
+- Do not run the disposable full migration history on a plain PostgreSQL image; use the repository-pinned pgvector digest.
+- Do not return PostgreSQL `void` directly through Prisma `$queryRaw`; wrap advisory-lock execution in a supported scalar result.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
@@ -31,3 +33,19 @@
 - What was tried: rerunning with `TS_NODE_LOG_ERROR=true` exposed noisy, inconsistent loader diagnostics and allowed tests to execute, but did not provide a trustworthy type gate.
 - Fix/workaround: run targeted tests with `TS_NODE_TRANSPILE_ONLY=true` and run `pnpm run typecheck` separately as the authoritative TypeScript check.
 - Prevention: record both commands and outcomes; never treat transpile-only test execution as type verification.
+
+## Disposable promotion gate used a PostgreSQL image without pgvector — 2026-08-02
+
+- Symptom: the first nonce-bound disposable migration stopped at historical migration `20260605104000_add_literature_pgvector_phase1` before reaching EF-P06.
+- Root cause: the initial inline gate selected `postgres:16-alpine`, which lacks the repository-required `vector` extension.
+- What was tried: full `prisma migrate deploy` on the plain image; Prisma correctly returned P3018/0A000 and the `finally` cleanup removed the container.
+- Fix/workaround: rerun with the repository-pinned `pgvector/pgvector` digest used by existing EF relational gates.
+- Prevention: every full-history disposable PostgreSQL gate in this repository must reuse the pinned pgvector image, not a generic PostgreSQL image.
+
+## Prisma could not deserialize advisory-lock void — 2026-08-02
+
+- Symptom: the promotion relational test failed before its crash failpoint because `$queryRaw` could not deserialize `pg_advisory_xact_lock`'s PostgreSQL `void` result; a first boolean wrapper also treated the successful void as false.
+- Root cause: the lock function was selected as the direct result column instead of being executed in a subquery with a Prisma-supported scalar projection.
+- What was tried: direct void selection, then `void IS NULL AS locked`; neither provided a reliable Prisma result value.
+- Fix/workaround: execute the lock in a subquery and project constant `1::int AS locked`, then require one row/value before continuing.
+- Prevention: wrap PostgreSQL side-effect/void functions behind a supported scalar projection when they must run through Prisma `$queryRaw`.

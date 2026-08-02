@@ -40,3 +40,18 @@ At Phase 0 close, implementation, runtime, database and cloud verification had n
 - `git diff --check` → passed.
 
 Phase 1 is complete. EF-P14 is verified at service, HTTP, contract-regression and repository-race layers without schema/data/runtime effects.
+
+## Phase 2 EF-P06 verification — 2026-08-02
+
+- Shared contract/hash: `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm src/research-lifecycle/experiment-foundation-promotion-v2-contracts.schema.test.ts` from `packages/shared` → 2/2 passed. The closed command rejects caller Candidate/canonical/hash/result/TaskSpec/outbox fields; command bytes, hashes and server ids are deterministic and drift-sensitive.
+- Service/API/cutover: targeted promotion service, promotion route and cutover-guard suites → 22/22 passed. Coverage includes approve, reject/no-canonical, exact replay, new-key exact replay, same-key drift, injected crash rollback, concurrent convergence, exact canonical reuse, illegal service-boundary targets, default-off, committed-cutover composition and the still-closed legacy promotion route.
+- Existing spine regression: `experiment-v2-integration-spine.unit.test.ts` → 35/35 passed. Admitted exact cells still materialize one VersionLock/Recipe, exact TaskSpecs and one Run through the existing consumer; promotion acquired no TaskSpec/Run authority.
+- Durable UoW: final nonce-bound disposable PostgreSQL `d19_1d5fd15b61e7` applied the full migration history including `20260802150000_add_experiment_foundation_promotion_v2`; the promotion relational test passed with skip=0 after stored Candidate/decision/outbox hash-integrity checks were active. Injected crash produced zero Candidate/decision/canonical/receipt/outbox rows; recovery produced exact-one; concurrent two-key promote produced one decision/canonical/Candidate/outbox plus two receipts and one replay; reject produced no canonical revision. The earlier successful `d19_94221898002a` run independently counted 3 terminal decisions. Both containers were removed.
+- Initial disposable attempt on `postgres:16-alpine` failed before EF-P06 at the historical pgvector migration and was cleaned up; the successful run used the repository-pinned pgvector digest. Initial direct/boolean advisory-lock projections failed Prisma void/result handling; the scalar-subquery form passed. Both resolved failures are recorded in `05-pitfalls.md`.
+- Prisma: `prisma format` passed; `prisma validate` passed with a non-connecting placeholder URL; backend Prisma generation/typecheck passed. No named-local/staging/production migration was applied.
+- TypeScript: `pnpm run typecheck` passed independently in both `packages/shared` and `apps/backend`.
+- OpenAPI: v2 path coverage and contract-drift tests → 2/2 passed; `ctl-openapi-quality` passed; `ctl-api-index generate --touch` regenerated a 201-endpoint index and `ctl-api-index verify --strict` passed.
+- Environment/DB context: env contract validation/generation passed; `node .ai/tests/run.mjs --suite environment` passed; `ctl-db-ssot sync-to-context` regenerated the DB contract; `node .ai/tests/run.mjs --suite database` passed.
+- Capability/runtime/data effects: `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` remains default false; no flag was enabled, no legacy writer was reopened, no named data was changed, and no cloud/provider/UI action occurred.
+
+Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/cutover, existing-spine regression and disposable-PostgreSQL atomicity/concurrency layers.

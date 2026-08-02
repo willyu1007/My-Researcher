@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14 bound-bootstrap safety implemented and verified; Phase 2-4 implementation has not started.
-- Next step: review and separately authorize Phase 2 EF-P06 typed promotion/canonicalization. EF-P15 remains implementation-blocked until its typed standalone source model is decided.
+- Current phase: Phase 1 EF-P14 and Phase 2 EF-P06 are implemented and verified. Phase 3-4 implementation has not started.
+- Next step: resolve and separately authorize the Phase 3 EF-P15 typed exploration-source model. Phase 3 remains implementation-blocked until that model is decided.
 
 ## Goal
 
@@ -32,7 +32,7 @@ Close exactly four previously open Experiment Foundation audit findings without 
 ## Completion definition
 
 - [x] EF-P14: unbound bootstrap fails before PI writes; bound bootstrap is idempotent; existing null-bound rows cannot enter bootstrap replay/project reads and receive the explicit `LEGACY_RECORD_NOT_ELIGIBLE` diagnostics-only classification.
-- [ ] EF-P06: a single server-owned transaction converges promotion decision, canonical asset, Candidate and outbox state; exact replay is zero-new and conflicts fail closed.
+- [x] EF-P06: a single server-owned transaction converges promotion decision, canonical asset, Candidate and outbox state; exact replay is zero-new and conflicts fail closed.
 - [ ] EF-P15: standalone EF output remains non-paper-trusted until an explicit WorkOrder attachment re-resolves project, Cycle, revision, Run, readiness and validation identity; cross-project and bypass paths are zero-write rejected.
 - [ ] EF-P21: authorization and project filters run before semantic ranking; deterministic lineage documents bind source revision/hash; stale hits are dropped; index failure falls back to structured lineage.
 - [ ] The four paths reuse existing PI/EF authority boundaries and introduce no generic trust writer, manual internal ID/hash workflow or second truth.

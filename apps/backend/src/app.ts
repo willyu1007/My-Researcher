@@ -3,6 +3,7 @@ import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
 import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
 import { ExperimentFoundationRealProviderV2Controller } from './controllers/experiment-foundation-real-provider-v2-controller.js';
+import { ExperimentFoundationPromotionV2Controller } from './controllers/experiment-foundation-promotion-v2-controller.js';
 import { ExperimentFoundationController } from './controllers/experiment-foundation-controller.js';
 import { LiteratureAcquisitionSettingsController } from './controllers/literature-acquisition-settings-controller.js';
 import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
@@ -116,6 +117,7 @@ import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerExperimentFoundationExecutionRoutes } from './routes/experiment-foundation-execution-routes.js';
 import { registerExperimentFoundationExecutionV2Routes } from './routes/experiment-foundation-execution-v2-routes.js';
 import { registerExperimentFoundationRealProviderV2Routes } from './routes/experiment-foundation-real-provider-v2-routes.js';
+import { registerExperimentFoundationPromotionV2Routes } from './routes/experiment-foundation-promotion-v2-routes.js';
 import { registerExperimentFoundationRoutes } from './routes/experiment-foundation-routes.js';
 import { registerLiteratureAcquisitionSettingsRoutes } from './routes/literature-acquisition-settings-routes.js';
 import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-routes.js';
@@ -138,6 +140,7 @@ import type { ExperimentFoundationExecutionRepository } from './repositories/exp
 import type { ExperimentFoundationExecutionV2Repository } from './repositories/experiment-foundation-execution-v2.repository.js';
 import type { ExperimentFoundationRepository } from './repositories/experiment-foundation.repository.js';
 import type { ExperimentFoundationV2Repository } from './repositories/experiment-foundation-v2.repository.js';
+import type { ExperimentFoundationPromotionV2Repository } from './repositories/experiment-foundation-promotion-v2.repository.js';
 import type { ExperimentFoundationScientificValidationV2Repository } from './repositories/experiment-foundation-scientific-validation-v2.repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
@@ -204,6 +207,7 @@ import {
   type ExperimentFoundationV2ReadinessResolver,
 } from './services/experiment-foundation-v2-materialization-service.js';
 import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
+import { ExperimentFoundationPromotionV2Service } from './services/experiment-foundation-promotion-v2-service.js';
 import { ExperimentFoundationV2ScientificValidationService } from './services/experiment-foundation-v2-scientific-validation-service.js';
 import { ExperimentV2IntegrationRelayScheduler } from './services/experiment-v2-integration-relay-scheduler.js';
 import { ExperimentV2IntegrationRelayService } from './services/experiment-v2-integration-relay-service.js';
@@ -344,6 +348,7 @@ export type BuildAppOptions = {
   paperImplementationExperimentLineageV2Repository?: PaperImplementationExperimentLineageV2Repository;
   paperImplementationEvidenceV2Repository?: PaperImplementationEvidenceV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
+  experimentFoundationPromotionV2Repository?: ExperimentFoundationPromotionV2Repository;
   experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
   experimentFoundationExecutionV2Repository?: ExperimentFoundationExecutionV2Repository;
   experimentFoundationV2ExecutionBundleResolver?: ExperimentFoundationV2ExecutionBundleResolver;
@@ -360,6 +365,7 @@ export type BuildAppOptions = {
   experimentFoundationV2AliyunRealProviderTransport?:
     ExperimentFoundationAliyunRealProviderTransportV2;
   experimentFoundationV2ScientificValidationEnabled?: () => boolean;
+  experimentFoundationV2PromotionEnabled?: () => boolean;
   backgroundWorkEnabled?: boolean;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
@@ -438,6 +444,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2ScientificValidationEnabled =
     options.experimentFoundationV2ScientificValidationEnabled?.()
     ?? isExperimentFoundationV2ScientificValidationEnabled();
+  const experimentV2PromotionEnabled =
+    options.experimentFoundationV2PromotionEnabled?.()
+    ?? isExperimentFoundationV2PromotionEnabled();
   // TODO(T-132 C-PI env follow-up): replace this test/composition injection
   // with the reviewed env-contract key. Env-contract changes are out of this slice.
   const validationCycleClosureV2Enabled =
@@ -450,6 +459,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     realProviderIntakeEnabled: experimentV2RealProviderIntakeEnabled,
     realProviderControlDrainEnabled: experimentV2RealProviderControlDrainEnabled,
     scientificValidationEnabled: experimentV2ScientificValidationEnabled,
+    promotionEnabled: experimentV2PromotionEnabled,
     cycleClosureEnabled: validationCycleClosureV2Enabled,
   });
 
@@ -473,6 +483,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   );
   const experimentFoundationV2Repository = options.experimentFoundationV2Repository
     ?? createExperimentFoundationV2Repository(storeConfig.experimentFoundationStrategy);
+  const experimentFoundationPromotionV2Repository =
+    options.experimentFoundationPromotionV2Repository
+    ?? createExperimentFoundationPromotionV2Repository(
+      storeConfig.experimentFoundationStrategy,
+    );
   const experimentFoundationExperimentSpineV2Repository =
     options.experimentFoundationExperimentSpineV2Repository
     ?? createExperimentFoundationExperimentSpineV2Repository(
@@ -560,6 +575,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     && storeConfig.experimentFoundationStrategy === 'prisma'
     && options.paperImplementationExperimentSpineV2Repository === undefined
     && options.experimentFoundationV2Repository === undefined
+    && options.experimentFoundationPromotionV2Repository === undefined
     && options.experimentFoundationExperimentSpineV2Repository === undefined
     && options.experimentFoundationExecutionV2Repository === undefined
     && options.paperImplementationCycleReadinessV2Repository === undefined
@@ -617,6 +633,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentFoundationV2Service = new ExperimentFoundationV2Service(
     experimentFoundationV2Repository,
   );
+  const experimentFoundationPromotionV2Service = new ExperimentFoundationPromotionV2Service(
+    experimentFoundationPromotionV2Repository,
+    {
+      enabled: () => (
+        hasDefaultDurableExperimentV2Composition
+        && experimentV2PromotionEnabled
+      ),
+    },
+  );
+  const experimentFoundationPromotionV2Controller =
+    new ExperimentFoundationPromotionV2Controller(
+      experimentFoundationPromotionV2Service,
+    );
   const experimentFoundationV2ReadinessResolver: ExperimentFoundationV2ReadinessResolver = {
     async resolvePassedExactReadiness(input) {
       const result = await experimentFoundationV2Service.revalidateReadiness({
@@ -1564,6 +1593,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       instance,
       experimentFoundationRealProviderV2Controller,
     );
+    await registerExperimentFoundationPromotionV2Routes(
+      instance,
+      experimentFoundationPromotionV2Controller,
+    );
     await registerTopicSelectionV1aRoutes(instance, topicSelectionV1aController, topicSelectionResourceSamplingController);
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
     await registerTopicSelectionV1cRoutes(instance, topicSelectionV1cController);
@@ -2012,6 +2045,15 @@ function createExperimentFoundationV2Repository(
   return new InMemoryExperimentFoundationV2Repository();
 }
 
+function createExperimentFoundationPromotionV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationPromotionV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationV2Repository(getPrismaClient());
+  }
+  return new InMemoryExperimentFoundationV2Repository();
+}
+
 function createExperimentFoundationExperimentSpineV2Repository(
   strategy: RepositoryStrategy,
 ): ExperimentFoundationExperimentSpineV2Repository {
@@ -2197,6 +2239,12 @@ function isExperimentFoundationV2ScientificValidationEnabled(): boolean {
   );
 }
 
+function isExperimentFoundationV2PromotionEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED',
+  );
+}
+
 function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
   return parseExperimentV2BooleanEnvironmentVariable(
     'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
@@ -2210,6 +2258,7 @@ type ExperimentV2BooleanEnvironmentVariable =
   | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED'
+  | 'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 
 function parseExperimentV2BooleanEnvironmentVariable(
@@ -2238,6 +2287,7 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   realProviderIntakeEnabled: boolean;
   realProviderControlDrainEnabled: boolean;
   scientificValidationEnabled: boolean;
+  promotionEnabled: boolean;
   cycleClosureEnabled: boolean;
 }): void {
   if (input.admissionEnabled && !input.cutoverCommitted) {
@@ -2273,6 +2323,12 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   if (input.scientificValidationEnabled && !input.cutoverCommitted) {
     throw new Error(
       'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.promotionEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
     );
   }

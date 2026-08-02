@@ -58,6 +58,8 @@ export type ExperimentV2JsonValue =
 
 export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'ef-asset-semantic-json@v1',
+  'ef-promotion-command-json@v1',
+  'ef-promotion-event-json@v1',
   'ef-readiness-dependency-manifest-json@v1',
   'ef-version-lock-json@v1',
   'ef-run-recipe-json@v1',
@@ -388,6 +390,33 @@ export function serverHashExperimentFoundationV2AssetRevision(
     hash_profile: 'ef-asset-semantic-json@v1',
     content: input.content,
   });
+}
+
+export function serverHashExperimentFoundationPromotionV2Command(content: unknown): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationPromotionCommandV2',
+    schema_version: 'v1',
+    hash_profile: 'ef-promotion-command-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationPromotionV2Event(content: unknown): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationPromotionEventV2',
+    schema_version: 'v1',
+    hash_profile: 'ef-promotion-event-json@v1',
+    content,
+  });
+}
+
+export function serverExperimentFoundationPromotionV2Id(
+  prefix: 'candidate' | 'decision' | 'revision' | 'receipt' | 'outbox' | 'event',
+  content: unknown,
+): string {
+  const digest = serverHashExperimentFoundationPromotionV2Command({ prefix, content })
+    .slice('sha256:'.length, 'sha256:'.length + 32);
+  return `ef_promotion_${prefix}_${digest}`;
 }
 
 export function serverHashExperimentFoundationV2ReadinessDependencyManifest(

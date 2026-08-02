@@ -153,6 +153,11 @@ variables:
     required: false
     default: false
     description: Enable only new ExperimentFoundation v2 scientific result recording and validation intake; this switch does not stop relay draining or replay of already committed integration events and requires the committed cutover.
+  EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only the server-owned ExperimentFoundation v2 typed candidate promotion/canonicalization command; this switch does not reopen legacy promotion and requires the committed v2 cutover.
   EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED:
     type: bool
     required: false

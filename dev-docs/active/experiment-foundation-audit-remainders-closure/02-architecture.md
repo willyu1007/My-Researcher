@@ -61,6 +61,16 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - Existing stored bootstrap replay and the two project read methods revalidate the immutable project/snapshot/source-handoff binding. Any missing historical binding returns `LEGACY_RECORD_NOT_ELIGIBLE` with `recovery=diagnostics_only` and leaves rows untouched.
 - Nullable Prisma fields remain historical storage only. No migration, repair writer, late binding or second bootstrap endpoint was added.
 
+## Phase 2 landed promotion contract — 2026-08-02
+
+- The new product route is `POST /experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion`. Its closed request body contains only `decision` and `business_idempotency_key`; the path is the public Candidate identity/revision.
+- The exact current typed asset draft is snapshotted as `ExperimentFoundationPreparationCandidateV2`. Candidate identity is deterministic across revisions; one `(candidate_id, candidate_revision)` permits one terminal decision.
+- `promote` validates the exact draft state, computes the canonical content hash, creates or exact-reuses one existing typed asset revision, advances the asset identity by CAS, terminates the Candidate and writes decision/receipt/outbox in one transaction. `reject` writes the same terminal aggregate without a canonical revision.
+- PostgreSQL promotion transactions take a Candidate-revision advisory transaction lock before terminal-state resolution. Concurrent different-key exact decisions therefore return one created and one replayed outcome with the same decision/event instead of leaking a unique-key race.
+- Canonical asset persistence continues to use the existing five named asset families. The new Candidate is preparation/catalog state and cannot reuse scientific `ExperimentFoundationEvidenceCandidateV2`.
+- The new outbox is promotion-specific and relay-ready. Readiness, external effects, scientific validation, EvidenceCandidate and admitted-cell TaskSpec/Run materialization remain outside this UoW and retain their existing authorities.
+- `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` defaults false and is invalid unless v2 cutover is committed. Disabling the promotion capability stops only new intake; immutable outcomes remain retained. No named database was migrated or capability enabled.
+
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.

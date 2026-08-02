@@ -51,7 +51,7 @@ import {
   nextExperimentV2Int32Sequence,
 } from './experiment-v2-int32.js';
 
-type ExperimentFoundationV2DraftContent =
+export type ExperimentFoundationV2DraftContent =
   | ExperimentFoundationV2DatasetDraftContentV1
   | ExperimentFoundationV2DataPolicyDraftContentV1
   | ExperimentFoundationV2MetricDefinitionDraftContentV1
@@ -1041,7 +1041,7 @@ function draftContentFamilyKey(input: ExperimentFoundationV2CreateAssetDraftInpu
   }
 }
 
-function assetDraftContent(
+export function assetDraftContent(
   record: ExperimentFoundationV2AssetIdentityRecord,
 ): ExperimentFoundationV2DraftContent | null {
   switch (record.asset_type) {
@@ -1133,7 +1133,7 @@ function updateAssetIdentityDraft(
   }
 }
 
-function advanceAssetCurrentRevision(
+export function advanceAssetCurrentRevision(
   current: ExperimentFoundationV2AssetIdentityRecord,
   revisionId: string,
   now: string,
@@ -1170,7 +1170,7 @@ function advanceAssetCurrentRevision(
   }
 }
 
-function createAssetRevisionRecord(
+export function createAssetRevisionRecord(
   assetType: ExperimentFoundationV2AssetType,
   logicalId: string,
   content: ExperimentFoundationV2DraftContent,
@@ -1265,7 +1265,7 @@ function directDependencyRefs(
   }
 }
 
-function hashAssetContent(
+export function hashAssetContent(
   assetType: ExperimentFoundationV2AssetType,
   content: ExperimentFoundationV2DraftContent,
 ): string {
@@ -1308,7 +1308,7 @@ function hashReadinessAttestation(
   return serverHashExperimentFoundationV2ReadinessAttestation(value);
 }
 
-function exactRefFromRevision(
+export function exactRefFromRevision(
   record: ExperimentFoundationV2AssetRevisionRecord,
 ): ExperimentFoundationV2ExactAssetRevisionRef {
   return {

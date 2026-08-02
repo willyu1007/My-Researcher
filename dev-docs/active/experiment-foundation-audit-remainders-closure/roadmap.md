@@ -3,7 +3,7 @@
 ## Planning context
 
 - Runtime signal: Default mode; the roadmap records scope and sequencing only.
-- Delivery state: `in-progress`; Phase 0 and Phase 1 complete, Phase 2-4 not started.
+- Delivery state: `in-progress`; Phase 0, Phase 1 and Phase 2 complete, Phase 3-4 not started.
 - Mapping: `M-001 > F-001 > R-012 > T-134`.
 - Source baseline: T-132 audit findings EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21.
 - Precedence decision: the 2026-07-30 user decision supersedes the earlier T-132 wording that required these findings to close inside T-132. T-134 now owns them independently and does not block T-132's personal PAI completion.
@@ -33,7 +33,7 @@ Close the four Experiment Foundation audit remainders as typed, server-owned and
 |---|---|---|---|
 | 0 | Cross-cutting census | Freeze current writers, routes, schema and tests before implementation | Complete 2026-08-02: reviewed modification allowlist and exact verification matrix |
 | 1 | EF-P14 | Current bootstrap could persist a null binding, making EF-P14 the nearest admission-safety gap | Complete 2026-08-02: unbound bootstrap is zero-write rejected; bound bootstrap is idempotent; legacy null rows are diagnostics-only |
-| 2 | EF-P06 | Promotion is the primary server-owned preparation boundary | One atomic decision/canonical/candidate/outbox outcome with crash and replay convergence |
+| 2 | EF-P06 | Promotion is the primary server-owned preparation boundary | Complete 2026-08-02: one atomic decision/canonical/Candidate/receipt/outbox outcome with crash, replay and concurrent convergence |
 | 3 | EF-P15 | Current v2 output is already PI-bound and legacy is ineligible; source-model choice must precede coding | Approved typed exploration source attaches to a new PI-bound lineage; prior output stays untrusted |
 | 4 | EF-P21 semantic half | Retrieval depends on stable project and lineage ownership | Project filter precedes rank; stale candidates drop; index outage falls back to structured lineage |
 | 5 | Convergence | Prevent four local fixes from creating a second authority | Full writer census, relational negatives, context/docs and governance gates pass |
@@ -77,4 +77,5 @@ Phase 0 narrowed the preview: EF-P14 needs no migration; EF-P06 and EF-P21 need 
 - [x] Verification and rollback boundaries are defined.
 - [x] Phase 0 writer/route/schema/test census and implementation freeze are complete.
 - [x] Phase 1 EF-P14 implementation and verification are complete.
-- [ ] Review and authorize Phase 2 EF-P06 before adding typed promotion persistence or product routes.
+- [x] Phase 2 EF-P06 implementation was authorized, implemented and verified.
+- [ ] Resolve the EF-P15 typed exploration-source model before requesting Phase 3 implementation authorization.

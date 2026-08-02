@@ -1,13 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-26T15:01:51.787Z",
+  "generatedAt": "2026-08-02T11:28:18.889Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "6136a7897c1b98964417c8d7f9f39e5c0b84a448008d489a064017101b3aa67e",
+  "sourceChecksumSha256": "f1c244a93f196a67a4ab8129776e2a3a39bd64bdb158082373694c2999cc7efd",
   "stats": {
-    "totalEndpoints": 200,
+    "totalEndpoints": 201,
     "byTag": {
       "health": 1,
       "paper-implementation-experiment-v2": 8,
+      "experiment-foundation-promotion-v2": 1,
       "experiment-foundation-execution-v2": 6,
       "research-lifecycle": 8,
       "literature": 44,
@@ -339,6 +340,48 @@
       ],
       "example": {
         "curl": "curl -X GET '/paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/available-actions'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion",
+      "operationId": "decideExperimentFoundationAssetPromotionV2",
+      "summary": "Promote or reject one exact typed asset Candidate revision.",
+      "tag": "experiment-foundation-promotion-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "asset_type",
+          "logical_id",
+          "candidate_revision"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "decision",
+            "business_idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "candidate",
+          "promotion_decision",
+          "event_id",
+          "replayed"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion' -H 'Content-Type: application/json' -d '{\"decision\":\"<decision>\",\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
       }
     },
     {

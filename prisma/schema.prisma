@@ -6006,6 +6006,100 @@ enum ExperimentFoundationAssetTypeV2 {
   EvaluationProtocol
 }
 
+// T-134 EF-P06: typed catalog-preparation candidate and one terminal
+// server-owned promotion outcome. Canonical asset refs remain typed scalar
+// identities because the target spans five concrete asset revision tables.
+model ExperimentFoundationPreparationCandidateV2 {
+  id                    String
+  candidateRevision     Int
+  assetType             ExperimentFoundationAssetTypeV2
+  assetLogicalId        String
+  contentSchemaVersion  String
+  candidateSnapshotJson Json                            @default("{}")
+  contentHash           String
+  status                String
+  stateVersion          Int                             @default(0)
+  canonicalRevisionId   String?
+  canonicalRevisionHash String?
+  createdAt             DateTime                        @db.Timestamptz(6)
+  updatedAt             DateTime                        @db.Timestamptz(6)
+
+  promotionDecision ExperimentFoundationPromotionDecisionV2?
+
+  @@id([id, candidateRevision], map: "ef_preparation_candidate_exact_pkey")
+  @@unique([assetType, assetLogicalId, candidateRevision], map: "ef_preparation_candidate_asset_revision_unique")
+  @@index([assetType, assetLogicalId, status], map: "ef_preparation_candidate_asset_status_idx")
+}
+
+model ExperimentFoundationPromotionDecisionV2 {
+  id                      String   @id
+  candidateId             String
+  candidateRevision       Int
+  candidateContentHash    String
+  decision                String
+  canonicalizationOutcome String?
+  canonicalRevisionId     String?
+  canonicalRevisionHash   String?
+  commandHash             String
+  decidedAt               DateTime @db.Timestamptz(6)
+
+  candidate       ExperimentFoundationPreparationCandidateV2      @relation(fields: [candidateId, candidateRevision], references: [id, candidateRevision], onDelete: Restrict, onUpdate: Restrict, map: "ef_promotion_decision_candidate_exact_fkey")
+  commandReceipts ExperimentFoundationPromotionCommandReceiptV2[]
+  outbox          ExperimentFoundationPromotionOutboxV2?
+
+  @@unique([candidateId, candidateRevision], map: "ef_promotion_decision_candidate_terminal_unique")
+  @@unique([id, candidateContentHash], map: "ef_promotion_decision_content_unique")
+  @@index([canonicalRevisionId], map: "ef_promotion_decision_canonical_revision_idx")
+}
+
+model ExperimentFoundationPromotionCommandReceiptV2 {
+  id                     String   @id
+  businessIdempotencyKey String   @unique(map: "ef_promotion_command_business_unique")
+  commandHash            String
+  promotionDecisionId    String
+  createdAt              DateTime @db.Timestamptz(6)
+
+  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([promotionDecisionId], map: "ef_promotion_command_decision_idx")
+}
+
+model ExperimentFoundationPromotionOutboxV2 {
+  id                     String    @id
+  eventId                String    @unique(map: "ef_promotion_outbox_event_unique")
+  promotionDecisionId    String    @unique(map: "ef_promotion_outbox_decision_unique")
+  aggregateType          String
+  aggregateId            String
+  transitionKey          String
+  eventType              String
+  schemaVersion          String
+  producerDomain         String
+  occurredAt             DateTime  @db.Timestamptz(6)
+  correlationId          String
+  causationId            String
+  businessIdempotencyKey String
+  eventPayloadJson       Json      @default("{}")
+  payloadHash            String
+  eventEnvelopeHash      String
+  relayStatus            String    @default("pending")
+  relayAttemptCount      Int       @default(0)
+  relayLeaseOwner        String?
+  relayLeaseExpiresAt    DateTime? @db.Timestamptz(6)
+  relayNextAttemptAt     DateTime? @db.Timestamptz(6)
+  publishedAt            DateTime? @db.Timestamptz(6)
+  deliveredAt            DateTime? @db.Timestamptz(6)
+  lastRelayErrorCode     String?
+  createdAt              DateTime  @db.Timestamptz(6)
+  updatedAt              DateTime  @db.Timestamptz(6)
+
+  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([aggregateType, aggregateId, transitionKey], map: "ef_promotion_outbox_aggregate_transition_unique")
+  @@index([relayStatus, relayNextAttemptAt, occurredAt], map: "ef_promotion_outbox_relay_ready_idx")
+  @@index([relayLeaseExpiresAt], map: "ef_promotion_outbox_lease_expiry_idx")
+  @@index([correlationId], map: "ef_promotion_outbox_correlation_idx")
+}
+
 // T-132 Pack A: additive PI v2 WorkOrder authority. These models deliberately
 // keep every EF-owned Run reference external and define no PI <-> EF relation.
 model PaperImplementationExperimentWorkOrderBranchV2 {

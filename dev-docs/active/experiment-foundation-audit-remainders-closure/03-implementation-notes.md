@@ -33,3 +33,14 @@
 - Updated only three test fixtures that instantiate the bootstrap service so their normal path represents a completed upstream PaperProject intake. Prisma repository null fixtures remain unchanged to preserve historical-null storage coverage.
 - Added service tests for zero-write unbound/half-bound/type/title/hash/mirror failures and legacy replay/read rejection; added real HTTP coverage for the stable unbound error envelope; retained contract-suite and Prisma race regressions.
 - No route, controller, shared request/response contract, repository implementation, Prisma schema, migration, local data, capability flag or cloud state changed.
+
+## 2026-08-02 — Phase 2 EF-P06 atomic typed promotion
+
+- Added a narrow shared promotion request/response/event contract and deterministic server hash/id helpers. Strict schemas reject extra/internal/canonical/result/TaskSpec/outbox fields.
+- Added route → controller → service → repository layering for one v2 product promotion command. The legacy generic promotion route remains guarded by committed cutover and was not reused or reopened.
+- Reused exact typed asset drafts as the preparation source and the existing five canonical revision families as the catalog target. The product command snapshots the exact draft Candidate revision inside its transaction; no generic record writer or D19 fixture/import route was introduced.
+- Extended the EF v2 in-memory and Prisma repositories with one promotion UoW covering Candidate, terminal decision, idempotency receipt, typed canonical create/reuse and promotion outbox. A Candidate-revision PostgreSQL advisory transaction lock serializes concurrent terminal resolution.
+- Added four additive Prisma models plus migration `20260802150000_add_experiment_foundation_promotion_v2`; the SQL includes terminal status/ref pairing, one-decision-per-Candidate-revision, idempotency and outbox uniqueness constraints.
+- Added `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` to the env SSOT with default `false` and committed-cutover composition validation. The flag was not enabled in any environment.
+- Updated OpenAPI/API index, DB context and env artifacts from their SSOTs. No named-local/staging/production migration, backfill, repair, provider call or UI change occurred.
+- Added shared hash/schema, service, route, cutover and disposable-PostgreSQL tests. Existing admitted-cell materialization remains the only TaskSpec/Run writer and was changed by zero lines.

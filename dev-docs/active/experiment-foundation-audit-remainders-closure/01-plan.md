@@ -21,13 +21,13 @@ Exit: met on 2026-08-02. Unbound, half-bound, stale-hash, cross-title-card, mirr
 
 ## Phase 2 — EF-P06 atomic promotion/canonicalization
 
-1. Define the typed primary command around admitted exact cells; callers cannot provide canonical ids or hashes.
-2. Resolve, create or exact-reuse TaskSpecs and canonical assets on the server.
-3. Commit promotion decision, canonical object, Candidate and outbox outcome atomically in the owning domain.
-4. Prove crash-before/after-commit, duplicate delivery, same-key drift and concurrent promotion behavior.
-5. Preserve T-131 history and close alternate promotion writers.
+1. [x] Define the typed primary command over one exact typed asset draft Candidate revision; callers cannot provide canonical ids, hashes, result objects, TaskSpecs or outbox payloads.
+2. [x] Resolve and create-or-exact-reuse the canonical typed asset revision on the server. Keep TaskSpec/Run creation exclusively in the admitted-cell materialization consumer per P06-04.
+3. [x] Commit promotion decision, canonical object, Candidate transition, idempotency receipt and outbox outcome atomically in the EF-owned UoW.
+4. [x] Prove injected crash rollback, duplicate/same-key replay, same-key drift, different-key exact replay and concurrent promotion convergence.
+5. [x] Preserve typed/legacy history, keep the generic promotion route closed and gate the new route default-off behind committed v2 cutover.
 
-Exit: one canonical result and one durable event outcome converge under replay and concurrency; conflicts fail closed.
+Exit: met on 2026-08-02. One canonical result and one durable event outcome converge under replay and PostgreSQL concurrency; reject creates no canonical revision and conflicts fail closed.
 
 ## Phase 3 — EF-P15 attachment and full revalidation
 

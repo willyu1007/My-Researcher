@@ -39,7 +39,11 @@ import {
   type ExperimentFoundationV2AssetType,
   type ExperimentFoundationV2ExactAssetRevisionRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
-import { serverHashExperimentV2SemanticContent } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+import {
+  serverHashExperimentV2EventEnvelope,
+  serverHashExperimentV2EventPayload,
+  serverHashExperimentV2SemanticContent,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
   ExperimentFoundationV2RepositoryConstraintError,
@@ -51,6 +55,15 @@ import {
   type ExperimentFoundationV2Repository,
   type ExperimentFoundationV2UnitOfWork,
 } from '../experiment-foundation-v2.repository.js';
+import {
+  ExperimentFoundationPromotionV2RepositoryConstraintError,
+  type ExperimentFoundationPreparationCandidateV2Record,
+  type ExperimentFoundationPromotionCommandReceiptV2Record,
+  type ExperimentFoundationPromotionDecisionV2Record,
+  type ExperimentFoundationPromotionOutboxV2Record,
+  type ExperimentFoundationPromotionV2Repository,
+  type ExperimentFoundationPromotionV2UnitOfWork,
+} from '../experiment-foundation-promotion-v2.repository.js';
 import {
   assertStoredExperimentFoundationV2AssetDraftIntegrity,
   assertStoredExperimentFoundationV2AssetIdentityIntegrity,
@@ -65,7 +78,7 @@ const STORED_SCHEMA_VERSION_V1 = 'v1';
 type TransactionClient = Prisma.TransactionClient;
 
 export class PrismaExperimentFoundationV2Repository
-implements ExperimentFoundationV2Repository {
+implements ExperimentFoundationV2Repository, ExperimentFoundationPromotionV2Repository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async runInTransaction<T>(
@@ -78,10 +91,21 @@ implements ExperimentFoundationV2Repository {
       return result;
     });
   }
+
+  async runPromotionInTransaction<T>(
+    operation: (unitOfWork: ExperimentFoundationPromotionV2UnitOfWork) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(async (transaction) => {
+      const unitOfWork = new PrismaExperimentFoundationV2UnitOfWork(transaction);
+      const result = await operation(unitOfWork);
+      unitOfWork.assertNoPendingFreezeReplay();
+      return result;
+    });
+  }
 }
 
 class PrismaExperimentFoundationV2UnitOfWork
-implements ExperimentFoundationV2UnitOfWork {
+implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2UnitOfWork {
   private readonly pendingFreezeRevisions = new Set<string>();
   private readonly readinessDependencyCache = new Map<
     string,
@@ -96,6 +120,30 @@ implements ExperimentFoundationV2UnitOfWork {
       throw new ExperimentFoundationV2RepositoryConstraintError(
         'FREEZE_IDEMPOTENCY_CONFLICT',
         `Immutable revision cannot commit before its freeze replay is bound: ${pending}`,
+      );
+    }
+  }
+
+  bindPromotionCanonicalRevision(
+    assetType: ExperimentFoundationV2AssetType,
+    revisionId: string,
+  ): void {
+    this.pendingFreezeRevisions.delete(freezeRevisionKey(assetType, revisionId));
+  }
+
+  async lockPreparationCandidate(candidateId: string, candidateRevision: number): Promise<void> {
+    const rows = await this.transaction.$queryRaw<Array<{ locked: number }>>`
+      SELECT 1::int AS locked
+      FROM (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`${candidateId}:${candidateRevision}`}, 0)
+        )
+      ) AS acquired
+    `;
+    if (rows.length !== 1 || rows[0]?.locked !== 1) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Unable to acquire promotion Candidate lock: ${candidateId}:${candidateRevision}`,
       );
     }
   }
@@ -795,6 +843,374 @@ implements ExperimentFoundationV2UnitOfWork {
           `Readiness dependencies conflict with exact history: ${attestation.readiness_attestation_id}`,
         );
       }
+    }
+  }
+
+  async findPreparationCandidate(
+    candidateId: string,
+    candidateRevision: number,
+  ): Promise<ExperimentFoundationPreparationCandidateV2Record | null> {
+    const row = await this.transaction.experimentFoundationPreparationCandidateV2.findFirst({
+      where: { id: candidateId, candidateRevision },
+    });
+    if (!row) return null;
+    const assetType = fromPrismaAssetType(row.assetType);
+    const canonicalRevision = row.canonicalRevisionId
+      ? await this.findAssetRevisionById(assetType, row.canonicalRevisionId)
+      : null;
+    if (
+      (row.canonicalRevisionId && !canonicalRevision)
+      || (canonicalRevision && canonicalRevision.revision.content_hash !== row.canonicalRevisionHash)
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Preparation candidate canonical ref has drifted: ${candidateId}:${candidateRevision}`,
+      );
+    }
+    if (row.status !== 'pending' && row.status !== 'promoted' && row.status !== 'rejected') {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Unsupported preparation candidate status: ${row.status}`,
+      );
+    }
+    const candidateSnapshot = fromJson(row.candidateSnapshotJson);
+    assertStoredExperimentFoundationV2AssetDraftIntegrity(
+      assetType,
+      candidateSnapshot,
+      `Preparation Candidate ${candidateId}:${candidateRevision}`,
+    );
+    const expectedContentHash = serverHashExperimentV2SemanticContent({
+      record_kind: `ExperimentFoundation${assetType}RevisionV2`,
+      schema_version: row.contentSchemaVersion,
+      hash_profile: 'ef-asset-semantic-json@v1',
+      content: candidateSnapshot,
+    });
+    if (expectedContentHash !== row.contentHash) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Preparation candidate canonical hash has drifted: ${candidateId}:${candidateRevision}`,
+      );
+    }
+    return {
+      candidate: {
+        candidate_id: row.id,
+        candidate_revision: row.candidateRevision,
+        asset_type: assetType,
+        logical_id: row.assetLogicalId,
+        content_hash: row.contentHash,
+        status: row.status,
+        canonical_revision: canonicalRevision ? exactRefFromRecord(canonicalRevision) : null,
+        created_at: row.createdAt.toISOString(),
+        updated_at: row.updatedAt.toISOString(),
+      },
+      content_schema_version: row.contentSchemaVersion,
+      candidate_snapshot: candidateSnapshot,
+      state_version: row.stateVersion,
+    };
+  }
+
+  async insertPreparationCandidate(
+    record: ExperimentFoundationPreparationCandidateV2Record,
+  ): Promise<void> {
+    try {
+      await this.transaction.experimentFoundationPreparationCandidateV2.create({
+        data: {
+          id: record.candidate.candidate_id,
+          candidateRevision: record.candidate.candidate_revision,
+          assetType: toPrismaAssetType(record.candidate.asset_type),
+          assetLogicalId: record.candidate.logical_id,
+          contentSchemaVersion: record.content_schema_version,
+          candidateSnapshotJson: toInputJson(record.candidate_snapshot),
+          contentHash: record.candidate.content_hash,
+          status: record.candidate.status,
+          stateVersion: record.state_version,
+          canonicalRevisionId: record.candidate.canonical_revision?.revision_id ?? null,
+          canonicalRevisionHash: record.candidate.canonical_revision?.content_hash ?? null,
+          createdAt: new Date(record.candidate.created_at),
+          updatedAt: new Date(record.candidate.updated_at),
+        },
+      });
+    } catch (error) {
+      throw mapPromotionConstraint(
+        error,
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Preparation candidate already exists: ${record.candidate.candidate_id}`,
+      );
+    }
+  }
+
+  async compareAndSwapPreparationCandidate(
+    candidateId: string,
+    candidateRevision: number,
+    expectedStateVersion: number,
+    next: ExperimentFoundationPreparationCandidateV2Record,
+  ): Promise<boolean> {
+    try {
+      return (await this.transaction.experimentFoundationPreparationCandidateV2.updateMany({
+        where: {
+          id: candidateId,
+          candidateRevision,
+          stateVersion: expectedStateVersion,
+        },
+        data: {
+          status: next.candidate.status,
+          stateVersion: next.state_version,
+          canonicalRevisionId: next.candidate.canonical_revision?.revision_id ?? null,
+          canonicalRevisionHash: next.candidate.canonical_revision?.content_hash ?? null,
+          updatedAt: new Date(next.candidate.updated_at),
+        },
+      })).count === 1;
+    } catch (error) {
+      throw mapPromotionConstraint(
+        error,
+        'PROMOTION_CANDIDATE_CONFLICT',
+        `Preparation candidate state conflicts: ${candidateId}:${candidateRevision}`,
+      );
+    }
+  }
+
+  async findPromotionDecisionByCandidate(
+    candidateId: string,
+    candidateRevision: number,
+  ): Promise<ExperimentFoundationPromotionDecisionV2Record | null> {
+    const row = await this.transaction.experimentFoundationPromotionDecisionV2.findFirst({
+      where: { candidateId, candidateRevision },
+    });
+    return row ? this.mapPromotionDecision(row.id) : null;
+  }
+
+  async findPromotionDecisionById(
+    promotionDecisionId: string,
+  ): Promise<ExperimentFoundationPromotionDecisionV2Record | null> {
+    return this.mapPromotionDecision(promotionDecisionId);
+  }
+
+  private async mapPromotionDecision(
+    promotionDecisionId: string,
+  ): Promise<ExperimentFoundationPromotionDecisionV2Record | null> {
+    const row = await this.transaction.experimentFoundationPromotionDecisionV2.findUnique({
+      where: { id: promotionDecisionId },
+    });
+    if (!row) return null;
+    const candidate = await this.findPreparationCandidate(row.candidateId, row.candidateRevision);
+    if (!candidate) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_DECISION_CONFLICT',
+        `Promotion decision has no exact candidate: ${row.id}`,
+      );
+    }
+    if (row.decision !== 'promote' && row.decision !== 'reject') {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_DECISION_CONFLICT',
+        `Unsupported promotion decision: ${row.decision}`,
+      );
+    }
+    if (
+      row.canonicalizationOutcome !== null
+      && row.canonicalizationOutcome !== 'created'
+      && row.canonicalizationOutcome !== 'reused'
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_DECISION_CONFLICT',
+        `Unsupported canonicalization outcome: ${row.canonicalizationOutcome}`,
+      );
+    }
+    const canonical = candidate.candidate.canonical_revision;
+    if (
+      row.candidateContentHash !== candidate.candidate.content_hash
+      || row.canonicalRevisionId !== (canonical?.revision_id ?? null)
+      || row.canonicalRevisionHash !== (canonical?.content_hash ?? null)
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_DECISION_CONFLICT',
+        `Promotion decision no longer matches its exact Candidate outcome: ${row.id}`,
+      );
+    }
+    return {
+      decision: {
+        promotion_decision_id: row.id,
+        candidate_id: row.candidateId,
+        candidate_revision: row.candidateRevision,
+        decision: row.decision,
+        canonicalization_outcome: row.canonicalizationOutcome,
+        canonical_revision: candidate.candidate.canonical_revision,
+        decided_at: row.decidedAt.toISOString(),
+      },
+      candidate_content_hash: row.candidateContentHash,
+      command_hash: row.commandHash,
+    };
+  }
+
+  async insertPromotionDecision(record: ExperimentFoundationPromotionDecisionV2Record): Promise<void> {
+    try {
+      await this.transaction.experimentFoundationPromotionDecisionV2.create({
+        data: {
+          id: record.decision.promotion_decision_id,
+          candidateId: record.decision.candidate_id,
+          candidateRevision: record.decision.candidate_revision,
+          candidateContentHash: record.candidate_content_hash,
+          decision: record.decision.decision,
+          canonicalizationOutcome: record.decision.canonicalization_outcome,
+          canonicalRevisionId: record.decision.canonical_revision?.revision_id ?? null,
+          canonicalRevisionHash: record.decision.canonical_revision?.content_hash ?? null,
+          commandHash: record.command_hash,
+          decidedAt: new Date(record.decision.decided_at),
+        },
+      });
+    } catch (error) {
+      throw mapPromotionConstraint(
+        error,
+        'PROMOTION_DECISION_CONFLICT',
+        `Promotion decision already exists: ${record.decision.promotion_decision_id}`,
+      );
+    }
+  }
+
+  async findPromotionCommandReceipt(
+    businessIdempotencyKey: string,
+  ): Promise<ExperimentFoundationPromotionCommandReceiptV2Record | null> {
+    const row = await this.transaction.experimentFoundationPromotionCommandReceiptV2.findUnique({
+      where: { businessIdempotencyKey },
+    });
+    return row ? {
+      receipt_id: row.id,
+      business_idempotency_key: row.businessIdempotencyKey,
+      command_hash: row.commandHash,
+      promotion_decision_id: row.promotionDecisionId,
+      created_at: row.createdAt.toISOString(),
+    } : null;
+  }
+
+  async insertPromotionCommandReceipt(
+    record: ExperimentFoundationPromotionCommandReceiptV2Record,
+  ): Promise<void> {
+    const existing = await this.findPromotionCommandReceipt(record.business_idempotency_key);
+    if (existing) {
+      if (
+        existing.command_hash === record.command_hash
+        && existing.promotion_decision_id === record.promotion_decision_id
+      ) return;
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_IDEMPOTENCY_CONFLICT',
+        `Promotion idempotency key has drifted: ${record.business_idempotency_key}`,
+      );
+    }
+    try {
+      await this.transaction.experimentFoundationPromotionCommandReceiptV2.create({
+        data: {
+          id: record.receipt_id,
+          businessIdempotencyKey: record.business_idempotency_key,
+          commandHash: record.command_hash,
+          promotionDecisionId: record.promotion_decision_id,
+          createdAt: new Date(record.created_at),
+        },
+      });
+    } catch (error) {
+      throw mapPromotionConstraint(
+        error,
+        'PROMOTION_IDEMPOTENCY_CONFLICT',
+        `Promotion command receipt conflicts: ${record.business_idempotency_key}`,
+      );
+    }
+  }
+
+  async findPromotionOutboxByDecision(
+    promotionDecisionId: string,
+  ): Promise<ExperimentFoundationPromotionOutboxV2Record | null> {
+    const row = await this.transaction.experimentFoundationPromotionOutboxV2.findUnique({
+      where: { promotionDecisionId },
+    });
+    if (!row) return null;
+    if (
+      row.aggregateType !== 'ExperimentFoundationPreparationCandidateV2'
+      || row.transitionKey !== 'terminal-promotion-decision'
+      || row.eventType !== 'ExperimentFoundationPreparationCandidatePromotionDecidedV2'
+      || row.schemaVersion !== 'v1'
+      || row.producerDomain !== 'experiment-foundation'
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox authority fields have drifted: ${row.id}`,
+      );
+    }
+    const eventPayload = fromJson<ExperimentFoundationPromotionOutboxV2Record['event_payload']>(
+      row.eventPayloadJson,
+    );
+    const expectedPayloadHash = serverHashExperimentV2EventPayload(
+      row.eventType,
+      row.schemaVersion,
+      eventPayload,
+    );
+    const expectedEnvelopeHash = serverHashExperimentV2EventEnvelope({
+      event_id: row.eventId,
+      event_type: row.eventType,
+      schema_version: row.schemaVersion,
+      producer_domain: row.producerDomain,
+      occurred_at: row.occurredAt.toISOString(),
+      correlation_id: row.correlationId,
+      causation_id: row.causationId,
+      business_idempotency_key: row.businessIdempotencyKey,
+      payload_hash: row.payloadHash,
+      payload: eventPayload,
+    });
+    if (row.payloadHash !== expectedPayloadHash || row.eventEnvelopeHash !== expectedEnvelopeHash) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox canonical hashes have drifted: ${row.id}`,
+      );
+    }
+    return {
+      outbox_id: row.id,
+      event_id: row.eventId,
+      promotion_decision_id: row.promotionDecisionId,
+      aggregate_type: 'ExperimentFoundationPreparationCandidateV2',
+      aggregate_id: row.aggregateId,
+      transition_key: 'terminal-promotion-decision',
+      event_type: 'ExperimentFoundationPreparationCandidatePromotionDecidedV2',
+      schema_version: 'v1',
+      producer_domain: 'experiment-foundation',
+      occurred_at: row.occurredAt.toISOString(),
+      correlation_id: row.correlationId,
+      causation_id: row.causationId,
+      business_idempotency_key: row.businessIdempotencyKey,
+      event_payload: eventPayload,
+      payload_hash: row.payloadHash,
+      event_envelope_hash: row.eventEnvelopeHash,
+      created_at: row.createdAt.toISOString(),
+      updated_at: row.updatedAt.toISOString(),
+    };
+  }
+
+  async insertPromotionOutbox(record: ExperimentFoundationPromotionOutboxV2Record): Promise<void> {
+    try {
+      await this.transaction.experimentFoundationPromotionOutboxV2.create({
+        data: {
+          id: record.outbox_id,
+          eventId: record.event_id,
+          promotionDecisionId: record.promotion_decision_id,
+          aggregateType: record.aggregate_type,
+          aggregateId: record.aggregate_id,
+          transitionKey: record.transition_key,
+          eventType: record.event_type,
+          schemaVersion: record.schema_version,
+          producerDomain: record.producer_domain,
+          occurredAt: new Date(record.occurred_at),
+          correlationId: record.correlation_id,
+          causationId: record.causation_id,
+          businessIdempotencyKey: record.business_idempotency_key,
+          eventPayloadJson: toInputJson(record.event_payload),
+          payloadHash: record.payload_hash,
+          eventEnvelopeHash: record.event_envelope_hash,
+          createdAt: new Date(record.created_at),
+          updatedAt: new Date(record.updated_at),
+        },
+      });
+    } catch (error) {
+      throw mapPromotionConstraint(
+        error,
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox conflicts: ${record.promotion_decision_id}`,
+      );
     }
   }
 }
@@ -1836,6 +2252,24 @@ function toPrismaAssetType(assetType: ExperimentFoundationV2AssetType) {
   return ExperimentFoundationAssetTypeV2[assetType];
 }
 
+function fromPrismaAssetType(
+  assetType: ExperimentFoundationAssetTypeV2,
+): ExperimentFoundationV2AssetType {
+  return assetType;
+}
+
+function exactRefFromRecord(
+  record: ExperimentFoundationV2AssetRevisionRecord,
+): ExperimentFoundationV2ExactAssetRevisionRef {
+  return {
+    asset_type: record.asset_type,
+    logical_id: record.revision.logical_id,
+    revision_id: record.revision.revision_id,
+    revision_sequence: record.revision.revision_sequence,
+    content_hash: record.revision.content_hash,
+  };
+}
+
 function exactRef(
   assetType: ExperimentFoundationAssetTypeV2,
   logicalId: string,
@@ -1934,6 +2368,22 @@ function mapFoundationConstraint(
   }
   if (isKnownConstraint(error)) {
     return new ExperimentFoundationV2RepositoryConstraintError(reasonCode, message);
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function mapPromotionConstraint(
+  error: unknown,
+  reasonCode: ConstructorParameters<
+    typeof ExperimentFoundationPromotionV2RepositoryConstraintError
+  >[0],
+  message: string,
+): Error {
+  if (error instanceof ExperimentFoundationPromotionV2RepositoryConstraintError) {
+    return error;
+  }
+  if (isKnownConstraint(error)) {
+    return new ExperimentFoundationPromotionV2RepositoryConstraintError(reasonCode, message);
   }
   return error instanceof Error ? error : new Error(String(error));
 }

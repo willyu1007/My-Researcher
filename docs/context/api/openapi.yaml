@@ -33,6 +33,8 @@ tags:
     description: PI experiment v2 admission, closure, lineage, and agent-action surfaces; committed sagas are relayed through domain-local database inbox/outbox consumers.
   - name: experiment-foundation-execution-v2
     description: Default-off simulation and real-provider execution intake plus durable Attempt control endpoints; simulation and real-provider outputs remain ineligible for scientific evidence.
+  - name: experiment-foundation-promotion-v2
+    description: Default-off typed Candidate catalog promotion with server-owned canonicalization and atomic decision/outbox persistence.
 
 paths:
   /health:
@@ -306,6 +308,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaperImplementationValidationCycleAvailableActionsV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion:
+    post:
+      operationId: decideExperimentFoundationAssetPromotionV2
+      summary: Promote or reject one exact typed asset Candidate revision.
+      description: |
+        The caller supplies only the public typed asset identity, exact Candidate revision, intended
+        decision and idempotency key. The server derives Candidate/canonical identities and hashes,
+        then atomically commits the terminal decision, created-or-exact-reused canonical revision,
+        Candidate transition and one outbox event. Reject creates no canonical revision. This endpoint
+        is default-off and requires the committed v2 cutover; the legacy generic promotion route remains closed.
+      tags: [experiment-foundation-promotion-v2]
+      parameters:
+        - name: asset_type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [Dataset, DataPolicy, MetricDefinition, Benchmark, EvaluationProtocol]
+        - name: logical_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: candidate_revision
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationPromotionV2Request'
+      responses:
+        '201':
+          description: The exact terminal promotion outcome was created atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationPromotionV2Response'
+        '200':
+          description: The exact terminal promotion outcome was replayed without new canonical, Candidate, decision or outbox rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationPromotionV2Response'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -5430,6 +5488,72 @@ components:
         content_hash:
           type: string
           pattern: '^sha256:[0-9a-f]{64}$'
+
+    ExperimentFoundationPromotionV2Request:
+      type: object
+      additionalProperties: false
+      required: [decision, business_idempotency_key]
+      properties:
+        decision:
+          type: string
+          enum: [promote, reject]
+        business_idempotency_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationPreparationCandidateV2:
+      type: object
+      additionalProperties: false
+      required: [candidate_id, candidate_revision, asset_type, logical_id, content_hash, status, canonical_revision, created_at, updated_at]
+      properties:
+        candidate_id: { type: string, minLength: 1 }
+        candidate_revision: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        asset_type:
+          type: string
+          enum: [Dataset, DataPolicy, MetricDefinition, Benchmark, EvaluationProtocol]
+        logical_id: { type: string, minLength: 1 }
+        content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        status:
+          type: string
+          enum: [promoted, rejected]
+        canonical_revision:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            - type: 'null'
+        created_at: { type: string, minLength: 1 }
+        updated_at: { type: string, minLength: 1 }
+
+    ExperimentFoundationPromotionDecisionV2:
+      type: object
+      additionalProperties: false
+      required: [promotion_decision_id, candidate_id, candidate_revision, decision, canonicalization_outcome, canonical_revision, decided_at]
+      properties:
+        promotion_decision_id: { type: string, minLength: 1 }
+        candidate_id: { type: string, minLength: 1 }
+        candidate_revision: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        decision:
+          type: string
+          enum: [promote, reject]
+        canonicalization_outcome:
+          oneOf:
+            - type: string
+              enum: [created, reused]
+            - type: 'null'
+        canonical_revision:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            - type: 'null'
+        decided_at: { type: string, minLength: 1 }
+
+    ExperimentFoundationPromotionV2Response:
+      type: object
+      additionalProperties: false
+      required: [candidate, promotion_decision, event_id, replayed]
+      properties:
+        candidate:
+          $ref: '#/components/schemas/ExperimentFoundationPreparationCandidateV2'
+        promotion_decision:
+          $ref: '#/components/schemas/ExperimentFoundationPromotionDecisionV2'
+        event_id: { type: string, minLength: 1 }
+        replayed: { type: boolean }
 
     PaperImplementationExperimentV2ParameterValue:
       type: object
