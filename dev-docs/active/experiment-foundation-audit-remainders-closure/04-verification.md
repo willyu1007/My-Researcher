@@ -137,3 +137,18 @@ Phase 3 is complete. EF-P15 is closed under P15-03 option 1; T-134 remains in pr
 - `git diff --check` → passed. No named database, runtime capability, external provider/cloud resource, schema, migration or UI changed.
 
 Phase 3 is complete after remediation. EF-P15 is closed under P15-03 option 1; T-134 remains `in-progress` only because Phase 4 EF-P21 and final convergence remain pending.
+
+## Phase 4A EF-P21 deterministic candidate verification — 2026-08-03
+
+- Shared TypeScript: `pnpm --filter @paper-engineering-assistant/shared typecheck` passed with zero errors.
+- Backend TypeScript: `pnpm --filter @paper-engineering-assistant/backend typecheck` passed after Prisma Client generation with zero errors.
+- Expanded shared contract/hash regression ran after typecheck with the Node 26 transpile-only loader: semantic schemas, existing lineage schemas and canonical hash suites passed 23/23.
+- Expanded backend candidate/structured-lineage regression ran after typecheck with the Node 26 transpile-only loader: semantic candidate service, existing lineage service and all three existing lineage HTTP routes passed 12/12.
+- Candidate assertions prove deterministic ordering/text/hash replay, project-list resolution before any Cycle read, repeated project/Cycle scope, header parity, duplicate-source rejection, blocked-head exclusion and stable document identity with hash drift on changed effective-head state.
+- Schema assertions reject additional caller embedding data, malformed hashes, mismatched source/content discriminators and invalid closure states.
+- The first direct `ts-node/esm` targeted attempt reproduced the already-documented Node 26 pre-execution diagnostic-object failure. No assertion ran in that attempt; independent `tsc --noEmit` plus the transpile-only executions above provide separated static/runtime evidence.
+- Strict task-doc lint passed 28/28 with zero errors/warnings; project sync completed; governance lint passed with only the two unrelated pre-existing T-124/T-133 state-format warnings.
+- `git diff --check` passed.
+- Effects: no Prisma schema/migration, projection row, named database, embedding/ranking provider, capability, OpenAPI route, UI, cloud resource or workflow/trust writer changed.
+
+Phase 4A is complete. EF-P21 remains open for separately authorized Phase 4B projection/indexing and Phase 4C retrieval/re-resolution/fallback.

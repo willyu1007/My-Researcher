@@ -24,6 +24,7 @@
     "./research-lifecycle/experiment-foundation-scientific-validation-v2-contracts": "./src/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts.ts",
     "./research-lifecycle/paper-implementation-evidence-v2-contracts": "./src/research-lifecycle/paper-implementation-evidence-v2-contracts.ts",
     "./research-lifecycle/paper-implementation-experiment-lineage-v2-contracts": "./src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.ts",
+    "./research-lifecycle/paper-implementation-semantic-retrieval-v2-contracts": "./src/research-lifecycle/paper-implementation-semantic-retrieval-v2-contracts.ts",
     "./research-lifecycle/paper-implementation-closure-preparation-v2-contracts": "./src/research-lifecycle/paper-implementation-closure-preparation-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-d19-source-policy": {
       "types": "./src/research-lifecycle/experiment-foundation-d19-source-policy.d.mts",

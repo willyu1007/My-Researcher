@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14, Phase 2 EF-P06 and all Phase 3 EF-P15 slices are implemented and verified. Phase 4 has not started.
-- Next step: discuss and authorize Phase 4 EF-P21 backend project-scoped semantic retrieval before implementation; structured lineage remains the complete fallback and control/trust authority.
+- Current phase: Phase 1 EF-P14, Phase 2 EF-P06, all Phase 3 EF-P15 slices and Phase 4A EF-P21 deterministic-document/authorized-candidate contracts are implemented and verified.
+- Next step: discuss and authorize Phase 4B PI-owned rebuildable projection persistence/indexing. Phase 4C retrieval/fallback remains separately gated; structured lineage remains the complete fallback and control/trust authority.
 
 ## Goal
 
@@ -44,6 +44,13 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - Rejected model: no standalone Run/Attempt/Result lineage, result import, identity-only attachment, legacy conversion or trust reuse.
 - Authorization includes additive contracts, backend routes/services/repositories, Prisma SSOT schema and migration files, generated API/DB/env context, default-off capability wiring and disposable-PostgreSQL verification.
 - Authorization excludes named-local/staging/production migration, backfill/repair, capability enablement, provider/cloud effects and desktop UI.
+
+## Phase 4A authorization — 2026-08-03
+
+- Authorized scope: deterministic current ValidationCycle/current effective-branch-head document contracts, server-derived source/document hashes, and a project-authorized structured candidate service that emits the only payload a later ranker may receive.
+- The existing structured lineage reader must resolve the project before any Cycle/head enumeration. Historical revisions, non-effective heads and foreign-project identities are excluded from the candidate batch.
+- Authorization includes shared schema/hash tests, backend service tests and T-134 documentation/governance sync.
+- Authorization excludes Prisma schema/migration/projection storage, embedding or ranking provider calls, index workers, final retrieval HTTP, fallback/hit re-resolution, capability enablement, named database work, UI and every workflow/trust writer.
 
 ## Constraints
 

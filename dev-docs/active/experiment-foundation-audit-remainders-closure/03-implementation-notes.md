@@ -112,3 +112,11 @@
 - Extended Phase 3C zero-write census to include EF qualified outbox and PI trust-gateway inbox, trace manifest and registration outbox in addition to result/report/Candidate/REU.
 - The first production-shaped disposable replay exposed colon-delimited fixture Run/cell ids that violate the real provider's safe OSS path-segment contract. Relational fixtures now use provider-safe materialization and cell identities.
 - No production schema, migration, route, capability, named database, cloud/provider resource or UI surface changed. Phase 3 is complete again; Phase 4 EF-P21 remains unstarted and requires discussion/authorization.
+
+## 2026-08-03 — Phase 4A deterministic semantic candidate boundary
+
+- Added a closed shared contract for only two document kinds: current ValidationCycle and current effective branch head. Every document binds project id, source type/id/version/hash, canonical semantic text and canonical document hash.
+- Added dedicated PI semantic source/document hash profiles and a stable server-derived document id. ValidationCycle snapshots use content-addressed versions; effective heads bind the current admitted revision sequence/id and exact Run id while their source hash captures mutable head-state drift.
+- Added a backend-only candidate service over the existing structured lineage service contract. It resolves the project list first, repeats project scope on each Cycle read, checks project/Cycle/header parity and excludes blocked heads before preparing the bounded future-ranker input.
+- The service performs no index lookup, persistence, embedding, ranking, external call or HTTP response. No Prisma schema/migration, repository query, capability, OpenAPI, named database, UI or workflow/trust writer changed.
+- Added strict schema tests and service tests for closed input, deterministic ordering/text/hashes, project-first scope, structured snapshot drift, blocked-head exclusion, source hash drift and query rejection before repository access.

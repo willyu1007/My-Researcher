@@ -216,7 +216,7 @@ export const paperImplementationExperimentLineageClosureStateV2Schema = {
   ],
 } as const;
 
-const projectValidationCycleLineageSummaryV2Schema = {
+export const projectValidationCycleLineageSummaryV2Schema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -256,7 +256,7 @@ export const projectValidationCyclesLineageV2ResponseSchema = {
   },
 } as const;
 
-const validationCycleExperimentLineageHeaderV2Schema = {
+export const validationCycleExperimentLineageHeaderV2Schema = {
   type: 'object',
   additionalProperties: false,
   required: ['validation_cycle_id', 'status', 'target_ref', 'created_at', 'closure'],
@@ -269,7 +269,7 @@ const validationCycleExperimentLineageHeaderV2Schema = {
   },
 } as const;
 
-const admittedRevisionV2Schema = {
+export const validationCycleExperimentLineageAdmittedRevisionV2Schema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -337,7 +337,7 @@ const collectionSummaryV2Schema = {
   },
 } as const;
 
-const effectiveHeadRunV2Schema = {
+export const validationCycleExperimentLineageEffectiveHeadRunV2Schema = {
   type: 'object',
   additionalProperties: false,
   required: [
@@ -371,7 +371,7 @@ const branchBaseProperties = {
   branch_id: nonEmptyString,
   branch_key: nonEmptyString,
   parent_branch_key: nullableString,
-  current_admitted_revision: admittedRevisionV2Schema,
+  current_admitted_revision: validationCycleExperimentLineageAdmittedRevisionV2Schema,
 } as const;
 
 const branchRequired = [
@@ -392,7 +392,7 @@ const validationCycleExperimentLineageBranchV2Schema = {
       required: branchRequired,
       properties: {
         ...branchBaseProperties,
-        effective_head_run: effectiveHeadRunV2Schema,
+        effective_head_run: validationCycleExperimentLineageEffectiveHeadRunV2Schema,
         head_blocker: { type: 'null' },
       },
     },

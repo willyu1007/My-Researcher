@@ -111,6 +111,23 @@ Option 2 — a standalone Run/Attempt/Result lineage plus result-import trust bo
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.
 
+## Phase 4A semantic candidate contract — 2026-08-03
+
+```text
+project-scoped structured lineage read
+  -> current ValidationCycle summaries
+  -> project-scoped current effective branch heads
+  -> canonical source content + source version/hash
+  -> canonical semantic text + document hash
+  -> bounded ranking input contract
+```
+
+- Phase 4A depends on the existing lineage service contract, not Prisma or a semantic store. The initial project-list read is the authorization/candidate fence; each later Cycle read repeats the same project scope.
+- ValidationCycle has no monotonic persisted revision, so its current source version is content-addressed. Effective branch-head version binds current admitted revision sequence/id and exact Run id; its separate source hash captures the complete current head snapshot, including Attempt/collection drift.
+- Document identity is stable for `(project, source type, source id)`. Source/document hashes change when authoritative semantic content changes, enabling Phase 4C stale-hit rejection without treating the index as truth.
+- Semantic text is the canonical JSON representation of the closed typed content. Only current Cycle snapshots and effective heads enter the batch; blocked heads and historical WorkOrder revisions/Runs do not.
+- The service has no ranker/index/provider dependency and no HTTP wiring. Phase 4B/4C must not bypass the Phase 4A candidate contract or add post-ranking project filtering.
+
 ## Phase 3B landed PI attachment/admission seam — 2026-08-02
 
 - `POST /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach` accepts only `branch_key` and `business_idempotency_key` in its closed body.

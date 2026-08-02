@@ -50,6 +50,10 @@ import type {
   ValidationCycleClosureV2,
   ValidationCycleClosureWatermarkV2,
 } from './paper-implementation-evidence-v2-contracts.js';
+import type {
+  PaperImplementationSemanticDocumentContentV2,
+  PaperImplementationSemanticDocumentSourceRefV2,
+} from './paper-implementation-semantic-retrieval-v2-contracts.js';
 
 export { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
 
@@ -92,6 +96,8 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-evidence-trace-manifest-json@v1',
   'pi-cycle-closure-watermark-json@v1',
   'pi-cycle-closure-json@v1',
+  'pi-semantic-source-json@v1',
+  'pi-semantic-document-json@v1',
 ] as const);
 export type ExperimentV2HashProfile = (typeof EXPERIMENT_V2_HASH_PROFILES)[number];
 
@@ -342,6 +348,49 @@ export function serverHashExperimentV2SemanticContent(
     schema_version: input.schema_version,
     content: input.content,
   });
+}
+
+export function serverHashPaperImplementationSemanticSourceV2(
+  content: PaperImplementationSemanticDocumentContentV2,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationSemanticDocumentSourceV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-semantic-source-json@v1',
+    content,
+  });
+}
+
+export interface PaperImplementationSemanticDocumentV2HashInput {
+  implementation_project_id: string;
+  source: PaperImplementationSemanticDocumentSourceRefV2;
+  semantic_text: string;
+  content: PaperImplementationSemanticDocumentContentV2;
+}
+
+export function serverHashPaperImplementationSemanticDocumentV2(
+  content: PaperImplementationSemanticDocumentV2HashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationSemanticDocumentV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-semantic-document-json@v1',
+    content,
+  });
+}
+
+export function serverPaperImplementationSemanticDocumentV2Id(input: {
+  implementation_project_id: string;
+  source_type: PaperImplementationSemanticDocumentSourceRefV2['source_type'];
+  source_id: string;
+}): string {
+  const digest = serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationSemanticDocumentIdentityV2',
+    schema_version: 'v1',
+    hash_profile: 'pi-semantic-document-json@v1',
+    content: input,
+  }).slice('sha256:'.length, 'sha256:'.length + 32);
+  return `pi_semantic_document_${digest}`;
 }
 
 export function serverHashExperimentFoundationExecutionAttemptEventV2(
