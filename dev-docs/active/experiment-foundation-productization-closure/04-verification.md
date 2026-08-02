@@ -2786,3 +2786,21 @@ Outcome: **exact 40-row successor materialization, zero-new replay and zero-clou
 - Scoped whitespace check — `git diff --check -- <seven T-132 files>`; passed.
 - Source authorization audit — the exact sequence-9 Run manifest hash is pinned; named-local materialization and paid live authorization constants are both `null`.
 - Final effect census — named-local successor rows 40; replay rows 0; STS/cloud/provider/`CreateJob` 0/0/0/0; capability/Attempt/scientific/evidence effects 0/0/0/0.
+
+## 2026-08-02 — durable successor production image verification
+
+Outcome: **the exact sequence-9 production image gate passed with one cloud read and no write or paid effect**.
+
+- Authorization boundary — one fresh controller STS, one exact regional `GetImage` and complete credential cleanup; capability changes, provider writes, `CreateJob`, database/scientific/evidence writes and paid runtime were prohibited.
+- STS issuance — one `AssumeRole`, `DurationSeconds=3600`; inline session policy allowed only `paiimage:GetImage` on `*`; the assumed controller identity check passed.
+- Local credential contract — six exact non-empty keys, mode `0600`, `STS.` temporary access-key prefix, exact controller role, controller-policy SHA-256 `6566a47ee9c07ce6a75c9aeedcbc721d299ae52e7620bbbf91e14564b04220d8`, 57 whole minutes remaining and secret output count 0.
+- Pre-call offline gate — exact Run `ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1`, manifest hash `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`, Bundle hash `sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e`, Attempt/cloud/database-write counts `0/0/0`.
+- Production image command — `node --env-file=/tmp/t132-seq9-image-sts.env --env-file=../../.env.local --loader ts-node/esm scripts/run-experiment-foundation-m7-l1-live-window.ts --mode image-preflight`; passed.
+- Exact image result — schema `t132-m7-l1-live-window-image-preflight@v1`, request hash `26ecc9878fc066d675ca011f83890884a05e3d4cf314eb2e66737e1c6932d08e`, cloud calls 1, provider writes 0, `CreateJob` 0 and database writes 0.
+- Post-call offline gate — passed against the same Run/manifest/Bundle; Attempt count remained 0 and the paid source authorization remained `null`.
+- Credential cleanup — Cloud Shell source JSON/env files absent; exact `/tmp/t132-seq9-image-sts.env`, Downloads file and `.crdownload` residual absent; no credential value entered the repository or verification output.
+- Final effect census — AssumeRole issuances 1; `GetImage` reads 1; provider writes/`CreateJob`/PAI Jobs/database/capability/scientific/evidence writes/billable runtime `0/0/0/0/0/0/0/0`.
+- Documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors. The 205 warnings are repository-wide advisory findings.
+- Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The two state-format warnings belong to unrelated T-124-era bundles.
+- Scoped whitespace and credential-value scans — target diff passed `git diff --check`; no concrete STS/AK/private-key value pattern was present.
+- Resulting gate — the read-only authorization is consumed. Normal durable two-cell execution requires a separate new dated maximum-two-Job and monetary authorization.

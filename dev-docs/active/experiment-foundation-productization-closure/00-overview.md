@@ -11,7 +11,8 @@
 - Personal-use completion boundary: one maintainer can take the exact PI-bound WorkOrder through an immutable two-cell Run, obtain two terminal successful PAI Jobs, collect exact Run/Cell/TaskSpec/parser-bound results and replay with zero duplicate Jobs. Failure/reconcile/cancel remains covered through the existing API/CLI and deterministic tests; the successful live two-cell acceptance is not consumed merely to demonstrate cancellation.
 - Transferred scope: EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 are owned by `T-134 experiment-foundation-audit-remainders-closure` and no longer block T-132.
 - Removed/out-of-scope: desktop UI, Electron/DOM acceptance, multi-user/tenant concerns, installer/distribution work, generalized BYOC packaging and managed-cloud product delivery are not part of T-132 completion.
-- Next step: request a separate read-only cloud authorization for one fresh controller STS, one exact production `GetImage` comparison and complete credential cleanup. Do not enable capability state or submit a Job. A future paid two-Job/cost window remains a later independent authorization after the read-only image gate passes.
+- Read-only cloud checkpoint: **the separately authorized sequence-9 production image gate passed on 2026-08-02**. One fresh controller STS was restricted by session policy to `paiimage:GetImage`; one and only one regional `GetImage` matched the pinned Run/Bundle and produced request hash `26ecc9878fc066d675ca011f83890884a05e3d4cf314eb2e66737e1c6932d08e`. Provider writes, `CreateJob`, database/capability/scientific writes and paid runtime were all 0. Cloud Shell and local credential copies were deleted.
+- Next step: request a new dated paid authorization with an explicit maximum-two-Job and monetary ceiling for the normal durable sequence-9 execution path. The read-only authorization is consumed and does not grant this next step.
 
 ## 2026-07-30 scope freeze — personal PAI execution closure
 

@@ -1038,3 +1038,12 @@ When adding an entry, use:
 - Fix/workaround: when a state-changing command may yield, emit or store its `session_id` immediately and continue only through `write_stdin`. If the id is lost, inspect process and authoritative state read-only before considering any replay.
 - Prevention: never rerun an uncertain state-changing command merely because stdout is missing. Require an empty-or-complete census and an idempotent replay contract first; otherwise stop for recovery review.
 - References: `apps/backend/scripts/apply-experiment-foundation-m7-executable-lineage.ts`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-08-02 — Cloud Shell download confirmation can outlive the download-event wait
+
+- Symptom: `cloudshell download t132-seq9-image-sts.env` opened a confirmation modal, so the initial browser download-event wait timed out before the user-visible confirmation was accepted. After confirmation, the browser event wait again timed out even though the exact file had downloaded successfully.
+- Root cause: Cloud Shell splits the terminal command, confirmation modal and browser download into separate UI phases; the automation event is not a reliable completion signal across that modal boundary.
+- What was tried: inspected the fresh modal state, accepted the exact named file, then checked the local Downloads path read-only before considering any retry. The file existed once at browser-default mode `0644`; it was immediately moved to `/tmp`, changed to `0600` and contract-validated.
+- Fix/workaround: after the confirmation action, use an exact local filesystem existence/mode check as the authoritative completion signal. Never rerun the download command merely because the browser event waiter timed out.
+- Prevention: treat downloaded credential files as insecure until moved and chmodded; enforce exact path/prefix cleanup in Cloud Shell, `/tmp` and Downloads after the bounded call.
+- References: `03-implementation-notes.md`; `04-verification.md`; Alibaba Cloud Shell file download flow.
