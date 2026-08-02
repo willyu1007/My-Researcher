@@ -130,3 +130,11 @@
 - Quantized normalized vectors to float32 before server hashing and canonicalized database text readback to float32 because pgvector `vector` stores float32 components. Persisted embedding hashes therefore survive database round trips for ordinary dense provider vectors, not only exactly representable sparse test vectors.
 - Added unit and disposable-PostgreSQL coverage for project-first inputs, zero-change replay, embedding failure, missing output, stale prune, cross-project isolation, transaction rollback, stored corruption detection/repair and HNSW presence.
 - Regenerated the DB context from Prisma SSOT. No named database, real provider/network call, scheduler, capability, HTTP route, UI or workflow/trust writer changed.
+
+## 2026-08-03 — Phase 4C structured-first semantic retrieval
+
+- Extended the closed shared semantic contract with bounded result limits, semantic/structured-fallback result variants and explicit fallback reasons.
+- Added a project/profile-scoped projection search contract plus in-memory dot-product and Prisma halfvec inner-product implementations. The Prisma read validates normalized float32 vector content against the stored server embedding hash before returning lightweight hit metadata.
+- Added a backend retrieval service that prepares the complete Phase 4A authorized input before semantic dependencies, normalizes an injected query vector, bounds the semantic attempt with cancellation and re-resolves every hit against current structured identity/version/hash.
+- Tightened the initial partial-index behavior during review: semantic ranking now requires exact projection completeness. Missing, stale, foreign or superseded rows produce complete structured fallback instead of a plausible but incomplete semantic list.
+- Added no provider implementation, network credentials, route, application wiring, capability, scheduler, schema migration, UI or workflow/trust mutation.

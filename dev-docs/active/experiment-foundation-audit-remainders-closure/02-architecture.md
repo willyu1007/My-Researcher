@@ -146,6 +146,26 @@ Phase 4A authorized documents
 - Repository replacement locks the exact project, validates server-derived document/vector identities, upserts changed rows and prunes stale rows inside one transaction. A project deletion/scope loss or injected crash leaves the prior projection intact.
 - Phase 4B adds no real embedding adapter, scheduler, application wiring, capability, HTTP route or query. Phase 4C owns ranking, timeout/corruption fallback and current-source hit re-resolution.
 
+## Phase 4C structured-first retrieval — 2026-08-03
+
+```text
+validated request
+  -> Phase 4A resolves complete project-authorized current documents
+  -> injected query embedding within bounded semantic timeout
+  -> project + exact embedding-profile halfvec search
+  -> verify each stored vector against its server embedding hash
+  -> exact current document/source/version/hash re-resolution
+     -> complete projection: deterministic score + document-id ranking
+     -> timeout/outage/corruption/partial/stale: complete structured fallback
+```
+
+- The structured candidate reader completes before query embedding or projection access. A project mismatch fails closed before either semantic dependency runs; the semantic timeout deliberately excludes the authoritative read.
+- Projection search requires exact project and embedding profile filters before the bounded HNSW-compatible order/limit query. The repository returns technical hit metadata only and validates vector normalization plus embedding hash before exposing a score.
+- The service compares every hit with the already-resolved current document identity, source type/id/version/hash and document hash. Deleted, foreign, stale, superseded and duplicate hits never enter results.
+- Semantic ranking is enabled only when the projection contains exactly one current valid hit for every authorized document. Missing or rejected rows produce `SEMANTIC_INDEX_INCOMPLETE` and the complete structured result set; a caller result limit never truncates fallback authority.
+- Equal scores order by stable document id. Semantic output can improve discovery only; the service has no writer and cannot choose a head, admit work, qualify evidence or change trust state.
+- Query embedding remains an injected port with `AbortSignal`; no real adapter, credentials, network call, route, OpenAPI surface, capability, scheduler, runtime composition, schema change or UI was added.
+
 ## Phase 3B landed PI attachment/admission seam — 2026-08-02
 
 - `POST /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach` accepts only `branch_key` and `business_idempotency_key` in its closed body.

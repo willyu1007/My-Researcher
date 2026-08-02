@@ -160,10 +160,21 @@ Phase 4A is complete. EF-P21 remains open for separately authorized Phase 4B pro
 - Expanded shared canonical/hash/semantic/lineage schema regression passed 23/23 with the Node 26 transpile-only runtime after independent typecheck.
 - Expanded backend semantic candidate/index plus existing lineage service/route regression passed 16/16. Exact replay performs zero embedding calls/row changes; embedding outage/incomplete output preserves the previous projection; empty authorized input skips embedding and prunes only that project.
 - First disposable run applied the complete migration history, then the relational assertion failed `2 !== 1`; the container cleaned up. A second labeled run isolated the failure to the corrupt-row repair count and also cleaned up. Root cause was the batch-position test embedding fake, not migration or repository atomicity.
-- The corrected final nonce/marker/password-guarded pgvector run applied all migrations and passed the Phase 4B relational suite 1/1 with skip=0. It proves two-project isolation, exact replay, injected transaction rollback, stored corruption rejection/repair, stale prune and HNSW index creation; cleanup passed.
+- The corrected final nonce/marker/password-guarded pgvector run applied all migrations and passed the Phase 4B relational suite 1/1 with skip=0. The run proves two-project isolation, exact replay, injected transaction rollback, stored corruption rejection/repair, stale prune and HNSW index creation; cleanup passed.
 - Final quality review replaced the exactly representable sparse fake with deterministic dense fractional vectors. The first run exposed missing float32 canonicalization on database text readback and cleaned up; after making write/hash/read precision symmetric, the corrected relational replay passed 1/1 with skip=0 and covers embedding-hash stability across actual pgvector storage.
 - Full migration-history drift replay against the disposable pgvector database passed with zero schema diff. A final post-hardening disposable relational replay also passed 1/1 and cleaned up.
 - `node .ai/tests/run.mjs --suite database` passed and cleaned its evidence. `ctl-db-ssot sync-to-context` regenerated `docs/context/db/schema.json` and updated the context registry checksum.
 - Effects: no named-local/staging/production database, backfill, real embedding provider, network call, scheduler, capability, HTTP retrieval, UI, source/workflow row or trust writer changed.
 
 Phase 4B is complete. EF-P21 remains open only for separately authorized Phase 4C retrieval, hit re-resolution and structured fallback.
+
+## Phase 4C EF-P21 retrieval verification — 2026-08-03
+
+- Shared and backend TypeScript passed with zero errors; no `any` is present in the Phase 4C files.
+- Expanded shared semantic + structured-lineage schema regression passed 6/6. The shared regression proves closed semantic/fallback response modes and rejects cross-mode reason/result shapes.
+- Expanded backend candidate/index/retrieval plus existing lineage service/route regression passed 28/28. The backend regression proves structured-first dependency order, deterministic ties, result bounds, timeout cancellation, invalid query embeddings, provider/index outage, duplicate/corrupt hits, missing projection rows, stale/foreign hits, project-scope mismatch and complete fallback.
+- The repository-pinned nonce/marker/password-guarded disposable pgvector run applied all 75 migrations and passed the combined Phase 4B projection/Phase 4C search suite 1/1 with skip=0. The relational run proves project/profile isolation, halfvec ranking, current-source retrieval, corrupt embedding-hash fallback/repair and cleanup.
+- `node .ai/tests/run.mjs --suite database` passed and cleaned its evidence. No Prisma SSOT or generated DB context changed in Phase 4C.
+- Effects: no named-local/staging/production database, real provider/network call, capability, scheduler, runtime composition, HTTP/OpenAPI surface, UI, source/workflow row or trust writer changed.
+
+Phase 4 is complete and EF-P21 is verified. T-134 remains `in-progress` for separately authorized Phase 5 convergence and handoff.

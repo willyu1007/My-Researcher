@@ -29,6 +29,14 @@
 - Do not use colon-delimited fixture Run or cell identities in real-provider tests; they must satisfy the production-safe provider path-segment contract.
 - Do not make an embedding fake depend on batch position; the same document/profile must produce the same vector in incremental and full rebuilds.
 - Do not hash double-precision embedding components before `vector` persistence; quantize to float32 first so the stored vector and server hash remain identical.
+- Do not serve a valid-looking subset from a partial semantic projection; fall back to the complete structured candidate set unless every current authorized document has one exact hit.
+
+## Partial projection could look like a valid top-k result — 2026-08-03
+
+- Symptom: the first Phase 4C draft dropped stale/foreign hits but could still return the remaining valid semantic subset.
+- Root cause: ranking correctness was considered independently from projection completeness, even though a missing higher-scoring current document cannot be distinguished from an ordinary low score.
+- Fix/workaround: query a bounded window equal to the current authorized candidate count and require exactly one current valid hit per candidate; otherwise return `SEMANTIC_INDEX_INCOMPLETE` with the complete structured set.
+- Prevention: semantic availability checks must compare the projection cardinality and exact current identities before applying caller result limits.
 
 ## pgvector float32 storage could invalidate embedding hashes — 2026-08-03
 

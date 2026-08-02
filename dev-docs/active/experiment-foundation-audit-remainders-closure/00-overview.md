@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14, Phase 2 EF-P06, all Phase 3 EF-P15 slices and Phase 4A/4B EF-P21 document/candidate/projection slices are implemented and verified.
-- Next step: discuss and authorize Phase 4C retrieval, current-source hit re-resolution and structured fallback. Structured lineage remains the complete fallback and control/trust authority.
+- Current phase: Phase 1 EF-P14, Phase 2 EF-P06, all Phase 3 EF-P15 slices and all Phase 4 EF-P21 slices are implemented and verified.
+- Next step: discuss and authorize Phase 5 convergence, complete-writer census, context/governance verification and handoff. Structured lineage remains the complete fallback and control/trust authority.
 
 ## Goal
 
@@ -34,7 +34,7 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - [x] EF-P14: unbound bootstrap fails before PI writes; bound bootstrap is idempotent; existing null-bound rows cannot enter bootstrap replay/project reads and receive the explicit `LEGACY_RECORD_NOT_ELIGIBLE` diagnostics-only classification.
 - [x] EF-P06: a single server-owned transaction converges promotion decision, canonical asset, Candidate and outbox state; exact replay is zero-new and conflicts fail closed.
 - [x] EF-P15: standalone EF output remains non-paper-trusted until an explicit WorkOrder attachment re-resolves project, Cycle, revision, Run, readiness and validation identity; cross-project and bypass paths are zero-write rejected.
-- [ ] EF-P21: authorization and project filters run before semantic ranking; deterministic lineage documents bind source revision/hash; stale hits are dropped; index failure falls back to structured lineage.
+- [x] EF-P21: authorization and project filters run before semantic ranking; deterministic lineage documents bind source revision/hash; stale hits are dropped; index failure falls back to structured lineage.
 - [ ] The four paths reuse existing PI/EF authority boundaries and introduce no generic trust writer, manual internal ID/hash workflow or second truth.
 - [ ] Required relational, API, regression, context and governance verification passes with capabilities default off.
 
@@ -58,6 +58,14 @@ Close exactly four previously open Experiment Foundation audit findings without 
 - Embedding is an injected typed port. Phase 4B may validate and persist deterministic test vectors and profile metadata, but adds no real provider adapter, credentials, network call, scheduler or runtime composition.
 - Projection replacement is project-scoped and atomic: exact replay is zero-change, stale documents are pruned only inside the same authorized project, and source/workflow rows remain untouched.
 - Authorization includes reviewed migration SQL, generated DB context and nonce/marker/password-guarded disposable PostgreSQL application. It excludes named-local/staging/production apply, backfill, capability enablement, final retrieval/ranking HTTP, hit re-resolution/fallback, UI and all workflow/trust writers.
+
+## Phase 4C authorization — 2026-08-03
+
+- Authorized scope: one backend retrieval service that resolves the complete Phase 4A project-authorized document set before query embedding or vector ranking, queries only the Phase 4B PI projection, and deterministically ranks bounded hits.
+- Every semantic hit must re-resolve against the exact current authorized document identity, source version/hash and document hash. Deleted, foreign, stale, superseded or duplicate hits cannot enter results.
+- Index/provider timeout, unavailability, malformed query vectors, corrupt result rows or zero current semantic hits must return the complete structured candidate set with an explicit fallback reason. Structured lineage remains usable and authoritative.
+- Authorization includes typed shared/service/repository contracts, injected deterministic test adapters, unit/regression tests, nonce-guarded disposable PostgreSQL read verification and T-134 documentation/governance sync.
+- Authorization excludes real embedding/provider adapters, credentials/network calls, scheduler/runtime composition, capability enablement, HTTP/OpenAPI routes, schema migrations, named-local/staging/production database work, UI and every workflow/trust writer.
 
 ## Constraints
 
