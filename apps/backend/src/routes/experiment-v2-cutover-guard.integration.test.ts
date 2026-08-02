@@ -25,6 +25,7 @@ const EXPERIMENT_V2_BOOLEAN_ENV_KEYS = [
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED',
+  'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED',
 ] as const;
 
 function restoreExperimentV2BooleanEnv(
@@ -214,6 +215,16 @@ test('typed promotion enable without a committed cutover fails during app compos
   );
 });
 
+test('exploration spec enable without a committed cutover fails during app composition', () => {
+  assert.throws(
+    () => buildApp({
+      paperImplementationExperimentV2CutoverCommitted: () => false,
+      experimentFoundationV2ExplorationSpecEnabled: () => true,
+    }),
+    /EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED requires PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true/,
+  );
+});
+
 test('Cycle closure enable without a committed cutover fails during app composition', () => {
   assert.throws(
     () => buildApp({
@@ -254,6 +265,7 @@ test('unset or blank experiment v2 boolean env values default to false', async (
     delete process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED;
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = '   ';
     delete process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED;
+    delete process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED;
 
     const app = buildApp();
     await app.close();
@@ -273,6 +285,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = ' TRUE ';
+    process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = ' TRUE ';
     const enabledApp = buildApp();
     await enabledApp.close();
 
@@ -281,6 +294,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' FALSE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
+    process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = 'false';
     const disabledApp = buildApp();
     await disabledApp.close();
 
@@ -290,12 +304,14 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED', 'yes'],
       ['EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED', 'enabled'],
       ['EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED', '1'],
+      ['EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED', 'open'],
     ] as const) {
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_ADMISSION_ENABLED = 'false';
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'false';
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
+      process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = 'false';
       process.env[key] = malformed;
 
       assert.throws(

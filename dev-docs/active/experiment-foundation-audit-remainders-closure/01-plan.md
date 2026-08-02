@@ -32,7 +32,7 @@ Exit: met on 2026-08-02. One canonical result and one durable event outcome conv
 ## Phase 3 — EF-P15 attachment and full revalidation
 
 1. [x] Resolve P15-03 by authorizing option 1: an immutable typed exploration specification is attached and restated as a new PI-owned admitted WorkOrder revision; existing or historical outputs are never imported. Option 2 standalone Run/Attempt/Result lineage is rejected for T-134.
-2. [ ] Phase 3A — add the EF-owned immutable exploration-specification identity/revision contract and persistence. Freeze proposed branch frame, WorkOrder revision snapshot and exact ordered cells under server-derived ids/hashes; reject result, Attempt, validation, evidence, legacy and caller-authored authority fields.
+2. [x] Phase 3A — add the EF-owned immutable exploration-specification identity/revision contract and persistence. Freeze proposed branch frame, WorkOrder revision snapshot and exact ordered cells under server-derived ids/hashes; reject result, Attempt, validation, evidence, legacy and caller-authored authority fields.
 3. [ ] Phase 3B — add one PI-owned attachment command over `spec_id + spec_revision`, exact project/Cycle/branch target and business idempotency key. Server-resolve the spec/hash and all target scope; atomically persist the attachment receipt with the new PI branch/revision/cells/admission/outbox authority commit.
 4. [ ] Re-resolve active project, admitted/open Cycle, exact branch frame, typed assets, readiness attestation and dependency hashes before commit. Existing materialization must revalidate exact cell/asset/readiness parity before creating a new TaskSpec/Run lineage.
 5. [ ] Reject cross-project, stale/revoked/incomplete specs, changed branch frame, changed scope, simulation/legacy/result references and caller-substituted ids/hashes with zero PI trust/materialization writes.
@@ -41,6 +41,8 @@ Exit: met on 2026-08-02. One canonical result and one durable event outcome conv
 8. [ ] Keep the feature default off. Generate schema/context artifacts from SSOT and verify on nonce-bound disposable PostgreSQL only; named database apply and runtime enablement remain outside this authorization.
 
 Exit: standalone output remains non-paper-trusted; the approved spec attachment produces a newly admitted PI revision and newly executed PI-bound lineage; only the existing validation/gateway path can produce evidence, and bypass/crash/concurrency tests prove zero partial trust.
+
+Phase 3A checkpoint: met on 2026-08-02. The EF-owned spec identity/revision/receipt aggregate, closed API and default-off flag are durable and verified; no PI attachment, admission, TaskSpec, Run, result, validation or evidence write exists in this slice.
 
 ## Phase 4 — EF-P21 project-scoped semantic retrieval
 

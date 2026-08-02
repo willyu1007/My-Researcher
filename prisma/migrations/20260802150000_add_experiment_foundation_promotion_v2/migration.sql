@@ -121,13 +121,13 @@ REFERENCES "ExperimentFoundationPreparationCandidateV2"("id", "candidateRevision
 ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 ALTER TABLE "ExperimentFoundationPromotionCommandReceiptV2"
-ADD CONSTRAINT "ExperimentFoundationPromotionCommandReceiptV2_promotionDecisionId_fkey"
+ADD CONSTRAINT "ef_promotion_command_decision_fkey"
 FOREIGN KEY ("promotionDecisionId")
 REFERENCES "ExperimentFoundationPromotionDecisionV2"("id")
 ON DELETE RESTRICT ON UPDATE RESTRICT;
 
 ALTER TABLE "ExperimentFoundationPromotionOutboxV2"
-ADD CONSTRAINT "ExperimentFoundationPromotionOutboxV2_promotionDecisionId_fkey"
+ADD CONSTRAINT "ef_promotion_outbox_decision_fkey"
 FOREIGN KEY ("promotionDecisionId")
 REFERENCES "ExperimentFoundationPromotionDecisionV2"("id")
 ON DELETE RESTRICT ON UPDATE RESTRICT;

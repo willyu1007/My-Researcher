@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-08-02T11:28:18.889Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `f1c244a93f19...`)
+> Auto-generated at 2026-08-02T12:49:34.269Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `dbc893902aa9...`)
 
-Total endpoints: **201**
+Total endpoints: **202**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -17,6 +17,7 @@ Total endpoints: **201**
 | GET | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation | Prepare the exact no-evidence closure request template for one ValidationCycle. | none | validation_cycle_id | readiness, derived_closure_kind, prepared_request | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/available-actions | List typed agent actions currently available for one ValidationCycle. | none | implementation_project_id, validation_cycle_id | implementation_project_id, validation_cycle_id, actions, closure | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion | Promote or reject one exact typed asset Candidate revision. | none | decision, business_idempotency_key | candidate, promotion_decision, event_id, replayed | 400, 404, 409, 422, 500 |
+| POST | /experiment-foundation/v2/exploration-specifications/{logical_id}/revisions | Create or exact-reuse one immutable exploration specification revision. | none | expected_state_version, specification, business_idempotency_key | identity, revision, replayed | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/runs/{run_id}/workflow-simulations | Start or exact-replay simulation Attempts for every required Run cell. | none | business_idempotency_key | run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed, workflow_simulation_status | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/runs/{run_id}/real-provider-executions | Start or exact-replay real-provider Attempts for every required Run cell. | none | business_idempotency_key | run_id, run_manifest_hash, business_idempotency_key, provider_payloads, execution_attempts, replayed | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/execution-attempts/{attempt_id}/cancel | Persist an idempotent cancellation intent for one simulation Attempt. | none | business_idempotency_key | execution_attempt | 400, 404, 409, 422, 500 |

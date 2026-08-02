@@ -36,6 +36,9 @@ import type {
   WorkOrderRevisionAdmittedCellV1,
 } from './paper-implementation-experiment-v2-contracts.js';
 import type {
+  ExperimentFoundationExplorationSpecContentV1,
+} from './experiment-foundation-exploration-spec-v2-contracts.js';
+import type {
   ExperimentFoundationScientificValidationStatusV2,
   ExperimentResultCellV2,
   ScientificValidationCellResultRefV2,
@@ -60,6 +63,8 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'ef-asset-semantic-json@v1',
   'ef-promotion-command-json@v1',
   'ef-promotion-event-json@v1',
+  'ef-exploration-spec-json@v1',
+  'ef-exploration-spec-command-json@v1',
   'ef-readiness-dependency-manifest-json@v1',
   'ef-version-lock-json@v1',
   'ef-run-recipe-json@v1',
@@ -417,6 +422,37 @@ export function serverExperimentFoundationPromotionV2Id(
   const digest = serverHashExperimentFoundationPromotionV2Command({ prefix, content })
     .slice('sha256:'.length, 'sha256:'.length + 32);
   return `ef_promotion_${prefix}_${digest}`;
+}
+
+export function serverHashExperimentFoundationExplorationSpecV2(
+  content: ExperimentFoundationExplorationSpecContentV1,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationExplorationSpecRevisionV2',
+    schema_version: content.schema_version,
+    hash_profile: 'ef-exploration-spec-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationExplorationSpecCommandV2(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationExplorationSpecCommandV2',
+    schema_version: 'v1',
+    hash_profile: 'ef-exploration-spec-command-json@v1',
+    content,
+  });
+}
+
+export function serverExperimentFoundationExplorationSpecV2Id(
+  prefix: 'spec' | 'revision' | 'receipt',
+  content: unknown,
+): string {
+  const digest = serverHashExperimentFoundationExplorationSpecCommandV2({ prefix, content })
+    .slice('sha256:'.length, 'sha256:'.length + 32);
+  return `ef_exploration_${prefix}_${digest}`;
 }
 
 export function serverHashExperimentFoundationV2ReadinessDependencyManifest(

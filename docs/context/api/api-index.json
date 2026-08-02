@@ -1,14 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-02T11:28:18.889Z",
+  "generatedAt": "2026-08-02T12:49:34.269Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "f1c244a93f196a67a4ab8129776e2a3a39bd64bdb158082373694c2999cc7efd",
+  "sourceChecksumSha256": "dbc893902aa933627ad42ee4ddb3f94f97b2a9b7967f2831366776f340009ed0",
   "stats": {
-    "totalEndpoints": 201,
+    "totalEndpoints": 202,
     "byTag": {
       "health": 1,
       "paper-implementation-experiment-v2": 8,
       "experiment-foundation-promotion-v2": 1,
+      "experiment-foundation-exploration-spec-v2": 1,
       "experiment-foundation-execution-v2": 6,
       "research-lifecycle": 8,
       "literature": 44,
@@ -382,6 +383,46 @@
       ],
       "example": {
         "curl": "curl -X POST '/experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion' -H 'Content-Type: application/json' -d '{\"decision\":\"<decision>\",\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/exploration-specifications/{logical_id}/revisions",
+      "operationId": "createExperimentFoundationExplorationSpecRevisionV2",
+      "summary": "Create or exact-reuse one immutable exploration specification revision.",
+      "tag": "experiment-foundation-exploration-spec-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "logical_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "expected_state_version",
+            "specification",
+            "business_idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "identity",
+          "revision",
+          "replayed"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/exploration-specifications/{logical_id}/revisions' -H 'Content-Type: application/json' -d '{\"expected_state_version\":\"<expected_state_version>\",\"specification\":\"<specification>\",\"business_idempotency_key\":\"<business_idempotency_key>\"}'"
       }
     },
     {

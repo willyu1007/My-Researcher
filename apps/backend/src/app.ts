@@ -4,6 +4,7 @@ import { ExperimentFoundationExecutionController } from './controllers/experimen
 import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
 import { ExperimentFoundationRealProviderV2Controller } from './controllers/experiment-foundation-real-provider-v2-controller.js';
 import { ExperimentFoundationPromotionV2Controller } from './controllers/experiment-foundation-promotion-v2-controller.js';
+import { ExperimentFoundationExplorationSpecV2Controller } from './controllers/experiment-foundation-exploration-spec-v2-controller.js';
 import { ExperimentFoundationController } from './controllers/experiment-foundation-controller.js';
 import { LiteratureAcquisitionSettingsController } from './controllers/literature-acquisition-settings-controller.js';
 import { LiteratureBackfillController } from './controllers/literature-backfill-controller.js';
@@ -25,6 +26,7 @@ import { InMemoryExperimentFoundationExecutionRepository } from './repositories/
 import { InMemoryExperimentFoundationExecutionV2Repository } from './repositories/in-memory-experiment-foundation-execution-v2-repository.js';
 import { InMemoryExperimentFoundationRepository } from './repositories/in-memory-experiment-foundation-repository.js';
 import { InMemoryExperimentFoundationV2Repository } from './repositories/in-memory-experiment-foundation-v2-repository.js';
+import { InMemoryExperimentFoundationExplorationSpecV2Repository } from './repositories/in-memory-experiment-foundation-exploration-spec-v2-repository.js';
 import { InMemoryExperimentFoundationScientificValidationV2Repository } from './repositories/in-memory-experiment-foundation-scientific-validation-v2-repository.js';
 import {
   InMemoryExperimentFoundationExperimentSpineV2Repository,
@@ -74,6 +76,7 @@ import { PrismaExperimentFoundationExecutionBundleV2Repository } from './reposit
 import { PrismaExperimentFoundationRepository } from './repositories/prisma/prisma-experiment-foundation-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './repositories/prisma/prisma-experiment-foundation-spine-v2-repository.js';
 import { PrismaExperimentFoundationV2Repository } from './repositories/prisma/prisma-experiment-foundation-v2-repository.js';
+import { PrismaExperimentFoundationExplorationSpecV2Repository } from './repositories/prisma/prisma-experiment-foundation-exploration-spec-v2-repository.js';
 import { PrismaExperimentFoundationScientificValidationV2Repository } from './repositories/prisma/prisma-experiment-foundation-scientific-validation-v2-repository.js';
 import { PrismaLiteratureRepository } from './repositories/prisma/prisma-literature-repository.js';
 import { PrismaPaperImplementationRepository } from './repositories/prisma/prisma-paper-implementation-repository.js';
@@ -118,6 +121,7 @@ import { registerExperimentFoundationExecutionRoutes } from './routes/experiment
 import { registerExperimentFoundationExecutionV2Routes } from './routes/experiment-foundation-execution-v2-routes.js';
 import { registerExperimentFoundationRealProviderV2Routes } from './routes/experiment-foundation-real-provider-v2-routes.js';
 import { registerExperimentFoundationPromotionV2Routes } from './routes/experiment-foundation-promotion-v2-routes.js';
+import { registerExperimentFoundationExplorationSpecV2Routes } from './routes/experiment-foundation-exploration-spec-v2-routes.js';
 import { registerExperimentFoundationRoutes } from './routes/experiment-foundation-routes.js';
 import { registerLiteratureAcquisitionSettingsRoutes } from './routes/literature-acquisition-settings-routes.js';
 import { registerLiteratureBackfillRoutes } from './routes/literature-backfill-routes.js';
@@ -141,6 +145,7 @@ import type { ExperimentFoundationExecutionV2Repository } from './repositories/e
 import type { ExperimentFoundationRepository } from './repositories/experiment-foundation.repository.js';
 import type { ExperimentFoundationV2Repository } from './repositories/experiment-foundation-v2.repository.js';
 import type { ExperimentFoundationPromotionV2Repository } from './repositories/experiment-foundation-promotion-v2.repository.js';
+import type { ExperimentFoundationExplorationSpecV2Repository } from './repositories/experiment-foundation-exploration-spec-v2.repository.js';
 import type { ExperimentFoundationScientificValidationV2Repository } from './repositories/experiment-foundation-scientific-validation-v2.repository.js';
 import type { LiteratureRepository } from './repositories/literature-repository.js';
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
@@ -208,6 +213,7 @@ import {
 } from './services/experiment-foundation-v2-materialization-service.js';
 import { ExperimentFoundationV2Service } from './services/experiment-foundation-v2-service.js';
 import { ExperimentFoundationPromotionV2Service } from './services/experiment-foundation-promotion-v2-service.js';
+import { ExperimentFoundationExplorationSpecV2Service } from './services/experiment-foundation-exploration-spec-v2-service.js';
 import { ExperimentFoundationV2ScientificValidationService } from './services/experiment-foundation-v2-scientific-validation-service.js';
 import { ExperimentV2IntegrationRelayScheduler } from './services/experiment-v2-integration-relay-scheduler.js';
 import { ExperimentV2IntegrationRelayService } from './services/experiment-v2-integration-relay-service.js';
@@ -349,6 +355,7 @@ export type BuildAppOptions = {
   paperImplementationEvidenceV2Repository?: PaperImplementationEvidenceV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
   experimentFoundationPromotionV2Repository?: ExperimentFoundationPromotionV2Repository;
+  experimentFoundationExplorationSpecV2Repository?: ExperimentFoundationExplorationSpecV2Repository;
   experimentFoundationExperimentSpineV2Repository?: ExperimentFoundationExperimentSpineV2Repository;
   experimentFoundationExecutionV2Repository?: ExperimentFoundationExecutionV2Repository;
   experimentFoundationV2ExecutionBundleResolver?: ExperimentFoundationV2ExecutionBundleResolver;
@@ -366,6 +373,7 @@ export type BuildAppOptions = {
     ExperimentFoundationAliyunRealProviderTransportV2;
   experimentFoundationV2ScientificValidationEnabled?: () => boolean;
   experimentFoundationV2PromotionEnabled?: () => boolean;
+  experimentFoundationV2ExplorationSpecEnabled?: () => boolean;
   backgroundWorkEnabled?: boolean;
   paperImplementationBridgeService?: TopicSelectionPaperProjectBridgeHandoffProvider;
   paperImplementationDownstreamFeedbackService?: PaperImplementationDownstreamFeedbackService;
@@ -447,6 +455,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2PromotionEnabled =
     options.experimentFoundationV2PromotionEnabled?.()
     ?? isExperimentFoundationV2PromotionEnabled();
+  const experimentV2ExplorationSpecEnabled =
+    options.experimentFoundationV2ExplorationSpecEnabled?.()
+    ?? isExperimentFoundationV2ExplorationSpecEnabled();
   // TODO(T-132 C-PI env follow-up): replace this test/composition injection
   // with the reviewed env-contract key. Env-contract changes are out of this slice.
   const validationCycleClosureV2Enabled =
@@ -460,6 +471,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     realProviderControlDrainEnabled: experimentV2RealProviderControlDrainEnabled,
     scientificValidationEnabled: experimentV2ScientificValidationEnabled,
     promotionEnabled: experimentV2PromotionEnabled,
+    explorationSpecEnabled: experimentV2ExplorationSpecEnabled,
     cycleClosureEnabled: validationCycleClosureV2Enabled,
   });
 
@@ -486,6 +498,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentFoundationPromotionV2Repository =
     options.experimentFoundationPromotionV2Repository
     ?? createExperimentFoundationPromotionV2Repository(
+      storeConfig.experimentFoundationStrategy,
+    );
+  const experimentFoundationExplorationSpecV2Repository =
+    options.experimentFoundationExplorationSpecV2Repository
+    ?? createExperimentFoundationExplorationSpecV2Repository(
       storeConfig.experimentFoundationStrategy,
     );
   const experimentFoundationExperimentSpineV2Repository =
@@ -576,6 +593,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     && options.paperImplementationExperimentSpineV2Repository === undefined
     && options.experimentFoundationV2Repository === undefined
     && options.experimentFoundationPromotionV2Repository === undefined
+    && options.experimentFoundationExplorationSpecV2Repository === undefined
     && options.experimentFoundationExperimentSpineV2Repository === undefined
     && options.experimentFoundationExecutionV2Repository === undefined
     && options.paperImplementationCycleReadinessV2Repository === undefined
@@ -645,6 +663,20 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentFoundationPromotionV2Controller =
     new ExperimentFoundationPromotionV2Controller(
       experimentFoundationPromotionV2Service,
+    );
+  const experimentFoundationExplorationSpecV2Service =
+    new ExperimentFoundationExplorationSpecV2Service(
+      experimentFoundationExplorationSpecV2Repository,
+      {
+        enabled: () => (
+          hasDefaultDurableExperimentV2Composition
+          && experimentV2ExplorationSpecEnabled
+        ),
+      },
+    );
+  const experimentFoundationExplorationSpecV2Controller =
+    new ExperimentFoundationExplorationSpecV2Controller(
+      experimentFoundationExplorationSpecV2Service,
     );
   const experimentFoundationV2ReadinessResolver: ExperimentFoundationV2ReadinessResolver = {
     async resolvePassedExactReadiness(input) {
@@ -1598,6 +1630,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       instance,
       experimentFoundationPromotionV2Controller,
     );
+    await registerExperimentFoundationExplorationSpecV2Routes(
+      instance,
+      experimentFoundationExplorationSpecV2Controller,
+    );
     await registerTopicSelectionV1aRoutes(instance, topicSelectionV1aController, topicSelectionResourceSamplingController);
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
     await registerTopicSelectionV1cRoutes(instance, topicSelectionV1cController);
@@ -2055,6 +2091,15 @@ function createExperimentFoundationPromotionV2Repository(
   return new InMemoryExperimentFoundationV2Repository();
 }
 
+function createExperimentFoundationExplorationSpecV2Repository(
+  strategy: RepositoryStrategy,
+): ExperimentFoundationExplorationSpecV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaExperimentFoundationExplorationSpecV2Repository(getPrismaClient());
+  }
+  return new InMemoryExperimentFoundationExplorationSpecV2Repository();
+}
+
 function createExperimentFoundationExperimentSpineV2Repository(
   strategy: RepositoryStrategy,
 ): ExperimentFoundationExperimentSpineV2Repository {
@@ -2246,6 +2291,12 @@ function isExperimentFoundationV2PromotionEnabled(): boolean {
   );
 }
 
+function isExperimentFoundationV2ExplorationSpecEnabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED',
+  );
+}
+
 function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
   return parseExperimentV2BooleanEnvironmentVariable(
     'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
@@ -2260,6 +2311,7 @@ type ExperimentV2BooleanEnvironmentVariable =
   | 'EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED'
+  | 'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED'
   | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 
 function parseExperimentV2BooleanEnvironmentVariable(
@@ -2289,6 +2341,7 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   realProviderControlDrainEnabled: boolean;
   scientificValidationEnabled: boolean;
   promotionEnabled: boolean;
+  explorationSpecEnabled: boolean;
   cycleClosureEnabled: boolean;
 }): void {
   if (input.admissionEnabled && !input.cutoverCommitted) {
@@ -2330,6 +2383,12 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   if (input.promotionEnabled && !input.cutoverCommitted) {
     throw new Error(
       'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.explorationSpecEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
     );
   }

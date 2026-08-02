@@ -98,6 +98,15 @@ EF immutable exploration specification
 
 Option 2 — a standalone Run/Attempt/Result lineage plus result-import trust boundary — is explicitly not authorized under T-134.
 
+## Phase 3A landed exploration-specification contract — 2026-08-02
+
+- `POST /experiment-foundation/v2/exploration-specifications/{logical_id}/revisions` accepts only caller-owned immutable scientific intent: expected state version, proposed branch frame, typed WorkOrder snapshot, ordered exact cells and a business idempotency key.
+- EF derives `spec_id`, revision number/id, content hash, command hash and receipt id. The aggregate has no draft lifecycle: its first accepted representation is a frozen versioned revision.
+- Exact content reuses the stored revision with zero new revision rows even under a different key. Changed content requires current identity CAS and creates the next revision; same-key command drift and stale changed content fail closed.
+- The EF-owned transaction contains only identity, immutable revision and command receipt tables. It deliberately has no admission or outbox because Phase 3B must pull the exact stored revision and commit the PI-owned attachment/admission event through the existing PI UoW.
+- PostgreSQL advisory transaction locking serializes one logical specification identity. Durable reads recompute deterministic spec/revision/receipt identities and hashes and reject unreadable or cross-bound rows.
+- `EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED` defaults false and also requires committed v2 cutover. Closing the entrance preserves immutable rows; no named database was migrated or capability enabled.
+
 ## Explicit exclusions
 
 `apps/desktop/`, `ui/`, cloud provider execution and T-132 sequence-8 artifacts are outside this architecture.

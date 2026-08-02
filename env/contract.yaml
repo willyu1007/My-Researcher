@@ -158,6 +158,11 @@ variables:
     required: false
     default: false
     description: Enable only the server-owned ExperimentFoundation v2 typed candidate promotion/canonicalization command; this switch does not reopen legacy promotion and requires the committed v2 cutover.
+  EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable only immutable ExperimentFoundation v2 exploration-specification revision intake; this switch grants no execution or evidence authority and requires the committed v2 cutover.
   EXPERIMENT_FOUNDATION_V2_ALIYUN_CLOUD_PREFLIGHT_ENABLED:
     type: bool
     required: false

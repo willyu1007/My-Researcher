@@ -375,6 +375,52 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /experiment-foundation/v2/exploration-specifications/{logical_id}/revisions:
+    post:
+      operationId: createExperimentFoundationExplorationSpecRevisionV2
+      summary: Create or exact-reuse one immutable exploration specification revision.
+      description: |
+        Freezes a proposed branch frame, typed WorkOrder revision snapshot and ordered exact cells
+        as a server-identified ExperimentFoundation revision. Exact content reuses the existing
+        revision without creating a row; changed content requires the current state version and
+        creates the next revision atomically. This default-off endpoint grants no execution,
+        result, validation or evidence authority and requires the committed v2 cutover.
+      tags: [experiment-foundation-exploration-spec-v2]
+      parameters:
+        - name: logical_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationExplorationSpecV2CreateRevisionRequest'
+      responses:
+        '201':
+          description: A new immutable exploration specification revision was created atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationExplorationSpecV2CreateRevisionResponse'
+        '200':
+          description: The exact content was replayed without creating a new identity or revision row.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationExplorationSpecV2CreateRevisionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /experiment-foundation/v2/runs/{run_id}/workflow-simulations:
     post:
       operationId: startExperimentFoundationWorkflowSimulationV2
@@ -5553,6 +5599,93 @@ components:
         promotion_decision:
           $ref: '#/components/schemas/ExperimentFoundationPromotionDecisionV2'
         event_id: { type: string, minLength: 1 }
+        replayed: { type: boolean }
+
+    ExperimentFoundationExplorationSpecV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, proposed_branch_frame, work_order_revision, exact_cells]
+      properties:
+        schema_version: { const: v1 }
+        proposed_branch_frame:
+          type: object
+          additionalProperties: false
+          required: [frame_schema_version, display_name, scientific_intent, comparison_role, parent_branch_key]
+          properties:
+            frame_schema_version: { const: v1 }
+            display_name: { type: string, minLength: 1 }
+            scientific_intent: { type: string, minLength: 1 }
+            comparison_role:
+              type: string
+              enum: [primary, baseline, ablation, robustness]
+            parent_branch_key: { type: [string, 'null'] }
+        work_order_revision:
+          type: object
+          additionalProperties: false
+          required: [work_order_schema_version, title, objective, readiness_attestation_id, readiness_attestation_hash, asset_dependencies, run_policy]
+          properties:
+            work_order_schema_version: { const: v1 }
+            title: { type: string, minLength: 1 }
+            objective: { type: string, minLength: 1 }
+            readiness_attestation_id: { type: string, minLength: 1 }
+            readiness_attestation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            asset_dependencies:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            run_policy:
+              type: object
+              additionalProperties: false
+              required: [max_attempts_per_cell, timeout_seconds]
+              properties:
+                max_attempts_per_cell: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+                timeout_seconds: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        exact_cells:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PaperImplementationExperimentV2ExactCellInput'
+
+    ExperimentFoundationExplorationSpecV2CreateRevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_state_version, specification, business_idempotency_key]
+      properties:
+        expected_state_version: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        specification:
+          $ref: '#/components/schemas/ExperimentFoundationExplorationSpecV1'
+        business_idempotency_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationExplorationSpecV2CreateRevisionResponse:
+      type: object
+      additionalProperties: false
+      required: [identity, revision, replayed]
+      properties:
+        identity:
+          type: object
+          additionalProperties: false
+          required: [spec_id, logical_id, latest_revision, state_version, created_at, updated_at]
+          properties:
+            spec_id: { type: string, minLength: 1 }
+            logical_id: { type: string, minLength: 1 }
+            latest_revision: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            state_version: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            created_at: { type: string, minLength: 1 }
+            updated_at: { type: string, minLength: 1 }
+        revision:
+          type: object
+          additionalProperties: false
+          required: [revision_id, spec_id, logical_id, spec_revision, content_hash, specification, created_at]
+          properties:
+            revision_id: { type: string, minLength: 1 }
+            spec_id: { type: string, minLength: 1 }
+            logical_id: { type: string, minLength: 1 }
+            spec_revision: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+            specification:
+              $ref: '#/components/schemas/ExperimentFoundationExplorationSpecV1'
+            created_at: { type: string, minLength: 1 }
         replayed: { type: boolean }
 
     PaperImplementationExperimentV2ParameterValue:

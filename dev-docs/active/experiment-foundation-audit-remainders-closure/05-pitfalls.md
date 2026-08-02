@@ -20,6 +20,8 @@
 - Do not add relay-shaped outbox fields without wiring claim, acknowledgement, retry release and poison-record terminalization into a running drainer.
 - Do not treat valid per-row hashes as exact replay proof; cross-bind Candidate, canonical revision, decision, receipt and outbox identities/content.
 - Do not add a product capability env key without adding it to the node-test environment scrub list.
+- Do not use one global forbidden-field set when legitimate nested exact asset refs reuse names such as `revision_id` or `content_hash`; distinguish command-level authority from typed nested references.
+- Do not rely on PostgreSQL to preserve generated relation names longer than 63 bytes; pin short names in both Prisma and migration SQL and run full-history drift replay.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
@@ -57,6 +59,22 @@
 
 - Symptom: committed promotion events remained `pending` indefinitely even though the table exposed lease, retry and delivery fields.
 - Root cause: Phase 2 created the atomic outbox record but did not register its owning repository with the already-running experiment integration relay.
-- What was tried: relying on the existing EF integration outbox scan. It owns a different table and cannot safely acknowledge promotion records.
+- What was tried: relying on the existing EF integration outbox scan. That scan owns a different table and cannot safely acknowledge promotion records.
 - Fix/workaround: extend the existing relay composition with the promotion repository, preserve the owner repository on each claim, fully revalidate stored promotion lineage at claim time, then mark the audit-only notification delivered. Invalid rows become terminal `failed` poison records; transient delivery failures still use release/retry.
 - Prevention: every new durable outbox must name its running drainer and prove pending → leased → delivered, retry release, lease ownership and poison-record behavior before its phase exits. Audit-only delivery must never mint downstream business authority.
+
+## Exploration authority guard collided with exact asset references — 2026-08-02
+
+- Symptom: a valid exploration specification was rejected because nested exact asset dependencies legitimately contain `revision_id` and `content_hash`.
+- Root cause: the first route guard treated those names as forbidden at every nesting level even though only caller-authored command/revision authority at the top level is prohibited.
+- What was tried: a single recursive forbidden-name set; the set correctly blocked dangerous fields but over-rejected the reused typed asset-ref contract.
+- Fix/workaround: keep execution/result/server identity names recursively forbidden, while checking `revision_id` and `content_hash` only on the command body top level. Closed JSON schemas still constrain nested reference shapes.
+- Prevention: classify forbidden fields by semantic location whenever a shared typed sub-contract legitimately owns similarly named exact-reference fields.
+
+## Full-history drift exposed an overlong Phase 2 relation name — 2026-08-02
+
+- Symptom: Phase 3A migrations and relational behavior passed, but `ci:prisma-drift` requested a rename for the Phase 2 promotion receipt foreign key.
+- Root cause: the hand-written Phase 2 SQL used a generated-style foreign-key name longer than PostgreSQL's 63-byte identifier limit, so PostgreSQL truncated the name while Prisma expected a different generated short name.
+- What was tried: the initial full-history drift replay on the disposable database; the replay correctly failed and preserved the one-statement diff.
+- Fix/workaround: replace both promotion relation constraints with explicit short names and pin the same names using Prisma `map:`. A clean disposable replay then reported zero drift.
+- Prevention: every additive migration must use explicit sub-63-byte relation names, pin them in Prisma and pass full-history replay before the phase exits.

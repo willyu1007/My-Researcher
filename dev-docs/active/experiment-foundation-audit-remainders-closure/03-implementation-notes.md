@@ -60,3 +60,19 @@
 - The attachment receipt and normal v2 admission bundle/outbox must commit atomically in PI. The existing cross-domain relay then materializes a new PI-bound Run; attachment itself writes no TaskSpec, Run, result, validation, EvidenceCandidate, REU or trust trace.
 - Full revalidation is split by ownership: attachment checks exact spec/project/Cycle/branch/assets/readiness; existing EF materialization checks exact parity; the new execution's result and validation are checked by existing scientific services; the existing PI Evidence Trust Gateway alone admits evidence.
 - Phase 3 implementation is authorized in slices 3A source aggregate, 3B atomic PI attachment/admission and 3C end-to-end trust/bypass verification. Additive Prisma migration files and generated context are in scope; applying them to a named database, enabling capabilities or calling providers is not.
+
+## 2026-08-02 — Phase 3A immutable exploration specification
+
+- Added a closed shared v1 content/request/response contract and canonical hash/id profiles for one versioned EF exploration specification. Existing typed PI branch-frame, WorkOrder snapshot, exact-cell and asset-ref schemas are reused rather than forked.
+- Added route, controller and service layers plus dedicated in-memory and Prisma repositories. Service-boundary validation rejects duplicate cell keys, parameter names and asset dependencies even when HTTP/AJV validation is bypassed.
+- Implemented exact-content reuse before CAS, same-key command binding, monotonically increasing revisions for changed content and transactional crash rollback. Server-owned and downstream authority fields are rejected before business logic.
+- Added three additive Prisma models and migration `20260802203000_add_exploration_spec_v2` for identity, immutable revision and command receipt. The transaction contains no outbox or PI foreign key; those belong to Phase 3B.
+- Added fail-closed durable integrity checks for deterministic identity, revision, receipt and content bindings. A Phase 2 promotion foreign-key name uncovered by full-history drift replay was shortened and pinned in both its existing migration and Prisma schema.
+- Added the default-false `EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED` env contract and committed-cutover composition guard. The flag remains disabled everywhere.
+- Updated OpenAPI/API index, DB context and env artifacts from their SSOTs. No named-local/staging/production database, provider/cloud operation, UI, TaskSpec, Run, result, validation or evidence writer was changed.
+
+### Phase 3B continuation
+
+1. Add the PI-owned exact-spec attachment contract over `spec_id + spec_revision` and target project/Cycle/branch scope; begin from the shared contract and existing PI admission UoW.
+2. Server-resolve and revalidate the immutable EF revision plus active PI scope/assets/readiness, then atomically persist the attachment receipt with the normal PI revision/cells/admission/outbox commit.
+3. Prove zero-write cross-project/stale/drift/bypass failures and exact replay before proceeding to Phase 3C materialization/trust regressions.

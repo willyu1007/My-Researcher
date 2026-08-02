@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-02T11:28:18.858Z",
+  "updatedAt": "2026-08-02T12:49:34.114Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -6078,6 +6078,371 @@
           ],
           "name": null,
           "map": "ef_experiment_result_exact_content_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExplorationSpecCommandReceiptV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "businessIdempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "commandHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "expectedStateVersion",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "logicalId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specContentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specRevisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "specRevision",
+          "to": "ExperimentFoundationExplorationSpecRevisionV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "specRevisionId"
+          ],
+          "references": [
+            "id"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "specRevisionId"
+          ],
+          "name": null,
+          "map": "ef_exploration_spec_receipt_revision_idx"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExplorationSpecRevisionV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "contentHash",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "logicalId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specRevision",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "commandReceipts",
+          "to": "ExperimentFoundationExplorationSpecCommandReceiptV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        },
+        {
+          "field": "spec",
+          "to": "ExperimentFoundationExplorationSpecV2",
+          "optional": false,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "specId",
+            "logicalId"
+          ],
+          "references": [
+            "id",
+            "logicalId"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "logicalId",
+            "specRevision"
+          ],
+          "name": null,
+          "map": "ef_exploration_spec_logical_revision_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "specId",
+            "contentHash"
+          ],
+          "name": null,
+          "map": "ef_exploration_spec_content_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "specId",
+            "specRevision"
+          ],
+          "name": null,
+          "map": "ef_exploration_spec_revision_exact_unique"
+        }
+      ]
+    },
+    {
+      "name": "ExperimentFoundationExplorationSpecV2",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "id",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "latestRevision",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "logicalId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stateVersion",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [
+        {
+          "field": "revisions",
+          "to": "ExperimentFoundationExplorationSpecRevisionV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
+      "indexes": [
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "logicalId"
+          ],
+          "name": null,
+          "map": "ef_exploration_spec_identity_unique"
         }
       ]
     },

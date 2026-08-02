@@ -1,3 +1,32 @@
-# EF-P06 environment compatibility plan
+# T-134 Environment Compatibility & Migration Plan
 
-Existing deployments remain disabled with no configuration change. A later rollout may set the flag to `true` only alongside the committed v2 cutover and after the versioned database migration is applied. Rollback disables this flag while preserving already committed typed outcomes and relayable outbox history.
+## Phase 2 retained plan
+
+- Existing deployments remain promotion-disabled with no configuration change.
+- A later rollout may enable promotion only alongside committed v2 cutover and after the versioned migration is applied.
+- Rollback disables the promotion flag while preserving typed outcomes and outbox history.
+
+## Phase 3A change classification
+
+- Backward compatible: yes
+- Requires coordinated rollout: no
+- Requires secret manager changes: no
+
+## Migration steps
+
+1. Merge the contract and generated artifacts with the Phase 3A implementation.
+2. Keep the key unset or `false`; T-134 Phase 3A does not authorize local, cloud, staging, or production enablement.
+3. A later explicit rollout decision may set the key only after the committed ExperimentFoundation v2 cutover is enabled and verified.
+
+## Rename / deprecation policy
+
+- Not applicable; this is a new additive key.
+
+## Rollback plan
+
+- Leave the key unset or set it to `false`. No secret or destructive migration is involved.
+
+## Approvals
+
+- Required approver: T-134 owner
+- Approval: user authorized Phase 3 EF-P15 before implementation.

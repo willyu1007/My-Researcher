@@ -61,7 +61,7 @@ Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/c
 - TypeScript: `pnpm --filter @paper-engineering-assistant/shared run typecheck` and `pnpm --filter @paper-engineering-assistant/backend run typecheck` passed independently.
 - Promotion service/route, integration relay and cutover guard targeted suites → 28/28 passed. Coverage includes runtime non-string request rejection, all five typed asset families, durable audit acknowledgement, a second idle drain and explicit zero PI/EF/evidence downstream state.
 - Shared promotion schema/hash tests → 2/2 passed; existing experiment integration spine regression → 35/35 passed.
-- Final nonce-bound disposable PostgreSQL `d19_23dbabade313` used the repository-pinned pgvector image, applied the full migration history and passed the promotion relational test 1/1 with skip=0. It proved eight promotion outboxes delivered, all five typed families and fail-closed canonical, decision-command and outbox cross-binding corruption. The container was removed.
+- Final nonce-bound disposable PostgreSQL `d19_23dbabade313` used the repository-pinned pgvector image, applied the full migration history and passed the promotion relational test 1/1 with skip=0. The test proved eight promotion outboxes delivered, all five typed families and fail-closed canonical, decision-command and outbox cross-binding corruption. The container was removed.
 - An earlier disposable run `d19_b6fbc609ada1` reached the relational test and exposed only an over-specific error-message assertion; the assertion was corrected to the stable integrity outcome and that container was also removed.
 - `ctl-api-index verify --strict` passed with the API unchanged; `git diff --check` passed.
 - Capability/runtime/data effects remain zero: the promotion flag is still default false, and no named-local/staging/production database, cloud/provider resource or UI surface was changed.
@@ -72,3 +72,18 @@ Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/c
 - Rechecked the Phase 0 EF-P15 census against current v2 admission contracts/service: all typed Run/TaskSpec/Attempt/result paths remain non-null PI-bound, while the existing admission command already owns exact project/Cycle/branch/revision/cell-plan authority and its atomic outbox.
 - Architecture decision → P15-03 option 1 authorized; option 2 standalone execution/result lineage rejected. Product code, Prisma schema, migration, generated context, runtime flags, databases and external systems remain unchanged by this authorization step.
 - Implementation verification remains pending and must include closed shared/API schemas, service zero-write negatives, existing spine/trust regressions and a nonce-bound disposable-PostgreSQL atomicity/concurrency test with skip=0.
+
+## Phase 3A EF-P15 exploration-specification verification — 2026-08-02
+
+- TypeScript: `pnpm typecheck` in both `packages/shared` and `apps/backend` passed; backend verification regenerated Prisma Client first.
+- Shared schema/hash: targeted exploration-spec contract suite passed 2/2. The suite proves closed immutable authoring input plus deterministic, drift-sensitive content/command hashes and ids.
+- Service/API: targeted service and route suites passed 7/7. Coverage includes default-off, create, same-key and different-key exact replay, changed-content revision/CAS, injected crash rollback, semantic duplicate rejection, closed schemas and nested execution/result authority rejection.
+- Cutover: `experiment-v2-cutover-guard.integration.test.ts` passed 12/12, including exploration flag without committed cutover, valid truth-table states, blank/unset defaults and strict boolean parsing.
+- Disposable PostgreSQL: the final nonce-bound pgvector run applied the complete migration history, then the relational exploration suite passed 1/1 with skip=0. The suite proves crash rollback, recovery, concurrent different-key convergence to one revision/two receipts, revision 2 CAS, stale changed-content conflict and both valid-shape and malformed durable JSON tamper rejection. The container was removed.
+- Prisma drift: the first replay detected a Phase 2 promotion receipt foreign-key naming mismatch caused by PostgreSQL's identifier limit. After shortening/pinning both promotion relation names, the second full-history `ci:prisma-drift` run passed with no diff. Both disposable containers were removed.
+- Prisma/schema: `prisma format`, non-connecting-placeholder `prisma validate`, client generation and backend typecheck passed. `ctl-db-ssot sync-to-context` regenerated the DB contract.
+- Environment: env-contract validation/generation passed, `node .ai/tests/run.mjs --suite environment` passed, and generated `.env.example`, env docs/context remain secret-free and default false.
+- API: strict OpenAPI quality passed; API index generation/touch produced 202 endpoints; strict index verification passed.
+- Capability/runtime/data effects: the exploration-spec flag remains false; no named-local/staging/production migration, external provider/cloud action, UI change, PI attachment/admission, execution or evidence write occurred.
+
+Phase 3A is complete and is a verified rollback point. EF-P15 as a whole remains open pending Phase 3B atomic PI attachment/admission and Phase 3C trust/bypass verification.

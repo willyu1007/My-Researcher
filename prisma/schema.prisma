@@ -6059,7 +6059,7 @@ model ExperimentFoundationPromotionCommandReceiptV2 {
   promotionDecisionId    String
   createdAt              DateTime @db.Timestamptz(6)
 
-  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_promotion_command_decision_fkey")
 
   @@index([promotionDecisionId], map: "ef_promotion_command_decision_idx")
 }
@@ -6092,12 +6092,60 @@ model ExperimentFoundationPromotionOutboxV2 {
   createdAt              DateTime  @db.Timestamptz(6)
   updatedAt              DateTime  @db.Timestamptz(6)
 
-  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  promotionDecision ExperimentFoundationPromotionDecisionV2 @relation(fields: [promotionDecisionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_promotion_outbox_decision_fkey")
 
   @@unique([aggregateType, aggregateId, transitionKey], map: "ef_promotion_outbox_aggregate_transition_unique")
   @@index([relayStatus, relayNextAttemptAt, occurredAt], map: "ef_promotion_outbox_relay_ready_idx")
   @@index([relayLeaseExpiresAt], map: "ef_promotion_outbox_lease_expiry_idx")
   @@index([correlationId], map: "ef_promotion_outbox_correlation_idx")
+}
+
+// T-134 EF-P15 Phase 3A: immutable standalone exploration authoring only.
+// These rows contain no Run/Attempt/result/validation/evidence authority.
+model ExperimentFoundationExplorationSpecV2 {
+  id             String   @id(map: "ef_exploration_spec_pkey")
+  logicalId      String   @unique(map: "ef_exploration_spec_logical_unique")
+  latestRevision Int
+  stateVersion   Int
+  createdAt      DateTime @db.Timestamptz(6)
+  updatedAt      DateTime @db.Timestamptz(6)
+
+  revisions ExperimentFoundationExplorationSpecRevisionV2[]
+
+  @@unique([id, logicalId], map: "ef_exploration_spec_identity_unique")
+}
+
+model ExperimentFoundationExplorationSpecRevisionV2 {
+  id            String   @id(map: "ef_exploration_spec_revision_pkey")
+  specId        String
+  logicalId     String
+  specRevision  Int
+  schemaVersion String
+  specJson      Json     @default("{}")
+  contentHash   String
+  createdAt     DateTime @db.Timestamptz(6)
+
+  spec            ExperimentFoundationExplorationSpecV2                 @relation(fields: [specId, logicalId], references: [id, logicalId], onDelete: Restrict, onUpdate: Restrict, map: "ef_exploration_spec_revision_identity_fkey")
+  commandReceipts ExperimentFoundationExplorationSpecCommandReceiptV2[]
+
+  @@unique([specId, specRevision], map: "ef_exploration_spec_revision_exact_unique")
+  @@unique([specId, contentHash], map: "ef_exploration_spec_content_unique")
+  @@index([logicalId, specRevision], map: "ef_exploration_spec_logical_revision_idx")
+}
+
+model ExperimentFoundationExplorationSpecCommandReceiptV2 {
+  id                     String   @id(map: "ef_exploration_spec_receipt_pkey")
+  businessIdempotencyKey String   @unique(map: "ef_exploration_spec_receipt_business_unique")
+  commandHash            String
+  logicalId              String
+  expectedStateVersion   Int
+  specContentHash        String
+  specRevisionId         String
+  createdAt              DateTime @db.Timestamptz(6)
+
+  specRevision ExperimentFoundationExplorationSpecRevisionV2 @relation(fields: [specRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_exploration_spec_receipt_revision_fkey")
+
+  @@index([specRevisionId], map: "ef_exploration_spec_receipt_revision_idx")
 }
 
 // T-132 Pack A: additive PI v2 WorkOrder authority. These models deliberately
