@@ -1,18 +1,19 @@
 # T-132 Experiment Foundation Productization Closure
 
 ## Status
-- State: in-progress
+- State: done
 - Task ID: `T-132`
 - Mapping: `M-001 > F-001 > R-012 > T-132`
 - Current delivery mode: **personal-use experiment base**. Product packaging, multi-user delivery and generalized BYOC work are parked; the historical task slug remains unchanged for continuity.
 - Current milestone: **M0-M6 are complete**. M5 closed as the D-24 agent-first API/workflow slice; M6 release run `t132-m6-release-20260725-v5` passed M6-01..M6-10, closed T-131 typed-v2 consumption and the named-local no-evidence Cycle, and preserved zero simulated scientific evidence. M7-I0..I3, named-local migration/QR verification and the bounded official-image + OSS provider-shape increment are also complete with both real-provider capabilities still default `false`.
-- Current frontier: **the 2026-08-01 sequence-9 diagnostic window proved one exact sequence-8 cell can now complete after granting the controller `paiworkspace:GetWorkspace` permission**. The only authorized `CreateJob` call created `dlc1b1qk22drb4au`; it progressed `Creating -> EnvPreparing -> Running -> Succeeded`, with provider finish time `2026-08-01T09:26:13Z` and about 8 seconds in `Running`. Exact recovery and collection bound the Job to the frozen first-cell payload and produced result-manifest hash `sha256:40a5efb0cffc55ddd91dd0dfa495761508c1b3b2aeaec3b0dfe5e592665edd86`. The diagnostic path intentionally wrote no Pack B database state, scientific result, EvidenceCandidate or REU, and all temporary STS copies were removed. Sequence 8's historical failed Attempts remain immutable and unchanged. This is provider/root-cause proof, not the required durable two-cell acceptance.
-- Current preparation checkpoint: **the immutable database successor is materialized and offline-ready as WorkOrder/Run revision sequence 9**. Normal T1-T4 created exactly 40 rows, advanced branch state/head `16/8 -> 18/9`, preserved 236 protected tables and all prior lineage, and exact independent replay added 0 rows. WorkOrder content hash is `sha256:b667db99ddcbe19267e604d4333d09f4d2cbd3635daab34b306453bf97b96482`; Run manifest hash is `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`. The hash is pinned in the normal live scope and sequence-9 offline preflight passes with Attempt/cloud/database-write counts `0/0/0`. Historical `sequence9-recover` remains bound to sequence 8. Both named-local apply and live paid authorizations are again `null`.
+- Provider root-cause history: **the 2026-08-01 diagnostic window proved one exact sequence-8 cell could complete after granting the controller `paiworkspace:GetWorkspace` permission**. The only authorized diagnostic Job `dlc1b1qk22drb4au` succeeded and was recovered/collected without durable Pack B writes. That provider-supported correction enabled the final immutable sequence-9 path; sequence 8 remains historical and unchanged.
+- Durable lineage checkpoint: **WorkOrder/Run revision sequence 9 is materialized and complete**. Normal T1-T4 created exactly 40 lineage rows, advanced branch state/head `16/8 -> 18/9`, preserved 236 protected tables and all prior lineage, and replay added 0 rows. WorkOrder content hash is `sha256:b667db99ddcbe19267e604d4333d09f4d2cbd3635daab34b306453bf97b96482`; Run manifest hash is `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`. Historical `sequence9-recover` remains bound to sequence 8. Both named-local apply and live paid authorizations are `null`.
 - Personal-use completion boundary: one maintainer can take the exact PI-bound WorkOrder through an immutable two-cell Run, obtain two terminal successful PAI Jobs, collect exact Run/Cell/TaskSpec/parser-bound results and replay with zero duplicate Jobs. Failure/reconcile/cancel remains covered through the existing API/CLI and deterministic tests; the successful live two-cell acceptance is not consumed merely to demonstrate cancellation.
 - Transferred scope: EF-P06, EF-P14, EF-P15 and the semantic half of EF-P21 are owned by `T-134 experiment-foundation-audit-remainders-closure` and no longer block T-132.
 - Removed/out-of-scope: desktop UI, Electron/DOM acceptance, multi-user/tenant concerns, installer/distribution work, generalized BYOC packaging and managed-cloud product delivery are not part of T-132 completion.
 - Read-only cloud checkpoint: **the separately authorized sequence-9 production image gate passed on 2026-08-02**. One fresh controller STS was restricted by session policy to `paiimage:GetImage`; one and only one regional `GetImage` matched the pinned Run/Bundle and produced request hash `26ecc9878fc066d675ca011f83890884a05e3d4cf314eb2e66737e1c6932d08e`. Provider writes, `CreateJob`, database/capability/scientific writes and paid runtime were all 0. Cloud Shell and local credential copies were deleted.
-- Authorized execution checkpoint: **the owner confirmed the exact 2026-08-02 durable sequence-9 window with a maximum of two PAI Jobs and total ceiling ¥50**. Action-time offline preflight passed with Attempt/cloud/database-write counts `0/0/0`; the one-shot source token is active only for this Run and window. Obtain a fresh controller STS, execute once through the normal database-controlled path, collect both exact diagnostic-only outputs, prove zero-new replay, remove credentials and retire the token. No capability or scientific-evidence promotion is authorized.
+- Completion checkpoint: **the exact 2026-08-02 durable sequence-9 two-cell window passed and closes the personal-use boundary**. The normal database-controlled path issued exactly two `CreateJob` calls; Jobs `dlcxhi03uhwc593e` and `dlcybgs96jh2qj75` both reached `Succeeded`, produced two distinct collected `diagnostic_only` outputs, and replay created 0 new rows or Jobs. Protected-table changes, ExperimentResult/ScientificValidationReport/EvidenceCandidate writes and capability persistence were all 0. Provider durations were 123/120 seconds, safely below the ¥50 ceiling without claiming an exact final bill. All credential copies were removed and the dated source token was retired to `null`.
+- Next step: no implementation work remains inside the 2026-07-30 T-132 scope freeze. Archive this done bundle only after owner approval; continue the transferred audit remainders under T-134 rather than reopening T-132.
 
 ## 2026-07-30 scope freeze — personal PAI execution closure
 
@@ -35,14 +36,14 @@ The 2026-07-30 scope freeze is the authoritative T-132 completion boundary. Long
 - Multi-user/tenant delivery, generalized BYOC, installer/distribution, managed-cloud packaging and broad provider abstraction.
 - Semantic retrieval, scientific conclusion automation or any automatic paper-evidence promotion.
 
-### Completion checks
+## Acceptance criteria
 
-- [ ] Two exact PAI Jobs are accepted and reach terminal success under the bounded authorization.
-- [ ] Two exact outputs are collected and identity/parser verification passes.
-- [ ] Exact replay produces zero duplicate provider or database execution records.
-- [ ] Failure/reconcile/cancel API/CLI and deterministic tests pass without weakening the successful-live-run requirement.
-- [ ] Job/database/cost/credential cleanup censuses and operating/recovery runbook are recorded.
-- [ ] Scientific/evidence writers remain zero and all outputs remain diagnostic-only.
+- [x] Two exact PAI Jobs are accepted and reach terminal success under the bounded authorization.
+- [x] Two exact outputs are collected and identity/parser verification passes.
+- [x] Exact replay produces zero duplicate provider or database execution records.
+- [x] Failure/reconcile/cancel API/CLI and deterministic tests pass without weakening the successful-live-run requirement.
+- [x] Job/database/cost/credential cleanup censuses and operating/recovery runbook are recorded.
+- [x] Scientific/evidence writers remain zero and all outputs remain diagnostic-only.
 
 ## M7 default-off implementation — 2026-07-23
 

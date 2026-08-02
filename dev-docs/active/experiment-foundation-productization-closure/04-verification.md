@@ -2815,3 +2815,23 @@ Outcome: **the exact two-Job/¥50 action-time gate passed; authorization is reco
 - Resource/cost fence — two cells; `ecs.g6.large`; `2 CPU / 8192 MiB`; maximum 30 minutes per Job; maximum two `CreateJob` calls; total ceiling ¥50.
 - Action-time census — existing Attempts 0; cloud calls 0; database writes 0; named-local target fingerprint unchanged.
 - Safety boundary — capability and scientific/evidence promotion are not authorized; any yielded execute command must retain its session id, and no second process may start before authoritative Job/database census.
+
+## 2026-08-02 — durable two-cell completion verification
+
+Outcome: **T-132 personal-use acceptance passed end to end**.
+
+- Execute command — exact dated token plus fresh STS invoked `run-experiment-foundation-m7-l1-live-window.ts --mode execute`; the retained process session was `88005` and exited 0.
+- Runner result — schema `t132-m7-l1-live-window-result@v1`, status `real_provider_canary_passed`, image request hash `5de0842b5fc3d22d7f99df5da35a5b2fa3cb3b367eee56e8ea3b7bbbf274f549`, `CreateJob` count 2, distinct terminal Job count 2 and replay-new-row count 0.
+- Provider terminal census — `dlcxhi03uhwc593e` was `Succeeded` with duration 123 seconds, running `05:49:33Z -> 05:49:41Z`; `dlcybgs96jh2qj75` was `Succeeded` with duration 120 seconds, running `05:49:30Z -> 05:49:40Z`. Independent `GetJob` RequestIds were `019FC108-06C2-5AA8-8E7C-FD8F107E9EF2` / `019FC108-07C6-52C9-9752-9C09260466FA`.
+- Durable database census — two Attempts are `succeeded / real_provider_succeeded`; each has one successful submit, one successful reconcile, one successful collect, one `collected` collection and one `diagnostic_only` output. Output hashes are `sha256:5da4e1da1c2191380c8489079b9292b0a558692b1cd813798aa645d7c745f883` / `sha256:c703fc917dc2216a2fff3b342113e0b98e4a1d36847f10badda28845d1ed1141`.
+- Exact row deltas — ProviderPayload 2, ExecutionAttempt 2, AttemptEvent 10, ProviderCommand 6, CollectionAttempt 2 and ProvisionalOutput 2. Built-in replay changed every Pack B count by 0; protected-table change count 0.
+- Scientific boundary — ExperimentResult, ScientificValidationReport and EvidenceCandidate counts 0; scientific-evidence writes, evidence eligibility and capability persistence remain `0 / false / 0`.
+- Cost boundary — observed provider duration was 123/120 seconds on the frozen two-cell resource profile, safely inside the maximum-two-Job/¥50 authorization. No exact charge is claimed before provider billing finalization.
+- Credential/authorization cleanup — Cloud Shell source files, exact local `/tmp` file, Downloads file and `.crdownload` residual absent. Both named-local and paid source authorization constants are `null`; secret output count 0.
+- Post-run offline preflight — passed with existing Attempt count 2, cloud/database writes 0, model/wire byte equality for both cells, recursive `src` count 0 and hashes `sha256:b0464db78fd57d7564e78f18fe765dc8f680f5fa37871d469464e95f779bccee` / `sha256:ce357aba15e8bcbb90b2d699637bcfffb7c89be1464436d41f9d3fdf41e391b9`.
+- Script typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts`; passed after authorization retirement.
+- Prior deterministic acceptance — focused intake/API/worker/transport suites passed 20/20, covering capability-off effects, exact two-cell intake/replay, deterministic ids, accepted-response discovery without duplicate `CreateJob`, timeout cleanup, cancel/succeeded reconcile race and exact collection.
+- Completion decision — the exact two-cell Run, two terminal Jobs, exact diagnostic-only collection, zero-duplicate replay, deterministic recovery/cancel coverage, credential cleanup and budget boundary satisfy the 2026-07-30 T-132 scope freeze. Desktop UI and transferred T-134 audit remainders are not completion blockers.
+- Project status sync — governance sync changed only T-132 from `in-progress` to `done`, updated its date to `2026-08-02` and regenerated the dashboard, feature map and task index.
+- Final documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors and 205 repository-wide advisory warnings.
+- Final project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --project main`; passed. The only two warnings are pre-existing state-format findings in unrelated T-124-era bundles.

@@ -120,8 +120,7 @@ const BUNDLE_REVISION_HASH =
   'sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e';
 const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
 const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
-const LIVE_AUTHORIZATION_VALUE =
-  'authorized-2026-08-02-durable-two-cell-successor-ceiling-cny50-two-jobs';
+const LIVE_AUTHORIZATION_VALUE: string | null = null;
 const CONTROLLER_ROLE_ARN =
   'acs:ram::1183869713036194:role/pea-m7-canary-controller';
 const CONTROLLER_POLICY_SHA256 =
