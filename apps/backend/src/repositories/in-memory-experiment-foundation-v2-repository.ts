@@ -23,8 +23,24 @@ import {
   type ExperimentFoundationPromotionDecisionV2Record,
   type ExperimentFoundationPromotionOutboxV2Record,
   type ExperimentFoundationPromotionV2Repository,
+  type ExperimentFoundationPromotionV2RelayClaim,
   type ExperimentFoundationPromotionV2UnitOfWork,
 } from './experiment-foundation-promotion-v2.repository.js';
+import type {
+  ExperimentV2RelayClaimInput,
+  ExperimentV2RelayReleaseInput,
+  ExperimentV2RelayTerminalInput,
+} from './experiment-spine-v2.repository.js';
+
+interface InMemoryPromotionOutboxRelayState {
+  status: 'pending' | 'leased' | 'delivered' | 'failed';
+  attempt_count: number;
+  lease_owner: string | null;
+  lease_expires_at: string | null;
+  next_attempt_at: string | null;
+  delivered_at: string | null;
+  last_error_code: string | null;
+}
 
 interface InMemoryExperimentFoundationV2State {
   assets: Map<string, ExperimentFoundationV2AssetIdentityRecord>;
@@ -43,6 +59,7 @@ interface InMemoryExperimentFoundationV2State {
   promotionDecisionByCandidate: Map<string, string>;
   promotionReceipts: Map<string, ExperimentFoundationPromotionCommandReceiptV2Record>;
   promotionOutboxByDecision: Map<string, ExperimentFoundationPromotionOutboxV2Record>;
+  promotionOutboxRelayById: Map<string, InMemoryPromotionOutboxRelayState>;
 }
 
 /**
@@ -80,8 +97,83 @@ implements ExperimentFoundationV2Repository, ExperimentFoundationPromotionV2Repo
     return this.runSerializedTransaction(operation);
   }
 
+  async claimOutbox(
+    input: ExperimentV2RelayClaimInput,
+  ): Promise<ExperimentFoundationPromotionV2RelayClaim[]> {
+    return this.runSerializedStateOperation(async (state) => {
+      const claimedAt = Date.parse(input.claimed_at);
+      const ordered = [...state.promotionOutboxByDecision.values()]
+        .sort((left, right) => (
+          left.occurred_at.localeCompare(right.occurred_at)
+          || left.outbox_id.localeCompare(right.outbox_id)
+        ));
+      const claims: ExperimentFoundationPromotionV2RelayClaim[] = [];
+      for (const outbox of ordered) {
+        if (claims.length >= input.limit) break;
+        const relay = state.promotionOutboxRelayById.get(outbox.outbox_id);
+        if (!relay || !promotionRelayReady(relay, claimedAt)) continue;
+        relay.status = 'leased';
+        relay.attempt_count += 1;
+        relay.lease_owner = input.lease_owner;
+        relay.lease_expires_at = input.lease_expires_at;
+        claims.push({
+          owner_domain: 'ExperimentFoundation',
+          outbox_id: outbox.outbox_id,
+          event: promotionEvent(outbox),
+          relay_attempt_count: relay.attempt_count,
+          lease_owner: input.lease_owner,
+          lease_expires_at: input.lease_expires_at,
+        });
+      }
+      return claims;
+    });
+  }
+
+  async markOutboxDelivered(
+    outboxId: string,
+    leaseOwner: string,
+    deliveredAt: string,
+  ): Promise<void> {
+    await this.updatePromotionRelay(outboxId, leaseOwner, (relay) => {
+      relay.status = 'delivered';
+      relay.lease_owner = null;
+      relay.lease_expires_at = null;
+      relay.next_attempt_at = null;
+      relay.delivered_at = deliveredAt;
+      relay.last_error_code = null;
+    });
+  }
+
+  async markOutboxTerminal(input: ExperimentV2RelayTerminalInput): Promise<void> {
+    await this.updatePromotionRelay(input.outbox_id, input.lease_owner, (relay) => {
+      relay.status = 'failed';
+      relay.lease_owner = null;
+      relay.lease_expires_at = null;
+      relay.next_attempt_at = null;
+      relay.last_error_code = input.error_code;
+    });
+  }
+
+  async releaseOutbox(input: ExperimentV2RelayReleaseInput): Promise<void> {
+    await this.updatePromotionRelay(input.outbox_id, input.lease_owner, (relay) => {
+      relay.status = 'pending';
+      relay.lease_owner = null;
+      relay.lease_expires_at = null;
+      relay.next_attempt_at = input.next_attempt_at;
+      relay.last_error_code = input.error_code;
+    });
+  }
+
   private async runSerializedTransaction<T>(
     operation: (unitOfWork: InMemoryExperimentFoundationV2UnitOfWork) => Promise<T>,
+  ): Promise<T> {
+    return this.runSerializedStateOperation(
+      async (state) => operation(new InMemoryExperimentFoundationV2UnitOfWork(state)),
+    );
+  }
+
+  private async runSerializedStateOperation<T>(
+    operation: (state: InMemoryExperimentFoundationV2State) => Promise<T>,
   ): Promise<T> {
     let releaseTransaction!: () => void;
     const previousTransaction = this.transactionTail;
@@ -92,13 +184,29 @@ implements ExperimentFoundationV2Repository, ExperimentFoundationPromotionV2Repo
     await previousTransaction;
     const workingState = cloneState(this.state);
     try {
-      const unitOfWork = new InMemoryExperimentFoundationV2UnitOfWork(workingState);
-      const result = await operation(unitOfWork);
+      const result = await operation(workingState);
       this.state = workingState;
       return result;
     } finally {
       releaseTransaction();
     }
+  }
+
+  private async updatePromotionRelay(
+    outboxId: string,
+    leaseOwner: string,
+    update: (relay: InMemoryPromotionOutboxRelayState) => void,
+  ): Promise<void> {
+    await this.runSerializedStateOperation(async (state) => {
+      const relay = state.promotionOutboxRelayById.get(outboxId);
+      if (!relay || relay.status !== 'leased' || relay.lease_owner !== leaseOwner) {
+        throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+          'PROMOTION_OUTBOX_CONFLICT',
+          `Promotion outbox lease was lost: ${outboxId}`,
+        );
+      }
+      update(relay);
+    });
   }
 }
 
@@ -523,6 +631,15 @@ implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2Unit
       );
     }
     this.state.promotionOutboxByDecision.set(record.promotion_decision_id, clone(record));
+    this.state.promotionOutboxRelayById.set(record.outbox_id, {
+      status: 'pending',
+      attempt_count: 0,
+      lease_owner: null,
+      lease_expires_at: null,
+      next_attempt_at: null,
+      delivered_at: null,
+      last_error_code: null,
+    });
   }
 
   bindPromotionCanonicalRevision(): void {
@@ -549,6 +666,7 @@ function emptyState(): InMemoryExperimentFoundationV2State {
     promotionDecisionByCandidate: new Map(),
     promotionReceipts: new Map(),
     promotionOutboxByDecision: new Map(),
+    promotionOutboxRelayById: new Map(),
   };
 }
 
@@ -570,6 +688,7 @@ function cloneState(state: InMemoryExperimentFoundationV2State): InMemoryExperim
     promotionDecisionByCandidate: new Map(state.promotionDecisionByCandidate),
     promotionReceipts: cloneMap(state.promotionReceipts),
     promotionOutboxByDecision: cloneMap(state.promotionOutboxByDecision),
+    promotionOutboxRelayById: cloneMap(state.promotionOutboxRelayById),
   };
 }
 
@@ -583,6 +702,35 @@ function clone<T>(value: T): T {
 
 function cloneNullable<T>(value: T | undefined): T | null {
   return value === undefined ? null : clone(value);
+}
+
+function promotionRelayReady(
+  relay: InMemoryPromotionOutboxRelayState,
+  claimedAt: number,
+): boolean {
+  if (
+    relay.delivered_at
+    || relay.attempt_count >= 2_147_483_647
+    || (relay.status !== 'pending' && relay.status !== 'leased')
+  ) return false;
+  if (relay.next_attempt_at && Date.parse(relay.next_attempt_at) > claimedAt) return false;
+  return !relay.lease_owner
+    || (relay.lease_expires_at !== null && Date.parse(relay.lease_expires_at) <= claimedAt);
+}
+
+function promotionEvent(record: ExperimentFoundationPromotionOutboxV2Record) {
+  return {
+    event_id: record.event_id,
+    event_type: record.event_type,
+    schema_version: record.schema_version,
+    producer_domain: record.producer_domain,
+    occurred_at: record.occurred_at,
+    correlation_id: record.correlation_id,
+    causation_id: record.causation_id,
+    business_idempotency_key: record.business_idempotency_key,
+    payload_hash: record.payload_hash,
+    payload: clone(record.event_payload),
+  };
 }
 
 function assetKey(assetType: ExperimentFoundationV2AssetType, logicalId: string): string {

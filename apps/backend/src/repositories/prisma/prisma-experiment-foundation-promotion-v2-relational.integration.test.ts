@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { openVerifiedDisposablePostgresTestDatabase } from '../../test-support/disposable-postgres-test-database.js';
 import { ExperimentFoundationPromotionV2Service } from '../../services/experiment-foundation-promotion-v2-service.js';
+import { buildExperimentFoundationD19TypedFixture } from '../../services/experiment-foundation-d19-fixture.js';
 import { ExperimentFoundationV2Service } from '../../services/experiment-foundation-v2-service.js';
 import { PrismaExperimentFoundationV2Repository } from './prisma-experiment-foundation-v2-repository.js';
 
@@ -86,6 +87,117 @@ test(
         receipts: 1,
         outbox: 1,
       });
+
+      const typedFixture = await buildExperimentFoundationD19TypedFixture(assets);
+      const refs = [
+        typedFixture.data_policies[0]!,
+        typedFixture.datasets[0]!,
+        typedFixture.metric_definitions[0]!,
+        typedFixture.benchmark,
+        typedFixture.evaluation_protocol,
+      ];
+      for (const ref of refs) {
+        const result = await promotion.decide({
+          asset_type: ref.asset_type,
+          logical_id: ref.logical_id,
+          candidate_revision: 2,
+        }, request('promote', `relational-family-${ref.asset_type}`));
+        assert.equal(result.promotion_decision.canonicalization_outcome, 'reused');
+        assert.deepEqual(result.promotion_decision.canonical_revision, ref);
+      }
+
+      const relayNow = new Date().toISOString();
+      const claims = await repository.claimOutbox({
+        lease_owner: 'promotion-relational-relay',
+        claimed_at: relayNow,
+        lease_expires_at: new Date(Date.parse(relayNow) + 30_000).toISOString(),
+        limit: 100,
+      });
+      assert.equal(claims.length, 8);
+      for (const claim of claims) {
+        await repository.markOutboxDelivered(
+          claim.outbox_id,
+          claim.lease_owner,
+          new Date().toISOString(),
+        );
+      }
+      assert.equal(await prisma.experimentFoundationPromotionOutboxV2.count({
+        where: { relayStatus: 'pending' },
+      }), 0);
+      assert.equal(await prisma.experimentFoundationPromotionOutboxV2.count({
+        where: { relayStatus: 'delivered' },
+      }), 8);
+
+      const integrityLeft = `promotion-integrity-left-${randomUUID()}`;
+      const integrityRight = `promotion-integrity-right-${randomUUID()}`;
+      await createPolicy(assets, integrityLeft);
+      await createPolicy(assets, integrityRight);
+      const leftResult = await promotion.decide(
+        target(integrityLeft),
+        request('promote', `${integrityLeft}-key`),
+      );
+      const rightResult = await promotion.decide(
+        target(integrityRight),
+        request('promote', `${integrityRight}-key`),
+      );
+      const leftRef = leftResult.candidate.canonical_revision!;
+      const rightRef = rightResult.candidate.canonical_revision!;
+      await prisma.experimentFoundationPreparationCandidateV2.updateMany({
+        where: { assetLogicalId: integrityLeft },
+        data: {
+          canonicalRevisionId: rightRef.revision_id,
+          canonicalRevisionHash: rightRef.content_hash,
+        },
+      });
+      await assert.rejects(
+        promotion.decide(target(integrityLeft), request('promote', `${integrityLeft}-key`)),
+        /canonical ref has drifted/,
+      );
+      await prisma.experimentFoundationPreparationCandidateV2.updateMany({
+        where: { assetLogicalId: integrityLeft },
+        data: {
+          canonicalRevisionId: leftRef.revision_id,
+          canonicalRevisionHash: leftRef.content_hash,
+        },
+      });
+
+      const leftDecision = await prisma.experimentFoundationPromotionDecisionV2.findFirstOrThrow({
+        where: { candidateId: leftResult.candidate.candidate_id },
+      });
+      await prisma.experimentFoundationPromotionDecisionV2.update({
+        where: { id: leftDecision.id },
+        data: { commandHash: `sha256:${'f'.repeat(64)}` },
+      });
+      await assert.rejects(
+        promotion.decide(target(integrityLeft), request('promote', `${integrityLeft}-key`)),
+        /exact Candidate outcome/,
+      );
+      await prisma.experimentFoundationPromotionDecisionV2.update({
+        where: { id: leftDecision.id },
+        data: { commandHash: leftDecision.commandHash },
+      });
+
+      await prisma.experimentFoundationPromotionOutboxV2.updateMany({
+        where: { promotionDecisionId: leftDecision.id },
+        data: { aggregateId: 'cross-aggregate-drift' },
+      });
+      const integrityRelayNow = new Date(Date.now() + 1_000).toISOString();
+      const integrityClaims = await repository.claimOutbox({
+        lease_owner: 'promotion-integrity-relay',
+        claimed_at: integrityRelayNow,
+        lease_expires_at: new Date(Date.parse(integrityRelayNow) + 30_000).toISOString(),
+        limit: 100,
+      });
+      assert.equal(integrityClaims.length, 1);
+      assert.equal(integrityClaims[0]?.event.payload.logical_id, integrityRight);
+      await repository.markOutboxDelivered(
+        integrityClaims[0]!.outbox_id,
+        integrityClaims[0]!.lease_owner,
+        new Date().toISOString(),
+      );
+      assert.equal(await prisma.experimentFoundationPromotionOutboxV2.count({
+        where: { promotionDecisionId: leftDecision.id, relayStatus: 'failed' },
+      }), 1);
     } finally {
       await prisma.$disconnect();
     }

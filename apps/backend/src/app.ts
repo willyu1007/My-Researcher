@@ -855,6 +855,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const experimentV2IntegrationRelayService = new ExperimentV2IntegrationRelayService({
     paperImplementationRepository: paperImplementationExperimentSpineV2Repository,
     experimentFoundationRepository: experimentFoundationExperimentSpineV2Repository,
+    promotionRepository: experimentFoundationPromotionV2Repository,
     materializationConsumer: experimentFoundationV2MaterializationService,
     headConsumer: paperImplementationExperimentV2HeadService,
     acknowledgementConsumer: experimentFoundationV2AcknowledgementService,

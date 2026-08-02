@@ -7,7 +7,7 @@
 - Workstream order starts with EF-P14 because current bootstrap behavior can persist a null PaperProject binding; admission must remain default off until that boundary has relational evidence.
 - EF-P06 owns the atomic typed promotion/canonicalization path; EF-P15 owns standalone attachment plus full revalidation; EF-P21 owns backend semantic retrieval with structured fallback.
 - Desktop UI is excluded from all four workstreams. EF-P21 does not include screens, forms, renderer navigation or DOM/Electron tests.
-- No code, configuration, schema, database or cloud state was changed while creating this package.
+- Package creation changed no code, configuration, schema, database or cloud state.
 
 ## Open implementation decisions
 
@@ -20,7 +20,7 @@
 - Froze EF-P14 to a service/repository entrance guard using the existing paired bridge refs and existing atomic bootstrap transaction; no schema migration is planned.
 - Froze legacy-null behavior to `LEGACY_RECORD_NOT_ELIGIBLE` reject-only. No named-local census, backfill or repair was run.
 - Confirmed the legacy EF promotion route remains closed after v2 cutover and that typed v2 has canonical assets/materialization but no preparation Candidate/promotion aggregate. EF-P06 therefore requires a new additive typed UoW and default-off entrance.
-- Confirmed all current typed v2 scientific results are already PI-bound. This invalidates the original assumption that an eligible typed standalone output already exists and creates a mandatory Phase 3 architecture decision.
+- Confirmed all current typed v2 scientific results are already PI-bound. The census invalidates the original assumption that an eligible typed standalone output already exists and creates a mandatory Phase 3 architecture decision.
 - Confirmed PI structured lineage already filters by project in repository queries and that the only native vector table is literature-owned. EF-P21 must own a separate rebuildable projection and rank only pre-authorized candidates.
 - Recorded the complete modification allowlist, prohibited surface, named verification matrix and rollback table in `06-phase0-census-and-freeze.md`.
 
@@ -44,3 +44,11 @@
 - Added `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` to the env SSOT with default `false` and committed-cutover composition validation. The flag was not enabled in any environment.
 - Updated OpenAPI/API index, DB context and env artifacts from their SSOTs. No named-local/staging/production migration, backfill, repair, provider call or UI change occurred.
 - Added shared hash/schema, service, route, cutover and disposable-PostgreSQL tests. Existing admitted-cell materialization remains the only TaskSpec/Run writer and was changed by zero lines.
+
+## 2026-08-02 — Phase 2 quality hardening
+
+- Connected the promotion outbox to the existing integration relay scheduler with lease/ack/release/fail lifecycle support in both repository implementations. The event is acknowledged as an audit-only terminal notification and creates no downstream domain state.
+- Strengthened durable replay reads so deterministic Candidate identity, exact canonical logical id/content, decision id/command hash/outcome, receipt binding and outbox ids/aggregate/envelope/payload must all agree. Claim-time corruption is terminalized instead of retried forever.
+- Expanded service and disposable-PostgreSQL coverage from the original DataPolicy-centered path to exact canonical reuse across DataPolicy, Dataset, MetricDefinition, Benchmark and EvaluationProtocol.
+- Hardened the runtime request boundary against non-string idempotency keys and added `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` to the node-test environment scrub list.
+- The hardening pass required no Prisma schema, migration, API shape, env SSOT, named database, enabled capability, provider or UI change.

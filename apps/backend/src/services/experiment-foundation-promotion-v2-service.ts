@@ -501,6 +501,7 @@ function assertRequest(request: ExperimentFoundationPromotionV2Request): void {
   if (
     !(EXPERIMENT_FOUNDATION_PROMOTION_V2_DECISIONS as readonly unknown[])
       .includes(request.decision)
+    || typeof request.business_idempotency_key !== 'string'
     || request.business_idempotency_key.length === 0
   ) {
     throw invalid('PROMOTION_COMMAND_INVALID', 'Promotion command is invalid.');

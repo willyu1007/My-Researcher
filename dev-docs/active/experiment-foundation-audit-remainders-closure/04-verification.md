@@ -55,3 +55,13 @@ Phase 1 is complete. EF-P14 is verified at service, HTTP, contract-regression an
 - Capability/runtime/data effects: `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` remains default false; no flag was enabled, no legacy writer was reopened, no named data was changed, and no cloud/provider/UI action occurred.
 
 Phase 2 is complete. EF-P06 is verified at shared contract/hash, service, HTTP/cutover, existing-spine regression and disposable-PostgreSQL atomicity/concurrency layers.
+
+## Phase 2 quality hardening verification — 2026-08-02
+
+- TypeScript: `pnpm --filter @paper-engineering-assistant/shared run typecheck` and `pnpm --filter @paper-engineering-assistant/backend run typecheck` passed independently.
+- Promotion service/route, integration relay and cutover guard targeted suites → 28/28 passed. Coverage includes runtime non-string request rejection, all five typed asset families, durable audit acknowledgement, a second idle drain and explicit zero PI/EF/evidence downstream state.
+- Shared promotion schema/hash tests → 2/2 passed; existing experiment integration spine regression → 35/35 passed.
+- Final nonce-bound disposable PostgreSQL `d19_23dbabade313` used the repository-pinned pgvector image, applied the full migration history and passed the promotion relational test 1/1 with skip=0. It proved eight promotion outboxes delivered, all five typed families and fail-closed canonical, decision-command and outbox cross-binding corruption. The container was removed.
+- An earlier disposable run `d19_b6fbc609ada1` reached the relational test and exposed only an over-specific error-message assertion; the assertion was corrected to the stable integrity outcome and that container was also removed.
+- `ctl-api-index verify --strict` passed with the API unchanged; `git diff --check` passed.
+- Capability/runtime/data effects remain zero: the promotion flag is still default false, and no named-local/staging/production database, cloud/provider resource or UI surface was changed.

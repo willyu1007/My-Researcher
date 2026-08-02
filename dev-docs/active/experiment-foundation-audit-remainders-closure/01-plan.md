@@ -27,7 +27,7 @@ Exit: met on 2026-08-02. Unbound, half-bound, stale-hash, cross-title-card, mirr
 4. [x] Prove injected crash rollback, duplicate/same-key replay, same-key drift, different-key exact replay and concurrent promotion convergence.
 5. [x] Preserve typed/legacy history, keep the generic promotion route closed and gate the new route default-off behind committed v2 cutover.
 
-Exit: met on 2026-08-02. One canonical result and one durable event outcome converge under replay and PostgreSQL concurrency; reject creates no canonical revision and conflicts fail closed.
+Exit: met on 2026-08-02. One canonical result and one durable event outcome converge under replay and PostgreSQL concurrency; reject creates no canonical revision and conflicts fail closed. Review hardening additionally proves all five typed asset families, exact Candidate/decision/receipt/outbox cross-binding and durable audit-event relay completion without downstream business writes.
 
 ## Phase 3 — EF-P15 attachment and full revalidation
 

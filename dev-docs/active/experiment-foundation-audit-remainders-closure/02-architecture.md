@@ -43,12 +43,12 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - Prefer existing storage. Add persisted fields/tables only for invariants that cannot be represented safely today.
 - Any schema change is additive, reviewed through the Prisma SSOT workflow and verified on disposable PostgreSQL before named-local consideration.
 - New mutation capabilities default off. Retrieval may degrade to structured-only without disabling the project.
-- Rollback closes new entrances and workers; it does not delete typed history or reopen legacy writers.
+- Rollback closes new entrances and workers without deleting typed history or reopening legacy writers.
 
 ## Phase 0 frozen architecture decisions — 2026-08-02
 
 - EF-P14 reuses the existing bootstrap route and atomic repository UoW. Both bridge refs are mandatory at the product entrance; historical nullable storage remains unchanged and reject-only.
-- EF-P06 adds a typed preparation Candidate and terminal promotion UoW. It does not reuse scientific `EvidenceCandidateV2`, reopen the generic route or duplicate admitted-cell materialization.
+- EF-P06 adds a typed preparation Candidate and terminal promotion UoW while avoiding scientific `EvidenceCandidateV2`, the generic route and duplicate admitted-cell materialization.
 - EF-P15 cannot safely attach a current “standalone typed result” because no such authority exists: every v2 Run/result is PI-bound and legacy is ineligible. The recommended model attaches a new typed exploration specification and requires a new PI-bound execution; Phase 3 needs an explicit model decision before coding.
 - EF-P21 uses a PI-owned rebuildable projection. Structured project scope produces the only candidate set before semantic rank; literature tables and historical Run documents are excluded.
 - Exact files, prohibited writes, tests and rollback entrances are frozen in `06-phase0-census-and-freeze.md`.
@@ -69,6 +69,8 @@ Index absence, timeout or corruption returns structured results. Ranking cannot 
 - PostgreSQL promotion transactions take a Candidate-revision advisory transaction lock before terminal-state resolution. Concurrent different-key exact decisions therefore return one created and one replayed outcome with the same decision/event instead of leaking a unique-key race.
 - Canonical asset persistence continues to use the existing five named asset families. The new Candidate is preparation/catalog state and cannot reuse scientific `ExperimentFoundationEvidenceCandidateV2`.
 - The new outbox is promotion-specific and relay-ready. Readiness, external effects, scientific validation, EvidenceCandidate and admitted-cell TaskSpec/Run materialization remain outside this UoW and retain their existing authorities.
+- The existing integration relay scheduler claims the promotion outbox through its owning repository. Claim-time replay revalidates the deterministic Candidate, canonical revision, decision command, receipt and exact event envelope/payload before delivery; corrupted rows fail closed as `failed` poison records.
+- A valid promotion event is a terminal catalog/audit notification. Relay delivery marks the event as `delivered` without invoking TaskSpec, Run, readiness, scientific-validation, evidence or projection writers, so relay completion cannot become a second authority.
 - `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED` defaults false and is invalid unless v2 cutover is committed. Disabling the promotion capability stops only new intake; immutable outcomes remain retained. No named database was migrated or capability enabled.
 
 ## Explicit exclusions

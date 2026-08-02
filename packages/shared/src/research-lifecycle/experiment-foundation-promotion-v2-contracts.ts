@@ -62,6 +62,19 @@ export interface ExperimentFoundationPromotionV2EventPayload {
   canonical_revision: ExperimentFoundationV2ExactAssetRevisionRef | null;
 }
 
+export interface ExperimentFoundationPromotionV2Event {
+  event_id: string;
+  event_type: 'ExperimentFoundationPreparationCandidatePromotionDecidedV2';
+  schema_version: 'v1';
+  producer_domain: 'experiment-foundation';
+  occurred_at: string;
+  correlation_id: string;
+  causation_id: string;
+  business_idempotency_key: string;
+  payload_hash: string;
+  payload: ExperimentFoundationPromotionV2EventPayload;
+}
+
 const nonEmptyString = { type: 'string', minLength: 1 } as const;
 const hash = { type: 'string', pattern: EXPERIMENT_V2_HASH_PATTERN } as const;
 const positiveInt32 = { type: 'integer', minimum: 1, maximum: EXPERIMENT_V2_INT32_MAX } as const;

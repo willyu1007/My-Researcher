@@ -14,6 +14,7 @@ import {
   type ExperimentFoundationEvaluationProtocolV2 as EvaluationProtocolRow,
   type ExperimentFoundationMetricDefinitionRevisionV2 as MetricDefinitionRevisionRow,
   type ExperimentFoundationMetricDefinitionV2 as MetricDefinitionRow,
+  type ExperimentFoundationPromotionOutboxV2 as PromotionOutboxRow,
   type ExperimentFoundationReadinessAttestationV2 as ReadinessAttestationRow,
   type ExperimentFoundationReadinessDependencyV2 as ReadinessDependencyRow,
   type PrismaClient,
@@ -40,10 +41,14 @@ import {
   type ExperimentFoundationV2ExactAssetRevisionRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import {
+  canonicalizeExperimentV2Json,
+  serverExperimentFoundationPromotionV2Id,
+  serverHashExperimentFoundationPromotionV2Command,
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
   serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
 
 import {
   ExperimentFoundationV2RepositoryConstraintError,
@@ -62,8 +67,14 @@ import {
   type ExperimentFoundationPromotionDecisionV2Record,
   type ExperimentFoundationPromotionOutboxV2Record,
   type ExperimentFoundationPromotionV2Repository,
+  type ExperimentFoundationPromotionV2RelayClaim,
   type ExperimentFoundationPromotionV2UnitOfWork,
 } from '../experiment-foundation-promotion-v2.repository.js';
+import type {
+  ExperimentV2RelayClaimInput,
+  ExperimentV2RelayReleaseInput,
+  ExperimentV2RelayTerminalInput,
+} from '../experiment-spine-v2.repository.js';
 import {
   assertStoredExperimentFoundationV2AssetDraftIntegrity,
   assertStoredExperimentFoundationV2AssetIdentityIntegrity,
@@ -101,6 +112,139 @@ implements ExperimentFoundationV2Repository, ExperimentFoundationPromotionV2Repo
       unitOfWork.assertNoPendingFreezeReplay();
       return result;
     });
+  }
+
+  async claimOutbox(
+    input: ExperimentV2RelayClaimInput,
+  ): Promise<ExperimentFoundationPromotionV2RelayClaim[]> {
+    const claimedAt = new Date(input.claimed_at);
+    const leaseExpiresAt = new Date(input.lease_expires_at);
+    return this.prisma.$transaction(async (transaction) => {
+      const candidates = await transaction.experimentFoundationPromotionOutboxV2.findMany({
+        where: promotionRelayReadyWhere(claimedAt),
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+        take: input.limit,
+        select: { id: true },
+      });
+      const claims: ExperimentFoundationPromotionV2RelayClaim[] = [];
+      const unitOfWork = new PrismaExperimentFoundationV2UnitOfWork(transaction);
+      for (const candidate of candidates) {
+        const claimed = await transaction.experimentFoundationPromotionOutboxV2.updateMany({
+          where: { id: candidate.id, ...promotionRelayReadyWhere(claimedAt) },
+          data: {
+            relayStatus: 'leased',
+            relayAttemptCount: { increment: 1 },
+            relayLeaseOwner: input.lease_owner,
+            relayLeaseExpiresAt: leaseExpiresAt,
+            updatedAt: claimedAt,
+          },
+        });
+        if (claimed.count !== 1) continue;
+        const row = await transaction.experimentFoundationPromotionOutboxV2.findUniqueOrThrow({
+          where: { id: candidate.id },
+        });
+        try {
+          const outbox = await unitOfWork.findPromotionOutboxByDecision(row.promotionDecisionId);
+          if (!outbox) {
+            throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+              'PROMOTION_OUTBOX_CONFLICT',
+              `Promotion outbox disappeared while leased: ${row.id}`,
+            );
+          }
+          claims.push(mapPromotionRelayClaim(row, outbox));
+        } catch (error) {
+          if (!(error instanceof ExperimentFoundationPromotionV2RepositoryConstraintError)) {
+            throw error;
+          }
+          const failed = await transaction.experimentFoundationPromotionOutboxV2.updateMany({
+            where: {
+              id: row.id,
+              relayStatus: 'leased',
+              relayLeaseOwner: input.lease_owner,
+            },
+            data: {
+              relayStatus: 'failed',
+              relayLeaseOwner: null,
+              relayLeaseExpiresAt: null,
+              relayNextAttemptAt: null,
+              lastRelayErrorCode: error.reasonCode,
+              updatedAt: claimedAt,
+            },
+          });
+          if (failed.count !== 1) {
+            throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+              'PROMOTION_OUTBOX_CONFLICT',
+              `Invalid promotion outbox could not be terminalized: ${row.id}`,
+            );
+          }
+        }
+      }
+      return claims;
+    });
+  }
+
+  async markOutboxDelivered(
+    outboxId: string,
+    leaseOwner: string,
+    deliveredAt: string,
+  ): Promise<void> {
+    const timestamp = new Date(deliveredAt);
+    const result = await this.prisma.experimentFoundationPromotionOutboxV2.updateMany({
+      where: { id: outboxId, relayStatus: 'leased', relayLeaseOwner: leaseOwner, deliveredAt: null },
+      data: {
+        relayStatus: 'delivered',
+        publishedAt: timestamp,
+        deliveredAt: timestamp,
+        relayLeaseOwner: null,
+        relayLeaseExpiresAt: null,
+        relayNextAttemptAt: null,
+        lastRelayErrorCode: null,
+        updatedAt: timestamp,
+      },
+    });
+    if (result.count !== 1) throw promotionOutboxLeaseConflict(outboxId);
+  }
+
+  async markOutboxTerminal(input: ExperimentV2RelayTerminalInput): Promise<void> {
+    const timestamp = new Date(input.terminal_at);
+    const result = await this.prisma.experimentFoundationPromotionOutboxV2.updateMany({
+      where: {
+        id: input.outbox_id,
+        relayStatus: 'leased',
+        relayLeaseOwner: input.lease_owner,
+        deliveredAt: null,
+      },
+      data: {
+        relayStatus: 'failed',
+        relayLeaseOwner: null,
+        relayLeaseExpiresAt: null,
+        relayNextAttemptAt: null,
+        lastRelayErrorCode: input.error_code,
+        updatedAt: timestamp,
+      },
+    });
+    if (result.count !== 1) throw promotionOutboxLeaseConflict(input.outbox_id);
+  }
+
+  async releaseOutbox(input: ExperimentV2RelayReleaseInput): Promise<void> {
+    const releasedAt = new Date(input.released_at);
+    const result = await this.prisma.experimentFoundationPromotionOutboxV2.updateMany({
+      where: {
+        id: input.outbox_id,
+        relayStatus: 'leased',
+        relayLeaseOwner: input.lease_owner,
+        deliveredAt: null,
+      },
+      data: {
+        relayStatus: 'pending',
+        relayLeaseOwner: null,
+        relayLeaseExpiresAt: null,
+        relayNextAttemptAt: new Date(input.next_attempt_at),
+        lastRelayErrorCode: input.error_code,
+        updatedAt: releasedAt,
+      },
+    });
+    if (result.count !== 1) throw promotionOutboxLeaseConflict(input.outbox_id);
   }
 }
 
@@ -858,8 +1002,15 @@ implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2Unit
     const canonicalRevision = row.canonicalRevisionId
       ? await this.findAssetRevisionById(assetType, row.canonicalRevisionId)
       : null;
+    const expectedCandidateId = serverExperimentFoundationPromotionV2Id('candidate', {
+      asset_type: assetType,
+      logical_id: row.assetLogicalId,
+    });
     if (
-      (row.canonicalRevisionId && !canonicalRevision)
+      row.id !== expectedCandidateId
+      || (row.canonicalRevisionId && !canonicalRevision)
+      || (canonicalRevision && canonicalRevision.revision.logical_id !== row.assetLogicalId)
+      || (canonicalRevision && canonicalRevision.revision.content_hash !== row.contentHash)
       || (canonicalRevision && canonicalRevision.revision.content_hash !== row.canonicalRevisionHash)
     ) {
       throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
@@ -1016,10 +1167,26 @@ implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2Unit
       );
     }
     const canonical = candidate.candidate.canonical_revision;
+    const expectedDecisionId = serverExperimentFoundationPromotionV2Id('decision', {
+      candidate_id: row.candidateId,
+      candidate_revision: row.candidateRevision,
+    });
+    const expectedCommandHash = serverHashExperimentFoundationPromotionV2Command({
+      asset_type: candidate.candidate.asset_type,
+      logical_id: candidate.candidate.logical_id,
+      candidate_revision: candidate.candidate.candidate_revision,
+      decision: row.decision,
+    });
     if (
-      row.candidateContentHash !== candidate.candidate.content_hash
+      row.id !== expectedDecisionId
+      || row.commandHash !== expectedCommandHash
+      || row.candidateContentHash !== candidate.candidate.content_hash
       || row.canonicalRevisionId !== (canonical?.revision_id ?? null)
       || row.canonicalRevisionHash !== (canonical?.content_hash ?? null)
+      || (row.decision === 'promote' && candidate.candidate.status !== 'promoted')
+      || (row.decision === 'reject' && candidate.candidate.status !== 'rejected')
+      || (row.decision === 'promote' && row.canonicalizationOutcome === null)
+      || (row.decision === 'reject' && row.canonicalizationOutcome !== null)
     ) {
       throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
         'PROMOTION_DECISION_CONFLICT',
@@ -1072,13 +1239,24 @@ implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2Unit
     const row = await this.transaction.experimentFoundationPromotionCommandReceiptV2.findUnique({
       where: { businessIdempotencyKey },
     });
-    return row ? {
+    if (!row) return null;
+    const decision = await this.mapPromotionDecision(row.promotionDecisionId);
+    const expectedReceiptId = serverExperimentFoundationPromotionV2Id('receipt', {
+      business_idempotency_key: row.businessIdempotencyKey,
+    });
+    if (!decision || row.id !== expectedReceiptId || row.commandHash !== decision.command_hash) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_IDEMPOTENCY_CONFLICT',
+        `Promotion receipt no longer matches its exact decision: ${row.id}`,
+      );
+    }
+    return {
       receipt_id: row.id,
       business_idempotency_key: row.businessIdempotencyKey,
       command_hash: row.commandHash,
       promotion_decision_id: row.promotionDecisionId,
       created_at: row.createdAt.toISOString(),
-    } : null;
+    };
   }
 
   async insertPromotionCommandReceipt(
@@ -1136,6 +1314,57 @@ implements ExperimentFoundationV2UnitOfWork, ExperimentFoundationPromotionV2Unit
     const eventPayload = fromJson<ExperimentFoundationPromotionOutboxV2Record['event_payload']>(
       row.eventPayloadJson,
     );
+    const decision = await this.mapPromotionDecision(row.promotionDecisionId);
+    if (!decision) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox has no exact decision: ${row.id}`,
+      );
+    }
+    const candidate = await this.findPreparationCandidate(
+      decision.decision.candidate_id,
+      decision.decision.candidate_revision,
+    );
+    const receipt = await this.transaction.experimentFoundationPromotionCommandReceiptV2.findUnique({
+      where: { businessIdempotencyKey: row.businessIdempotencyKey },
+    });
+    const expectedPayload = candidate ? {
+      candidate_id: candidate.candidate.candidate_id,
+      candidate_revision: candidate.candidate.candidate_revision,
+      asset_type: candidate.candidate.asset_type,
+      logical_id: candidate.candidate.logical_id,
+      content_hash: candidate.candidate.content_hash,
+      decision: decision.decision.decision,
+      canonicalization_outcome: decision.decision.canonicalization_outcome,
+      canonical_revision: decision.decision.canonical_revision,
+    } : null;
+    const expectedEventId = serverExperimentFoundationPromotionV2Id('event', {
+      promotion_decision_id: row.promotionDecisionId,
+    });
+    const expectedOutboxId = serverExperimentFoundationPromotionV2Id('outbox', {
+      event_id: expectedEventId,
+    });
+    const expectedAggregateId = candidate
+      ? `${candidate.candidate.candidate_id}:${candidate.candidate.candidate_revision}`
+      : null;
+    if (
+      !candidate
+      || !receipt
+      || receipt.promotionDecisionId !== row.promotionDecisionId
+      || receipt.commandHash !== decision.command_hash
+      || row.id !== expectedOutboxId
+      || row.eventId !== expectedEventId
+      || row.aggregateId !== expectedAggregateId
+      || row.correlationId !== expectedEventId
+      || row.causationId !== row.promotionDecisionId
+      || canonicalizeExperimentV2Json(eventPayload)
+        !== canonicalizeExperimentV2Json(expectedPayload)
+    ) {
+      throw new ExperimentFoundationPromotionV2RepositoryConstraintError(
+        'PROMOTION_OUTBOX_CONFLICT',
+        `Promotion outbox no longer matches its exact Candidate/decision: ${row.id}`,
+      );
+    }
     const expectedPayloadHash = serverHashExperimentV2EventPayload(
       row.eventType,
       row.schemaVersion,
@@ -2314,6 +2543,63 @@ function dependencyManifestHash(recordKind: string, dependencies: unknown[]): st
 
 function freezeRevisionKey(assetType: ExperimentFoundationV2AssetType, revisionId: string): string {
   return `${assetType}\u0000${revisionId}`;
+}
+
+function promotionRelayReadyWhere(claimedAt: Date) {
+  return {
+    deliveredAt: null,
+    relayAttemptCount: { lt: EXPERIMENT_V2_INT32_MAX },
+    relayStatus: { in: ['pending', 'leased'] },
+    AND: [
+      {
+        OR: [
+          { relayNextAttemptAt: null },
+          { relayNextAttemptAt: { lte: claimedAt } },
+        ],
+      },
+      {
+        OR: [
+          { relayLeaseOwner: null },
+          { relayLeaseExpiresAt: { lte: claimedAt } },
+        ],
+      },
+    ],
+  } satisfies Prisma.ExperimentFoundationPromotionOutboxV2WhereInput;
+}
+
+function mapPromotionRelayClaim(
+  row: PromotionOutboxRow,
+  outbox: ExperimentFoundationPromotionOutboxV2Record,
+): ExperimentFoundationPromotionV2RelayClaim {
+  if (!row.relayLeaseOwner || !row.relayLeaseExpiresAt) {
+    throw promotionOutboxLeaseConflict(row.id);
+  }
+  return {
+    owner_domain: 'ExperimentFoundation',
+    outbox_id: row.id,
+    event: {
+      event_id: outbox.event_id,
+      event_type: outbox.event_type,
+      schema_version: outbox.schema_version,
+      producer_domain: outbox.producer_domain,
+      occurred_at: outbox.occurred_at,
+      correlation_id: outbox.correlation_id,
+      causation_id: outbox.causation_id,
+      business_idempotency_key: outbox.business_idempotency_key,
+      payload_hash: outbox.payload_hash,
+      payload: outbox.event_payload,
+    },
+    relay_attempt_count: row.relayAttemptCount,
+    lease_owner: row.relayLeaseOwner,
+    lease_expires_at: row.relayLeaseExpiresAt.toISOString(),
+  };
+}
+
+function promotionOutboxLeaseConflict(outboxId: string) {
+  return new ExperimentFoundationPromotionV2RepositoryConstraintError(
+    'PROMOTION_OUTBOX_CONFLICT',
+    `Promotion outbox lease was lost: ${outboxId}`,
+  );
 }
 
 function lifecycleProjectionId(

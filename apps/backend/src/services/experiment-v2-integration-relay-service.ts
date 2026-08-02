@@ -8,6 +8,9 @@ import type {
   ValidationCycleClosedEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import type {
+  ExperimentFoundationPromotionV2Event,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-promotion-v2-contracts';
 
 import { AppError } from '../errors/app-error.js';
 import type {
@@ -15,6 +18,16 @@ import type {
   ExperimentV2RelayClaim,
   PaperImplementationExperimentSpineV2Repository,
 } from '../repositories/experiment-spine-v2.repository.js';
+import type {
+  ExperimentFoundationPromotionV2RelayClaim,
+  ExperimentFoundationPromotionV2Repository,
+} from '../repositories/experiment-foundation-promotion-v2.repository.js';
+
+type RelayClaim = ExperimentV2RelayClaim | ExperimentFoundationPromotionV2RelayClaim;
+type RelayStateRepository = Pick<
+  PaperImplementationExperimentSpineV2Repository,
+  'markOutboxDelivered' | 'markOutboxTerminal' | 'releaseOutbox'
+>;
 
 export interface ExperimentV2WorkOrderRevisionAdmittedConsumer {
   consume(event: WorkOrderRevisionAdmittedEventV1): Promise<unknown>;
@@ -43,6 +56,7 @@ export interface ExperimentV2ValidationCycleClosedConsumer {
 export interface ExperimentV2IntegrationRelayServiceOptions {
   paperImplementationRepository: PaperImplementationExperimentSpineV2Repository;
   experimentFoundationRepository: ExperimentFoundationExperimentSpineV2Repository;
+  promotionRepository?: ExperimentFoundationPromotionV2Repository;
   materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   headConsumer: ExperimentV2RunManifestFrozenConsumer;
   acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
@@ -118,6 +132,7 @@ function missingRelayConsumerError(eventType: string): Error {
 export class ExperimentV2IntegrationRelayService {
   private readonly paperImplementationRepository: PaperImplementationExperimentSpineV2Repository;
   private readonly experimentFoundationRepository: ExperimentFoundationExperimentSpineV2Repository;
+  private readonly promotionRepository?: ExperimentFoundationPromotionV2Repository;
   private readonly materializationConsumer: ExperimentV2WorkOrderRevisionAdmittedConsumer;
   private readonly headConsumer: ExperimentV2RunManifestFrozenConsumer;
   private readonly acknowledgementConsumer: ExperimentV2BranchHeadAdvancedConsumer;
@@ -132,6 +147,7 @@ export class ExperimentV2IntegrationRelayService {
   constructor(options: ExperimentV2IntegrationRelayServiceOptions) {
     this.paperImplementationRepository = options.paperImplementationRepository;
     this.experimentFoundationRepository = options.experimentFoundationRepository;
+    this.promotionRepository = options.promotionRepository;
     this.materializationConsumer = options.materializationConsumer;
     this.headConsumer = options.headConsumer;
     this.acknowledgementConsumer = options.acknowledgementConsumer;
@@ -156,7 +172,17 @@ export class ExperimentV2IntegrationRelayService {
     };
     const piClaims = await this.paperImplementationRepository.claimOutbox(claimInput);
     const efClaims = await this.experimentFoundationRepository.claimOutbox(claimInput);
-    const claims = [...piClaims, ...efClaims];
+    const promotionRepository = this.promotionRepository;
+    const promotionClaims = promotionRepository
+      ? await promotionRepository.claimOutbox(claimInput)
+      : [];
+    const claims: Array<{ claim: RelayClaim; repository: RelayStateRepository }> = [
+      ...piClaims.map((claim) => ({ claim, repository: this.paperImplementationRepository })),
+      ...efClaims.map((claim) => ({ claim, repository: this.experimentFoundationRepository })),
+      ...(promotionRepository
+        ? promotionClaims.map((claim) => ({ claim, repository: promotionRepository }))
+        : []),
+    ];
     const outcome: ExperimentV2RelayDrainOutcome = {
       claimed: claims.length,
       delivered: 0,
@@ -165,10 +191,8 @@ export class ExperimentV2IntegrationRelayService {
       failures: [],
     };
 
-    for (const claim of claims) {
-      const repository = claim.owner_domain === 'PaperImplementation'
-        ? this.paperImplementationRepository
-        : this.experimentFoundationRepository;
+    for (const item of claims) {
+      const { claim, repository } = item;
       try {
         await this.deliver(claim);
         // The consumer's domain commit has completed before this marker write.
@@ -250,7 +274,17 @@ export class ExperimentV2IntegrationRelayService {
     return aggregate;
   }
 
-  private async deliver(claim: ExperimentV2RelayClaim): Promise<void> {
+  private async deliver(claim: RelayClaim): Promise<void> {
+    if (
+      claim.owner_domain === 'ExperimentFoundation'
+      && claim.event.event_type === 'ExperimentFoundationPreparationCandidatePromotionDecidedV2'
+    ) {
+      // P06 promotion is a terminal catalog/audit notification. Claim-time
+      // repository validation is the consumer; it must not mint TaskSpecs,
+      // Runs, readiness, or scientific evidence.
+      acknowledgePromotionAuditEvent(claim.event);
+      return;
+    }
     if (
       claim.owner_domain === 'PaperImplementation'
       && claim.event.event_type === 'WorkOrderRevisionAdmitted'
@@ -304,6 +338,14 @@ export class ExperimentV2IntegrationRelayService {
     }
     throw new AppError(400, 'INVALID_PAYLOAD', 'Unsupported owner/event relay route.', {
       reason_code: 'INTEGRATION_EVENT_TYPE_UNSUPPORTED',
+    });
+  }
+}
+
+function acknowledgePromotionAuditEvent(event: ExperimentFoundationPromotionV2Event): void {
+  if (event.payload.candidate_id.length === 0 || event.payload.content_hash.length === 0) {
+    throw new AppError(400, 'INVALID_PAYLOAD', 'Promotion audit event is incomplete.', {
+      reason_code: 'INTEGRATION_EVENT_PAYLOAD_CONFLICT',
     });
   }
 }

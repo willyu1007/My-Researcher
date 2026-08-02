@@ -17,6 +17,9 @@
 - Do not split promotion decision, canonicalization, Candidate and outbox into partial commits.
 - Do not run the disposable full migration history on a plain PostgreSQL image; use the repository-pinned pgvector digest.
 - Do not return PostgreSQL `void` directly through Prisma `$queryRaw`; wrap advisory-lock execution in a supported scalar result.
+- Do not add relay-shaped outbox fields without wiring claim, acknowledgement, retry release and poison-record terminalization into a running drainer.
+- Do not treat valid per-row hashes as exact replay proof; cross-bind Candidate, canonical revision, decision, receipt and outbox identities/content.
+- Do not add a product capability env key without adding it to the node-test environment scrub list.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
@@ -49,3 +52,11 @@
 - What was tried: direct void selection, then `void IS NULL AS locked`; neither provided a reliable Prisma result value.
 - Fix/workaround: execute the lock in a subquery and project constant `1::int AS locked`, then require one row/value before continuing.
 - Prevention: wrap PostgreSQL side-effect/void functions behind a supported scalar projection when they must run through Prisma `$queryRaw`.
+
+## Promotion outbox had relay state but no drainer — 2026-08-02
+
+- Symptom: committed promotion events remained `pending` indefinitely even though the table exposed lease, retry and delivery fields.
+- Root cause: Phase 2 created the atomic outbox record but did not register its owning repository with the already-running experiment integration relay.
+- What was tried: relying on the existing EF integration outbox scan. It owns a different table and cannot safely acknowledge promotion records.
+- Fix/workaround: extend the existing relay composition with the promotion repository, preserve the owner repository on each claim, fully revalidate stored promotion lineage at claim time, then mark the audit-only notification delivered. Invalid rows become terminal `failed` poison records; transient delivery failures still use release/retry.
+- Prevention: every new durable outbox must name its running drainer and prove pending → leased → delivered, retry release, lease ownership and poison-record behavior before its phase exits. Audit-only delivery must never mint downstream business authority.

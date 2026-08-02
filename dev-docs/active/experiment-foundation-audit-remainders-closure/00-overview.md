@@ -7,7 +7,7 @@
 - Mapping: `M-001 > F-001 > R-012 > T-134`
 - Origin: transferred from T-132 on 2026-07-30.
 - Blocking relation: T-134 does **not** block T-132. T-132 retains only its personal PAI execution closure.
-- Current phase: Phase 1 EF-P14 and Phase 2 EF-P06 are implemented and verified. Phase 3-4 implementation has not started.
+- Current phase: Phase 1 EF-P14 and Phase 2 EF-P06, including the Phase 2 relay/integrity quality hardening, are implemented and verified. Phase 3-4 implementation has not started.
 - Next step: resolve and separately authorize the Phase 3 EF-P15 typed exploration-source model. Phase 3 remains implementation-blocked until that model is decided.
 
 ## Goal

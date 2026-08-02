@@ -1,6 +1,7 @@
 import type {
   ExperimentFoundationPreparationCandidateV2,
   ExperimentFoundationPromotionDecisionV2,
+  ExperimentFoundationPromotionV2Event,
   ExperimentFoundationPromotionV2Decision,
   ExperimentFoundationPromotionV2EventPayload,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-promotion-v2-contracts';
@@ -11,6 +12,11 @@ import type {
 import type {
   ExperimentFoundationV2UnitOfWork,
 } from './experiment-foundation-v2.repository.js';
+import type {
+  ExperimentV2RelayClaimInput,
+  ExperimentV2RelayReleaseInput,
+  ExperimentV2RelayTerminalInput,
+} from './experiment-spine-v2.repository.js';
 
 export interface ExperimentFoundationPreparationCandidateV2Record {
   candidate: Omit<ExperimentFoundationPreparationCandidateV2, 'status'> & {
@@ -54,6 +60,15 @@ export interface ExperimentFoundationPromotionOutboxV2Record {
   event_envelope_hash: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ExperimentFoundationPromotionV2RelayClaim {
+  owner_domain: 'ExperimentFoundation';
+  outbox_id: string;
+  event: ExperimentFoundationPromotionV2Event;
+  relay_attempt_count: number;
+  lease_owner: string;
+  lease_expires_at: string;
 }
 
 export class ExperimentFoundationPromotionV2RepositoryConstraintError extends Error {
@@ -118,6 +133,12 @@ export interface ExperimentFoundationPromotionV2Repository {
   runPromotionInTransaction<T>(
     operation: (unitOfWork: ExperimentFoundationPromotionV2UnitOfWork) => Promise<T>,
   ): Promise<T>;
+  claimOutbox(
+    input: ExperimentV2RelayClaimInput,
+  ): Promise<ExperimentFoundationPromotionV2RelayClaim[]>;
+  markOutboxDelivered(outboxId: string, leaseOwner: string, deliveredAt: string): Promise<void>;
+  markOutboxTerminal(input: ExperimentV2RelayTerminalInput): Promise<void>;
+  releaseOutbox(input: ExperimentV2RelayReleaseInput): Promise<void>;
 }
 
 export function promotionDecisionMatches(

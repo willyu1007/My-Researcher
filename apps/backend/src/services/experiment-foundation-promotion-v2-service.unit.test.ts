@@ -5,6 +5,7 @@ import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/res
 
 import { AppError } from '../errors/app-error.js';
 import { InMemoryExperimentFoundationV2Repository } from '../repositories/in-memory-experiment-foundation-v2-repository.js';
+import { buildExperimentFoundationD19TypedFixture } from './experiment-foundation-d19-fixture.js';
 import { ExperimentFoundationPromotionV2Service } from './experiment-foundation-promotion-v2-service.js';
 import { ExperimentFoundationV2Service } from './experiment-foundation-v2-service.js';
 
@@ -135,6 +136,40 @@ test('promotion service rejects unsupported asset types and out-of-range candida
     ),
     reason('PROMOTION_TARGET_INVALID'),
   );
+  await assert.rejects(
+    promotion.decide(
+      target('policy_invalid_target', 1),
+      { decision: 'promote', business_idempotency_key: 42 as unknown as string },
+    ),
+    reason('PROMOTION_COMMAND_INVALID'),
+  );
+});
+
+test('promotion handles all five typed asset families through exact canonical reuse', async () => {
+  const repository = new InMemoryExperimentFoundationV2Repository();
+  const assets = new ExperimentFoundationV2Service(repository, { now: () => NOW });
+  const fixture = await buildExperimentFoundationD19TypedFixture(assets);
+  const promotion = new ExperimentFoundationPromotionV2Service(repository, {
+    enabled: () => true,
+    now: () => NOW,
+  });
+  const refs = [
+    fixture.data_policies[0]!,
+    fixture.datasets[0]!,
+    fixture.metric_definitions[0]!,
+    fixture.benchmark,
+    fixture.evaluation_protocol,
+  ];
+
+  for (const ref of refs) {
+    const result = await promotion.decide({
+      asset_type: ref.asset_type,
+      logical_id: ref.logical_id,
+      candidate_revision: 2,
+    }, request('promote', `all-families-${ref.asset_type}`));
+    assert.equal(result.promotion_decision.canonicalization_outcome, 'reused');
+    assert.deepEqual(result.promotion_decision.canonical_revision, ref);
+  }
 });
 
 async function fixture(logicalId: string) {

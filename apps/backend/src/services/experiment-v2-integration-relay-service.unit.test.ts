@@ -18,12 +18,15 @@ import {
   InMemoryPaperImplementationExperimentSpineV2Repository,
 } from '../repositories/in-memory-experiment-spine-v2-repository.js';
 import { InMemoryPaperImplementationEvidenceV2Repository } from '../repositories/in-memory-paper-implementation-evidence-v2-repository.js';
+import { InMemoryExperimentFoundationV2Repository } from '../repositories/in-memory-experiment-foundation-v2-repository.js';
 import {
   PAPER_IMPLEMENTATION_PROJECTION_FEED_V2_CONSUMER,
 } from '../repositories/experiment-spine-v2.repository.js';
 import { PaperImplementationEvidenceTrustGatewayService } from './paper-implementation-evidence-trust-gateway-service.js';
 import { PaperImplementationProjectionFeedV2Consumer } from './paper-implementation-projection-feed-v2-consumer.js';
 import { ExperimentV2IntegrationRelayService } from './experiment-v2-integration-relay-service.js';
+import { ExperimentFoundationPromotionV2Service } from './experiment-foundation-promotion-v2-service.js';
+import { ExperimentFoundationV2Service } from './experiment-foundation-v2-service.js';
 
 const NOW = '2026-07-22T00:00:00.000Z';
 const HASH_A = `sha256:${'a'.repeat(64)}`;
@@ -147,6 +150,7 @@ function relay(input: {
   pi: InMemoryPaperImplementationExperimentSpineV2Repository;
   ef: InMemoryExperimentFoundationExperimentSpineV2Repository;
   evidenceRepository?: InMemoryPaperImplementationEvidenceV2Repository;
+  promotionRepository?: InMemoryExperimentFoundationV2Repository;
   now?: () => string;
 }) {
   const evidenceRepository = input.evidenceRepository
@@ -165,6 +169,7 @@ function relay(input: {
     service: new ExperimentV2IntegrationRelayService({
       paperImplementationRepository: input.pi,
       experimentFoundationRepository: input.ef,
+      promotionRepository: input.promotionRepository,
       materializationConsumer: { async consume() {} },
       headConsumer: { async consume() {} },
       acknowledgementConsumer: { async consume() {} },
@@ -204,6 +209,123 @@ test('relay delivers EvidenceCandidateQualified to the real trust gateway withou
   assert.equal(ef.snapshot().outboxes[0]?.status, 'delivered');
   assert.equal(composed.evidenceRepository.snapshot().inboxes.length, 1);
   assert.equal(composed.evidenceRepository.snapshot().inboxes[0]?.outcome, 'terminal_conflict');
+});
+
+test('relay completes the promotion audit lifecycle without downstream writes', async () => {
+  const promotionRepository = new InMemoryExperimentFoundationV2Repository();
+  const assets = new ExperimentFoundationV2Service(promotionRepository, { now: () => NOW });
+  await assets.createAssetDraft({
+    asset_type: 'DataPolicy',
+    logical_id: 'relay-promotion-policy',
+    draft_content: {
+      schema_version: 'v1',
+      policy_key: 'relay-promotion-policy',
+      display_name: 'Relay promotion policy',
+      license_expression: 'MIT',
+      access_level: 'open',
+      source_terms_uri: 'https://example.test/terms',
+      redistribution_allowed: true,
+      commercial_use_allowed: true,
+      use_constraints: [],
+    },
+  });
+  const promotion = new ExperimentFoundationPromotionV2Service(promotionRepository, {
+    enabled: () => true,
+    now: () => NOW,
+  });
+  await promotion.decide({
+    asset_type: 'DataPolicy',
+    logical_id: 'relay-promotion-policy',
+    candidate_revision: 1,
+  }, {
+    decision: 'promote',
+    business_idempotency_key: 'relay-promotion-key',
+  });
+  const pi = new InMemoryPaperImplementationExperimentSpineV2Repository();
+  const ef = new InMemoryExperimentFoundationExperimentSpineV2Repository();
+  const composed = relay({
+    pi,
+    ef,
+    promotionRepository,
+  });
+
+  const delivered = await composed.service.drainOnce();
+  const idle = await composed.service.drainOnce();
+
+  assert.equal(delivered.claimed, 1);
+  assert.equal(delivered.delivered, 1);
+  assert.equal(delivered.failures.length, 0);
+  assert.equal(idle.claimed, 0);
+  assert.deepEqual(pi.snapshot(), {
+    branches: [],
+    admission_bundles: [],
+    inboxes: [],
+    outboxes: [],
+  });
+  assert.deepEqual(ef.snapshot(), {
+    materializations: [],
+    inboxes: [],
+    outboxes: [],
+  });
+  assert.equal(composed.evidenceRepository.snapshot().inboxes.length, 0);
+
+  await assets.createAssetDraft({
+    asset_type: 'DataPolicy',
+    logical_id: 'relay-promotion-terminal-policy',
+    draft_content: {
+      schema_version: 'v1',
+      policy_key: 'relay-promotion-terminal-policy',
+      display_name: 'Relay promotion terminal policy',
+      license_expression: 'MIT',
+      access_level: 'open',
+      source_terms_uri: 'https://example.test/terms',
+      redistribution_allowed: true,
+      commercial_use_allowed: true,
+      use_constraints: [],
+    },
+  });
+  await promotion.decide({
+    asset_type: 'DataPolicy',
+    logical_id: 'relay-promotion-terminal-policy',
+    candidate_revision: 1,
+  }, {
+    decision: 'reject',
+    business_idempotency_key: 'relay-promotion-reject-key',
+  });
+  const [releasedClaim] = await promotionRepository.claimOutbox({
+    lease_owner: 'promotion-release-owner',
+    claimed_at: NOW,
+    lease_expires_at: new Date(Date.parse(NOW) + 30_000).toISOString(),
+    limit: 1,
+  });
+  assert.ok(releasedClaim);
+  await promotionRepository.releaseOutbox({
+    outbox_id: releasedClaim.outbox_id,
+    lease_owner: releasedClaim.lease_owner,
+    error_code: 'TRANSIENT_TEST_FAILURE',
+    next_attempt_at: NOW,
+    released_at: NOW,
+  });
+  const [terminalClaim] = await promotionRepository.claimOutbox({
+    lease_owner: 'promotion-terminal-owner',
+    claimed_at: NOW,
+    lease_expires_at: new Date(Date.parse(NOW) + 30_000).toISOString(),
+    limit: 1,
+  });
+  assert.ok(terminalClaim);
+  assert.equal(terminalClaim.relay_attempt_count, 2);
+  await promotionRepository.markOutboxTerminal({
+    outbox_id: terminalClaim.outbox_id,
+    lease_owner: terminalClaim.lease_owner,
+    error_code: 'TERMINAL_TEST_FAILURE',
+    terminal_at: NOW,
+  });
+  assert.deepEqual(await promotionRepository.claimOutbox({
+    lease_owner: 'promotion-after-terminal-owner',
+    claimed_at: NOW,
+    lease_expires_at: new Date(Date.parse(NOW) + 30_000).toISOString(),
+    limit: 1,
+  }), []);
 });
 
 test('relay releases an unexpected Pack C event when its optional consumer is not configured', async () => {
