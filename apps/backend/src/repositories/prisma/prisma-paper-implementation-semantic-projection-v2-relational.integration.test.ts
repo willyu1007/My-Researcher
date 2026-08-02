@@ -24,6 +24,9 @@ import {
   type PaperImplementationSemanticEmbeddingV2Port,
 } from '../../services/paper-implementation-semantic-index-v2-service.js';
 import {
+  PaperImplementationSemanticRetrievalV2Service,
+} from '../../services/paper-implementation-semantic-retrieval-v2-service.js';
+import {
   PaperImplementationSemanticProjectionV2RepositoryError,
 } from '../paper-implementation-semantic-projection-v2.repository.js';
 import {
@@ -46,7 +49,7 @@ const PROFILE = {
 } as const;
 
 test(
-  'Prisma Phase 4B projection atomically rebuilds and isolates authorized projects',
+  'Prisma Phase 4B projection and Phase 4C search isolate authorized projects',
   {
     skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON,
     timeout: 180_000,
@@ -143,6 +146,61 @@ test(
         'project A count after second Cycle',
       );
 
+      const currentA = await repository.listProjectProjection(projectA);
+      const semanticHitsA = await repository.searchProjectProjection({
+        implementation_project_id: projectA,
+        embedding_profile: PROFILE,
+        normalized_query_vector: currentA[0]!.normalized_vector,
+        limit: 2,
+      });
+      assert.equal(semanticHitsA.length, 2, 'project A semantic hit count');
+      assert.equal(
+        semanticHitsA.every((hit) => hit.implementation_project_id === projectA),
+        true,
+        'project A search contains no foreign hit',
+      );
+      assert.equal(semanticHitsA[0]!.document_id, currentA[0]!.document_id);
+      const currentB = await repository.listProjectProjection(projectB);
+      const semanticHitsB = await repository.searchProjectProjection({
+        implementation_project_id: projectB,
+        embedding_profile: PROFILE,
+        normalized_query_vector: currentA[0]!.normalized_vector,
+        limit: 2,
+      });
+      assert.equal(semanticHitsB.length, 1, 'project B semantic hit count');
+      assert.equal(semanticHitsB[0]!.document_id, currentB[0]!.document_id);
+      assert.equal(
+        await repository.searchProjectProjection({
+          implementation_project_id: projectA,
+          embedding_profile: { ...PROFILE, profile_id: 'wrong-profile' },
+          normalized_query_vector: currentA[0]!.normalized_vector,
+          limit: 2,
+        }).then((hits) => hits.length),
+        0,
+        'profile drift has no semantic hits',
+      );
+      const retrievalService = new PaperImplementationSemanticRetrievalV2Service({
+        rankingInputReader: candidateService,
+        queryEmbeddingPort: {
+          async embedQuery() { return currentA[0]!.normalized_vector; },
+        },
+        projectionRepository: repository,
+        embeddingProfile: PROFILE,
+      });
+      const retrievalA = await retrievalService.retrieve({
+        implementation_project_id: projectA,
+        query: 'compare current experiment lineage',
+        result_limit: 2,
+      });
+      assert.equal(retrievalA.retrieval_mode, 'semantic');
+      assert.equal(
+        retrievalA.results.every((result) => (
+          result.document.implementation_project_id === projectA
+        )),
+        true,
+        'retrieval re-resolves only current project A documents',
+      );
+
       await prisma.$executeRaw`
         UPDATE "PaperImplementationSemanticDocumentProjectionV2"
         SET "semanticText" = 'corrupt'
@@ -162,6 +220,26 @@ test(
         (await repository.listProjectProjection(projectA)).length,
         2,
         'project A count after repair',
+      );
+
+      await prisma.$executeRaw`
+        UPDATE "PaperImplementationSemanticDocumentProjectionV2"
+        SET "embeddingHash" = ${hash('f')}
+        WHERE "implementationProjectId" = ${projectA}
+          AND "sourceId" = ${cycleA1}
+      `;
+      const corruptFallback = await retrievalService.retrieve({
+        implementation_project_id: projectA,
+        query: 'compare current experiment lineage',
+        result_limit: 1,
+      });
+      assert.equal(corruptFallback.retrieval_mode, 'structured_fallback');
+      assert.equal(corruptFallback.fallback_reason, 'SEMANTIC_INDEX_CORRUPT');
+      assert.equal(corruptFallback.results.length, 2, 'corrupt fallback is complete');
+      assert.equal(
+        (await indexService.rebuildProjectProjection(projectA)).changed_count,
+        1,
+        'corrupt embedding hash repair count',
       );
 
       await prisma.paperImplementationValidationCycle.delete({ where: { id: cycleA2 } });

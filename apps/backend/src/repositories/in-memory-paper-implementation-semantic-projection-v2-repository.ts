@@ -1,9 +1,11 @@
 import {
+  assertPaperImplementationSemanticProjectionQueryV2,
   assertPaperImplementationSemanticProjectionReplacementV2,
   PaperImplementationSemanticProjectionV2RepositoryError,
   type PaperImplementationSemanticProjectionRecordV2,
   type PaperImplementationSemanticProjectionV2Repository,
   type ReplacePaperImplementationSemanticProjectProjectionV2Input,
+  type SearchPaperImplementationSemanticProjectProjectionV2Input,
 } from './paper-implementation-semantic-projection-v2.repository.js';
 
 export interface InMemoryPaperImplementationSemanticProjectionV2RepositoryOptions {
@@ -87,5 +89,37 @@ implements PaperImplementationSemanticProjectionV2Repository {
     return clone(this.records
       .filter((record) => record.implementation_project_id === implementationProjectId)
       .sort((left, right) => left.document_id.localeCompare(right.document_id)));
+  }
+
+  async searchProjectProjection(
+    input: SearchPaperImplementationSemanticProjectProjectionV2Input,
+  ) {
+    assertPaperImplementationSemanticProjectionQueryV2(input);
+    return this.records
+      .filter((record) => (
+        record.implementation_project_id === input.implementation_project_id
+        && record.embedding_profile.profile_id === input.embedding_profile.profile_id
+        && record.embedding_profile.provider === input.embedding_profile.provider
+        && record.embedding_profile.model === input.embedding_profile.model
+        && record.embedding_profile.dimension === input.embedding_profile.dimension
+      ))
+      .map((record) => ({
+        document_id: record.document_id,
+        implementation_project_id: record.implementation_project_id,
+        source: clone(record.source),
+        document_hash: record.document_hash,
+        embedding_hash: record.embedding_hash,
+        semantic_score: record.normalized_vector.reduce(
+          (score, value, index) => (
+            score + (value * input.normalized_query_vector[index]!)
+          ),
+          0,
+        ),
+      }))
+      .sort((left, right) => (
+        right.semantic_score - left.semantic_score
+        || left.document_id.localeCompare(right.document_id)
+      ))
+      .slice(0, input.limit);
   }
 }

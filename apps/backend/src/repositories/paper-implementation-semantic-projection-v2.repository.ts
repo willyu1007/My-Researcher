@@ -55,9 +55,26 @@ export interface ReplacePaperImplementationSemanticProjectProjectionV2Result {
   total_count: number;
 }
 
+export interface SearchPaperImplementationSemanticProjectProjectionV2Input {
+  implementation_project_id: string;
+  embedding_profile: PaperImplementationSemanticEmbeddingProfileV2;
+  normalized_query_vector: number[];
+  limit: number;
+}
+
+export interface PaperImplementationSemanticProjectionHitV2 {
+  document_id: string;
+  implementation_project_id: string;
+  source: PaperImplementationSemanticDocumentSourceRefV2;
+  document_hash: string;
+  embedding_hash: string;
+  semantic_score: number;
+}
+
 export type PaperImplementationSemanticProjectionV2RepositoryReasonCode =
   | 'IMPLEMENTATION_PROJECT_NOT_FOUND'
   | 'PROJECTION_INPUT_INVALID'
+  | 'PROJECTION_QUERY_INVALID'
   | 'PROJECTION_STORED_INTEGRITY_ERROR';
 
 export class PaperImplementationSemanticProjectionV2RepositoryError extends Error {
@@ -138,6 +155,36 @@ export function assertPaperImplementationSemanticProjectionReplacementV2(
   }
 }
 
+export function assertPaperImplementationSemanticProjectionQueryV2(
+  input: SearchPaperImplementationSemanticProjectProjectionV2Input,
+): void {
+  const squaredNorm = input.normalized_query_vector.reduce(
+    (sum, value) => sum + (value * value),
+    0,
+  );
+  if (
+    input.implementation_project_id.trim().length === 0
+    || input.embedding_profile.profile_id.trim().length === 0
+    || input.embedding_profile.provider.trim().length === 0
+    || input.embedding_profile.model.trim().length === 0
+    || input.embedding_profile.dimension !== PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2
+    || input.normalized_query_vector.length
+      !== PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2
+    || input.normalized_query_vector.some((value) => !Number.isFinite(value))
+    || !Number.isFinite(squaredNorm)
+    || Math.abs(Math.sqrt(squaredNorm) - 1)
+      > PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2
+    || !Number.isSafeInteger(input.limit)
+    || input.limit < 1
+    || input.limit > PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2
+  ) {
+    throw new PaperImplementationSemanticProjectionV2RepositoryError(
+      'PROJECTION_QUERY_INVALID',
+      'Semantic projection query is invalid',
+    );
+  }
+}
+
 export interface PaperImplementationSemanticProjectionV2Repository {
   replaceProjectProjection(
     input: ReplacePaperImplementationSemanticProjectProjectionV2Input,
@@ -146,4 +193,8 @@ export interface PaperImplementationSemanticProjectionV2Repository {
   listProjectProjection(
     implementationProjectId: string,
   ): Promise<PaperImplementationSemanticProjectionRecordV2[]>;
+
+  searchProjectProjection(
+    input: SearchPaperImplementationSemanticProjectProjectionV2Input,
+  ): Promise<PaperImplementationSemanticProjectionHitV2[]>;
 }

@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 
 import {
   paperImplementationSemanticRankingInputV2Schema,
+  paperImplementationSemanticRetrievalV2ResponseSchema,
 } from './paper-implementation-semantic-retrieval-v2-contracts.js';
 
 type JsonSchema = Readonly<Record<string, unknown>>;
@@ -165,6 +166,53 @@ test('semantic document discriminators cannot claim a different content kind', a
           },
         },
       },
+    }],
+  }), false);
+});
+
+test('semantic retrieval response closes semantic and structured fallback modes', async () => {
+  const common = {
+    schema_version: 'v1',
+    implementation_project_id: 'project-1',
+    query: 'compare effective branches',
+    semantic_hits_considered: 1,
+    stale_hits_dropped: 0,
+  };
+  const semantic = {
+    ...common,
+    retrieval_mode: 'semantic',
+    fallback_reason: null,
+    results: [{
+      rank: 1,
+      match_mode: 'semantic',
+      semantic_score: 0.75,
+      document: effectiveBranchHeadDocument,
+    }],
+  };
+  const fallback = {
+    ...common,
+    retrieval_mode: 'structured_fallback',
+    fallback_reason: 'SEMANTIC_ATTEMPT_TIMEOUT',
+    results: [validationCycleDocument, effectiveBranchHeadDocument]
+      .map((document, index) => ({
+        rank: index + 1,
+        match_mode: 'structured_fallback',
+        semantic_score: null,
+        document,
+      })),
+  };
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2ResponseSchema, semantic), true);
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2ResponseSchema, fallback), true);
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2ResponseSchema, {
+    ...semantic,
+    fallback_reason: 'SEMANTIC_ATTEMPT_TIMEOUT',
+  }), false);
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2ResponseSchema, {
+    ...fallback,
+    results: [{
+      ...fallback.results[0],
+      match_mode: 'semantic',
+      semantic_score: 0.5,
     }],
   }), false);
 });

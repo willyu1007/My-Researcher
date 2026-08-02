@@ -23,6 +23,8 @@ export type PaperImplementationSemanticDocumentSourceTypeV2 =
 export const PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2 = 'v1' as const;
 export const PAPER_IMPLEMENTATION_SEMANTIC_QUERY_MAX_LENGTH_V2 = 4_000;
 export const PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2 = 3_072 as const;
+export const PAPER_IMPLEMENTATION_SEMANTIC_DEFAULT_RESULT_LIMIT_V2 = 20;
+export const PAPER_IMPLEMENTATION_SEMANTIC_MAX_RESULT_LIMIT_V2 = 100;
 
 export interface PaperImplementationSemanticDocumentSourceRefV2 {
   source_type: PaperImplementationSemanticDocumentSourceTypeV2;
@@ -78,6 +80,58 @@ export interface PaperImplementationSemanticRankingInputV2 {
   query: string;
   candidates: PaperImplementationSemanticDocumentV2[];
 }
+
+export const PAPER_IMPLEMENTATION_SEMANTIC_FALLBACK_REASONS_V2 = Object.freeze([
+  'QUERY_EMBEDDING_UNAVAILABLE',
+  'QUERY_EMBEDDING_INVALID',
+  'SEMANTIC_INDEX_UNAVAILABLE',
+  'SEMANTIC_ATTEMPT_TIMEOUT',
+  'SEMANTIC_INDEX_CORRUPT',
+  'SEMANTIC_INDEX_INCOMPLETE',
+  'NO_CURRENT_SEMANTIC_HITS',
+] as const);
+export type PaperImplementationSemanticFallbackReasonV2 =
+  (typeof PAPER_IMPLEMENTATION_SEMANTIC_FALLBACK_REASONS_V2)[number];
+
+export interface PaperImplementationSemanticRankedResultV2 {
+  rank: number;
+  match_mode: 'semantic';
+  semantic_score: number;
+  document: PaperImplementationSemanticDocumentV2;
+}
+
+export interface PaperImplementationStructuredFallbackResultV2 {
+  rank: number;
+  match_mode: 'structured_fallback';
+  semantic_score: null;
+  document: PaperImplementationSemanticDocumentV2;
+}
+
+export interface PaperImplementationSemanticRetrievalResponseV2 {
+  schema_version: typeof PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2;
+  implementation_project_id: string;
+  query: string;
+  retrieval_mode: 'semantic';
+  fallback_reason: null;
+  semantic_hits_considered: number;
+  stale_hits_dropped: number;
+  results: PaperImplementationSemanticRankedResultV2[];
+}
+
+export interface PaperImplementationStructuredFallbackResponseV2 {
+  schema_version: typeof PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2;
+  implementation_project_id: string;
+  query: string;
+  retrieval_mode: 'structured_fallback';
+  fallback_reason: PaperImplementationSemanticFallbackReasonV2;
+  semantic_hits_considered: number;
+  stale_hits_dropped: number;
+  results: PaperImplementationStructuredFallbackResultV2[];
+}
+
+export type PaperImplementationSemanticRetrievalV2Response =
+  | PaperImplementationSemanticRetrievalResponseV2
+  | PaperImplementationStructuredFallbackResponseV2;
 
 const nonEmptyString = { type: 'string', minLength: 1 } as const;
 const nullableString = {
@@ -218,4 +272,87 @@ export const paperImplementationSemanticRankingInputV2Schema = {
       items: paperImplementationSemanticDocumentV2Schema,
     },
   },
+} as const;
+
+const semanticRetrievalResponseCommonProperties = {
+  schema_version: {
+    type: 'string',
+    const: PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2,
+  },
+  implementation_project_id: nonEmptyString,
+  query: {
+    type: 'string',
+    minLength: 1,
+    maxLength: PAPER_IMPLEMENTATION_SEMANTIC_QUERY_MAX_LENGTH_V2,
+  },
+  semantic_hits_considered: { type: 'integer', minimum: 0 },
+  stale_hits_dropped: { type: 'integer', minimum: 0 },
+} as const;
+
+const semanticRetrievalResponseRequired = [
+  'schema_version',
+  'implementation_project_id',
+  'query',
+  'retrieval_mode',
+  'fallback_reason',
+  'semantic_hits_considered',
+  'stale_hits_dropped',
+  'results',
+] as const;
+
+export const paperImplementationSemanticRetrievalV2ResponseSchema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: semanticRetrievalResponseRequired,
+      properties: {
+        ...semanticRetrievalResponseCommonProperties,
+        retrieval_mode: { type: 'string', const: 'semantic' },
+        fallback_reason: { type: 'null' },
+        results: {
+          type: 'array',
+          maxItems: PAPER_IMPLEMENTATION_SEMANTIC_MAX_RESULT_LIMIT_V2,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['rank', 'match_mode', 'semantic_score', 'document'],
+            properties: {
+              rank: { type: 'integer', minimum: 1 },
+              match_mode: { type: 'string', const: 'semantic' },
+              semantic_score: { type: 'number' },
+              document: paperImplementationSemanticDocumentV2Schema,
+            },
+          },
+        },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: semanticRetrievalResponseRequired,
+      properties: {
+        ...semanticRetrievalResponseCommonProperties,
+        retrieval_mode: { type: 'string', const: 'structured_fallback' },
+        fallback_reason: {
+          type: 'string',
+          enum: [...PAPER_IMPLEMENTATION_SEMANTIC_FALLBACK_REASONS_V2],
+        },
+        results: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['rank', 'match_mode', 'semantic_score', 'document'],
+            properties: {
+              rank: { type: 'integer', minimum: 1 },
+              match_mode: { type: 'string', const: 'structured_fallback' },
+              semantic_score: { type: 'null' },
+              document: paperImplementationSemanticDocumentV2Schema,
+            },
+          },
+        },
+      },
+    },
+  ],
 } as const;

@@ -16,12 +16,14 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
+  assertPaperImplementationSemanticProjectionQueryV2,
   assertPaperImplementationSemanticProjectionReplacementV2,
   PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2,
   PaperImplementationSemanticProjectionV2RepositoryError,
   type PaperImplementationSemanticProjectionRecordV2,
   type PaperImplementationSemanticProjectionV2Repository,
   type ReplacePaperImplementationSemanticProjectProjectionV2Input,
+  type SearchPaperImplementationSemanticProjectProjectionV2Input,
 } from '../paper-implementation-semantic-projection-v2.repository.js';
 
 export interface PrismaPaperImplementationSemanticProjectionV2RepositoryOptions {
@@ -49,6 +51,19 @@ interface StoredProjectionRow {
   indexedAt: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface StoredProjectionHitRow {
+  documentId: string;
+  implementationProjectId: string;
+  sourceType: string;
+  sourceId: string;
+  sourceVersion: string;
+  sourceHash: string;
+  documentHash: string;
+  embeddingHash: string;
+  retrievalVector: string;
+  semanticScore: number;
 }
 
 const storedDocumentAjv = new Ajv({ allErrors: true, strict: false });
@@ -328,5 +343,81 @@ implements PaperImplementationSemanticProjectionV2Repository {
       ORDER BY "id" ASC
     `);
     return rows.map(mapStoredRow);
+  }
+
+  async searchProjectProjection(
+    input: SearchPaperImplementationSemanticProjectProjectionV2Input,
+  ) {
+    assertPaperImplementationSemanticProjectionQueryV2(input);
+    const queryVector = toPgvectorLiteral(input.normalized_query_vector);
+    const rows = await this.prisma.$queryRaw<StoredProjectionHitRow[]>(Prisma.sql`
+      SELECT
+        "id" AS "documentId",
+        "implementationProjectId",
+        "sourceType",
+        "sourceId",
+        "sourceVersion",
+        "sourceHash",
+        "documentHash",
+        "embeddingHash",
+        "retrievalVector"::text AS "retrievalVector",
+        (-(("retrievalVector"::halfvec(3072))
+          <#> ${queryVector}::halfvec(3072)))::double precision AS "semanticScore"
+      FROM "PaperImplementationSemanticDocumentProjectionV2"
+      WHERE "implementationProjectId" = ${input.implementation_project_id}
+        AND "embeddingProfileId" = ${input.embedding_profile.profile_id}
+        AND "embeddingProvider" = ${input.embedding_profile.provider}
+        AND "embeddingModel" = ${input.embedding_profile.model}
+        AND "embeddingDimension" = ${input.embedding_profile.dimension}
+      ORDER BY
+        (("retrievalVector"::halfvec(3072))
+          <#> ${queryVector}::halfvec(3072)) ASC,
+        "id" ASC
+      LIMIT ${input.limit}
+    `);
+    return rows.map((row) => {
+      const normalizedVector = parsePgvectorLiteral(row.retrievalVector);
+      const squaredNorm = normalizedVector.reduce(
+        (sum, value) => sum + (value * value),
+        0,
+      );
+      if (
+        row.implementationProjectId !== input.implementation_project_id
+        || !['validation_cycle', 'effective_branch_head'].includes(row.sourceType)
+        || row.documentId.length === 0
+        || row.sourceId.length === 0
+        || row.sourceVersion.length === 0
+        || row.sourceHash.length === 0
+        || row.documentHash.length === 0
+        || row.embeddingHash.length === 0
+        || !Number.isFinite(row.semanticScore)
+        || Math.abs(Math.sqrt(squaredNorm) - 1)
+          > PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2
+        || serverHashPaperImplementationSemanticEmbeddingV2({
+          document_id: row.documentId,
+          document_hash: row.documentHash,
+          profile_id: input.embedding_profile.profile_id,
+          provider: input.embedding_profile.provider,
+          model: input.embedding_profile.model,
+          dimension: input.embedding_profile.dimension,
+          normalized_vector: normalizedVector,
+        }) !== row.embeddingHash
+      ) {
+        throw projectionError(`Stored semantic projection hit is invalid: ${row.documentId}`);
+      }
+      return {
+        document_id: row.documentId,
+        implementation_project_id: row.implementationProjectId,
+        source: {
+          source_type: row.sourceType as 'validation_cycle' | 'effective_branch_head',
+          source_id: row.sourceId,
+          source_version: row.sourceVersion,
+          source_hash: row.sourceHash,
+        },
+        document_hash: row.documentHash,
+        embedding_hash: row.embeddingHash,
+        semantic_score: row.semanticScore,
+      };
+    });
   }
 }
