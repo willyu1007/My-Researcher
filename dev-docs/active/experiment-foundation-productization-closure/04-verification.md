@@ -2768,3 +2768,21 @@ Outcome: **exact named-local target and empty successor prefix verified read-onl
 - Parent branch — state/current/head were exactly `16 / sequence 8 / 8`; head Run was `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`.
 - Successor prefix — revision `pi_experiment_revision_v2_t132_m7_l1_durable_two_cell_successor_v9_1` count 0; Run `ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1` count 0.
 - Read-only effect census — database writes, cloud/provider calls, `CreateJob`, capability/scientific/evidence writes all 0.
+
+## 2026-08-02 — durable successor named-local closure verification
+
+Outcome: **exact 40-row successor materialization, zero-new replay and zero-cloud offline readiness passed**.
+
+- Primary materialization — authorized `apply-experiment-foundation-m7-executable-lineage.ts` invocation completed the prepared sequence-9 scope. Because the initial yielded tool call did not retain its session id, no second write was attempted before an independent read-only census.
+- Independent exact census — server-enforced read-only `REPEATABLE READ` found the reviewed table counts `0/1/2/1/2/1/2/1/23/1/2/1/2/1`, total 40; branch state/head `18/9`; revision parent exact sequence 8; Attempt/ExperimentResult/EvidenceCandidate/REU counts `0/0/0/0`.
+- Exact hashes — WorkOrder content `sha256:b667db99ddcbe19267e604d4333d09f4d2cbd3635daab34b306453bf97b96482`; Run manifest `sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea`.
+- Independent replay — reran the exact authorized scope only after confirming the complete 40-row prefix. Result `status=passed`, `admission_replayed=true`, apply and replay new rows 0, all 14 table deltas 0, relay idle with no claims/failures, 236 protected tables unchanged, prior revision/Run unchanged and prohibited effects 0.
+- Authorization retirement — `DURABLE_TWO_CELL_SUCCESSOR_AUTHORIZATION_VALUE` reset to `null` after complete replay. `LIVE_AUTHORIZATION_VALUE` remained `null` throughout.
+- Script typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts`; passed after pinning the exact Run hash.
+- Offline preflight — `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight`; passed for the exact sequence-9 Run/hash, frozen Bundle, two cells, `ecs.g6.large`, two-Job/¥50 ceilings and current controller policy. Existing Attempts, cloud calls and database writes were `0/0/0`.
+- Deterministic real-provider tests — direct Node run of intake service, API route, worker and transport suites passed 20/20. Coverage includes capability-off zero effects, exact two-cell intake/replay, deterministic ids, accepted-response discovery without duplicate `CreateJob`, timeout cleanup, cancel/succeeded reconcile race and exact collection.
+- Documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors. The 206 warnings are repository-wide advisory findings.
+- Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The two state-format warnings belong to unrelated T-124-era bundles.
+- Scoped whitespace check — `git diff --check -- <seven T-132 files>`; passed.
+- Source authorization audit — the exact sequence-9 Run manifest hash is pinned; named-local materialization and paid live authorization constants are both `null`.
+- Final effect census — named-local successor rows 40; replay rows 0; STS/cloud/provider/`CreateJob` 0/0/0/0; capability/Attempt/scientific/evidence effects 0/0/0/0.

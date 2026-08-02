@@ -1029,3 +1029,12 @@ When adding an entry, use:
 - Fix/workaround: remove the probe mode, its monetary/Job constants and authorization check before commit. Retain only `sequence9-recover`, whose transport is constructed with a zero `CreateJob` ceiling.
 - Prevention: every dated paid-run mode must have an explicit post-run retirement gate before landing. Per-process counters do not replace revoking the source-level authorization path.
 - References: `apps/backend/scripts/run-experiment-foundation-m7-l1-live-window.ts`; `00-overview.md`; `03-implementation-notes.md`; `04-verification.md`.
+
+### 2026-08-02 — Preserve yielded command session ids before leaving the tool call
+
+- Symptom: the first named-local successor apply exceeded the 30-second tool yield and returned no captured business summary; the wrapper printed only output/exit fields and discarded the returned live session id.
+- Root cause: the shell process continued after the yield, but the orchestration layer did not persist or display `session_id`, so its eventual stdout could not be polled directly.
+- What was tried: checked for a still-running process without starting another write, then used a server-enforced read-only transaction to prove the exact complete 40-row prefix, branch `18/9`, authoritative hashes and prohibited rows 0. Only after completeness was established, an exact idempotent replay was run and captured through an explicitly retained session id.
+- Fix/workaround: when a state-changing command may yield, emit or store its `session_id` immediately and continue only through `write_stdin`. If the id is lost, inspect process and authoritative state read-only before considering any replay.
+- Prevention: never rerun an uncertain state-changing command merely because stdout is missing. Require an empty-or-complete census and an idempotent replay contract first; otherwise stop for recovery review.
+- References: `apps/backend/scripts/apply-experiment-foundation-m7-executable-lineage.ts`; `03-implementation-notes.md`; `04-verification.md`.

@@ -110,7 +110,8 @@ const HISTORICAL_SEQUENCE9_RECOVERY_SCOPE: LiveRunScope = Object.freeze({
 const DURABLE_TWO_CELL_SUCCESSOR_SCOPE: LiveRunScope = Object.freeze({
   revision_sequence: 9,
   run_id: 'ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1',
-  run_manifest_hash: null,
+  run_manifest_hash:
+    'sha256:c74bea341813166132f42b6398356a23aaf4785dfdb8e77a75efad5597473cea',
   business_idempotency_key: 't132-m7-l1-durable-two-cell-live-p313-v9',
 });
 const BUNDLE_REVISION_ID =
