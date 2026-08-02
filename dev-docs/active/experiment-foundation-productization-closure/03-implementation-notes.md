@@ -1376,3 +1376,9 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - The new Run manifest hash is intentionally `null`. Normal runner modes fail before database access until a separately authorized T1-T4 apply returns the server-owned hash and a follow-up source review pins it. The paid two-Job authorization remains independently `null`.
 - No named-local transaction, STS issuance, cloud call, provider operation, `CreateJob`, capability change or scientific/evidence write was performed. Unrelated dirty-worktree governance changes remain outside T-132 scope.
 - Next three actions: (1) review the sequence-9 ids, parent CAS `16/8`, 40-row census and no-cloud authorization text; (2) after explicit approval, materialize/replay the successor and record the returned Run manifest hash; (3) pin that hash and run zero-cloud offline gates before proposing any STS or paid window.
+
+## 2026-08-02 — durable successor named-local authorization
+
+- The owner explicitly confirmed one named-local-only materialization window: maximum 40 new T1-T4 rows, one branch CAS from `16/8` to `18/9`, exact in-process replay and no cloud/provider/scientific/evidence effects.
+- The source-bound token is `authorized-2026-08-02-p313-m7-l1-durable-two-cell-successor-max40-no-cloud`. It does not authorize STS, `GetImage`, provider calls, `CreateJob`, capability changes or paid execution.
+- A server-enforced read-only `REPEATABLE READ` preflight passed before activating the token: target fingerprint matched, Cycle was `admitted/not_started`, exact sequence-8 parent revision/Run and branch `16/8` matched, successor revision/Run counts were 0 and Cycle closure count was 0.

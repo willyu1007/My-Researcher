@@ -2758,3 +2758,13 @@ Outcome: **source identity and fail-closed authorization boundaries prepared; no
 - Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The two reported state-format warnings belong to unrelated T-124-era bundles.
 - Scoped whitespace check — `git diff --check -- <two T-132 scripts and 00-04 task docs>`; passed.
 - Scoped secret-pattern scan — target diff contained no access-key, secret/token, password assignment or private-key marker.
+
+## 2026-08-02 — durable successor authorized pre-apply verification
+
+Outcome: **exact named-local target and empty successor prefix verified read-only; max-40/no-cloud authorization recorded but not yet consumed**.
+
+- Target preflight — inline Prisma command used `assertExperimentFoundationNamedLocalDatabaseUrl`, live target fingerprint verification and server-enforced read-only `REPEATABLE READ`; passed for `postgres / my_researcher_dev / 127.0.0.1:5432` and fingerprint `sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0`.
+- Cycle — `validation_cycle_t132_m7_l1_p313_v1` remained `admitted / not_started`; closure count 0.
+- Parent branch — state/current/head were exactly `16 / sequence 8 / 8`; head Run was `ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1`.
+- Successor prefix — revision `pi_experiment_revision_v2_t132_m7_l1_durable_two_cell_successor_v9_1` count 0; Run `ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1` count 0.
+- Read-only effect census — database writes, cloud/provider calls, `CreateJob`, capability/scientific/evidence writes all 0.
