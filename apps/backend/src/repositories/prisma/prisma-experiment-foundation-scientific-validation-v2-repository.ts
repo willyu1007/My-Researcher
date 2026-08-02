@@ -38,6 +38,15 @@ import {
   type PersistExperimentFoundationScientificResultV2Input,
   type PersistExperimentFoundationScientificValidationV2Input,
 } from '../experiment-foundation-scientific-validation-v2.repository.js';
+import {
+  ExperimentFoundationExecutionV2ConstraintError,
+  type ExperimentFoundationExecutionAttemptEventV2Record,
+  type ExperimentFoundationExecutionAttemptV2Record,
+  type ExperimentFoundationProviderPayloadV2Record,
+} from '../experiment-foundation-execution-v2.repository.js';
+import {
+  PrismaExperimentFoundationExecutionV2Repository,
+} from './prisma-experiment-foundation-execution-v2-repository.js';
 
 type ScientificValidationClient = Pick<
   Prisma.TransactionClient,
@@ -65,7 +74,11 @@ function constraint(
 
 export class PrismaExperimentFoundationScientificValidationV2Repository
 implements ExperimentFoundationScientificValidationV2Repository {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly executionRepository: PrismaExperimentFoundationExecutionV2Repository;
+
+  constructor(private readonly prisma: PrismaClient) {
+    this.executionRepository = new PrismaExperimentFoundationExecutionV2Repository(prisma);
+  }
 
   async loadRun(
     runId: string,
@@ -243,30 +256,40 @@ implements ExperimentFoundationScientificValidationV2Repository {
   async loadExecutionAttempt(
     executionAttemptId: string,
   ): Promise<ExperimentFoundationScientificValidationV2ExecutionAttempt | null> {
-    const row = await this.prisma.experimentFoundationExecutionAttemptV2.findUnique({
-      where: { id: executionAttemptId },
-    });
-    if (!row) return null;
-    if (!isAttemptState(row.lifecycleState)) {
-      throw constraint('VALIDATION_SCOPE_DRIFT', 'Execution Attempt has an unknown lifecycle state.');
+    let attempt: ExperimentFoundationExecutionAttemptV2Record | null;
+    let payload: ExperimentFoundationProviderPayloadV2Record | null;
+    let events: ExperimentFoundationExecutionAttemptEventV2Record[];
+    try {
+      attempt = await this.executionRepository.findAttempt(executionAttemptId);
+      if (!attempt) return null;
+      [payload, events] = await Promise.all([
+        this.executionRepository.findProviderPayload(attempt.provider_payload_id),
+        this.executionRepository.listAttemptEvents(attempt.id),
+      ]);
+    } catch (error) {
+      if (error instanceof ExperimentFoundationExecutionV2ConstraintError) {
+        throw constraint(
+          'VALIDATION_SCOPE_DRIFT',
+          `Execution lineage failed durable integrity verification: ${error.message}`,
+        );
+      }
+      throw error;
     }
-    if (!isExecutionMode(row.executionMode) || !isExecutionProvenance(row.provenance)) {
-      throw constraint(
-        'EVIDENCE_PROVENANCE_REJECTED',
-        'Execution Attempt has an unknown or ineligible provider provenance.',
-      );
+    assertExactAttemptPayload(attempt, payload);
+    if (attempt.execution_mode === 'real_provider' || attempt.provenance === 'real_provider') {
+      assertExactRealProviderEventLineage(attempt, events);
     }
     return {
-      execution_attempt_id: row.id,
-      run_id: row.runId,
-      run_manifest_hash: row.runManifestHash,
-      run_cell_id: row.runCellId,
-      cell_key: row.cellKey,
-      training_task_spec_id: row.trainingTaskSpecId,
-      training_task_spec_hash: row.trainingTaskSpecHash,
-      lifecycle_state: row.lifecycleState,
-      execution_mode: row.executionMode,
-      provenance: row.provenance,
+      execution_attempt_id: attempt.id,
+      run_id: attempt.run_id,
+      run_manifest_hash: attempt.run_manifest_hash,
+      run_cell_id: attempt.run_cell_id,
+      cell_key: attempt.cell_key,
+      training_task_spec_id: attempt.training_task_spec_id,
+      training_task_spec_hash: attempt.training_task_spec_hash,
+      lifecycle_state: attempt.lifecycle_state,
+      execution_mode: attempt.execution_mode,
+      provenance: attempt.provenance,
     };
   }
 
@@ -689,22 +712,108 @@ function assertValidationPersistenceInput(
   }
 }
 
-function isAttemptState(
-  value: string,
-): value is ExperimentFoundationScientificValidationV2ExecutionAttempt['lifecycle_state'] {
-  return ['prepared', 'submitted', 'running', 'succeeded', 'failed', 'cancelled'].includes(value);
+function assertExactAttemptPayload(
+  attempt: ExperimentFoundationExecutionAttemptV2Record,
+  payload: ExperimentFoundationProviderPayloadV2Record | null,
+): asserts payload is ExperimentFoundationProviderPayloadV2Record {
+  if (
+    !payload
+    || payload.id !== attempt.provider_payload_id
+    || payload.payload_hash !== attempt.provider_payload_hash
+    || payload.run_id !== attempt.run_id
+    || payload.run_manifest_hash !== attempt.run_manifest_hash
+    || payload.run_cell_id !== attempt.run_cell_id
+    || payload.cell_key !== attempt.cell_key
+    || payload.training_task_spec_id !== attempt.training_task_spec_id
+    || payload.training_task_spec_hash !== attempt.training_task_spec_hash
+    || payload.execution_mode !== attempt.execution_mode
+    || payload.provenance !== attempt.provenance
+  ) {
+    throw constraint(
+      'EVIDENCE_PROVENANCE_REJECTED',
+      'Execution Attempt does not bind an exact ProviderPayload provenance tuple.',
+    );
+  }
+  if (
+    attempt.execution_mode === 'real_provider'
+    && (
+      payload.payload_schema !== 'AliyunPaiDlcCreateJobPayload@v1'
+      || payload.adapter_identity !== 'aliyun_pai_dlc_official_sdk@v1'
+      || attempt.provenance !== 'real_provider'
+    )
+  ) {
+    throw constraint(
+      'EVIDENCE_PROVENANCE_REJECTED',
+      'Scientific evidence requires the exact official real-provider payload tuple.',
+    );
+  }
 }
 
-function isExecutionMode(
-  value: string,
-): value is ExperimentFoundationScientificValidationV2ExecutionAttempt['execution_mode'] {
-  return value === 'simulation' || value === 'real_provider';
-}
-
-function isExecutionProvenance(
-  value: string,
-): value is ExperimentFoundationScientificValidationV2ExecutionAttempt['provenance'] {
-  return value === 'non_production_fake_provider' || value === 'real_provider';
+function assertExactRealProviderEventLineage(
+  attempt: ExperimentFoundationExecutionAttemptV2Record,
+  events: readonly ExperimentFoundationExecutionAttemptEventV2Record[],
+): void {
+  const first = events[0];
+  const last = events.at(-1);
+  if (
+    !first
+    || !last
+    || first.event_sequence !== 1
+    || first.event_type !== 'created'
+    || first.prior_state !== null
+    || first.next_state !== 'prepared'
+    || last.next_state !== attempt.lifecycle_state
+    || last.external_job_ref !== attempt.external_job_ref
+    || last.external_job_ref_hash !== attempt.external_job_ref_hash
+  ) {
+    throw constraint(
+      'VALIDATION_SCOPE_DRIFT',
+      'Real-provider Attempt has no exact durable event-chain boundary.',
+    );
+  }
+  for (const [index, event] of events.entries()) {
+    const prior = events[index - 1];
+    if (
+      event.execution_attempt_id !== attempt.id
+      || event.event_sequence !== index + 1
+      || event.payload_hash !== attempt.provider_payload_hash
+      || (prior && event.prior_state !== prior.next_state)
+    ) {
+      throw constraint(
+        'VALIDATION_SCOPE_DRIFT',
+        'Real-provider Attempt events are missing, reordered, or scope-drifted.',
+      );
+    }
+  }
+  const stateEvents = events.filter((event) => (
+    event.event_type === 'created'
+    || event.event_type === 'submitted'
+    || event.event_type === 'running'
+    || event.event_type === 'succeeded'
+    || event.event_type === 'failed'
+    || event.event_type === 'cancelled'
+  ));
+  const terminal = stateEvents.at(-1);
+  const reasonCode = terminal?.event_snapshot.reason_code;
+  if (
+    stateEvents.length !== attempt.state_version + 1
+    || !terminal
+    || terminal.next_state !== attempt.lifecycle_state
+    || (
+      attempt.lifecycle_state === 'succeeded'
+      && (
+        terminal.event_type !== 'succeeded'
+        || reasonCode !== attempt.terminal_reason_code
+        || attempt.terminal_reason_code !== 'real_provider_succeeded'
+        || attempt.external_job_ref_type !== 'aliyun_pai_dlc_job'
+      )
+    )
+  ) {
+    throw constraint(
+      'VALIDATION_SCOPE_DRIFT',
+      'Real-provider Attempt state, terminal reason, or event lineage is inconsistent.',
+    );
+  }
 }
 
 function toInputJson(value: unknown): Prisma.InputJsonValue {

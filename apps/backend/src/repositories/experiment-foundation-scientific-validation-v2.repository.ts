@@ -58,11 +58,7 @@ export interface ExperimentFoundationScientificValidationV2HeadAcknowledgement {
   run_manifest_hash: string;
 }
 
-/**
- * Pack B currently persists simulation-only values. The widened string literals
- * intentionally let unit fixtures model the future real-provider Attempt writer
- * without weakening the service's exact provenance checks.
- */
+/** Scientific-validation view of a durably verified simulation or real-provider Attempt. */
 export interface ExperimentFoundationScientificValidationV2ExecutionAttempt {
   execution_attempt_id: string;
   run_id: string;

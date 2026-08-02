@@ -103,3 +103,12 @@
 - Confirmed the scientific validator rejects a caller-substituted Attempt id before result persistence and rejects a succeeded simulation Attempt produced from a second attached Run as `EVIDENCE_PROVENANCE_REJECTED`; neither branch creates a result, report, Candidate or REU.
 - Confirmed the positive Candidate remains non-paper-trusted until the existing Evidence Trust Gateway consumes its existing qualified event, after which exactly one scope-bound REU, trace manifest and registration outbox exist.
 - No named-local/staging/production database, provider/cloud system, runtime flag, UI or historical output was touched. Phase 3 is complete; T-134 remains open for Phase 4 EF-P21.
+
+## 2026-08-02 — Phase 3C quality remediation
+
+- Superseded the hand-seeded Phase 3C provider fixture. Both scientific-validation and PI evidence-closure relational suites now create a persisted active-ready ExecutionBundle, admit/materialize an executable v2 WorkOrder and converge Attempts through the existing real-provider intake, Prisma execution repository and command worker.
+- Added reusable backend test support for the production-shaped no-network path. The SDK fake supplies provider responses only; payload materialization, idempotency, canonical events, command transitions, collection and terminal success remain owned by production services/repositories.
+- Hardened `PrismaExperimentFoundationScientificValidationV2Repository.loadExecutionAttempt` to reuse canonical execution readers and fail closed unless Attempt, ProviderPayload and real-provider event lineage are exact. The prior fake simulation payload plus real-provider Attempt combination is now explicitly rejected before result persistence.
+- Extended Phase 3C zero-write census to include EF qualified outbox and PI trust-gateway inbox, trace manifest and registration outbox in addition to result/report/Candidate/REU.
+- The first production-shaped disposable replay exposed colon-delimited fixture Run/cell ids that violate the real provider's safe OSS path-segment contract. Relational fixtures now use provider-safe materialization and cell identities.
+- No production schema, migration, route, capability, named database, cloud/provider resource or UI surface changed. Phase 3 is complete again; Phase 4 EF-P21 remains unstarted and requires discussion/authorization.

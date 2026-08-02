@@ -119,3 +119,11 @@ Option 2 — a standalone Run/Attempt/Result lineage plus result-import trust bo
 - PI attachment storage keeps EF identities as scalar exact refs without a cross-domain foreign key. Composite PI foreign keys bind exact project/Cycle/branch, revision/approved-plan and admission authority.
 - One spec revision binds one PI project/Cycle/branch. Same-key replay is zero-new; a different key may add only one receipt; changed scope/plan conflicts.
 - `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED` defaults false and requires committed cutover plus ordinary PI v2 admission. The attachment capability does not require the Phase 3A authoring flag because already committed immutable specs remain eligible.
+
+## Phase 3C landed execution-lineage trust seam — 2026-08-02
+
+- The positive trust path requires an executable v2 WorkOrder bound to an active-ready persisted ExecutionBundle. Existing EF materialization produces executable TaskSpecs, then the existing real-provider intake, repository and command worker own ProviderPayload, Attempt, canonical events, commands, collection and terminal success.
+- Scientific validation no longer trusts the Attempt row in isolation. Its Prisma repository reuses the execution repository's typed/canonical readers, requires exact payload id/hash/run/cell/TaskSpec/mode/provenance parity and requires a contiguous canonical event chain whose terminal state/reason/external job binding matches the Attempt.
+- A simulation payload relabeled through a real-provider Attempt is rejected as `EVIDENCE_PROVENANCE_REJECTED`; missing, reordered, corrupt or state-drifted real-provider events are rejected as `VALIDATION_SCOPE_DRIFT` before any scientific result write.
+- Attachment and failed result intake remain zero-trust operations. Relational assertions cover EF result/report/Candidate/qualified-outbox state and PI gateway inbox/REU/trace/registration-outbox state, not only the final REU count.
+- Phase 3C hardening introduced no new production writer, route, schema, migration, capability or provider call. The no-network SDK fake is injected only behind the existing production transport boundary in disposable tests.

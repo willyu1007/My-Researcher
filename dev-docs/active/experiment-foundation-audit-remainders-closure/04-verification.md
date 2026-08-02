@@ -124,3 +124,16 @@ The two Phase 3B review findings are resolved. Phase 3C remains the next authori
 - Effects remain zero outside disposable verification: no named database, runtime capability, provider/cloud resource, UI, production code, schema, migration or trust writer changed.
 
 Phase 3 is complete. EF-P15 is closed under P15-03 option 1; T-134 remains in progress for Phase 4 EF-P21.
+
+## Phase 3C quality-remediation verification — 2026-08-02
+
+- `pnpm --filter @paper-engineering-assistant/backend typecheck` → passed after Prisma Client generation; final `tsc -p tsconfig.json --noEmit` reported zero errors.
+- Targeted real-provider intake/worker, scientific-validation service and Evidence Trust Gateway suites ran with `TS_NODE_TRANSPILE_ONLY=true node --test --loader ts-node/esm ...` after the independent typecheck → 49/49 passed.
+- Official `packc-ef-20260802-r134` orchestration reproduced the already-documented Node 26 runner limitation: its child environment did not inherit the transpile-only workaround, so TypeScript files failed before test execution. Static census passed and the disposable container was removed.
+- Equivalent nonce/marker/password-guarded disposable PostgreSQL verification then used the repository-pinned pgvector digest, applied all 74 migrations to isolated `packc_<nonce>` and `packc_pi_<nonce>` databases, and removed the container on exit.
+- Corrected Pack C-EF scientific relational suite → 4/4 passed, 0 failed, 0 skipped. Every fixture uses persisted active-ready ExecutionBundle plus executable v2 materialization and the existing real-provider intake/repository/worker path.
+- Corrected Pack C-PI relational suite → 5/5 passed, 0 failed, 0 skipped. `T-134 Phase 3C trusts only a newly materialized PI Run from an exploration attachment` passed through production-shaped real-provider lineage and the existing trust gateway.
+- PI negatives relabel a production simulation Attempt as real while retaining its fake payload and separately delete a canonical succeeded event from a completed real Attempt. Scientific reads return `EVIDENCE_PROVENANCE_REJECTED` and `VALIDATION_SCOPE_DRIFT` respectively; the expanded census proves zero result/report/Candidate/qualified-outbox/gateway-inbox/REU/trace/registration-outbox writes for rejected intake.
+- `git diff --check` → passed. No named database, runtime capability, external provider/cloud resource, schema, migration or UI changed.
+
+Phase 3 is complete after remediation. EF-P15 is closed under P15-03 option 1; T-134 remains `in-progress` only because Phase 4 EF-P21 and final convergence remain pending.

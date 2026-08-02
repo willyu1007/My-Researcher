@@ -8,6 +8,9 @@ import type {
   ExperimentFoundationV2MetricContractRuleV1,
   ExperimentFoundationV2RequiredRuleV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
+import type {
+  ExperimentFoundationExecutionBundleRevisionV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
@@ -22,6 +25,10 @@ import {
   requireDisposablePostgresDatabaseIdentity,
   openVerifiedDisposablePostgresTestDatabase,
 } from '../../test-support/disposable-postgres-test-database.js';
+import {
+  createPersistedRealProviderBundleV2,
+  runSucceededRealProviderExecutionV2,
+} from '../../test-support/experiment-foundation-real-provider-v2-test-support.js';
 import { InMemoryPaperImplementationExperimentSpineV2Repository } from '../in-memory-experiment-spine-v2-repository.js';
 import type {
   ExperimentFoundationScientificValidationV2Repository,
@@ -40,6 +47,7 @@ import {
 import { ExperimentFoundationV2Service } from '../../services/experiment-foundation-v2-service.js';
 import { PaperImplementationExperimentV2AdmissionService } from '../../services/paper-implementation-experiment-v2-admission-service.js';
 import { PrismaExperimentFoundationExecutionRepository } from './prisma-experiment-foundation-execution-repository.js';
+import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
 import { PrismaExperimentFoundationRepository } from './prisma-experiment-foundation-repository.js';
 import { PrismaExperimentFoundationScientificValidationV2Repository } from './prisma-experiment-foundation-scientific-validation-v2-repository.js';
 import { PrismaExperimentFoundationSpineV2Repository } from './prisma-experiment-foundation-spine-v2-repository.js';
@@ -383,15 +391,23 @@ async function seedScientificFixture(
   prisma: PrismaClient,
   purpose: string,
 ): Promise<ScientificFixture> {
-  await widenAttemptFixtureChecks(prisma);
   const foundationService = new ExperimentFoundationV2Service(
     new PrismaExperimentFoundationV2Repository(prisma),
   );
   foundationFixturePromise ??= buildExperimentFoundationD19TypedFixture(foundationService);
   const fixture = await foundationFixturePromise;
   const namespace = `packc-${purpose}-${randomUUID()}`;
+  const realProvider = await createPersistedRealProviderBundleV2({
+    prisma,
+    namespace,
+    now: FIXED_NOW,
+  });
   let idSequence = 0;
   const nextId = (prefix: string) => `${namespace}:${prefix}:${++idSequence}`;
+  let materializationIdSequence = 0;
+  const nextMaterializationId = (prefix: string) => (
+    `${namespace}-${prefix}-${++materializationIdSequence}`
+  );
   const piRepository = new InMemoryPaperImplementationExperimentSpineV2Repository();
   const admissionService = new PaperImplementationExperimentV2AdmissionService({
     repository: piRepository,
@@ -414,7 +430,7 @@ async function seedScientificFixture(
   await admissionService.admit({
     implementation_project_id: `${namespace}:project`,
     validation_cycle_id: `${namespace}:cycle`,
-    request: materializationAdmissionRequest(fixture, namespace),
+    request: materializationAdmissionRequest(fixture, namespace, realProvider.revision),
     admitted_by: `system:${purpose}`,
   });
   const sourceEvent = piRepository.snapshot().outboxes[0]!.outbox.event;
@@ -436,7 +452,8 @@ async function seedScientificFixture(
         };
       },
     },
-    idFactory: nextId,
+    executionBundleResolver: realProvider.resolver,
+    idFactory: nextMaterializationId,
     now: () => FIXED_NOW,
   });
   const materialization = await materializer.consume(sourceEvent);
@@ -494,63 +511,14 @@ async function seedScientificFixture(
     processed_at: FIXED_NOW,
   }, headEvent);
 
-  const attempts: string[] = [];
-  for (const cell of materialization.run_cells) {
-    const payloadId = nextId('payload');
-    const payloadHash = hash(`${namespace}:payload:${cell.ordinal}`);
-    await prisma.experimentFoundationProviderPayloadV2.create({ data: {
-      id: payloadId,
-      materializationKey: `${namespace}:payload:${cell.ordinal}`,
-      runId: run.run_id,
-      runManifestHash: run.run_manifest_hash,
-      runCellId: cell.run_cell_id,
-      cellKey: cell.cell_key,
-      trainingTaskSpecId: cell.training_task_spec_id,
-      trainingTaskSpecHash: cell.training_task_spec_hash,
-      payloadSchemaVersion: 'FakeAliyunPaiDlcSubmitPayload@v1',
-      adapterIdentity: 'deterministic_fake_aliyun_pai_dlc@v1',
-      executionMode: 'simulation',
-      provenance: 'non_production_fake_provider',
-      providerProfileVersion: 'v1',
-      redactedManifestVersion: 'v1',
-      redactedManifestJson: { fixture: 'packc-real-provider-attempt-parent' },
-      payloadHash,
-      payloadByteSize: 1,
-      createdAt: new Date(FIXED_NOW),
-    } });
-    const attemptId = nextId('attempt');
-    attempts.push(attemptId);
-    await prisma.experimentFoundationExecutionAttemptV2.create({ data: {
-      id: attemptId,
-      externalPiImplementationProjectId: headEvent.implementation_project_id,
-      externalPiValidationCycleId: headEvent.validation_cycle_id,
-      externalPiBranchId: headEvent.branch_id,
-      externalPiWorkOrderRevisionId: headEvent.work_order_revision_id,
-      externalPiWorkOrderRevisionHash: headEvent.work_order_revision_hash,
-      externalPiRevisionSequence: headEvent.branch_revision_sequence,
-      runId: run.run_id,
-      runManifestHash: run.run_manifest_hash,
-      runCellId: cell.run_cell_id,
-      cellKey: cell.cell_key,
-      trainingTaskSpecId: cell.training_task_spec_id,
-      trainingTaskSpecHash: cell.training_task_spec_hash,
-      providerPayloadId: payloadId,
-      providerPayloadHash: payloadHash,
-      headAcknowledgementInboxId: acknowledgementId,
-      attemptSequence: 1,
-      workflowBusinessKey: `${namespace}:workflow`,
-      workflowRequestHash: hash(`${namespace}:workflow`),
-      executionMode: 'real_provider',
-      provenance: 'real_provider',
-      providerIdempotencyKey: `${namespace}:provider:${cell.ordinal}`,
-      lifecycleState: 'succeeded',
-      stateVersion: 1,
-      terminalReasonCode: 'simulation_succeeded',
-      createdAt: new Date(FIXED_NOW),
-      updatedAt: new Date(FIXED_NOW),
-      terminalAt: new Date(FIXED_NOW),
-    } });
-  }
+  const attempts = await runSucceededRealProviderExecutionV2({
+    repository: new PrismaExperimentFoundationExecutionV2Repository(prisma),
+    runId: run.run_id,
+    businessIdempotencyKey: `${namespace}:real-provider`,
+    bundle: realProvider.revision,
+    profile: realProvider.profile,
+    now: FIXED_NOW,
+  });
   const repository = new PrismaExperimentFoundationScientificValidationV2Repository(prisma);
   const protocol = await repository.resolveEvaluationProtocol(run.run_id);
   assert.ok(protocol);
@@ -572,6 +540,7 @@ async function seedScientificFixture(
 function materializationAdmissionRequest(
   fixture: Awaited<ReturnType<typeof buildExperimentFoundationD19TypedFixture>>,
   namespace: string,
+  executionBundle: ExperimentFoundationExecutionBundleRevisionV2,
 ): PaperImplementationExperimentV2AdmissionRequest {
   const readiness = fixture.evaluation_protocol_readiness;
   const metric = fixture.metric_definitions[0]!;
@@ -586,7 +555,7 @@ function materializationAdmissionRequest(
       parent_branch_key: null,
     },
     work_order_revision: {
-      work_order_schema_version: 'v1',
+      work_order_schema_version: 'v2',
       title: 'Pack C relational fixture',
       objective: 'Prove Pack C relational and atomicity fences.',
       readiness_attestation_id: readiness.attestation.readiness_attestation_id,
@@ -596,9 +565,16 @@ function materializationAdmissionRequest(
         readiness.attestation.target,
       ],
       run_policy: { max_attempts_per_cell: 1, timeout_seconds: 60 },
+      execution_bundle: {
+        execution_bundle_id: executionBundle.execution_bundle_id,
+        execution_bundle_revision_id: executionBundle.execution_bundle_revision_id,
+        revision_sequence: executionBundle.revision_sequence,
+        content_hash: executionBundle.content_hash,
+      },
+      resource_snapshot: { cpu_cores: 1, memory_mb: 1024 },
     },
     exact_cells: [1, 2].map((ordinal) => ({
-      cell_key: `${namespace}:cell:${ordinal}`,
+      cell_key: `${namespace}-cell-${ordinal}`,
       seed: ordinal,
       repeat_index: ordinal - 1,
       parameters: [{ name: 'ordinal', value: ordinal }],
@@ -718,27 +694,6 @@ function repositoryWithUnsupportedRule(
       return typeof value === 'function' ? value.bind(target) : value;
     },
   }) as ExperimentFoundationScientificValidationV2Repository;
-}
-
-async function widenAttemptFixtureChecks(prisma: PrismaClient): Promise<void> {
-  await prisma.$executeRawUnsafe(`
-    DO $$ BEGIN
-      IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ef_execution_attempt_mode_check') THEN
-        ALTER TABLE "ExperimentFoundationExecutionAttemptV2"
-          DROP CONSTRAINT "ef_execution_attempt_mode_check";
-        ALTER TABLE "ExperimentFoundationExecutionAttemptV2"
-          ADD CONSTRAINT "ef_execution_attempt_mode_check"
-          CHECK ("executionMode" IN ('simulation', 'real_provider'));
-      END IF;
-      IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ef_execution_attempt_provenance_check') THEN
-        ALTER TABLE "ExperimentFoundationExecutionAttemptV2"
-          DROP CONSTRAINT "ef_execution_attempt_provenance_check";
-        ALTER TABLE "ExperimentFoundationExecutionAttemptV2"
-          ADD CONSTRAINT "ef_execution_attempt_provenance_check"
-          CHECK ("provenance" IN ('non_production_fake_provider', 'real_provider'));
-      END IF;
-    END $$;
-  `);
 }
 
 async function installOutboxFailureTrigger(prisma: PrismaClient): Promise<void> {

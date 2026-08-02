@@ -24,6 +24,9 @@
 - Do not rely on PostgreSQL to preserve generated relation names longer than 63 bytes; pin short names in both Prisma and migration SQL and run full-history drift replay.
 - Do not rely on Fastify `additionalProperties: false` alone when the default AJV mode may remove caller-authored authority fields; reject unexpected authority before dispatch and test zero service calls.
 - Do not bind PI attachment scope with independent scalar foreign keys only; use composite project/Cycle/branch, revision/plan and admission bindings plus durable read-time recomputation.
+- Do not hand-seed a `real_provider` Attempt over a simulation ProviderPayload; positive evidence tests must enter through executable v2 materialization and the existing real-provider intake/worker path.
+- Do not trust an Attempt row alone at scientific ingress; re-resolve its canonical payload and event lineage before accepting real-provider provenance.
+- Do not use colon-delimited fixture Run or cell identities in real-provider tests; they must satisfy the production-safe provider path-segment contract.
 
 ## Standalone attachment assumed a source authority that does not exist — 2026-08-02
 
@@ -103,3 +106,19 @@
 - What was tried: boolean false and known drift tests proved the business path but did not exercise a raw repository/infrastructure exception.
 - Fix/workaround: normalize only the three explicit readiness reason codes and rethrow every unknown error to the controller's logged 500 boundary; service and HTTP tests now cover both branches.
 - Prevention: adapter catches must use explicit operational error types/codes, and every new mapping requires paired known-domain and unknown-failure tests.
+
+## Phase 3C hand-seeded an impossible provider lineage — 2026-08-02
+
+- Symptom: the positive trust test inserted a succeeded `real_provider` Attempt whose parent ProviderPayload was explicitly `simulation/non_production_fake_provider`, while the WorkOrder remained schema v1.
+- Root cause: the fixture predated the existing M7 real-provider execution path and was retained as a shortcut, so it bypassed executable-v2 prerequisite checks and exposed only the Attempt row to scientific validation.
+- What was tried: direct durable fixture rows exercised downstream scientific/gateway code, but could not prove production-shaped provider lineage and actively encoded a cross-table provenance contradiction.
+- Fix/workaround: persist an active-ready ExecutionBundle, materialize an executable v2 WorkOrder, then use the existing real-provider intake, Prisma repository and command worker with an injected no-network SDK fake. Scientific reads now require exact ProviderPayload/Attempt parity and canonical event continuity.
+- Prevention: positive end-to-end evidence tests must identify and invoke the production owner for every authority transition; a fixture may fake an external transport response but must not mint internal durable authority rows.
+
+## Production-shaped provider replay rejected unsafe fixture identities — 2026-08-02
+
+- Symptom: the first corrected disposable replay failed before provider submission because colon-delimited generated Run/cell ids were not safe single OSS path segments.
+- Root cause: simulation-only fixtures allowed arbitrary internal identifiers, while the real-provider payload service correctly freezes Run and cell ids into output object paths and enforces `^[A-Za-z0-9_.-]{1,256}$`.
+- What was tried: changing only cell keys was insufficient because the scientific relational materializer also generated Run ids with colon-delimited test ids.
+- Fix/workaround: use a provider-safe materialization id factory and provider-safe cell keys for executable relational fixtures; keep unrelated PI/business ids unchanged.
+- Prevention: when a test crosses into a real transport/materialization boundary, generate fixture identities from that boundary's public contract instead of carrying simulation-era id conventions forward.
