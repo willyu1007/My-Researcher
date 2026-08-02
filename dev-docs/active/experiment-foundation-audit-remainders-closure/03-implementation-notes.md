@@ -138,3 +138,13 @@
 - Added a backend retrieval service that prepares the complete Phase 4A authorized input before semantic dependencies, normalizes an injected query vector, bounds the semantic attempt with cancellation and re-resolves every hit against current structured identity/version/hash.
 - Tightened the initial partial-index behavior during review: semantic ranking now requires exact projection completeness. Missing, stale, foreign or superseded rows produce complete structured fallback instead of a plausible but incomplete semantic list.
 - Added no provider implementation, network credentials, route, application wiring, capability, scheduler, schema migration, UI or workflow/trust mutation.
+
+## 2026-08-03 — Phase 4 independent-review remediation
+
+- Closed the review blocker by separating the semantic attempt from response construction. Retrieval now reads the Phase 4A authoritative candidate set again after semantic work and compares projection coverage/hits against that post-search snapshot; concurrent additions or source/hash drift return the new complete structured fallback.
+- Replaced the former all-candidate vector query with one `REPEATABLE READ` repository transaction that returns exact vector-free project/profile coverage plus only the requested ANN top-K. Returned vectors alone cross the database boundary for normalization and embedding-hash verification.
+- Added PostgreSQL `statement_timeout`, Prisma transaction timeout and a decreasing per-statement remaining deadline. Repository timeout has a typed reason that retrieval maps to `SEMANTIC_ATTEMPT_TIMEOUT`; the injected provider still receives its existing abort signal.
+- Enabled strict HNSW iterative scan and dynamic `ef_search` so exact project/profile filters are not constrained by pgvector's default 40-tuple scan. Retrieval treats an under-returned top-K as incomplete and falls back instead of serving a plausible subset.
+- Centralized canonical embedding-profile validation across indexing, replacement, query and retrieval. Empty or leading/trailing-whitespace profile fields are rejected before provider or database work.
+- Expanded unit and real-pgvector coverage for post-search source drift, typed database timeout cancellation, profile rejection, more-than-40 candidate coverage, foreign project/profile filters and bounded vector transfer.
+- No Prisma SSOT/migration, provider adapter, network call, scheduler, capability, route/OpenAPI surface, runtime composition, named database, UI or workflow/trust writer changed.

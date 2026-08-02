@@ -18,8 +18,11 @@ import {
 import {
   assertPaperImplementationSemanticProjectionQueryV2,
   assertPaperImplementationSemanticProjectionReplacementV2,
+  isPaperImplementationSemanticEmbeddingProfileV2Valid,
+  PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2,
   PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2,
   PaperImplementationSemanticProjectionV2RepositoryError,
+  type PaperImplementationSemanticProjectionIdentityV2,
   type PaperImplementationSemanticProjectionRecordV2,
   type PaperImplementationSemanticProjectionV2Repository,
   type ReplacePaperImplementationSemanticProjectProjectionV2Input,
@@ -29,6 +32,8 @@ import {
 export interface PrismaPaperImplementationSemanticProjectionV2RepositoryOptions {
   /** Test-only fault fence inside the atomic project replacement transaction. */
   failpoint?: (point: 'after-first-upsert') => void;
+  /** Test-only delay used to prove that PostgreSQL cancels expired search statements. */
+  searchDelayMsForTest?: number;
 }
 
 interface StoredProjectionRow {
@@ -53,7 +58,7 @@ interface StoredProjectionRow {
   updatedAt: Date;
 }
 
-interface StoredProjectionHitRow {
+interface StoredProjectionIdentityRow {
   documentId: string;
   implementationProjectId: string;
   sourceType: string;
@@ -62,6 +67,9 @@ interface StoredProjectionHitRow {
   sourceHash: string;
   documentHash: string;
   embeddingHash: string;
+}
+
+interface StoredProjectionHitRow extends StoredProjectionIdentityRow {
   retrievalVector: string;
   semanticScore: number;
 }
@@ -75,6 +83,28 @@ function projectionError(message: string): PaperImplementationSemanticProjection
   return new PaperImplementationSemanticProjectionV2RepositoryError(
     'PROJECTION_STORED_INTEGRITY_ERROR',
     message,
+  );
+}
+
+function queryTimeoutError(
+  message: string,
+): PaperImplementationSemanticProjectionV2RepositoryError {
+  return new PaperImplementationSemanticProjectionV2RepositoryError(
+    'PROJECTION_QUERY_TIMEOUT',
+    message,
+  );
+}
+
+function isSearchDeadlineExceeded(error: unknown): boolean {
+  const metadata = typeof error === 'object' && error !== null && 'meta' in error
+    ? JSON.stringify(error.meta)
+    : '';
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String(error.code)
+    : '';
+  const detail = error instanceof Error ? `${error.message} ${metadata} ${code}` : metadata;
+  return /statement timeout|canceling statement due to statement timeout|57014|P2028|expired transaction|transaction.{0,30}timeout/i.test(
+    detail,
   );
 }
 
@@ -153,15 +183,18 @@ function mapStoredRow(row: StoredProjectionRow): PaperImplementationSemanticProj
     model: row.embeddingModel,
     dimension: row.embeddingDimension,
   };
-  if (serverHashPaperImplementationSemanticEmbeddingV2({
-    document_id: document.document_id,
-    document_hash: document.document_hash,
-    profile_id: embeddingProfile.profile_id,
-    provider: embeddingProfile.provider,
-    model: embeddingProfile.model,
-    dimension: embeddingProfile.dimension,
-    normalized_vector: normalizedVector,
-  }) !== row.embeddingHash) {
+  if (
+    !isPaperImplementationSemanticEmbeddingProfileV2Valid(embeddingProfile)
+    || serverHashPaperImplementationSemanticEmbeddingV2({
+      document_id: document.document_id,
+      document_hash: document.document_hash,
+      profile_id: embeddingProfile.profile_id,
+      provider: embeddingProfile.provider,
+      model: embeddingProfile.model,
+      dimension: embeddingProfile.dimension,
+      normalized_vector: normalizedVector,
+    }) !== row.embeddingHash
+  ) {
     throw projectionError(`Stored semantic projection embedding hash disagrees: ${row.id}`);
   }
   return {
@@ -175,12 +208,50 @@ function mapStoredRow(row: StoredProjectionRow): PaperImplementationSemanticProj
   };
 }
 
+function mapStoredIdentity(
+  row: StoredProjectionIdentityRow,
+  implementationProjectId: string,
+): PaperImplementationSemanticProjectionIdentityV2 {
+  if (
+    row.implementationProjectId !== implementationProjectId
+    || !['validation_cycle', 'effective_branch_head'].includes(row.sourceType)
+    || row.documentId.length === 0
+    || row.sourceId.length === 0
+    || row.sourceVersion.length === 0
+    || row.sourceHash.length === 0
+    || row.documentHash.length === 0
+    || row.embeddingHash.length === 0
+  ) {
+    throw projectionError(`Stored semantic projection identity is invalid: ${row.documentId}`);
+  }
+  return {
+    document_id: row.documentId,
+    implementation_project_id: row.implementationProjectId,
+    source: {
+      source_type: row.sourceType as 'validation_cycle' | 'effective_branch_head',
+      source_id: row.sourceId,
+      source_version: row.sourceVersion,
+      source_hash: row.sourceHash,
+    },
+    document_hash: row.documentHash,
+    embedding_hash: row.embeddingHash,
+  };
+}
+
 export class PrismaPaperImplementationSemanticProjectionV2Repository
 implements PaperImplementationSemanticProjectionV2Repository {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly options: PrismaPaperImplementationSemanticProjectionV2RepositoryOptions = {},
-  ) {}
+  ) {
+    if (
+      options.searchDelayMsForTest !== undefined
+      && (!Number.isSafeInteger(options.searchDelayMsForTest)
+        || options.searchDelayMsForTest < 0)
+    ) {
+      throw new TypeError('searchDelayMsForTest must be a non-negative safe integer');
+    }
+  }
 
   async replaceProjectProjection(
     input: ReplacePaperImplementationSemanticProjectProjectionV2Input,
@@ -350,74 +421,121 @@ implements PaperImplementationSemanticProjectionV2Repository {
   ) {
     assertPaperImplementationSemanticProjectionQueryV2(input);
     const queryVector = toPgvectorLiteral(input.normalized_query_vector);
-    const rows = await this.prisma.$queryRaw<StoredProjectionHitRow[]>(Prisma.sql`
-      SELECT
-        "id" AS "documentId",
-        "implementationProjectId",
-        "sourceType",
-        "sourceId",
-        "sourceVersion",
-        "sourceHash",
-        "documentHash",
-        "embeddingHash",
-        "retrievalVector"::text AS "retrievalVector",
-        (-(("retrievalVector"::halfvec(3072))
-          <#> ${queryVector}::halfvec(3072)))::double precision AS "semanticScore"
-      FROM "PaperImplementationSemanticDocumentProjectionV2"
-      WHERE "implementationProjectId" = ${input.implementation_project_id}
-        AND "embeddingProfileId" = ${input.embedding_profile.profile_id}
-        AND "embeddingProvider" = ${input.embedding_profile.provider}
-        AND "embeddingModel" = ${input.embedding_profile.model}
-        AND "embeddingDimension" = ${input.embedding_profile.dimension}
-      ORDER BY
-        (("retrievalVector"::halfvec(3072))
-          <#> ${queryVector}::halfvec(3072)) ASC,
-        "id" ASC
-      LIMIT ${input.limit}
-    `);
-    return rows.map((row) => {
-      const normalizedVector = parsePgvectorLiteral(row.retrievalVector);
-      const squaredNorm = normalizedVector.reduce(
-        (sum, value) => sum + (value * value),
-        0,
-      );
-      if (
-        row.implementationProjectId !== input.implementation_project_id
-        || !['validation_cycle', 'effective_branch_head'].includes(row.sourceType)
-        || row.documentId.length === 0
-        || row.sourceId.length === 0
-        || row.sourceVersion.length === 0
-        || row.sourceHash.length === 0
-        || row.documentHash.length === 0
-        || row.embeddingHash.length === 0
-        || !Number.isFinite(row.semanticScore)
-        || Math.abs(Math.sqrt(squaredNorm) - 1)
-          > PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2
-        || serverHashPaperImplementationSemanticEmbeddingV2({
-          document_id: row.documentId,
-          document_hash: row.documentHash,
-          profile_id: input.embedding_profile.profile_id,
-          provider: input.embedding_profile.provider,
-          model: input.embedding_profile.model,
-          dimension: input.embedding_profile.dimension,
-          normalized_vector: normalizedVector,
-        }) !== row.embeddingHash
-      ) {
-        throw projectionError(`Stored semantic projection hit is invalid: ${row.documentId}`);
+    const efSearch = Math.min(Math.max(input.limit * 4, 100), 1_000);
+    const queryStartedAt = Date.now();
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT set_config('statement_timeout', ${`${input.query_timeout_ms}ms`}, true)
+        `);
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT set_config('hnsw.ef_search', ${String(efSearch)}, true)
+        `);
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT set_config('hnsw.iterative_scan', 'strict_order', true)
+        `);
+        if ((this.options.searchDelayMsForTest ?? 0) > 0) {
+          await transaction.$queryRaw(Prisma.sql`
+            SELECT pg_sleep(${this.options.searchDelayMsForTest! / 1_000})
+          `);
+        }
+        const coverageTimeoutMs = input.query_timeout_ms - (Date.now() - queryStartedAt);
+        if (coverageTimeoutMs < 1) {
+          throw queryTimeoutError('Semantic projection query exceeded its database deadline');
+        }
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT set_config('statement_timeout', ${`${coverageTimeoutMs}ms`}, true)
+        `);
+        const coverageRows = await transaction.$queryRaw<StoredProjectionIdentityRow[]>(Prisma.sql`
+          SELECT
+            "id" AS "documentId", "implementationProjectId", "sourceType", "sourceId",
+            "sourceVersion", "sourceHash", "documentHash", "embeddingHash"
+          FROM "PaperImplementationSemanticDocumentProjectionV2"
+          WHERE "implementationProjectId" = ${input.implementation_project_id}
+            AND "embeddingProfileId" = ${input.embedding_profile.profile_id}
+            AND "embeddingProvider" = ${input.embedding_profile.provider}
+            AND "embeddingModel" = ${input.embedding_profile.model}
+            AND "embeddingDimension" = ${input.embedding_profile.dimension}
+          ORDER BY "id" ASC
+          LIMIT ${PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2 + 1}
+        `);
+        if (coverageRows.length > PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2) {
+          throw projectionError('Stored semantic projection exceeds the project document limit');
+        }
+        const annTimeoutMs = input.query_timeout_ms - (Date.now() - queryStartedAt);
+        if (annTimeoutMs < 1) {
+          throw queryTimeoutError('Semantic projection query exceeded its database deadline');
+        }
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT set_config('statement_timeout', ${`${annTimeoutMs}ms`}, true)
+        `);
+        const rows = await transaction.$queryRaw<StoredProjectionHitRow[]>(Prisma.sql`
+          SELECT
+            "id" AS "documentId",
+            "implementationProjectId",
+            "sourceType",
+            "sourceId",
+            "sourceVersion",
+            "sourceHash",
+            "documentHash",
+            "embeddingHash",
+            "retrievalVector"::text AS "retrievalVector",
+            (-(("retrievalVector"::halfvec(3072))
+              <#> ${queryVector}::halfvec(3072)))::double precision AS "semanticScore"
+          FROM "PaperImplementationSemanticDocumentProjectionV2"
+          WHERE "implementationProjectId" = ${input.implementation_project_id}
+            AND "embeddingProfileId" = ${input.embedding_profile.profile_id}
+            AND "embeddingProvider" = ${input.embedding_profile.provider}
+            AND "embeddingModel" = ${input.embedding_profile.model}
+            AND "embeddingDimension" = ${input.embedding_profile.dimension}
+          ORDER BY
+            (("retrievalVector"::halfvec(3072))
+              <#> ${queryVector}::halfvec(3072)) ASC
+          LIMIT ${input.limit}
+        `);
+        const coverage = coverageRows.map((row) => (
+          mapStoredIdentity(row, input.implementation_project_id)
+        ));
+        const coverageIds = new Set(coverage.map((item) => item.document_id));
+        if (coverageIds.size !== coverage.length) {
+          throw projectionError('Stored semantic projection coverage contains duplicate identities');
+        }
+        const hits = rows.map((row) => {
+          const identity = mapStoredIdentity(row, input.implementation_project_id);
+          const normalizedVector = parsePgvectorLiteral(row.retrievalVector);
+          const squaredNorm = normalizedVector.reduce(
+            (sum, value) => sum + (value * value),
+            0,
+          );
+          if (
+            !coverageIds.has(row.documentId)
+            || !Number.isFinite(row.semanticScore)
+            || Math.abs(Math.sqrt(squaredNorm) - 1)
+              > PAPER_IMPLEMENTATION_SEMANTIC_NORMALIZED_VECTOR_TOLERANCE_V2
+            || serverHashPaperImplementationSemanticEmbeddingV2({
+              document_id: row.documentId,
+              document_hash: row.documentHash,
+              profile_id: input.embedding_profile.profile_id,
+              provider: input.embedding_profile.provider,
+              model: input.embedding_profile.model,
+              dimension: input.embedding_profile.dimension,
+              normalized_vector: normalizedVector,
+            }) !== row.embeddingHash
+          ) {
+            throw projectionError(`Stored semantic projection hit is invalid: ${row.documentId}`);
+          }
+          return { ...identity, semantic_score: row.semanticScore };
+        });
+        return { coverage, hits };
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+        timeout: input.query_timeout_ms,
+      });
+    } catch (error) {
+      if (isSearchDeadlineExceeded(error)) {
+        throw queryTimeoutError('Semantic projection query exceeded its database deadline');
       }
-      return {
-        document_id: row.documentId,
-        implementation_project_id: row.implementationProjectId,
-        source: {
-          source_type: row.sourceType as 'validation_cycle' | 'effective_branch_head',
-          source_id: row.sourceId,
-          source_version: row.sourceVersion,
-          source_hash: row.sourceHash,
-        },
-        document_hash: row.documentHash,
-        embedding_hash: row.embeddingHash,
-        semantic_score: row.semanticScore,
-      };
-    });
+      throw error;
+    }
   }
 }

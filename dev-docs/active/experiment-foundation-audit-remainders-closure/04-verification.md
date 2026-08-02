@@ -178,3 +178,14 @@ Phase 4B is complete. EF-P21 remains open only for separately authorized Phase 4
 - Effects: no named-local/staging/production database, real provider/network call, capability, scheduler, runtime composition, HTTP/OpenAPI surface, UI, source/workflow row or trust writer changed.
 
 Phase 4 is complete and EF-P21 is verified. T-134 remains `in-progress` for separately authorized Phase 5 convergence and handoff.
+
+## Phase 4 independent-review remediation verification — 2026-08-03
+
+- Backend TypeScript: `pnpm --filter @paper-engineering-assistant/backend typecheck` passed after Prisma Client generation; shared TypeScript also passed independently with zero errors.
+- Expanded backend semantic candidate/index/retrieval plus existing lineage service/route regression ran under repository-compatible Node 20 after the independent typecheck → 32/32 passed. New assertions cover the post-ANN authoritative read, concurrent source addition, bounded repository limit, typed database timeout mapping and canonical profile rejection at index/replacement/query/retrieval boundaries.
+- Final nonce/marker/password-guarded PostgreSQL `d19_542c55901d1e` used the repository-pinned pgvector digest, applied all migrations and passed the combined relational suite 1/1 with zero skips; cleanup passed. An earlier post-fix replay `d19_65399c785205` also passed and cleaned up before the shared-deadline tightening.
+- The final relational run proves 45 exact-profile project rows plus 45 foreign/alternate-profile rows, exact vector-free coverage of all 45 current rows, top-K vector transfer bounded to 7, iterative filtered HNSW retrieval beyond the default `ef_search=40`, real PostgreSQL cancellation of a one-second delayed statement, connection recovery and post-search source drift fallback containing the concurrently added 46th document.
+- `node .ai/tests/run.mjs --suite database` passed and cleaned its evidence. `git diff --check` passed. No Prisma SSOT or generated DB context changed, so no schema/context regeneration was required.
+- Effects: no named-local/staging/production database, real provider/network call, capability, scheduler, runtime composition, HTTP/OpenAPI surface, UI, source/workflow row or trust writer changed.
+
+All four Phase 4 review findings are resolved. Phase 4 remains complete; T-134 remains `in-progress` only for separately authorized Phase 5 convergence and handoff.

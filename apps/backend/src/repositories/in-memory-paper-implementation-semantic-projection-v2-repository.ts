@@ -95,14 +95,24 @@ implements PaperImplementationSemanticProjectionV2Repository {
     input: SearchPaperImplementationSemanticProjectProjectionV2Input,
   ) {
     assertPaperImplementationSemanticProjectionQueryV2(input);
-    return this.records
+    const matching = this.records
       .filter((record) => (
         record.implementation_project_id === input.implementation_project_id
         && record.embedding_profile.profile_id === input.embedding_profile.profile_id
         && record.embedding_profile.provider === input.embedding_profile.provider
         && record.embedding_profile.model === input.embedding_profile.model
         && record.embedding_profile.dimension === input.embedding_profile.dimension
-      ))
+      ));
+    const coverage = matching
+      .map((record) => ({
+        document_id: record.document_id,
+        implementation_project_id: record.implementation_project_id,
+        source: clone(record.source),
+        document_hash: record.document_hash,
+        embedding_hash: record.embedding_hash,
+      }))
+      .sort((left, right) => left.document_id.localeCompare(right.document_id));
+    const hits = matching
       .map((record) => ({
         document_id: record.document_id,
         implementation_project_id: record.implementation_project_id,
@@ -121,5 +131,6 @@ implements PaperImplementationSemanticProjectionV2Repository {
         || left.document_id.localeCompare(right.document_id)
       ))
       .slice(0, input.limit);
+    return { coverage, hits };
   }
 }

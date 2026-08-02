@@ -47,6 +47,10 @@ const PROFILE = {
   model: 'basis-vector-v1',
   dimension: PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2,
 } as const;
+const ALTERNATE_PROFILE = {
+  ...PROFILE,
+  profile_id: 'pi-semantic-relational-alternate-v1',
+} as const;
 
 test(
   'Prisma Phase 4B projection and Phase 4C search isolate authorized projects',
@@ -152,33 +156,60 @@ test(
         embedding_profile: PROFILE,
         normalized_query_vector: currentA[0]!.normalized_vector,
         limit: 2,
+        query_timeout_ms: 2_000,
       });
-      assert.equal(semanticHitsA.length, 2, 'project A semantic hit count');
+      assert.equal(semanticHitsA.coverage.length, 2, 'project A exact coverage count');
+      assert.equal(semanticHitsA.hits.length, 2, 'project A semantic hit count');
       assert.equal(
-        semanticHitsA.every((hit) => hit.implementation_project_id === projectA),
+        semanticHitsA.hits.every((hit) => hit.implementation_project_id === projectA),
         true,
         'project A search contains no foreign hit',
       );
-      assert.equal(semanticHitsA[0]!.document_id, currentA[0]!.document_id);
+      assert.equal(semanticHitsA.hits[0]!.document_id, currentA[0]!.document_id);
       const currentB = await repository.listProjectProjection(projectB);
       const semanticHitsB = await repository.searchProjectProjection({
         implementation_project_id: projectB,
         embedding_profile: PROFILE,
         normalized_query_vector: currentA[0]!.normalized_vector,
         limit: 2,
+        query_timeout_ms: 2_000,
       });
-      assert.equal(semanticHitsB.length, 1, 'project B semantic hit count');
-      assert.equal(semanticHitsB[0]!.document_id, currentB[0]!.document_id);
+      assert.equal(semanticHitsB.hits.length, 1, 'project B semantic hit count');
+      assert.equal(semanticHitsB.hits[0]!.document_id, currentB[0]!.document_id);
       assert.equal(
         await repository.searchProjectProjection({
           implementation_project_id: projectA,
           embedding_profile: { ...PROFILE, profile_id: 'wrong-profile' },
           normalized_query_vector: currentA[0]!.normalized_vector,
           limit: 2,
-        }).then((hits) => hits.length),
+          query_timeout_ms: 2_000,
+        }).then((result) => result.hits.length),
         0,
         'profile drift has no semantic hits',
       );
+      const deadlineRepository = new PrismaPaperImplementationSemanticProjectionV2Repository(
+        prisma,
+        { searchDelayMsForTest: 1_000 },
+      );
+      const deadlineStartedAt = Date.now();
+      await assert.rejects(
+        deadlineRepository.searchProjectProjection({
+          implementation_project_id: projectA,
+          embedding_profile: PROFILE,
+          normalized_query_vector: currentA[0]!.normalized_vector,
+          limit: 1,
+          query_timeout_ms: 25,
+        }),
+        (error) => (
+          error instanceof PaperImplementationSemanticProjectionV2RepositoryError
+          && error.reasonCode === 'PROJECTION_QUERY_TIMEOUT'
+        ),
+      );
+      assert.ok(
+        Date.now() - deadlineStartedAt < 800,
+        'PostgreSQL statement timeout cancels the delayed query before pg_sleep completes',
+      );
+      assert.deepEqual(await prisma.$queryRaw`SELECT 1 AS value`, [{ value: 1 }]);
       const retrievalService = new PaperImplementationSemanticRetrievalV2Service({
         rankingInputReader: candidateService,
         queryEmbeddingPort: {
@@ -226,7 +257,7 @@ test(
         UPDATE "PaperImplementationSemanticDocumentProjectionV2"
         SET "embeddingHash" = ${hash('f')}
         WHERE "implementationProjectId" = ${projectA}
-          AND "sourceId" = ${cycleA1}
+          AND "id" = ${currentA[0]!.document_id}
       `;
       const corruptFallback = await retrievalService.retrieve({
         implementation_project_id: projectA,
@@ -258,6 +289,78 @@ test(
         (await repository.listProjectProjection(projectB)).length,
         1,
         'project B survives project A prune',
+      );
+
+      const additionalCycleCount = 44;
+      await Promise.all(Array.from({ length: additionalCycleCount }, async (_, index) => {
+        await Promise.all([
+          seedCycle(prisma, projectA, `${namespace}-cycle-a-bulk-${index}`),
+          seedCycle(prisma, projectB, `${namespace}-cycle-b-bulk-${index}`),
+        ]);
+      }));
+      await indexService.rebuildProjectProjection(projectA);
+      await new PaperImplementationSemanticIndexV2Service({
+        documentReader: candidateService,
+        embeddingPort: deterministicEmbeddingPort(),
+        repository,
+        embeddingProfile: ALTERNATE_PROFILE,
+        now: () => FIXED_NOW,
+      }).rebuildProjectProjection(projectB);
+      const largeProjectA = await repository.listProjectProjection(projectA);
+      assert.equal(largeProjectA.length, 45, 'large project exceeds default HNSW ef_search=40');
+      const boundedLargeSearch = await repository.searchProjectProjection({
+        implementation_project_id: projectA,
+        embedding_profile: PROFILE,
+        normalized_query_vector: largeProjectA[0]!.normalized_vector,
+        limit: 7,
+        query_timeout_ms: 2_000,
+      });
+      assert.equal(boundedLargeSearch.coverage.length, 45, 'exact coverage is complete');
+      assert.equal(boundedLargeSearch.hits.length, 7, 'ANN vector transfer stays top-K bounded');
+      assert.equal(
+        boundedLargeSearch.hits.every((hit) => hit.implementation_project_id === projectA),
+        true,
+        'iterative ANN search excludes foreign project/profile rows',
+      );
+      const wrongProfileSearch = await repository.searchProjectProjection({
+        implementation_project_id: projectB,
+        embedding_profile: PROFILE,
+        normalized_query_vector: largeProjectA[0]!.normalized_vector,
+        limit: 7,
+        query_timeout_ms: 2_000,
+      });
+      assert.deepEqual(wrongProfileSearch, { coverage: [], hits: [] });
+
+      const concurrentCycle = `${namespace}-cycle-a-concurrent`;
+      let sourceMutated = false;
+      const driftSafeRetrieval = new PaperImplementationSemanticRetrievalV2Service({
+        rankingInputReader: candidateService,
+        queryEmbeddingPort: {
+          async embedQuery() { return largeProjectA[0]!.normalized_vector; },
+        },
+        projectionRepository: {
+          async searchProjectProjection(input) {
+            const result = await repository.searchProjectProjection(input);
+            if (!sourceMutated) {
+              sourceMutated = true;
+              await seedCycle(prisma, projectA, concurrentCycle);
+            }
+            return result;
+          },
+        },
+        embeddingProfile: PROFILE,
+      });
+      const driftFallback = await driftSafeRetrieval.retrieve({
+        implementation_project_id: projectA,
+        query: 'compare current experiment lineage',
+        result_limit: 7,
+      });
+      assert.equal(driftFallback.retrieval_mode, 'structured_fallback');
+      assert.equal(driftFallback.fallback_reason, 'SEMANTIC_INDEX_INCOMPLETE');
+      assert.equal(driftFallback.results.length, 46, 'fallback uses the post-hit source snapshot');
+      assert.equal(
+        driftFallback.results.some((item) => item.document.source.source_id === concurrentCycle),
+        true,
       );
 
       const indexes = await prisma.$queryRaw<Array<{ indexname: string }>>`

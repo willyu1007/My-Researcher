@@ -16,6 +16,7 @@ import {
 import {
   PaperImplementationSemanticProjectionV2RepositoryError,
   type PaperImplementationSemanticProjectionHitV2,
+  type SearchPaperImplementationSemanticProjectProjectionV2Result,
 } from '../repositories/paper-implementation-semantic-projection-v2.repository.js';
 import {
   PaperImplementationSemanticRetrievalV2Service,
@@ -103,6 +104,19 @@ function hit(
   };
 }
 
+function searchResult(
+  coverageDocuments: readonly PaperImplementationSemanticDocumentV2[],
+  hits: PaperImplementationSemanticProjectionHitV2[],
+): SearchPaperImplementationSemanticProjectProjectionV2Result {
+  return {
+    coverage: coverageDocuments.map((document) => {
+      const { semantic_score: _semanticScore, ...identity } = hit(document, 0);
+      return identity;
+    }),
+    hits,
+  };
+}
+
 function queryVector(): number[] {
   const vector = Array<number>(PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2).fill(0);
   vector[0] = 2;
@@ -161,12 +175,13 @@ test('retrieval authorizes first and orders complete-index ties deterministicall
         events.push('index');
         assert.equal(input.implementation_project_id, PROJECT_A);
         assert.equal(input.limit, 2);
+        assert.ok(input.query_timeout_ms > 0);
         assert.deepEqual(input.embedding_profile, PROFILE);
         assert.equal(input.normalized_query_vector[0], 1);
-        return [
+        return searchResult([documentB, documentA], [
           hit(documentB, 0.75),
           hit(documentA, 0.75),
-        ];
+        ]);
       },
     },
     embeddingProfile: PROFILE,
@@ -177,7 +192,7 @@ test('retrieval authorizes first and orders complete-index ties deterministicall
     query: '  compare current experiment lineage  ',
     result_limit: 2,
   });
-  assert.deepEqual(events, ['structured', 'embedding', 'index']);
+  assert.deepEqual(events, ['structured', 'embedding', 'index', 'structured']);
   assert.equal(result.retrieval_mode, 'semantic');
   assert.equal(result.semantic_hits_considered, 2);
   assert.equal(result.stale_hits_dropped, 0);
@@ -200,7 +215,10 @@ test('partial stale/foreign index returns the complete structured fallback', asy
     queryEmbeddingPort: embeddingPort(),
     projectionRepository: {
       async searchProjectProjection() {
-        return [hit(staleDocument, 0.9), hit(foreignDocument, 0.8)];
+        return searchResult(
+          [staleDocument, foreignDocument],
+          [hit(staleDocument, 0.9), hit(foreignDocument, 0.8)],
+        );
       },
     },
     embeddingProfile: PROFILE,
@@ -229,7 +247,9 @@ test('missing projection rows return complete fallback instead of partial semant
     rankingInputReader: readerFor(rankingInput(PROJECT_A, documents)),
     queryEmbeddingPort: embeddingPort(),
     projectionRepository: {
-      async searchProjectProjection() { return [hit(documents[0]!, 0.9)]; },
+      async searchProjectProjection() {
+        return searchResult([documents[0]!], [hit(documents[0]!, 0.9)]);
+      },
     },
     embeddingProfile: PROFILE,
   });
@@ -250,19 +270,19 @@ test('embedding/index failures and corrupt duplicate hits fail open to structure
   const cases: Array<{
     name: string;
     queryEmbeddingPort: PaperImplementationSemanticQueryEmbeddingV2Port;
-    search: () => Promise<PaperImplementationSemanticProjectionHitV2[]>;
+    search: () => Promise<SearchPaperImplementationSemanticProjectProjectionV2Result>;
     expectedReason: string;
   }> = [
     {
       name: 'embedding unavailable',
       queryEmbeddingPort: { async embedQuery() { throw new Error('offline'); } },
-      search: async () => [],
+      search: async () => searchResult([], []),
       expectedReason: 'QUERY_EMBEDDING_UNAVAILABLE',
     },
     {
       name: 'embedding invalid',
       queryEmbeddingPort: { async embedQuery() { return [0]; } },
-      search: async () => [],
+      search: async () => searchResult([], []),
       expectedReason: 'QUERY_EMBEDDING_INVALID',
     },
     {
@@ -283,9 +303,23 @@ test('embedding/index failures and corrupt duplicate hits fail open to structure
       expectedReason: 'SEMANTIC_INDEX_CORRUPT',
     },
     {
+      name: 'index query timeout',
+      queryEmbeddingPort: embeddingPort(),
+      search: async () => {
+        throw new PaperImplementationSemanticProjectionV2RepositoryError(
+          'PROJECTION_QUERY_TIMEOUT',
+          'statement timeout',
+        );
+      },
+      expectedReason: 'SEMANTIC_ATTEMPT_TIMEOUT',
+    },
+    {
       name: 'duplicate hit',
       queryEmbeddingPort: embeddingPort(),
-      search: async () => [hit(documents[0]!, 0.8), hit(documents[0]!, 0.7)],
+      search: async () => searchResult(
+        documents,
+        [hit(documents[0]!, 0.8), hit(documents[0]!, 0.7)],
+      ),
       expectedReason: 'SEMANTIC_INDEX_CORRUPT',
     },
   ];
@@ -308,6 +342,49 @@ test('embedding/index failures and corrupt duplicate hits fail open to structure
   }
 });
 
+test('source changes after ANN search are re-read and return the new complete fallback', async () => {
+  const initialDocument = semanticDocument(PROJECT_A, 'cycle-initial');
+  const concurrentDocument = semanticDocument(PROJECT_A, 'cycle-concurrent');
+  const events: string[] = [];
+  let readCount = 0;
+  const service = new PaperImplementationSemanticRetrievalV2Service({
+    rankingInputReader: {
+      async prepareAuthorizedRankingInput() {
+        events.push('structured');
+        readCount += 1;
+        return rankingInput(
+          PROJECT_A,
+          readCount === 1
+            ? [initialDocument]
+            : [initialDocument, concurrentDocument],
+        );
+      },
+    },
+    queryEmbeddingPort: embeddingPort(events),
+    projectionRepository: {
+      async searchProjectProjection(input) {
+        events.push('index');
+        assert.equal(input.limit, 1, 'ANN stays bounded by requested top-K');
+        return searchResult([initialDocument], [hit(initialDocument, 0.9)]);
+      },
+    },
+    embeddingProfile: PROFILE,
+  });
+
+  const result = await service.retrieve({
+    implementation_project_id: PROJECT_A,
+    query: 'compare current experiment lineage',
+    result_limit: 1,
+  });
+  assert.deepEqual(events, ['structured', 'embedding', 'index', 'structured']);
+  assert.equal(result.retrieval_mode, 'structured_fallback');
+  assert.equal(result.fallback_reason, 'SEMANTIC_INDEX_INCOMPLETE');
+  assert.deepEqual(
+    result.results.map((item) => item.document.document_id),
+    [initialDocument.document_id, concurrentDocument.document_id],
+  );
+});
+
 test('semantic timeout aborts the adapter and returns complete structured fallback', async () => {
   const documents = [semanticDocument(PROJECT_A, 'cycle-a')];
   let aborted = false;
@@ -323,7 +400,9 @@ test('semantic timeout aborts the adapter and returns complete structured fallba
         });
       },
     },
-    projectionRepository: { async searchProjectProjection() { return []; } },
+    projectionRepository: {
+      async searchProjectProjection() { return searchResult([], []); },
+    },
     embeddingProfile: PROFILE,
     semanticTimeoutMs: 5,
   });
@@ -337,6 +416,23 @@ test('semantic timeout aborts the adapter and returns complete structured fallba
   assert.deepEqual(result.results.map((item) => item.document), documents);
 });
 
+test('non-canonical embedding profile is rejected during construction', () => {
+  assert.throws(
+    () => new PaperImplementationSemanticRetrievalV2Service({
+      rankingInputReader: readerFor(rankingInput(PROJECT_A, [])),
+      queryEmbeddingPort: embeddingPort(),
+      projectionRepository: {
+        async searchProjectProjection() { return searchResult([], []); },
+      },
+      embeddingProfile: { ...PROFILE, provider: ' deterministic-test ' },
+    }),
+    (error) => (
+      error instanceof PaperImplementationSemanticRetrievalV2ServiceError
+      && error.reasonCode === 'SEMANTIC_CONFIGURATION_INVALID'
+    ),
+  );
+});
+
 test('invalid result limit stops before structured or semantic reads', async () => {
   let read = false;
   const service = new PaperImplementationSemanticRetrievalV2Service({
@@ -347,7 +443,9 @@ test('invalid result limit stops before structured or semantic reads', async () 
       },
     },
     queryEmbeddingPort: embeddingPort(),
-    projectionRepository: { async searchProjectProjection() { return []; } },
+    projectionRepository: {
+      async searchProjectProjection() { return searchResult([], []); },
+    },
     embeddingProfile: PROFILE,
   });
   await assert.rejects(
@@ -381,7 +479,7 @@ test('mismatched structured project scope stops before semantic dependencies', a
     projectionRepository: {
       async searchProjectProjection() {
         semanticCalled = true;
-        return [];
+        return searchResult([], []);
       },
     },
     embeddingProfile: PROFILE,

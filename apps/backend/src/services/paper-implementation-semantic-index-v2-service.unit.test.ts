@@ -13,6 +13,9 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
+  PaperImplementationSemanticProjectionV2RepositoryError,
+} from '../repositories/paper-implementation-semantic-projection-v2.repository.js';
+import {
   InMemoryPaperImplementationSemanticProjectionV2Repository,
 } from '../repositories/in-memory-paper-implementation-semantic-projection-v2-repository.js';
 import {
@@ -282,4 +285,64 @@ test('empty authorized source prunes the project without invoking embedding', as
     total_count: 0,
   });
   assert.equal(embeddingCalled, false);
+});
+
+test('all index write boundaries reject non-canonical embedding profiles', async () => {
+  const repository = new InMemoryPaperImplementationSemanticProjectionV2Repository({
+    projects: [PROJECT_A],
+  });
+  let embeddingCalled = false;
+  assert.throws(
+    () => new PaperImplementationSemanticIndexV2Service({
+      documentReader: { async listAuthorizedDocuments() { return []; } },
+      embeddingPort: {
+        async embedDocuments() {
+          embeddingCalled = true;
+          return [];
+        },
+      },
+      repository,
+      embeddingProfile: { ...PROFILE, model: ' basis-vector-v1 ' },
+    }),
+    (error) => (
+      error instanceof PaperImplementationSemanticIndexV2ServiceError
+      && error.reasonCode === 'SEMANTIC_EMBEDDING_INVALID'
+    ),
+  );
+  assert.equal(embeddingCalled, false);
+
+  const validDocument = semanticDocument(PROJECT_A, 'cycle-profile');
+  await new PaperImplementationSemanticIndexV2Service({
+    documentReader: { async listAuthorizedDocuments() { return [validDocument]; } },
+    embeddingPort: deterministicEmbeddingPort(),
+    repository,
+    embeddingProfile: PROFILE,
+  }).rebuildProjectProjection(PROJECT_A);
+  const [record] = await repository.listProjectProjection(PROJECT_A);
+  await assert.rejects(
+    repository.replaceProjectProjection({
+      implementation_project_id: PROJECT_A,
+      documents: [{
+        ...record!,
+        embedding_profile: { ...PROFILE, provider: '   ' },
+      }],
+    }),
+    (error) => (
+      error instanceof PaperImplementationSemanticProjectionV2RepositoryError
+      && error.reasonCode === 'PROJECTION_INPUT_INVALID'
+    ),
+  );
+  await assert.rejects(
+    repository.searchProjectProjection({
+      implementation_project_id: PROJECT_A,
+      embedding_profile: { ...PROFILE, provider: 'deterministic-test ' },
+      normalized_query_vector: record!.normalized_vector,
+      limit: 1,
+      query_timeout_ms: 100,
+    }),
+    (error) => (
+      error instanceof PaperImplementationSemanticProjectionV2RepositoryError
+      && error.reasonCode === 'PROJECTION_QUERY_INVALID'
+    ),
+  );
 });

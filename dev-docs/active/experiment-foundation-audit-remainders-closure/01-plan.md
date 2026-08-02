@@ -61,7 +61,7 @@ Phase 4A checkpoint: met on 2026-08-03. The deterministic document/hash contract
 
 Phase 4B checkpoint: met on 2026-08-03. One PI-owned atomic current-document projection can be rebuilt from Phase 4A, reuses unchanged vectors, repairs corrupt rows and prunes stale rows per project. No provider adapter, scheduler, runtime entrance or retrieval endpoint is composed.
 
-Phase 4C checkpoint: met on 2026-08-03. Structured authorization and the complete current candidate set resolve before semantic dependencies; only an exact complete projection can produce ranked results. Timeout, provider/index outage, invalid vectors, corrupt/duplicate rows, missing rows and stale/foreign/superseded hits return the complete structured set with an explicit reason. No provider adapter, route, runtime composition or workflow/trust writer was added.
+Phase 4C checkpoint: met on 2026-08-03 and independently review-remediated the same day. Structured authorization resolves before semantic dependencies and resolves again after semantic work; only exact project/profile coverage from the same projection snapshot plus a complete bounded ANN top-K can produce ranked results. The database shares the remaining semantic deadline through transaction timeout and per-statement cancellation. Timeout, provider/index outage, invalid vectors, corrupt/duplicate rows, missing rows and stale/foreign/superseded hits return the latest complete structured set with an explicit reason. No provider adapter, route, runtime composition or workflow/trust writer was added.
 
 ## Phase 5 — Convergence and handoff
 

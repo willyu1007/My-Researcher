@@ -150,21 +150,25 @@ Phase 4A authorized documents
 
 ```text
 validated request
-  -> Phase 4A resolves complete project-authorized current documents
+  -> Phase 4A resolves complete project-authorized current documents (snapshot A)
   -> injected query embedding within bounded semantic timeout
-  -> project + exact embedding-profile halfvec search
-  -> verify each stored vector against its server embedding hash
-  -> exact current document/source/version/hash re-resolution
-     -> complete projection: deterministic score + document-id ranking
+  -> one repeatable-read projection transaction
+     -> exact vector-free project/profile coverage
+     -> deadline-cancelled iterative HNSW top-K
+     -> verify only returned vectors against server embedding hashes
+  -> Phase 4A resolves authoritative documents again (snapshot B)
+  -> compare exact coverage/hits with snapshot B identity/version/hash
+     -> complete current projection: deterministic score + document-id ranking
      -> timeout/outage/corruption/partial/stale: complete structured fallback
 ```
 
 - The structured candidate reader completes before query embedding or projection access. A project mismatch fails closed before either semantic dependency runs; the semantic timeout deliberately excludes the authoritative read.
-- Projection search requires exact project and embedding profile filters before the bounded HNSW-compatible order/limit query. The repository returns technical hit metadata only and validates vector normalization plus embedding hash before exposing a score.
-- The service compares every hit with the already-resolved current document identity, source type/id/version/hash and document hash. Deleted, foreign, stale, superseded and duplicate hits never enter results.
-- Semantic ranking is enabled only when the projection contains exactly one current valid hit for every authorized document. Missing or rejected rows produce `SEMANTIC_INDEX_INCOMPLETE` and the complete structured result set; a caller result limit never truncates fallback authority.
+- Projection search requires exact project and canonical embedding-profile filters. One `REPEATABLE READ` transaction returns exact vector-free coverage and only the requested ANN top-K from the same snapshot; 3072-dimensional vectors are transferred and hash-validated only for returned hits.
+- The ANN query uses strict iterative HNSW scanning with dynamic `ef_search`, while transaction and PostgreSQL statement timeouts share the service's remaining semantic deadline. A cancelled statement maps to `SEMANTIC_ATTEMPT_TIMEOUT` instead of continuing after the response window.
+- After every non-empty semantic attempt, the service reads Phase 4A authority again and compares the exact coverage plus returned hits with current document identity, source type/id/version/hash and document hash. Deleted, foreign, concurrently added, stale, superseded and duplicate identities never enter semantic results.
+- Semantic ranking is enabled only when exact projection coverage matches every current authorized document and ANN returns `min(result_limit, coverage)` valid hits. Missing, rejected or under-returned rows produce `SEMANTIC_INDEX_INCOMPLETE` and the post-search complete structured result set; a caller result limit never truncates fallback authority.
 - Equal scores order by stable document id. Semantic output can improve discovery only; the service has no writer and cannot choose a head, admit work, qualify evidence or change trust state.
-- Query embedding remains an injected port with `AbortSignal`; no real adapter, credentials, network call, route, OpenAPI surface, capability, scheduler, runtime composition, schema change or UI was added.
+- Index, replacement and retrieval paths share one canonical embedding-profile validator that rejects empty or whitespace-padded identifiers before provider or database work. Query embedding remains an injected port with `AbortSignal`; no real adapter, credentials, network call, route, OpenAPI surface, capability, scheduler, runtime composition, schema change or UI was added.
 
 ## Phase 3B landed PI attachment/admission seam — 2026-08-02
 

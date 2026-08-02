@@ -13,6 +13,7 @@ import type {
   ReplacePaperImplementationSemanticProjectProjectionV2Result,
 } from '../repositories/paper-implementation-semantic-projection-v2.repository.js';
 import {
+  isPaperImplementationSemanticEmbeddingProfileV2Valid,
   PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2,
   PaperImplementationSemanticProjectionV2RepositoryError,
   type PaperImplementationSemanticProjectionRecordV2,
@@ -110,10 +111,10 @@ export class PaperImplementationSemanticIndexV2Service {
   private readonly now: () => string;
 
   constructor(private readonly options: PaperImplementationSemanticIndexV2ServiceOptions) {
-    if (options.embeddingProfile.dimension !== PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2) {
+    if (!isPaperImplementationSemanticEmbeddingProfileV2Valid(options.embeddingProfile)) {
       throw new PaperImplementationSemanticIndexV2ServiceError(
         'SEMANTIC_EMBEDDING_INVALID',
-        `Semantic embedding profile dimension must be ${PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2}`,
+        'Semantic embedding profile must be canonical and use the supported dimension',
       );
     }
     this.now = options.now ?? (() => new Date().toISOString());

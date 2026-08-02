@@ -30,6 +30,10 @@
 - Do not make an embedding fake depend on batch position; the same document/profile must produce the same vector in incremental and full rebuilds.
 - Do not hash double-precision embedding components before `vector` persistence; quantize to float32 first so the stored vector and server hash remain identical.
 - Do not serve a valid-looking subset from a partial semantic projection; fall back to the complete structured candidate set unless every current authorized document has one exact hit.
+- Do not compare semantic hits only with the pre-search source snapshot; re-read structured authority after semantic work before constructing the response.
+- Do not implement a service timeout only as `Promise.race`; propagate the remaining deadline into the database transaction and PostgreSQL statement cancellation.
+- Do not use filtered HNSW with its default finite scan as a completeness test; use exact vector-free coverage plus iterative bounded top-K and fail open on under-return.
+- Do not validate embedding profile identifiers differently at index, replacement, query and retrieval boundaries; reject empty or non-canonical whitespace everywhere.
 
 ## Partial projection could look like a valid top-k result — 2026-08-03
 
@@ -37,6 +41,36 @@
 - Root cause: ranking correctness was considered independently from projection completeness, even though a missing higher-scoring current document cannot be distinguished from an ordinary low score.
 - Fix/workaround: query a bounded window equal to the current authorized candidate count and require exactly one current valid hit per candidate; otherwise return `SEMANTIC_INDEX_INCOMPLETE` with the complete structured set.
 - Prevention: semantic availability checks must compare the projection cardinality and exact current identities before applying caller result limits.
+
+The original all-candidate vector-window workaround above was superseded by the same-day independent-review remediation: exact coverage is now a vector-free query, while ANN vector transfer is bounded to the requested result limit. The completeness rule remains unchanged.
+
+## Pre-search re-resolution left a concurrent source-drift window — 2026-08-03
+
+- Symptom: Phase 4C compared semantic hits with the structured snapshot captured before embedding/index work, so a source change during that interval could still return stale semantic results.
+- Root cause: “structured first” was treated as both authorization and final freshness proof, even though provider and database latency created a time-of-check/time-of-use window.
+- Fix/workaround: separate semantic attempt state from response construction, re-read the authoritative Phase 4A candidates after semantic work and compare exact projection coverage/hits with the post-search snapshot. Drift returns the latest complete structured fallback.
+- Prevention: any optional projection that ranks mutable authority must re-resolve that authority after the projection read, not only before the projection read.
+
+## Service timeout did not cancel the PostgreSQL query — 2026-08-03
+
+- Symptom: the timeout race aborted only the query-embedding adapter; once Prisma search started, PostgreSQL could continue consuming a connection after the service had selected fallback.
+- Root cause: the deadline existed only in the service promise layer and was absent from the repository contract and database session.
+- Fix/workaround: pass the remaining deadline into the repository, enforce the deadline through the interactive transaction timeout and decreasing `SET LOCAL`-equivalent `set_config` statement timeouts, and map PostgreSQL/Prisma cancellation to one typed timeout outcome.
+- Prevention: every time-bounded database operation needs a database-enforced deadline plus a real cancellation test; a promise race alone is not resource control.
+
+## Filtered HNSW default scan could under-return above 40 rows — 2026-08-03
+
+- Symptom: ANN `LIMIT` equaled candidate count and exact project/profile filters ran after the approximate index scan, so pgvector's default HNSW `ef_search=40` could under-return while also transferring every selected 3072-dimensional vector to Node.
+- Root cause: approximate ranking and exact projection completeness were combined in one vector-bearing query.
+- Fix/workaround: split exact vector-free coverage from ANN top-K inside one repeatable-read snapshot, enable strict iterative scan with dynamic `ef_search`, transfer only requested hit vectors and treat any top-K under-return as incomplete.
+- Prevention: never infer filtered ANN completeness from returned vector count alone; pair approximate ranking with a separate exact identity set from the same snapshot.
+
+## Embedding profile boundaries accepted different identifier forms — 2026-08-03
+
+- Symptom: retrieval trimmed and rejected whitespace-only profile fields, replacement accepted any non-empty string and the index constructor checked only dimension.
+- Root cause: each layer implemented a partial local predicate instead of sharing the projection contract's canonical profile rule.
+- Fix/workaround: use one validator for profile id, provider, model and supported dimension across stored reads, indexing, replacement, query and retrieval; identifiers must be non-empty and equal to their trimmed form.
+- Prevention: metadata that partitions durable projections must have one exported canonical validator used by every producer and consumer boundary.
 
 ## pgvector float32 storage could invalidate embedding hashes — 2026-08-03
 
