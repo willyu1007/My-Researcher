@@ -2835,3 +2835,18 @@ Outcome: **T-132 personal-use acceptance passed end to end**.
 - Project status sync — governance sync changed only T-132 from `in-progress` to `done`, updated its date to `2026-08-02` and regenerated the dashboard, feature map and task index.
 - Final documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors and 205 repository-wide advisory warnings.
 - Final project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --project main`; passed. The only two warnings are pre-existing state-format findings in unrelated T-124-era bundles.
+
+## 2026-08-02 — archival verification
+
+Outcome: **owner-approved archival completed without reopening implementation scope**.
+
+- Pre-move gate — the active T-132 bundle had no uncommitted task-local changes, `State: done`, six checked scope-freeze Acceptance criteria and landed closure commit `a9679b96`.
+- Archive move — `dev-docs/active/experiment-foundation-productization-closure` moved to `dev-docs/archive/experiment-foundation-productization-closure`; `.ai-task.yaml` display status changed to `archived` while `00-overview.md` retains the completed task state.
+- Project sync — registry status/path changed only for T-132 (`done -> archived`, `active -> archive`); dashboard totals became 45 done and 84 archived, and the generated feature map/task index match.
+- Documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors and 204 repository-wide advisory warnings.
+- Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The only two warnings remain unrelated T-124-era state-format findings.
+- Successor boundary — T-134 remains a separate planned task. Archival creates no product, database, cloud, provider or scientific effect.
+- Live-reference audit — all application/service/test references that consume T-132 assets now resolve the archived path; historical evidence transcripts and the already-applied migration comment retain their original active-path record.
+- Script typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts`; passed after archived-path rebinding.
+- Focused importer regression — direct Node execution of `experiment-foundation-d19-fixture-import-service.unit.test.ts`; passed 10/10, including reviewed source-policy digest rejection and exact replay.
+- Path existence check — the archived source-policy attestation exists and no TypeScript/JavaScript/JSON under `apps/` or `packages/` retains the removed active task path.

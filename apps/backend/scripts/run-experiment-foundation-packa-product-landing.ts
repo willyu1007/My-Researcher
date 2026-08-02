@@ -81,7 +81,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const ARTIFACT_ROOT = path.join(REPO_ROOT, '.ai/.tmp/experiment-foundation-productization');
 const DURABLE_ARTIFACT_ROOT = path.join(
   REPO_ROOT,
-  'dev-docs/active/experiment-foundation-productization-closure/artifacts',
+  'dev-docs/archive/experiment-foundation-productization-closure/artifacts',
 );
 const REVIEWED_TARGET_FINGERPRINT =
   'sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0';

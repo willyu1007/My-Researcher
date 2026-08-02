@@ -47,6 +47,6 @@ Close exactly four previously open Experiment Foundation audit findings without 
 
 ## Evidence baseline
 
-- Source audit matrix: `dev-docs/active/experiment-foundation-productization-closure/06-audit-closure-matrix.md`.
+- Source audit matrix: `dev-docs/archive/experiment-foundation-productization-closure/06-audit-closure-matrix.md`.
 - Transfer decision: 2026-07-30 T-132 scope freeze.
 - Current counts at transfer: 23 verified, 4 open, 1 cut.

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const EXPERIMENT_FOUNDATION_D19_DEFAULT_SOURCE_POLICY_PATH =
-  'dev-docs/active/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json';
+  'dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json';
 
 // This command is intentionally bound to the one named local-development
 // target reviewed for T-132. Loopback alone is insufficient because an SSH

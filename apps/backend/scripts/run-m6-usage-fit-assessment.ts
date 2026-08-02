@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 
   const evidence = {
     assessment: 't132-m6-usage-fit@v1',
-    generated_for: 'dev-docs/active/experiment-foundation-productization-closure/artifacts/implementation/15-m6-usage-fit-rubric.md',
+    generated_for: 'dev-docs/archive/experiment-foundation-productization-closure/artifacts/implementation/15-m6-usage-fit-rubric.md',
     implementation_project_id: implementationProjectId,
     call_count: callCount,
     supplied_identities: suppliedIdentities,

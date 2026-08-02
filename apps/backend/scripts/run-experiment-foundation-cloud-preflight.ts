@@ -60,7 +60,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const ARTIFACT_ROOT = path.join(REPO_ROOT, '.ai/.tmp/experiment-foundation-productization');
 const DURABLE_ARTIFACT_ROOT = path.join(
   REPO_ROOT,
-  'dev-docs/active/experiment-foundation-productization-closure/artifacts',
+  'dev-docs/archive/experiment-foundation-productization-closure/artifacts',
 );
 const DEFAULT_PACK_B_EVIDENCE = path.join(
   DURABLE_ARTIFACT_ROOT,

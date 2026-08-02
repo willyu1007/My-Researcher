@@ -31,7 +31,7 @@ import {
 import { ExperimentFoundationV2Service } from './experiment-foundation-v2-service.js';
 
 const SOURCE_POLICY_URL = new URL(
-  '../../../../dev-docs/active/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
+  '../../../../dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
   import.meta.url,
 );
 const REPO_ROOT = '/workspace/my-researcher';
@@ -46,7 +46,7 @@ test('D-19 importer CLI resolves output from repo root and documents its local D
     help: false,
     apply: true,
     sourcePolicyPath:
-      'dev-docs/active/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
+      'dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
     outputPath:
       '/workspace/my-researcher/.ai/.tmp/experiment-foundation-productization/local-r1/fixture-import-summary.json',
   });

@@ -141,7 +141,7 @@ Project: `main`
 | T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
-| T-132 experiment-foundation-productization-closure | done | F-001 | dev-docs/active/experiment-foundation-productization-closure |
+| T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
 | T-134 experiment-foundation-audit-remainders-closure | planned | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
 <!-- AUTO-GENERATED:END task-index -->

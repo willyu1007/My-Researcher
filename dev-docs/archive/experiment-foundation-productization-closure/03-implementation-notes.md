@@ -1418,3 +1418,9 @@ Durable evidence is recorded in `artifacts/implementation/00-pack-a-technical-cl
 - Observed provider duration and the exact `ecs.g6.large / 2 CPU / 8192 MiB` resource are safely inside the authorized ¥50 ceiling; Alibaba Cloud billing remains authoritative for the exact charge.
 - Cloud Shell source and local `/tmp`/Downloads credential files were removed. The live source authorization was reset to `null`; post-run offline preflight passed with two existing Attempts, cloud/database writes 0 and final model/wire hashes `sha256:b0464db78fd57d7564e78f18fe765dc8f680f5fa37871d469464e95f779bccee` / `sha256:ce357aba15e8bcbb90b2d699637bcfffb7c89be1464436d41f9d3fdf41e391b9`.
 - T-132 now satisfies the 2026-07-30 personal-use completion boundary. The bundle is marked `done`; archival remains a separate owner-approved repository move.
+
+## 2026-08-02 — archive handoff
+
+- The owner explicitly approved archiving T-132 after reviewing the completed personal-use scope and current Experiment Foundation capability boundary.
+- The stale `01-plan.md` execution-posture state was reconciled from `in-progress` to `done`; this documentation correction does not change the already-landed runtime or acceptance result.
+- No work is transferred back into T-132. EF-P06, EF-P14, EF-P15 and EF-P21 remain exclusively owned by planned task T-134.
