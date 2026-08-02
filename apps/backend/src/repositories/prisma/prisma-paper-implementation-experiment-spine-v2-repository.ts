@@ -249,6 +249,13 @@ PaperImplementationExplorationAttachmentV2Repository {
           );
         }
 
+        if (input.exploration_attachment) {
+          await assertExplorationAttachmentScopeEligible(
+            transaction,
+            input.branch.implementation_project_id,
+            input.branch.validation_cycle_id,
+          );
+        }
         await assertCycleOpen(transaction, input.branch.validation_cycle_id);
         assertAdmissionScope(input, branchRow);
 
@@ -2014,6 +2021,38 @@ async function assertCycleOpen(client: SpineClient, validationCycleId: string): 
     throw constraint(
       'CYCLE_ALREADY_CLOSED',
       `ValidationCycle already has an immutable v2 closure: ${validationCycleId}`,
+    );
+  }
+}
+
+async function assertExplorationAttachmentScopeEligible(
+  client: Prisma.TransactionClient,
+  implementationProjectId: string,
+  validationCycleId: string,
+): Promise<void> {
+  const rows = await client.$queryRaw<Array<{
+    projectStatus: string;
+    cycleStatus: string;
+  }>>(Prisma.sql`
+    SELECT
+      project_scope."lifecycleStatus" AS "projectStatus",
+      cycle_scope."cycleStatus" AS "cycleStatus"
+    FROM "PaperImplementationProject" AS project_scope
+    INNER JOIN "PaperImplementationValidationCycle" AS cycle_scope
+      ON cycle_scope."implementationProjectId" = project_scope."id"
+    WHERE project_scope."id" = ${implementationProjectId}
+      AND cycle_scope."id" = ${validationCycleId}
+    FOR UPDATE OF project_scope, cycle_scope
+  `);
+  const scope = rows[0];
+  if (
+    rows.length !== 1
+    || scope?.projectStatus !== 'active'
+    || scope.cycleStatus !== 'admitted'
+  ) {
+    throw constraint(
+      'BRANCH_SCOPE_CONFLICT',
+      'Exploration attachment requires an active project and admitted ValidationCycle at commit.',
     );
   }
 }

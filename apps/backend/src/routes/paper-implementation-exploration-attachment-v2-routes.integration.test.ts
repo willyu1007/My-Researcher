@@ -76,6 +76,24 @@ test('exploration attachment route returns 201 for commit and 200 for replay', a
   await app.close();
 });
 
+test('exploration attachment route maps an unknown service failure to 500', async () => {
+  const app = Fastify({ logger: false });
+  await registerPaperImplementationExplorationAttachmentV2Routes(
+    app,
+    new PaperImplementationExplorationAttachmentV2Controller({
+      async attach() { throw new Error('readiness database unavailable'); },
+    }),
+  );
+  const result = await app.inject({
+    method: 'POST',
+    url: PATH,
+    payload: { branch_key: 'branch-1', business_idempotency_key: 'command-1' },
+  });
+  assert.equal(result.statusCode, 500, result.body);
+  assert.equal(result.json().error.code, 'INTERNAL_ERROR');
+  await app.close();
+});
+
 function response(replayed: boolean): PaperImplementationExplorationAttachmentV2Response {
   const branchFrame = {
     frame_schema_version: 'v1' as const,

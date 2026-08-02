@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import type { PrismaClient } from '@prisma/client';
 import type {
   ExperimentFoundationExplorationSpecRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-exploration-spec-v2-contracts';
@@ -8,6 +9,7 @@ import {
   serverHashExperimentFoundationExplorationSpecV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
+import { AppError } from '../../errors/app-error.js';
 import { PaperImplementationExperimentV2AdmissionService } from '../../services/paper-implementation-experiment-v2-admission-service.js';
 import { openVerifiedDisposablePostgresTestDatabase } from '../../test-support/disposable-postgres-test-database.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './prisma-paper-implementation-experiment-spine-v2-repository.js';
@@ -31,6 +33,7 @@ test(
     const service = admissionService(repository, projectId, cycleId);
 
     try {
+      await seedScope(prisma, projectId, cycleId, nonce);
       const crashingRepository = new PrismaPaperImplementationExperimentSpineV2Repository(
         prisma,
         { attachmentFailpoint() { throw new Error('injected attachment transaction crash'); } },
@@ -88,6 +91,80 @@ test(
         receipts: 3,
       });
 
+      const staleProjectId = `stale-project-${nonce}`;
+      const staleCycleId = `stale-cycle-${nonce}`;
+      await seedScope(prisma, staleProjectId, staleCycleId, `stale-${nonce}`);
+      const staleCycleScope = delayedScopeAdmissionService(
+        prisma,
+        repository,
+        staleProjectId,
+        staleCycleId,
+      );
+      const staleAttempt = staleCycleScope.service.admitExplorationAttachment({
+        implementation_project_id: staleProjectId,
+        validation_cycle_id: staleCycleId,
+        branch_key: 'stale-scope-branch',
+        business_idempotency_key: `stale-scope-${nonce}`,
+        source_revision: sourceRevision(`stale-scope-${nonce}`, 1),
+        admitted_by: 'system:paper-implementation-experiment-v2-admission',
+      });
+      await staleCycleScope.scopeRead;
+      await prisma.paperImplementationValidationCycle.update({
+        where: { id: staleCycleId },
+        data: { cycleStatus: 'completed', completedAt: new Date(NOW) },
+      });
+      staleCycleScope.release();
+      await assert.rejects(
+        staleAttempt,
+        (error: unknown) => error instanceof AppError
+          && error.details?.reason_code === 'BRANCH_SCOPE_CONFLICT',
+      );
+      assert.deepEqual(await counts(prisma, staleProjectId), {
+        branches: 0,
+        revisions: 0,
+        admissions: 0,
+        outboxes: 0,
+        attachments: 0,
+        receipts: 0,
+      });
+
+      const inactiveProjectId = `inactive-project-${nonce}`;
+      const inactiveCycleId = `inactive-cycle-${nonce}`;
+      await seedScope(prisma, inactiveProjectId, inactiveCycleId, `inactive-${nonce}`);
+      const inactiveProjectScope = delayedScopeAdmissionService(
+        prisma,
+        repository,
+        inactiveProjectId,
+        inactiveCycleId,
+      );
+      const inactiveAttempt = inactiveProjectScope.service.admitExplorationAttachment({
+        implementation_project_id: inactiveProjectId,
+        validation_cycle_id: inactiveCycleId,
+        branch_key: 'inactive-project-branch',
+        business_idempotency_key: `inactive-project-${nonce}`,
+        source_revision: sourceRevision(`inactive-project-${nonce}`, 1),
+        admitted_by: 'system:paper-implementation-experiment-v2-admission',
+      });
+      await inactiveProjectScope.scopeRead;
+      await prisma.paperImplementationProject.update({
+        where: { id: inactiveProjectId },
+        data: { lifecycleStatus: 'archived' },
+      });
+      inactiveProjectScope.release();
+      await assert.rejects(
+        inactiveAttempt,
+        (error: unknown) => error instanceof AppError
+          && error.details?.reason_code === 'BRANCH_SCOPE_CONFLICT',
+      );
+      assert.deepEqual(await counts(prisma, inactiveProjectId), {
+        branches: 0,
+        revisions: 0,
+        admissions: 0,
+        outboxes: 0,
+        attachments: 0,
+        receipts: 0,
+      });
+
       await prisma.paperImplementationExplorationSpecAttachmentV2.update({
         where: { id: left.attachment.attachment_id },
         data: { specContentHash: `sha256:${'b'.repeat(64)}` },
@@ -100,6 +177,109 @@ test(
     }
   },
 );
+
+async function seedScope(
+  prisma: PrismaClient,
+  projectId: string,
+  cycleId: string,
+  namespace: string,
+): Promise<void> {
+  await prisma.paperImplementationProject.create({
+    data: {
+      id: projectId,
+      intakeSnapshotId: `${namespace}:intake`,
+      titleCardId: `${namespace}:title-card`,
+      paperProjectBridgeId: `${namespace}:bridge`,
+      bridgePayloadHash: HASH_A,
+      lifecycleStatus: 'active',
+      freshnessStatus: 'fresh',
+      sourceStatus: 'active',
+      versionNumber: 1,
+      createdBy: 'exploration-attachment-relational-test',
+      createdAt: new Date(NOW),
+      updatedAt: new Date(NOW),
+    },
+  });
+  await prisma.paperImplementationValidationCycle.create({
+    data: {
+      id: cycleId,
+      implementationProjectId: projectId,
+      inputSnapshotId: `${cycleId}:input`,
+      targetRefType: 'paper_project',
+      targetRefId: `${namespace}:target`,
+      targetVersionId: `${namespace}:target-version`,
+      target: {},
+      triggerType: 'integration_test',
+      trigger: {},
+      cycleType: 'experiment',
+      validationQuestion: 'Does the attachment commit fence stale scope?',
+      validationFrame: {},
+      context: {},
+      criteria: {},
+      budgetId: `${cycleId}:budget`,
+      budget: {},
+      expectedInformationGain: 'medium',
+      cycleStatus: 'admitted',
+      executionStatus: 'not_started',
+      outputs: {},
+      confirmationLevel: 'confirmed',
+      createdBy: 'exploration-attachment-relational-test',
+      createdAt: new Date(NOW),
+      updatedAt: new Date(NOW),
+      admittedAt: new Date(NOW),
+    },
+  });
+}
+
+function delayedScopeAdmissionService(
+  prisma: PrismaClient,
+  repository: PrismaPaperImplementationExperimentSpineV2Repository,
+  projectId: string,
+  cycleId: string,
+) {
+  let signalScopeRead!: () => void;
+  let releaseScopeRead!: () => void;
+  const scopeRead = new Promise<void>((resolve) => { signalScopeRead = resolve; });
+  const continueAfterScopeRead = new Promise<void>((resolve) => { releaseScopeRead = resolve; });
+  const service = new PaperImplementationExperimentV2AdmissionService({
+    repository,
+    explorationAttachmentRepository: repository,
+    scopeReader: {
+      async resolveExactScope(candidateProjectId, candidateCycleId) {
+        if (candidateProjectId !== projectId || candidateCycleId !== cycleId) {
+          return null;
+        }
+        const [project, cycle] = await Promise.all([
+          prisma.paperImplementationProject.findUnique({ where: { id: candidateProjectId } }),
+          prisma.paperImplementationValidationCycle.findFirst({
+            where: { id: candidateCycleId, implementationProjectId: candidateProjectId },
+          }),
+        ]);
+        if (
+          !project
+          || !cycle
+          || project.lifecycleStatus !== 'active'
+          || cycle.cycleStatus !== 'admitted'
+        ) {
+          return null;
+        }
+        const resolved = {
+          implementation_project_id: candidateProjectId,
+          implementation_project_lifecycle_status: 'active' as const,
+          validation_cycle_id: candidateCycleId,
+          validation_cycle_lifecycle_status: 'admitted' as const,
+        };
+        signalScopeRead();
+        await continueAfterScopeRead;
+        return resolved;
+      },
+    },
+    admissionEnabled: () => true,
+    cycleClosureLookup: { async isCycleClosed() { return false; } },
+    now: () => NOW,
+  });
+  return { service, scopeRead, release: releaseScopeRead };
+}
 
 function admissionService(
   repository: PrismaPaperImplementationExperimentSpineV2Repository,

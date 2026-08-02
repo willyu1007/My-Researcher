@@ -19,6 +19,11 @@ import type {
 } from './paper-implementation-experiment-v2-admission-service.js';
 
 const SERVER_ACTOR = 'system:paper-implementation-experiment-v2-admission';
+const EXPECTED_READINESS_FAILURES = new Set([
+  'EXACT_REVISION_NOT_FOUND',
+  'EXACT_REVISION_REQUIRED',
+  'READINESS_DEPENDENCY_DRIFT',
+]);
 
 export interface PaperImplementationExplorationAttachmentV2SpecReader {
   findExactRevision(
@@ -133,8 +138,15 @@ export class PaperImplementationExplorationAttachmentV2Service {
           (dependency) => dependency.asset_type !== 'EvaluationProtocol',
         ),
       });
-    } catch {
-      throw readinessDrift('Exploration attachment exact readiness has drifted.');
+    } catch (error) {
+      if (
+        error instanceof AppError
+        && typeof error.details?.reason_code === 'string'
+        && EXPECTED_READINESS_FAILURES.has(error.details.reason_code)
+      ) {
+        throw readinessDrift('Exploration attachment exact readiness has drifted.');
+      }
+      throw error;
     }
     if (!valid) {
       throw readinessDrift('Exploration attachment exact readiness has drifted.');

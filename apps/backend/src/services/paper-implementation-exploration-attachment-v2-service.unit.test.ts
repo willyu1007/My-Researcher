@@ -93,6 +93,45 @@ test('readiness drift and injected commit crash leave zero partial PI authority'
   assert.equal(snapshot.outboxes.length, 0);
 });
 
+test('readiness domain failures normalize to drift while unknown failures propagate', async () => {
+  const domainRepository = new InMemoryPaperImplementationExperimentSpineV2Repository();
+  const domainService = new PaperImplementationExplorationAttachmentV2Service({
+    specReader: { async findExactRevision() { return sourceRevision(); } },
+    readinessRevalidator: {
+      async revalidate() {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'exact readiness drifted', {
+          reason_code: 'READINESS_DEPENDENCY_DRIFT',
+        });
+      },
+    },
+    admission: admissionService(domainRepository),
+    enabled: () => true,
+  });
+  await assert.rejects(
+    domainService.attach(params(), request()),
+    reason('EXPLORATION_ATTACHMENT_READINESS_DRIFT'),
+  );
+  assert.equal(domainRepository.snapshot().admission_bundles.length, 0);
+
+  const infrastructureRepository = new InMemoryPaperImplementationExperimentSpineV2Repository();
+  const infrastructureFailure = new Error('readiness database unavailable');
+  const infrastructureService = new PaperImplementationExplorationAttachmentV2Service({
+    specReader: { async findExactRevision() { return sourceRevision(); } },
+    readinessRevalidator: {
+      async revalidate() {
+        throw infrastructureFailure;
+      },
+    },
+    admission: admissionService(infrastructureRepository),
+    enabled: () => true,
+  });
+  await assert.rejects(
+    infrastructureService.attach(params(), request()),
+    (error: unknown) => error === infrastructureFailure,
+  );
+  assert.equal(infrastructureRepository.snapshot().admission_bundles.length, 0);
+});
+
 test('one exact exploration revision cannot attach to a different PI branch', async () => {
   const repository = new InMemoryPaperImplementationExperimentSpineV2Repository();
   const service = serviceWith(repository, true);

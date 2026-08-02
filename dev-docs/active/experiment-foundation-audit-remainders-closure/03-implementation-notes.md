@@ -80,6 +80,14 @@
 - Added default-false `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED`; startup requires committed cutover and ordinary admission, while Phase 3A authoring may remain disabled.
 - Updated OpenAPI/API index, Prisma DB context and env generated artifacts. No named database was migrated, no capability was enabled and no provider/UI/TaskSpec/Run/result/validation/evidence writer changed.
 
+## 2026-08-02 — Phase 3B quality hardening
+
+- Added a transaction-internal attachment scope fence that locks and rechecks the exact `PaperImplementationProject` and `ValidationCycle` rows as `active` and `admitted` before any new PI authority write. Exact committed replay still resolves before the fence and remains valid after lifecycle closure.
+- Kept the ordinary admission path unchanged; the stronger row-lock fence is specific to the new exploration-attachment authority boundary.
+- Narrowed readiness error normalization to the explicit `EXACT_REVISION_NOT_FOUND`, `EXACT_REVISION_REQUIRED` and `READINESS_DEPENDENCY_DRIFT` domain outcomes. Unknown repository/infrastructure failures now propagate to the controller's logged 500 boundary.
+- Added service and HTTP coverage for known readiness drift versus unknown failure, plus disposable-PostgreSQL stale-read races for both project archival and Cycle completion with zero branch/revision/admission/outbox/attachment/receipt writes.
+- No schema, migration, API contract, environment contract, named database, capability, provider, UI, execution or evidence writer changed in this hardening pass.
+
 ### Phase 3C continuation
 
 1. Drive the ordinary `WorkOrderRevisionAdmitted` relay/materialization path from a committed 3B attachment and prove exact cell/asset/readiness parity before a new PI-bound Run exists.

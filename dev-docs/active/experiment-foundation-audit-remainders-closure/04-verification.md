@@ -98,3 +98,16 @@ Phase 3A is complete and is a verified rollback point. EF-P15 as a whole remains
 - Effects: no named-local/staging/production database, cloud/provider, capability enablement, UI, TaskSpec, Run, result, validation, EvidenceCandidate, REU or trace write occurred.
 
 Phase 3B is complete and is a verified rollback point. EF-P15 remains open only for Phase 3C downstream materialization/trust and bypass verification.
+
+## Phase 3B quality-hardening verification — 2026-08-02
+
+- Backend TypeScript: `pnpm --filter @paper-engineering-assistant/backend run typecheck` passed after Prisma Client generation. An initial run exposed two unused test-helper parameters; the helper was corrected to enforce the exact expected project/Cycle ids and the final run reported zero errors.
+- Service plus existing integration-spine regression: targeted node tests passed 40/40. Coverage includes known readiness-domain normalization, raw infrastructure-error propagation with zero admission writes and the unchanged 35-test PI/EF integration spine.
+- HTTP boundary: attachment service/route tests passed 8/8; an unknown service error now reaches the controller's `500 INTERNAL_ERROR` response path while the existing closed-input, commit and replay behaviors remain green.
+- Disposable PostgreSQL: the final nonce-bound pgvector run applied all 74 migrations and passed the attachment relational suite 1/1 with skip=0. A scope read followed by project archival or Cycle completion is rejected by the transaction-internal row-lock fence, and each race leaves branch/revision/admission/outbox/attachment/receipt counts at zero. Existing crash rollback, concurrent replay convergence, exact receipt counts and durable tamper rejection also remained green.
+- Disposable container cleanup passed; no named-local/staging/production database was touched.
+- Dev-doc strict lint initially found one vague-reference warning introduced in the new pitfall note; the wording was made explicit and the final run passed 28/28 files with zero errors and zero warnings.
+- Project governance lint passed with only the two unrelated pre-existing T-124/T-133 state-format warnings.
+- `git diff --check` passed after the code and test changes.
+
+The two Phase 3B review findings are resolved. Phase 3C remains the next authorized implementation slice.

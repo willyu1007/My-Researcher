@@ -87,3 +87,19 @@
 - Root cause: the first 3B route relied only on `additionalProperties: false`; closed schema validation did not preserve the original payload for semantic rejection.
 - Fix/workaround: add a route pre-validation authority guard that rejects every body key except `branch_key` and `business_idempotency_key`, and assert the use case receives zero calls.
 - Prevention: every public authority-minting route must test forbidden extra fields at the dispatch boundary, not only validate its shared JSON schema in isolation.
+
+## Attachment scope eligibility was checked only before the authority transaction — 2026-08-02
+
+- Symptom: review found that project `active` and ValidationCycle `admitted` status were resolved before readiness work, while the admission transaction fenced only the immutable Cycle-closure row.
+- Root cause: Phase 3B reused the existing admission service's pre-transaction scope reader without adding the stronger commit-time lifecycle fence required by the new cross-domain attachment boundary.
+- What was tried: the existing service guard and closure-table check covered ordinary rejection and closed-Cycle replay semantics, but could not prove that a project/Cycle status observed earlier remained eligible when a new attachment committed.
+- Fix/workaround: for new exploration attachments only, the Prisma admission transaction now locks the exact project and Cycle rows with one parameterized `FOR UPDATE` query and requires `active` plus `admitted` before checking closure and writing authority. Historical exact replay remains before the lifecycle fence.
+- Prevention: every new authority adoption path must identify mutable scope facts and recheck them inside its owning transaction; relational tests must pause after the outer read, mutate each fact and prove zero writes.
+
+## Attachment readiness handling hid unknown infrastructure failures — 2026-08-02
+
+- Symptom: any exception from exact readiness revalidation became `EXPLORATION_ATTACHMENT_READINESS_DRIFT`, so a database outage would return a 4xx business error and bypass unknown-error logging.
+- Root cause: a generic catch treated every thrown value as a domain drift instead of classifying the explicit readiness error taxonomy.
+- What was tried: boolean false and known drift tests proved the business path but did not exercise a raw repository/infrastructure exception.
+- Fix/workaround: normalize only the three explicit readiness reason codes and rethrow every unknown error to the controller's logged 500 boundary; service and HTTP tests now cover both branches.
+- Prevention: adapter catches must use explicit operational error types/codes, and every new mapping requires paired known-domain and unknown-failure tests.
