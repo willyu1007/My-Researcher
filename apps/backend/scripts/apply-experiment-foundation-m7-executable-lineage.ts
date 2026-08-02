@@ -119,6 +119,9 @@ const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_ENV =
   'T132_M7_CONSOLE_DEFAULT_ACCESS_SUCCESSOR_APPLY_AUTHORIZATION';
 const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_AUTHORIZATION_VALUE =
   'authorized-2026-07-30-p313-m7-l1-console-default-access-successor-max40-no-cloud';
+const DURABLE_TWO_CELL_SUCCESSOR_AUTHORIZATION_ENV =
+  'T132_M7_DURABLE_TWO_CELL_SUCCESSOR_APPLY_AUTHORIZATION';
+const DURABLE_TWO_CELL_SUCCESSOR_AUTHORIZATION_VALUE: string | null = null;
 const RESOURCE_EXACT_SUCCESSOR_SCOPE = Object.freeze({
   authorization_env: SUCCESSOR_AUTHORIZATION_ENV,
   authorization_value: SUCCESSOR_AUTHORIZATION_VALUE,
@@ -263,6 +266,29 @@ const CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE = Object.freeze({
   business_key: 't132-m7-l1-console-default-access-successor-p313-v8',
   id_scope: 't132_m7_l1_console_default_access_successor_v8',
 });
+const DURABLE_TWO_CELL_SUCCESSOR_SCOPE = Object.freeze({
+  authorization_env: DURABLE_TWO_CELL_SUCCESSOR_AUTHORIZATION_ENV,
+  authorization_value: DURABLE_TWO_CELL_SUCCESSOR_AUTHORIZATION_VALUE,
+  target_mismatch_code:
+    'T132_M7_DURABLE_TWO_CELL_SUCCESSOR_TARGET_MISMATCH',
+  schema_version: 't132-m7-durable-two-cell-successor-apply@v1',
+  worker_id: 't132-m7-l1-durable-two-cell-successor-relay',
+  branch_id: NEW_BRANCH_ID,
+  parent_revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_console_default_access_successor_v8_1',
+  parent_run_id:
+    'ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1',
+  parent_revision_sequence: 8,
+  parent_branch_state_version: 16,
+  parent_branch_head_version: 8,
+  revision_id:
+    'pi_experiment_revision_v2_t132_m7_l1_durable_two_cell_successor_v9_1',
+  run_id:
+    'ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1',
+  revision_sequence: 9,
+  business_key: 't132-m7-l1-durable-two-cell-successor-p313-v9',
+  id_scope: 't132_m7_l1_durable_two_cell_successor_v9',
+});
 const SUCCESSOR_SCOPES = [
   RESOURCE_EXACT_SUCCESSOR_SCOPE,
   DIAGNOSTIC_SUCCESSOR_SCOPE,
@@ -271,6 +297,7 @@ const SUCCESSOR_SCOPES = [
   ROLE_SHAPE_FIX_SUCCESSOR_SCOPE,
   INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE,
   CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE,
+  DURABLE_TWO_CELL_SUCCESSOR_SCOPE,
 ] as const;
 const CONFIGURED_SUCCESSOR_SCOPES = SUCCESSOR_SCOPES.filter(
   (scope) => process.env[scope.authorization_env] !== undefined,
@@ -1141,7 +1168,9 @@ async function successorMain(): Promise<void> {
       work_order_revision: {
         ...structuredClone(current.revision.work_order_revision),
         work_order_schema_version: 'v2',
-        title: SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
+        title: SUCCESSOR_SCOPE === DURABLE_TWO_CELL_SUCCESSOR_SCOPE
+          ? 'T-132 M7-L1 durable two-cell PAI closure'
+          : SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
           ? 'T-132 M7-L1 console-default access fix verification'
           : SUCCESSOR_SCOPE === INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE
           ? 'T-132 M7-L1 instrumented provider rejection diagnostic'
@@ -1154,7 +1183,9 @@ async function successorMain(): Promise<void> {
             : SUCCESSOR_SCOPE === DIAGNOSTIC_SUCCESSOR_SCOPE
               ? 'T-132 M7-L1 provider rejection diagnostic'
               : current.revision.work_order_revision.title,
-        objective: SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
+        objective: SUCCESSOR_SCOPE === DURABLE_TWO_CELL_SUCCESSOR_SCOPE
+          ? 'Complete the normal database-controlled two-cell PAI execution, exact collection and zero-duplicate replay while all outputs remain diagnostic-only.'
+          : SUCCESSOR_SCOPE === CONSOLE_DEFAULT_ACCESS_SUCCESSOR_SCOPE
           ? 'Verify bounded CreateJob submission with explicit RO code/input mounts and console-default omitted output access; scientific evidence remains excluded.'
           : SUCCESSOR_SCOPE === INSTRUMENTED_DIAGNOSTIC_SUCCESSOR_SCOPE
           ? 'Reproduce bounded CreateJob rejection with dbg-20260729-142414-8438 whitelist-only status, code and RequestId observation; scientific evidence remains excluded.'
@@ -1706,11 +1737,12 @@ function requireSuccessorAuthorization(): void {
     );
   }
   if (
-    process.env[SUCCESSOR_SCOPE.authorization_env]
+    SUCCESSOR_SCOPE.authorization_value === null
+    || process.env[SUCCESSOR_SCOPE.authorization_env]
       !== SUCCESSOR_SCOPE.authorization_value
   ) {
     throw new Error(
-      `${SUCCESSOR_SCOPE.authorization_env} must equal its exact reviewed max-40 token`,
+      `No active max-40 named-local authorization is recorded for ${SUCCESSOR_SCOPE.authorization_env}`,
     );
   }
 }

@@ -93,16 +93,31 @@ const TARGET = Object.freeze({
   port: '5432',
   fingerprint: 'sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0',
 });
-const RUN_ID =
-  'ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1';
-const RUN_MANIFEST_HASH =
-  'sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96';
+interface LiveRunScope {
+  revision_sequence: number;
+  run_id: string;
+  run_manifest_hash: string | null;
+  business_idempotency_key: string;
+}
+
+const HISTORICAL_SEQUENCE9_RECOVERY_SCOPE: LiveRunScope = Object.freeze({
+  revision_sequence: 8,
+  run_id: 'ef_run_v2_t132_m7_l1_console_default_access_successor_v8_1',
+  run_manifest_hash:
+    'sha256:8e7cc561da119ab3383980247d04d58f01defcb016f6eb29a285208055aeab96',
+  business_idempotency_key: 't132-m7-l1-live-p313-v8',
+});
+const DURABLE_TWO_CELL_SUCCESSOR_SCOPE: LiveRunScope = Object.freeze({
+  revision_sequence: 9,
+  run_id: 'ef_run_v2_t132_m7_l1_durable_two_cell_successor_v9_1',
+  run_manifest_hash: null,
+  business_idempotency_key: 't132-m7-l1-durable-two-cell-live-p313-v9',
+});
 const BUNDLE_REVISION_ID =
   'ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48';
 const BUNDLE_REVISION_HASH =
   'sha256:458b0e58d93974e3a09b63247bac675d26deef5fdafb111a6eae66177a3b178e';
 const VALIDATION_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
-const BUSINESS_IDEMPOTENCY_KEY = 't132-m7-l1-live-p313-v8';
 const LIVE_AUTHORIZATION_ENV = 'T132_M7_L1_LIVE_AUTHORIZATION';
 const LIVE_AUTHORIZATION_VALUE: string | null = null;
 const CONTROLLER_ROLE_ARN =
@@ -166,6 +181,10 @@ interface TemporaryCredential {
 async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
   assertCapabilitiesRemainDisabled();
+  const liveScope = mode === 'sequence9-recover'
+    ? HISTORICAL_SEQUENCE9_RECOVERY_SCOPE
+    : DURABLE_TWO_CELL_SUCCESSOR_SCOPE;
+  const runManifestHash = requirePinnedRunManifestHash(liveScope);
   const databaseUrl = requireEnvironment('DATABASE_URL');
   assertExperimentFoundationNamedLocalDatabaseUrl(
     databaseUrl,
@@ -184,9 +203,9 @@ async function main(): Promise<void> {
     const target = await assertExperimentFoundationLiveNamedLocalTarget(prisma, TARGET);
     const dependencies = buildDependencies(prisma, manifest.offline_preview_profile);
     const prerequisite = await dependencies.executionRepository
-      .resolveRealProviderRunPrerequisite(RUN_ID);
+      .resolveRealProviderRunPrerequisite(liveScope.run_id);
     assert.ok(prerequisite, 'Exact M7-L1 executable Run prerequisite is missing.');
-    assert.equal(prerequisite.run.run_manifest_hash, RUN_MANIFEST_HASH);
+    assert.equal(prerequisite.run.run_manifest_hash, runManifestHash);
     assert.equal(prerequisite.validation_cycle_id, VALIDATION_CYCLE_ID);
     assert.equal(prerequisite.cells.length, MAXIMUM_CREATE_JOB_CALLS);
     assert.deepEqual(
@@ -224,10 +243,11 @@ async function main(): Promise<void> {
       manifest.container_image.image_ref,
     );
 
-    const existingAttempts = await dependencies.executionRepository.listRunAttempts(RUN_ID);
+    const existingAttempts = await dependencies.executionRepository
+      .listRunAttempts(liveScope.run_id);
     assert.ok(existingAttempts.length === 0 || existingAttempts.length === 2);
     assert.ok(existingAttempts.every((attempt) => (
-      attempt.workflow_business_key === BUSINESS_IDEMPOTENCY_KEY
+      attempt.workflow_business_key === liveScope.business_idempotency_key
       && attempt.execution_mode === 'real_provider'
       && attempt.provenance === 'real_provider'
     )));
@@ -256,7 +276,7 @@ async function main(): Promise<void> {
             run_id: T132_CREATE_JOB_WIRE_DEBUG_RUN_ID,
             marker: `[DBG:${T132_CREATE_JOB_WIRE_DEBUG_RUN_ID}]`,
             event: 'pai_dlc.create_job.offline_final_wire_observed',
-            sequence: 8,
+            sequence: liveScope.revision_sequence,
             cell_ordinal: runCell.ordinal,
             network_blocked_before_send: true,
             ...observation,
@@ -268,8 +288,8 @@ async function main(): Promise<void> {
         schema_version: 't132-m7-l1-live-window-offline-preflight@v1',
         status: 'passed',
         target_fingerprint: target.fingerprint,
-        run_id: RUN_ID,
-        run_manifest_hash: RUN_MANIFEST_HASH,
+        run_id: liveScope.run_id,
+        run_manifest_hash: runManifestHash,
         execution_bundle_revision_id: BUNDLE_REVISION_ID,
         execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
         job_ceiling: MAXIMUM_CREATE_JOB_CALLS,
@@ -332,7 +352,7 @@ async function main(): Promise<void> {
         schema_version: 't132-m7-l1-sequence9-recovery-result@v1',
         status: 'real_provider_probe_recovered_and_collected',
         target_fingerprint: target.fingerprint,
-        run_id: RUN_ID,
+        run_id: liveScope.run_id,
         cell_ordinal: first.run_cell.ordinal,
         job_id: externalJobRef.job_id,
         provider_status: synced.provider_status,
@@ -352,7 +372,7 @@ async function main(): Promise<void> {
         schema_version: 't132-m7-l1-live-window-image-preflight@v1',
         status: 'passed',
         target_fingerprint: target.fingerprint,
-        run_id: RUN_ID,
+        run_id: liveScope.run_id,
         execution_bundle_revision_id: BUNDLE_REVISION_ID,
         execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
         image_request_hash: imageRequestHash,
@@ -381,7 +401,10 @@ async function main(): Promise<void> {
       profileResolver: async () => structuredClone(manifest.offline_preview_profile),
       intakeEnabled: () => true,
     });
-    const started = await intake.start(RUN_ID, BUSINESS_IDEMPOTENCY_KEY);
+    const started = await intake.start(
+      liveScope.run_id,
+      liveScope.business_idempotency_key,
+    );
     assert.equal(started.attempts.length, MAXIMUM_CREATE_JOB_CALLS);
     const attemptIds = started.attempts.map((attempt) => attempt.id);
     const worker = new ExperimentFoundationRealProviderCommandV2Worker({
@@ -470,7 +493,10 @@ async function main(): Promise<void> {
       [],
     );
     const replayCountsBefore = structuredClone(packBAfter);
-    const replay = await intake.start(RUN_ID, BUSINESS_IDEMPOTENCY_KEY);
+    const replay = await intake.start(
+      liveScope.run_id,
+      liveScope.business_idempotency_key,
+    );
     assert.equal(replay.replayed, true);
     assert.deepEqual(
       await countExperimentFoundationNamedLocalTables(prisma, [...PACK_B_TABLES]),
@@ -482,8 +508,8 @@ async function main(): Promise<void> {
       schema_version: 't132-m7-l1-live-window-result@v1',
       status: 'real_provider_canary_passed',
       target_fingerprint: target.fingerprint,
-      run_id: RUN_ID,
-      run_manifest_hash: RUN_MANIFEST_HASH,
+      run_id: liveScope.run_id,
+      run_manifest_hash: runManifestHash,
       execution_bundle_revision_id: BUNDLE_REVISION_ID,
       execution_bundle_revision_hash: BUNDLE_REVISION_HASH,
       image_preflight_request_hash: imageRequestHash,
@@ -698,6 +724,15 @@ function requireLiveAuthorization(): void {
       `No active two-job/¥50 authorization is recorded for ${LIVE_AUTHORIZATION_ENV}.`,
     );
   }
+}
+
+function requirePinnedRunManifestHash(scope: LiveRunScope): string {
+  if (scope.run_manifest_hash === null) {
+    throw new Error(
+      `Run manifest hash is not pinned for immutable successor ${scope.run_id}.`,
+    );
+  }
+  return scope.run_manifest_hash;
 }
 
 function assertCapabilitiesRemainDisabled(): void {

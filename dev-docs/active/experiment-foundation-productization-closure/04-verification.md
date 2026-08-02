@@ -2742,3 +2742,19 @@ Outcome: **sequence-9 recovery checkpoint is verified and safe to commit; T-132 
 - Policy parity — repository policy JSON parsed; file SHA-256 exactly matched the live-runner constant `6566a47ee9c07ce6a75c9aeedcbc721d299ae52e7620bbbf91e14564b04220d8`.
 - Staged-scope check — required immediately before commit; commit must contain no unrelated file and exactly one `Task: T-132` trailer.
 - Push target — current branch `main`, remote `origin`; fetch/rebase safety check required before direct push, with no force push.
+
+## 2026-08-02 — durable successor source-preparation verification
+
+Outcome: **source identity and fail-closed authorization boundaries prepared; no successor row or cloud effect created**.
+
+- Script typecheck — `pnpm --filter @paper-engineering-assistant/backend run typecheck:experiment-foundation-scripts`; passed after Prisma client generation and `tsc --noEmit`.
+- Focused transport regression — `TS_NODE_TRANSPILE_ONLY=1 node --test --loader ts-node/esm src/services/experiment-foundation-aliyun-real-provider-v2-transport.unit.test.ts`; passed 6/6, including accepted-response loss, zero-create recovery, exhaustive exact discovery, duplicate/unknown-status failure, cancel and exact collection.
+- Named-local apply authorization fence — ran the apply script with `T132_M7_DURABLE_TWO_CELL_SUCCESSOR_APPLY_AUTHORIZATION=not-authorized`; exited 1 with `No active max-40 named-local authorization` before database connection.
+- Manifest-pin fence — `pnpm --filter @paper-engineering-assistant/backend experiment-foundation:m7-l1:live -- --mode offline-preflight`; exited 1 with `Run manifest hash is not pinned` before `DATABASE_URL` validation or database connection.
+- Scope assertions — successor revision sequence 9 parents exact sequence 8, expects branch state/head `16/8 -> 18/9`, uses a distinct durable Run/business/id scope and retains the existing exact 40-row/protected-table/prohibited-effect census.
+- Historical recovery isolation — `sequence9-recover` selects the frozen sequence-8 Run/hash/business identity; normal offline/image/execute modes select the new sequence-9 scope. The historical zero-CreateJob transport construction is unchanged.
+- Effect census — named-local reads/writes 0/0; STS/cloud/provider/`CreateJob` 0/0/0/0; capability/scientific/evidence writes 0/0/0. Both named-local and paid authorization constants remain `null`.
+- Documentation lint — `node .ai/scripts/lint-docs.mjs`; passed with 0 errors. Existing repository-wide advisory warnings remain non-blocking.
+- Project-governance lint — `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`; passed. The two reported state-format warnings belong to unrelated T-124-era bundles.
+- Scoped whitespace check — `git diff --check -- <two T-132 scripts and 00-04 task docs>`; passed.
+- Scoped secret-pattern scan — target diff contained no access-key, secret/token, password assignment or private-key marker.
