@@ -65,13 +65,13 @@ Phase 4C checkpoint: met on 2026-08-03 and independently review-remediated the s
 
 ## Phase 5 — Convergence and handoff
 
-1. Run the complete writer census and confirm no second authority or legacy re-entry.
-2. Run shared/backend/API/disposable-PostgreSQL suites required by each workstream.
-3. Regenerate OpenAPI, DB and process context from SSOT where changed.
-4. Verify capabilities remain default off and rollback behavior preserves immutable history.
-5. Update the audit matrix, verification ledger, project governance and handoff status.
+1. [x] Run the complete writer census and confirm no second authority or legacy re-entry.
+2. [x] Run shared/backend/API/disposable-PostgreSQL suites required by each workstream.
+3. [x] Regenerate OpenAPI, DB and process context from SSOT where changed.
+4. [x] Verify capabilities remain default off and rollback behavior preserves immutable history.
+5. [x] Update the audit matrix, verification ledger, project governance and handoff status.
 
-Exit: EF-P06, EF-P14, EF-P15 and EF-P21 are each backed by named runnable evidence and can be marked verified.
+Exit: met on 2026-08-03. EF-P06, EF-P14, EF-P15 and EF-P21 each have named runnable static, contract, service/API and real-PostgreSQL evidence; the final writer census found no second authority or legacy re-entry.
 
 ## Global acceptance rules
 

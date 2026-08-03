@@ -2,8 +2,8 @@ version: 1
 task_id: T-134
 project: main
 slug: experiment-foundation-audit-remainders-closure
-status: in-progress
-updated: "2026-08-02"
+status: done
+updated: "2026-08-03"
 keywords:
   - experiment-foundation
   - audit-remainders

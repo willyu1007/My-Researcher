@@ -259,6 +259,8 @@ test('relay completes the promotion audit lifecycle without downstream writes', 
   assert.deepEqual(pi.snapshot(), {
     branches: [],
     admission_bundles: [],
+    exploration_attachments: [],
+    exploration_attachment_receipts: [],
     inboxes: [],
     outboxes: [],
   });

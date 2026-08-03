@@ -34,6 +34,7 @@
 - Do not implement a service timeout only as `Promise.race`; propagate the remaining deadline into the database transaction and PostgreSQL statement cancellation.
 - Do not use filtered HNSW with its default finite scan as a completeness test; use exact vector-free coverage plus iterative bounded top-K and fail open on under-return.
 - Do not validate embedding profile identifiers differently at index, replacement, query and retrieval boundaries; reject empty or non-canonical whitespace everywhere.
+- Do not reuse generic disposable-database identity variables after switching `DATABASE_URL` between D19, Pack C and Pack C PI; replace both generic and suite-specific identity tuples together.
 
 ## Partial projection could look like a valid top-k result — 2026-08-03
 
@@ -181,3 +182,10 @@ The original all-candidate vector-window workaround above was superseded by the 
 - What was tried: changing only cell keys was insufficient because the scientific relational materializer also generated Run ids with colon-delimited test ids.
 - Fix/workaround: use a provider-safe materialization id factory and provider-safe cell keys for executable relational fixtures; keep unrelated PI/business ids unchanged.
 - Prevention: when a test crosses into a real transport/materialization boundary, generate fixture identities from that boundary's public contract instead of carrying simulation-era id conventions forward.
+
+## Combined disposable run retained the prior suite identity — 2026-08-03
+
+- Symptom: D19 promotion/spec/attachment/semantic suites passed, then Pack C tests failed before business assertions because `DATABASE_URL` pointed to Pack C while the generic `EXPERIMENT_V2_TEST_DATABASE_URL` still pointed to D19.
+- Root cause: the helper deliberately validates both the suite-specific identity and the generic disposable identity; the combined shell changed only the former tuple.
+- Fix/workaround: use command-scoped environments that set `DATABASE_URL`, `EXPERIMENT_V2_TEST_DATABASE_URL`, generic name/nonce and the suite-specific URL/nonce to the same database for each Pack C lane. The failed container cleaned through its trap; the corrected Pack C EF 4/4 and PI 5/5 runs passed and cleaned.
+- Prevention: treat every disposable identity as an atomic tuple. Never carry a generic URL/name/nonce across a database-prefix change, even inside the same container.

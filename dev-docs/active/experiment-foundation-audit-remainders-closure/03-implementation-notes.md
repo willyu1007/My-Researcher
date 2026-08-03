@@ -148,3 +148,19 @@
 - Centralized canonical embedding-profile validation across indexing, replacement, query and retrieval. Empty or leading/trailing-whitespace profile fields are rejected before provider or database work.
 - Expanded unit and real-pgvector coverage for post-search source drift, typed database timeout cancellation, profile rejection, more-than-40 candidate coverage, foreign project/profile filters and bounded vector transfer.
 - No Prisma SSOT/migration, provider adapter, network call, scheduler, capability, route/OpenAPI surface, runtime composition, named database, UI or workflow/trust writer changed.
+
+## 2026-08-03 — Phase 5 convergence and handoff
+
+- Re-ran the production-writer census across every T-134 commit. P14 bootstrap still writes only through the existing PaperImplementation bootstrap transaction; P06 candidate/decision/outbox writes remain in the single typed EF repository UoW; Phase 3A spec writes remain in its dedicated EF repository; Phase 3B attachment authority remains an extension of the existing PI admission UoW.
+- Confirmed that `ExperimentFoundationEvidenceCandidateV2` and `PaperImplementationRunEvidenceUnitV2` still have exactly the existing scientific-validation and PI Evidence Trust Gateway production repository writers. Attachment and semantic retrieval add no evidence/trust writer, and the legacy generic promotion endpoint remains closed by the committed-cutover guard.
+- Confirmed that the Phase 4 projection has one PI-owned rebuildable repository writer and no route, application composition, scheduler, provider adapter or workflow/trust entrance. No T-134 commit changed `apps/desktop/` or `ui/`.
+- The complete backend suite exposed two stale pre-T-134 assertions: the Pack A immutable-FK census omitted Phase 3B's four same-domain attachment FKs, and the promotion relay zero-write snapshot omitted the new empty attachment collections. Updated both tests to preserve their original invariants; no product code changed.
+- The three T-134 mutation capabilities remain default false in the env SSOT/generated context, and no local target override exists. Disabling them stops new promotion/spec/attachment intake while preserving immutable decisions/specs/attachments; semantic projection remains uncomposed and rebuildable, while structured lineage remains authoritative.
+- OpenAPI, API index, environment and DB context were already regenerated from their SSOTs in the phases that changed them. Phase 5 changed no schema, API or env SSOT, so verification—not regeneration—was required.
+- Phase 5 changed only two regression assertions plus task/audit/governance documentation. No named database, migration apply, backfill, capability enablement, provider/network call, cloud resource, UI or production writer was changed.
+
+### Archive handoff
+
+1. Review the completed evidence in `04-verification.md` and the four `verified` rows in `dev-docs/archive/experiment-foundation-productization-closure/06-audit-closure-matrix.md`.
+2. Obtain explicit user approval to move `dev-docs/active/experiment-foundation-audit-remainders-closure/` to the matching `dev-docs/archive/` path.
+3. After approval, move the bundle, run `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`, `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` and strict task-doc lint, then commit the archive-only transition with `Task: T-134`.

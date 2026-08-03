@@ -1045,7 +1045,7 @@ test('Pack A schema and migrations preserve exact lifecycle keys and remove draf
   }
 });
 
-test('Pack A hardening preserves 38 immutable FKs and M7 adds only 7 immutable same-domain FKs', async () => {
+test('Pack A hardening preserves 38 immutable FKs and later slices add only 11 immutable same-domain FKs', async () => {
   const [schema, initialMigration, hardeningMigration] = await Promise.all([
     readFile(new URL('../../../../../prisma/schema.prisma', import.meta.url), 'utf8'),
     readFile(
@@ -1106,8 +1106,12 @@ test('Pack A hardening preserves 38 immutable FKs and M7 adds only 7 immutable s
   const owningRelationLines = packASchema
     .split('\n')
     .filter((line) => line.includes('@relation(') && line.includes('fields:'));
-  assert.equal(owningRelationLines.length, 45);
-  assert.equal(owningRelationLines.length - initialForeignKeys.length, 7);
+  assert.equal(owningRelationLines.length, 49);
+  assert.equal(owningRelationLines.length - initialForeignKeys.length, 11);
+  assert.equal(
+    owningRelationLines.filter((line) => line.includes('pi_exploration_attachment')).length,
+    4,
+  );
   for (const relationLine of owningRelationLines) {
     assert.match(relationLine, /onDelete: Restrict, onUpdate: Restrict/);
   }

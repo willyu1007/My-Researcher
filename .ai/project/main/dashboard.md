@@ -8,14 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 134 (planned: 2, in-progress: 3, blocked: 0, done: 45, archived: 84)
+- Tasks: 134 (planned: 2, in-progress: 2, blocked: 0, done: 46, archived: 84)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-134 experiment-foundation-audit-remainders-closure | done | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
 | T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
-| T-134 experiment-foundation-audit-remainders-closure | in-progress | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |

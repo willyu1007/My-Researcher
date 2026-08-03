@@ -189,3 +189,51 @@ Phase 4 is complete and EF-P21 is verified. T-134 remains `in-progress` for sepa
 - Effects: no named-local/staging/production database, real provider/network call, capability, scheduler, runtime composition, HTTP/OpenAPI surface, UI, source/workflow row or trust writer changed.
 
 All four Phase 4 review findings are resolved. Phase 4 remains complete; T-134 remains `in-progress` only for separately authorized Phase 5 convergence and handoff.
+
+## Phase 5 convergence verification — 2026-08-03
+
+### Writer, legacy and capability census
+
+- `git log --grep='Task: T-134'` resolved 15 implementation/remediation commits before Phase 5. Their changed-file union contains no path under `apps/desktop/` or `ui/`.
+- Production writer scans resolve P14 bootstrap only to `prisma-paper-implementation-repository.ts`; P06 preparation Candidate/promotion decision/outbox only to `prisma-experiment-foundation-v2-repository.ts`; exploration spec identity/revision only to `prisma-experiment-foundation-exploration-spec-v2-repository.ts`; and PI attachment only to the existing `prisma-paper-implementation-experiment-spine-v2-repository.ts` admission UoW.
+- `ExperimentFoundationEvidenceCandidateV2` creation resolves only to `prisma-experiment-foundation-scientific-validation-v2-repository.ts`; `PaperImplementationRunEvidenceUnitV2` creation resolves only to `prisma-paper-implementation-evidence-v2-repository.ts`. No T-134 semantic or attachment file appears in either writer scan.
+- `PaperImplementationSemanticDocumentProjectionV2` has one rebuildable writer, `prisma-paper-implementation-semantic-projection-v2-repository.ts`. Searches of `app.ts`, production routes and controllers find no semantic Candidate/index/retrieval service composition or HTTP entrance.
+- The legacy generic `POST /experiment-foundation/candidates/:candidate_id/promotion` still exists only as retained diagnostics-compatible history and the committed-cutover regression returns `LEGACY_RECORD_NOT_ELIGIBLE`; it was not reopened or used by the typed promotion flow.
+- Env SSOT and generated docs keep `EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED`, `EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED` and `PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED` at `default: false`. Targeted scans found no override in repository-local env files.
+
+### Static, contract, API and context gates
+
+- `pnpm --filter shared typecheck` and `pnpm --filter backend typecheck` passed; the backend run regenerated the Prisma Client first.
+- Repository-compatible Node 20 plus `TS_NODE_TRANSPILE_ONLY=true pnpm --filter shared test` passed 407/407 with zero skips.
+- `node .ai/scripts/ctl-openapi-quality.mjs verify --strict` passed; `node .ai/scripts/ctl-api-index.mjs verify --strict` reported the index current at checksum prefix `9597a18fe367692e`.
+- `node .ai/tests/run.mjs --suite environment` and `node .ai/tests/run.mjs --suite database` passed and cleaned their evidence.
+- Phase 5 changed no Prisma/API/env SSOT. The previously regenerated OpenAPI, API index, DB schema context and env context therefore required no write refresh.
+
+### Full backend regression and Phase 5 remediation
+
+- The first complete backend run and a failure-filtered reproduction each reported the same two failures: 2,435 passed, 2 failed and 67 conditional skips. Both failures were stale assertions introduced before the final Phase 3B data shape: the immutable relation census expected 45 instead of 49, and a promotion relay zero-write snapshot omitted the two empty attachment collections.
+- The relation census now asserts the original 38 hardened Pack A FKs, 11 later same-domain FKs and specifically the four `pi_exploration_attachment*` relations. The relay assertion now proves both attachment collections remain empty during promotion delivery.
+- Direct Node 20 regression over `prisma-experiment-v2-repositories.unit.test.ts` and `experiment-v2-integration-relay-service.unit.test.ts` passed 38/38.
+- Final full backend run `phase5-full-backend-20260803-r3` passed all 2,504 tests: 2,437 passed, 0 failed, 67 explicitly skipped external/relational gates, 0 todo, duration `499735.393209ms`.
+
+### Disposable PostgreSQL verification
+
+- A digest-pinned, nonce/name/marker/password-fenced D19 run applied the complete migration history and passed four separate zero-skip suites: P06 promotion 1/1, P15 exploration spec 1/1, P15 atomic attachment 1/1 and P21 semantic projection/retrieval 1/1.
+- The first combined command then correctly failed before Pack C business assertions because its generic D19 identity variables were not replaced when `DATABASE_URL` moved to Pack C. The trap removed the container. The corrected run supplied both the dedicated and generic identity variables for each database.
+- Corrected Pack C EF database `packc_4d8d3c971475` applied the complete history and scientific-validation relational tests passed 4/4 with skip=0. It proves exact-scope constraints, atomic report/Candidate/outbox behavior, failed/unsupported report-only behavior and permanent generic scientific-writer closure.
+- Corrected Pack C PI database `packc_pi_45201ab41497` applied the complete history and evidence/closure relational tests passed 5/5 with skip=0. The T-134 Phase 3C scenario again passed through production-shaped real-provider intake, materialization, scientific validation and the existing Evidence Trust Gateway, while attachment alone remained zero TaskSpec/Run/REU.
+- Both corrected databases and the disposable container were removed. No named-local/staging/production database was read or changed.
+
+### Documentation and governance gates
+
+- Strict task-bundle lint passed 36/36 with zero errors/warnings; strict lint of the changed source audit matrix passed 1/1 with zero errors/warnings. The broader historical T-132 archive still has 11 pre-existing vague-reference warnings outside the changed matrix.
+- `ctl-project-governance sync --apply --project main` regenerated the registry, dashboard, feature map and task index with T-134 `done`; governance lint passed. Its only warnings are the two pre-existing non-T-134 state-format warnings for the T-124/T-133-era active bundles.
+- Final backend TypeScript, Prisma schema validation and `git diff --check` passed after the two test corrections and documentation sync.
+
+### Closure verdict
+
+- EF-P14 is verified: bound bootstrap is the sole product path, rejects unbound/half-bound/drifted/legacy-null inputs before write and preserves exact replay.
+- EF-P06 is verified: one typed server-owned UoW converges Candidate, decision, canonical asset and outbox; the existing materializer remains the only TaskSpec/Run writer and legacy promotion remains closed.
+- EF-P15 is verified under P15-03 option 1: immutable exploration specs attach through the existing PI admission UoW, then only a newly executed PI-bound Run can reach the existing scientific Candidate and REU writers after complete revalidation.
+- EF-P21 is verified: project-first deterministic documents feed one rebuildable projection; semantic retrieval re-resolves the post-search structured snapshot and every degradation returns complete structured lineage without controlling workflow or trust.
+- Phase 5 exit is met. T-134 is `done` and ready for explicit archival approval.
