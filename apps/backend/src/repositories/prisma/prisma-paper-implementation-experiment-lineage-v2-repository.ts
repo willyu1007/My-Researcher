@@ -1,6 +1,6 @@
-import type {
+import {
   Prisma,
-  PrismaClient,
+  type PrismaClient,
 } from '@prisma/client';
 import {
   SCIENTIFIC_DISPOSITIONS_V2,
@@ -22,10 +22,12 @@ import {
 import type {
   PaperImplementationExperimentLineageV2BranchHistoryReadModel,
   PaperImplementationExperimentLineageV2BranchRecord,
+  PaperImplementationExperimentLineageV2CycleReadModel,
   PaperImplementationExperimentLineageV2CycleSummaryRecord,
   PaperImplementationExperimentLineageV2HeadRunRecord,
   PaperImplementationExperimentLineageV2Repository,
   PaperImplementationExperimentLineageV2RevisionRunRecord,
+  PaperImplementationExperimentLineageV2SemanticSnapshotReadModel,
 } from '../paper-implementation-experiment-lineage-v2.repository.js';
 
 class PaperImplementationExperimentLineageV2RepositoryIntegrityError extends Error {
@@ -54,6 +56,10 @@ interface HeadRunRow {
   cellKey: string | null;
   trainingTaskSpecId: string | null;
   trainingTaskSpecHash: string | null;
+}
+
+interface ProjectHeadRunRow extends HeadRunRow {
+  validationCycleId: string;
 }
 
 interface RevisionRunRow {
@@ -471,6 +477,295 @@ implements PaperImplementationExperimentLineageV2Repository {
       created_at: cycle.createdAt.toISOString(),
       closure: closedState(closure ?? undefined),
       branches,
+    };
+  }
+
+  async findProjectSemanticLineageSnapshot(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationExperimentLineageV2SemanticSnapshotReadModel | null> {
+    if ('$transaction' in this.prisma) {
+      return (this.prisma as PrismaClient).$transaction(
+        (transaction) => (
+          new PrismaPaperImplementationExperimentLineageV2Repository(transaction)
+            .loadProjectSemanticLineageSnapshot(implementationProjectId)
+        ),
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: 30_000,
+        },
+      );
+    }
+    return this.loadProjectSemanticLineageSnapshot(implementationProjectId);
+  }
+
+  private async loadProjectSemanticLineageSnapshot(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationExperimentLineageV2SemanticSnapshotReadModel | null> {
+    const projectCycles = await this.listProjectValidationCycles(implementationProjectId);
+    if (!projectCycles) return null;
+    if (projectCycles.cycles.length === 0) {
+      return { project_cycles: projectCycles, cycle_lineages: [] };
+    }
+
+    const [cycles, closures, branchRows, headRunRows] = await Promise.all([
+      this.prisma.paperImplementationValidationCycle.findMany({
+        where: { implementationProjectId },
+        select: {
+          id: true,
+          implementationProjectId: true,
+          cycleStatus: true,
+          targetRefType: true,
+          targetRefId: true,
+          targetVersionId: true,
+          createdAt: true,
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      }),
+      this.prisma.paperImplementationValidationCycleClosureV2.findMany({
+        where: { implementationProjectId },
+        select: {
+          validationCycleId: true,
+          closureKind: true,
+          scientificDisposition: true,
+          createdAt: true,
+        },
+        orderBy: [{ validationCycleId: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.paperImplementationExperimentWorkOrderBranchV2.findMany({
+        where: {
+          implementationProjectId,
+          currentRevisionId: { not: null },
+        },
+        select: {
+          id: true,
+          validationCycleId: true,
+          branchKey: true,
+          branchFrameJson: true,
+          currentRevisionId: true,
+          currentRevisionSequence: true,
+          headRevisionId: true,
+          headRevisionSequence: true,
+          headRunId: true,
+          headRunManifestHash: true,
+          currentRevision: {
+            select: {
+              id: true,
+              revisionSequence: true,
+              contentHash: true,
+            },
+          },
+        },
+        orderBy: [{ validationCycleId: 'asc' }, { branchKey: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.$queryRaw<ProjectHeadRunRow[]>`
+        SELECT
+          b."validationCycleId" AS "validationCycleId",
+          b.id AS "branchId",
+          r.id AS "runId",
+          r."runManifestHash" AS "runManifestHash",
+          r."externalPiBranchId" AS "externalPiBranchId",
+          r."externalPiWorkOrderRevisionId" AS "externalPiWorkOrderRevisionId",
+          r."externalPiWorkOrderRevisionHash" AS "externalPiWorkOrderRevisionHash",
+          r."externalPiRevisionSequence" AS "externalPiRevisionSequence",
+          (
+            SELECT COUNT(*)::int
+            FROM "ExperimentFoundationIntegrationInboxV2" acknowledgement
+            WHERE acknowledgement."implementationProjectId" = ${implementationProjectId}
+              AND acknowledgement."validationCycleId" = b."validationCycleId"
+              AND acknowledgement."consumerName" =
+                ${EXPERIMENT_FOUNDATION_V2_HEAD_ACKNOWLEDGEMENT_CONSUMER}
+              AND acknowledgement."eventType" = 'BranchHeadAdvanced'
+              AND acknowledgement."schemaVersion" = 'v1'
+              AND acknowledgement."producerDomain" = 'PaperImplementation'
+              AND acknowledgement.status = 'processed'
+              AND acknowledgement.outcome = 'processed'
+              AND acknowledgement."branchId" = b.id
+              AND acknowledgement."branchKey" = b."branchKey"
+              AND acknowledgement."workOrderRevisionId" = b."currentRevisionId"
+              AND acknowledgement."workOrderRevisionHash" = current_revision."contentHash"
+              AND acknowledgement."revisionSequence" = b."currentRevisionSequence"
+              AND acknowledgement."runId" = b."headRunId"
+              AND acknowledgement."runManifestHash" = b."headRunManifestHash"
+          ) AS "headAcknowledgementCount",
+          cell.id AS "runCellId",
+          cell.ordinal AS "cellOrdinal",
+          cell."cellKey" AS "cellKey",
+          task_spec.id AS "trainingTaskSpecId",
+          task_spec."taskSpecHash" AS "trainingTaskSpecHash"
+        FROM "PaperImplementationExperimentWorkOrderBranchV2" b
+        JOIN "PaperImplementationExperimentWorkOrderRevisionV2" current_revision
+          ON current_revision."branchId" = b.id
+          AND current_revision.id = b."currentRevisionId"
+          AND current_revision."revisionSequence" = b."currentRevisionSequence"
+        JOIN "ExperimentFoundationRunV2" r
+          ON r.id = b."headRunId"
+        LEFT JOIN "ExperimentFoundationRunCellV2" cell
+          ON cell."runId" = r.id
+        LEFT JOIN "ExperimentFoundationTrainingTaskSpecV2" task_spec
+          ON task_spec.id = cell."trainingTaskSpecId"
+        WHERE b."implementationProjectId" = ${implementationProjectId}
+          AND b."currentRevisionId" IS NOT NULL
+        ORDER BY b."validationCycleId" ASC, b."branchKey" ASC, b.id ASC,
+          cell.ordinal ASC, cell.id ASC
+      `,
+    ]);
+
+    const expectedCycleIds = new Set(
+      projectCycles.cycles.map((cycle) => cycle.validation_cycle_id),
+    );
+    if (
+      expectedCycleIds.size !== projectCycles.cycles.length
+      || cycles.length !== expectedCycleIds.size
+      || cycles.some((cycle) => !expectedCycleIds.has(cycle.id))
+    ) {
+      throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+        `Project semantic snapshot Cycle coverage drifted: ${implementationProjectId}`,
+      );
+    }
+    const closureByCycleId = new Map(closures.map((closure) => [
+      closure.validationCycleId,
+      closure,
+    ]));
+    if (closureByCycleId.size !== closures.length) {
+      throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+        `Project has duplicate v2 ValidationCycle closure rows: ${implementationProjectId}`,
+      );
+    }
+
+    const branchCycleById = new Map(branchRows.map((branch) => [
+      branch.id,
+      branch.validationCycleId,
+    ]));
+    for (const row of headRunRows) {
+      if (branchCycleById.get(row.branchId) !== row.validationCycleId) {
+        throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+          `Project semantic head Run escaped its ValidationCycle: ${row.runId}`,
+        );
+      }
+    }
+    const headRunsByBranchId = this.mapHeadRuns(headRunRows);
+    const runById = new Map<string, {
+      validationCycleId: string;
+      run: PaperImplementationExperimentLineageV2HeadRunRecord;
+    }>();
+    for (const [branchId, run] of headRunsByBranchId) {
+      const validationCycleId = branchCycleById.get(branchId);
+      if (!validationCycleId || runById.has(run.run_id)) {
+        throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+          `Project semantic head Run identity is ambiguous: ${run.run_id}`,
+        );
+      }
+      runById.set(run.run_id, { validationCycleId, run });
+    }
+    const candidateRunIds = [...runById.keys()].sort(compareText);
+    const attempts = candidateRunIds.length === 0
+      ? []
+      : await this.prisma.experimentFoundationExecutionAttemptV2.findMany({
+        where: {
+          externalPiImplementationProjectId: implementationProjectId,
+          runId: { in: candidateRunIds },
+        },
+        select: {
+          id: true,
+          externalPiValidationCycleId: true,
+          runId: true,
+          runCellId: true,
+          attemptSequence: true,
+          executionMode: true,
+          lifecycleState: true,
+          terminalReasonCode: true,
+          updatedAt: true,
+          collectionAttempt: {
+            select: {
+              collectionState: true,
+              provisionalOutputs: {
+                select: { outputKind: true },
+                orderBy: [{ ordinal: 'asc' }, { id: 'asc' }],
+              },
+            },
+          },
+        },
+        orderBy: [
+          { externalPiValidationCycleId: 'asc' },
+          { runId: 'asc' },
+          { runCellId: 'asc' },
+          { attemptSequence: 'asc' },
+          { id: 'asc' },
+        ],
+      });
+    for (const attempt of attempts) {
+      const target = runById.get(attempt.runId);
+      if (!target || target.validationCycleId !== attempt.externalPiValidationCycleId) {
+        throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+          `Attempt resolved outside project semantic head Runs: ${attempt.id}`,
+        );
+      }
+      target.run.attempts.push({
+        execution_attempt_id: attempt.id,
+        run_cell_id: attempt.runCellId,
+        attempt_sequence: attempt.attemptSequence,
+        execution_mode: attempt.executionMode,
+        lifecycle_state: attempt.lifecycleState,
+        terminal_reason_code: attempt.terminalReasonCode,
+        updated_at: attempt.updatedAt.toISOString(),
+        collection: attempt.collectionAttempt
+          ? {
+            collection_state: attempt.collectionAttempt.collectionState,
+            output_kinds: attempt.collectionAttempt.provisionalOutputs
+              .map((output) => output.outputKind),
+          }
+          : null,
+      });
+    }
+
+    const branchesByCycleId = new Map<
+      string,
+      PaperImplementationExperimentLineageV2BranchRecord[]
+    >();
+    for (const branch of branchRows) {
+      if (
+        branch.currentRevisionId === null
+        || branch.currentRevisionSequence === null
+        || branch.currentRevision === null
+        || branch.currentRevision.id !== branch.currentRevisionId
+        || branch.currentRevision.revisionSequence !== branch.currentRevisionSequence
+      ) {
+        throw new PaperImplementationExperimentLineageV2RepositoryIntegrityError(
+          `Current admitted revision relation drifted for PI branch: ${branch.id}`,
+        );
+      }
+      const records = branchesByCycleId.get(branch.validationCycleId) ?? [];
+      records.push({
+        branch_id: branch.id,
+        branch_key: branch.branchKey,
+        parent_branch_key: parentBranchKey(branch.id, branch.branchFrameJson),
+        current_admitted_revision_id: branch.currentRevision.id,
+        current_admitted_revision_hash: branch.currentRevision.contentHash,
+        current_admitted_revision_sequence: branch.currentRevision.revisionSequence,
+        head_revision_id: branch.headRevisionId,
+        head_revision_sequence: branch.headRevisionSequence,
+        head_run_id: branch.headRunId,
+        head_run_manifest_hash: branch.headRunManifestHash,
+        head_run: headRunsByBranchId.get(branch.id) ?? null,
+      });
+      branchesByCycleId.set(branch.validationCycleId, records);
+    }
+
+    const cycleLineages: PaperImplementationExperimentLineageV2CycleReadModel[] =
+      cycles.map((cycle) => ({
+        implementation_project_id: cycle.implementationProjectId,
+        validation_cycle_id: cycle.id,
+        lifecycle_status: cycle.cycleStatus,
+        target_ref_type: cycle.targetRefType,
+        target_ref_id: cycle.targetRefId,
+        target_version_id: cycle.targetVersionId,
+        created_at: cycle.createdAt.toISOString(),
+        closure: closedState(closureByCycleId.get(cycle.id)),
+        branches: branchesByCycleId.get(cycle.id) ?? [],
+      }));
+    return {
+      project_cycles: projectCycles,
+      cycle_lineages: cycleLineages,
     };
   }
 

@@ -110,15 +110,18 @@ function reader(options: {
   project?: ProjectValidationCyclesLineageV2Response;
   cycle?: ValidationCycleExperimentLineageV2Response;
   calls?: string[];
-} = {}): PaperImplementationSemanticStructuredLineageV2Reader {
+  } = {}): PaperImplementationSemanticStructuredLineageV2Reader {
   return {
-    async listProjectValidationCycles(projectId) {
-      options.calls?.push(`project:${projectId}`);
-      return structuredClone(options.project ?? projectCycles());
-    },
-    async getValidationCycleExperimentLineage(projectId, cycleId) {
-      options.calls?.push(`cycle:${projectId}:${cycleId}`);
-      return structuredClone(options.cycle ?? cycleLineage());
+    async listProjectSemanticLineageSnapshot(projectId) {
+      options.calls?.push(`snapshot:${projectId}`);
+      const project = options.project ?? projectCycles();
+      return structuredClone({
+        implementation_project_id: project.implementation_project_id,
+        validation_cycles: project.validation_cycles.map((summary) => ({
+          summary,
+          lineage: options.cycle ?? cycleLineage(),
+        })),
+      });
     },
   };
 }
@@ -144,9 +147,9 @@ test('semantic candidate service produces deterministic current-only ranking inp
   assert.equal(first.candidates.some((document) => (
     document.source.source_id === 'branch-blocked'
   )), false);
-  assert.deepEqual(calls.slice(0, 2), [
-    `project:${PROJECT_ID}`,
-    `cycle:${PROJECT_ID}:${CYCLE_ID}`,
+  assert.deepEqual(calls, [
+    `snapshot:${PROJECT_ID}`,
+    `snapshot:${PROJECT_ID}`,
   ]);
 
   for (const document of first.candidates) {
@@ -183,7 +186,7 @@ test('semantic candidate service resolves project scope before cycle candidates'
       && error.reasonCode === 'SEMANTIC_SOURCE_INTEGRITY_ERROR'
     ),
   );
-  assert.deepEqual(calls, [`project:${PROJECT_ID}`]);
+  assert.deepEqual(calls, [`snapshot:${PROJECT_ID}`]);
 });
 
 test('semantic candidate service fails closed on structured source drift', async () => {

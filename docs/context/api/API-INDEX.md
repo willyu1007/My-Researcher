@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-08-02T13:54:31.268Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `9597a18fe367...`)
+> Auto-generated at 2026-08-03T14:15:29.263Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `bc581369cb5c...`)
 
-Total endpoints: **203**
+Total endpoints: **205**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -15,6 +15,8 @@ Total endpoints: **203**
 | GET | /paper-implementation/projects/{implementation_project_id}/experiment-lineage/validation-cycles | List experiment-lineage summaries for one ImplementationProject. | none | implementation_project_id | implementation_project_id, validation_cycles | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-lineage | Read current admitted branch, head Run, Attempt, and collection lineage for one ValidationCycle. | none | implementation_project_id, validation_cycle_id | implementation_project_id, validation_cycle, branches | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/projects/{implementation_project_id}/workorder-branches/{branch_id}/revision-history | Read all admitted and superseded WorkOrder revisions for one experiment branch. | none | implementation_project_id, branch_id | implementation_project_id, validation_cycle_id, branch_id, branch_key, parent_branch_key, history_includes_superseded_revisions, revisions | 400, 404, 409, 422, 500 |
+| POST | /paper-implementation/projects/{implementation_project_id}/semantic-index/v2/rebuild | Rebuild one project's non-authoritative semantic projection from current structured lineage. | none | implementation_project_id | schema_version, implementation_project_id, embedding_profile, changed_count, unchanged_count, deleted_count, total_count | 400, 404, 409, 422, 500, 502, 504 |
+| POST | /paper-implementation/projects/{implementation_project_id}/semantic-retrieval/v2 | Rank the current authorized project lineage with semantic retrieval and structured fallback. | none | query | — | 400, 404, 409, 422, 500, 502, 504 |
 | GET | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation | Prepare the exact no-evidence closure request template for one ValidationCycle. | none | validation_cycle_id | readiness, derived_closure_kind, prepared_request | 400, 404, 409, 422, 500 |
 | GET | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/available-actions | List typed agent actions currently available for one ValidationCycle. | none | implementation_project_id, validation_cycle_id | implementation_project_id, validation_cycle_id, actions, closure | 400, 404, 409, 422, 500 |
 | POST | /experiment-foundation/v2/assets/{asset_type}/{logical_id}/candidate-revisions/{candidate_revision}/promotion | Promote or reject one exact typed asset Candidate revision. | none | decision, business_idempotency_key | candidate, promotion_decision, event_id, replayed | 400, 404, 409, 422, 500 |

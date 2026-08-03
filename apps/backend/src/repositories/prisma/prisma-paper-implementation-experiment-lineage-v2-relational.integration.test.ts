@@ -138,6 +138,24 @@ test(
         null,
       );
 
+      const semanticSnapshot = await repository.findProjectSemanticLineageSnapshot(
+        projectA.implementationProjectId,
+      );
+      assert.ok(semanticSnapshot);
+      assert.deepEqual(
+        semanticSnapshot.project_cycles.cycles.map((cycle) => cycle.validation_cycle_id),
+        [projectA.validationCycleId],
+      );
+      assert.deepEqual(
+        semanticSnapshot.cycle_lineages.map((cycle) => cycle.validation_cycle_id),
+        [projectA.validationCycleId],
+      );
+      assert.equal(
+        semanticSnapshot.cycle_lineages[0]?.branches[0]?.head_run?.run_id,
+        projectA.runIds[1],
+      );
+      assert.equal(JSON.stringify(semanticSnapshot).includes(projectB.branchId), false);
+
       const history = await repository.findWorkOrderBranchRevisionHistory(
         projectA.implementationProjectId,
         projectA.branchId,

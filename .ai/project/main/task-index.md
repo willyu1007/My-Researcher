@@ -115,7 +115,7 @@ Project: `main`
 | T-103 experiment-foundation-full-flow-validation-runner | done | F-001 | dev-docs/active/experiment-foundation-full-flow-validation-runner |
 | T-104 paper-implementation-live-experiment-adapter | done | F-001 | dev-docs/active/paper-implementation-live-experiment-adapter |
 | T-105 paper-implementation-provider-variance-evaluation | done | F-001 | dev-docs/active/paper-implementation-provider-variance-evaluation |
-| T-106 experiment-foundation-real-interaction-hardening | in-progress | F-001 | dev-docs/active/experiment-foundation-real-interaction-hardening |
+| T-106 experiment-foundation-real-interaction-hardening | archived | F-001 | dev-docs/archive/experiment-foundation-real-interaction-hardening |
 | T-107 topic-selection-v1b-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1b-workflow-hardening |
 | T-108 topic-selection-v1c-workflow-hardening | done | F-001 | dev-docs/active/topic-selection-v1c-workflow-hardening |
 | T-109 paper-implementation-v1-runnable-closure | done | F-001 | dev-docs/active/paper-implementation-v1-runnable-closure |
@@ -143,5 +143,6 @@ Project: `main`
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-134 experiment-foundation-audit-remainders-closure | done | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
+| T-134 experiment-foundation-audit-remainders-closure | archived | F-001 | dev-docs/archive/experiment-foundation-audit-remainders-closure |
+| T-135 experiment-foundation-v2-semantic-api-activation | archived | F-001 | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
 <!-- AUTO-GENERATED:END task-index -->

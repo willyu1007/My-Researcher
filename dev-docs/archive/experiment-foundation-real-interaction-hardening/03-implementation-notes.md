@@ -121,3 +121,11 @@
 - T-106's existing `external-gate` remains a key-presence/prerequisite gate and receives no provider calls or real persistence. T-106 will consume and verify the final redacted M7 verdict rather than creating a second canary implementation.
 - The T-132 readiness review found that the existing acknowledged Run is immutable simulation-only and cannot be upgraded. M7 will require a new PI WorkOrder revision/new Run plus an exact typed execution bundle. The new-lineage design preserves T-106's no-second-semantic-track rule.
 - No T-106 code, provider configuration, credential, database or cloud resource changed in the handoff.
+
+## 2026-08-03: final live-verdict reconciliation and closure
+
+- Consumed the final T-132 sequence-9 live acceptance recorded in the archived T-132 overview: exactly two database-controlled `CreateJob` calls, two terminal successful PAI Jobs, two distinct parser-bound `diagnostic_only` outputs, zero duplicate Jobs/rows on replay, zero scientific/evidence writes and completed credential cleanup.
+- Closed the provider-specific true-external acceptance item without adding provider code to T-106. T-132 remains the sole real-provider implementation and live-runner owner.
+- Reconciled the remaining Phase 3/7 checklist items against the already-landed memory/disposable-PostgreSQL automation evidence and T-134 Phase 3C production-shaped trust-chain regression.
+- Split the still-uncomposed semantic product surface and named-local T-134 migration activation to T-135. This is productization work, not residual T-106 hardening.
+- No product code, database, capability, provider, credential or cloud resource changed during this governance-only closure.

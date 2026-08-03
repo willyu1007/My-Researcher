@@ -535,6 +535,47 @@ test('LLM gateway parses embedding vectors from OpenAI data shape', async () => 
   assert.equal(response.telemetry.total_tokens, 2);
 });
 
+test('LLM gateway cancels an in-flight embedding request from the caller signal without retry', async () => {
+  let requestCount = 0;
+  const gateway = new BackendLlmGateway({
+    settingsService: createSettingsService(),
+    defaultMaxRetries: 3,
+    fetchImpl: (async (_input, init) => {
+      requestCount += 1;
+      return new Promise<Response>((_resolve, reject) => {
+        const abort = () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        };
+        if (init?.signal?.aborted) {
+          abort();
+          return;
+        }
+        init?.signal?.addEventListener('abort', abort, { once: true });
+      });
+    }) as typeof fetch,
+  });
+  const controller = new AbortController();
+  const pending = gateway.createEmbeddings({
+    executionContext: { feature: 'test', operation: 'embedding-cancel' },
+    model: { providerId: 'openai', modelId: 'text-embedding-3-large' },
+    input: 'query',
+    signal: controller.signal,
+  });
+  setTimeout(() => controller.abort(), 1);
+
+  await assert.rejects(
+    pending,
+    (error: unknown) => error instanceof LlmGatewayError
+      && error.code === 'TimeoutError'
+      && error.retryable === false
+      && error.telemetry?.request_count === 1
+      && error.telemetry.retry_count === 0,
+  );
+  assert.equal(requestCount, 1);
+});
+
 test('LLM gateway maps DashScope chat completion JSON output and telemetry', async () => {
   const calls: Array<{ input: string; body: Record<string, unknown> }> = [];
   const gateway = new BackendLlmGateway({

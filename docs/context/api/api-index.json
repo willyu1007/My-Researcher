@@ -1,14 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-02T13:54:31.268Z",
+  "generatedAt": "2026-08-03T14:15:29.263Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "9597a18fe367692ed5c77ee6de58985c798b67d5972370d112349bb6e510ea5c",
+  "sourceChecksumSha256": "bc581369cb5c985e9ba5d51b8a02b4367f1acdfdfa9c3e17b6e8fd91d02c506c",
   "stats": {
-    "totalEndpoints": 203,
+    "totalEndpoints": 205,
     "byTag": {
       "health": 1,
       "paper-implementation-experiment-v2": 8,
       "paper-implementation-exploration-attachment-v2": 1,
+      "paper-implementation-semantic-v2": 2,
       "experiment-foundation-promotion-v2": 1,
       "experiment-foundation-exploration-spec-v2": 1,
       "experiment-foundation-execution-v2": 6,
@@ -318,6 +319,83 @@
       ],
       "example": {
         "curl": "curl -X GET '/paper-implementation/projects/{implementation_project_id}/workorder-branches/{branch_id}/revision-history'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/projects/{implementation_project_id}/semantic-index/v2/rebuild",
+      "operationId": "rebuildPaperImplementationSemanticIndexV2",
+      "summary": "Rebuild one project's non-authoritative semantic projection from current structured lineage.",
+      "tag": "paper-implementation-semantic-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "implementation_project_id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "schema_version",
+          "implementation_project_id",
+          "embedding_profile",
+          "changed_count",
+          "unchanged_count",
+          "deleted_count",
+          "total_count"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500,
+        502,
+        504
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/projects/{implementation_project_id}/semantic-index/v2/rebuild'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/projects/{implementation_project_id}/semantic-retrieval/v2",
+      "operationId": "retrievePaperImplementationSemanticLineageV2",
+      "summary": "Rank the current authorized project lineage with semantic retrieval and structured fallback.",
+      "tag": "paper-implementation-semantic-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "implementation_project_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [
+            "query"
+          ],
+          "optional": [
+            "result_limit"
+          ]
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": []
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500,
+        502,
+        504
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/projects/{implementation_project_id}/semantic-retrieval/v2' -H 'Content-Type: application/json' -d '{\"query\":\"<query>\"}'"
       }
     },
     {

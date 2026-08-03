@@ -57,6 +57,22 @@ implements PaperImplementationExperimentLineageV2Repository {
     )) ?? null);
   }
 
+  async findProjectSemanticLineageSnapshot(implementationProjectId: string) {
+    if (!this.projects.has(implementationProjectId)) return null;
+    const projectCycles = this.projectCycles.find((candidate) => (
+      candidate.implementation_project_id === implementationProjectId
+    )) ?? {
+      implementation_project_id: implementationProjectId,
+      cycles: [],
+    };
+    return clone({
+      project_cycles: projectCycles,
+      cycle_lineages: this.cycleLineages.filter((record) => (
+        record.implementation_project_id === implementationProjectId
+      )),
+    });
+  }
+
   async findWorkOrderBranchRevisionHistory(
     implementationProjectId: string,
     branchId: string,

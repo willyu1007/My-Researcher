@@ -18,6 +18,9 @@ import type {
   ProjectValidationCyclesLineageV2Response,
   ValidationCycleExperimentLineageV2Response,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts';
+import type {
+  PaperImplementationSemanticLineageSnapshotV2,
+} from './paper-implementation-experiment-lineage-v2-service.js';
 
 export type PaperImplementationSemanticCandidateV2ServiceReasonCode =
   | 'SEMANTIC_QUERY_INVALID'
@@ -38,14 +41,9 @@ export class PaperImplementationSemanticCandidateV2ServiceError extends Error {
  * Its implementation must resolve project scope before returning candidate ids.
  */
 export interface PaperImplementationSemanticStructuredLineageV2Reader {
-  listProjectValidationCycles(
+  listProjectSemanticLineageSnapshot(
     implementationProjectId: string,
-  ): Promise<ProjectValidationCyclesLineageV2Response>;
-
-  getValidationCycleExperimentLineage(
-    implementationProjectId: string,
-    validationCycleId: string,
-  ): Promise<ValidationCycleExperimentLineageV2Response>;
+  ): Promise<PaperImplementationSemanticLineageSnapshotV2>;
 }
 
 export interface PaperImplementationSemanticCandidateV2ServiceOptions {
@@ -171,7 +169,7 @@ export class PaperImplementationSemanticCandidateV2Service {
     // This first call is the project authorization/candidate boundary. No
     // semantic adapter can run before it succeeds.
     const projectLineage = await this.options.structuredLineageReader
-      .listProjectValidationCycles(implementationProjectId);
+      .listProjectSemanticLineageSnapshot(implementationProjectId);
     if (projectLineage.implementation_project_id !== implementationProjectId) {
       throw new PaperImplementationSemanticCandidateV2ServiceError(
         'SEMANTIC_SOURCE_INTEGRITY_ERROR',
@@ -183,9 +181,10 @@ export class PaperImplementationSemanticCandidateV2Service {
     const seenDocumentSources = new Set<string>();
     const documents: PaperImplementationSemanticDocumentV2[] = [];
     const cycles = [...projectLineage.validation_cycles].sort((left, right) => (
-      compareText(left.validation_cycle_id, right.validation_cycle_id)
+      compareText(left.summary.validation_cycle_id, right.summary.validation_cycle_id)
     ));
-    for (const cycle of cycles) {
+    for (const snapshot of cycles) {
+      const cycle = snapshot.summary;
       if (seenCycleIds.has(cycle.validation_cycle_id)) {
         throw new PaperImplementationSemanticCandidateV2ServiceError(
           'SEMANTIC_SOURCE_INTEGRITY_ERROR',
@@ -205,11 +204,7 @@ export class PaperImplementationSemanticCandidateV2Service {
         cycleContent,
       ));
 
-      const lineage = await this.options.structuredLineageReader
-        .getValidationCycleExperimentLineage(
-          implementationProjectId,
-          cycle.validation_cycle_id,
-        );
+      const lineage = snapshot.lineage;
       if (
         lineage.implementation_project_id !== implementationProjectId
         || lineage.validation_cycle.validation_cycle_id !== cycle.validation_cycle_id

@@ -1,0 +1,13 @@
+version: 1
+task_id: T-135
+project: main
+slug: experiment-foundation-v2-semantic-api-activation
+status: archived
+updated: "2026-08-03"
+keywords:
+  - experiment-foundation
+  - semantic-retrieval
+  - named-local-migration
+  - embedding
+  - api
+  - R-012

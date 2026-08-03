@@ -40,12 +40,14 @@ export interface PaperImplementationSemanticEmbeddingV2Port {
   embedDocuments(input: {
     profile: PaperImplementationSemanticEmbeddingProfileV2;
     documents: PaperImplementationSemanticEmbeddingRequestDocumentV2[];
+    signal?: AbortSignal;
   }): Promise<PaperImplementationSemanticEmbeddingResultV2[]>;
 }
 
 export type PaperImplementationSemanticIndexV2ServiceReasonCode =
   | 'SEMANTIC_DOCUMENT_LIMIT_EXCEEDED'
-  | 'SEMANTIC_EMBEDDING_INVALID';
+  | 'SEMANTIC_EMBEDDING_INVALID'
+  | 'SEMANTIC_SOURCE_DRIFT';
 
 export class PaperImplementationSemanticIndexV2ServiceError extends Error {
   constructor(
@@ -107,6 +109,34 @@ function sameEmbeddingProfile(
     && record.embedding_profile.dimension === profile.dimension;
 }
 
+function sameAuthorizedDocumentSnapshot(
+  left: readonly PaperImplementationSemanticDocumentV2[],
+  right: readonly PaperImplementationSemanticDocumentV2[],
+): boolean {
+  if (left.length !== right.length) return false;
+  const rightById = new Map(right.map((document) => [document.document_id, document]));
+  return rightById.size === right.length && left.every((document) => {
+    const current = rightById.get(document.document_id);
+    return current !== undefined
+      && current.implementation_project_id === document.implementation_project_id
+      && current.schema_version === document.schema_version
+      && current.document_hash === document.document_hash
+      && current.source.source_type === document.source.source_type
+      && current.source.source_id === document.source.source_id
+      && current.source.source_version === document.source.source_version
+      && current.source.source_hash === document.source.source_hash;
+  });
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new Error('Semantic index rebuild was cancelled');
+}
+
+const MAX_AUTHORIZED_SNAPSHOT_ATTEMPTS = 2;
+
 export class PaperImplementationSemanticIndexV2Service {
   private readonly now: () => string;
 
@@ -122,23 +152,75 @@ export class PaperImplementationSemanticIndexV2Service {
 
   async rebuildProjectProjection(
     implementationProjectId: string,
+    options: { signal?: AbortSignal } = {},
   ): Promise<ReplacePaperImplementationSemanticProjectProjectionV2Result> {
-    const documents = await this.options.documentReader.listAuthorizedDocuments(
-      implementationProjectId,
-    );
-    if (documents.length > PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2) {
-      throw new PaperImplementationSemanticIndexV2ServiceError(
-        'SEMANTIC_DOCUMENT_LIMIT_EXCEEDED',
-        `Semantic project document count exceeds ${PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2}`,
+    for (let attempt = 1; attempt <= MAX_AUTHORIZED_SNAPSHOT_ATTEMPTS; attempt += 1) {
+      throwIfAborted(options.signal);
+      const documents = await this.options.documentReader.listAuthorizedDocuments(
+        implementationProjectId,
       );
-    }
-    if (documents.length === 0) {
-      return this.options.repository.replaceProjectProjection({
+      this.assertDocumentLimit(documents);
+      const writes = await this.prepareProjectionWrites(
+        implementationProjectId,
+        documents,
+        options.signal,
+      );
+
+      throwIfAborted(options.signal);
+      const beforeWrite = await this.options.documentReader.listAuthorizedDocuments(
+        implementationProjectId,
+      );
+      this.assertDocumentLimit(beforeWrite);
+      if (!sameAuthorizedDocumentSnapshot(documents, beforeWrite)) {
+        if (attempt < MAX_AUTHORIZED_SNAPSHOT_ATTEMPTS) continue;
+        throw new PaperImplementationSemanticIndexV2ServiceError(
+          'SEMANTIC_SOURCE_DRIFT',
+          'Structured semantic source changed before projection replacement',
+        );
+      }
+
+      throwIfAborted(options.signal);
+      const result = await this.options.repository.replaceProjectProjection({
         implementation_project_id: implementationProjectId,
-        documents: [],
+        documents: writes,
       });
+      const afterWrite = await this.options.documentReader.listAuthorizedDocuments(
+        implementationProjectId,
+      );
+      this.assertDocumentLimit(afterWrite);
+      if (sameAuthorizedDocumentSnapshot(documents, afterWrite)) return result;
+      if (attempt === MAX_AUTHORIZED_SNAPSHOT_ATTEMPTS) {
+        throw new PaperImplementationSemanticIndexV2ServiceError(
+          'SEMANTIC_SOURCE_DRIFT',
+          'Structured semantic source changed while projection replacement completed',
+        );
+      }
     }
 
+    throw new PaperImplementationSemanticIndexV2ServiceError(
+      'SEMANTIC_SOURCE_DRIFT',
+      'Structured semantic source did not stabilize during projection rebuild',
+    );
+  }
+
+  private assertDocumentLimit(
+    documents: readonly PaperImplementationSemanticDocumentV2[],
+  ): void {
+    if (documents.length <= PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2) return;
+    throw new PaperImplementationSemanticIndexV2ServiceError(
+      'SEMANTIC_DOCUMENT_LIMIT_EXCEEDED',
+      `Semantic project document count exceeds ${PAPER_IMPLEMENTATION_SEMANTIC_MAX_PROJECT_DOCUMENTS_V2}`,
+    );
+  }
+
+  private async prepareProjectionWrites(
+    implementationProjectId: string,
+    documents: readonly PaperImplementationSemanticDocumentV2[],
+    signal: AbortSignal | undefined,
+  ): Promise<PaperImplementationSemanticProjectionWriteV2[]> {
+    if (documents.length === 0) return [];
+
+    throwIfAborted(signal);
     let currentProjection: PaperImplementationSemanticProjectionRecordV2[];
     try {
       currentProjection = await this.options.repository.listProjectProjection(
@@ -172,7 +254,9 @@ export class PaperImplementationSemanticIndexV2Service {
           document_hash: document.document_hash,
           semantic_text: document.semantic_text,
         })),
+        signal,
       });
+    throwIfAborted(signal);
     const vectorsByDocumentId = new Map<string, number[]>();
     for (const result of embedded) {
       if (vectorsByDocumentId.has(result.document_id)) {
@@ -238,9 +322,6 @@ export class PaperImplementationSemanticIndexV2Service {
         indexed_at: indexedAt,
       };
     });
-    return this.options.repository.replaceProjectProjection({
-      implementation_project_id: implementationProjectId,
-      documents: writes,
-    });
+    return writes;
   }
 }

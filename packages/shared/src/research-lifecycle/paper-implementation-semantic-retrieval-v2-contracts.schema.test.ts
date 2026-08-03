@@ -4,8 +4,11 @@ import test from 'node:test';
 import Fastify from 'fastify';
 
 import {
+  paperImplementationSemanticIndexRebuildV2ResponseSchema,
   paperImplementationSemanticRankingInputV2Schema,
+  paperImplementationSemanticRetrievalV2RequestSchema,
   paperImplementationSemanticRetrievalV2ResponseSchema,
+  paperImplementationSemanticV2ErrorEnvelopeSchema,
 } from './paper-implementation-semantic-retrieval-v2-contracts.js';
 
 type JsonSchema = Readonly<Record<string, unknown>>;
@@ -215,4 +218,68 @@ test('semantic retrieval response closes semantic and structured fallback modes'
       semantic_score: 0.5,
     }],
   }), false);
+});
+
+test('semantic HTTP request and rebuild response schemas are closed', async () => {
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2RequestSchema, {
+    query: 'compare effective branches',
+    result_limit: 10,
+  }), true);
+  assert.equal(await validates(paperImplementationSemanticRetrievalV2RequestSchema, {
+    query: 'compare effective branches',
+    caller_embedding: [0.1],
+  }), false);
+  assert.equal(await validates(paperImplementationSemanticIndexRebuildV2ResponseSchema, {
+    schema_version: 'v1',
+    implementation_project_id: 'project-1',
+    embedding_profile: {
+      profile_id: 'literature-embedding-default',
+      provider: 'openai',
+      model: 'text-embedding-3-large',
+      dimension: 3072,
+    },
+    changed_count: 2,
+    unchanged_count: 1,
+    deleted_count: 0,
+    total_count: 3,
+  }), true);
+  assert.equal(await validates(paperImplementationSemanticIndexRebuildV2ResponseSchema, {
+    schema_version: 'v1',
+    implementation_project_id: 'project-1',
+    embedding_profile: {
+      profile_id: 'literature-embedding-economy',
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      dimension: 1536,
+    },
+    changed_count: 0,
+    unchanged_count: 0,
+    deleted_count: 0,
+    total_count: 0,
+  }), false);
+});
+
+test('semantic HTTP errors expose only the closed operational reason vocabulary', async () => {
+  const error = {
+    error: {
+      code: 'VERSION_CONFLICT',
+      message: 'structured source changed',
+      details: { reason_code: 'SEMANTIC_SOURCE_DRIFT' },
+    },
+  };
+  assert.equal(await validates(paperImplementationSemanticV2ErrorEnvelopeSchema, error), true);
+  assert.equal(await validates(paperImplementationSemanticV2ErrorEnvelopeSchema, {
+    ...error,
+    error: {
+      ...error.error,
+      details: { reason_code: 'CALLER_DEFINED_REASON' },
+    },
+  }), false);
+  assert.equal(await validates(paperImplementationSemanticV2ErrorEnvelopeSchema, {
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'deadline exceeded',
+      details: { reason_code: 'SEMANTIC_REBUILD_TIMEOUT' },
+    },
+  }), true);
 });

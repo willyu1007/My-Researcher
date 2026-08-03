@@ -83,6 +83,11 @@ export interface PaperImplementationExperimentLineageV2CycleReadModel {
   branches: PaperImplementationExperimentLineageV2BranchRecord[];
 }
 
+export interface PaperImplementationExperimentLineageV2SemanticSnapshotReadModel {
+  project_cycles: PaperImplementationExperimentLineageV2ProjectCyclesReadModel;
+  cycle_lineages: PaperImplementationExperimentLineageV2CycleReadModel[];
+}
+
 export interface PaperImplementationExperimentLineageV2RevisionRunRecord {
   run_id: string;
   run_manifest_hash: string;
@@ -122,6 +127,10 @@ export interface PaperImplementationExperimentLineageV2Repository {
     implementationProjectId: string,
     validationCycleId: string,
   ): Promise<PaperImplementationExperimentLineageV2CycleReadModel | null>;
+
+  findProjectSemanticLineageSnapshot(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationExperimentLineageV2SemanticSnapshotReadModel | null>;
 
   findWorkOrderBranchRevisionHistory(
     implementationProjectId: string,

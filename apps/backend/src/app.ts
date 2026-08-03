@@ -14,6 +14,7 @@ import { LiteratureFulltextAcquisitionController } from './controllers/literatur
 import { LiteratureController } from './controllers/literature-controller.js';
 import { PaperImplementationAgentActionsV2Controller } from './controllers/paper-implementation-agent-actions-v2-controller.js';
 import { PaperImplementationExperimentLineageV2Controller } from './controllers/paper-implementation-experiment-lineage-v2-controller.js';
+import { PaperImplementationSemanticV2Controller } from './controllers/paper-implementation-semantic-v2-controller.js';
 import { PaperImplementationExperimentV2Controller } from './controllers/paper-implementation-experiment-v2-controller.js';
 import { PaperImplementationController } from './controllers/paper-implementation-controller.js';
 import { TopicSettingsController } from './controllers/topic-settings-controller.js';
@@ -44,6 +45,7 @@ import { InMemoryPaperImplementationCoordinatorRepository } from './repositories
 import { InMemoryPaperImplementationRuntimeTelemetryRepository } from './repositories/in-memory-paper-implementation-runtime-telemetry-repository.js';
 import { InMemoryPaperImplementationHumanConfirmationRepository } from './repositories/in-memory-paper-implementation-human-confirmation-repository.js';
 import { InMemoryPaperImplementationExperimentLineageV2Repository } from './repositories/in-memory-paper-implementation-experiment-lineage-v2-repository.js';
+import { InMemoryPaperImplementationSemanticProjectionV2Repository } from './repositories/in-memory-paper-implementation-semantic-projection-v2-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from './repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from './repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from './repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -90,6 +92,7 @@ import { PrismaPaperImplementationCoordinatorRepository } from './repositories/p
 import { PrismaPaperImplementationRuntimeTelemetryRepository } from './repositories/prisma/prisma-paper-implementation-runtime-telemetry-repository.js';
 import { PrismaPaperImplementationHumanConfirmationRepository } from './repositories/prisma/prisma-paper-implementation-human-confirmation-repository.js';
 import { PrismaPaperImplementationExperimentLineageV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-lineage-v2-repository.js';
+import { PrismaPaperImplementationSemanticProjectionV2Repository } from './repositories/prisma/prisma-paper-implementation-semantic-projection-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './repositories/prisma/prisma-paper-implementation-experiment-spine-v2-repository.js';
 import { PrismaPaperImplementationTraceRepository } from './repositories/prisma/prisma-paper-implementation-trace-repository.js';
 import { PrismaPaperImplementationValidationRepository } from './repositories/prisma/prisma-paper-implementation-validation-repository.js';
@@ -131,6 +134,7 @@ import { registerLiteratureFulltextAcquisitionRoutes } from './routes/literature
 import { registerLiteratureRoutes } from './routes/literature-routes.js';
 import { registerPaperImplementationAgentActionsV2Routes } from './routes/paper-implementation-agent-actions-v2-routes.js';
 import { registerPaperImplementationExperimentLineageV2Routes } from './routes/paper-implementation-experiment-lineage-v2-routes.js';
+import { registerPaperImplementationSemanticV2Routes } from './routes/paper-implementation-semantic-v2-routes.js';
 import { registerPaperImplementationExperimentV2Routes } from './routes/paper-implementation-experiment-v2-routes.js';
 import { registerPaperImplementationExplorationAttachmentV2Routes } from './routes/paper-implementation-exploration-attachment-v2-routes.js';
 import { registerPaperImplementationRoutes } from './routes/paper-implementation-routes.js';
@@ -153,6 +157,7 @@ import type { LiteratureRepository } from './repositories/literature-repository.
 import type { PaperImplementationRepository } from './repositories/paper-implementation.repository.js';
 import type { PaperImplementationEvidenceV2Repository } from './repositories/paper-implementation-evidence-v2.repository.js';
 import type { PaperImplementationExperimentLineageV2Repository } from './repositories/paper-implementation-experiment-lineage-v2.repository.js';
+import type { PaperImplementationSemanticProjectionV2Repository } from './repositories/paper-implementation-semantic-projection-v2.repository.js';
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
@@ -244,6 +249,9 @@ import { PaperImplementationExperimentV2HeadService } from './services/paper-imp
 import { PaperImplementationAgentActionsV2Service } from './services/paper-implementation-agent-actions-v2-service.js';
 import { PaperImplementationCycleReadinessV2Service } from './services/paper-implementation-cycle-readiness-v2-service.js';
 import { PaperImplementationExperimentLineageV2Service } from './services/paper-implementation-experiment-lineage-v2-service.js';
+import { PaperImplementationSemanticCandidateV2Service } from './services/paper-implementation-semantic-candidate-v2-service.js';
+import { PaperImplementationSemanticEmbeddingV2Adapter } from './services/paper-implementation-semantic-embedding-v2-adapter.js';
+import { PaperImplementationSemanticV2Service } from './services/paper-implementation-semantic-v2-service.js';
 import { PaperImplementationEvidenceTrustGatewayService } from './services/paper-implementation-evidence-trust-gateway-service.js';
 import { PaperImplementationProjectionFeedV2Consumer } from './services/paper-implementation-projection-feed-v2-consumer.js';
 import { PaperImplementationValidationCycleClosureV2Service } from './services/paper-implementation-validation-cycle-closure-v2-service.js';
@@ -340,6 +348,7 @@ export type BuildAppOptions = {
   paperImplementationMotiveDecompositionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationMotiveEvolutionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationExperimentPlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationSemanticEmbeddingGateway?: Pick<BackendLlmGateway, 'createEmbeddings'>;
   topicSelectionPromptPacketCacheStore?: TopicSelectionPromptPacketCacheStore;
   paperImplementationRepository?: PaperImplementationRepository;
   paperImplementationMotiveRepository?: PaperImplementationMotiveRepository;
@@ -356,6 +365,7 @@ export type BuildAppOptions = {
   paperImplementationValidationCycleClosureV2Repository?: PaperImplementationValidationCycleClosureV2Repository;
   paperImplementationCycleReadinessV2Repository?: PaperImplementationCycleReadinessV2Repository;
   paperImplementationExperimentLineageV2Repository?: PaperImplementationExperimentLineageV2Repository;
+  paperImplementationSemanticProjectionV2Repository?: PaperImplementationSemanticProjectionV2Repository;
   paperImplementationEvidenceV2Repository?: PaperImplementationEvidenceV2Repository;
   experimentFoundationV2Repository?: ExperimentFoundationV2Repository;
   experimentFoundationPromotionV2Repository?: ExperimentFoundationPromotionV2Repository;
@@ -369,6 +379,7 @@ export type BuildAppOptions = {
   paperImplementationExperimentV2ExplorationAttachmentEnabled?: () => boolean;
   paperImplementationValidationCycleClosureV2Enabled?: () => boolean;
   paperImplementationExperimentV2CutoverCommitted?: () => boolean;
+  paperImplementationSemanticRetrievalV2Enabled?: () => boolean;
   experimentFoundationV2WorkflowSimulationEnabled?: () => boolean;
   experimentFoundationV2RealProviderIntakeEnabled?: () => boolean;
   experimentFoundationV2RealProviderControlDrainEnabled?: () => boolean;
@@ -471,6 +482,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const validationCycleClosureV2Enabled =
     options.paperImplementationValidationCycleClosureV2Enabled?.()
     ?? isPaperImplementationExperimentV2CycleClosureEnabled();
+  const semanticRetrievalV2Enabled =
+    options.paperImplementationSemanticRetrievalV2Enabled?.()
+    ?? isPaperImplementationSemanticRetrievalV2Enabled();
   assertPaperImplementationExperimentV2CutoverConfig({
     admissionEnabled: experimentV2AdmissionEnabled,
     explorationAttachmentEnabled: experimentV2ExplorationAttachmentEnabled,
@@ -482,6 +496,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     promotionEnabled: experimentV2PromotionEnabled,
     explorationSpecEnabled: experimentV2ExplorationSpecEnabled,
     cycleClosureEnabled: validationCycleClosureV2Enabled,
+    semanticRetrievalEnabled: semanticRetrievalV2Enabled,
   });
 
   const app = Fastify({
@@ -581,6 +596,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     ?? createPaperImplementationExperimentLineageV2Repository(
       storeConfig.paperImplementationStrategy,
       storeConfig.experimentFoundationStrategy,
+    );
+  const paperImplementationSemanticProjectionV2Repository =
+    options.paperImplementationSemanticProjectionV2Repository
+    ?? createPaperImplementationSemanticProjectionV2Repository(
+      storeConfig.paperImplementationStrategy,
     );
   const paperImplementationValidationCycleClosureV2Repository =
     options.paperImplementationValidationCycleClosureV2Repository
@@ -982,6 +1002,35 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const llmGateway = new BackendLlmGateway({
     settingsService: literatureContentProcessingSettingsService,
   });
+  const hasSemanticV2Composition = (
+    hasDefaultDurableExperimentV2Composition
+    && options.paperImplementationExperimentLineageV2Repository === undefined
+    && options.paperImplementationSemanticProjectionV2Repository === undefined
+  ) || (
+    options.paperImplementationExperimentLineageV2Repository !== undefined
+    && options.paperImplementationSemanticProjectionV2Repository !== undefined
+  );
+  const paperImplementationSemanticCandidateV2Service =
+    new PaperImplementationSemanticCandidateV2Service({
+      structuredLineageReader: paperImplementationExperimentLineageV2Service,
+    });
+  const paperImplementationSemanticV2Controller =
+    new PaperImplementationSemanticV2Controller(
+      new PaperImplementationSemanticV2Service({
+        candidateReader: paperImplementationSemanticCandidateV2Service,
+        embeddingAdapter: new PaperImplementationSemanticEmbeddingV2Adapter({
+          gateway: options.paperImplementationSemanticEmbeddingGateway ?? llmGateway,
+        }),
+        projectionRepository: paperImplementationSemanticProjectionV2Repository,
+        embeddingProfileResolver: () => (
+          literatureContentProcessingSettingsService.resolveActiveEmbeddingProfile()
+        ),
+        enabled: () => (
+          semanticRetrievalV2Enabled
+          && hasSemanticV2Composition
+        ),
+      }),
+    );
   const topicSelectionV1aArtifactBoundaryService = new TopicSelectionNeedDiscoveryArtifactBoundaryService(
     topicSelectionControlPlaneService,
   );
@@ -1696,6 +1745,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       instance,
       paperImplementationExperimentLineageV2Controller,
     );
+    await registerPaperImplementationSemanticV2Routes(
+      instance,
+      paperImplementationSemanticV2Controller,
+    );
     await registerPaperImplementationAgentActionsV2Routes(
       instance,
       paperImplementationAgentActionsV2Controller,
@@ -2105,6 +2158,15 @@ function createPaperImplementationExperimentLineageV2Repository(
   return new InMemoryPaperImplementationExperimentLineageV2Repository();
 }
 
+function createPaperImplementationSemanticProjectionV2Repository(
+  strategy: RepositoryStrategy,
+): PaperImplementationSemanticProjectionV2Repository {
+  if (strategy === 'prisma') {
+    return new PrismaPaperImplementationSemanticProjectionV2Repository(getPrismaClient());
+  }
+  return new InMemoryPaperImplementationSemanticProjectionV2Repository();
+}
+
 function createPaperImplementationEvidenceV2Repository(
   strategy: RepositoryStrategy,
 ): PaperImplementationEvidenceV2Repository {
@@ -2351,6 +2413,12 @@ function isPaperImplementationExperimentV2CycleClosureEnabled(): boolean {
   );
 }
 
+function isPaperImplementationSemanticRetrievalV2Enabled(): boolean {
+  return parseExperimentV2BooleanEnvironmentVariable(
+    'PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED',
+  );
+}
+
 function isExplorationAttachmentRepository(
   repository: PaperImplementationExperimentSpineV2Repository,
 ): repository is PaperImplementationExperimentSpineV2Repository
@@ -2371,7 +2439,8 @@ type ExperimentV2BooleanEnvironmentVariable =
   | 'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_PROMOTION_ENABLED'
   | 'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED'
-  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
+  | 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED'
+  | 'PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED';
 
 function parseExperimentV2BooleanEnvironmentVariable(
   name: ExperimentV2BooleanEnvironmentVariable,
@@ -2403,6 +2472,7 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   promotionEnabled: boolean;
   explorationSpecEnabled: boolean;
   cycleClosureEnabled: boolean;
+  semanticRetrievalEnabled: boolean;
 }): void {
   if (input.explorationAttachmentEnabled && !input.cutoverCommitted) {
     throw new Error(
@@ -2425,6 +2495,12 @@ function assertPaperImplementationExperimentV2CutoverConfig(input: {
   if (input.cycleClosureEnabled && !input.cutoverCommitted) {
     throw new Error(
       'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED requires '
+      + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
+    );
+  }
+  if (input.semanticRetrievalEnabled && !input.cutoverCommitted) {
+    throw new Error(
+      'PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED requires '
       + 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true',
     );
   }

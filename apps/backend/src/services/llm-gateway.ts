@@ -140,6 +140,7 @@ export type LlmEmbeddingRequest = {
   input: string | string[];
   dimensions?: number | null;
   policy?: LlmRequestPolicy;
+  signal?: AbortSignal;
 };
 
 export type LlmEmbeddingResponse = {
@@ -414,6 +415,7 @@ export class BackendLlmGateway {
       policy: request.policy,
       state,
       startedAt,
+      externalSignal: request.signal,
       operation: async (signal) => {
         const response = await this.fetchProvider('https://api.openai.com/v1/embeddings', {
           method: 'POST',
@@ -451,6 +453,7 @@ export class BackendLlmGateway {
     policy: LlmRequestPolicy | undefined;
     state: RetryTelemetryState;
     startedAt: number;
+    externalSignal?: AbortSignal;
     operation: (signal: AbortSignal) => Promise<T>;
   }): Promise<T> {
     const timeoutMs = this.normalizePositiveInteger(
@@ -467,15 +470,21 @@ export class BackendLlmGateway {
 
     let lastError: LlmGatewayError | null = null;
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      if (input.externalSignal?.aborted) {
+        throw new LlmGatewayError('TimeoutError', 'LLM request was cancelled by the caller.', {
+          retryable: false,
+          telemetry: this.buildTelemetry(input.model, input.prompt, input.startedAt, input.state),
+        });
+      }
       const controller = new AbortController();
+      const cancelFromCaller = () => controller.abort();
+      input.externalSignal?.addEventListener('abort', cancelFromCaller, { once: true });
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       input.state.requestCount += 1;
       try {
         const value = await input.operation(controller.signal);
-        clearTimeout(timer);
         return value;
       } catch (error) {
-        clearTimeout(timer);
         const mapped = this.mapError(error);
         if (mapped.code === 'TimeoutError') {
           input.state.timeoutCount += 1;
@@ -484,6 +493,13 @@ export class BackendLlmGateway {
           input.state.rateLimitCount += 1;
         }
         lastError = mapped;
+        if (input.externalSignal?.aborted) {
+          throw new LlmGatewayError('TimeoutError', 'LLM request was cancelled by the caller.', {
+            retryable: false,
+            telemetry: this.buildTelemetry(input.model, input.prompt, input.startedAt, input.state),
+            cause: error,
+          });
+        }
         if (!mapped.retryable || attempt >= maxRetries) {
           throw new LlmGatewayError(mapped.code, mapped.message, {
             statusCode: mapped.statusCode,
@@ -494,7 +510,10 @@ export class BackendLlmGateway {
           });
         }
         input.state.retryCount += 1;
-        await this.delay(this.computeRetryDelayMs(mapped, attempt));
+        await this.delay(this.computeRetryDelayMs(mapped, attempt), input.externalSignal);
+      } finally {
+        clearTimeout(timer);
+        input.externalSignal?.removeEventListener('abort', cancelFromCaller);
       }
     }
 
@@ -1148,7 +1167,20 @@ export class BackendLlmGateway {
     return Math.min(250 * (2 ** attempt), 1_000);
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private delay(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      if (signal?.aborted) {
+        resolve();
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const finish = () => {
+        if (timer !== undefined) clearTimeout(timer);
+        signal?.removeEventListener('abort', finish);
+        resolve();
+      };
+      signal?.addEventListener('abort', finish, { once: true });
+      timer = setTimeout(finish, ms);
+    });
   }
 }

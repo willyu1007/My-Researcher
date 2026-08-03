@@ -9,6 +9,7 @@ import type {
   PaperImplementationExperimentLineageV2BranchRecord,
   PaperImplementationExperimentLineageV2CycleReadModel,
   PaperImplementationExperimentLineageV2HeadRunRecord,
+  PaperImplementationExperimentLineageV2ProjectCyclesReadModel,
   PaperImplementationExperimentLineageV2Repository,
 } from '../repositories/paper-implementation-experiment-lineage-v2.repository.js';
 
@@ -50,6 +51,14 @@ export interface PaperImplementationExperimentLineageV2ActionContext {
   lifecycle_status: string;
   closure: ValidationCycleExperimentLineageV2Response['validation_cycle']['closure'];
   effective_heads: PaperImplementationExperimentLineageV2ActionHead[];
+}
+
+export interface PaperImplementationSemanticLineageSnapshotV2 {
+  implementation_project_id: string;
+  validation_cycles: Array<{
+    summary: ProjectValidationCyclesLineageV2Response['validation_cycles'][number];
+    lineage: ValidationCycleExperimentLineageV2Response;
+  }>;
 }
 
 function compareText(left: string, right: string): number {
@@ -113,6 +122,81 @@ function effectiveHeadResponse(
   };
 }
 
+function projectValidationCyclesResponse(
+  readModel: PaperImplementationExperimentLineageV2ProjectCyclesReadModel,
+): ProjectValidationCyclesLineageV2Response {
+  return {
+    implementation_project_id: readModel.implementation_project_id,
+    validation_cycles: [...readModel.cycles]
+      .sort((left, right) => (
+        compareText(right.created_at, left.created_at)
+        || compareText(left.validation_cycle_id, right.validation_cycle_id)
+      ))
+      .map((cycle) => ({
+        validation_cycle_id: cycle.validation_cycle_id,
+        status: cycle.lifecycle_status,
+        target_ref: {
+          type: cycle.target_ref_type,
+          id: cycle.target_ref_id,
+          version: cycle.target_version_id,
+        },
+        created_at: cycle.created_at,
+        closure: cycle.closure,
+        branch_count: cycle.branch_count,
+        admitted_branch_count: cycle.admitted_branch_count,
+        total_run_count: cycle.total_run_count,
+        active_real_attempt_count: cycle.active_real_attempt_count,
+      })),
+  };
+}
+
+function validationCycleLineageResponse(
+  readModel: PaperImplementationExperimentLineageV2CycleReadModel,
+): ValidationCycleExperimentLineageV2Response {
+  const branches = [...readModel.branches].sort((left, right) => (
+    compareText(left.branch_key, right.branch_key)
+    || compareText(left.branch_id, right.branch_id)
+  ));
+  return {
+    implementation_project_id: readModel.implementation_project_id,
+    validation_cycle: {
+      validation_cycle_id: readModel.validation_cycle_id,
+      status: readModel.lifecycle_status,
+      target_ref: {
+        type: readModel.target_ref_type,
+        id: readModel.target_ref_id,
+        version: readModel.target_version_id,
+      },
+      created_at: readModel.created_at,
+      closure: readModel.closure,
+    },
+    branches: branches.map((branch, index) => {
+      const common = {
+        ordinal: index + 1,
+        branch_id: branch.branch_id,
+        branch_key: branch.branch_key,
+        parent_branch_key: branch.parent_branch_key,
+        current_admitted_revision: {
+          work_order_revision_id: branch.current_admitted_revision_id,
+          work_order_revision_hash: branch.current_admitted_revision_hash,
+          revision_sequence: branch.current_admitted_revision_sequence,
+        },
+      };
+      return isEffectiveHead(branch, branch.head_run)
+        ? {
+          ...common,
+          effective_head_run: effectiveHeadResponse(branch.head_run),
+          head_blocker: null,
+        }
+        : {
+          ...common,
+          effective_head_run: null,
+          head_blocker: 'BRANCH_HEAD_NOT_FROZEN',
+        };
+    }),
+  };
+}
+
 export class PaperImplementationExperimentLineageV2Service {
   constructor(
     private readonly options: PaperImplementationExperimentLineageV2ServiceOptions,
@@ -130,28 +214,45 @@ export class PaperImplementationExperimentLineageV2Service {
         `ImplementationProject does not exist: ${implementationProjectId}`,
       );
     }
+    return projectValidationCyclesResponse(readModel);
+  }
+
+  async listProjectSemanticLineageSnapshot(
+    implementationProjectId: string,
+  ): Promise<PaperImplementationSemanticLineageSnapshotV2> {
+    const readModel = await this.options.repository.findProjectSemanticLineageSnapshot(
+      implementationProjectId,
+    );
+    if (!readModel) {
+      throw new PaperImplementationExperimentLineageV2ServiceError(
+        'IMPLEMENTATION_PROJECT_NOT_FOUND',
+        `ImplementationProject does not exist: ${implementationProjectId}`,
+      );
+    }
+    const project = projectValidationCyclesResponse(readModel.project_cycles);
+    const lineageByCycleId = new Map(readModel.cycle_lineages.map((cycle) => [
+      cycle.validation_cycle_id,
+      validationCycleLineageResponse(cycle),
+    ]));
+    if (lineageByCycleId.size !== readModel.cycle_lineages.length) {
+      throw new Error(`Project semantic lineage contains duplicate Cycles: ${implementationProjectId}`);
+    }
+    const validationCycles = project.validation_cycles.map((summary) => {
+      const lineage = lineageByCycleId.get(summary.validation_cycle_id);
+      if (!lineage) {
+        throw new PaperImplementationExperimentLineageV2ServiceError(
+          'VALIDATION_CYCLE_NOT_FOUND',
+          `ValidationCycle disappeared from the project semantic snapshot: ${summary.validation_cycle_id}`,
+        );
+      }
+      return { summary, lineage };
+    });
+    if (validationCycles.length !== lineageByCycleId.size) {
+      throw new Error(`Project semantic lineage includes an unlisted Cycle: ${implementationProjectId}`);
+    }
     return {
-      implementation_project_id: readModel.implementation_project_id,
-      validation_cycles: [...readModel.cycles]
-        .sort((left, right) => (
-          compareText(right.created_at, left.created_at)
-          || compareText(left.validation_cycle_id, right.validation_cycle_id)
-        ))
-        .map((cycle) => ({
-          validation_cycle_id: cycle.validation_cycle_id,
-          status: cycle.lifecycle_status,
-          target_ref: {
-            type: cycle.target_ref_type,
-            id: cycle.target_ref_id,
-            version: cycle.target_version_id,
-          },
-          created_at: cycle.created_at,
-          closure: cycle.closure,
-          branch_count: cycle.branch_count,
-          admitted_branch_count: cycle.admitted_branch_count,
-          total_run_count: cycle.total_run_count,
-          active_real_attempt_count: cycle.active_real_attempt_count,
-        })),
+      implementation_project_id: project.implementation_project_id,
+      validation_cycles: validationCycles,
     };
   }
 
@@ -163,48 +264,7 @@ export class PaperImplementationExperimentLineageV2Service {
       implementationProjectId,
       validationCycleId,
     );
-    const branches = [...readModel.branches].sort((left, right) => (
-      compareText(left.branch_key, right.branch_key)
-      || compareText(left.branch_id, right.branch_id)
-    ));
-    return {
-      implementation_project_id: readModel.implementation_project_id,
-      validation_cycle: {
-        validation_cycle_id: readModel.validation_cycle_id,
-        status: readModel.lifecycle_status,
-        target_ref: {
-          type: readModel.target_ref_type,
-          id: readModel.target_ref_id,
-          version: readModel.target_version_id,
-        },
-        created_at: readModel.created_at,
-        closure: readModel.closure,
-      },
-      branches: branches.map((branch, index) => {
-        const common = {
-          ordinal: index + 1,
-          branch_id: branch.branch_id,
-          branch_key: branch.branch_key,
-          parent_branch_key: branch.parent_branch_key,
-          current_admitted_revision: {
-            work_order_revision_id: branch.current_admitted_revision_id,
-            work_order_revision_hash: branch.current_admitted_revision_hash,
-            revision_sequence: branch.current_admitted_revision_sequence,
-          },
-        };
-        return isEffectiveHead(branch, branch.head_run)
-          ? {
-            ...common,
-            effective_head_run: effectiveHeadResponse(branch.head_run),
-            head_blocker: null,
-          }
-          : {
-            ...common,
-            effective_head_run: null,
-            head_blocker: 'BRANCH_HEAD_NOT_FROZEN',
-          };
-      }),
-    };
+    return validationCycleLineageResponse(readModel);
   }
 
   async getValidationCycleActionContext(

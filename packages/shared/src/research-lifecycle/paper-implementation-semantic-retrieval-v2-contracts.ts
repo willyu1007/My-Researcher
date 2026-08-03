@@ -26,6 +26,28 @@ export const PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2 = 3_072 as const;
 export const PAPER_IMPLEMENTATION_SEMANTIC_DEFAULT_RESULT_LIMIT_V2 = 20;
 export const PAPER_IMPLEMENTATION_SEMANTIC_MAX_RESULT_LIMIT_V2 = 100;
 
+export interface PaperImplementationSemanticRetrievalV2Request {
+  query: string;
+  result_limit?: number;
+}
+
+export interface PaperImplementationSemanticEmbeddingProfileV2DTO {
+  profile_id: string;
+  provider: string;
+  model: string;
+  dimension: typeof PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2;
+}
+
+export interface PaperImplementationSemanticIndexRebuildV2Response {
+  schema_version: typeof PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2;
+  implementation_project_id: string;
+  embedding_profile: PaperImplementationSemanticEmbeddingProfileV2DTO;
+  changed_count: number;
+  unchanged_count: number;
+  deleted_count: number;
+  total_count: number;
+}
+
 export interface PaperImplementationSemanticDocumentSourceRefV2 {
   source_type: PaperImplementationSemanticDocumentSourceTypeV2;
   source_id: string;
@@ -140,6 +162,125 @@ const nullableString = {
 const hashSchema = {
   type: 'string',
   pattern: EXPERIMENT_V2_HASH_PATTERN,
+} as const;
+
+export const paperImplementationSemanticRetrievalV2RequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['query'],
+  properties: {
+    query: {
+      type: 'string',
+      minLength: 1,
+      maxLength: PAPER_IMPLEMENTATION_SEMANTIC_QUERY_MAX_LENGTH_V2,
+    },
+    result_limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: PAPER_IMPLEMENTATION_SEMANTIC_MAX_RESULT_LIMIT_V2,
+    },
+  },
+} as const;
+
+export const paperImplementationSemanticEmbeddingProfileV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['profile_id', 'provider', 'model', 'dimension'],
+  properties: {
+    profile_id: nonEmptyString,
+    provider: nonEmptyString,
+    model: nonEmptyString,
+    dimension: {
+      type: 'integer',
+      const: PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2,
+    },
+  },
+} as const;
+
+export const paperImplementationSemanticIndexRebuildV2ResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'implementation_project_id',
+    'embedding_profile',
+    'changed_count',
+    'unchanged_count',
+    'deleted_count',
+    'total_count',
+  ],
+  properties: {
+    schema_version: {
+      type: 'string',
+      const: PAPER_IMPLEMENTATION_SEMANTIC_DOCUMENT_SCHEMA_VERSION_V2,
+    },
+    implementation_project_id: nonEmptyString,
+    embedding_profile: paperImplementationSemanticEmbeddingProfileV2Schema,
+    changed_count: { type: 'integer', minimum: 0 },
+    unchanged_count: { type: 'integer', minimum: 0 },
+    deleted_count: { type: 'integer', minimum: 0 },
+    total_count: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
+export const PAPER_IMPLEMENTATION_SEMANTIC_API_REASON_CODES_V2 = Object.freeze([
+  'SEMANTIC_RETRIEVAL_V2_DISABLED',
+  'SEMANTIC_EMBEDDING_CONFIGURATION_INVALID',
+  'SEMANTIC_EMBEDDING_PROVIDER_UNAVAILABLE',
+  'SEMANTIC_QUERY_INVALID',
+  'SEMANTIC_SOURCE_INTEGRITY_ERROR',
+  'SEMANTIC_DOCUMENT_LIMIT_EXCEEDED',
+  'SEMANTIC_EMBEDDING_INVALID',
+  'SEMANTIC_AUTHORIZED_INPUT_INVALID',
+  'SEMANTIC_CONFIGURATION_INVALID',
+  'SEMANTIC_REBUILD_CANCELLED',
+  'SEMANTIC_REBUILD_TIMEOUT',
+  'SEMANTIC_SOURCE_DRIFT',
+  'SEMANTIC_RESULT_LIMIT_INVALID',
+  'IMPLEMENTATION_PROJECT_NOT_FOUND',
+  'VALIDATION_CYCLE_NOT_FOUND',
+  'WORK_ORDER_BRANCH_NOT_FOUND',
+  'PROJECTION_INPUT_INVALID',
+  'PROJECTION_QUERY_INVALID',
+  'PROJECTION_QUERY_TIMEOUT',
+  'PROJECTION_STORED_INTEGRITY_ERROR',
+] as const);
+
+export const paperImplementationSemanticV2ErrorEnvelopeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['error'],
+  properties: {
+    error: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['code', 'message'],
+      properties: {
+        code: {
+          type: 'string',
+          enum: [
+            'INVALID_PAYLOAD',
+            'NOT_FOUND',
+            'VERSION_CONFLICT',
+            'GATE_CONSTRAINT_FAILED',
+            'INTERNAL_ERROR',
+          ],
+        },
+        message: nonEmptyString,
+        details: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['reason_code'],
+          properties: {
+            reason_code: {
+              type: 'string',
+              enum: [...PAPER_IMPLEMENTATION_SEMANTIC_API_REASON_CODES_V2],
+            },
+          },
+        },
+      },
+    },
+  },
 } as const;
 const validationCycleDocumentContentSchema = {
   type: 'object',

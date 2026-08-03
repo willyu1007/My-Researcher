@@ -287,6 +287,64 @@ test('empty authorized source prunes the project without invoking embedding', as
   assert.equal(embeddingCalled, false);
 });
 
+test('source drift during replacement retries and leaves only the stabilized snapshot', async () => {
+  const repository = new InMemoryPaperImplementationSemanticProjectionV2Repository({
+    projects: [PROJECT_A],
+  });
+  const first = semanticDocument(PROJECT_A, 'cycle-first');
+  const stable = semanticDocument(PROJECT_A, 'cycle-stable');
+  const snapshots = [[first], [first], [stable], [stable], [stable], [stable]];
+  let readIndex = 0;
+  const service = new PaperImplementationSemanticIndexV2Service({
+    documentReader: {
+      async listAuthorizedDocuments() {
+        const snapshot = snapshots[Math.min(readIndex, snapshots.length - 1)]!;
+        readIndex += 1;
+        return structuredClone(snapshot);
+      },
+    },
+    embeddingPort: deterministicEmbeddingPort(),
+    repository,
+    embeddingProfile: PROFILE,
+  });
+
+  assert.deepEqual(await service.rebuildProjectProjection(PROJECT_A), {
+    changed_count: 1,
+    unchanged_count: 0,
+    deleted_count: 1,
+    total_count: 1,
+  });
+  const stored = await repository.listProjectProjection(PROJECT_A);
+  assert.deepEqual(stored.map((document) => document.document_id), [stable.document_id]);
+});
+
+test('continuously drifting source fails closed without replacing the projection', async () => {
+  const repository = new InMemoryPaperImplementationSemanticProjectionV2Repository({
+    projects: [PROJECT_A],
+  });
+  const first = semanticDocument(PROJECT_A, 'cycle-first');
+  const second = semanticDocument(PROJECT_A, 'cycle-second');
+  let readCount = 0;
+  const service = new PaperImplementationSemanticIndexV2Service({
+    documentReader: {
+      async listAuthorizedDocuments() {
+        readCount += 1;
+        return [structuredClone(readCount % 2 === 1 ? first : second)];
+      },
+    },
+    embeddingPort: deterministicEmbeddingPort(),
+    repository,
+    embeddingProfile: PROFILE,
+  });
+
+  await assert.rejects(
+    service.rebuildProjectProjection(PROJECT_A),
+    (error: unknown) => error instanceof PaperImplementationSemanticIndexV2ServiceError
+      && error.reasonCode === 'SEMANTIC_SOURCE_DRIFT',
+  );
+  assert.deepEqual(await repository.listProjectProjection(PROJECT_A), []);
+});
+
 test('all index write boundaries reject non-canonical embedding profiles', async () => {
   const repository = new InMemoryPaperImplementationSemanticProjectionV2Repository({
     projects: [PROJECT_A],

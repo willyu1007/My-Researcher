@@ -995,13 +995,13 @@ tasks:
     updated: 2026-05-24
   - id: T-106
     slug: experiment-foundation-real-interaction-hardening
-    status: in-progress
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-real-interaction-hardening
-    updated: 2026-05-25
+    dev_docs_path: dev-docs/archive/experiment-foundation-real-interaction-hardening
+    updated: 2026-08-03
   - id: T-107
     slug: topic-selection-v1b-workflow-hardening
     status: done
@@ -1223,10 +1223,19 @@ tasks:
     updated: 2026-07-23
   - id: T-134
     slug: experiment-foundation-audit-remainders-closure
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-audit-remainders-closure
+    dev_docs_path: dev-docs/archive/experiment-foundation-audit-remainders-closure
+    updated: 2026-08-03
+  - id: T-135
+    slug: experiment-foundation-v2-semantic-api-activation
+    status: archived
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-012
+    dev_docs_path: dev-docs/archive/experiment-foundation-v2-semantic-api-activation
     updated: 2026-08-03

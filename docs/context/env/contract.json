@@ -5,7 +5,7 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-08-02T13:47:04Z",
+  "generated_at_utc": "2026-08-03T02:43:53Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "ALIBABA_CLOUD_ACCESS_KEY_ID": {
@@ -791,6 +791,23 @@
       "default": false,
       "deprecate_after": null,
       "description": "Enable only new PI adoption of immutable ExperimentFoundation v2 exploration-specification revisions; this switch grants no execution or evidence authority and requires both committed v2 cutover and PI v2 admission.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    },
+    "PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable explicit project-scoped semantic projection rebuild and retrieval APIs; provider/index work remains non-authoritative, reuses the active literature/topic embedding profile, and requires the committed v2 cutover plus durable Prisma composition.",
       "legacy": {
         "deprecated": false,
         "replaced_by": null

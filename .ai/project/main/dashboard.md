@@ -8,13 +8,15 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 134 (planned: 2, in-progress: 2, blocked: 0, done: 46, archived: 84)
+- Tasks: 135 (planned: 2, in-progress: 1, blocked: 0, done: 45, archived: 87)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-134 experiment-foundation-audit-remainders-closure | done | F-001 | dev-docs/active/experiment-foundation-audit-remainders-closure |
+| T-106 experiment-foundation-real-interaction-hardening | archived | F-001 | dev-docs/archive/experiment-foundation-real-interaction-hardening |
+| T-134 experiment-foundation-audit-remainders-closure | archived | F-001 | dev-docs/archive/experiment-foundation-audit-remainders-closure |
+| T-135 experiment-foundation-v2-semantic-api-activation | archived | F-001 | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
 | T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
 | T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
@@ -32,6 +34,4 @@ Project: `main`
 | T-120 adaptive-llm-systems-literature-pipeline-completion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion |
 | T-122 literature-scaleout-corpus-strategy | archived | F-000 | dev-docs/archive/literature-scaleout-corpus-strategy |
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | F-000 | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
-| T-126 literature-rag-frontier-tech-radar | archived | F-000 | dev-docs/archive/literature-rag-frontier-tech-radar |
-| T-114 paper-implementation-runtime-orchestration-hardening | done | F-001 | dev-docs/active/paper-implementation-runtime-orchestration-hardening |
 <!-- AUTO-GENERATED:END dashboard -->

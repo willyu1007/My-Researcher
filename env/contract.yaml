@@ -138,6 +138,11 @@ variables:
     required: false
     default: false
     description: Enable only the dedicated PaperImplementation v2 ValidationCycle closure lane (the sole first-release live path is the no-evidence closure); this switch does not gate readback, replay or draining of committed events and requires the committed cutover.
+  PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED:
+    type: bool
+    required: false
+    default: false
+    description: Enable explicit project-scoped semantic projection rebuild and retrieval APIs; provider/index work remains non-authoritative, reuses the active literature/topic embedding profile, and requires the committed v2 cutover plus durable Prisma composition.
   EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED:
     type: bool
     required: false

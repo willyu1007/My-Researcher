@@ -24,6 +24,7 @@ const EXPERIMENT_V2_BOOLEAN_ENV_KEYS = [
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED',
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED',
   'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED',
+  'PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED',
   'EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED',
@@ -255,6 +256,16 @@ test('Cycle closure enable without a committed cutover fails during app composit
   );
 });
 
+test('semantic retrieval enable without a committed cutover fails during app composition', () => {
+  assert.throws(
+    () => buildApp({
+      paperImplementationExperimentV2CutoverCommitted: () => false,
+      paperImplementationSemanticRetrievalV2Enabled: () => true,
+    }),
+    /PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED requires PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED=true/,
+  );
+});
+
 test('cutover composition accepts the valid admission and simulation truth-table states', async () => {
   for (const state of [
     { admissionEnabled: false, simulationEnabled: false, cutoverCommitted: false },
@@ -284,6 +295,7 @@ test('unset or blank experiment v2 boolean env values default to false', async (
     delete process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED;
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = '   ';
     delete process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED;
+    delete process.env.PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED;
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = '   ';
     delete process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED;
     delete process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED;
@@ -305,6 +317,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED = ' TRUE ';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'true';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = ' TRUE ';
+    process.env.PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = ' TRUE ';
     process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = ' TRUE ';
@@ -315,6 +328,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED = 'false';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = ' FALSE ';
     process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
+    process.env.PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED = 'false';
     process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = ' FALSE ';
     process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
     process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = 'false';
@@ -326,6 +340,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED', 'attach'],
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED', 'definitely'],
       ['PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED', 'yes'],
+      ['PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED', 'enabled'],
       ['EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED', 'enabled'],
       ['EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED', '1'],
       ['EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED', 'open'],
@@ -334,6 +349,7 @@ test('experiment v2 boolean env parsing accepts only true or false', async () =>
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_EXPLORATION_ATTACHMENT_ENABLED = 'false';
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CUTOVER_COMMITTED = 'false';
       process.env.PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED = 'false';
+      process.env.PAPER_IMPLEMENTATION_SEMANTIC_RETRIEVAL_V2_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED = 'false';
       process.env.EXPERIMENT_FOUNDATION_V2_EXPLORATION_SPEC_ENABLED = 'false';

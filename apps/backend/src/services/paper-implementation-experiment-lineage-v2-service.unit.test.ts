@@ -54,6 +54,16 @@ function createService() {
       }],
       cycle_lineages: [{
         implementation_project_id: PROJECT_ID,
+        validation_cycle_id: 'cycle-old',
+        lifecycle_status: 'admitted',
+        target_ref_type: 'paper_project',
+        target_ref_id: 'paper-old',
+        target_version_id: null,
+        created_at: '2026-07-23T00:00:00.000Z',
+        closure: OPEN_CLOSURE,
+        branches: [],
+      }, {
+        implementation_project_id: PROJECT_ID,
         validation_cycle_id: CYCLE_ID,
         lifecycle_status: 'admitted',
         target_ref_type: 'paper_project',
@@ -249,4 +259,19 @@ test('lineage read service includes superseded history flags and surfaces head b
     true,
   ]);
   assert.equal(history.revisions[0]?.run_ref?.run_id, 'run-1');
+});
+
+test('semantic lineage snapshot returns complete project cycle coverage in one bulk shape', async () => {
+  const snapshot = await createService().listProjectSemanticLineageSnapshot(PROJECT_ID);
+  assert.equal(snapshot.implementation_project_id, PROJECT_ID);
+  assert.deepEqual(snapshot.validation_cycles.map(({ summary }) => summary.validation_cycle_id), [
+    CYCLE_ID,
+    'cycle-old',
+  ]);
+  assert.deepEqual(snapshot.validation_cycles.map(({ lineage }) => lineage.validation_cycle.validation_cycle_id), [
+    CYCLE_ID,
+    'cycle-old',
+  ]);
+  assert.equal(snapshot.validation_cycles[0]?.lineage.branches.length, 2);
+  assert.equal(snapshot.validation_cycles[1]?.lineage.branches.length, 0);
 });

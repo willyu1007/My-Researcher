@@ -33,7 +33,7 @@
 - [x] Memory and disposable-DB paths agree on representative create/upsert/list/readiness/promotion/job state semantics covered by the recovery probe.
 - [x] Idempotency and conflict behavior is tested across registry and execution APIs.
 - [x] Recovery after failed readiness, promotion, submit, sync, cancel, and collect is explicit.
-- [ ] Paper-implementation automation can consume stable refs, statuses, validation reports, and evidence refs from both memory and disposable DB paths.
+- [x] Paper-implementation automation can consume stable refs, statuses, validation reports, and evidence refs from both memory and disposable DB paths. T-134 Phase 3C later reconfirmed the production-shaped PostgreSQL path through real-provider lineage, scientific validation and the existing Evidence Trust Gateway with a no-network SDK fake.
 - [x] Normal developer schemas are not mutated; disposable schema setup and cleanup are explicit.
 
 ### Phase 4
@@ -58,7 +58,7 @@
 - [x] A standalone T-106 hardening command exists with clear deterministic, real-local-DB, UI-definition, cross-flow, and true-external-canary-gate lanes.
 - [x] T-103 handoff is stable and does not change the default full-flow runner semantics.
 - [x] Governance lint passes.
-- [ ] Residual hardening work is either closed or split into explicit follow-up tasks.
+- [x] Residual hardening work is closed or split: T-132 owns and completed the real-provider live verdict; T-134 closed the four transferred audit findings; T-135 owns named-local activation plus explicit v2 semantic index/retrieval API composition.
 
 ## Initial Verification Commands
 
