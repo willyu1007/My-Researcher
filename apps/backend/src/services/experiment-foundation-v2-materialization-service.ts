@@ -569,6 +569,13 @@ export class ExperimentFoundationV2MaterializationService {
             `--cell-key=${cell.cell_key}`,
           ],
         };
+        const scientificSchemaVersion = executionBundle.revision.revision_content
+          .output_contract.scientific_result_schema_version;
+        const scientificSchemaHash = executionBundle.revision.revision_content
+          .output_contract.scientific_result_schema_hash;
+        if ((scientificSchemaVersion === undefined) !== (scientificSchemaHash === undefined)) {
+          throw new Error('ExecutionBundle scientific result-schema binding is partial.');
+        }
         const ioSnapshot: ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2['io_snapshot'] = {
           input_keys: [
             'version_lock',
@@ -590,6 +597,12 @@ export class ExperimentFoundationV2MaterializationService {
             executionBundle.revision.revision_content.output_contract.parser_profile_version,
           parser_profile_hash:
             executionBundle.revision.revision_content.output_contract.parser_profile_hash,
+          ...(scientificSchemaVersion && scientificSchemaHash
+            ? {
+              scientific_result_schema_version: scientificSchemaVersion,
+              scientific_result_schema_hash: scientificSchemaHash,
+            }
+            : {}),
         };
         const retrySnapshot = {
           max_attempts: event.payload.work_order_revision.run_policy.max_attempts_per_cell,

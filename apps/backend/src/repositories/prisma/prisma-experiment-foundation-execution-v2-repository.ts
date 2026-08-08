@@ -37,6 +37,7 @@ import {
   providerCommandV2Schema,
   provisionalOutputManifestV2Schema,
   provisionalOutputV2Schema,
+  type ProvisionalOutputManifestV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-execution-v2-contracts';
 import type {
   ExperimentFoundationReadinessAttestationV2,
@@ -56,6 +57,7 @@ import {
   serverHashExperimentFoundationExecutionAttemptEventV2,
   serverHashExperimentFoundationExternalJobRefV2,
   serverHashExperimentFoundationProviderCommandV2,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
 
@@ -146,7 +148,8 @@ const providerPayloadValidator = storedExecutionSnapshotAjv.compile(providerPayl
 const executionAttemptValidator = storedExecutionSnapshotAjv.compile(executionAttemptV2Schema);
 const providerCommandValidator = storedExecutionSnapshotAjv.compile(providerCommandV2Schema);
 const collectionAttemptValidator = storedExecutionSnapshotAjv.compile(collectionAttemptV2Schema);
-const provisionalOutputManifestValidator = storedExecutionSnapshotAjv.compile(
+const provisionalOutputManifestValidator: ValidateFunction<ProvisionalOutputManifestV2> =
+  storedExecutionSnapshotAjv.compile<ProvisionalOutputManifestV2>(
   provisionalOutputManifestV2Schema,
 );
 const provisionalOutputValidator = storedExecutionSnapshotAjv.compile(provisionalOutputV2Schema);
@@ -2894,10 +2897,10 @@ function mapOutput(row: OutputRow): ExperimentFoundationProvisionalOutputV2Recor
     'ProvisionalOutput kind',
     'COLLECTION_ATTEMPT_CONFLICT',
   );
-  if (row.outputClass !== 'diagnostic_only') {
+  if (row.outputClass !== 'diagnostic_only' && row.outputClass !== 'scientific_source') {
     throw constraint(
       'COLLECTION_ATTEMPT_CONFLICT',
-      'ProvisionalOutput class drifted from diagnostic_only.',
+      'ProvisionalOutput class is outside the closed output-class vocabulary.',
     );
   }
   const manifest = decodeStoredExecutionSnapshot(
@@ -2905,7 +2908,56 @@ function mapOutput(row: OutputRow): ExperimentFoundationProvisionalOutputV2Recor
     row.redactedManifestJson,
     'ProvisionalOutput manifest',
     'COLLECTION_ATTEMPT_CONFLICT',
-  );
+  ) as ProvisionalOutputManifestV2;
+  if (row.outputClass === 'scientific_source') {
+    if (manifest.output_class !== 'scientific_source') {
+      throw constraint(
+        'COLLECTION_ATTEMPT_CONFLICT',
+        'Scientific source row contains a diagnostic manifest.',
+      );
+    }
+    const expectedHash = serverHashExperimentV2SemanticContent({
+      record_kind: 'ExperimentFoundationScientificSourceManifest',
+      schema_version: 'ExperimentFoundationScientificSourceManifest@v1',
+      hash_profile: 'ef-scientific-source-json@v1',
+      content: manifest,
+    });
+    const expectedId = `scientific_source_${row.collectionAttemptId}`;
+    if (
+      row.manifestSchemaVersion !== 'ExperimentFoundationScientificSourceManifest@v1'
+      || manifest.manifest_schema_version
+        !== 'ExperimentFoundationScientificSourceManifest@v1'
+      || manifest.output_kind !== 'scientific_result_manifest'
+      || manifest.output_class !== 'scientific_source'
+      || outputKind !== 'scientific_result_manifest'
+      || manifest.authority.collection_attempt_id !== row.collectionAttemptId
+      || row.outputHash !== expectedHash
+      || row.id !== expectedId
+    ) {
+      throw constraint(
+        'COLLECTION_ATTEMPT_CONFLICT',
+        'Scientific source manifest or exact hash binding drifted.',
+      );
+    }
+    const scientificRecord: ExperimentFoundationProvisionalOutputV2Record = {
+      id: row.id,
+      collection_attempt_id: row.collectionAttemptId,
+      ordinal: row.ordinal,
+      output_kind: outputKind,
+      output_manifest_schema_version: row.manifestSchemaVersion,
+      output_class: 'scientific_source',
+      redacted_manifest: manifest,
+      output_hash: row.outputHash,
+      created_at: row.createdAt.toISOString(),
+    };
+    assertStoredExecutionValue(
+      provisionalOutputValidator,
+      provisionalOutputWireRecord(scientificRecord),
+      'ProvisionalOutput',
+      'COLLECTION_ATTEMPT_CONFLICT',
+    );
+    return scientificRecord;
+  }
   const isSimulationOutput = outputKind !== 'real_provider_result_envelope'
     && outputKind !== 'real_provider_diagnostic_log';
   const expectedLocator = outputKind === 'real_provider_result_envelope'
@@ -2939,7 +2991,7 @@ function mapOutput(row: OutputRow): ExperimentFoundationProvisionalOutputV2Recor
     ordinal: row.ordinal,
     output_kind: outputKind,
     output_manifest_schema_version: row.manifestSchemaVersion,
-    output_class: 'diagnostic_only',
+    output_class: row.outputClass,
     redacted_manifest: manifest,
     output_hash: row.outputHash,
     created_at: row.createdAt.toISOString(),
@@ -3240,7 +3292,7 @@ function readExactExternalJobRef(
   return { id, type, regionHash, wire };
 }
 
-function toJson(value: Readonly<Record<string, unknown>>): Prisma.InputJsonValue {
+function toJson(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 

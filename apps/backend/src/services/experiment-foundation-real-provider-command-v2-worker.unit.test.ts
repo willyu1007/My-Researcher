@@ -10,6 +10,9 @@ import {
 import {
   canonicalizeExperimentV2Json,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+import type {
+  ScientificSourceManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 
 import {
   InMemoryExperimentFoundationExecutionV2Repository,
@@ -24,6 +27,9 @@ import {
 import {
   ExperimentFoundationRealProviderCommandV2Worker,
 } from './experiment-foundation-real-provider-command-v2-worker.js';
+import type {
+  ExperimentFoundationScientificSourcePreparationInputV1,
+} from './experiment-foundation-scientific-source-v1-service.js';
 import {
   ExperimentFoundationRealProviderIntakeV2Service,
 } from './experiment-foundation-real-provider-intake-v2-service.js';
@@ -178,9 +184,43 @@ test('M7-06/10 real worker converges two exact cells through durable collection 
   assert.ok(snapshot.outputs.every((output) => (
     output.output_kind === 'real_provider_result_envelope'
     && output.output_class === 'diagnostic_only'
+    && 'redacted_locator' in output.redacted_manifest
     && String(output.redacted_manifest.redacted_locator).startsWith('result-manifest://sha256:')
   )));
   assert.equal(JSON.stringify(snapshot).includes('workspace-secret-ref'), false);
+});
+
+test('P1 collection atomically appends a sealed scientific source after diagnostics', async () => {
+  const harness = await createHarness();
+  const worker = harness.worker({
+    scientificSourcePreparationService: {
+      prepare: async (input) => ({
+        status: 'sealed' as const,
+        source_output_id: `scientific_source_${input.collection_attempt_id}`,
+        source_output_hash: testHash('2'),
+        manifest: sourceManifestForWorker(input),
+      }),
+    },
+  });
+  await worker.runOnce();
+  for (const job of harness.client.jobs.values()) job.status = 'Succeeded';
+  await worker.runOnce();
+  await worker.runOnce();
+
+  const snapshot = harness.repository.snapshot();
+  assert.equal(snapshot.outputs.length, 4);
+  for (const collection of snapshot.collections) {
+    const outputs = snapshot.outputs
+      .filter((output) => output.collection_attempt_id === collection.id)
+      .sort((left, right) => left.ordinal - right.ordinal);
+    assert.deepEqual(
+      outputs.map((output) => [output.ordinal, output.output_class, output.output_kind]),
+      [
+        [1, 'diagnostic_only', 'real_provider_result_envelope'],
+        [2, 'scientific_source', 'scientific_result_manifest'],
+      ],
+    );
+  }
 });
 
 test('QR-2 production-default worker ids are deterministic and distinct across cells and sequences', async () => {
@@ -390,6 +430,66 @@ test('M7-14 disabling intake does not stop the control drain for already committ
   assert.equal((await harness.worker().runOnce()).completed_count, 2);
   assert.equal(harness.client.createCount, 2);
 });
+
+function sourceManifestForWorker(
+  input: ExperimentFoundationScientificSourcePreparationInputV1,
+): ScientificSourceManifestV1 {
+  return {
+    manifest_schema_version: 'ExperimentFoundationScientificSourceManifest@v1',
+    output_kind: 'scientific_result_manifest',
+    output_class: 'scientific_source',
+    authority: {
+      collection_attempt_id: input.collection_attempt_id,
+      execution_attempt_id: input.execution_attempt_id,
+      provenance: 'real_provider',
+    },
+    execution_lineage: {
+      execution_bundle_revision_id:
+        input.task_spec.execution_bundle.execution_bundle_revision_id,
+      execution_bundle_revision_hash: input.task_spec.execution_bundle.content_hash,
+      run_id: input.run_cell.run_id,
+      run_manifest_hash: input.run_manifest_hash,
+      run_cell_id: input.run_cell.run_cell_id,
+      cell_key: input.run_cell.cell_key,
+      cell_ordinal: input.run_cell.ordinal,
+      training_task_spec_id: input.task_spec.training_task_spec_id,
+      training_task_spec_hash: input.task_spec.task_spec_hash,
+    },
+    evaluation_protocol: {
+      evaluation_protocol_id: 'protocol-1',
+      revision_id: 'protocol-revision-1',
+      revision_sequence: 1,
+      content_hash: testHash('3'),
+    },
+    interpretation_binding: {
+      provider_result_envelope_schema: input.task_spec.io_snapshot.result_envelope_schema,
+      parser_profile_version: input.task_spec.io_snapshot.parser_profile_version,
+      parser_profile_hash: input.task_spec.io_snapshot.parser_profile_hash,
+      scientific_result_schema_version: 'ExperimentFoundationScientificResultPayload@v1',
+      scientific_result_schema_hash: testHash('4'),
+    },
+    upstream: {
+      provider_result_manifest_hash: input.collect_success.outcome.result_manifest_hash,
+    },
+    ordered_observations: [{
+      observation_id: `observation-${input.run_cell.ordinal}`,
+      observation_key: 'quality',
+      ordinal: 1,
+      metric_key: 'quality',
+      split_key: 'test',
+      value: 0.8,
+      value_type: 'percentage',
+      unit: 'score',
+      statistic: { kind: 'point', sample_size: 1 },
+      uncertainty: { kind: 'none', reason: 'not_required_by_protocol' },
+    }],
+    ordered_artifacts: [],
+  };
+}
+
+function testHash(character: string): string {
+  return `sha256:${character.repeat(64)}`;
+}
 
 async function createHarness(options: { now?: () => string } = {}) {
   const fixture = createRealProviderV2TestFixture();

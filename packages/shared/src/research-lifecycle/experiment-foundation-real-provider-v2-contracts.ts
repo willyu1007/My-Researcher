@@ -133,7 +133,15 @@ export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2 = [
   'REAL_PROVIDER_NOT_TERMINAL',
   'REAL_PROVIDER_TIMEOUT',
   'REAL_PROVIDER_CLEANUP_UNVERIFIED',
+  'REAL_PROVIDER_RESULT_READER_UNAVAILABLE',
+  'REAL_PROVIDER_RESULT_READ_FAILED',
   'REAL_PROVIDER_RESULT_INVALID',
+  'REAL_PROVIDER_RESULT_BINDING_DRIFT',
+  'REAL_PROVIDER_RESULT_HANDOFF_CONFLICT',
+  'SCIENTIFIC_SOURCE_AUTHORITY_READ_FAILED',
+  'SCIENTIFIC_SOURCE_PREPARATION_FAILED',
+  'SCIENTIFIC_SOURCE_COMMIT_FAILED',
+  'SCIENTIFIC_SOURCE_COMMIT_CONFLICT',
 ] as const;
 export type ExperimentFoundationRealProviderReasonCodeV2 =
   (typeof EXPERIMENT_FOUNDATION_REAL_PROVIDER_REASON_CODES_V2)[number];
@@ -168,6 +176,10 @@ export interface ExperimentFoundationExecutionBundleOutputContractV1 {
   result_object_name: string;
   parser_profile_version: string;
   parser_profile_hash: string;
+  /** Absent on legacy diagnostic-only bundles. */
+  scientific_result_schema_version?: string;
+  /** Absent on legacy diagnostic-only bundles. */
+  scientific_result_schema_hash?: string;
 }
 
 export interface ExperimentFoundationExecutionBundleProviderManagedContainerImageV2 {
@@ -319,6 +331,8 @@ export interface ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2 {
     result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1';
     parser_profile_version: string;
     parser_profile_hash: string;
+    scientific_result_schema_version?: string;
+    scientific_result_schema_hash?: string;
   };
   resource_snapshot: {
     cpu_cores: number;
@@ -889,6 +903,10 @@ export const experimentFoundationExecutionBundleContentV1Schema = {
     output_contract: {
       type: 'object',
       additionalProperties: false,
+      dependencies: {
+        scientific_result_schema_version: ['scientific_result_schema_hash'],
+        scientific_result_schema_hash: ['scientific_result_schema_version'],
+      },
       required: [
         'result_envelope_schema',
         'result_object_name',
@@ -903,6 +921,8 @@ export const experimentFoundationExecutionBundleContentV1Schema = {
         result_object_name: nonEmptyString,
         parser_profile_version: nonEmptyString,
         parser_profile_hash: hashSchema,
+        scientific_result_schema_version: nonEmptyString,
+        scientific_result_schema_hash: hashSchema,
       },
     },
   },
@@ -1212,6 +1232,10 @@ export const experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema = {
     io_snapshot: {
       type: 'object',
       additionalProperties: false,
+      dependencies: {
+        scientific_result_schema_version: ['scientific_result_schema_hash'],
+        scientific_result_schema_hash: ['scientific_result_schema_version'],
+      },
       required: [
         'input_keys',
         'output_keys',
@@ -1246,6 +1270,8 @@ export const experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema = {
         },
         parser_profile_version: nonEmptyString,
         parser_profile_hash: hashSchema,
+        scientific_result_schema_version: nonEmptyString,
+        scientific_result_schema_hash: hashSchema,
       },
     },
     resource_snapshot: {

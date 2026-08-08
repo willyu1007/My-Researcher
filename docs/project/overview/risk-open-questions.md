@@ -45,8 +45,38 @@
 - Risk: LLM 输出未经证据支持的实验结论。
   - Impact: 高。
   - Likelihood: 中高。
-  - Mitigation: 强制 Evidence 引用校验，缺少证据即禁止生成定量结论。
-  - Trigger: 建议内容中出现不存在于 Evidence 的数字或引用。
+  - Mitigation: 强制 Evidence 引用校验；科学 Evidence 仅能来自 EF 全程管理的真实运行、受控解析与协议验证。评价指标、阈值、方向和 exit rules 必须在 Run 前预注册并哈希；用户手工数字和外部实验结果导入均不能升级为科学 Evidence。
+  - Trigger: 建议或关闭请求中出现不存在于可信 REU 的数字，数字来源没有 exact EF Run/RunCell/TaskSpec/real-provider Attempt 身份，或结果产生后协议被修改。
+
+- Risk: 将 EF validation `failed` 误用为“实验效果为负”，导致负面或不确定结果无法进入论文证据链。
+  - Impact: 高。
+  - Likelihood: 中高。
+  - Mitigation: 分离 evidence eligibility 与 scientific disposition；EF validation 只判断证据是否可信，合格的支持/反驳/不确定结果都生成 EvidenceCandidate，PI 再映射上下文结论。
+  - Trigger: treatment 未达到阈值时没有 EvidenceCandidate，或 validation status 被直接翻译为 `positive | negative | inconclusive`。
+
+- Risk: ExperimentResult writer 接受 caller-authored metric values，真实 Attempt 身份被错误当成数字来源证明。
+  - Impact: 高。
+  - Likelihood: 中。
+  - Mitigation: 产品命令改为 identity-only；EF 权威读取 exact collected output，用冻结 parser profile 生成 observation 与 derivation hash，并在写入前重验 lineage。
+  - Trigger: controller/command request 出现 metric value、统计结论或任意 observation payload。
+
+- Risk: 科学解析被塞进 provider transport、长事务或事后重新拉取，造成供应商耦合、事务不稳定或来源漂移。
+  - Impact: 高。
+  - Likelihood: 中。
+  - Mitigation: transport 只做 canonical fetch/base validation；EF worker 在 bytes 仍在内存时调用 provider-independent parser，事务外生成 source draft，再以短事务封存 canonical `scientific_source`。Result 只能在 source 提交后由 identity-only 命令生成。
+  - Trigger: provider adapter 出现 metric/statistic 领域映射，数据库事务内包含网络/解析，或 Result 生成需要二次 provider fetch。
+
+- Risk: 科学解析失败被误报为 provider collection 失败，或 diagnostic collection 被误升级为 Result。
+  - Impact: 中高。
+  - Likelihood: 中。
+  - Mitigation: 使用分离的失败语义；无效 envelope/lineage 才失败 collection，有效 collection 但科学 schema 不满足时保留 diagnostic truth，同时严格不创建 scientific source、Result 或 evidence。
+  - Trigger: parser unsupported 后 collection 状态被改写为 failed，或没有 sealed `scientific_source` 仍出现 Result。
+
+- Risk: P0 冻结过细导致具体供应商格式或单一 workload 被误当成长期科学契约。
+  - Impact: 中高。
+  - Likelihood: 中。
+  - Mitigation: 采用“不变量冻结、实验参数晚绑定”；P0 只冻结权威、语义信封、预注册、结论映射、幂等和迁移结论，具体模型、数据集、原始文件布局与 P5 参数在约束内晚绑定。
+  - Trigger: 修改供应商适配器或更换 workload 时必须改动跨域权威、证据身份或结论合同。
 
 - Risk: 公平对标信息缺失导致审稿风险长期暴露。
   - Impact: 高。

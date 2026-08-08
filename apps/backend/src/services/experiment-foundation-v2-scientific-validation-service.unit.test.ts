@@ -180,6 +180,7 @@ function makeHarness(input: {
     service: new ExperimentFoundationV2ScientificValidationService({
       repository,
       enabled: () => true,
+      legacyObservationWriterEnabled: () => true,
       now: () => FIXED_NOW,
     }),
   };
@@ -250,7 +251,24 @@ test('scientific-validation capability rejects writes before repository access',
     () => disabled.recordExperimentResult(makeResultInput(run!, 1)),
     'EF_V2_SCIENTIFIC_VALIDATION_DISABLED',
   );
-  assert.deepEqual(repository.snapshot(), { results: [], outcomes: [], outboxes: [] });
+  assert.deepEqual(repository.snapshot(), {
+    results: [], source_bound_results: [], outcomes: [], outboxes: [],
+  });
+});
+
+test('P1 product composition seals the legacy caller-authored observation writer', async () => {
+  const { runs: [run], repository } = makeHarness();
+  const productService = new ExperimentFoundationV2ScientificValidationService({
+    repository,
+    enabled: () => true,
+  });
+  await assertReason(
+    () => productService.recordExperimentResult(makeResultInput(run!, 1)),
+    'VALIDATION_SCOPE_DRIFT',
+  );
+  assert.deepEqual(repository.snapshot(), {
+    results: [], source_bound_results: [], outcomes: [], outboxes: [],
+  });
 });
 
 test('passed batch atomically persists report, Candidate and outbox with exact hash bindings', async () => {

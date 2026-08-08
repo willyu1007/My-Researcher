@@ -10,9 +10,13 @@ import {
   evidenceCandidateQualifiedV1Schema,
   evidenceCandidateV2Schema,
   experimentResultCellV2Schema,
+  generateExperimentResultV2RequestSchema,
   scientificValidationReportV2Schema,
   validateScientificBatchV2RequestSchema,
 } from './experiment-foundation-scientific-validation-v2-contracts.js';
+import {
+  experimentFoundationScientificProtocolV1Schema,
+} from './experiment-foundation-v2-contracts.js';
 
 type JsonSchema = Readonly<Record<string, unknown>>;
 const hash = (character: string) => `sha256:${character.repeat(64)}`;
@@ -133,6 +137,76 @@ test('scientific validation report v2 schema accepts a passed batch report', asy
   assert.equal(await validates(scientificValidationReportV2Schema, report), true);
 });
 
+test('P2 comparison fact schema is closed and rejects PI conclusion fields', async () => {
+  const comparisonResult = {
+    ordinal: 1,
+    comparison_key: 'primary-quality',
+    rule_hash: hash('9'),
+    status: 'passed',
+    detail_code: null,
+    fact: {
+      schema_version: 'ExperimentFoundationScientificComparisonFact@v1',
+      comparison_fact_id: 'comparison-fact-1',
+      ordinal: 1,
+      comparison_key: 'primary-quality',
+      evaluation_protocol_revision_hash: hash('5'),
+      rule_hash: hash('9'),
+      rule_projection: {
+        effect_kind: 'absolute_difference',
+        direction: 'higher_is_support',
+        support_min: 0.1,
+        contradiction_max: -0.1,
+        uncertainty_policy: { kind: 'not_required_by_protocol' },
+      },
+      left_observation_ref: {
+        run_cell_id: 'cell-1', result_id: 'result-1', result_content_hash: hash('1'),
+        observation_id: 'observation-1', observation_ordinal: 1,
+        observation_key: 'quality', observation_hash: hash('2'),
+      },
+      right_observation_ref: {
+        run_cell_id: 'cell-2', result_id: 'result-2', result_content_hash: hash('3'),
+        observation_id: 'observation-2', observation_ordinal: 1,
+        observation_key: 'quality', observation_hash: hash('4'),
+      },
+      raw_effect: { kind: 'absolute_difference', value: 0.2, unit: 'score' },
+      raw_effect_interval: null,
+      registered_relation: 'supports_registered_expectation',
+      relation_reason: 'support_band_met',
+      comparison_fact_hash: hash('0'),
+    },
+  };
+  assert.equal(await validates(scientificValidationReportV2Schema, {
+    ...report,
+    ordered_comparison_results: [comparisonResult],
+  }), true);
+  assert.equal(await validates(scientificValidationReportV2Schema, {
+    ...report,
+    ordered_comparison_results: [{
+      ...comparisonResult,
+      fact: { ...comparisonResult.fact, disposition: 'positive' },
+    }],
+  }), false);
+  assert.equal(await validates(scientificValidationReportV2Schema, {
+    ...report,
+    ordered_comparison_results: [{
+      ...comparisonResult,
+      status: 'failed',
+      detail_code: 'COMPARISON_REQUIRED_CI_INVALID',
+    }],
+  }), false);
+  assert.equal(await validates(scientificValidationReportV2Schema, {
+    ...report,
+    ordered_comparison_results: [{
+      ...comparisonResult,
+      fact: {
+        ...comparisonResult.fact,
+        registered_relation: 'supports_registered_expectation',
+        relation_reason: 'contradiction_band_met',
+      },
+    }],
+  }), false);
+});
+
 test('scientific validation report v2 schema rejects an empty cell-result list', async () => {
   assert.equal(
     await validates(scientificValidationReportV2Schema, { ...report, ordered_cell_results: [] }),
@@ -217,6 +291,60 @@ test('validate scientific batch request schema is identity-only', async () => {
     }),
     false,
   );
+});
+
+test('generate scientific Result command accepts identities and rejects observation values', async () => {
+  const request = {
+    run_cell_id: 'cell-1',
+    scientific_source_output_id: 'source-1',
+    idempotency_key: 'source-1:generate-scientific-result@v1',
+  };
+  assert.equal(await validates(generateExperimentResultV2RequestSchema, request), true);
+  assert.equal(await validates(generateExperimentResultV2RequestSchema, {
+    ...request,
+    observations: [{ value: 999 }],
+  }), false);
+});
+
+test('CMP-B1 protocol schema rejects generic formulas and overlapping thresholds by shape/service split', async () => {
+  const contract = {
+    schema_version: 'ExperimentFoundationScientificProtocol@v1',
+    observation_slots: [{
+      observation_key: 'quality', ordinal: 1, metric_key: 'quality', split_key: 'test',
+      value_type: 'number', unit: 'score', statistic: { kind: 'mean' },
+      uncertainty: { kind: 'none' },
+    }],
+    artifact_slots: [{
+      artifact_key: 'trace', ordinal: 1, artifact_kind: 'trace', required_rule_id: null,
+    }],
+    comparison_rules: [{
+      comparison_key: 'primary-quality', ordinal: 1, left_cell_ordinal: 1,
+      right_cell_ordinal: 2, observation_key: 'quality',
+      effect_kind: 'absolute_difference', direction: 'higher_is_support',
+      support_min: 0.1, contradiction_max: -0.1,
+      uncertainty_policy: { kind: 'not_required_by_protocol' },
+    }],
+    primary_comparison_key: 'primary-quality',
+    decision_if_positive: 'continue-positive',
+    decision_if_negative: 'continue-negative',
+    decision_if_inconclusive: 'continue-inconclusive',
+  };
+  assert.equal(await validates(experimentFoundationScientificProtocolV1Schema, contract), true);
+  const {
+    primary_comparison_key: _primaryComparisonKey,
+    decision_if_positive: _positiveExit,
+    decision_if_negative: _negativeExit,
+    decision_if_inconclusive: _inconclusiveExit,
+    ...historicalContract
+  } = contract;
+  assert.equal(
+    await validates(experimentFoundationScientificProtocolV1Schema, historicalContract),
+    true,
+  );
+  assert.equal(await validates(experimentFoundationScientificProtocolV1Schema, {
+    ...contract,
+    comparison_rules: [{ ...contract.comparison_rules[0], formula: 'left / right' }],
+  }), false);
 });
 
 test('reason-code registry matches the Pack C frozen baseline', () => {

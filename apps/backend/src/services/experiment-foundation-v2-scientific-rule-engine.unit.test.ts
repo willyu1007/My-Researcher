@@ -7,6 +7,9 @@ import type {
   ExperimentFoundationV2RequiredRuleV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import type { ExperimentResultCellV2 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 
 import {
   computeScientificValidatorProfileHashV2,
@@ -73,6 +76,46 @@ function makeCellResult(cellKey: string): ExperimentResultCellV2 {
 }
 
 const twoCells = [makeCellResult('cell-a'), makeCellResult('cell-b')];
+
+function makeSourceBoundCellResult(): ExperimentFoundationSourceBoundResultCellV2 {
+  return {
+    result_id: 'result-source-cell',
+    schema_version: 'v2',
+    run_id: 'run-001',
+    run_manifest_hash: hash('1'),
+    run_cell_id: 'run-cell-source',
+    cell_key: 'source-cell',
+    training_task_spec_id: 'task-source',
+    training_task_spec_hash: hash('2'),
+    execution_attempt_id: 'attempt-source',
+    collection_attempt_id: 'collection-source',
+    source_output_id: 'source-output',
+    source_output_hash: hash('3'),
+    source_output_kind: 'scientific_result_manifest',
+    source_output_class: 'scientific_source',
+    parser_profile_version: 'metrics_json_parser@v1',
+    parser_profile_hash: hash('4'),
+    evaluation_protocol: {
+      asset_type: 'EvaluationProtocol',
+      logical_id: 'protocol-1',
+      revision_id: 'protocol-revision-1',
+      revision_sequence: 1,
+      content_hash: hash('5'),
+    },
+    provenance: 'real_provider',
+    metric_observations: [],
+    artifact_observations: [{
+      ordinal: 1,
+      artifact_key: 'metrics',
+      artifact_kind: 'metrics_json',
+      content_hash: hash('6'),
+      byte_size: 512,
+      media_type: 'application/json',
+    }],
+    derivation_hash: hash('7'),
+    content_hash: hash('8'),
+  };
+}
 
 test('complete two-cell batch passes both first-slice rule types in protocol order', () => {
   const outcome = executeScientificRequiredRulesV2({
@@ -152,6 +195,39 @@ test('artifact parser-binding drift fails the artifact rule', () => {
   });
   assert.equal(outcome.status, 'failed');
   assert.equal(outcome.ordered_rule_results[0]?.detail_code, 'artifact_parser_binding:cell-a');
+});
+
+test('source-bound artifact rules use explicit slot binding instead of file-name equality', () => {
+  const outcome = executeScientificRequiredRulesV2({
+    required_rules: [artifactRule],
+    ordered_cell_results: [makeSourceBoundCellResult()],
+    artifact_slots: [{
+      artifact_key: 'metrics',
+      ordinal: 1,
+      artifact_kind: 'metrics_json',
+      required_rule_id: artifactRule.rule_id,
+    }],
+  });
+  assert.equal(outcome.status, 'passed');
+  assert.equal(outcome.ordered_rule_results[0]?.detail_code, null);
+});
+
+test('source-bound artifact rules fail closed when their explicit slot binding is absent', () => {
+  const outcome = executeScientificRequiredRulesV2({
+    required_rules: [artifactRule],
+    ordered_cell_results: [makeSourceBoundCellResult()],
+    artifact_slots: [{
+      artifact_key: 'metrics',
+      ordinal: 1,
+      artifact_kind: 'metrics_json',
+      required_rule_id: null,
+    }],
+  });
+  assert.equal(outcome.status, 'failed');
+  assert.equal(
+    outcome.ordered_rule_results[0]?.detail_code,
+    'artifact_binding_cardinality:rule-artifact-001:0',
+  );
 });
 
 test('a declared unsupported rule type yields unsupported status, never best effort', () => {

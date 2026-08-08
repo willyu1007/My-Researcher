@@ -14,6 +14,16 @@ import {
   type ScientificValidationReportV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
 import {
+  experimentFoundationSourceBoundResultCellV2Schema,
+  scientificSourceManifestV1Schema,
+  type ExperimentFoundationSourceBoundResultCellV2,
+  type ScientificSourceManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
+import {
+  experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema,
+  type ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import {
   experimentFoundationV2EvaluationProtocolRevisionContentV2Schema,
   type ExperimentFoundationRunCellV2,
   type ExperimentFoundationV2EvaluationProtocolRevisionContentV2,
@@ -25,17 +35,20 @@ import {
   serverHashExperimentFoundationV2ScientificValidation,
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import {
   ExperimentFoundationScientificValidationV2ConstraintError,
   type ExperimentFoundationScientificValidationV2ExecutionAttempt,
   type ExperimentFoundationScientificValidationV2HeadAcknowledgement,
+  type ExperimentFoundationScientificResultGenerationAuthorityV2,
   type ExperimentFoundationScientificValidationV2Protocol,
   type ExperimentFoundationScientificValidationV2Repository,
   type ExperimentFoundationScientificValidationV2Run,
   type ExperimentFoundationScientificValidationV2StoredOutcome,
   type PersistExperimentFoundationScientificResultV2Input,
+  type PersistExperimentFoundationSourceBoundResultV2Input,
   type PersistExperimentFoundationScientificValidationV2Input,
 } from '../experiment-foundation-scientific-validation-v2.repository.js';
 import {
@@ -59,6 +72,15 @@ const protocolValidator = storedAjv.compile<
   ExperimentFoundationV2EvaluationProtocolRevisionContentV2
 >(experimentFoundationV2EvaluationProtocolRevisionContentV2Schema);
 const resultValidator = storedAjv.compile<ExperimentResultCellV2>(experimentResultCellV2Schema);
+const sourceBoundResultValidator = storedAjv.compile<ExperimentFoundationSourceBoundResultCellV2>(
+  experimentFoundationSourceBoundResultCellV2Schema,
+);
+const scientificSourceValidator = storedAjv.compile<ScientificSourceManifestV1>(
+  scientificSourceManifestV1Schema,
+);
+const executableTaskSpecSnapshotValidator = storedAjv.compile<
+  ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2
+>(experimentFoundationExecutableTrainingTaskSpecSnapshotV2Schema);
 const reportValidator = storedAjv.compile<ScientificValidationReportV2>(
   scientificValidationReportV2Schema,
 );
@@ -346,10 +368,169 @@ implements ExperimentFoundationScientificValidationV2Repository {
 
   async loadRunResults(runId: string): Promise<ExperimentResultCellV2[]> {
     const rows = await this.prisma.experimentFoundationExperimentResultV2.findMany({
-      where: { runId },
+      where: { runId, schemaVersion: 'v1' },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     return rows.map(mapResult);
+  }
+
+  async loadSourceBoundRunResults(
+    runId: string,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2[]> {
+    const rows = await this.prisma.experimentFoundationExperimentResultV2.findMany({
+      where: { runId, schemaVersion: 'v2' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(mapSourceBoundResult);
+  }
+
+  async loadScientificResultGenerationAuthority(
+    runCellId: string,
+    sourceOutputId: string,
+  ): Promise<ExperimentFoundationScientificResultGenerationAuthorityV2 | null> {
+    const source = await this.prisma.experimentFoundationProvisionalOutputV2.findUnique({
+      where: { id: sourceOutputId },
+      include: {
+        collectionAttempt: {
+          include: { executionAttempt: { include: { trainingTaskSpec: true } } },
+        },
+      },
+    });
+    if (!source || source.collectionAttempt.executionAttempt.runCellId !== runCellId) return null;
+    const manifest = parseStored(
+      scientificSourceValidator,
+      source.redactedManifestJson,
+      'ScientificSource manifest',
+    );
+    const collection = source.collectionAttempt;
+    const attempt = collection.executionAttempt;
+    const taskSpec = attempt.trainingTaskSpec;
+    const taskSnapshot = parseStored(
+      executableTaskSpecSnapshotValidator,
+      taskSpec.taskSpecSnapshotJson,
+      'ScientificSource TrainingTaskSpec snapshot',
+    );
+    const expectedHash = serverHashExperimentV2SemanticContent({
+      record_kind: 'ExperimentFoundationScientificSourceManifest',
+      schema_version: 'ExperimentFoundationScientificSourceManifest@v1',
+      hash_profile: 'ef-scientific-source-json@v1',
+      content: manifest,
+    });
+    if (
+      source.outputKind !== 'scientific_result_manifest'
+      || source.outputClass !== 'scientific_source'
+      || source.id !== `scientific_source_${collection.id}`
+      || source.manifestSchemaVersion !== 'ExperimentFoundationScientificSourceManifest@v1'
+      || source.outputHash !== expectedHash
+      || source.ordinal !== 2
+      || collection.collectionState !== 'collected'
+      || attempt.lifecycleState !== 'succeeded'
+      || attempt.executionMode !== 'real_provider'
+      || attempt.provenance !== 'real_provider'
+      || manifest.authority.collection_attempt_id !== collection.id
+      || manifest.authority.execution_attempt_id !== attempt.id
+      || manifest.execution_lineage.run_id !== attempt.runId
+      || manifest.execution_lineage.run_manifest_hash !== attempt.runManifestHash
+      || manifest.execution_lineage.run_cell_id !== attempt.runCellId
+      || manifest.execution_lineage.cell_key !== attempt.cellKey
+      || manifest.execution_lineage.training_task_spec_id !== attempt.trainingTaskSpecId
+      || manifest.execution_lineage.training_task_spec_hash !== attempt.trainingTaskSpecHash
+      || manifest.execution_lineage.cell_ordinal !== taskSpec.cellOrdinal
+      || manifest.execution_lineage.execution_bundle_revision_id
+        !== taskSpec.executionBundleRevisionId
+      || manifest.execution_lineage.execution_bundle_revision_hash
+        !== taskSpec.executionBundleRevisionHash
+      || taskSnapshot.execution_bundle.execution_bundle_revision_id
+        !== manifest.execution_lineage.execution_bundle_revision_id
+      || taskSnapshot.execution_bundle.content_hash
+        !== manifest.execution_lineage.execution_bundle_revision_hash
+      || taskSnapshot.io_snapshot.result_envelope_schema
+        !== manifest.interpretation_binding.provider_result_envelope_schema
+      || taskSnapshot.io_snapshot.parser_profile_version
+        !== manifest.interpretation_binding.parser_profile_version
+      || taskSnapshot.io_snapshot.parser_profile_hash
+        !== manifest.interpretation_binding.parser_profile_hash
+      || taskSnapshot.io_snapshot.scientific_result_schema_version
+        !== manifest.interpretation_binding.scientific_result_schema_version
+      || taskSnapshot.io_snapshot.scientific_result_schema_hash
+        !== manifest.interpretation_binding.scientific_result_schema_hash
+    ) {
+      throw constraint(
+        'VALIDATION_SCOPE_DRIFT',
+        'Scientific source lost its exact collected real-provider authority.',
+      );
+    }
+    return {
+      source_output_id: source.id,
+      source_output_hash: source.outputHash,
+      collection_attempt_id: collection.id,
+      execution_attempt_id: attempt.id,
+      run_id: attempt.runId,
+      run_manifest_hash: attempt.runManifestHash,
+      run_cell_id: attempt.runCellId,
+      cell_key: attempt.cellKey,
+      training_task_spec_id: attempt.trainingTaskSpecId,
+      training_task_spec_hash: attempt.trainingTaskSpecHash,
+      source_manifest: manifest,
+    };
+  }
+
+  async persistSourceBoundExperimentResult(
+    input: PersistExperimentFoundationSourceBoundResultV2Input,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2> {
+    assertSourceBoundResultIntegrity(input.result);
+    const existing = await this.prisma.experimentFoundationExperimentResultV2.findUnique({
+      where: { runCellId: input.result.run_cell_id },
+    });
+    if (existing) return exactSourceBoundResultReplay(existing, input.result);
+    try {
+      const row = await this.prisma.experimentFoundationExperimentResultV2.create({
+        data: {
+          id: input.result.result_id,
+          runId: input.result.run_id,
+          runManifestHash: input.result.run_manifest_hash,
+          runCellId: input.result.run_cell_id,
+          cellKey: input.result.cell_key,
+          trainingTaskSpecId: input.result.training_task_spec_id,
+          trainingTaskSpecHash: input.result.training_task_spec_hash,
+          executionAttemptId: input.result.execution_attempt_id,
+          collectionAttemptId: input.result.collection_attempt_id,
+          sourceOutputId: input.result.source_output_id,
+          sourceOutputHash: input.result.source_output_hash,
+          sourceOutputKind: input.result.source_output_kind,
+          sourceOutputClass: input.result.source_output_class,
+          parserProfileVersion: input.result.parser_profile_version,
+          parserProfileHash: input.result.parser_profile_hash,
+          derivationHash: input.result.derivation_hash,
+          provenance: input.result.provenance,
+          schemaVersion: input.result.schema_version,
+          metricObservationCount: input.result.metric_observations.length,
+          artifactObservationCount: input.result.artifact_observations.length,
+          resultSnapshotJson: toInputJson(input.result),
+          contentHash: input.result.content_hash,
+          createdAt: new Date(input.created_at),
+        },
+      });
+      return mapSourceBoundResult(row);
+    } catch (error) {
+      if (isPrismaUniqueConflict(error)) {
+        const replay = await this.prisma.experimentFoundationExperimentResultV2.findUnique({
+          where: { runCellId: input.result.run_cell_id },
+        });
+        if (replay) return exactSourceBoundResultReplay(replay, input.result);
+        throw constraint(
+          'VALIDATION_RESULT_CONFLICT',
+          'Source-bound Result uniqueness rejected a changed identity replay.',
+        );
+      }
+      if (isPrismaForeignKeyConflict(error)) {
+        throw constraint(
+          'VALIDATION_SCOPE_DRIFT',
+          'Source-bound Result lost its exact source/collection/Attempt lineage.',
+        );
+      }
+      throw error;
+    }
   }
 
   async loadValidationByIdempotencyKey(
@@ -545,6 +726,90 @@ function mapResult(row: ExperimentResultRow): ExperimentResultCellV2 {
   return result;
 }
 
+function mapSourceBoundResult(
+  row: ExperimentResultRow,
+): ExperimentFoundationSourceBoundResultCellV2 {
+  const result = parseStored(
+    sourceBoundResultValidator,
+    row.resultSnapshotJson,
+    'Source-bound ExperimentResult snapshot',
+  );
+  if (
+    row.id !== result.result_id
+    || row.runId !== result.run_id
+    || row.runManifestHash !== result.run_manifest_hash
+    || row.runCellId !== result.run_cell_id
+    || row.cellKey !== result.cell_key
+    || row.trainingTaskSpecId !== result.training_task_spec_id
+    || row.trainingTaskSpecHash !== result.training_task_spec_hash
+    || row.executionAttemptId !== result.execution_attempt_id
+    || row.collectionAttemptId !== result.collection_attempt_id
+    || row.sourceOutputId !== result.source_output_id
+    || row.sourceOutputHash !== result.source_output_hash
+    || row.sourceOutputKind !== result.source_output_kind
+    || row.sourceOutputClass !== result.source_output_class
+    || row.parserProfileVersion !== result.parser_profile_version
+    || row.parserProfileHash !== result.parser_profile_hash
+    || row.derivationHash !== result.derivation_hash
+    || row.provenance !== result.provenance
+    || row.schemaVersion !== result.schema_version
+    || row.metricObservationCount !== result.metric_observations.length
+    || row.artifactObservationCount !== result.artifact_observations.length
+    || row.contentHash !== result.content_hash
+  ) {
+    throw constraint(
+      'VALIDATION_SCOPE_DRIFT',
+      `Source-bound ExperimentResult relational mirror drifted: ${row.id}`,
+    );
+  }
+  assertSourceBoundResultIntegrity(result);
+  return result;
+}
+
+function assertSourceBoundResultIntegrity(
+  result: ExperimentFoundationSourceBoundResultCellV2,
+): void {
+  if (!sourceBoundResultValidator(result)) {
+    throw constraint(
+      'VALIDATION_SCOPE_DRIFT',
+      'Source-bound ExperimentResult does not match its closed shared contract.',
+    );
+  }
+  const { content_hash: contentHash, ...hashInput } = result;
+  const expected = serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationExperimentResultV2',
+    schema_version: 'v2',
+    hash_profile: 'ef-scientific-result-json@v1',
+    content: hashInput,
+  });
+  if (expected !== contentHash) {
+    throw constraint(
+      'VALIDATION_RESULT_CONFLICT',
+      'Source-bound ExperimentResult canonical hash is invalid.',
+    );
+  }
+}
+
+function exactSourceBoundResultReplay(
+  row: ExperimentResultRow,
+  incoming: ExperimentFoundationSourceBoundResultCellV2,
+): ExperimentFoundationSourceBoundResultCellV2 {
+  if (row.schemaVersion !== 'v2') {
+    throw constraint(
+      'VALIDATION_RESULT_CONFLICT',
+      'Run cell already has a legacy caller-authored Result.',
+    );
+  }
+  const existing = mapSourceBoundResult(row);
+  if (existing.content_hash !== incoming.content_hash) {
+    throw constraint(
+      'VALIDATION_RESULT_CONFLICT',
+      'Run cell already has a different source-bound Result.',
+    );
+  }
+  return existing;
+}
+
 function assertResultIntegrity(result: ExperimentResultCellV2): void {
   const { content_hash: contentHash, ...hashInput } = result;
   if (serverHashExperimentFoundationV2ScientificResult(hashInput) !== contentHash) {
@@ -636,6 +901,9 @@ function assertReportIntegrity(report: ScientificValidationReportV2): void {
     validator_profile_version: report.validator_profile_version,
     validator_profile_hash: report.validator_profile_hash,
     ordered_rule_results: report.ordered_rule_results,
+    ...(report.ordered_comparison_results
+      ? { ordered_comparison_results: report.ordered_comparison_results }
+      : {}),
     status: report.status,
   });
   if (expected !== report.validation_hash) {

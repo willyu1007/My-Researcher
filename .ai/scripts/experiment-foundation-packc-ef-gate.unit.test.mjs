@@ -35,13 +35,14 @@ test('Pack C EF check registry is exact and maps every check to durable evidence
     { id: 'PC02', evidence_refs: ['engine_unit'] },
     { id: 'PC03', evidence_refs: ['engine_unit', 'service_unit'] },
     { id: 'PC04', evidence_refs: ['engine_unit', 'service_unit'] },
-    { id: 'PC05', evidence_refs: ['static_census', 'schema_unit'] },
+    { id: 'PC05', evidence_refs: ['static_census', 'schema_unit', 'openapi_unit'] },
     { id: 'PC06', evidence_refs: ['relational'] },
     { id: 'PC07', evidence_refs: ['service_unit', 'relational'] },
     { id: 'PC19-EF', evidence_refs: ['legacy_writer_unit'] },
   ]);
   assert.deepEqual(PACKC_EF_REQUIRED_MIGRATIONS, [
     '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
+    '20260808090000_add_scientific_source_and_packet_closure_binding',
   ]);
 });
 
@@ -52,7 +53,7 @@ test('summary publisher initializes exact evidence, zero-census and redaction ke
     '2026-07-20T00:00:00.000Z',
   );
   assert.doesNotThrow(() => assertExactSummaryKeysets(summary));
-  assert.deepEqual(Object.values(summary.evidence), [null, null, null, null, null, null]);
+  assert.deepEqual(Object.values(summary.evidence), [null, null, null, null, null, null, null]);
   assert.deepEqual(Object.keys(summary.migrations), PACKC_EF_REQUIRED_MIGRATIONS);
   assert.ok(Object.values(summary.zero_census).every((value) => value === 0));
   assert.deepEqual(summary.redaction, {
@@ -99,7 +100,10 @@ test('static census proves service-level closure and removed accept_partial requ
 
 test('PostgreSQL unavailability blocks relational checks and can never publish passed', () => {
   const summary = buildInitialSummary('packc-ef-20260720-r5', DEFAULT_POSTGRES_IMAGE);
-  for (const key of ['engine_unit', 'service_unit', 'schema_unit', 'legacy_writer_unit', 'static_census']) {
+  for (const key of [
+    'engine_unit', 'service_unit', 'schema_unit', 'openapi_unit',
+    'legacy_writer_unit', 'static_census',
+  ]) {
     summary.evidence[key] = { status: 'passed' };
   }
   summary.evidence.relational = {

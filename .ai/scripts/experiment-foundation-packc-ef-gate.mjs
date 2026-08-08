@@ -33,7 +33,7 @@ export const PACKC_EF_CHECK_REGISTRY = Object.freeze([
   { id: 'PC02', evidence_refs: ['engine_unit'] },
   { id: 'PC03', evidence_refs: ['engine_unit', 'service_unit'] },
   { id: 'PC04', evidence_refs: ['engine_unit', 'service_unit'] },
-  { id: 'PC05', evidence_refs: ['static_census', 'schema_unit'] },
+  { id: 'PC05', evidence_refs: ['static_census', 'schema_unit', 'openapi_unit'] },
   { id: 'PC06', evidence_refs: ['relational'] },
   { id: 'PC07', evidence_refs: ['service_unit', 'relational'] },
   { id: 'PC19-EF', evidence_refs: ['legacy_writer_unit'] },
@@ -41,11 +41,13 @@ export const PACKC_EF_CHECK_REGISTRY = Object.freeze([
 
 export const PACKC_EF_REQUIRED_MIGRATIONS = Object.freeze([
   '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
+  '20260808090000_add_scientific_source_and_packet_closure_binding',
 ]);
 const EVIDENCE_KEYS = Object.freeze([
   'engine_unit',
   'service_unit',
   'schema_unit',
+  'openapi_unit',
   'legacy_writer_unit',
   'static_census',
   'relational',
@@ -344,13 +346,21 @@ async function main() {
     await inspectMigrations(summary);
     summary.evidence.engine_unit = await runTapSuite(
       'engine-unit', BACKEND_ROOT,
-      ['src/services/experiment-foundation-v2-scientific-rule-engine.unit.test.ts'],
+      [
+        'src/services/experiment-foundation-v2-scientific-rule-engine.unit.test.ts',
+        'src/services/experiment-foundation-v2-scientific-comparison-engine.unit.test.ts',
+      ],
       artifactDir,
     );
     accumulateSuite(summary, summary.evidence.engine_unit);
     summary.evidence.service_unit = await runTapSuite(
       'service-unit', BACKEND_ROOT,
-      ['src/services/experiment-foundation-v2-scientific-validation-service.unit.test.ts'],
+      [
+        'src/services/experiment-foundation-v2-service.unit.test.ts',
+        'src/services/experiment-foundation-v2-scientific-validation-service.unit.test.ts',
+        'src/services/experiment-foundation-scientific-source-v1-service.unit.test.ts',
+        'src/routes/experiment-foundation-scientific-validation-v2-routes.unit.test.ts',
+      ],
       artifactDir,
     );
     accumulateSuite(summary, summary.evidence.service_unit);
@@ -360,6 +370,12 @@ async function main() {
       artifactDir,
     );
     accumulateSuite(summary, summary.evidence.schema_unit);
+    summary.evidence.openapi_unit = await runTapSuite(
+      'openapi-unit', BACKEND_ROOT,
+      ['src/routes/experiment-v2-openapi-path-coverage.test.ts'],
+      artifactDir,
+    );
+    accumulateSuite(summary, summary.evidence.openapi_unit);
     summary.evidence.legacy_writer_unit = await runTapSuite(
       'legacy-writer-unit', BACKEND_ROOT,
       [

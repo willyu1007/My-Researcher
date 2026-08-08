@@ -270,7 +270,7 @@ implements PaperImplementationResultClaimDossierRepository {
 
   private toResultPacketCreateInput(
     packet: ResultInterpretationPacket,
-  ): Prisma.PaperImplementationResultInterpretationPacketCreateInput {
+  ): Prisma.PaperImplementationResultInterpretationPacketUncheckedCreateInput {
     return {
       id: packet.result_interpretation_packet_id,
       implementationProjectId: packet.implementation_project_id,

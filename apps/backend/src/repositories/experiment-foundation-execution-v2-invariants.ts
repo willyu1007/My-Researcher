@@ -256,17 +256,24 @@ function assertExactProvisionalOutputs(
     );
   }
   for (const [index, output] of outputs.entries()) {
+    const isDiagnostic = output.output_class === 'diagnostic_only'
+      && output.output_kind !== 'scientific_result_manifest';
+    const isScientificSource = output.output_class === 'scientific_source'
+      && output.output_kind === 'scientific_result_manifest'
+      && index === 1
+      && outputs.length === 2
+      && outputs[0]?.output_kind === 'real_provider_result_envelope';
     if (
       output.collection_attempt_id !== collectionId
       || output.ordinal !== index + 1
-      || output.output_class !== 'diagnostic_only'
+      || (!isDiagnostic && !isScientificSource)
       || ordinals.has(output.ordinal)
       || kinds.has(output.output_kind)
       || hashes.has(output.output_hash)
     ) {
       throw constraint(
         'COLLECTION_ATTEMPT_CONFLICT',
-        'Provisional output manifest set is not exact, ordered, or diagnostic-only.',
+        'Provisional output set is not exact or ordered as diagnostic then optional source.',
       );
     }
     ordinals.add(output.ordinal);

@@ -11,17 +11,26 @@ import {
   type ExperimentFoundationV2MetricContractRuleV1,
   type ExperimentFoundationV2RequiredRuleType,
   type ExperimentFoundationV2RequiredRuleV1,
+  type ExperimentFoundationScientificArtifactSlotV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import { serverHashExperimentV2SemanticContent } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
+
+type ScientificRuleCellResult =
+  | ExperimentResultCellV2
+  | ExperimentFoundationSourceBoundResultCellV2;
 
 type RuleHandler = (
   rule: ExperimentFoundationV2RequiredRuleV1,
-  orderedCellResults: readonly ExperimentResultCellV2[],
+  orderedCellResults: readonly ScientificRuleCellResult[],
+  artifactSlots: readonly ExperimentFoundationScientificArtifactSlotV1[],
 ) => { status: Exclude<ExperimentFoundationScientificRuleOutcomeStatusV2, 'unsupported'>; detail_code: string | null };
 
 function evaluateMetricContractRule(
   rule: ExperimentFoundationV2MetricContractRuleV1,
-  orderedCellResults: readonly ExperimentResultCellV2[],
+  orderedCellResults: readonly ScientificRuleCellResult[],
 ): ReturnType<RuleHandler> {
   for (const cellResult of orderedCellResults) {
     const observations = cellResult.metric_observations.filter(
@@ -51,13 +60,28 @@ function evaluateMetricContractRule(
 
 function evaluateArtifactContractRule(
   rule: ExperimentFoundationV2ArtifactContractRuleV1,
-  orderedCellResults: readonly ExperimentResultCellV2[],
+  orderedCellResults: readonly ScientificRuleCellResult[],
+  artifactSlots: readonly ExperimentFoundationScientificArtifactSlotV1[],
 ): ReturnType<RuleHandler> {
+  const boundSlots = artifactSlots.filter((slot) => slot.required_rule_id === rule.rule_id);
   for (const cellResult of orderedCellResults) {
-    const artifacts = cellResult.artifact_observations.filter(
-      (artifact) =>
-        artifact.artifact_kind === rule.artifact_kind && artifact.file_name === rule.file_name,
-    );
+    const sourceBound = cellResult.schema_version === 'v2';
+    if (sourceBound && boundSlots.length !== rule.required_cardinality) {
+      return {
+        status: 'failed',
+        detail_code: `artifact_binding_cardinality:${rule.rule_id}:${boundSlots.length}`,
+      };
+    }
+    const artifacts = cellResult.artifact_observations.filter((artifact) => {
+      if ('file_name' in artifact) {
+        return artifact.artifact_kind === rule.artifact_kind
+          && artifact.file_name === rule.file_name;
+      }
+      return boundSlots.some((slot) => (
+        slot.artifact_key === artifact.artifact_key
+        && slot.artifact_kind === artifact.artifact_kind
+      ));
+    });
     if (artifacts.length !== rule.required_cardinality) {
       return {
         status: 'failed',
@@ -68,7 +92,12 @@ function evaluateArtifactContractRule(
       if (rule.content_hash_required && artifact.content_hash.length === 0) {
         return { status: 'failed', detail_code: `artifact_hash_missing:${cellResult.cell_key}` };
       }
-      if (artifact.parser_binding !== rule.parser_binding) {
+      const parserBinding = 'parser_binding' in artifact
+        ? artifact.parser_binding
+        : sourceBound
+          ? cellResult.parser_profile_version
+          : null;
+      if (parserBinding !== rule.parser_binding) {
         return {
           status: 'failed',
           detail_code: `artifact_parser_binding:${cellResult.cell_key}`,
@@ -89,8 +118,12 @@ const SCIENTIFIC_RULE_CAPABILITY_MAP_V1: Readonly<
 > = Object.freeze({
   'metric_contract@v1': (rule, cells) =>
     evaluateMetricContractRule(rule as ExperimentFoundationV2MetricContractRuleV1, cells),
-  'artifact_contract@v1': (rule, cells) =>
-    evaluateArtifactContractRule(rule as ExperimentFoundationV2ArtifactContractRuleV1, cells),
+  'artifact_contract@v1': (rule, cells, artifactSlots) =>
+    evaluateArtifactContractRule(
+      rule as ExperimentFoundationV2ArtifactContractRuleV1,
+      cells,
+      artifactSlots,
+    ),
 });
 
 export const EXPERIMENT_FOUNDATION_SCIENTIFIC_SUPPORTED_RULE_TYPES_V2 =
@@ -104,6 +137,8 @@ export function computeScientificValidatorProfileHashV2(): string {
     content: {
       validator_profile_version: EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
       supported_rule_types: [...EXPERIMENT_FOUNDATION_SCIENTIFIC_SUPPORTED_RULE_TYPES_V2].sort(),
+      artifact_binding_capabilities: ['artifact_slot_required_rule_binding@v1'],
+      comparison_capabilities: ['directional_absolute_difference@v1'],
     },
   });
 }
@@ -128,7 +163,9 @@ export function listUnsupportedRequiredRulesV2(
 
 export interface ExecuteScientificRequiredRulesV2Input {
   required_rules: readonly ExperimentFoundationV2RequiredRuleV1[];
-  ordered_cell_results: readonly ExperimentResultCellV2[];
+  ordered_cell_results: readonly ScientificRuleCellResult[];
+  /** Required for source-bound v2 artifact rules; omitted by historical v1 validation. */
+  artifact_slots?: readonly ExperimentFoundationScientificArtifactSlotV1[];
 }
 
 export interface ExecuteScientificRequiredRulesV2Output {
@@ -166,6 +203,7 @@ export function executeScientificRequiredRulesV2(
       const outcome = SCIENTIFIC_RULE_CAPABILITY_MAP_V1[rule.rule_type](
         rule,
         input.ordered_cell_results,
+        input.artifact_slots ?? [],
       );
       return {
         ordinal: index + 1,

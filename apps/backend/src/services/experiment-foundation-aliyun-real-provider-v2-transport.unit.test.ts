@@ -23,6 +23,7 @@ import { canonicalizeExperimentV2Json } from '@paper-engineering-assistant/share
 import {
   ExperimentFoundationAliyunRealProviderTransportErrorV2,
   ExperimentFoundationAliyunRealProviderTransportV2,
+  ExperimentFoundationTransientExactResultReadErrorV2,
   type ExperimentFoundationAliyunPaiDlcSdkClientV2,
   type ExperimentFoundationAliyunRealProviderTransportInputV2,
 } from './experiment-foundation-aliyun-real-provider-v2-transport.js';
@@ -450,8 +451,12 @@ test('M7-09 cancel verifies Stopped and M7-10 collection verifies exact canonica
 
   sdk.jobs.get('job-running')!.status = 'Succeeded';
   const collected = await transport.collect(bound);
-  assert.equal(collected.normalized_state, 'succeeded');
-  assert.match(collected.result_manifest_hash!, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(collected.outcome.normalized_state, 'succeeded');
+  assert.match(collected.outcome.result_manifest_hash, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(
+    collected.validated_result.handoff_schema_version,
+    'ExperimentFoundationValidatedProviderResultEnvelope@v1',
+  );
 
   const tamperedTransport = new ExperimentFoundationAliyunRealProviderTransportV2({
     client: sdk,
@@ -467,7 +472,42 @@ test('M7-09 cancel verifies Stopped and M7-10 collection verifies exact canonica
   });
   await assert.rejects(
     () => tamperedTransport.collect(bound),
-    isReason('REAL_PROVIDER_RESULT_INVALID', false),
+    isReason('REAL_PROVIDER_RESULT_BINDING_DRIFT', false),
+  );
+});
+
+test('P1 exact result-reader failures have explicit bounded retry semantics', async () => {
+  const sdk = new InjectedPaiDlcSdkFake();
+  const { input } = fixture();
+  seedExactJob(sdk, input, 'job-succeeded', 'Succeeded');
+  const bound = withExternalJob(input, 'job-succeeded');
+  await assert.rejects(
+    () => new ExperimentFoundationAliyunRealProviderTransportV2({ client: sdk }).collect(bound),
+    isReason('REAL_PROVIDER_RESULT_READER_UNAVAILABLE', false),
+  );
+  const transient = new ExperimentFoundationAliyunRealProviderTransportV2({
+    client: sdk,
+    resultReader: {
+      readExactResult: async () => {
+        throw new ExperimentFoundationTransientExactResultReadErrorV2('temporary outage');
+      },
+    },
+  });
+  await assert.rejects(
+    () => transient.collect(bound),
+    isReason('REAL_PROVIDER_RESULT_READ_FAILED', true),
+  );
+  const unknown = new ExperimentFoundationAliyunRealProviderTransportV2({
+    client: sdk,
+    resultReader: {
+      readExactResult: async () => {
+        throw new Error('unknown reader failure');
+      },
+    },
+  });
+  await assert.rejects(
+    () => unknown.collect(bound),
+    isReason('REAL_PROVIDER_RESULT_READ_FAILED', false),
   );
 });
 

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-03T14:15:29.263Z",
+  "generatedAt": "2026-08-08T08:09:57.553Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "bc581369cb5c985e9ba5d51b8a02b4367f1acdfdfa9c3e17b6e8fd91d02c506c",
+  "sourceChecksumSha256": "5898861ad08234cddebef56bc8ecab535b1c03a0944255e121589b69938aa712",
   "stats": {
-    "totalEndpoints": 205,
+    "totalEndpoints": 208,
     "byTag": {
       "health": 1,
       "paper-implementation-experiment-v2": 8,
@@ -13,6 +13,7 @@
       "experiment-foundation-promotion-v2": 1,
       "experiment-foundation-exploration-spec-v2": 1,
       "experiment-foundation-execution-v2": 6,
+      "experiment-foundation-scientific-validation-v2": 3,
       "research-lifecycle": 8,
       "literature": 44,
       "settings": 5,
@@ -770,6 +771,129 @@
       ],
       "example": {
         "curl": "curl -X GET '/experiment-foundation/v2/runs/{run_id}/workflow-simulation-status'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/scientific-results",
+      "operationId": "generateExperimentFoundationScientificResultV2",
+      "summary": "Generate one immutable scientific Result from an exact committed source output.",
+      "tag": "experiment-foundation-scientific-validation-v2",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "run_cell_id",
+            "scientific_source_output_id",
+            "idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "result_id",
+          "schema_version",
+          "run_id",
+          "run_manifest_hash",
+          "run_cell_id",
+          "cell_key",
+          "training_task_spec_id",
+          "training_task_spec_hash",
+          "execution_attempt_id",
+          "collection_attempt_id",
+          "source_output_id",
+          "source_output_hash",
+          "source_output_kind",
+          "source_output_class",
+          "parser_profile_version",
+          "parser_profile_hash",
+          "evaluation_protocol",
+          "provenance",
+          "metric_observations",
+          "artifact_observations",
+          "derivation_hash",
+          "content_hash"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/scientific-results' -H 'Content-Type: application/json' -d '{\"run_cell_id\":\"<run_cell_id>\",\"scientific_source_output_id\":\"<scientific_source_output_id>\",\"idempotency_key\":\"<idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/experiment-foundation/v2/scientific-validations",
+      "operationId": "validateExperimentFoundationScientificBatchV2",
+      "summary": "Validate the complete source-bound Result batch for one exact Run.",
+      "tag": "experiment-foundation-scientific-validation-v2",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "run_id",
+            "expected_run_manifest_hash",
+            "idempotency_key"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "report",
+          "evidence_candidate"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        422,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/experiment-foundation/v2/scientific-validations' -H 'Content-Type: application/json' -d '{\"run_id\":\"<run_id>\",\"expected_run_manifest_hash\":\"<expected_run_manifest_hash>\",\"idempotency_key\":\"<idempotency_key>\"}'"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/experiment-foundation/v2/scientific-validations/{run_id}",
+      "operationId": "getExperimentFoundationScientificValidationV2",
+      "summary": "Read the durable scientific validation outcome for one Run.",
+      "tag": "experiment-foundation-scientific-validation-v2",
+      "auth": "none",
+      "input": {
+        "params": [
+          "run_id"
+        ],
+        "query": [],
+        "body": null
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "report",
+          "evidence_candidate"
+        ]
+      },
+      "errors": [
+        404,
+        500
+      ],
+      "example": {
+        "curl": "curl -X GET '/experiment-foundation/v2/scientific-validations/{run_id}'"
       }
     },
     {

@@ -5,15 +5,21 @@ import test from 'node:test';
 import { Prisma, PrismaClient } from '@prisma/client';
 import type {
   ExperimentFoundationV2ArtifactContractRuleV1,
+  ExperimentFoundationV2ExactAssetRevisionRef,
   ExperimentFoundationV2MetricContractRuleV1,
   ExperimentFoundationV2RequiredRuleV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import type {
   ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+  ScientificSourceManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   PaperImplementationExperimentV2AdmissionRequest,
@@ -38,6 +44,11 @@ import {
 } from '../experiment-spine-v2.repository.js';
 import { buildExperimentFoundationD19TypedFixture } from '../../services/experiment-foundation-d19-fixture.js';
 import { ExperimentFoundationExecutionService } from '../../services/experiment-foundation-execution-service.js';
+import {
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_HASH_V1,
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
+} from '../../services/experiment-foundation-scientific-source-v1-service.js';
 import { ExperimentFoundationService } from '../../services/experiment-foundation-service.js';
 import { ExperimentFoundationV2MaterializationService } from '../../services/experiment-foundation-v2-materialization-service.js';
 import {
@@ -139,7 +150,7 @@ test(
       }), 'ef_experiment_result_provenance_check');
       await expectConstraint(prisma.experimentFoundationExperimentResultV2.create({
         data: { ...invalidResultBase, schemaVersion: 'v2' },
-      }), 'ef_experiment_result_schema_version_check');
+      }), 'ef_experiment_result_source_contract_check');
 
       await recordCompleteBatch(primary);
       const passed = await primary.service.validateScientificBatch({
@@ -311,6 +322,7 @@ test(
       const unsupportedService = new ExperimentFoundationV2ScientificValidationService({
         repository: repositoryWithUnsupportedRule(unsupportedFixture),
         enabled: () => true,
+        legacyObservationWriterEnabled: () => true,
         now: () => FIXED_NOW,
       });
       const stored = await unsupportedService.validateScientificBatch({
@@ -379,6 +391,120 @@ test(
   },
 );
 
+test(
+  'P1/P2 disposable PostgreSQL persists v2 Results and validates one CMP-B1 candidate/outbox',
+  {
+    skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON,
+    timeout: 180_000,
+  },
+  async () => {
+    const { prisma } = await openPackCDatabase();
+    try {
+      const fixture = await seedScientificFixture(prisma, 'p1-source-results', {
+        scientificBinding: true,
+      });
+      const run = await fixture.repository.loadRun(fixture.runId, fixture.runManifestHash);
+      assert.ok(run);
+      const persisted: ExperimentFoundationSourceBoundResultCellV2[] = [];
+      for (const cell of run.ordered_cells) {
+        const attemptId = fixture.attempts[cell.ordinal - 1]!;
+        const collection = await prisma.experimentFoundationCollectionAttemptV2.findUniqueOrThrow({
+          where: { executionAttemptId: attemptId },
+        });
+        const taskSpec = await prisma.experimentFoundationTrainingTaskSpecV2.findUniqueOrThrow({
+          where: { id: cell.training_task_spec_id },
+        });
+        assert.ok(taskSpec.executionBundleRevisionId);
+        assert.ok(taskSpec.executionBundleRevisionHash);
+        const manifest = sourceManifestForRelationalFixture({
+          fixture,
+          cell,
+          attemptId,
+          collectionId: collection.id,
+          executionBundleRevisionId: taskSpec.executionBundleRevisionId,
+          executionBundleRevisionHash: taskSpec.executionBundleRevisionHash,
+        });
+        const sourceHash = sourceManifestHash(manifest);
+        const sourceId = `scientific_source_${collection.id}`;
+        await prisma.experimentFoundationProvisionalOutputV2.create({
+          data: {
+            id: sourceId,
+            collectionAttemptId: collection.id,
+            ordinal: 2,
+            outputKind: 'scientific_result_manifest',
+            outputClass: 'scientific_source',
+            manifestSchemaVersion: 'ExperimentFoundationScientificSourceManifest@v1',
+            redactedManifestJson: manifest as Prisma.InputJsonValue,
+            outputHash: sourceHash,
+            createdAt: new Date(FIXED_NOW),
+          },
+        });
+        const authority = await fixture.repository.loadScientificResultGenerationAuthority(
+          cell.run_cell_id,
+          sourceId,
+        );
+        assert.ok(authority);
+        assert.equal(authority.source_output_hash, sourceHash);
+        const first = await fixture.service.generateExperimentResult({
+          run_cell_id: cell.run_cell_id,
+          scientific_source_output_id: sourceId,
+          idempotency_key: `${sourceId}:generate-scientific-result@v1`,
+        });
+        const replay = await fixture.service.generateExperimentResult({
+          run_cell_id: cell.run_cell_id,
+          scientific_source_output_id: sourceId,
+          idempotency_key: `${sourceId}:generate-scientific-result@v1`,
+        });
+        assert.deepEqual(replay, first);
+        persisted.push(first);
+      }
+      assert.equal(persisted.length, 2);
+      assert.deepEqual(
+        persisted.map((result) => result.metric_observations[0]?.value),
+        [1.1, 1.2],
+      );
+      const rows = await prisma.experimentFoundationExperimentResultV2.findMany({
+        where: { runId: fixture.runId, schemaVersion: 'v2' },
+        orderBy: { runCellId: 'asc' },
+      });
+      assert.equal(rows.length, 2);
+      assert.ok(rows.every((row) => (
+        row.sourceOutputKind === 'scientific_result_manifest'
+        && row.sourceOutputClass === 'scientific_source'
+        && row.collectionAttemptId !== null
+        && row.derivationHash !== null
+      )));
+      const validated = await fixture.service.validateScientificBatch({
+        run_id: fixture.runId,
+        expected_run_manifest_hash: fixture.runManifestHash,
+        idempotency_key: `${fixture.prefix}:p2-scientific-validation`,
+      });
+      assert.equal(validated.report.status, 'passed');
+      assert.equal(
+        validated.report.ordered_comparison_results?.[0]?.fact?.registered_relation,
+        'supports_registered_expectation',
+      );
+      assert.ok(validated.evidence_candidate);
+      assert.deepEqual(await fixture.service.validateScientificBatch({
+        run_id: fixture.runId,
+        expected_run_manifest_hash: fixture.runManifestHash,
+        idempotency_key: `${fixture.prefix}:p2-scientific-validation`,
+      }), validated);
+      assert.equal(await prisma.experimentFoundationScientificValidationReportV2.count({
+        where: { runId: fixture.runId },
+      }), 1);
+      assert.equal(await prisma.experimentFoundationEvidenceCandidateV2.count({
+        where: { runId: fixture.runId },
+      }), 1);
+      assert.equal(await prisma.experimentFoundationIntegrationOutboxV2.count({
+        where: { aggregateId: validated.evidence_candidate?.candidate_id },
+      }), 1);
+    } finally {
+      await prisma.$disconnect();
+    }
+  },
+);
+
 async function openPackCDatabase(): Promise<{ prisma: PrismaClient }> {
   requireDisposablePostgresDatabaseIdentity(process.env, 'packc', {
     databaseUrlKey: 'EXPERIMENT_FOUNDATION_PACKC_DATABASE_URL',
@@ -390,6 +516,7 @@ async function openPackCDatabase(): Promise<{ prisma: PrismaClient }> {
 async function seedScientificFixture(
   prisma: PrismaClient,
   purpose: string,
+  options: { scientificBinding?: boolean } = {},
 ): Promise<ScientificFixture> {
   const foundationService = new ExperimentFoundationV2Service(
     new PrismaExperimentFoundationV2Repository(prisma),
@@ -397,10 +524,33 @@ async function seedScientificFixture(
   foundationFixturePromise ??= buildExperimentFoundationD19TypedFixture(foundationService);
   const fixture = await foundationFixturePromise;
   const namespace = `packc-${purpose}-${randomUUID()}`;
+  const scientificProtocol = options.scientificBinding
+    ? await createScientificProtocolFixture(foundationService, fixture, namespace)
+    : null;
+  const admissionFixture = scientificProtocol
+    ? {
+      ...fixture,
+      evaluation_protocol: scientificProtocol.exactRef,
+      evaluation_protocol_readiness: scientificProtocol.readiness,
+    }
+    : fixture;
   const realProvider = await createPersistedRealProviderBundleV2({
     prisma,
     namespace,
     now: FIXED_NOW,
+    ...(options.scientificBinding
+      ? {
+        outputContractOverride: {
+          parser_profile_version:
+            EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
+          parser_profile_hash: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_HASH_V1,
+          scientific_result_schema_version:
+            'ExperimentFoundationScientificResultPayload@v1',
+          scientific_result_schema_hash:
+            EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
+        },
+      }
+      : {}),
   });
   let idSequence = 0;
   const nextId = (prefix: string) => `${namespace}:${prefix}:${++idSequence}`;
@@ -430,7 +580,7 @@ async function seedScientificFixture(
   await admissionService.admit({
     implementation_project_id: `${namespace}:project`,
     validation_cycle_id: `${namespace}:cycle`,
-    request: materializationAdmissionRequest(fixture, namespace, realProvider.revision),
+    request: materializationAdmissionRequest(admissionFixture, namespace, realProvider.revision),
     admitted_by: `system:${purpose}`,
   });
   const sourceEvent = piRepository.snapshot().outboxes[0]!.outbox.event;
@@ -441,7 +591,7 @@ async function seedScientificFixture(
     cycleClosureLookup: OPEN_CYCLE_LOOKUP,
     readinessResolver: {
       async resolvePassedExactReadiness(input) {
-        const resolved = await foundationService.revalidateReadiness({
+          const resolved = await foundationService.revalidateReadiness({
           target: input.target,
           readiness_attestation_id: input.readiness_attestation_id,
           expected_dependencies: input.ordered_dependencies,
@@ -531,10 +681,183 @@ async function seedScientificFixture(
     service: new ExperimentFoundationV2ScientificValidationService({
       repository,
       enabled: () => true,
+      legacyObservationWriterEnabled: () => !options.scientificBinding,
       now: () => FIXED_NOW,
     }),
     attempts,
   };
+}
+
+async function createScientificProtocolFixture(
+  service: ExperimentFoundationV2Service,
+  fixture: Awaited<ReturnType<typeof buildExperimentFoundationD19TypedFixture>>,
+  namespace: string,
+) {
+  const metricDefinition = fixture.metric_definitions[0]!;
+  if (metricDefinition.asset_type !== 'MetricDefinition') {
+    throw new Error('Expected the first D19 dependency to be a MetricDefinition.');
+  }
+  if (fixture.benchmark.asset_type !== 'Benchmark') {
+    throw new Error('Expected the D19 benchmark exact ref.');
+  }
+  const exactMetricDefinition = metricDefinition as ExperimentFoundationV2ExactAssetRevisionRef & {
+    asset_type: 'MetricDefinition';
+  };
+  const exactMetricDefinitions = fixture.metric_definitions.map((definition) => {
+    if (definition.asset_type !== 'MetricDefinition') {
+      throw new Error('Expected every D19 metric dependency to be a MetricDefinition.');
+    }
+    return definition as ExperimentFoundationV2ExactAssetRevisionRef & {
+      asset_type: 'MetricDefinition';
+    };
+  });
+  const exactBenchmark = fixture.benchmark as ExperimentFoundationV2ExactAssetRevisionRef & {
+    asset_type: 'Benchmark';
+  };
+  const logicalId = `${namespace}:scientific-protocol`;
+  await service.createAssetDraft({
+    asset_type: 'EvaluationProtocol',
+    logical_id: logicalId,
+    draft_content: {
+      schema_version: 'v2',
+      protocol_key: `${namespace}:cmp-b1`,
+      display_name: 'Pack C CMP-B1 scientific protocol',
+      benchmark_dependency: exactBenchmark,
+      metric_dependencies: exactMetricDefinitions,
+      required_rules: [{
+        rule_id: 'metric_contract@v1:embedding_time_ns',
+        rule_type: 'metric_contract@v1',
+        metric_definition: exactMetricDefinition,
+        metric_key: 'embedding_time_ns',
+        required_cardinality: 1,
+        split_key: 'query',
+        value_type: 'duration_ns',
+        unit: 'ns',
+        finite_required: true,
+      }],
+      scientific_contract: {
+        schema_version: 'ExperimentFoundationScientificProtocol@v1',
+        observation_slots: [{
+          observation_key: 'embedding-time',
+          ordinal: 1,
+          metric_key: 'embedding_time_ns',
+          split_key: 'query',
+          value_type: 'duration_ns',
+          unit: 'ns',
+          statistic: { kind: 'point' },
+          uncertainty: { kind: 'none' },
+        }],
+        artifact_slots: [],
+        comparison_rules: [{
+          comparison_key: 'primary-embedding-time',
+          ordinal: 1,
+          left_cell_ordinal: 1,
+          right_cell_ordinal: 2,
+          observation_key: 'embedding-time',
+          effect_kind: 'absolute_difference',
+          direction: 'lower_is_support',
+          support_min: 0.05,
+          contradiction_max: -0.05,
+          uncertainty_policy: { kind: 'not_required_by_protocol' },
+        }],
+        primary_comparison_key: 'primary-embedding-time',
+        decision_if_positive: 'continue-positive',
+        decision_if_negative: 'continue-negative',
+        decision_if_inconclusive: 'continue-inconclusive',
+      },
+    },
+  });
+  const frozen = await service.freezeAssetDraft({
+    asset_type: 'EvaluationProtocol',
+    logical_id: logicalId,
+    expected_state_version: 1,
+    business_idempotency_key: `${namespace}:freeze-scientific-protocol`,
+  });
+  const registered = await service.appendLifecycleEvent({
+    asset: frozen.exact_ref,
+    expected_projection_state_version: null,
+    event_type: 'registered',
+    reason_code: 'PACK_C_P2_REGISTERED',
+  });
+  await service.appendLifecycleEvent({
+    asset: frozen.exact_ref,
+    expected_projection_state_version: registered.projection.projection_state_version,
+    event_type: 'activated',
+    reason_code: 'PACK_C_P2_ACTIVATED',
+  });
+  const readiness = await service.createReadinessAttestation({
+    target: frozen.exact_ref,
+  });
+  return { exactRef: frozen.exact_ref, readiness };
+}
+
+function sourceManifestForRelationalFixture(input: {
+  fixture: ScientificFixture;
+  cell: NonNullable<Awaited<ReturnType<
+    ScientificFixture['repository']['loadRun']
+  >>>['ordered_cells'][number];
+  attemptId: string;
+  collectionId: string;
+  executionBundleRevisionId: string;
+  executionBundleRevisionHash: string;
+}): ScientificSourceManifestV1 {
+  return {
+    manifest_schema_version: 'ExperimentFoundationScientificSourceManifest@v1',
+    output_kind: 'scientific_result_manifest',
+    output_class: 'scientific_source',
+    authority: {
+      collection_attempt_id: input.collectionId,
+      execution_attempt_id: input.attemptId,
+      provenance: 'real_provider',
+    },
+    execution_lineage: {
+      execution_bundle_revision_id: input.executionBundleRevisionId,
+      execution_bundle_revision_hash: input.executionBundleRevisionHash,
+      run_id: input.fixture.runId,
+      run_manifest_hash: input.fixture.runManifestHash,
+      run_cell_id: input.cell.run_cell_id,
+      cell_key: input.cell.cell_key,
+      cell_ordinal: input.cell.ordinal,
+      training_task_spec_id: input.cell.training_task_spec_id,
+      training_task_spec_hash: input.cell.training_task_spec_hash,
+    },
+    evaluation_protocol: {
+      evaluation_protocol_id: input.fixture.protocol.evaluation_protocol.logical_id,
+      revision_id: input.fixture.protocol.evaluation_protocol.revision_id,
+      revision_sequence: input.fixture.protocol.evaluation_protocol.revision_sequence,
+      content_hash: input.fixture.protocol.evaluation_protocol.content_hash,
+    },
+    interpretation_binding: {
+      provider_result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1',
+      parser_profile_version: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
+      parser_profile_hash: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_HASH_V1,
+      scientific_result_schema_version: 'ExperimentFoundationScientificResultPayload@v1',
+      scientific_result_schema_hash: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
+    },
+    upstream: { provider_result_manifest_hash: hash('p1-provider-manifest') },
+    ordered_observations: [{
+      observation_id: `${input.cell.run_cell_id}:observation:embedding-time`,
+      observation_key: 'embedding-time',
+      ordinal: 1,
+      metric_key: 'embedding_time_ns',
+      split_key: 'query',
+      value: 1 + input.cell.ordinal / 10,
+      value_type: 'duration_ns',
+      unit: 'ns',
+      statistic: { kind: 'point', sample_size: 1 },
+      uncertainty: { kind: 'none', reason: 'not_required_by_protocol' },
+    }],
+    ordered_artifacts: [],
+  };
+}
+
+function sourceManifestHash(manifest: ScientificSourceManifestV1): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationScientificSourceManifest',
+    schema_version: 'ExperimentFoundationScientificSourceManifest@v1',
+    hash_profile: 'ef-scientific-source-json@v1',
+    content: manifest,
+  });
 }
 
 function materializationAdmissionRequest(

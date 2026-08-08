@@ -214,6 +214,83 @@ export type ExperimentFoundationV2RequiredRuleV1 =
   | ExperimentFoundationV2MetricContractRuleV1
   | ExperimentFoundationV2ArtifactContractRuleV1;
 
+export type ExperimentFoundationScientificStatisticRequirementV1 =
+  | { kind: 'point' }
+  | {
+    kind: 'mean' | 'median' | 'proportion' | 'minimum' | 'maximum' | 'sum';
+  }
+  | { kind: 'quantile'; probability: number };
+
+export type ExperimentFoundationScientificUncertaintyRequirementV1 =
+  | { kind: 'none' }
+  | { kind: 'standard_deviation' | 'standard_error' }
+  | {
+    kind: 'confidence_interval';
+    level: number;
+    allowed_method_keys: string[];
+  };
+
+export interface ExperimentFoundationScientificObservationSlotV1 {
+  observation_key: string;
+  ordinal: number;
+  metric_key: string;
+  split_key: string;
+  value_type: ExperimentFoundationV2MetricValueType;
+  unit: string;
+  statistic: ExperimentFoundationScientificStatisticRequirementV1;
+  uncertainty: ExperimentFoundationScientificUncertaintyRequirementV1;
+}
+
+export interface ExperimentFoundationScientificArtifactSlotV1 {
+  artifact_key: string;
+  ordinal: number;
+  artifact_kind: string;
+  /**
+   * Explicit admission binding. `null` means the artifact is trace-only; a
+   * rule id binds this logical provider artifact key to one artifact contract.
+   * Optional only so historical protocol snapshots remain readable.
+   */
+  required_rule_id?: string | null;
+}
+
+export type ExperimentFoundationScientificComparisonUncertaintyPolicyV1 =
+  | { kind: 'not_required_by_protocol' }
+  | {
+    kind: 'confidence_interval_guard';
+    confidence_level: number;
+    method_key: string;
+  };
+
+export interface ExperimentFoundationScientificDirectionalDifferenceRuleV1 {
+  comparison_key: string;
+  ordinal: number;
+  left_cell_ordinal: number;
+  right_cell_ordinal: number;
+  observation_key: string;
+  effect_kind: 'absolute_difference';
+  direction: 'higher_is_support' | 'lower_is_support';
+  support_min: number;
+  contradiction_max: number;
+  uncertainty_policy: ExperimentFoundationScientificComparisonUncertaintyPolicyV1;
+}
+
+/** Optional on legacy protocols; required before a collection can seal scientific evidence. */
+export interface ExperimentFoundationScientificProtocolV1 {
+  schema_version: 'ExperimentFoundationScientificProtocol@v1';
+  observation_slots: ExperimentFoundationScientificObservationSlotV1[];
+  artifact_slots: ExperimentFoundationScientificArtifactSlotV1[];
+  /** Optional only for pre-P2 compatibility; product validation requires a non-empty list. */
+  comparison_rules?: ExperimentFoundationScientificDirectionalDifferenceRuleV1[];
+  /** Optional only for historical protocol snapshots; required for every new scientific freeze. */
+  primary_comparison_key?: string;
+  /** Optional only for historical protocol snapshots; required for every new scientific freeze. */
+  decision_if_positive?: string;
+  /** Optional only for historical protocol snapshots; required for every new scientific freeze. */
+  decision_if_negative?: string;
+  /** Optional only for historical protocol snapshots; required for every new scientific freeze. */
+  decision_if_inconclusive?: string;
+}
+
 interface ExperimentFoundationV2EvaluationProtocolSemanticContentV2 {
   schema_version: 'v2';
   protocol_key: string;
@@ -225,6 +302,7 @@ interface ExperimentFoundationV2EvaluationProtocolSemanticContentV2 {
     ExperimentFoundationV2ExactAssetRevisionRef & { asset_type: 'MetricDefinition' }
   >;
   required_rules: ExperimentFoundationV2RequiredRuleV1[];
+  scientific_contract?: ExperimentFoundationScientificProtocolV1;
 }
 
 export interface ExperimentFoundationV2EvaluationProtocolDraftContentV2
@@ -788,6 +866,192 @@ export const experimentFoundationV2RequiredRuleV1Schema = {
   ],
 } as const;
 
+const scientificStatisticRequirementV1Schema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      properties: { kind: { type: 'string', const: 'point' } },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['mean', 'median', 'proportion', 'minimum', 'maximum', 'sum'],
+        },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'probability'],
+      properties: {
+        kind: { type: 'string', const: 'quantile' },
+        probability: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 },
+      },
+    },
+  ],
+} as const;
+
+const scientificUncertaintyRequirementV1Schema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      properties: { kind: { type: 'string', const: 'none' } },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      properties: {
+        kind: { type: 'string', enum: ['standard_deviation', 'standard_error'] },
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'level', 'allowed_method_keys'],
+      properties: {
+        kind: { type: 'string', const: 'confidence_interval' },
+        level: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 },
+        allowed_method_keys: {
+          type: 'array',
+          minItems: 1,
+          uniqueItems: true,
+          items: stringId,
+        },
+      },
+    },
+  ],
+} as const;
+
+const scientificComparisonUncertaintyPolicyV1Schema = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind'],
+      properties: { kind: { type: 'string', const: 'not_required_by_protocol' } },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['kind', 'confidence_level', 'method_key'],
+      properties: {
+        kind: { type: 'string', const: 'confidence_interval_guard' },
+        confidence_level: { type: 'number', exclusiveMinimum: 0, exclusiveMaximum: 1 },
+        method_key: stringId,
+      },
+    },
+  ],
+} as const;
+
+export const experimentFoundationScientificDirectionalDifferenceRuleV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'comparison_key',
+    'ordinal',
+    'left_cell_ordinal',
+    'right_cell_ordinal',
+    'observation_key',
+    'effect_kind',
+    'direction',
+    'support_min',
+    'contradiction_max',
+    'uncertainty_policy',
+  ],
+  properties: {
+    comparison_key: stringId,
+    ordinal: positiveInteger,
+    left_cell_ordinal: positiveInteger,
+    right_cell_ordinal: positiveInteger,
+    observation_key: stringId,
+    effect_kind: { type: 'string', const: 'absolute_difference' },
+    direction: {
+      type: 'string',
+      enum: ['higher_is_support', 'lower_is_support'],
+    },
+    support_min: { type: 'number' },
+    contradiction_max: { type: 'number' },
+    uncertainty_policy: scientificComparisonUncertaintyPolicyV1Schema,
+  },
+} as const;
+
+export const experimentFoundationScientificProtocolV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['schema_version', 'observation_slots', 'artifact_slots'],
+  properties: {
+    schema_version: {
+      type: 'string',
+      const: 'ExperimentFoundationScientificProtocol@v1',
+    },
+    observation_slots: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'observation_key',
+          'ordinal',
+          'metric_key',
+          'split_key',
+          'value_type',
+          'unit',
+          'statistic',
+          'uncertainty',
+        ],
+        properties: {
+          observation_key: stringId,
+          ordinal: positiveInteger,
+          metric_key: stringId,
+          split_key: stringId,
+          value_type: {
+            type: 'string',
+            enum: [...EXPERIMENT_FOUNDATION_V2_METRIC_VALUE_TYPES],
+          },
+          unit: stringId,
+          statistic: scientificStatisticRequirementV1Schema,
+          uncertainty: scientificUncertaintyRequirementV1Schema,
+        },
+      },
+    },
+    artifact_slots: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['artifact_key', 'ordinal', 'artifact_kind'],
+        properties: {
+          artifact_key: stringId,
+          ordinal: positiveInteger,
+          artifact_kind: stringId,
+          required_rule_id: {
+            anyOf: [stringId, { type: 'null' }],
+          },
+        },
+      },
+    },
+    comparison_rules: {
+      type: 'array',
+      minItems: 1,
+      items: experimentFoundationScientificDirectionalDifferenceRuleV1Schema,
+    },
+    primary_comparison_key: stringId,
+    decision_if_positive: stringId,
+    decision_if_negative: stringId,
+    decision_if_inconclusive: stringId,
+  },
+} as const;
+
 const evaluationProtocolSemanticContentSchema = {
   type: 'object',
   additionalProperties: false,
@@ -814,6 +1078,7 @@ const evaluationProtocolSemanticContentSchema = {
       minItems: 1,
       items: experimentFoundationV2RequiredRuleV1Schema,
     },
+    scientific_contract: experimentFoundationScientificProtocolV1Schema,
   },
 } as const;
 

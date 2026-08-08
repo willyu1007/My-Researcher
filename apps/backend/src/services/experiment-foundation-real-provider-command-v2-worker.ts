@@ -26,6 +26,7 @@ import {
 } from '../repositories/experiment-foundation-execution-v2.repository.js';
 import {
   ExperimentFoundationAliyunRealProviderTransportErrorV2,
+  type ExperimentFoundationRealProviderCollectSuccessV2,
   type ExperimentFoundationAliyunRealProviderTransportInputV2,
   type ExperimentFoundationAliyunRealProviderTransportV2,
 } from './experiment-foundation-aliyun-real-provider-v2-transport.js';
@@ -40,6 +41,11 @@ import {
   ExperimentFoundationRealProviderPayloadV2Service,
 } from './experiment-foundation-real-provider-payload-v2-service.js';
 import {
+  ExperimentFoundationScientificSourcePreparationErrorV1,
+  ExperimentFoundationTransientScientificSourceCommitErrorV1,
+  type ExperimentFoundationScientificSourcePreparationServiceV1,
+} from './experiment-foundation-scientific-source-v1-service.js';
+import {
   incrementExperimentV2Int32Counter,
   nextExperimentV2Int32Sequence,
 } from './experiment-v2-int32.js';
@@ -53,6 +59,10 @@ interface ExperimentFoundationRealProviderCommandV2WorkerOptions {
   ) => Promise<ExperimentFoundationAliyunRealProviderProfileV2>;
   controlDrainEnabled: () => boolean;
   payloadService?: ExperimentFoundationRealProviderPayloadV2Service;
+  scientificSourcePreparationService?: Pick<
+    ExperimentFoundationScientificSourcePreparationServiceV1,
+    'prepare'
+  >;
   leaseOwner?: string;
   leaseMs?: number;
   maximumCommandAttempts?: number;
@@ -82,6 +92,8 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
   private readonly profileResolver: ExperimentFoundationRealProviderCommandV2WorkerOptions['profileResolver'];
   private readonly controlDrainEnabled: () => boolean;
   private readonly payloadService: ExperimentFoundationRealProviderPayloadV2Service;
+  private readonly scientificSourcePreparationService:
+    Pick<ExperimentFoundationScientificSourcePreparationServiceV1, 'prepare'> | undefined;
   private readonly leaseOwner: string;
   private readonly leaseMs: number;
   private readonly maximumCommandAttempts: number;
@@ -99,6 +111,7 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
     this.controlDrainEnabled = options.controlDrainEnabled;
     this.payloadService = options.payloadService
       ?? new ExperimentFoundationRealProviderPayloadV2Service();
+    this.scientificSourcePreparationService = options.scientificSourcePreparationService;
     this.leaseOwner = options.leaseOwner ?? `ef-v2-real-provider-worker-${randomUUID()}`;
     this.leaseMs = Math.max(1_000, options.leaseMs ?? 30_000);
     this.maximumCommandAttempts = Math.max(1, options.maximumCommandAttempts ?? 12);
@@ -203,8 +216,14 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
     };
 
     let outcome: ExperimentFoundationAliyunNormalizedProviderOutcomeV1;
+    let collectSuccess: ExperimentFoundationRealProviderCollectSuccessV2 | null = null;
     try {
-      outcome = await this.transport[command.operation](transportInput);
+      if (command.operation === 'collect') {
+        collectSuccess = await this.transport.collect(transportInput);
+        outcome = collectSuccess.outcome;
+      } else {
+        outcome = await this.transport[command.operation](transportInput);
+      }
     } catch (error) {
       if (
         error instanceof ExperimentFoundationAliyunRealProviderTransportErrorV2
@@ -236,7 +255,10 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
 
     try {
       if (command.operation === 'collect') {
-        await this.commitCollection(command, attempt, outcome);
+        if (!collectSuccess) {
+          throw new Error('Collect dispatch returned no internal validated handoff.');
+        }
+        await this.commitCollection(command, attempt, collectSuccess, exact);
         return 'completed';
       }
       if (command.operation === 'cancel') {
@@ -278,6 +300,14 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       return 'completed';
     } catch (error) {
       if (isLeaseConflict(error)) return 'released';
+      if (error instanceof ExperimentFoundationScientificSourcePreparationErrorV1) {
+        if (error.retryable && command.attempt_count < this.maximumCommandAttempts) {
+          await this.release(command, error.reasonCode);
+          return 'released';
+        }
+        await this.commitFailure(command, attempt, error.reasonCode, error);
+        return 'terminal';
+      }
       if (error instanceof ExperimentFoundationExecutionV2ConstraintError) {
         await this.terminalize(command, error.reasonCode);
         return 'terminal';
@@ -497,8 +527,10 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
   private async commitCollection(
     command: ExperimentFoundationProviderCommandV2Record,
     attempt: ExperimentFoundationExecutionAttemptV2Record,
-    outcome: ExperimentFoundationAliyunNormalizedProviderOutcomeV1,
+    collectSuccess: ExperimentFoundationRealProviderCollectSuccessV2,
+    exact: Awaited<ReturnType<ExperimentFoundationRealProviderCommandV2Worker['resolveExact']>>,
   ): Promise<void> {
+    const outcome = collectSuccess.outcome;
     if (outcome.normalized_state !== 'succeeded' || !outcome.result_manifest_hash) {
       throw new Error('Real-provider collection returned no exact result manifest.');
     }
@@ -527,6 +559,31 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       output_hash: outputHash,
       created_at: now,
     };
+    const preparation = this.scientificSourcePreparationService
+      ? await this.scientificSourcePreparationService.prepare({
+        collect_success: collectSuccess,
+        collection_attempt_id: collection.id,
+        execution_attempt_id: attempt.id,
+        run_manifest_hash: attempt.run_manifest_hash,
+        run_cell: exact.cell.run_cell,
+        task_spec: exact.cell.task_spec,
+      })
+      : { status: 'not_scientific' as const, reason: 'scientific_contract_absent' as const };
+    const provisionalOutputs: ExperimentFoundationProvisionalOutputV2Record[] = [output];
+    if (preparation.status === 'sealed') {
+      provisionalOutputs.push({
+        id: preparation.source_output_id,
+        collection_attempt_id: collection.id,
+        ordinal: 2,
+        output_kind: 'scientific_result_manifest',
+        output_manifest_schema_version:
+          'ExperimentFoundationScientificSourceManifest@v1',
+        output_class: 'scientific_source',
+        redacted_manifest: preparation.manifest,
+        output_hash: preparation.source_output_hash,
+        created_at: now,
+      });
+    }
     const nextCollection: ExperimentFoundationCollectionAttemptV2Record = {
       ...collection,
       collection_state: 'collected',
@@ -548,18 +605,36 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
       observedProviderState: outcome.provider_status,
       occurredAt: now,
     });
-    await this.repository.commitCollectionCompletion({
-      collection_id: collection.id,
-      command_id: command.id,
-      lease_owner: this.leaseOwner,
-      expected_lease_version: command.lease_version,
-      response_hash: outcome.response_hash,
-      committed_at: now,
-      expected_collection_state_version: collection.state_version,
-      next_collection: nextCollection,
-      provisional_outputs: [output],
-      event,
-    });
+    try {
+      await this.repository.commitCollectionCompletion({
+        collection_id: collection.id,
+        command_id: command.id,
+        lease_owner: this.leaseOwner,
+        expected_lease_version: command.lease_version,
+        response_hash: outcome.response_hash,
+        committed_at: now,
+        expected_collection_state_version: collection.state_version,
+        next_collection: nextCollection,
+        provisional_outputs: provisionalOutputs,
+        event,
+      });
+    } catch (error) {
+      if (preparation.status !== 'sealed' || isLeaseConflict(error)) throw error;
+      if (error instanceof ExperimentFoundationExecutionV2ConstraintError) {
+        throw new ExperimentFoundationScientificSourcePreparationErrorV1(
+          'SCIENTIFIC_SOURCE_COMMIT_CONFLICT',
+          false,
+          'Scientific source atomic commit conflicted with durable authority.',
+          { cause: error },
+        );
+      }
+      throw new ExperimentFoundationScientificSourcePreparationErrorV1(
+        'SCIENTIFIC_SOURCE_COMMIT_FAILED',
+        error instanceof ExperimentFoundationTransientScientificSourceCommitErrorV1,
+        'Scientific source atomic commit failed.',
+        { cause: error },
+      );
+    }
   }
 
   private async cleanupAfterTimeout(

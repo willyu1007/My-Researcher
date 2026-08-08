@@ -769,6 +769,88 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /experiment-foundation/v2/scientific-results:
+    post:
+      operationId: generateExperimentFoundationScientificResultV2
+      summary: Generate one immutable scientific Result from an exact committed source output.
+      description: The identity-only command never accepts caller-authored scientific values; the server rereads and projects the exact committed source manifest.
+      tags: [experiment-foundation-scientific-validation-v2]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationGenerateScientificResultV2Request'
+      responses:
+        '200':
+          description: Exact-created or idempotently replayed source-bound scientific Result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationSourceBoundResultV2'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/scientific-validations:
+    post:
+      operationId: validateExperimentFoundationScientificBatchV2
+      summary: Validate the complete source-bound Result batch for one exact Run.
+      description: Executes required rules and preregistered CMP-B1 comparisons, then atomically emits a Candidate only when evidence eligibility passes. Scientific disposition and selected exit remain outside EF authority.
+      tags: [experiment-foundation-scientific-validation-v2]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFoundationValidateScientificBatchV2Request'
+      responses:
+        '200':
+          description: Persisted or idempotently replayed scientific validation outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationValidateScientificBatchV2Response'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /experiment-foundation/v2/scientific-validations/{run_id}:
+    get:
+      operationId: getExperimentFoundationScientificValidationV2
+      summary: Read the durable scientific validation outcome for one Run.
+      tags: [experiment-foundation-scientific-validation-v2]
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Exact hash-bound report and optional evidence Candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFoundationValidateScientificBatchV2Response'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /paper-projects:
     post:
       operationId: createPaperProject
@@ -5682,6 +5764,320 @@ components:
         content_hash:
           type: string
           pattern: '^sha256:[0-9a-f]{64}$'
+
+    ExperimentFoundationGenerateScientificResultV2Request:
+      type: object
+      additionalProperties: false
+      required: [run_cell_id, scientific_source_output_id, idempotency_key]
+      properties:
+        run_cell_id: { type: string, minLength: 1 }
+        scientific_source_output_id: { type: string, minLength: 1 }
+        idempotency_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationScientificObservationV1:
+      type: object
+      additionalProperties: false
+      required: [observation_id, ordinal, observation_key, metric_key, split_key, value, value_type, unit, statistic, uncertainty]
+      properties:
+        observation_id: { type: string, minLength: 1 }
+        ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        observation_key: { type: string, minLength: 1 }
+        metric_key: { type: string, minLength: 1 }
+        split_key: { type: string, minLength: 1 }
+        value: { type: number }
+        value_type:
+          type: string
+          enum: [number, percentage, duration_ns, count]
+        unit: { type: string, minLength: 1 }
+        statistic:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, sample_size]
+              properties:
+                kind: { const: point }
+                sample_size: { const: 1 }
+            - type: object
+              additionalProperties: false
+              required: [kind, sample_size]
+              properties:
+                kind:
+                  type: string
+                  enum: [mean, median, proportion, minimum, maximum, sum]
+                sample_size: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+            - type: object
+              additionalProperties: false
+              required: [kind, sample_size, probability]
+              properties:
+                kind: { const: quantile }
+                sample_size: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+                probability: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1 }
+        uncertainty:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, reason]
+              properties:
+                kind: { const: none }
+                reason: { const: not_required_by_protocol }
+            - type: object
+              additionalProperties: false
+              required: [kind, value]
+              properties:
+                kind:
+                  type: string
+                  enum: [standard_deviation, standard_error]
+                value: { type: number, minimum: 0 }
+            - type: object
+              additionalProperties: false
+              required: [kind, level, lower, upper, method_key]
+              properties:
+                kind: { const: confidence_interval }
+                level: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1 }
+                lower: { type: number }
+                upper: { type: number }
+                method_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationScientificArtifactRefV1:
+      type: object
+      additionalProperties: false
+      required: [ordinal, artifact_key, artifact_kind, content_hash, byte_size, media_type]
+      properties:
+        ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        artifact_key: { type: string, minLength: 1 }
+        artifact_kind: { type: string, minLength: 1 }
+        content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        byte_size: { type: integer, format: int32, minimum: 0, maximum: 2147483647 }
+        media_type: { type: string, minLength: 1 }
+
+    ExperimentFoundationSourceBoundResultV2:
+      type: object
+      additionalProperties: false
+      required: [result_id, schema_version, run_id, run_manifest_hash, run_cell_id, cell_key, training_task_spec_id, training_task_spec_hash, execution_attempt_id, collection_attempt_id, source_output_id, source_output_hash, source_output_kind, source_output_class, parser_profile_version, parser_profile_hash, evaluation_protocol, provenance, metric_observations, artifact_observations, derivation_hash, content_hash]
+      properties:
+        result_id: { type: string, minLength: 1 }
+        schema_version: { const: v2 }
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        run_cell_id: { type: string, minLength: 1 }
+        cell_key: { type: string, minLength: 1 }
+        training_task_spec_id: { type: string, minLength: 1 }
+        training_task_spec_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        execution_attempt_id: { type: string, minLength: 1 }
+        collection_attempt_id: { type: string, minLength: 1 }
+        source_output_id: { type: string, minLength: 1 }
+        source_output_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        source_output_kind: { const: scientific_result_manifest }
+        source_output_class: { const: scientific_source }
+        parser_profile_version: { type: string, minLength: 1 }
+        parser_profile_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        evaluation_protocol:
+          allOf:
+            - $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            - type: object
+              properties:
+                asset_type: { const: EvaluationProtocol }
+        provenance: { const: real_provider }
+        metric_observations:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationScientificObservationV1'
+        artifact_observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationScientificArtifactRefV1'
+        derivation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+
+    ExperimentFoundationValidateScientificBatchV2Request:
+      type: object
+      additionalProperties: false
+      required: [run_id, expected_run_manifest_hash, idempotency_key]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        expected_run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        idempotency_key: { type: string, minLength: 1 }
+
+    ExperimentFoundationScientificComparisonResultV1:
+      type: object
+      additionalProperties: false
+      required: [ordinal, comparison_key, rule_hash, status, detail_code, fact]
+      properties:
+        ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        comparison_key: { type: string, minLength: 1 }
+        rule_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        status:
+          type: string
+          enum: [passed, failed]
+        detail_code:
+          type: [string, 'null']
+          enum: [COMPARISON_OBSERVATION_MISSING_OR_DUPLICATED, COMPARISON_OBSERVATION_UNIT_MISMATCH, COMPARISON_OBSERVATION_NON_FINITE, COMPARISON_REQUIRED_CI_MISSING_OR_MISMATCHED, COMPARISON_REQUIRED_CI_INVALID, null]
+        fact:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentFoundationScientificComparisonFactV1'
+            - type: 'null'
+
+    ExperimentFoundationScientificComparisonFactV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, comparison_fact_id, ordinal, comparison_key, evaluation_protocol_revision_hash, rule_hash, rule_projection, left_observation_ref, right_observation_ref, raw_effect, raw_effect_interval, registered_relation, relation_reason, comparison_fact_hash]
+      properties:
+        schema_version: { const: 'ExperimentFoundationScientificComparisonFact@v1' }
+        comparison_fact_id: { type: string, minLength: 1 }
+        ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        comparison_key: { type: string, minLength: 1 }
+        evaluation_protocol_revision_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        rule_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        rule_projection:
+          type: object
+          additionalProperties: false
+          required: [effect_kind, direction, support_min, contradiction_max, uncertainty_policy]
+          properties:
+            effect_kind: { const: absolute_difference }
+            direction:
+              type: string
+              enum: [higher_is_support, lower_is_support]
+            support_min: { type: number }
+            contradiction_max: { type: number }
+            uncertainty_policy:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [kind]
+                  properties:
+                    kind: { const: not_required_by_protocol }
+                - type: object
+                  additionalProperties: false
+                  required: [kind, confidence_level, method_key]
+                  properties:
+                    kind: { const: confidence_interval_guard }
+                    confidence_level: { type: number, exclusiveMinimum: 0, exclusiveMaximum: 1 }
+                    method_key: { type: string, minLength: 1 }
+        left_observation_ref:
+          $ref: '#/components/schemas/ExperimentFoundationScientificObservationRefV1'
+        right_observation_ref:
+          $ref: '#/components/schemas/ExperimentFoundationScientificObservationRefV1'
+        raw_effect:
+          type: object
+          additionalProperties: false
+          required: [kind, value, unit]
+          properties:
+            kind: { const: absolute_difference }
+            value: { type: number }
+            unit: { type: string, minLength: 1 }
+        raw_effect_interval:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [lower, upper, unit]
+              properties:
+                lower: { type: number }
+                upper: { type: number }
+                unit: { type: string, minLength: 1 }
+            - type: 'null'
+        registered_relation:
+          type: string
+          enum: [supports_registered_expectation, contradicts_registered_expectation, indeterminate]
+        relation_reason:
+          type: string
+          enum: [support_band_met, contradiction_band_met, decision_gap, uncertainty_interval_not_decisive]
+        comparison_fact_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+
+    ExperimentFoundationScientificObservationRefV1:
+      type: object
+      additionalProperties: false
+      required: [run_cell_id, result_id, result_content_hash, observation_id, observation_ordinal, observation_key, observation_hash]
+      properties:
+        run_cell_id: { type: string, minLength: 1 }
+        result_id: { type: string, minLength: 1 }
+        result_content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        observation_id: { type: string, minLength: 1 }
+        observation_ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+        observation_key: { type: string, minLength: 1 }
+        observation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+
+    ExperimentFoundationScientificValidationReportV2:
+      type: object
+      additionalProperties: false
+      required: [report_id, schema_version, run_id, run_manifest_hash, ordered_cell_results, evaluation_protocol, validator_profile_version, validator_profile_hash, ordered_rule_results, status, validation_hash]
+      properties:
+        report_id: { type: string, minLength: 1 }
+        schema_version: { const: v1 }
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        ordered_cell_results:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [ordinal, run_cell_id, cell_key, result_id, result_content_hash]
+            properties:
+              ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+              run_cell_id: { type: string, minLength: 1 }
+              cell_key: { type: string, minLength: 1 }
+              result_id: { type: string, minLength: 1 }
+              result_content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        evaluation_protocol:
+          allOf:
+            - $ref: '#/components/schemas/ExperimentV2ExactAssetRevisionRef'
+            - type: object
+              properties:
+                asset_type: { const: EvaluationProtocol }
+        validator_profile_version: { const: 'scientific_validator_profile@v1' }
+        validator_profile_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        ordered_rule_results:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [ordinal, rule_id, rule_type, status, detail_code]
+            properties:
+              ordinal: { type: integer, format: int32, minimum: 1, maximum: 2147483647 }
+              rule_id: { type: string, minLength: 1 }
+              rule_type:
+                type: string
+                enum: ['metric_contract@v1', 'artifact_contract@v1']
+              status:
+                type: string
+                enum: [passed, failed, unsupported]
+              detail_code: { type: [string, 'null'], minLength: 1 }
+        ordered_comparison_results:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ExperimentFoundationScientificComparisonResultV1'
+        status:
+          type: string
+          enum: [passed, failed, unsupported]
+        validation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+
+    ExperimentFoundationEvidenceCandidateV2:
+      type: object
+      additionalProperties: false
+      required: [candidate_id, schema_version, run_id, run_manifest_hash, validation_report_id, validation_hash, content_hash]
+      properties:
+        candidate_id: { type: string, minLength: 1 }
+        schema_version: { const: v1 }
+        run_id: { type: string, minLength: 1 }
+        run_manifest_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        validation_report_id: { type: string, minLength: 1 }
+        validation_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+        content_hash: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+
+    ExperimentFoundationValidateScientificBatchV2Response:
+      type: object
+      additionalProperties: false
+      required: [report, evidence_candidate]
+      properties:
+        report:
+          $ref: '#/components/schemas/ExperimentFoundationScientificValidationReportV2'
+        evidence_candidate:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentFoundationEvidenceCandidateV2'
+            - type: 'null'
 
     ExperimentFoundationPromotionV2Request:
       type: object

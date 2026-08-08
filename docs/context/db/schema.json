@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-02T22:16:17.832Z",
+  "updatedAt": "2026-08-08T03:15:37.310Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -2555,6 +2555,15 @@
             "providerPayloadHash",
             "externalJobRefHash"
           ]
+        },
+        {
+          "field": "experimentResults",
+          "to": "ExperimentFoundationExperimentResultV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         },
         {
           "field": "providerPayload",
@@ -5854,6 +5863,17 @@
           "unique": false
         },
         {
+          "name": "collectionAttemptId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "contentHash",
           "type": "String",
           "nullable": false,
@@ -5871,6 +5891,17 @@
           "list": false,
           "dbName": null,
           "dbType": "Timestamptz",
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "derivationHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
           "default": null,
           "primaryKey": false,
           "unique": false
@@ -5901,6 +5932,28 @@
           "name": "metricObservationCount",
           "type": "Int",
           "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "parserProfileHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "parserProfileVersion",
+          "type": "String",
+          "nullable": true,
           "list": false,
           "dbName": null,
           "dbType": null,
@@ -5975,6 +6028,50 @@
           "unique": false
         },
         {
+          "name": "sourceOutputClass",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceOutputHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceOutputId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceOutputKind",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "trainingTaskSpecHash",
           "type": "String",
           "nullable": false,
@@ -5998,6 +6095,21 @@
         }
       ],
       "relations": [
+        {
+          "field": "collectionAttempt",
+          "to": "ExperimentFoundationCollectionAttemptV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "collectionAttemptId",
+            "executionAttemptId"
+          ],
+          "references": [
+            "id",
+            "executionAttemptId"
+          ]
+        },
         {
           "field": "executionAttempt",
           "to": "ExperimentFoundationExecutionAttemptV2",
@@ -6043,6 +6155,27 @@
             "id",
             "trainingTaskSpecId",
             "cellKey"
+          ]
+        },
+        {
+          "field": "sourceOutput",
+          "to": "ExperimentFoundationProvisionalOutputV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "sourceOutputId",
+            "collectionAttemptId",
+            "sourceOutputHash",
+            "sourceOutputKind",
+            "sourceOutputClass"
+          ],
+          "references": [
+            "id",
+            "collectionAttemptId",
+            "outputHash",
+            "outputKind",
+            "outputClass"
           ]
         },
         {
@@ -9676,6 +9809,15 @@
           "references": [
             "id"
           ]
+        },
+        {
+          "field": "experimentResults",
+          "to": "ExperimentFoundationExperimentResultV2",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
         }
       ],
       "indexes": [
@@ -9705,6 +9847,18 @@
           ],
           "name": null,
           "map": "ef_provisional_output_collection_kind_unique"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "collectionAttemptId",
+            "outputHash",
+            "outputKind",
+            "outputClass"
+          ],
+          "name": null,
+          "map": "ef_provisional_output_exact_source_unique"
         }
       ]
     },
@@ -29232,6 +29386,28 @@
           "unique": false
         },
         {
+          "name": "closureId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "closureSnapshotHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "createdAt",
           "type": "DateTime",
           "nullable": false,
@@ -29408,6 +29584,17 @@
           "unique": false
         },
         {
+          "name": "packetContentHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "policyVersionId",
           "type": "String",
           "nullable": true,
@@ -29437,6 +29624,17 @@
           "dbName": null,
           "dbType": null,
           "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "schemaVersion",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -29551,7 +29749,25 @@
           "unique": false
         }
       ],
-      "relations": [],
+      "relations": [
+        {
+          "field": "closure",
+          "to": "PaperImplementationValidationCycleClosureV2",
+          "optional": true,
+          "list": false,
+          "relationName": null,
+          "fields": [
+            "closureId",
+            "closureSnapshotHash",
+            "validationCycleId"
+          ],
+          "references": [
+            "id",
+            "closureSnapshotHash",
+            "validationCycleId"
+          ]
+        }
+      ],
       "indexes": [
         {
           "type": "index",
@@ -34937,7 +35153,17 @@
           "unique": false
         }
       ],
-      "relations": [],
+      "relations": [
+        {
+          "field": "resultInterpretationPackets",
+          "to": "PaperImplementationResultInterpretationPacket",
+          "optional": false,
+          "list": true,
+          "relationName": null,
+          "fields": [],
+          "references": []
+        }
+      ],
       "indexes": [
         {
           "type": "index",
@@ -34946,6 +35172,16 @@
           ],
           "name": null,
           "map": "pi_cycle_closure_project_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "id",
+            "closureSnapshotHash",
+            "validationCycleId"
+          ],
+          "name": null,
+          "map": "pi_cycle_closure_packet_exact_unique"
         },
         {
           "type": "unique",

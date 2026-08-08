@@ -62,6 +62,7 @@ test('final registry is exactly PC01-PC20 and assigns PC17/PC18 to cutover', () 
   });
   assert.deepEqual(PACKC_EF_REQUIRED_MIGRATIONS, [
     '20260718224543_add_experiment_foundation_pack_c_scientific_validation_v2',
+    '20260808090000_add_scientific_source_and_packet_closure_binding',
   ]);
   assert.deepEqual(Object.keys(PACKC_PI_REQUIRED_SUBTEST_REGISTRY), [
     'closure_unit',

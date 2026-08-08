@@ -8,17 +8,24 @@ import {
   type EvidenceCandidateQualifiedV1,
   type EvidenceCandidateV2,
   type ExperimentFoundationScientificValidationReasonCodeV2,
+  type ExperimentFoundationScientificValidationStatusV2,
   type ExperimentResultCellV2,
+  type GenerateExperimentResultV2Request,
   type ScientificValidationReportV2,
   type ValidateScientificBatchV2Request,
   type ValidateScientificBatchV2Response,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import {
+  experimentFoundationSourceBoundResultCellV2Schema,
+  type ExperimentFoundationSourceBoundResultCellV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 import {
   serverHashExperimentFoundationV2EvidenceCandidate,
   serverHashExperimentFoundationV2ScientificResult,
   serverHashExperimentFoundationV2ScientificValidation,
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
+  serverHashExperimentV2SemanticContent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 import { AppError } from '../errors/app-error.js';
@@ -28,23 +35,32 @@ import {
   type ExperimentFoundationScientificValidationV2HeadAcknowledgement,
   type ExperimentFoundationScientificValidationV2Outbox,
   type ExperimentFoundationScientificValidationV2Repository,
+  type ExperimentFoundationScientificValidationV2Protocol,
   type ExperimentFoundationScientificValidationV2Run,
   type ExperimentFoundationScientificValidationV2StoredOutcome,
+  type ExperimentFoundationScientificResultGenerationAuthorityV2,
 } from '../repositories/experiment-foundation-scientific-validation-v2.repository.js';
 import {
   computeScientificValidatorProfileHashV2,
   executeScientificRequiredRulesV2,
   listUnsupportedRequiredRulesV2,
 } from './experiment-foundation-v2-scientific-rule-engine.js';
+import {
+  executeScientificComparisonsV1,
+} from './experiment-foundation-v2-scientific-comparison-engine.js';
 
 export type RecordExperimentResultV2Input = Omit<
   ExperimentResultCellV2,
   'result_id' | 'content_hash'
 >;
 
+export type GenerateExperimentResultV2Input = GenerateExperimentResultV2Request;
+
 export interface ExperimentFoundationScientificValidationV2ServiceOptions {
   repository: ExperimentFoundationScientificValidationV2Repository;
   enabled: () => boolean;
+  /** Test/migration compatibility only; product composition must leave this disabled. */
+  legacyObservationWriterEnabled?: () => boolean;
   now?: () => string;
 }
 
@@ -86,21 +102,36 @@ const VALIDATE_BATCH_KEYS = [
   'expected_run_manifest_hash',
   'idempotency_key',
 ] as const;
+const GENERATE_RESULT_KEYS = [
+  'run_cell_id',
+  'scientific_source_output_id',
+  'idempotency_key',
+] as const;
 
 const resultValidator = new Ajv({
   allErrors: true,
   strict: false,
   removeAdditional: false,
 }).compile<ExperimentResultCellV2>(experimentResultCellV2Schema);
+const sourceBoundResultValidator = new Ajv({
+  allErrors: true,
+  strict: false,
+  removeAdditional: false,
+}).compile<ExperimentFoundationSourceBoundResultCellV2>(
+  experimentFoundationSourceBoundResultCellV2Schema,
+);
 
 export class ExperimentFoundationV2ScientificValidationService {
   private readonly repository: ExperimentFoundationScientificValidationV2Repository;
   private readonly enabled: () => boolean;
+  private readonly legacyObservationWriterEnabled: () => boolean;
   private readonly now: () => string;
 
   constructor(options: ExperimentFoundationScientificValidationV2ServiceOptions) {
     this.repository = options.repository;
     this.enabled = options.enabled;
+    this.legacyObservationWriterEnabled = options.legacyObservationWriterEnabled
+      ?? (() => false);
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -110,16 +141,37 @@ export class ExperimentFoundationV2ScientificValidationService {
     return this.withRepositoryErrorMapping(() => this.recordExperimentResultValidated(input));
   }
 
+  /** Product-safe command: callers can name identities, never scientific values. */
+  async generateExperimentResult(
+    input: GenerateExperimentResultV2Input,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2> {
+    return this.withRepositoryErrorMapping(() => this.generateExperimentResultValidated(input));
+  }
+
   async validateScientificBatch(
     request: ValidateScientificBatchV2Request,
   ): Promise<ValidateScientificBatchV2Response> {
     return this.withRepositoryErrorMapping(() => this.validateScientificBatchValidated(request));
   }
 
+  /** Durable reads remain available after intake is disabled. */
+  async getScientificValidation(
+    runId: string,
+  ): Promise<ValidateScientificBatchV2Response | null> {
+    const outcome = await this.repository.loadValidationByRunId(runId);
+    return outcome ? responseFromOutcome(outcome) : null;
+  }
+
   private async recordExperimentResultValidated(
     input: RecordExperimentResultV2Input,
   ): Promise<ExperimentResultCellV2> {
     this.assertEnabled();
+    if (!this.legacyObservationWriterEnabled()) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'Caller-authored observation Result writing is sealed from product composition.',
+      );
+    }
     assertExactInputKeys(input, RECORD_RESULT_KEYS, 'ExperimentResult envelope');
     const run = await this.requireRun(input.run_id, input.run_manifest_hash);
     const cell = run.ordered_cells.find((candidate) => candidate.run_cell_id === input.run_cell_id);
@@ -202,6 +254,109 @@ export class ExperimentFoundationV2ScientificValidationService {
     return this.repository.persistExperimentResult({ result, created_at: this.now() });
   }
 
+  private async generateExperimentResultValidated(
+    input: GenerateExperimentResultV2Input,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2> {
+    this.assertEnabled();
+    assertExactInputKeys(input, GENERATE_RESULT_KEYS, 'GenerateExperimentResult command');
+    if (
+      input.run_cell_id.trim().length === 0
+      || input.scientific_source_output_id.trim().length === 0
+      || input.idempotency_key.trim().length === 0
+    ) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'Result generation requires exact run-cell, scientific-source and idempotency identities.',
+      );
+    }
+    if (
+      input.idempotency_key
+        !== `${input.scientific_source_output_id}:generate-scientific-result@v1`
+    ) {
+      throw validationError(
+        'VALIDATION_IDEMPOTENCY_CONFLICT',
+        'Result-generation idempotency identity is not the deterministic source-bound key.',
+      );
+    }
+    const authority = await this.repository.loadScientificResultGenerationAuthority(
+      input.run_cell_id,
+      input.scientific_source_output_id,
+    );
+    if (!authority) {
+      throw validationError(
+        'VALIDATION_SUBJECT_INCOMPLETE',
+        'Committed scientific-source authority is absent.',
+      );
+    }
+    const protocol = await this.repository.resolveEvaluationProtocol(authority.run_id);
+    if (!protocol) {
+      throw validationError(
+        'VALIDATION_SUBJECT_INCOMPLETE',
+        'Scientific source no longer resolves its exact EvaluationProtocol.',
+      );
+    }
+    assertSourceGenerationAuthority(authority, protocol);
+    const manifest = authority.source_manifest;
+    const derivationHash = serverHashExperimentV2SemanticContent({
+      record_kind: 'ExperimentFoundationScientificResultDerivation',
+      schema_version: 'v1',
+      hash_profile: 'ef-scientific-derivation-json@v1',
+      content: {
+        projector_identity: 'scientific_source_to_result@v1',
+        run_cell_id: authority.run_cell_id,
+        scientific_source_output_id: authority.source_output_id,
+        scientific_source_output_hash: authority.source_output_hash,
+        evaluation_protocol_content_hash: protocol.evaluation_protocol.content_hash,
+      },
+    });
+    const withoutContentHash: Omit<
+      ExperimentFoundationSourceBoundResultCellV2,
+      'content_hash'
+    > = {
+      result_id: deterministicId('ef_experiment_result_v2', authority.run_cell_id),
+      schema_version: 'v2',
+      run_id: authority.run_id,
+      run_manifest_hash: authority.run_manifest_hash,
+      run_cell_id: authority.run_cell_id,
+      cell_key: authority.cell_key,
+      training_task_spec_id: authority.training_task_spec_id,
+      training_task_spec_hash: authority.training_task_spec_hash,
+      execution_attempt_id: authority.execution_attempt_id,
+      collection_attempt_id: authority.collection_attempt_id,
+      source_output_id: authority.source_output_id,
+      source_output_hash: authority.source_output_hash,
+      source_output_kind: 'scientific_result_manifest',
+      source_output_class: 'scientific_source',
+      parser_profile_version:
+        manifest.interpretation_binding.parser_profile_version,
+      parser_profile_hash: manifest.interpretation_binding.parser_profile_hash,
+      evaluation_protocol: structuredClone(protocol.evaluation_protocol),
+      provenance: 'real_provider',
+      metric_observations: structuredClone(manifest.ordered_observations),
+      artifact_observations: structuredClone(manifest.ordered_artifacts),
+      derivation_hash: derivationHash,
+    };
+    const result: ExperimentFoundationSourceBoundResultCellV2 = {
+      ...withoutContentHash,
+      content_hash: serverHashExperimentV2SemanticContent({
+        record_kind: 'ExperimentFoundationExperimentResultV2',
+        schema_version: 'v2',
+        hash_profile: 'ef-scientific-result-json@v1',
+        content: withoutContentHash,
+      }),
+    };
+    if (!sourceBoundResultValidator(result)) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'Generated source-bound Result does not match its shared contract.',
+      );
+    }
+    return this.repository.persistSourceBoundExperimentResult({
+      result,
+      created_at: this.now(),
+    });
+  }
+
   private async validateScientificBatchValidated(
     request: ValidateScientificBatchV2Request,
   ): Promise<ValidateScientificBatchV2Response> {
@@ -211,19 +366,21 @@ export class ExperimentFoundationV2ScientificValidationService {
       throw validationError('VALIDATION_SCOPE_DRIFT', 'idempotency_key is required.');
     }
     const run = await this.requireRun(request.run_id, request.expected_run_manifest_hash);
-    const orderedResults = await this.requireCompleteOrderedResults(run);
-    if (orderedResults.some((result) => result.provenance !== 'real_provider')) {
-      throw validationError(
-        'EVIDENCE_PROVENANCE_REJECTED',
-        'Every scientific result in the batch must have real-provider provenance.',
-      );
-    }
-
     const protocol = await this.repository.resolveEvaluationProtocol(run.run_id);
     if (!protocol) {
       throw validationError(
         'VALIDATION_SUBJECT_INCOMPLETE',
         'Run does not resolve an exact typed EvaluationProtocol revision.',
+      );
+    }
+    const legacyValidation = this.legacyObservationWriterEnabled();
+    const orderedResults = legacyValidation
+      ? await this.requireCompleteOrderedLegacyResults(run)
+      : await this.requireCompleteOrderedSourceBoundResults(run, protocol);
+    if (orderedResults.some((result) => result.provenance !== 'real_provider')) {
+      throw validationError(
+        'EVIDENCE_PROVENANCE_REJECTED',
+        'Every scientific result in the batch must have real-provider provenance.',
       );
     }
     const requiredRules = protocol.protocol_snapshot.required_rules;
@@ -234,10 +391,24 @@ export class ExperimentFoundationV2ScientificValidationService {
       );
     }
 
+    const scientificContract = protocol.protocol_snapshot.scientific_contract;
+    const comparisonRules = scientificContract?.comparison_rules ?? [];
+    if (!legacyValidation && (!scientificContract || comparisonRules.length === 0)) {
+      throw validationError(
+        'VALIDATION_SUBJECT_INCOMPLETE',
+        'P2 validation requires a non-empty preregistered CMP-B1 comparison contract.',
+      );
+    }
+    if (!legacyValidation) {
+      assertComparisonProtocolForRun(run, scientificContract!, requiredRules);
+    }
     const unsupportedRules = listUnsupportedRequiredRulesV2(requiredRules);
     const evaluation = executeScientificRequiredRulesV2({
       required_rules: requiredRules,
       ordered_cell_results: orderedResults,
+      ...(!legacyValidation
+        ? { artifact_slots: scientificContract!.artifact_slots }
+        : {}),
     });
     if (unsupportedRules.length > 0 && evaluation.status !== 'unsupported') {
       throw validationError(
@@ -245,6 +416,22 @@ export class ExperimentFoundationV2ScientificValidationService {
         'Validator capability discovery and rule execution produced inconsistent status.',
       );
     }
+    const comparisonEvaluation = legacyValidation
+      ? null
+      : executeScientificComparisonsV1({
+        run_id: run.run_id,
+        evaluation_protocol_revision_hash: protocol.evaluation_protocol.content_hash,
+        ordered_cells: run.ordered_cells,
+        ordered_cell_results: orderedResults as ExperimentFoundationSourceBoundResultCellV2[],
+        observation_slots: scientificContract!.observation_slots,
+        comparison_rules: comparisonRules,
+      });
+    const status: ExperimentFoundationScientificValidationStatusV2 =
+      evaluation.status === 'unsupported'
+      ? 'unsupported'
+      : evaluation.status === 'failed' || comparisonEvaluation?.status === 'failed'
+        ? 'failed'
+        : 'passed';
 
     const acknowledgement = await this.requireHeadAcknowledgement(run);
     const validatorProfileHash = computeScientificValidatorProfileHashV2();
@@ -258,7 +445,7 @@ export class ExperimentFoundationV2ScientificValidationService {
         result_content_hash: result.content_hash,
       };
     });
-    const validationHash = serverHashExperimentFoundationV2ScientificValidation({
+    const validationHashInput = {
       run_id: run.run_id,
       run_manifest_hash: run.run_manifest_hash,
       ordered_cell_results: orderedCellRefs,
@@ -267,8 +454,14 @@ export class ExperimentFoundationV2ScientificValidationService {
         EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
       validator_profile_hash: validatorProfileHash,
       ordered_rule_results: evaluation.ordered_rule_results,
-      status: evaluation.status,
-    });
+      ...(comparisonEvaluation
+        ? { ordered_comparison_results: comparisonEvaluation.ordered_comparison_results }
+        : {}),
+      status,
+    };
+    const validationHash = serverHashExperimentFoundationV2ScientificValidation(
+      validationHashInput,
+    );
     const report: ScientificValidationReportV2 = {
       report_id: deterministicId('ef_scientific_validation_report_v2', run.run_id),
       schema_version: 'v1',
@@ -280,7 +473,10 @@ export class ExperimentFoundationV2ScientificValidationService {
         EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
       validator_profile_hash: validatorProfileHash,
       ordered_rule_results: evaluation.ordered_rule_results,
-      status: evaluation.status,
+      ...(comparisonEvaluation
+        ? { ordered_comparison_results: comparisonEvaluation.ordered_comparison_results }
+        : {}),
+      status,
       validation_hash: validationHash,
     };
 
@@ -351,7 +547,7 @@ export class ExperimentFoundationV2ScientificValidationService {
     return run;
   }
 
-  private async requireCompleteOrderedResults(
+  private async requireCompleteOrderedLegacyResults(
     run: ExperimentFoundationScientificValidationV2Run,
   ): Promise<ExperimentResultCellV2[]> {
     const results = await this.repository.loadRunResults(run.run_id);
@@ -382,6 +578,46 @@ export class ExperimentFoundationV2ScientificValidationService {
         throw validationError(
           'VALIDATION_SUBJECT_INCOMPLETE',
           'A RunCell result is absent, duplicated, or does not bind its exact frozen cell.',
+        );
+      }
+      return result;
+    });
+  }
+
+  private async requireCompleteOrderedSourceBoundResults(
+    run: ExperimentFoundationScientificValidationV2Run,
+    protocol: ExperimentFoundationScientificValidationV2Protocol,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2[]> {
+    const results = await this.repository.loadSourceBoundRunResults(run.run_id);
+    const resultsByCell = new Map<string, ExperimentFoundationSourceBoundResultCellV2[]>();
+    for (const result of results) {
+      const grouped = resultsByCell.get(result.run_cell_id) ?? [];
+      grouped.push(result);
+      resultsByCell.set(result.run_cell_id, grouped);
+    }
+    if (results.length !== run.ordered_cells.length) {
+      throw validationError(
+        'VALIDATION_SUBJECT_INCOMPLETE',
+        'Every RunCell must have exactly one persisted source-bound v2 Result.',
+      );
+    }
+    return run.ordered_cells.map((cell) => {
+      const matches = resultsByCell.get(cell.run_cell_id) ?? [];
+      const result = matches[0];
+      if (
+        matches.length !== 1
+        || !result
+        || result.schema_version !== 'v2'
+        || result.run_id !== run.run_id
+        || result.run_manifest_hash !== run.run_manifest_hash
+        || result.cell_key !== cell.cell_key
+        || result.training_task_spec_id !== cell.training_task_spec_id
+        || result.training_task_spec_hash !== cell.training_task_spec_hash
+        || !exactProtocolRefEquals(result.evaluation_protocol, protocol.evaluation_protocol)
+      ) {
+        throw validationError(
+          'VALIDATION_SUBJECT_INCOMPLETE',
+          'A source-bound Result is absent, duplicated, or drifts from its exact RunCell/protocol.',
         );
       }
       return result;
@@ -503,6 +739,86 @@ function responseFromOutcome(
   };
 }
 
+function assertSourceGenerationAuthority(
+  authority: ExperimentFoundationScientificResultGenerationAuthorityV2,
+  protocol: ExperimentFoundationScientificValidationV2Protocol,
+): void {
+  const manifest = authority.source_manifest;
+  if (
+    manifest.authority.collection_attempt_id !== authority.collection_attempt_id
+    || manifest.authority.execution_attempt_id !== authority.execution_attempt_id
+    || manifest.authority.provenance !== 'real_provider'
+    || manifest.execution_lineage.run_id !== authority.run_id
+    || manifest.execution_lineage.run_manifest_hash !== authority.run_manifest_hash
+    || manifest.execution_lineage.run_cell_id !== authority.run_cell_id
+    || manifest.execution_lineage.cell_key !== authority.cell_key
+    || manifest.execution_lineage.training_task_spec_id !== authority.training_task_spec_id
+    || manifest.execution_lineage.training_task_spec_hash
+      !== authority.training_task_spec_hash
+    || manifest.evaluation_protocol.evaluation_protocol_id
+      !== protocol.evaluation_protocol.logical_id
+    || manifest.evaluation_protocol.revision_id
+      !== protocol.evaluation_protocol.revision_id
+    || manifest.evaluation_protocol.revision_sequence
+      !== protocol.evaluation_protocol.revision_sequence
+    || manifest.evaluation_protocol.content_hash
+      !== protocol.evaluation_protocol.content_hash
+  ) {
+    throw validationError(
+      'VALIDATION_SCOPE_DRIFT',
+      'Scientific source does not bind the exact Result-generation authority.',
+    );
+  }
+  const contract = protocol.protocol_snapshot.scientific_contract;
+  const observations = manifest.ordered_observations;
+  const artifacts = manifest.ordered_artifacts;
+  if (
+    !contract
+    || observations.length !== contract.observation_slots.length
+    || artifacts.length !== contract.artifact_slots.length
+    || contract.observation_slots.some((slot, index) => {
+      const observation = observations[index];
+      if (
+        !observation
+        || observation.ordinal !== slot.ordinal
+        || observation.observation_key !== slot.observation_key
+        || observation.metric_key !== slot.metric_key
+        || observation.split_key !== slot.split_key
+        || observation.value_type !== slot.value_type
+        || observation.unit !== slot.unit
+        || observation.statistic.kind !== slot.statistic.kind
+        || observation.uncertainty.kind !== slot.uncertainty.kind
+      ) return true;
+      if (slot.statistic.kind === 'quantile') {
+        if (
+          observation.statistic.kind !== 'quantile'
+          || observation.statistic.probability !== slot.statistic.probability
+        ) return true;
+      }
+      return slot.uncertainty.kind === 'confidence_interval'
+        && (
+          observation.uncertainty.kind !== 'confidence_interval'
+          || observation.uncertainty.level !== slot.uncertainty.level
+          || !slot.uncertainty.allowed_method_keys.includes(
+            observation.uncertainty.method_key,
+          )
+        );
+    })
+    || contract.artifact_slots.some((slot, index) => {
+      const artifact = artifacts[index];
+      return !artifact
+        || artifact.ordinal !== slot.ordinal
+        || artifact.artifact_key !== slot.artifact_key
+        || artifact.artifact_kind !== slot.artifact_kind;
+    })
+  ) {
+    throw validationError(
+      'VALIDATION_SCOPE_DRIFT',
+      'Scientific source no longer matches the exact ordered protocol slots.',
+    );
+  }
+}
+
 function deterministicId(namespace: string, identity: string): string {
   const digest = createHash('sha256')
     .update(namespace)
@@ -510,6 +826,142 @@ function deterministicId(namespace: string, identity: string): string {
     .update(identity)
     .digest('hex');
   return `${namespace}_${digest}`;
+}
+
+function exactProtocolRefEquals(
+  left: ExperimentFoundationSourceBoundResultCellV2['evaluation_protocol'],
+  right: ExperimentFoundationScientificValidationV2Protocol['evaluation_protocol'],
+): boolean {
+  return left.asset_type === right.asset_type
+    && left.logical_id === right.logical_id
+    && left.revision_id === right.revision_id
+    && left.revision_sequence === right.revision_sequence
+    && left.content_hash === right.content_hash;
+}
+
+function assertComparisonProtocolForRun(
+  run: ExperimentFoundationScientificValidationV2Run,
+  contract: NonNullable<
+    ExperimentFoundationScientificValidationV2Protocol['protocol_snapshot']['scientific_contract']
+  >,
+  requiredRules: ExperimentFoundationScientificValidationV2Protocol['protocol_snapshot']['required_rules'],
+): void {
+  const cellOrdinals = new Set(run.ordered_cells.map((cell) => cell.ordinal));
+  if (
+    cellOrdinals.size !== run.ordered_cells.length
+    || run.ordered_cells.some((cell, index) => cell.ordinal !== index + 1)
+    || !hasCanonicalUniqueKeys(contract.observation_slots, (slot) => slot.observation_key)
+    || !hasCanonicalUniqueKeys(contract.artifact_slots, (slot) => slot.artifact_key)
+  ) {
+    throw validationError(
+      'VALIDATION_SCOPE_DRIFT',
+      'EvaluationProtocol scientific slots or Run cells are not canonically ordered.',
+    );
+  }
+  const observationSlots = new Map(
+    contract.observation_slots.map((slot) => [slot.observation_key, slot]),
+  );
+  const comparisonKeys = new Set<string>();
+  for (let index = 0; index < (contract.comparison_rules ?? []).length; index += 1) {
+    const rule = contract.comparison_rules![index]!;
+    const observationSlot = observationSlots.get(rule.observation_key);
+    if (
+      rule.ordinal !== index + 1
+      || comparisonKeys.has(rule.comparison_key)
+      || !cellOrdinals.has(rule.left_cell_ordinal)
+      || !cellOrdinals.has(rule.right_cell_ordinal)
+      || rule.left_cell_ordinal === rule.right_cell_ordinal
+      || !observationSlot
+      || !Number.isFinite(rule.support_min)
+      || !Number.isFinite(rule.contradiction_max)
+      || rule.contradiction_max >= rule.support_min
+      || (
+        rule.uncertainty_policy.kind === 'confidence_interval_guard'
+        && (
+          !Number.isFinite(rule.uncertainty_policy.confidence_level)
+          || rule.uncertainty_policy.confidence_level <= 0
+          || rule.uncertainty_policy.confidence_level >= 1
+          || rule.uncertainty_policy.method_key.trim().length === 0
+          || observationSlot.uncertainty.kind !== 'confidence_interval'
+          || observationSlot.uncertainty.level
+            !== rule.uncertainty_policy.confidence_level
+          || !observationSlot.uncertainty.allowed_method_keys.includes(
+            rule.uncertainty_policy.method_key,
+          )
+        )
+      )
+    ) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'EvaluationProtocol CMP-B1 bindings are invalid for the exact Run.',
+      );
+    }
+    comparisonKeys.add(rule.comparison_key);
+  }
+  if (
+    !contract.primary_comparison_key
+    || !comparisonKeys.has(contract.primary_comparison_key)
+    || !contract.decision_if_positive?.trim()
+    || !contract.decision_if_negative?.trim()
+    || !contract.decision_if_inconclusive?.trim()
+  ) {
+    throw validationError(
+      'VALIDATION_SCOPE_DRIFT',
+      'EvaluationProtocol must freeze one primary comparison and all three scientific exits.',
+    );
+  }
+
+  const artifactRules = new Map(
+    requiredRules
+      .filter((rule) => rule.rule_type === 'artifact_contract@v1')
+      .map((rule) => [rule.rule_id, rule]),
+  );
+  const bindingCounts = new Map<string, number>();
+  for (const slot of contract.artifact_slots) {
+    if (!Object.hasOwn(slot, 'required_rule_id')) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'Every scientific artifact slot must explicitly bind a required rule or trace-only null.',
+      );
+    }
+    if (slot.required_rule_id === null) continue;
+    const rule = artifactRules.get(slot.required_rule_id ?? '');
+    if (
+      !rule
+      || rule.rule_type !== 'artifact_contract@v1'
+      || rule.artifact_kind !== slot.artifact_kind
+    ) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'EvaluationProtocol contains an invalid scientific artifact rule binding.',
+      );
+    }
+    bindingCounts.set(rule.rule_id, (bindingCounts.get(rule.rule_id) ?? 0) + 1);
+  }
+  for (const rule of artifactRules.values()) {
+    if (
+      rule.rule_type !== 'artifact_contract@v1'
+      || bindingCounts.get(rule.rule_id) !== rule.required_cardinality
+    ) {
+      throw validationError(
+        'VALIDATION_SCOPE_DRIFT',
+        'Scientific artifact rule bindings do not match required cardinality.',
+      );
+    }
+  }
+}
+
+function hasCanonicalUniqueKeys<T extends { ordinal: number }>(
+  values: readonly T[],
+  keyOf: (value: T) => string,
+): boolean {
+  const keys = new Set<string>();
+  return values.every((value, index) => {
+    const key = keyOf(value);
+    if (value.ordinal !== index + 1 || key.trim().length === 0 || keys.has(key)) return false;
+    keys.add(key);
+    return true;
+  });
 }
 
 function assertExactInputKeys(

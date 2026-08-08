@@ -13,6 +13,10 @@ import {
   type ExperimentFoundationAliyunRealExternalJobRefV1,
   type ExperimentFoundationRealProviderPayloadV2,
 } from './experiment-foundation-real-provider-v2-contracts.js';
+import {
+  scientificSourceManifestV1Schema,
+  type ScientificSourceManifestV1,
+} from './experiment-foundation-scientific-source-v1-contracts.js';
 
 export const EXPERIMENT_FOUNDATION_PROVIDER_PAYLOAD_SCHEMA_V2 =
   'FakeAliyunPaiDlcSubmitPayload@v1' as const;
@@ -128,6 +132,7 @@ export type ExperimentFoundationCollectionAttemptStateV2 =
 export const EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2 = [
   ...EXPERIMENT_FOUNDATION_V2_TRAINING_TASK_OUTPUT_KEYS,
   ...EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2,
+  'scientific_result_manifest',
 ] as const;
 export type ExperimentFoundationProvisionalOutputKindV2 =
   (typeof EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2)[number];
@@ -311,7 +316,8 @@ export interface CollectionAttemptV2 {
   collected_at: string | null;
 }
 
-export interface ProvisionalOutputManifestV2 {
+export interface DiagnosticProvisionalOutputManifestV2
+  extends Readonly<Record<string, unknown>> {
   manifest_schema_version: 'v1';
   output_class: 'diagnostic_only';
   output_kind: ExperimentFoundationProvisionalOutputKindV2;
@@ -319,12 +325,16 @@ export interface ProvisionalOutputManifestV2 {
   redacted_locator: string;
 }
 
+export type ProvisionalOutputManifestV2 =
+  | DiagnosticProvisionalOutputManifestV2
+  | ScientificSourceManifestV1;
+
 export interface ProvisionalOutputV2 {
   provisional_output_id: string;
   collection_attempt_id: string;
   ordinal: number;
   output_kind: ExperimentFoundationProvisionalOutputKindV2;
-  output_class: 'diagnostic_only';
+  output_class: 'diagnostic_only' | 'scientific_source';
   manifest: ProvisionalOutputManifestV2;
   output_hash: string;
   created_at: string;
@@ -885,25 +895,30 @@ export const collectionAttemptV2Schema = {
 } as const;
 
 export const provisionalOutputManifestV2Schema = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'manifest_schema_version',
-    'output_class',
-    'output_kind',
-    'media_type',
-    'redacted_locator',
-  ],
-  properties: {
-    manifest_schema_version: { type: 'string', const: 'v1' },
-    output_class: { type: 'string', const: 'diagnostic_only' },
-    output_kind: {
-      type: 'string',
-      enum: [...EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2],
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'manifest_schema_version',
+        'output_class',
+        'output_kind',
+        'media_type',
+        'redacted_locator',
+      ],
+      properties: {
+        manifest_schema_version: { type: 'string', const: 'v1' },
+        output_class: { type: 'string', const: 'diagnostic_only' },
+        output_kind: {
+          type: 'string',
+          enum: [...EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2],
+        },
+        media_type: stringId,
+        redacted_locator: stringId,
+      },
     },
-    media_type: stringId,
-    redacted_locator: stringId,
-  },
+    scientificSourceManifestV1Schema,
+  ],
 } as const;
 
 export const provisionalOutputV2Schema = {
@@ -927,7 +942,10 @@ export const provisionalOutputV2Schema = {
       type: 'string',
       enum: [...EXPERIMENT_FOUNDATION_PROVISIONAL_OUTPUT_KINDS_V2],
     },
-    output_class: { type: 'string', const: 'diagnostic_only' },
+    output_class: {
+      type: 'string',
+      enum: ['diagnostic_only', 'scientific_source'],
+    },
     manifest: provisionalOutputManifestV2Schema,
     output_hash: hashSchema,
     created_at: timestampSchema,

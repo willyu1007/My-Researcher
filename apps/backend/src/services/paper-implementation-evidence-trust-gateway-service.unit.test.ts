@@ -84,6 +84,45 @@ function fixture(): Fixture {
     validator_profile_version: EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
     validator_profile_hash: testHash('validator-profile'),
     ordered_rule_results: [],
+    ordered_comparison_results: [{
+      ordinal: 1,
+      comparison_key: 'primary-quality',
+      rule_hash: testHash('comparison-rule'),
+      status: 'passed',
+      detail_code: null,
+      fact: {
+        schema_version: 'ExperimentFoundationScientificComparisonFact@v1',
+        comparison_fact_id: 'comparison-fact-1',
+        ordinal: 1,
+        comparison_key: 'primary-quality',
+        evaluation_protocol_revision_hash: testHash('evaluation-protocol-revision'),
+        rule_hash: testHash('comparison-rule'),
+        rule_projection: {
+          effect_kind: 'absolute_difference',
+          direction: 'higher_is_support',
+          support_min: 0.1,
+          contradiction_max: -0.1,
+          uncertainty_policy: { kind: 'not_required_by_protocol' },
+        },
+        left_observation_ref: {
+          run_cell_id: 'cell-1', result_id: 'result-1',
+          result_content_hash: testHash('result-1'), observation_id: 'observation-1',
+          observation_ordinal: 1, observation_key: 'quality',
+          observation_hash: testHash('observation-1'),
+        },
+        right_observation_ref: {
+          run_cell_id: 'cell-2', result_id: 'result-2',
+          result_content_hash: testHash('result-2'), observation_id: 'observation-2',
+          observation_ordinal: 1, observation_key: 'quality',
+          observation_hash: testHash('observation-2'),
+        },
+        raw_effect: { kind: 'absolute_difference', value: 0.2, unit: 'score' },
+        raw_effect_interval: null,
+        registered_relation: 'supports_registered_expectation',
+        relation_reason: 'support_band_met',
+        comparison_fact_hash: testHash('comparison-fact'),
+      },
+    }],
     status: 'passed',
   };
   const report: ScientificValidationReportV2 = {
@@ -96,6 +135,7 @@ function fixture(): Fixture {
       validator_profile_version: reportWithoutHash.validator_profile_version,
       validator_profile_hash: reportWithoutHash.validator_profile_hash,
       ordered_rule_results: reportWithoutHash.ordered_rule_results,
+      ordered_comparison_results: reportWithoutHash.ordered_comparison_results,
       status: reportWithoutHash.status,
     }),
   };

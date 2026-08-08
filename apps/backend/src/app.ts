@@ -3,6 +3,7 @@ import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
 import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
 import { ExperimentFoundationRealProviderV2Controller } from './controllers/experiment-foundation-real-provider-v2-controller.js';
+import { ExperimentFoundationScientificValidationV2Controller } from './controllers/experiment-foundation-scientific-validation-v2-controller.js';
 import { ExperimentFoundationPromotionV2Controller } from './controllers/experiment-foundation-promotion-v2-controller.js';
 import { ExperimentFoundationExplorationSpecV2Controller } from './controllers/experiment-foundation-exploration-spec-v2-controller.js';
 import { PaperImplementationExplorationAttachmentV2Controller } from './controllers/paper-implementation-exploration-attachment-v2-controller.js';
@@ -124,6 +125,7 @@ import { registerAutoPullRoutes } from './routes/auto-pull-routes.js';
 import { registerExperimentFoundationExecutionRoutes } from './routes/experiment-foundation-execution-routes.js';
 import { registerExperimentFoundationExecutionV2Routes } from './routes/experiment-foundation-execution-v2-routes.js';
 import { registerExperimentFoundationRealProviderV2Routes } from './routes/experiment-foundation-real-provider-v2-routes.js';
+import { registerExperimentFoundationScientificValidationV2Routes } from './routes/experiment-foundation-scientific-validation-v2-routes.js';
 import { registerExperimentFoundationPromotionV2Routes } from './routes/experiment-foundation-promotion-v2-routes.js';
 import { registerExperimentFoundationExplorationSpecV2Routes } from './routes/experiment-foundation-exploration-spec-v2-routes.js';
 import { registerExperimentFoundationRoutes } from './routes/experiment-foundation-routes.js';
@@ -204,6 +206,9 @@ import { ExperimentFoundationExecutionBundleV2Service } from './services/experim
 import { ExperimentFoundationProviderCommandV2Scheduler } from './services/experiment-foundation-provider-command-v2-scheduler.js';
 import { ExperimentFoundationProviderCommandV2Worker } from './services/experiment-foundation-provider-command-v2-worker.js';
 import { ExperimentFoundationRealProviderCommandV2Worker } from './services/experiment-foundation-real-provider-command-v2-worker.js';
+import {
+  ExperimentFoundationScientificSourcePreparationServiceV1,
+} from './services/experiment-foundation-scientific-source-v1-service.js';
 import {
   ExperimentFoundationRealProviderIntakeV2Service,
   type ExperimentFoundationRealProviderIntakeV2ServiceOptions,
@@ -818,6 +823,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
           executionBundleResolver: experimentFoundationV2ExecutionBundleResolver,
           profileResolver: options.experimentFoundationV2RealProviderProfileResolver,
           controlDrainEnabled: () => experimentV2RealProviderControlDrainEnabled,
+          scientificSourcePreparationService: experimentV2ScientificValidationEnabled
+            ? new ExperimentFoundationScientificSourcePreparationServiceV1({
+              protocolResolver: (runId) => (
+                experimentFoundationScientificValidationV2Repository
+                  .resolveEvaluationProtocol(runId)
+              ),
+            })
+            : undefined,
         }),
         {
           onError: (error) => app.log.error(
@@ -912,10 +925,17 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new ExperimentFoundationV2ScientificValidationService({
       repository: experimentFoundationScientificValidationV2Repository,
       enabled: () => (
-        hasDefaultDurableExperimentV2Composition
+        (
+          hasDefaultDurableExperimentV2Composition
+          || options.experimentFoundationScientificValidationV2Repository !== undefined
+        )
         && experimentV2ScientificValidationEnabled
       ),
     });
+  const experimentFoundationScientificValidationV2Controller =
+    new ExperimentFoundationScientificValidationV2Controller(
+      experimentFoundationScientificValidationV2Service,
+    );
   const paperImplementationEvidenceTrustGatewayService =
     new PaperImplementationEvidenceTrustGatewayService({
       repository: paperImplementationEvidenceV2Repository,
@@ -1712,6 +1732,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerExperimentFoundationRealProviderV2Routes(
       instance,
       experimentFoundationRealProviderV2Controller,
+    );
+    await registerExperimentFoundationScientificValidationV2Routes(
+      instance,
+      experimentFoundationScientificValidationV2Controller,
     );
     await registerExperimentFoundationPromotionV2Routes(
       instance,

@@ -4945,6 +4945,10 @@ model PaperImplementationResultInterpretationPacket {
   id                                    String   @id
   implementationProjectId               String
   validationCycleId                     String
+  schemaVersion                         String?
+  closureId                             String?  @unique(map: "pirip_closure_unique")
+  closureSnapshotHash                   String?
+  packetContentHash                     String?
   experimentPlanLightId                 String?
   sourceRunEvidenceRefs                 String[] @default([])
   sourceRunEvidenceRefPayloads          Json     @default("[]")
@@ -4973,6 +4977,8 @@ model PaperImplementationResultInterpretationPacket {
   policyVersionId                       String?
   createdBy                             String
   createdAt                             DateTime @db.Timestamptz(6)
+
+  closure PaperImplementationValidationCycleClosureV2? @relation(fields: [closureId, closureSnapshotHash, validationCycleId], references: [id, closureSnapshotHash, validationCycleId], onDelete: Restrict, onUpdate: Restrict, map: "pirip_closure_exact_fkey")
 
   @@index([implementationProjectId, createdAt(sort: Desc)], map: "pirip_project_created_idx")
   @@index([validationCycleId], map: "pirip_cycle_idx")
@@ -6483,7 +6489,10 @@ model PaperImplementationValidationCycleClosureV2 {
   idempotencyKey          String   @unique(map: "pi_cycle_closure_idempotency_unique")
   createdAt               DateTime @db.Timestamptz(6)
 
+  resultInterpretationPackets PaperImplementationResultInterpretationPacket[]
+
   @@unique([id, closureSnapshotHash], map: "pi_cycle_closure_exact_snapshot_unique")
+  @@unique([id, closureSnapshotHash, validationCycleId], map: "pi_cycle_closure_packet_exact_unique")
   @@index([implementationProjectId], map: "pi_cycle_closure_project_idx")
 }
 
@@ -7373,6 +7382,7 @@ model ExperimentFoundationCollectionAttemptV2 {
   providerPayload    ExperimentFoundationProviderPayloadV2     @relation(fields: [providerPayloadId, providerPayloadHash], references: [id, payloadHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_collection_attempt_payload_fkey")
   commands           ExperimentFoundationProviderCommandV2[]
   provisionalOutputs ExperimentFoundationProvisionalOutputV2[]
+  experimentResults  ExperimentFoundationExperimentResultV2[]
 
   // Required by Prisma's exact composite 1:1 Attempt relation; the shorter
   // executionAttemptId unique remains the authoritative one-Collection limit.
@@ -7391,11 +7401,13 @@ model ExperimentFoundationProvisionalOutputV2 {
   outputHash            String
   createdAt             DateTime @db.Timestamptz(6)
 
-  collectionAttempt ExperimentFoundationCollectionAttemptV2 @relation(fields: [collectionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_provisional_output_collection_fkey")
+  collectionAttempt ExperimentFoundationCollectionAttemptV2  @relation(fields: [collectionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_provisional_output_collection_fkey")
+  experimentResults ExperimentFoundationExperimentResultV2[]
 
   @@unique([collectionAttemptId, ordinal], map: "ef_provisional_output_collection_ordinal_unique")
   @@unique([collectionAttemptId, outputKind], map: "ef_provisional_output_collection_kind_unique")
   @@unique([collectionAttemptId, outputHash], map: "ef_provisional_output_collection_hash_unique")
+  @@unique([id, collectionAttemptId, outputHash, outputKind, outputClass], map: "ef_provisional_output_exact_source_unique")
 }
 
 // T-132 Pack C: EF-owned scientific-validation families. Rows may be written
@@ -7411,6 +7423,14 @@ model ExperimentFoundationExperimentResultV2 {
   trainingTaskSpecId       String
   trainingTaskSpecHash     String
   executionAttemptId       String   @unique(map: "ef_experiment_result_attempt_unique")
+  collectionAttemptId      String?  @unique(map: "ef_experiment_result_collection_unique")
+  sourceOutputId           String?  @unique(map: "ef_experiment_result_source_unique")
+  sourceOutputHash         String?
+  sourceOutputKind         String?
+  sourceOutputClass        String?
+  parserProfileVersion     String?
+  parserProfileHash        String?
+  derivationHash           String?
   provenance               String
   schemaVersion            String
   metricObservationCount   Int
@@ -7419,10 +7439,12 @@ model ExperimentFoundationExperimentResultV2 {
   contentHash              String
   createdAt                DateTime @db.Timestamptz(6)
 
-  run              ExperimentFoundationRunV2              @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_fkey")
-  runCell          ExperimentFoundationRunCellV2          @relation(fields: [runId, runCellId, trainingTaskSpecId, cellKey], references: [runId, id, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_cell_fkey")
-  trainingTaskSpec ExperimentFoundationTrainingTaskSpecV2 @relation(fields: [trainingTaskSpecId, trainingTaskSpecHash], references: [id, taskSpecHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_task_spec_fkey")
-  executionAttempt ExperimentFoundationExecutionAttemptV2 @relation(fields: [executionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_attempt_fkey")
+  run               ExperimentFoundationRunV2                @relation(fields: [runId, runManifestHash], references: [id, runManifestHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_fkey")
+  runCell           ExperimentFoundationRunCellV2            @relation(fields: [runId, runCellId, trainingTaskSpecId, cellKey], references: [runId, id, trainingTaskSpecId, cellKey], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_run_cell_fkey")
+  trainingTaskSpec  ExperimentFoundationTrainingTaskSpecV2   @relation(fields: [trainingTaskSpecId, trainingTaskSpecHash], references: [id, taskSpecHash], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_task_spec_fkey")
+  executionAttempt  ExperimentFoundationExecutionAttemptV2   @relation(fields: [executionAttemptId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_attempt_fkey")
+  collectionAttempt ExperimentFoundationCollectionAttemptV2? @relation(fields: [collectionAttemptId, executionAttemptId], references: [id, executionAttemptId], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_collection_fkey")
+  sourceOutput      ExperimentFoundationProvisionalOutputV2? @relation(fields: [sourceOutputId, collectionAttemptId, sourceOutputHash, sourceOutputKind, sourceOutputClass], references: [id, collectionAttemptId, outputHash, outputKind, outputClass], onDelete: Restrict, onUpdate: Restrict, map: "ef_experiment_result_source_fkey")
 
   @@unique([id, contentHash], map: "ef_experiment_result_exact_content_unique")
   @@index([runId], map: "ef_experiment_result_run_idx")

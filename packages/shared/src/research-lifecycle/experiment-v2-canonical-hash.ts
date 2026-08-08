@@ -41,6 +41,7 @@ import type {
 import type {
   ExperimentFoundationScientificValidationStatusV2,
   ExperimentResultCellV2,
+  ScientificComparisonRuleResultV1,
   ScientificValidationCellResultRefV2,
   ScientificValidationRuleResultV2,
 } from './experiment-foundation-scientific-validation-v2-contracts.js';
@@ -89,7 +90,13 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-work-order-approved-plan-json@v1',
   'integration-event-payload-json@v1',
   'integration-event-envelope-json@v1',
+  'ef-scientific-result-schema-json@v1',
+  'ef-scientific-source-json@v1',
+  'ef-scientific-derivation-json@v1',
   'ef-scientific-result-json@v1',
+  'ef-scientific-observation-json@v1',
+  'ef-scientific-comparison-rule-json@v1',
+  'ef-scientific-comparison-fact-json@v1',
   'ef-scientific-validation-json@v1',
   'ef-evidence-candidate-json@v1',
   'pi-run-evidence-unit-json@v1',
@@ -751,6 +758,7 @@ export interface ExperimentFoundationV2ScientificValidationHashInput {
   validator_profile_version: string;
   validator_profile_hash: string;
   ordered_rule_results: ScientificValidationRuleResultV2[];
+  ordered_comparison_results?: ScientificComparisonRuleResultV1[];
   status: ExperimentFoundationScientificValidationStatusV2;
 }
 
@@ -769,6 +777,39 @@ export function serverHashExperimentFoundationV2ScientificResult(
     record_kind: 'ExperimentFoundationExperimentResultV2',
     schema_version: content.schema_version,
     hash_profile: 'ef-scientific-result-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationScientificObservationV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationScientificObservationV1',
+    schema_version: 'v1',
+    hash_profile: 'ef-scientific-observation-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationScientificComparisonRuleV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationScientificComparisonRuleV1',
+    schema_version: 'v1',
+    hash_profile: 'ef-scientific-comparison-rule-json@v1',
+    content,
+  });
+}
+
+export function serverHashExperimentFoundationScientificComparisonFactV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExperimentFoundationScientificComparisonFactV1',
+    schema_version: 'v1',
+    hash_profile: 'ef-scientific-comparison-fact-json@v1',
     content,
   });
 }

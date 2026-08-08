@@ -20,6 +20,9 @@ import type {
   ExperimentFoundationTrainingTaskSpecV2,
   ExperimentFoundationV2ExactAssetRevisionRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
+import type {
+  ScientificSourceManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 
 export type ExperimentFoundationExecutionAttemptStateV2 = SharedExecutionAttemptStateV2;
 export type ExperimentFoundationCollectionAttemptStateV2 = SharedCollectionAttemptStateV2;
@@ -221,8 +224,8 @@ export interface ExperimentFoundationProvisionalOutputV2Record {
   ordinal: number;
   output_kind: ExperimentFoundationProvisionalOutputKindV2;
   output_manifest_schema_version: string;
-  output_class: 'diagnostic_only';
-  redacted_manifest: Readonly<Record<string, unknown>>;
+  output_class: 'diagnostic_only' | 'scientific_source';
+  redacted_manifest: Readonly<Record<string, unknown>> | ScientificSourceManifestV1;
   output_hash: string;
   created_at: string;
 }

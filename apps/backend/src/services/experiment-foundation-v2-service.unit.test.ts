@@ -3,6 +3,7 @@ import test from 'node:test';
 import type {
   ExperimentFoundationV2DataPolicyDraftContentV1,
   ExperimentFoundationV2ExactAssetRevisionRef,
+  ExperimentFoundationV2EvaluationProtocolDraftContentV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import { serverHashExperimentV2SemanticContent } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import { EXPERIMENT_V2_INT32_MAX } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-contract-limits';
@@ -579,6 +580,150 @@ test('Benchmark freeze rejects reversed corpus and query-workload Dataset roles'
     }),
     'V2_TYPED_SNAPSHOT_INVALID',
   );
+});
+
+test('EvaluationProtocol freeze rejects every ambiguous CMP-B1 and artifact admission seam', async () => {
+  const { service } = testContext();
+  const fixture = await buildExperimentFoundationD19TypedFixture(service);
+  const benchmark = fixture.benchmark;
+  const metric = fixture.metric_definitions[0]!;
+  assert.equal(benchmark.asset_type, 'Benchmark');
+  assert.equal(metric.asset_type, 'MetricDefinition');
+
+  const baseDraft = (): ExperimentFoundationV2EvaluationProtocolDraftContentV2 => ({
+    schema_version: 'v2',
+    protocol_key: 'scientific-freeze-contract',
+    display_name: 'Scientific freeze contract',
+    benchmark_dependency: {
+      ...benchmark,
+      asset_type: 'Benchmark',
+    },
+    metric_dependencies: [{
+      ...metric,
+      asset_type: 'MetricDefinition',
+    }],
+    required_rules: [{
+      rule_id: 'embedding-rule',
+      rule_type: 'metric_contract@v1',
+      metric_definition: {
+        ...metric,
+        asset_type: 'MetricDefinition',
+      },
+      metric_key: 'embedding_time_ns',
+      required_cardinality: 1,
+      split_key: 'query',
+      value_type: 'duration_ns',
+      unit: 'ns',
+      finite_required: true,
+    }],
+    scientific_contract: {
+      schema_version: 'ExperimentFoundationScientificProtocol@v1',
+      observation_slots: [{
+        observation_key: 'embedding-time',
+        ordinal: 1,
+        metric_key: 'embedding_time_ns',
+        split_key: 'query',
+        value_type: 'duration_ns',
+        unit: 'ns',
+        statistic: { kind: 'mean' },
+        uncertainty: {
+          kind: 'confidence_interval',
+          level: 0.95,
+          allowed_method_keys: ['bootstrap'],
+        },
+      }],
+      artifact_slots: [],
+      comparison_rules: [{
+        comparison_key: 'primary-embedding-time',
+        ordinal: 1,
+        left_cell_ordinal: 1,
+        right_cell_ordinal: 2,
+        observation_key: 'embedding-time',
+        effect_kind: 'absolute_difference',
+        direction: 'lower_is_support',
+        support_min: 1,
+        contradiction_max: -1,
+        uncertainty_policy: {
+          kind: 'confidence_interval_guard',
+          confidence_level: 0.95,
+          method_key: 'bootstrap',
+        },
+      }],
+      primary_comparison_key: 'primary-embedding-time',
+      decision_if_positive: 'continue-positive',
+      decision_if_negative: 'continue-negative',
+      decision_if_inconclusive: 'continue-inconclusive',
+    },
+  });
+
+  let sequence = 0;
+  const freeze = async (
+    mutate: (draft: ExperimentFoundationV2EvaluationProtocolDraftContentV2) => void,
+  ) => {
+    sequence += 1;
+    const draft = baseDraft();
+    mutate(draft);
+    const logicalId = `scientific-freeze-contract-${sequence}`;
+    draft.protocol_key = logicalId;
+    await service.createAssetDraft({
+      asset_type: 'EvaluationProtocol',
+      logical_id: logicalId,
+      draft_content: draft,
+    });
+    return service.freezeAssetDraft({
+      asset_type: 'EvaluationProtocol',
+      logical_id: logicalId,
+      expected_state_version: 1,
+      business_idempotency_key: `freeze-${logicalId}`,
+    });
+  };
+
+  await freeze(() => undefined);
+  const invalidMutations: Array<(
+    draft: ExperimentFoundationV2EvaluationProtocolDraftContentV2,
+  ) => void> = [
+    (draft) => { draft.scientific_contract!.observation_slots[0]!.ordinal = 2; },
+    (draft) => { draft.scientific_contract!.comparison_rules![0]!.ordinal = 2; },
+    (draft) => {
+      draft.scientific_contract!.comparison_rules![0]!.contradiction_max = 1;
+    },
+    (draft) => {
+      const policy = draft.scientific_contract!.comparison_rules![0]!.uncertainty_policy;
+      if (policy.kind === 'confidence_interval_guard') policy.method_key = 'wald';
+    },
+    (draft) => {
+      draft.scientific_contract!.comparison_rules![0]!.right_cell_ordinal = 1;
+    },
+    (draft) => { draft.scientific_contract!.primary_comparison_key = 'missing-primary'; },
+    (draft) => { draft.scientific_contract!.decision_if_inconclusive = ' '; },
+    (draft) => {
+      draft.scientific_contract!.artifact_slots = [{
+        artifact_key: 'trace-only',
+        ordinal: 1,
+        artifact_kind: 'trace',
+      }];
+    },
+    (draft) => {
+      draft.required_rules.push({
+        rule_id: 'artifact-rule',
+        rule_type: 'artifact_contract@v1',
+        artifact_kind: 'metrics_json',
+        file_name: 'metrics.json',
+        required_cardinality: 1,
+        content_hash_required: true,
+        parser_binding: 'scientific_result_parser@v1',
+      });
+      draft.scientific_contract!.artifact_slots = [{
+        artifact_key: 'metrics',
+        ordinal: 1,
+        artifact_kind: 'other-kind',
+        required_rule_id: 'artifact-rule',
+      }];
+    },
+  ];
+  for (const mutate of invalidMutations) {
+    await assertReason(() => freeze(mutate), 'V2_TYPED_SNAPSHOT_INVALID');
+  }
 });
 
 test('A04 readiness rejects exact target/dependency drift, latest lookup, and post-attestation revocation', async () => {

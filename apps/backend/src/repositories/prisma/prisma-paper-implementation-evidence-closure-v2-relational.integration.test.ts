@@ -554,6 +554,7 @@ test(
       const scientificService = new ExperimentFoundationV2ScientificValidationService({
         repository: scientificRepository,
         enabled: () => true,
+        legacyObservationWriterEnabled: () => true,
         now: () => FIXED_NOW,
       });
       assert.ok(fixture.realProvider);
@@ -688,6 +689,7 @@ test(
         new ExperimentFoundationV2ScientificValidationService({
           repository: simulationRepository,
           enabled: () => true,
+          legacyObservationWriterEnabled: () => true,
           now: () => FIXED_NOW,
         }).recordExperimentResult(simulationInput),
         appReason('EVIDENCE_PROVENANCE_REJECTED'),

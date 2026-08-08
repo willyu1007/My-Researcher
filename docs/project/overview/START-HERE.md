@@ -18,6 +18,11 @@
 - 已决策：默认本地化优先部署，首发以个人单用户为主，并与 Git 工作流深度结合。
 - 已决策：Git 集成采用方案 B（本地优先 + 安全远程），M0 聚焦安全可用边界。
 - 已决策：同一用户多设备通过云数据库控制面同步，M1 启用受控全文 RAG 并可选使用 Qdrant 向量层。
+- 已决策：权威科学结果只接受由 `experiment-foundation` 创建、监控并收集的完整真实运行；不接受用户手工数字、CSV/Notebook、外部集群日志或第三方运行包导入科学证据链。外部计算平台可作为 EF 受控执行器，但外部结果导入不是受支持入口。
+- 已决策：`paper-implementation` 与 `experiment-foundation` 是平级 canonical bounded contexts。PI 拥有研究意图、WorkOrder、ValidationCycle、科学结论、Claim 与 Dossier；EF 拥有可复用实验资产、TaskSpec/Run/Attempt、结果事实、协议验证与 EvidenceCandidate。两域通过 exact contract/event 衔接，不互相吸收所有权。
+- 已决策：实验基座的桌面 UI 位置暂不讨论；导航层级不得反向定义 bounded-context 所有权。
+- 已决策：采用 `M0-SCI`（Scientific Core Readiness Gate）作为产品 M0 内部的强制科学能力门。它不阻塞其他 M0 模块的开发或 preview，但在 T-136 P5 真实端到端验收通过前，禁止启用、展示为可用或宣称真实科学闭环；P0–P4 完成只能称为 `implementation_complete_unreleased`。
+- 口径分离：项目治理 `M-001`（LLM Research Lifecycle v1）与产品能力门 `M0-SCI` 不是同一编号体系；T-136 继续映射 `M-001`，同时在产品规划中 gate `M0-SCI`。
 - 术语收口：历史“8 个子功能”仍可作为需求来源，但旧“论文管理”不再作为当前 canonical 模块名；其语义已拆为 `paper-project` lifecycle、`paper-implementation` implementation authority 与桌面端 paper literature collection。
 
 ## Key inputs (keep small)
@@ -29,7 +34,7 @@
 | Primary users | 个人研究者（单用户）为主；研究生/博士后；PI/导师（扩展角色） | confirmed |
 | Must-have scope | 桌面端独立工作区、论题整理与测试自动化、claims/evidence 追溯、规则自检、投稿前风险报告、rebuttal 支持 | confirmed |
 | Out-of-scope | 不承诺自动产出可发表论文；不替代研究路线决策；不以纯文本扩写为核心价值 | confirmed |
-| Constraints | 不得杜撰实验结果；建议必须可定位；LaTeX 编译需沙箱隔离；高频 API 调用必须受配额与限流策略控制；数据默认本地存储 | confirmed |
+| Constraints | 权威实验数字只来自 EF 全程管理的真实运行；禁止手工/外部结果导入科学证据链；建议必须可定位；LaTeX 编译需沙箱隔离；高频 API 调用必须受配额与限流策略控制；数据默认本地存储 | confirmed |
 | Success metrics | claims-evidence 覆盖率接近 100%；缺失项召回率提升；投稿前准备时间下降；长时间运行稳定性达标 | confirmed |
 | Retrieval strategy | M0: 可追溯检索 + 摘要级 RAG + 项目级文献注册表；去重键优先 DOI/arXiv | confirmed |
 | Full-text RAG strategy | M1: 项目级默认关闭，手动开启；按 `OA/USER_AUTH/RESTRICTED` 执行授权与同步边界 | confirmed |
@@ -40,7 +45,8 @@
 | Platform rollout | M0(macOS) -> M1(Windows) -> M2(Linux) | confirmed |
 | Multi-device sync | 同一用户多设备同步（云数据库控制面 + 本地主存储） | confirmed |
 | Vector layer | M1 可选 Qdrant（仅授权可同步内容） | confirmed |
-| Core modules | 当前按 bounded context 收口：literature、title-card、paper-implementation、paper-project、writing/governance 等；旧“论文管理”仅作历史/导航标签 | confirmed |
+| Core modules | 当前按 bounded context 收口：literature、title-card、paper-project、paper-implementation、experiment-foundation、writing/governance；PI 与 EF 平级，旧“论文管理”仅作历史/导航标签 | confirmed |
+| Scientific core gate | `M0-SCI` 由 T-136 P5 gate；P0–P4 仅为实现完成未发布，其他 M0 模块可独立 preview | confirmed |
 | CI strategy | M0 开启 CI（github-actions，lint/test/build） | confirmed |
 | Packaging strategy | 暂不启用，后续阶段再评估 | confirmed |
 | Timeline / deadline | 里程碑 M0-M3，先落地 MVP（M0） | tbd |

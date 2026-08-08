@@ -10,6 +10,10 @@ import type {
   ExperimentFoundationV2ExactAssetRevisionRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+  ScientificSourceManifestV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
+import type {
   EvidenceCandidateQualifiedEventV1 as SharedEvidenceCandidateQualifiedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 
@@ -96,6 +100,25 @@ export interface PersistExperimentFoundationScientificResultV2Input {
   created_at: string;
 }
 
+export interface ExperimentFoundationScientificResultGenerationAuthorityV2 {
+  source_output_id: string;
+  source_output_hash: string;
+  collection_attempt_id: string;
+  execution_attempt_id: string;
+  run_id: string;
+  run_manifest_hash: string;
+  run_cell_id: string;
+  cell_key: string;
+  training_task_spec_id: string;
+  training_task_spec_hash: string;
+  source_manifest: ScientificSourceManifestV1;
+}
+
+export interface PersistExperimentFoundationSourceBoundResultV2Input {
+  result: ExperimentFoundationSourceBoundResultCellV2;
+  created_at: string;
+}
+
 export interface PersistExperimentFoundationScientificValidationV2Input {
   report: ScientificValidationReportV2;
   evidence_candidate: EvidenceCandidateV2 | null;
@@ -127,6 +150,19 @@ export interface ExperimentFoundationScientificValidationV2Repository {
   ): Promise<ExperimentResultCellV2>;
 
   loadRunResults(runId: string): Promise<ExperimentResultCellV2[]>;
+
+  loadSourceBoundRunResults(
+    runId: string,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2[]>;
+
+  loadScientificResultGenerationAuthority(
+    runCellId: string,
+    sourceOutputId: string,
+  ): Promise<ExperimentFoundationScientificResultGenerationAuthorityV2 | null>;
+
+  persistSourceBoundExperimentResult(
+    input: PersistExperimentFoundationSourceBoundResultV2Input,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2>;
 
   loadValidationByIdempotencyKey(
     idempotencyKey: string,

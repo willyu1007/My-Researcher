@@ -18,6 +18,7 @@ import {
   type ExperimentFoundationAliyunRealExternalJobRefV1,
   type ExperimentFoundationExecutableTrainingTaskSpecV2,
   type ExperimentFoundationProviderResultEnvelopeV1,
+  type ExperimentFoundationRealProviderReasonCodeV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
   canonicalizeExperimentV2Json,
@@ -75,15 +76,39 @@ interface ExperimentFoundationAliyunRealProviderTransportOptionsV2 {
   maximumRecoveryPolls?: number;
 }
 
+export type ExperimentFoundationCollectSucceededOutcomeV1 = Readonly<
+  ExperimentFoundationAliyunNormalizedProviderOutcomeV1 & {
+    operation: 'collect';
+    provider_status: 'Succeeded';
+    normalized_state: 'succeeded';
+    external_job_ref: ExperimentFoundationAliyunRealExternalJobRefV1;
+    result_manifest_hash: string;
+  }
+>;
+
+export interface ExperimentFoundationValidatedProviderResultEnvelopeV1 {
+  readonly handoff_schema_version:
+    'ExperimentFoundationValidatedProviderResultEnvelope@v1';
+  readonly canonical_envelope_json: string;
+  readonly envelope_content_hash: string;
+  readonly envelope_byte_size: number;
+}
+
+export interface ExperimentFoundationRealProviderCollectSuccessV2 {
+  readonly outcome: ExperimentFoundationCollectSucceededOutcomeV1;
+  readonly validated_result: ExperimentFoundationValidatedProviderResultEnvelopeV1;
+}
+
+/** Reader implementations may opt into bounded retry only through this exact type. */
+export class ExperimentFoundationTransientExactResultReadErrorV2 extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ExperimentFoundationTransientExactResultReadErrorV2';
+  }
+}
+
 type ExperimentFoundationAliyunRealProviderTransportReasonCodeV2 =
-  | 'REAL_PROVIDER_PAYLOAD_CONFLICT'
-  | 'REAL_PROVIDER_RESPONSE_INVALID'
-  | 'REAL_PROVIDER_STATUS_UNKNOWN'
-  | 'REAL_PROVIDER_ACCEPTANCE_AMBIGUOUS'
-  | 'REAL_PROVIDER_RECOVERY_NOT_FOUND'
-  | 'REAL_PROVIDER_RECOVERY_DUPLICATE'
-  | 'REAL_PROVIDER_CLEANUP_UNVERIFIED'
-  | 'REAL_PROVIDER_RESULT_INVALID';
+  ExperimentFoundationRealProviderReasonCodeV2;
 
 export class ExperimentFoundationAliyunRealProviderTransportErrorV2 extends Error {
   constructor(
@@ -230,11 +255,11 @@ export class ExperimentFoundationAliyunRealProviderTransportV2 {
 
   async collect(
     input: ExperimentFoundationAliyunRealProviderTransportInputV2,
-  ): Promise<ExperimentFoundationAliyunNormalizedProviderOutcomeV1> {
+  ): Promise<ExperimentFoundationRealProviderCollectSuccessV2> {
     assertInput(input);
     if (!this.resultReader) {
       throw transportError(
-        'REAL_PROVIDER_RESULT_INVALID',
+        'REAL_PROVIDER_RESULT_READER_UNAVAILABLE',
         false,
         'No exact result reader is configured.',
       );
@@ -247,11 +272,23 @@ export class ExperimentFoundationAliyunRealProviderTransportV2 {
         'Result collection requires an exact Succeeded provider job.',
       );
     }
-    const collected = await this.resultReader.readExactResult({
-      job_id: exact.external_job_ref.job_id,
-      result_object_name: input.task_spec.io_snapshot.result_object_name,
-      output_directory_uri: requireOutputDirectoryUri(input),
-    });
+    let collected: Awaited<ReturnType<
+      ExperimentFoundationAliyunExactResultReaderV2['readExactResult']
+    >>;
+    const outputDirectoryUri = requireOutputDirectoryUri(input);
+    try {
+      collected = await this.resultReader.readExactResult({
+        job_id: exact.external_job_ref.job_id,
+        result_object_name: input.task_spec.io_snapshot.result_object_name,
+        output_directory_uri: outputDirectoryUri,
+      });
+    } catch (error) {
+      throw transportError(
+        'REAL_PROVIDER_RESULT_READ_FAILED',
+        error instanceof ExperimentFoundationTransientExactResultReadErrorV2,
+        'Exact provider result read failed.',
+      );
+    }
     const byteSize = Buffer.byteLength(collected.canonical_result_bytes, 'utf8');
     if (
       byteSize < 1
@@ -290,7 +327,26 @@ export class ExperimentFoundationAliyunRealProviderTransportV2 {
       parser_profile_hash: input.task_spec.io_snapshot.parser_profile_hash,
       source_binding: input.materialized.record.redacted_manifest.source_binding,
     });
-    return this.outcome('collect', input, exact, resultManifestHash);
+    const outcome = this.outcome('collect', input, exact, resultManifestHash);
+    if (
+      outcome.operation !== 'collect'
+      || outcome.provider_status !== 'Succeeded'
+      || outcome.normalized_state !== 'succeeded'
+      || !outcome.external_job_ref
+      || !outcome.result_manifest_hash
+    ) {
+      throw resultInvalid('Collected result did not produce a strict succeeded outcome.');
+    }
+    return {
+      outcome: outcome as ExperimentFoundationCollectSucceededOutcomeV1,
+      validated_result: {
+        handoff_schema_version:
+          'ExperimentFoundationValidatedProviderResultEnvelope@v1',
+        canonical_envelope_json: collected.canonical_result_bytes,
+        envelope_content_hash: contentHash,
+        envelope_byte_size: byteSize,
+      },
+    };
   }
 
   private async discover(
@@ -662,7 +718,11 @@ function assertExactResultBinding(
     || result.parser_profile_version !== input.task_spec.io_snapshot.parser_profile_version
     || result.parser_profile_hash !== input.task_spec.io_snapshot.parser_profile_hash
   ) {
-    throw resultInvalid('Collected result exact lineage or parser binding drifted.');
+    throw transportError(
+      'REAL_PROVIDER_RESULT_BINDING_DRIFT',
+      false,
+      'Collected result exact lineage or parser binding drifted.',
+    );
   }
 }
 

@@ -283,6 +283,9 @@ function evidenceResolutionMismatch(
     validator_profile_version: report.validator_profile_version,
     validator_profile_hash: report.validator_profile_hash,
     ordered_rule_results: report.ordered_rule_results,
+    ...(report.ordered_comparison_results
+      ? { ordered_comparison_results: report.ordered_comparison_results }
+      : {}),
     status: report.status,
   });
   if (

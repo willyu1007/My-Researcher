@@ -1,6 +1,9 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import type { ExperimentResultCellV2 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 
 import {
   ExperimentFoundationScientificValidationV2ConstraintError,
@@ -9,9 +12,11 @@ import {
   type ExperimentFoundationScientificValidationV2Outbox,
   type ExperimentFoundationScientificValidationV2Protocol,
   type ExperimentFoundationScientificValidationV2Repository,
+  type ExperimentFoundationScientificResultGenerationAuthorityV2,
   type ExperimentFoundationScientificValidationV2Run,
   type ExperimentFoundationScientificValidationV2StoredOutcome,
   type PersistExperimentFoundationScientificResultV2Input,
+  type PersistExperimentFoundationSourceBoundResultV2Input,
   type PersistExperimentFoundationScientificValidationV2Input,
 } from './experiment-foundation-scientific-validation-v2.repository.js';
 
@@ -29,6 +34,9 @@ interface State {
   outcomesByRun: Map<string, ExperimentFoundationScientificValidationV2StoredOutcome>;
   outcomeRunByIdempotencyKey: Map<string, string>;
   outboxes: Map<string, ExperimentFoundationScientificValidationV2Outbox>;
+  sourceBoundResults: Map<string, ExperimentFoundationSourceBoundResultCellV2>;
+  sourceBoundResultByAttempt: Map<string, string>;
+  sourceBoundResultBySourceOutput: Map<string, string>;
 }
 
 export interface InMemoryExperimentFoundationScientificValidationV2RepositoryOptions {
@@ -36,6 +44,7 @@ export interface InMemoryExperimentFoundationScientificValidationV2RepositoryOpt
   protocols?: Readonly<Record<string, ExperimentFoundationScientificValidationV2Protocol>>;
   headAcknowledgements?: readonly ExperimentFoundationScientificValidationV2HeadAcknowledgement[];
   executionAttempts?: readonly ExperimentFoundationScientificValidationV2ExecutionAttempt[];
+  scientificResultAuthorities?: readonly ExperimentFoundationScientificResultGenerationAuthorityV2[];
 }
 
 function clone<T>(value: T): T {
@@ -54,6 +63,9 @@ function cloneState(source: State): State {
     outcomesByRun: cloneMap(source.outcomesByRun),
     outcomeRunByIdempotencyKey: new Map(source.outcomeRunByIdempotencyKey),
     outboxes: cloneMap(source.outboxes),
+    sourceBoundResults: cloneMap(source.sourceBoundResults),
+    sourceBoundResultByAttempt: new Map(source.sourceBoundResultByAttempt),
+    sourceBoundResultBySourceOutput: new Map(source.sourceBoundResultBySourceOutput),
   };
 }
 
@@ -75,6 +87,9 @@ implements ExperimentFoundationScientificValidationV2Repository {
     outcomesByRun: new Map(),
     outcomeRunByIdempotencyKey: new Map(),
     outboxes: new Map(),
+    sourceBoundResults: new Map(),
+    sourceBoundResultByAttempt: new Map(),
+    sourceBoundResultBySourceOutput: new Map(),
   };
 
   private readonly runs = new Map<string, ExperimentFoundationScientificValidationV2Run>();
@@ -86,6 +101,10 @@ implements ExperimentFoundationScientificValidationV2Repository {
   private readonly attempts = new Map<
     string,
     ExperimentFoundationScientificValidationV2ExecutionAttempt
+  >();
+  private readonly scientificResultAuthorities = new Map<
+    string,
+    ExperimentFoundationScientificResultGenerationAuthorityV2
   >();
   private transactionTail: Promise<void> = Promise.resolve();
   private validationCommitFault: Error | null = null;
@@ -103,6 +122,12 @@ implements ExperimentFoundationScientificValidationV2Repository {
     for (const attempt of options.executionAttempts ?? []) {
       this.attempts.set(attempt.execution_attempt_id, clone(attempt));
     }
+    for (const authority of options.scientificResultAuthorities ?? []) {
+      this.scientificResultAuthorities.set(
+        `${authority.run_cell_id}:${authority.source_output_id}`,
+        clone(authority),
+      );
+    }
   }
 
   failNextValidationCommit(
@@ -114,6 +139,7 @@ implements ExperimentFoundationScientificValidationV2Repository {
   snapshot() {
     return {
       results: [...this.state.results.values()].map(clone),
+      source_bound_results: [...this.state.sourceBoundResults.values()].map(clone),
       outcomes: [...this.state.outcomesByRun.values()].map(clone),
       outboxes: [...this.state.outboxes.values()].map(clone),
     };
@@ -152,6 +178,18 @@ implements ExperimentFoundationScientificValidationV2Repository {
     input: PersistExperimentFoundationScientificResultV2Input,
   ): Promise<ExperimentResultCellV2> {
     return this.transact((state) => {
+      if (state.sourceBoundResults.has(input.result.run_cell_id)) {
+        throw constraint(
+          'VALIDATION_RESULT_CONFLICT',
+          'Run cell already has a source-bound scientific result.',
+        );
+      }
+      if (state.sourceBoundResultByAttempt.has(input.result.execution_attempt_id)) {
+        throw constraint(
+          'VALIDATION_RESULT_CONFLICT',
+          'Execution Attempt is already bound to a source-bound scientific result.',
+        );
+      }
       const existingId = state.resultByRunCell.get(input.result.run_cell_id);
       if (existingId) {
         const existing = state.results.get(existingId);
@@ -195,6 +233,85 @@ implements ExperimentFoundationScientificValidationV2Repository {
     return [...this.state.results.values()]
       .filter((stored) => stored.result.run_id === runId)
       .map((stored) => clone(stored.result));
+  }
+
+  async loadSourceBoundRunResults(
+    runId: string,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2[]> {
+    return [...this.state.sourceBoundResults.values()]
+      .filter((result) => result.run_id === runId)
+      .map(clone);
+  }
+
+  async loadScientificResultGenerationAuthority(
+    runCellId: string,
+    sourceOutputId: string,
+  ): Promise<ExperimentFoundationScientificResultGenerationAuthorityV2 | null> {
+    const authority = this.scientificResultAuthorities.get(`${runCellId}:${sourceOutputId}`);
+    return authority ? clone(authority) : null;
+  }
+
+  async persistSourceBoundExperimentResult(
+    input: PersistExperimentFoundationSourceBoundResultV2Input,
+  ): Promise<ExperimentFoundationSourceBoundResultCellV2> {
+    return this.transact((state) => {
+      if (state.resultByRunCell.has(input.result.run_cell_id)) {
+        throw constraint(
+          'VALIDATION_RESULT_CONFLICT',
+          'Run cell already has a legacy caller-authored scientific result.',
+        );
+      }
+      if (state.resultByAttempt.has(input.result.execution_attempt_id)) {
+        throw constraint(
+          'VALIDATION_RESULT_CONFLICT',
+          'Execution Attempt is already bound to a legacy caller-authored scientific result.',
+        );
+      }
+      const existing = state.sourceBoundResults.get(input.result.run_cell_id);
+      if (existing) {
+        if (existing.content_hash !== input.result.content_hash) {
+          throw constraint(
+            'VALIDATION_RESULT_CONFLICT',
+            'Run cell already has a different source-bound result.',
+          );
+        }
+        return existing;
+      }
+      const attemptCellId = state.sourceBoundResultByAttempt.get(
+        input.result.execution_attempt_id,
+      );
+      if (attemptCellId) {
+        const attemptResult = state.sourceBoundResults.get(attemptCellId);
+        if (!attemptResult || !isDeepStrictEqual(attemptResult, input.result)) {
+          throw constraint(
+            'VALIDATION_RESULT_CONFLICT',
+            'Execution Attempt is already bound to a different source-bound result.',
+          );
+        }
+        return attemptResult;
+      }
+      const sourceCellId = state.sourceBoundResultBySourceOutput.get(input.result.source_output_id);
+      if (sourceCellId) {
+        const sourceResult = state.sourceBoundResults.get(sourceCellId);
+        if (!sourceResult || !isDeepStrictEqual(sourceResult, input.result)) {
+          throw constraint(
+            'VALIDATION_RESULT_CONFLICT',
+            'Scientific source output is already bound to a different result.',
+          );
+        }
+        return sourceResult;
+      }
+      state.sourceBoundResults.set(input.result.run_cell_id, clone(input.result));
+      state.sourceBoundResultByAttempt.set(
+        input.result.execution_attempt_id,
+        input.result.run_cell_id,
+      );
+      state.sourceBoundResultBySourceOutput.set(
+        input.result.source_output_id,
+        input.result.run_cell_id,
+      );
+      return input.result;
+    });
   }
 
   async loadValidationByIdempotencyKey(

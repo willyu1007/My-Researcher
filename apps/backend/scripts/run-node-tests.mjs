@@ -11,6 +11,8 @@
 // spawning; mechanics (staleness, heartbeat, serialized takeover, ownership
 // release, BACKEND_TEST_SUITE_LOCK=0 escape hatch) live in ./lib/suite-lock.mjs,
 // shared with the .ai multi-file fleet runners.
+// Set BACKEND_TEST_CONCURRENCY to a positive integer for a bounded node:test
+// fleet; leaving it unset preserves Node's default concurrency.
 
 import { fileURLToPath } from 'node:url';
 import { readFile, readdir } from 'node:fs/promises';
@@ -63,12 +65,19 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
+const testConcurrency = resolveTestConcurrency(process.env.BACKEND_TEST_CONCURRENCY);
 const releaseSuiteLock = await acquireSuiteLock();
 
 // detached: the fleet gets its own process group so a termination signal can
 // reach every worker directly — signalling only the coordinator is not enough
 // (it dies instantly on SIGTERM, orphaning compute-bound ts-node workers).
-const args = ['--test', '--loader', 'ts-node/esm', ...testFiles];
+const args = [
+  '--test',
+  ...(testConcurrency === null ? [] : [`--test-concurrency=${testConcurrency}`]),
+  '--loader',
+  'ts-node/esm',
+  ...testFiles,
+];
 const child = spawn(process.execPath, args, {
   cwd: rootDir,
   stdio: 'inherit',
@@ -210,4 +219,15 @@ function buildTestEnv() {
   env.NODE_ENV = env.NODE_ENV || 'test';
 
   return env;
+}
+
+function resolveTestConcurrency(value) {
+  if (value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(parsed)) {
+    throw new Error('BACKEND_TEST_CONCURRENCY must be a positive integer');
+  }
+  return parsed;
 }

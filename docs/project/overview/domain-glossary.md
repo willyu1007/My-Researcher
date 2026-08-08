@@ -83,13 +83,43 @@ Define domain terms used across requirements and implementation.
 - Definition: 论文实施 authority，负责 motive versions、validation cycles、work orders、run evidence、claim trace、implementation dossier 与 writing-ready decisions。
 - Synonyms: paper-implementation, 论文实施。
 - Non-examples: 论文文件管理器、任务看板、paper-project 生命周期容器。
-- Notes: 旧写作前控制面语义已收口到 PaperImplementation；不要新增兼容 wrapper 或平行 authority。
+- Notes: 与 Experiment Foundation 平级。PI 拥有研究意图、可信 evidence 接纳、contextual scientific disposition、Claim 与 Dossier；不写 EF 的资产、Run/Attempt、结果事实或协议验证权威。旧写作前控制面语义已收口到 PaperImplementation；不要新增兼容 wrapper 或平行 authority。
+
+### Experiment Foundation
+- Definition: 与 Paper Implementation 平级的实验基座 bounded context，负责可复用实验资产、exact TaskSpec/Run/Attempt 执行、结果事实、EvaluationProtocol 验证与 EvidenceCandidate qualification。
+- Synonyms: experiment-foundation, 实验基座, EF。
+- Non-examples: Literature 子模块、PaperProject 附件区、PI 内部 runner、科学结论或 Claim 写入者。
+- Notes: PI 决定验证什么并发出 admitted WorkOrder/exact cells；EF 管理如何执行与结果是否符合协议，再通过 durable exact event 把合格 EvidenceCandidate 交给 PI。UI/导航位置不定义领域所有权。
+
+### Experiment Result
+- Definition: EF 在 canonical Scientific Source 提交后，通过独立 identity-only 命令生成的不可变、类型化 per-cell 测量事实信封。
+- Synonyms: ExperimentResultCell, scientific result envelope, 实验结果事实。
+- Non-examples: 用户填写的数字、外部运行包、原始供应商 payload、跨 cell 论文结论、`positive | negative | inconclusive` disposition。
+- Notes: 产品入口只提交身份和幂等信息，不提交 observations。结果信封保存来源/derivation、统计摘要与 hash-bound artifact refs；大型原始样本留在受控 artifact 中。
+
+### Scientific Source
+- Definition: EF 在真实 provider collection 边界用冻结 parser profile 对 canonical result envelope 一次解析后封存的不可变来源清单，是 Experiment Result 的直接且唯一科学来源。
+- Synonyms: canonical scientific source, `scientific_source`, 科学来源清单。
+- Non-examples: `diagnostic_only` provisional output、provider Job success、未提交的内存 payload、外部结果导入、ExperimentResult 本身。
+- Notes: provider transport 不解释科学指标；provider-independent parser 在事务外生成 source draft，collection 短事务提交 source。若 provider collection 有效但科学解析失败，则保留 diagnostic 事实但不创建 Scientific Source 或 Result。
+
+### Evidence Eligibility
+- Definition: EF 对真实结果的来源、完整性、类型、协议兼容与可解释比较事实是否可信的判断。
+- Synonyms: scientific validation eligibility, 证据合格性。
+- Non-examples: “方法优于 baseline”、论文假设成立、PI scientific disposition。
+- Notes: validation `passed` 只表示可以成为 EvidenceCandidate。负面或不确定结果只要证据合格，同样应进入 PI；最终 `positive | negative | inconclusive` 由 PI 决定。
+
+### M0-SCI (Scientific Core Readiness Gate)
+- Definition: 产品 M0 内部的科学核心能力发布门；决定真实科学闭环能否启用并被声明为可用，不是整个 M0 应用的唯一发布开关。
+- Synonyms: M0 scientific core gate, 科学核心门。
+- Non-examples: 项目治理 milestone `M-001`、桌面 UI 完成度、仅通过单元/关系测试的 P0–P4 checkpoint。
+- Notes: T-136 P0–P4 只产生 `implementation_complete_unreleased`；只有 P5 新真实双 cell WorkOrder→Dossier 验收通过后才能标记 `M0-SCI passed`。门未通过时，其他 M0 模块可以明确标注 preview，但科学闭环必须保持关闭且不可宣称完成。
 
 ### Paper Project
 - Definition: 论文项目容器，负责 paper id、生命周期、version spine、stage/release gates、artifact bundle、writing package 与 paper literature links。
 - Synonyms: paper-project, 论文项目容器。
 - Non-examples: pre-writing branch reasoning、readiness synthesis、title-card promotion decision。
-- Notes: 旧“论文管理”中关于生命周期容器的语义应落到该术语。
+- Notes: 旧“论文管理”中关于生命周期容器的语义应落到该术语；PaperProject 提供 scope/container，但不代理 PI↔EF 的执行或科学证据事件。
 
 ### Paper Literature Collection
 - Definition: 某个 paper-project 下的文献链接集合，用于从 topic scope 同步候选文献并维护 seeded/selected/used/cited/dropped 等 citation status。

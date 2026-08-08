@@ -22,6 +22,7 @@
     "./research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts": "./src/research-lifecycle/experiment-foundation-cloud-preflight-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-real-provider-v2-contracts": "./src/research-lifecycle/experiment-foundation-real-provider-v2-contracts.ts",
     "./research-lifecycle/experiment-foundation-scientific-validation-v2-contracts": "./src/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts.ts",
+    "./research-lifecycle/experiment-foundation-scientific-source-v1-contracts": "./src/research-lifecycle/experiment-foundation-scientific-source-v1-contracts.ts",
     "./research-lifecycle/paper-implementation-evidence-v2-contracts": "./src/research-lifecycle/paper-implementation-evidence-v2-contracts.ts",
     "./research-lifecycle/paper-implementation-experiment-lineage-v2-contracts": "./src/research-lifecycle/paper-implementation-experiment-lineage-v2-contracts.ts",
     "./research-lifecycle/paper-implementation-semantic-retrieval-v2-contracts": "./src/research-lifecycle/paper-implementation-semantic-retrieval-v2-contracts.ts",

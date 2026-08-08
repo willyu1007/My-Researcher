@@ -145,4 +145,5 @@ Project: `main`
 | T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
 | T-134 experiment-foundation-audit-remainders-closure | archived | F-001 | dev-docs/archive/experiment-foundation-audit-remainders-closure |
 | T-135 experiment-foundation-v2-semantic-api-activation | archived | F-001 | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
+| T-136 scientific-evidence-to-paper-closure | in-progress | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
 <!-- AUTO-GENERATED:END task-index -->

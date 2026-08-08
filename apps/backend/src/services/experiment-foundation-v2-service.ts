@@ -20,6 +20,7 @@ import {
   type ExperimentFoundationReadinessBlockerV2,
   type ExperimentFoundationReadinessDependencyV2,
   type ExperimentFoundationV2AssetType,
+  type ExperimentFoundationV2ArtifactContractRuleV1,
   type ExperimentFoundationV2BenchmarkDraftContentV1,
   type ExperimentFoundationV2DataPolicyDraftContentV1,
   type ExperimentFoundationV2DatasetDraftContentV1,
@@ -696,6 +697,129 @@ export class ExperimentFoundationV2Service {
         throw invalidPayload(
           'V2_TYPED_SNAPSHOT_INVALID',
           `Metric rule ${rule.rule_id} drifts from its exact metric definition.`,
+        );
+      }
+    }
+
+    const scientificContract = protocol.scientific_contract;
+    if (!scientificContract) return;
+
+    assertUniqueCanonicalOrdinals(
+      scientificContract.observation_slots,
+      (slot) => slot.observation_key,
+      'scientific observation slot',
+    );
+    assertUniqueCanonicalOrdinals(
+      scientificContract.artifact_slots,
+      (slot) => slot.artifact_key,
+      'scientific artifact slot',
+    );
+
+    const observationSlots = new Map(
+      scientificContract.observation_slots.map((slot) => [slot.observation_key, slot]),
+    );
+    const artifactRules = new Map<string, ExperimentFoundationV2ArtifactContractRuleV1>(
+      protocol.required_rules
+        .filter((rule): rule is ExperimentFoundationV2ArtifactContractRuleV1 => (
+          rule.rule_type === 'artifact_contract@v1'
+        ))
+        .map((rule) => [rule.rule_id, rule]),
+    );
+    const artifactRuleBindingCounts = new Map<string, number>();
+    for (const slot of scientificContract.artifact_slots) {
+      if (!Object.hasOwn(slot, 'required_rule_id')) {
+        throw invalidPayload(
+          'V2_TYPED_SNAPSHOT_INVALID',
+          `Scientific artifact slot ${slot.artifact_key} must explicitly declare required_rule_id or null.`,
+        );
+      }
+      if (slot.required_rule_id === null) continue;
+      const artifactRule = artifactRules.get(slot.required_rule_id ?? '');
+      if (!artifactRule || artifactRule.artifact_kind !== slot.artifact_kind) {
+        throw invalidPayload(
+          'V2_TYPED_SNAPSHOT_INVALID',
+          `Scientific artifact slot ${slot.artifact_key} has an invalid required-rule binding.`,
+        );
+      }
+      artifactRuleBindingCounts.set(
+        artifactRule.rule_id,
+        (artifactRuleBindingCounts.get(artifactRule.rule_id) ?? 0) + 1,
+      );
+    }
+    for (const artifactRule of artifactRules.values()) {
+      if (artifactRuleBindingCounts.get(artifactRule.rule_id) !== artifactRule.required_cardinality) {
+        throw invalidPayload(
+          'V2_TYPED_SNAPSHOT_INVALID',
+          `Artifact rule ${artifactRule.rule_id} must bind exactly its required cardinality of scientific artifact slots.`,
+        );
+      }
+    }
+
+    const comparisonRules = scientificContract.comparison_rules ?? [];
+    if (comparisonRules.length === 0) {
+      throw invalidPayload(
+        'V2_TYPED_SNAPSHOT_INVALID',
+        'A new scientific EvaluationProtocol must preregister at least one CMP-B1 rule.',
+      );
+    }
+    assertUniqueCanonicalOrdinals(
+      comparisonRules,
+      (rule) => rule.comparison_key,
+      'scientific comparison rule',
+    );
+    for (const rule of comparisonRules) {
+      const observationSlot = observationSlots.get(rule.observation_key);
+      if (
+        rule.left_cell_ordinal === rule.right_cell_ordinal
+        || !observationSlot
+        || !Number.isFinite(rule.support_min)
+        || !Number.isFinite(rule.contradiction_max)
+        || rule.contradiction_max >= rule.support_min
+        || (
+          rule.uncertainty_policy.kind === 'confidence_interval_guard'
+          && (
+            !Number.isFinite(rule.uncertainty_policy.confidence_level)
+            || rule.uncertainty_policy.confidence_level <= 0
+            || rule.uncertainty_policy.confidence_level >= 1
+            || rule.uncertainty_policy.method_key.trim().length === 0
+            || observationSlot.uncertainty.kind !== 'confidence_interval'
+            || observationSlot.uncertainty.level
+              !== rule.uncertainty_policy.confidence_level
+            || !observationSlot.uncertainty.allowed_method_keys.includes(
+              rule.uncertainty_policy.method_key,
+            )
+          )
+        )
+      ) {
+        throw invalidPayload(
+          'V2_TYPED_SNAPSHOT_INVALID',
+          `Scientific comparison rule ${rule.comparison_key} is not an admitted CMP-B1 rule.`,
+        );
+      }
+    }
+    const primaryComparisonKey = scientificContract.primary_comparison_key;
+    const primaryMatches = comparisonRules.filter(
+      (rule) => rule.comparison_key === primaryComparisonKey,
+    );
+    if (
+      !primaryComparisonKey
+      || primaryComparisonKey.trim().length === 0
+      || primaryMatches.length !== 1
+    ) {
+      throw invalidPayload(
+        'V2_TYPED_SNAPSHOT_INVALID',
+        'Scientific protocol must designate exactly one preregistered primary comparison.',
+      );
+    }
+    for (const [field, exitKey] of [
+      ['decision_if_positive', scientificContract.decision_if_positive],
+      ['decision_if_negative', scientificContract.decision_if_negative],
+      ['decision_if_inconclusive', scientificContract.decision_if_inconclusive],
+    ] as const) {
+      if (!exitKey || exitKey.trim().length === 0) {
+        throw invalidPayload(
+          'V2_TYPED_SNAPSHOT_INVALID',
+          `Scientific protocol must freeze a non-empty ${field} exit key.`,
         );
       }
     }
@@ -1453,6 +1577,25 @@ function exactRefKey(ref: ExperimentFoundationV2ExactAssetRevisionRef): string {
     String(ref.revision_sequence),
     ref.content_hash,
   ].join(':');
+}
+
+function assertUniqueCanonicalOrdinals<T extends { ordinal: number }>(
+  values: readonly T[],
+  keyOf: (value: T) => string,
+  label: string,
+): void {
+  const keys = new Set<string>();
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index]!;
+    const key = keyOf(value);
+    if (key.trim().length === 0 || keys.has(key) || value.ordinal !== index + 1) {
+      throw invalidPayload(
+        'V2_TYPED_SNAPSHOT_INVALID',
+        `Each ${label} must have a unique key and canonical contiguous ordinal.`,
+      );
+    }
+    keys.add(key);
+  }
 }
 
 function validationErrors(errors: ErrorObject[] | null | undefined): Array<{

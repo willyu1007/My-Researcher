@@ -149,6 +149,7 @@ Project: `main`
 | T-132 experiment-foundation-productization-closure | archived | dev-docs/archive/experiment-foundation-productization-closure |
 | T-134 experiment-foundation-audit-remainders-closure | archived | dev-docs/archive/experiment-foundation-audit-remainders-closure |
 | T-135 experiment-foundation-v2-semantic-api-activation | archived | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
+| T-136 scientific-evidence-to-paper-closure | in-progress | dev-docs/active/scientific-evidence-to-paper-closure |
 
 ### F-002 Desktop Frontend Foundation
 

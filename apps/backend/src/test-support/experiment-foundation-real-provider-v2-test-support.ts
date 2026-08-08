@@ -7,6 +7,7 @@ import {
 import type { PrismaClient } from '@prisma/client';
 import type {
   ExperimentFoundationAliyunRealProviderProfileV2,
+  ExperimentFoundationExecutionBundleOutputContractV1,
   ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
@@ -119,6 +120,7 @@ export async function createPersistedRealProviderBundleV2(input: {
   prisma: PrismaClient;
   namespace: string;
   now: string;
+  outputContractOverride?: Partial<ExperimentFoundationExecutionBundleOutputContractV1>;
 }): Promise<{
   revision: ExperimentFoundationExecutionBundleRevisionV2;
   profile: ExperimentFoundationAliyunRealProviderProfileV2;
@@ -137,11 +139,13 @@ export async function createPersistedRealProviderBundleV2(input: {
     now: () => input.now,
     idGenerator: (kind) => `${input.namespace}:execution-bundle:${kind}:${++sequence}`,
   });
+  const draftContent = structuredClone(base.bundle.revision_content);
+  Object.assign(draftContent.output_contract, input.outputContractOverride ?? {});
   await service.putDraft({
     bundle_key: `${input.namespace}:execution-bundle`,
     display_name: 'Disposable real-provider execution bundle',
     expected_draft_version: null,
-    draft_content: structuredClone(base.bundle.revision_content),
+    draft_content: draftContent,
   });
   const frozen = await service.freezeActiveRevision({
     bundle_key: `${input.namespace}:execution-bundle`,
