@@ -40,7 +40,7 @@
 
 ### 全局结论
 - **成熟度分布：0 产品级 / 7 骨架 / 20 部分**（27 项，含 6 个标定门控）。无任何 prompt 达产品级——Phase 1 是真实工作量，非走过场。
-- **version 来源（统一形态）**：全部为**内联 const**（无集中模板库；templates inline by design）。字面值：v1a/v1b 表面 = `'v1'`；resource-sampling 与**全部 v1c** = `'1'`。唯一例外：`topic-selection-promotion-decision-support` 接受 caller override，缺省回落 `'1'`。registry 只强制 **id-membership + 非空 version**，精确 pinning 延期（[registry header](apps/backend/src/services/topic-selection-llm-invocation-registry.ts:13)）。
+- **version 来源（统一形态）**：全部为**内联 const**（无集中模板库；templates inline by design）。字面值：v1a/v1b 表面 = `'v1'`；resource-sampling 与**全部 v1c** = `'1'`。唯一例外：`topic-selection-promotion-decision-support` 接受 caller override，缺省回落 `'1'`。registry 只强制 **id-membership + 非空 version**，精确 pinning 延期（[registry header](../../../apps/backend/src/services/topic-selection-llm-invocation-registry.ts#L13)）。
 - **hash 锚定（统一缺口，最重要发现）**：**全 27 个 prompt 正文皆无 committed golden byte-identity 锚**。现存 `GUARD_GOLDEN_N1` 仅钉 v1b-N1 harness 哈希、`OPTION_AUTHORITY_GOLDEN`（`b7f43aa3…`）钉 v1b-N1 authority，皆**非 prompt 正文**。运行期 `prompt_packet_hash`/`ln_hash` 只做**同跑自洽 / 自决定性 / admission 等式**校验（非锚定到 checked-in 字面）。n6-debate 三角色另有**仅-ID 漂移守卫**（`PROMPT_TEMPLATE_ID_BY_SLOT` single-sourced 到 scenario `role_stage_slots`），仍非正文锚。→ **Phase 1 每项定稿都须同事务新增 per-prompt golden drift 锚**（承雷区 prompt_packet_hash 漂移；任何正文定稿改 hash，否则 replay byte-identity 无守卫即漂移）。
 - **标定门控（Phase 5 defer，恰 6 项，与 00-overview/包规则一致）**：`topic-selection-v1b-n6-debate-explorer/critic/arbiter`、`topic-selection.v1b.n8.topic-value-assessment.runtime-draft`、`topic-selection.v1b.n8.bounded-micro-debate.runtime-role`、`topic-selection-v1c-promotion-support-bounded-micro-debate`。其余 21 项皆 Phase 1（不被语料门控）。
 
