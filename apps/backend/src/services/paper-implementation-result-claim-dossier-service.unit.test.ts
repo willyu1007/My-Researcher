@@ -422,6 +422,7 @@ function storedClosure(
     selected_exit_key: null,
     accepted_proposal_id: null,
     accepted_proposal_hash: null,
+    scientific_authority: null,
     closure_watermark: {
       schema_version: 'v1',
       validation_cycle_id: VALIDATION_CYCLE_ID,

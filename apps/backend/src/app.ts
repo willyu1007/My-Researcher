@@ -273,6 +273,7 @@ import { PaperImplementationTraceIntegrityDebateRuntimeService } from './service
 import { PaperImplementationTraceIntegrityRetrievalService } from './services/paper-implementation-trace-integrity-retrieval-service.js';
 import { PaperImplementationP1RuntimeReviewService } from './services/paper-implementation-p1-runtime-review-service.js';
 import { PaperImplementationResultAnalysisRuntimeService } from './services/paper-implementation-result-analysis-runtime-service.js';
+import { PaperImplementationScientificClosureContextService } from './services/paper-implementation-scientific-closure-context-service.js';
 import { PaperImplementationExperimentPlanningRuntimeService } from './services/paper-implementation-experiment-planning-runtime-service.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './services/paper-implementation-route-planning-runtime-service.js';
 import { PaperImplementationRunCoordinatorService } from './services/paper-implementation-run-coordinator-service.js';
@@ -1329,6 +1330,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       projectRepository: paperImplementationRepository,
       runtimeAdmission: paperImplementationRuntimeAdmissionService,
       agentOrchestrator: paperImplementationResultAnalysisAgentOrchestratorService,
+      scientificClosureContextResolver:
+        new PaperImplementationScientificClosureContextService(
+          paperImplementationValidationCycleClosureV2Repository,
+        ),
       telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
   const paperImplementationRoutePlanningAgentOrchestratorService = new TopicSelectionAgentOrchestratorService({

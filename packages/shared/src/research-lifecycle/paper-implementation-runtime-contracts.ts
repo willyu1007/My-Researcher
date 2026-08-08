@@ -368,6 +368,8 @@ export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_OUTPUT_SCHEMA_ID =
   'PaperImplementationResultAnalysisRoleArtifact@v1' as const;
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID =
   'PaperImplementationResultAnalysisArtifact@v1' as const;
+export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID =
+  'PaperImplementationScientificClosureProposalArtifact@v1' as const;
 export const PAPER_IMPLEMENTATION_RESULT_ANALYSIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION =
   'RunPaperImplementationResultAnalysisRuntimeRequest@v1' as const;
 export const PAPER_IMPLEMENTATION_EXPERIMENT_PLANNING_ROLE_OUTPUT_SCHEMA_ID =
@@ -1113,6 +1115,53 @@ export interface PaperImplementationResultAnalysisRoleOutput {
   claim_implications?: PaperImplementationResultAnalysisClaimImplications | null;
 }
 
+export interface PaperImplementationScientificComparisonFactRefV1 {
+  comparison_fact_id: string;
+  comparison_fact_hash: string;
+}
+
+export interface PaperImplementationScientificEvidenceRefV1 {
+  ordinal: number;
+  run_evidence_unit_id: string;
+  content_hash: string;
+}
+
+/**
+ * Server-supplied factual context used to version a ResultAnalysis final
+ * artifact for scientific closure. Closure never trusts this copy: the exact
+ * proposal, REUs, report, protocol and primary fact are reread transactionally.
+ */
+export interface PaperImplementationScientificClosureContextV1 {
+  schema_version: 'PaperImplementationScientificClosureContext@v1';
+  validation_cycle_id: string;
+  closure_watermark_hash: string;
+  primary_comparison_fact_ref: PaperImplementationScientificComparisonFactRefV1;
+  ordered_evidence_refs: PaperImplementationScientificEvidenceRefV1[];
+}
+
+/**
+ * Public request face for producing a scientific-closure proposal. The caller
+ * may pin the expected Cycle watermark, but cannot provide scientific facts or
+ * evidence bodies. The backend resolves those transactionally from the local
+ * evidence store before invoking the runtime role.
+ */
+export interface PaperImplementationScientificClosureIntentV1 {
+  schema_version: 'PaperImplementationScientificClosureIntent@v1';
+  expected_closure_watermark_hash: string;
+}
+
+export interface PaperImplementationScientificClosureProposalV1
+extends Omit<PaperImplementationScientificClosureContextV1, 'schema_version'> {
+  schema_version: 'PaperImplementationScientificClosureProposal@v1';
+  interpretation_summary: string;
+  reliability_assessment: PaperImplementationResultAnalysisReliabilityAssessment;
+  limitations: {
+    limitation_refs: TopicSelectionFunctionalRef[];
+    reliability_notes: string[];
+  };
+  claim_ceiling: PaperImplementationClaimStrength;
+}
+
 export interface PaperImplementationResultAnalysisArtifact {
   status: 'passed' | 'blocked' | 'failed_runtime';
   slot_id: typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID;
@@ -1141,6 +1190,11 @@ export interface PaperImplementationResultAnalysisArtifact {
   source_hash_bundle_hash: string;
 }
 
+export interface PaperImplementationResultAnalysisScientificClosureArtifact
+extends PaperImplementationResultAnalysisArtifact {
+  scientific_closure_proposal: PaperImplementationScientificClosureProposalV1 | null;
+}
+
 export interface RunPaperImplementationResultAnalysisRuntimeRequest {
   schema_version?: typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_RUNTIME_RUN_REQUEST_SCHEMA_VERSION;
   run_id?: string | null;
@@ -1155,9 +1209,11 @@ export interface RunPaperImplementationResultAnalysisRuntimeRequest {
   source_refs: TopicSelectionFunctionalRef[];
   source_hashes: string[];
   // T-124 G4.5 Fix 1: optional caller-injected source bodies (hash-fenced to
-  // source_refs/source_hashes). Additive; live provider runs supply these so the
-  // interpretation-scenario builder can emit a complete domain_gate_request.
+  // source_refs/source_hashes) for ordinary ResultAnalysis runs. Scientific
+  // closure intent forbids this field; the backend supplies authoritative
+  // packets after resolving the local evidence store.
   source_context_packets?: PaperImplementationBackHalfSourceContextPacket[];
+  scientific_closure_intent?: PaperImplementationScientificClosureIntentV1;
   preflight_blocker_codes?: string[];
   mocked_role_outputs?: Partial<Record<
     typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
@@ -4809,6 +4865,97 @@ export const paperImplementationP1RuntimeReviewArtifactSchema = {
   ],
 } as const;
 
+const scientificCanonicalHashString = {
+  type: 'string',
+  pattern: '^sha256:[0-9a-f]{64}$',
+} as const;
+
+export const paperImplementationScientificComparisonFactRefV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['comparison_fact_id', 'comparison_fact_hash'],
+  properties: {
+    comparison_fact_id: stringId,
+    comparison_fact_hash: scientificCanonicalHashString,
+  },
+} as const;
+
+export const paperImplementationScientificEvidenceRefV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ordinal', 'run_evidence_unit_id', 'content_hash'],
+  properties: {
+    ordinal: positiveInteger,
+    run_evidence_unit_id: stringId,
+    content_hash: scientificCanonicalHashString,
+  },
+} as const;
+
+export const paperImplementationScientificClosureContextV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'validation_cycle_id',
+    'closure_watermark_hash',
+    'primary_comparison_fact_ref',
+    'ordered_evidence_refs',
+  ],
+  properties: {
+    schema_version: { const: 'PaperImplementationScientificClosureContext@v1' },
+    validation_cycle_id: stringId,
+    closure_watermark_hash: scientificCanonicalHashString,
+    primary_comparison_fact_ref: paperImplementationScientificComparisonFactRefV1Schema,
+    ordered_evidence_refs: {
+      type: 'array',
+      minItems: 1,
+      items: paperImplementationScientificEvidenceRefV1Schema,
+    },
+  },
+} as const;
+
+export const paperImplementationScientificClosureIntentV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['schema_version', 'expected_closure_watermark_hash'],
+  properties: {
+    schema_version: { const: 'PaperImplementationScientificClosureIntent@v1' },
+    expected_closure_watermark_hash: scientificCanonicalHashString,
+  },
+} as const;
+
+export const paperImplementationScientificClosureProposalV1Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'validation_cycle_id',
+    'closure_watermark_hash',
+    'primary_comparison_fact_ref',
+    'ordered_evidence_refs',
+    'interpretation_summary',
+    'reliability_assessment',
+    'limitations',
+    'claim_ceiling',
+  ],
+  properties: {
+    ...paperImplementationScientificClosureContextV1Schema.properties,
+    schema_version: { const: 'PaperImplementationScientificClosureProposal@v1' },
+    interpretation_summary: stringId,
+    reliability_assessment: paperImplementationResultAnalysisReliabilityAssessmentSchema,
+    limitations: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['limitation_refs', 'reliability_notes'],
+      properties: {
+        limitation_refs: nonLegacyFunctionalRefArray,
+        reliability_notes: stringArray,
+      },
+    },
+    claim_ceiling: runtimeClaimStrengthSchema,
+  },
+} as const;
+
 export const paperImplementationResultAnalysisArtifactSchema = {
   type: 'object',
   additionalProperties: false,
@@ -4884,6 +5031,20 @@ export const paperImplementationResultAnalysisArtifactSchema = {
       },
     },
   ],
+} as const;
+
+export const paperImplementationResultAnalysisScientificClosureArtifactSchema = {
+  ...paperImplementationResultAnalysisArtifactSchema,
+  required: [
+    ...paperImplementationResultAnalysisArtifactSchema.required,
+    'scientific_closure_proposal',
+  ],
+  properties: {
+    ...paperImplementationResultAnalysisArtifactSchema.properties,
+    scientific_closure_proposal: {
+      anyOf: [paperImplementationScientificClosureProposalV1Schema, { type: 'null' }],
+    },
+  },
 } as const;
 
 export const paperImplementationExperimentPlanningArtifactSchema = {
@@ -6885,12 +7046,23 @@ export const runPaperImplementationResultAnalysisRuntimeRequestSchema = {
       type: 'array',
       items: paperImplementationBackHalfSourceContextPacketSchema,
     },
+    scientific_closure_intent: paperImplementationScientificClosureIntentV1Schema,
     preflight_blocker_codes: stringArray,
     mocked_role_outputs: resultAnalysisRoleOutputsBySlotSchema,
     codex_role_outputs: resultAnalysisRoleOutputsBySlotSchema,
   },
   allOf: [
     productRunModeRequiresProviderExecution,
+    {
+      if: { required: ['scientific_closure_intent'] },
+      then: {
+        properties: {
+          run_mode: { const: 'product' },
+          execution_mode: { const: 'provider_llm' },
+          source_context_packets: false,
+        },
+      },
+    },
     {
       if: { properties: { execution_mode: { const: 'mocked_llm' } }, required: ['execution_mode'] },
       then: {

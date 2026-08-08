@@ -71,6 +71,7 @@ import {
   paperImplementationValidationCyclePlanningArtifactSchema,
   paperImplementationValidationCyclePlanningRoleOutputSchema,
   paperImplementationResultAnalysisArtifactSchema,
+  paperImplementationResultAnalysisScientificClosureArtifactSchema,
   paperImplementationResultAnalysisRoleOutputSchema,
   paperImplementationRuntimeAdmissionRecordSchema,
   paperImplementationRuntimeArtifactEnvelopeSchema,
@@ -1807,6 +1808,41 @@ test('result analysis role and final schemas require materializable passed scena
     await validatesBody(paperImplementationResultAnalysisArtifactSchema, artifact),
     true,
   );
+  const scientificProposal = {
+    ...artifact,
+    scientific_closure_proposal: {
+      schema_version: 'PaperImplementationScientificClosureProposal@v1',
+      validation_cycle_id: 'validation_cycle_001',
+      closure_watermark_hash: `sha256:${hashA}`,
+      primary_comparison_fact_ref: {
+        comparison_fact_id: 'comparison_fact_001',
+        comparison_fact_hash: `sha256:${hashB}`,
+      },
+      ordered_evidence_refs: [{
+        ordinal: 1,
+        run_evidence_unit_id: 'run_evidence_unit_001',
+        content_hash: `sha256:${hashC}`,
+      }],
+      interpretation_summary: 'Bounded actual-result interpretation.',
+      reliability_assessment: resultAnalysisRoleOutput().reliability,
+      limitations: {
+        limitation_refs: [ref('limitation', 'limitation_001')],
+        reliability_notes: ['Single benchmark scope.'],
+      },
+      claim_ceiling: 'moderate',
+    },
+  };
+  assert.equal(
+    await validatesBody(
+      paperImplementationResultAnalysisScientificClosureArtifactSchema,
+      scientificProposal,
+    ),
+    true,
+  );
+  assert.equal(
+    await validatesBody(paperImplementationResultAnalysisArtifactSchema, scientificProposal),
+    false,
+  );
   assert.equal(
     await validatesBody(paperImplementationResultAnalysisArtifactSchema, {
       ...artifact,
@@ -1859,6 +1895,43 @@ test('result analysis runtime request accepts one controlled role output and rej
       model_option_id: 'paper-implementation.result-analysis.interpretation-scenarios.v1.openai-balanced',
       codex_role_outputs: undefined,
       mocked_role_outputs: roleOutputs,
+    }),
+    false,
+  );
+  const scientificRequest = {
+    ...request,
+    run_mode: 'product',
+    execution_mode: 'provider_llm',
+    codex_role_outputs: undefined,
+    scientific_closure_intent: {
+      schema_version: 'PaperImplementationScientificClosureIntent@v1',
+      expected_closure_watermark_hash: `sha256:${hashA}`,
+    },
+  };
+  assert.equal(
+    await validatesBody(runPaperImplementationResultAnalysisRuntimeRequestSchema, scientificRequest),
+    true,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationResultAnalysisRuntimeRequestSchema, {
+      ...scientificRequest,
+      source_context_packets: [{
+        source_ref: request.source_refs[0],
+        source_hash: hashD,
+        evidence_kind: 'caller_fact',
+        content_summary: 'Caller-supplied scientific content is forbidden.',
+        key_facts: [],
+      }],
+    }),
+    false,
+  );
+  assert.equal(
+    await validatesBody(runPaperImplementationResultAnalysisRuntimeRequestSchema, {
+      ...scientificRequest,
+      scientific_closure_intent: undefined,
+      scientific_closure_context: {
+        schema_version: 'PaperImplementationScientificClosureContext@v1',
+      },
     }),
     false,
   );

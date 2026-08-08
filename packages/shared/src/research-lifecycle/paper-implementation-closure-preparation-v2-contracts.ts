@@ -27,37 +27,43 @@ export interface ValidationCycleClosurePreparationReadinessV2 {
   blockers: ValidationCycleReadinessBlockerV2[];
 }
 
-export interface ScientificClosureBlockedV2 {
-  marker: 'scientific_closure_blocked';
-  available: false;
-  gate: 'M7-L2';
-}
-
 export type ValidationCycleDerivedClosureKindV2 =
   | 'control_flow_validated_no_paper_evidence'
-  | ScientificClosureBlockedV2
+  | 'scientific_evidence_assessed'
   | null;
 
 /**
- * This is the exact closure POST body shape. The sole caller-owned value is
- * intentionally null in the template and must be filled before submission.
+ * This is the exact closure POST body shape. Caller-owned values remain null
+ * in the template and are enumerated explicitly before submission.
  */
 export interface PreparedCloseValidationCycleV2Body {
   validation_cycle_id: string;
   expected_cycle_version: number;
   expected_closure_input_hash: string;
-  closure_kind: 'control_flow_validated_no_paper_evidence';
+  closure_kind:
+    | 'control_flow_validated_no_paper_evidence'
+    | 'scientific_evidence_assessed';
   accepted_proposal_id: null;
   expected_proposal_hash: null;
-  corrected_scientific_disposition: null;
   idempotency_key: null;
 }
 
-export interface PreparedCloseValidationCycleV2TemplateField {
-  field: 'idempotency_key';
-  semantic: 'business_idempotency_key';
-  required: true;
-}
+export type PreparedCloseValidationCycleV2TemplateField =
+  | {
+    field: 'idempotency_key';
+    semantic: 'business_idempotency_key';
+    required: true;
+  }
+  | {
+    field: 'accepted_proposal_id';
+    semantic: 'admitted_scientific_proposal_id';
+    required: true;
+  }
+  | {
+    field: 'expected_proposal_hash';
+    semantic: 'admitted_scientific_proposal_hash';
+    required: true;
+  };
 
 export interface PreparedCloseValidationCycleV2Request {
   body: PreparedCloseValidationCycleV2Body;
@@ -145,26 +151,6 @@ const preparationReadinessV2Schema = {
   },
 } as const;
 
-const scientificClosureBlockedV2Schema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['marker', 'available', 'gate'],
-  properties: {
-    marker: {
-      type: 'string',
-      const: 'scientific_closure_blocked',
-    },
-    available: {
-      type: 'boolean',
-      const: false,
-    },
-    gate: {
-      type: 'string',
-      const: 'M7-L2',
-    },
-  },
-} as const;
-
 const preparedCloseValidationCycleV2BodySchema = {
   type: 'object',
   additionalProperties: false,
@@ -175,7 +161,6 @@ const preparedCloseValidationCycleV2BodySchema = {
     'closure_kind',
     'accepted_proposal_id',
     'expected_proposal_hash',
-    'corrected_scientific_disposition',
     'idempotency_key',
   ],
   properties: {
@@ -184,11 +169,13 @@ const preparedCloseValidationCycleV2BodySchema = {
     expected_closure_input_hash: hashSchema,
     closure_kind: {
       type: 'string',
-      const: 'control_flow_validated_no_paper_evidence',
+      enum: [
+        'control_flow_validated_no_paper_evidence',
+        'scientific_evidence_assessed',
+      ],
     },
     accepted_proposal_id: { type: 'null' },
     expected_proposal_hash: { type: 'null' },
-    corrected_scientific_disposition: { type: 'null' },
     idempotency_key: { type: 'null' },
   },
 } as const;
@@ -202,20 +189,39 @@ const preparedCloseValidationCycleV2RequestSchema = {
     required_template_fields: {
       type: 'array',
       minItems: 1,
-      maxItems: 1,
+      maxItems: 3,
       items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['field', 'semantic', 'required'],
-        properties: {
-          field: { type: 'string', const: 'idempotency_key' },
-          semantic: { type: 'string', const: 'business_idempotency_key' },
-          required: { type: 'boolean', const: true },
-        },
+        oneOf: [
+          templateFieldSchema(
+            'idempotency_key',
+            'business_idempotency_key',
+          ),
+          templateFieldSchema(
+            'accepted_proposal_id',
+            'admitted_scientific_proposal_id',
+          ),
+          templateFieldSchema(
+            'expected_proposal_hash',
+            'admitted_scientific_proposal_hash',
+          ),
+        ],
       },
     },
   },
 } as const;
+
+function templateFieldSchema(field: string, semantic: string) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['field', 'semantic', 'required'],
+    properties: {
+      field: { type: 'string', const: field },
+      semantic: { type: 'string', const: semantic },
+      required: { type: 'boolean', const: true },
+    },
+  } as const;
+}
 
 export const validationCycleClosurePreparationV2ResponseSchema = {
   type: 'object',
@@ -227,9 +233,11 @@ export const validationCycleClosurePreparationV2ResponseSchema = {
       anyOf: [
         {
           type: 'string',
-          const: 'control_flow_validated_no_paper_evidence',
+          enum: [
+            'control_flow_validated_no_paper_evidence',
+            'scientific_evidence_assessed',
+          ],
         },
-        scientificClosureBlockedV2Schema,
         { type: 'null' },
       ],
     },

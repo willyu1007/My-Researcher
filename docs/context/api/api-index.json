@@ -1,14 +1,15 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-08T08:09:57.553Z",
+  "generatedAt": "2026-08-08T15:13:31.485Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "5898861ad08234cddebef56bc8ecab535b1c03a0944255e121589b69938aa712",
+  "sourceChecksumSha256": "2d612b1cf1da4ad14664cec3b3b3c89b88d51284ae6dbf65be715f454274b483",
   "stats": {
-    "totalEndpoints": 208,
+    "totalEndpoints": 209,
     "byTag": {
       "health": 1,
       "paper-implementation-experiment-v2": 8,
       "paper-implementation-exploration-attachment-v2": 1,
+      "paper-implementation-runtime": 1,
       "paper-implementation-semantic-v2": 2,
       "experiment-foundation-promotion-v2": 1,
       "experiment-foundation-exploration-spec-v2": 1,
@@ -157,7 +158,6 @@
             "closure_kind",
             "accepted_proposal_id",
             "expected_proposal_hash",
-            "corrected_scientific_disposition",
             "idempotency_key"
           ],
           "optional": [
@@ -179,7 +179,7 @@
         500
       ],
       "example": {
-        "curl": "curl -X POST '/paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2' -H 'Content-Type: application/json' -d '{\"expected_cycle_version\":\"<expected_cycle_version>\",\"expected_closure_input_hash\":\"<expected_closure_input_hash>\",\"closure_kind\":\"<closure_kind>\",\"accepted_proposal_id\":\"<accepted_proposal_id>\",\"expected_proposal_hash\":\"<expected_proposal_hash>\",\"corrected_scientific_disposition\":\"<corrected_scientific_disposition>\",\"idempotency_key\":\"<idempotency_key>\"}'"
+        "curl": "curl -X POST '/paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2' -H 'Content-Type: application/json' -d '{\"expected_cycle_version\":\"<expected_cycle_version>\",\"expected_closure_input_hash\":\"<expected_closure_input_hash>\",\"closure_kind\":\"<closure_kind>\",\"accepted_proposal_id\":\"<accepted_proposal_id>\",\"expected_proposal_hash\":\"<expected_proposal_hash>\",\"idempotency_key\":\"<idempotency_key>\"}'"
       }
     },
     {
@@ -216,6 +216,50 @@
       ],
       "example": {
         "curl": "curl -X GET '/paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/readiness'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/projects/{implementation_project_id}/runtime-slots/result-analysis-scenarios/run",
+      "operationId": "runPaperImplementationResultAnalysisScenarios",
+      "summary": "Run the ResultAnalysis role and persist its admitted runtime artifacts.",
+      "tag": "paper-implementation-runtime",
+      "auth": "none",
+      "input": {
+        "params": [
+          "implementation_project_id"
+        ],
+        "query": [],
+        "body": {
+          "required": [],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 201,
+        "coreFields": [
+          "run_id",
+          "slot_id",
+          "workflow_type",
+          "status",
+          "provider_call_count",
+          "runtime_artifacts",
+          "admission_records",
+          "final_runtime_artifact",
+          "final_admission_record",
+          "blocker_codes",
+          "warning_codes",
+          "operational_telemetry"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/projects/{implementation_project_id}/runtime-slots/result-analysis-scenarios/run'"
       }
     },
     {
@@ -403,7 +447,7 @@
       "method": "GET",
       "path": "/paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation",
       "operationId": "preparePaperImplementationValidationCycleClosureV2",
-      "summary": "Prepare the exact no-evidence closure request template for one ValidationCycle.",
+      "summary": "Prepare the exact control or scientific closure request template for one ValidationCycle.",
       "tag": "paper-implementation-experiment-v2",
       "auth": "none",
       "input": {

@@ -1,8 +1,10 @@
 # T-136 Scientific Evidence to Paper Closure — Architecture
 
-## Context and current state
+## Task-intake baseline and current checkpoint
 
-The current implementation has two strong halves separated by an intentional product gap:
+The two-part description is the historical baseline captured when T-136 was opened. The historical baseline explains why the task exists and does not represent current implementation status. The maintained current checkpoint is `00-overview.md`, where P1-P3 are implemented and P4-P5 remain.
+
+At task intake, the implementation had two strong halves separated by an intentional product gap:
 
 1. PI can admit an exact WorkOrder revision; EF can materialize and execute an immutable two-cell Run on real PAI, collect exact parser-bound output and replay without duplicate Jobs. The completed real outputs remain `diagnostic_only`.
 2. EF has typed v2 scientific-result/validation contracts and a sole scientific writer. A passed validation can emit `EvidenceCandidateQualified`; the durable relay and PI Evidence Trust Gateway can mint a trusted v2 REU and trace manifest. PI also has D-18 readiness/control-only closure. Scientific-kind closure and post-closure Packet materialization are explicitly closed.
@@ -11,7 +13,9 @@ T-136 connects these existing authorities. The task must not create a generic da
 
 External compute and external result import are different boundaries. EF may use PAI as an external compute adapter only when EF creates the exact job/Attempt, monitors the Attempt and collects the bound artifact. The product does not accept numbers or completed result packages produced outside that controlled lifecycle.
 
-## Current blockers confirmed in code
+## Task-intake blockers confirmed in code (historical)
+
+The bullets are pre-implementation census evidence. P1-P3 have closed the Result source, product validation and scientific Closure items; the Packet and bounded real-acceptance items remain open under P4-P5. The task-intake blocker section is not an alternate current-state ledger.
 
 - `ExperimentFoundationV2ScientificValidationService` exposes `recordExperimentResult` and `validateScientificBatch`, but no non-test route/controller/caller currently invokes them.
 - `recordExperimentResult` currently accepts caller-composed metric/artifact observations after checking a succeeded real-provider Attempt; metric values are not yet derived by authoritative reread of an exact collected output.
@@ -45,7 +49,7 @@ sequenceDiagram
     EF-->>Relay: EvidenceCandidateQualified
     Relay->>PI: Trust Gateway consume
     PI->>PI: create trusted REU + trace manifest
-    PI->>PI: produce/review ResultAnalysis proposal
+    PI->>PI: produce and officially admit ResultAnalysis proposal
     PI->>PI: D-18 CAS scientific ValidationCycle closure
     PI-->>Relay: ValidationCycleClosed
     Relay->>PI: materialize ResultInterpretationPacket
@@ -64,7 +68,7 @@ PaperImplementation and ExperimentFoundation are peer bounded contexts. Their in
 | `ScientificValidationReportV2` | EF | Same scientific validation service | Complete ordered result batch + exact EvaluationProtocol; eligibility status and deterministic comparison facts remain separate |
 | `EvidenceCandidateV2` | EF | Same validation transaction/outbox | Passed validation report |
 | v2 REU + trace manifest | PI | `PaperImplementationEvidenceTrustGatewayService` | Qualified event + EF authoritative reread + PI current authority |
-| ResultAnalysis proposal | PI runtime/human review | Existing proposal/runtime admission path | Trusted REUs and current Cycle scope |
+| ResultAnalysis proposal | PI runtime | ResultAnalysis runtime + official final-admission path | Server-resolved trusted REUs and current Cycle scope |
 | Scientific disposition/selected exit | PI | `PaperImplementationValidationCycleClosureV2Service` | Exact accepted proposal + primary comparison fact + D-18 watermark |
 | ResultInterpretationPacket | PI | New closure-event materializer | Immutable `ValidationCycleClosed` + closure/proposal/evidence reread |
 | Claim/Dossier | PI | Existing result/claim/dossier service | Closed Packet and project accounting |
@@ -590,7 +594,7 @@ The rule is admitted only when both protocol slots declare the same unit, thresh
 
 - The admitted ResultAnalysis runtime already has an immutable `runtime_artifact_id` and `final_artifact_hash`; the pair can be reused as proposal identity instead of adding a proposal table. The current multi-scenario artifact is migration input, not yet the exact one-proposal scientific-closure contract.
 - `PaperImplementationValidationCycleClosureV2` already stores closure kind, scientific disposition, selected exit, accepted proposal id/hash, D-18 watermark and closure hashes. No new closure table or closure data column is required.
-- The current scientific closure service explicitly rejects `scientific_evidence_assessed`, and the current request contract still permits `corrected_scientific_disposition`. P3 must replace that caller-authored conclusion seam rather than expose the seam as the final product contract.
+- Before P3, the scientific closure service explicitly rejected `scientific_evidence_assessed`, and the request contract still permitted `corrected_scientific_disposition`. P3 replaced that caller-authored conclusion seam with the exact proposal-authorized server projection described below.
 - `PaperImplementationResultInterpretationPacket` lacks an exact closure id/hash and Packet content hash. Confirmed PKT-S requires a small additive four-field PI Packet migration but no copied proposal/disposition/exit columns.
 
 ### Confirmed deterministic proposal/disposition rule DISP-S
@@ -598,6 +602,10 @@ The rule is admitted only when both protocol slots declare the same unit, thresh
 The user confirmed DISP-S on 2026-08-05 and rejected the earlier pending DISP-B downgrade choice as unnecessary semantic complexity. EvaluationProtocol freezes exactly one `primary_comparison_key` before Run submission. The matching CMP-B1 fact is the sole direction-bearing input to Closure; additional ordered facts may inform proposal limitations/claim ceiling but cannot vote, average or implicitly alter disposition.
 
 P3 versions the admitted ResultAnalysis final artifact into one actual-result contextual proposal bound to the exact Cycle watermark, primary fact and ordered evidence refs/hashes. Legacy multi-scenario artifacts remain readable but are ineligible for `scientific_evidence_assessed` closure.
+
+The public runtime boundary does not expose that factual context. It accepts only `PaperImplementationScientificClosureIntent@v1 { expected_closure_watermark_hash }`, requires `product` + `provider_llm`, and rejects caller source-context bodies. Before any provider call, a PI server service opens a short serializable read transaction, recomputes readiness/current D-18 watermark, batch-rereads and canonically rehashes the ordered REUs plus their reports/protocols/facts, and constructs the internal `PaperImplementationScientificClosureContext@v1`. The transaction ends before the LLM invocation. Non-scientific structural refs such as the future Packet id and trace id remain caller-declared; scientific REU/report/protocol refs and bodies are replaced by server-resolved authority.
+
+Closure admission is deliberately narrower than general runtime admission. An eligible proposal must be a canonically rehashable final runtime envelope produced as `product` + `provider_llm`, and must have exactly one self-consistent admitted record under `paper-implementation.result_analysis.interpretation_scenarios.final-admission@v1`. Mocked, Codex-assisted, acceptance and generic-policy artifacts cannot authorize scientific Closure. The Closure transaction repeats the authoritative REU/report/protocol/fact reread rather than trusting the context copied into the proposal.
 
 ```ts
 interface ScientificClosureProposalV1 {
@@ -624,7 +632,7 @@ interface CloseScientificValidationCycleRequestV1 {
 }
 ```
 
-The proposal contains no proposed/final disposition, selected exit, review recommendation or closure identity/hash. Invoking the authorized close command with the exact proposal ref is the approval action; no `accept`, `correct`, `downgrade` or approval boolean is added to the domain request. If the proposal is unacceptable, the caller does not close the Cycle and instead regenerates/selects a proposal or corrects evidence/protocol through a new revision/Run.
+The proposal contains no proposed/final disposition, selected exit, review recommendation or closure identity/hash. Invoking the authorized close command with the exact proposal ref is the approval action; no `accept`, `correct`, `downgrade` or approval boolean is added to the domain request. If the proposal is unacceptable, the caller leaves the Cycle open and reruns ResultAnalysis or corrects evidence/protocol through a new revision/Run. There is no separate proposal-selection record, state machine or manual semantic-choice field.
 
 The closure service maps the primary registered relation exactly:
 
@@ -636,9 +644,9 @@ The closure service maps the primary registered relation exactly:
 
 The selected exit mapping must exist before Run submission. The proposal/caller cannot submit disposition, selected exit or closure hashes. Scientific caution that does not invalidate the registered direction belongs in proposal limitations and `claim_ceiling`; an alleged direction error requires corrected evidence/protocol and a new Run rather than a post-result override.
 
-Assignment remains explicit: EvaluationProtocol authors the primary comparison and exit mappings pre-run; CMP-B1 validation assigns the registered relation; ResultAnalysis authors only hash-bound contextual interpretation/reliability/limitations/claim ceiling; the authorized caller decides whether to invoke Closure; the closure service alone assigns disposition, selected exit, accepted proposal refs and closure identities/hashes.
+Assignment remains explicit: EvaluationProtocol authors the primary comparison and exit mappings pre-run; CMP-B1 validation assigns the registered relation; the server context resolver assigns only the authoritative factual prompt/context projection; ResultAnalysis authors only interpretation/reliability/limitations/claim ceiling; runtime admission assigns product/provider/policy eligibility; the authorized caller decides whether to invoke Closure; the closure service alone assigns disposition, selected exit, accepted proposal refs and closure identities/hashes.
 
-The existing Closure storage is sufficient for DISP-S. No Review table or review-decision/reason/support column is added. Existing `closureInputHash` binds the exact identity/CAS/proposal request, while authenticated/local invocation audit may record the caller as operational metadata outside the scientific conclusion model. The current `corrected_scientific_disposition` request field must be removed from the scientific contract.
+The existing Closure storage is sufficient for DISP-S. No Review table or review-decision/reason/support column is added. Existing `closureInputHash` binds the exact identity/CAS/proposal request, while authenticated/local invocation audit may record the caller as operational metadata outside the scientific conclusion model. P3 removed `corrected_scientific_disposition` from the scientific contract.
 
 ### Confirmed reference-centered Packet boundary PKT-S
 
@@ -804,3 +812,10 @@ All P0 authority, evidence, comparison, conclusion, Packet and P5 eligibility de
 2. Provider-specific raw artifact layout remains late-bound behind the frozen parser/source contract; logical artifact-slot/rule admission is no longer late-bound.
 3. Exact P5 model, dataset, assets, parameters, region and budget remain late-bound.
 4. Desktop UI/navigation and user-facing presentation remain deferred.
+
+## P3 authority-hardening checkpoint — 2026-08-08
+
+- `target_ref.version_id` is the domain-reference version recorded by runtime admission; `target_version_id` is the runtime input/version fence recorded by the runtime artifact. The two values are intentionally independent and are never cross-compared. Scientific request aliases normalize to canonical `validation_cycle` before artifact/admission creation, while Closure recognizes the same normalized semantic type set for historical compatibility.
+- Scientific admission eligibility is derived from the runtime envelope plus the fixed slot admission policy, not from an admission record that merely hashes itself. Closure reconstructs the exact official identity and reconciles every persisted row mirror, record payload, runtime/admitted ref, schema id, expected/observed hash vector, issue code and warning code before reading the proposal.
+- Scientific context readiness errors are API-domain outcomes: missing Cycle is `404 NOT_FOUND`; missing/invalid readiness scope is `409 GATE_CONSTRAINT_FAILED`; stale watermark/project/evidence is `409 VERSION_CONFLICT`. Serializable transaction conflicts retry at most twice, then return `409 VERSION_CONFLICT`; invariant corruption remains an internal error.
+- The served ResultAnalysis runtime path is now present in the OpenAPI SSOT with a closed top-level request/response contract and the product/provider/no-caller-body scientific-intent condition. Production-composition HTTP tests exercise both authoritative success and pre-provider missing-Cycle rejection.

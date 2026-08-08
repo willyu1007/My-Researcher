@@ -9,6 +9,12 @@ import type {
   ImplementationIntakeSnapshot,
   ImplementationProject,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
+import type {
+  ScientificValidationReportV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  ExperimentFoundationV2EvaluationProtocolRevisionContentV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
 import {
   RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
@@ -82,6 +88,7 @@ import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCENARIO_KINDS,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_BOUNDARY_DEBATE_SLOT_ID,
   PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROFILE_ID,
@@ -134,6 +141,11 @@ import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-m
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
 import { InMemoryPaperImplementationEvidenceV2Repository } from '../repositories/in-memory-paper-implementation-evidence-v2-repository.js';
+import { InMemoryPaperImplementationCycleReadinessV2Repository } from '../repositories/paper-implementation-cycle-readiness-v2.repository.js';
+import {
+  InMemoryPaperImplementationValidationCycleClosureV2Repository,
+  type PaperImplementationScientificClosureEvidenceAuthorityV1,
+} from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import type {
   PaperImplementationClaimSupportRunEvidenceUnitV2ReadInput,
   PaperImplementationClaimSupportRunEvidenceUnitV2Resolution,
@@ -146,6 +158,7 @@ import type {
 import type {
   PaperImplementationRuntimeOperationalTelemetry,
 } from '../services/paper-implementation-runtime-operational-telemetry.js';
+import { PaperImplementationCycleReadinessV2Service } from '../services/paper-implementation-cycle-readiness-v2-service.js';
 
 // R10: process-unique so persistent-schema (prisma) runs never cross-pollute
 // each other's project-scoped listings across suite invocations.
@@ -907,6 +920,102 @@ test('PaperImplementation result-analysis runtime preserves analysis artifacts b
     });
     assertErrorCode(replay, 409, 'GATE_CONSTRAINT_FAILED');
     assert.equal((await fixture.resultRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation scientific ResultAnalysis intent uses the production authoritative context path', async () => {
+  const scientificFixture = await scientificClosureHttpFixture();
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubResultAnalysisGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationValidationCycleClosureV2Repository: scientificFixture.closureRepository,
+    paperImplementationResultAnalysisLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/result-analysis-scenarios/run`,
+      payload: {
+        ...resultAnalysisRunPayload(),
+        run_id: 'result-analysis-scientific-http-run-1',
+        target_ref: {
+          ...ref('Validation-Cycle', RESULT_VALIDATION_CYCLE_ID),
+          version_id: 'cycle-domain-version-7',
+        },
+        target_version_id: 'runtime-input-snapshot-version-13',
+        scientific_closure_intent: {
+          schema_version: 'PaperImplementationScientificClosureIntent@v1',
+          expected_closure_watermark_hash: scientificFixture.closureWatermarkHash,
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as {
+      status: string;
+      provider_call_count: number;
+      final_runtime_artifact: PaperImplementationRuntimeArtifactEnvelope | null;
+      final_admission_record: PaperImplementationRuntimeAdmissionRecord | null;
+    };
+    assert.equal(body.status, 'passed');
+    assert.equal(body.provider_call_count, 1);
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(
+      body.final_runtime_artifact?.output_schema_id,
+      PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
+    );
+    assert.equal(body.final_runtime_artifact?.target_ref.ref_type, 'validation_cycle');
+    assert.equal(body.final_runtime_artifact?.target_ref.version_id, 'cycle-domain-version-7');
+    assert.equal(
+      body.final_runtime_artifact?.target_version_id,
+      'runtime-input-snapshot-version-13',
+    );
+    assert.equal(body.final_admission_record?.admission_status, 'admitted');
+    assert.equal(body.final_admission_record?.target_ref.ref_type, 'validation_cycle');
+    assert.equal(
+      (body.final_runtime_artifact?.artifact_payload.scientific_closure_proposal as {
+        closure_watermark_hash?: string;
+      } | undefined)?.closure_watermark_hash,
+      scientificFixture.closureWatermarkHash,
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test('PaperImplementation scientific ResultAnalysis rejects a missing Cycle before provider calls or writes', async () => {
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const gateway = new StubResultAnalysisGateway();
+  const app = buildApp({
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationResultAnalysisLlmGateway: gateway,
+  });
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/paper-implementation/projects/${encodeURIComponent(PROJECT_ID)}/runtime-slots/result-analysis-scenarios/run`,
+      payload: {
+        ...resultAnalysisRunPayload(),
+        run_id: 'result-analysis-scientific-missing-cycle-http-run-1',
+        target_ref: ref('validation_cycle', 'missing-validation-cycle-http-1'),
+        scientific_closure_intent: {
+          schema_version: 'PaperImplementationScientificClosureIntent@v1',
+          expected_closure_watermark_hash: scientificHash('missing-cycle-watermark'),
+        },
+      },
+    });
+
+    assertErrorCode(response, 404, 'NOT_FOUND');
+    assert.equal(
+      (response.json() as { error?: { details?: { reason_code?: string } } })
+        .error?.details?.reason_code,
+      'VALIDATION_CYCLE_NOT_FOUND',
+    );
+    assert.equal(gateway.calls.length, 0);
+    assert.deepEqual(await runtimeRepository.listRuntimeArtifacts(PROJECT_ID), []);
   } finally {
     await app.close();
   }
@@ -4325,6 +4434,112 @@ async function resultAnalysisDomainGateFixture() {
   };
 }
 
+async function scientificClosureHttpFixture() {
+  const branchId = 'scientific-branch-http-1';
+  const revisionId = 'scientific-revision-http-1';
+  const runId = 'scientific-run-http-1';
+  const runManifestHash = scientificHash('scientific-run-manifest-http-1');
+  const evidenceContentHash = scientificHash('scientific-run-evidence-http-1');
+  const readinessRepository = new InMemoryPaperImplementationCycleReadinessV2Repository({
+    cycles: [{
+      validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
+      implementation_project_id: PROJECT_ID,
+      lifecycle_status: 'admitted',
+      expected_cycle_version: 0,
+    }],
+    branches: {
+      [RESULT_VALIDATION_CYCLE_ID]: [{
+        branch_id: branchId,
+        branch_key: 'scientific-primary',
+        current_admitted_revision_id: revisionId,
+        current_admitted_revision_hash: scientificHash('scientific-revision-http-1'),
+        current_admitted_revision_sequence: 1,
+        head_revision_id: revisionId,
+        head_revision_sequence: 1,
+        head_run_id: runId,
+        head_run_manifest_hash: runManifestHash,
+      }],
+    },
+    runs: [{
+      validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
+      run_id: runId,
+      run_manifest_hash: runManifestHash,
+      external_pi_branch_id: branchId,
+      external_pi_work_order_revision_id: revisionId,
+      external_pi_work_order_revision_hash: scientificHash('scientific-revision-http-1'),
+      external_pi_revision_sequence: 1,
+      head_acknowledged: true,
+      cells: [{
+        ordinal: 1,
+        run_cell_id: 'scientific-cell-http-1',
+        cell_key: 'scientific-primary-cell',
+        attempts: [{
+          execution_attempt_id: 'scientific-attempt-http-1',
+          attempt_sequence: 1,
+          lifecycle_state: 'succeeded',
+          execution_mode: 'real_provider',
+          provenance: 'real_provider',
+        }],
+        complete_result: {
+          result_id: 'scientific-result-http-1',
+          result_content_hash: scientificHash('scientific-result-http-1'),
+          execution_attempt_id: 'scientific-attempt-http-1',
+          provenance: 'real_provider',
+        },
+      }],
+    }],
+    evidence_units: [{
+      validation_cycle_id: RESULT_VALIDATION_CYCLE_ID,
+      branch_id: branchId,
+      work_order_revision_id: revisionId,
+      work_order_revision_hash: scientificHash('scientific-revision-http-1'),
+      branch_revision_sequence: 1,
+      run_id: runId,
+      run_manifest_hash: runManifestHash,
+      run_evidence_unit_id: RESULT_RUN_EVIDENCE_UNIT_ID,
+      content_hash: evidenceContentHash,
+    }],
+  });
+  const authorities: PaperImplementationScientificClosureEvidenceAuthorityV1[] = [{
+    run_evidence_unit_id: RESULT_RUN_EVIDENCE_UNIT_ID,
+    content_hash: evidenceContentHash,
+    validation_report_id: RESULT_VALIDATION_REPORT_ID,
+    validation_hash: scientificHash('scientific-validation-report-http-1'),
+    evaluation_protocol_revision_id: 'scientific-protocol-revision-http-1',
+    evaluation_protocol_content_hash: scientificHash('scientific-protocol-revision-http-1'),
+    primary_comparison_key: 'registered-primary',
+    decision_if_positive: 'continue-positive',
+    decision_if_negative: 'continue-negative',
+    decision_if_inconclusive: 'continue-inconclusive',
+    validation_report: {
+      run_id: runId,
+      status: 'passed',
+    } as unknown as ScientificValidationReportV2,
+    evaluation_protocol: {
+      schema_version: 'v2',
+      scientific_contract: { primary_comparison_key: 'registered-primary' },
+    } as unknown as ExperimentFoundationV2EvaluationProtocolRevisionContentV2,
+    primary_facts: [{
+      comparison_fact_id: 'scientific-primary-fact-http-1',
+      comparison_fact_hash: scientificHash('scientific-primary-fact-http-1'),
+      comparison_key: 'registered-primary',
+      registered_relation: 'supports_registered_expectation',
+    }],
+  }];
+  const closureRepository = new InMemoryPaperImplementationValidationCycleClosureV2Repository({
+    readinessRepository,
+    scientific_evidence_authorities: authorities,
+  });
+  const readiness = await new PaperImplementationCycleReadinessV2Service({
+    repository: readinessRepository,
+  }).evaluate(RESULT_VALIDATION_CYCLE_ID);
+  assert.equal(readiness.status, 'ready_with_evidence');
+  return {
+    closureRepository,
+    closureWatermarkHash: readiness.watermark.closure_input_hash,
+  };
+}
+
 function runtimeArtifact(
   overrides: Partial<PaperImplementationRuntimeArtifactEnvelope> = {},
 ): PaperImplementationRuntimeArtifactEnvelope {
@@ -6432,4 +6647,8 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 
 function hash(seed: string): string {
   return createHash('sha256').update(seed).digest('hex');
+}
+
+function scientificHash(seed: string): string {
+  return `sha256:${hash(seed)}`;
 }

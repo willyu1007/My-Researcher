@@ -148,7 +148,7 @@ function createService(options: {
   });
 }
 
-test('closure preparation derives ready, blocked, and scientific-gated shapes', async () => {
+test('closure preparation derives control, blocked, and scientific proposal-template shapes', async () => {
   const ready = await createService({}).prepareValidationCycleClosure(CYCLE_ID);
   assert.equal(ready.readiness.outcome, 'ready');
   assert.equal(
@@ -163,7 +163,6 @@ test('closure preparation derives ready, blocked, and scientific-gated shapes', 
       closure_kind: 'control_flow_validated_no_paper_evidence',
       accepted_proposal_id: null,
       expected_proposal_hash: null,
-      corrected_scientific_disposition: null,
       idempotency_key: null,
     },
     required_template_fields: [{
@@ -197,12 +196,31 @@ test('closure preparation derives ready, blocked, and scientific-gated shapes', 
       eligible_run_evidence_unit_count: 2,
     }),
   }).prepareValidationCycleClosure(CYCLE_ID);
-  assert.deepEqual(scientific.derived_closure_kind, {
-    marker: 'scientific_closure_blocked',
-    available: false,
-    gate: 'M7-L2',
+  assert.equal(scientific.derived_closure_kind, 'scientific_evidence_assessed');
+  assert.deepEqual(scientific.prepared_request, {
+    body: {
+      validation_cycle_id: CYCLE_ID,
+      expected_cycle_version: 4,
+      expected_closure_input_hash: HASH,
+      closure_kind: 'scientific_evidence_assessed',
+      accepted_proposal_id: null,
+      expected_proposal_hash: null,
+      idempotency_key: null,
+    },
+    required_template_fields: [{
+      field: 'accepted_proposal_id',
+      semantic: 'admitted_scientific_proposal_id',
+      required: true,
+    }, {
+      field: 'expected_proposal_hash',
+      semantic: 'admitted_scientific_proposal_hash',
+      required: true,
+    }, {
+      field: 'idempotency_key',
+      semantic: 'business_idempotency_key',
+      required: true,
+    }],
   });
-  assert.equal(scientific.prepared_request, null);
 });
 
 test('available actions enumerate open head starts and no-evidence closure deterministically', async () => {

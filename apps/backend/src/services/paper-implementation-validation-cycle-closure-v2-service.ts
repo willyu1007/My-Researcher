@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto';
 import type {
   CloseValidationCycleV2Request,
   CloseValidationCycleV2Response,
+  ScientificDispositionV2,
   ValidationCycleClosedV1,
   ValidationCycleClosureV2,
+  ValidationCycleClosureScientificAuthorityV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
@@ -17,6 +19,7 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE,
   PaperImplementationValidationCycleClosureV2RepositoryError,
   type PaperImplementationStoredValidationCycleClosureV2,
+  type PaperImplementationScientificClosureEvidenceAuthorityV1,
   type PaperImplementationValidationCycleClosableStatus,
   type PaperImplementationValidationCycleClosureV2Repository,
   type PaperImplementationValidationCycleClosureV2Transaction,
@@ -72,12 +75,7 @@ export class PaperImplementationValidationCycleClosureV2Service {
     request: ResolvedCloseValidationCycleV2Request,
     serializationRetry: number,
   ): Promise<CloseValidationCycleV2Response> {
-    if (request.closure_kind === 'scientific_evidence_assessed') {
-      throw closureDisabled(
-        'Scientific-evidence ValidationCycle closure is a later Pack C increment and is not implemented.',
-      );
-    }
-    assertControlOnlyRequest(request);
+    assertCloseRequest(request);
 
     try {
       return await this.repository.withTransaction((transaction) => (
@@ -159,7 +157,10 @@ export class PaperImplementationValidationCycleClosureV2Service {
       );
     }
 
-    if (readiness.eligible_run_evidence_unit_count !== 0) {
+    if (
+      request.closure_kind === 'control_flow_validated_no_paper_evidence'
+      && readiness.eligible_run_evidence_unit_count !== 0
+    ) {
       throw closureError(
         'CLOSURE_PROPOSAL_STALE',
         'Control-only closure cannot discard eligible scientific evidence; a scientific proposal is required.',
@@ -184,6 +185,17 @@ export class PaperImplementationValidationCycleClosureV2Service {
         'ValidationCycle product row is not in a closable lifecycle state.',
       );
     }
+    const scientificResolution = request.closure_kind === 'scientific_evidence_assessed'
+      ? await this.resolveScientificClosure(
+        transaction,
+        request,
+        readiness.watermark.closure_input_hash,
+        readiness.watermark.ordered_branches.flatMap((branch) => (
+          branch.eligible_run_evidence_unit_refs
+        )),
+        cycle.implementation_project_id,
+      )
+      : null;
     const createdAt = this.now();
     const closureId = deterministicId(
       'pi_validation_cycle_closure_v2',
@@ -202,11 +214,12 @@ export class PaperImplementationValidationCycleClosureV2Service {
       schema_version: 'v1',
       validation_cycle_id: request.validation_cycle_id,
       cycle_version_at_closure: readiness.watermark.expected_cycle_version,
-      closure_kind: 'control_flow_validated_no_paper_evidence',
-      scientific_disposition: null,
-      selected_exit_key: null,
-      accepted_proposal_id: null,
-      accepted_proposal_hash: null,
+      closure_kind: request.closure_kind,
+      scientific_disposition: scientificResolution?.scientific_disposition ?? null,
+      selected_exit_key: scientificResolution?.selected_exit_key ?? null,
+      accepted_proposal_id: request.accepted_proposal_id,
+      accepted_proposal_hash: request.expected_proposal_hash,
+      scientific_authority: scientificResolution?.scientific_authority ?? null,
       closure_watermark: readiness.watermark,
     };
     const closure: ValidationCycleClosureV2 = {
@@ -275,6 +288,110 @@ export class PaperImplementationValidationCycleClosureV2Service {
     return { closure: stored.closure };
   }
 
+  private async resolveScientificClosure(
+    transaction: PaperImplementationValidationCycleClosureV2Transaction,
+    request: ResolvedCloseValidationCycleV2Request,
+    closureInputHash: string,
+    eligibleEvidenceRefs: readonly { run_evidence_unit_id: string; content_hash: string }[],
+    implementationProjectId: string,
+  ): Promise<{
+    scientific_disposition: ScientificDispositionV2;
+    selected_exit_key: string;
+    scientific_authority: ValidationCycleClosureScientificAuthorityV1;
+  }> {
+    if (request.accepted_proposal_id === null || request.expected_proposal_hash === null) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Scientific closure requires one exact proposal.', {
+        reason_code: 'CLOSURE_PROPOSAL_STALE',
+      });
+    }
+    const admitted = await transaction.findAdmittedScientificClosureProposal(
+      request.accepted_proposal_id,
+      request.expected_proposal_hash,
+    );
+    if (
+      !admitted
+      || admitted.implementation_project_id !== implementationProjectId
+      || admitted.proposal.validation_cycle_id !== request.validation_cycle_id
+      || admitted.proposal.closure_watermark_hash !== closureInputHash
+    ) {
+      throw closureError(
+        'CLOSURE_PROPOSAL_STALE',
+        'Scientific closure proposal is absent, unadmitted, hash-mismatched, or stale.',
+      );
+    }
+    const proposalEvidenceRefs = admitted.proposal.ordered_evidence_refs;
+    if (
+      proposalEvidenceRefs.length !== eligibleEvidenceRefs.length
+      || proposalEvidenceRefs.some((ref, index) => {
+        const eligible = eligibleEvidenceRefs[index];
+        return ref.ordinal !== index + 1
+          || !eligible
+          || ref.run_evidence_unit_id !== eligible.run_evidence_unit_id
+          || ref.content_hash !== eligible.content_hash;
+      })
+    ) {
+      throw closureError(
+        'CLOSURE_PROPOSAL_STALE',
+        'Scientific closure proposal does not bind the exact current eligible evidence order.',
+      );
+    }
+    const authorities = await transaction.listScientificClosureEvidenceAuthorities(
+      eligibleEvidenceRefs,
+    );
+    if (
+      authorities.length !== eligibleEvidenceRefs.length
+      || authorities.some((authority, index) => (
+        authority.run_evidence_unit_id !== eligibleEvidenceRefs[index]?.run_evidence_unit_id
+        || authority.content_hash !== eligibleEvidenceRefs[index]?.content_hash
+      ))
+    ) {
+      throw closureError(
+        'CLOSURE_PROPOSAL_STALE',
+        'Scientific evidence authority could not be reread from the exact current REUs.',
+      );
+    }
+    const primaryAuthorities = authorities.flatMap((authority) => (
+      authority.primary_facts.map((fact) => ({ authority, fact }))
+    ));
+    if (primaryAuthorities.length === 0) {
+      throw closureError(
+        'CLOSURE_PRIMARY_COMPARISON_MISSING',
+        'Scientific closure requires exactly one protocol-designated primary comparison fact.',
+      );
+    }
+    if (primaryAuthorities.length !== 1) {
+      throw closureError(
+        'CLOSURE_PRIMARY_COMPARISON_AMBIGUOUS',
+        'Scientific closure found more than one protocol-designated primary comparison fact.',
+      );
+    }
+    const { authority, fact } = primaryAuthorities[0]!;
+    const proposedFact = admitted.proposal.primary_comparison_fact_ref;
+    if (
+      fact.comparison_fact_id !== proposedFact.comparison_fact_id
+      || fact.comparison_fact_hash !== proposedFact.comparison_fact_hash
+      || fact.comparison_key !== authority.primary_comparison_key
+    ) {
+      throw closureError(
+        'CLOSURE_PROPOSAL_STALE',
+        'Scientific closure proposal does not bind the unique current primary comparison fact.',
+      );
+    }
+    const projection = projectScientificDisposition(authority, fact.registered_relation);
+    return {
+      ...projection,
+      scientific_authority: {
+        schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+        evaluation_protocol_revision_id: authority.evaluation_protocol_revision_id,
+        evaluation_protocol_content_hash: authority.evaluation_protocol_content_hash,
+        primary_comparison_fact_id: fact.comparison_fact_id,
+        primary_comparison_fact_hash: fact.comparison_fact_hash,
+        primary_comparison_key: fact.comparison_key,
+        registered_relation: fact.registered_relation,
+      },
+    };
+  }
+
   private async resolveConcurrentReplay(
     request: ResolvedCloseValidationCycleV2Request,
   ): Promise<CloseValidationCycleV2Response> {
@@ -311,17 +428,27 @@ function isTerminalProductCycleStatus(status: string): boolean {
   return status === 'completed' || status === 'aborted' || status === 'superseded';
 }
 
-function assertControlOnlyRequest(request: ResolvedCloseValidationCycleV2Request): void {
+function assertCloseRequest(request: ResolvedCloseValidationCycleV2Request): void {
   if (
-    request.accepted_proposal_id !== null
-    || request.expected_proposal_hash !== null
-    || request.corrected_scientific_disposition !== null
+    request.closure_kind === 'control_flow_validated_no_paper_evidence'
+    && (request.accepted_proposal_id !== null || request.expected_proposal_hash !== null)
   ) {
     throw new AppError(
       400,
       'INVALID_PAYLOAD',
-      'Control-only closure requires null proposal, proposal hash, and corrected disposition.',
+      'Control-only closure requires null proposal identity and hash.',
       { reason_code: 'CYCLE_CLOSURE_SCOPE_DRIFT' },
+    );
+  }
+  if (
+    request.closure_kind === 'scientific_evidence_assessed'
+    && (request.accepted_proposal_id === null || request.expected_proposal_hash === null)
+  ) {
+    throw new AppError(
+      400,
+      'INVALID_PAYLOAD',
+      'Scientific closure requires one exact admitted proposal identity and hash.',
+      { reason_code: 'CLOSURE_PROPOSAL_STALE' },
     );
   }
 }
@@ -335,6 +462,9 @@ function replayOrAlreadyClosed(
     && stored.idempotency_key === request.idempotency_key
     && stored.closure.closure_watermark.closure_input_hash
       === request.expected_closure_input_hash
+    && stored.closure.closure_kind === request.closure_kind
+    && stored.closure.accepted_proposal_id === request.accepted_proposal_id
+    && stored.closure.accepted_proposal_hash === request.expected_proposal_hash
   ) {
     return { closure: stored.closure };
   }
@@ -356,10 +486,37 @@ function closureError(
     | 'CYCLE_ACTIVE_REAL_ATTEMPT'
     | 'CYCLE_CLOSURE_SCOPE_DRIFT'
     | 'CYCLE_ALREADY_CLOSED'
-    | 'CLOSURE_PROPOSAL_STALE',
+    | 'CLOSURE_PROPOSAL_STALE'
+    | 'CLOSURE_PRIMARY_COMPARISON_MISSING'
+    | 'CLOSURE_PRIMARY_COMPARISON_AMBIGUOUS',
   message: string,
 ): AppError {
   return new AppError(409, 'GATE_CONSTRAINT_FAILED', message, {
     reason_code: reasonCode,
   });
+}
+
+function projectScientificDisposition(
+  authority: PaperImplementationScientificClosureEvidenceAuthorityV1,
+  relation: PaperImplementationScientificClosureEvidenceAuthorityV1[
+    'primary_facts'
+  ][number]['registered_relation'],
+): { scientific_disposition: ScientificDispositionV2; selected_exit_key: string } {
+  switch (relation) {
+    case 'supports_registered_expectation':
+      return {
+        scientific_disposition: 'positive',
+        selected_exit_key: authority.decision_if_positive,
+      };
+    case 'contradicts_registered_expectation':
+      return {
+        scientific_disposition: 'negative',
+        selected_exit_key: authority.decision_if_negative,
+      };
+    case 'indeterminate':
+      return {
+        scientific_disposition: 'inconclusive',
+        selected_exit_key: authority.decision_if_inconclusive,
+      };
+  }
 }

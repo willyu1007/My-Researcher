@@ -5,6 +5,16 @@ import type {
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 import type {
+  ScientificComparisonRelationV1,
+  ScientificValidationReportV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  ExperimentFoundationV2EvaluationProtocolRevisionContentV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
+import type {
+  PaperImplementationScientificClosureProposalV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import type {
   PaperImplementationValidationCycleStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
 import {
@@ -60,6 +70,36 @@ export interface PaperImplementationValidationCycleProductCompletionV2 {
   completed_at: string;
 }
 
+export interface PaperImplementationAdmittedScientificClosureProposalV1 {
+  proposal_id: string;
+  proposal_hash: string;
+  implementation_project_id: string;
+  proposal: PaperImplementationScientificClosureProposalV1;
+}
+
+export interface PaperImplementationScientificClosurePrimaryFactV1 {
+  comparison_fact_id: string;
+  comparison_fact_hash: string;
+  comparison_key: string;
+  registered_relation: ScientificComparisonRelationV1;
+}
+
+export interface PaperImplementationScientificClosureEvidenceAuthorityV1 {
+  run_evidence_unit_id: string;
+  content_hash: string;
+  validation_report_id: string;
+  validation_hash: string;
+  evaluation_protocol_revision_id: string;
+  evaluation_protocol_content_hash: string;
+  primary_comparison_key: string;
+  decision_if_positive: string;
+  decision_if_negative: string;
+  decision_if_inconclusive: string;
+  validation_report?: ScientificValidationReportV2;
+  evaluation_protocol?: ExperimentFoundationV2EvaluationProtocolRevisionContentV2;
+  primary_facts: PaperImplementationScientificClosurePrimaryFactV1[];
+}
+
 export type PaperImplementationValidationCycleClosureV2RepositoryReasonCode =
   | 'CYCLE_ALREADY_CLOSED'
   | 'CLOSURE_IDEMPOTENCY_CONFLICT'
@@ -86,6 +126,15 @@ extends PaperImplementationCycleReadinessV2Repository {
     idempotencyKey: string,
   ): Promise<PaperImplementationStoredValidationCycleClosureV2 | null>;
 
+  findAdmittedScientificClosureProposal(
+    proposalId: string,
+    expectedProposalHash: string,
+  ): Promise<PaperImplementationAdmittedScientificClosureProposalV1 | null>;
+
+  listScientificClosureEvidenceAuthorities(
+    evidenceRefs: readonly { run_evidence_unit_id: string; content_hash: string }[],
+  ): Promise<PaperImplementationScientificClosureEvidenceAuthorityV1[]>;
+
   completeProductValidationCycle(
     input: PaperImplementationValidationCycleProductCompletionV2,
   ): Promise<void>;
@@ -106,6 +155,8 @@ export interface InMemoryPaperImplementationValidationCycleClosureV2RepositoryOp
   readinessRepository: PaperImplementationCycleReadinessV2Repository;
   closures?: readonly PaperImplementationStoredValidationCycleClosureV2[];
   outboxes?: readonly PaperImplementationValidationCycleClosureOutboxV2[];
+  scientific_proposals?: readonly PaperImplementationAdmittedScientificClosureProposalV1[];
+  scientific_evidence_authorities?: readonly PaperImplementationScientificClosureEvidenceAuthorityV1[];
 }
 
 function clone<T>(value: T): T {
@@ -116,6 +167,8 @@ export class InMemoryPaperImplementationValidationCycleClosureV2Repository
 implements PaperImplementationValidationCycleClosureV2Repository {
   private closures: PaperImplementationStoredValidationCycleClosureV2[];
   private outboxes: PaperImplementationValidationCycleClosureOutboxV2[];
+  private readonly scientificProposals: PaperImplementationAdmittedScientificClosureProposalV1[];
+  private readonly scientificEvidenceAuthorities: PaperImplementationScientificClosureEvidenceAuthorityV1[];
   private productCycleCompletions = new Map<
     string,
     PaperImplementationValidationCycleProductCompletionV2
@@ -126,6 +179,10 @@ implements PaperImplementationValidationCycleClosureV2Repository {
     this.readinessRepository = options.readinessRepository;
     this.closures = clone([...(options.closures ?? [])]);
     this.outboxes = clone([...(options.outboxes ?? [])]);
+    this.scientificProposals = clone([...(options.scientific_proposals ?? [])]);
+    this.scientificEvidenceAuthorities = clone([
+      ...(options.scientific_evidence_authorities ?? []),
+    ]);
   }
 
   async isCycleClosed(validationCycleId: string): Promise<boolean> {
@@ -207,6 +264,24 @@ implements PaperImplementationValidationCycleClosureV2Repository {
       findStoredClosureByIdempotencyKey: async (idempotencyKey) => clone(
         this.closures.find((stored) => stored.idempotency_key === idempotencyKey) ?? null,
       ),
+      findAdmittedScientificClosureProposal: async (proposalId, expectedProposalHash) => clone(
+        this.scientificProposals.find((stored) => (
+          stored.proposal_id === proposalId
+          && stored.proposal_hash === expectedProposalHash
+        )) ?? null,
+      ),
+      listScientificClosureEvidenceAuthorities: async (evidenceRefs) => {
+        const authorityByIdentity = new Map(this.scientificEvidenceAuthorities.map((authority) => [
+          `${authority.run_evidence_unit_id}\0${authority.content_hash}`,
+          authority,
+        ]));
+        return clone(evidenceRefs.flatMap((ref) => {
+          const authority = authorityByIdentity.get(
+            `${ref.run_evidence_unit_id}\0${ref.content_hash}`,
+          );
+          return authority ? [authority] : [];
+        }));
+      },
       completeProductValidationCycle: async (input) => {
         const current = await this.readinessRepository.findValidationCycle(
           input.validation_cycle_id,
@@ -268,6 +343,14 @@ export function assertValidationCycleClosureCommit(
     || closure.selected_exit_key !== null
     || closure.accepted_proposal_id !== null
     || closure.accepted_proposal_hash !== null
+    || closure.scientific_authority !== null
+  );
+  const invalidScientificAuthority = !isControlOnly && (
+    closure.scientific_disposition === null
+    || closure.selected_exit_key === null
+    || closure.accepted_proposal_id === null
+    || closure.accepted_proposal_hash === null
+    || closure.scientific_authority === null
   );
   const branchesAreOrdered = watermark.ordered_branches.length > 0
     && watermark.ordered_branches.every((branch, index) => branch.ordinal === index + 1);
@@ -280,6 +363,7 @@ export function assertValidationCycleClosureCommit(
     || closure.cycle_version_at_closure !== watermark.expected_cycle_version
     || !branchesAreOrdered
     || invalidControlAuthority
+    || invalidScientificAuthority
     || closureInputHash !== serverHashPaperImplementationV2ClosureWatermark(watermarkHashInput)
     || closureSnapshotHash !== serverHashPaperImplementationV2CycleClosure(closureHashInput)
     || input.outbox.aggregate_transition_key !== `${closure.closure_id}:closed@v1`

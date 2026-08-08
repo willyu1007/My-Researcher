@@ -151,3 +151,31 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Root cause: the existing repository-wide path census was not included in Pack C evidence, and the route serializer test exercised runtime behavior without checking documentation coverage.
 - Fix/workaround: document the three operations and closed schemas, regenerate the API index and add `experiment-v2-openapi-path-coverage.test.ts` as required `openapi_unit` evidence for PC05.
 - Prevention: every new product route must satisfy runtime injection, OpenAPI path census, OpenAPI semantic quality and generated-index freshness in the same feature gate.
+
+### 2026-08-08 — Runtime proposal hashes and scientific canonical hashes use different established profiles
+
+- Symptom: the first P3 contract sketch treated every scientific-looking hash as `sha256:<hex>`, but PI runtime artifacts already use bare lowercase SHA-256 while EF facts, protocols, REUs and Closure snapshots use the domain-prefixed canonical form.
+- Root cause: proposal identity belongs to the existing PI runtime artifact profile; scientific source/authority identity belongs to the EF/PI canonical semantic profile. Similar field names do not imply the same wire representation.
+- Fix/workaround: keep `expected_proposal_hash`/`accepted_proposal_hash` as bare 64-hex runtime hashes and retain `sha256:` for watermark, REU, protocol, fact and Closure hashes. The Prisma resolver recomputes the exact stable runtime payload hash before accepting the proposal.
+- Prevention: derive new reference/hash fields from the owning aggregate's established profile, then cover each API/schema pattern and canonical recomputation independently; do not normalize across bounded contexts for cosmetic uniformity.
+
+### 2026-08-08 — Hash-fenced caller context was still caller-authored science
+
+- Symptom: the first P3 ResultAnalysis request let the caller submit `scientific_closure_context` and source-body packets. Id/hash subset checks prevented obvious scope drift, but interpretation, limitations and claim ceiling could still be conditioned on caller-authored factual bodies.
+- Root cause: the design reused a general back-half runtime packet carrier without separating structural request refs from scientific factual authority. A hash fence proves consistency with the caller's own declaration; the fence does not prove that the database authorized the content.
+- Fix/workaround: expose only a watermark intent, reject caller bodies on scientific runs and resolve/re-hash exact REUs, reports, protocols and the primary fact in a short server transaction before the provider call. Closure repeats the authoritative reread independently.
+- Prevention: whenever a model artifact can authorize a scientific state transition, trace every prompt fact to a server-owned reader; caller-supplied refs may name structural destinations, but caller-supplied bodies cannot establish scientific facts.
+
+### 2026-08-08 — A synthetic final-artifact helper hid missing production preconditions
+
+- Symptom: review-fix gate `packc-pi-20260808-r2` passed 150/151 but the rewritten scientific relation test failed because `ImplementationProject ... not found` before ResultAnalysis ran.
+- Root cause: the former test manually assembled a generic admitted final artifact and therefore never exercised active-project preflight, product/provider mode, official admission policy or canonical artifact identity. Its fixture seeded a ValidationCycle without the project row that the real runtime requires.
+- Fix/workaround: replace the helper with the actual ResultAnalysis runtime/context resolver/admission path and seed the exact ImplementationProject aggregate. `packc-pi-20260808-r3` then passed 151/151 and cleaned up its identity-marked disposable database.
+- Prevention: relation tests for authority transitions must begin at the real public service boundary and assert its preconditions/mode/policy, not inject a downstream-shaped row that bypasses them.
+
+### 2026-08-08 — A self-hashed admission record is not independent authority
+
+- Symptom: an admission payload could change `expected_output_schema_id` while the official-policy row, runtime envelope and stored admission identity remained unchanged; the old Closure resolver still considered the proposal eligible because the payload schema stayed valid and the stored identity still hashed itself.
+- Root cause: the resolver checked several mirrors independently but did not reconstruct the one expected official admission identity from the runtime envelope or compare every row/payload field back to that source.
+- Fix/workaround: rebuild the official identity from the immutable runtime envelope and fixed policy, then reconcile the full row, payload, identity/hash, refs, schemas, hash vectors, issues and warnings. The disposable relation test mutates only the payload schema field and proves zero Closure/outbox writes.
+- Prevention: authorization records must be verified against an independent authoritative source; schema validity plus self-consistent hashing proves internal consistency, not eligibility.

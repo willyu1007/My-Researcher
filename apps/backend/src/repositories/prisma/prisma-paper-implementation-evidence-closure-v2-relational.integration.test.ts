@@ -5,6 +5,7 @@ import test from 'node:test';
 import { Prisma, PrismaClient } from '@prisma/client';
 import type {
   ExperimentFoundationV2ArtifactContractRuleV1,
+  ExperimentFoundationV2ExactAssetRevisionRef,
   ExperimentFoundationV2MetricContractRuleV1,
   ExperimentFoundationV2RequiredRuleV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-v2-contracts';
@@ -16,8 +17,12 @@ import {
   EXPERIMENT_FOUNDATION_EVIDENCE_CANDIDATE_QUALIFIED_EVENT_V2,
   EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
   type EvidenceCandidateV2,
+  type ScientificComparisonFactV1,
   type ScientificValidationReportV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  ExperimentFoundationSourceBoundResultCellV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 import {
   serverHashExperimentFoundationV2EvidenceCandidate,
   serverHashExperimentFoundationV2ScientificValidation,
@@ -28,6 +33,16 @@ import type {
   RunManifestFrozenEventV1,
   WorkOrderRevisionAdmittedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
+import {
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
+  type PaperImplementationResultAnalysisRoleOutput,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import { AppError } from '../../errors/app-error.js';
 import {
@@ -44,6 +59,7 @@ import {
   runSucceededRealProviderExecutionV2,
 } from '../../test-support/experiment-foundation-real-provider-v2-test-support.js';
 import { buildExperimentFoundationD19TypedFixture } from '../../services/experiment-foundation-d19-fixture.js';
+import { executeScientificComparisonsV1 } from '../../services/experiment-foundation-v2-scientific-comparison-engine.js';
 import { ExperimentFoundationExplorationSpecV2Service } from '../../services/experiment-foundation-exploration-spec-v2-service.js';
 import { ExperimentFoundationExecutionV2Service } from '../../services/experiment-foundation-execution-v2-service.js';
 import { ExperimentFoundationService } from '../../services/experiment-foundation-service.js';
@@ -60,7 +76,18 @@ import { PaperImplementationEvidenceTrustGatewayService } from '../../services/p
 import { PaperImplementationExplorationAttachmentV2Service } from '../../services/paper-implementation-exploration-attachment-v2-service.js';
 import { PaperImplementationExperimentV2AdmissionService } from '../../services/paper-implementation-experiment-v2-admission-service.js';
 import { PaperImplementationExperimentV2HeadService } from '../../services/paper-implementation-experiment-v2-head-service.js';
+import { PaperImplementationRuntimeAdmissionService } from '../../services/paper-implementation-runtime-admission-service.js';
+import {
+  PaperImplementationResultAnalysisRuntimeService,
+  type PaperImplementationResultAnalysisAgentOrchestrator,
+} from '../../services/paper-implementation-result-analysis-runtime-service.js';
+import { PaperImplementationScientificClosureContextService } from '../../services/paper-implementation-scientific-closure-context-service.js';
 import { PaperImplementationValidationCycleClosureV2Service } from '../../services/paper-implementation-validation-cycle-closure-v2-service.js';
+import type {
+  TopicSelectionAgentInvocationRequest,
+  TopicSelectionAgentInvocationResult,
+} from '../../services/topic-selection-agent-orchestrator-service.js';
+import { stableStringify } from '../../services/literature-content-processing-utils.js';
 import { PrismaExperimentFoundationExecutionV2Repository } from './prisma-experiment-foundation-execution-v2-repository.js';
 import { PrismaExperimentFoundationExplorationSpecV2Repository } from './prisma-experiment-foundation-exploration-spec-v2-repository.js';
 import { PrismaExperimentFoundationRepository } from './prisma-experiment-foundation-repository.js';
@@ -70,6 +97,8 @@ import { PrismaExperimentFoundationV2Repository } from './prisma-experiment-foun
 import { PrismaPaperImplementationCycleReadinessV2Repository } from './prisma-paper-implementation-cycle-readiness-v2-repository.js';
 import { PrismaPaperImplementationEvidenceV2Repository } from './prisma-paper-implementation-evidence-v2-repository.js';
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './prisma-paper-implementation-experiment-spine-v2-repository.js';
+import { PrismaPaperImplementationRepository } from './prisma-paper-implementation-repository.js';
+import { PrismaPaperImplementationRuntimeRepository } from './prisma-paper-implementation-runtime-repository.js';
 import { PrismaPaperImplementationValidationCycleClosureV2Repository } from './prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
 
 const RUN_REAL_POSTGRES =
@@ -267,6 +296,159 @@ test(
       assert.deepEqual(await closureCounts(prisma, alreadyTerminal.validationCycleId), {
         closures: 0,
         closedOutboxes: 0,
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
+  },
+);
+
+test(
+  'P3 scientific closure rereads one admitted proposal, protocol and primary fact in PostgreSQL',
+  { skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON, timeout: 180_000 },
+  async () => {
+    const { prisma } = await openPackCPiDatabase();
+    try {
+      const fixture = await seedAcknowledgedRun(
+        prisma,
+        'scientific-closure',
+        { scientificBinding: true },
+      );
+      const scientificRepository = new PrismaExperimentFoundationScientificValidationV2Repository(
+        prisma,
+      );
+      const event = await seedScientificGatewayFixture(
+        prisma,
+        scientificRepository,
+        fixture,
+        authorityFromEvent(fixture.admissionEvent),
+      );
+      const gateway = await new PaperImplementationEvidenceTrustGatewayService({
+        repository: new PrismaPaperImplementationEvidenceV2Repository(prisma),
+        scientificValidationReadRepository: scientificRepository,
+        now: () => FIXED_NOW,
+      }).consume(event);
+      assert.equal(gateway.inbox.outcome, 'processed');
+      assert.ok(gateway.run_evidence_unit);
+
+      const validation = await scientificRepository.loadValidationByRunId(fixture.runId);
+      const primaryFact = validation?.report.ordered_comparison_results?.[0]?.fact;
+      assert.ok(primaryFact);
+      assert.equal(primaryFact.registered_relation, 'supports_registered_expectation');
+
+      const readiness = await evaluateCycle(prisma, fixture.validationCycleId);
+      assert.equal(readiness.status, 'ready_with_evidence');
+      const proposal = await runScientificClosureProposal(prisma, {
+        fixture,
+        closureInputHash: readiness.watermark.closure_input_hash,
+        runEvidenceUnitId: gateway.run_evidence_unit.run_evidence_unit_id,
+        runEvidenceUnitHash: gateway.run_evidence_unit.content_hash,
+        primaryFact,
+      });
+      const request = {
+        validation_cycle_id: fixture.validationCycleId,
+        expected_cycle_version: readiness.watermark.expected_cycle_version,
+        expected_closure_input_hash: readiness.watermark.closure_input_hash,
+        closure_kind: 'scientific_evidence_assessed' as const,
+        accepted_proposal_id: proposal.proposalId,
+        expected_proposal_hash: proposal.proposalHash,
+        idempotency_key: `${fixture.namespace}:scientific-close`,
+      };
+      const service = closureServiceFor(
+        new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma),
+      );
+      const [runtimeArtifact, runtimeAdmission] = await Promise.all([
+        prisma.paperImplementationRuntimeArtifact.findUniqueOrThrow({
+          where: { id: proposal.proposalId },
+        }),
+        prisma.paperImplementationRuntimeAdmissionRecord.findUniqueOrThrow({
+          where: { id: proposal.admissionId },
+        }),
+      ]);
+      assert.equal(runtimeArtifact.runMode, 'product');
+      assert.equal(runtimeArtifact.executionMode, 'provider_llm');
+      assert.equal(
+        runtimeAdmission.admissionPolicyId,
+        `paper-implementation.${PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID}.final-admission`,
+      );
+
+      await prisma.paperImplementationRuntimeAdmissionRecord.update({
+        where: { id: proposal.admissionId },
+        data: { admissionPolicyId: 'generic-runtime-admission' },
+      });
+      await assert.rejects(service.close(request), appReason('CLOSURE_PROPOSAL_STALE'));
+      assert.deepEqual(await closureCounts(prisma, fixture.validationCycleId), {
+        closures: 0,
+        closedOutboxes: 0,
+      });
+      await prisma.paperImplementationRuntimeAdmissionRecord.update({
+        where: { id: proposal.admissionId },
+        data: {
+          admissionPolicyId:
+            `paper-implementation.${PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID}.final-admission`,
+        },
+      });
+
+      const admissionBeforePayloadTamper = await prisma
+        .paperImplementationRuntimeAdmissionRecord.findUniqueOrThrow({
+          where: { id: proposal.admissionId },
+          select: { recordPayload: true },
+        });
+      const tamperedAdmissionPayload = structuredClone(
+        admissionBeforePayloadTamper.recordPayload,
+      ) as Record<string, unknown>;
+      tamperedAdmissionPayload.expected_output_schema_id = 'tampered-output-schema';
+      await prisma.paperImplementationRuntimeAdmissionRecord.update({
+        where: { id: proposal.admissionId },
+        data: { recordPayload: jsonInput(tamperedAdmissionPayload) },
+      });
+      await assert.rejects(service.close(request), appReason('CLOSURE_PROPOSAL_STALE'));
+      assert.deepEqual(await closureCounts(prisma, fixture.validationCycleId), {
+        closures: 0,
+        closedOutboxes: 0,
+      });
+      await prisma.paperImplementationRuntimeAdmissionRecord.update({
+        where: { id: proposal.admissionId },
+        data: { recordPayload: jsonInput(admissionBeforePayloadTamper.recordPayload) },
+      });
+
+      const evidenceBeforeTamper = await prisma.paperImplementationRunEvidenceUnitV2
+        .findUniqueOrThrow({
+          where: { id: gateway.run_evidence_unit.run_evidence_unit_id },
+          select: { evidenceCandidateContentHash: true },
+        });
+      await prisma.paperImplementationRunEvidenceUnitV2.update({
+        where: { id: gateway.run_evidence_unit.run_evidence_unit_id },
+        data: { evidenceCandidateContentHash: hash('drifted-evidence-candidate') },
+      });
+      await assert.rejects(service.close(request), appReason('CLOSURE_PROPOSAL_STALE'));
+      assert.deepEqual(await closureCounts(prisma, fixture.validationCycleId), {
+        closures: 0,
+        closedOutboxes: 0,
+      });
+      await prisma.paperImplementationRunEvidenceUnitV2.update({
+        where: { id: gateway.run_evidence_unit.run_evidence_unit_id },
+        data: {
+          evidenceCandidateContentHash: evidenceBeforeTamper.evidenceCandidateContentHash,
+        },
+      });
+
+      const closed = await service.close(request);
+      assert.equal(closed.closure.closure_kind, 'scientific_evidence_assessed');
+      assert.equal(closed.closure.scientific_disposition, 'positive');
+      assert.equal(closed.closure.selected_exit_key, 'continue-positive');
+      assert.equal(
+        closed.closure.scientific_authority?.primary_comparison_fact_hash,
+        primaryFact.comparison_fact_hash,
+      );
+      assert.equal(
+        closed.closure.scientific_authority?.evaluation_protocol_content_hash,
+        validation?.report.evaluation_protocol.content_hash,
+      );
+      assert.deepEqual(await service.close(request), closed);
+      assert.deepEqual(await closureCounts(prisma, fixture.validationCycleId), {
+        closures: 1,
+        closedOutboxes: 1,
       });
     } finally {
       await prisma.$disconnect();
@@ -911,11 +1093,15 @@ function settledReason(result: PromiseSettledResult<unknown>): string | undefine
 async function seedAcknowledgedRun(
   prisma: PrismaClient,
   purpose: string,
+  options: { scientificBinding?: boolean } = {},
 ): Promise<AcknowledgedRunFixture> {
   const namespace = `packc-pi-${purpose}-${randomUUID()}`;
   const implementationProjectId = `${namespace}:project`;
   const validationCycleId = `${namespace}:cycle`;
   const branchKey = `${namespace}:main`;
+  await prisma.paperImplementationProject.create({
+    data: implementationProjectData(implementationProjectId, namespace),
+  });
   await prisma.paperImplementationValidationCycle.create({
     data: validationCycleData(implementationProjectId, validationCycleId),
   });
@@ -923,7 +1109,21 @@ async function seedAcknowledgedRun(
     new PrismaExperimentFoundationV2Repository(prisma),
   );
   foundationFixturePromise ??= buildExperimentFoundationD19TypedFixture(foundationService);
-  const foundationFixture = await foundationFixturePromise;
+  const baseFoundationFixture = await foundationFixturePromise;
+  const scientificProtocol = options.scientificBinding
+    ? await createScientificProtocolFixture(
+      foundationService,
+      baseFoundationFixture,
+      namespace,
+    )
+    : null;
+  const foundationFixture = scientificProtocol
+    ? {
+      ...baseFoundationFixture,
+      evaluation_protocol: scientificProtocol.exactRef,
+      evaluation_protocol_readiness: scientificProtocol.readiness,
+    }
+    : baseFoundationFixture;
   const admissionRequest = admissionRequestFromD19(foundationFixture, namespace, branchKey);
   const piRepository = new PrismaPaperImplementationExperimentSpineV2Repository(prisma);
   const efRepository = new PrismaExperimentFoundationSpineV2Repository(prisma);
@@ -939,6 +1139,109 @@ async function seedAcknowledgedRun(
   };
   const seeded = await admitAndDrainRevision(context, 1);
   return { ...context, ...seeded };
+}
+
+async function createScientificProtocolFixture(
+  service: ExperimentFoundationV2Service,
+  fixture: Awaited<ReturnType<typeof buildExperimentFoundationD19TypedFixture>>,
+  namespace: string,
+) {
+  const metricDefinition = fixture.metric_definitions[0];
+  if (!metricDefinition || metricDefinition.asset_type !== 'MetricDefinition') {
+    throw new Error('Expected a typed MetricDefinition dependency.');
+  }
+  if (fixture.benchmark.asset_type !== 'Benchmark') {
+    throw new Error('Expected a typed Benchmark dependency.');
+  }
+  const exactMetricDefinition = metricDefinition as ExperimentFoundationV2ExactAssetRevisionRef & {
+    asset_type: 'MetricDefinition';
+  };
+  const exactMetricDefinitions = fixture.metric_definitions.map((definition) => {
+    if (definition.asset_type !== 'MetricDefinition') {
+      throw new Error('Expected every metric dependency to be typed.');
+    }
+    return definition as ExperimentFoundationV2ExactAssetRevisionRef & {
+      asset_type: 'MetricDefinition';
+    };
+  });
+  const exactBenchmark = fixture.benchmark as ExperimentFoundationV2ExactAssetRevisionRef & {
+    asset_type: 'Benchmark';
+  };
+  const logicalId = `${namespace}:scientific-protocol`;
+  await service.createAssetDraft({
+    asset_type: 'EvaluationProtocol',
+    logical_id: logicalId,
+    draft_content: {
+      schema_version: 'v2',
+      protocol_key: `${namespace}:cmp-b1`,
+      display_name: 'Pack C-PI P3 scientific protocol',
+      benchmark_dependency: exactBenchmark,
+      metric_dependencies: exactMetricDefinitions,
+      required_rules: [{
+        rule_id: 'metric_contract@v1:embedding_time_ns',
+        rule_type: 'metric_contract@v1',
+        metric_definition: exactMetricDefinition,
+        metric_key: 'embedding_time_ns',
+        required_cardinality: 1,
+        split_key: 'query',
+        value_type: 'duration_ns',
+        unit: 'ns',
+        finite_required: true,
+      }],
+      scientific_contract: {
+        schema_version: 'ExperimentFoundationScientificProtocol@v1',
+        observation_slots: [{
+          observation_key: 'embedding-time',
+          ordinal: 1,
+          metric_key: 'embedding_time_ns',
+          split_key: 'query',
+          value_type: 'duration_ns',
+          unit: 'ns',
+          statistic: { kind: 'point' },
+          uncertainty: { kind: 'none' },
+        }],
+        artifact_slots: [],
+        comparison_rules: [{
+          comparison_key: 'primary-embedding-time',
+          ordinal: 1,
+          left_cell_ordinal: 1,
+          right_cell_ordinal: 2,
+          observation_key: 'embedding-time',
+          effect_kind: 'absolute_difference',
+          direction: 'lower_is_support',
+          support_min: 0.05,
+          contradiction_max: -0.05,
+          uncertainty_policy: { kind: 'not_required_by_protocol' },
+        }],
+        primary_comparison_key: 'primary-embedding-time',
+        decision_if_positive: 'continue-positive',
+        decision_if_negative: 'continue-negative',
+        decision_if_inconclusive: 'continue-inconclusive',
+      },
+    },
+  });
+  const frozen = await service.freezeAssetDraft({
+    asset_type: 'EvaluationProtocol',
+    logical_id: logicalId,
+    expected_state_version: 1,
+    business_idempotency_key: `${namespace}:freeze-scientific-protocol`,
+  });
+  const registered = await service.appendLifecycleEvent({
+    asset: frozen.exact_ref,
+    expected_projection_state_version: null,
+    event_type: 'registered',
+    reason_code: 'PACK_C_PI_P3_REGISTERED',
+  });
+  await service.appendLifecycleEvent({
+    asset: frozen.exact_ref,
+    expected_projection_state_version: registered.projection.projection_state_version,
+    event_type: 'activated',
+    reason_code: 'PACK_C_PI_P3_ACTIVATED',
+  });
+  const readiness = await service.createReadinessAttestation({
+    target: frozen.exact_ref,
+  });
+  return { exactRef: frozen.exact_ref, readiness };
 }
 
 async function seedAttachedAcknowledgedRun(
@@ -1301,17 +1604,67 @@ async function seedScientificGatewayFixture(
   assert.ok(run);
   const firstRule = protocol.protocol_snapshot.required_rules[0];
   assert.ok(firstRule);
+  const scientificContract = protocol.protocol_snapshot.scientific_contract;
+  const comparisonInputs: ExperimentFoundationSourceBoundResultCellV2[] = scientificContract
+    ? run.ordered_cells.map((cell) => ({
+      result_id: `${fixture.namespace}:fixture-result:${cell.ordinal}`,
+      schema_version: 'v2',
+      run_id: fixture.runId,
+      run_manifest_hash: fixture.runManifestHash,
+      run_cell_id: cell.run_cell_id,
+      cell_key: cell.cell_key,
+      training_task_spec_id: cell.training_task_spec_id,
+      training_task_spec_hash: cell.training_task_spec_hash,
+      execution_attempt_id: `${fixture.namespace}:fixture-attempt:${cell.ordinal}`,
+      collection_attempt_id: `${fixture.namespace}:fixture-collection:${cell.ordinal}`,
+      source_output_id: `${fixture.namespace}:fixture-source:${cell.ordinal}`,
+      source_output_hash: hash(`${fixture.namespace}:fixture-source:${cell.ordinal}`),
+      source_output_kind: 'scientific_result_manifest',
+      source_output_class: 'scientific_source',
+      parser_profile_version: 'pack-c-pi-fixture-parser@v1',
+      parser_profile_hash: hash(`${fixture.namespace}:fixture-parser`),
+      evaluation_protocol: protocol.evaluation_protocol,
+      provenance: 'real_provider',
+      metric_observations: scientificContract.observation_slots.map((slot) => ({
+        observation_id: `${fixture.namespace}:${cell.ordinal}:${slot.observation_key}`,
+        ordinal: slot.ordinal,
+        observation_key: slot.observation_key,
+        metric_key: slot.metric_key,
+        split_key: slot.split_key,
+        value: 1 + cell.ordinal / 10,
+        value_type: slot.value_type,
+        unit: slot.unit,
+        statistic: { kind: 'point', sample_size: 1 },
+        uncertainty: { kind: 'none', reason: 'not_required_by_protocol' },
+      })),
+      artifact_observations: [],
+      derivation_hash: hash(`${fixture.namespace}:fixture-derivation:${cell.ordinal}`),
+      content_hash: hash(`${fixture.namespace}:fixture-result:${cell.ordinal}`),
+    }))
+    : [];
+  const comparisonEvaluation = scientificContract?.comparison_rules?.length
+    ? executeScientificComparisonsV1({
+      run_id: fixture.runId,
+      evaluation_protocol_revision_hash: protocol.evaluation_protocol.content_hash,
+      ordered_cells: run.ordered_cells,
+      ordered_cell_results: comparisonInputs,
+      observation_slots: scientificContract.observation_slots,
+      comparison_rules: scientificContract.comparison_rules,
+    })
+    : null;
   const reportWithoutHash: Omit<ScientificValidationReportV2, 'validation_hash'> = {
     report_id: `${fixture.namespace}:report`,
     schema_version: 'v1',
     run_id: fixture.runId,
     run_manifest_hash: fixture.runManifestHash,
-    ordered_cell_results: run.ordered_cells.map((cell) => ({
+    ordered_cell_results: run.ordered_cells.map((cell, index) => ({
       ordinal: cell.ordinal,
       run_cell_id: cell.run_cell_id,
       cell_key: cell.cell_key,
-      result_id: `${fixture.namespace}:fixture-result:${cell.ordinal}`,
-      result_content_hash: hash(`${fixture.namespace}:fixture-result:${cell.ordinal}`),
+      result_id: comparisonInputs[index]?.result_id
+        ?? `${fixture.namespace}:fixture-result:${cell.ordinal}`,
+      result_content_hash: comparisonInputs[index]?.content_hash
+        ?? hash(`${fixture.namespace}:fixture-result:${cell.ordinal}`),
     })),
     evaluation_protocol: protocol.evaluation_protocol,
     validator_profile_version: EXPERIMENT_FOUNDATION_SCIENTIFIC_VALIDATOR_PROFILE_VERSION_V2,
@@ -1323,6 +1676,9 @@ async function seedScientificGatewayFixture(
       status: 'passed',
       detail_code: null,
     }],
+    ...(comparisonEvaluation
+      ? { ordered_comparison_results: comparisonEvaluation.ordered_comparison_results }
+      : {}),
     status: 'passed',
   };
   const report: ScientificValidationReportV2 = {
@@ -1335,6 +1691,9 @@ async function seedScientificGatewayFixture(
       validator_profile_version: reportWithoutHash.validator_profile_version,
       validator_profile_hash: reportWithoutHash.validator_profile_hash,
       ordered_rule_results: reportWithoutHash.ordered_rule_results,
+      ...(reportWithoutHash.ordered_comparison_results
+        ? { ordered_comparison_results: reportWithoutHash.ordered_comparison_results }
+        : {}),
       status: reportWithoutHash.status,
     }),
   };
@@ -1688,6 +2047,281 @@ function implementationProjectData(
   };
 }
 
+async function runScientificClosureProposal(
+  prisma: PrismaClient,
+  input: {
+    fixture: AcknowledgedRunFixture;
+    closureInputHash: string;
+    runEvidenceUnitId: string;
+    runEvidenceUnitHash: string;
+    primaryFact: ScientificComparisonFactV1;
+  },
+): Promise<{ proposalId: string; proposalHash: string; admissionId: string }> {
+  const titleCardId = `${input.fixture.namespace}:title-card`;
+  const evidenceRef: TopicSelectionFunctionalRef = {
+    ...runtimeRef('run_evidence_unit', input.runEvidenceUnitId, titleCardId),
+    version_id: input.runEvidenceUnitHash,
+  };
+  const runtimeRepository = new PrismaPaperImplementationRuntimeRepository(prisma);
+  let idSequence = 0;
+  const idFactory = (prefix: string) => (
+    `${input.fixture.namespace}:${prefix}:${++idSequence}`
+  );
+  const admission = new PaperImplementationRuntimeAdmissionService({
+    repository: runtimeRepository,
+    idFactory,
+    now: () => FIXED_NOW,
+  });
+  const orchestrator: PaperImplementationResultAnalysisAgentOrchestrator = {
+    invokeStructuredOutput: async <T>(request: TopicSelectionAgentInvocationRequest<T>) => scientificInvocationResult(
+      scientificResultAnalysisRoleOutput(input.fixture.namespace, evidenceRef) as unknown as T,
+      request.node_id,
+      request.execution_mode,
+    ),
+  };
+  const runtime = new PaperImplementationResultAnalysisRuntimeService({
+    projectRepository: new PrismaPaperImplementationRepository(prisma),
+    runtimeAdmission: admission,
+    agentOrchestrator: orchestrator,
+    scientificClosureContextResolver: new PaperImplementationScientificClosureContextService(
+      new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma),
+    ),
+    idFactory,
+    now: () => FIXED_NOW,
+  });
+  const result = await runtime.runInterpretationScenarios(
+    input.fixture.implementationProjectId,
+    {
+      run_id: `${input.fixture.namespace}:result-analysis-product-run`,
+      run_mode: 'product',
+      execution_mode: 'provider_llm',
+      model_profile_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+      model_option_id: `${PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID}.relational-stub`,
+      target_ref: runtimeRef(
+        'Validation-Cycle',
+        input.fixture.validationCycleId,
+        titleCardId,
+      ),
+      target_version_id: 'runtime-input-snapshot-version-13',
+      input_snapshot_ref: runtimeRef(
+        'implementation_input_snapshot',
+        `${input.fixture.namespace}:result-analysis-input`,
+        titleCardId,
+      ),
+      input_snapshot_hash: runtimeHash(`${input.fixture.namespace}:result-analysis-input`),
+      source_refs: [
+        runtimeRef(
+          'result_interpretation_packet',
+          `${input.fixture.namespace}:result-interpretation-packet`,
+          titleCardId,
+        ),
+        runtimeRef(
+          'trace_manifest',
+          `${input.fixture.namespace}:result-analysis-trace`,
+          titleCardId,
+        ),
+      ],
+      source_hashes: [
+        runtimeHash(`${input.fixture.namespace}:result-interpretation-packet`),
+        runtimeHash(`${input.fixture.namespace}:result-analysis-trace`),
+      ],
+      scientific_closure_intent: {
+        schema_version: 'PaperImplementationScientificClosureIntent@v1',
+        expected_closure_watermark_hash: input.closureInputHash,
+      },
+    },
+  );
+  const artifact = result.final_runtime_artifact;
+  const admitted = result.final_admission_record;
+  assert.ok(artifact);
+  assert.ok(admitted);
+  assert.equal(result.status, 'passed');
+  assert.equal(
+    artifact.output_schema_id,
+    PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
+  );
+  assert.equal(admitted.admission_status, 'admitted');
+  assert.equal(artifact.run_mode, 'product');
+  assert.equal(artifact.execution_mode, 'provider_llm');
+  assert.equal(artifact.target_ref.ref_type, 'validation_cycle');
+  assert.equal(artifact.target_ref.version_id, 'v1');
+  assert.equal(artifact.target_version_id, 'runtime-input-snapshot-version-13');
+  assert.equal(admitted.target_ref.ref_type, 'validation_cycle');
+  assert.equal(admitted.target_ref.version_id, 'v1');
+  const { artifact_identity_hash: artifactIdentityHash, ...artifactIdentityInput } = artifact;
+  assert.equal(artifactIdentityHash, runtimeHash(artifactIdentityInput));
+  const proposal = artifact.artifact_payload.scientific_closure_proposal;
+  assert.ok(proposal && typeof proposal === 'object');
+  assert.deepEqual(
+    (proposal as { primary_comparison_fact_ref: unknown }).primary_comparison_fact_ref,
+    {
+      comparison_fact_id: input.primaryFact.comparison_fact_id,
+      comparison_fact_hash: input.primaryFact.comparison_fact_hash,
+    },
+  );
+  assert.equal(artifact.final_artifact_hash, artifact.artifact_payload_hash);
+  return {
+    proposalId: artifact.runtime_artifact_id,
+    proposalHash: artifact.final_artifact_hash!,
+    admissionId: admitted.admission_record_id,
+  };
+}
+
+function scientificResultAnalysisRoleOutput(
+  namespace: string,
+  evidenceRef: TopicSelectionFunctionalRef,
+): PaperImplementationResultAnalysisRoleOutput {
+  return {
+    role_slot_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
+    role_status: 'passed',
+    summary: 'The registered primary comparison supports the preregistered expectation.',
+    cited_source_refs: [evidenceRef],
+    blocker_codes: [],
+    warning_codes: [],
+    scenario_outputs: [
+      'positive',
+      'negative',
+      'inconclusive',
+      'failed_run',
+    ].map((scenarioKind) => ({
+      scenario_id: `${namespace}:${scenarioKind}`,
+      scenario_kind: scenarioKind as 'positive' | 'negative' | 'inconclusive' | 'failed_run',
+      summary: `${scenarioKind} bounded interpretation.`,
+      support_refs: [evidenceRef],
+      challenge_refs: [],
+      limitation_refs: [],
+      forbidden_overclaims: ['Do not generalize beyond the registered protocol.'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
+    })),
+    interpretation: {
+      result_summary:
+        'The trusted result supports the preregistered expectation within its protocol scope.',
+      supports_assertion_refs: [],
+      challenges_assertion_refs: [],
+      unexpected_findings: [],
+      failed_run_refs: [],
+      inconclusive_run_refs: [],
+      stale_or_invalidated_evidence_refs: [],
+      failed_runs_accounted_for: true,
+      inconclusive_runs_accounted_for: true,
+      exploratory_confirmatory_separated: true,
+    },
+    reliability: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [],
+      reliability_notes: ['Bounded to one exact registered comparison.'],
+    },
+    claim_implications: {
+      allowed_claim_ceiling: 'moderate',
+      forbidden_overclaims: ['Do not generalize beyond the registered protocol.'],
+      recommended_claim_refs: [],
+      required_followup_refs: [],
+    },
+  };
+}
+
+function scientificInvocationResult<T>(
+  output: T,
+  nodeId: string,
+  executionMode: string,
+): TopicSelectionAgentInvocationResult<T> {
+  const outputHash = runtimeHash(output);
+  const tokenBudget = {
+    provider_id: null,
+    model_id: null,
+    profile_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+    model_option_id: null,
+    estimated_input_tokens: 1_200,
+    estimated_output_tokens: 1_800,
+    context_window_tokens: 128_000,
+    schema_overhead_tokens: 1_000,
+    decision: 'within_budget',
+    compression_strategy_ref: runtimeRef(
+      'compression_strategy',
+      'result-analysis-relational-compression',
+      'relational-title-card',
+    ),
+    blocker_codes: [],
+    warning_codes: [],
+  };
+  const provenance = {
+    workflow_run_id: 'result-analysis-relational-run',
+    node_id: nodeId,
+    node_attempt_id: `${nodeId}.attempt-0`,
+    invocation_attempt_id: `${nodeId}.call-1`,
+    execution_mode: executionMode,
+    executor_kind: 'single_agent',
+    source_kind: 'provider_response',
+    non_provider: false,
+    run_mode: 'product',
+    profile_id: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
+    profile_version: 'v1',
+    profile_hash: runtimeHash('result-analysis-profile'),
+    model_option_id: `${PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID}.relational-stub`,
+    normalized_params_hash: runtimeHash('result-analysis-params'),
+    capability_degraded: false,
+    capability_degrade_reason: null,
+    output_contract: 'PaperImplementationResultAnalysisRoleArtifact@v1',
+    prompt_template_id: 'paper-implementation-result-analysis-scenarios',
+    prompt_template_version: 'v1',
+    schema_name: 'paper_implementation_result_analysis_role_output',
+    prompt_packet_hash: runtimeHash(`prompt:${nodeId}`),
+    prompt_packet_cache_status: 'miss',
+    prompt_packet_cache_result_ref: null,
+    prompt_packet_cache_result_hash: null,
+    response_hash: outputHash,
+    structured_output_hash: outputHash,
+    cache_status: 'not_applicable',
+    response_reuse_ref: null,
+    telemetry: { request_count: 1 },
+  };
+  return {
+    schema_version: 'v1',
+    node_id: nodeId,
+    workflow_run_id: 'result-analysis-relational-run',
+    node_attempt_id: `${nodeId}.attempt-0`,
+    status: 'succeeded',
+    structured_output: output,
+    provenance,
+    validation: { valid: true, error_count: 0, errors: [] },
+    token_budget_gate_result: tokenBudget,
+    warning_codes: [],
+    blocker_codes: [],
+    error_code: null,
+    audit_snapshot: {
+      schema_version: 'topic-selection-agent-invocation-audit-v1',
+      node_id: nodeId,
+      workflow_run_id: 'result-analysis-relational-run',
+      node_attempt_id: `${nodeId}.attempt-0`,
+      status: 'succeeded',
+      provenance,
+      token_budget_gate_result: tokenBudget,
+      validation: { valid: true, error_count: 0, errors: [] },
+      warning_codes: [],
+      blocker_codes: [],
+      error_code: null,
+      created_at: FIXED_NOW,
+    },
+    created_at: FIXED_NOW,
+    audit_artifact_ref: null,
+  } as unknown as TopicSelectionAgentInvocationResult<T>;
+}
+
+function runtimeRef(
+  refType: string,
+  refId: string,
+  titleCardId: string,
+): TopicSelectionFunctionalRef {
+  return {
+    ref_type: refType,
+    ref_id: refId,
+    title_card_id: titleCardId,
+    version_id: 'v1',
+  };
+}
+
 function closureServiceFor(
   repository: PrismaPaperImplementationValidationCycleClosureV2Repository,
 ) {
@@ -1711,7 +2345,6 @@ function controlOnlyClosureRequest(
     closure_kind: 'control_flow_validated_no_paper_evidence' as const,
     accepted_proposal_id: null,
     expected_proposal_hash: null,
-    corrected_scientific_disposition: null,
     idempotency_key: idempotencyKey,
   };
 }
@@ -2004,4 +2637,8 @@ function jsonInput(value: unknown): Prisma.InputJsonValue {
 
 function hash(value: string): string {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function runtimeHash(value: unknown): string {
+  return createHash('sha256').update(stableStringify(value)).digest('hex');
 }

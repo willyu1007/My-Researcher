@@ -1115,6 +1115,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         selected_exit_key: null,
         accepted_proposal_id: null,
         accepted_proposal_hash: null,
+        scientific_authority: null,
         closure_watermark: {
           schema_version: 'v1',
           validation_cycle_id: 'validation_cycle_route_001',

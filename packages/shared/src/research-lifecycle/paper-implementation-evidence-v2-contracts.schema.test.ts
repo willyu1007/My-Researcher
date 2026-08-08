@@ -102,6 +102,7 @@ const closure = {
   selected_exit_key: null,
   accepted_proposal_id: null,
   accepted_proposal_hash: null,
+  scientific_authority: null,
   closure_watermark: watermark,
   closure_snapshot_hash: hash('8'),
 };
@@ -219,7 +220,7 @@ test('readiness evaluation v2 schema is server-derived and closed', async () => 
   );
 });
 
-test('close request carries identity, CAS expectations and the human decision only', async () => {
+test('close request carries identity, CAS expectations and proposal authorization only', async () => {
   const request = {
     validation_cycle_id: 'cycle-001',
     expected_cycle_version: 3,
@@ -227,7 +228,6 @@ test('close request carries identity, CAS expectations and the human decision on
     closure_kind: 'control_flow_validated_no_paper_evidence',
     accepted_proposal_id: null,
     expected_proposal_hash: null,
-    corrected_scientific_disposition: null,
     idempotency_key: 'close-cycle-001-v3',
   };
   assert.equal(await validates(closeValidationCycleV2RequestSchema, request), true);
@@ -238,6 +238,9 @@ test('close request carries identity, CAS expectations and the human decision on
     { decision_exit: 'proceed' },
     { outputs: [{ kind: 'free_form' }] },
     { scientific_disposition: 'positive' },
+    { corrected_scientific_disposition: 'positive' },
+    { selected_exit_key: 'publish' },
+    { review_choice: 'accept' },
     { closure_snapshot_hash: hash('8') },
   ]) {
     assert.equal(
@@ -292,5 +295,7 @@ test('PI evidence reason-code registry matches the Pack C frozen baseline subset
     'CYCLE_CLOSURE_SCOPE_DRIFT',
     'CYCLE_ALREADY_CLOSED',
     'CLOSURE_PROPOSAL_STALE',
+    'CLOSURE_PRIMARY_COMPARISON_MISSING',
+    'CLOSURE_PRIMARY_COMPARISON_AMBIGUOUS',
   ]);
 });

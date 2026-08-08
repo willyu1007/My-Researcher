@@ -40,7 +40,6 @@ test('closure preparation schema accepts the exact no-evidence POST body templat
         closure_kind: 'control_flow_validated_no_paper_evidence',
         accepted_proposal_id: null,
         expected_proposal_hash: null,
-        corrected_scientific_disposition: null,
         idempotency_key: null,
       },
       required_template_fields: [{
@@ -70,7 +69,7 @@ test('closure preparation schema accepts the exact no-evidence POST body templat
   );
 });
 
-test('closure preparation schema accepts blocked and scientific-gated outcomes', async () => {
+test('closure preparation schema accepts blocked and scientific proposal-template outcomes', async () => {
   assert.equal(
     await validates(validationCycleClosurePreparationV2ResponseSchema, {
       readiness: {
@@ -92,12 +91,31 @@ test('closure preparation schema accepts blocked and scientific-gated outcomes',
         outcome: 'ready',
         blockers: [],
       },
-      derived_closure_kind: {
-        marker: 'scientific_closure_blocked',
-        available: false,
-        gate: 'M7-L2',
+      derived_closure_kind: 'scientific_evidence_assessed',
+      prepared_request: {
+        body: {
+          validation_cycle_id: 'cycle-1',
+          expected_cycle_version: 3,
+          expected_closure_input_hash: HASH,
+          closure_kind: 'scientific_evidence_assessed',
+          accepted_proposal_id: null,
+          expected_proposal_hash: null,
+          idempotency_key: null,
+        },
+        required_template_fields: [{
+          field: 'accepted_proposal_id',
+          semantic: 'admitted_scientific_proposal_id',
+          required: true,
+        }, {
+          field: 'expected_proposal_hash',
+          semantic: 'admitted_scientific_proposal_hash',
+          required: true,
+        }, {
+          field: 'idempotency_key',
+          semantic: 'business_idempotency_key',
+          required: true,
+        }],
       },
-      prepared_request: null,
     }),
     true,
   );

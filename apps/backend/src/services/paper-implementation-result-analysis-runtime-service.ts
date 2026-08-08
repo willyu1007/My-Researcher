@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Ajv, type ValidateFunction } from 'ajv';
 import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION,
@@ -12,6 +13,8 @@ import {
   PAPER_IMPLEMENTATION_RUNTIME_ARTIFACT_ENVELOPE_SCHEMA_VERSION,
   paperImplementationResultAnalysisRoleOutputSchema,
   type PaperImplementationResultAnalysisArtifact,
+  type PaperImplementationScientificClosureContextV1,
+  type PaperImplementationResultAnalysisScientificClosureArtifact,
   type PaperImplementationResultAnalysisRoleOutput,
   type PaperImplementationRuntimeAdmissionRecord,
   type PaperImplementationRuntimeArtifactEnvelope,
@@ -72,6 +75,9 @@ import {
 import type {
   PaperImplementationRuntimeTelemetryCollector,
 } from './paper-implementation-runtime-telemetry-service.js';
+import type {
+  PaperImplementationScientificClosureContextResolver,
+} from './paper-implementation-scientific-closure-context-service.js';
 
 export interface PaperImplementationResultAnalysisRuntimeResult {
   run_id: string;
@@ -95,10 +101,16 @@ interface RuntimeServiceOptions {
   projectRepository: PaperImplementationRepository;
   runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   agentOrchestrator: PaperImplementationResultAnalysisAgentOrchestrator;
+  scientificClosureContextResolver?: PaperImplementationScientificClosureContextResolver | null;
   telemetryCollector?: PaperImplementationRuntimeTelemetryCollector | null;
   idFactory?: (prefix: string) => string;
   now?: () => string;
 }
+
+type ResolvedResultAnalysisRuntimeRequest =
+  RunPaperImplementationResultAnalysisRuntimeRequest & {
+    scientific_closure_context?: PaperImplementationScientificClosureContextV1;
+  };
 
 interface SlotProfile {
   slotId: typeof PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID;
@@ -240,6 +252,8 @@ export class PaperImplementationResultAnalysisRuntimeService {
   private readonly projectRepository: PaperImplementationRepository;
   private readonly runtimeAdmission: PaperImplementationRuntimeAdmissionService;
   private readonly agentOrchestrator: PaperImplementationResultAnalysisAgentOrchestrator;
+  private readonly scientificClosureContextResolver:
+    PaperImplementationScientificClosureContextResolver | null;
   private readonly telemetryCollector: PaperImplementationRuntimeTelemetryCollector | null;
   private readonly idFactory: (prefix: string) => string;
   private readonly now: () => string;
@@ -253,6 +267,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     this.projectRepository = options.projectRepository;
     this.runtimeAdmission = options.runtimeAdmission;
     this.agentOrchestrator = options.agentOrchestrator;
+    this.scientificClosureContextResolver = options.scientificClosureContextResolver ?? null;
     this.telemetryCollector = options.telemetryCollector ?? null;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
@@ -266,17 +281,29 @@ export class PaperImplementationResultAnalysisRuntimeService {
   ): Promise<PaperImplementationResultAnalysisRuntimeResult> {
     this.assertRequest(request);
     await requireActiveImplementationProject(this.projectRepository, implementationProjectId);
-    const runId = request.run_id?.trim() || this.idFactory('pi_result_analysis_runtime_run');
-    const runtimeBase = this.runtimeBase(implementationProjectId, request, runId);
+    const resolvedRequest = await this.resolveScientificClosureRequest(
+      implementationProjectId,
+      request,
+    );
+    this.assertResolvedRequest(resolvedRequest);
+    const runId = resolvedRequest.run_id?.trim()
+      || this.idFactory('pi_result_analysis_runtime_run');
+    const runtimeBase = this.runtimeBase(implementationProjectId, resolvedRequest, runId);
     const artifacts: PaperImplementationRuntimeArtifactEnvelope[] = [];
     const admissions: PaperImplementationRuntimeAdmissionRecord[] = [];
-    const preflightBlockerCodes = this.uniqueStrings(request.preflight_blocker_codes ?? []);
+    const preflightBlockerCodes = this.uniqueStrings(
+      resolvedRequest.preflight_blocker_codes ?? [],
+    );
 
     if (preflightBlockerCodes.length > 0) {
-      const preflight = await this.recordPreflightBlockedArtifact(runtimeBase, request, preflightBlockerCodes);
+      const preflight = await this.recordPreflightBlockedArtifact(
+        runtimeBase,
+        resolvedRequest,
+        preflightBlockerCodes,
+      );
       artifacts.push(preflight.artifact);
       admissions.push(preflight.admission);
-      const final = await this.recordFinalArtifact(runtimeBase, request, {
+      const final = await this.recordFinalArtifact(runtimeBase, resolvedRequest, {
         roleArtifact: preflight,
         status: 'blocked',
         runtimeFailureCode: null,
@@ -289,8 +316,12 @@ export class PaperImplementationResultAnalysisRuntimeService {
       return this.result(runtimeBase, 'blocked', 0, artifacts, admissions, final.artifact, final.admission);
     }
 
-    const roleInvocation = await this.invokeRoleWithBoundedRetry(runtimeBase, request);
-    const roleArtifact = await this.recordRoleArtifact(runtimeBase, request, roleInvocation);
+    const roleInvocation = await this.invokeRoleWithBoundedRetry(runtimeBase, resolvedRequest);
+    const roleArtifact = await this.recordRoleArtifact(
+      runtimeBase,
+      resolvedRequest,
+      roleInvocation,
+    );
     artifacts.push(roleArtifact.artifact);
     admissions.push(roleArtifact.admission);
 
@@ -320,7 +351,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     const finalStatus = blockerCodes.length > 0 || roleArtifact.output?.role_status === 'blocked'
       ? 'blocked'
       : 'passed';
-    const final = await this.recordFinalArtifact(runtimeBase, request, {
+    const final = await this.recordFinalArtifact(runtimeBase, resolvedRequest, {
       roleArtifact,
       status: finalStatus,
       runtimeFailureCode: null,
@@ -343,7 +374,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private async invokeRoleWithBoundedRetry(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
   ): Promise<RoleInvocationOutcome> {
     let providerCallCount = 0;
     for (let retryAttemptIndex = 0; retryAttemptIndex <= MAX_TECHNICAL_RETRY_ATTEMPT_INDEX; retryAttemptIndex += 1) {
@@ -375,7 +406,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private async invokeRole(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     retryAttemptIndex: number,
   ): Promise<TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>> {
     const output = this.fixtureOutputForMode(request);
@@ -441,7 +472,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private async recordPreflightBlockedArtifact(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     blockerCodes: string[],
   ): Promise<RecordedRuntimeArtifact> {
     const output: PaperImplementationResultAnalysisRoleOutput = {
@@ -489,7 +520,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private async recordRoleArtifact(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     roleInvocation: RoleInvocationOutcome,
   ): Promise<RecordedRuntimeArtifact> {
     const roleResult = roleInvocation.result;
@@ -556,7 +587,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private async recordFinalArtifact(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     input: {
       roleArtifact: RecordedRuntimeArtifact;
       status: 'passed' | 'blocked' | 'failed_runtime';
@@ -567,14 +598,17 @@ export class PaperImplementationResultAnalysisRuntimeService {
     },
   ): Promise<{ artifact: PaperImplementationRuntimeArtifactEnvelope; admission: PaperImplementationRuntimeAdmissionRecord }> {
     const finalPayload = this.finalPayload(runtimeBase, request, input);
+    const scientificClosureArtifact = request.scientific_closure_context !== undefined;
     const finalArtifact = this.buildRuntimeArtifact(runtimeBase, request, {
       artifactScope: 'final',
       roleSlotId: null,
       callIndex: null,
       executorKind: 'single_agent',
       artifactContractId: SLOT_PROFILE.artifactContractId,
-      artifactContractVersion: 'v1',
-      outputSchemaId: PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID,
+      artifactContractVersion: scientificClosureArtifact ? 'v2' : 'v1',
+      outputSchemaId: scientificClosureArtifact
+        ? PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID
+        : PAPER_IMPLEMENTATION_RESULT_ANALYSIS_FINAL_OUTPUT_SCHEMA_ID,
       artifactPayloadRefType: SLOT_PROFILE.finalArtifactRefType,
       artifactPayloadSeed: 'final',
       promptPacketHash: input.roleArtifact.artifact.prompt_packet_hash,
@@ -604,7 +638,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private buildRuntimeArtifact(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     input: BuildArtifactInput,
   ): PaperImplementationRuntimeArtifactEnvelope {
     const artifactPayload = this.jsonSafeObject(input.artifactPayload);
@@ -766,7 +800,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private finalPayload(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     input: {
       roleArtifact: RecordedRuntimeArtifact;
       status: 'passed' | 'blocked' | 'failed_runtime';
@@ -774,12 +808,12 @@ export class PaperImplementationResultAnalysisRuntimeService {
       blockerCodes: string[];
       warningCodes: string[];
     },
-  ): PaperImplementationResultAnalysisArtifact {
+  ): PaperImplementationResultAnalysisArtifact | PaperImplementationResultAnalysisScientificClosureArtifact {
     const roleArtifact = input.roleArtifact.artifact;
     const roleOutput = input.roleArtifact.output;
     const admittedRoleRef = input.roleArtifact.admission.admitted_artifact_ref;
     const admittedRoleHash = input.roleArtifact.admission.admitted_artifact_hash;
-    return {
+    const base: PaperImplementationResultAnalysisArtifact = {
       status: input.status,
       slot_id: SLOT_PROFILE.slotId,
       workflow_type: SLOT_PROFILE.workflowType,
@@ -818,6 +852,34 @@ export class PaperImplementationResultAnalysisRuntimeService {
       },
       source_refs: [...request.source_refs],
       source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
+    };
+    const scientificContext = request.scientific_closure_context;
+    if (!scientificContext) {
+      return base;
+    }
+    return {
+      ...base,
+      scientific_closure_proposal: input.status === 'passed'
+        && roleOutput?.interpretation
+        && roleOutput.reliability
+        && roleOutput.claim_implications
+        ? {
+          schema_version: 'PaperImplementationScientificClosureProposal@v1',
+          validation_cycle_id: scientificContext.validation_cycle_id,
+          closure_watermark_hash: scientificContext.closure_watermark_hash,
+          primary_comparison_fact_ref: structuredClone(
+            scientificContext.primary_comparison_fact_ref,
+          ),
+          ordered_evidence_refs: structuredClone(scientificContext.ordered_evidence_refs),
+          interpretation_summary: roleOutput.interpretation.result_summary,
+          reliability_assessment: structuredClone(roleOutput.reliability),
+          limitations: {
+            limitation_refs: structuredClone(roleOutput.reliability.limitation_refs),
+            reliability_notes: [...roleOutput.reliability.reliability_notes],
+          },
+          claim_ceiling: roleOutput.claim_implications.allowed_claim_ceiling,
+        }
+        : null,
     };
   }
 
@@ -858,7 +920,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private runtimeBase(
     implementationProjectId: string,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     runId: string,
   ): RuntimeBase {
     const contextPolicyProfile = this.contextPolicyProfile();
@@ -869,6 +931,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
       // T-124 G4.5 Fix 1: injected bodies are part of the runtime identity so a
       // body change re-keys the bundle (auditable, cache-correct).
       source_context_packets: request.source_context_packets ?? [],
+      scientific_closure_context: request.scientific_closure_context ?? null,
       target_ref: request.target_ref,
       input_snapshot_hash: request.input_snapshot_hash,
     });
@@ -895,7 +958,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private roleMessages(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
   ): Array<{ role: 'system' | 'user'; content: string }> {
     return [
       {
@@ -931,6 +994,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
           source_hashes: request.source_hashes,
           // T-124 G4.5 Fix 1: the actual source bodies (hash-fenced to source_refs).
           source_context_packets: request.source_context_packets ?? [],
+          scientific_closure_context: request.scientific_closure_context ?? null,
           source_hash_bundle_hash: runtimeBase.sourceHashBundleHash,
         }),
       },
@@ -942,7 +1006,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   // token double-count fix below applies here regardless.
   private runtimeTokenBudget(
     runtimeBase: RuntimeBase,
-    _request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    _request: ResolvedResultAnalysisRuntimeRequest,
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): TopicSelectionAgentRuntimeTokenBudgetInput {
     return {
@@ -1061,7 +1125,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
 
   private roleArtifactPayload(
     runtimeBase: RuntimeBase,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     output: unknown,
   ): Record<string, unknown> {
     return {
@@ -1074,7 +1138,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   }
 
   private fixtureOutputForMode(
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
   ): PaperImplementationResultAnalysisRoleOutput | null {
     if (request.execution_mode === 'mocked_llm') {
       return request.mocked_role_outputs?.[SLOT_PROFILE.roleSlotId] ?? null;
@@ -1089,19 +1153,27 @@ export class PaperImplementationResultAnalysisRuntimeService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
-    assertBackHalfSourceContextPacketFence(request.source_refs, request.source_hashes, request.source_context_packets);
-    // T-124 G4.6: the Domain Gate structural context (target validation_cycle,
-    // pre-authorized result_interpretation_packet ref, trace_manifest ref,
-    // run_evidence_unit refs) is part of the request face — it is statically
-    // decidable, so an incomplete context fails 400 BEFORE any provider call
-    // instead of wasting an LLM round on a request that can never materialize.
-    const contextExtraction = extractResultAnalysisDomainGateContext(request.target_ref, request.source_refs);
-    if (!contextExtraction.ok) {
+    if ('scientific_closure_context' in request) {
       throw new AppError(
         400,
         'INVALID_PAYLOAD',
-        `result_analysis Domain Gate structural context is incomplete: ${contextExtraction.issues.join(' ')}`,
+        'Caller-authored scientific_closure_context is not accepted; submit scientific_closure_intent.',
       );
+    }
+    const scientificIntent = request.scientific_closure_intent;
+    if (scientificIntent) {
+      if (
+        normalizedPaperImplementationRefType(request.target_ref.ref_type) !== 'validationcycle'
+        || request.run_mode !== 'product'
+        || request.execution_mode !== 'provider_llm'
+        || (request.source_context_packets?.length ?? 0) > 0
+      ) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          'scientific_closure_intent requires a product/provider run targeting one ValidationCycle, without caller-supplied source bodies.',
+        );
+      }
     }
     if (request.run_mode === 'product' && request.execution_mode !== 'provider_llm') {
       throw new AppError(400, 'INVALID_PAYLOAD', 'product run_mode requires execution_mode=provider_llm.');
@@ -1144,6 +1216,102 @@ export class PaperImplementationResultAnalysisRuntimeService {
     }
     if (request.execution_mode === 'codex_assisted' && !request.codex_role_outputs?.[SLOT_PROFILE.roleSlotId]) {
       throw new AppError(400, 'INVALID_PAYLOAD', `codex_role_outputs.${SLOT_PROFILE.roleSlotId} is required.`);
+    }
+  }
+
+  private async resolveScientificClosureRequest(
+    implementationProjectId: string,
+    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+  ): Promise<ResolvedResultAnalysisRuntimeRequest> {
+    const intent = request.scientific_closure_intent;
+    if (!intent) return request;
+    if (!this.scientificClosureContextResolver) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        'Scientific closure context resolver is not configured.',
+      );
+    }
+    const resolution = await this.scientificClosureContextResolver.resolve({
+      implementation_project_id: implementationProjectId,
+      validation_cycle_id: request.target_ref.ref_id,
+      expected_closure_watermark_hash: intent.expected_closure_watermark_hash,
+      title_card_id: this.titleCardId(request),
+    });
+    const authoritativeTypes = new Set([
+      'runevidenceunit',
+      'resultvalidationreport',
+      'evaluationprotocolrevision',
+    ]);
+    const retainedSources = request.source_refs.flatMap((sourceRef, index) => (
+      authoritativeTypes.has(normalizedPaperImplementationRefType(sourceRef.ref_type))
+        ? []
+        : [{ sourceRef, sourceHash: request.source_hashes[index]! }]
+    ));
+    return {
+      ...request,
+      target_ref: {
+        ...request.target_ref,
+        ref_type: 'validation_cycle',
+      },
+      source_refs: [
+        ...retainedSources.map((source) => source.sourceRef),
+        ...resolution.authoritative_sources.map((source) => source.source_ref),
+      ],
+      source_hashes: [
+        ...retainedSources.map((source) => source.sourceHash),
+        ...resolution.authoritative_sources.map((source) => source.source_hash),
+      ],
+      source_context_packets: resolution.authoritative_sources.map(
+        (source) => source.source_context_packet,
+      ),
+      scientific_closure_context: resolution.context,
+    };
+  }
+
+  private assertResolvedRequest(request: ResolvedResultAnalysisRuntimeRequest): void {
+    assertBackHalfSourceContextPacketFence(
+      request.source_refs,
+      request.source_hashes,
+      request.source_context_packets,
+    );
+    const scientificContext = request.scientific_closure_context;
+    if (scientificContext) {
+      const sourceEvidenceRefs = request.source_refs.filter(
+        (ref) => normalizedPaperImplementationRefType(ref.ref_type) === 'runevidenceunit',
+      );
+      const evidenceOrderIsExact = scientificContext.ordered_evidence_refs.length
+        === sourceEvidenceRefs.length
+        && scientificContext.ordered_evidence_refs.every((ref, index) => {
+          const sourceRef = sourceEvidenceRefs[index];
+          return ref.ordinal === index + 1
+            && sourceRef?.ref_id === ref.run_evidence_unit_id
+            && sourceRef.version_id === ref.content_hash;
+        });
+      if (
+        request.target_ref.ref_id !== scientificContext.validation_cycle_id
+        || scientificContext.ordered_evidence_refs.length === 0
+        || !evidenceOrderIsExact
+      ) {
+        throw new AppError(
+          500,
+          'INTERNAL_ERROR',
+          'Server-resolved scientific closure context drifted from its authoritative source bundle.',
+        );
+      }
+    }
+    // Structural Domain Gate readiness is checked after authoritative sources
+    // have been merged so scientific requests need not guess server-owned REUs.
+    const contextExtraction = extractResultAnalysisDomainGateContext(
+      request.target_ref,
+      request.source_refs,
+    );
+    if (!contextExtraction.ok) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `result_analysis Domain Gate structural context is incomplete: ${contextExtraction.issues.join(' ')}`,
+      );
     }
   }
 
@@ -1228,7 +1396,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   }
 
   private roleInvocationFailureCode(
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     result: TopicSelectionAgentInvocationResult<PaperImplementationResultAnalysisRoleOutput>,
   ): string | null {
     const runtimeFailureCode = this.runtimeFailureCode(result);
@@ -1257,7 +1425,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
    *   the Domain Gate materialize step).
    */
   private semanticOutputFailureCode(
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     output: PaperImplementationResultAnalysisRoleOutput | null,
   ): string | null {
     if (!output || output.role_status !== 'passed') {
@@ -1306,7 +1474,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
    * (blocked outputs / never a substitute content path).
    */
   private assembleDomainGateRequest(
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     output: PaperImplementationResultAnalysisRoleOutput,
   ): CreateResultInterpretationPacketRequest | null {
     if (!output.interpretation || !output.reliability || !output.claim_implications) {
@@ -1371,7 +1539,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
   private ref(
     refType: string,
     refId: string,
-    request: RunPaperImplementationResultAnalysisRuntimeRequest,
+    request: ResolvedResultAnalysisRuntimeRequest,
     versionId: string | null = null,
   ): TopicSelectionFunctionalRef {
     return {

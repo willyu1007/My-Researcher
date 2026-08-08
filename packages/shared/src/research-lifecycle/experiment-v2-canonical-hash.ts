@@ -878,11 +878,16 @@ export function serverHashPaperImplementationV2ClosureWatermark(
 export function serverHashPaperImplementationV2CycleClosure(
   content: Omit<ValidationCycleClosureV2, 'closure_snapshot_hash'>,
 ): string {
+  const { scientific_authority: scientificAuthority, ...legacyContent } = content;
   return serverHashExperimentV2SemanticContent({
     record_kind: 'PaperImplementationValidationCycleClosureV2',
     schema_version: content.schema_version,
     hash_profile: 'pi-cycle-closure-json@v1',
-    content,
+    // Control-only and pre-P3 closures retain the exact historical v1 hash;
+    // scientific closures add the authority snapshot as a hash member.
+    content: scientificAuthority === null
+      ? legacyContent
+      : { ...legacyContent, scientific_authority: scientificAuthority },
   });
 }
 

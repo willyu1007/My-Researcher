@@ -442,3 +442,60 @@ Each implementation phase must record the exact command, timestamp/run id, targe
 - Preserved unrelated governance/commit-tooling changes and the separate topic-selection documentation edit outside the scoped T-136 checkpoint.
 - Final commit-readiness reruns passed: shared/backend typechecks; Pack C EF/final gate units 12/12; OpenAPI quality; API-index freshness; documentation lint with 0 errors and the unchanged 208-warning baseline; and `git diff --check`.
 - No named-local database, cloud/provider resource, capability flag or credential state was changed by this checkpoint.
+
+### 2026-08-08 — P3 PI scientific closure verification
+
+- P0-P2 cleanup/checkpoint commit: `93660c826dcb60110b954b5501c9f6afa2448def` (`feat(scientific): close P0-P2 evidence path`, exact `Task: T-136` trailer). Only reproducible ignored artifacts were removed; unrelated dirty-worktree changes were preserved.
+- `PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assistant/shared typecheck`: passed.
+- `PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assistant/backend typecheck`: passed; Prisma Client regeneration used the unchanged repo schema SSOT.
+- Shared closure-preparation/evidence/runtime schema lane: passed 62/62. It proves the identity/CAS/proposal-only close command, nullable scientific authority consistency, scientific preparation template and versioned ResultAnalysis proposal while rejecting legacy/caller authority fields.
+- Targeted agent-actions, ResultAnalysis runtime and closure service lane: passed 43/43. DISP-S maps support→positive/positive-exit, contradiction→negative/negative-exit and indeterminate→inconclusive/inconclusive-exit; missing/duplicate primary, stale proposal/watermark and changed replay reject without writes.
+- Targeted PaperImplementation experiment/general route regression: passed 17/17. Closure remains default-off in app composition and strict route identity/error behavior is unchanged.
+- OpenAPI strict quality passed after removing the correction field, documenting the bare runtime proposal hash and adding the hash-bound scientific authority. API index generation and freshness verification passed for 208 endpoints.
+- `PATH=/opt/homebrew/opt/node@20/bin:$PATH node .ai/scripts/experiment-foundation-packc-pi-gate.mjs --run-id packc-pi-20260808-r1`: passed 151/151 across seven suites, zero failures/skips/blocks. Canonical summary digest: `sha256:d1d82d81f7b59f6af43d7561190f150eac7bb00d3d1dead52b7946f882689c62`.
+- The gate's relational lane passed 6/6. New P3 case `P3 scientific closure rereads one admitted proposal, protocol and primary fact in PostgreSQL` passed through the production Trust Gateway, runtime admission repository and serializable Closure transaction, then exact replay produced no duplicate Closure/outbox.
+- Disposable identity: nonce-bound `packc_pi_26171b40f927`, pinned pgvector image digest, identity marker verified, existing database URL unused, cleanup confirmed. The reproducible gate directory was moved to the macOS Trash after its canonical digest and counts were recorded.
+- P3 status: implementation-complete, verified, unreleased and default-off. P4 is next; T-136 remains in progress and only P5 may record `M0-SCI: passed`.
+- Safety: no named-local database, provider/cloud request, capability flag, credential or paid resource changed.
+
+### 2026-08-08 — P3 quality-review remediation
+
+- Review findings closed: caller-authored scientific context/source bodies removed; product/provider/official-policy proposal admission enforced; runtime envelope and admission payload/identity canonically revalidated; REU/report Run binding and complete REU canonical rehash added; REU/report/protocol resolution reduced from N+1 to three bounded batch queries; relation test replaced its synthetic generic artifact with the real ResultAnalysis→official admission→Closure path; OpenAPI preparation wording corrected.
+- Final Node 20 shared/backend typechecks: passed. Backend pretypecheck regenerated Prisma Client from the unchanged repository SSOT.
+- Shared ResultAnalysis runtime schema test: passed 50/50. It accepts the one-field scientific intent only for product/provider and rejects caller context/source bodies.
+- Final ResultAnalysis/context-resolver unit lane: passed 20/20. It proves route-independent rejection of retired caller context, rejection of caller source bodies, server context delivery, admitted scientific final creation and shared-protocol source deduplication across two ordered REUs.
+- Combined ResultAnalysis/Closure/route regression: passed 56/56 with zero skips. The app remains default-off, strict route identity/error behavior is unchanged and all DISP-S/stale/replay cases remain green.
+- `ctl-openapi-quality verify` and strict API-index freshness verification passed after regenerating 208 endpoints. The preparation operation now documents both control and scientific templates.
+- First disposable review-fix gate `packc-pi-20260808-r2`: failed 150/151 solely because the rewritten real runtime test exposed that its historical fixture created a ValidationCycle without the required active ImplementationProject. Identity marker and cleanup passed; no disposable state survived.
+- Fixture correction: seed the exact ImplementationProject aggregate before the Cycle. No product fallback, preflight relaxation or synthetic artifact helper was restored.
+- Intermediate rerun `packc-pi-20260808-r3`: passed 151/151 and relational 6/6. After adding explicit shared-protocol deduplication coverage and route-independent retired-context rejection, final gate `packc-pi-20260808-r4` again passed 151/151 across seven suites with zero failures/skips/blocks. Relational passed 6/6; identity-marked disposable database `packc_pi_3237d12d249c` was cleaned up. Canonical final summary digest: `sha256:a6091dbe7cc269e75d8b10f0293812af6a6c165f5b854753e67fbe9cf2392e0e`.
+- Final relational case proves: actual ResultAnalysis service and server context resolver; product/provider runtime identity; official v1 admission; canonical envelope/admission identities; generic-policy rejection with zero Closure writes; an unprojected REU field drift hidden behind the old stored `contentHash` is rejected with zero writes; restored authority closes once and exact replay produces no duplicate Closure/outbox.
+- Documentation lint passed with 0 errors and the unchanged 208-warning repository baseline. Project-governance lint passed with only the two unrelated historical T-124/T-133 State-format warnings; `git diff --check` passed.
+- Reproducible ignored review-gate directories `packc-pi-20260808-r2` through `r4` were moved to the macOS Trash after their outcomes and final canonical digest were recorded.
+- Safety: all database verification used randomized disposable PostgreSQL with existing database URL explicitly unused. No named-local database, cloud/provider request, capability flag, credential or paid resource changed.
+
+### 2026-08-08 — P3 final authority-boundary remediation
+
+- Node 20 ResultAnalysis/context/Closure target lane passed 44/44 with zero failures/skips. Added cases prove canonical Cycle alias persistence, independent domain/runtime versions, missing-Cycle 404, no-branch 409 and bounded serializable-conflict retry exhaustion.
+- Shared ResultAnalysis runtime contract lane passed 50/50. The scientific intent remains product/provider-only and caller scientific source bodies remain structurally forbidden.
+- Production `buildApp` HTTP target passed 2/2 with 54 unrelated tests skipped by name filter: authoritative scientific intent returns one admitted scientific final; a missing Cycle returns stable 404 before any provider call or runtime artifact write.
+- OpenAPI strict quality, generated API-index freshness and context verification passed. The new served ResultAnalysis path raises the generated index from 208 to 209 endpoints and documents the no-caller-body scientific intent.
+- `PATH=/opt/homebrew/opt/node@20/bin:$PATH node .ai/scripts/experiment-foundation-packc-pi-gate.mjs --run-id packc-pi-20260808-r5`: passed 151/151 across seven suites with zero failures/skips/blocks; relational passed 6/6. The relation lane now rejects a payload-only expected-output-schema tamper with zero Closure/outbox writes and closes successfully when Cycle alias input and domain/runtime versions differ.
+- Disposable identity `packc_pi_6baf39f48ba4` used the reviewed digest-pinned pgvector image; marker verification passed, existing database URL use stayed false and cleanup passed. Canonical summary digest: `sha256:7e0d554bb94dc9c6a6d8cc29ad9b52a0ffc874a57eb2183ae6359d121e820da1`.
+- The reproducible ignored `packc-pi-20260808-r5` gate directory was moved to the macOS Trash after the digest and counts were recorded; the directory remains recoverable until Trash is emptied.
+- Final shared/backend Node 20 typechecks and `git diff --check` passed after the handoff update. Task-bundle documentation lint passed with 0 errors and 4 pre-existing vague-reference warnings; project-governance lint passed with only the two unrelated historical T-124/T-133 State-format warnings.
+- Safety: no Prisma SSOT/migration, named-local database, provider/cloud request, capability flag, credential or paid resource changed.
+
+### 2026-08-08 — Cleanup and semantic single-track audit
+
+- `find` found no editor residue (`.DS_Store`, `.orig`, `.rej`, swap, backup or `.tmp` files) outside ignored dependency/VCS trees.
+- No T-136 `packc-ef-20260808-*` or `packc-pi-20260808-*` directory remains under `.ai/.tmp`; their maintained counts/digests remain in this file. Older ignored task evidence was treated as out of scope rather than deleted by age or name.
+- `pnpm --filter @paper-engineering-assistant/shared exec tsc --noEmit --noUnusedLocals --noUnusedParameters`: passed.
+- `pnpm --filter @paper-engineering-assistant/backend exec tsc --noEmit --noUnusedLocals --noUnusedParameters`: passed.
+- Static authority census found one Prisma `PaperImplementationValidationCycleClosureV2` create call and one non-test `ValidationCycleClosed@v1` producer. The legacy `completeValidationCycle` method contains no read/write path and always returns stable 409 `LEGACY_SCIENTIFIC_WRITER_CLOSED`.
+- Composition census found one empty in-memory Closure repository construction in `buildApp`; scientific proposal/evidence-authority arrays are injected only by tests. The in-memory adapter shares the v2 service path and cannot form an alternate durable product writer.
+- Public-boundary census found zero `scientific_closure_context` occurrences in OpenAPI/API-index artifacts and zero active `corrected_scientific_disposition` fields in shared/backend/OpenAPI implementation. Their remaining source occurrences are negative schema/runtime tests; archived historical artifacts remain immutable.
+- Dependency census retained both new scientific context files: production app composition imports the service; ResultAnalysis consumes its resolver port; unit and relational suites exercise the implementation. No task-owned source or maintained generated contract was proven dead.
+- Node 20 shared closure/evidence/runtime contract lane passed 62/62. The request remains identity/CAS/proposal-only, scientific intent remains the only public factual-request face and legacy/caller authority fields remain rejected.
+- Node 20 backend authority lane passed 58/58 across planning, scientific context, ResultAnalysis and Closure services. The legacy completion tombstone rejects below HTTP, caller scientific context/bodies fail closed and v2 Closure remains atomic and replay-idempotent.
+- Documentation lint passed with 0 errors; T-136 remains at the four pre-existing vague-reference warnings, and the repository-wide current dirty-worktree total is 208 warnings.

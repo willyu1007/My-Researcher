@@ -13,6 +13,8 @@ export const PAPER_IMPLEMENTATION_EVIDENCE_V2_REASON_CODES = [
   'CYCLE_CLOSURE_SCOPE_DRIFT',
   'CYCLE_ALREADY_CLOSED',
   'CLOSURE_PROPOSAL_STALE',
+  'CLOSURE_PRIMARY_COMPARISON_MISSING',
+  'CLOSURE_PRIMARY_COMPARISON_AMBIGUOUS',
 ] as const;
 export type PaperImplementationEvidenceV2ReasonCode =
   (typeof PAPER_IMPLEMENTATION_EVIDENCE_V2_REASON_CODES)[number];
@@ -177,8 +179,9 @@ export interface ValidationCycleReadinessEvaluationV2 {
 
 /**
  * The one closure AuthorityAction input. Callers carry identity, CAS
- * expectations and the human accept/correct decision only; `cycle_assessment`,
- * `decision_exit` and free-form outputs are not representable.
+ * expectations and one exact admitted-proposal reference only;
+ * `cycle_assessment`, `decision_exit`, correction/review choices and free-form
+ * outputs are not representable.
  */
 export interface CloseValidationCycleV2Request {
   validation_cycle_id?: string;
@@ -187,7 +190,6 @@ export interface CloseValidationCycleV2Request {
   closure_kind: ValidationCycleClosureKindV2;
   accepted_proposal_id: string | null;
   expected_proposal_hash: string | null;
-  corrected_scientific_disposition: ScientificDispositionV2 | null;
   idempotency_key: string;
 }
 
@@ -201,8 +203,22 @@ export interface ValidationCycleClosureV2 {
   selected_exit_key: string | null;
   accepted_proposal_id: string | null;
   accepted_proposal_hash: string | null;
+  scientific_authority: ValidationCycleClosureScientificAuthorityV1 | null;
   closure_watermark: ValidationCycleClosureWatermarkV2;
   closure_snapshot_hash: string;
+}
+
+export interface ValidationCycleClosureScientificAuthorityV1 {
+  schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1';
+  evaluation_protocol_revision_id: string;
+  evaluation_protocol_content_hash: string;
+  primary_comparison_fact_id: string;
+  primary_comparison_fact_hash: string;
+  primary_comparison_key: string;
+  registered_relation:
+    | 'supports_registered_expectation'
+    | 'contradicts_registered_expectation'
+    | 'indeterminate';
 }
 
 export interface CloseValidationCycleV2Response {
@@ -224,6 +240,9 @@ const hashSchema = { type: 'string', pattern: EXPERIMENT_V2_HASH_PATTERN } as co
 const nullableStringId = { anyOf: [{ type: 'string', minLength: 1 }, { type: 'null' }] } as const;
 const nullableHash = {
   anyOf: [{ type: 'string', pattern: EXPERIMENT_V2_HASH_PATTERN }, { type: 'null' }],
+} as const;
+const nullableRuntimeHash = {
+  anyOf: [{ type: 'string', pattern: '^[a-f0-9]{64}$' }, { type: 'null' }],
 } as const;
 const positiveInteger = {
   type: 'integer',
@@ -495,7 +514,6 @@ export const closeValidationCycleV2RequestSchema = {
     'closure_kind',
     'accepted_proposal_id',
     'expected_proposal_hash',
-    'corrected_scientific_disposition',
     'idempotency_key',
   ],
   properties: {
@@ -504,9 +522,10 @@ export const closeValidationCycleV2RequestSchema = {
     expected_closure_input_hash: hashSchema,
     closure_kind: { type: 'string', enum: VALIDATION_CYCLE_CLOSURE_KINDS_V2 },
     accepted_proposal_id: nullableStringId,
-    expected_proposal_hash: nullableHash,
-    corrected_scientific_disposition: {
-      anyOf: [{ type: 'string', enum: SCIENTIFIC_DISPOSITIONS_V2 }, { type: 'null' }],
+    // ResultAnalysis runtime artifact hashes use the established PI runtime
+    // hash profile (bare lowercase SHA-256), unlike EF/closure canonical hashes.
+    expected_proposal_hash: {
+      anyOf: [{ type: 'string', pattern: '^[a-f0-9]{64}$' }, { type: 'null' }],
     },
     idempotency_key: stringId,
   },
@@ -525,6 +544,7 @@ export const validationCycleClosureV2Schema = {
     'selected_exit_key',
     'accepted_proposal_id',
     'accepted_proposal_hash',
+    'scientific_authority',
     'closure_watermark',
     'closure_snapshot_hash',
   ],
@@ -539,7 +559,44 @@ export const validationCycleClosureV2Schema = {
     },
     selected_exit_key: nullableStringId,
     accepted_proposal_id: nullableStringId,
-    accepted_proposal_hash: nullableHash,
+    accepted_proposal_hash: nullableRuntimeHash,
+    scientific_authority: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'schema_version',
+            'evaluation_protocol_revision_id',
+            'evaluation_protocol_content_hash',
+            'primary_comparison_fact_id',
+            'primary_comparison_fact_hash',
+            'primary_comparison_key',
+            'registered_relation',
+          ],
+          properties: {
+            schema_version: {
+              type: 'string',
+              const: 'PaperImplementationValidationCycleScientificAuthority@v1',
+            },
+            evaluation_protocol_revision_id: stringId,
+            evaluation_protocol_content_hash: hashSchema,
+            primary_comparison_fact_id: stringId,
+            primary_comparison_fact_hash: hashSchema,
+            primary_comparison_key: stringId,
+            registered_relation: {
+              type: 'string',
+              enum: [
+                'supports_registered_expectation',
+                'contradicts_registered_expectation',
+                'indeterminate',
+              ],
+            },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
     closure_watermark: validationCycleClosureWatermarkV2Schema,
     closure_snapshot_hash: hashSchema,
   },

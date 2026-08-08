@@ -114,7 +114,7 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Implemented after quality review: every new scientific protocol freezes one primary comparison plus all three DISP-S exit keys. Historical snapshots remain schema-readable, but missing fields fail product validation before Candidate creation.
 - Implemented: the existing `EvidenceCandidateQualified` outbox and PI Evidence Trust Gateway create exactly one REU, trace manifest and `RunEvidenceUnitRegistered` outbox; replay converges and terminal authority/hash drift remains fail-closed.
 - Verified: step 8 reuses the existing atomic rollback/replay coverage and adds fresh disposable PostgreSQL Pack C `packc-ef-20260808-r5`; 119/119 tests passed with zero failures/skips/blocks, including OpenAPI route coverage and protocol-freeze negatives. The identity-marked database was removed, and no named-local/cloud/provider/capability state changed.
-- Completion checkpoint: P2 is implementation-complete, unreleased and default-off. P3 is next; only P5 may record `M0-SCI: passed`.
+- Completion checkpoint: P2 is implementation-complete, unreleased and default-off. P3 is complete and P4 is next; only P5 may record `M0-SCI: passed`.
 
 ### Exit criteria
 
@@ -137,6 +137,20 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 6. Add positive, negative, inconclusive, absent/duplicate-primary, caller-authority, stale proposal/head, active-attempt, conflicting replay and concurrent-close tests.
 7. Preserve default-false `PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED` rollout.
 
+### Implementation status — 2026-08-08
+
+- Implemented: the public ResultAnalysis request accepts only `PaperImplementationScientificClosureIntent@v1` with the expected Cycle watermark. A server-side resolver builds the factual context from the local authority store before the model call; callers cannot submit scientific facts or source bodies. The versioned proposal binds the target Cycle, current closure watermark, one primary fact and exact ordered REU id/hash set.
+- Implemented: scientific proposals are Closure-eligible only when the final runtime envelope is canonically hash-valid, ran as `product` + `provider_llm` and has exactly one internally consistent admission under `paper-implementation.result_analysis.interpretation_scenarios.final-admission@v1`. Acceptance/Codex/mocked/generic-policy artifacts remain usable for their existing purposes but cannot authorize scientific Closure.
+- Implemented: the close request is identity/CAS/proposal-only. `corrected_scientific_disposition` and every accept/correct/downgrade/review-choice seam are absent from the shared schema, service and OpenAPI contract.
+- Implemented: the existing closure service supports both closure kinds under the same default-off capability. In one serializable transaction it recomputes D-18 readiness, rereads the sole admitted proposal and batch-loads exact REUs/reports/protocols. Every REU, report, protocol and primary fact is canonically rehashed and the report Run binding is checked before DISP-S commits the immutable Closure, product Cycle completion and one `ValidationCycleClosed@v1` outbox.
+- Implemented: scientific Closure authority is stored inside the existing hash-bound closure JSON snapshot, so no new closure table, data column or migration was introduced. Legacy/control closure hashes retain their exact historical profile.
+- Verified: all three relation→disposition→exit projections pass; missing/duplicate primary fact, stale watermark/proposal, changed replay, active Attempt and caller-authority inputs fail closed. Control-only closure and existing writer seals remain green.
+- Hardened: scientific ResultAnalysis canonicalizes semantic Cycle aliases to `validation_cycle` while preserving `target_ref.version_id` independently from runtime `target_version_id`. Closure accepts the normalized semantic aliases and compares admission target versions only to the admitted `target_ref` version.
+- Hardened: Closure reconstructs the official final-admission identity from the runtime envelope and exhaustively reconciles row, payload, identity, refs, schemas, issues and warnings. A self-consistent or partially tampered admission copy cannot authorize Closure.
+- Hardened: readiness failures map to stable 404/409 application errors; serializable context conflicts retry twice and then return a stable 409. Production `buildApp` HTTP tests prove authoritative scientific context on success and zero provider calls/runtime writes for a missing Cycle.
+- Verified: disposable PostgreSQL Pack C-PI `packc-pi-20260808-r5` passed 151/151 across seven suites and 6/6 relational tests. The relational case traverses the actual ResultAnalysis service→official admission→REU/report/protocol/primary fact→scientific Closure/outbox path, rejects generic policy, admission-payload schema tampering and unchanged-hash REU drift with zero Closure writes, accepts aliased Cycle input with distinct domain/runtime versions, and proves exact replay. The nonce-bound database/container was removed.
+- Completion checkpoint: P3 is implementation-complete, verified, unreleased and default-off. P4 is next; only P5 may record `M0-SCI: passed`.
+
 ### Exit criteria
 
 - All three scientific dispositions close through the same authority service.
@@ -148,7 +162,7 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 
 ### Steps
 
-1. Implement a sole `ValidationCycleClosed` consumer/materializer for ResultInterpretationPacket; compose it with the existing semantic projection consumer and acknowledge only after both idempotent consumers succeed.
+1. Implement a sole `ValidationCycleClosed` consumer/materializer for ResultInterpretationPacket; compose the materializer with the existing semantic projection consumer and acknowledge only after both idempotent consumers succeed.
 2. Assemble and hash Packet-owned structure outside the write transaction from the immutable Closure snapshot, accepted ResultAnalysis proposal and trusted REU/trace/comparison refs; conclusion fields remain Closure-owned.
 3. Keep direct/pre-closure Packet creation rejected.
 4. Implement confirmed PKT-S with only `schemaVersion`, `closureId`, `closureSnapshotHash` and `packetContentHash`, an exact Closure tuple FK, unique Closure ownership and a short insert-or-identical-return/conflict transaction.

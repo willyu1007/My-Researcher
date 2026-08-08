@@ -53,37 +53,49 @@ function preparationFromReadiness(
 ): ValidationCycleClosurePreparationV2Response {
   const readyForControlClosure = readiness.status === 'ready_no_evidence';
   const hasScientificEvidence = readiness.eligible_run_evidence_unit_count > 0;
+  const readyForScientificClosure = readiness.status === 'ready_with_evidence'
+    && hasScientificEvidence;
+  const closureKind = readyForScientificClosure
+    ? 'scientific_evidence_assessed' as const
+    : readyForControlClosure
+      ? 'control_flow_validated_no_paper_evidence' as const
+      : null;
   return {
     readiness: {
       outcome: readiness.status === 'blocked' ? 'blocked' : 'ready',
       blockers: readiness.ordered_blockers,
     },
-    derived_closure_kind: hasScientificEvidence
-      ? {
-        marker: 'scientific_closure_blocked',
-        available: false,
-        gate: 'M7-L2',
-      }
-      : readyForControlClosure
-        ? 'control_flow_validated_no_paper_evidence'
-        : null,
-    prepared_request: readyForControlClosure
+    derived_closure_kind: closureKind,
+    prepared_request: closureKind
       ? {
         body: {
           validation_cycle_id: readiness.validation_cycle_id,
           expected_cycle_version: readiness.watermark.expected_cycle_version,
           expected_closure_input_hash: readiness.watermark.closure_input_hash,
-          closure_kind: 'control_flow_validated_no_paper_evidence',
+          closure_kind: closureKind,
           accepted_proposal_id: null,
           expected_proposal_hash: null,
-          corrected_scientific_disposition: null,
           idempotency_key: null,
         },
-        required_template_fields: [{
-          field: 'idempotency_key',
-          semantic: 'business_idempotency_key',
-          required: true,
-        }],
+        required_template_fields: closureKind === 'scientific_evidence_assessed'
+          ? [{
+            field: 'accepted_proposal_id',
+            semantic: 'admitted_scientific_proposal_id',
+            required: true,
+          }, {
+            field: 'expected_proposal_hash',
+            semantic: 'admitted_scientific_proposal_hash',
+            required: true,
+          }, {
+            field: 'idempotency_key',
+            semantic: 'business_idempotency_key',
+            required: true,
+          }]
+          : [{
+            field: 'idempotency_key',
+            semantic: 'business_idempotency_key',
+            required: true,
+          }],
       }
       : null,
   };

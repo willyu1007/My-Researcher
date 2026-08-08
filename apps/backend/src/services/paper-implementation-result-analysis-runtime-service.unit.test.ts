@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_ROLE_SLOT_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
   PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SLOT_ID,
   type PaperImplementationResultAnalysisRoleOutput,
   type RunPaperImplementationResultAnalysisRuntimeRequest,
@@ -21,6 +22,9 @@ import { InMemoryPaperImplementationRepository } from '../repositories/in-memory
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
 import { PaperImplementationResultAnalysisRuntimeService } from './paper-implementation-result-analysis-runtime-service.js';
+import type {
+  PaperImplementationScientificClosureContextResolution,
+} from './paper-implementation-scientific-closure-context-service.js';
 import type {
   TopicSelectionAgentInvocationResult,
 } from './topic-selection-agent-orchestrator-service.js';
@@ -150,6 +154,101 @@ test('result analysis runtime records role and final artifacts with telemetry', 
   assert.equal(storedArtifacts.length, 2);
   assert.equal(stableStringify(result).includes('raw_provider_response'), false);
   assert.equal(stableStringify(result).includes('rendered_prompt_text'), false);
+});
+
+test('P3 scientific context versions one admitted actual-result closure proposal', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const context = scientificContextResolution().context;
+  const result = await service.runInterpretationScenarios(PROJECT_ID, {
+    ...providerRequest(),
+    run_id: 'result_analysis_scientific_closure_run_001',
+    target_ref: {
+      ...ref('Validation-Cycle', 'validation_cycle_001'),
+      version_id: 'cycle-domain-version-7',
+    },
+    target_version_id: 'runtime-input-snapshot-version-13',
+    source_context_packets: undefined,
+    scientific_closure_intent: {
+      schema_version: 'PaperImplementationScientificClosureIntent@v1',
+      expected_closure_watermark_hash: context.closure_watermark_hash,
+    },
+  });
+
+  const artifact = result.final_runtime_artifact;
+  assert.ok(artifact);
+  assert.equal(
+    artifact.output_schema_id,
+    PAPER_IMPLEMENTATION_RESULT_ANALYSIS_SCIENTIFIC_CLOSURE_OUTPUT_SCHEMA_ID,
+  );
+  assert.equal(artifact.artifact_contract_version, 'v2');
+  assert.equal(artifact.target_ref.ref_type, 'validation_cycle');
+  assert.equal(artifact.target_ref.version_id, 'cycle-domain-version-7');
+  assert.equal(artifact.target_version_id, 'runtime-input-snapshot-version-13');
+  assert.equal(result.final_admission_record?.admission_status, 'admitted');
+  assert.equal(result.final_admission_record?.target_ref.ref_type, 'validation_cycle');
+  assert.equal(result.final_admission_record?.target_ref.version_id, 'cycle-domain-version-7');
+  assert.equal(
+    result.final_admission_record?.admitted_artifact_hash,
+    artifact.final_artifact_hash,
+  );
+  assert.deepEqual(artifact.artifact_payload.scientific_closure_proposal, {
+    schema_version: 'PaperImplementationScientificClosureProposal@v1',
+    validation_cycle_id: context.validation_cycle_id,
+    closure_watermark_hash: context.closure_watermark_hash,
+    primary_comparison_fact_ref: context.primary_comparison_fact_ref,
+    ordered_evidence_refs: context.ordered_evidence_refs,
+    interpretation_summary: 'The trusted run supports the bounded assertion.',
+    reliability_assessment: roleOutput().reliability,
+    limitations: {
+      limitation_refs: roleOutput().reliability?.limitation_refs,
+      reliability_notes: roleOutput().reliability?.reliability_notes,
+    },
+    claim_ceiling: 'moderate',
+  });
+  assert.match(
+    orchestrator.calls[0]?.messages[1]?.content ?? '',
+    /PaperImplementationScientificClosureContext@v1/,
+  );
+});
+
+test('scientific closure intent rejects caller-supplied scientific source bodies', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const request = providerRequest();
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      scientific_closure_intent: {
+        schema_version: 'PaperImplementationScientificClosureIntent@v1',
+        expected_closure_watermark_hash: scientificHash('closure-watermark'),
+      },
+      source_context_packets: [{
+        source_ref: request.source_refs[0]!,
+        source_hash: request.source_hashes[0]!,
+        evidence_kind: 'caller_scientific_fact',
+        content_summary: 'Untrusted caller body.',
+        key_facts: ['must-not-reach-provider'],
+      }],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /without caller-supplied source bodies/.test(error.message),
+  );
+  assert.equal(orchestrator.calls.length, 0);
+});
+
+test('result analysis service rejects the retired caller scientific context even without route validation', async () => {
+  const { service, orchestrator } = serviceFixture();
+  const legacyRequest = {
+    ...providerRequest(),
+    scientific_closure_context: scientificContextResolution().context,
+  } as unknown as RunPaperImplementationResultAnalysisRuntimeRequest;
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, legacyRequest),
+    (error) => error instanceof AppError
+      && error.statusCode === 400
+      && /Caller-authored scientific_closure_context/.test(error.message),
+  );
+  assert.equal(orchestrator.calls.length, 0);
 });
 
 test('T-124 G4.6: result analysis assembles the domain_gate_request deterministically from request context + semantic blocks', async () => {
@@ -569,10 +668,66 @@ function serviceFixture(
     projectRepository: projectRepositoryFixture(project),
     runtimeAdmission,
     agentOrchestrator: orchestrator,
+    scientificClosureContextResolver: {
+      resolve: async () => scientificContextResolution(),
+    },
     idFactory,
     now: () => NOW,
   });
   return { service, repository, orchestrator };
+}
+
+function scientificContextResolution(): PaperImplementationScientificClosureContextResolution {
+  const context = {
+    schema_version: 'PaperImplementationScientificClosureContext@v1' as const,
+    validation_cycle_id: 'validation_cycle_001',
+    closure_watermark_hash: scientificHash('closure-watermark'),
+    primary_comparison_fact_ref: {
+      comparison_fact_id: 'comparison-fact-primary',
+      comparison_fact_hash: scientificHash('comparison-fact-primary'),
+    },
+    ordered_evidence_refs: [{
+      ordinal: 1,
+      run_evidence_unit_id: 'run_evidence_unit_001',
+      content_hash: scientificHash('run-evidence-unit-001'),
+    }],
+  };
+  const sources = [
+    {
+      source_ref: {
+        ...ref('run_evidence_unit', 'run_evidence_unit_001'),
+        version_id: context.ordered_evidence_refs[0]!.content_hash,
+      },
+      source_hash: hash('run-evidence-unit-001'),
+      evidence_kind: 'run_evidence_unit',
+      content_summary: 'Authoritative RunEvidenceUnit.',
+      key_facts: ['report=result_validation_report_001'],
+    },
+    {
+      source_ref: {
+        ...ref('result_validation_report', 'result_validation_report_001'),
+        version_id: scientificHash('validation-report-001'),
+      },
+      source_hash: hash('validation-report-001'),
+      evidence_kind: 'scientific_validation_report',
+      content_summary: 'Authoritative validation report.',
+      key_facts: ['status=valid'],
+    },
+  ];
+  return {
+    context,
+    authoritative_sources: sources.map((source) => ({
+      source_ref: source.source_ref,
+      source_hash: source.source_hash,
+      source_context_packet: {
+        source_ref: source.source_ref,
+        source_hash: source.source_hash,
+        evidence_kind: source.evidence_kind,
+        content_summary: source.content_summary,
+        key_facts: source.key_facts,
+      },
+    })),
+  };
 }
 
 function resultAnalysisRoleOutputs(): RunPaperImplementationResultAnalysisRuntimeRequest['mocked_role_outputs'] {
@@ -810,6 +965,10 @@ function ref(refType: string, refId: string): TopicSelectionFunctionalRef {
 
 function hash(value: unknown): string {
   return sha256Text(stableStringify(value));
+}
+
+function scientificHash(value: unknown): string {
+  return `sha256:${hash(value)}`;
 }
 
 test('result analysis runtime token budget counts message-embedded context once (S2-A N3)', async () => {

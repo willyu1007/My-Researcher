@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import type { CloseValidationCycleV2Request } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
+import type {
+  ScientificComparisonRelationV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts';
+import type {
+  PaperImplementationScientificClosureProposalV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
   serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
@@ -19,6 +25,8 @@ import {
 import {
   InMemoryPaperImplementationValidationCycleClosureV2Repository,
   PaperImplementationValidationCycleClosureV2RepositoryError,
+  type PaperImplementationAdmittedScientificClosureProposalV1,
+  type PaperImplementationScientificClosureEvidenceAuthorityV1,
   type PaperImplementationValidationCycleClosureV2Repository,
 } from '../repositories/paper-implementation-validation-cycle-closure-v2.repository.js';
 import { PaperImplementationCycleReadinessV2Service } from './paper-implementation-cycle-readiness-v2-service.js';
@@ -30,6 +38,10 @@ const NOW = '2026-07-21T08:00:00.000Z';
 
 function hash(value: string): string {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function runtimeHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 function branch(withHead = true): PaperImplementationCycleReadinessV2Branch {
@@ -130,10 +142,105 @@ async function fixture(input: {
     closure_kind: 'control_flow_validated_no_paper_evidence',
     accepted_proposal_id: null,
     expected_proposal_hash: null,
-    corrected_scientific_disposition: null,
     idempotency_key: 'close-cycle-main-v1',
   };
   return { repository, service, request, evaluation };
+}
+
+async function scientificFixture(
+  relation: ScientificComparisonRelationV1,
+  options: {
+    primaryFactCount?: number;
+    proposalWatermarkHash?: string;
+    proposalEvidenceRefs?: PaperImplementationScientificClosureProposalV1[
+      'ordered_evidence_refs'
+    ];
+  } = {},
+) {
+  const readinessRepository = new InMemoryPaperImplementationCycleReadinessV2Repository(
+    readinessOptions({ evidence: true }),
+  );
+  const evaluation = await new PaperImplementationCycleReadinessV2Service({
+    repository: readinessRepository,
+  }).evaluate(CYCLE_ID);
+  const evidenceRefs = evaluation.watermark.ordered_branches.flatMap((entry) => (
+    entry.eligible_run_evidence_unit_refs
+  ));
+  const primaryFactId = 'comparison-fact-primary';
+  const primaryFactHash = hash(primaryFactId);
+  const proposal: PaperImplementationScientificClosureProposalV1 = {
+    schema_version: 'PaperImplementationScientificClosureProposal@v1',
+    validation_cycle_id: CYCLE_ID,
+    closure_watermark_hash:
+      options.proposalWatermarkHash ?? evaluation.watermark.closure_input_hash,
+    primary_comparison_fact_ref: {
+      comparison_fact_id: primaryFactId,
+      comparison_fact_hash: primaryFactHash,
+    },
+    ordered_evidence_refs: options.proposalEvidenceRefs ?? evidenceRefs.map((ref, index) => ({
+      ordinal: index + 1,
+      ...ref,
+    })),
+    interpretation_summary: 'Bounded interpretation of the registered comparison.',
+    reliability_assessment: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [],
+      reliability_notes: [],
+    },
+    limitations: { limitation_refs: [], reliability_notes: [] },
+    claim_ceiling: 'moderate',
+  };
+  const proposalHash = runtimeHash('scientific-proposal-v1');
+  const storedProposal: PaperImplementationAdmittedScientificClosureProposalV1 = {
+    proposal_id: 'scientific-proposal-1',
+    proposal_hash: proposalHash,
+    implementation_project_id: PROJECT_ID,
+    proposal,
+  };
+  const authority: PaperImplementationScientificClosureEvidenceAuthorityV1 = {
+    run_evidence_unit_id: evidenceRefs[0]!.run_evidence_unit_id,
+    content_hash: evidenceRefs[0]!.content_hash,
+    validation_report_id: 'validation-report-primary',
+    validation_hash: hash('validation-report-primary'),
+    evaluation_protocol_revision_id: 'protocol-revision-primary',
+    evaluation_protocol_content_hash: hash('protocol-revision-primary'),
+    primary_comparison_key: 'registered-primary',
+    decision_if_positive: 'continue-to-claim',
+    decision_if_negative: 'revise-or-abandon',
+    decision_if_inconclusive: 'collect-more-evidence',
+    primary_facts: Array.from(
+      { length: options.primaryFactCount ?? 1 },
+      (_, index) => ({
+        comparison_fact_id: index === 0 ? primaryFactId : `${primaryFactId}-${index + 1}`,
+        comparison_fact_hash: index === 0
+          ? primaryFactHash
+          : hash(`${primaryFactId}-${index + 1}`),
+        comparison_key: 'registered-primary',
+        registered_relation: relation,
+      }),
+    ),
+  };
+  const repository = new InMemoryPaperImplementationValidationCycleClosureV2Repository({
+    readinessRepository,
+    scientific_proposals: [storedProposal],
+    scientific_evidence_authorities: [authority],
+  });
+  const service = new PaperImplementationValidationCycleClosureV2Service({
+    repository,
+    enabled: () => true,
+    now: () => NOW,
+  });
+  const request: CloseValidationCycleV2Request = {
+    validation_cycle_id: CYCLE_ID,
+    expected_cycle_version: evaluation.watermark.expected_cycle_version,
+    expected_closure_input_hash: evaluation.watermark.closure_input_hash,
+    closure_kind: 'scientific_evidence_assessed',
+    accepted_proposal_id: storedProposal.proposal_id,
+    expected_proposal_hash: storedProposal.proposal_hash,
+    idempotency_key: `close-scientific-${relation}`,
+  };
+  return { repository, service, request, evaluation, proposal, authority };
 }
 
 function reason(error: unknown): string | undefined {
@@ -321,26 +428,102 @@ test('a terminal product Cycle without a stored v2 closure maps to CYCLE_ALREADY
   assert.equal(context.repository.productCycleCompletion(CYCLE_ID), null);
 });
 
-test('scientific closure remains production-disabled and control-only cannot discard eligible REU', async () => {
-  const scientific = await fixture();
-  await assert.rejects(
-    scientific.service.close({
-      ...scientific.request,
-      closure_kind: 'scientific_evidence_assessed',
-      accepted_proposal_id: 'proposal-1',
-      expected_proposal_hash: hash('proposal-1'),
-      corrected_scientific_disposition: 'positive',
-    }),
-    (error) => reason(error) === 'PI_EXPERIMENT_V2_CYCLE_CLOSURE_DISABLED'
-      && error instanceof AppError
-      && error.message.includes('not implemented'),
-  );
-  assert.deepEqual(scientific.repository.snapshot(), { closures: [], outboxes: [] });
-
+test('control-only closure cannot discard eligible REU', async () => {
   const evidence = await fixture({ readiness: readinessOptions({ evidence: true }) });
   await assert.rejects(
     evidence.service.close(evidence.request),
     (error) => reason(error) === 'CLOSURE_PROPOSAL_STALE',
   );
   assert.deepEqual(evidence.repository.snapshot(), { closures: [], outboxes: [] });
+});
+
+test('DISP-S deterministically maps the unique primary relation to disposition and frozen exit', async (t) => {
+  const cases = [
+    ['supports_registered_expectation', 'positive', 'continue-to-claim'],
+    ['contradicts_registered_expectation', 'negative', 'revise-or-abandon'],
+    ['indeterminate', 'inconclusive', 'collect-more-evidence'],
+  ] as const;
+  for (const [relation, disposition, selectedExit] of cases) {
+    await t.test(relation, async () => {
+      const context = await scientificFixture(relation);
+      const first = await context.service.close(context.request);
+      const replay = await context.service.close(context.request);
+      const snapshot = context.repository.snapshot();
+
+      assert.deepEqual(replay, first);
+      assert.equal(snapshot.closures.length, 1);
+      assert.equal(snapshot.outboxes.length, 1);
+      assert.equal(first.closure.closure_kind, 'scientific_evidence_assessed');
+      assert.equal(first.closure.scientific_disposition, disposition);
+      assert.equal(first.closure.selected_exit_key, selectedExit);
+      assert.equal(first.closure.accepted_proposal_id, context.request.accepted_proposal_id);
+      assert.equal(first.closure.accepted_proposal_hash, context.request.expected_proposal_hash);
+      assert.deepEqual(first.closure.scientific_authority, {
+        schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+        evaluation_protocol_revision_id: context.authority.evaluation_protocol_revision_id,
+        evaluation_protocol_content_hash: context.authority.evaluation_protocol_content_hash,
+        primary_comparison_fact_id:
+          context.proposal.primary_comparison_fact_ref.comparison_fact_id,
+        primary_comparison_fact_hash:
+          context.proposal.primary_comparison_fact_ref.comparison_fact_hash,
+        primary_comparison_key: context.authority.primary_comparison_key,
+        registered_relation: relation,
+      });
+      const { closure_snapshot_hash: closureHash, ...closureHashInput } = first.closure;
+      assert.equal(closureHash, serverHashPaperImplementationV2CycleClosure(closureHashInput));
+      assert.equal(
+        context.repository.productCycleCompletion(CYCLE_ID)?.lifecycle_status,
+        'completed',
+      );
+    });
+  }
+});
+
+test('scientific closure fails closed on missing, duplicate or stale primary authority', async (t) => {
+  await t.test('missing primary fact', async () => {
+    const context = await scientificFixture('supports_registered_expectation', {
+      primaryFactCount: 0,
+    });
+    await assert.rejects(
+      context.service.close(context.request),
+      (error) => reason(error) === 'CLOSURE_PRIMARY_COMPARISON_MISSING',
+    );
+    assert.deepEqual(context.repository.snapshot(), { closures: [], outboxes: [] });
+  });
+
+  await t.test('duplicate primary fact', async () => {
+    const context = await scientificFixture('supports_registered_expectation', {
+      primaryFactCount: 2,
+    });
+    await assert.rejects(
+      context.service.close(context.request),
+      (error) => reason(error) === 'CLOSURE_PRIMARY_COMPARISON_AMBIGUOUS',
+    );
+    assert.deepEqual(context.repository.snapshot(), { closures: [], outboxes: [] });
+  });
+
+  await t.test('stale proposal watermark', async () => {
+    const context = await scientificFixture('supports_registered_expectation', {
+      proposalWatermarkHash: hash('stale-watermark'),
+    });
+    await assert.rejects(
+      context.service.close(context.request),
+      (error) => reason(error) === 'CLOSURE_PROPOSAL_STALE',
+    );
+    assert.deepEqual(context.repository.snapshot(), { closures: [], outboxes: [] });
+  });
+
+  await t.test('changed proposal replay', async () => {
+    const context = await scientificFixture('supports_registered_expectation');
+    await context.service.close(context.request);
+    await assert.rejects(
+      context.service.close({
+        ...context.request,
+        expected_proposal_hash: runtimeHash('changed-proposal'),
+      }),
+      (error) => reason(error) === 'CYCLE_ALREADY_CLOSED',
+    );
+    assert.equal(context.repository.snapshot().closures.length, 1);
+    assert.equal(context.repository.snapshot().outboxes.length, 1);
+  });
 });

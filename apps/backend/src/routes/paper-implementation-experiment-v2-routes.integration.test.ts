@@ -125,7 +125,6 @@ function closureRequestFixture(): CloseValidationCycleV2Request {
     closure_kind: 'control_flow_validated_no_paper_evidence',
     accepted_proposal_id: null,
     expected_proposal_hash: null,
-    corrected_scientific_disposition: null,
     idempotency_key: 'close-cycle-1-v1',
   };
 }
@@ -142,6 +141,7 @@ function closureResponseFixture(): CloseValidationCycleV2Response {
       selected_exit_key: null,
       accepted_proposal_id: null,
       accepted_proposal_hash: null,
+      scientific_authority: null,
       closure_watermark: {
         schema_version: 'v1',
         validation_cycle_id: 'cycle-1',

@@ -82,6 +82,16 @@
 - D-136-73: P2 persists CMP-B1 results inside the existing hash-covered report JSON snapshot instead of adding a table. `ordered_comparison_results` is optional only to reread historical report v1 hashes; every new product P2 report contains a non-empty ordered list.
 - D-136-74: Product mutations remain behind the existing default-false scientific-validation capability and committed-cutover assertion, while durable validation reads remain available after intake is disabled. No second capability or release switch was added.
 - D-136-75: The canonical comparison JSON schemas keep their relation/reason and passed/fact `oneOf` invariants for validation and persistence. Product routes use a separate closed response-serialization projection with the same fields but without those semantic unions because Fastify's serializer cannot compile them. This does not create a second domain contract: services still author canonical objects, durable rereads revalidate canonical hashes/invariants, and the projection only controls JSON emission.
+- D-136-76: The scientific ResultAnalysis public request carries only `PaperImplementationScientificClosureIntent@v1` with an expected D-18 watermark. Caller-authored `scientific_closure_context` is removed and scientific requests reject all caller source-context bodies. A PI service transactionally resolves the exact local REU/report/protocol/fact authority before the provider call and replaces caller-declared scientific refs.
+- D-136-77: Scientific Closure accepts only ResultAnalysis final artifacts produced as `product` + `provider_llm` and admitted exactly once by `paper-implementation.result_analysis.interpretation_scenarios.final-admission@v1`. The Prisma resolver validates and rehashes the complete runtime envelope and admission payload/identity and reconciles their persisted mirrors. Mocked, Codex-assisted, acceptance and generic-policy artifacts remain ineligible without adding a new policy table or human selection path.
+- D-136-78: Closure authority rereads use three bounded batch queries (REUs, reports and protocols) rather than per-REU N+1 reads. Each stored REU is reconstructed and rehashed from every canonical field, each report/protocol/fact is independently rehashed, and `REU.run_id == report.run_id` is mandatory. A stale stored `contentHash` can never conceal drift in an unprojected REU field.
+- D-136-79: Scientific ResultAnalysis normalizes accepted Cycle aliases to canonical `validation_cycle` before runtime artifact/admission persistence. `target_ref.version_id` remains the domain-reference version, `target_version_id` remains the independent runtime version fence, and Closure never compares one to the other.
+- D-136-80: Official scientific admission is reconstructed from the runtime envelope and fixed final-admission policy. Eligibility requires exact agreement across the Prisma row, full record payload, rebuilt admission identity/hash, runtime/admitted refs, expected/observed schemas and hashes, issue codes and warning codes; record self-consistency alone is insufficient.
+- D-136-81: Scientific context maps readiness not-found to 404 and other readiness failures to stable 409 outcomes. Prisma serializable conflicts receive two bounded retries and then surface as 409 version conflict; no unbounded retry, provider fallback or invariant masking is introduced.
+- D-136-82: The existing ResultAnalysis runtime route is documented in the OpenAPI SSOT and API index. `buildApp` integration tests prove the production resolver wiring, one authoritative provider path on success and zero provider/runtime side effects on missing-Cycle rejection.
+- D-136-83: The legacy ValidationCycle `complete` route is retained only as a compatibility tombstone that always returns `LEGACY_SCIENTIFIC_WRITER_CLOSED`; the route cannot mutate Cycle state. The v2 Closure service/repository transaction remains the sole scientific completion writer and sole `ValidationCycleClosed@v1` producer. Removing the tombstone would trade a stable fail-closed response for an unnecessary route compatibility break.
+- D-136-84: ResultAnalysis has no separate human proposal-selection state. The runtime produces and officially admits an exact proposal; invoking or withholding the identity/CAS/proposal-only Closure command is the authorization action. Historical architecture census text is labeled as task-intake evidence to prevent confusion with the maintained current-state ledger.
+- D-136-85: The in-memory Closure repository is a test/development adapter behind the same v2 service port, not a second scientific authority. Product memory composition supplies no scientific proposal/evidence-authority fixtures and therefore fails closed; only Prisma composition reconstructs durable official admission and scientific evidence. Test-only constructor fixtures remain necessary for deterministic unit coverage.
 
 ## Confirmed design baseline and implementation deltas
 
@@ -180,14 +190,59 @@
 
 ### Current boundary
 
-- This task bundle and its containing scoped commit form the verified P0-P2 rollback boundary from which P3 starts. Unrelated dirty-worktree changes are not part of that boundary.
+- Commit `93660c826dcb60110b954b5501c9f6afa2448def` remains the verified P0-P2 rollback boundary. P3 is implemented in the current working tree; unrelated dirty-worktree changes are not part of either scope.
 - Runtime scientific mutation capabilities remain default-off and P2 does not authorize a named-local deploy or real provider call.
-- P3-P5 remain. T-136 stays `in-progress`, and `M0-SCI` remains not passed until P5.
+- P4-P5 remain. T-136 stays `in-progress`, and `M0-SCI` remains not passed until P5.
 
 ### Checkpoint cleanup
 
 - Removed only reproducible ignored Pack C run directories, empty smoke/drift logs and the empty generated drift marker. Canonical digests and maintained Markdown verification records remain in this task bundle.
 - Preserved unrelated governance/commit-tooling changes and the separate topic-selection documentation edit outside this task's scoped commit.
+
+## 2026-08-08 — P3 PI scientific ValidationCycle closure
+
+### Implemented
+
+- Versioned the ResultAnalysis final artifact with one optional `PaperImplementationScientificClosureProposal@v1`. A scientific proposal carries only exact Cycle/watermark/primary-fact/ordered-REU bindings plus interpretation, reliability, limitations and claim ceiling; the proposal cannot carry disposition, exit, review choice or Closure identity.
+- Removed `corrected_scientific_disposition` from the close command. Control closure requires null proposal identity/hash; scientific closure requires one admitted runtime artifact id plus its established bare SHA-256 final payload hash.
+- Added explicit missing/ambiguous-primary reason codes and a hash-bound `scientific_authority` snapshot containing the exact EvaluationProtocol revision/hash, primary comparison fact id/hash/key and registered relation.
+- Extended the existing Closure service and repository port instead of adding a second closure path. The serializable transaction recomputes readiness, checks proposal/current evidence order, rereads canonical report/protocol/fact authority, applies DISP-S and atomically stores Closure, product Cycle completion and the existing closed event.
+- Stored scientific authority inside the existing closure watermark JSON column as `{closure_watermark, scientific_authority}`. Legacy rows still read as a bare watermark with null authority, and control-only hashes intentionally omit the new null member to preserve exact historical identities.
+- Changed closure preparation/available actions so `ready_with_evidence` exposes the scientific close action and a strict three-field template for caller-owned proposal id, proposal hash and idempotency key. Blocked/closed cases remain server-derived; no UI work was introduced.
+- Updated the shared schemas, OpenAPI response/request components and generated API index without a Prisma schema or migration change.
+
+### Quality-review corrections
+
+- Replaced the caller-facing `scientific_closure_context` with a one-field watermark intent. A new server context service recomputes readiness and constructs exact REU/report/protocol/primary-fact packets from local PostgreSQL authority before invoking ResultAnalysis; scientific requests cannot carry caller source bodies.
+- Restricted Closure proposal lookup to product/provider finals under the official slot admission policy. The repository validates and canonically rehashes the complete runtime envelope, full admission record and admission identity, then reconciles their relational mirrors before returning a proposal.
+- Replaced the closure transaction's per-REU N+1 reads with batch REU/report/protocol queries. The resolver now reconstructs and rehashes every REU field, asserts report Run equality and retains the existing independent report/protocol/fact canonical checks.
+- Rewrote the disposable relation test to run the actual ResultAnalysis service and official admission path. The test rejects a generic admission-policy row and a drifted `evidenceCandidateContentHash` hidden behind an unchanged stored REU hash before restoring the fixture and proving scientific Closure/replay.
+- Corrected the closure-preparation OpenAPI summary/description so scientific templates are no longer described as no-evidence-only; regenerated the 208-endpoint index and context checksum.
+
+### Verification boundary
+
+- Unit coverage proves all three DISP-S mappings, exact replay and fail-closed behavior for absent/duplicate primary facts, stale proposal/watermark, changed replay, control-with-evidence and active real Attempts.
+- Runtime/schema tests prove caller scientific context and bodies are rejected, server-resolved authority reaches the role prompt and one official v2 final proposal is admitted while legacy result-analysis artifacts retain their v1 schema.
+- Disposable run `packc-pi-20260808-r2` exposed a test-only gap: the old synthetic-artifact helper never required an ImplementationProject, so the fixture seeded only a Cycle. Adding the real project row fixed the fixture without changing product behavior. The clean rerun `r3` passed 151/151 and relational 6/6 with identity-marked cleanup.
+- The disposable PostgreSQL case uses a canonical preregistered protocol/fact and production Trust Gateway, ResultAnalysis runtime, runtime admission repository, context resolver and closure repository. Only the provider invocation and report/Candidate producer are documented fixture boundaries; every PI authority write and transaction uses production services.
+- No named-local database, provider/cloud call, capability change, credential mutation or new scientific import path was introduced.
+
+### Final quality-review remediation
+
+- Canonicalized scientific Cycle aliases before persistence and corrected admission target-version comparison to use `target_ref.version_id`, leaving runtime `target_version_id` independent.
+- Rebuilt the exact official admission identity from the runtime envelope and added full row↔payload↔identity↔envelope reconciliation. A relational tamper probe changes only the record payload's expected output schema and proves zero Closure/outbox writes.
+- Added stable readiness error mapping and bounded serializable-conflict retries, with direct tests for missing Cycle, no admitted branches and three-attempt conflict exhaustion.
+- Added the served ResultAnalysis runtime path and scientific-intent constraints to OpenAPI, regenerated the 209-endpoint index and added production `buildApp` happy/error HTTP coverage.
+- Final disposable Pack C-PI `packc-pi-20260808-r5` passed 151/151, including relational 6/6, with identity marker, zero external/named-local use and cleanup confirmed. Canonical digest: `sha256:7e0d554bb94dc9c6a6d8cc29ad9b52a0ffc874a57eb2183ae6359d121e820da1`.
+
+### Cleanup and single-authority audit
+
+- Verified all newly exported P3 symbols under strict TypeScript unused-local/unused-parameter checks; no dead source file or unreferenced implementation seam was found. The untracked scientific context service is required by production `buildApp`, ResultAnalysis runtime, unit coverage and the disposable relational lane.
+- Confirmed that `scientific_closure_context` is backend-internal only. The public shared schema and OpenAPI expose only `scientific_closure_intent`; the remaining caller-context references are explicit rejection tests and service-internal resolved state.
+- Confirmed one Prisma Closure insert, one Closure event producer and no legacy Cycle completion mutation. The old `complete` endpoint is a tested fail-closed compatibility tombstone; deleting the tombstone would remove useful rejection behavior without simplifying authority.
+- Retained the in-memory repository adapter because the adapter exercises the same Closure service contract and provides rollback/replay unit evidence. Production memory composition does not seed its test-only scientific proposal/evidence arrays, so the adapter cannot become a parallel product authority.
+- Found no T-136 transient output left under `.ai/.tmp`; the reproducible `20260808` Pack C/Pack C-PI directories had already been moved to Trash after their digests were recorded. Historical ignored artifacts belonging to other tasks were not removed.
+- Relabeled stale task-intake architecture text and removed human-review/proposal-selection wording that could otherwise seed a second proposal authority model. P4 remains the only next implementation phase.
 
 ## Pitfalls / dead ends
 

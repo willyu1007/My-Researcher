@@ -31,6 +31,8 @@ tags:
     description: Topic selection v1c human promotion, bridge, downstream feedback, and frozen replay endpoints.
   - name: paper-implementation-experiment-v2
     description: PI experiment v2 admission, closure, lineage, and agent-action surfaces; committed sagas are relayed through domain-local database inbox/outbox consumers.
+  - name: paper-implementation-runtime
+    description: PaperImplementation role-runtime execution and admitted artifact surfaces.
   - name: paper-implementation-exploration-attachment-v2
     description: Default-off PI adoption of one exact immutable EF exploration specification as a new ordinary PI admission; attachment itself grants no execution or evidence authority.
   - name: paper-implementation-semantic-v2
@@ -223,6 +225,43 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /paper-implementation/projects/{implementation_project_id}/runtime-slots/result-analysis-scenarios/run:
+    post:
+      operationId: runPaperImplementationResultAnalysisScenarios
+      summary: Run the ResultAnalysis role and persist its admitted runtime artifacts.
+      description: |
+        A scientific_closure_intent is a narrow product/provider-only request face. The caller pins
+        the expected Cycle closure watermark but cannot submit scientific facts or source bodies;
+        the backend rereads the authoritative local Cycle, REUs, reports, protocol, and primary fact
+        transactionally before the provider call. The response is a proposal, not closure authority.
+      tags: [paper-implementation-runtime]
+      parameters:
+        - name: implementation_project_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationResultAnalysisRuntimeRunRequest'
+      responses:
+        '201':
+          description: Runtime role and final artifacts were evaluated and admission records persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationResultAnalysisRuntimeRunResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /paper-implementation/projects/{implementation_project_id}/experiment-lineage/validation-cycles:
     get:
       operationId: listPaperImplementationProjectValidationCycleLineageV2
@@ -400,10 +439,11 @@ paths:
   /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2/preparation:
     get:
       operationId: preparePaperImplementationValidationCycleClosureV2
-      summary: Prepare the exact no-evidence closure request template for one ValidationCycle.
+      summary: Prepare the exact control or scientific closure request template for one ValidationCycle.
       description: |
-        Returns current readiness and, when ready, a server-derived closure body whose sole unresolved
-        caller value is the business idempotency key. Scientific closure remains explicitly gated.
+        Returns current readiness and, when ready, a server-derived closure body. Control closure leaves
+        only the business idempotency key unresolved; scientific closure also names the exact admitted
+        ResultAnalysis proposal id and hash that the caller must obtain through the product/provider path.
       tags: [paper-implementation-experiment-v2]
       parameters:
         - name: validation_cycle_id
@@ -6527,6 +6567,129 @@ components:
           type: string
           nullable: true
         legacy_ref:
+          $ref: '#/components/schemas/JsonObject'
+
+    PaperImplementationBackHalfSourceContextPacket:
+      type: object
+      additionalProperties: false
+      required: [source_ref, source_hash, evidence_kind, content_summary, key_facts]
+      properties:
+        source_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        source_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        evidence_kind: { type: string, minLength: 1 }
+        content_summary: { type: string }
+        key_facts:
+          type: array
+          items: { type: string }
+
+    PaperImplementationScientificClosureIntentV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, expected_closure_watermark_hash]
+      properties:
+        schema_version:
+          type: string
+          const: PaperImplementationScientificClosureIntent@v1
+        expected_closure_watermark_hash:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+
+    PaperImplementationResultAnalysisRuntimeRunRequest:
+      type: object
+      additionalProperties: false
+      required: [run_mode, execution_mode, target_ref, input_snapshot_ref, input_snapshot_hash, source_refs, source_hashes]
+      properties:
+        schema_version:
+          type: string
+          const: RunPaperImplementationResultAnalysisRuntimeRequest@v1
+        run_id:
+          type: [string, 'null']
+          minLength: 1
+        run_mode:
+          type: string
+          enum: [mock, acceptance, product]
+        execution_mode:
+          type: string
+          enum: [mocked_llm, codex_assisted, provider_llm]
+        model_profile_id:
+          type: [string, 'null']
+          minLength: 1
+        model_option_id:
+          type: [string, 'null']
+          minLength: 1
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        target_version_id:
+          type: [string, 'null']
+          minLength: 1
+        input_snapshot_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        input_snapshot_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        source_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        source_hashes:
+          type: array
+          minItems: 1
+          items: { type: string, pattern: '^[0-9a-f]{64}$' }
+        source_context_packets:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperImplementationBackHalfSourceContextPacket'
+        scientific_closure_intent:
+          $ref: '#/components/schemas/PaperImplementationScientificClosureIntentV1'
+        preflight_blocker_codes:
+          type: array
+          items: { type: string, minLength: 1 }
+        mocked_role_outputs:
+          $ref: '#/components/schemas/JsonObject'
+        codex_role_outputs:
+          $ref: '#/components/schemas/JsonObject'
+      allOf:
+        - if:
+            required: [scientific_closure_intent]
+          then:
+            properties:
+              run_mode: { const: product }
+              execution_mode: { const: provider_llm }
+              source_context_packets: false
+
+    PaperImplementationResultAnalysisRuntimeRunResponse:
+      type: object
+      additionalProperties: false
+      required: [run_id, slot_id, workflow_type, status, provider_call_count, runtime_artifacts, admission_records, final_runtime_artifact, final_admission_record, blocker_codes, warning_codes, operational_telemetry]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        slot_id: { type: string, const: result_analysis.interpretation_scenarios }
+        workflow_type: { type: string, const: result_analysis }
+        status: { type: string, enum: [passed, blocked, failed_runtime] }
+        provider_call_count: { type: integer, minimum: 0 }
+        runtime_artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsonObject'
+        admission_records:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsonObject'
+        final_runtime_artifact:
+          oneOf:
+            - $ref: '#/components/schemas/JsonObject'
+            - { type: 'null' }
+        final_admission_record:
+          oneOf:
+            - $ref: '#/components/schemas/JsonObject'
+            - { type: 'null' }
+        blocker_codes:
+          type: array
+          items: { type: string }
+        warning_codes:
+          type: array
+          items: { type: string }
+        operational_telemetry:
           $ref: '#/components/schemas/JsonObject'
 
     TopicSelectionActorRef:
@@ -13424,7 +13587,6 @@ components:
         - closure_kind
         - accepted_proposal_id
         - expected_proposal_hash
-        - corrected_scientific_disposition
         - idempotency_key
       properties:
         validation_cycle_id:
@@ -13450,15 +13612,7 @@ components:
         expected_proposal_hash:
           anyOf:
             - type: string
-              pattern: '^sha256:[0-9a-f]{64}$'
-            - type: 'null'
-        corrected_scientific_disposition:
-          anyOf:
-            - type: string
-              enum:
-                - positive
-                - negative
-                - inconclusive
+              pattern: '^[a-f0-9]{64}$'
             - type: 'null'
         idempotency_key:
           type: string
@@ -13483,6 +13637,7 @@ components:
             - selected_exit_key
             - accepted_proposal_id
             - accepted_proposal_hash
+            - scientific_authority
             - closure_watermark
             - closure_snapshot_hash
           properties:
@@ -13525,7 +13680,45 @@ components:
             accepted_proposal_hash:
               anyOf:
                 - type: string
-                  pattern: '^sha256:[0-9a-f]{64}$'
+                  pattern: '^[a-f0-9]{64}$'
+                - type: 'null'
+            scientific_authority:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                    - schema_version
+                    - evaluation_protocol_revision_id
+                    - evaluation_protocol_content_hash
+                    - primary_comparison_fact_id
+                    - primary_comparison_fact_hash
+                    - primary_comparison_key
+                    - registered_relation
+                  properties:
+                    schema_version:
+                      type: string
+                      const: PaperImplementationValidationCycleScientificAuthority@v1
+                    evaluation_protocol_revision_id:
+                      type: string
+                      minLength: 1
+                    evaluation_protocol_content_hash:
+                      type: string
+                      pattern: '^sha256:[0-9a-f]{64}$'
+                    primary_comparison_fact_id:
+                      type: string
+                      minLength: 1
+                    primary_comparison_fact_hash:
+                      type: string
+                      pattern: '^sha256:[0-9a-f]{64}$'
+                    primary_comparison_key:
+                      type: string
+                      minLength: 1
+                    registered_relation:
+                      type: string
+                      enum:
+                        - supports_registered_expectation
+                        - contradicts_registered_expectation
+                        - indeterminate
                 - type: 'null'
             closure_watermark:
               type: object
@@ -14479,23 +14672,9 @@ components:
         derived_closure_kind:
           anyOf:
             - type: string
-              const: control_flow_validated_no_paper_evidence
-            - type: object
-              additionalProperties: false
-              required:
-                - marker
-                - available
-                - gate
-              properties:
-                marker:
-                  type: string
-                  const: scientific_closure_blocked
-                available:
-                  type: boolean
-                  const: false
-                gate:
-                  type: string
-                  const: M7-L2
+              enum:
+                - control_flow_validated_no_paper_evidence
+                - scientific_evidence_assessed
             - type: 'null'
         prepared_request:
           anyOf:
@@ -14515,7 +14694,6 @@ components:
                     - closure_kind
                     - accepted_proposal_id
                     - expected_proposal_hash
-                    - corrected_scientific_disposition
                     - idempotency_key
                   properties:
                     validation_cycle_id:
@@ -14530,36 +14708,69 @@ components:
                       pattern: '^sha256:[0-9a-f]{64}$'
                     closure_kind:
                       type: string
-                      const: control_flow_validated_no_paper_evidence
+                      enum:
+                        - control_flow_validated_no_paper_evidence
+                        - scientific_evidence_assessed
                     accepted_proposal_id:
                       type: 'null'
                     expected_proposal_hash:
-                      type: 'null'
-                    corrected_scientific_disposition:
                       type: 'null'
                     idempotency_key:
                       type: 'null'
                 required_template_fields:
                   type: array
                   minItems: 1
-                  maxItems: 1
+                  maxItems: 3
                   items:
-                    type: object
-                    additionalProperties: false
-                    required:
-                      - field
-                      - semantic
-                      - required
-                    properties:
-                      field:
-                        type: string
-                        const: idempotency_key
-                      semantic:
-                        type: string
-                        const: business_idempotency_key
-                      required:
-                        type: boolean
-                        const: true
+                    oneOf:
+                      - type: object
+                        additionalProperties: false
+                        required:
+                          - field
+                          - semantic
+                          - required
+                        properties:
+                          field:
+                            type: string
+                            const: idempotency_key
+                          semantic:
+                            type: string
+                            const: business_idempotency_key
+                          required:
+                            type: boolean
+                            const: true
+                      - type: object
+                        additionalProperties: false
+                        required:
+                          - field
+                          - semantic
+                          - required
+                        properties:
+                          field:
+                            type: string
+                            const: accepted_proposal_id
+                          semantic:
+                            type: string
+                            const: admitted_scientific_proposal_id
+                          required:
+                            type: boolean
+                            const: true
+                      - type: object
+                        additionalProperties: false
+                        required:
+                          - field
+                          - semantic
+                          - required
+                        properties:
+                          field:
+                            type: string
+                            const: expected_proposal_hash
+                          semantic:
+                            type: string
+                            const: admitted_scientific_proposal_hash
+                          required:
+                            type: boolean
+                            const: true
             - type: 'null'
 
     PaperImplementationValidationCycleAvailableActionsV2Response:
