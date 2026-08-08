@@ -13,6 +13,7 @@
  * - Task identity SoT is anchored by `.ai-task.yaml` (`task_id`).
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +25,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEFAULT_PROJECT = 'main';
+const RESUME_DEFAULT_COMMIT_LIMIT = 3;
+const RESUME_MAX_COMMIT_LIMIT = 20;
+const RESUME_DEFAULT_SCAN_LIMIT = 500;
+const RESUME_MAX_SCAN_LIMIT = 10000;
+const RESUME_MAX_CANDIDATES = 20;
+const RESUME_TEXT_LIMITS = Object.freeze({
+  short: 256,
+  text: 500,
+  path: 1024,
+  commitSubject: 240,
+  commitMetadata: 300,
+  warning: 500,
+});
 
 const TASK_ID_RE = /^T-\d{3}$/;
 const MILESTONE_ID_RE = /^M-\d{3}$/;
@@ -100,6 +114,36 @@ Commands:
     --json                    Output a single JSON array instead of JSON lines
     Locate tasks quickly for dedupe/triage (LLM-friendly output).
 
+  current-task
+    --repo-root <path>        Repo root (default: auto-detect; fallback: cwd)
+    --project <slug>          Project slug (default: ${DEFAULT_PROJECT})
+    --task <T-###>            Resolve a specific task instead of the active one
+    --format <fmt>            trailers (default) | id | json
+    Resolve the active task (single in-progress, else single blocked) for hooks/automation.
+    Status is read from task bundles (00-overview.md State), never from the registry cache.
+    Exit codes: 0 resolved, 2 ambiguous, 3 none, 4 not found.
+
+  resume
+    --repo-root <path>        Repo root (default: auto-detect; fallback: cwd)
+    --project <slug>          Project slug (default: ${DEFAULT_PROJECT})
+    --task <T-###>            Task ID (default: branch task, then the active task)
+    --limit <n>               Recent linked commits (default: ${RESUME_DEFAULT_COMMIT_LIMIT}; max: ${RESUME_MAX_COMMIT_LIMIT})
+    --scan <n>                History scan limit (default: ${RESUME_DEFAULT_SCAN_LIMIT}; max: ${RESUME_MAX_SCAN_LIMIT})
+    --json                    Output one stable JSON context packet
+    Build a bounded context-recovery packet from dev-docs, linked commits, and the worktree.
+    Resolution order: --task, branch T-###, single in-progress, then single blocked task.
+    Exit codes: 0 resolved, 2 ambiguous, 3 none, 4 not found.
+
+  commits
+    --repo-root <path>        Repo root (default: auto-detect; fallback: cwd)
+    --project <slug>          Project slug (default: ${DEFAULT_PROJECT})
+    --task <T-###>            Task ID (default: the active task)
+    --limit <n>               Keep the most recent <n> commits (default: 20)
+    --scan <n>                Commits of history to scan (default: 500)
+    --json                    Output a single JSON array instead of JSON lines
+    Derive a task's commit timeline from "Task:" trailers in git log (read-only, non-SoT).
+    Output is oldest -> newest: the last line is the latest progress.
+
   map
     --repo-root <path>        Repo root (default: auto-detect; fallback: cwd)
     --project <slug>          Project slug (default: ${DEFAULT_PROJECT})
@@ -117,6 +161,8 @@ Examples:
   node .ai/scripts/ctl-project-governance.mjs sync --dry-run --project main
   node .ai/scripts/ctl-project-governance.mjs sync --apply --project main
   node .ai/scripts/ctl-project-governance.mjs map --task T-001 --feature F-002 --apply
+  node .ai/scripts/ctl-project-governance.mjs resume --json
+  node .ai/scripts/ctl-project-governance.mjs commits --task T-001
 `.trim();
 
   console.log(msg);
@@ -147,6 +193,15 @@ function parseArgs(argv) {
   }
 
   return { command, opts };
+}
+
+function parseBoundedPositiveInt(value, fallback, maximum) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  const requested = Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return {
+    value: Math.min(requested, maximum),
+    clamped: requested > maximum,
+  };
 }
 
 function toPosix(p) {
@@ -684,6 +739,80 @@ function getBundleStatusFromOverview(overviewRaw) {
   return { status: null, error: 'Missing "## Status" / "- State: <status>" in 00-overview.md.' };
 }
 
+function getMarkdownSectionLines(markdownRaw, heading) {
+  const lines = normalizeEol(markdownRaw).split('\n');
+  const target = String(heading || '').trim().toLowerCase();
+  const out = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    const headingMatch = line.trim().match(/^##\s+(.+?)\s*$/);
+    if (headingMatch) {
+      if (inSection) break;
+      inSection = String(headingMatch[1] || '').trim().toLowerCase() === target;
+      continue;
+    }
+
+    if (inSection) out.push(line);
+  }
+
+  return out;
+}
+
+function cleanMarkdownValue(value) {
+  return String(value || '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+function createResumeTextLimiter() {
+  const fields = [];
+
+  function mark(field) {
+    if (!fields.includes(field)) fields.push(field);
+  }
+
+  function text(value, maxChars, field) {
+    if (value === null || value === undefined) return value;
+    const raw = String(value);
+    if (raw.length <= maxChars) return raw;
+    mark(field);
+    return `${raw.slice(0, Math.max(0, maxChars - 1))}…`;
+  }
+
+  return { fields, mark, text };
+}
+
+function getMarkdownSectionText(markdownRaw, heading) {
+  return cleanMarkdownValue(getMarkdownSectionLines(markdownRaw, heading).join('\n'));
+}
+
+function getMarkdownListField(markdownRaw, heading, field) {
+  const target = String(field || '').trim().toLowerCase();
+  for (const line of getMarkdownSectionLines(markdownRaw, heading)) {
+    const match = line.trim().match(/^\-\s*([^:]+)\s*:\s*(.*)$/);
+    if (!match || String(match[1] || '').trim().toLowerCase() !== target) continue;
+    return cleanMarkdownValue(match[2] || '');
+  }
+  return '';
+}
+
+function getMarkdownBulletItems(markdownRaw, heading, limit) {
+  const items = [];
+  for (const line of getMarkdownSectionLines(markdownRaw, heading)) {
+    const match = line.trim().match(/^\-\s+(.+)$/);
+    if (!match) continue;
+    const value = cleanMarkdownValue(match[1] || '');
+    if (value) items.push(value);
+    if (items.length >= limit) break;
+  }
+  return items;
+}
+
 function getAcceptanceCriteriaStats(overviewRaw) {
   const raw = normalizeEol(overviewRaw);
   const lines = raw.split('\n');
@@ -1218,41 +1347,19 @@ function formatJsonLines(rows) {
   for (const r of rows) console.log(JSON.stringify(r));
 }
 
-function cmdQuery({ repoRoot, projectSlug, id, status, text, json }) {
-  // Query is designed for LLM consumption: default is JSONL (one object per line).
-  // It should work even when the hub is not initialized (fallback scanning).
-  const loaded = loadRegistry(repoRoot, projectSlug);
+function collectTaskRows({ repoRoot, projectSlug, quiet = false, fromBundles = false }) {
+  // Works even when the hub is not initialized (falls back to scanning dev-docs roots).
+  // `fromBundles` skips the registry entirely: the task bundle (00-overview.md State) is
+  // the status SoT, while registry.status only refreshes on `sync` and can lag behind.
+  const loaded = fromBundles ? { registry: null, error: null } : loadRegistry(repoRoot, projectSlug);
   const registry = loaded.registry;
-  if (!registry && loaded.error) {
+  if (!registry && loaded.error && !quiet) {
     // Keep stdout clean (JSONL/JSON), but surface the issue for operators.
     console.error(colors.yellow(`[warning] Failed to parse registry.yaml; falling back to dev-docs scan: ${loaded.error}`));
   }
 
-  function includesText(value, needle) {
-    if (!needle) return true;
-    const n = String(needle).toLowerCase();
-    const v = String(value || '').toLowerCase();
-    return v.includes(n);
-  }
-
-  function taskMatches(t) {
-    if (id && String(t.id || '') !== id) return false;
-    if (status && String(t.status || '').trim() !== status) return false;
-    if (text) {
-      const blobParts = [];
-      for (const k of ['id', 'slug', 'title', 'description', 'status', 'dev_docs_path', 'feature_id', 'milestone_id']) {
-        blobParts.push(String(t[k] || ''));
-      }
-      if (Array.isArray(t.keywords)) blobParts.push(t.keywords.join(' '));
-      const blob = blobParts.join('\n');
-      if (!includesText(blob, text)) return false;
-    }
-    return true;
-  }
-
-  // If the hub exists, query registry tasks directly.
   if (registry && Array.isArray(registry.tasks)) {
-    const rows = registry.tasks
+    return registry.tasks
       .filter((t) => t && typeof t === 'object')
       .map((t) => ({
         id: String(t.id || ''),
@@ -1265,15 +1372,9 @@ function cmdQuery({ repoRoot, projectSlug, id, status, text, json }) {
         updated: String(t.updated || ''),
         keywords: Array.isArray(t.keywords) ? t.keywords.map((k) => String(k)) : [],
       }))
-      .filter(taskMatches)
       .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-
-    if (json) console.log(JSON.stringify(rows));
-    else formatJsonLines(rows);
-    return { ok: true, rows };
   }
 
-  // Fallback: scan dev-docs roots (no hub required).
   const roots = discoverDevDocsRoots(repoRoot);
   const tasks = scanTasks(repoRoot, roots);
   const rows = [];
@@ -1299,7 +1400,7 @@ function cmdQuery({ repoRoot, projectSlug, id, status, text, json }) {
       keywords = Array.isArray(meta.keywords) ? meta.keywords : [];
     }
 
-    const row = {
+    rows.push({
       id: taskId,
       status: effectiveStatus,
       slug: task.slug,
@@ -1308,14 +1409,604 @@ function cmdQuery({ repoRoot, projectSlug, id, status, text, json }) {
       keywords: keywords.map((k) => String(k)),
       meta_missing: !metaRaw,
       overview_missing: !overviewRaw,
-    };
-
-    if (taskMatches(row)) rows.push(row);
+    });
   }
 
   rows.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
+  return rows;
+}
+
+function cmdQuery({ repoRoot, projectSlug, id, status, text, json }) {
+  // Query is designed for LLM consumption: default is JSONL (one object per line).
+  function includesText(value, needle) {
+    if (!needle) return true;
+    const n = String(needle).toLowerCase();
+    const v = String(value || '').toLowerCase();
+    return v.includes(n);
+  }
+
+  function taskMatches(t) {
+    if (id && String(t.id || '') !== id) return false;
+    if (status && String(t.status || '').trim() !== status) return false;
+    if (text) {
+      const blobParts = [];
+      for (const k of ['id', 'slug', 'title', 'description', 'status', 'dev_docs_path', 'feature_id', 'milestone_id']) {
+        blobParts.push(String(t[k] || ''));
+      }
+      if (Array.isArray(t.keywords)) blobParts.push(t.keywords.join(' '));
+      const blob = blobParts.join('\n');
+      if (!includesText(blob, text)) return false;
+    }
+    return true;
+  }
+
+  const rows = collectTaskRows({ repoRoot, projectSlug }).filter(taskMatches);
+
   if (json) console.log(JSON.stringify(rows));
   else formatJsonLines(rows);
+  return { ok: true, rows };
+}
+
+// Task context that a commit can be attributed to. `blocked` still counts as
+// active: work is paused, but the task remains the current context.
+const ACTIVE_TASK_STATUS = new Set(['in-progress', 'blocked']);
+
+function resolveTaskContext({ repoRoot, projectSlug, taskId }) {
+  // Always read status from the bundles (SoT), never from the registry cache:
+  // a commit typically happens before `sync` has refreshed registry.status.
+  const rows = collectTaskRows({ repoRoot, projectSlug, quiet: true, fromBundles: true }).filter((r) =>
+    TASK_ID_RE.test(String(r.id || ''))
+  );
+
+  if (taskId) {
+    const found = rows.find((r) => r.id === taskId);
+    if (!found) return { ok: false, reason: 'not-found', candidates: [] };
+    return { ok: true, task: found, candidates: [found] };
+  }
+
+  const inProgress = rows.filter((r) => r.status === 'in-progress');
+  const pool = inProgress.length > 0 ? inProgress : rows.filter((r) => ACTIVE_TASK_STATUS.has(r.status));
+
+  if (pool.length === 1) return { ok: true, task: pool[0], candidates: pool };
+  if (pool.length === 0) return { ok: false, reason: 'none', candidates: [] };
+  return { ok: false, reason: 'ambiguous', candidates: pool };
+}
+
+function taskIdsFromBranch(branch) {
+  const matches = String(branch || '').match(/T-\d{3}/g) || [];
+  return [...new Set(matches)];
+}
+
+function resolveResumeTaskContext({ repoRoot, projectSlug, taskId, branch }) {
+  if (taskId) {
+    const explicit = resolveTaskContext({ repoRoot, projectSlug, taskId });
+    return { ...explicit, source: 'explicit', branch };
+  }
+
+  const branchTaskIds = taskIdsFromBranch(branch);
+  if (branchTaskIds.length > 1) {
+    return {
+      ok: false,
+      reason: 'branch-ambiguous',
+      source: 'branch',
+      branch,
+      branchTaskIds,
+      candidates: [],
+    };
+  }
+
+  if (branchTaskIds.length === 1) {
+    const branchTask = resolveTaskContext({ repoRoot, projectSlug, taskId: branchTaskIds[0] });
+    return {
+      ...branchTask,
+      reason: branchTask.ok ? undefined : 'branch-task-not-found',
+      source: 'branch',
+      branch,
+      branchTaskIds,
+    };
+  }
+
+  const active = resolveTaskContext({ repoRoot, projectSlug, taskId: null });
+  return { ...active, source: 'active', branch };
+}
+
+function docsTrailerValue(devDocsPath) {
+  const p = toPosix(String(devDocsPath || '')).replace(/\/+$/, '');
+  return p ? `${p}/` : '';
+}
+
+function runGit(repoRoot, args) {
+  try {
+    return execFileSync('git', args, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return null;
+  }
+}
+
+function readCurrentBranch(repoRoot) {
+  const raw = runGit(repoRoot, ['branch', '--show-current']);
+  if (raw === null) return '';
+  return raw.trim() || '(detached)';
+}
+
+function readHeadCommit(repoRoot) {
+  const raw = runGit(repoRoot, ['rev-parse', '--short', 'HEAD']);
+  return raw === null ? '' : raw.trim();
+}
+
+const COMMIT_FIELDS = [
+  '%H',
+  '%h',
+  '%aI',
+  '%an',
+  '%s',
+  '%(trailers:key=Task,valueonly,separator=%x2C)',
+  '%(trailers:key=Phase,valueonly,separator=%x2C)',
+  '%(trailers:key=Docs,valueonly,separator=%x2C)',
+  '%(trailers:key=Verify,valueonly,separator=%x2C)',
+];
+
+function readCommitTimeline({ repoRoot, scan }) {
+  // Trailers are parsed by git itself, then filtered here. Filtering in JS
+  // (instead of `git log --grep`) keeps the match exact and regex-free.
+  const fmt = `${COMMIT_FIELDS.join('%x1f')}%x1e`;
+  const raw = runGit(repoRoot, ['log', `--max-count=${scan}`, `--format=${fmt}`]);
+  if (raw === null) {
+    const insideWorktree = runGit(repoRoot, ['rev-parse', '--is-inside-work-tree']);
+    const head = runGit(repoRoot, ['rev-parse', '--verify', 'HEAD']);
+    if (insideWorktree?.trim() === 'true' && head === null) return [];
+    return null;
+  }
+
+  const records = [];
+  for (const chunk of raw.split('\x1e')) {
+    const line = chunk.replace(/^\n/, '');
+    if (!line.trim()) continue;
+    const [sha, short, date, author, subject, task, phase, docs, verify] = line.split('\x1f');
+    records.push({
+      commit: short || '',
+      sha: sha || '',
+      date: date || '',
+      author: author || '',
+      subject: subject || '',
+      tasks: String(task || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      phase: String(phase || '').trim(),
+      docs: String(docs || '').trim(),
+      verify: String(verify || '').trim(),
+    });
+  }
+  return records;
+}
+
+function countWorktreeChanges(repoRoot) {
+  const status = readWorktreeStatus(repoRoot);
+  return status === null ? null : status.count;
+}
+
+function readWorktreeStatus(repoRoot, limit = 10) {
+  const raw = runGit(repoRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
+  if (raw === null) return null;
+  const allEntries = raw
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim());
+  return {
+    clean: allEntries.length === 0,
+    count: allEntries.length,
+    entries: allEntries.slice(0, limit),
+    truncated: allEntries.length > limit,
+  };
+}
+
+function countCommitsTouchingPath(repoRoot, relPath) {
+  // Counter-evidence for an empty timeline: commits may exist without a `Task:`
+  // trailer (hooks are opt-in), and "no linked commits" must not be read as "no work".
+  if (!relPath) return null;
+  const raw = runGit(repoRoot, ['rev-list', '--count', 'HEAD', '--', relPath]);
+  if (raw === null) return null;
+  const n = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cmdCurrentTask({ repoRoot, projectSlug, taskId, format }) {
+  const res = resolveTaskContext({ repoRoot, projectSlug, taskId });
+
+  if (!res.ok) {
+    if (res.reason === 'not-found') {
+      console.error(colors.red(`[error] Task not found: ${taskId}`));
+      return { exitCode: 4 };
+    }
+    if (res.reason === 'ambiguous') {
+      console.error(colors.yellow('[warning] Multiple active tasks; pass --task <T-###> to disambiguate:'));
+      for (const c of res.candidates) console.error(`  - ${c.id} ${c.slug} (${c.status})`);
+      return { exitCode: 2 };
+    }
+    console.error(colors.dim('[info] No active task (no in-progress or blocked task bundle found).'));
+    return { exitCode: 3 };
+  }
+
+  const task = res.task;
+
+  if (format === 'json') {
+    console.log(JSON.stringify(task));
+  } else if (format === 'id') {
+    console.log(task.id);
+  } else {
+    // `trailers` is the hook-facing format: ready to append verbatim.
+    console.log(`Task: ${task.id}`);
+    const docs = docsTrailerValue(task.dev_docs_path);
+    if (docs) console.log(`Docs: ${docs}`);
+  }
+
+  return { exitCode: 0, task };
+}
+
+function resumeFailureExitCode(reason) {
+  if (reason === 'ambiguous' || reason === 'branch-ambiguous') return 2;
+  if (reason === 'none') return 3;
+  if (reason === 'not-found' || reason === 'branch-task-not-found') return 4;
+  return 1;
+}
+
+function resumeFailureMessage(res) {
+  if (res.reason === 'branch-ambiguous') {
+    return `Current branch contains multiple task IDs: ${res.branchTaskIds.join(', ')}`;
+  }
+  if (res.reason === 'branch-task-not-found') {
+    return `Task from current branch was not found: ${res.branchTaskIds[0]}`;
+  }
+  if (res.reason === 'ambiguous') {
+    return 'Multiple active tasks exist; pass --task <T-###> or use a branch containing one task ID.';
+  }
+  if (res.reason === 'not-found') return 'The requested task was not found.';
+  if (res.reason === 'none') return 'No active task was found; pass --task <T-###>.';
+  if (res.reason === 'git-unavailable') return 'Unable to read Git history for context recovery.';
+  return 'Unable to resolve a task for context recovery.';
+}
+
+function renderResumeFailure(res, json) {
+  const limiter = createResumeTextLimiter();
+  const allCandidates = Array.isArray(res.candidates) ? res.candidates : [];
+  const branchTaskIds = Array.isArray(res.branchTaskIds) ? res.branchTaskIds.slice(0, RESUME_MAX_CANDIDATES) : [];
+  if (Array.isArray(res.branchTaskIds) && res.branchTaskIds.length > RESUME_MAX_CANDIDATES) {
+    limiter.mark('error.branch_task_ids');
+  }
+  if (allCandidates.length > RESUME_MAX_CANDIDATES) limiter.mark('error.candidates');
+
+  const error = {
+    reason: res.reason || 'unknown',
+    message: limiter.text(resumeFailureMessage(res), RESUME_TEXT_LIMITS.warning, 'error.message'),
+    branch: limiter.text(res.branch || '', RESUME_TEXT_LIMITS.short, 'error.branch'),
+    branch_task_ids: branchTaskIds,
+    candidates: allCandidates
+      .slice(0, RESUME_MAX_CANDIDATES)
+      .map((candidate, index) => ({
+          id: candidate.id,
+          slug: limiter.text(candidate.slug, RESUME_TEXT_LIMITS.short, `error.candidates[${index}].slug`),
+          state: candidate.status,
+          docs_path: limiter.text(
+            candidate.dev_docs_path,
+            RESUME_TEXT_LIMITS.path,
+            `error.candidates[${index}].docs_path`
+          ),
+        })),
+    truncated_fields: limiter.fields,
+  };
+
+  if (json) console.log(JSON.stringify({ version: 1, error }));
+  else {
+    console.error(colors.yellow(`[warning] ${error.message}`));
+    for (const candidate of error.candidates) {
+      console.error(`  - ${candidate.id} ${candidate.slug} (${candidate.state})`);
+    }
+  }
+
+  return resumeFailureExitCode(res.reason);
+}
+
+function readResumeOverview(repoRoot, task) {
+  const taskDir = path.join(repoRoot, task.dev_docs_path);
+  const overviewPath = path.join(taskDir, '00-overview.md');
+  const overviewRaw = readText(overviewPath);
+  const status = overviewRaw ? getBundleStatusFromOverview(overviewRaw) : { status: null, error: 'Missing 00-overview.md.' };
+
+  return {
+    path: toPosix(path.relative(repoRoot, overviewPath)),
+    state: status.status || task.status || 'unknown',
+    goal: getMarkdownSectionText(overviewRaw, 'Goal') || null,
+    next_step: getMarkdownListField(overviewRaw, 'Status', 'Next step') || null,
+    status_error: status.error || null,
+  };
+}
+
+function readResumePitfalls(repoRoot, task) {
+  const pitfallsPath = path.join(repoRoot, task.dev_docs_path, '05-pitfalls.md');
+  const pitfallsRaw = readText(pitfallsPath);
+  return {
+    path: toPosix(path.relative(repoRoot, pitfallsPath)),
+    items: getMarkdownBulletItems(pitfallsRaw, 'Do-not-repeat summary (keep current)', 5),
+  };
+}
+
+function buildResumeSuggestions({ task, commits, worktree }) {
+  const taskPath = String(task.dev_docs_path || '').replace(/\/+$/, '');
+  const reads = [
+    `${taskPath}/01-plan.md`,
+    `${taskPath}/05-pitfalls.md`,
+  ];
+  const commands = [];
+
+  if (worktree && !worktree.clean) {
+    commands.push('git status --short', 'git diff');
+  }
+
+  const latest = commits.at(-1);
+  if (latest) commands.push(`git show --stat ${latest.sha}`);
+
+  return { reads, commands };
+}
+
+function renderResumeText(packet) {
+  console.log(`Task: ${packet.task.id} ${packet.task.slug}`);
+  console.log(`State: ${packet.task.state}`);
+  console.log(`Goal: ${packet.overview.goal || 'unknown'}`);
+  console.log(`Docs: ${packet.task.docs_path}`);
+  console.log(`Next step: ${packet.overview.next_step || 'unknown'}`);
+  console.log(`Resolution: ${packet.task.resolution}`);
+  console.log(`Branch: ${packet.repository.branch || 'unknown'}`);
+  console.log(`HEAD: ${packet.repository.head || 'unknown'}`);
+  console.log('');
+  console.log('Recent checkpoints:');
+
+  if (packet.timeline.commits.length === 0) {
+    console.log('- unknown (no linked commits found)');
+  } else {
+    for (const commit of packet.timeline.commits) {
+      console.log(`- ${commit.commit} ${commit.subject}`);
+      if (commit.phase) console.log(`  Phase hint: ${commit.phase}`);
+      if (commit.verify) console.log(`  Verify: ${commit.verify}`);
+    }
+  }
+
+  console.log('');
+  if (packet.worktree === null) {
+    console.log('Worktree: unknown');
+  } else if (packet.worktree.clean) {
+    console.log('Worktree: clean');
+  } else {
+    console.log(`Worktree: dirty (${packet.worktree.count} repo-wide change(s))`);
+    for (const entry of packet.worktree.entries) console.log(`- ${entry}`);
+    if (packet.worktree.truncated) console.log('- ...');
+  }
+
+  if (packet.do_not_repeat.length > 0) {
+    console.log('');
+    console.log('Do not repeat:');
+    for (const item of packet.do_not_repeat) console.log(`- ${item}`);
+  }
+
+  if (packet.warnings.length > 0) {
+    console.log('');
+    console.log('Warnings:');
+    for (const warning of packet.warnings) console.log(`- ${warning}`);
+  }
+
+  if (packet.truncated_fields.length > 0) {
+    console.log('');
+    console.log('Truncated fields:');
+    for (const field of packet.truncated_fields) console.log(`- ${field}`);
+  }
+
+  console.log('');
+  console.log('Suggested reads:');
+  for (const read of packet.suggested_reads) console.log(`- ${read}`);
+
+  if (packet.suggested_commands.length > 0) {
+    console.log('');
+    console.log('Suggested commands:');
+    for (const command of packet.suggested_commands) console.log(`- ${command}`);
+  }
+}
+
+function cmdResume({ repoRoot, projectSlug, taskId, limit, scan, limitClamped, scanClamped, json }) {
+  const branch = readCurrentBranch(repoRoot);
+  const resolved = resolveResumeTaskContext({ repoRoot, projectSlug, taskId, branch });
+  if (!resolved.ok) {
+    return { exitCode: renderResumeFailure(resolved, json) };
+  }
+
+  const task = resolved.task;
+  const overview = readResumeOverview(repoRoot, task);
+  const pitfalls = readResumePitfalls(repoRoot, task);
+  const records = readCommitTimeline({ repoRoot, scan });
+  if (records === null) {
+    const failure = {
+      ok: false,
+      reason: 'git-unavailable',
+      branch,
+      branchTaskIds: taskIdsFromBranch(branch),
+      candidates: [],
+    };
+    return { exitCode: renderResumeFailure(failure, json) };
+  }
+
+  const linked = records.filter((record) => record.tasks.includes(task.id));
+  const commits = linked
+    .slice(0, limit)
+    .reverse()
+    .map(({ commit, sha, date, author, subject, phase, verify }) => ({
+      commit,
+      sha,
+      date,
+      author,
+      subject,
+      phase,
+      verify,
+    }));
+  const worktree = readWorktreeStatus(repoRoot);
+  const warnings = [];
+
+  if (limitClamped) warnings.push(`Requested commit limit exceeded the maximum; using ${limit}.`);
+  if (scanClamped) warnings.push(`Requested scan limit exceeded the maximum; using ${scan}.`);
+  if (overview.status_error) warnings.push(overview.status_error);
+  if (!overview.goal) warnings.push(`Goal is missing from ${overview.path}.`);
+  if (!overview.next_step) warnings.push(`Next step is missing from ${overview.path}.`);
+  if (linked.length === 0) {
+    warnings.push(`No commit carries "Task: ${task.id}"; linked progress is unknown, not zero.`);
+  }
+  if (records.length >= scan) warnings.push(`Commit scan limit reached (${scan}); older commits were not examined.`);
+  if (worktree === null) warnings.push('Worktree state is unavailable.');
+  else if (!worktree.clean) {
+    warnings.push(`${worktree.count} repo-wide uncommitted change(s) may be ahead of the linked commit timeline.`);
+  }
+
+  const suggestions = buildResumeSuggestions({ task, commits, worktree });
+  const limiter = createResumeTextLimiter();
+  const boundedCommits = commits.map((commit, index) => ({
+    commit: commit.commit,
+    sha: commit.sha,
+    date: limiter.text(commit.date, RESUME_TEXT_LIMITS.short, `timeline.commits[${index}].date`),
+    author: limiter.text(commit.author, RESUME_TEXT_LIMITS.short, `timeline.commits[${index}].author`),
+    subject: limiter.text(
+      commit.subject,
+      RESUME_TEXT_LIMITS.commitSubject,
+      `timeline.commits[${index}].subject`
+    ),
+    phase: limiter.text(
+      commit.phase,
+      RESUME_TEXT_LIMITS.commitMetadata,
+      `timeline.commits[${index}].phase`
+    ),
+    verify: limiter.text(
+      commit.verify,
+      RESUME_TEXT_LIMITS.commitMetadata,
+      `timeline.commits[${index}].verify`
+    ),
+  }));
+  const boundedWorktree =
+    worktree === null
+      ? null
+      : {
+          ...worktree,
+          entries: worktree.entries.map((entry, index) =>
+            limiter.text(entry, RESUME_TEXT_LIMITS.path, `worktree.entries[${index}]`)
+          ),
+        };
+  const packet = {
+    version: 1,
+    task: {
+      id: task.id,
+      slug: limiter.text(task.slug, RESUME_TEXT_LIMITS.short, 'task.slug'),
+      state: overview.state,
+      docs_path: limiter.text(docsTrailerValue(task.dev_docs_path), RESUME_TEXT_LIMITS.path, 'task.docs_path'),
+      resolution: resolved.source,
+    },
+    overview: {
+      goal: limiter.text(overview.goal, RESUME_TEXT_LIMITS.text, 'overview.goal'),
+      next_step: limiter.text(overview.next_step, RESUME_TEXT_LIMITS.text, 'overview.next_step'),
+    },
+    repository: {
+      branch: limiter.text(branch, RESUME_TEXT_LIMITS.short, 'repository.branch'),
+      head: readHeadCommit(repoRoot),
+    },
+    timeline: {
+      state: linked.length > 0 ? 'linked' : 'unknown',
+      linked_total: linked.length,
+      scanned_commits: records.length,
+      scan_limit: scan,
+      limit,
+      commits: boundedCommits,
+    },
+    worktree: boundedWorktree,
+    do_not_repeat: pitfalls.items.map((item, index) =>
+      limiter.text(item, RESUME_TEXT_LIMITS.text, `do_not_repeat[${index}]`)
+    ),
+    warnings: warnings.map((warning, index) =>
+      limiter.text(warning, RESUME_TEXT_LIMITS.warning, `warnings[${index}]`)
+    ),
+    suggested_reads: suggestions.reads.map((read, index) =>
+      limiter.text(read, RESUME_TEXT_LIMITS.path, `suggested_reads[${index}]`)
+    ),
+    suggested_commands: suggestions.commands.map((command, index) =>
+      limiter.text(command, RESUME_TEXT_LIMITS.path, `suggested_commands[${index}]`)
+    ),
+  };
+  packet.truncated_fields = [...limiter.fields];
+
+  if (json) console.log(JSON.stringify(packet));
+  else renderResumeText(packet);
+  return { exitCode: 0, packet };
+}
+
+function cmdCommits({ repoRoot, projectSlug, taskId, limit, scan, json }) {
+  const res = resolveTaskContext({ repoRoot, projectSlug, taskId });
+  if (!res.ok) {
+    if (res.reason === 'not-found') console.error(colors.red(`[error] Task not found: ${taskId}`));
+    else if (res.reason === 'ambiguous') {
+      console.error(colors.yellow('[warning] Multiple active tasks; pass --task <T-###>:'));
+      for (const c of res.candidates) console.error(`  - ${c.id} ${c.slug} (${c.status})`);
+    } else {
+      console.error(colors.yellow('[warning] No active task found; pass --task <T-###>.'));
+    }
+    return { ok: false };
+  }
+
+  const task = res.task;
+  const records = readCommitTimeline({ repoRoot, scan });
+  if (records === null) {
+    console.error(colors.red('[error] Unable to read git history (not a git repository, or git is unavailable).'));
+    return { ok: false };
+  }
+
+  const matched = records.filter((r) => r.tasks.includes(task.id));
+  // Output oldest -> newest so "the last line" is unambiguously the latest commit.
+  // The limit still keeps the *most recent* N commits.
+  const rows = matched.slice(0, limit).reverse();
+
+  if (json) console.log(JSON.stringify(rows));
+  else formatJsonLines(rows);
+
+  // Progress calibration hints go to stderr so stdout stays machine-readable.
+  console.error(
+    colors.dim(
+      `[info] ${task.id} ${task.slug} (${task.status}): ${matched.length} linked commit(s), showing ${rows.length} (scanned ${scan}).`
+    )
+  );
+
+  if (records.length >= scan) {
+    console.error(colors.dim(`[info] Scan limit reached (${scan}); older commits were not examined. Raise --scan for full history.`));
+  }
+
+  if (matched.length === 0) {
+    console.error(colors.yellow(`[warning] No commit carries "Task: ${task.id}". Treat the timeline as UNKNOWN, not as zero progress.`));
+    const touched = countCommitsTouchingPath(repoRoot, task.dev_docs_path);
+    if (touched) {
+      console.error(
+        colors.yellow(
+          `[warning] ${touched} commit(s) touched ${task.dev_docs_path} without the trailer; the work is likely committed but unlinked.`
+        )
+      );
+      console.error(colors.dim(`[info] Inspect manually: git log --oneline -- ${task.dev_docs_path}`));
+    }
+  }
+
+  const dirty = countWorktreeChanges(repoRoot);
+  if (dirty) {
+    console.error(
+      colors.yellow(
+        `[warning] ${dirty} uncommitted change(s) in the worktree (repo-wide count, possibly unrelated to this task); the timeline may be behind the actual state.`
+      )
+    );
+  }
+
   return { ok: true, rows };
 }
 
@@ -1985,6 +2676,57 @@ function main() {
         status: status || null,
         text: text || null,
         json,
+      });
+      process.exit(res.ok ? 0 : 1);
+      break;
+    }
+    case 'current-task': {
+      const taskId = opts.task ? String(opts.task).trim() : '';
+      const format = String(opts.format || 'trailers').trim();
+      if (!['trailers', 'id', 'json'].includes(format)) {
+        console.error(colors.red(`[error] Unknown --format: ${format} (expected trailers|id|json)`));
+        process.exit(1);
+      }
+      const res = cmdCurrentTask({ repoRoot, projectSlug, taskId: taskId || null, format });
+      process.exit(res.exitCode);
+      break;
+    }
+    case 'resume': {
+      const taskId = opts.task ? String(opts.task).trim() : '';
+      const limit = parseBoundedPositiveInt(
+        opts.limit,
+        RESUME_DEFAULT_COMMIT_LIMIT,
+        RESUME_MAX_COMMIT_LIMIT
+      );
+      const scan = parseBoundedPositiveInt(
+        opts.scan,
+        RESUME_DEFAULT_SCAN_LIMIT,
+        RESUME_MAX_SCAN_LIMIT
+      );
+      const res = cmdResume({
+        repoRoot,
+        projectSlug,
+        taskId: taskId || null,
+        limit: limit.value,
+        scan: scan.value,
+        limitClamped: limit.clamped,
+        scanClamped: scan.clamped,
+        json: !!opts.json,
+      });
+      process.exit(res.exitCode);
+      break;
+    }
+    case 'commits': {
+      const taskId = opts.task ? String(opts.task).trim() : '';
+      const limit = Number.parseInt(String(opts.limit || '20'), 10);
+      const scan = Number.parseInt(String(opts.scan || '500'), 10);
+      const res = cmdCommits({
+        repoRoot,
+        projectSlug,
+        taskId: taskId || null,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : 20,
+        scan: Number.isFinite(scan) && scan > 0 ? scan : 500,
+        json: !!opts.json,
       });
       process.exit(res.ok ? 0 : 1);
       break;

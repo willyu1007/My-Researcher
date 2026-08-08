@@ -96,6 +96,7 @@ Module or component affected:
 
 - Reference issues: `Fixes #123`, `Closes #456`
 - Breaking changes: `BREAKING CHANGE: description`
+- Task link: see **Task-linked commits** below (required when the commit belongs to a dev-docs task)
 
 ### Examples
 
@@ -126,12 +127,48 @@ and reduces duplication across repositories.
 
 ---
 
+## Task-linked Commits (MUST)
+
+When a commit belongs to a `dev-docs` task, add one standard Git trailer in the final message
+block:
+
+```text
+Task: T-###
+```
+
+- `Task` MUST match `^T-\d{3}$` and the task ID in `.ai-task.yaml`.
+- A task-linked commit MUST contain exactly one `Task` trailer.
+- One commit MUST NOT mix unrelated work or multiple tasks.
+- With `git commit -m`, place the trailer in the final `-m` argument.
+- When hooks are installed, `prepare-commit-msg` injects `Task` only from a branch containing one
+  valid task ID. Otherwise add it explicitly.
+- For an unrelated commit on a task branch, set `SKIP_TASK_TRAILER=1`.
+- Existing `Docs`, `Phase`, and `Verify` trailers remain readable but are not required.
+
+## Commit Checkpoints
+
+- SHOULD commit after completing and verifying a revertible work unit.
+- MAY commit a known-green rollback point before risky changes.
+- SHOULD keep separate verified work units in separate commits.
+- MUST NOT force broken, unverified, or non-revertible work into a commit.
+- If work remains uncommitted during an explicit handoff, preserve it and report the worktree
+  state and next action accurately.
+
+Read a task's linked commit timeline with:
+
+```bash
+node .ai/scripts/ctl-project-governance.mjs commits --task T-012
+```
+
+---
+
 ## Branch Naming (MUST)
 
 Format: `<type>/<ticket>-<short-description>`
 
 ### Examples
 
+- `feat/T-012-commit-governance`
 - `feat/AUTH-123-password-reset`
 - `fix/API-456-null-handling`
 - `docs/update-readme`
@@ -139,9 +176,10 @@ Format: `<type>/<ticket>-<short-description>`
 
 ### Rules
 
-- Use lowercase and hyphens (kebab-case)
+- Use lowercase and hyphens (kebab-case), except for task IDs (`T-012`)
 - Keep description short but meaningful
 - Include ticket/issue number when applicable
+- When the work has a dev-docs task bundle, use the task ID as the ticket
 - Avoid special characters
 
 ### Protected Branches
@@ -224,7 +262,9 @@ Before requesting review:
 - Do NOT force push to protected branches
 - Do NOT commit secrets, credentials, or sensitive data
 - Do NOT mix unrelated changes in one commit
+- Do NOT mix two tasks in one commit
 - Do NOT use vague messages like "fix bug" or "update code"
+- Do NOT use `wip` as a commit type; use the actual change type
 
 ## Verification
 
@@ -233,6 +273,8 @@ Commit quality checklist:
 - Type accurately describes the change
 - Subject is clear and imperative
 - Linked issues are referenced
+- `Task: T-###` is present exactly once when the commit belongs to a dev-docs task
+- The commit contains a verified, revertible work unit
 - No sensitive data included
 
 ## Included assets

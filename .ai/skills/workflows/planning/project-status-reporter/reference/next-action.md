@@ -8,6 +8,12 @@ Use when user asks what to do next, needs guidance on priorities, or is picking 
 node .ai/scripts/ctl-project-governance.mjs query --json
 ```
 
+For the selected task, read its bounded recovery packet:
+
+```bash
+node .ai/scripts/ctl-project-governance.mjs resume --task T-xxx --json
+```
+
 ## Priority Rules
 
 | Priority | Condition |
@@ -40,3 +46,7 @@ node .ai/scripts/ctl-project-governance.mjs query --json
 - Always provide at least one actionable command
 - If continuing in-progress task, suggest reading its overview first
 - For blocked tasks, suggest investigation steps
+- Use `timeline.commits` for landed work and `overview` for task intent.
+- Report an empty timeline as unknown progress, not zero progress.
+- If `worktree.clean` is false, inspect the returned `suggested_commands` first.
+- Surface packet warnings instead of silently overriding task documentation.

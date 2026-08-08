@@ -31,12 +31,16 @@ Do not use this skill for requests that ask to create/update tasks, change mappi
 4. Optional (recommended for accuracy when hub exists): run
    - `node .ai/scripts/ctl-project-governance.mjs lint --check`
    - If lint reports errors, include a remediation command (`node .ai/scripts/ctl-project-governance.mjs sync --apply`) in the output but do not execute the write.
-5. Generate output using the reference template.
+5. For an `in-progress` or `blocked` task, run
+   `node .ai/scripts/ctl-project-governance.mjs resume --task <T-###> --json` and report its
+   timeline, worktree warnings, and any disagreement with documented status.
+6. Generate output using the reference template.
 
 ## Verification
 - Output includes at least one actionable command
 - Status counts match query results
 - Do not guess task details; read `00-overview.md` if needed
+- Progress claimed for an active task is backed by its `resume` packet, or the gap is stated
 
 ## Boundaries
 - MUST NOT modify files (no `ctl-project-governance sync --apply`, no editing `dev-docs/**` / `.ai/project/**`)

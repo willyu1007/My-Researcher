@@ -7,8 +7,8 @@ Persistent task documentation for context preservation across sessions.
 | Condition | Action |
 |-----------|--------|
 | Complex task (multi-module, multi-session, >2 hours) | Create task bundle |
-| Context reset on ongoing work | Read `00-overview.md` first |
-| Task paused or handed off | Update docs via `update-dev-docs-for-handoff` |
+| Existing task continued by user intent or a related task branch | Run `ctl-project-governance.mjs resume --json` |
+| User requests a pause or handoff | Update docs via `update-dev-docs-for-handoff` |
 | Task completed and verified | Archive via `update-dev-docs-for-handoff` with status=done |
 
 ## Decision Gate (MUST)
@@ -46,7 +46,21 @@ Before making any code/config changes for a task that meets the Decision Gate:
    - update `00-overview.md` when status changes
    - append to `03-implementation-notes.md` after each phase
    - record every verification run in `04-verification.md` (commands + outcomes)
-4. Before pausing, handing off, or finishing, run `update-dev-docs-for-handoff`.
+4. Before an explicit pause, handoff, or task completion, run `update-dev-docs-for-handoff`.
+
+## Commit Gate (MUST)
+
+Task docs describe intent and current state; commits record what landed.
+
+- SHOULD commit after completing and verifying a revertible work unit.
+- MAY commit a known-green rollback point before risky changes.
+- MUST add `Task: T-###` when the commit belongs to that task.
+- MUST NOT attach a task to unrelated work.
+- MUST NOT force broken or unverified work into a commit. Preserve and report any remaining
+  worktree changes accurately.
+
+When hooks are installed (`node .githooks/install.mjs`), `prepare-commit-msg` injects `Task`
+only from a branch containing one valid task ID. Full commit rules: `git-commit-conventions`.
 
 ## Directory Structure
 
@@ -88,12 +102,24 @@ do not rewrite history to remove them.
 
 ## AI Instructions
 
-### On Context Reset
+### Resume Existing Work
 
-1. Read `dev-docs/active/<task-slug>/00-overview.md`
-2. Read `01-plan.md`
-3. Read `05-pitfalls.md` (scan the `do-not-repeat` summary first)
-4. Consult other files as needed
+For a request that continues an existing task, run this before reading implementation files:
+
+```bash
+node .ai/scripts/ctl-project-governance.mjs resume --json
+```
+
+- If the request identifies `T-###`, pass `--task T-###`.
+- Resolution order is explicit task, branch task, single `in-progress`, then single `blocked`.
+- If resolution is ambiguous, do not guess.
+- If `worktree.clean` is false, inspect the returned `suggested_commands` before writing code.
+- Treat an empty `timeline.commits` as unknown progress, not zero progress.
+- Read only the returned `suggested_reads`; inspect source files named in `truncated_fields` when
+  they affect the next decision.
+- Reconcile genuine disagreements about landed work in favor of Git history, then correct the
+  task document.
+- Do not run task recovery for unrelated work.
 
 ### During Work
 
