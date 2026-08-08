@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -47,6 +48,15 @@ const TRACE_ID = 'trace-p4';
 
 function hash(seed: string): string {
   return `sha256:${Buffer.from(seed).toString('hex').padEnd(64, '0').slice(0, 64)}`;
+}
+
+function deterministicId(namespace: string, identity: string): string {
+  const digest = createHash('sha256')
+    .update(namespace)
+    .update('\0')
+    .update(identity)
+    .digest('hex');
+  return `${namespace}_${digest}`;
 }
 
 function ref(type: string, id: string, version: string | null = null): TopicSelectionFunctionalRef {
@@ -256,7 +266,7 @@ function event(stored: PaperImplementationStoredValidationCycleClosureV2): Valid
     closure_input_hash: stored.closure.closure_watermark.closure_input_hash,
   };
   return {
-    event_id: 'event-p4',
+    event_id: deterministicId('pi_validation_cycle_closed_event_v1', CLOSURE_ID),
     event_type: 'ValidationCycleClosed@v1',
     schema_version: 'v1',
     producer_domain: 'PaperImplementation',
@@ -350,18 +360,20 @@ test('P4 retains failed/cancelled attempt accounting in Packet source', async ()
   assert.equal(packet?.interpretation_gate_status, 'passed_with_risk');
 });
 
-test('P4 rejects unaccounted failed attempts before writing Packet', async () => {
+test('P4 rejects failed attempts that are not accounted for or retained', async () => {
   const stored = closure({ failedAttempt: true });
-  const { materializer, packetRepository } = fixture({
-    stored,
-    request: packetRequest({ failedAccounted: false }),
-  });
-  await assert.rejects(
-    materializer.consume(event(stored)),
-    (error) => error instanceof AppError
-      && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
-  );
-  assert.equal((await packetRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
+  for (const request of [
+    packetRequest({ failedAccounted: false }),
+    packetRequest({ failedRetained: false }),
+  ]) {
+    const { materializer, packetRepository } = fixture({ stored, request });
+    await assert.rejects(
+      materializer.consume(event(stored)),
+      (error) => error instanceof AppError
+        && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
+    );
+    assert.equal((await packetRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
+  }
 });
 
 test('P4 rejects missing trusted evidence and trace authority', async () => {
@@ -394,6 +406,29 @@ test('P4 control-only Closure is consumed without a scientific Packet', async ()
   const stored = closure({ kind: 'control_flow_validated_no_paper_evidence' });
   const { materializer, packetRepository } = fixture({ stored });
   assert.equal(await materializer.consume(event(stored)), null);
+  assert.equal((await packetRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
+});
+
+test('P4 rejects a rehashed event whose Closure mirrors were altered', async () => {
+  const stored = closure();
+  const altered = event(stored);
+  altered.payload = {
+    ...altered.payload,
+    closure_kind: 'control_flow_validated_no_paper_evidence',
+    scientific_disposition: null,
+  };
+  altered.payload_hash = serverHashExperimentV2EventPayload(
+    altered.event_type,
+    altered.schema_version,
+    altered.payload,
+  );
+  const { materializer, packetRepository } = fixture({ stored });
+  await assert.rejects(
+    materializer.consume(altered),
+    (error) => error instanceof AppError
+      && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT'
+      && error.message.includes('drifted from its stored Closure authority'),
+  );
   assert.equal((await packetRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
 });
 
@@ -434,7 +469,7 @@ test('P4 closed view rejects readable legacy Packet history', async () => {
   );
 });
 
-test('P4 composite consumer does not complete after partial consumer failure', async () => {
+test('P4 composite consumer replays both ordered consumers after Packet failure', async () => {
   const calls: string[] = [];
   let failPacket = true;
   const composite = new PaperImplementationValidationCycleClosedCompositeConsumer(

@@ -267,6 +267,14 @@
 - Disposable database `packc_pi_697a944c367e` used the digest-pinned pgvector image, ignored every existing database URL, verified its identity marker and was cleaned up. Canonical digest: `sha256:4925fe76fccfae97dabbdb230ab7af28df44f605c48d3dbf7718f30e69bc7e05`.
 - P4 changes no named-local database, cloud/provider resource, credential, capability flag or desktop UI. P0-P4 is now `implementation_complete_unreleased`; T-136 remains `in-progress` for P5.
 
+### 2026-08-09 quality-review remediation
+
+- Replaced the materializer's ineffective check of a freshly computed event-envelope hash with an exact event-to-stored-Closure comparison covering deterministic event identity, time, business key, branch identity/sequence and all Closure payload mirrors. A rehashed event with altered Closure semantics now fails before Packet creation.
+- Reconciled Prisma `P2002` after the serializable Packet transaction by rereading Closure and Packet identities outside the aborted transaction. A byte-identical concurrent winner returns as replay; different content and reused Packet ids remain terminal conflicts, while `P2034` remains relay-retryable.
+- Bound Claim run-evidence support to the exact REU id/hash set of its selected closed Packets. Bound Claim/Dossier Packet functional refs to `packet_content_hash`; ready Dossiers now require full exact Claim→Packet coverage, exact ClaimTracePacket targets, conservative Packet/Dossier/admitted-Claim ceilings and complete forbidden-overclaim preservation.
+- Removed the now-redundant non-empty forbidden-overclaim check after replacing it with exact required-ledger coverage. No task-owned temporary source, obsolete test fixture, duplicate implementation path or untracked file remained; the reproducible review gate directory was moved to Trash after recording its digest.
+- Node 20 focused units passed 40/40, shared/backend strict typechecks passed, route integration passed 7/7 and fresh disposable gate `packc-pi-20260809-r9` passed 197/197 with relational 6/6 and zero skips. Digest: `sha256:88613c3782e630f802845ce29e3fd88df44cef996c64b1f5a99acb679068bce1`.
+
 ## Pitfalls / dead ends
 
 - Keep the append-only historical log in `05-pitfalls.md`.

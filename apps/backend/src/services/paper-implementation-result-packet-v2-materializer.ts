@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
+
 import {
-  serverHashExperimentV2EventEnvelope,
   serverHashExperimentV2EventPayload,
   serverHashPaperImplementationResultInterpretationPacketV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
@@ -79,6 +80,7 @@ PaperImplementationClosedInterpretationPacketViewReader {
       event.payload.validation_cycle_id,
       event.payload.closure_id,
       event.payload.closure_snapshot_hash,
+      event,
     );
     if (authority.kind === 'control_only') return null;
     const packet = this.assemblePacket(authority, event.occurred_at);
@@ -143,6 +145,7 @@ PaperImplementationClosedInterpretationPacketViewReader {
     validationCycleId: string,
     closureId: string,
     closureSnapshotHash: string,
+    event?: ValidationCycleClosedEventV1,
   ): Promise<MaterializationAuthority> {
     return this.closureRepository.withTransaction(async (transaction) => {
       const storedClosure = await transaction.findStoredClosureByCycle(validationCycleId);
@@ -154,6 +157,7 @@ PaperImplementationClosedInterpretationPacketViewReader {
       ) {
         throw packetAuthorityError('ValidationCycleClosed does not match the exact stored Closure.');
       }
+      if (event) this.assertEventMatchesClosure(event, storedClosure);
       const closure = storedClosure.closure;
       if (closure.closure_kind === 'control_flow_validated_no_paper_evidence') {
         return { kind: 'control_only', storedClosure };
@@ -367,9 +371,28 @@ PaperImplementationClosedInterpretationPacketViewReader {
         event.schema_version,
         event.payload,
       )
-      || !/^sha256:[0-9a-f]{64}$/.test(serverHashExperimentV2EventEnvelope(event))
     ) {
       throw packetAuthorityError('ValidationCycleClosed envelope is invalid.');
+    }
+  }
+
+  private assertEventMatchesClosure(
+    event: ValidationCycleClosedEventV1,
+    storedClosure: PaperImplementationStoredValidationCycleClosureV2,
+  ): void {
+    const closure = storedClosure.closure;
+    if (
+      event.event_id !== deterministicId('pi_validation_cycle_closed_event_v1', closure.closure_id)
+      || event.occurred_at !== storedClosure.created_at
+      || event.business_idempotency_key !== storedClosure.idempotency_key
+      || event.branch_id !== `validation-cycle:${closure.validation_cycle_id}`
+      || event.branch_key !== 'validation-cycle-closure-v2'
+      || event.branch_revision_sequence !== closure.cycle_version_at_closure + 1
+      || event.payload.closure_kind !== closure.closure_kind
+      || event.payload.scientific_disposition !== closure.scientific_disposition
+      || event.payload.closure_input_hash !== closure.closure_watermark.closure_input_hash
+    ) {
+      throw packetAuthorityError('ValidationCycleClosed envelope drifted from its stored Closure authority.');
     }
   }
 
@@ -476,6 +499,15 @@ function isClosedPacket(
 
 function normalizeRefType(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function deterministicId(namespace: string, identity: string): string {
+  const digest = createHash('sha256')
+    .update(namespace)
+    .update('\0')
+    .update(identity)
+    .digest('hex');
+  return `${namespace}_${digest}`;
 }
 
 function packetAuthorityError(message: string): AppError {

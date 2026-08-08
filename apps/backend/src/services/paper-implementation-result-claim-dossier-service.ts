@@ -234,7 +234,7 @@ export class PaperImplementationResultClaimDossierService {
         this.requireClosedResultPacketView(project.implementation_project_id, id)),
     );
     const resultPackets = resultPacketViews.map((view) => view.packet);
-    await this.assertClaimSupport(project.implementation_project_id, request);
+    await this.assertClaimSupport(project.implementation_project_id, request, resultPackets);
     await this.assertStrongClaimConfirmation(project, request);
     this.assertClaimBoundary(request, resultPackets);
     const claimTracePacket = request.claim_trace_packet_id
@@ -263,7 +263,7 @@ export class PaperImplementationResultClaimDossierService {
           'result_interpretation_packet',
           packet.result_interpretation_packet_id,
           project.title_card_id,
-          packet.trace_manifest_id,
+          packet.packet_content_hash ?? null,
         )),
       support_refs: this.dedupeRefs(request.support_refs),
       challenge_refs: this.dedupeRefs(request.challenge_refs ?? []),
@@ -330,6 +330,7 @@ export class PaperImplementationResultClaimDossierService {
       request.claim_trace_packet_ids.map((id) =>
         this.requireClaimTracePacket(project.implementation_project_id, id)),
     );
+    this.assertDossierClaimPacketLineage(resultPackets, claimCandidates);
     this.assertDossierGate(request, resultPackets, claimCandidates, claimTracePackets);
     this.assertDossierClosedPacketAccounting(request, resultPacketViews);
     // Resolve only the declared readiness authorities: the keyed gate result
@@ -559,6 +560,7 @@ export class PaperImplementationResultClaimDossierService {
   private async assertClaimSupport(
     implementationProjectId: string,
     request: CreateClaimCandidateRequest,
+    resultPackets: ResultInterpretationPacket[],
   ): Promise<void> {
     const memoRef = request.support_refs.find((ref) =>
       MEMO_OR_SUMMARY_REF_TYPES.has(this.normalizedRefType(ref.ref_type)));
@@ -587,11 +589,33 @@ export class PaperImplementationResultClaimDossierService {
     // Historical legacy rows are rejection-classification data, never a read
     // fallback or an alternate evidence authority.
     await this.assertRunEvidenceSupportRefsResolve(implementationProjectId, request.support_refs);
+    this.assertClaimRunEvidenceBoundToPackets(request.support_refs, resultPackets);
     if (request.claim_strength === 'strong' && !request.boundary.human_confirmation_ref) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
         'Strong ClaimCandidate requires explicit human confirmation.',
+      );
+    }
+  }
+
+  private assertClaimRunEvidenceBoundToPackets(
+    supportRefs: TopicSelectionFunctionalRef[],
+    resultPackets: ResultInterpretationPacket[],
+  ): void {
+    const packetEvidenceKeys = new Set(
+      resultPackets.flatMap((packet) => packet.source.run_evidence_refs).map((ref) => this.refKey(ref)),
+    );
+    const unbound = supportRefs.find((ref) => (
+      this.normalizedRefType(ref.ref_type) === 'runevidenceunit'
+      && !packetEvidenceKeys.has(this.refKey(ref))
+    ));
+    if (unbound) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ClaimCandidate run evidence support must be exactly bound to an included closed Packet.',
+        { ref_type: unbound.ref_type, ref_id: unbound.ref_id, version_id: unbound.version_id ?? null },
       );
     }
   }
@@ -838,21 +862,106 @@ export class PaperImplementationResultClaimDossierService {
       );
     }
     this.assertReadyDossierClaimDisposition(request, claimCandidates);
-    const tracePacketIds = new Set(claimTracePackets.map((packet) => packet.claim_trace_packet_id));
-    const missingTracePacket = claimCandidates.find((candidate) =>
-      !candidate.claim_trace_packet_id || !tracePacketIds.has(candidate.claim_trace_packet_id));
-    if (missingTracePacket) {
+    this.assertReadyDossierClaimCeiling(request, resultPackets, claimCandidates);
+    this.assertReadyDossierOverclaimAccounting(request, resultPackets, claimCandidates);
+    const tracePacketsById = new Map(claimTracePackets.map((packet) => [
+      packet.claim_trace_packet_id,
+      packet,
+    ]));
+    const invalidTracePacket = claimCandidates.find((candidate) => {
+      if (!candidate.claim_trace_packet_id) return true;
+      const packet = tracePacketsById.get(candidate.claim_trace_packet_id);
+      return !packet
+        || this.normalizedRefType(packet.claim_ref.ref_type) !== 'claimcandidate'
+        || packet.claim_ref.ref_id !== candidate.claim_candidate_id;
+    });
+    if (invalidTracePacket) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'Ready ImplementationDossier requires every included ClaimCandidate to have an included ClaimTracePacket.',
+        'Ready ImplementationDossier requires every included ClaimCandidate to have its exact ClaimTracePacket.',
       );
     }
-    if (request.claim_section.forbidden_overclaims.length === 0) {
+  }
+
+  private assertDossierClaimPacketLineage(
+    resultPackets: ResultInterpretationPacket[],
+    claimCandidates: ClaimCandidate[],
+  ): void {
+    const includedPacketHashes = new Map(resultPackets.map((packet) => [
+      packet.result_interpretation_packet_id,
+      packet.packet_content_hash ?? null,
+    ]));
+    const unboundCandidate = claimCandidates.find((candidate) => (
+      candidate.result_interpretation_packet_refs.length === 0
+      || candidate.result_interpretation_packet_refs.some((ref) => (
+        this.normalizedRefType(ref.ref_type) !== 'resultinterpretationpacket'
+        || !includedPacketHashes.has(ref.ref_id)
+        || ref.version_id !== includedPacketHashes.get(ref.ref_id)
+      ))
+    ));
+    if (unboundCandidate) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'Ready ImplementationDossier must preserve forbidden overclaims.',
+        'ImplementationDossier ClaimCandidate lineage must be fully covered by its included closed Packets.',
+        { claim_candidate_id: unboundCandidate.claim_candidate_id },
+      );
+    }
+  }
+
+  private assertReadyDossierClaimCeiling(
+    request: CreateImplementationDossierRequest,
+    resultPackets: ResultInterpretationPacket[],
+    claimCandidates: ClaimCandidate[],
+  ): void {
+    const rank = { tentative: 0, moderate: 1, strong: 2 } as const;
+    const packetViolation = resultPackets.find((packet) => (
+      rank[request.claim_section.claim_ceiling]
+      > rank[packet.claim_implications.allowed_claim_ceiling]
+    ));
+    if (packetViolation) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier claim ceiling exceeds an included closed Packet ceiling.',
+        { result_interpretation_packet_id: packetViolation.result_interpretation_packet_id },
+      );
+    }
+    const admittedIds = new Set(request.claim_section.admitted_claim_refs.map((ref) => ref.ref_id));
+    const claimViolation = claimCandidates.find((candidate) => (
+      admittedIds.has(candidate.claim_candidate_id)
+      && rank[candidate.claim_strength] > rank[request.claim_section.claim_ceiling]
+    ));
+    if (claimViolation) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier claim ceiling is lower than an admitted ClaimCandidate strength.',
+        { claim_candidate_id: claimViolation.claim_candidate_id },
+      );
+    }
+  }
+
+  private assertReadyDossierOverclaimAccounting(
+    request: CreateImplementationDossierRequest,
+    resultPackets: ResultInterpretationPacket[],
+    claimCandidates: ClaimCandidate[],
+  ): void {
+    const observed = new Set(
+      request.claim_section.forbidden_overclaims.map((item) => this.normalizeText(item)),
+    );
+    const required = [...new Set([
+      ...resultPackets.flatMap((packet) => packet.claim_implications.forbidden_overclaims),
+      ...claimCandidates.flatMap((candidate) => candidate.boundary.forbidden_overclaims),
+    ].map((item) => this.normalizeText(item)).filter((item) => item.length > 0))];
+    const missing = required.filter((item) => !observed.has(item));
+    if (missing.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Ready ImplementationDossier must preserve every Packet and ClaimCandidate forbidden overclaim.',
+        { missing_forbidden_overclaims: missing },
       );
     }
   }
@@ -1203,7 +1312,7 @@ export class PaperImplementationResultClaimDossierService {
           'result_interpretation_packet',
           packet.result_interpretation_packet_id,
           project.title_card_id,
-          packet.trace_manifest_id,
+          packet.packet_content_hash ?? null,
         )),
       claim_candidate_refs: claimCandidates.map((candidate) =>
         this.ref('claim_candidate', candidate.claim_candidate_id, project.title_card_id, candidate.trace_manifest_id)),

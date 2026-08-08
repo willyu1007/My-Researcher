@@ -16,6 +16,7 @@ import type {
 import type {
   ClosedResultInterpretationPacketV2,
   CreateClaimCandidateRequest,
+  CreateImplementationDossierRequest,
   CreateResultInterpretationPacketRequest,
   ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
@@ -361,7 +362,7 @@ function validResultRequest(): CreateResultInterpretationPacketRequest {
     result_interpretation_packet_id: 'result_interpretation_packet_001',
     validation_cycle_id: VALIDATION_CYCLE_ID,
     source: {
-      run_evidence_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID)],
+      run_evidence_refs: [ref('run_evidence_unit', RUN_EVIDENCE_ID, RUN_EVIDENCE_CONTENT_HASH)],
       validation_report_refs: [ref('result_validation_report', 'result_validation_report_001')],
       metric_refs: [ref('metric', 'metric_001')],
       failed_run_refs: [],
@@ -514,7 +515,7 @@ function validClaimRequest(): CreateClaimCandidateRequest {
   };
 }
 
-function validDossierRequest() {
+function validDossierRequest(): CreateImplementationDossierRequest {
   return {
     dossier_id: 'implementation_dossier_001',
     dossier_status: 'ready_for_writing' as const,
@@ -650,7 +651,13 @@ async function setup(
     now: () => NOW,
     idFactory: (prefix) => `${prefix}_001`,
   });
-  return { service, feedbackRecorder, confirmationRepository, traceRepository };
+  return {
+    service,
+    feedbackRecorder,
+    confirmationRepository,
+    traceRepository,
+    resultClaimRepository,
+  };
 }
 
 test('direct ResultInterpretationPacket materialization remains closed with ValidationCycleClosed as sole trigger', async () => {
@@ -668,6 +675,10 @@ test('closure-bound packet, claim, closed-Cycle dossier, and writing packet pres
   const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   assert.equal(claim.claim_trace_packet_id, 'claim_trace_packet_001');
   assert.equal(claim.claim_status, 'supported');
+  assert.equal(
+    claim.result_interpretation_packet_refs[0]?.version_id,
+    'sha256:test-packet-content-001',
+  );
 
   const dossier = await service.createImplementationDossier(PROJECT_ID, {
     dossier_id: 'implementation_dossier_001',
@@ -704,6 +715,10 @@ test('closure-bound packet, claim, closed-Cycle dossier, and writing packet pres
   });
   assert.equal(dossier.dossier_status, 'ready_for_writing');
   assert.equal(dossier.failed_run_count, 1);
+  assert.equal(
+    dossier.source.result_interpretation_packet_refs[0]?.version_id,
+    'sha256:test-packet-content-001',
+  );
   assert.deepEqual(dossier.source.closed_validation_cycle_snapshot_refs, [{
     validation_cycle_id: VALIDATION_CYCLE_ID,
     closure_id: CLOSURE_ID,
@@ -772,6 +787,17 @@ test('claim support accepts an exact v2 REU only after its ValidationCycle is cl
   const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   assert.equal(claim.support_refs[0]?.ref_id, RUN_EVIDENCE_ID);
   assert.equal(claim.support_refs[0]?.version_id, RUN_EVIDENCE_CONTENT_HASH);
+});
+
+test('claim run evidence support must preserve the exact included Packet binding', async () => {
+  const { service } = await setup();
+  const request = validClaimRequest();
+  request.support_refs = [ref('run_evidence_unit', RUN_EVIDENCE_ID)];
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, request),
+    (error) => error instanceof AppError
+      && error.message.includes('exactly bound to an included closed Packet'),
+  );
 });
 
 test('claim support rejects a v2 REU from an open ValidationCycle', async () => {
@@ -854,6 +880,55 @@ test('ready dossier rejects blockers and unresolved admitted claim disposition',
   await assert.rejects(
     service.createImplementationDossier(PROJECT_ID, mismatchedAdmitted),
     (error) => error instanceof AppError && error.message.includes('included ClaimCandidate'),
+  );
+});
+
+test('ready dossier preserves Packet lineage, claim ceilings, and forbidden overclaims', async () => {
+  const { service, resultClaimRepository } = await setup();
+  const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+
+  const unboundClaim = {
+    ...claim,
+    claim_candidate_id: 'claim_candidate_unbound',
+    result_interpretation_packet_refs: [ref(
+      'result_interpretation_packet',
+      'result_interpretation_packet_other',
+    )],
+  };
+  await resultClaimRepository.createClaimCandidate(unboundClaim);
+  const unboundDossier = validDossierRequest();
+  unboundDossier.claim_candidate_ids = [unboundClaim.claim_candidate_id];
+  unboundDossier.claim_section.admitted_claim_refs = [
+    ref('claim_candidate', unboundClaim.claim_candidate_id),
+  ];
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, unboundDossier),
+    (error) => error instanceof AppError
+      && error.message.includes('lineage must be fully covered'),
+  );
+
+  const excessiveCeiling = validDossierRequest();
+  excessiveCeiling.claim_section.claim_ceiling = 'strong';
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, excessiveCeiling),
+    (error) => error instanceof AppError
+      && error.message.includes('exceeds an included closed Packet ceiling'),
+  );
+
+  const insufficientCeiling = validDossierRequest();
+  insufficientCeiling.claim_section.claim_ceiling = 'tentative';
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, insufficientCeiling),
+    (error) => error instanceof AppError
+      && error.message.includes('lower than an admitted ClaimCandidate strength'),
+  );
+
+  const missingBoundary = validDossierRequest();
+  missingBoundary.claim_section.forbidden_overclaims = ['different boundary'];
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, missingBoundary),
+    (error) => error instanceof AppError
+      && error.message.includes('preserve every Packet and ClaimCandidate forbidden overclaim'),
   );
 });
 

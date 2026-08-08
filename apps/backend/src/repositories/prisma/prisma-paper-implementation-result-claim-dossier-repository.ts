@@ -264,10 +264,7 @@ implements PaperImplementationResultClaimDossierRepository {
           throw error;
         }
         if (error.code === 'P2002') {
-          throw new PaperImplementationResultPacketV2RepositoryError(
-            'PACKET_CONTENT_CONFLICT',
-            'Packet identity or Closure ownership is already bound.',
-          );
+          return this.reconcilePacketUniqueConflict(packet);
         }
       }
       throw error;
@@ -292,6 +289,47 @@ implements PaperImplementationResultClaimDossierRepository {
       orderBy: { createdAt: 'desc' },
     });
     return rows.map(toResultInterpretationPacket);
+  }
+
+  private async reconcilePacketUniqueConflict(
+    packet: ClosedResultInterpretationPacketV2,
+  ): Promise<ClosedResultInterpretationPacketV2> {
+    const [existingByClosure, existingById] = await Promise.all([
+      this.prisma.paperImplementationResultInterpretationPacket.findUnique({
+        where: { closureId: packet.closure_id },
+      }),
+      this.prisma.paperImplementationResultInterpretationPacket.findUnique({
+        where: { id: packet.result_interpretation_packet_id },
+      }),
+    ]);
+    if (existingByClosure) {
+      const existing = toResultInterpretationPacket(existingByClosure);
+      if (existing.schema_version !== 'PaperImplementationResultInterpretationPacket@v2') {
+        throw new PaperImplementationResultPacketV2RepositoryError(
+          'PACKET_CONTENT_CONFLICT',
+          'Scientific Closure is already bound to a non-v2 Packet record.',
+        );
+      }
+      assertClosedPacketInvariant(existing as ClosedResultInterpretationPacketV2);
+      if (
+        existing.packet_content_hash === packet.packet_content_hash
+        && existing.created_at === packet.created_at
+      ) return existing as ClosedResultInterpretationPacketV2;
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CONTENT_CONFLICT',
+        'Scientific Closure is already bound to different Packet content.',
+      );
+    }
+    if (existingById) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_ID_CONFLICT',
+        'ResultInterpretationPacket id is already bound to another record.',
+      );
+    }
+    throw new PaperImplementationResultPacketV2RepositoryError(
+      'PACKET_CONTENT_CONFLICT',
+      'Packet identity or Closure ownership is already bound.',
+    );
   }
 
   async createClaimCandidate(candidate: ClaimCandidate): Promise<ClaimCandidate> {

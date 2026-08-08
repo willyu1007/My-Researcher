@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type {
   ClaimCandidate,
   ClosedResultInterpretationPacketV2,
@@ -229,6 +229,36 @@ function makeMaterializationPrismaClient(): PrismaClient {
   return client as unknown as PrismaClient;
 }
 
+function makeUniqueRacePrismaClient(): PrismaClient {
+  const packetRows: StoredRow[] = [];
+  const closureRows: StoredRow[] = [{
+    id: 'closure_001',
+    closureSnapshotHash: `sha256:${'1'.repeat(64)}`,
+    validationCycleId: 'validation_cycle_001',
+    implementationProjectId: PROJECT_ID,
+    closureKind: 'scientific_evidence_assessed',
+  }];
+  const packetModel = makeModel(packetRows);
+  const ordinaryCreate = packetModel.create;
+  let injectUniqueRace = true;
+  packetModel.create = async ({ data }: { data: StoredRow }) => {
+    if (!injectUniqueRace) return ordinaryCreate({ data });
+    injectUniqueRace = false;
+    packetRows.push(normalizeRow(data));
+    throw new Prisma.PrismaClientKnownRequestError('simulated unique race', {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { target: ['closureId'] },
+    });
+  };
+  const client = {
+    paperImplementationResultInterpretationPacket: packetModel,
+    paperImplementationValidationCycleClosureV2: makeModel(closureRows),
+    $transaction: async (operation: (transaction: unknown) => Promise<unknown>) => operation(client),
+  };
+  return client as unknown as PrismaClient;
+}
+
 function makeClosedResultPacket(): ClosedResultInterpretationPacketV2 {
   const legacy = makeResultPacket();
   const withoutHash = {
@@ -292,6 +322,18 @@ test('Prisma Packet v2 materialization inserts once and returns exact replay', a
   const replay = await repository.materializeClosedResultInterpretationPacket(packet);
   assert.deepEqual(first, packet);
   assert.deepEqual(replay, packet);
+  assert.equal((await repository.listResultInterpretationPackets(PROJECT_ID)).length, 1);
+});
+
+test('Prisma Packet v2 materialization reconciles an identical concurrent unique winner', async () => {
+  const repository = new PrismaPaperImplementationResultClaimDossierRepository(
+    makeUniqueRacePrismaClient(),
+  );
+  const packet = makeClosedResultPacket();
+  assert.deepEqual(
+    await repository.materializeClosedResultInterpretationPacket(packet),
+    packet,
+  );
   assert.equal((await repository.listResultInterpretationPackets(PROJECT_ID)).length, 1);
 });
 

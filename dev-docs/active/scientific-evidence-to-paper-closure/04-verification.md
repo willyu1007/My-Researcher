@@ -511,3 +511,12 @@ Each implementation phase must record the exact command, timestamp/run id, targe
 - OpenAPI strict quality and API-index freshness passed. Documentation lint passed with 0 errors and the unchanged 208-warning repository baseline; project-governance lint passed with only the two unrelated historical T-124/T-133 State-format warnings.
 - Reproducible ignored gate directories r6-r8 were moved to the macOS Trash after the final r8 counts and digest were recorded; no maintained source or historical task evidence was removed.
 - Result: P0-P4 is `implementation_complete_unreleased`. P5 remains the only incomplete phase and still requires deterministic package preflight plus separate user authorization before any paid or named-local operation.
+
+### 2026-08-09 — P4 quality-review closure
+
+- Review findings fixed: altered-but-rehashed Closure event mirrors, identical concurrent Packet `P2002` races, non-exact Claim→REU/Packet bindings, cross-Packet Dossier Claim lineage, mismatched ClaimTracePacket targets, over-wide/narrow dossier claim ceilings and omitted forbidden-overclaim boundaries.
+- Focused Node 20 Packet/Claim/Prisma units: 40/40 passed. Strict shared and backend typechecks and `git diff --check` passed. Full PaperImplementation route integration: 7/7 passed.
+- Fresh disposable gate `packc-pi-20260809-r9`: 197/197 passed across eight suites, 0 failed, 0 skipped and 0 blocked. Packet lane passed 40/40; relational lane passed 6/6.
+- Disposable PostgreSQL identity `packc_pi_973ff2bf68f0` used the reviewed digest-pinned pgvector image, ignored existing database URLs, verified its identity marker and cleaned up successfully. Canonical digest: `sha256:88613c3782e630f802845ce29e3fd88df44cef996c64b1f5a99acb679068bce1`.
+- The ignored r9 evidence directory was moved to macOS Trash after the digest and counts were recorded. No named-local database, provider request, external network request, capability flag or credential state changed.
+- Result: P4 is review-closed at the `implementation_complete_unreleased` checkpoint. P5 package/preflight is next; paid execution and named-local mutation still require the separately frozen package hash and explicit user authorization.
