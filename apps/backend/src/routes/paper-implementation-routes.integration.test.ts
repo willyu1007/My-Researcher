@@ -3,8 +3,13 @@ import test from 'node:test';
 
 import Fastify from 'fastify';
 import type {
+  ClosedResultInterpretationPacketV2,
   ResultInterpretationPacket,
+  ResultInterpretationPacketV2HashInput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import {
+  serverHashPaperImplementationResultInterpretationPacketV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   BootstrapImplementationProjectResponse,
   RecordImplementationFeedbackEventResponse,
@@ -683,6 +688,68 @@ function makeRealService(): {
     closedCycleSnapshotReader: {
       findStoredClosureByCycle: async () => null,
     },
+    closedPacketViewReader: {
+      findClosedInterpretationPacketView: async (implementationProjectId, packetId) => {
+        const packet = await resultClaimDossierRepository.findResultInterpretationPacketById(
+          implementationProjectId,
+          packetId,
+        );
+        if (!packet || !packet.closure_id || !packet.closure_snapshot_hash) return null;
+        return {
+          packet: packet as ClosedResultInterpretationPacketV2,
+          closure: {
+            closure_id: packet.closure_id,
+            schema_version: 'v1',
+            validation_cycle_id: packet.validation_cycle_id,
+            cycle_version_at_closure: 1,
+            closure_kind: 'scientific_evidence_assessed',
+            scientific_disposition: 'positive',
+            selected_exit_key: 'continue-to-claim',
+            accepted_proposal_id: 'route-proposal',
+            accepted_proposal_hash: 'route-proposal-hash',
+            scientific_authority: {
+              schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+              evaluation_protocol_revision_id: 'route-protocol',
+              evaluation_protocol_content_hash: 'sha256:route-protocol',
+              primary_comparison_fact_id: 'route-comparison-fact',
+              primary_comparison_fact_hash: 'sha256:route-comparison-fact',
+              primary_comparison_key: 'primary',
+              registered_relation: 'supports_registered_expectation',
+            },
+            closure_watermark: {
+              schema_version: 'v1',
+              validation_cycle_id: packet.validation_cycle_id,
+              expected_cycle_version: 1,
+              ordered_branches: [],
+              active_real_attempt_count: 0,
+              closure_input_hash: 'sha256:route-closure-input',
+            },
+            closure_snapshot_hash: packet.closure_snapshot_hash,
+          },
+          accepted_proposal: {
+            schema_version: 'PaperImplementationScientificClosureProposal@v1',
+            validation_cycle_id: packet.validation_cycle_id,
+            closure_watermark_hash: 'sha256:route-closure-input',
+            primary_comparison_fact_ref: {
+              comparison_fact_id: 'route-comparison-fact',
+              comparison_fact_hash: 'sha256:route-comparison-fact',
+            },
+            ordered_evidence_refs: packet.source.run_evidence_refs.map((ref, index) => ({
+              ordinal: index + 1,
+              run_evidence_unit_id: ref.ref_id,
+              content_hash: ref.version_id ?? `sha256:route-evidence-${index + 1}`,
+            })),
+            interpretation_summary: packet.result_summary.result_summary,
+            reliability_assessment: packet.reliability,
+            limitations: {
+              limitation_refs: packet.reliability.limitation_refs,
+              reliability_notes: packet.reliability.reliability_notes,
+            },
+            claim_ceiling: packet.claim_implications.allowed_claim_ceiling,
+          },
+        };
+      },
+    },
     idFactory,
     now: () => NOW,
   });
@@ -1101,6 +1168,31 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
   const workOrderRepository = new InMemoryPaperImplementationWorkOrderRepository();
   const resultClaimDossierRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
   const closureSnapshotHash = 'sha256:route-closure-snapshot-001';
+  const routeScientificReuId = 'run_evidence_unit_route_001';
+  const routeScientificReuHash = 'sha256:route-scientific-reu-hash';
+  const routeProposal = {
+    schema_version: 'PaperImplementationScientificClosureProposal@v1' as const,
+    validation_cycle_id: 'validation_cycle_route_001',
+    closure_watermark_hash: 'sha256:route-closure-input-001',
+    primary_comparison_fact_ref: {
+      comparison_fact_id: 'route-primary-comparison-fact',
+      comparison_fact_hash: 'sha256:route-primary-comparison-fact-hash',
+    },
+    ordered_evidence_refs: [{
+      ordinal: 1,
+      run_evidence_unit_id: routeScientificReuId,
+      content_hash: routeScientificReuHash,
+    }],
+    interpretation_summary: 'Route-scoped accepted scientific interpretation.',
+    reliability_assessment: {
+      failed_runs_retained: true,
+      confound_refs: [],
+      limitation_refs: [],
+      reliability_notes: [],
+    },
+    limitations: { limitation_refs: [], reliability_notes: [] },
+    claim_ceiling: 'tentative' as const,
+  };
   const seededClosureRepository = new InMemoryPaperImplementationValidationCycleClosureV2Repository({
     readinessRepository: new InMemoryPaperImplementationCycleReadinessV2Repository(),
     closures: [{
@@ -1110,12 +1202,20 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         schema_version: 'v1',
         validation_cycle_id: 'validation_cycle_route_001',
         cycle_version_at_closure: 1,
-        closure_kind: 'control_flow_validated_no_paper_evidence',
-        scientific_disposition: null,
-        selected_exit_key: null,
-        accepted_proposal_id: null,
-        accepted_proposal_hash: null,
-        scientific_authority: null,
+        closure_kind: 'scientific_evidence_assessed',
+        scientific_disposition: 'positive',
+        selected_exit_key: 'continue-to-claim',
+        accepted_proposal_id: 'route-proposal',
+        accepted_proposal_hash: 'route-proposal-hash',
+        scientific_authority: {
+          schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+          evaluation_protocol_revision_id: 'route-protocol',
+          evaluation_protocol_content_hash: 'sha256:route-protocol-hash',
+          primary_comparison_fact_id: 'route-primary-comparison-fact',
+          primary_comparison_fact_hash: 'sha256:route-primary-comparison-fact-hash',
+          primary_comparison_key: 'route-primary',
+          registered_relation: 'supports_registered_expectation',
+        },
         closure_watermark: {
           schema_version: 'v1',
           validation_cycle_id: 'validation_cycle_route_001',
@@ -1128,6 +1228,37 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
       },
       idempotency_key: 'route-close-cycle-001',
       created_at: NOW,
+    }],
+    scientific_proposals: [{
+      proposal_id: 'route-proposal',
+      proposal_hash: 'route-proposal-hash',
+      implementation_project_id: 'implementation_project_pending',
+      proposal: routeProposal,
+    }],
+    scientific_evidence_authorities: [{
+      run_evidence_unit_id: routeScientificReuId,
+      content_hash: routeScientificReuHash,
+      validation_report_id: 'route-validation-report',
+      validation_hash: 'sha256:route-validation-report-hash',
+      evaluation_protocol_revision_id: 'route-protocol',
+      evaluation_protocol_content_hash: 'sha256:route-protocol-hash',
+      primary_comparison_key: 'route-primary',
+      decision_if_positive: 'continue-to-claim',
+      decision_if_negative: 'revise',
+      decision_if_inconclusive: 'collect-more',
+      primary_facts: [{
+        comparison_fact_id: 'route-primary-comparison-fact',
+        comparison_fact_hash: 'sha256:route-primary-comparison-fact-hash',
+        comparison_key: 'route-primary',
+        registered_relation: 'supports_registered_expectation',
+      }],
+      trace_manifest: {
+        trace_manifest_id: 'route-evidence-trace',
+        schema_version: 'v1',
+        run_evidence_unit_id: routeScientificReuId,
+        ordered_trace_refs: [],
+        content_hash: 'sha256:route-evidence-trace-hash',
+      },
     }],
   });
   let closureOwnerProjectId = 'implementation_project_pending';
@@ -1146,6 +1277,49 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
         return stored === null
           ? null
           : { ...stored, implementation_project_id: closureOwnerProjectId };
+      },
+      findAdmittedScientificClosureProposal: async (proposalId, proposalHash) => {
+        const admitted = await transaction.findAdmittedScientificClosureProposal(
+          proposalId,
+          proposalHash,
+        );
+        if (admitted === null) return null;
+        const packet = await resultClaimDossierRepository.findResultInterpretationPacketById(
+          closureOwnerProjectId,
+          'result_interpretation_packet_route_001',
+        );
+        return {
+          ...admitted,
+          implementation_project_id: closureOwnerProjectId,
+          ...(packet ? {
+            proposal: {
+              ...admitted.proposal,
+              interpretation_summary: packet.result_summary.result_summary,
+              reliability_assessment: packet.reliability,
+              limitations: {
+                limitation_refs: packet.reliability.limitation_refs,
+                reliability_notes: packet.reliability.reliability_notes,
+              },
+              claim_ceiling: packet.claim_implications.allowed_claim_ceiling,
+            },
+            packet_materialization: {
+              request: {
+                result_interpretation_packet_id: packet.result_interpretation_packet_id,
+                validation_cycle_id: packet.validation_cycle_id,
+                experiment_plan_light_id: packet.experiment_plan_light_id,
+                source: packet.source,
+                result_summary: packet.result_summary,
+                reliability: packet.reliability,
+                claim_implications: packet.claim_implications,
+                trace_manifest_id: packet.trace_manifest_id,
+                policy_version_id: packet.policy_version_id,
+                created_by: packet.created_by,
+              },
+              trace_manifest_ref: packet.trace_manifest_ref,
+              project_policy_version_id: packet.policy_version_id ?? null,
+            },
+          } : {}),
+        };
       },
     })),
   };
@@ -1590,16 +1764,27 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
       resultPacket.json().error.details.reason_code,
       'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED',
     );
-    const historicalPacket: ResultInterpretationPacket = {
+    const closedPacketHashInput: ResultInterpretationPacketV2HashInput = {
       result_interpretation_packet_id: 'result_interpretation_packet_route_001',
       implementation_project_id: projectId,
       validation_cycle_id: 'validation_cycle_route_001',
+      schema_version: 'PaperImplementationResultInterpretationPacket@v2',
+      closure_id: 'validation_cycle_closure_route_001',
+      closure_snapshot_hash: closureSnapshotHash,
       experiment_plan_light_id: 'experiment_plan_light_route_001',
       source: {
-        run_evidence_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
-        validation_report_refs: [],
-        metric_refs: [ref('metric', 'claim_conflation_rate')],
-        failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
+        run_evidence_refs: [ref('run_evidence_unit', routeRunEvidenceId, routeScientificReuHash)],
+        validation_report_refs: [ref(
+          'result_validation_report',
+          'route-validation-report',
+          'sha256:route-validation-report-hash',
+        )],
+        metric_refs: [ref(
+          'scientific_comparison_fact',
+          'route-primary-comparison-fact',
+          'sha256:route-primary-comparison-fact-hash',
+        )],
+        failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId, routeScientificReuHash)],
         inconclusive_run_refs: [],
         stale_or_invalidated_evidence_refs: [],
       },
@@ -1632,6 +1817,11 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
       trace_manifest_id: (resultTrace.json() as TraceManifest).trace_manifest_id,
       policy_version_id: 'policy_v1',
       created_by: 'system',
+    };
+    const historicalPacket: ResultInterpretationPacket = {
+      ...closedPacketHashInput,
+      packet_content_hash:
+        serverHashPaperImplementationResultInterpretationPacketV2(closedPacketHashInput),
       created_at: NOW,
     };
     await resultClaimDossierRepository.createResultInterpretationPacket(historicalPacket);
@@ -1774,7 +1964,7 @@ test('PaperImplementation motive routes bootstrap draft admission and evidence b
           closure_snapshot_hash: closureSnapshotHash,
         }],
         experiment_section: {
-          failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
+          failed_run_refs: [ref('run_evidence_unit', routeRunEvidenceId, routeScientificReuHash)],
           inconclusive_run_refs: [],
           negative_result_refs: [ref('run_evidence_unit', routeRunEvidenceId)],
           excluded_stale_or_invalidated_evidence_refs: [],

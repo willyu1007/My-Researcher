@@ -55,6 +55,9 @@ import type {
   PaperImplementationSemanticDocumentContentV2,
   PaperImplementationSemanticDocumentSourceRefV2,
 } from './paper-implementation-semantic-retrieval-v2-contracts.js';
+import type {
+  ResultInterpretationPacketV2HashInput,
+} from './paper-implementation-result-claim-dossier-contracts.js';
 
 export { EXPERIMENT_V2_HASH_PATTERN } from './experiment-v2-contract-limits.js';
 
@@ -103,6 +106,7 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-evidence-trace-manifest-json@v1',
   'pi-cycle-closure-watermark-json@v1',
   'pi-cycle-closure-json@v1',
+  'pi-result-interpretation-packet-json@v2',
   'pi-semantic-source-json@v1',
   'pi-semantic-document-json@v1',
   'pi-semantic-embedding-json@v1',
@@ -888,6 +892,18 @@ export function serverHashPaperImplementationV2CycleClosure(
     content: scientificAuthority === null
       ? legacyContent
       : { ...legacyContent, scientific_authority: scientificAuthority },
+  });
+}
+
+/** PKT-S content identity; operational timestamps and relay state are excluded. */
+export function serverHashPaperImplementationResultInterpretationPacketV2(
+  content: ResultInterpretationPacketV2HashInput,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'PaperImplementationResultInterpretationPacket',
+    schema_version: 'PaperImplementationResultInterpretationPacket@v2',
+    hash_profile: 'pi-result-interpretation-packet-json@v2',
+    content,
   });
 }
 

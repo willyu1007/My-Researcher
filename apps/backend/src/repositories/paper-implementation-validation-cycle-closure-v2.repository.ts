@@ -2,6 +2,7 @@ import type {
   ValidationCycleClosedEventV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-experiment-v2-contracts';
 import type {
+  PaperImplementationEvidenceTraceManifestV2,
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
 import type {
@@ -14,6 +15,12 @@ import type {
 import type {
   PaperImplementationScientificClosureProposalV1,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
+import type {
+  CreateResultInterpretationPacketRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   PaperImplementationValidationCycleStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
@@ -75,6 +82,11 @@ export interface PaperImplementationAdmittedScientificClosureProposalV1 {
   proposal_hash: string;
   implementation_project_id: string;
   proposal: PaperImplementationScientificClosureProposalV1;
+  packet_materialization?: {
+    request: CreateResultInterpretationPacketRequest;
+    trace_manifest_ref: TopicSelectionFunctionalRef;
+    project_policy_version_id: string | null;
+  };
 }
 
 export interface PaperImplementationScientificClosurePrimaryFactV1 {
@@ -98,6 +110,7 @@ export interface PaperImplementationScientificClosureEvidenceAuthorityV1 {
   validation_report?: ScientificValidationReportV2;
   evaluation_protocol?: ExperimentFoundationV2EvaluationProtocolRevisionContentV2;
   primary_facts: PaperImplementationScientificClosurePrimaryFactV1[];
+  trace_manifest?: PaperImplementationEvidenceTraceManifestV2;
 }
 
 export type PaperImplementationValidationCycleClosureV2RepositoryReasonCode =

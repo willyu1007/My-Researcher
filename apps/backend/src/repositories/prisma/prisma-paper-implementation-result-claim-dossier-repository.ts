@@ -21,13 +21,20 @@ import type {
   ResultInterpretationReliability,
   ResultInterpretationSourceBundle,
   ResultInterpretationSummary,
+  ClosedResultInterpretationPacketV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import {
+  serverHashPaperImplementationResultInterpretationPacketV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 import type {
   PaperImplementationResultClaimDossierRepository,
+} from '../paper-implementation-result-claim-dossier.repository.js';
+import {
+  PaperImplementationResultPacketV2RepositoryError,
 } from '../paper-implementation-result-claim-dossier.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -67,11 +74,32 @@ function refKeys(refs: TopicSelectionFunctionalRef[]): string[] {
   return refs.map((ref) => refKey(ref));
 }
 
+function assertClosedPacketInvariant(packet: ClosedResultInterpretationPacketV2): void {
+  const { packet_content_hash: packetHash, created_at: _createdAt, ...hashInput } = packet;
+  if (
+    packet.schema_version !== 'PaperImplementationResultInterpretationPacket@v2'
+    || packetHash !== serverHashPaperImplementationResultInterpretationPacketV2(hashInput)
+  ) {
+    throw new PaperImplementationResultPacketV2RepositoryError(
+      'PACKET_INVARIANT_INVALID',
+      'ResultInterpretationPacket v2 content hash is invalid.',
+    );
+  }
+}
+
 function toResultInterpretationPacket(row: ResultPacketRow): ResultInterpretationPacket {
   return {
     result_interpretation_packet_id: row.id,
     implementation_project_id: row.implementationProjectId,
     validation_cycle_id: row.validationCycleId,
+    ...(row.schemaVersion === null
+      ? {}
+      : {
+        schema_version: row.schemaVersion as ResultInterpretationPacket['schema_version'],
+        closure_id: row.closureId,
+        closure_snapshot_hash: row.closureSnapshotHash,
+        packet_content_hash: row.packetContentHash,
+      }),
     experiment_plan_light_id: row.experimentPlanLightId,
     source: asRecord(row.sourcePayload) as unknown as ResultInterpretationSourceBundle,
     result_summary: asRecord(row.resultSummary) as unknown as ResultInterpretationSummary,
@@ -171,6 +199,79 @@ implements PaperImplementationResultClaimDossierRepository {
       data: this.toResultPacketCreateInput(packet),
     });
     return toResultInterpretationPacket(row);
+  }
+
+  async materializeClosedResultInterpretationPacket(
+    packet: ClosedResultInterpretationPacketV2,
+  ): Promise<ClosedResultInterpretationPacketV2> {
+    assertClosedPacketInvariant(packet);
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        const closure = await transaction.paperImplementationValidationCycleClosureV2.findFirst({
+          where: {
+            id: packet.closure_id,
+            closureSnapshotHash: packet.closure_snapshot_hash,
+            validationCycleId: packet.validation_cycle_id,
+            implementationProjectId: packet.implementation_project_id,
+            closureKind: 'scientific_evidence_assessed',
+          },
+          select: { id: true },
+        });
+        if (!closure) {
+          throw new PaperImplementationResultPacketV2RepositoryError(
+            'PACKET_CLOSURE_DRIFT',
+            'Exact scientific Closure changed before Packet materialization.',
+          );
+        }
+        const existingByClosure = await transaction.paperImplementationResultInterpretationPacket.findUnique({
+          where: { closureId: packet.closure_id },
+        });
+        if (existingByClosure) {
+          const existing = toResultInterpretationPacket(existingByClosure);
+          if (existing.schema_version === 'PaperImplementationResultInterpretationPacket@v2') {
+            assertClosedPacketInvariant(existing as ClosedResultInterpretationPacketV2);
+          }
+          if (
+            existing.packet_content_hash === packet.packet_content_hash
+            && existing.created_at === packet.created_at
+          ) return existing as ClosedResultInterpretationPacketV2;
+          throw new PaperImplementationResultPacketV2RepositoryError(
+            'PACKET_CONTENT_CONFLICT',
+            'Scientific Closure is already bound to different Packet content.',
+          );
+        }
+        const existingId = await transaction.paperImplementationResultInterpretationPacket.findUnique({
+          where: { id: packet.result_interpretation_packet_id },
+          select: { id: true },
+        });
+        if (existingId) {
+          throw new PaperImplementationResultPacketV2RepositoryError(
+            'PACKET_ID_CONFLICT',
+            'ResultInterpretationPacket id is already bound to another record.',
+          );
+        }
+        const row = await transaction.paperImplementationResultInterpretationPacket.create({
+          data: this.toResultPacketCreateInput(packet),
+        });
+        return toResultInterpretationPacket(row) as ClosedResultInterpretationPacketV2;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (error instanceof PaperImplementationResultPacketV2RepositoryError) throw error;
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2034') {
+          // Serialization aborts are infrastructure-level and must remain retryable
+          // by the durable relay; they are not evidence that Closure authority drifted.
+          throw error;
+        }
+        if (error.code === 'P2002') {
+          throw new PaperImplementationResultPacketV2RepositoryError(
+            'PACKET_CONTENT_CONFLICT',
+            'Packet identity or Closure ownership is already bound.',
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   async findResultInterpretationPacketById(
@@ -275,6 +376,10 @@ implements PaperImplementationResultClaimDossierRepository {
       id: packet.result_interpretation_packet_id,
       implementationProjectId: packet.implementation_project_id,
       validationCycleId: packet.validation_cycle_id,
+      schemaVersion: packet.schema_version ?? null,
+      closureId: packet.closure_id ?? null,
+      closureSnapshotHash: packet.closure_snapshot_hash ?? null,
+      packetContentHash: packet.packet_content_hash ?? null,
       experimentPlanLightId: packet.experiment_plan_light_id ?? null,
       sourceRunEvidenceRefs: refKeys(packet.source.run_evidence_refs),
       sourceRunEvidenceRefPayloads: toJsonValue(packet.source.run_evidence_refs),

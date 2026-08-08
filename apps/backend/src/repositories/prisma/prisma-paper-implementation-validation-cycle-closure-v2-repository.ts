@@ -26,6 +26,16 @@ import {
   type PaperImplementationResultAnalysisScientificClosureArtifact,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import {
+  createResultInterpretationPacketRequestSchema,
+  type CreateResultInterpretationPacketRequest,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import type {
+  PaperImplementationEvidenceTraceManifestV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
   SCIENTIFIC_DISPOSITIONS_V2,
   VALIDATION_CYCLE_CLOSURE_KINDS_V2,
   validationCycleClosureWatermarkV2Schema,
@@ -41,6 +51,7 @@ import {
   serverHashExperimentFoundationScientificComparisonFactV1,
   serverHashExperimentFoundationV2AssetRevision,
   serverHashExperimentFoundationV2ScientificValidation,
+  serverHashPaperImplementationV2EvidenceTraceManifest,
   serverHashPaperImplementationV2RunEvidenceUnit,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
@@ -81,6 +92,9 @@ const scientificValidationReportValidator = ajv.compile<ScientificValidationRepo
 const scientificProtocolValidator = ajv.compile<
   ExperimentFoundationV2EvaluationProtocolRevisionContentV2
 >(experimentFoundationV2EvaluationProtocolRevisionContentV2Schema);
+const packetRequestValidator = ajv.compile<CreateResultInterpretationPacketRequest>(
+  createResultInterpretationPacketRequestSchema,
+);
 
 function jsonInput(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -236,11 +250,13 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
     }
     const payload = rawPayload;
     const proposal = payload.scientific_closure_proposal;
+    const packetRequestValue = payload.domain_gate_request;
     if (
       !proposal
       || stableSha256(payload) !== expectedProposalHash
       || artifact.targetRefId !== proposal.validation_cycle_id
       || !isValidationCycleRefType(artifact.targetRefType)
+      || !packetRequestValidator(packetRequestValue)
     ) {
       return null;
     }
@@ -442,11 +458,65 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
       || !equalStrings(admission.warningCodes, admissionRecord.warning_codes)
       || !equalStrings(admissionRecord.warning_codes, envelope.warning_codes)
     ) return null;
+    const packetRequest = structuredClone(packetRequestValue);
+    const traceManifestRefs = payload.source_refs.filter((ref) => (
+      normalizedRefType(ref.ref_type) === 'tracemanifest'
+      && ref.ref_id === packetRequest.trace_manifest_id
+    ));
+    if (traceManifestRefs.length !== 1) return null;
+    const [traceManifest, project, experimentPlan] = await Promise.all([
+      this.transaction.paperImplementationTraceManifest.findUnique({
+        where: { id: packetRequest.trace_manifest_id },
+        select: {
+          id: true,
+          implementationProjectId: true,
+          targetRefType: true,
+          targetRefId: true,
+          traceStatus: true,
+        },
+      }),
+      this.transaction.paperImplementationProject.findUnique({
+        where: { id: artifact.implementationProjectId },
+        select: { policyVersionId: true, titleCardId: true },
+      }),
+      packetRequest.experiment_plan_light_id
+        ? this.transaction.paperImplementationExperimentPlanLight.findUnique({
+          where: { id: packetRequest.experiment_plan_light_id },
+          select: { implementationProjectId: true, validationCycleId: true },
+        })
+        : Promise.resolve(null),
+    ]);
+    if (
+      !traceManifest
+      || !project
+      || traceManifest.implementationProjectId !== artifact.implementationProjectId
+      || traceManifest.traceStatus !== 'complete'
+      || normalizedRefType(traceManifest.targetRefType) !== 'resultinterpretationpacket'
+      || traceManifest.targetRefId !== packetRequest.result_interpretation_packet_id
+      || packetRequest.validation_cycle_id !== proposal.validation_cycle_id
+      || (packetRequest.experiment_plan_light_id !== null
+        && packetRequest.experiment_plan_light_id !== undefined
+        && (
+          !experimentPlan
+          || experimentPlan.implementationProjectId !== artifact.implementationProjectId
+          || experimentPlan.validationCycleId !== proposal.validation_cycle_id
+        ))
+    ) return null;
     return {
       proposal_id: artifact.id,
       proposal_hash: expectedProposalHash,
       implementation_project_id: artifact.implementationProjectId,
       proposal: structuredClone(proposal),
+      packet_materialization: {
+        request: packetRequest,
+        trace_manifest_ref: {
+          ref_type: 'trace_manifest',
+          ref_id: traceManifest.id,
+          title_card_id: project.titleCardId,
+          version_id: null,
+        } satisfies TopicSelectionFunctionalRef,
+        project_policy_version_id: project.policyVersionId,
+      },
     };
   }
 
@@ -489,7 +559,7 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
       return [evidence];
     });
     if (selectedEvidence.length !== evidenceRefs.length) return [];
-    const [reportRows, protocolRows] = await Promise.all([
+    const [reportRows, protocolRows, traceRows] = await Promise.all([
       this.transaction.experimentFoundationScientificValidationReportV2.findMany({
         where: { id: { in: selectedEvidence.map((evidence) => evidence.validationReportId) } },
       }),
@@ -498,16 +568,29 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
           id: { in: selectedEvidence.map((evidence) => evidence.evaluationProtocolRevisionId) },
         },
       }),
+      this.transaction.paperImplementationEvidenceTraceManifestV2.findMany({
+        where: { runEvidenceUnitId: { in: evidenceIds } },
+      }),
     ]);
     const reportById = new Map(reportRows.map((report) => [report.id, report]));
     const protocolById = new Map(protocolRows.map((protocol) => [protocol.id, protocol]));
+    const traceByEvidenceId = new Map(traceRows.map((trace) => [trace.runEvidenceUnitId, trace]));
     return selectedEvidence.flatMap((evidence) => {
       const reportRow = reportById.get(evidence.validationReportId);
       const protocolRow = protocolById.get(evidence.evaluationProtocolRevisionId);
-      if (!reportRow || !protocolRow) return [];
+      const traceRow = traceByEvidenceId.get(evidence.id);
+      if (!reportRow || !protocolRow || !traceRow || !Array.isArray(traceRow.traceRefsJson)) return [];
       const report = parseScientificValidationReport(reportRow.reportSnapshotJson);
       const protocol = parseScientificProtocol(protocolRow.evaluationProtocolSnapshotJson);
       const scientificContract = protocol.scientific_contract;
+      const traceManifest: PaperImplementationEvidenceTraceManifestV2 = {
+        trace_manifest_id: traceRow.id,
+        schema_version: 'v1',
+        run_evidence_unit_id: traceRow.runEvidenceUnitId,
+        ordered_trace_refs: structuredClone(traceRow.traceRefsJson) as unknown as PaperImplementationEvidenceTraceManifestV2['ordered_trace_refs'],
+        content_hash: traceRow.contentHash,
+      };
+      const { content_hash: traceHash, ...traceHashInput } = traceManifest;
       if (
         evidence.validationHash !== report.validation_hash
         || evidence.validationReportId !== report.report_id
@@ -540,6 +623,9 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
         || !scientificContract.decision_if_positive
         || !scientificContract.decision_if_negative
         || !scientificContract.decision_if_inconclusive
+        || traceRow.schemaVersion !== 'v1'
+        || traceRow.orderedTraceRefCount !== traceManifest.ordered_trace_refs.length
+        || traceHash !== serverHashPaperImplementationV2EvidenceTraceManifest(traceHashInput)
       ) {
         return [];
       }
@@ -571,6 +657,7 @@ implements PaperImplementationValidationCycleClosureV2Transaction {
           comparison_key: fact.comparison_key,
           registered_relation: fact.registered_relation,
         })),
+        trace_manifest: traceManifest,
       }];
     });
   }
@@ -888,9 +975,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isValidationCycleRefType(value: string): boolean {
-  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normalized = normalizedRefType(value);
   return normalized === 'validationcycle'
     || normalized === 'paperimplementationvalidationcycle';
+}
+
+function normalizedRefType(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 function mapPrismaError(error: unknown): unknown {

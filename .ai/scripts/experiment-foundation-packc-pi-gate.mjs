@@ -41,6 +41,7 @@ export const PACKC_PI_CHECK_REGISTRY = Object.freeze([
   { id: 'PC17', evidence_refs: ['static_census'] },
   { id: 'PC19-PI', evidence_refs: ['sidecar_unit', 'static_census'] },
   { id: 'PC20', evidence_refs: ['evaluator_unit', 'static_census'] },
+  { id: 'P4-PI', evidence_refs: ['contracts_schema', 'packet_unit', 'relational', 'static_census'] },
 ]);
 
 export const PACKC_PI_REQUIRED_SUBTEST_REGISTRY = Object.freeze({
@@ -49,6 +50,10 @@ export const PACKC_PI_REQUIRED_SUBTEST_REGISTRY = Object.freeze({
   ]),
   relational: Object.freeze([
     'Pack C-PI two-client Serializable races preserve closure-vs-writer final-state invariants',
+    'P3 scientific Closure and P4 Packet materialization reread exact authority in PostgreSQL',
+  ]),
+  packet_unit: Object.freeze([
+    'P4 materializes one closure-bound Packet and exact replay returns it',
   ]),
 });
 export const PACKC_PI_RELATIONAL_TEST_FILES = Object.freeze([
@@ -58,6 +63,7 @@ export const PACKC_PI_RELATIONAL_TEST_FILES = Object.freeze([
 const MIGRATIONS = Object.freeze([
   '20260720135725_add_paper_implementation_pack_c_evidence_closure_v2',
   '20260720141000_harden_paper_implementation_pack_c_closure_v2',
+  '20260808090000_add_scientific_source_and_packet_closure_binding',
 ]);
 const EVIDENCE_KEYS = Object.freeze([
   'gateway_unit',
@@ -66,6 +72,7 @@ const EVIDENCE_KEYS = Object.freeze([
   'closure_unit',
   'seal_unit',
   'sidecar_unit',
+  'packet_unit',
   'static_census',
   'relational',
 ]);
@@ -259,6 +266,25 @@ export async function inspectStaticCensus(options = {}) {
   const packetWriterFiles = packetWriterCensus.exit_code === 0
     ? packetWriterCensus.stdout.trim().split('\n').filter(Boolean).sort()
     : [];
+  const authorizedPacketWriterFiles = [
+    'apps/backend/src/repositories/in-memory-paper-implementation-result-claim-dossier-repository.ts',
+    'apps/backend/src/repositories/paper-implementation-result-claim-dossier.repository.ts',
+    'apps/backend/src/repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.ts',
+    'apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts',
+  ];
+  const unexpectedPacketWriterFiles = packetWriterFiles.filter(
+    (file) => !authorizedPacketWriterFiles.includes(file),
+  );
+  const missingPacketWriterFiles = authorizedPacketWriterFiles.filter(
+    (file) => !packetWriterFiles.includes(file),
+  );
+  const packetMaterializerCompositionWired = app.includes(
+    'new PaperImplementationResultPacketV2Materializer(',
+  ) && app.includes(
+    'new PaperImplementationValidationCycleClosedCompositeConsumer(',
+  ) && app.includes(
+    'validationCycleClosedProjectionConsumer: validationCycleClosedConsumer',
+  );
   const closureProducerCount = (
     closureService.match(/event_type:\s*PAPER_IMPLEMENTATION_VALIDATION_CYCLE_CLOSED_EVENT_TYPE/g)
       ?? []
@@ -283,7 +309,9 @@ export async function inspectStaticCensus(options = {}) {
   ).length;
   const passed = compositionWiredServices.length === expectedSealedServices.length
     && evaluatorMutationCalls === 0
-    && packetWriterFiles.length === 0
+    && unexpectedPacketWriterFiles.length === 0
+    && missingPacketWriterFiles.length === 0
+    && packetMaterializerCompositionWired
     && closureProducerCount === 1
     && JSON.stringify(closedKinds) === JSON.stringify(expectedClosedKinds)
     && guardCalls >= 4
@@ -296,7 +324,10 @@ export async function inspectStaticCensus(options = {}) {
     missing_closure_lookup_wirings:
       expectedSealedServices.length - compositionWiredServices.length,
     evaluator_mutation_call_count: evaluatorMutationCalls,
-    v2_packet_writer_files: packetWriterFiles,
+    authorized_v2_packet_writer_files: authorizedPacketWriterFiles,
+    missing_v2_packet_writer_files: missingPacketWriterFiles,
+    v2_packet_writer_files: unexpectedPacketWriterFiles,
+    packet_materializer_composition_wired: packetMaterializerCompositionWired,
     validation_cycle_closed_producer_count: closureProducerCount,
     validation_cycle_closed_other_producer_count: Math.max(0, closureProducerCount - 1),
     closed_legacy_record_kinds: closedKinds,
@@ -438,6 +469,7 @@ async function main() {
       ['contracts_schema', 'contracts-schema', SHARED_ROOT, [
         'src/research-lifecycle/paper-implementation-evidence-v2-contracts.schema.test.ts',
         'src/research-lifecycle/experiment-foundation-scientific-validation-v2-contracts.schema.test.ts',
+        'src/research-lifecycle/paper-implementation-result-claim-dossier-contracts.schema.test.ts',
       ]],
       ['evaluator_unit', 'evaluator-unit', BACKEND_ROOT,
         ['src/services/paper-implementation-cycle-readiness-v2-service.unit.test.ts']],
@@ -449,6 +481,11 @@ async function main() {
       ]],
       ['sidecar_unit', 'sidecar-unit', BACKEND_ROOT,
         ['src/services/experiment-foundation-service.unit.test.ts']],
+      ['packet_unit', 'packet-unit', BACKEND_ROOT, [
+        'src/services/paper-implementation-result-packet-v2-materializer.unit.test.ts',
+        'src/services/paper-implementation-result-claim-dossier-service.unit.test.ts',
+        'src/repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.unit.test.ts',
+      ]],
     ];
     for (const [key, name, cwd, files] of suites) {
       summary.evidence[key] = await runTapSuite(

@@ -44,6 +44,7 @@ test('Pack C-PI check registry is exact and PC17 remains an explicit cutover def
     { id: 'PC17', evidence_refs: ['static_census'] },
     { id: 'PC19-PI', evidence_refs: ['sidecar_unit', 'static_census'] },
     { id: 'PC20', evidence_refs: ['evaluator_unit', 'static_census'] },
+    { id: 'P4-PI', evidence_refs: ['contracts_schema', 'packet_unit', 'relational', 'static_census'] },
   ]);
   assert.deepEqual(PACKC_PI_REQUIRED_SUBTEST_REGISTRY, {
     closure_unit: [
@@ -51,6 +52,10 @@ test('Pack C-PI check registry is exact and PC17 remains an explicit cutover def
     ],
     relational: [
       'Pack C-PI two-client Serializable races preserve closure-vs-writer final-state invariants',
+      'P3 scientific Closure and P4 Packet materialization reread exact authority in PostgreSQL',
+    ],
+    packet_unit: [
+      'P4 materializes one closure-bound Packet and exact replay returns it',
     ],
   });
   assert.deepEqual(PACKC_PI_RELATIONAL_TEST_FILES, [
@@ -65,7 +70,7 @@ test('summary publisher initializes exact evidence, migration, zero-census and r
     '2026-07-21T00:00:00.000Z',
   );
   assert.doesNotThrow(() => assertExactSummaryKeysets(summary));
-  assert.deepEqual(Object.values(summary.evidence), Array(8).fill(null));
+  assert.deepEqual(Object.values(summary.evidence), Array(9).fill(null));
   assert.ok(Object.values(summary.zero_census).every((value) => value === 0));
   assert.equal(
     summary.migrations['20260720141000_harden_paper_implementation_pack_c_closure_v2']
@@ -94,7 +99,7 @@ test('canonical summary SHA-256 is key-order independent and excludes its own va
   assert.match(first, /^sha256:[0-9a-f]{64}$/u);
 });
 
-test('static census proves four real closure lookups, evaluator zero-write, PC17 negative space, Sidecar guard, and untouched legacy complete', async () => {
+test('static census proves P4 Packet ownership, four closure lookups, evaluator zero-write, PC17 negative space, Sidecar guard, and untouched legacy complete', async () => {
   assert.deepEqual(await inspectStaticCensus(), {
     status: 'passed',
     composition_wired_services: [
@@ -105,7 +110,15 @@ test('static census proves four real closure lookups, evaluator zero-write, PC17
     ],
     missing_closure_lookup_wirings: 0,
     evaluator_mutation_call_count: 0,
+    authorized_v2_packet_writer_files: [
+      'apps/backend/src/repositories/in-memory-paper-implementation-result-claim-dossier-repository.ts',
+      'apps/backend/src/repositories/paper-implementation-result-claim-dossier.repository.ts',
+      'apps/backend/src/repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.ts',
+      'apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts',
+    ],
+    missing_v2_packet_writer_files: [],
     v2_packet_writer_files: [],
+    packet_materializer_composition_wired: true,
     validation_cycle_closed_producer_count: 1,
     validation_cycle_closed_other_producer_count: 0,
     closed_legacy_record_kinds: [

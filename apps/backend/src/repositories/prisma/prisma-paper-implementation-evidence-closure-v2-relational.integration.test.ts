@@ -82,6 +82,7 @@ import {
   type PaperImplementationResultAnalysisAgentOrchestrator,
 } from '../../services/paper-implementation-result-analysis-runtime-service.js';
 import { PaperImplementationScientificClosureContextService } from '../../services/paper-implementation-scientific-closure-context-service.js';
+import { PaperImplementationResultPacketV2Materializer } from '../../services/paper-implementation-result-packet-v2-materializer.js';
 import { PaperImplementationValidationCycleClosureV2Service } from '../../services/paper-implementation-validation-cycle-closure-v2-service.js';
 import type {
   TopicSelectionAgentInvocationRequest,
@@ -99,6 +100,7 @@ import { PrismaPaperImplementationEvidenceV2Repository } from './prisma-paper-im
 import { PrismaPaperImplementationExperimentSpineV2Repository } from './prisma-paper-implementation-experiment-spine-v2-repository.js';
 import { PrismaPaperImplementationRepository } from './prisma-paper-implementation-repository.js';
 import { PrismaPaperImplementationRuntimeRepository } from './prisma-paper-implementation-runtime-repository.js';
+import { PrismaPaperImplementationResultClaimDossierRepository } from './prisma-paper-implementation-result-claim-dossier-repository.js';
 import { PrismaPaperImplementationValidationCycleClosureV2Repository } from './prisma-paper-implementation-validation-cycle-closure-v2-repository.js';
 
 const RUN_REAL_POSTGRES =
@@ -304,7 +306,7 @@ test(
 );
 
 test(
-  'P3 scientific closure rereads one admitted proposal, protocol and primary fact in PostgreSQL',
+  'P3 scientific Closure and P4 Packet materialization reread exact authority in PostgreSQL',
   { skip: RUN_REAL_POSTGRES ? false : REAL_POSTGRES_SKIP_REASON, timeout: 180_000 },
   async () => {
     const { prisma } = await openPackCPiDatabase();
@@ -450,6 +452,29 @@ test(
         closures: 1,
         closedOutboxes: 1,
       });
+      const closureClaim = (await fixture.piRepository.claimOutbox({
+        lease_owner: `${fixture.namespace}:p4-materializer`,
+        claimed_at: FIXED_NOW,
+        lease_expires_at: '2026-07-21T08:01:00.000Z',
+        limit: 100,
+      })).find((claim) => claim.event.event_type === 'ValidationCycleClosed@v1');
+      if (!closureClaim || closureClaim.event.event_type !== 'ValidationCycleClosed@v1') {
+        assert.fail('ValidationCycleClosed@v1 outbox event was not claimable');
+      }
+      const materializer = new PaperImplementationResultPacketV2Materializer(
+        new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma),
+        new PrismaPaperImplementationResultClaimDossierRepository(prisma),
+      );
+      const packet = await materializer.consume(closureClaim.event);
+      assert.ok(packet);
+      assert.equal(packet.closure_id, closed.closure.closure_id);
+      assert.equal(packet.closure_snapshot_hash, closed.closure.closure_snapshot_hash);
+      assert.equal(packet.source.run_evidence_refs[0]?.ref_id, gateway.run_evidence_unit.run_evidence_unit_id);
+      assert.equal(packet.source.metric_refs[0]?.ref_id, primaryFact.comparison_fact_id);
+      assert.deepEqual(await materializer.consume(closureClaim.event), packet);
+      assert.equal(await prisma.paperImplementationResultInterpretationPacket.count({
+        where: { closureId: closed.closure.closure_id },
+      }), 1);
     } finally {
       await prisma.$disconnect();
     }
@@ -2058,11 +2083,37 @@ async function runScientificClosureProposal(
   },
 ): Promise<{ proposalId: string; proposalHash: string; admissionId: string }> {
   const titleCardId = `${input.fixture.namespace}:title-card`;
+  const resultPacketId = `${input.fixture.namespace}:result-interpretation-packet`;
+  const resultTraceId = `${input.fixture.namespace}:result-analysis-trace`;
   const evidenceRef: TopicSelectionFunctionalRef = {
     ...runtimeRef('run_evidence_unit', input.runEvidenceUnitId, titleCardId),
     version_id: input.runEvidenceUnitHash,
   };
   const runtimeRepository = new PrismaPaperImplementationRuntimeRepository(prisma);
+  await prisma.paperImplementationTraceManifest.create({
+    data: {
+      id: resultTraceId,
+      implementationProjectId: input.fixture.implementationProjectId,
+      targetRefType: 'result_interpretation_packet',
+      targetRefId: resultPacketId,
+      targetVersionId: null,
+      targetRef: jsonInput(runtimeRef('result_interpretation_packet', resultPacketId, titleCardId)),
+      literatureLineage: jsonInput({}),
+      experimentLineage: jsonInput({}),
+      artifactLineage: jsonInput({}),
+      decisionLineage: jsonInput({}),
+      internalInterpretationLineage: jsonInput({}),
+      integrity: jsonInput({}),
+      traceStatus: 'complete',
+      brokenRefCount: 0,
+      staleRefCount: 0,
+      missingRefCount: 0,
+      nonCitableRefCount: 0,
+      tracePolicyVersionId: 'packc-pi-p4-trace-v1',
+      createdBy: 'packc-pi-p4-relational',
+      createdAt: new Date(FIXED_NOW),
+    },
+  });
   let idSequence = 0;
   const idFactory = (prefix: string) => (
     `${input.fixture.namespace}:${prefix}:${++idSequence}`
@@ -2112,12 +2163,12 @@ async function runScientificClosureProposal(
       source_refs: [
         runtimeRef(
           'result_interpretation_packet',
-          `${input.fixture.namespace}:result-interpretation-packet`,
+          resultPacketId,
           titleCardId,
         ),
         runtimeRef(
           'trace_manifest',
-          `${input.fixture.namespace}:result-analysis-trace`,
+          resultTraceId,
           titleCardId,
         ),
       ],

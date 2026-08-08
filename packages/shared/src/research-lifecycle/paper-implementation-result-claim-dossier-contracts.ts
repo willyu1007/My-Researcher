@@ -132,6 +132,14 @@ export interface ResultInterpretationPacket {
   result_interpretation_packet_id: string;
   implementation_project_id: string;
   validation_cycle_id: string;
+  /** Null/absent only for readable pre-P4 history. */
+  schema_version?: 'PaperImplementationResultInterpretationPacket@v2' | null;
+  /** Null/absent only for readable pre-P4 history. */
+  closure_id?: string | null;
+  /** Null/absent only for readable pre-P4 history. */
+  closure_snapshot_hash?: string | null;
+  /** Null/absent only for readable pre-P4 history. */
+  packet_content_hash?: string | null;
   experiment_plan_light_id?: string | null;
   source: ResultInterpretationSourceBundle;
   result_summary: ResultInterpretationSummary;
@@ -144,6 +152,19 @@ export interface ResultInterpretationPacket {
   created_by: TopicSelectionActorType;
   created_at: string;
 }
+
+export interface ClosedResultInterpretationPacketV2
+extends ResultInterpretationPacket {
+  schema_version: 'PaperImplementationResultInterpretationPacket@v2';
+  closure_id: string;
+  closure_snapshot_hash: string;
+  packet_content_hash: string;
+}
+
+export type ResultInterpretationPacketV2HashInput = Omit<
+  ClosedResultInterpretationPacketV2,
+  'packet_content_hash' | 'created_at'
+>;
 
 export interface CreateResultInterpretationPacketRequest {
   result_interpretation_packet_id: string;
@@ -343,6 +364,7 @@ extends RecordImplementationFeedbackEventResponse {
 }
 
 const stringId = { type: 'string', minLength: 1 } as const;
+const canonicalHash = { type: 'string', pattern: '^sha256:[0-9a-f]{64}$' } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const actorTypeSchema = { enum: [...TOPIC_SELECTION_ACTOR_TYPES] } as const;
 const functionalRefArray = { type: 'array', items: topicSelectionFunctionalRefSchema } as const;
@@ -378,6 +400,10 @@ const resultFeedbackTriggerSchema = {
 
 export const RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE =
   'RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED' as const;
+export const PAPER_IMPLEMENTATION_RESULT_INTERPRETATION_PACKET_V2_SCHEMA_VERSION =
+  'PaperImplementationResultInterpretationPacket@v2' as const;
+export const CLOSED_INTERPRETATION_PACKET_REQUIRED_REASON_CODE =
+  'CLOSED_INTERPRETATION_PACKET_REQUIRED' as const;
 
 export const closedValidationCycleSnapshotRefSchema = {
   type: 'object',
@@ -515,6 +541,15 @@ export const resultInterpretationPacketSchema = {
     result_interpretation_packet_id: stringId,
     implementation_project_id: stringId,
     validation_cycle_id: stringId,
+    schema_version: {
+      anyOf: [
+        { const: PAPER_IMPLEMENTATION_RESULT_INTERPRETATION_PACKET_V2_SCHEMA_VERSION },
+        { type: 'null' },
+      ],
+    },
+    closure_id: nullableStringId,
+    closure_snapshot_hash: nullableStringId,
+    packet_content_hash: nullableStringId,
     experiment_plan_light_id: nullableStringId,
     source: resultInterpretationSourceBundleSchema,
     result_summary: resultInterpretationSummarySchema,
@@ -527,6 +562,48 @@ export const resultInterpretationPacketSchema = {
     created_by: actorTypeSchema,
     created_at: stringId,
   },
+  oneOf: [
+    {
+      required: [
+        'schema_version',
+        'closure_id',
+        'closure_snapshot_hash',
+        'packet_content_hash',
+      ],
+      properties: {
+        schema_version: {
+          const: PAPER_IMPLEMENTATION_RESULT_INTERPRETATION_PACKET_V2_SCHEMA_VERSION,
+        },
+        closure_id: stringId,
+        closure_snapshot_hash: canonicalHash,
+        packet_content_hash: canonicalHash,
+      },
+    },
+    {
+      required: [
+        'schema_version',
+        'closure_id',
+        'closure_snapshot_hash',
+        'packet_content_hash',
+      ],
+      properties: {
+        schema_version: { type: 'null' },
+        closure_id: { type: 'null' },
+        closure_snapshot_hash: { type: 'null' },
+        packet_content_hash: { type: 'null' },
+      },
+    },
+    {
+      not: {
+        anyOf: [
+          { required: ['schema_version'] },
+          { required: ['closure_id'] },
+          { required: ['closure_snapshot_hash'] },
+          { required: ['packet_content_hash'] },
+        ],
+      },
+    },
+  ],
 } as const;
 
 export const claimCandidateScopeSchema = {

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import {
+  CLOSED_INTERPRETATION_PACKET_REQUIRED_REASON_CODE,
   RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
 import type {
@@ -56,6 +57,10 @@ import {
   requireActiveHumanConfirmation,
   requirePassedTraceGateResult,
 } from './paper-implementation-governance-gate-refs.js';
+import type {
+  ClosedInterpretationPacketView,
+  PaperImplementationClosedInterpretationPacketViewReader,
+} from './paper-implementation-result-packet-v2-materializer.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -81,6 +86,7 @@ export type PaperImplementationResultClaimDossierServiceOptions = {
   confirmationRepository: PaperImplementationHumanConfirmationRepository;
   feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   closedCycleSnapshotReader: PaperImplementationClosedCycleSnapshotReader;
+  closedPacketViewReader: PaperImplementationClosedInterpretationPacketViewReader;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -167,6 +173,7 @@ export class PaperImplementationResultClaimDossierService {
   private readonly confirmationRepository: PaperImplementationHumanConfirmationRepository;
   private readonly feedbackRecorder: PaperImplementationResultClaimDossierFeedbackRecorder;
   private readonly closedCycleSnapshotReader: PaperImplementationClosedCycleSnapshotReader;
+  private readonly closedPacketViewReader: PaperImplementationClosedInterpretationPacketViewReader;
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -178,6 +185,7 @@ export class PaperImplementationResultClaimDossierService {
     this.confirmationRepository = options.confirmationRepository;
     this.feedbackRecorder = options.feedbackRecorder;
     this.closedCycleSnapshotReader = options.closedCycleSnapshotReader;
+    this.closedPacketViewReader = options.closedPacketViewReader;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -189,7 +197,7 @@ export class PaperImplementationResultClaimDossierService {
     throw new AppError(
       409,
       'GATE_CONSTRAINT_FAILED',
-      'ResultInterpretationPacket materialization is closed until a later increment consumes ValidationCycleClosed.',
+      'Direct ResultInterpretationPacket materialization is closed; ValidationCycleClosed@v1 is the sole materialization trigger.',
       { reason_code: RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE },
     );
   }
@@ -221,10 +229,11 @@ export class PaperImplementationResultClaimDossierService {
       request.claim_candidate_id,
       'ClaimCandidate',
     );
-    const resultPackets = await Promise.all(
+    const resultPacketViews = await Promise.all(
       request.result_interpretation_packet_ids.map((id) =>
-        this.requireResultPacket(project.implementation_project_id, id)),
+        this.requireClosedResultPacketView(project.implementation_project_id, id)),
     );
+    const resultPackets = resultPacketViews.map((view) => view.packet);
     await this.assertClaimSupport(project.implementation_project_id, request);
     await this.assertStrongClaimConfirmation(project, request);
     this.assertClaimBoundary(request, resultPackets);
@@ -308,10 +317,11 @@ export class PaperImplementationResultClaimDossierService {
         'ImplementationDossier',
       );
     }
-    const resultPackets = await Promise.all(
+    const resultPacketViews = await Promise.all(
       request.result_interpretation_packet_ids.map((id) =>
-        this.requireResultPacket(project.implementation_project_id, id)),
+        this.requireClosedResultPacketView(project.implementation_project_id, id)),
     );
+    const resultPackets = resultPacketViews.map((view) => view.packet);
     const claimCandidates = await Promise.all(
       request.claim_candidate_ids.map((id) =>
         this.requireClaimCandidate(project.implementation_project_id, id)),
@@ -321,6 +331,7 @@ export class PaperImplementationResultClaimDossierService {
         this.requireClaimTracePacket(project.implementation_project_id, id)),
     );
     this.assertDossierGate(request, resultPackets, claimCandidates, claimTracePackets);
+    this.assertDossierClosedPacketAccounting(request, resultPacketViews);
     // Resolve only the declared readiness authorities: the keyed gate result
     // and the explicit immutable v2 Cycle-closure snapshots.
     await this.assertReadinessGateResult(project.implementation_project_id, request);
@@ -759,6 +770,24 @@ export class PaperImplementationResultClaimDossierService {
     request: CreateClaimCandidateRequest,
     resultPackets: ResultInterpretationPacket[],
   ): void {
+    const strengthRank = { tentative: 0, moderate: 1, strong: 2 } as const;
+    const ceilingViolation = resultPackets.find((packet) => (
+      strengthRank[request.claim_strength]
+        > strengthRank[packet.claim_implications.allowed_claim_ceiling]
+    ));
+    if (ceilingViolation) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Claim strength exceeds the accepted ResultAnalysis claim ceiling.',
+        {
+          result_interpretation_packet_id:
+            ceilingViolation.result_interpretation_packet_id,
+          allowed_claim_ceiling:
+            ceilingViolation.claim_implications.allowed_claim_ceiling,
+        },
+      );
+    }
     const forbidden = this.forbiddenOverclaimsFor(request, resultPackets);
     const normalizedStatement = this.normalizeText(request.claim_statement);
     const matched = forbidden.find((item) => {
@@ -924,6 +953,126 @@ export class PaperImplementationResultClaimDossierService {
       throw new AppError(404, 'NOT_FOUND', `ResultInterpretationPacket ${resultInterpretationPacketId} not found.`);
     }
     return packet;
+  }
+
+  private async requireClosedResultPacketView(
+    implementationProjectId: string,
+    resultInterpretationPacketId: string,
+  ): Promise<ClosedInterpretationPacketView> {
+    const view = await this.closedPacketViewReader.findClosedInterpretationPacketView(
+      implementationProjectId,
+      resultInterpretationPacketId,
+    );
+    if (!view) {
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        `ResultInterpretationPacket ${resultInterpretationPacketId} not found.`,
+      );
+    }
+    if (
+      view.packet.closure_id !== view.closure.closure_id
+      || view.packet.closure_snapshot_hash !== view.closure.closure_snapshot_hash
+      || view.closure.accepted_proposal_id === null
+      || view.closure.accepted_proposal_hash === null
+      || view.accepted_proposal.validation_cycle_id !== view.packet.validation_cycle_id
+      || view.accepted_proposal.claim_ceiling
+        !== view.packet.claim_implications.allowed_claim_ceiling
+    ) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'ResultInterpretationPacket does not resolve to an exact closed interpretation view.',
+        { reason_code: CLOSED_INTERPRETATION_PACKET_REQUIRED_REASON_CODE },
+      );
+    }
+    return view;
+  }
+
+  private assertDossierClosedPacketAccounting(
+    request: CreateImplementationDossierRequest,
+    views: ClosedInterpretationPacketView[],
+  ): void {
+    if (request.dossier_status !== 'ready_for_writing') return;
+    const failedKeys = new Set(request.experiment_section.failed_run_refs.map((ref) => this.refKey(ref)));
+    const inconclusiveKeys = new Set(
+      request.experiment_section.inconclusive_run_refs.map((ref) => this.refKey(ref)),
+    );
+    const negativeKeys = new Set(
+      request.experiment_section.negative_result_refs.map((ref) => this.refKey(ref)),
+    );
+    const staleKeys = new Set(
+      request.experiment_section.excluded_stale_or_invalidated_evidence_refs
+        .map((ref) => this.refKey(ref)),
+    );
+    const closureByCycle = new Map(request.closed_validation_cycle_snapshot_refs.map((ref) => [
+      ref.validation_cycle_id,
+      ref,
+    ]));
+    for (const view of views) {
+      const closureRef = closureByCycle.get(view.packet.validation_cycle_id);
+      if (
+        !closureRef
+        || closureRef.closure_id !== view.closure.closure_id
+        || closureRef.closure_snapshot_hash !== view.closure.closure_snapshot_hash
+      ) {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Ready ImplementationDossier must preserve every Packet exact Closure snapshot.',
+        );
+      }
+      this.assertDossierRefCoverage(
+        view.packet.source.failed_run_refs,
+        failedKeys,
+        'failed or cancelled evidence',
+      );
+      this.assertDossierRefCoverage(
+        view.packet.source.inconclusive_run_refs,
+        inconclusiveKeys,
+        'inconclusive evidence',
+      );
+      this.assertDossierRefCoverage(
+        view.packet.source.stale_or_invalidated_evidence_refs,
+        staleKeys,
+        'stale or invalidated evidence',
+      );
+      if (view.closure.scientific_disposition === 'negative') {
+        const authority = view.closure.scientific_authority;
+        if (!authority) {
+          throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Negative Closure is missing scientific authority.');
+        }
+        const negativeRef = this.ref(
+          'scientific_comparison_fact',
+          authority.primary_comparison_fact_id,
+          '',
+          authority.primary_comparison_fact_hash,
+        );
+        if (!negativeKeys.has(this.refKey(negativeRef))) {
+          throw new AppError(
+            409,
+            'GATE_CONSTRAINT_FAILED',
+            'Ready ImplementationDossier must preserve the negative primary comparison fact.',
+          );
+        }
+      }
+    }
+  }
+
+  private assertDossierRefCoverage(
+    requiredRefs: TopicSelectionFunctionalRef[],
+    observedKeys: Set<string>,
+    label: string,
+  ): void {
+    const missing = requiredRefs.filter((ref) => !observedKeys.has(this.refKey(ref)));
+    if (missing.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `Ready ImplementationDossier must preserve all ${label}.`,
+        { missing_refs: missing },
+      );
+    }
   }
 
   private async assertClosedCycleSnapshotRefs(

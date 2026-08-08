@@ -2,7 +2,7 @@
 
 ## Task-intake baseline and current checkpoint
 
-The two-part description is the historical baseline captured when T-136 was opened. The historical baseline explains why the task exists and does not represent current implementation status. The maintained current checkpoint is `00-overview.md`, where P1-P3 are implemented and P4-P5 remain.
+The two-part description is the historical baseline captured when T-136 was opened. The historical baseline explains why the task exists and does not represent current implementation status. The maintained current checkpoint is `00-overview.md`, where P1-P4 are implemented and only P5 remains.
 
 At task intake, the implementation had two strong halves separated by an intentional product gap:
 
@@ -15,7 +15,7 @@ External compute and external result import are different boundaries. EF may use
 
 ## Task-intake blockers confirmed in code (historical)
 
-The bullets are pre-implementation census evidence. P1-P3 have closed the Result source, product validation and scientific Closure items; the Packet and bounded real-acceptance items remain open under P4-P5. The task-intake blocker section is not an alternate current-state ledger.
+The bullets are pre-implementation census evidence. P1-P4 have closed the Result source, product validation, scientific Closure and Packet/Claim/Dossier items; only bounded real acceptance remains under P5. The task-intake blocker section is not an alternate current-state ledger.
 
 - `ExperimentFoundationV2ScientificValidationService` exposes `recordExperimentResult` and `validateScientificBatch`, but no non-test route/controller/caller currently invokes them.
 - `recordExperimentResult` currently accepts caller-composed metric/artifact observations after checking a succeeded real-provider Attempt; metric values are not yet derived by authoritative reread of an exact collected output.

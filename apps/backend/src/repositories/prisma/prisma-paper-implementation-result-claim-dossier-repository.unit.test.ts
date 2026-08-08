@@ -5,10 +5,14 @@ import test from 'node:test';
 import type { PrismaClient } from '@prisma/client';
 import type {
   ClaimCandidate,
+  ClosedResultInterpretationPacketV2,
   ImplementationDossier,
   ResultInterpretationPacket,
   PaperImplementationWritingEntryPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import {
+  serverHashPaperImplementationResultInterpretationPacketV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -201,8 +205,43 @@ function makeModel(rows: StoredRow[]) {
     },
     findFirst: async ({ where }: { where: Partial<StoredRow> }) =>
       rows.find((row) => matchesWhere(row, where)) ?? null,
+    findUnique: async ({ where }: { where: Partial<StoredRow> }) =>
+      rows.find((row) => matchesWhere(row, where)) ?? null,
     findMany: async ({ where }: { where?: Partial<StoredRow> }) =>
       rows.filter((row) => matchesWhere(row, where ?? {})),
+  };
+}
+
+function makeMaterializationPrismaClient(): PrismaClient {
+  const packetRows: StoredRow[] = [];
+  const closureRows: StoredRow[] = [{
+    id: 'closure_001',
+    closureSnapshotHash: `sha256:${'1'.repeat(64)}`,
+    validationCycleId: 'validation_cycle_001',
+    implementationProjectId: PROJECT_ID,
+    closureKind: 'scientific_evidence_assessed',
+  }];
+  const client = {
+    paperImplementationResultInterpretationPacket: makeModel(packetRows),
+    paperImplementationValidationCycleClosureV2: makeModel(closureRows),
+    $transaction: async (operation: (transaction: unknown) => Promise<unknown>) => operation(client),
+  };
+  return client as unknown as PrismaClient;
+}
+
+function makeClosedResultPacket(): ClosedResultInterpretationPacketV2 {
+  const legacy = makeResultPacket();
+  const withoutHash = {
+    ...legacy,
+    schema_version: 'PaperImplementationResultInterpretationPacket@v2' as const,
+    closure_id: 'closure_001',
+    closure_snapshot_hash: `sha256:${'1'.repeat(64)}`,
+  };
+  const { created_at: createdAt, ...hashInput } = withoutHash;
+  return {
+    ...withoutHash,
+    packet_content_hash: serverHashPaperImplementationResultInterpretationPacketV2(hashInput),
+    created_at: createdAt,
   };
 }
 
@@ -244,6 +283,18 @@ test('Prisma PaperImplementationResultClaimDossier repository round-trips all re
   assert.equal((await repository.listWritingEntryPackets(PROJECT_ID))[0]?.writing_target_ref?.ref_id, 'results_section_001');
 });
 
+test('Prisma Packet v2 materialization inserts once and returns exact replay', async () => {
+  const repository = new PrismaPaperImplementationResultClaimDossierRepository(
+    makeMaterializationPrismaClient(),
+  );
+  const packet = makeClosedResultPacket();
+  const first = await repository.materializeClosedResultInterpretationPacket(packet);
+  const replay = await repository.materializeClosedResultInterpretationPacket(packet);
+  assert.deepEqual(first, packet);
+  assert.deepEqual(replay, packet);
+  assert.equal((await repository.listResultInterpretationPackets(PROJECT_ID)).length, 1);
+});
+
 test('result claim dossier migration declares queryable gate trace and projection indexes', async () => {
   const sql = await readFile(
     new URL('../../../../../prisma/migrations/20260521220000_add_paper_implementation_result_claim_dossier/migration.sql', import.meta.url),
@@ -263,4 +314,14 @@ test('result claim dossier migration declares queryable gate trace and projectio
   ]) {
     assert.match(sql, new RegExp(expected));
   }
+  const pktSql = await readFile(
+    new URL('../../../../../prisma/migrations/20260808090000_add_scientific_source_and_packet_closure_binding/migration.sql', import.meta.url),
+    'utf8',
+  );
+  for (const expected of [
+    'pirip_scientific_v2_contract_check',
+    'pi_cycle_closure_packet_exact_unique',
+    'pirip_closure_unique',
+    'pirip_closure_exact_fkey',
+  ]) assert.match(pktSql, new RegExp(expected));
 });

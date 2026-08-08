@@ -1,5 +1,6 @@
 import type {
   ClaimCandidate,
+  ClosedResultInterpretationPacketV2,
   ImplementationDossier,
   PaperImplementationWritingEntryPacket,
   ResultInterpretationPacket,
@@ -8,7 +9,14 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import type {
   PaperImplementationResultClaimDossierRepository,
+  PaperImplementationExactClosureReader,
 } from './paper-implementation-result-claim-dossier.repository.js';
+import {
+  PaperImplementationResultPacketV2RepositoryError,
+} from './paper-implementation-result-claim-dossier.repository.js';
+import {
+  serverHashPaperImplementationResultInterpretationPacketV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 
 export class InMemoryPaperImplementationResultClaimDossierRepository
 implements PaperImplementationResultClaimDossierRepository {
@@ -21,10 +29,70 @@ implements PaperImplementationResultClaimDossierRepository {
   private readonly writingEntryPackets = new Map<string, PaperImplementationWritingEntryPacket>();
   private readonly writingEntryPacketIdsByProject = new Map<string, string[]>();
 
+  constructor(private readonly exactClosureReader?: PaperImplementationExactClosureReader) {}
+
   async createResultInterpretationPacket(
     packet: ResultInterpretationPacket,
   ): Promise<ResultInterpretationPacket> {
     this.assertNewId(this.resultPackets, packet.result_interpretation_packet_id, 'ResultInterpretationPacket');
+    this.resultPackets.set(packet.result_interpretation_packet_id, structuredClone(packet));
+    this.pushId(
+      this.resultPacketIdsByProject,
+      packet.implementation_project_id,
+      packet.result_interpretation_packet_id,
+    );
+    return structuredClone(packet);
+  }
+
+  async materializeClosedResultInterpretationPacket(
+    packet: ClosedResultInterpretationPacketV2,
+  ): Promise<ClosedResultInterpretationPacketV2> {
+    const { packet_content_hash: packetHash, created_at: _createdAt, ...hashInput } = packet;
+    if (packetHash !== serverHashPaperImplementationResultInterpretationPacketV2(hashInput)) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_INVARIANT_INVALID',
+        'ResultInterpretationPacket v2 content hash is invalid.',
+      );
+    }
+    const closure = await this.exactClosureReader?.findStoredClosureByCycle(
+      packet.validation_cycle_id,
+    );
+    if (!closure) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CLOSURE_NOT_FOUND',
+        'Exact scientific Closure is not available for Packet materialization.',
+      );
+    }
+    if (
+      closure.implementation_project_id !== packet.implementation_project_id
+      || closure.closure.closure_id !== packet.closure_id
+      || closure.closure.closure_snapshot_hash !== packet.closure_snapshot_hash
+      || closure.closure.closure_kind !== 'scientific_evidence_assessed'
+    ) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CLOSURE_DRIFT',
+        'Exact scientific Closure changed before Packet materialization.',
+      );
+    }
+    const existingByClosure = [...this.resultPackets.values()].find(
+      (candidate) => candidate.closure_id === packet.closure_id,
+    );
+    if (existingByClosure) {
+      if (
+        existingByClosure.packet_content_hash === packet.packet_content_hash
+        && existingByClosure.created_at === packet.created_at
+      ) return structuredClone(existingByClosure) as ClosedResultInterpretationPacketV2;
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CONTENT_CONFLICT',
+        'Scientific Closure is already bound to different Packet content.',
+      );
+    }
+    if (this.resultPackets.has(packet.result_interpretation_packet_id)) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_ID_CONFLICT',
+        'ResultInterpretationPacket id is already bound to another record.',
+      );
+    }
     this.resultPackets.set(packet.result_interpretation_packet_id, structuredClone(packet));
     this.pushId(
       this.resultPacketIdsByProject,

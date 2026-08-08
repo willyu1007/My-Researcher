@@ -7,19 +7,22 @@
 - Mapping: `M-001 > F-001 > R-012 + R-013 > T-136`
 - Product release role: mandatory `M0-SCI` scientific capability gate inside product M0; the gate is not the governance milestone `M-001` and not the sole release gate for all M0 modules.
 - Origin: user-requested follow-up to the four-module completion review on 2026-08-04.
-- Next step: enter P4 by materializing the reference-centered `ResultInterpretationPacket` from the immutable scientific Closure without copying proposal/disposition/exit authority. The named local database remains untouched and still requires a separate recovery-point and approval gate.
+- Next step: enter P5 by freezing one exact P5-ELIG-S package and preflight evidence before requesting the separate paid-provider and named-local authorization. No provider execution, named-local migration or capability enablement is authorized by the P4 checkpoint.
 
 ### Current implementation checkpoint — 2026-08-08
 
-- P1 transport/source-bound Result, P2 product validation/CMP-B1/qualified-evidence intake and P3 PI scientific ValidationCycle closure are implemented and verified.
+- P1 transport/source-bound Result, P2 product validation/CMP-B1/qualified-evidence intake, P3 PI scientific ValidationCycle closure and P4 post-Closure Packet/Claim/Dossier integration are implemented and verified.
 - Product composition leaves both scientific validation and the legacy observation-bearing Result writer disabled by default. Legacy caller-authored observations are available only through an explicit test/migration option; the product-safe Result action accepts identities only.
 - P2 validation now reads only the exact complete source-bound Result v2 set in product composition, resolves artifact rules through an admission-frozen `artifact_key`→`required_rule_id` slot binding, emits hash-covered CMP-B1 facts separately from eligibility, atomically creates Candidate/outbox state and reuses the existing PI Trust Gateway for one REU/trace/registered event. Historical protocol/report v1 remains readable but cannot enter the new product path without the explicit P2 fields; legacy Result v1 validation is test/migration-only.
 - New scientific EvaluationProtocols must freeze exactly one `primary_comparison_key`, positive/negative/inconclusive exit keys and explicit artifact rule-or-trace-only bindings before Run submission. P3 now rereads that exact protocol and its canonical primary fact inside the closure transaction before deriving disposition/exit.
 - ResultAnalysis exposes only a scientific-closure intent containing the expected D-18 watermark. Before the provider call, the backend rereads the local PostgreSQL authority in a short serializable transaction and supplies the exact ordered REUs, canonical reports/protocols and unique primary fact; caller-authored scientific context/source bodies are rejected.
 - Only `product` + `provider_llm` ResultAnalysis finals admitted by the slot's official v1 final-admission policy are Closure-eligible. The resolver revalidates the complete runtime envelope/admission payload and canonical identity hashes; Closure independently rereads and rehashes every REU/report/protocol/fact before assigning disposition, selected exit and closure hashes.
+- P4 composes one internal `ValidationCycleClosed@v1` Packet materializer after the existing semantic projection. It assembles Packet-owned semantics from the exact Closure, official proposal and trusted REU/trace/comparison authority, writes the confirmed four-field PKT-S binding in a short serializable transaction and acknowledges the event only after both idempotent consumers succeed.
+- Legacy Packet rows remain readable but are rejected from new Claim/Dossier creation. Closed Packet reads recompute the canonical Packet hash and authority-derived content; Claim strength cannot exceed the admitted proposal ceiling, and ready Dossiers must preserve exact Closure refs plus failed/cancelled, negative, inconclusive and stale accounting carried by their Packets.
 - Shared/backend typechecks, OpenAPI quality/index checks and targeted P3 contract/runtime/closure/HTTP lanes pass. Final review-remediation gate `packc-pi-20260808-r5` passed 151/151 across seven suites; its relational lane passed 6/6 including official-policy rejection, admission-payload tamper rejection, stale-REU canonical rehash rejection, aliased Cycle refs with independent domain/runtime versions, the real ResultAnalysis→admission→Closure path and exact replay. The identity-marked disposable database/container was removed.
 - Shared/backend typechecks, OpenAPI quality/index checks and the corrected P2 targeted lanes pass. Fresh disposable-PostgreSQL Pack C `packc-ef-20260808-r5` passes 119/119 with zero failures, skips or blocks and confirmed cleanup.
-- This is an implementation checkpoint, not `M0-SCI` release completion. Scientific capabilities remain default-off; P4-P5 remain.
+- Final P4 gate `packc-pi-20260808-r8` passed 193/193 across eight suites with zero failures, skips or blocks. Its relational lane passed 6/6 and executes the production scientific Closure→Packet materializer, exact replay and one-row Closure ownership against a fresh identity-marked disposable PostgreSQL database; cleanup passed. Canonical summary digest: `sha256:4925fe76fccfae97dabbdb230ab7af28df44f605c48d3dbf7718f30e69bc7e05`.
+- This is the `implementation_complete_unreleased` checkpoint, not `M0-SCI` release completion. Scientific capabilities remain default-off; only P5 remains.
 - No named-local database, cloud/provider resource, capability flag or credential state changed.
 
 ## Goal
@@ -134,17 +137,17 @@ The repository also contains the EF v2 scientific validation kernel, `EvidenceCa
 - [x] PI closes a ready Cycle from one exact contextual proposal and one protocol-designated primary comparison fact while deriving disposition, exit and hashes server-side.
 - [x] Calling Closure is the only approval action and carries no `accept/correct/downgrade`, disposition or exit field; disagreement leaves the Cycle open for proposal/evidence/protocol correction.
 - [x] Active real attempts, stale closure watermarks, stale proposals and duplicate/conflicting requests fail closed.
-- [ ] `ValidationCycleClosed` materializes exactly one ResultInterpretationPacket; direct pre-closure Packet writes remain closed.
-- [ ] The scientific Packet stores only its v2 schema, exact Closure id/hash and canonical Packet hash; replay returns the identical Packet or conflicts, while proposal/disposition/exit are projected from Closure at read time.
-- [ ] Claim/Dossier consumes the closed Packet and accounts for all required successful, negative, failed, cancelled and inconclusive evidence states according to existing policy.
+- [x] `ValidationCycleClosed` materializes exactly one ResultInterpretationPacket; direct pre-closure Packet writes remain closed.
+- [x] The scientific Packet stores only its v2 schema, exact Closure id/hash and canonical Packet hash; replay returns the identical Packet or conflicts, while proposal/disposition/exit are projected from Closure at read time.
+- [x] Claim/Dossier consumes the closed Packet and accounts for all required successful, negative, failed, cancelled and inconclusive evidence states according to existing policy.
 - [ ] A separately authorized real two-cell end-to-end run reaches Claim/Dossier without injected scientific numbers and exact replay creates zero duplicate Jobs, rows or events.
 - [ ] P5 preflight admits only one new immutable Run with exactly two ordered real-provider cells, one declared differing factor, comparable parser/metric semantics and exactly two authorized `CreateJob` operations.
 - [ ] The user authorizes one exact package hash, operation/cost ceilings, capability set, time window and credential-handling plan; changed package content requires a new hash and authorization.
 - [ ] Positive, negative and inconclusive outcomes are equally eligible to pass P5 when the registered chain is valid; Job failure/cancellation or package drift fails the attempt without hidden substitution or automatic resubmission.
 - [ ] Capability defaults remain false, credentials and provider diagnostics are not persisted, and rollout/backout evidence is recorded.
-- [ ] P0 produces an explicit invariant-freeze/late-binding ledger and proves that every real result references a protocol frozen before Run submission.
-- [ ] Post-result protocol mutation cannot change an existing Run's validation, disposition or selected exit; changed rules require a new revision/new Run.
-- [ ] P0-P4 completion is recorded only as `implementation_complete_unreleased`; neither T-136 nor `M0-SCI` is declared complete before P5.
+- [x] P0 produces an explicit invariant-freeze/late-binding ledger and proves that every real result references a protocol frozen before Run submission.
+- [x] Post-result protocol mutation cannot change an existing Run's validation, disposition or selected exit; changed rules require a new revision/new Run.
+- [x] P0-P4 completion is recorded only as `implementation_complete_unreleased`; neither T-136 nor `M0-SCI` is declared complete before P5.
 - [ ] P5 acceptance explicitly records `M0-SCI: passed`; no science-closure product claim or enablement occurs earlier.
 
 ## Completion boundary

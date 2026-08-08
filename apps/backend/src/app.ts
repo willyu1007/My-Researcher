@@ -162,7 +162,10 @@ import type { PaperImplementationExperimentLineageV2Repository } from './reposit
 import type { PaperImplementationSemanticProjectionV2Repository } from './repositories/paper-implementation-semantic-projection-v2.repository.js';
 import type { PaperImplementationAiWorkflowHarnessRepository } from './repositories/paper-implementation-ai-workflow-harness.repository.js';
 import type { PaperImplementationMotiveRepository } from './repositories/paper-implementation-motive.repository.js';
-import type { PaperImplementationResultClaimDossierRepository } from './repositories/paper-implementation-result-claim-dossier.repository.js';
+import type {
+  PaperImplementationExactClosureReader,
+  PaperImplementationResultClaimDossierRepository,
+} from './repositories/paper-implementation-result-claim-dossier.repository.js';
 import type { PaperImplementationRuntimeRepository } from './repositories/paper-implementation-runtime.repository.js';
 import type { PaperImplementationCoordinatorRepository } from './repositories/paper-implementation-coordinator.repository.js';
 import type { PaperImplementationRuntimeTelemetryRepository } from './repositories/paper-implementation-runtime-telemetry.repository.js';
@@ -259,6 +262,10 @@ import { PaperImplementationSemanticEmbeddingV2Adapter } from './services/paper-
 import { PaperImplementationSemanticV2Service } from './services/paper-implementation-semantic-v2-service.js';
 import { PaperImplementationEvidenceTrustGatewayService } from './services/paper-implementation-evidence-trust-gateway-service.js';
 import { PaperImplementationProjectionFeedV2Consumer } from './services/paper-implementation-projection-feed-v2-consumer.js';
+import {
+  PaperImplementationResultPacketV2Materializer,
+  PaperImplementationValidationCycleClosedCompositeConsumer,
+} from './services/paper-implementation-result-packet-v2-materializer.js';
 import { PaperImplementationValidationCycleClosureV2Service } from './services/paper-implementation-validation-cycle-closure-v2-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from './services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationResultClaimDossierService } from './services/paper-implementation-result-claim-dossier-service.js';
@@ -636,8 +643,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     && options.experimentFoundationScientificValidationV2Repository === undefined;
   const paperImplementationWorkOrderRepository = options.paperImplementationWorkOrderRepository
     ?? createPaperImplementationWorkOrderRepository(storeConfig.paperImplementationStrategy);
+  const closedCycleSnapshotReader = {
+    findStoredClosureByCycle: (validationCycleId: string) => (
+      paperImplementationValidationCycleClosureV2Repository.withTransaction((transaction) => (
+        transaction.findStoredClosureByCycle(validationCycleId)
+      ))
+    ),
+  };
   const paperImplementationResultClaimDossierRepository = options.paperImplementationResultClaimDossierRepository
-    ?? createPaperImplementationResultClaimDossierRepository(storeConfig.paperImplementationStrategy);
+    ?? createPaperImplementationResultClaimDossierRepository(
+      storeConfig.paperImplementationStrategy,
+      closedCycleSnapshotReader,
+    );
   const paperImplementationAiWorkflowHarnessRepository = options.paperImplementationAiWorkflowHarnessRepository
     ?? createPaperImplementationAiWorkflowHarnessRepository(storeConfig.paperImplementationStrategy);
   const paperImplementationRuntimeRepository = options.paperImplementationRuntimeRepository
@@ -947,6 +964,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new PaperImplementationProjectionFeedV2Consumer({
       repository: paperImplementationExperimentSpineV2Repository,
     });
+  const paperImplementationResultPacketV2Materializer =
+    new PaperImplementationResultPacketV2Materializer(
+      paperImplementationValidationCycleClosureV2Repository,
+      paperImplementationResultClaimDossierRepository,
+    );
+  const validationCycleClosedConsumer =
+    new PaperImplementationValidationCycleClosedCompositeConsumer(
+      paperImplementationProjectionFeedV2Consumer,
+      paperImplementationResultPacketV2Materializer,
+    );
   const experimentFoundationV2MaterializationService =
     new ExperimentFoundationV2MaterializationService({
       repository: experimentFoundationExperimentSpineV2Repository,
@@ -972,7 +999,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     acknowledgementConsumer: experimentFoundationV2AcknowledgementService,
     evidenceTrustGatewayConsumer: paperImplementationEvidenceTrustGatewayService,
     runEvidenceProjectionConsumer: paperImplementationProjectionFeedV2Consumer,
-    validationCycleClosedProjectionConsumer: paperImplementationProjectionFeedV2Consumer,
+    validationCycleClosedProjectionConsumer: validationCycleClosedConsumer,
   });
   app.decorate(
     'experimentFoundationScientificValidationV2Service',
@@ -1268,13 +1295,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     evidenceV2Reader: paperImplementationEvidenceV2Repository,
     confirmationRepository: paperImplementationHumanConfirmationRepository,
     feedbackRecorder: paperImplementationIntakeBootstrapService,
-    closedCycleSnapshotReader: {
-      findStoredClosureByCycle: (validationCycleId) => (
-        paperImplementationValidationCycleClosureV2Repository.withTransaction((transaction) => (
-          transaction.findStoredClosureByCycle(validationCycleId)
-        ))
-      ),
-    },
+    closedCycleSnapshotReader,
+    closedPacketViewReader: paperImplementationResultPacketV2Materializer,
   });
   const paperImplementationHumanConfirmationService = new PaperImplementationHumanConfirmationService({
     projectRepository: paperImplementationRepository,
@@ -2306,13 +2328,14 @@ function createPaperImplementationWorkOrderRepository(
 
 function createPaperImplementationResultClaimDossierRepository(
   strategy: RepositoryStrategy,
+  exactClosureReader: PaperImplementationExactClosureReader,
 ): PaperImplementationResultClaimDossierRepository {
   if (strategy === 'prisma') {
     const prisma = getPrismaClient();
     return new PrismaPaperImplementationResultClaimDossierRepository(prisma);
   }
 
-  return new InMemoryPaperImplementationResultClaimDossierRepository();
+  return new InMemoryPaperImplementationResultClaimDossierRepository(exactClosureReader);
 }
 
 function createPaperImplementationAiWorkflowHarnessRepository(

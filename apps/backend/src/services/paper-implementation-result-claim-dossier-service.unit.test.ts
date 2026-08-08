@@ -14,6 +14,7 @@ import type {
   TraceManifest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
 import type {
+  ClosedResultInterpretationPacketV2,
   CreateClaimCandidateRequest,
   CreateResultInterpretationPacketRequest,
   ResultInterpretationPacket,
@@ -22,6 +23,9 @@ import type {
   PaperImplementationRunEvidenceUnitV2,
   ValidationCycleClosureV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-evidence-v2-contracts';
+import type {
+  PaperImplementationScientificClosureProposalV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type {
   ValidationCycle,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-validation-contracts';
@@ -389,12 +393,19 @@ function validResultRequest(): CreateResultInterpretationPacketRequest {
   };
 }
 
-function historicalResultPacket(): ResultInterpretationPacket {
+function historicalResultPacket(
+  claimCeiling: 'tentative' | 'moderate' | 'strong' = 'moderate',
+): ResultInterpretationPacket {
   const request = validResultRequest();
+  request.claim_implications.allowed_claim_ceiling = claimCeiling;
   return {
     result_interpretation_packet_id: request.result_interpretation_packet_id,
     implementation_project_id: PROJECT_ID,
     validation_cycle_id: request.validation_cycle_id,
+    schema_version: 'PaperImplementationResultInterpretationPacket@v2',
+    closure_id: CLOSURE_ID,
+    closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    packet_content_hash: 'sha256:test-packet-content-001',
     experiment_plan_light_id: null,
     source: request.source,
     result_summary: request.result_summary,
@@ -417,12 +428,20 @@ function storedClosure(
     schema_version: 'v1',
     validation_cycle_id: VALIDATION_CYCLE_ID,
     cycle_version_at_closure: 1,
-    closure_kind: 'control_flow_validated_no_paper_evidence',
-    scientific_disposition: null,
-    selected_exit_key: null,
-    accepted_proposal_id: null,
-    accepted_proposal_hash: null,
-    scientific_authority: null,
+    closure_kind: 'scientific_evidence_assessed',
+    scientific_disposition: 'positive',
+    selected_exit_key: 'continue-to-claim',
+    accepted_proposal_id: 'scientific-proposal-001',
+    accepted_proposal_hash: 'scientific-proposal-hash-001',
+    scientific_authority: {
+      schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+      evaluation_protocol_revision_id: 'protocol-001',
+      evaluation_protocol_content_hash: 'sha256:protocol-001',
+      primary_comparison_fact_id: 'comparison-fact-001',
+      primary_comparison_fact_hash: 'sha256:comparison-fact-001',
+      primary_comparison_key: 'primary',
+      registered_relation: 'supports_registered_expectation',
+    },
     closure_watermark: {
       schema_version: 'v1',
       validation_cycle_id: VALIDATION_CYCLE_ID,
@@ -438,6 +457,32 @@ function storedClosure(
     closure,
     idempotency_key: 'close-cycle-001',
     created_at: NOW,
+  };
+}
+
+function acceptedProposal(
+  claimCeiling: 'tentative' | 'moderate' | 'strong' = 'moderate',
+): PaperImplementationScientificClosureProposalV1 {
+  return {
+    schema_version: 'PaperImplementationScientificClosureProposal@v1',
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    closure_watermark_hash: 'sha256:closure-input-001',
+    primary_comparison_fact_ref: {
+      comparison_fact_id: 'comparison-fact-001',
+      comparison_fact_hash: 'sha256:comparison-fact-001',
+    },
+    ordered_evidence_refs: [{
+      ordinal: 1,
+      run_evidence_unit_id: RUN_EVIDENCE_ID,
+      content_hash: RUN_EVIDENCE_CONTENT_HASH,
+    }],
+    interpretation_summary: validResultRequest().result_summary.result_summary,
+    reliability_assessment: validResultRequest().reliability,
+    limitations: {
+      limitation_refs: validResultRequest().reliability.limitation_refs,
+      reliability_notes: validResultRequest().reliability.reliability_notes,
+    },
+    claim_ceiling: claimCeiling,
   };
 }
 
@@ -512,6 +557,7 @@ async function setup(
     run_evidence_unit: makeV2RunEvidenceUnit(),
     closure_id: CLOSURE_ID,
   },
+  packetClaimCeiling: 'tentative' | 'moderate' | 'strong' = 'moderate',
 ) {
   const traceRepository = new InMemoryPaperImplementationTraceRepository();
   const resultClaimRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
@@ -568,7 +614,9 @@ async function setup(
   };
   await traceRepository.createClaimTracePacket(claimTracePacket);
   const confirmationRepository = new InMemoryPaperImplementationHumanConfirmationRepository();
-  await resultClaimRepository.createResultInterpretationPacket(historicalResultPacket());
+  await resultClaimRepository.createResultInterpretationPacket(
+    historicalResultPacket(packetClaimCeiling),
+  );
   const service = new PaperImplementationResultClaimDossierService({
     projectRepository: new StaticProjectRepository(),
     resultClaimRepository,
@@ -584,13 +632,28 @@ async function setup(
           : null
       ),
     },
+    closedPacketViewReader: {
+      findClosedInterpretationPacketView: async (implementationProjectId, packetId) => {
+        const packet = await resultClaimRepository.findResultInterpretationPacketById(
+          implementationProjectId,
+          packetId,
+        );
+        if (!packet) return null;
+        const viewClosure = closure ?? storedClosure();
+        return {
+          packet: packet as ClosedResultInterpretationPacketV2,
+          closure: structuredClone(viewClosure.closure),
+          accepted_proposal: acceptedProposal(packetClaimCeiling),
+        };
+      },
+    },
     now: () => NOW,
     idFactory: (prefix) => `${prefix}_001`,
   });
   return { service, feedbackRecorder, confirmationRepository, traceRepository };
 }
 
-test('direct ResultInterpretationPacket materialization is closed pending ValidationCycleClosed consumption', async () => {
+test('direct ResultInterpretationPacket materialization remains closed with ValidationCycleClosed as sole trigger', async () => {
   const { service } = await setup();
   await assert.rejects(
     service.createResultInterpretationPacket(PROJECT_ID, validResultRequest()),
@@ -600,7 +663,7 @@ test('direct ResultInterpretationPacket materialization is closed pending Valida
   );
 });
 
-test('historical packet, claim, closed-Cycle dossier, and writing packet preserve the downstream ready path', async () => {
+test('closure-bound packet, claim, closed-Cycle dossier, and writing packet preserve the downstream ready path', async () => {
   const { service } = await setup();
   const claim = await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
   assert.equal(claim.claim_trace_packet_id, 'claim_trace_packet_001');
@@ -692,6 +755,15 @@ test('claim boundary blocks interpretation refs as support and forbidden overcla
   await assert.rejects(
     service.createClaimCandidate(PROJECT_ID, paraphraseOverclaim),
     (error) => error instanceof AppError && error.message.includes('forbidden overclaim'),
+  );
+});
+
+test('closed interpretation view claim ceiling bounds downstream claim strength', async () => {
+  const { service } = await setup(undefined, undefined, 'tentative');
+  await assert.rejects(
+    service.createClaimCandidate(PROJECT_ID, validClaimRequest()),
+    (error) => error instanceof AppError
+      && error.message.includes('exceeds the accepted ResultAnalysis claim ceiling'),
   );
 });
 
@@ -797,6 +869,29 @@ test('ready dossier consumes only declared closed snapshots without consulting l
   }]);
 });
 
+test('ready dossier must preserve a negative Closure primary comparison fact', async () => {
+  const negativeClosure = storedClosure();
+  negativeClosure.closure.scientific_disposition = 'negative';
+  negativeClosure.closure.selected_exit_key = 'revise-or-abandon';
+  negativeClosure.closure.scientific_authority!.registered_relation =
+    'contradicts_registered_expectation';
+  const { service } = await setup(negativeClosure);
+  await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
+  await assert.rejects(
+    service.createImplementationDossier(PROJECT_ID, validDossierRequest()),
+    (error) => error instanceof AppError
+      && error.message.includes('preserve the negative primary comparison fact'),
+  );
+  const request = validDossierRequest();
+  request.experiment_section.negative_result_refs = [ref(
+    'scientific_comparison_fact',
+    'comparison-fact-001',
+    'sha256:comparison-fact-001',
+  )];
+  const dossier = await service.createImplementationDossier(PROJECT_ID, request);
+  assert.equal(dossier.dossier_status, 'ready_for_writing');
+});
+
 test('ready dossier fails closed when a declared ValidationCycle has no v2 closure', async () => {
   const { service } = await setup(null);
   await service.createClaimCandidate(PROJECT_ID, validClaimRequest());
@@ -824,7 +919,7 @@ test('ready dossier rejects tampered closure identity and snapshot hash', async 
       service.createImplementationDossier(PROJECT_ID, request),
       (error) => error instanceof AppError
         && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-        && error.message.includes('identity or hash does not match closure authority'),
+        && error.message.includes('preserve every Packet exact Closure snapshot'),
     );
   }
 });
@@ -866,7 +961,7 @@ test('T-124 G5 FIX-A item 3: a claim run_evidence support ref must resolve to a 
 });
 
 test('T-124 G5 FIX-A item 9: strong claim confirmation reviewed_claim_statement_hash binds to the claim statement', async () => {
-  const { service, confirmationRepository } = await setup();
+  const { service, confirmationRepository } = await setup(undefined, undefined, 'strong');
 
   const baseConfirmation = {
     implementation_project_id: PROJECT_ID,
@@ -971,7 +1066,7 @@ test('result claim feedback delegates to T-093 implementation feedback authority
 });
 
 test('strong claim confirmation ref must resolve to an active strong-claim-scope record', async () => {
-  const { service, confirmationRepository } = await setup();
+  const { service, confirmationRepository } = await setup(undefined, undefined, 'strong');
   const strongClaim = validClaimRequest();
   strongClaim.claim_strength = 'strong';
   strongClaim.boundary = {
@@ -1038,7 +1133,7 @@ test('strong claim confirmation ref must resolve to an active strong-claim-scope
 });
 
 test('strong claim confirmation is target-bound and consumed exactly once', async () => {
-  const { service, confirmationRepository } = await setup();
+  const { service, confirmationRepository } = await setup(undefined, undefined, 'strong');
 
   // A record whose target_refs do not cover this claim candidate is rejected.
   await confirmationRepository.createHumanConfirmationRecord({

@@ -66,6 +66,19 @@ function validResultPacketRequest() {
   };
 }
 
+function validResultPacket() {
+  const request = validResultPacketRequest();
+  return {
+    ...request,
+    implementation_project_id: 'implementation_project_001',
+    interpretation_gate_status: 'passed',
+    trace_manifest_ref: functionalRef('trace_manifest', request.trace_manifest_id),
+    policy_version_id: null,
+    created_by: 'system',
+    created_at: '2026-08-08T00:00:00.000Z',
+  };
+}
+
 function validClaimCandidateRequest() {
   return {
     claim_candidate_id: 'claim_candidate_001',
@@ -166,6 +179,42 @@ test('result interpretation request requires explicit id, run evidence, trace, a
       resultClaimContracts.createResultInterpretationPacketRequestSchema,
       missingTrace,
     ),
+    400,
+  );
+});
+
+test('Packet response schema admits legacy all-absent/all-null or a complete v2 binding only', async () => {
+  const legacyAbsent = validResultPacket();
+  assert.equal(
+    await validateWithSchema(resultClaimContracts.resultInterpretationPacketSchema, legacyAbsent),
+    200,
+  );
+  const legacyNull = {
+    ...legacyAbsent,
+    schema_version: null,
+    closure_id: null,
+    closure_snapshot_hash: null,
+    packet_content_hash: null,
+  };
+  assert.equal(
+    await validateWithSchema(resultClaimContracts.resultInterpretationPacketSchema, legacyNull),
+    200,
+  );
+  const closedV2 = {
+    ...legacyAbsent,
+    schema_version: 'PaperImplementationResultInterpretationPacket@v2',
+    closure_id: 'validation_cycle_closure_001',
+    closure_snapshot_hash: `sha256:${'a'.repeat(64)}`,
+    packet_content_hash: `sha256:${'b'.repeat(64)}`,
+  };
+  assert.equal(
+    await validateWithSchema(resultClaimContracts.resultInterpretationPacketSchema, closedV2),
+    200,
+  );
+  const partial = { ...closedV2 };
+  delete (partial as Partial<typeof partial>).packet_content_hash;
+  assert.equal(
+    await validateWithSchema(resultClaimContracts.resultInterpretationPacketSchema, partial),
     400,
   );
 });

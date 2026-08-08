@@ -12,11 +12,15 @@ import type {
   CreateMotiveEvidenceBoardVersionRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-motive-contracts';
 import type {
+  ClosedResultInterpretationPacketV2,
   CreateClaimCandidateRequest,
   CreateImplementationDossierRequest,
   CreateResultInterpretationPacketRequest,
   ResultInterpretationPacket,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-result-claim-dossier-contracts';
+import type {
+  PaperImplementationScientificClosureProposalV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type {
   TraceLineageBundle,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
@@ -95,12 +99,20 @@ function closedCycleAuthority(): PaperImplementationStoredValidationCycleClosure
       schema_version: 'v1',
       validation_cycle_id: VALIDATION_CYCLE_ID,
       cycle_version_at_closure: 1,
-      closure_kind: 'control_flow_validated_no_paper_evidence',
-      scientific_disposition: null,
-      selected_exit_key: null,
-      accepted_proposal_id: null,
-      accepted_proposal_hash: null,
-      scientific_authority: null,
+      closure_kind: 'scientific_evidence_assessed',
+      scientific_disposition: 'positive',
+      selected_exit_key: 'continue-to-claim',
+      accepted_proposal_id: 'scientific-proposal-001',
+      accepted_proposal_hash: 'scientific-proposal-hash-001',
+      scientific_authority: {
+        schema_version: 'PaperImplementationValidationCycleScientificAuthority@v1',
+        evaluation_protocol_revision_id: 'protocol-001',
+        evaluation_protocol_content_hash: 'sha256:protocol-001',
+        primary_comparison_fact_id: 'comparison-fact-001',
+        primary_comparison_fact_hash: 'sha256:comparison-fact-001',
+        primary_comparison_key: 'primary',
+        registered_relation: 'supports_registered_expectation',
+      },
       closure_watermark: {
         schema_version: 'v1',
         validation_cycle_id: VALIDATION_CYCLE_ID,
@@ -518,6 +530,20 @@ function buildEvaluationHarness() {
           : null;
       },
     },
+    closedPacketViewReader: {
+      findClosedInterpretationPacketView: async (implementationProjectId, packetId) => {
+        const packet = await resultClaimRepository.findResultInterpretationPacketById(
+          implementationProjectId,
+          packetId,
+        );
+        if (!packet) return null;
+        return {
+          packet: packet as ClosedResultInterpretationPacketV2,
+          closure: closedCycleAuthority().closure,
+          accepted_proposal: acceptedResultProposal(packet.trace_manifest_id),
+        };
+      },
+    },
     idFactory,
     now: () => NOW,
   });
@@ -826,6 +852,10 @@ function historicalResultPacket(
     result_interpretation_packet_id: request.result_interpretation_packet_id,
     implementation_project_id: implementationProjectId,
     validation_cycle_id: request.validation_cycle_id,
+    schema_version: 'PaperImplementationResultInterpretationPacket@v2',
+    closure_id: CLOSURE_ID,
+    closure_snapshot_hash: CLOSURE_SNAPSHOT_HASH,
+    packet_content_hash: 'sha256:contract-evaluation-packet-content',
     experiment_plan_light_id: request.experiment_plan_light_id ?? null,
     source: request.source,
     result_summary: request.result_summary,
@@ -837,6 +867,33 @@ function historicalResultPacket(
     policy_version_id: 'policy_v1',
     created_by: 'system',
     created_at: NOW,
+  };
+}
+
+function acceptedResultProposal(
+  traceManifestId: string,
+): PaperImplementationScientificClosureProposalV1 {
+  const request = resultPacketRequest(traceManifestId);
+  return {
+    schema_version: 'PaperImplementationScientificClosureProposal@v1',
+    validation_cycle_id: VALIDATION_CYCLE_ID,
+    closure_watermark_hash: 'sha256:closure-input-001',
+    primary_comparison_fact_ref: {
+      comparison_fact_id: 'comparison-fact-001',
+      comparison_fact_hash: 'sha256:comparison-fact-001',
+    },
+    ordered_evidence_refs: [{
+      ordinal: 1,
+      run_evidence_unit_id: RUN_EVIDENCE_ID,
+      content_hash: 'sha256:contract-evaluation-claim-evidence',
+    }],
+    interpretation_summary: request.result_summary.result_summary,
+    reliability_assessment: request.reliability,
+    limitations: {
+      limitation_refs: request.reliability.limitation_refs,
+      reliability_notes: request.reliability.reliability_notes,
+    },
+    claim_ceiling: request.claim_implications.allowed_claim_ceiling,
   };
 }
 
@@ -1674,7 +1731,7 @@ test('T-101 coverage anchors existing child-level blocked-path tests', async () 
     'portfolio constraint drift blocks validation cycle draft creation',
     'legacy completion is closed below HTTP while historical completed-cycle reads are preserved',
     'marks monitor intake without work_order_id untrusted and does not create run evidence',
-    'direct ResultInterpretationPacket materialization is closed pending ValidationCycleClosed consumption',
+    'direct ResultInterpretationPacket materialization remains closed with ValidationCycleClosed as sole trigger',
     'ready dossier fails closed when a declared ValidationCycle has no v2 closure',
     'claim boundary blocks interpretation refs as support and forbidden overclaims',
     'strong claim requires explicit human confirmation',

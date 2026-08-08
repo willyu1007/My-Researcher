@@ -89,7 +89,7 @@ export class PaperImplementationRuntimeDomainGateService {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'ResultInterpretationPacket materialization is closed until a later increment consumes ValidationCycleClosed.',
+        'Direct ResultInterpretationPacket materialization is closed; ValidationCycleClosed@v1 is the sole materialization trigger.',
         { reason_code: RESULT_INTERPRETATION_PACKET_MATERIALIZATION_CLOSED_REASON_CODE },
       );
     }

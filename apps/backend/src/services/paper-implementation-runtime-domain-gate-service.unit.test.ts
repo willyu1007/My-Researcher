@@ -257,7 +257,7 @@ test('runtime Domain Gate materializes an admitted dossier final artifact idempo
   assert.equal(resultService.createDossierCalls, 1);
 });
 
-test('runtime Domain Gate closes pre-closure result-analysis packet materialization', async () => {
+test('runtime Domain Gate rejects direct result-analysis Packet materialization after P4', async () => {
   const { resultRuntime, domainGate, resultService } = fixture();
   const run = await resultRuntime.runInterpretationScenarios(PROJECT_ID, mockedResultAnalysisRequest());
   const finalArtifact = run.final_runtime_artifact;

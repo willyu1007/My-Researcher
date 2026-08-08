@@ -170,6 +170,15 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 6. Preserve project-wide failed/cancelled/negative/inconclusive accounting and closed-Cycle write seals.
 7. Add event replay, transaction drift, duplicate Packet, missing evidence and project accounting tests.
 
+### Verification checkpoint — completed 2026-08-08
+
+- Implemented one composed `ValidationCycleClosed@v1` consumer: semantic projection runs first, Packet materialization second, and the relay marks delivery only after both succeed. Partial success converges through existing projection inbox idempotency plus Packet replay.
+- Packet v2 is assembled outside the write transaction from the exact stored Closure, official admitted ResultAnalysis proposal, canonically revalidated REUs/reports/protocol/comparison facts and complete evidence traces. The write transaction rereads the exact Closure tuple and inserts once, returns identical content or conflicts.
+- Claim/Dossier creation now requires the server-side closed Packet view. Legacy Packets remain readable history only; Claim strength is capped by the accepted proposal and ready Dossiers preserve exact Closure and adverse-result accounting.
+- Node 20 shared/backend strict typechecks, shared schemas, Packet/Claim/repository/relay units, Closure/contract regressions and full PaperImplementation route integration pass.
+- Disposable PostgreSQL gate `packc-pi-20260808-r8` passed 193/193 across eight suites with zero skips/blocks; relational passed 6/6 and the identity-marked database was cleaned up. Canonical digest: `sha256:4925fe76fccfae97dabbdb230ab7af28df44f605c48d3dbf7718f30e69bc7e05`.
+- Completion checkpoint: P0-P4 is `implementation_complete_unreleased`. T-136 remains open, scientific capabilities remain default-off and only the separately authorized P5 acceptance may record `M0-SCI: passed`.
+
 ### Exit criteria
 
 - One scientific Closure event produces exactly one Packet bound by exact Closure and Packet hashes; proposal/disposition/exit remain transitively bound through the Closure snapshot rather than copied columns.
