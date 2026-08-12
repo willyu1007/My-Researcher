@@ -23,6 +23,7 @@ env/values/*.local.yml
 # Node
 node_modules/
 *.tsbuildinfo
+/apps/desktop/dist/
 
 # Python
 __pycache__/

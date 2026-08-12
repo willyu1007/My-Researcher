@@ -10,6 +10,9 @@ Electron + React + Vite + TypeScript desktop shell for the research workflow UI.
 - `pnpm --filter @paper-engineering-assistant/desktop build`
 - `pnpm --filter @paper-engineering-assistant/desktop start`
 
+`start` launches the generated `dist/main/main.js`. On a clean checkout, run `build`
+first; `dist/` is a reproducible local artifact and is intentionally not versioned.
+
 ## Notes
 
 - Renderer imports shared UI styles from `ui/styles/ui.css`.
