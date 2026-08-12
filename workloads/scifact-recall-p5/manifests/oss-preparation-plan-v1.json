@@ -1,0 +1,77 @@
+{
+  "schema": "ScifactRecallP5OssPreparationPlan@v1",
+  "review_scope": "t136-p5-input-preparation-only",
+  "bucket": "pea-m7-canary-6194-202607",
+  "region_id": "cn-shanghai",
+  "endpoint": "oss-cn-shanghai.aliyuncs.com",
+  "planned_writes": [
+    {
+      "ordinal": 1,
+      "role": "scientific_workload",
+      "local_source": "workloads/scifact-recall-p5/entrypoint.py",
+      "content_digest": "sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597",
+      "byte_size": 10155,
+      "object_key": "input/t136-p5/workload/75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597/entrypoint.py",
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597/"
+    },
+    {
+      "ordinal": 2,
+      "role": "scifact_test_qrels",
+      "local_source": "authorized temporary extraction of BEIR scifact.zip:qrels/test.tsv",
+      "content_digest": "sha256:0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+      "byte_size": 5389,
+      "object_key": "input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/test.tsv",
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/"
+    }
+  ],
+  "write_policy": {
+    "create_bucket": false,
+    "delete_or_overwrite_mismatched_object": false,
+    "accept_existing_object_only_after_exact_length_and_crc64_verification": true,
+    "create_job": false,
+    "enable_capability": false
+  },
+  "current_state": {
+    "status": "prepared_and_readback_verified",
+    "remote_state_checked": true,
+    "objects_written": 2,
+    "verified_existing_objects": [
+      {
+        "role": "corpus",
+        "object_key": "input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/corpus.jsonl",
+        "byte_size": 8106566,
+        "etag": "26537F8AE036FDB77D847EC4F7AC1858",
+        "crc64": "8566302686400034898"
+      },
+      {
+        "role": "test_queries",
+        "object_key": "input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/queries.jsonl",
+        "byte_size": 56640,
+        "etag": "561E9AA7B1812659979305A94731E3E9",
+        "crc64": "14258960024956570564"
+      }
+    ],
+    "written_objects": [
+      {
+        "role": "scientific_workload",
+        "object_key": "input/t136-p5/workload/75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597/entrypoint.py",
+        "byte_size": 10155,
+        "etag": "DF982909F736D6C96AB5D5BC4E000944",
+        "crc64": "12374963249186617340",
+        "readback_content_digest": "sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597",
+        "last_modified": "2026-08-09T01:46:47.000Z"
+      },
+      {
+        "role": "scifact_test_qrels",
+        "object_key": "input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/test.tsv",
+        "byte_size": 5389,
+        "etag": "CD0B61FE12D16A9605897A7FFE40E3F02",
+        "crc64": "7571586496273109249",
+        "readback_content_digest": "sha256:0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+        "last_modified": "2026-08-09T01:46:58.000Z"
+      }
+    ],
+    "cloud_stage_removed": true,
+    "local_temporary_archive_moved_to_trash": true
+  }
+}

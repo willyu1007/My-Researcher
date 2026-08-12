@@ -11,6 +11,7 @@ import {
   type ExperimentFoundationExecutionBundleRevisionV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
 import {
+  serverHashExperimentFoundationExecutionBundleRevisionV2,
   serverHashExperimentV2SemanticContent,
   type ExperimentV2HashProfile,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
@@ -104,7 +105,9 @@ export class ExperimentFoundationExecutionBundleV2Service {
     }
     assertBundleContent(draftBundle.draft.draft_content);
     const now = this.now();
-    const contentHash = hashBundle('ExecutionBundleRevision', draftBundle.draft.draft_content);
+    const contentHash = serverHashExperimentFoundationExecutionBundleRevisionV2(
+      draftBundle.draft.draft_content,
+    );
     const revisionSequence = input.expected_draft_version;
     const revisionId = this.generateId('revision', {
       execution_bundle_id: draftBundle.identity.execution_bundle_id,
@@ -188,7 +191,9 @@ export class ExperimentFoundationExecutionBundleV2Service {
     if (
       bundle.revision.schema_version
         !== bundle.revision.revision_content.execution_bundle_schema_version
-      || hashBundle('ExecutionBundleRevision', bundle.revision.revision_content)
+      || serverHashExperimentFoundationExecutionBundleRevisionV2(
+        bundle.revision.revision_content,
+      )
         !== input.content_hash
     ) {
       throw new ExperimentFoundationExecutionBundleV2ConstraintError(
@@ -265,16 +270,30 @@ function assertBundleContent(value: unknown): asserts value is ExperimentFoundat
     );
   }
   const ordinals = value.dataset_mirrors.map((mirror) => mirror.ordinal);
+  const revisionSnapshots = new Map<string, string>();
+  const hasRevisionIdentityDrift = value.dataset_mirrors.some((mirror) => {
+    const revision = mirror.dataset_revision;
+    const snapshot = [
+      revision.asset_type,
+      revision.logical_id,
+      revision.revision_id,
+      String(revision.revision_sequence),
+      revision.content_hash,
+    ].join('\u0000');
+    const existing = revisionSnapshots.get(revision.revision_id);
+    if (existing !== undefined && existing !== snapshot) return true;
+    revisionSnapshots.set(revision.revision_id, snapshot);
+    return false;
+  });
   if (
     ordinals.some((ordinal, index) => ordinal !== index + 1)
-    || new Set(value.dataset_mirrors.map((mirror) => mirror.dataset_revision.revision_id)).size
-      !== value.dataset_mirrors.length
+    || hasRevisionIdentityDrift
     || new Set(value.dataset_mirrors.map((mirror) => mirror.object_ref)).size
       !== value.dataset_mirrors.length
   ) {
     throw new ExperimentFoundationExecutionBundleV2ConstraintError(
       'EXECUTION_BUNDLE_INVALID',
-      'ExecutionBundle dataset mirrors must be contiguous, ordered, and exact-unique.',
+      'ExecutionBundle dataset mirror parts must be contiguous, object-unique, and revision-consistent.',
     );
   }
   if (value.execution_bundle_schema_version === 'v1') return;
@@ -290,18 +309,21 @@ function assertBundleContent(value: unknown): asserts value is ExperimentFoundat
       'Provider-managed image identity must bind a valid modified time and matching regional PAI image reference.',
     );
   }
-}
-
-function hashBundle(
-  recordKind: string,
-  content: ExperimentFoundationExecutionBundleContent,
-): string {
-  return serverHashExperimentV2SemanticContent({
-    record_kind: recordKind,
-    schema_version: content.execution_bundle_schema_version,
-    hash_profile: EXPERIMENT_FOUNDATION_EXECUTION_BUNDLE_HASH_PROFILE_V2,
-    content,
-  });
+  const usesScientificScope =
+    image.provider_managed_asset.permitted_scope === 'm0_sci_p5_scientific_only';
+  const outputContract = value.output_contract;
+  if (
+    usesScientificScope
+      !== (
+        outputContract.scientific_result_schema_version !== undefined
+        && outputContract.scientific_result_schema_hash !== undefined
+      )
+  ) {
+    throw new ExperimentFoundationExecutionBundleV2ConstraintError(
+      'EXECUTION_BUNDLE_INVALID',
+      'Provider-managed image scope must match the presence of a complete scientific result binding.',
+    );
+  }
 }
 
 function hashControl(recordKind: string, content: unknown): string {

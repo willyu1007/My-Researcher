@@ -212,6 +212,57 @@ test('ExecutionBundle accepts a diagnostic-only provider asset without relabelin
     }),
     false,
   );
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, {
+      ...draft,
+      draft_content: {
+        ...draft.draft_content,
+        container_image: {
+          ...draft.draft_content.container_image,
+          provider_managed_asset: {
+            ...draft.draft_content.container_image.provider_managed_asset,
+            permitted_scope: 'm0_sci_p5_scientific_only',
+          },
+        },
+        output_contract: {
+          ...draft.draft_content.output_contract,
+          scientific_result_schema_version: 'ExperimentFoundationScientificResultPayload@v1',
+          scientific_result_schema_hash: hash('9'),
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, {
+      ...draft,
+      draft_content: {
+        ...draft.draft_content,
+        container_image: {
+          ...draft.draft_content.container_image,
+          provider_managed_asset: {
+            ...draft.draft_content.container_image.provider_managed_asset,
+            permitted_scope: 'm0_sci_p5_scientific_only',
+          },
+        },
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    await validates(experimentFoundationExecutionBundleDraftV2Schema, {
+      ...draft,
+      draft_content: {
+        ...draft.draft_content,
+        output_contract: {
+          ...draft.draft_content.output_contract,
+          scientific_result_schema_version: 'ExperimentFoundationScientificResultPayload@v1',
+          scientific_result_schema_hash: hash('9'),
+        },
+      },
+    }),
+    false,
+  );
 });
 
 test('executable WorkOrder v2 requires one exact ExecutionBundle revision', async () => {

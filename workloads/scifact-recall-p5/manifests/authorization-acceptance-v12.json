@@ -1,0 +1,98 @@
+{
+  "schema": "ScientificEvidenceP5AuthorizationAcceptance@v3",
+  "status": "authorized_pending_issuance",
+  "p5_attempt_id": "t136-p5-scifact-attempt-10",
+  "package_hash": "sha256:6a0ec49d55627209fd457a9e14baec7ffc9ddbdf75d4296ce87edc0cb52bdefa",
+  "authority_snapshot_hash": "sha256:876dd3af751c9b21069219071be576c4b63395b0ec133d333b1a7d27c9a84141",
+  "eligibility_record_hash": "sha256:c645d080c7372643ecfd13b4102999dac3a1d7723ae14f8171e57adeb23be700",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-11T23:58:56.000Z",
+    "text_utf8_sha256": "sha256:8ce1c0c629d2eb3d3c9e7e11a14e745ad9bccee6bb47cae8bdc1523c444d83bb",
+    "text_utf8_bytes": 2627,
+    "user_authorized": true,
+    "qualification": {
+      "required": true,
+      "allowed_operations": [
+        "Sts.AssumeRole",
+        "Sts.GetCallerIdentity",
+        "AIWorkspace.GetWorkspace",
+        "PaiImage.GetImage"
+      ],
+      "create_job_forbidden": true,
+      "product_capabilities_must_remain_disabled": true,
+      "grants_paid_execution_authority": false
+    },
+    "authorized_operations": [
+      {
+        "ordinal": 1,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v1_1"
+      },
+      {
+        "ordinal": 2,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v1_2"
+      }
+    ],
+    "cost_ceiling": {
+      "currency": "CNY",
+      "per_operation_amount_minor": 2500,
+      "total_amount_minor": 5000
+    },
+    "operational_timeline": {
+      "schema_version": "ScientificEvidenceP5OperationalTimeline@v3",
+      "issuance": {
+        "not_before": "2026-08-11T23:55:36.796Z",
+        "portal_confirmation_start_not_after": "2026-08-12T00:08:36.796Z",
+        "dispatch_not_after": "2026-08-12T00:10:36.796Z",
+        "minimum_portal_confirmation_margin_seconds": 120
+      },
+      "qualification": {
+        "activation": "after_same_credential_issuance",
+        "not_before": "2026-08-11T23:55:36.796Z",
+        "expires_at": "2026-08-12T00:15:36.796Z",
+        "minimum_secure_handoff_budget_seconds": 300
+      },
+      "live": {
+        "activation": "after_same_credential_qualification",
+        "capability_keys": [
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED"
+        ],
+        "not_before": "2026-08-11T23:55:36.796Z",
+        "latest_start_at": "2026-08-12T00:15:36.796Z",
+        "credential_operations_stop_at": "2026-08-12T00:49:36.796Z"
+      },
+      "closure": {
+        "activation": "after_verified_credential_cleanup",
+        "capability_keys": [
+          "PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED"
+        ],
+        "not_before": "2026-08-11T23:55:36.796Z",
+        "expires_at": "2026-08-12T01:25:36.796Z"
+      },
+      "timezone_note": "Asia/Shanghai: system assigned 2026-08-12 07:55:36.796 package start; 08:08:36.796 portal-confirmation start cutoff; 08:10:36.796 AssumeRole dispatch cutoff; 08:15:36.796 qualification/live-start cutoff; 08:49:36.796 credential-operation stop; 09:25:36.796 credential-free closure cutoff."
+    },
+    "credential_policy_binding": {
+      "schema_version": "ScientificEvidenceP5ControlPlaneCredential@v2",
+      "source_principal_arn": "acs:ram::1183869713036194:user/user_0002",
+      "controller_role_arn": "acs:ram::1183869713036194:role/pea-m7-canary-controller",
+      "runtime_role_arn": "acs:ram::1183869713036194:role/pea-m7-canary-runtime",
+      "role_session_name": "t136-p5-scifact-20260811-r12",
+      "session_policy_hash": "sha256:8fad8c09231fbfe88276c75c93993c9265b11a080bdc47ba460c1801f26e828f",
+      "issued_duration_seconds": 3600,
+      "minimum_remaining_at_live_start_seconds": 2400,
+      "credential_operations_stop_before_earliest_expiration_seconds": 360,
+      "automatic_expiration_not_after": "2026-08-12T01:10:36.796Z"
+    },
+    "cleanup_confirmation": {
+      "confirmed": true,
+      "text_utf8_sha256": "sha256:ff88f3c9090afcd139c5618749e768487c34148689f24d02981c97f945fe23c0",
+      "prohibits_ram_role_or_policy_mutation": true
+    }
+  }
+}

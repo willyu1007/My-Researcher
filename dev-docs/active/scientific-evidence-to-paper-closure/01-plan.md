@@ -13,6 +13,15 @@ No implementation phase may skip the preceding authority/acceptance gate. P5 clo
 
 P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 remains open, `M0-SCI` remains not passed and the affected scientific capabilities remain default-off. Other M0 modules may continue independent development/preview. Only a passing P5 acceptance makes T-136 eligible for completion and records `M0-SCI: passed`; P5 passage does not automatically enable runtime flags.
 
+## Revision-12 terminal checkpoint and next sequence
+
+- Completed: pre-stage revision 12 / attempt 10, create fresh named-local recovery evidence, materialize eligible package `sha256:6a0ec49d55627209fd457a9e14baec7ffc9ddbdf75d4296ce87edc0cb52bdefa`, receive exact acceptance and issue exactly one 3,600-second controller STS.
+- Terminal result: the only qualification invocation passed `GetCallerIdentity=1`, then failed exact workspace identity because the HTTP-200 typed `GetWorkspace` body exposed no `workspaceId`; `GetWorkspace=1`, `GetImage=0`, `CreateJob=0`, live/close execute `0`, paid cost CNY `0`, scientific database rows `0`.
+- Authorization-sequence deviation: the first local integrity invocation failed on the portal's ellipsis representation. A second local invocation was run after full editor extraction and qualification continued, contrary to the exact no-retry clause. No credential was reissued or replaced, but the attempt is terminal and cannot be treated as a conforming acceptance run.
+- Completed immediate cleanup: current credential/response buffers and clipboard are empty; Chrome left the credential result page; no credential/capability environment key, local profile change, qualification output or runner process remains. Current paid/capability authority is false.
+- Completed safety closeout: at `2026-08-12T01:01:42.479Z`, the recorded STS expiration was 54 seconds in the past. Time-only, local absence and credential-free live offline-preflight checks all passed with zero scientific/runtime effects; remove heartbeat `t-136-revision-12-sts-expiry-audit`.
+- Current gate: the separately approved local correction, independent review and cleanup are complete. Do not stage revision 13 or make another cloud call from this task state; a future attempt starts with a new identity/package and a new exact authorization.
+
 ## P0 — Authority census and contract freeze
 
 ### Steps
@@ -218,6 +227,21 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Replay, cost, credential cleanup and rollback/recovery evidence are durable and reviewable.
 - The acceptance record explicitly states `M0-SCI: passed`; T-136 is eligible for completion only at this point.
 
+### Current P5 checkpoint — 2026-08-10
+
+- Completed: versioned execution-package, named-local authority-snapshot and deterministic eligibility-record hashing; complete ExecutionBundle schema/canonical revalidation; exact two-cell/one-factor comparability; operation/cost/capability/credential/recovery and no-outcome-target guards.
+- Completed: freeze and validate the SciFact workload, exact qrels/input identities, two ordered `retrieval_top_k` cells and the `micro_recall_ppm` observation contract. Full local execution is deterministic but explicitly non-evidence.
+- Completed: create a reviewed repository-external named-local recovery set before any T-136 authority materialization. The recovery set contains full schema and scoped EF/PI authority data, not unrelated Literature payloads.
+- Completed stage one: remotely verify the existing corpus/query objects, upload and read back the digest-addressed workload/qrels objects, freeze new T-136 policy/dataset/bundle authorities and materialize one WorkOrder/Run. The apply created exactly 146 rows, exact replay created zero and 217 protected tables remained unchanged. Historical T-132 diagnostic authority was not modified.
+- Completed deterministic preflight: package `sha256:98674502814e052becd6f57e91817bca8ef90980cc621b244bb0013bc1c9f352` is eligible with zero reason codes and binds the exact Run, protocol, bundle, two cells, four capability keys, one-hour window and ¥50 total ceiling.
+- Exact-package authorization received: on 2026-08-09 the user authorized package `sha256:98674502814e052becd6f57e91817bca8ef90980cc621b244bb0013bc1c9f352`, exactly two paid `CreateJob` operations, a ¥25-per-operation/¥50-total ceiling, the four listed process capabilities, the 2026-08-10 10:00-11:00 Asia/Shanghai window and the temporary-credential cleanup policy. The immutable preparation manifest remains a pre-authorization artifact; `authorization-acceptance-v1.json` is the sole authorization record. Steps 3-9 remain time-gated until the window opens.
+- Credential cleanup clarification confirmed: Alibaba Cloud STS sessions cannot be individually revoked, so the user authorized a 3,600-second token issued at window start, immediate process/profile removal, automatic invalidation no later than 11:00 and an after-window expiry check. RAM role or policy mutation remains explicitly prohibited. Execution is now authorization-ready but remains time-gated.
+- Window runner preparation complete: `scientific-evidence:p5:live` owns exactly two Jobs through scientific Result/validation/trusted REU and `scientific-evidence:p5:close` runs without Alibaba credentials to produce the registered OpenAI ResultAnalysis proposal, deterministic Closure and Packet. Both offline preflights and both outside-window guards pass. The current-task heartbeat starts read-only work at 06:55, waits until 07:00 for STS/cloud state, and preserves Claim/Dossier plus after-08:00 expiry verification as required remaining work.
+- Window revision exactly authorized: on 2026-08-10 the user authorized eligible package `sha256:719fb5ab6384913b84b3de0ad3f3c6740fd31eed6ce3fceb95afaf86bb24b306` for 07:00-08:00 Asia/Shanghai. The 10:00-11:00 acceptance is `superseded_window_changed`; eligibility record `sha256:9b1c044d3d3ba249fb3b125ffa032427e06f377d13ed5c20f40a966aa9ad6738`, authority snapshot and every non-window package field remain unchanged. `authorization-acceptance-v2.json` is `authorized_pending_window`; cloud calls, writes, credentials and capability changes remain zero.
+- Revision-3 credential correction: preserve package v2 as a closed zero-effect attempt. Introduce a versioned execution package that binds the existing controller role separately from the existing runtime role, hashes the controller trust/policy evidence and exact inline session policy, permits credential issuance only in a short window ending at execution start, requires at least 55 minutes of remaining TTL, and admits a separate qualification runner that calls only identity/read-only endpoints while every product capability remains false. One exact acceptance covers this conditional sequence; live paid execution additionally requires the hash-bound zero-`CreateJob` qualification record from the same temporary credential.
+- Revision-3 execution closed fail-safe: one controller STS was issued at 08:27:23, but qualification reached its local issuance-window gate at 08:30:23 and stopped before all three read-only calls. No qualification record, paid Job, scientific row, capability change, replacement credential or close was produced. The credential was erased from the bounded process and local configuration remained unchanged. M0-SCI is still not passed; any further real attempt requires a fresh package/window authorization with an explicit secure-handoff margin.
+- Revision-3 cleanup complete: at 09:30:54 the recorded 09:27:23 automatic expiration was 211 seconds in the past. The no-credential local checks and final live offline preflight passed with all P5 scientific/effect counts at zero. No revision-3 action remains; a future real attempt starts from a new package and authorization rather than resuming this window.
+
 ## Risks and mitigations
 
 - Risk: treating collected diagnostics as scientific results.
@@ -241,3 +265,149 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Resolved dead ends are appended to `05-pitfalls.md`.
 - P0-P4 completion is recorded as `implementation_complete_unreleased`, never as task or gate completion.
 - Project governance lint passes, `M0-SCI: passed` is evidenced, and the task is archived only after the real P5 acceptance.
+
+## Revision-4 execution plan checkpoint — 2026-08-10
+
+- Completed: version the active execution package, eligibility record and authorization bindings so revision-3 artifacts can remain immutable history while active runners accept only revision-4 manifests.
+- Completed: replace the shared five-minute cutoff with a deterministic timeline derived from one user-selected canonical UTC start: dispatch by `+30s`, qualification and latest live start by `+300s`, credential operations stop by `+3240s`, and credential-free close by `+5400s`.
+- Completed: add injectable-clock guards for issuance dispatch, qualification, live start, credential-bearing operations and close; bind live to a passing same-credential qualification record and close to verified credential cleanup.
+- Completed: move active ids and result-prefix scope to `t136-p5-scifact-attempt-2`; mark the workload profile `awaiting_exact_window_and_package`, with no paid or capability authority.
+- Next decision: the user selects one exact future start. Preparation then creates one exact revision-4 package and reports its hash for a separate, exact authorization decision.
+- After authorization only: dispatch one controller `AssumeRole` within 30 seconds of the selected start, qualify immediately, enter live on the same credential, clear credential material, run credential-free close, then complete Claim/Dossier, replay accounting and expiration verification. No package generation or prior authorization permits cloud execution.
+
+### Revision-4 exact-package checkpoint
+
+- Completed: user selected `2026-08-11 07:00:00` Asia/Shanghai, canonically stored as `2026-08-10T23:00:00.000Z`.
+- Completed: write immutable `manifests/prepared-authorization-v4.json` for package `sha256:47260f21c7d42d4a57d70ba627bed35888eb4f4d91c8f0ca7a4a67e1a0787a4c`; eligibility is `eligible` with zero reason codes and a fresh rebuild returns the same three package/authority/eligibility hashes.
+- Completed: qualification, live and close offline preflights pass with no credentials, cloud calls, database writes or capability changes. Existing Attempts, scientific Results, validations, REUs, runtime artifacts, Closures and Packets remain zero.
+- Current gate: obtain exact user authorization for the newly known package hash and its operation/cost/capability/credential/cleanup boundaries. The user's start selection is recorded as schedule input only and is not treated as authorization.
+- After exact acceptance: create `authorization-acceptance-v4.json`, rerun all zero-effect preflights and prepare the bounded continuation for the selected start. Do not issue STS or schedule cloud execution before this gate passes.
+
+### Revision-4 authorization checkpoint
+
+- Completed: record the exact 2428-byte authorization text as `sha256:3ba46547640b22bd6619e00f5b2b72d8ea0d32727d194475265a22f400a93c54` in `authorization-acceptance-v4.json`; the acceptance validator reconciles package, authority, eligibility, qualification, operations, cost, timeline, roles, session policy and cleanup confirmation.
+- Completed: set the workload profile to `authorized_pending_issuance`, bind the revision-4 acceptance ref and record execution/capability authorization without enabling either. An idempotent package write verifies the same package and leaves the later acceptance-owned state unchanged.
+- Completed: rerun qualification/live/close offline preflights after acceptance. All validate the exact package; qualification has no record, every actual effect count remains zero and close is waiting for real evidence.
+- Completed: create one current-task heartbeat `t-136-p5-revision-4-execution` for 06:55 Asia/Shanghai. It performs only local/read-only checks before 07:00 and carries the exact hashes plus all execution, cleanup, expiration and no-RAM-mutation boundaries.
+- Remaining authorized execution: within 07:00:00–07:00:30 issue the one controller STS, qualify on the same credential by 07:05, enter live immediately if qualified, stop credential operations by 07:54, clean credentials, complete credential-free close by 08:30, then finish Claim/Dossier/replay and expiration accounting. Any non-recoverable failure stops without replacement.
+
+### Revision-4 scheduling failure checkpoint — 2026-08-11
+
+- Closed fail-safe: the one-time heartbeat never persisted and therefore did not wake the task at 06:55. The authorized window expired without any execution-side effect; no late or catch-up execution is permitted.
+- Verified: at 20:57 Asia/Shanghai the automation directory contained zero entries and retained its 2026-08-10 09:32 modification time. Codex system logging contained no automation/heartbeat registration or trigger event, and deletion of `t-136-p5-revision-4-execution` returned `not_found`.
+- Verified: live/close offline preflight still reports Attempts, Results, validations, REUs, outboxes, runtime artifacts, Closures and Packets all zero. Local Alibaba/capability variables and the qualification record are absent.
+- Corrective next step: select a new future start and build a new attempt/package. Create the next heartbeat without supplying a caller-chosen id, capture its generated id, verify it through the automation API and durable local record, and perform a harmless pre-window wakeup rehearsal before treating scheduling as ready.
+
+### Revision-5 immediate-run preparation checkpoint — 2026-08-11
+
+- Closed fail-safe: the confirmed 21:35 start passed while the independent revision-5 path was being prepared. Package `sha256:b16e49702b24e776fb84167bb1d78284e9a93837b00534ca4eaeec80136dd98f` completed at 21:36:53 with zero effects but was never presented or authorized for execution.
+- Completed: generalize controller session-name validation so the canonical suffix is derived from the immutable attempt number (`revision = attempt + 2`) instead of hardcoding `r4`; historical attempt-2/r4 remains valid and attempt-3/r5 becomes deterministic.
+- Completed: pre-stage active revision 6 / attempt 4, output prefix `attempt-4`, v6 prepared/acceptance paths and false authorization projections. Script typecheck and focused suites pass 24/24.
+- Superseded: do not ask the user to select another absolute start. Revision 6 assigns its internal timeline when the immutable package is first written.
+
+### Revision-6 system-assigned execution checkpoint — 2026-08-11
+
+- Completed: add `ScientificEvidenceP5OperationalTimeline@v2`. First manifest creation assigns the internal UTC start once, permits AssumeRole dispatch for 600 seconds, requires qualification/live start by 900 seconds, stops credential operations at 3240 seconds and keeps credential-free close open through 5400 seconds. Rebuilds reuse the stored start and reproduce the same package.
+- Completed: prepare eligible package `sha256:d7d6f5ed6684475be0ec94a8dfad87c27b52d433dd0285f2f295f91e5479abdf`, record the exact 1217-byte user authorization and bind `authorization-acceptance-v6.json` without credential material.
+- Closed fail-safe: the Chrome OpenAPI session could not prove the authorized source principal. The portal returned no RequestId or credentials before the 21:59:25.532 issuance cutoff, so qualification, live and close were not entered.
+- Verified: credential-free preflights report zero credential reads, cloud calls, `CreateJob`, database writes and capability changes; Attempts, scientific Results, validations, REUs and pending integration outboxes remain zero. `M0-SCI` is not passed.
+- Next: authenticate Chrome visibly as `acs:ram::1183869713036194:user/user_0002` before package creation. Then allocate a new immutable revision/package, retain the system-assigned timeline, obtain exact hash-bound authorization and execute immediately. Do not reuse revision-6 authority or issue a late credential.
+
+### Revision-7 portal-confirmation checkpoint — 2026-08-11
+
+- Completed: visibly verify the exact `user_0002` source principal and controller-role trust before package creation; prepare eligible attempt-5 package `sha256:723551a6005c88bc405a6bfd4e9490d4cce339283a3967c390c512fba4217cdb` with all preparation effects zero.
+- Completed: receive exact 1217-byte authorization with digest `sha256:dc3d7020d7a17c0fb7b01af055b900ba60c78dd4bea57def6b551be42ac57bee` and configure the exact role, r7 session name, 3600-second duration and hash-bound session policy in the logged-in portal.
+- Closed fail-safe: the portal's first action opened a second safety-confirmation dialog at 22:19:33.100 Asia/Shanghai. The confirmation guard observed 22:19:59.239, after the 22:19:46.542 dispatch cutoff, so it did not confirm. The dialog was cancelled, the result pane stayed empty and no STS or RequestId was created.
+- Verified: credential-free qualification/live preflights preserve all-zero qualification, Attempt, Result, validation, REU, outbox, credential, database-write, capability and paid-operation counts. `authorization-acceptance-v7.json` is intentionally absent because no executable acceptance transition was materialized before cutoff.
+- Next: close revision 7 as terminal and version revision 8. Add a deterministic portal-confirmation start margin before the immutable dispatch cutoff; pre-stage the exact portal controls, and refuse to begin the two-step confirmation if the full margin is unavailable. Any real retry requires a new package hash and exact authorization.
+
+### Revision-8 credential-qualification checkpoint — 2026-08-11
+
+- Completed: implement `ScientificEvidenceP5OperationalTimeline@v3`, a 120-second confirmation-start margin and injectable guards; migrate active preparation/acceptance/runner bindings to revision 8 / attempt 6. Focused eligibility, authorization and timeline tests pass 32/32, strict backend typecheck and the experiment-script typecheck pass.
+- Completed: prepare eligible package `sha256:e677596a212236c269273ea2d510278fa41a8edddd7a3f312849c0e85027d694`, record exact acceptance `authorization-acceptance-v8.json`, and preserve zero preparation effects before the portal call.
+- Closed fail-safe: exactly one controller `AssumeRole` succeeded. Qualification stopped on its first `GetCallerIdentity` request with `InvalidSecurityToken.Malformed`; no qualification retry or replacement credential was permitted. `GetWorkspace`, `GetImage`, live, close execute and both planned Jobs were not entered.
+- Verified: credential/browser/kernel cleanup completed; local Alibaba/capability keys and T-136 runner processes are absent; no credential profile changed. Credential-free live offline preflight reports Attempts, Results, validations, REUs and undelivered integration outboxes all zero. Final accounting is `AssumeRole=1`, qualification reads attempted `1`, `CreateJob=0`, cost CNY `0`, scientific database rows `0`; `M0-SCI` is not passed.
+- Scheduled final safety step: generated and durably verified heartbeat `t-136-r8-sts` will run once at 23:43 Asia/Shanghai, after the recorded 23:42:45 expiration. It may use only current time and non-secret expiration metadata plus local absence/offline-preflight checks, then must delete itself.
+- Completed final safety step: at `2026-08-11T15:44:15.852Z`, the non-secret expiration comparison proved the STS had expired for 90 seconds. Credential/capability variables, T-136 runner processes and qualification/live/close outputs remained absent; the credential-free live preflight preserved the zero-effect census. Delete `t-136-r8-sts`; revision 8 is fully terminal.
+- Next: do not prepare or authorize revision 9 yet. First add a local, zero-cloud-call, zero-secret-output integrity validator for the extracted access-key id, secret and token representation; prove it catches truncation/whitespace/serialization drift before qualification. Then version a new package and obtain new exact authorization. Revision 8 is terminal and non-reusable.
+
+### Post-revision-8 credential-integrity hardening — 2026-08-11
+
+- Completed: add a pure credential-integrity service with exact environment reading, conflicting token-alias rejection, visible-ASCII/length/serialization guards, domain-separated tuple hashing and a strict receipt schema that cannot carry credential fields.
+- Completed: add `scientific-evidence:p5:credential-integrity`. The local-only command emits one receipt plus explicit zero cloud/database/capability/config-write counts, clears its child-process material and writes no file. A malformed token exits with a stable local error code and zero external effects.
+- Completed: require the exact receipt in qualification before `GetCallerIdentity` and in live before qualification-record binding or `CreateJob`. Both stages recompute lengths and the credential-tuple hash; any mismatch clears process material and fails closed.
+- Verified: strict backend and experiment-script typechecks pass; the combined P5 eligibility/authorization/timeline/integrity lane passes 38/38. Positive CLI verification reports no credential values; the truncated-token CLI path fails locally with zero external effects. Qualification/live offline preflights remain credential-free and all-zero.
+- Sequencing constraint: keep active v8 manifest paths until heartbeat `t-136-r8-sts` completes the 23:43 expiration audit. Revision 9 / attempt 7 may be pre-staged afterward, but its system-timed prepared package must not be written until the user is present to review and authorize the resulting hash.
+- Sequencing constraint satisfied: the 23:43 audit passed and revision 8 is fully closed. The next implementation slice may switch active code paths to revision 9 / attempt 7, but must leave `prepared-authorization-v9.json` and its acceptance absent until an attended exact-package authorization sequence begins.
+
+### Revision-9 pre-stage checkpoint — 2026-08-11
+
+- Completed: switch active preparation/qualification/live/close refs to `prepared-authorization-v9.json` and `authorization-acceptance-v9.json`; set the immutable attempt identity to `t136-p5-scifact-attempt-7` and controller session suffix to r9.
+- Completed: isolate provider output, live business keys and Closure idempotency under attempt 7. Revision-8 manifests, output identities and terminal accounting remain immutable history.
+- Completed: move the workload profile to current revision 9 with null package/prepared/acceptance refs, `prepared_package_eligible=false`, both execution/capability authority booleans false and status `awaiting_revision_9_package_materialization`.
+- Verified: strict backend and experiment-script typechecks pass; the combined integrity/eligibility/authorization/timeline lane passes 39/39 including an exact attempt-7→r9 convention case. Active runner scan contains no v8/attempt-6 ref, JSON projection checks and `git diff --check` pass.
+- Current gate: `prepared-authorization-v9.json`, `authorization-acceptance-v9.json` and qualification output remain absent. Do not call preparation with `--write-manifest` until an attended sequence begins, because the first write assigns the immutable system-timed window.
+
+### Revision-9 attended attempt — 2026-08-12
+
+- Completed: materialize and locally validate the exact eligible revision-9 package, record exact user acceptance, and pass qualification/live/close credential-free offline preflights before browser work.
+- Terminal outcome: the portal visibly confirmed the exact RAM user but rejected the controller-role input before an accepted AssumeRole response. The result pane remained empty and exposed no RequestId or credential. No integrity receipt, qualification, live or close execute command ran.
+- Verified: qualification output is absent; the exact-package live offline preflight reports Attempts, Results, validations, REUs and pending integration outboxes all zero. Final accounting is `AssumeRole=0`, qualification reads `0`, `CreateJob=0`, cost CNY `0`, database scientific rows `0`, capability changes `0`; `M0-SCI` is not passed.
+- Next: do not reuse revision 9. Before preparing revision 10, compare the live controller-role trust document read-only with frozen trust hash `sha256:46c14313b4a48378129637fa28153ff640abc81b7d317d784e8c2c6ef25ad257`, and rehearse the portal's typed Duration/Policy controls without submitting. Any real retry requires a fresh attempt/package/hash/acceptance and still forbids RAM mutation.
+
+### Revision-10 readiness diagnostic — 2026-08-12
+
+- Completed: exact visible-principal check plus one authorized `Ram.GetRole`. The live canonical trust hash, maximum session duration, exact principal and AssumeRole Allow all match the frozen controller-role authority; no RAM mutation occurred.
+- Completed: no-submit form rehearsal using encoded URL parameters rather than direct post-mount DOM writes. Numeric Duration, exact Policy, role ARN, readiness session name and empty optional fields remained stable; no AssumeRole control was invoked.
+- Decision: the portal trust warning is contradicted by the successful live GetRole and is not an authority source. Pre-package readiness must use exact caller identity plus a successful canonical GetRole comparison; issuance truth remains a provider RequestId and exact STS response.
+- Verified zero effects: `GetRole=1`; `AssumeRole`, STS, qualification, `CreateJob`, database writes and four capability changes are all `0`. Credential-free live preflight remains all-zero.
+- Next: pre-stage revision 10 / attempt 8 with fresh manifest/output/business/idempotency identities and keep package/acceptance absent. A timed package may be created only while the user is present and requires a new exact authorization.
+
+### Revision-10 attempt-8 pre-stage — 2026-08-12
+
+- Completed: move preparation, qualification, live and close to `prepared-authorization-v10.json` / `authorization-acceptance-v10.json`; version the controller session to r10 and P5 attempt to `t136-p5-scifact-attempt-8`.
+- Completed: isolate OSS result reads/output, live business identity and scientific-close idempotency under attempt 8. Revision 9 remains immutable historical evidence in the workload profile.
+- Completed: project workload authorization to current revision 10 with null package/prepared/acceptance refs, eligibility false, status `awaiting_revision_10_package_materialization` and both authority booleans false.
+- Verified: strict backend and experiment-script typechecks pass; the integrity/eligibility/authorization/timeline lane passes 39/39 including exact attempt-8→r10 convention. Static scan has no v9/attempt-7 active refs; v10 package, acceptance and qualification records are absent; JSON checks and `git diff --check` pass.
+- Gate: do not write the system-timed v10 package until the user explicitly begins an attended sequence. Package write is followed by hash reporting and a new exact authorization, not automatic browser/cloud execution.
+
+### Revision-10 attended attempt — 2026-08-12
+
+- Completed: materialize eligible attempt-8 package `sha256:2a45a05327695fec4a7efc9b771142f27ef9dfdbbac463ec2b69eea758a0ed61`; preparation read no credential and made no cloud call, database write, capability change or `CreateJob` call.
+- Terminal outcome: reject the received execution text before acceptance because its portal-start deadline 06:30:45.826 is later than its unchanged AssumeRole dispatch deadline 06:12:45.826 and qualification/live deadline 06:17:45.826. The text arrived at approximately 06:28 Asia/Shanghai, after both operative deadlines.
+- Verified zero effects: `authorization-acceptance-v10.json` and `credential-qualification-v1.json` are absent; qualification/live/close offline preflights pass with Attempts, Results, validations, REUs, outboxes, Closures and Packets all zero. `AssumeRole=0`, qualification reads `0`, `CreateJob=0`, cost CNY `0`, scientific database rows `0` and capability changes `0`.
+- Next: version revision 11 / attempt 9 before any new timed package. A future authorization must preserve the package-derived chronological ordering and cannot extend only one earlier-stage deadline while leaving later prerequisites already expired.
+
+### Revision-11 attempt-9 pre-stage — 2026-08-12
+
+- Completed: switch active preparation, qualification, live and close paths to `prepared-authorization-v11.json` / `authorization-acceptance-v11.json`; set the operational attempt to `t136-p5-scifact-attempt-9` and controller session suffix to r11.
+- Completed: isolate the session-policy OSS resource, provider output prefix, live business key and scientific-close idempotency key under attempt 9. Revision-10 package/hash/ref/final status remain immutable workload-profile history.
+- Completed: project current revision 11 with null package/prepared/acceptance refs, eligibility false, status `awaiting_revision_11_package_materialization` and both authority booleans false.
+- Verified: strict backend and experiment-script typechecks pass; the integrity/eligibility/authorization/timeline lane passes 39/39 including attempt-9→r11 convention. Active-path scan contains no v10/attempt-8/r10 references; v11 package, acceptance and qualification records remain absent; JSON checks and `git diff --check` pass.
+- Gate: do not create the system-timed v11 package until the user explicitly starts a newly attended sequence. Package creation reports new hashes first; browser/cloud work requires a later exact, internally ordered and still-usable authorization.
+
+### Revision-12 attempt-10 execution — 2026-08-12
+
+- Completed local pre-stage: active refs, attempt/output/business/idempotency identities and controller session moved to revision 12 / attempt 10 / r12. Strict backend and script typechecks passed; the focused P5 lane passed 42/42.
+- Completed recovery/package gate: fresh schema and exact 114-table authority-data dumps plus a hash-bound recovery manifest were created outside the repository. The first package command failed before write because the old recovery artifact was absent; the second failed before write because the validator still required a pre-Run recovery timestamp. The validator now accepts a recovery point created before immutable issuance begins, and focused tests cover both admitted and late cases. The third command materialized the eligible package once.
+- Completed exact acceptance and attended issuance: one r12 `AssumeRole` succeeded and no RAM mutation occurred.
+- Terminal qualification: local integrity initially failed on a visually truncated token and was improperly retried; the sole qualification invocation then made two read-only calls and failed the exact workspace-id assertion. No GetImage, paid call, provider write, database write or capability enable followed.
+- Current authority is false. The mandatory post-expiration audit passed with no credential or scientific/runtime effect.
+- Next: stop for an explicit review/fix decision. Do not infer authority for revision 13 from this plan.
+
+### Post-revision-12 local sequence and response hardening — 2026-08-12
+
+- Completed: add an attempt-level execution lock plus package/attempt-bound `ScientificEvidenceP5AttemptStageClaim@v1`, `ScientificEvidenceP5AttemptStageCompletion@v1` and `ScientificEvidenceP5AttemptTerminal@v1`. The centralized chain is integrity → qualification → live → close; a claim is permanent, a completion requires its matching claim and non-decreasing timestamp, and any claimed operation or prerequisite failure records one immutable terminal fact.
+- Completed: all four execute entries hold the same lock across claim, predecessor verification, operation cleanup and completion publication. Same-stage and cross-stage concurrency are refused before the losing entry claims or terminalizes; orphan lock/claim states fail closed without automatic reclaim. Offline preflight remains credential-free and reports terminal presence without creating a claim or reviving execution authority.
+- Completed: replace typed-only `GetWorkspace` identity extraction with the same single ROA `GetWorkspace` request through the locked SDK client's raw `callApi` boundary. Normalize only response-owned Pascal/camel aliases, accept positive safe-integer or canonical decimal-string IDs, reject absence/conflict/malformed/mismatch, and never substitute the requested path.
+- Verified: 58 focused P5 tests pass, including the four-stage success chain, all three adjacent cross-stage races, upstream-failure propagation, orphan attempt-lock behavior, lock-release/double-failure terminal accounting, same-stage concurrency, out-of-order terminalization, orphan completion/claim rejection, completion time ordering, terminal binding/race/tamper and raw `GetWorkspace` request/response normalization. Strict typechecks, full shared/backend suites, diff/security scans and all three credential-free offline preflights pass. The named-local database remains at zero Attempts/Results/validations/REUs/outboxes and no historical revision-12 execution record was materialized.
+- Gate: local implementation is ready as the stable T-136 baseline. Do not pre-stage or authorize revision 13 from this implementation step.
+
+### Quality and cleanup checkpoint — 2026-08-12
+
+- Independent review requested changes for a same-stage check→use race, prerequisite-before-claim retryability and a cross-stage active-operation race. They are closed by one attempt-level execution lock and a centralized fixed-order state machine whose permanent claim precedes every predecessor/operation boundary.
+- Success output is emitted only after operation cleanup and durable completion publication. Failure output contains a stable `T136_P5_*` reason code; provider or credential-derived error text is not surfaced.
+- Runtime compatibility branches for P5 operational timelines and package/eligibility hash profiles v1/v2 were removed. Contract v3 is the sole executable path; older revisions survive only as historical hashes/statuses in the audit documentation and workload projection.
+- Generated preparation/acceptance manifests v1-v11 were removed; only the final revision-12 historical package and acceptance remain as the current deterministic test/audit fixture. The retained P5 runners remain maintained acceptance harnesses, not transient attempt scripts.
+- Tracked desktop `dist/` output, untracked build caches, bytecode, logs and task scratch artifacts were removed. The two named-local recovery dumps under `.ai/.tmp/db-recovery/` were deliberately retained because the active recovery runbook still names them as restore sources.
+- Current planning boundary: `M0-SCI` is still not passed. The next product action, if chosen later, is revision 13 under fresh authority; it is not part of this cleanup/commit checkpoint.

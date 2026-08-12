@@ -26,6 +26,7 @@ import type {
 import type {
   ExperimentFoundationExecutableRunRecipeSnapshotV2,
   ExperimentFoundationExecutableTrainingTaskSpecSnapshotV2,
+  ExperimentFoundationExecutionBundleContent,
   ExperimentFoundationExecutionBundleExactRevisionRefV2,
 } from './experiment-foundation-real-provider-v2-contracts.js';
 import type {
@@ -107,6 +108,11 @@ export const EXPERIMENT_V2_HASH_PROFILES = Object.freeze([
   'pi-cycle-closure-watermark-json@v1',
   'pi-cycle-closure-json@v1',
   'pi-result-interpretation-packet-json@v2',
+  'm0-sci-p5-execution-package-json@v3',
+  'm0-sci-p5-control-plane-session-policy-json@v1',
+  'm0-sci-p5-credential-qualification-json@v1',
+  'm0-sci-p5-authority-snapshot-json@v1',
+  'm0-sci-p5-eligibility-record-json@v3',
   'pi-semantic-source-json@v1',
   'pi-semantic-document-json@v1',
   'pi-semantic-embedding-json@v1',
@@ -456,6 +462,18 @@ export function serverHashExperimentFoundationProviderControlV2Semantic(
     record_kind: recordKind,
     schema_version: 'v1',
     hash_profile: 'ef-provider-control-json@v1',
+    content,
+  });
+}
+
+/** Sole canonical content hash for a frozen ExecutionBundle revision. */
+export function serverHashExperimentFoundationExecutionBundleRevisionV2(
+  content: ExperimentFoundationExecutionBundleContent,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ExecutionBundleRevision',
+    schema_version: content.execution_bundle_schema_version,
+    hash_profile: 'ef-execution-bundle-semantic-json@v1',
     content,
   });
 }
@@ -903,6 +921,61 @@ export function serverHashPaperImplementationResultInterpretationPacketV2(
     record_kind: 'PaperImplementationResultInterpretationPacket',
     schema_version: 'PaperImplementationResultInterpretationPacket@v2',
     hash_profile: 'pi-result-interpretation-packet-json@v2',
+    content,
+  });
+}
+
+export function serverHashScientificEvidenceP5ExecutionPackageV3(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ScientificEvidenceP5ExecutionPackage',
+    schema_version: 'ScientificEvidenceP5ExecutionPackage@v3',
+    hash_profile: 'm0-sci-p5-execution-package-json@v3',
+    content,
+  });
+}
+
+export function serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ScientificEvidenceP5ControlPlaneSessionPolicy',
+    schema_version: 'ScientificEvidenceP5ControlPlaneSessionPolicy@v1',
+    hash_profile: 'm0-sci-p5-control-plane-session-policy-json@v1',
+    content,
+  });
+}
+
+export function serverHashScientificEvidenceP5CredentialQualificationV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ScientificEvidenceP5CredentialQualification',
+    schema_version: 'ScientificEvidenceP5CredentialQualification@v1',
+    hash_profile: 'm0-sci-p5-credential-qualification-json@v1',
+    content,
+  });
+}
+
+export function serverHashScientificEvidenceP5AuthoritySnapshotV1(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ScientificEvidenceP5AuthoritySnapshot',
+    schema_version: 'ScientificEvidenceP5AuthoritySnapshot@v1',
+    hash_profile: 'm0-sci-p5-authority-snapshot-json@v1',
+    content,
+  });
+}
+
+export function serverHashScientificEvidenceP5EligibilityRecordV3(
+  content: unknown,
+): string {
+  return serverHashExperimentV2SemanticContent({
+    record_kind: 'ScientificEvidenceP5EligibilityRecord',
+    schema_version: 'ScientificEvidenceP5EligibilityRecord@v3',
+    hash_profile: 'm0-sci-p5-eligibility-record-json@v3',
     content,
   });
 }

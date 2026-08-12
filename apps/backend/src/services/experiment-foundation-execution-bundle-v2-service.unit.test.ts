@@ -4,6 +4,9 @@ import test from 'node:test';
 import type {
   ExperimentFoundationExecutionBundleContentV2,
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-real-provider-v2-contracts';
+import {
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_VERSION_V1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-foundation-scientific-source-v1-contracts';
 
 import type {
   ExperimentFoundationExecutionBundleDraftBundleV2,
@@ -19,6 +22,11 @@ import {
   createRealProviderV2TestFixture,
   REAL_PROVIDER_TEST_NOW,
 } from './experiment-foundation-real-provider-v2-test-fixture.js';
+import {
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_HASH_V1,
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
+  EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
+} from './experiment-foundation-scientific-source-v1-service.js';
 
 test('QR-2 production-default bundle ids are deterministic and distinct across keys and sequences', async () => {
   const [left, right] = await Promise.all([
@@ -170,6 +178,127 @@ test('provider-managed image freezes and resolves as an exact v2 revision', asyn
   );
 });
 
+test('provider-managed scientific scope requires and freezes exact scientific bindings', async () => {
+  const fixture = createRealProviderV2TestFixture();
+  const repository = new InMemoryExecutionBundleV2Repository();
+  const service = new ExperimentFoundationExecutionBundleV2Service({
+    repository,
+    now: () => REAL_PROVIDER_TEST_NOW,
+  });
+  const diagnosticWithScientificBinding = scientificProviderManagedContent(
+    fixture.bundle.revision_content,
+  );
+  diagnosticWithScientificBinding.container_image.provider_managed_asset.permitted_scope =
+    'm7_l1_diagnostic_only';
+  await assert.rejects(
+    service.putDraft({
+      bundle_key: 'provider-image-scope-mismatch',
+      display_name: 'Provider image scope mismatch',
+      expected_draft_version: null,
+      draft_content: diagnosticWithScientificBinding,
+    }),
+    (error: unknown) => (
+      error instanceof Error
+      && 'reasonCode' in error
+      && error.reasonCode === 'EXECUTION_BUNDLE_INVALID'
+    ),
+  );
+
+  await service.putDraft({
+    bundle_key: 'provider-image-scientific-v2',
+    display_name: 'Provider image scientific v2',
+    expected_draft_version: null,
+    draft_content: scientificProviderManagedContent(fixture.bundle.revision_content),
+  });
+  const frozen = await service.freezeActiveRevision({
+    bundle_key: 'provider-image-scientific-v2',
+    expected_draft_version: 1,
+  });
+  assert.equal(
+    frozen.revision.revision_content.output_contract.scientific_result_schema_version,
+    EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_VERSION_V1,
+  );
+});
+
+test('one exact Dataset revision may bind multiple unique mirror parts', async () => {
+  const fixture = createRealProviderV2TestFixture();
+  const repository = new InMemoryExecutionBundleV2Repository();
+  const service = new ExperimentFoundationExecutionBundleV2Service({
+    repository,
+    now: () => REAL_PROVIDER_TEST_NOW,
+  });
+  const content = scientificProviderManagedContent(fixture.bundle.revision_content);
+  const firstMirror = content.dataset_mirrors[0];
+  assert.ok(firstMirror);
+  content.dataset_mirrors.push({
+    ...structuredClone(firstMirror),
+    ordinal: 2,
+    object_ref: `${firstMirror.object_ref}qrels.tsv`,
+    content_digest: `sha256:${'8'.repeat(64)}`,
+    byte_size: 4096,
+  });
+
+  await service.putDraft({
+    bundle_key: 'multi-part-dataset-revision',
+    display_name: 'Multi-part Dataset revision',
+    expected_draft_version: null,
+    draft_content: content,
+  });
+  const frozen = await service.freezeActiveRevision({
+    bundle_key: 'multi-part-dataset-revision',
+    expected_draft_version: 1,
+  });
+  assert.equal(frozen.revision.revision_content.dataset_mirrors.length, 2);
+  assert.equal(
+    frozen.revision.revision_content.dataset_mirrors[0]?.dataset_revision.revision_id,
+    frozen.revision.revision_content.dataset_mirrors[1]?.dataset_revision.revision_id,
+  );
+});
+
+test('multi-part mirrors reject object reuse and revision identity drift', async () => {
+  const fixture = createRealProviderV2TestFixture();
+  const firstMirror = fixture.bundle.revision_content.dataset_mirrors[0];
+  assert.ok(firstMirror);
+
+  for (const secondMirror of [
+    {
+      ...structuredClone(firstMirror),
+      ordinal: 2,
+    },
+    {
+      ...structuredClone(firstMirror),
+      ordinal: 2,
+      object_ref: `${firstMirror.object_ref}qrels.tsv`,
+      dataset_revision: {
+        ...firstMirror.dataset_revision,
+        content_hash: `sha256:${'9'.repeat(64)}`,
+      },
+    },
+  ]) {
+    const repository = new InMemoryExecutionBundleV2Repository();
+    const service = new ExperimentFoundationExecutionBundleV2Service({
+      repository,
+      now: () => REAL_PROVIDER_TEST_NOW,
+    });
+    await assert.rejects(
+      service.putDraft({
+        bundle_key: `invalid-multi-part-${secondMirror.object_ref}`,
+        display_name: 'Invalid multi-part Dataset revision',
+        expected_draft_version: null,
+        draft_content: {
+          ...fixture.bundle.revision_content,
+          dataset_mirrors: [firstMirror, secondMirror],
+        },
+      }),
+      (error: unknown) => (
+        error instanceof Error
+        && 'reasonCode' in error
+        && error.reasonCode === 'EXECUTION_BUNDLE_INVALID'
+      ),
+    );
+  }
+});
+
 function providerManagedContent(
   content: ReturnType<typeof createRealProviderV2TestFixture>['bundle']['revision_content'],
   imageRef =
@@ -191,6 +320,30 @@ function providerManagedContent(
         source_type: 'Import',
         permitted_scope: 'm7_l1_diagnostic_only',
       },
+    },
+  };
+}
+
+function scientificProviderManagedContent(
+  content: ReturnType<typeof createRealProviderV2TestFixture>['bundle']['revision_content'],
+): ExperimentFoundationExecutionBundleContentV2 {
+  const scientific = providerManagedContent(content);
+  return {
+    ...scientific,
+    container_image: {
+      ...scientific.container_image,
+      provider_managed_asset: {
+        ...scientific.container_image.provider_managed_asset,
+        permitted_scope: 'm0_sci_p5_scientific_only',
+      },
+    },
+    output_contract: {
+      ...scientific.output_contract,
+      parser_profile_version: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
+      parser_profile_hash: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_HASH_V1,
+      scientific_result_schema_version:
+        EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_VERSION_V1,
+      scientific_result_schema_hash: EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
     },
   };
 }

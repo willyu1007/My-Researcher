@@ -358,7 +358,7 @@ async function main(): Promise<void> {
         job_id: externalJobRef.job_id,
         provider_status: synced.provider_status,
         normalized_state: synced.normalized_state,
-        result_manifest_hash: collected.result_manifest_hash,
+        result_manifest_hash: collected.outcome.result_manifest_hash,
         create_job_call_count: live.createJobCallCount(),
         database_write_count: 0,
         scientific_evidence_write_count: 0,

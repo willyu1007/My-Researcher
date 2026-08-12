@@ -62,6 +62,7 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Never add redundant composite unique indexes solely to persuade Prisma that an already uniquely owned optional relation is one-to-one. Keep the physical scalar ownership fence and use list reverse navigation when singular navigation would inflate the schema. Search: `list-valued back-navigation`, `DB-B`.
 - Never use the randomized-schema smoke lane as the sole verdict for a migration history containing `pgvector`; the extension type installed in `public` is not visible under its isolated search path. Confirm with a fresh disposable database and zero drift. Search: `type vector does not exist`, `ci:prisma-smoke`.
 - Never let historical v1 validation tests fall through to the default product reader. Legacy Result validation must opt into the same explicit test/migration-only compatibility switch as the legacy observation writer. Search: `legacyObservationWriterEnabled`, `loadSourceBoundRunResults`.
+- Never send portal-extracted STS fields into a one-shot qualification call without a local, secret-safe integrity check. Validate representation and handoff without logging values or calling the cloud; qualification failure remains terminal. Search: `InvalidSecurityToken.Malformed`, `credential integrity`.
 - Never replace the exact D-19 dependency manifest with a reduced protocol merely to exercise CMP-B1 after materialization. Preserve all locked dependencies and narrow only required scientific rules/slots. Search: `assertD19DependencyParity`, `23 locked dependencies`.
 
 ## Pitfall log
@@ -184,3 +185,171 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Root cause: the resolver checked several mirrors independently but did not reconstruct the one expected official admission identity from the runtime envelope or compare every row/payload field back to that source.
 - Fix/workaround: rebuild the official identity from the immutable runtime envelope and fixed policy, then reconcile the full row, payload, identity/hash, refs, schemas, hash vectors, issues and warnings. The disposable relation test mutates only the payload schema field and proves zero Closure/outbox writes.
 - Prevention: authorization records must be verified against an independent authoritative source; schema validity plus self-consistent hashing proves internal consistency, not eligibility.
+
+### 2026-08-09 — P5 projections can accidentally create a second scientific identity track
+
+- Symptom: the first P5 kernel sketch introduced package-local hashes for protocol, cell, parser, metric/statistic and aggregation projections even though canonical WorkOrder, RunCell, TaskSpec and EvaluationProtocol identities already exist.
+- Root cause: a compact eligibility manifest was treated as a new semantic model instead of a hash-bound view of existing authorities. That makes assignment timing unclear and allows package values to drift while their referenced domain hashes remain superficially valid.
+- Fix/workaround: embed the existing exact domain objects, recompute their established hashes and compare only the one allowed parameter difference plus normalized execution-critical TaskSpec fields. Keep new P5 fields limited to provider/workload, operation/cost, capability/window, credential and named-local recovery controls.
+- Prevention: a P5 package may bind or project an existing authority, but the package must never mint an alternate protocol/cell/result identity. Every scientific value must name its sole existing assigner and canonical hash profile.
+
+### 2026-08-09 — Diagnostic asset revisions cannot be relabeled as scientific
+
+- Symptom: the SciFact corpus/query bytes already exist under T-132, which initially suggested that their DataPolicy/Dataset revisions could be referenced directly by P5.
+- Root cause: those revisions explicitly freeze `m7_l1_diagnostic_only` and `scientific_evidence_ineligible`. Byte identity does not erase the owning revision's policy or confer scientific eligibility.
+- Fix/workaround: remotely verify and reuse only byte-identical OSS objects, then create new T-136 scientific DataPolicy/Dataset revisions and a new scientific ExecutionBundle. Never edit, relabel or trust-upgrade T-132 rows.
+- Prevention: separate storage-object reuse from authority-revision reuse in every preparation plan; scientific eligibility follows the immutable policy/revision, not the fact that bytes are already stored.
+
+### 2026-08-09 — A full named-local data dump over-captured unrelated domains
+
+- Symptom: the initial full schema+data recovery dump grew beyond 3 GB even though the T-136 authority census was small.
+- Root cause: the named-local database also contains large Literature payload tables unrelated to P5 materialization and rollback.
+- What was tried: a PostgreSQL 17 full custom-format dump after correcting a Prisma-only URL query and a PostgreSQL 14/17 client-server mismatch. The valid dump was stopped once its unrelated scope became clear; the incomplete file was removed.
+- Fix/workaround: retain a full schema-only dump plus scoped data for 114 ExperimentFoundation, PaperImplementation and Validation authority tables. The recovery manifest fixes the three-stage restore order into a separately approved empty target.
+- Prevention: size and classify named-local tables before recovery capture, and bind recovery scope to the exact aggregates that the planned mutation can affect. Do not retain an incomplete oversized artifact merely because generation already consumed time.
+
+### 2026-08-09 — Dataset identity and mirror-part identity are different layers
+
+- Symptom: the ExecutionBundle validator required every mirror to name a different Dataset revision, which would force queries and qrels into separate scientific Dataset identities even though the frozen evaluation input is their exact pair.
+- Root cause: object-part uniqueness was conflated with Dataset semantic identity.
+- Fix/workaround: allow repeated canonically identical Dataset revision refs across mirrors, require contiguous ordinals and globally unique object refs, and reject any same-revision identity drift. Queries and qrels now remain two exact parts of one evaluation-input Dataset.
+- Prevention: enforce uniqueness according to the owning layer. Dataset revision identifies scientific semantics; mirror ordinal/object ref identifies one mounted byte part.
+
+### 2026-08-09 — Final readiness requires passed readiness for new dependencies
+
+- Symptom: the first stage-one attempt created all seven scientific assets but the EvaluationProtocol readiness was blocked on six new dependencies even though their lifecycle projections were active.
+- Root cause: the plan counted only the final protocol attestation and overlooked the evaluator's dependency-readiness rule.
+- Fix/workaround: census and transactionally remove the exact 84 failed-attempt rows, verify historical sentinels unchanged, then create passed attestations in dependency order: policies, datasets/metric, benchmark, protocol. The corrected reviewed ceiling is 146 rows.
+- Prevention: dry-run the complete readiness graph, not only lifecycle state and transitive dependency count, before the first durable authority write.
+
+### 2026-08-09 — Large terminal injections can truncate without a visible transport error
+
+- Symptom: one long Cloud Shell terminal injection ended before the complete entrypoint payload and left an unterminated shell command.
+- Root cause: browser-terminal typing has a practical payload boundary independent of shell syntax and OSS tooling.
+- Fix/workaround: close the incomplete command safely, transfer large base64 content in short numbered chunks, then verify byte count and SHA-256 before any upload. Remove both Cloud Shell and local staging afterward.
+- Prevention: keep browser-terminal commands short, make chunk order explicit and treat end-to-end digest verification as mandatory.
+
+### 2026-08-09 — STS cleanup is expiration plus local erasure, not IAM revocation
+
+- Symptom: the prepared authorization requested active post-run revocation of one STS session, but the provider exposes automatic session expiration rather than a per-session revoke operation.
+- Root cause: local credential deletion, STS-session invalidation and broader RAM authority mutation were initially treated as one generic cleanup action even though they have different owners and blast radii.
+- Fix/workaround: the user replaced the impossible action with an exact 3,600-second token issued at 10:00, immediate process/local-profile erasure, automatic expiry by 11:00 and an after-window expiry check. The current acceptance record now states `manual_revocation_required=false`; no RAM role or policy mutation is authorized.
+- Prevention: freeze credential issuance, storage, erasure, provider expiry and IAM mutation as separate fields. Never claim local erasure revoked a provider session, and never mutate a role/policy as a cleanup substitute without separate authorization.
+
+### 2026-08-10 — PAI runtime role is not the local control-plane credential role
+
+- Symptom: the first revision-2 STS preparation targeted `pea-m7-canary-runtime`; the OpenAPI page correctly reported that the logged-in RAM user was not trusted by that role.
+- Root cause: the PAI Job workload's `runtime_role_arn` was reused as the local runner's AssumeRole target even though these identities have different owners and permission surfaces.
+- What was tried: the exact-boundary browser action failed before dispatch and no STS was issued. No trust-policy change or retry was attempted.
+- Fix/workaround: read-only RAM evidence identified the existing `pea-m7-canary-controller`, which already trusts `user_0002`, carries the required control-plane v4 policy and can pass only the exact runtime role. Revision 3 models and hashes both roles separately.
+- Prevention: every provider package must name control-plane principal, assumed controller role and workload runtime role independently; eligibility rejects equal controller/runtime ARNs and credential qualification must pass before paid execution.
+
+### 2026-08-10 — A five-minute issuance window also bounds secure credential handoff
+
+- Symptom: the one authorized controller `AssumeRole` succeeded at 08:27:23, but credential qualification failed locally at 08:30:23 with `T136_P5_QUALIFICATION_OUTSIDE_ISSUANCE_WINDOW` before its first read-only cloud call.
+- Root cause: the revision-3 package correctly gates qualification to the issuance window, while the operational budget treated the full five minutes as available for issuing STS and did not reserve enough time for console response capture, in-memory extraction, validation and child-process startup.
+- Fix/workaround: stop fail-closed, clear the credential, issue no replacement and perform no paid execution. A future package should give issuance/handoff its own explicit deadline or reserve a deterministic handoff margin before the qualification cutoff; it must still preserve exact TTL, latest expiration and zero-retry semantics.
+- Prevention: acceptance planning must budget console latency and secure process handoff as first-class timed steps. Preflight should calculate the latest safe AssumeRole dispatch time from a measured handoff ceiling instead of allowing dispatch until the qualification window's final second.
+
+### 2026-08-11 — Rendering an automation card does not prove scheduler persistence
+
+- Symptom: the app displayed a card for `t-136-p5-revision-4-execution`, but the task did not wake at 06:55 and the 07:00–08:30 authorization window passed unused.
+- Root cause: the create call was treated as successful based on presentation output without obtaining a generated persistent id or verifying scheduler/durable state. The local automation store stayed empty and the claimed id later returned `not_found`.
+- Fix/workaround: expire the package fail-safe with zero cloud effects; do not perform a late execution. For a future attempt, let the automation service generate the id, verify view plus durable record and run a harmless rehearsal wakeup before the authorized date.
+- Prevention: automation readiness requires four independent facts—generated id, API view, durable record and rehearsal trigger. A visible card is not one of the execution-authority or scheduling acceptance facts.
+
+### 2026-08-11 — An immediate exact start can expire during local package versioning
+
+- Symptom: the user confirmed 21:35, but the new revision-5 package completed at 21:36:53, after its 21:35:30 issuance cutoff.
+- Root cause: a new immutable operational attempt required active-path versioning and regression checks, but the selected start left no preparation budget.
+- Fix/workaround: retain the package as unauthorized expired evidence, keep all effects zero and pre-stage the next operational revision before requesting another time.
+- Prevention: only offer a start after the next revision path is typechecked and ready; reserve a minimum explicit user-response and authorization margin instead of measuring from the current minute.
+
+### 2026-08-11 — A logged-in cloud portal is not proof of the authorized RAM principal
+
+- Symptom: revision 6 had a valid system-timed package and exact authorization, but the claimed OpenAPI tab repeatedly displayed the prohibition against calling AssumeRole with a main account and returned neither RequestId nor STS material.
+- Root cause: browser session availability was treated as sufficient readiness even though the package authorized only `acs:ram::1183869713036194:user/user_0002`. A logged-in tab proves neither that exact source principal nor that an AssumeRole confirmation would execute under it.
+- Fix/workaround: stop before credential issuance, allow the dispatch window to expire and reconfirm zero effects. Do not change RAM trust/policy, use another principal or issue a late/replacement credential.
+- Prevention: establish the exact visible RAM-user identity before starting the package-created clock. Package preparation may be immediate, but browser identity readiness must be a precondition rather than a timed step inside the issuance window.
+
+### 2026-08-11 — The portal submit button is not the AssumeRole dispatch boundary
+
+- Symptom: revision 7 clicked `发起调用` at 22:19:33.100, before the 22:19:46.542 dispatch cutoff, but Alibaba opened a separate safety-confirmation dialog. The confirmation guard ran at 22:19:59.239 and correctly refused the now-late action.
+- Root cause: the operational timeline budgeted the provider dispatch deadline but did not reserve a distinct margin for the portal's two-step submit/confirm flow and local automation latency. The first UI action does not produce a RequestId or credential and therefore is not the dispatch.
+- What was tried: select the exact controller-role suggestion, invoke the form action, locate the unique safety-confirmation control and recheck the immutable cutoff immediately before the final action. Once late, the dialog was cancelled and no retry or replacement call was made.
+- Fix/workaround: close revision 7 with zero paid effects and keep its package non-reusable. Version revision 8 with a deterministic confirmation-start margin before dispatch cutoff, and refuse to open the safety dialog unless that full margin remains.
+- Prevention: distinguish UI preparation, safety confirmation and provider API dispatch in the timeline. Pre-stage the exact form controls before package creation, test locator uniqueness without confirming, and require a conservative local buffer before beginning the final two-step action.
+
+### 2026-08-11 — A successful AssumeRole response does not prove secure extraction integrity
+
+- Symptom: revision 8 received one exact controller-role STS response, but the first qualification request failed with `InvalidSecurityToken.Malformed` before caller identity could be established.
+- Root cause: not proven. The failure is consistent with representation damage somewhere between the portal response and the bounded child-process environment, but the terminal no-retry boundary intentionally prevented further cloud probing.
+- What was tried: parse the portal response in memory, pass the three credential fields only to the qualification child environment and keep every product capability false. After the single failure, no re-extraction, replacement issuance, qualification retry or paid action occurred.
+- Fix/workaround: close revision 8 with zero paid/scientific effects, clear all credential-bearing state, remove the response page and reset the persistent kernel. Do not reuse the issued credential or package.
+- Prevention: before another attempt, add a local-only validator for access-key shape, token length/character integrity, whitespace/quoting and environment round-trip. It must output only booleans/lengths or hashes that cannot disclose credential material, make zero cloud calls and run before the one permitted qualification request.
+- Resolution update: the local receipt gate is now implemented and enforced before both qualification and live cloud calls. The root cause of revision 8 remains intentionally unclaimed; the new gate prevents the known representation-damage classes without rewriting that historical diagnosis.
+
+### 2026-08-12 — Direct DOM values do not prove a controlled cloud form accepted them
+
+- Symptom: revision 9 read back exact values from the page's native input elements, but the visible controlled form later showed Duration as a non-numeric value, cleared Policy and reported a controller-role trust mismatch; the result pane remained empty.
+- Root cause: direct DOM value equality was treated as equivalent to provider-form state acceptance. The portal's controlled inputs perform their own typed/stateful validation, and the current trust warning also requires a separate live-authority comparison before another package. No claim is made that the server-side trust document changed.
+- What was tried: enter the exact r9 policy/session values, verify native input values, submit once, confirm the visible RAM identity, reload the stale pre-login page and re-enter the same values. No attempt produced a RequestId, credential or call result.
+- Fix/workaround: terminate revision 9 before issuance, preserve zero effects, and require a no-submit visible-form rehearsal plus a separately bounded read-only trust-policy comparison before revision 10. Do not modify RAM or infer issuance from button activation.
+- Prevention: pre-package browser readiness must validate the framework-controlled form state, not only DOM properties. The execution guard must require visible typed-field acceptance, exact Policy persistence, exact caller identity and absence of trust warnings before starting a timed package.
+- Resolution update: encoded URL parameters now prove stable typed/provider-controlled values without submitting. The earlier requirement for absence of trust warnings is superseded: a successful exact live GetRole proved the warning can remain despite matching trust. Readiness must compare authoritative live trust; the warning is recorded but not treated as authority.
+
+### 2026-08-12 — Portal trust warnings are not RAM authority evidence
+
+- Symptom: the AssumeRole page continued to say the role did not trust the caller while the immediately preceding authorized GetRole succeeded and returned the exact frozen trust document.
+- Root cause: the portal's client-side trust validator is not the canonical RAM role source and can disagree with the live GetRole response. The exact internal cause of that portal disagreement was not investigated because no additional provider calls were authorized or needed.
+- What was tried: reconfirm exact RAM identity, call GetRole once, canonicalize/hash the decoded policy, then load the complete AssumeRole form through URL parameters without submitting. Every authoritative field matched while the warning persisted.
+- Fix/workaround: use exact principal identity plus canonical GetRole comparison for pre-package readiness; treat the portal warning as advisory only. Continue to require an actual provider RequestId/STS response before counting issuance.
+- Prevention: never promote provider UI validation text into an authorization fact when a canonical read API exists. Record contradictions explicitly, but do not change RAM or widen permissions to satisfy a client warning.
+
+### 2026-08-12 — Extending portal start alone cannot revive an expired execution timeline
+
+- Symptom: the revision-10 authorization text changed portal confirmation start to 06:30:45.826 but retained an AssumeRole cutoff of 06:12:45.826 and qualification/live cutoff of 06:17:45.826; the text arrived around 06:28.
+- Root cause: one stage deadline was edited independently of the immutable package-derived timeline, producing a sequence in which the prerequisite dispatch and handoff stages expired before the portal was allowed to start.
+- What was tried: compare the received times with the prepared package and current system clock, then run only credential-free qualification/live/close offline preflights. No browser or cloud operation was attempted.
+- Fix/workaround: reject the text before creating an acceptance, terminalize revision 10 with zero effects and require a new package for revision 11. Never reinterpret a later portal-start timestamp as an implicit extension of earlier or downstream deadlines.
+- Prevention: before persisting acceptance, enforce both exact package equality and chronological satisfiability at receipt: `portal_start <= dispatch <= qualification/live <= credential_stop`, with sufficient remaining margins. Any changed timeline requires package regeneration and a new hash-bound authorization.
+
+### 2026-08-12 — A role ARN and an assumed-role session ARN are different canonical identities
+
+- Symptom: revision 11 passed local credential integrity and the only `GetCallerIdentity` call succeeded, but qualification failed exact equality before Workspace/Image reads.
+- Root cause: the qualifier built its expected caller identity as `${controller_role_arn}/${session_name}`. Alibaba STS canonically changes the resource type from `role` to `assumed-role`, so the correct session identity is `acs:ram::<account>:assumed-role/<role-name>/<session-name>` rather than `acs:ram::<account>:role/<role-name>/<session-name>`.
+- What was tried: exactly one authorized qualification invocation. After the local assertion failed, the attempt stopped; no retry, replacement credential, paid Job or capability enable followed.
+- Fix/workaround: expire and retire revision 11. Before a new attempt, parse the frozen source role ARN and deterministically construct one exact expected assumed-role-session ARN; add strict positive and wrong-account/role/session/resource-type negative tests.
+- Prevention: model source role identity and assumed session principal identity as separate typed forms. Cross-form comparison must use one explicit canonical derivation, never string append or loose matching.
+- Resolution update: `buildScientificEvidenceP5AssumedRoleSessionArn()` now owns the explicit derivation and is shared by the live qualifier and durable qualification validator. Exact and five drift classes pass focused regression coverage; revision 11 remains historical and non-reusable.
+
+### 2026-08-12 — A local-only retry can still violate an exact cloud execution sequence
+
+- Symptom: the first revision-12 credential-integrity invocation failed before any qualification API, but the response was re-extracted and the local command was run again; qualification then continued.
+- Root cause: zero external effect was incorrectly treated as sufficient authority to recover from a local representation failure. The exact acceptance instead said any receipt-generation failure must stop without retry.
+- What was tried: visible Monaco text first, then full editor selection with immediate clipboard erasure. The latter recovered the complete token and produced a valid receipt, but it did not restore sequence authority after the first terminal failure.
+- Fix/workaround: terminalize revision 12, clear authority and make no paid call. Record both integrity invocations and the later qualification reads rather than describing the run as conforming.
+- Prevention: represent the attended sequence as an explicit monotonic state machine. A terminal failure bit must prevent every later credential-integrity, qualification and live entry regardless of whether the failed step was local-only.
+- Resolution update: a centralized package/attempt state machine now owns permanent claim, matching completion and terminal records for all four execute stages. It claims before predecessor checks, rejects out-of-order calls permanently, and checks terminal state before credentials, cloud, capability or database work; only stable non-secret reason codes persist.
+
+### 2026-08-12 — Visible Monaco text is not the raw credential response
+
+- Symptom: DOM/body extraction produced a security-token string containing Unicode ellipsis and failed the visible-ASCII integrity gate; full editor selection produced a longer valid representation.
+- Root cause: the portal virtualizes and visually abbreviates long string values. Rendered text is a presentation projection, not the editor model's raw response.
+- Fix/workaround: revision 12 used full editor selection once, cleared the clipboard immediately and retained no credential value. This recovered representation integrity but cannot cure the separate no-retry violation.
+- A redaction diagnostic also printed an incomplete rendered token fragment to transient tool output. The full token and credential tuple were not emitted or persisted, but rendered response lines must still be treated as sensitive.
+- Prevention: perform a no-cloud rehearsal with synthetic long opaque data and pre-validate the exact extraction channel before a timed authorization. Never print rendered credential lines, redact before any tool emission, and reject any ellipsis before invoking the integrity command.
+
+### 2026-08-12 — Generated SDK models can hide response-shape authority
+
+- Symptom: revision 12 received HTTP 200 from exact `GetWorkspace(1450165)`, but the generated typed body exposed no `workspaceId`, making strict identity qualification impossible.
+- Root cause: the historical raw response was not retained, so its exact provider key shape is unknown. A pure-local SDK experiment proved PascalCase numeric/string values are retained while camelCase values are omitted; this identifies a parser seam but does not retroactively prove the provider returned camelCase.
+- Fix/workaround: keep revision 12 failed. For future attempts, preserve the one read's uncast response body, normalize only returned Pascal/camel aliases, and require exact package ID, status and RequestId before continuing.
+- Prevention: when an API response field is an authority input, test raw→typed behavior across documented and observed aliases and retain a strict raw normalization seam. Never turn successful routing or the request path into proof that the response identified the authorized resource.
+
+### 2026-08-12 — A read-only active check is not concurrency control
+
+- Symptom: two same-stage invocations could both observe an active attempt before either operation began; a downstream prerequisite miss could also occur before the stage was permanently consumed.
+- Root cause: the first design treated terminal checks and predecessor reads as authorization gates without an atomic stage ownership transition.
+- Fix/workaround: acquire one attempt-level execution lock, then atomically publish a permanent stage claim before every predecessor/operation boundary. The shared service owns the exact four-stage order; completion requires the matching claim, and every post-claim failure terminalizes the attempt. A concurrent loser cannot claim or terminalize while the winner owns the lock.
+- Prevention: any one-shot workflow must separate observation from ownership and serialize all mutually dependent stages, not only duplicates of one stage. A read can inform diagnostics, but only an exclusive durable transition may grant entry to side effects; crash-orphaned ownership is fail-closed unless a separately authorized recovery protocol exists.

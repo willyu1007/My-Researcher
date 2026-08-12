@@ -1,0 +1,51 @@
+{
+  "schema": "ScifactRecallP5SourceAuthority@v1",
+  "source": {
+    "dataset": "BEIR SciFact",
+    "archive_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "archive_md5": "5f7d1de60b170fc8027bb7898e2efca1",
+    "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+    "beir_dataset_evidence": "https://github.com/beir-cellar/beir/wiki/Datasets-available",
+    "beir_loader_evidence": "https://github.com/beir-cellar/beir/blob/main/beir/datasets/data_loader.py",
+    "scifact_license_evidence": "https://github.com/allenai/scifact/blob/master/LICENSE.md"
+  },
+  "scientific_inputs": [
+    {
+      "ordinal": 1,
+      "role": "corpus",
+      "filename": "corpus.jsonl",
+      "record_count": 5183,
+      "content_digest": "sha256:dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+      "byte_size": 8106566,
+      "reuse_policy": "reuse exact object bytes only; create a new T-136 scientific DataPolicy/Dataset revision and do not mutate or trust-upgrade the T-132 asset or Run"
+    },
+    {
+      "ordinal": 2,
+      "role": "test_queries",
+      "filename": "queries.jsonl",
+      "record_count": 300,
+      "content_digest": "sha256:f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520",
+      "byte_size": 56640,
+      "selection_rule": "retain exactly the qrels/test.tsv query ids in source queries.jsonl order",
+      "reuse_policy": "reuse exact object bytes only; create a new T-136 scientific DataPolicy/Dataset revision and do not mutate or trust-upgrade the T-132 asset or Run"
+    },
+    {
+      "ordinal": 3,
+      "role": "test_qrels",
+      "filename": "test.tsv",
+      "record_count": 339,
+      "query_count": 300,
+      "positive_judgment_count": 339,
+      "content_digest": "sha256:0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+      "byte_size": 5389,
+      "product_semantics": "benchmark input only; never an imported experimental result"
+    }
+  ],
+  "metric": {
+    "metric_key": "micro_recall_ppm",
+    "definition": "floor(1,000,000 * retrieved positive query-document judgments / all positive judgments)",
+    "unit": "ppm",
+    "integer_output": true,
+    "uncertainty": "not_required_by_protocol"
+  }
+}

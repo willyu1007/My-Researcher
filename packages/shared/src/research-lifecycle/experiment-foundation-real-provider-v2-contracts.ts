@@ -24,6 +24,12 @@ export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_PROFILE_SCHEMA_V2 =
   'AliyunPaiDlcRealProviderProfile@v1' as const;
 export const EXPERIMENT_FOUNDATION_ALIYUN_WORKLOAD_BINDING_SCHEMA_V2 =
   'AliyunPaiDlcWorkloadBinding@v1' as const;
+export const EXPERIMENT_FOUNDATION_PROVIDER_MANAGED_IMAGE_SCOPES_V2 = [
+  'm7_l1_diagnostic_only',
+  'm0_sci_p5_scientific_only',
+] as const;
+export type ExperimentFoundationProviderManagedImageScopeV2 =
+  (typeof EXPERIMENT_FOUNDATION_PROVIDER_MANAGED_IMAGE_SCOPES_V2)[number];
 export const EXPERIMENT_FOUNDATION_REAL_PROVIDER_OUTPUT_KEYS_V2 = [
   'real_provider_result_envelope',
   'real_provider_diagnostic_log',
@@ -193,7 +199,7 @@ export interface ExperimentFoundationExecutionBundleProviderManagedContainerImag
     size_bytes: number;
     accessibility: 'PUBLIC';
     source_type: 'Import';
-    permitted_scope: 'm7_l1_diagnostic_only';
+    permitted_scope: ExperimentFoundationProviderManagedImageScopeV2;
   };
 }
 
@@ -445,7 +451,7 @@ export interface ExperimentFoundationAliyunRealProviderRedactedManifestV2
   > & {
     image_identity_kind: 'provider_managed_asset';
     provider_managed_asset_identity_hash: string;
-    provider_managed_asset_scope: 'm7_l1_diagnostic_only';
+    provider_managed_asset_scope: ExperimentFoundationProviderManagedImageScopeV2;
   };
 }
 
@@ -930,6 +936,57 @@ export const experimentFoundationExecutionBundleContentV1Schema = {
 
 export const experimentFoundationExecutionBundleContentV2Schema = {
   ...experimentFoundationExecutionBundleContentV1Schema,
+  allOf: [
+    {
+      if: {
+        properties: {
+          container_image: {
+            type: 'object',
+            properties: {
+              provider_managed_asset: {
+                type: 'object',
+                properties: {
+                  permitted_scope: {
+                    const: 'm0_sci_p5_scientific_only',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      then: {
+        properties: {
+          output_contract: {
+            type: 'object',
+            required: [
+              'scientific_result_schema_version',
+              'scientific_result_schema_hash',
+            ],
+          },
+        },
+      },
+      else: {
+        properties: {
+          output_contract: {
+            type: 'object',
+            not: {
+              anyOf: [
+                {
+                  type: 'object',
+                  required: ['scientific_result_schema_version'],
+                },
+                {
+                  type: 'object',
+                  required: ['scientific_result_schema_hash'],
+                },
+              ],
+            },
+          },
+        },
+      },
+    },
+  ],
   properties: {
     ...experimentFoundationExecutionBundleContentV1Schema.properties,
     execution_bundle_schema_version: { type: 'string', const: 'v2' },
@@ -970,7 +1027,7 @@ export const experimentFoundationExecutionBundleContentV2Schema = {
             source_type: { type: 'string', const: 'Import' },
             permitted_scope: {
               type: 'string',
-              const: 'm7_l1_diagnostic_only',
+              enum: [...EXPERIMENT_FOUNDATION_PROVIDER_MANAGED_IMAGE_SCOPES_V2],
             },
           },
         },
@@ -1521,7 +1578,7 @@ export const experimentFoundationAliyunRealProviderRedactedManifestV2Schema = {
         provider_managed_asset_identity_hash: hashSchema,
         provider_managed_asset_scope: {
           type: 'string',
-          const: 'm7_l1_diagnostic_only',
+          enum: [...EXPERIMENT_FOUNDATION_PROVIDER_MANAGED_IMAGE_SCOPES_V2],
         },
         runtime_role_arn_hash: hashSchema,
       },

@@ -7,6 +7,12 @@
     "types": ["node"]
   },
   "files": [
+    "scripts/apply-scientific-evidence-p5-stage-one.ts",
+    "scripts/prepare-scientific-evidence-p5-execution-package.ts",
+    "scripts/issue-scientific-evidence-p5-credential-integrity-receipt.ts",
+    "scripts/qualify-scientific-evidence-p5-credential.ts",
+    "scripts/run-scientific-evidence-p5-live-window.ts",
+    "scripts/close-scientific-evidence-p5-window.ts",
     "scripts/apply-experiment-foundation-m7-executable-lineage.ts",
     "scripts/apply-experiment-foundation-scifact-execution-bundle.ts",
     "scripts/apply-experiment-foundation-scifact-execution-bundle.unit.test.ts",

@@ -1,0 +1,117 @@
+{
+  "schema": "ScifactRecallP5WorkloadProfile@v1",
+  "review_scope": "t136-m0-sci-p5-scientific-only",
+  "workload_key": "t136-p5-scifact-micro-recall",
+  "code_artifact": {
+    "delivery_profile": "single-file-expanded-directory@v1",
+    "filename": "entrypoint.py",
+    "content_digest": "sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597",
+    "byte_size": 10155,
+    "upload_state": "uploaded_and_readback_verified",
+    "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597/",
+    "remote_etag": "DF982909F736D6C96AB5D5BC4E000944",
+    "remote_crc64": "12374963249186617340",
+    "verified_at": "2026-08-09T01:46:47.000Z"
+  },
+  "dependency_lock": {
+    "hash_profile": "sha256-canonical-json@v1",
+    "snapshot": {
+      "schema": "ScifactRecallP5DependencyLock@v1",
+      "runtime": "python-3.11",
+      "dependency_model": "stdlib-only",
+      "third_party_packages": [],
+      "entrypoint_content_digest": "sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597"
+    },
+    "content_hash": "sha256:a483a22efe12892fff918ad640137f91d01b5eb599b313e0984236868d01a6a4"
+  },
+  "entrypoint": "python3",
+  "arguments": [
+    "/mnt/pea-code/entrypoint.py"
+  ],
+  "output_contract": {
+    "result_envelope_schema": "ExperimentFoundationProviderResultEnvelope@v1",
+    "result_object_name": "result.json",
+    "parser_profile_version": "scientific_result_parser@v1",
+    "parser_profile_hash": "sha256:96f287cdaf36ceb92df971a9b917f183423bd13d7045fda32445ed68b52ab519",
+    "scientific_result_schema_version": "ExperimentFoundationScientificResultPayload@v1",
+    "scientific_result_schema_hash": "sha256:e3dcbc371068a785b9274e6d98a485f22a9238102dd36e083b239f9e272ce38e",
+    "provider_managed_asset_scope": "m0_sci_p5_scientific_only"
+  },
+  "ordered_cells": [
+    {
+      "ordinal": 1,
+      "cell_key": "retriever-top-k-10",
+      "retrieval_top_k": 10
+    },
+    {
+      "ordinal": 2,
+      "cell_key": "retriever-top-k-5",
+      "retrieval_top_k": 5
+    }
+  ],
+  "offline_authoritative_input_validation": {
+    "status": "passed_non_evidence",
+    "corpus_document_count": 5183,
+    "query_count": 300,
+    "positive_judgment_count": 339,
+    "top_k_10": {
+      "retrieved_relevant": 146,
+      "micro_recall_ppm": 430678,
+      "ranking_checksum": "sha256:a02792d9f3e059790eccc0c4c64fa1d59b9e8d23f2c31969e2c6a43be32f04aa"
+    },
+    "top_k_5": {
+      "retrieved_relevant": 125,
+      "micro_recall_ppm": 368731,
+      "ranking_checksum": "sha256:bbaa32fc041009fe14a354533972728354f8740ec08723739e04ed05e6d2cca2"
+    },
+    "product_result_created": false,
+    "scientific_evidence_created": false
+  },
+  "authorization": {
+    "named_local_materialization_complete": true,
+    "current_revision": 12,
+    "prepared_package_hash": "sha256:6a0ec49d55627209fd457a9e14baec7ffc9ddbdf75d4296ce87edc0cb52bdefa",
+    "prepared_package_eligible": true,
+    "prepared_authorization_ref": "manifests/prepared-authorization-v12.json",
+    "authorization_acceptance_ref": "manifests/authorization-acceptance-v12.json",
+    "authorization_status": "failed_after_workspace_identity_response_assertion_without_paid_execution",
+    "create_job_authorized": false,
+    "capability_enable_authorized": false,
+    "historical_revision_3": {
+      "package_hash": "sha256:43de262907c34c1f686c2a6cb7cc1642e9ab620bb37bbbc163b560f8b2512d8b",
+      "final_status": "failed_before_qualification_calls_without_paid_execution"
+    },
+    "historical_revision_4": {
+      "package_hash": "sha256:47260f21c7d42d4a57d70ba627bed35888eb4f4d91c8f0ca7a4a67e1a0787a4c",
+      "final_status": "expired_without_execution_automation_not_persisted"
+    },
+    "historical_revision_5": {
+      "package_hash": "sha256:b16e49702b24e776fb84167bb1d78284e9a93837b00534ca4eaeec80136dd98f",
+      "final_status": "expired_before_authorization_local_preparation_overran_start"
+    },
+    "historical_revision_6": {
+      "package_hash": "sha256:d7d6f5ed6684475be0ec94a8dfad87c27b52d433dd0285f2f295f91e5479abdf",
+      "final_status": "expired_without_issuance_source_principal_unverified"
+    },
+    "historical_revision_7": {
+      "package_hash": "sha256:723551a6005c88bc405a6bfd4e9490d4cce339283a3967c390c512fba4217cdb",
+      "final_status": "expired_without_issuance_confirmation_overran_dispatch_cutoff"
+    },
+    "historical_revision_8": {
+      "package_hash": "sha256:e677596a212236c269273ea2d510278fa41a8edddd7a3f312849c0e85027d694",
+      "final_status": "failed_credential_qualification_invalid_security_token_without_paid_execution"
+    },
+    "historical_revision_9": {
+      "package_hash": "sha256:3aa7489828bdf8399b7bcf1fbe837922b4ceb252cc1bc9461aeb5e489f7b6abd",
+      "final_status": "failed_before_issuance_portal_trust_validation_without_paid_execution"
+    },
+    "historical_revision_10": {
+      "package_hash": "sha256:2a45a05327695fec4a7efc9b771142f27ef9dfdbbac463ec2b69eea758a0ed61",
+      "final_status": "rejected_before_acceptance_authorization_timeline_inconsistent_after_dispatch_cutoff"
+    },
+    "historical_revision_11": {
+      "package_hash": "sha256:d811779dd4e568f3ee68acdab0356d900e9a10c5fdefb6966fbb8d5d0ace47b0",
+      "final_status": "failed_after_caller_identity_arn_shape_assertion_without_paid_execution"
+    }
+  }
+}

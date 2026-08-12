@@ -790,6 +790,22 @@ Authorization is operational rather than scientific. The user does not authorize
 
 P5-ELIG-S reuses the existing default-off, process-scoped capability-window pattern. It requires a versioned eligibility validator, one hash-bound execution package and one generated acceptance record, not a generic policy engine, approval table, UI workflow or standing capability enablement.
 
+### P5 credential and process boundary
+
+- Historical revision-1 authorization replaced manual STS revocation with one exact lifecycle at 10:00-11:00 Asia/Shanghai. Revision 2 moved that same lifecycle to 07:00-08:00 and closed with zero effects. Revision 3 retains the expiry-based cleanup invariant while using the separately bounded issuance/capability windows below.
+- Per-session STS revocation is not modeled as an executable action. RAM roles, trust policies and permission policies are outside scope and must not be changed as a cleanup surrogate.
+- The live process may enable only the three EF authorization-bound capability keys and owns provider submission/collection through trusted REU production. Its transport hard-caps `CreateJob` at two calls and disables SDK automatic retry. The fourth authorized key remains false in that process.
+- The closure process must start without any Alibaba credential material and may enable only the listed PI closure capability. It resolves the registered ResultAnalysis default in product/provider mode, fail-closes unless that binding is OpenAI `gpt-5.6-sol`, and owns the admitted proposal, server-derived Closure and Packet.
+- Claim/Dossier assembly, evidence accounting, replay and acceptance recording follow the authoritative Packet and may not submit a Job, retain a capability or broaden credential/IAM scope.
+
+#### Revision-3 controller/runtime separation
+
+- `pea-m7-canary-controller` is the local runner's control-plane STS role. Its trusted source is the existing RAM user `user_0002`; its exact trust-policy and attached custom-policy version are evidence inputs, not mutable setup steps.
+- `pea-m7-canary-runtime` remains only the PAI Job workload role carried by `provider.profile.workload_binding.runtime_role_arn`. The eligibility gate requires the controller and runtime ARNs to differ and permits the controller to pass only that exact runtime role.
+- The execution package carries one restrictive inline STS session policy whose allowed surface is the intersection needed by the existing runner: DLC create/get/list/stop, exact workspace read, exact runtime-role pass, image read, result-prefix OSS read and caller identity. No RAM mutation, OSS write/delete or Job delete action is admitted.
+- Credential issuance has its own bounded window ending at capability-window start. A 3,600-second token issued anywhere in that window must expire no later than the capability window and must retain at least 3,300 seconds at execution start. This removes the exact-second dependency without opening PAI capabilities early.
+- Credential qualification is a separate zero-paid-operation gate. The credential issuer performs the one exact `AssumeRole`; the qualification runner consumes that controller session and calls only `GetCallerIdentity` plus package-declared read-only probes. It must run with every product capability false and prove `CreateJob` count zero. Its record is evidence rather than authorization: live execution requires both the exact package acceptance and a passing record bound to the same STS access-key hash/timestamps.
+
 ## P0 decision status
 
 All P0 authority, evidence, comparison, conclusion, Packet and P5 eligibility decisions are now frozen. Exact P5 workload values remain intentionally late-bound and are not an open architecture decision.
@@ -819,3 +835,83 @@ All P0 authority, evidence, comparison, conclusion, Packet and P5 eligibility de
 - Scientific admission eligibility is derived from the runtime envelope plus the fixed slot admission policy, not from an admission record that merely hashes itself. Closure reconstructs the exact official identity and reconciles every persisted row mirror, record payload, runtime/admitted ref, schema id, expected/observed hash vector, issue code and warning code before reading the proposal.
 - Scientific context readiness errors are API-domain outcomes: missing Cycle is `404 NOT_FOUND`; missing/invalid readiness scope is `409 GATE_CONSTRAINT_FAILED`; stale watermark/project/evidence is `409 VERSION_CONFLICT`. Serializable transaction conflicts retry at most twice, then return `409 VERSION_CONFLICT`; invariant corruption remains an internal error.
 - The served ResultAnalysis runtime path is now present in the OpenAPI SSOT with a closed top-level request/response contract and the product/provider/no-caller-body scientific-intent condition. Production-composition HTTP tests exercise both authoritative success and pre-provider missing-Cycle rejection.
+
+## P5 revision-4 operational timeline — 2026-08-10
+
+Revision 4 has one human-assigned time value and no independently editable sub-windows. Given canonical UTC start `S`, the package builder deterministically assigns:
+
+| Boundary | Derived value | Owner / consumer |
+|---|---:|---|
+| issuance `not_before` | `S` | user selects `S`; builder serializes it |
+| AssumeRole `dispatch_not_after` | `S + 30s` | credential issuer dispatch guard |
+| qualification expiry | `S + 300s` | qualification runner |
+| live latest start | `S + 300s` | live runner after same-credential qualification |
+| credential operations stop | `S + 3240s` | live runner and provider worker |
+| credential-free close expiry | `S + 5400s` | close runner after verified cleanup |
+
+The package requires an exact 3,600-second STS, at least 3,300 seconds remaining at live start and a 360-second safety margin before the earliest possible expiration. Alibaba STS remains the sole assigner of actual `issued_at`, `expiration` and request id; those values are qualification evidence and never become a second schedule authority.
+
+Phase activation is event-driven. Qualification follows successful issuance with all four product capabilities false. Live follows a passing qualification bound to the same STS and temporarily owns only the three EF capabilities. Close follows verified removal of all Alibaba credential variables, rejects credential-bearing environments and temporarily owns only the PI closure capability. Therefore closure progress is independent of STS lifetime without weakening the credential boundary.
+
+The active contract uses `ScientificEvidenceP5ExecutionPackage@v3`, `ScientificEvidenceP5EligibilityRecord@v3`, `ScientificEvidenceP5PreparedAuthorization@v3`, `ScientificEvidenceP5AuthorizationAcceptance@v3` and `ScientificEvidenceP5ControlPlaneCredential@v2`. Operational revision numbers remain distinct from contract schema versions. Earlier P5 package/timeline schemas and hash profiles are retired from runtime validation; their hashes and outcomes remain audit facts in documentation/workload history, not executable alternatives.
+
+### Materialized timeline instance
+
+For the selected start `2026-08-10T23:00:00.000Z`, the only valid revision-4 instance dispatches the one controller `AssumeRole` no later than `23:00:30Z`, completes qualification and starts live no later than `23:05:00Z`, stops credential-bearing operations at `23:54:00Z`, and completes credential-free close no later than `2026-08-11T00:30:00Z`. These are package-hashed derived values, not four separately adjustable windows. Any change requires a different package hash and new authorization.
+
+The preparation script is the sole writer of both the exact prepared manifest and the workload profile's non-authorizing prepared-package projection. It atomically replaces only that profile file after verifying revision, prior package identity, null acceptance and false execution/capability authority. Once an acceptance ref exists, preparation may verify the same package but cannot regress or overwrite authorization state; the acceptance recorder owns that later transition.
+
+The revision-4 acceptance is authorization evidence, not an enabled runtime state. It mirrors the exact package with the hash and byte count of the user's authorization text; the runner independently validates all mirrors before time or credential access. The one-time heartbeat is only a local continuation trigger. It cannot expand the package, bypass runner guards, create standing cloud authority or substitute for the exact acceptance.
+
+Automation readiness now has an explicit persistence gate. A successful scheduler handoff requires a generated automation id, a successful post-create view, a durable automation record and a pre-window rehearsal wakeup. UI card rendering is presentation evidence only; it cannot be used as proof that a heartbeat was registered. Failure of this gate leaves the cloud package untouched and the task must not wait for that automation.
+
+Controller session identity is now derived from two package authorities rather than an active-revision constant: the UTC issuance date and the numeric `t136-p5-scifact-attempt-N`, with operational revision `N + 2`. This preserves exact historical attempt-2/r4 validation while permitting the independently versioned attempt-3/r5 and attempt-4/r6 paths without broad session-name acceptance.
+
+### Revision-6 system-assigned timeline
+
+- `ScientificEvidenceP5OperationalTimeline@v2` keeps absolute UTC timestamps as internal audit facts but removes the user-authored start input. The first immutable prepared-manifest write assigns `issuance.not_before`; every dry run or replay must reuse that stored value.
+- Relative derivation is fixed: AssumeRole dispatch `+600s`, qualification/latest live start `+900s`, credential operations stop `+3240s`, credential-free close expiry `+5400s`, and latest possible 3600-second STS expiration `dispatch_not_after + 3600s`.
+- The five-minute gap between latest dispatch and qualification cutoff is the minimum secure handoff budget. A live start at the qualification cutoff retains at least 2700 seconds of the earliest possible credential life; credential operations still stop 360 seconds before that earliest expiration.
+- Timeline v1/v2 values remain historical audit facts only. Current eligibility accepts the canonical v3 timeline and fixed current timing/TTL constants; callers cannot select an older timing branch.
+- Package authorization does not prove the browser session's source principal. Before any future system-timed package starts its short issuance clock, the browser must already display or otherwise locally establish the exact authorized RAM-user identity. An ambiguous/main-account OpenAPI warning fails closed without credential issuance or a substitute role/policy change.
+
+### Revision-8 portal-confirmation and credential-integrity boundary
+
+- `ScientificEvidenceP5OperationalTimeline@v3` extends the system-assigned timeline with `issuance.portal_confirmation_start_not_after` and `minimum_portal_confirmation_margin_seconds=120`. The confirmation-start guard runs before the portal action that opens the provider safety dialog; `dispatch_not_after` still guards the final action that can produce a RequestId and credential.
+- The 120-second pre-dispatch margin and 300-second post-issuance secure handoff budget are independent. The former covers the two-step portal UI; the latter covers in-memory extraction and bounded child-process startup. Neither changes the exact 3,600-second STS, cost, operation or capability authority.
+- Qualification remains the first cloud consumer of the extracted credential and has no retry authority. A malformed-token response therefore terminalizes the package before live even if AssumeRole itself succeeded.
+- A future local credential-integrity gate belongs between extraction and qualification. It may verify structural shape, whitespace/quoting and environment round-trip without a cloud call or secret output. It cannot establish caller identity, replace `GetCallerIdentity`, write the qualification record or grant paid/capability authority.
+
+The local integrity gate is now implemented as `ScientificEvidenceP5CredentialIntegrityReceipt@v1`. Its receipt contains only fixed schema/encoding labels, UTF-8 byte lengths and a domain-separated SHA-256 of the exact credential plus issuance-metadata tuple. Exact-key validation prevents callers from adding credential fields, and the receipt is passed only through the bounded process environment; it is not persisted as scientific, authorization or qualification evidence.
+
+The receipt has two consumers. Qualification validates it before the first `GetCallerIdentity`; live validates it again before accepting the stored qualification and before any `CreateJob`. This second check closes the qualification→live environment-handoff gap for access-key secret and security token, which the durable qualification record intentionally does not store or hash individually.
+
+The gate is a global fail-closed runner invariant rather than a new package authority field: it only narrows execution, makes no cloud call and grants no operation, cost or capability permission. A future authorization must still describe the local receipt step, but package v3 scientific/operation identities do not need a parallel credential schema solely for this implementation guard.
+
+### Implemented P5 qualification correction — canonical STS caller ARN
+
+- `credential_policy.controller_role.arn` is a source role ARN (`acs:ram::<account>:role/<role-name>`); `Sts.GetCallerIdentity` for an assumed session returns `acs:ram::<account>:assumed-role/<role-name>/<session-name>`. These canonical identities have different resource types and cannot be compared by appending the session name to the source role ARN.
+- The qualifier now deterministically parses the frozen controller role ARN, constructs exactly one expected assumed-role-session ARN from the same account, role name and frozen `role_session_name`, and requires exact equality. The runner and durable qualification validator call the same helper. Prefix, suffix and substring matching remain prohibited because they would weaken principal binding.
+- This correction changes no RAM policy, package authority, session policy, capability boundary or live/close ownership. It is a local qualification normalization fix and requires a fresh immutable attempt before any new cloud execution.
+
+## Revision-12 qualification response boundary
+
+- `GetCallerIdentity` now crosses one explicit source-role to assumed-role-session normalization boundary and passed exact comparison in the live attempt.
+- `GetWorkspace` is an identity-bearing read, not merely a reachability probe. The official API contract returns `WorkspaceId` for the exact path `/api/v1/workspaces/{WorkspaceId}`, but the current generated SDK instance exposed `body.workspaceId` as `undefined` in the live HTTP-200 response.
+- The correction preserves the raw response before generated-model casting and accepts only response-owned `WorkspaceId`/`workspaceId` aliases. Positive safe integers normalize to canonical decimal strings; canonical decimal strings remain unchanged. Missing, malformed, conflicting or mismatched identity fails terminally. RequestId and status are normalized under the same strict alias rule, and the requested path is never an identity fallback.
+- Qualification remains the prerequisite for paid authority. Revision 12 created no durable qualification record, so live cannot be entered even though the controller session itself was valid.
+
+### Monotonic credential-attempt terminal boundary
+
+- The non-secret operational state machine has one attempt-level active execution lock and three durable record types: permanent `StageClaim`, durable `StageCompletion` and immutable `AttemptTerminal`. Each record is bound to exact package hash and attempt id and is neither authorization nor scientific evidence.
+- The sole order is `credential_integrity → credential_qualification → live → close`. Each execute entry checks terminal state, exclusively acquires the attempt lock, claims its stage, rechecks terminal state, verifies the matching claim+completion of its predecessor, runs the operation, completes cleanup and then publishes its completion before releasing the lock. Out-of-order invocation therefore consumes and terminalizes the attempted stage rather than becoming retryable.
+- The attempt lock linearizes different stages as well as duplicate calls. A concurrent loser receives a stable busy rejection before it can claim or write terminal, so a running upstream operation cannot coexist with a downstream terminal fact. A crash-orphaned lock remains fail-closed and requires a separately reviewed recovery decision; runtime never guesses staleness or deletes it.
+- Claims, completions, lock acquisition and terminal facts use an exclusive mode-0600 temporary file, file `fsync`, same-filesystem hard-link publication and directory `fsync`. A concurrent loser cannot overwrite the winner. Orphan locks/claims are never reclaimed automatically; completion must match its claim and cannot predate it. Lock-unlink failure terminalizes the attempt; after a successful unlink, directory-sync failure is tolerated because a crash can only resurrect the lock and fail closed.
+- Successful stdout is emitted only after cleanup and completion publication. Only stable `T136_P5_*` failure codes leave the process. Raw provider errors and credential material never enter these records or output.
+- Offline preflight may read/report terminal presence because it carries no credential or execution authority and creates no claim. A new attempt requires a new package/attempt identity through the existing preparation and authorization gates.
+
+### Current raw workspace qualification boundary
+
+- The qualifier constructs the exact generated-SDK-equivalent `GetWorkspace` request (`2021-02-04`, ROA `GET`, exact workspace path and `Verbose=false`) and calls the raw `callApi` boundary once with automatic retry disabled.
+- The response normalizer accepts only response-owned `WorkspaceId`/`workspaceId`, status and RequestId aliases under exact agreement rules. It rejects missing, conflicting, malformed, unsafe, zero or mismatched identities and never substitutes the requested workspace path.
+- Request construction and response normalization are one maintained client seam with locked unit tests; the script does not carry a second request implementation.
