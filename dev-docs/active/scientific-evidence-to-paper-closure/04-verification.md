@@ -811,3 +811,11 @@ git diff --check
 ```
 
 - Handoff validation: task-bundle document lint passed with 0 errors and 11 historical/non-blocking vague-reference warnings. Project-governance sync completed and lint passed with only the two unchanged unrelated task-state-format warnings. Final manifest/temp scan found no attempt lock/claim/completion/terminal or execution-result artifact; no repository temp/cache artifact remains outside the deliberately retained recovery directory.
+
+### 2026-08-13 — Revision-13 attempt-11 local gate and recovery
+
+- The active prepare/integrity/qualification/live/close harnesses target revision 13, attempt 11, session suffix `r13`, OSS output prefix `attempt-11`, live business key `attempt-11:real-provider` and close idempotency key `attempt-11:scientific-close`. Static scans find no revision-12 active-path residue.
+- Focused Node 20 P5 lane passed 58/58 with zero failures/skips/cancellations. Full workspace strict TypeScript checks and the experiment-foundation script typecheck passed; JSON parsing and `git diff --check` passed.
+- Fresh recovery verification passed: schema dump byte size/hash and 2,038 TOC entries match; authority-data dump byte size/hash and the exact 114 `TABLE DATA` entries match; the manifest core recomputes to recovery fingerprint `sha256:99e5b491963fd5dfd72f8da7d9662ffa162fd1802b524705f9410bfeae13040e`; all files are mode `0600` outside the repository.
+- One initial data-only dump command used an over-escaped table-name pattern and failed read-only with `invalid regular expression` before dumping any table. The resulting zero-byte file was identified exactly, removed, and replaced by the verified 114-table dump. The successful command emitted the expected circular-FK restore warnings already covered by the full pre/post-data schema restore order.
+- `prepared-authorization-v13.json` and `authorization-acceptance-v13.json` remain absent. Package preparation, credentials, cloud calls, `CreateJob`, database writes, capability changes and paid cost remain zero; `M0-SCI` is not passed.

@@ -97,11 +97,11 @@ type RunnerMode = 'offline-preflight' | 'execute';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PREPARED_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/prepared-authorization-v12.json',
+  'workloads/scifact-recall-p5/manifests/prepared-authorization-v13.json',
 );
 const AUTHORIZATION_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v12.json',
+  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v13.json',
 );
 const QUALIFICATION_PATH = path.join(
   REPO_ROOT,
@@ -316,7 +316,7 @@ async function runWindow(
       closure_kind: 'scientific_evidence_assessed' as const,
       accepted_proposal_id: finalArtifact.runtime_artifact_id,
       expected_proposal_hash: finalArtifact.final_artifact_hash,
-      idempotency_key: 't136-p5-scifact-attempt-10:scientific-close',
+      idempotency_key: 't136-p5-scifact-attempt-11:scientific-close',
     };
     const closed = await closureService.close(closureRequest);
     assert.ok(closed.closure.scientific_disposition);

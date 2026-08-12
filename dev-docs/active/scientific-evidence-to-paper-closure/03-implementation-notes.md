@@ -564,3 +564,20 @@ The preceding revision-3 handoff is closed historical text. Revision 4 is also c
 - Review closure: independent passes found a same-stage check→use race, prerequisite-before-claim retryability, unbound completion and cross-stage active-operation race. The attempt lock, permanent claims, centralized predecessor checks, matching completion validation, timestamp ordering and post-completion output close those findings.
 - Cleanup: removed P5 runtime timeline/hash compatibility branches, generated manifests v1-v11, tracked desktop build output, test/build caches, bytecode, logs and task scratch. Retained revision-12 package/acceptance fixtures, maintained P5 harnesses and the two named-local recovery dumps required by the active runbook.
 - Current repository state is ready for the stable T-136 baseline commit. Revision 13 remains a later, explicitly authorized cloud execution decision.
+
+## 2026-08-13 — Revision-13 attempt-11 pre-stage
+
+- User direction explicitly starts T-136 P5 completion. This authorizes the new local preparation sequence but does not replace the exact-package paid cloud authorization required by P5-ELIG-S.
+- Active preparation, credential-integrity, qualification, live and close harnesses now target `prepared-authorization-v13.json` / `authorization-acceptance-v13.json`, attempt `t136-p5-scifact-attempt-11` and controller session suffix `r13`.
+- The new session policy and provider profile isolate OSS output under `output/t136-p5/scifact/attempt-11/`; live uses business key `t136-p5-scifact-attempt-11:real-provider`, and close uses idempotency key `t136-p5-scifact-attempt-11:scientific-close`.
+- Workload authorization projects revision 13 with null package/prepared/acceptance refs, eligibility false and both execution/capability authority booleans false. Revision 12 is retained as immutable historical failure evidence.
+- No WorkOrder, Run, protocol, ExecutionBundle, database schema, cloud resource, capability or scientific authority changed in this pre-stage.
+
+### Fresh recovery checkpoint
+
+- D-136-209: Revision 13 receives a new repository-external restore point without overwriting revision 12. The scoped data dump reuses the exact 114-table set recovered from the prior dump TOC; the full schema-only dump retains 2,038 TOC entries.
+- D-136-210: The revision-13 `recovery_fingerprint` is the SHA-256 of the canonical key-sorted JSON for the recovery manifest core before adding `recovery_fingerprint`. The separately verified dump byte hashes remain the restore integrity authorities.
+- Active recovery manifest: `/Users/yurui/Desktop/My-Researcher-Recovery/T-136/t136-p5-recovery-manifest.json`, created `2026-08-12T17:36:15.655Z`; the superseded revision-12 manifest is preserved beside it as `t136-p5-recovery-manifest-revision12.json`.
+- Full schema-only dump: `t136-p5-pre-revision13-schema-20260813.dump`, size `1101926`, SHA-256 `sha256:ccd5edc6bdc19e9015f0f8967448f4a012c1018a5af17afb4d573aa02966c5d4`.
+- Exact 114-table authority-data dump: `t136-p5-pre-revision13-authority-data-20260813.dump`, size `1467702`, SHA-256 `sha256:29413e28753fc5c3305e670bcdc1c7b54bc871656b5a1369442d5f3924cea6b8`.
+- Recovery fingerprint: `sha256:99e5b491963fd5dfd72f8da7d9662ffa162fd1802b524705f9410bfeae13040e`. Both dumps and both manifests are mode `0600`.

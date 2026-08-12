@@ -616,14 +616,14 @@ test('revision-8 timeline freezes portal confirmation, dispatch and handoff marg
   assert.equal(result.status, 'eligible');
 });
 
-test('revision-12 attempt derives the exact r12 controller session convention', () => {
+test('revision-13 attempt derives the exact r13 controller session convention', () => {
   const content = packageContent();
   const timeline = buildScientificEvidenceP5OperationalTimelineV3(
     '2026-08-10T02:00:00.000Z',
   );
-  content.p5_attempt_id = 't136-p5-scifact-attempt-10';
+  content.p5_attempt_id = 't136-p5-scifact-attempt-11';
   content.operational_timeline = timeline;
-  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r12';
+  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r13';
   content.credential_policy.minimum_remaining_at_live_start_seconds = 2_400;
   content.credential_policy.automatic_expiration_not_after = new Date(
     Date.parse(timeline.issuance.dispatch_not_after) + 3_600_000,
