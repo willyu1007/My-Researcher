@@ -45,8 +45,16 @@ type CredentialEnvironment = Readonly<Record<string, string | undefined>>;
 
 export function readScientificEvidenceP5TemporaryCredentialEnvironment(
   environment: CredentialEnvironment,
+  timing: { issued_duration_seconds: number },
 ): ScientificEvidenceP5TemporaryCredentialV1 {
+  if (environment.ALIBABA_CLOUD_STS_ISSUED_AT !== undefined) {
+    throw new Error('T136_P5_CREDENTIAL_ISSUED_AT_ENV_FORBIDDEN');
+  }
   const securityToken = readTokenEnvironment(environment);
+  const expiration = readExactEnvironment(
+    environment,
+    'ALIBABA_CLOUD_STS_EXPIRATION',
+  );
   return {
     access_key_id: readExactEnvironment(environment, 'ALIBABA_CLOUD_ACCESS_KEY_ID'),
     access_key_secret: readExactEnvironment(
@@ -54,13 +62,23 @@ export function readScientificEvidenceP5TemporaryCredentialEnvironment(
       'ALIBABA_CLOUD_ACCESS_KEY_SECRET',
     ),
     security_token: securityToken,
-    issued_at: readExactEnvironment(environment, 'ALIBABA_CLOUD_STS_ISSUED_AT'),
-    expiration: readExactEnvironment(environment, 'ALIBABA_CLOUD_STS_EXPIRATION'),
+    issued_at: deriveIssuedAt(expiration, timing.issued_duration_seconds),
+    expiration,
     assume_role_request_id: readExactEnvironment(
       environment,
       'ALIBABA_CLOUD_STS_ASSUME_ROLE_REQUEST_ID',
     ),
   };
+}
+
+function deriveIssuedAt(expiration: string, issuedDurationSeconds: number): string {
+  if (!isUtcTimestamp(expiration)) {
+    throw new Error('T136_P5_CREDENTIAL_EXPIRATION_INVALID');
+  }
+  if (!Number.isSafeInteger(issuedDurationSeconds) || issuedDurationSeconds <= 0) {
+    throw new Error('T136_P5_CREDENTIAL_DURATION_INVALID');
+  }
+  return new Date(Date.parse(expiration) - issuedDurationSeconds * 1_000).toISOString();
 }
 
 export function buildScientificEvidenceP5CredentialIntegrityReceiptV1(

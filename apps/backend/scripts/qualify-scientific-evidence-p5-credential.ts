@@ -333,7 +333,10 @@ function attemptBinding(
 function readTemporaryCredential(
   prepared: ScientificEvidenceP5PreparedAuthorizationV3,
 ): TemporaryCredential {
-  const credential = readScientificEvidenceP5TemporaryCredentialEnvironment(process.env);
+  const credential = readScientificEvidenceP5TemporaryCredentialEnvironment(process.env, {
+    issued_duration_seconds:
+      prepared.execution_package.credential_policy.issued_duration_seconds,
+  });
   try {
     const serializedReceipt =
       process.env[SCIENTIFIC_EVIDENCE_P5_CREDENTIAL_INTEGRITY_RECEIPT_ENV_KEY];

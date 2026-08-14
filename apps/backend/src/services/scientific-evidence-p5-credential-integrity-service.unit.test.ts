@@ -27,7 +27,6 @@ function environmentFixture(): Record<string, string> {
     ALIBABA_CLOUD_ACCESS_KEY_ID: credential.access_key_id,
     ALIBABA_CLOUD_ACCESS_KEY_SECRET: credential.access_key_secret,
     ALIBABA_CLOUD_SECURITY_TOKEN: credential.security_token,
-    ALIBABA_CLOUD_STS_ISSUED_AT: credential.issued_at,
     ALIBABA_CLOUD_STS_EXPIRATION: credential.expiration,
     ALIBABA_CLOUD_STS_ASSUME_ROLE_REQUEST_ID: credential.assume_role_request_id,
   };
@@ -69,15 +68,63 @@ test('rejects whitespace normalization and conflicting token aliases', () => {
   whitespace.ALIBABA_CLOUD_ACCESS_KEY_SECRET =
     ` ${whitespace.ALIBABA_CLOUD_ACCESS_KEY_SECRET}`;
   assert.throws(
-    () => readScientificEvidenceP5TemporaryCredentialEnvironment(whitespace),
+    () => readScientificEvidenceP5TemporaryCredentialEnvironment(
+      whitespace,
+      { issued_duration_seconds: 3_600 },
+    ),
     /T136_P5_CREDENTIAL_ENV_VALUE_INVALID/,
   );
 
   const aliases = environmentFixture();
   aliases.ALIBABA_CLOUD_SESSION_TOKEN = `${aliases.ALIBABA_CLOUD_SECURITY_TOKEN}changed`;
   assert.throws(
-    () => readScientificEvidenceP5TemporaryCredentialEnvironment(aliases),
+    () => readScientificEvidenceP5TemporaryCredentialEnvironment(
+      aliases,
+      { issued_duration_seconds: 3_600 },
+    ),
     /T136_P5_CREDENTIAL_TOKEN_ENV_CONFLICT/,
+  );
+});
+
+test('derives issuance from provider expiration and rejects caller timing authority', () => {
+  const environment = environmentFixture();
+  const credential = readScientificEvidenceP5TemporaryCredentialEnvironment(
+    environment,
+    { issued_duration_seconds: 3_600 },
+  );
+  assert.equal(credential.issued_at, '2026-08-11T14:42:45.000Z');
+  assert.equal(
+    Date.parse(credential.expiration) - Date.parse(credential.issued_at),
+    3_600_000,
+  );
+
+  environment.ALIBABA_CLOUD_STS_ISSUED_AT = '2026-08-11T14:42:45.927Z';
+  assert.throws(
+    () => readScientificEvidenceP5TemporaryCredentialEnvironment(
+      environment,
+      { issued_duration_seconds: 3_600 },
+    ),
+    /T136_P5_CREDENTIAL_ISSUED_AT_ENV_FORBIDDEN/,
+  );
+});
+
+test('rejects malformed provider expiration and invalid credential duration', () => {
+  const malformed = environmentFixture();
+  malformed.ALIBABA_CLOUD_STS_EXPIRATION = 'not-a-timestamp';
+  assert.throws(
+    () => readScientificEvidenceP5TemporaryCredentialEnvironment(
+      malformed,
+      { issued_duration_seconds: 3_600 },
+    ),
+    /T136_P5_CREDENTIAL_EXPIRATION_INVALID/,
+  );
+
+  assert.throws(
+    () => readScientificEvidenceP5TemporaryCredentialEnvironment(
+      environmentFixture(),
+      { issued_duration_seconds: 0 },
+    ),
+    /T136_P5_CREDENTIAL_DURATION_INVALID/,
   );
 });
 

@@ -471,3 +471,10 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Root cause: the in-memory handoff used `2026-08-14T23:21:20.927Z` as observed issuance time while provider `Expiration` is second precision. The qualifier requires `Expiration - issued_at === 3,600,000 ms`, so the precision mismatch failed deterministically before any qualification network call.
 - Completed immediate cleanup: clear credential/receipt/response buffers, browser clipboard and credential response page; restore the prior portal page; leave all capability flags disabled and authority booleans false. Credential-free qualification/live/close preflights pass against the terminal attempt.
 - Gate: revision 18 is immutable and non-reusable. Do not reissue, requalify, enter live or close it. Wait through `2026-08-15T00:22:55.325Z` before any successor STS, then require a separately approved local metadata-handoff fix and a fresh Run/recovery/package/authorization chain.
+
+### Post-revision-18 provider-derived credential timing correction — 2026-08-15
+
+- Completed: remove caller-authored issuance authority from the P5 credential reader. Provider `Expiration` plus the package's exact duration now derives canonical `issued_at`; a supplied legacy `ALIBABA_CLOUD_STS_ISSUED_AT` fails closed.
+- Completed: route integrity, qualification and live through the same derivation and retain receipt tuple binding, dispatch-window, expiration-upper-bound and live remaining-TTL checks.
+- Verified: credential timing tests pass 8/8; the full focused P5 lane passes 62/62; backend and experiment-script strict typechecks pass; all three revision-18 credential-free terminal preflights pass with zero effects.
+- Gate: the fix does not revive revision 18 or authorize a successor. Complete the expiry/residue audit after `2026-08-15T00:22:55.325Z`, then create a fresh Run/recovery/package and stop at its exact authorization hash.

@@ -53,7 +53,10 @@ async function main(): Promise<void> {
       if (process.env[SCIENTIFIC_EVIDENCE_P5_CREDENTIAL_INTEGRITY_RECEIPT_ENV_KEY] !== undefined) {
         throw new Error('T136_P5_CREDENTIAL_INTEGRITY_RECEIPT_ALREADY_PRESENT');
       }
-      const credential = readScientificEvidenceP5TemporaryCredentialEnvironment(process.env);
+      const credential = readScientificEvidenceP5TemporaryCredentialEnvironment(process.env, {
+        issued_duration_seconds:
+          prepared.execution_package.credential_policy.issued_duration_seconds,
+      });
       try {
         const receipt = buildScientificEvidenceP5CredentialIntegrityReceiptV1(credential);
         return {

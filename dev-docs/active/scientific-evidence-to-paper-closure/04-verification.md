@@ -966,3 +966,11 @@ PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --dir apps/backend scientific-evid
 - Browser response state, clipboard and in-memory credential buffers were cleared, the prior GetJob page was restored, the child process exited, and `.env.local` contains no Alibaba credential variable. Final provider-expiration verification remains pending until after `2026-08-15T00:22:55.325Z`; do not overlap a successor issuance before then.
 - Handoff checks passed: task-bundle document lint checked 17 Markdown files with `0` errors and the same 11 historical vague-reference warnings; project-governance sync completed; governance lint passed with only the two unchanged unrelated invalid-state-format warnings; `git diff --check` passed.
 - Final commit gate passed: experiment-foundation script TypeScript check completed after Prisma generation, and the six focused P5 service suites passed `60/60` with zero failures, skips or cancellations.
+
+### 2026-08-15 — Provider-derived STS timing fix
+
+- Debug run `dbg-20260814-234406-7c2a` used existing immutable evidence and added no instrumentation. Gate 1 and Gate 2 were explicitly approved.
+- The credential-integrity unit lane passed 8/8, including exact issuance derivation from whole-second provider expiration, rejection of non-zero-millisecond caller timing, malformed expiration and invalid duration.
+- Backend strict TypeScript and experiment-foundation script TypeScript checks passed. The six-suite focused P5 lane passed 62/62 with zero failures, skips or cancellations.
+- Qualification, live and close offline preflights all exited 0 against terminal revision 18. Combined credential reads, cloud/external calls, database writes and capability changes were zero; the new Run remains at Attempts/Results/validations/REUs/Closures/Packets all zero.
+- Exact run-id cleanup scan found no `dbg-20260814-234406-7c2a` marker under application or P5 workload paths; unrelated older T-132 debug markers remain unchanged. `git diff --check` passed.
