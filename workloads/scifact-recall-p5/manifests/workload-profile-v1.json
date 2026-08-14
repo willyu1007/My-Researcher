@@ -87,8 +87,8 @@
     "prepared_package_hash": "sha256:d790b7856a27fa32e1ab57ab02eef92034699cd494b11a86b203ef9dc166ba6a",
     "prepared_package_eligible": true,
     "prepared_authorization_ref": "manifests/prepared-authorization-v17.json",
-    "authorization_acceptance_ref": null,
-    "authorization_status": "prepared_awaiting_exact_authorization",
+    "authorization_acceptance_ref": "manifests/authorization-acceptance-v17.json",
+    "authorization_status": "failed_live_during_collection_with_peer_job_nonterminal_after_two_create_jobs",
     "create_job_authorized": false,
     "capability_enable_authorized": false,
     "historical_revision_3": {

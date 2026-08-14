@@ -930,3 +930,9 @@ The gate is a global fail-closed runner invariant rather than a new package auth
 - A new ExecutionBundle identity binds the corrected OSS code object, 11,063-byte size and dependency-lock digest. A separate ValidationCycle/branch/WorkOrder materializes a fresh Run and TaskSpecs under `t136_p5_scifact_v2`; no historical revision-16 Run or package row is mutated or made current by aliasing.
 - The successor apply admits only the two intentional mutable identity pointers plus 101 additive authority rows. Explicit historical sentinels protect the T-132 source cycle and revision-16 P5 Cycle, Metric/Protocol revisions, Bundle, WorkOrder and Run; all other application tables are protected by row-version digests.
 - Package revision 17 is operational attempt 15 and remains contract schema v3. Its first manifest write owns the immutable timeline, while the absent acceptance file keeps paid and capability authority false. Package eligibility proves byte identity, provider payload materialization and exact two-cell scientific sealing; it does not authorize STS, cloud reads, Jobs or capability state.
+
+### Revision-17 terminal collection boundary
+
+- The attempt-level stage terminal remains the sole replay fence even when provider and local command state are asymmetric. Once live writes `T136_P5_LIVE_FAILED`, neither a provider Job that later changes state nor a claimed collection command may revive the Run.
+- Provider success, collection persistence and scientific-source sealing remain distinct facts. Revision 17 proves that a succeeded provider Job plus a claimed collect command is not a Product Result: only one committed `scientific_source` per frozen cell can authorize Result generation.
+- Post-terminal diagnosis is read-only and separate from execution authority. A future fix must decide how the worker records or handles collection-boundary failures without reclaiming revision 17 or treating eventual provider completion as execution permission.
