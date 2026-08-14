@@ -70,11 +70,11 @@
   "authorization": {
     "named_local_materialization_complete": true,
     "current_revision": 16,
-    "prepared_package_hash": null,
-    "prepared_package_eligible": false,
-    "prepared_authorization_ref": null,
-    "authorization_acceptance_ref": null,
-    "authorization_status": "awaiting_revision_16_recovery_and_package_materialization",
+    "prepared_package_hash": "sha256:ad9c1080c468641e680a3c998dcd65f49538715082db59ae7b9ba82a138cbb9b",
+    "prepared_package_eligible": true,
+    "prepared_authorization_ref": "manifests/prepared-authorization-v16.json",
+    "authorization_acceptance_ref": "manifests/authorization-acceptance-v16.json",
+    "authorization_status": "failed_live_scientific_source_contract_mismatch_after_two_succeeded_provider_jobs",
     "create_job_authorized": false,
     "capability_enable_authorized": false,
     "historical_revision_3": {

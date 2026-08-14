@@ -370,3 +370,19 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Fix/workaround: keep revision 15 terminal. For a separately approved successor, use the root output prefix and bind session-policy/result-reader authority to the actual derived `output/<run-id>/<cell-key>/` objects; do not relax the payload service's content-addressed regional-root fence.
 - Prevention: the deterministic package preflight must materialize every exact provider payload and reconcile the resulting output URIs with session-policy resources and result-reader scope before package hashing. Profile schema/equality alone is not execution readiness.
 - Resolution update: revision 16 implements that preflight. The profile now supplies the regional `output/` root, the materializer derives Run/Cell directories, and the controller reads only `output/<run-id>/*`. The focused P5 lane passes 60/60 and both exact frozen production cells materialize locally; revision 15 remains terminal.
+
+### 2026-08-14 — A table-filtered schema dump is not the maintained recovery contract
+
+- Symptom: the first revision-16 recovery candidate selected only schema objects belonging to the 114 scoped authority tables and produced 2,036 accepted TOC entries; the maintained validator rejected it before package preparation.
+- Root cause: the established recovery model pairs exact scoped table data with a complete schema-only dump. Filtering schema ownership omitted the database-global `vector` extension declaration/comment that the historical 2,038-entry restore contract includes.
+- What was tried: validate the candidate against the existing recovery manifest semantics, compare its TOC with the previous verified full schema dump and identify the two missing global extension entries. No restore or database write was attempted.
+- Fix/workaround: delete the failed temporary dump/manifest, preserve the prior current manifest until a complete replacement exists, and create the full schema-only dump plus exact 114-table data dump. Revision-16 recovery then passed hash, TOC, fingerprint and mode checks.
+- Prevention: scope P5 recovery data, not the schema authority needed to restore it. Reuse the maintained full-schema/exact-data split and validate a temporary candidate before rotating the current manifest.
+
+### 2026-08-14 — Post-issuance DOM snapshots can disclose credential response data
+
+- Symptom: after the successful revision-16 `AssumeRole` call, an automated portal DOM snapshot emitted security-token contents to transient tool output even though the repository, clipboard and final records were intended to remain secret-free.
+- Root cause: the result view exposes its Monaco response model through the DOM/accessibility projection; treating the page as ordinary inspectable UI caused the tool boundary itself to become a disclosure channel.
+- What was tried: do not repeat the provider call; select the complete editor value once for the authorized in-memory handoff, immediately clear the clipboard and parent-process buffers, leave the result page, finalize browser control and verify that no credential value reached repository files.
+- Fix/workaround: treat the transient output as sensitive disclosure and retain only the secret-free issuance metadata, integrity receipt and qualification record. The tuple was not intentionally logged elsewhere and was cleared before the live child continued.
+- Prevention: after a credential-producing action, never request a generic page/DOM snapshot. Use a prevalidated extraction path that neither renders nor echoes secret values, and finalize browser control immediately after the one handoff.

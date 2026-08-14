@@ -419,3 +419,11 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Completed: pre-stage only revision-16 code paths and workload authority. Active harnesses use v16 manifests, attempt 14, r16 session naming and attempt-14 business/idempotency keys; revision-15 qualification and terminal records remain versioned history. No v16 recovery/package/acceptance was created.
 - Verified: eligibility passes 18/18, the full focused P5 lane passes 60/60, experiment-script and full-workspace typechecks pass, and both exact frozen production cells materialize in memory with no credential, provider client or database write.
 - Gate: wait for the recorded revision-15 STS expiration and verify cleanup. Any real revision-16 sequence still requires a fresh repository-external recovery point, one first-write package, hash reporting and new exact authorization.
+
+### Revision-16 attempt-14 terminal execution — 2026-08-14
+
+- Completed: revision-15 expiration audit, fresh recovery, one eligible immutable revision-16 package, exact acceptance, one controller STS issuance, one credential-integrity claim/completion and one successful three-read qualification claim/completion.
+- Completed: enter live once and issue exactly two authorized `CreateJob` calls. Both Jobs succeeded and were collected; no retry, replacement Job, RAM mutation or budget expansion occurred.
+- Terminal: both collected envelopes were `diagnostic_only` because the code artifact emits `micro_recall_ppm` while the registered protocol slot is `scifact_micro_recall_ppm`. No scientific-source output exists, so Result/validation/REU/Closure/Packet work did not run. Live terminalized under `T136_P5_LIVE_FAILED`; close execute was not invoked.
+- Completed cleanup: authority booleans are false, the lock/process/temp logs are gone, qualification is versioned as r16 history, all three post-expiration offline preflights pass, and the STS expiration audit passed with no local credential/capability/config residue.
+- Gate: T-136 stays `in-progress` and `M0-SCI` stays pending. Do not patch or replay revision 16. A successor needs explicit fix authority, a new content-addressed workload/authority chain and Run, full scientific-source sealing preflight, a fresh recovery/package and new exact paid authorization.
