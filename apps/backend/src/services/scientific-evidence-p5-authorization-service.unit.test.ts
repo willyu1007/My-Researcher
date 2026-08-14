@@ -115,7 +115,7 @@ async function qualificationFixture() {
         image: {
           image_id: IMAGE_ID,
           image_uri: executionPackage.provider.profile.image_uri,
-          workspace_id: '1450165',
+          workspace_id: null,
           accessibility: 'PUBLIC',
         },
       },
@@ -197,6 +197,34 @@ test('qualification binds the same temporary credential and exact controller ide
       expiration: qualification.credential.expiration,
     },
   }));
+});
+
+test('qualification keeps optional image ownership separate from the Job workspace', async () => {
+  const { prepared, qualification } = await qualificationFixture();
+  assert.equal(qualification.observations.image.workspace_id, null);
+  assert.doesNotThrow(() => assertScientificEvidenceP5CredentialQualificationV1({
+    execution_package: prepared.execution_package,
+    qualification,
+    expected_image_id: IMAGE_ID,
+  }));
+
+  const differentlyOwned = structuredClone(qualification);
+  differentlyOwned.observations.image.workspace_id = '15945';
+  const rebound = buildScientificEvidenceP5CredentialQualificationV1(differentlyOwned);
+  assert.doesNotThrow(() => assertScientificEvidenceP5CredentialQualificationV1({
+    execution_package: prepared.execution_package,
+    qualification: rebound,
+    expected_image_id: IMAGE_ID,
+  }));
+
+  const malformed = structuredClone(qualification);
+  malformed.observations.image.workspace_id = '';
+  const invalid = buildScientificEvidenceP5CredentialQualificationV1(malformed);
+  assert.throws(() => assertScientificEvidenceP5CredentialQualificationV1({
+    execution_package: prepared.execution_package,
+    qualification: invalid,
+    expected_image_id: IMAGE_ID,
+  }), /T136_P5_QUALIFICATION_PROVIDER_OBSERVATION_INVALID/);
 });
 
 test('qualification derives the canonical STS assumed-role session ARN', async () => {

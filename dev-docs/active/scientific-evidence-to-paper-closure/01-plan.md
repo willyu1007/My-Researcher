@@ -13,14 +13,14 @@ No implementation phase may skip the preceding authority/acceptance gate. P5 clo
 
 P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 remains open, `M0-SCI` remains not passed and the affected scientific capabilities remain default-off. Other M0 modules may continue independent development/preview. Only a passing P5 acceptance makes T-136 eligible for completion and records `M0-SCI: passed`; P5 passage does not automatically enable runtime flags.
 
-## Revision-12 terminal checkpoint and next sequence
+## Revision-14 terminal checkpoint and next sequence
 
-- Completed: pre-stage revision 12 / attempt 10, create fresh named-local recovery evidence, materialize eligible package `sha256:6a0ec49d55627209fd457a9e14baec7ffc9ddbdf75d4296ce87edc0cb52bdefa`, receive exact acceptance and issue exactly one 3,600-second controller STS.
-- Terminal result: the only qualification invocation passed `GetCallerIdentity=1`, then failed exact workspace identity because the HTTP-200 typed `GetWorkspace` body exposed no `workspaceId`; `GetWorkspace=1`, `GetImage=0`, `CreateJob=0`, live/close execute `0`, paid cost CNY `0`, scientific database rows `0`.
-- Authorization-sequence deviation: the first local integrity invocation failed on the portal's ellipsis representation. A second local invocation was run after full editor extraction and qualification continued, contrary to the exact no-retry clause. No credential was reissued or replaced, but the attempt is terminal and cannot be treated as a conforming acceptance run.
-- Completed immediate cleanup: current credential/response buffers and clipboard are empty; Chrome left the credential result page; no credential/capability environment key, local profile change, qualification output or runner process remains. Current paid/capability authority is false.
-- Completed safety closeout: at `2026-08-12T01:01:42.479Z`, the recorded STS expiration was 54 seconds in the past. Time-only, local absence and credential-free live offline-preflight checks all passed with zero scientific/runtime effects; remove heartbeat `t-136-revision-12-sts-expiry-audit`.
-- Current gate: the separately approved local correction, independent review and cleanup are complete. Do not stage revision 13 or make another cloud call from this task state; a future attempt starts with a new identity/package and a new exact authorization.
+- Completed: revision 14 / attempt 12 fresh recovery, local gates, eligible package `sha256:6dc9ec5149605034af6b200234141720957fecfed003ead77194ee842ca3823c`, exact acceptance, one 3,600-second controller STS and one successful local credential-integrity stage.
+- Terminal result: the only credential-qualification invocation failed under stable reason `T136_P5_CREDENTIAL_QUALIFICATION_FAILED`. The permanent stage claim and attempt terminal exist; qualification completion/record, live/close claims and execution outputs do not. `CreateJob=0`, paid cost CNY `0`, database/capability/scientific/runtime effects `0`.
+- Completed immediate cleanup: credential and provider-response buffers are cleared, clipboard is empty, Chrome left the result page and finalized, runner processes are absent, and process/local env files contain no temporary Alibaba credential or P5 capability key. Current paid/capability authority is false.
+- Approved local correction: the same public official image is known to omit optional ownership `WorkspaceId`; the qualifier incorrectly equated that field with the independently frozen DLC Job workspace. Missing ownership now canonicalizes to `null`, malformed values fail, and URI/accessibility plus independent workspace/Job-profile gates remain strict. P5 tests pass 59/59; script and full-workspace typechecks pass.
+- Pending safety closeout: treat the issued STS as provider-live until `2026-08-14T11:35:43Z`; after that timestamp, run the credential-free expiration/local-absence audit. Do not issue or reuse credentials before it expires.
+- Current gate: revision 14 is terminal and cannot be retried. Revision 15 requires a fresh attempt identity, fresh recovery/package timeline and new exact hash authorization before any cloud call.
 
 ## P0 — Authority census and contract freeze
 

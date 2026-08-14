@@ -1,0 +1,98 @@
+{
+  "schema": "ScientificEvidenceP5AuthorizationAcceptance@v3",
+  "status": "authorized_pending_issuance",
+  "p5_attempt_id": "t136-p5-scifact-attempt-12",
+  "package_hash": "sha256:6dc9ec5149605034af6b200234141720957fecfed003ead77194ee842ca3823c",
+  "authority_snapshot_hash": "sha256:26b5c407765dc280fa9bbd000f320540def23bb536347495014ef5436df078f2",
+  "eligibility_record_hash": "sha256:6a53e304bec72cee6364c804ca78887d483f41411d7f6427e97dd47057ccdbf3",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-14T10:32:31.724Z",
+    "text_utf8_sha256": "sha256:9e04e393a8798c6c9b28ab8130adaaae11cf71a0c2fc0037020befe306421eda",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "qualification": {
+      "required": true,
+      "allowed_operations": [
+        "Sts.AssumeRole",
+        "Sts.GetCallerIdentity",
+        "AIWorkspace.GetWorkspace",
+        "PaiImage.GetImage"
+      ],
+      "create_job_forbidden": true,
+      "product_capabilities_must_remain_disabled": true,
+      "grants_paid_execution_authority": false
+    },
+    "authorized_operations": [
+      {
+        "ordinal": 1,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v1_1"
+      },
+      {
+        "ordinal": 2,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v1_2"
+      }
+    ],
+    "cost_ceiling": {
+      "currency": "CNY",
+      "per_operation_amount_minor": 2500,
+      "total_amount_minor": 5000
+    },
+    "operational_timeline": {
+      "schema_version": "ScientificEvidenceP5OperationalTimeline@v3",
+      "issuance": {
+        "not_before": "2026-08-14T10:30:32.672Z",
+        "portal_confirmation_start_not_after": "2026-08-14T10:43:32.672Z",
+        "dispatch_not_after": "2026-08-14T10:45:32.672Z",
+        "minimum_portal_confirmation_margin_seconds": 120
+      },
+      "qualification": {
+        "activation": "after_same_credential_issuance",
+        "not_before": "2026-08-14T10:30:32.672Z",
+        "expires_at": "2026-08-14T10:50:32.672Z",
+        "minimum_secure_handoff_budget_seconds": 300
+      },
+      "live": {
+        "activation": "after_same_credential_qualification",
+        "capability_keys": [
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED"
+        ],
+        "not_before": "2026-08-14T10:30:32.672Z",
+        "latest_start_at": "2026-08-14T10:50:32.672Z",
+        "credential_operations_stop_at": "2026-08-14T11:24:32.672Z"
+      },
+      "closure": {
+        "activation": "after_verified_credential_cleanup",
+        "capability_keys": [
+          "PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED"
+        ],
+        "not_before": "2026-08-14T10:30:32.672Z",
+        "expires_at": "2026-08-14T12:00:32.672Z"
+      },
+      "timezone_note": "Asia/Shanghai immediate revision-14 window; UTC timestamps above are authoritative."
+    },
+    "credential_policy_binding": {
+      "schema_version": "ScientificEvidenceP5ControlPlaneCredential@v2",
+      "source_principal_arn": "acs:ram::1183869713036194:user/user_0002",
+      "controller_role_arn": "acs:ram::1183869713036194:role/pea-m7-canary-controller",
+      "runtime_role_arn": "acs:ram::1183869713036194:role/pea-m7-canary-runtime",
+      "role_session_name": "t136-p5-scifact-20260814-r14",
+      "session_policy_hash": "sha256:b08a5c23d5325080eefb55c6337776910942105f9dc3d9314cb489376835acf2",
+      "issued_duration_seconds": 3600,
+      "minimum_remaining_at_live_start_seconds": 2400,
+      "credential_operations_stop_before_earliest_expiration_seconds": 360,
+      "automatic_expiration_not_after": "2026-08-14T11:45:32.672Z"
+    },
+    "cleanup_confirmation": {
+      "confirmed": true,
+      "text_utf8_sha256": "sha256:ff88f3c9090afcd139c5618749e768487c34148689f24d02981c97f945fe23c0",
+      "prohibits_ram_role_or_policy_mutation": true
+    }
+  }
+}

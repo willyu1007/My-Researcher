@@ -213,9 +213,10 @@ async function executeReadOnlyQualification(
   );
   assert.equal(imageResponse.statusCode, 200);
   assert.equal(imageResponse.body?.imageUri, profile.image_uri);
-  assert.equal(imageResponse.body?.workspaceId, profile.workspace_id);
   assert.equal(imageResponse.body?.accessibility, 'PUBLIC');
   assert.ok(imageResponse.body?.requestId);
+  const imageWorkspaceId = imageResponse.body.workspaceId ?? null;
+  assert.ok(imageWorkspaceId === null || /^[1-9]\d*$/.test(imageWorkspaceId));
 
   const operationLedger: [
     ScientificEvidenceP5QualificationOperationV1,
@@ -257,7 +258,7 @@ async function executeReadOnlyQualification(
       image: {
         image_id: IMAGE_ID,
         image_uri: imageResponse.body.imageUri,
-        workspace_id: imageResponse.body.workspaceId,
+        workspace_id: imageWorkspaceId,
         accessibility: imageResponse.body.accessibility,
       },
     },

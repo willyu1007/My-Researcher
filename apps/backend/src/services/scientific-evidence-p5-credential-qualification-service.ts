@@ -56,7 +56,7 @@ export interface ScientificEvidenceP5CredentialQualificationContentV1 {
     image: {
       image_id: string;
       image_uri: string;
-      workspace_id: string;
+      workspace_id: string | null;
       accessibility: string;
     };
   };
@@ -203,7 +203,7 @@ export function assertScientificEvidenceP5CredentialQualificationV1(input: {
     || !isNonEmpty(qualification.observations.workspace.status)
     || qualification.observations.image.image_id !== input.expected_image_id
     || qualification.observations.image.image_uri !== profile.image_uri
-    || qualification.observations.image.workspace_id !== profile.workspace_id
+    || !isOptionalWorkspaceId(qualification.observations.image.workspace_id)
     || qualification.observations.image.accessibility !== 'PUBLIC'
   ) throw new Error('T136_P5_QUALIFICATION_PROVIDER_OBSERVATION_INVALID');
 
@@ -277,6 +277,10 @@ function isHash(value: string): boolean {
 
 function isNonEmpty(value: string): boolean {
   return value.trim().length > 0;
+}
+
+function isOptionalWorkspaceId(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && /^[1-9]\d*$/.test(value));
 }
 
 function readAliasedWorkspaceId(
