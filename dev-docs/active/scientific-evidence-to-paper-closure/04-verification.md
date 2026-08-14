@@ -881,3 +881,26 @@ git diff --check
 - The first post-terminal qualification offline preflight failed locally and with zero effects because the successful generic qualification record had not yet been versioned. After moving the exact non-secret record to `credential-qualification-v16.json`, qualification preflight passed `passed_terminal_attempt_no_execute`; this was no credential/cloud qualification retry.
 - At `2026-08-14T14:07:24Z`, recorded expiration was 52 seconds in the past. Qualification, live and close offline preflights all exited 0; live reports Attempts `2`, scientific Results/validations/REUs/outboxes `0`, and close reports Results/reports/REUs/runtime/admissions/Closures/Packets `0`. Combined effects are credential reads `0`, external/cloud calls `0`, database writes `0` and capability changes `0`.
 - Final residue audit passed: original live PID absent, execution lock absent, generic qualification slot absent, versioned r16 qualification present, captured temp logs absent, current env and supported local env files contain no Alibaba credential or P5 capability keys, and no Alibaba profile file changed after issuance.
+
+### 2026-08-14 — Local scientific-source correction
+
+- Python contract check passed for `retriever-top-k-5`: the shared preflight builder emitted observation key `scifact_micro_recall_ppm` and metric key `micro_recall_ppm`.
+- Strict TypeScript checks passed:
+
+```text
+pnpm --filter @paper-engineering-assistant/backend exec tsc -p tsconfig.json --noEmit
+pnpm --filter @paper-engineering-assistant/backend exec tsc -p tsconfig.experiment-foundation-scripts.json --noEmit
+```
+
+- Maintained Node 20 focused lane passed 31/31 with zero failures/skips/cancellations:
+
+```text
+PATH=/opt/homebrew/opt/node@20/bin:$PATH node --test --test-concurrency=1 --loader ts-node/esm src/services/experiment-foundation-scientific-source-v1-service.unit.test.ts src/services/scientific-evidence-p5-eligibility-service.unit.test.ts src/services/scientific-evidence-p5-live-source-gate-service.unit.test.ts src/services/scientific-evidence-p5-workload-preflight-service.unit.test.ts
+```
+
+- Coverage includes exact two-cell workload sealing, entrypoint byte mismatch, the historical `micro_recall_ppm` observation mismatch, normal live completion, pending progress, missing source fail-fast and duplicate-source rejection.
+- One initial Node 26 `ts-node` invocation failed during loader startup with no TypeScript diagnostic while both strict `tsc` projects passed. Transpile-only runtime confirmed 24/24 before the maintained Node 20 direct lane provided the authoritative 31/31 pass. A subsequent negative test first expected the broader slots code; production returned the more precise `observation_slot_mismatch`, the assertion was corrected and the final lane passed.
+- `git diff --check` passed. Exact debug run-id scan found no marker for `dbg-20260814-141818-612c`; older T-132 debug markers are unrelated and unchanged.
+- Candidate identity: 11,063 bytes, `sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265`. This identity is local-only and not a remote/readback or executable authority fact.
+- Effect census for this correction: credentials `0`, cloud/provider calls `0`, `CreateJob=0`, database writes `0`, capability changes `0`, paid cost CNY `0`.
+- Task-bundle document lint passed 12 files with zero errors and 12 historical vague-reference warnings. Project-governance sync completed, and governance lint passed with the same two unrelated pre-existing task-state-format warnings.

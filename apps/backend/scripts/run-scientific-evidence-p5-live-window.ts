@@ -83,6 +83,9 @@ import {
   assertScientificEvidenceP5LiveStartWindow,
 } from '../src/services/scientific-evidence-p5-operational-timeline-service.js';
 import {
+  scientificEvidenceP5LiveSourceGateV1,
+} from '../src/services/scientific-evidence-p5-live-source-gate-service.js';
+import {
   ExperimentFoundationScientificSourcePreparationServiceV1,
 } from '../src/services/experiment-foundation-scientific-source-v1-service.js';
 import {
@@ -365,22 +368,17 @@ async function runWindow(
       drain.completed_count += outcome.completed_count;
       drain.terminal_count += outcome.terminal_count;
       const attempts = await loadAttempts(prisma, attemptIds);
-      const allSucceededAndCollected = attempts.length === MAXIMUM_CREATE_JOB_CALLS
-        && attempts.every((attempt) => (
-          attempt.lifecycleState === 'succeeded'
-          && attempt.terminalReasonCode === 'real_provider_succeeded'
-          && attempt.collectionAttempt?.collectionState === 'collected'
-          && attempt.collectionAttempt.provisionalOutputs.some(
-            (output) => output.outputClass === 'scientific_source',
-          )
-        ));
       const pendingCommands = await prisma.experimentFoundationProviderCommandV2.count({
         where: {
           executionAttemptId: { in: attemptIds },
           commandState: { in: ['pending', 'claimed'] },
         },
       });
-      if (allSucceededAndCollected && pendingCommands === 0) break;
+      if (scientificEvidenceP5LiveSourceGateV1({
+        attempts,
+        expected_attempt_count: MAXIMUM_CREATE_JOB_CALLS,
+        pending_command_count: pendingCommands,
+      }) === 'complete') break;
       await delay(POLL_INTERVAL_MS);
     }
     const attempts = await loadAttempts(prisma, attemptIds);

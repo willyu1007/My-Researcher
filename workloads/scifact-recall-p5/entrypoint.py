@@ -24,6 +24,7 @@ PARSER_PROFILE_VERSION = "scientific_result_parser@v1"
 PARSER_PROFILE_HASH = "sha256:96f287cdaf36ceb92df971a9b917f183423bd13d7045fda32445ed68b52ab519"
 RESULT_ENVELOPE_SCHEMA = "ExperimentFoundationProviderResultEnvelope@v1"
 SCIENTIFIC_RESULT_SCHEMA = "ExperimentFoundationScientificResultPayload@v1"
+SCIENTIFIC_OBSERVATION_KEY = "scifact_micro_recall_ppm"
 TOP_K_BY_CELL_KEY = {
     "retriever-top-k-10": 10,
     "retriever-top-k-5": 5,
@@ -183,41 +184,13 @@ def evaluate_micro_recall(
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cell-key", required=True, choices=sorted(TOP_K_BY_CELL_KEY))
-    arguments = parser.parse_args()
-
-    source_binding = json.loads(os.environ["EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON"])
-    if source_binding.get("result_envelope_schema") != RESULT_ENVELOPE_SCHEMA:
-        raise SystemExit("result envelope schema does not match the scientific workload")
-    if source_binding.get("parser_profile_version") != PARSER_PROFILE_VERSION:
-        raise SystemExit("parser profile version does not match the scientific workload")
-    if source_binding.get("parser_profile_hash") != PARSER_PROFILE_HASH:
-        raise SystemExit("parser profile hash does not match the scientific workload")
-    if source_binding.get("cell_key") != arguments.cell_key:
-        raise SystemExit("source binding cell key does not match the requested workload cell")
-
-    corpus = load_jsonl_records(
-        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_1_DIR"], "corpus.jsonl"),
-        ("title", "text"),
-    )
-    queries = load_jsonl_records(
-        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_2_DIR"], "queries.jsonl"),
-        ("text",),
-    )
-    qrels = load_positive_qrels(
-        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_3_DIR"], "test.tsv")
-    )
-    top_k = TOP_K_BY_CELL_KEY[arguments.cell_key]
-    result = evaluate_micro_recall(corpus, queries, qrels, top_k)
-
-    envelope = dict(source_binding)
-    envelope["outputs"] = {
+def build_outputs(result: dict[str, int | str], top_k: int) -> dict[str, object]:
+    """Build the exact provider outputs used by both live execution and local sealing preflight."""
+    return {
         "scientific_result": {
             "schema_version": SCIENTIFIC_RESULT_SCHEMA,
             "observations": [{
-                "observation_key": "micro_recall_ppm",
+                "observation_key": SCIENTIFIC_OBSERVATION_KEY,
                 "metric_key": "micro_recall_ppm",
                 "split_key": "test",
                 "value": result["micro_recall_ppm"],
@@ -241,6 +214,56 @@ def main() -> int:
             **result,
         },
     }
+
+
+def build_scientific_preflight_outputs(top_k: int) -> dict[str, object]:
+    """Return schema-valid synthetic outputs without reading datasets or provider state."""
+    return build_outputs({
+        "micro_recall_ppm": 500_000,
+        "retrieved_relevant": 1,
+        "total_relevant": 2,
+        "query_count": 1,
+        "corpus_document_count": 2,
+        "ranking_checksum": f"sha256:{'0' * 64}",
+    }, top_k)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cell-key", required=True, choices=sorted(TOP_K_BY_CELL_KEY))
+    parser.add_argument("--scientific-preflight", action="store_true")
+    arguments = parser.parse_args()
+    top_k = TOP_K_BY_CELL_KEY[arguments.cell_key]
+
+    if arguments.scientific_preflight:
+        print(canonical_json(build_scientific_preflight_outputs(top_k)))
+        return 0
+
+    source_binding = json.loads(os.environ["EXPERIMENT_FOUNDATION_SOURCE_BINDING_JSON"])
+    if source_binding.get("result_envelope_schema") != RESULT_ENVELOPE_SCHEMA:
+        raise SystemExit("result envelope schema does not match the scientific workload")
+    if source_binding.get("parser_profile_version") != PARSER_PROFILE_VERSION:
+        raise SystemExit("parser profile version does not match the scientific workload")
+    if source_binding.get("parser_profile_hash") != PARSER_PROFILE_HASH:
+        raise SystemExit("parser profile hash does not match the scientific workload")
+    if source_binding.get("cell_key") != arguments.cell_key:
+        raise SystemExit("source binding cell key does not match the requested workload cell")
+
+    corpus = load_jsonl_records(
+        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_1_DIR"], "corpus.jsonl"),
+        ("title", "text"),
+    )
+    queries = load_jsonl_records(
+        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_2_DIR"], "queries.jsonl"),
+        ("text",),
+    )
+    qrels = load_positive_qrels(
+        os.path.join(os.environ["EXPERIMENT_FOUNDATION_INPUT_3_DIR"], "test.tsv")
+    )
+    result = evaluate_micro_recall(corpus, queries, qrels, top_k)
+
+    envelope = dict(source_binding)
+    envelope["outputs"] = build_outputs(result, top_k)
     output_dir = os.environ["EXPERIMENT_FOUNDATION_OUTPUT_DIR"]
     os.makedirs(output_dir, exist_ok=True)
     result_path = os.path.join(output_dir, "result.json")

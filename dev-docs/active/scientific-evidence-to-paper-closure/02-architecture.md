@@ -915,3 +915,11 @@ The gate is a global fail-closed runner invariant rather than a new package auth
 - The qualifier constructs the exact generated-SDK-equivalent `GetWorkspace` request (`2021-02-04`, ROA `GET`, exact workspace path and `Verbose=false`) and calls the raw `callApi` boundary once with automatic retry disabled.
 - The response normalizer accepts only response-owned `WorkspaceId`/`workspaceId`, status and RequestId aliases under exact agreement rules. It rejects missing, conflicting, malformed, unsafe, zero or mismatched identities and never substitutes the requested workspace path.
 - Request construction and response normalization are one maintained client seam with locked unit tests; the script does not carry a second request implementation.
+
+### P5 workload-to-scientific-source preflight boundary
+
+- The Python workload owns one `build_outputs()` function used by both real execution and `--scientific-preflight`; the preflight cannot silently model a different observation shape.
+- Package preparation hashes the exact local entrypoint bytes and compares digest plus byte size with the candidate ExecutionBundle before executing either cell. It then builds exact provider envelopes from the package's Run/Cell/TaskSpec authority and invokes `ExperimentFoundationScientificSourcePreparationServiceV1` with the package's frozen EvaluationProtocol.
+- Eligibility is reachable only after both production-shaped cell envelopes return `sealed`. A byte mismatch, parser/schema drift or observation-slot mismatch exits under a stable `T136_P5_WORKLOAD_*` code before a package can be authorized.
+- Generic EF collection remains unchanged: a valid non-scientific envelope may still be retained as `diagnostic_only`. The stricter terminal rule belongs only to the P5 acceptance runner, which fails once all expected collections are terminal, no command remains pending and scientific-source cardinality is not exactly one per cell.
+- Historical manifests continue to identify the exact remote bytes they executed. Local source changes never rewrite their digest, remote readback or authorization facts; a new digest requires a new content-addressed object and successor authority chain.

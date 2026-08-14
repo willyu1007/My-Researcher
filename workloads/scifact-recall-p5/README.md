@@ -11,13 +11,19 @@ ordinal 2 uses 5. Everything else is frozen by one ExecutionBundle revision.
 
 The stdlib-only entrypoint builds deterministic SHA-256-hashed TF-IDF vectors,
 ranks by cosine score with source-order tie breaking, and emits one structural
-scientific observation: `micro_recall_ppm`. It is an integer-scaled proportion,
+scientific observation: `scifact_micro_recall_ppm`, backed by metric
+`micro_recall_ppm`. It is an integer-scaled proportion,
 so the provider envelope has no cross-runtime floating-point serialization
 drift. The parser remains the product's sole
 `scientific_result_parser@v1`; this workload does not create another parser.
 
 The authoritative dataset archive, checksums, input counts, license sources and
 metric definition are frozen in `manifests/source-authority-v1.json`.
+
+Package preparation hashes the exact local entrypoint and runs
+`--scientific-preflight` for both cells through the production scientific-source
+sealer. A byte mismatch or any protocol-slot mismatch makes the package
+ineligible before paid execution.
 
 For an isolated local smoke, use the fixture directories as all three inputs,
 provide an exact source-binding JSON, and run both cell keys. The top-10 fixture
@@ -35,10 +41,9 @@ evidence only and does not authorize paid execution. The later acceptance must
 bind the exact package, two `CreateJob` operations, the process-local capability
 window and expiry-based STS cleanup.
 
-The retained revision-12 prepared/acceptance manifests are historical audit and
-deterministic-test fixtures. Their window and credential are expired, the
-profile's paid/capability authority booleans are false, and they cannot be
-reused. Revisions 1-11 survive only as hashes/outcomes in the workload profile
-and task documentation; their generated manifests and retired runtime hash/
-timeline compatibility branches have been removed. Any future attempt needs a
-new package/attempt identity and a new exact authorization.
+The retained prepared/acceptance manifests are historical audit and deterministic
+test fixtures. Their windows and credentials are expired, the profile's paid/
+capability authority booleans are false, and they cannot be reused. Local source
+changes do not rewrite their remote artifact identities. Any future attempt needs
+a new content-addressed code object, authority chain, package/attempt identity and
+exact authorization.

@@ -48,6 +48,9 @@ import {
   SCIENTIFIC_EVIDENCE_P5_PREPARED_AUTHORIZATION_SCHEMA_V3,
   type ScientificEvidenceP5PreparedAuthorizationV3,
 } from '../src/services/scientific-evidence-p5-authorization-service.js';
+import {
+  assertScientificEvidenceP5WorkloadSealabilityV1,
+} from '../src/services/scientific-evidence-p5-workload-preflight-service.js';
 
 const PROJECT_ID = 'implementation_project_642a1879-1137-40f5-b340-330b66509975';
 const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
@@ -73,6 +76,10 @@ const PREPARED_AUTHORIZATION_V16_PATH = path.resolve(
 const WORKLOAD_PROFILE_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../workloads/scifact-recall-p5/manifests/workload-profile-v1.json',
+);
+const WORKLOAD_ENTRYPOINT_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../workloads/scifact-recall-p5/entrypoint.py',
 );
 const PREPARED_AUTHORIZATION_V16_REF = 'manifests/prepared-authorization-v16.json';
 const TARGET = Object.freeze({
@@ -395,6 +402,10 @@ async function main(): Promise<void> {
         recovery_point_created_at: recovery.created_at,
       },
     } satisfies ScientificEvidenceP5ExecutionPackageContentV3);
+    await assertScientificEvidenceP5WorkloadSealabilityV1({
+      execution_package: executionPackage,
+      entrypoint_path: WORKLOAD_ENTRYPOINT_PATH,
+    });
     const authoritySnapshot = buildScientificEvidenceP5AuthoritySnapshotV1({
       schema_version: SCIENTIFIC_EVIDENCE_P5_AUTHORITY_SNAPSHOT_SCHEMA_V1,
       source: 'named_local_postgres_authority',

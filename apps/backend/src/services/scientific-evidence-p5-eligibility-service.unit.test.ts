@@ -93,7 +93,7 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
     scientific_contract: {
       schema_version: 'ExperimentFoundationScientificProtocol@v1',
       observation_slots: [{
-        observation_key: 'micro_recall_ppm',
+        observation_key: 'scifact_micro_recall_ppm',
         ordinal: 1,
         metric_key: 'micro_recall_ppm',
         split_key: 'test',
@@ -108,7 +108,7 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
         ordinal: 1,
         left_cell_ordinal: 1,
         right_cell_ordinal: 2,
-        observation_key: 'micro_recall_ppm',
+        observation_key: 'scifact_micro_recall_ppm',
         effect_kind: 'absolute_difference',
         direction: 'higher_is_support',
         support_min: 1,

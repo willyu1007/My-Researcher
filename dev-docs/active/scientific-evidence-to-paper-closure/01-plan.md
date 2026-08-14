@@ -427,3 +427,13 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Terminal: both collected envelopes were `diagnostic_only` because the code artifact emits `micro_recall_ppm` while the registered protocol slot is `scifact_micro_recall_ppm`. No scientific-source output exists, so Result/validation/REU/Closure/Packet work did not run. Live terminalized under `T136_P5_LIVE_FAILED`; close execute was not invoked.
 - Completed cleanup: authority booleans are false, the lock/process/temp logs are gone, qualification is versioned as r16 history, all three post-expiration offline preflights pass, and the STS expiration audit passed with no local credential/capability/config residue.
 - Gate: T-136 stays `in-progress` and `M0-SCI` stays pending. Do not patch or replay revision 16. A successor needs explicit fix authority, a new content-addressed workload/authority chain and Run, full scientific-source sealing preflight, a fresh recovery/package and new exact paid authorization.
+
+### Post-revision-16 local scientific-sealing correction — 2026-08-14
+
+- Completed: align the workload observation identity to frozen protocol key `scifact_micro_recall_ppm` while keeping metric identity `micro_recall_ppm` unchanged.
+- Completed: make package preparation verify exact entrypoint digest/size and run both cell output builders through the production scientific-source sealer before eligibility can be emitted.
+- Completed: add a P5-only live source gate that preserves generic diagnostic collection semantics but terminates immediately when all commands are done and any terminal collection lacks one scientific source.
+- Verified: focused Node 20 scientific-source/P5 lane passes 31/31; backend and experiment-script strict TypeScript checks, Python preflight and diff hygiene pass.
+- Remaining step 1: upload/read back the exact 11,063-byte candidate under digest `sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265` under a separately reviewed cloud-write boundary.
+- Remaining step 2: freeze a new ExecutionBundle/WorkOrder/Run and create a fresh named-local recovery and immutable package. The new byte-identity/sealing gate must pass against that package; historical revision-16 manifests remain unchanged.
+- Remaining step 3: report the new package hash and obtain a new exact authorization before any STS issuance, capability enablement or paid `CreateJob` call.
