@@ -946,3 +946,23 @@ PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assist
 - `node .ai/tests/run.mjs --suite database` passed its SQLite smoke suite. `ctl-db-ssot sync-to-context` reported checksums current and refreshed the repo-prisma context contract.
 - `prisma:validate` first failed before schema validation because `DATABASE_URL` was absent from that shell. Re-running with `.env.local` loaded passed; no schema/code change was made for the environment-only failure.
 - Task-bundle document lint passed 17 Markdown files with zero errors and 11 historical vague-reference warnings. Project-governance sync completed; governance lint passed with the same two unrelated pre-existing invalid-state-format warnings.
+
+### 2026-08-15 — Revision-18 attempt-16 exact execution and fail-closed verification
+
+- Exact package acceptance was recorded for `sha256:8a1f87c2cb6d79423b3cc81c8a87e2a32b09eb95bae9358d940a634552fd44e5`; acceptance file SHA-256 is `4136e4a3613f6843b12a859703faad6611154b410b8bc22a57e29b0c1b640323`.
+- Chrome showed exact RAM user `user_0002`. Portal confirmation started before `2026-08-14T23:20:55.325Z`; one r18 `AssumeRole` warning confirmation completed at `2026-08-14T23:21:20.927Z`, before dispatch cutoff `2026-08-14T23:22:55.325Z`. No generic post-credential DOM snapshot was taken.
+- Credential integrity claim/completion passed once. Secret-free receipt: visible-ASCII lengths access key id `29`, secret `44`, token `1836`, issued time `24`, expiration `20`, request id `36`; tuple hash `sha256:acc2b75ec3a555852fc4c617c54482545aa21fea8d07e1cbe1cf48e4946e1dab`; cloud/database/capability/config-write counts `0`.
+- Qualification claim exists at `2026-08-14T23:23:34.806Z`; terminal record SHA-256 is `503f1372bcd051763491a037dce7a8ec8bdfafbec623019ee6dd2f4d406770cf`, failed stage `credential_qualification`, stable reason `T136_P5_CREDENTIAL_QUALIFICATION_FAILED`, terminal time `2026-08-14T23:23:34.823Z`. The 17 ms local interval and the code-order/precision proof place failure before the first read-only provider call.
+- Exact effect accounting: `AssumeRole=1`; qualification reads `0`; `CreateJob=0`; provider writes `0`; database writes `0`; persistent capability changes `0`; paid cost CNY `0`. `credential-qualification-v1.json`, live completion and close claim/output are absent. New-Run Attempts, scientific Results, validations, REUs, runtime artifacts/admissions, Closures and Packets are all zero.
+- Credential-free post-terminal commands all exited 0:
+
+```text
+PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --dir apps/backend scientific-evidence:p5:qualify-credential -- --mode offline-preflight
+PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --dir apps/backend scientific-evidence:p5:live -- --mode offline-preflight
+PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --dir apps/backend scientific-evidence:p5:close -- --mode offline-preflight
+```
+
+- Qualification reported `passed_terminal_attempt_no_execute`; live reported exact migration/three-constraint readiness plus Attempts/Results/validations/REUs/outboxes all zero; close reported waiting for real evidence with Results/reports/REUs/runtime artifacts/admissions/Closures/Packets all zero. All three preflights reported zero credentials/cloud or external calls/database writes/capability changes.
+- Browser response state, clipboard and in-memory credential buffers were cleared, the prior GetJob page was restored, the child process exited, and `.env.local` contains no Alibaba credential variable. Final provider-expiration verification remains pending until after `2026-08-15T00:22:55.325Z`; do not overlap a successor issuance before then.
+- Handoff checks passed: task-bundle document lint checked 17 Markdown files with `0` errors and the same 11 historical vague-reference warnings; project-governance sync completed; governance lint passed with only the two unchanged unrelated invalid-state-format warnings; `git diff --check` passed.
+- Final commit gate passed: experiment-foundation script TypeScript check completed after Prisma generation, and the six focused P5 service suites passed `60/60` with zero failures, skips or cancellations.

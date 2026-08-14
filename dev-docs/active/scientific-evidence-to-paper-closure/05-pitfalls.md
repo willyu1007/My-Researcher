@@ -402,3 +402,11 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - What was tried: inspect only exact PAI Job status, OSS object metadata, local rows, PostgreSQL logs, migration history and live constraints. Object bodies were not read and revision 17 was not replayed, reclaimed or repaired.
 - Fix/workaround: deploy the existing additive migration through the repo-prisma SSOT workflow after a verified recovery point; keep failed Collection `collectedAt` null; require the exact migration and scientific constraints before P5 can read credentials or enable capabilities.
 - Prevention: every paid path whose code depends on raw SQL constraints must check target migration history and contract-defining constraints, not merely target identity or generated-client compatibility. Test the original operation and its failure-persistence fallback as one regression pair.
+
+### 2026-08-15 — Browser observation time is not the STS issuance timestamp
+
+- Symptom: revision 18 passed one exact `AssumeRole` and local credential integrity, then qualification terminalized 17 ms after its claim before any caller/workspace/image request, paid call or database write.
+- Root cause: the handoff treated post-confirmation browser observation time `2026-08-14T23:21:20.927Z` as credential `issued_at`, while provider `Expiration` was canonical second precision. The qualifier correctly requires an exact 3,600,000 ms lifetime; a millisecond-bearing start and whole-second end can never satisfy that equality.
+- What was tried: honor the permanent attempt terminal without re-extracting, reissuing or retrying; use the secret-free integrity byte lengths, claim/terminal timestamps and qualifier code order to localize the failure; then run all three credential-free offline preflights and zero-state censuses.
+- Fix/workaround: keep revision 18 terminal. For a separately approved successor, derive issuance from authoritative provider expiration minus the package's exact duration, serialize canonical UTC, and independently fence the derived instant inside the authorized issuance/dispatch window.
+- Prevention: never manufacture provider credential metadata from UI observation timing. Add a focused second-precision expiration regression and require the secure handoff to prove exact duration/window bounds before issuing the integrity receipt.

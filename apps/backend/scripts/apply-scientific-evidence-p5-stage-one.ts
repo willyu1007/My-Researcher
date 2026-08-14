@@ -66,17 +66,18 @@ import {
 
 const AUTHORIZATION_ENV = 'T136_P5_STAGE_ONE_APPLY_AUTHORIZATION';
 const AUTHORIZATION_VALUE =
-  'authorized-2026-08-14-t136-p5-successor-authority-max101-no-cloud';
-const MATERIALIZED_AT = '2026-08-14T15:20:00.000Z';
+  'authorized-2026-08-15-t136-p5-schema-ready-successor-max44-no-cloud';
+const MATERIALIZED_AT = '2026-08-14T23:05:00.000Z';
 const PROJECT_ID = 'implementation_project_642a1879-1137-40f5-b340-330b66509975';
 const SOURCE_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
 const HISTORICAL_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
-const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
-const INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t136_p5_scifact_v2';
-const TRACE_ID = 'trace_manifest_t136_p5_scifact_v2';
+const PREVIOUS_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
+const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v3';
+const INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t136_p5_scifact_v3';
+const TRACE_ID = 'trace_manifest_t136_p5_scifact_v3';
 const BUNDLE_KEY = 't136-p5-scifact-scientific-v2';
-const BUSINESS_KEY = 't136-p5-scifact-two-cell-v2';
-const ATTEMPT_ID = 't136-p5-scifact-attempt-15';
+const BUSINESS_KEY = 't136-p5-scifact-two-cell-v3';
+const ATTEMPT_ID = 't136-p5-scifact-attempt-16';
 const HISTORICAL_METRIC_REVISION_ID =
   'ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v1';
 const METRIC_REVISION_ID = 'ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2';
@@ -86,7 +87,8 @@ const PROTOCOL_REVISION_ID = 'ef_revision_t136_p5_protocol_scifact_micro_recall_
 const HISTORICAL_BUNDLE_REVISION_ID =
   'ef_execution_bundle_revision_e87768c5205729b01ff8ceec8a8d0aaa69a15c3b';
 const HISTORICAL_RUN_ID = 'ef_run_v2_t136_p5_scifact_v1_1';
-const SUCCESSOR_RUN_ID = 'ef_run_v2_t136_p5_scifact_v2_1';
+const PREVIOUS_RUN_ID = 'ef_run_v2_t136_p5_scifact_v2_1';
+const SUCCESSOR_RUN_ID = 'ef_run_v2_t136_p5_scifact_v3_1';
 const RECOVERY_MANIFEST =
   '/Users/yurui/Desktop/My-Researcher-Recovery/T-136/t136-p5-recovery-manifest.json';
 
@@ -99,23 +101,6 @@ const TARGET = Object.freeze({
 });
 
 const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
-  ExperimentFoundationMetricDefinitionV2: 0,
-  ExperimentFoundationMetricDefinitionRevisionV2: 1,
-  ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2: 1,
-  ExperimentFoundationEvaluationProtocolV2: 0,
-  ExperimentFoundationEvaluationProtocolRevisionV2: 1,
-  ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2: 1,
-  ExperimentFoundationEvaluationProtocolMetricDependencyV2: 17,
-  ExperimentFoundationAssetLifecycleEventV2: 4,
-  ExperimentFoundationAssetLifecycleProjectionV2: 2,
-  ExperimentFoundationReadinessAttestationV2: 2,
-  ExperimentFoundationReadinessDependencyV2: 22,
-  ExperimentFoundationExecutionBundleIdentityV2: 1,
-  ExperimentFoundationExecutionBundleDraftV2: 1,
-  ExperimentFoundationExecutionBundleRevisionV2: 1,
-  ExperimentFoundationExecutionBundleLifecycleEventV2: 1,
-  ExperimentFoundationExecutionBundleLifecycleProjectionV2: 1,
-  ExperimentFoundationExecutionBundleReadinessV2: 1,
   PaperImplementationValidationCycleInputSnapshot: 1,
   PaperImplementationValidationCycle: 1,
   PaperImplementationTraceManifest: 1,
@@ -134,7 +119,7 @@ const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   ExperimentFoundationRunCellV2: 2,
   ExperimentFoundationIntegrationOutboxV2: 1,
 });
-const EXPECTED_TOTAL_DELTA = 101;
+const EXPECTED_TOTAL_DELTA = 44;
 
 const STRUCTURAL_METRICS = [
   metricRef('d19-metric-answer_accuracy', 'revision_a004dfe1-d90b-4f2f-ae97-a298c01945ec', '2a53188ea9fb8ddd80ffae77c78ce7ef02c20aa469f9c5af73aba591f85e1bbc'),
@@ -885,14 +870,14 @@ function buildRepositories(prisma: PrismaClient) {
   const assetService = new ExperimentFoundationV2Service(assetRepository);
   const cycleClosureLookup =
     new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
-  const ids = deterministicIdFactory('t136_p5_scifact_v2');
+  const ids = deterministicIdFactory('t136_p5_scifact_v3');
   const now = () => MATERIALIZED_AT;
   const traceService = new PaperImplementationTraceKernelService({
     projectRepository,
     traceRepository,
     idFactory: (prefix) => prefix === 'trace_manifest'
       ? TRACE_ID
-      : `${prefix}_t136_p5_scifact_v2`,
+      : `${prefix}_t136_p5_scifact_v3`,
     now,
   });
   const validationService = new PaperImplementationValidationCyclePlanningService({
@@ -902,7 +887,7 @@ function buildRepositories(prisma: PrismaClient) {
     validationRepository,
     idFactory: (prefix) => prefix === 'validation_input_snapshot'
       ? INPUT_SNAPSHOT_ID
-      : `${prefix}_t136_p5_scifact_v2`,
+      : `${prefix}_t136_p5_scifact_v3`,
     now,
   });
   const admissionService = new PaperImplementationExperimentV2AdmissionService({
@@ -1034,18 +1019,18 @@ async function materializeLineage(
     content_hash: bundle.revision.content_hash,
   };
   const workOrderRequest: PaperImplementationExperimentV2AdmissionRequest = {
-    branch_key: 'scifact-p5-primary-v2',
+    branch_key: 'scifact-p5-primary-v3',
     branch_frame: {
       frame_schema_version: 'v1',
-      display_name: 'T-136 SciFact P5 corrected scientific comparison',
+      display_name: 'T-136 SciFact P5 schema-ready scientific comparison',
       scientific_intent: 'Measure the preregistered micro-recall difference between top-k 10 and top-k 5 using only fresh provider observations.',
       comparison_role: 'primary',
       parent_branch_key: null,
     },
     work_order_revision: {
       work_order_schema_version: 'v2',
-      title: 'T-136 P5 SciFact corrected exact two-cell scientific run',
-      objective: 'Freeze one fresh two-cell Run without executing provider jobs; CreateJob remains separately authorized.',
+      title: 'T-136 P5 SciFact schema-ready exact two-cell scientific run',
+      objective: 'Freeze one post-migration two-cell Run without executing provider jobs; CreateJob remains separately authorized.',
       readiness_attestation_id: assets.readiness.readiness_attestation_id,
       readiness_attestation_hash: assets.readiness.attestation_hash,
       asset_dependencies: [...assets.readiness_dependencies, assets.protocol],
@@ -1083,7 +1068,7 @@ async function materializeLineage(
     materializationConsumer: repositories.materializationService,
     headConsumer: repositories.headService,
     acknowledgementConsumer: repositories.acknowledgementService,
-    workerId: 't136-p5-scifact-successor-authority-relay',
+    workerId: 't136-p5-scifact-revision-18-authority-relay',
     retryDelayMs: 0,
   });
   const drained = await relay.drainUntilIdle({ max_passes: 10, limit_per_domain: 10 });
@@ -1182,7 +1167,7 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
       decision_if_pass: 'Advance only the provider-produced observations into scientific validation and evidence qualification.',
       decision_if_fail: 'Stop the positive claim path and preserve the negative scientific disposition.',
       decision_if_inconclusive: 'Do not promote a directional claim; review or repeat only under a new authorization.',
-      why_this_cycle_now: 'P1-P4 gates are complete and the exact P5 scientific workload is ready for a separately authorized provider window.',
+      why_this_cycle_now: 'P1-P4 gates are complete and named-local scientific persistence now matches the repo DB contract.',
     },
     context: {
       input_snapshot_id: INPUT_SNAPSHOT_ID,
@@ -1190,12 +1175,13 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
       included_refs: structuredClone(source.context.included_refs),
       excluded_context_notes: [
         'T-132 diagnostic Runs and all offline preview values are excluded from scientific evidence.',
+        'Terminal revision-17 Attempts and collections are immutable history and excluded from successor evidence.',
         'Provider submission, capabilities, credentials, experimental results and evidence promotion remain outside stage one.',
       ],
     },
     criteria: {
       pass_conditions: [
-        'One exact two-cell WorkOrder v2 materializes one fresh frozen Run with no provider submission.',
+        'One exact two-cell WorkOrder v2 materializes one fresh post-migration Run with no provider submission.',
         'The exact scientific protocol, Dataset parts, parser and ExecutionBundle hashes remain locked end to end.',
       ],
       fail_conditions: [
@@ -1210,7 +1196,7 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
       minimum_artifacts_required: ['Sanitized T-136 P5 stage-one materialization and replay summary.'],
     },
     budget: {
-      budget_id: 'validation_budget_t136_p5_scifact_v2',
+      budget_id: 'validation_budget_t136_p5_scifact_v3',
       max_runtime: 'PT30M',
       max_compute: '2x2CPU-8GiB',
       retry_budget: 0,
@@ -1224,9 +1210,11 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
 }
 
 async function readInitialScopeState(prisma: PrismaClient): Promise<'missing' | 'partial' | 'complete'> {
-  const [cycle, bundle, metricIdentity, protocolIdentity, metricRevision, protocolRevision] =
+  const [cycle, run, bundle, metricIdentity, protocolIdentity, metricRevision, protocolRevision,
+    previousCycle, previousRun] =
     await Promise.all([
     prisma.paperImplementationValidationCycle.count({ where: { id: CYCLE_ID } }),
+    prisma.experimentFoundationRunV2.count({ where: { id: SUCCESSOR_RUN_ID } }),
     prisma.experimentFoundationExecutionBundleIdentityV2.count({ where: { bundleKey: BUNDLE_KEY } }),
     prisma.experimentFoundationMetricDefinitionV2.findUnique({
       where: { id: 't136-p5-metric-scifact-micro-recall-ppm' },
@@ -1242,34 +1230,24 @@ async function readInitialScopeState(prisma: PrismaClient): Promise<'missing' | 
     prisma.experimentFoundationEvaluationProtocolRevisionV2.count({
       where: { id: PROTOCOL_REVISION_ID },
     }),
+    prisma.paperImplementationValidationCycle.count({ where: { id: PREVIOUS_CYCLE_ID } }),
+    prisma.experimentFoundationRunV2.count({ where: { id: PREVIOUS_RUN_ID } }),
   ]);
   assert.ok(metricIdentity && protocolIdentity, 'Historical scientific assets are missing');
-  if (
-    cycle === 0
-    && bundle === 0
-    && metricRevision === 0
-    && protocolRevision === 0
-    && metricIdentity.currentRevisionId === HISTORICAL_METRIC_REVISION_ID
-    && metricIdentity.draftStateVersion === 2
-    && protocolIdentity.currentRevisionId === HISTORICAL_PROTOCOL_REVISION_ID
-    && protocolIdentity.draftStateVersion === 2
-  ) return 'missing';
-  if (
-    cycle !== 1
-    || bundle !== 1
-    || metricRevision !== 1
-    || protocolRevision !== 1
-    || metricIdentity.currentRevisionId !== METRIC_REVISION_ID
-    || protocolIdentity.currentRevisionId !== PROTOCOL_REVISION_ID
-  ) return 'partial';
-  const runCount = await prisma.experimentFoundationRunV2.count({
-    where: { id: SUCCESSOR_RUN_ID },
-  });
-  return runCount === 1 ? 'complete' : 'partial';
+  assert.equal(bundle, 1, 'Scientific execution bundle is missing');
+  assert.equal(metricRevision, 1, 'Scientific metric revision is missing');
+  assert.equal(protocolRevision, 1, 'Scientific protocol revision is missing');
+  assert.equal(metricIdentity.currentRevisionId, METRIC_REVISION_ID);
+  assert.equal(protocolIdentity.currentRevisionId, PROTOCOL_REVISION_ID);
+  assert.equal(previousCycle, 1, 'Revision-17 validation cycle is missing');
+  assert.equal(previousRun, 1, 'Revision-17 Run is missing');
+  if (cycle === 0 && run === 0) return 'missing';
+  return cycle === 1 && run === 1 ? 'complete' : 'partial';
 }
 
 async function readHistoricalSentinels(prisma: PrismaClient) {
-  const [sourceCycle, sourceReadiness, sourceBundle, cycle, metric, protocol, bundle, branch, revision, run] =
+  const [sourceCycle, sourceReadiness, sourceBundle, cycle, metric, protocol, bundle, branch,
+    revision, run, previousCycle, previousBranch, previousRevision, previousRun] =
     await Promise.all([
     prisma.paperImplementationValidationCycle.findUnique({ where: { id: SOURCE_CYCLE_ID } }),
     prisma.experimentFoundationReadinessAttestationV2.findUnique({
@@ -1298,6 +1276,17 @@ async function readHistoricalSentinels(prisma: PrismaClient) {
       where: { id: HISTORICAL_RUN_ID },
       include: { cells: { orderBy: { ordinal: 'asc' } }, runRecipe: true },
     }),
+    prisma.paperImplementationValidationCycle.findUnique({ where: { id: PREVIOUS_CYCLE_ID } }),
+    prisma.paperImplementationExperimentWorkOrderBranchV2.findUnique({
+      where: { id: 'pi_experiment_branch_v2_t136_p5_scifact_v2_1' },
+    }),
+    prisma.paperImplementationExperimentWorkOrderRevisionV2.findUnique({
+      where: { id: 'pi_experiment_revision_v2_t136_p5_scifact_v2_1' },
+    }),
+    prisma.experimentFoundationRunV2.findUnique({
+      where: { id: PREVIOUS_RUN_ID },
+      include: { cells: { orderBy: { ordinal: 'asc' } }, runRecipe: true },
+    }),
   ]);
   return {
     sourceCycle,
@@ -1310,6 +1299,10 @@ async function readHistoricalSentinels(prisma: PrismaClient) {
     branch,
     revision,
     run,
+    previousCycle,
+    previousBranch,
+    previousRevision,
+    previousRun,
   };
 }
 
@@ -1342,7 +1335,7 @@ async function requireRecoveryPoint(): Promise<RecoveryManifest> {
 
 function requireAuthorization(value: string | undefined): void {
   if (value !== AUTHORIZATION_VALUE) {
-    throw new Error(`${AUTHORIZATION_ENV} must exactly authorize the reviewed 101-row no-cloud scope`);
+    throw new Error(`${AUTHORIZATION_ENV} must exactly authorize the reviewed 44-row no-cloud scope`);
   }
 }
 

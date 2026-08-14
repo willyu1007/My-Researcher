@@ -619,14 +619,14 @@ test('revision-8 timeline freezes portal confirmation, dispatch and handoff marg
   assert.equal(result.status, 'eligible');
 });
 
-test('revision-17 attempt derives the exact r17 controller session convention', () => {
+test('revision-18 attempt derives the exact r18 controller session convention', () => {
   const content = packageContent();
   const timeline = buildScientificEvidenceP5OperationalTimelineV3(
     '2026-08-10T02:00:00.000Z',
   );
-  content.p5_attempt_id = 't136-p5-scifact-attempt-15';
+  content.p5_attempt_id = 't136-p5-scifact-attempt-16';
   content.operational_timeline = timeline;
-  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r17';
+  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r18';
   content.credential_policy.minimum_remaining_at_live_start_seconds = 2_400;
   content.credential_policy.automatic_expiration_not_after = new Date(
     Date.parse(timeline.issuance.dispatch_not_after) + 3_600_000,
@@ -646,13 +646,13 @@ test('revision-17 attempt derives the exact r17 controller session convention', 
 test('attempt-scoped output prefixes fail payload materialization before eligibility', () => {
   const content = packageContent();
   content.provider.profile.workload_binding.output_uri_prefix =
-    'oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/output/t136-p5/scifact/attempt-15/';
+    'oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/output/t136-p5/scifact/attempt-16/';
   const resultRead = content.credential_policy.session_policy.Statement.find(
     (statement) => statement.Sid === 'T136P5ControllerResultReadExact',
   );
   assert.ok(resultRead);
   resultRead.Resource =
-    'acs:oss:*:*:p5-bucket/output/t136-p5/scifact/attempt-15/run-p5-1/*';
+    'acs:oss:*:*:p5-bucket/output/t136-p5/scifact/attempt-16/run-p5-1/*';
   content.credential_policy.session_policy_hash =
     serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1(
       content.credential_policy.session_policy,

@@ -943,3 +943,10 @@ The gate is a global fail-closed runner invariant rather than a new package auth
 - The readiness query is read-only and is also part of offline preflight. It does not infer schema readiness from Prisma Client generation or repository code because those facts say nothing about the target database's applied migration history.
 - `ExperimentFoundationCollectionAttemptV2.collectedAt` records successful collection, not generic terminal time. A deterministic collection failure therefore persists `collection_state=failed` with `collectedAt=null`; the collect command's terminal state and stable error code carry failure completion. This matches the maintained relational CHECK and prevents a fallback write from masking the original scientific-source error.
 - Schema deployment and paid execution remain separate authorities. Applying the reviewed additive migration restores target compatibility but neither mutates terminal revision-17 runtime rows nor grants a successor Run, credential, capability or cloud operation.
+
+### Provider-derived STS issuance-time boundary
+
+- `AssumeRole` returns authoritative `Expiration` but no issuance timestamp. Browser observation time is transport timing, not credential metadata; its millisecond precision must not be combined with provider second precision under an exact lifetime equality.
+- The secure handoff must derive `issued_at = Expiration - credential_policy.issued_duration_seconds`, serialize it in canonical UTC form, and independently prove that the derived instant lies within the package issuance/dispatch window and that `Expiration` does not exceed `automatic_expiration_not_after`.
+- Integrity remains tuple-bound to the derived non-secret metadata and the three secret fields. Qualification still rechecks exact lifetime and window bounds before constructing any provider client, so malformed timing fails locally with zero read-only or paid calls.
+- Terminal attempt 16 is not a migration target for this rule. The correction can apply only to a fresh attempt/package after the current STS automatic-expiration upper bound.

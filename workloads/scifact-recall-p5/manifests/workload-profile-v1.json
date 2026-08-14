@@ -83,12 +83,12 @@
   },
   "authorization": {
     "named_local_materialization_complete": true,
-    "current_revision": 17,
-    "prepared_package_hash": "sha256:d790b7856a27fa32e1ab57ab02eef92034699cd494b11a86b203ef9dc166ba6a",
+    "current_revision": 18,
+    "prepared_package_hash": "sha256:8a1f87c2cb6d79423b3cc81c8a87e2a32b09eb95bae9358d940a634552fd44e5",
     "prepared_package_eligible": true,
-    "prepared_authorization_ref": "manifests/prepared-authorization-v17.json",
-    "authorization_acceptance_ref": "manifests/authorization-acceptance-v17.json",
-    "authorization_status": "failed_live_during_collection_with_peer_job_nonterminal_after_two_create_jobs",
+    "prepared_authorization_ref": "manifests/prepared-authorization-v18.json",
+    "authorization_acceptance_ref": "manifests/authorization-acceptance-v18.json",
+    "authorization_status": "failed_credential_qualification_without_paid_execution",
     "create_job_authorized": false,
     "capability_enable_authorized": false,
     "historical_revision_3": {
@@ -146,6 +146,10 @@
     "historical_revision_16": {
       "package_hash": "sha256:ad9c1080c468641e680a3c998dcd65f49538715082db59ae7b9ba82a138cbb9b",
       "final_status": "failed_live_scientific_source_contract_mismatch_after_two_succeeded_provider_jobs"
+    },
+    "historical_revision_17": {
+      "package_hash": "sha256:d790b7856a27fa32e1ab57ab02eef92034699cd494b11a86b203ef9dc166ba6a",
+      "final_status": "failed_live_named_local_schema_drift_after_two_create_jobs"
     }
   }
 }
