@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 + R-013 > T-136`
 - Product release role: mandatory `M0-SCI` scientific capability gate inside product M0; the gate is not the governance milestone `M-001` and not the sole release gate for all M0 modules.
 - Origin: user-requested follow-up to the four-module completion review on 2026-08-04.
-- Current step: revision 14 / attempt 12 received exact package authorization, issued one controller STS and passed local credential integrity. Its sole credential-qualification invocation failed terminally before paid execution; no Job, database write, capability change or scientific row exists. The invalid official-image ownership assertion is corrected and local gates pass, but revision 14 cannot be retried.
-- Next step: after the issued STS expires at `2026-08-14T11:35:43Z`, verify provider-expiration/local-cleanup state, then stage a fresh revision-15 identity/package and obtain a new one-line hash-bound confirmation. No revision-14 credential, acceptance, claim, completion or terminal state may be reused.
+- Current step: revision 14 / attempt 12 received exact package authorization, issued one controller STS and passed local credential integrity. Its sole credential-qualification invocation failed terminally before paid execution; no Job, database write, capability change or scientific row exists. The invalid official-image ownership assertion is corrected and revision 15 / attempt 13 is locally pre-staged with a fresh verified recovery point and green gates, but no successor package or authority exists yet.
+- Next step: after the issued STS expires at `2026-08-14T11:35:43Z`, verify provider-expiration/local-cleanup state, materialize the exact revision-15 package and obtain a new one-line hash-bound confirmation. No revision-14 credential, acceptance, claim, completion or terminal state may be reused.
 
 ### Current implementation checkpoint — 2026-08-10
 

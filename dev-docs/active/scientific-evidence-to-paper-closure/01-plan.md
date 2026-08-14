@@ -20,7 +20,7 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Completed immediate cleanup: credential and provider-response buffers are cleared, clipboard is empty, Chrome left the result page and finalized, runner processes are absent, and process/local env files contain no temporary Alibaba credential or P5 capability key. Current paid/capability authority is false.
 - Approved local correction: the same public official image is known to omit optional ownership `WorkspaceId`; the qualifier incorrectly equated that field with the independently frozen DLC Job workspace. Missing ownership now canonicalizes to `null`, malformed values fail, and URI/accessibility plus independent workspace/Job-profile gates remain strict. P5 tests pass 59/59; script and full-workspace typechecks pass.
 - Pending safety closeout: treat the issued STS as provider-live until `2026-08-14T11:35:43Z`; after that timestamp, run the credential-free expiration/local-absence audit. Do not issue or reuse credentials before it expires.
-- Current gate: revision 14 is terminal and cannot be retried. Revision 15 requires a fresh attempt identity, fresh recovery/package timeline and new exact hash authorization before any cloud call.
+- Current gate: revision 14 is terminal and cannot be retried. Revision 15 / attempt 13 and its fresh recovery are locally pre-staged, but package materialization waits for the prior STS expiration audit. A new exact hash authorization remains mandatory before any successor cloud call.
 
 ## P0 — Authority census and contract freeze
 
