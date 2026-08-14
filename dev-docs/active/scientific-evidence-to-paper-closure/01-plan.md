@@ -411,3 +411,11 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Generated preparation/acceptance manifests v1-v11 were removed; only the final revision-12 historical package and acceptance remain as the current deterministic test/audit fixture. The retained P5 runners remain maintained acceptance harnesses, not transient attempt scripts.
 - Tracked desktop `dist/` output, untracked build caches, bytecode, logs and task scratch artifacts were removed. The two named-local recovery dumps under `.ai/.tmp/db-recovery/` were deliberately retained because the active recovery runbook still names them as restore sources.
 - Current planning boundary: `M0-SCI` is still not passed. The next product action, if chosen later, is revision 13 under fresh authority; it is not part of this cleanup/commit checkpoint.
+
+### Revision-16 pure-local payload correction — 2026-08-14
+
+- Completed: preserve the real-provider materializer's exact regional `output/` root contract and switch the successor profile to that root. The service continues to derive `output/<run-id>/<cell-key>/`; the controller session policy grants result reads only under `output/<run-id>/*`.
+- Completed: make deterministic P5 package eligibility materialize both exact cell payloads. Any profile, input URI, mount, role or output-path mismatch now fails with `P5_ELIG_REAL_PROVIDER_PATH_INVALID` before an immutable package can be marked eligible.
+- Completed: pre-stage only revision-16 code paths and workload authority. Active harnesses use v16 manifests, attempt 14, r16 session naming and attempt-14 business/idempotency keys; revision-15 qualification and terminal records remain versioned history. No v16 recovery/package/acceptance was created.
+- Verified: eligibility passes 18/18, the full focused P5 lane passes 60/60, experiment-script and full-workspace typechecks pass, and both exact frozen production cells materialize in memory with no credential, provider client or database write.
+- Gate: wait for the recorded revision-15 STS expiration and verify cleanup. Any real revision-16 sequence still requires a fresh repository-external recovery point, one first-write package, hash reporting and new exact authorization.

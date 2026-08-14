@@ -136,7 +136,8 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
   const executionBundleContent: ExperimentFoundationExecutionBundleRevisionV2['revision_content'] = {
     execution_bundle_schema_version: 'v2',
     code_artifact: {
-      artifact_ref: `oss://p5-bucket/input/workload/${'4'.repeat(64)}/`,
+      artifact_ref:
+        `oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/input/workload/${'4'.repeat(64)}/`,
       content_digest: hash('4'),
       byte_size: 4_096,
     },
@@ -158,7 +159,8 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
     dataset_mirrors: [{
       ordinal: 1,
       dataset_revision: { ...dataset, asset_type: 'Dataset' },
-      object_ref: `oss://p5-bucket/input/scifact/${'1'.repeat(64)}/`,
+      object_ref:
+        `oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/${'1'.repeat(64)}/`,
       content_digest: hash('1'),
       byte_size: 8_106_566,
     }],
@@ -265,7 +267,7 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
         Sid: 'T136P5ControllerPassRuntimeRoleExact',
         Effect: 'Allow',
         Action: ['ram:PassRole'],
-        Resource: 'acs:ram::123:role/p5-runtime',
+        Resource: 'acs:ram::123456:role/p5-runtime',
       },
       {
         Sid: 'T136P5ControllerImageRead',
@@ -277,7 +279,7 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
         Sid: 'T136P5ControllerResultReadExact',
         Effect: 'Allow',
         Action: ['oss:GetObject'],
-        Resource: 'acs:oss:*:*:p5-results/attempt-1/*',
+        Resource: 'acs:oss:*:*:p5-bucket/output/run-p5-1/*',
       },
       {
         Sid: 'T136P5ControllerCallerIdentity',
@@ -337,11 +339,12 @@ function packageContent(): ScientificEvidenceP5ExecutionPackageContentV3 {
         pod_count: 1,
         workload_binding: {
           schema_version: 'AliyunPaiDlcWorkloadBinding@v1',
-          runtime_role_arn: 'acs:ram::123:role/p5-runtime',
+          runtime_role_arn: 'acs:ram::123456:role/p5-runtime',
           code_mount_path: '/mnt/code',
           input_mount_root: '/mnt/input',
           output_mount_path: '/mnt/output',
-          output_uri_prefix: 'oss://p5-results/attempt-1/',
+          output_uri_prefix:
+            'oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/output/',
         },
       },
     },
@@ -616,14 +619,14 @@ test('revision-8 timeline freezes portal confirmation, dispatch and handoff marg
   assert.equal(result.status, 'eligible');
 });
 
-test('revision-15 attempt derives the exact r15 controller session convention', () => {
+test('revision-16 attempt derives the exact r16 controller session convention', () => {
   const content = packageContent();
   const timeline = buildScientificEvidenceP5OperationalTimelineV3(
     '2026-08-10T02:00:00.000Z',
   );
-  content.p5_attempt_id = 't136-p5-scifact-attempt-13';
+  content.p5_attempt_id = 't136-p5-scifact-attempt-14';
   content.operational_timeline = timeline;
-  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r15';
+  content.credential_policy.role_session_name = 't136-p5-scifact-20260810-r16';
   content.credential_policy.minimum_remaining_at_live_start_seconds = 2_400;
   content.credential_policy.automatic_expiration_not_after = new Date(
     Date.parse(timeline.issuance.dispatch_not_after) + 3_600_000,
@@ -638,6 +641,33 @@ test('revision-15 attempt derives the exact r15 controller session convention', 
   });
   assert.deepEqual(result.reason_codes, []);
   assert.equal(result.status, 'eligible');
+});
+
+test('attempt-scoped output prefixes fail payload materialization before eligibility', () => {
+  const content = packageContent();
+  content.provider.profile.workload_binding.output_uri_prefix =
+    'oss://p5-bucket.oss-cn-shanghai-internal.aliyuncs.com/output/t136-p5/scifact/attempt-14/';
+  const resultRead = content.credential_policy.session_policy.Statement.find(
+    (statement) => statement.Sid === 'T136P5ControllerResultReadExact',
+  );
+  assert.ok(resultRead);
+  resultRead.Resource =
+    'acs:oss:*:*:p5-bucket/output/t136-p5/scifact/attempt-14/run-p5-1/*';
+  content.credential_policy.session_policy_hash =
+    serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1(
+      content.credential_policy.session_policy,
+    );
+  const executionPackage = buildScientificEvidenceP5ExecutionPackageV3(content);
+  const authoritySnapshot = buildScientificEvidenceP5AuthoritySnapshotV1(
+    authorityContent(executionPackage),
+  );
+  const result = preflightScientificEvidenceP5PackageV3({
+    execution_package: executionPackage,
+    authority_snapshot: authoritySnapshot,
+  });
+  assert.equal(result.status, 'ineligible');
+  assert.ok(result.reason_codes.includes('P5_ELIG_REAL_PROVIDER_PATH_INVALID'));
+  assert.ok(!result.reason_codes.includes('P5_ELIG_CREDENTIAL_POLICY_INVALID'));
 });
 
 test('every exact workload change produces a different package hash', () => {

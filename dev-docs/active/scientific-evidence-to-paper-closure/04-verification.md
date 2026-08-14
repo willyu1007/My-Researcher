@@ -857,3 +857,11 @@ git diff --check
 - A credential-free exact-payload diagnostic reproduces the terminal cause for both ordered cells: `ExperimentFoundationRealProviderPayloadV2Error`, reason `REAL_PROVIDER_PAYLOAD_INVALID`, message `Real-provider output URI must be the exact regional output/ root.` No provider client, credential, capability or repository write is used.
 - Control-flow/effect proof: `intake.start()` materializes both cell payloads before `repository.startRealProviderExecution()`. The worker and `CreateJob` transport are reachable only after that repository call returns. Because the post-terminal database has zero Attempts and both materializations fail first, actual `CreateJob=0` and paid cost is CNY 0.
 - `M0-SCI` remains not passed. Revision 15 is permanently non-retriable; the issued STS remains provider-live until `2026-08-14T12:50:41Z` despite local cleanup.
+
+### 2026-08-14 — Revision-16 pure-local correction verification
+
+- Eligibility regression passes 18/18. The positive package materializes both payloads; an attempt-scoped regional-internal prefix fails with `P5_ELIG_REAL_PROVIDER_PATH_INVALID` while its correspondingly scoped session policy remains otherwise valid.
+- The complete focused P5 lane passes 60/60 with zero failures, skips or cancellations. Historical-package authorization tests use a separately rehashed eligible fixture rather than weakening the corrected production gate.
+- `pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts` and root `pnpm typecheck` pass.
+- A credential-free, provider-free in-memory diagnostic loads the exact revision-15 execution package, changes only its output root, and materializes both ordered production cells successfully. Materialized cell count is 2 (`retriever-top-k-10`, `retriever-top-k-5`).
+- No v16 prepared package, acceptance, qualification, claim, terminal, credential, provider call, database write or capability change exists. Revision-15 historical records remain unchanged apart from versioning its qualification filename.

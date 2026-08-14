@@ -69,12 +69,12 @@
   },
   "authorization": {
     "named_local_materialization_complete": true,
-    "current_revision": 15,
-    "prepared_package_hash": "sha256:f393cab29c50bd950a2dd6171df82778b8004bf529011744a924a52bde0461cf",
-    "prepared_package_eligible": true,
-    "prepared_authorization_ref": "manifests/prepared-authorization-v15.json",
-    "authorization_acceptance_ref": "manifests/authorization-acceptance-v15.json",
-    "authorization_status": "failed_live_payload_materialization_without_paid_execution",
+    "current_revision": 16,
+    "prepared_package_hash": null,
+    "prepared_package_eligible": false,
+    "prepared_authorization_ref": null,
+    "authorization_acceptance_ref": null,
+    "authorization_status": "awaiting_revision_16_recovery_and_package_materialization",
     "create_job_authorized": false,
     "capability_enable_authorized": false,
     "historical_revision_3": {
@@ -124,6 +124,10 @@
     "historical_revision_14": {
       "package_hash": "sha256:6dc9ec5149605034af6b200234141720957fecfed003ead77194ee842ca3823c",
       "final_status": "failed_credential_qualification_without_paid_execution"
+    },
+    "historical_revision_15": {
+      "package_hash": "sha256:f393cab29c50bd950a2dd6171df82778b8004bf529011744a924a52bde0461cf",
+      "final_status": "failed_live_payload_materialization_without_paid_execution"
     }
   }
 }

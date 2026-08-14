@@ -57,7 +57,7 @@ const RUN_ID = 'ef_run_v2_t136_p5_scifact_v1_1';
 const PROTOCOL_REVISION_ID = 'ef_revision_t136_p5_protocol_scifact_micro_recall_v1';
 const BUNDLE_REVISION_ID = 'ef_execution_bundle_revision_e87768c5205729b01ff8ceec8a8d0aaa69a15c3b';
 const BUNDLE_REVISION_HASH = 'sha256:ea9cf75556dff3c34938c8937089b223dc8eb9513c658b722932e55bebce1437';
-const P5_ATTEMPT_ID = 't136-p5-scifact-attempt-13';
+const P5_ATTEMPT_ID = 't136-p5-scifact-attempt-14';
 const SOURCE_PRINCIPAL_ARN = 'acs:ram::1183869713036194:user/user_0002';
 const CONTROLLER_ROLE_ARN = 'acs:ram::1183869713036194:role/pea-m7-canary-controller';
 const CONTROLLER_TRUST_POLICY_HASH =
@@ -66,15 +66,15 @@ const CONTROLLER_POLICY_DOCUMENT_HASH =
   'sha256:f83feab999e5185f927db04f5e383611c19e3dba7f4dcdc4fc10775e03a80e6c';
 const RECOVERY_MANIFEST =
   '/Users/yurui/Desktop/My-Researcher-Recovery/T-136/t136-p5-recovery-manifest.json';
-const PREPARED_AUTHORIZATION_V15_PATH = path.resolve(
+const PREPARED_AUTHORIZATION_V16_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../workloads/scifact-recall-p5/manifests/prepared-authorization-v15.json',
+  '../../../workloads/scifact-recall-p5/manifests/prepared-authorization-v16.json',
 );
 const WORKLOAD_PROFILE_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../workloads/scifact-recall-p5/manifests/workload-profile-v1.json',
 );
-const PREPARED_AUTHORIZATION_V15_REF = 'manifests/prepared-authorization-v15.json';
+const PREPARED_AUTHORIZATION_V16_REF = 'manifests/prepared-authorization-v16.json';
 const TARGET = Object.freeze({
   database: 'postgres',
   schema: 'my_researcher_dev',
@@ -113,7 +113,8 @@ const SESSION_POLICY: ScientificEvidenceP5ControlPlaneSessionPolicyV1 = {
       Sid: 'T136P5ControllerResultReadExact',
       Effect: 'Allow',
       Action: ['oss:GetObject'],
-      Resource: 'acs:oss:*:*:pea-m7-canary-6194-202607/output/t136-p5/scifact/attempt-13/*',
+      Resource:
+        'acs:oss:*:*:pea-m7-canary-6194-202607/output/ef_run_v2_t136_p5_scifact_v1_1/*',
     },
     {
       Sid: 'T136P5ControllerCallerIdentity',
@@ -312,7 +313,8 @@ async function main(): Promise<void> {
             code_mount_path: '/mnt/pea-code',
             input_mount_root: '/mnt/pea-input',
             output_mount_path: '/mnt/pea-output',
-            output_uri_prefix: 'oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/output/t136-p5/scifact/attempt-13/',
+            output_uri_prefix:
+              'oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/output/',
           },
         },
       },
@@ -357,7 +359,7 @@ async function main(): Promise<void> {
         },
         role_session_name:
           `t136-p5-scifact-${operationalTimeline.issuance.not_before
-            .slice(0, 10).replaceAll('-', '')}-r15`,
+            .slice(0, 10).replaceAll('-', '')}-r16`,
         session_policy: SESSION_POLICY,
         session_policy_hash: serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1(
           SESSION_POLICY,
@@ -449,7 +451,7 @@ async function main(): Promise<void> {
     } satisfies ScientificEvidenceP5PreparedAuthorizationV3;
     const serialized = `${JSON.stringify(prepared, null, 2)}\n`;
     if (options.writeManifest) {
-      await writeNewExactManifest(PREPARED_AUTHORIZATION_V15_PATH, serialized);
+      await writeNewExactManifest(PREPARED_AUTHORIZATION_V16_PATH, serialized);
       await projectPreparedPackageToWorkloadProfile(executionPackage.package_hash);
     }
     process.stdout.write(serialized);
@@ -473,7 +475,7 @@ function parseOptions(args: string[]): { writeManifest: boolean } {
 async function resolveSystemAssignedStart(writeManifest: boolean): Promise<string> {
   try {
     const existing = JSON.parse(
-      await fs.readFile(PREPARED_AUTHORIZATION_V15_PATH, 'utf8'),
+      await fs.readFile(PREPARED_AUTHORIZATION_V16_PATH, 'utf8'),
     ) as ScientificEvidenceP5PreparedAuthorizationV3;
     assert.equal(
       existing.execution_package.operational_timeline.schema_version,
@@ -483,7 +485,7 @@ async function resolveSystemAssignedStart(writeManifest: boolean): Promise<strin
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     if (!writeManifest) {
-      throw new Error('T136_P5_REVISION_15_REQUIRES_FIRST_WRITE_MANIFEST');
+      throw new Error('T136_P5_REVISION_16_REQUIRES_FIRST_WRITE_MANIFEST');
     }
     return new Date().toISOString();
   }
@@ -492,7 +494,7 @@ async function resolveSystemAssignedStart(writeManifest: boolean): Promise<strin
 async function writeNewExactManifest(manifestPath: string, serialized: string): Promise<void> {
   try {
     const existing = await fs.readFile(manifestPath, 'utf8');
-    assert.equal(existing, serialized, 'Existing revision-15 manifest differs from generated output.');
+    assert.equal(existing, serialized, 'Existing revision-16 manifest differs from generated output.');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     await fs.writeFile(manifestPath, serialized, { encoding: 'utf8', flag: 'wx' });
@@ -506,12 +508,12 @@ async function projectPreparedPackageToWorkloadProfile(packageHash: string): Pro
 
   const authorization = profile.authorization;
   assert.equal(authorization.named_local_materialization_complete, true);
-  assert.equal(authorization.current_revision, 15);
+  assert.equal(authorization.current_revision, 16);
 
   if (authorization.authorization_acceptance_ref !== null) {
     assert.equal(authorization.prepared_package_hash, packageHash);
     assert.equal(authorization.prepared_package_eligible, true);
-    assert.equal(authorization.prepared_authorization_ref, PREPARED_AUTHORIZATION_V15_REF);
+    assert.equal(authorization.prepared_authorization_ref, PREPARED_AUTHORIZATION_V16_REF);
     return;
   }
 
@@ -520,12 +522,12 @@ async function projectPreparedPackageToWorkloadProfile(packageHash: string): Pro
   assert.ok(
     authorization.prepared_package_hash === null
       || authorization.prepared_package_hash === packageHash,
-    'Workload profile already projects a different revision-15 package.',
+    'Workload profile already projects a different revision-16 package.',
   );
   assert.ok(
     authorization.prepared_authorization_ref === null
-      || authorization.prepared_authorization_ref === PREPARED_AUTHORIZATION_V15_REF,
-    'Workload profile already projects a different revision-15 manifest.',
+      || authorization.prepared_authorization_ref === PREPARED_AUTHORIZATION_V16_REF,
+    'Workload profile already projects a different revision-16 manifest.',
   );
 
   const nextProfile: WorkloadProfile = {
@@ -534,7 +536,7 @@ async function projectPreparedPackageToWorkloadProfile(packageHash: string): Pro
       ...authorization,
       prepared_package_hash: packageHash,
       prepared_package_eligible: true,
-      prepared_authorization_ref: PREPARED_AUTHORIZATION_V15_REF,
+      prepared_authorization_ref: PREPARED_AUTHORIZATION_V16_REF,
       authorization_status: 'prepared_awaiting_exact_authorization',
       create_job_authorized: false,
       capability_enable_authorized: false,

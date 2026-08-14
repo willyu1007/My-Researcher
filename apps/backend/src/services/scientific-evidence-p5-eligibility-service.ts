@@ -39,6 +39,9 @@ import {
   EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_PARSER_VERSION_V1,
   EXPERIMENT_FOUNDATION_SCIENTIFIC_RESULT_SCHEMA_HASH_V1,
 } from './experiment-foundation-scientific-source-v1-service.js';
+import {
+  ExperimentFoundationRealProviderPayloadV2Service,
+} from './experiment-foundation-real-provider-payload-v2-service.js';
 
 export const SCIENTIFIC_EVIDENCE_P5_EXECUTION_PACKAGE_SCHEMA_V3 =
   'ScientificEvidenceP5ExecutionPackage@v3' as const;
@@ -826,7 +829,29 @@ function validRealProviderPath(executionPackage: ScientificEvidenceP5ExecutionPa
       && isHash(cell.training_task_spec.io_snapshot.parser_profile_hash)
       && isNonEmpty(cell.training_task_spec.io_snapshot.scientific_result_schema_version ?? '')
       && isHash(cell.training_task_spec.io_snapshot.scientific_result_schema_hash ?? '')
-    ));
+    ))
+    && exactProviderPayloadsMaterialize(executionPackage);
+}
+
+function exactProviderPayloadsMaterialize(
+  executionPackage: ScientificEvidenceP5ExecutionPackageV3,
+): boolean {
+  const service = new ExperimentFoundationRealProviderPayloadV2Service();
+  try {
+    for (const cell of executionPackage.ordered_cells) {
+      service.materialize({
+        run: executionPackage.authority.run,
+        run_cell: cell.run_cell,
+        task_spec: cell.training_task_spec,
+        execution_bundle_revision: executionPackage.execution_bundle_revision,
+        provider_idempotency_key:
+          `${executionPackage.p5_attempt_id}:${cell.run_cell.run_cell_id}:preflight`,
+      }, executionPackage.provider.profile);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function validOperationBound(executionPackage: ScientificEvidenceP5ExecutionPackageV3): boolean {
@@ -962,6 +987,7 @@ function validCredentialPolicy(
         workspaceId: executionPackage.provider.profile.workspace_id,
         runtimeRoleArn: executionPackage.provider.profile.workload_binding.runtime_role_arn,
         outputUriPrefix: executionPackage.provider.profile.workload_binding.output_uri_prefix,
+        runId: executionPackage.authority.run.run_id,
       });
   return policy.schema_version === SCIENTIFIC_EVIDENCE_P5_CONTROL_PLANE_CREDENTIAL_SCHEMA_V2
     && /^(?:env:\/\/[A-Z][A-Z0-9_]*|secret-ref:\/\/[A-Za-z0-9._/-]+)$/.test(
@@ -1020,6 +1046,7 @@ function expectedControlPlaneSessionPolicy(input: {
   workspaceId: string;
   runtimeRoleArn: string;
   outputUriPrefix: string;
+  runId: string;
 }): ScientificEvidenceP5ControlPlaneSessionPolicyV1 | null {
   const outputMatch = /^oss:\/\/([^/]+)\/(.+\/)$/.exec(input.outputUriPrefix);
   if (outputMatch === null) return null;
@@ -1056,7 +1083,7 @@ function expectedControlPlaneSessionPolicy(input: {
         Sid: 'T136P5ControllerResultReadExact',
         Effect: 'Allow',
         Action: ['oss:GetObject'],
-        Resource: `acs:oss:*:*:${bucketName}/${outputMatch[2]}*`,
+        Resource: `acs:oss:*:*:${bucketName}/${outputMatch[2]}${input.runId}/*`,
       },
       {
         Sid: 'T136P5ControllerCallerIdentity',

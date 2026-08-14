@@ -3,6 +3,10 @@ import fs from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1,
+} from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
+
+import {
   SCIENTIFIC_EVIDENCE_P5_AUTHORIZATION_ACCEPTANCE_SCHEMA_V3,
   SCIENTIFIC_EVIDENCE_P5_CLEANUP_CONFIRMATION_HASH,
   assertScientificEvidenceP5AuthorizationAcceptanceV3,
@@ -17,15 +21,46 @@ import {
   buildScientificEvidenceP5CredentialQualificationV1,
   hashScientificEvidenceP5SensitiveRef,
 } from './scientific-evidence-p5-credential-qualification-service.js';
+import {
+  buildScientificEvidenceP5AuthoritySnapshotV1,
+  buildScientificEvidenceP5ExecutionPackageV3,
+  preflightScientificEvidenceP5PackageV3,
+} from './scientific-evidence-p5-eligibility-service.js';
 
 const IMAGE_ID = 'image-liuxvj7p2qcnflha84';
 const ACCESS_KEY_ID = 'STS.example-controller-session';
 
 async function preparedFixture(): Promise<ScientificEvidenceP5PreparedAuthorizationV3> {
-  const prepared = JSON.parse(await fs.readFile(new URL(
+  const historical = JSON.parse(await fs.readFile(new URL(
     '../../../../workloads/scifact-recall-p5/manifests/prepared-authorization-v12.json',
     import.meta.url,
   ), 'utf8')) as ScientificEvidenceP5PreparedAuthorizationV3;
+  const packageDraft = structuredClone(historical.execution_package);
+  packageDraft.provider.profile.workload_binding.output_uri_prefix =
+    'oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/output/';
+  const resultRead = packageDraft.credential_policy.session_policy.Statement.find(
+    (statement) => statement.Sid === 'T136P5ControllerResultReadExact',
+  );
+  assert.ok(resultRead);
+  resultRead.Resource =
+    `acs:oss:*:*:pea-m7-canary-6194-202607/output/${packageDraft.authority.run.run_id}/*`;
+  packageDraft.credential_policy.session_policy_hash =
+    serverHashScientificEvidenceP5ControlPlaneSessionPolicyV1(
+      packageDraft.credential_policy.session_policy,
+    );
+  const executionPackage = buildScientificEvidenceP5ExecutionPackageV3(packageDraft);
+  const authoritySnapshot = buildScientificEvidenceP5AuthoritySnapshotV1(
+    historical.authority_snapshot,
+  );
+  const prepared: ScientificEvidenceP5PreparedAuthorizationV3 = {
+    ...historical,
+    execution_package: executionPackage,
+    authority_snapshot: authoritySnapshot,
+    eligibility: preflightScientificEvidenceP5PackageV3({
+      execution_package: executionPackage,
+      authority_snapshot: authoritySnapshot,
+    }),
+  };
   assertScientificEvidenceP5PreparedAuthorizationV3(prepared);
   return prepared;
 }
@@ -155,7 +190,7 @@ async function qualificationFixture() {
   };
 }
 
-test('current prepared and authorization records bind the exact package', async () => {
+test('prepared and authorization records bind one exact eligible package', async () => {
   const prepared = await preparedFixture();
   assert.doesNotThrow(() => assertScientificEvidenceP5PreparedAuthorizationV3(prepared));
   assert.doesNotThrow(() => assertScientificEvidenceP5AuthorizationAcceptanceV3({
