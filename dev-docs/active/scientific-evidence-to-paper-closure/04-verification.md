@@ -926,3 +926,23 @@ PATH=/opt/homebrew/opt/node@20/bin:$PATH node --test --test-concurrency=1 --load
 - Pending verification: at or after `2026-08-14T16:38:36Z`, prove metadata-only STS expiration and repeat local environment/profile/process/lock/temp-log and all-three-preflight residue checks. Until then cleanup is immediate-local but not yet final-expiration verified.
 - Final expiration verification passed at `2026-08-14T21:55:03.722Z`: current time exceeded `2026-08-14T16:38:36Z` by 18,987 seconds. Qualification returned `passed_terminal_attempt_no_execute`; live and close offline preflights exited 0. Combined effects were credential reads `0`, cloud/external calls `0`, database writes `0` and capability changes `0`.
 - Final residue audit passed: attempt lock, generic qualification, live completion and close claim are absent; no P5 runner remains; current process and supported local env files contain no Alibaba credential or live/closure capability key; all 27 files under the supported local Alibaba configuration roots predate issuance; `/tmp` contains no T-136 P5 artifact. Exact local state remains top-k-10 submitted/reconcile-pending after nine observations and top-k-5 succeeded/collect-claimed with no output; scientific Results, validations and REUs remain zero.
+
+### 2026-08-15 — Named-local scientific persistence correction
+
+- Preflight found exactly one pending repo migration on the target: `20260808090000_add_scientific_source_and_packet_closure_binding`. The reviewed diff was additive: nullable source/Closure bindings, constraints, indexes and foreign keys; no table/column deletion and no DML.
+- Recovery point `/Users/yurui/Desktop/My-Researcher-Recovery/T-136/db-sync-20260815-0631/` passed before deploy: full schema dump 1,101,926 bytes / SHA-256 `e665fa05ff7c29386b048c376c4925a4a76cbe177430038b14ac3fef1929c6a4` / 2,038 selected TOC entries; five-table data dump 8,256 bytes / SHA-256 `2ac49fece5372f62b30d4143e2bf3ddbd55fcf6f4a8e2ef45078cc0011a50c21`; manifest and both dumps mode `0600`.
+- `prisma migrate deploy` applied exactly the pending migration. Post-deploy status is up to date; migration history is finished and not rolled back. Live inspection finds `ef_provisional_output_contract_check`, `ef_experiment_result_source_contract_check`, `ef_collection_attempt_collected_tuple_check` and no legacy `ef_provisional_output_class_check`.
+- Pre/post exact state is unchanged: Attempts `2`, commands `5`, collections `1`, provisional outputs `0`, Results `0`, Packets `1`, Closures `1`. No revision-17 replay, reclaim, runtime-row repair or cloud operation occurred.
+- Strict checks passed:
+
+```text
+PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assistant/backend typecheck:experiment-foundation-scripts
+PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assistant/backend typecheck
+```
+
+- Named-local live offline preflight passed and reported the exact migration plus three required constraints. Its effect census is credential reads `0`, cloud calls `0`, database writes `0`, capability changes `0`; revision 17 is recognized only as an existing terminal attempt.
+- The expanded Node 20 scientific-source/P5 lane passed 42/42 with zero failures/skips/cancellations. Coverage includes the maintained 31 cases, ten real-provider worker cases including failed collection with `collectedAt=null`, and the exact migration/constraint readiness gate.
+- Disposable PostgreSQL gate `packc-ef-20260815-r1` passed 119/119 across six suites. Both required migrations were applied to an identity-marked digest-pinned PostgreSQL/pgvector container; the scientific relational lane executed with zero skips, and the container/database were cleaned up. Canonical summary SHA-256: `d55f7854060b6d9228cc5e2e0848ccd0b86de1a5936cf650df481c42f3d1fed6`.
+- `node .ai/tests/run.mjs --suite database` passed its SQLite smoke suite. `ctl-db-ssot sync-to-context` reported checksums current and refreshed the repo-prisma context contract.
+- `prisma:validate` first failed before schema validation because `DATABASE_URL` was absent from that shell. Re-running with `.env.local` loaded passed; no schema/code change was made for the environment-only failure.
+- Task-bundle document lint passed 17 Markdown files with zero errors and 11 historical vague-reference warnings. Project-governance sync completed; governance lint passed with the same two unrelated pre-existing invalid-state-format warnings.

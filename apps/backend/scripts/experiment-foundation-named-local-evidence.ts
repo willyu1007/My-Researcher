@@ -30,6 +30,19 @@ export interface ExperimentFoundationNamedLocalApplicationTableDescriptor {
   orderColumns: string[];
 }
 
+export interface ExperimentFoundationNamedLocalScientificPersistenceReadiness {
+  migration: string;
+  constraints: string[];
+}
+
+const SCIENTIFIC_PERSISTENCE_MIGRATION =
+  '20260808090000_add_scientific_source_and_packet_closure_binding';
+const SCIENTIFIC_PERSISTENCE_CONSTRAINTS = [
+  'ef_experiment_result_source_contract_check',
+  'ef_provisional_output_contract_check',
+  'pirip_scientific_v2_contract_check',
+] as const;
+
 type ReadClient = PrismaClient | Prisma.TransactionClient;
 
 export function assertExperimentFoundationNamedLocalDatabaseUrl(
@@ -74,6 +87,46 @@ export async function assertExperimentFoundationLiveNamedLocalTarget(
     host: target.host,
     port: target.port,
     fingerprint: target.fingerprint,
+  };
+}
+
+/** Fail before paid execution if the named-local target is behind the scientific DB SSOT. */
+export async function assertExperimentFoundationNamedLocalScientificPersistenceReady(
+  client: ReadClient,
+  mismatchCode: string,
+): Promise<ExperimentFoundationNamedLocalScientificPersistenceReadiness> {
+  const [migrations, constraints] = await Promise.all([
+    client.$queryRawUnsafe<Array<{ migration_name: string }>>(
+      `SELECT migration_name
+       FROM "_prisma_migrations"
+       WHERE migration_name = '${SCIENTIFIC_PERSISTENCE_MIGRATION}'
+         AND finished_at IS NOT NULL
+         AND rolled_back_at IS NULL`,
+    ),
+    client.$queryRawUnsafe<Array<{ constraint_name: string }>>(
+      `SELECT constraint_row.conname::text AS constraint_name
+       FROM pg_constraint AS constraint_row
+       WHERE constraint_row.connamespace = current_schema()::regnamespace
+         AND constraint_row.conname IN (
+           'ef_experiment_result_source_contract_check',
+           'ef_provisional_output_class_check',
+           'ef_provisional_output_contract_check',
+           'pirip_scientific_v2_contract_check'
+         )
+       ORDER BY constraint_row.conname COLLATE "C" ASC`,
+    ),
+  ]);
+  const observedConstraints = constraints.map((row) => row.constraint_name);
+  if (
+    migrations.length !== 1
+    || migrations[0]?.migration_name !== SCIENTIFIC_PERSISTENCE_MIGRATION
+    || !isExactStringSet(observedConstraints, SCIENTIFIC_PERSISTENCE_CONSTRAINTS)
+  ) {
+    throw new Error(mismatchCode);
+  }
+  return {
+    migration: SCIENTIFIC_PERSISTENCE_MIGRATION,
+    constraints: [...SCIENTIFIC_PERSISTENCE_CONSTRAINTS],
   };
 }
 
@@ -252,4 +305,10 @@ function assertSafeIdentifier(value: string): void {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) {
     throw new Error('Unsafe SQL identifier');
   }
+}
+
+function isExactStringSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const sortedRight = [...right].sort();
+  return [...left].sort().every((value, index) => value === sortedRight[index]);
 }

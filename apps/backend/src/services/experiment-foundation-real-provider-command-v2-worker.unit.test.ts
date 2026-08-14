@@ -27,8 +27,9 @@ import {
 import {
   ExperimentFoundationRealProviderCommandV2Worker,
 } from './experiment-foundation-real-provider-command-v2-worker.js';
-import type {
-  ExperimentFoundationScientificSourcePreparationInputV1,
+import {
+  ExperimentFoundationScientificSourcePreparationErrorV1,
+  type ExperimentFoundationScientificSourcePreparationInputV1,
 } from './experiment-foundation-scientific-source-v1-service.js';
 import {
   ExperimentFoundationRealProviderIntakeV2Service,
@@ -221,6 +222,39 @@ test('P1 collection atomically appends a sealed scientific source after diagnost
       ],
     );
   }
+});
+
+test('P1 failed scientific collection terminalizes without assigning a collected timestamp', async () => {
+  const harness = await createHarness();
+  const worker = harness.worker({
+    scientificSourcePreparationService: {
+      prepare: async () => {
+        throw new ExperimentFoundationScientificSourcePreparationErrorV1(
+          'SCIENTIFIC_SOURCE_PREPARATION_FAILED',
+          false,
+          'Synthetic deterministic preparation failure.',
+        );
+      },
+    },
+  });
+  await worker.runOnce();
+  for (const job of harness.client.jobs.values()) job.status = 'Succeeded';
+  await worker.runOnce();
+  const failed = await worker.runOnce();
+
+  assert.equal(failed.terminal_count, 2);
+  const snapshot = harness.repository.snapshot();
+  assert.ok(snapshot.collections.every((collection) => (
+    collection.collection_state === 'failed'
+    && collection.terminal_at === null
+  )));
+  assert.ok(snapshot.commands
+    .filter((command) => command.operation === 'collect')
+    .every((command) => (
+      command.state === 'terminal'
+      && command.last_error_code === 'SCIENTIFIC_SOURCE_PREPARATION_FAILED'
+      && command.lease_owner === null
+    )));
 });
 
 test('QR-2 production-default worker ids are deterministic and distinct across cells and sequences', async () => {

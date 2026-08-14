@@ -102,6 +102,7 @@ import {
 } from '../src/services/paper-implementation-projection-feed-v2-consumer.js';
 import {
   assertExperimentFoundationLiveNamedLocalTarget,
+  assertExperimentFoundationNamedLocalScientificPersistenceReady,
   assertExperimentFoundationNamedLocalDatabaseUrl,
   changedExperimentFoundationNamedLocalTables,
   countExperimentFoundationNamedLocalTables,
@@ -229,6 +230,11 @@ async function runWindow(
   let credential: TemporaryCredential | null = null;
   try {
     const target = await assertExperimentFoundationLiveNamedLocalTarget(prisma, TARGET);
+    const scientificPersistence =
+      await assertExperimentFoundationNamedLocalScientificPersistenceReady(
+        prisma,
+        'T136_P5_SCIENTIFIC_PERSISTENCE_SCHEMA_NOT_READY',
+      );
     const executionRepository = new PrismaExperimentFoundationExecutionV2Repository(prisma);
     const closureRepository =
       new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
@@ -285,6 +291,7 @@ async function runWindow(
         schema_version: 'ScientificEvidenceP5LiveWindowOfflinePreflight@v1',
         status: 'passed',
         target_fingerprint: target.fingerprint,
+        scientific_persistence: scientificPersistence,
         package_hash: executionPackage.package_hash,
         run_id: RUN_ID,
         run_manifest_hash: RUN_MANIFEST_HASH,

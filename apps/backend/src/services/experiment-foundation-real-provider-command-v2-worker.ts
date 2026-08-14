@@ -707,7 +707,7 @@ export class ExperimentFoundationRealProviderCommandV2Worker {
         collection_state: 'failed',
         state_version: increment(collection.state_version, 'collection'),
         updated_at: now,
-        terminal_at: now,
+        terminal_at: null,
       };
       const eventSequence = nextSequence(
         events.map((item) => item.event_sequence),
