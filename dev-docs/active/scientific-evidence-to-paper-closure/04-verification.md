@@ -818,4 +818,13 @@ git diff --check
 - Focused Node 20 P5 lane passed 58/58 with zero failures/skips/cancellations. Full workspace strict TypeScript checks and the experiment-foundation script typecheck passed; JSON parsing and `git diff --check` passed.
 - Fresh recovery verification passed: schema dump byte size/hash and 2,038 TOC entries match; authority-data dump byte size/hash and the exact 114 `TABLE DATA` entries match; the manifest core recomputes to recovery fingerprint `sha256:99e5b491963fd5dfd72f8da7d9662ffa162fd1802b524705f9410bfeae13040e`; all files are mode `0600` outside the repository.
 - One initial data-only dump command used an over-escaped table-name pattern and failed read-only with `invalid regular expression` before dumping any table. The resulting zero-byte file was identified exactly, removed, and replaced by the verified 114-table dump. The successful command emitted the expected circular-FK restore warnings already covered by the full pre/post-data schema restore order.
-- `prepared-authorization-v13.json` and `authorization-acceptance-v13.json` remain absent. Package preparation, credentials, cloud calls, `CreateJob`, database writes, capability changes and paid cost remain zero; `M0-SCI` is not passed.
+- Revision 13 materialized exactly one eligible package. Its manifest effect census is zero for database writes, cloud calls, `CreateJob`, capability changes and credentials read; `authorization-acceptance-v13.json` remained absent through expiry.
+- Final revision-13 accounting is credentials `0`, cloud calls `0`, `CreateJob=0`, database writes `0`, capability changes `0`, paid cost CNY `0` and scientific rows `0`; `M0-SCI` is not passed.
+
+### 2026-08-14 — Revision-14 attempt-12 pre-stage
+
+- Static active-path update targets v14 manifests, attempt 12, session suffix `r14`, OSS output prefix `attempt-12` and isolated live/close idempotency keys. Revision 13 remains an immutable historical package with both current authority booleans false.
+- The former repository-external recovery directory was absent at resume. A fresh checkpoint now passes: schema size/hash and 2,038 TOC entries, authority-data size/hash and exactly 114 `TABLE DATA` entries, canonical manifest fingerprint and mode `0600` all verify.
+- Focused Node 20 P5 lane passed 58/58 with zero failures/skips/cancellations, including the revision-14/attempt-12/r14 convention and the four-stage permanent claim chain.
+- Full workspace shared/backend/desktop strict typecheck passed. The experiment-foundation script typecheck passed after Prisma Client regeneration from the unchanged schema.
+- Pre-package effect census remains credentials `0`, cloud calls `0`, `CreateJob=0`, database writes `0`, capability changes `0`, paid cost CNY `0` and scientific rows `0`.

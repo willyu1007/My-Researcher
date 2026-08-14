@@ -117,11 +117,11 @@ const PaiDlcClientConstructor = require('@alicloud/pai-dlc20201203').default as
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PREPARED_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/prepared-authorization-v13.json',
+  'workloads/scifact-recall-p5/manifests/prepared-authorization-v14.json',
 );
 const AUTHORIZATION_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v13.json',
+  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v14.json',
 );
 const QUALIFICATION_PATH = path.join(
   REPO_ROOT,
@@ -136,7 +136,7 @@ const BUNDLE_REVISION_ID =
   'ef_execution_bundle_revision_e87768c5205729b01ff8ceec8a8d0aaa69a15c3b';
 const BUNDLE_REVISION_HASH =
   'sha256:ea9cf75556dff3c34938c8937089b223dc8eb9513c658b722932e55bebce1437';
-const BUSINESS_KEY = 't136-p5-scifact-attempt-11:real-provider';
+const BUSINESS_KEY = 't136-p5-scifact-attempt-12:real-provider';
 const REGION_ID = 'cn-shanghai';
 const WORKSPACE_ID = '1450165';
 const BUCKET_NAME = 'pea-m7-canary-6194-202607';
@@ -553,7 +553,7 @@ function buildProfile(imageUri: string): ExperimentFoundationAliyunRealProviderP
       input_mount_root: '/mnt/pea-input',
       output_mount_path: '/mnt/pea-output',
       output_uri_prefix:
-        `oss://${BUCKET_NAME}.oss-${REGION_ID}-internal.aliyuncs.com/output/t136-p5/scifact/attempt-11/`,
+        `oss://${BUCKET_NAME}.oss-${REGION_ID}-internal.aliyuncs.com/output/t136-p5/scifact/attempt-12/`,
     },
   };
 }

@@ -7,8 +7,8 @@
 - Mapping: `M-001 > F-001 > R-012 + R-013 > T-136`
 - Product release role: mandatory `M0-SCI` scientific capability gate inside product M0; the gate is not the governance milestone `M-001` and not the sole release gate for all M0 modules.
 - Origin: user-requested follow-up to the four-module completion review on 2026-08-04.
-- Current step: revision 13 / attempt 11 is explicitly started by the user for P5 completion. Active harness refs, STS session identity, OSS output prefix, live business key and scientific-close idempotency key are isolated from terminal revision 12. The local gate and a fresh repository-external named-local recovery point pass; the revision-13 package and acceptance do not yet exist, and current paid/capability authority remains false.
-- Next step: materialize one exact eligible revision-13 package and request the separate hash-bound authorization for exactly two `CreateJob` operations, the CNY 50 ceiling, four process capabilities, the immutable timeline and credential-handling rules. No revision-12 credential, acceptance, claim, completion or terminal state may be reused.
+- Current step: revision 13 / attempt 11 produced one eligible package but expired without acceptance, credential access, cloud calls or execution. The user resumed P5 on 2026-08-14 for immediate execution; active harnesses isolate revision 14 / attempt 12, and the fresh recovery plus local test/typecheck gates pass. Paid/capability authority remains false.
+- Next step: materialize one exact eligible revision-14 package and obtain the one-line hash-bound confirmation. No historical credential, acceptance, claim, completion or terminal state may be reused.
 
 ### Current implementation checkpoint — 2026-08-10
 

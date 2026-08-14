@@ -581,3 +581,15 @@ The preceding revision-3 handoff is closed historical text. Revision 4 is also c
 - Full schema-only dump: `t136-p5-pre-revision13-schema-20260813.dump`, size `1101926`, SHA-256 `sha256:ccd5edc6bdc19e9015f0f8967448f4a012c1018a5af17afb4d573aa02966c5d4`.
 - Exact 114-table authority-data dump: `t136-p5-pre-revision13-authority-data-20260813.dump`, size `1467702`, SHA-256 `sha256:29413e28753fc5c3305e670bcdc1c7b54bc871656b5a1369442d5f3924cea6b8`.
 - Recovery fingerprint: `sha256:99e5b491963fd5dfd72f8da7d9662ffa162fd1802b524705f9410bfeae13040e`. Both dumps and both manifests are mode `0600`.
+- Revision 13 materialized eligible package `sha256:f16e83c40bae46d986a3acbd10ac959c3865ebdae7c147a18094555c9ef330b7` with authority `sha256:720a2a9c8517248e2cacbe49ed5316c3a54168ee01528bfcdab2ce7f77dadc65`, eligibility `sha256:6622902a83b796148b44122cbb8ab3804ad6674d89243b826de640e43031b190` and session policy `sha256:21e78f231e0743e14066795f8330292fbb7dc98dcc63cc7b823f13f9958dc5ac`.
+- No revision-13 acceptance or credential material was created. The package expired without credential reads, cloud calls, database writes, capability changes, `CreateJob` or paid cost and is historical-only.
+
+## 2026-08-14 — Revision-14 attempt-12 immediate continuation
+
+- The user resumed P5 and requested immediate operation rather than a future scheduled window. This starts fresh local preparation but does not allow an expired package to be reused; the paid boundary remains one concise confirmation of the new exact package hash.
+- Active prepare/integrity/qualification/live/close refs use v14 manifests, attempt `t136-p5-scifact-attempt-12`, controller session suffix `r14`, OSS output prefix `attempt-12`, live business key `attempt-12:real-provider` and close idempotency key `attempt-12:scientific-close`.
+- Workload authority retains revision 13 as `expired_without_authorization_or_execution` and projects revision 14 with null package/acceptance refs, eligibility false and both authority booleans false.
+- Fresh recovery directory: `/Users/yurui/Desktop/My-Researcher-Recovery/T-136`. The exact data scope is deterministically selected from the named-local catalogue as all 114 tables whose names start with `ExperimentFoundation` or `PaperImplementation`.
+- Full schema-only dump `t136-p5-pre-revision14-schema-20260814.dump`: 2,038 TOC entries, size `1101926`, SHA-256 `sha256:b6ea07060a11358d616890f2cc3b6fdfce962f11f0785b26a83ca930c1c448ea`.
+- Exact 114-table authority-data dump `t136-p5-pre-revision14-authority-data-20260814.dump`: size `1467702`, SHA-256 `sha256:82480c1c9157414dd03251f292181ed4c7010b5b41683660a96a26b392055abd`.
+- Recovery manifest created `2026-08-14T10:28:16.245Z`; canonical-core fingerprint `sha256:3394fd0a1a2fcf8e6ae3a6576229f2c55c6c517a3a6ce40c5129e200c21e2bde`. Both dumps and the manifest are mode `0600`.
