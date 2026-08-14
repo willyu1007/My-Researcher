@@ -66,16 +66,27 @@ import {
 
 const AUTHORIZATION_ENV = 'T136_P5_STAGE_ONE_APPLY_AUTHORIZATION';
 const AUTHORIZATION_VALUE =
-  'authorized-2026-08-09-t136-p5-stage-one-max146-no-cloud';
-const MATERIALIZED_AT = '2026-08-09T02:15:00.000Z';
+  'authorized-2026-08-14-t136-p5-successor-authority-max101-no-cloud';
+const MATERIALIZED_AT = '2026-08-14T15:20:00.000Z';
 const PROJECT_ID = 'implementation_project_642a1879-1137-40f5-b340-330b66509975';
 const SOURCE_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
-const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
-const INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t136_p5_scifact_v1';
-const TRACE_ID = 'trace_manifest_t136_p5_scifact_v1';
-const BUNDLE_KEY = 't136-p5-scifact-scientific-v1';
-const BUSINESS_KEY = 't136-p5-scifact-two-cell-v1';
-const ATTEMPT_ID = 't136-p5-scifact-attempt-1';
+const HISTORICAL_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
+const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
+const INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t136_p5_scifact_v2';
+const TRACE_ID = 'trace_manifest_t136_p5_scifact_v2';
+const BUNDLE_KEY = 't136-p5-scifact-scientific-v2';
+const BUSINESS_KEY = 't136-p5-scifact-two-cell-v2';
+const ATTEMPT_ID = 't136-p5-scifact-attempt-15';
+const HISTORICAL_METRIC_REVISION_ID =
+  'ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v1';
+const METRIC_REVISION_ID = 'ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2';
+const HISTORICAL_PROTOCOL_REVISION_ID =
+  'ef_revision_t136_p5_protocol_scifact_micro_recall_v1';
+const PROTOCOL_REVISION_ID = 'ef_revision_t136_p5_protocol_scifact_micro_recall_v2';
+const HISTORICAL_BUNDLE_REVISION_ID =
+  'ef_execution_bundle_revision_e87768c5205729b01ff8ceec8a8d0aaa69a15c3b';
+const HISTORICAL_RUN_ID = 'ef_run_v2_t136_p5_scifact_v1_1';
+const SUCCESSOR_RUN_ID = 'ef_run_v2_t136_p5_scifact_v2_1';
 const RECOVERY_MANIFEST =
   '/Users/yurui/Desktop/My-Researcher-Recovery/T-136/t136-p5-recovery-manifest.json';
 
@@ -88,26 +99,17 @@ const TARGET = Object.freeze({
 });
 
 const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
-  ExperimentFoundationDataPolicyV2: 2,
-  ExperimentFoundationDataPolicyRevisionV2: 2,
-  ExperimentFoundationDataPolicyFreezeCommandReceiptV2: 2,
-  ExperimentFoundationDatasetV2: 2,
-  ExperimentFoundationDatasetRevisionV2: 2,
-  ExperimentFoundationDatasetFreezeCommandReceiptV2: 2,
-  ExperimentFoundationMetricDefinitionV2: 1,
+  ExperimentFoundationMetricDefinitionV2: 0,
   ExperimentFoundationMetricDefinitionRevisionV2: 1,
   ExperimentFoundationMetricDefinitionFreezeCommandReceiptV2: 1,
-  ExperimentFoundationBenchmarkV2: 1,
-  ExperimentFoundationBenchmarkRevisionV2: 1,
-  ExperimentFoundationBenchmarkFreezeCommandReceiptV2: 1,
-  ExperimentFoundationEvaluationProtocolV2: 1,
+  ExperimentFoundationEvaluationProtocolV2: 0,
   ExperimentFoundationEvaluationProtocolRevisionV2: 1,
   ExperimentFoundationEvaluationProtocolFreezeCommandReceiptV2: 1,
   ExperimentFoundationEvaluationProtocolMetricDependencyV2: 17,
-  ExperimentFoundationAssetLifecycleEventV2: 16,
-  ExperimentFoundationAssetLifecycleProjectionV2: 7,
-  ExperimentFoundationReadinessAttestationV2: 7,
-  ExperimentFoundationReadinessDependencyV2: 28,
+  ExperimentFoundationAssetLifecycleEventV2: 4,
+  ExperimentFoundationAssetLifecycleProjectionV2: 2,
+  ExperimentFoundationReadinessAttestationV2: 2,
+  ExperimentFoundationReadinessDependencyV2: 22,
   ExperimentFoundationExecutionBundleIdentityV2: 1,
   ExperimentFoundationExecutionBundleDraftV2: 1,
   ExperimentFoundationExecutionBundleRevisionV2: 1,
@@ -132,7 +134,7 @@ const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   ExperimentFoundationRunCellV2: 2,
   ExperimentFoundationIntegrationOutboxV2: 1,
 });
-const EXPECTED_TOTAL_DELTA = 146;
+const EXPECTED_TOTAL_DELTA = 101;
 
 const STRUCTURAL_METRICS = [
   metricRef('d19-metric-answer_accuracy', 'revision_a004dfe1-d90b-4f2f-ae97-a298c01945ec', '2a53188ea9fb8ddd80ffae77c78ce7ef02c20aa469f9c5af73aba591f85e1bbc'),
@@ -175,6 +177,11 @@ interface AssetSpec {
   freeze_key: string;
   draft_content: ExperimentFoundationV2DraftContent;
   location_available: boolean;
+}
+
+interface SuccessorAssetSpec extends AssetSpec {
+  previous_revision_id: string;
+  previous_draft_content: ExperimentFoundationV2DraftContent;
 }
 
 async function main(): Promise<void> {
@@ -251,7 +258,7 @@ async function main(): Promise<void> {
     assert.equal(await countProhibitedScientificRows(prisma, lineage.run.id), 0);
 
     console.log(JSON.stringify({
-      schema_version: 'ScientificEvidenceP5StageOneApply@v1',
+      schema_version: 'ScientificEvidenceP5SuccessorAuthorityApply@v1',
       status: 'passed',
       p5_attempt_id: ATTEMPT_ID,
       target,
@@ -449,24 +456,20 @@ async function materializeScientificAssets(
       data_policy: asTypedRef(evaluationPolicy, 'DataPolicy'),
     },
   });
-  const metric = await ensureAsset(repository, {
+  const historicalMetricDraft = metricDraft(
+    'sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597',
+  );
+  const metric = await ensureSuccessorAsset(repository, {
     asset_type: 'MetricDefinition',
     logical_id: 't136-p5-metric-scifact-micro-recall-ppm',
-    revision_id: 'ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v1',
-    freeze_key: 't136-p5-freeze-metric-scifact-micro-recall-ppm-v1',
+    previous_revision_id: HISTORICAL_METRIC_REVISION_ID,
+    previous_draft_content: historicalMetricDraft,
+    revision_id: METRIC_REVISION_ID,
+    freeze_key: 't136-p5-freeze-metric-scifact-micro-recall-ppm-v2',
     location_available: false,
-    draft_content: {
-      schema_version: 'v1',
-      metric_key: 'micro_recall_ppm',
-      display_name: 'SciFact positive-judgment micro recall (ppm)',
-      direction: 'higher_is_better',
-      value_type: 'number',
-      unit: 'ppm',
-      evaluator_binding: {
-        evaluator_key: 't136-p5-scifact-exact-token-retriever',
-        evaluator_version: 'sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597',
-      },
-    },
+    draft_content: metricDraft(
+      'sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265',
+    ),
   });
   const corpusReadiness = await ensurePassedReadiness(
     repository,
@@ -481,7 +484,7 @@ async function materializeScientificAssets(
   const metricReadiness = await ensurePassedReadiness(
     repository,
     metric,
-    'ef_readiness_t136_p5_metric_scifact_micro_recall_ppm_v1',
+    'ef_readiness_t136_p5_metric_scifact_micro_recall_ppm_v2',
   );
   const benchmark = await ensureAsset(repository, {
     asset_type: 'Benchmark',
@@ -503,65 +506,32 @@ async function materializeScientificAssets(
     benchmark,
     'ef_readiness_t136_p5_benchmark_scifact_retrieval_v1',
   );
-  const protocol = await ensureAsset(repository, {
+  const historicalMetric = {
+    ...metric,
+    revision_id: HISTORICAL_METRIC_REVISION_ID,
+    revision_sequence: 1,
+    content_hash: 'sha256:f7e29a6cd8a6f6e1649d76343e89d4bf927d0297001ba2aa85b93b169ec506f8',
+  };
+  const protocol = await ensureSuccessorAsset(repository, {
     asset_type: 'EvaluationProtocol',
     logical_id: 't136-p5-protocol-scifact-micro-recall',
-    revision_id: 'ef_revision_t136_p5_protocol_scifact_micro_recall_v1',
-    freeze_key: 't136-p5-freeze-protocol-scifact-micro-recall-v1',
+    previous_revision_id: HISTORICAL_PROTOCOL_REVISION_ID,
+    previous_draft_content: protocolDraft(
+      benchmark,
+      asTypedRef(historicalMetric, 'MetricDefinition'),
+    ),
+    revision_id: PROTOCOL_REVISION_ID,
+    freeze_key: 't136-p5-freeze-protocol-scifact-micro-recall-v2',
     location_available: false,
-    draft_content: {
-      schema_version: 'v2',
-      protocol_key: 't136-p5-scifact-micro-recall-two-cell',
-      display_name: 'SciFact top-k 10 versus top-k 5 preregistered comparison',
-      benchmark_dependency: asTypedRef(benchmark, 'Benchmark'),
-      metric_dependencies: [asTypedRef(metric, 'MetricDefinition'), ...STRUCTURAL_METRICS],
-      required_rules: [{
-        rule_id: 't136-p5-rule-micro-recall-ppm',
-        rule_type: 'metric_contract@v1',
-        metric_definition: asTypedRef(metric, 'MetricDefinition'),
-        metric_key: 'micro_recall_ppm',
-        required_cardinality: 1,
-        split_key: 'test',
-        value_type: 'number',
-        unit: 'ppm',
-        finite_required: true,
-      }],
-      scientific_contract: {
-        schema_version: 'ExperimentFoundationScientificProtocol@v1',
-        observation_slots: [{
-          observation_key: 'scifact_micro_recall_ppm',
-          ordinal: 1,
-          metric_key: 'micro_recall_ppm',
-          split_key: 'test',
-          value_type: 'number',
-          unit: 'ppm',
-          statistic: { kind: 'proportion' },
-          uncertainty: { kind: 'none' },
-        }],
-        artifact_slots: [],
-        comparison_rules: [{
-          comparison_key: 'top_k_10_minus_top_k_5',
-          ordinal: 1,
-          left_cell_ordinal: 1,
-          right_cell_ordinal: 2,
-          observation_key: 'scifact_micro_recall_ppm',
-          effect_kind: 'absolute_difference',
-          direction: 'higher_is_support',
-          support_min: 10_000,
-          contradiction_max: -10_000,
-          uncertainty_policy: { kind: 'not_required_by_protocol' },
-        }],
-        primary_comparison_key: 'top_k_10_minus_top_k_5',
-        decision_if_positive: 'Qualify the bounded claim that top-k 10 materially improves SciFact micro recall over top-k 5.',
-        decision_if_negative: 'Record evidence against the bounded improvement claim and do not promote a positive claim.',
-        decision_if_inconclusive: 'Do not promote a directional claim; review the protocol or repeat only under new authorization.',
-      },
-    },
+    draft_content: protocolDraft(
+      benchmark,
+      asTypedRef(metric, 'MetricDefinition'),
+    ),
   });
   const readiness = await ensurePassedReadiness(
     repository,
     protocol,
-    'ef_readiness_t136_p5_scifact_v1',
+    'ef_readiness_t136_p5_scifact_v2',
   );
   assert.equal(readiness.dependencies.length, 22);
   assert.deepEqual(countByAssetType([
@@ -674,6 +644,136 @@ async function ensureAsset(
   return frozen.exact_ref;
 }
 
+async function ensureSuccessorAsset(
+  repository: PrismaExperimentFoundationV2Repository,
+  spec: SuccessorAssetSpec,
+): Promise<ExperimentFoundationV2ExactAssetRevisionRef> {
+  let lifecycleSequence = 0;
+  const service = new ExperimentFoundationV2Service(repository, {
+    now: () => MATERIALIZED_AT,
+    idGenerator(kind) {
+      if (kind === 'revision') return spec.revision_id;
+      if (kind === 'lifecycle_event') {
+        lifecycleSequence += 1;
+        return `ef_asset_event_t136_p5_successor_${spec.asset_type.toLowerCase()}_${lifecycleSequence}`;
+      }
+      throw new Error(`Unexpected successor asset id request: ${kind}`);
+    },
+  });
+  let identity = await repository.runInTransaction(
+    (unitOfWork) => unitOfWork.findAssetIdentity(spec.asset_type, spec.logical_id),
+  );
+  assert.ok(identity, `Historical asset identity is missing: ${spec.logical_id}`);
+  const currentDraft = identityDraft(identity);
+  if (canonical(currentDraft) === canonical(spec.previous_draft_content)) {
+    assert.equal(identity.asset.current_revision_id, spec.previous_revision_id);
+    identity = await service.updateAssetDraft({
+      ...createAssetInput(spec),
+      expected_state_version: identity.asset.draft_state_version,
+    });
+  } else {
+    assert.equal(canonical(currentDraft), canonical(spec.draft_content));
+  }
+  const frozen = await service.freezeAssetDraft({
+    asset_type: spec.asset_type,
+    logical_id: spec.logical_id,
+    expected_state_version: identity.asset.draft_state_version,
+    business_idempotency_key: spec.freeze_key,
+  });
+  assert.equal(frozen.exact_ref.revision_id, spec.revision_id);
+  assert.equal(frozen.exact_ref.revision_sequence, 2);
+  const lifecycle = await repository.runInTransaction(async (unitOfWork) => ({
+    events: await unitOfWork.listLifecycleEvents(frozen.exact_ref),
+    projection: await unitOfWork.findLifecycleProjection(frozen.exact_ref),
+  }));
+  const expectedEvents = ['registered', 'activated'] as const;
+  assert.ok(lifecycle.events.length <= expectedEvents.length);
+  for (let index = lifecycle.events.length; index < expectedEvents.length; index += 1) {
+    lifecycleSequence = index;
+    await service.appendLifecycleEvent({
+      asset: frozen.exact_ref,
+      expected_projection_state_version: index === 0 ? null : index,
+      event_type: expectedEvents[index]!,
+      reason_code: `T136_P5_SUCCESSOR_${expectedEvents[index]!.toUpperCase()}`,
+    });
+  }
+  const finalProjection = await repository.runInTransaction(
+    (unitOfWork) => unitOfWork.findLifecycleProjection(frozen.exact_ref),
+  );
+  assert.equal(finalProjection?.lifecycle_status, 'active');
+  assert.equal(finalProjection?.location_available, false);
+  return frozen.exact_ref;
+}
+
+function metricDraft(evaluatorVersion: string) {
+  return {
+    schema_version: 'v1',
+    metric_key: 'micro_recall_ppm',
+    display_name: 'SciFact positive-judgment micro recall (ppm)',
+    direction: 'higher_is_better',
+    value_type: 'number',
+    unit: 'ppm',
+    evaluator_binding: {
+      evaluator_key: 't136-p5-scifact-exact-token-retriever',
+      evaluator_version: evaluatorVersion,
+    },
+  } satisfies ExperimentFoundationV2DraftContent;
+}
+
+function protocolDraft(
+  benchmark: ExperimentFoundationV2ExactAssetRevisionRef,
+  metric: ExperimentFoundationV2ExactAssetRevisionRef & { asset_type: 'MetricDefinition' },
+) {
+  return {
+    schema_version: 'v2',
+    protocol_key: 't136-p5-scifact-micro-recall-two-cell',
+    display_name: 'SciFact top-k 10 versus top-k 5 preregistered comparison',
+    benchmark_dependency: asTypedRef(benchmark, 'Benchmark'),
+    metric_dependencies: [metric, ...STRUCTURAL_METRICS],
+    required_rules: [{
+      rule_id: 't136-p5-rule-micro-recall-ppm',
+      rule_type: 'metric_contract@v1',
+      metric_definition: metric,
+      metric_key: 'micro_recall_ppm',
+      required_cardinality: 1,
+      split_key: 'test',
+      value_type: 'number',
+      unit: 'ppm',
+      finite_required: true,
+    }],
+    scientific_contract: {
+      schema_version: 'ExperimentFoundationScientificProtocol@v1',
+      observation_slots: [{
+        observation_key: 'scifact_micro_recall_ppm',
+        ordinal: 1,
+        metric_key: 'micro_recall_ppm',
+        split_key: 'test',
+        value_type: 'number',
+        unit: 'ppm',
+        statistic: { kind: 'proportion' },
+        uncertainty: { kind: 'none' },
+      }],
+      artifact_slots: [],
+      comparison_rules: [{
+        comparison_key: 'top_k_10_minus_top_k_5',
+        ordinal: 1,
+        left_cell_ordinal: 1,
+        right_cell_ordinal: 2,
+        observation_key: 'scifact_micro_recall_ppm',
+        effect_kind: 'absolute_difference',
+        direction: 'higher_is_support',
+        support_min: 10_000,
+        contradiction_max: -10_000,
+        uncertainty_policy: { kind: 'not_required_by_protocol' },
+      }],
+      primary_comparison_key: 'top_k_10_minus_top_k_5',
+      decision_if_positive: 'Qualify the bounded claim that top-k 10 materially improves SciFact micro recall over top-k 5.',
+      decision_if_negative: 'Record evidence against the bounded improvement claim and do not promote a positive claim.',
+      decision_if_inconclusive: 'Do not promote a directional claim; review the protocol or repeat only under new authorization.',
+    },
+  } satisfies ExperimentFoundationV2DraftContent;
+}
+
 function createAssetInput(spec: AssetSpec) {
   switch (spec.asset_type) {
     case 'DataPolicy': return { asset_type: 'DataPolicy' as const, logical_id: spec.logical_id, draft_content: spec.draft_content as Extract<ExperimentFoundationV2DraftContent, { policy_key: string }> };
@@ -693,9 +793,9 @@ async function materializeExecutionBundle(
   const content = {
     execution_bundle_schema_version: 'v2' as const,
     code_artifact: {
-      artifact_ref: 'oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597/',
-      content_digest: 'sha256:75875a4d1b2169d791154a8f2368ef383bca03d771d9a7e3ecda08872c634597',
-      byte_size: 10_155,
+      artifact_ref: 'oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265/',
+      content_digest: 'sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265',
+      byte_size: 11_063,
     },
     container_image: {
       image_identity_kind: 'provider_managed_asset' as const,
@@ -736,7 +836,7 @@ async function materializeExecutionBundle(
     ],
     entrypoint: 'python3',
     arguments: ['/mnt/pea-code/entrypoint.py'],
-    dependency_lock_digest: 'sha256:a483a22efe12892fff918ad640137f91d01b5eb599b313e0984236868d01a6a4',
+    dependency_lock_digest: 'sha256:64ade8995bb817dc60ff51933ba1cd4b677e47bfc891b10a0895d0da7268f75d',
     output_contract: {
       result_envelope_schema: 'ExperimentFoundationProviderResultEnvelope@v1' as const,
       result_object_name: 'result.json',
@@ -755,7 +855,7 @@ async function materializeExecutionBundle(
     });
     await service.putDraft({
       bundle_key: BUNDLE_KEY,
-      display_name: 'T-136 P5 SciFact scientific execution bundle',
+      display_name: 'T-136 P5 SciFact corrected scientific execution bundle',
       expected_draft_version: null,
       draft_content: content,
     });
@@ -785,14 +885,14 @@ function buildRepositories(prisma: PrismaClient) {
   const assetService = new ExperimentFoundationV2Service(assetRepository);
   const cycleClosureLookup =
     new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
-  const ids = deterministicIdFactory('t136_p5_scifact_v1');
+  const ids = deterministicIdFactory('t136_p5_scifact_v2');
   const now = () => MATERIALIZED_AT;
   const traceService = new PaperImplementationTraceKernelService({
     projectRepository,
     traceRepository,
     idFactory: (prefix) => prefix === 'trace_manifest'
       ? TRACE_ID
-      : `${prefix}_t136_p5_scifact_v1`,
+      : `${prefix}_t136_p5_scifact_v2`,
     now,
   });
   const validationService = new PaperImplementationValidationCyclePlanningService({
@@ -802,7 +902,7 @@ function buildRepositories(prisma: PrismaClient) {
     validationRepository,
     idFactory: (prefix) => prefix === 'validation_input_snapshot'
       ? INPUT_SNAPSHOT_ID
-      : `${prefix}_t136_p5_scifact_v1`,
+      : `${prefix}_t136_p5_scifact_v2`,
     now,
   });
   const admissionService = new PaperImplementationExperimentV2AdmissionService({
@@ -934,17 +1034,17 @@ async function materializeLineage(
     content_hash: bundle.revision.content_hash,
   };
   const workOrderRequest: PaperImplementationExperimentV2AdmissionRequest = {
-    branch_key: 'scifact-p5-primary',
+    branch_key: 'scifact-p5-primary-v2',
     branch_frame: {
       frame_schema_version: 'v1',
-      display_name: 'T-136 SciFact P5 scientific comparison',
+      display_name: 'T-136 SciFact P5 corrected scientific comparison',
       scientific_intent: 'Measure the preregistered micro-recall difference between top-k 10 and top-k 5 using only fresh provider observations.',
       comparison_role: 'primary',
       parent_branch_key: null,
     },
     work_order_revision: {
       work_order_schema_version: 'v2',
-      title: 'T-136 P5 SciFact exact two-cell scientific run',
+      title: 'T-136 P5 SciFact corrected exact two-cell scientific run',
       objective: 'Freeze one fresh two-cell Run without executing provider jobs; CreateJob remains separately authorized.',
       readiness_attestation_id: assets.readiness.readiness_attestation_id,
       readiness_attestation_hash: assets.readiness.attestation_hash,
@@ -983,7 +1083,7 @@ async function materializeLineage(
     materializationConsumer: repositories.materializationService,
     headConsumer: repositories.headService,
     acknowledgementConsumer: repositories.acknowledgementService,
-    workerId: 't136-p5-scifact-stage-one-relay',
+    workerId: 't136-p5-scifact-successor-authority-relay',
     retryDelayMs: 0,
   });
   const drained = await relay.drainUntilIdle({ max_passes: 10, limit_per_domain: 10 });
@@ -1110,7 +1210,7 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
       minimum_artifacts_required: ['Sanitized T-136 P5 stage-one materialization and replay summary.'],
     },
     budget: {
-      budget_id: 'validation_budget_t136_p5_scifact_v1',
+      budget_id: 'validation_budget_t136_p5_scifact_v2',
       max_runtime: 'PT30M',
       max_compute: '2x2CPU-8GiB',
       retry_budget: 0,
@@ -1124,28 +1224,53 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
 }
 
 async function readInitialScopeState(prisma: PrismaClient): Promise<'missing' | 'partial' | 'complete'> {
-  const [cycle, bundle, assets] = await Promise.all([
+  const [cycle, bundle, metricIdentity, protocolIdentity, metricRevision, protocolRevision] =
+    await Promise.all([
     prisma.paperImplementationValidationCycle.count({ where: { id: CYCLE_ID } }),
     prisma.experimentFoundationExecutionBundleIdentityV2.count({ where: { bundleKey: BUNDLE_KEY } }),
-    Promise.all([
-      prisma.experimentFoundationDataPolicyV2.count({ where: { id: { startsWith: 't136-p5-' } } }),
-      prisma.experimentFoundationDatasetV2.count({ where: { id: { startsWith: 't136-p5-' } } }),
-      prisma.experimentFoundationMetricDefinitionV2.count({ where: { id: { startsWith: 't136-p5-' } } }),
-      prisma.experimentFoundationBenchmarkV2.count({ where: { id: { startsWith: 't136-p5-' } } }),
-      prisma.experimentFoundationEvaluationProtocolV2.count({ where: { id: { startsWith: 't136-p5-' } } }),
-    ]),
+    prisma.experimentFoundationMetricDefinitionV2.findUnique({
+      where: { id: 't136-p5-metric-scifact-micro-recall-ppm' },
+      select: { currentRevisionId: true, draftStateVersion: true },
+    }),
+    prisma.experimentFoundationEvaluationProtocolV2.findUnique({
+      where: { id: 't136-p5-protocol-scifact-micro-recall' },
+      select: { currentRevisionId: true, draftStateVersion: true },
+    }),
+    prisma.experimentFoundationMetricDefinitionRevisionV2.count({
+      where: { id: METRIC_REVISION_ID },
+    }),
+    prisma.experimentFoundationEvaluationProtocolRevisionV2.count({
+      where: { id: PROTOCOL_REVISION_ID },
+    }),
   ]);
-  const identityCount = cycle + bundle + assets.reduce((sum, value) => sum + value, 0);
-  if (identityCount === 0) return 'missing';
-  if (identityCount !== 9) return 'partial';
+  assert.ok(metricIdentity && protocolIdentity, 'Historical scientific assets are missing');
+  if (
+    cycle === 0
+    && bundle === 0
+    && metricRevision === 0
+    && protocolRevision === 0
+    && metricIdentity.currentRevisionId === HISTORICAL_METRIC_REVISION_ID
+    && metricIdentity.draftStateVersion === 2
+    && protocolIdentity.currentRevisionId === HISTORICAL_PROTOCOL_REVISION_ID
+    && protocolIdentity.draftStateVersion === 2
+  ) return 'missing';
+  if (
+    cycle !== 1
+    || bundle !== 1
+    || metricRevision !== 1
+    || protocolRevision !== 1
+    || metricIdentity.currentRevisionId !== METRIC_REVISION_ID
+    || protocolIdentity.currentRevisionId !== PROTOCOL_REVISION_ID
+  ) return 'partial';
   const runCount = await prisma.experimentFoundationRunV2.count({
-    where: { externalPiWorkOrderRevisionId: { contains: 't136_p5_scifact_v1' } },
+    where: { id: SUCCESSOR_RUN_ID },
   });
   return runCount === 1 ? 'complete' : 'partial';
 }
 
 async function readHistoricalSentinels(prisma: PrismaClient) {
-  const [cycle, readiness, bundle] = await Promise.all([
+  const [sourceCycle, sourceReadiness, sourceBundle, cycle, metric, protocol, bundle, branch, revision, run] =
+    await Promise.all([
     prisma.paperImplementationValidationCycle.findUnique({ where: { id: SOURCE_CYCLE_ID } }),
     prisma.experimentFoundationReadinessAttestationV2.findUnique({
       where: { id: 'readiness_attestation_5a9a84ce-bc90-48fe-9225-0188b076ca30' },
@@ -1153,8 +1278,39 @@ async function readHistoricalSentinels(prisma: PrismaClient) {
     prisma.experimentFoundationExecutionBundleRevisionV2.findUnique({
       where: { id: 'ef_execution_bundle_revision_2c60e151719be2e109e4b2d3964aaa8c315e0b48' },
     }),
+    prisma.paperImplementationValidationCycle.findUnique({ where: { id: HISTORICAL_CYCLE_ID } }),
+    prisma.experimentFoundationMetricDefinitionRevisionV2.findUnique({
+      where: { id: HISTORICAL_METRIC_REVISION_ID },
+    }),
+    prisma.experimentFoundationEvaluationProtocolRevisionV2.findUnique({
+      where: { id: HISTORICAL_PROTOCOL_REVISION_ID },
+    }),
+    prisma.experimentFoundationExecutionBundleRevisionV2.findUnique({
+      where: { id: HISTORICAL_BUNDLE_REVISION_ID },
+    }),
+    prisma.paperImplementationExperimentWorkOrderBranchV2.findUnique({
+      where: { id: 'pi_experiment_branch_v2_t136_p5_scifact_v1_1' },
+    }),
+    prisma.paperImplementationExperimentWorkOrderRevisionV2.findUnique({
+      where: { id: 'pi_experiment_revision_v2_t136_p5_scifact_v1_1' },
+    }),
+    prisma.experimentFoundationRunV2.findUnique({
+      where: { id: HISTORICAL_RUN_ID },
+      include: { cells: { orderBy: { ordinal: 'asc' } }, runRecipe: true },
+    }),
   ]);
-  return { cycle, readiness, bundle };
+  return {
+    sourceCycle,
+    sourceReadiness,
+    sourceBundle,
+    cycle,
+    metric,
+    protocol,
+    bundle,
+    branch,
+    revision,
+    run,
+  };
 }
 
 async function countProhibitedScientificRows(prisma: PrismaClient, runId: string): Promise<number> {
@@ -1186,7 +1342,7 @@ async function requireRecoveryPoint(): Promise<RecoveryManifest> {
 
 function requireAuthorization(value: string | undefined): void {
   if (value !== AUTHORIZATION_VALUE) {
-    throw new Error(`${AUTHORIZATION_ENV} must exactly authorize the reviewed 146-row no-cloud scope`);
+    throw new Error(`${AUTHORIZATION_ENV} must exactly authorize the reviewed 101-row no-cloud scope`);
   }
 }
 

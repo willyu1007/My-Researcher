@@ -97,11 +97,11 @@ type RunnerMode = 'offline-preflight' | 'execute';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PREPARED_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/prepared-authorization-v16.json',
+  'workloads/scifact-recall-p5/manifests/prepared-authorization-v17.json',
 );
 const AUTHORIZATION_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v16.json',
+  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v17.json',
 );
 const QUALIFICATION_PATH = path.join(
   REPO_ROOT,
@@ -109,13 +109,13 @@ const QUALIFICATION_PATH = path.join(
 );
 const IMAGE_ID = 'image-liuxvj7p2qcnflha84';
 const PROJECT_ID = 'implementation_project_642a1879-1137-40f5-b340-330b66509975';
-const VALIDATION_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
-const RUN_ID = 'ef_run_v2_t136_p5_scifact_v1_1';
+const VALIDATION_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
+const RUN_ID = 'ef_run_v2_t136_p5_scifact_v2_1';
 const RUN_MANIFEST_HASH =
-  'sha256:e29925d2543ee6376d216dfc3b4dfc94a1192c01dc3478cc13ac91d6d6e467b2';
-const TRACE_ID = 'trace_manifest_t136_p5_scifact_v1';
-const PACKET_ID = 'result_interpretation_packet_t136_p5_scifact_v1';
-const RUNTIME_RUN_ID = 'pi_result_analysis_runtime_t136_p5_scifact_v1';
+  'sha256:01324fa92d39ed411869dadd8e208424cb01737146c5d32bbd677393f220459c';
+const TRACE_ID = 'trace_manifest_t136_p5_scifact_v2';
+const PACKET_ID = 'result_interpretation_packet_t136_p5_scifact_v2';
+const RUNTIME_RUN_ID = 'pi_result_analysis_runtime_t136_p5_scifact_v2';
 const CLOSURE_CAPABILITY = 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
 const TARGET = Object.freeze({
   database: 'postgres',
@@ -250,7 +250,7 @@ async function runWindow(
         target_version_id: RUN_MANIFEST_HASH,
         input_snapshot_ref: ref(
           'implementation_input_snapshot',
-          'implementation_input_snapshot_t136_p5_scifact_v1',
+          'implementation_input_snapshot_t136_p5_scifact_v2',
           project.titleCardId,
         ),
         input_snapshot_hash: semanticHash('P5ResultAnalysisInput', {
@@ -316,7 +316,7 @@ async function runWindow(
       closure_kind: 'scientific_evidence_assessed' as const,
       accepted_proposal_id: finalArtifact.runtime_artifact_id,
       expected_proposal_hash: finalArtifact.final_artifact_hash,
-      idempotency_key: 't136-p5-scifact-attempt-14:scientific-close',
+      idempotency_key: 't136-p5-scifact-attempt-15:scientific-close',
     };
     const closed = await closureService.close(closureRequest);
     assert.ok(closed.closure.scientific_disposition);

@@ -1,0 +1,956 @@
+{
+  "schema_version": "ScientificEvidenceP5PreparedAuthorization@v3",
+  "status": "eligible",
+  "execution_package": {
+    "schema_version": "ScientificEvidenceP5ExecutionPackage@v3",
+    "p5_attempt_id": "t136-p5-scifact-attempt-15",
+    "authority": {
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v2",
+      "branch_id": "pi_experiment_branch_v2_t136_p5_scifact_v2_1",
+      "branch_revision_sequence": 1,
+      "work_order_revision": {
+        "id": "pi_experiment_revision_v2_t136_p5_scifact_v2_1",
+        "content_hash": "sha256:0d5a30387ee9f30fce96b0325d15786045a5f069ae97da65af3e8891c9e16c7b",
+        "snapshot": {
+          "title": "T-136 P5 SciFact corrected exact two-cell scientific run",
+          "objective": "Freeze one fresh two-cell Run without executing provider jobs; CreateJob remains separately authorized.",
+          "run_policy": {
+            "timeout_seconds": 1800,
+            "max_attempts_per_cell": 1
+          },
+          "execution_bundle": {
+            "content_hash": "sha256:bdf9c260c23c1f8eb079f84a0d8dfe879fe5cba670c6e1a961ad2ddba3198db3",
+            "revision_sequence": 1,
+            "execution_bundle_id": "ef_execution_bundle_identity_e47bbb0275d9855fb6f3e1b4bb831b6907164433",
+            "execution_bundle_revision_id": "ef_execution_bundle_revision_1e2a87f2867ca8a89743464eaad8654454702468"
+          },
+          "resource_snapshot": {
+            "cpu_cores": 2,
+            "memory_mb": 8192
+          },
+          "asset_dependencies": [
+            {
+              "asset_type": "Dataset",
+              "logical_id": "t136-p5-dataset-scifact-corpus",
+              "revision_id": "ef_revision_t136_p5_dataset_scifact_corpus_v1",
+              "content_hash": "sha256:69d39aa31210ad692f4938a39f62aaefd56d274dc5f42e062ee33078415f64ce",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "Dataset",
+              "logical_id": "t136-p5-dataset-scifact-evaluation-inputs",
+              "revision_id": "ef_revision_t136_p5_dataset_scifact_evaluation_inputs_v1",
+              "content_hash": "sha256:8464596fbff1c7254c6545dcfcab276f5e91120bbc2a1312376c2fd927d34a41",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "DataPolicy",
+              "logical_id": "t136-p5-policy-scifact-corpus",
+              "revision_id": "ef_revision_t136_p5_policy_scifact_corpus_v1",
+              "content_hash": "sha256:c9cc7f62aea4d06144786226fca45155ece260cb31c00438837c8d7cc21be347",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "DataPolicy",
+              "logical_id": "t136-p5-policy-scifact-evaluation-inputs",
+              "revision_id": "ef_revision_t136_p5_policy_scifact_evaluation_inputs_v1",
+              "content_hash": "sha256:e0af1a51a3d5dda3254cf9381321f38538edd67c2901b8b7da5365768faac9ce",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "Benchmark",
+              "logical_id": "t136-p5-benchmark-scifact-retrieval",
+              "revision_id": "ef_revision_t136_p5_benchmark_scifact_retrieval_v1",
+              "content_hash": "sha256:3e1a468da5f0c19fe4d5e97fb4c5b4bc80442e10b3424e16fea37ddb10875c81",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-answer_accuracy",
+              "revision_id": "revision_a004dfe1-d90b-4f2f-ae97-a298c01945ec",
+              "content_hash": "sha256:2a53188ea9fb8ddd80ffae77c78ce7ef02c20aa469f9c5af73aba591f85e1bbc",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-answer_relevancy",
+              "revision_id": "revision_5746163a-f33c-4e91-aa77-d4aace4ca377",
+              "content_hash": "sha256:d91332b42b5bba03b7cf275428160db972d486fc90ce44bb2a585249099812f6",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-context_precision",
+              "revision_id": "revision_72b402d0-b4d0-41fd-b270-c45d6fbf492e",
+              "content_hash": "sha256:607fb9e8890eb361329b63c493e506e1e97770e1e3742d14547c2a921ab0c404",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-context_recall",
+              "revision_id": "revision_9d4f44b3-ec6b-476c-9632-d28ff412de35",
+              "content_hash": "sha256:ee54c271224ece7b1a35c78495e117bac061b2123847dd8fbc618b1e160df06a",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-cpu_memory_disk_process_io",
+              "revision_id": "revision_fa78b4a8-bfb1-43f4-af31-a9c6501e43e9",
+              "content_hash": "sha256:a998138f7671adfdd478f916ed1c0634d474584c3d9b3ee7ad816e52233f1d00",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-embedding_time_ns",
+              "revision_id": "revision_21079ebb-a5c0-4647-a5f4-65c500195195",
+              "content_hash": "sha256:3116299686614de07a48dfbc27efd482b122506650e2c2017ac5f8d4a25f510f",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-factual_correctness",
+              "revision_id": "revision_66154ba9-5791-40fe-a674-7329dcf83cbf",
+              "content_hash": "sha256:391f8cfa0c27f449d2759c256e487dbd414e9394bb872717cddfd14885fd4fd6",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-faithfulness",
+              "revision_id": "revision_8ae5c7f4-494a-44dc-ae8a-337610130cfc",
+              "content_hash": "sha256:a5df45944d898542f61ebacc489c50234208c60fefe5221257e4d54e69fd86a1",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-generation_time_ns",
+              "revision_id": "revision_15396edb-1808-444c-8761-bad195cd37c5",
+              "content_hash": "sha256:531e82df7f7894f6f3b8997a115ab030bcc67a4aa8dc300d8b365e965f98a5bd",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-gpu_memory_or_dram_bandwidth",
+              "revision_id": "revision_a077f209-d0cc-4ca2-adcf-44b7b2375496",
+              "content_hash": "sha256:1f309a4d5ed018263455372b70efee7468e23fdeac4b3840cba4b88a83c31c7e",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-gpu_utilization",
+              "revision_id": "revision_757ae516-357b-4ed4-b19f-f07532816878",
+              "content_hash": "sha256:61ba91465a1d70f084062ade6cf85fc90c3213293793a1937eded5272acee419",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-llm_context_recall",
+              "revision_id": "revision_dcbac841-2594-4cda-9cae-61461b34d658",
+              "content_hash": "sha256:b1b97c061cf8857edcfcc22ba50bf20b482676d88dfae4098391d6e0f4bb0684",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-prompt_time_ns",
+              "revision_id": "revision_58deb200-dfc3-4415-8cc5-818fbea3703f",
+              "content_hash": "sha256:9e85a27aab172fa9b278f8fff4337880ac782ffe7e1ce3e4594393ec2cd573c7",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-qps",
+              "revision_id": "revision_729eefd5-f8ea-4b2d-b106-d11fd0f02af8",
+              "content_hash": "sha256:c00791c3d84961be6e0b1c24a860d6e0e7775d289599d6111f4436a873130b63",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-rerank_time_ns",
+              "revision_id": "revision_4fa09677-0081-4d09-8ea9-6d4dae970ff5",
+              "content_hash": "sha256:a17019c8b61c0db65a8e1a9ee658333472fcd95ad13d2a0a9a89bfd6fe0c5bbd",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "d19-metric-retrieval_time_ns",
+              "revision_id": "revision_adda4c16-9167-4e71-9164-e56543aae1f1",
+              "content_hash": "sha256:7853142cbf31a8868c509451e73432744a6065bd8c4611c04c1daa2a2ed6cc86",
+              "revision_sequence": 1
+            },
+            {
+              "asset_type": "MetricDefinition",
+              "logical_id": "t136-p5-metric-scifact-micro-recall-ppm",
+              "revision_id": "ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2",
+              "content_hash": "sha256:24c0008fea622131be40a1f9b30b0de1fbab2bc9a57d480c2f87890e31d6da67",
+              "revision_sequence": 2
+            },
+            {
+              "asset_type": "EvaluationProtocol",
+              "logical_id": "t136-p5-protocol-scifact-micro-recall",
+              "revision_id": "ef_revision_t136_p5_protocol_scifact_micro_recall_v2",
+              "content_hash": "sha256:e427859cfc789b52be38532353e14367cb67524672a3a58d9de7d8ea0382a691",
+              "revision_sequence": 2
+            }
+          ],
+          "readiness_attestation_id": "ef_readiness_t136_p5_scifact_v2",
+          "work_order_schema_version": "v2",
+          "readiness_attestation_hash": "sha256:232f5cf6f5a609b9aa43916a9479d008b32e10d858ad431b8d11c1bb4b84d88c"
+        }
+      },
+      "run": {
+        "run_id": "ef_run_v2_t136_p5_scifact_v2_1",
+        "external_pi_work_order_revision_id": "pi_experiment_revision_v2_t136_p5_scifact_v2_1",
+        "external_pi_work_order_revision_hash": "sha256:0d5a30387ee9f30fce96b0325d15786045a5f069ae97da65af3e8891c9e16c7b",
+        "external_pi_branch_revision_sequence": 1,
+        "run_manifest_hash": "sha256:01324fa92d39ed411869dadd8e208424cb01737146c5d32bbd677393f220459c",
+        "cell_count": 2,
+        "frozen_at": "2026-08-14T15:20:00.000Z"
+      }
+    },
+    "evaluation_protocol": {
+      "revision": {
+        "asset_type": "EvaluationProtocol",
+        "logical_id": "t136-p5-protocol-scifact-micro-recall",
+        "revision_id": "ef_revision_t136_p5_protocol_scifact_micro_recall_v2",
+        "revision_sequence": 2,
+        "content_hash": "sha256:e427859cfc789b52be38532353e14367cb67524672a3a58d9de7d8ea0382a691"
+      },
+      "revision_content": {
+        "display_name": "SciFact top-k 10 versus top-k 5 preregistered comparison",
+        "protocol_key": "t136-p5-scifact-micro-recall-two-cell",
+        "required_rules": [
+          {
+            "unit": "ppm",
+            "rule_id": "t136-p5-rule-micro-recall-ppm",
+            "rule_type": "metric_contract@v1",
+            "split_key": "test",
+            "metric_key": "micro_recall_ppm",
+            "value_type": "number",
+            "finite_required": true,
+            "metric_definition": {
+              "asset_type": "MetricDefinition",
+              "logical_id": "t136-p5-metric-scifact-micro-recall-ppm",
+              "revision_id": "ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2",
+              "content_hash": "sha256:24c0008fea622131be40a1f9b30b0de1fbab2bc9a57d480c2f87890e31d6da67",
+              "revision_sequence": 2
+            },
+            "required_cardinality": 1
+          }
+        ],
+        "schema_version": "v2",
+        "metric_dependencies": [
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "t136-p5-metric-scifact-micro-recall-ppm",
+            "revision_id": "ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2",
+            "content_hash": "sha256:24c0008fea622131be40a1f9b30b0de1fbab2bc9a57d480c2f87890e31d6da67",
+            "revision_sequence": 2
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-answer_accuracy",
+            "revision_id": "revision_a004dfe1-d90b-4f2f-ae97-a298c01945ec",
+            "content_hash": "sha256:2a53188ea9fb8ddd80ffae77c78ce7ef02c20aa469f9c5af73aba591f85e1bbc",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-answer_relevancy",
+            "revision_id": "revision_5746163a-f33c-4e91-aa77-d4aace4ca377",
+            "content_hash": "sha256:d91332b42b5bba03b7cf275428160db972d486fc90ce44bb2a585249099812f6",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-context_precision",
+            "revision_id": "revision_72b402d0-b4d0-41fd-b270-c45d6fbf492e",
+            "content_hash": "sha256:607fb9e8890eb361329b63c493e506e1e97770e1e3742d14547c2a921ab0c404",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-context_recall",
+            "revision_id": "revision_9d4f44b3-ec6b-476c-9632-d28ff412de35",
+            "content_hash": "sha256:ee54c271224ece7b1a35c78495e117bac061b2123847dd8fbc618b1e160df06a",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-cpu_memory_disk_process_io",
+            "revision_id": "revision_fa78b4a8-bfb1-43f4-af31-a9c6501e43e9",
+            "content_hash": "sha256:a998138f7671adfdd478f916ed1c0634d474584c3d9b3ee7ad816e52233f1d00",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-embedding_time_ns",
+            "revision_id": "revision_21079ebb-a5c0-4647-a5f4-65c500195195",
+            "content_hash": "sha256:3116299686614de07a48dfbc27efd482b122506650e2c2017ac5f8d4a25f510f",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-factual_correctness",
+            "revision_id": "revision_66154ba9-5791-40fe-a674-7329dcf83cbf",
+            "content_hash": "sha256:391f8cfa0c27f449d2759c256e487dbd414e9394bb872717cddfd14885fd4fd6",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-faithfulness",
+            "revision_id": "revision_8ae5c7f4-494a-44dc-ae8a-337610130cfc",
+            "content_hash": "sha256:a5df45944d898542f61ebacc489c50234208c60fefe5221257e4d54e69fd86a1",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-generation_time_ns",
+            "revision_id": "revision_15396edb-1808-444c-8761-bad195cd37c5",
+            "content_hash": "sha256:531e82df7f7894f6f3b8997a115ab030bcc67a4aa8dc300d8b365e965f98a5bd",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-gpu_memory_or_dram_bandwidth",
+            "revision_id": "revision_a077f209-d0cc-4ca2-adcf-44b7b2375496",
+            "content_hash": "sha256:1f309a4d5ed018263455372b70efee7468e23fdeac4b3840cba4b88a83c31c7e",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-gpu_utilization",
+            "revision_id": "revision_757ae516-357b-4ed4-b19f-f07532816878",
+            "content_hash": "sha256:61ba91465a1d70f084062ade6cf85fc90c3213293793a1937eded5272acee419",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-llm_context_recall",
+            "revision_id": "revision_dcbac841-2594-4cda-9cae-61461b34d658",
+            "content_hash": "sha256:b1b97c061cf8857edcfcc22ba50bf20b482676d88dfae4098391d6e0f4bb0684",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-prompt_time_ns",
+            "revision_id": "revision_58deb200-dfc3-4415-8cc5-818fbea3703f",
+            "content_hash": "sha256:9e85a27aab172fa9b278f8fff4337880ac782ffe7e1ce3e4594393ec2cd573c7",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-qps",
+            "revision_id": "revision_729eefd5-f8ea-4b2d-b106-d11fd0f02af8",
+            "content_hash": "sha256:c00791c3d84961be6e0b1c24a860d6e0e7775d289599d6111f4436a873130b63",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-rerank_time_ns",
+            "revision_id": "revision_4fa09677-0081-4d09-8ea9-6d4dae970ff5",
+            "content_hash": "sha256:a17019c8b61c0db65a8e1a9ee658333472fcd95ad13d2a0a9a89bfd6fe0c5bbd",
+            "revision_sequence": 1
+          },
+          {
+            "asset_type": "MetricDefinition",
+            "logical_id": "d19-metric-retrieval_time_ns",
+            "revision_id": "revision_adda4c16-9167-4e71-9164-e56543aae1f1",
+            "content_hash": "sha256:7853142cbf31a8868c509451e73432744a6065bd8c4611c04c1daa2a2ed6cc86",
+            "revision_sequence": 1
+          }
+        ],
+        "scientific_contract": {
+          "artifact_slots": [],
+          "schema_version": "ExperimentFoundationScientificProtocol@v1",
+          "comparison_rules": [
+            {
+              "ordinal": 1,
+              "direction": "higher_is_support",
+              "effect_kind": "absolute_difference",
+              "support_min": 10000,
+              "comparison_key": "top_k_10_minus_top_k_5",
+              "observation_key": "scifact_micro_recall_ppm",
+              "contradiction_max": -10000,
+              "left_cell_ordinal": 1,
+              "right_cell_ordinal": 2,
+              "uncertainty_policy": {
+                "kind": "not_required_by_protocol"
+              }
+            }
+          ],
+          "observation_slots": [
+            {
+              "unit": "ppm",
+              "ordinal": 1,
+              "split_key": "test",
+              "statistic": {
+                "kind": "proportion"
+              },
+              "metric_key": "micro_recall_ppm",
+              "value_type": "number",
+              "uncertainty": {
+                "kind": "none"
+              },
+              "observation_key": "scifact_micro_recall_ppm"
+            }
+          ],
+          "decision_if_negative": "Record evidence against the bounded improvement claim and do not promote a positive claim.",
+          "decision_if_positive": "Qualify the bounded claim that top-k 10 materially improves SciFact micro recall over top-k 5.",
+          "primary_comparison_key": "top_k_10_minus_top_k_5",
+          "decision_if_inconclusive": "Do not promote a directional claim; review the protocol or repeat only under new authorization."
+        },
+        "benchmark_dependency": {
+          "asset_type": "Benchmark",
+          "logical_id": "t136-p5-benchmark-scifact-retrieval",
+          "revision_id": "ef_revision_t136_p5_benchmark_scifact_retrieval_v1",
+          "content_hash": "sha256:3e1a468da5f0c19fe4d5e97fb4c5b4bc80442e10b3424e16fea37ddb10875c81",
+          "revision_sequence": 1
+        }
+      }
+    },
+    "execution_bundle_revision": {
+      "execution_bundle_revision_id": "ef_execution_bundle_revision_1e2a87f2867ca8a89743464eaad8654454702468",
+      "execution_bundle_id": "ef_execution_bundle_identity_e47bbb0275d9855fb6f3e1b4bb831b6907164433",
+      "revision_sequence": 1,
+      "schema_version": "v2",
+      "hash_profile": "ef-execution-bundle-semantic-json@v1",
+      "content_hash": "sha256:bdf9c260c23c1f8eb079f84a0d8dfe879fe5cba670c6e1a961ad2ddba3198db3",
+      "revision_content": {
+        "arguments": [
+          "/mnt/pea-code/entrypoint.py"
+        ],
+        "entrypoint": "python3",
+        "code_artifact": {
+          "byte_size": 11063,
+          "artifact_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265/",
+          "content_digest": "sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265"
+        },
+        "container_image": {
+          "image_ref": "dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04",
+          "image_identity_kind": "provider_managed_asset",
+          "provider_managed_asset": {
+            "asset_id": "image-liuxvj7p2qcnflha84",
+            "provider": "aliyun_pai",
+            "region_id": "cn-shanghai",
+            "size_bytes": 3803970629,
+            "modified_at": "2026-07-02T04:35:35.000Z",
+            "source_type": "Import",
+            "accessibility": "PUBLIC",
+            "permitted_scope": "m0_sci_p5_scientific_only"
+          }
+        },
+        "dataset_mirrors": [
+          {
+            "ordinal": 1,
+            "byte_size": 8106566,
+            "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6/",
+            "content_digest": "sha256:dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+            "dataset_revision": {
+              "asset_type": "Dataset",
+              "logical_id": "t136-p5-dataset-scifact-corpus",
+              "revision_id": "ef_revision_t136_p5_dataset_scifact_corpus_v1",
+              "content_hash": "sha256:69d39aa31210ad692f4938a39f62aaefd56d274dc5f42e062ee33078415f64ce",
+              "revision_sequence": 1
+            }
+          },
+          {
+            "ordinal": 2,
+            "byte_size": 56640,
+            "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/scifact/f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520/",
+            "content_digest": "sha256:f9c63730eafb7e72a9d18dd07a684516956b006096d419b41df0c1eaf8a5c520",
+            "dataset_revision": {
+              "asset_type": "Dataset",
+              "logical_id": "t136-p5-dataset-scifact-evaluation-inputs",
+              "revision_id": "ef_revision_t136_p5_dataset_scifact_evaluation_inputs_v1",
+              "content_hash": "sha256:8464596fbff1c7254c6545dcfcab276f5e91120bbc2a1312376c2fd927d34a41",
+              "revision_sequence": 1
+            }
+          },
+          {
+            "ordinal": 3,
+            "byte_size": 5389,
+            "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/",
+            "content_digest": "sha256:0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+            "dataset_revision": {
+              "asset_type": "Dataset",
+              "logical_id": "t136-p5-dataset-scifact-evaluation-inputs",
+              "revision_id": "ef_revision_t136_p5_dataset_scifact_evaluation_inputs_v1",
+              "content_hash": "sha256:8464596fbff1c7254c6545dcfcab276f5e91120bbc2a1312376c2fd927d34a41",
+              "revision_sequence": 1
+            }
+          }
+        ],
+        "output_contract": {
+          "result_object_name": "result.json",
+          "parser_profile_hash": "sha256:96f287cdaf36ceb92df971a9b917f183423bd13d7045fda32445ed68b52ab519",
+          "parser_profile_version": "scientific_result_parser@v1",
+          "result_envelope_schema": "ExperimentFoundationProviderResultEnvelope@v1",
+          "scientific_result_schema_hash": "sha256:e3dcbc371068a785b9274e6d98a485f22a9238102dd36e083b239f9e272ce38e",
+          "scientific_result_schema_version": "ExperimentFoundationScientificResultPayload@v1"
+        },
+        "dependency_lock_digest": "sha256:64ade8995bb817dc60ff51933ba1cd4b677e47bfc891b10a0895d0da7268f75d",
+        "execution_bundle_schema_version": "v2"
+      },
+      "created_at": "2026-08-14T15:20:00.000Z"
+    },
+    "scientific_input_policy": {
+      "provenance": "real_provider",
+      "source": "ef_parsed_and_sealed_typed_observations",
+      "manual_result_import": "forbidden",
+      "unfetched_artifact_byte_dependency": "forbidden"
+    },
+    "declared_differing_factor": {
+      "parameter_name": "retrieval_top_k"
+    },
+    "ordered_cells": [
+      {
+        "run_cell": {
+          "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_1",
+          "run_id": "ef_run_v2_t136_p5_scifact_v2_1",
+          "ordinal": 1,
+          "cell_key": "retriever-top-k-10",
+          "external_pi_cell_id": "pi_experiment_cell_v2_t136_p5_scifact_v2_1",
+          "external_pi_cell_hash": "sha256:231735a6d9e0c931fc98882fa3f55eda5a7d6698bb8562515ebd653bd6c798d5",
+          "training_task_spec_id": "ef_training_task_spec_v2_t136_p5_scifact_v2_1",
+          "training_task_spec_hash": "sha256:55d2cf74de68b3745ec36d75f81b95701c4efb6cc55d37ef7a1b2192c18a9dca",
+          "seed": 42,
+          "repeat_index": 0
+        },
+        "work_order_cell_input": {
+          "cell_key": "retriever-top-k-10",
+          "seed": 42,
+          "repeat_index": 0,
+          "parameters": [
+            {
+              "name": "batch_size",
+              "value": 8
+            },
+            {
+              "name": "retrieval_top_k",
+              "value": 10
+            }
+          ],
+          "required_result_contract": {
+            "metrics": [
+              {
+                "metric_definition": {
+                  "asset_type": "MetricDefinition",
+                  "logical_id": "t136-p5-metric-scifact-micro-recall-ppm",
+                  "revision_id": "ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2",
+                  "content_hash": "sha256:24c0008fea622131be40a1f9b30b0de1fbab2bc9a57d480c2f87890e31d6da67",
+                  "revision_sequence": 2
+                },
+                "required_cardinality": 1
+              }
+            ],
+            "artifacts": []
+          }
+        },
+        "training_task_spec": {
+          "training_task_spec_id": "ef_training_task_spec_v2_t136_p5_scifact_v2_1",
+          "materialization_key": "pi_experiment_revision_v2_t136_p5_scifact_v2_1:sha256:0a3bbfc7384d39e903f42dbe4c296a7dd2092a9eae68256d812dc72afd370258:cell:1",
+          "run_recipe_id": "ef_run_recipe_v2_t136_p5_scifact_v2_1",
+          "external_pi_work_order_revision_id": "pi_experiment_revision_v2_t136_p5_scifact_v2_1",
+          "external_pi_work_order_revision_hash": "sha256:0d5a30387ee9f30fce96b0325d15786045a5f069ae97da65af3e8891c9e16c7b",
+          "external_pi_cell_id": "pi_experiment_cell_v2_t136_p5_scifact_v2_1",
+          "external_pi_cell_hash": "sha256:231735a6d9e0c931fc98882fa3f55eda5a7d6698bb8562515ebd653bd6c798d5",
+          "execution_bundle": {
+            "content_hash": "sha256:bdf9c260c23c1f8eb079f84a0d8dfe879fe5cba670c6e1a961ad2ddba3198db3",
+            "revision_sequence": 1,
+            "execution_bundle_id": "ef_execution_bundle_identity_e47bbb0275d9855fb6f3e1b4bb831b6907164433",
+            "execution_bundle_revision_id": "ef_execution_bundle_revision_1e2a87f2867ca8a89743464eaad8654454702468"
+          },
+          "command_snapshot": {
+            "command": "python3",
+            "arguments": [
+              "/mnt/pea-code/entrypoint.py",
+              "--cell-key=retriever-top-k-10"
+            ]
+          },
+          "io_snapshot": {
+            "input_keys": [
+              "version_lock",
+              "admitted_cell",
+              "dataset_mirror:1",
+              "dataset_mirror:2",
+              "dataset_mirror:3"
+            ],
+            "output_keys": [
+              "real_provider_result_envelope"
+            ],
+            "result_object_name": "result.json",
+            "parser_profile_hash": "sha256:96f287cdaf36ceb92df971a9b917f183423bd13d7045fda32445ed68b52ab519",
+            "input_mirror_ordinals": [
+              1,
+              2,
+              3
+            ],
+            "parser_profile_version": "scientific_result_parser@v1",
+            "result_envelope_schema": "ExperimentFoundationProviderResultEnvelope@v1",
+            "scientific_result_schema_hash": "sha256:e3dcbc371068a785b9274e6d98a485f22a9238102dd36e083b239f9e272ce38e",
+            "scientific_result_schema_version": "ExperimentFoundationScientificResultPayload@v1"
+          },
+          "resource_snapshot": {
+            "cpu_cores": 2,
+            "memory_mb": 8192
+          },
+          "retry_snapshot": {
+            "max_attempts": 1,
+            "timeout_seconds": 1800
+          },
+          "task_spec_hash": "sha256:55d2cf74de68b3745ec36d75f81b95701c4efb6cc55d37ef7a1b2192c18a9dca",
+          "created_at": "2026-08-14T15:20:00.000Z"
+        }
+      },
+      {
+        "run_cell": {
+          "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_2",
+          "run_id": "ef_run_v2_t136_p5_scifact_v2_1",
+          "ordinal": 2,
+          "cell_key": "retriever-top-k-5",
+          "external_pi_cell_id": "pi_experiment_cell_v2_t136_p5_scifact_v2_2",
+          "external_pi_cell_hash": "sha256:1c80d5608ea6df95b2be8f6c194b4e54198d56e5e7a8bfa03b05f0d36a67ac4f",
+          "training_task_spec_id": "ef_training_task_spec_v2_t136_p5_scifact_v2_2",
+          "training_task_spec_hash": "sha256:b0f3f7dc5d0691faa9fa239e616ad08a356d2b5469d5b08b6cfb8304ab8cce44",
+          "seed": 42,
+          "repeat_index": 0
+        },
+        "work_order_cell_input": {
+          "cell_key": "retriever-top-k-5",
+          "seed": 42,
+          "repeat_index": 0,
+          "parameters": [
+            {
+              "name": "batch_size",
+              "value": 8
+            },
+            {
+              "name": "retrieval_top_k",
+              "value": 5
+            }
+          ],
+          "required_result_contract": {
+            "metrics": [
+              {
+                "metric_definition": {
+                  "asset_type": "MetricDefinition",
+                  "logical_id": "t136-p5-metric-scifact-micro-recall-ppm",
+                  "revision_id": "ef_revision_t136_p5_metric_scifact_micro_recall_ppm_v2",
+                  "content_hash": "sha256:24c0008fea622131be40a1f9b30b0de1fbab2bc9a57d480c2f87890e31d6da67",
+                  "revision_sequence": 2
+                },
+                "required_cardinality": 1
+              }
+            ],
+            "artifacts": []
+          }
+        },
+        "training_task_spec": {
+          "training_task_spec_id": "ef_training_task_spec_v2_t136_p5_scifact_v2_2",
+          "materialization_key": "pi_experiment_revision_v2_t136_p5_scifact_v2_1:sha256:0a3bbfc7384d39e903f42dbe4c296a7dd2092a9eae68256d812dc72afd370258:cell:2",
+          "run_recipe_id": "ef_run_recipe_v2_t136_p5_scifact_v2_1",
+          "external_pi_work_order_revision_id": "pi_experiment_revision_v2_t136_p5_scifact_v2_1",
+          "external_pi_work_order_revision_hash": "sha256:0d5a30387ee9f30fce96b0325d15786045a5f069ae97da65af3e8891c9e16c7b",
+          "external_pi_cell_id": "pi_experiment_cell_v2_t136_p5_scifact_v2_2",
+          "external_pi_cell_hash": "sha256:1c80d5608ea6df95b2be8f6c194b4e54198d56e5e7a8bfa03b05f0d36a67ac4f",
+          "execution_bundle": {
+            "content_hash": "sha256:bdf9c260c23c1f8eb079f84a0d8dfe879fe5cba670c6e1a961ad2ddba3198db3",
+            "revision_sequence": 1,
+            "execution_bundle_id": "ef_execution_bundle_identity_e47bbb0275d9855fb6f3e1b4bb831b6907164433",
+            "execution_bundle_revision_id": "ef_execution_bundle_revision_1e2a87f2867ca8a89743464eaad8654454702468"
+          },
+          "command_snapshot": {
+            "command": "python3",
+            "arguments": [
+              "/mnt/pea-code/entrypoint.py",
+              "--cell-key=retriever-top-k-5"
+            ]
+          },
+          "io_snapshot": {
+            "input_keys": [
+              "version_lock",
+              "admitted_cell",
+              "dataset_mirror:1",
+              "dataset_mirror:2",
+              "dataset_mirror:3"
+            ],
+            "output_keys": [
+              "real_provider_result_envelope"
+            ],
+            "result_object_name": "result.json",
+            "parser_profile_hash": "sha256:96f287cdaf36ceb92df971a9b917f183423bd13d7045fda32445ed68b52ab519",
+            "input_mirror_ordinals": [
+              1,
+              2,
+              3
+            ],
+            "parser_profile_version": "scientific_result_parser@v1",
+            "result_envelope_schema": "ExperimentFoundationProviderResultEnvelope@v1",
+            "scientific_result_schema_hash": "sha256:e3dcbc371068a785b9274e6d98a485f22a9238102dd36e083b239f9e272ce38e",
+            "scientific_result_schema_version": "ExperimentFoundationScientificResultPayload@v1"
+          },
+          "resource_snapshot": {
+            "cpu_cores": 2,
+            "memory_mb": 8192
+          },
+          "retry_snapshot": {
+            "max_attempts": 1,
+            "timeout_seconds": 1800
+          },
+          "task_spec_hash": "sha256:b0f3f7dc5d0691faa9fa239e616ad08a356d2b5469d5b08b6cfb8304ab8cce44",
+          "created_at": "2026-08-14T15:20:00.000Z"
+        }
+      }
+    ],
+    "provider": {
+      "provider_kind": "aliyun_pai_dlc",
+      "adapter_identity": "aliyun_pai_dlc_official_sdk@v1",
+      "collection_reader_identity": "aliyun_oss_exact_result_reader@v1",
+      "profile": {
+        "schema_version": "AliyunPaiDlcRealProviderProfile@v1",
+        "region_id": "cn-shanghai",
+        "workspace_id": "1450165",
+        "resource_binding": {
+          "mode": "public_resource",
+          "ecs_spec": "ecs.g6.large",
+          "cpu_cores": 2,
+          "memory_mb": 8192
+        },
+        "image_uri": "dsw-registry-vpc.cn-shanghai.cr.aliyuncs.com/pai/torcheasyrec:1.3.0-pytorch2.12.1-cpu-py311-ubuntu22.04",
+        "job_type": "PyTorchJob",
+        "job_spec_type": "Worker",
+        "pod_count": 1,
+        "workload_binding": {
+          "schema_version": "AliyunPaiDlcWorkloadBinding@v1",
+          "runtime_role_arn": "acs:ram::1183869713036194:role/pea-m7-canary-runtime",
+          "code_mount_path": "/mnt/pea-code",
+          "input_mount_root": "/mnt/pea-input",
+          "output_mount_path": "/mnt/pea-output",
+          "output_uri_prefix": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/output/"
+        }
+      }
+    },
+    "authorized_operations": [
+      {
+        "ordinal": 1,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_1"
+      },
+      {
+        "ordinal": 2,
+        "owner": "ExperimentFoundation",
+        "operation": "CreateJob",
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_2"
+      }
+    ],
+    "cost_ceiling": {
+      "currency": "CNY",
+      "per_operation_amount_minor": 2500,
+      "total_amount_minor": 5000
+    },
+    "operational_timeline": {
+      "schema_version": "ScientificEvidenceP5OperationalTimeline@v3",
+      "issuance": {
+        "not_before": "2026-08-14T15:26:51.714Z",
+        "portal_confirmation_start_not_after": "2026-08-14T15:39:51.714Z",
+        "dispatch_not_after": "2026-08-14T15:41:51.714Z",
+        "minimum_portal_confirmation_margin_seconds": 120
+      },
+      "qualification": {
+        "activation": "after_same_credential_issuance",
+        "not_before": "2026-08-14T15:26:51.714Z",
+        "expires_at": "2026-08-14T15:46:51.714Z",
+        "minimum_secure_handoff_budget_seconds": 300
+      },
+      "live": {
+        "activation": "after_same_credential_qualification",
+        "capability_keys": [
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_INTAKE_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_REAL_PROVIDER_CONTROL_DRAIN_ENABLED",
+          "EXPERIMENT_FOUNDATION_V2_SCIENTIFIC_VALIDATION_ENABLED"
+        ],
+        "not_before": "2026-08-14T15:26:51.714Z",
+        "latest_start_at": "2026-08-14T15:46:51.714Z",
+        "credential_operations_stop_at": "2026-08-14T16:20:51.714Z"
+      },
+      "closure": {
+        "activation": "after_verified_credential_cleanup",
+        "capability_keys": [
+          "PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED"
+        ],
+        "not_before": "2026-08-14T15:26:51.714Z",
+        "expires_at": "2026-08-14T16:56:51.714Z"
+      }
+    },
+    "credential_policy": {
+      "schema_version": "ScientificEvidenceP5ControlPlaneCredential@v2",
+      "credential_ref": "env://ALIBABA_CLOUD_TEMPORARY_CREDENTIAL",
+      "secret_material_included": false,
+      "source_principal": {
+        "identity_type": "ram_user",
+        "arn": "acs:ram::1183869713036194:user/user_0002"
+      },
+      "controller_role": {
+        "arn": "acs:ram::1183869713036194:role/pea-m7-canary-controller",
+        "max_session_duration_seconds": 3600,
+        "trust_policy_hash": "sha256:46c14313b4a48378129637fa28153ff640abc81b7d317d784e8c2c6ef25ad257",
+        "attached_policy": {
+          "name": "pea-m7-canary-controller",
+          "type": "Custom",
+          "version": "v4",
+          "document_hash": "sha256:f83feab999e5185f927db04f5e383611c19e3dba7f4dcdc4fc10775e03a80e6c"
+        }
+      },
+      "role_session_name": "t136-p5-scifact-20260814-r17",
+      "session_policy": {
+        "Version": "1",
+        "Statement": [
+          {
+            "Sid": "T136P5ControllerPaiDlcExact",
+            "Effect": "Allow",
+            "Action": [
+              "paidlc:CreateJob",
+              "paidlc:GetJob",
+              "paidlc:ListJobs",
+              "paidlc:StopJob"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "T136P5ControllerWorkspaceExact",
+            "Effect": "Allow",
+            "Action": [
+              "paiworkspace:GetWorkspace"
+            ],
+            "Resource": "acs:paiworkspace:cn-shanghai:1183869713036194:workspace/1450165"
+          },
+          {
+            "Sid": "T136P5ControllerPassRuntimeRoleExact",
+            "Effect": "Allow",
+            "Action": [
+              "ram:PassRole"
+            ],
+            "Resource": "acs:ram::1183869713036194:role/pea-m7-canary-runtime"
+          },
+          {
+            "Sid": "T136P5ControllerImageRead",
+            "Effect": "Allow",
+            "Action": [
+              "paiimage:GetImage"
+            ],
+            "Resource": "*"
+          },
+          {
+            "Sid": "T136P5ControllerResultReadExact",
+            "Effect": "Allow",
+            "Action": [
+              "oss:GetObject"
+            ],
+            "Resource": "acs:oss:*:*:pea-m7-canary-6194-202607/output/ef_run_v2_t136_p5_scifact_v2_1/*"
+          },
+          {
+            "Sid": "T136P5ControllerCallerIdentity",
+            "Effect": "Allow",
+            "Action": [
+              "sts:GetCallerIdentity"
+            ],
+            "Resource": "*"
+          }
+        ]
+      },
+      "session_policy_hash": "sha256:0c8f731a08c420a43c72a2e7ef000330b904df3b09976033c906aad037799e0d",
+      "issued_duration_seconds": 3600,
+      "minimum_remaining_at_live_start_seconds": 2400,
+      "credential_operations_stop_before_earliest_expiration_seconds": 360,
+      "automatic_expiration_not_after": "2026-08-14T16:41:51.714Z",
+      "qualification": {
+        "required": true,
+        "allowed_operations": [
+          "Sts.AssumeRole",
+          "Sts.GetCallerIdentity",
+          "AIWorkspace.GetWorkspace",
+          "PaiImage.GetImage"
+        ],
+        "create_job_forbidden": true,
+        "product_capabilities_must_remain_disabled": true,
+        "grants_paid_execution_authority": false
+      },
+      "remove_process_material": true,
+      "delete_local_credential_config": true,
+      "manual_revocation_required": false,
+      "verify_local_cleanup": true,
+      "verify_expiration_after_window": true,
+      "ram_role_or_policy_mutation_forbidden": true
+    },
+    "named_local": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:438be92a6eae2452c1cdce372041d5586e54e3df18246e56a2175451ae1566eb",
+      "recovery_point_created_at": "2026-08-14T15:16:00.342Z"
+    },
+    "package_hash": "sha256:d790b7856a27fa32e1ab57ab02eef92034699cd494b11a86b203ef9dc166ba6a"
+  },
+  "authority_snapshot": {
+    "schema_version": "ScientificEvidenceP5AuthoritySnapshot@v1",
+    "source": "named_local_postgres_authority",
+    "p5_attempt_id": "t136-p5-scifact-attempt-15",
+    "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+    "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+    "validation_cycle_id": "validation_cycle_t136_p5_scifact_v2",
+    "branch_id": "pi_experiment_branch_v2_t136_p5_scifact_v2_1",
+    "branch_revision_sequence": 1,
+    "work_order_revision": {
+      "id": "pi_experiment_revision_v2_t136_p5_scifact_v2_1",
+      "content_hash": "sha256:0d5a30387ee9f30fce96b0325d15786045a5f069ae97da65af3e8891c9e16c7b"
+    },
+    "run": {
+      "id": "ef_run_v2_t136_p5_scifact_v2_1",
+      "content_hash": "sha256:01324fa92d39ed411869dadd8e208424cb01737146c5d32bbd677393f220459c"
+    },
+    "run_is_frozen": true,
+    "ordered_cells": [
+      {
+        "ordinal": 1,
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_1",
+        "work_order_cell": {
+          "id": "pi_experiment_cell_v2_t136_p5_scifact_v2_1",
+          "content_hash": "sha256:231735a6d9e0c931fc98882fa3f55eda5a7d6698bb8562515ebd653bd6c798d5"
+        },
+        "training_task_spec": {
+          "id": "ef_training_task_spec_v2_t136_p5_scifact_v2_1",
+          "content_hash": "sha256:55d2cf74de68b3745ec36d75f81b95701c4efb6cc55d37ef7a1b2192c18a9dca"
+        }
+      },
+      {
+        "ordinal": 2,
+        "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v2_2",
+        "work_order_cell": {
+          "id": "pi_experiment_cell_v2_t136_p5_scifact_v2_2",
+          "content_hash": "sha256:1c80d5608ea6df95b2be8f6c194b4e54198d56e5e7a8bfa03b05f0d36a67ac4f"
+        },
+        "training_task_spec": {
+          "id": "ef_training_task_spec_v2_t136_p5_scifact_v2_2",
+          "content_hash": "sha256:b0f3f7dc5d0691faa9fa239e616ad08a356d2b5469d5b08b6cfb8304ab8cce44"
+        }
+      }
+    ],
+    "existing_create_job_count": 0,
+    "existing_scientific_result_count": 0,
+    "authority_snapshot_hash": "sha256:83bd5ead32b3316e6e5349adbcdac812d89a7df8164c154dac17eae338a8cf47"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5EligibilityRecord@v3",
+    "package_hash": "sha256:d790b7856a27fa32e1ab57ab02eef92034699cd494b11a86b203ef9dc166ba6a",
+    "authority_snapshot_hash": "sha256:83bd5ead32b3316e6e5349adbcdac812d89a7df8164c154dac17eae338a8cf47",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:4978d708ac4e3e37fda6f0adf900c7b48734e5539d0771b0304bacde3ec9fa2a"
+  },
+  "effect_census": {
+    "database_writes": 0,
+    "cloud_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "credentials_read": 0
+  }
+}

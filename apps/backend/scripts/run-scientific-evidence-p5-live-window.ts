@@ -120,26 +120,26 @@ const PaiDlcClientConstructor = require('@alicloud/pai-dlc20201203').default as
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PREPARED_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/prepared-authorization-v16.json',
+  'workloads/scifact-recall-p5/manifests/prepared-authorization-v17.json',
 );
 const AUTHORIZATION_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v16.json',
+  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v17.json',
 );
 const QUALIFICATION_PATH = path.join(
   REPO_ROOT,
   'workloads/scifact-recall-p5/manifests/credential-qualification-v1.json',
 );
 const IMAGE_ID = 'image-liuxvj7p2qcnflha84';
-const RUN_ID = 'ef_run_v2_t136_p5_scifact_v1_1';
+const RUN_ID = 'ef_run_v2_t136_p5_scifact_v2_1';
 const RUN_MANIFEST_HASH =
-  'sha256:e29925d2543ee6376d216dfc3b4dfc94a1192c01dc3478cc13ac91d6d6e467b2';
-const VALIDATION_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v1';
+  'sha256:01324fa92d39ed411869dadd8e208424cb01737146c5d32bbd677393f220459c';
+const VALIDATION_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
 const BUNDLE_REVISION_ID =
-  'ef_execution_bundle_revision_e87768c5205729b01ff8ceec8a8d0aaa69a15c3b';
+  'ef_execution_bundle_revision_1e2a87f2867ca8a89743464eaad8654454702468';
 const BUNDLE_REVISION_HASH =
-  'sha256:ea9cf75556dff3c34938c8937089b223dc8eb9513c658b722932e55bebce1437';
-const BUSINESS_KEY = 't136-p5-scifact-attempt-14:real-provider';
+  'sha256:bdf9c260c23c1f8eb079f84a0d8dfe879fe5cba670c6e1a961ad2ddba3198db3';
+const BUSINESS_KEY = 't136-p5-scifact-attempt-15:real-provider';
 const REGION_ID = 'cn-shanghai';
 const WORKSPACE_ID = '1450165';
 const BUCKET_NAME = 'pea-m7-canary-6194-202607';

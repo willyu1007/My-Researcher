@@ -22,6 +22,15 @@
       "byte_size": 5389,
       "object_key": "input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/test.tsv",
       "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/scifact/0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c/"
+    },
+    {
+      "ordinal": 3,
+      "role": "scientific_workload_successor",
+      "local_source": "workloads/scifact-recall-p5/entrypoint.py",
+      "content_digest": "sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265",
+      "byte_size": 11063,
+      "object_key": "input/t136-p5/workload/7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265/entrypoint.py",
+      "object_ref": "oss://pea-m7-canary-6194-202607.oss-cn-shanghai-internal.aliyuncs.com/input/t136-p5/workload/7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265/"
     }
   ],
   "write_policy": {
@@ -34,7 +43,7 @@
   "current_state": {
     "status": "prepared_and_readback_verified",
     "remote_state_checked": true,
-    "objects_written": 2,
+    "objects_written": 3,
     "verified_existing_objects": [
       {
         "role": "corpus",
@@ -69,6 +78,14 @@
         "crc64": "7571586496273109249",
         "readback_content_digest": "sha256:0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
         "last_modified": "2026-08-09T01:46:58.000Z"
+      },
+      {
+        "role": "scientific_workload_successor",
+        "object_key": "input/t136-p5/workload/7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265/entrypoint.py",
+        "byte_size": 11063,
+        "etag": "464765EE89BDCF3F5AA824BC8E565F59",
+        "readback_content_digest": "sha256:7354f4503c3b8b8e0d43d40c47308d59f5dfdd2c5f580258d7da1cc0bc364265",
+        "last_modified": "2026-08-14T15:08:11.000Z"
       }
     ],
     "cloud_stage_removed": true,
