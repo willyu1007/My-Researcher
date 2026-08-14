@@ -13,14 +13,14 @@ No implementation phase may skip the preceding authority/acceptance gate. P5 clo
 
 P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 remains open, `M0-SCI` remains not passed and the affected scientific capabilities remain default-off. Other M0 modules may continue independent development/preview. Only a passing P5 acceptance makes T-136 eligible for completion and records `M0-SCI: passed`; P5 passage does not automatically enable runtime flags.
 
-## Revision-14 terminal checkpoint and next sequence
+## Revision-15 terminal checkpoint and next sequence
 
-- Completed: revision 14 / attempt 12 fresh recovery, local gates, eligible package `sha256:6dc9ec5149605034af6b200234141720957fecfed003ead77194ee842ca3823c`, exact acceptance, one 3,600-second controller STS and one successful local credential-integrity stage.
-- Terminal result: the only credential-qualification invocation failed under stable reason `T136_P5_CREDENTIAL_QUALIFICATION_FAILED`. The permanent stage claim and attempt terminal exist; qualification completion/record, live/close claims and execution outputs do not. `CreateJob=0`, paid cost CNY `0`, database/capability/scientific/runtime effects `0`.
-- Completed immediate cleanup: credential and provider-response buffers are cleared, clipboard is empty, Chrome left the result page and finalized, runner processes are absent, and process/local env files contain no temporary Alibaba credential or P5 capability key. Current paid/capability authority is false.
-- Approved local correction: the same public official image is known to omit optional ownership `WorkspaceId`; the qualifier incorrectly equated that field with the independently frozen DLC Job workspace. Missing ownership now canonicalizes to `null`, malformed values fail, and URI/accessibility plus independent workspace/Job-profile gates remain strict. P5 tests pass 59/59; script and full-workspace typechecks pass.
-- Pending safety closeout: treat the issued STS as provider-live until `2026-08-14T11:35:43Z`; after that timestamp, run the credential-free expiration/local-absence audit. Do not issue or reuse credentials before it expires.
-- Current gate: revision 14 is terminal and cannot be retried. Revision 15 / attempt 13 and its fresh recovery are locally pre-staged, but package materialization waits for the prior STS expiration audit. A new exact hash authorization remains mandatory before any successor cloud call.
+- Completed: revision 15 / attempt 13 fresh recovery, eligible package `sha256:f393cab29c50bd950a2dd6171df82778b8004bf529011744a924a52bde0461cf`, exact acceptance, one 3,600-second controller STS, one successful local integrity stage and one completed three-call read-only qualification stage.
+- Terminal result: live claimed once and failed before intake persistence because the attempt-scoped output prefix violated the payload service's exact regional `output/` root contract. The permanent live claim and terminal exist; live completion and close claim/output do not.
+- Verified zero paid effect: both pure cell materializations fail before the repository persistence call. Attempts are zero, while provider `CreateJob` is reachable only by a later worker operating on persisted Attempts. `CreateJob=0`, paid cost CNY `0`, database/scientific/runtime/closure rows `0`, and persistent capability changes `0`.
+- Completed immediate cleanup: the live child exited through `finally`; credential/receipt/response buffers are cleared, clipboard is empty, Chrome left the credential page and finalized, and current paid/capability authority is false.
+- Pending safety closeout: treat the issued STS as provider-live until `2026-08-14T12:50:41Z`; after that timestamp, run the credential-free expiration/local-absence audit. Do not issue or reuse credentials before it expires.
+- Current gate: revision 15 is terminal and cannot be retried. The next three actions are (1) verify expiry and local absence, (2) obtain explicit approval for a pure-local output-scope correction and add a payload-materialization preflight regression, then (3) pre-stage a successor package whose profile and session policy cover the same derived Run/Cell output paths. Any successor cloud call requires a fresh exact package authorization.
 
 ## P0 — Authority census and contract freeze
 

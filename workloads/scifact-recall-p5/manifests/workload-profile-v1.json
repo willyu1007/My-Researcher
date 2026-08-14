@@ -70,11 +70,11 @@
   "authorization": {
     "named_local_materialization_complete": true,
     "current_revision": 15,
-    "prepared_package_hash": null,
-    "prepared_package_eligible": false,
-    "prepared_authorization_ref": null,
-    "authorization_acceptance_ref": null,
-    "authorization_status": "awaiting_revision_15_package_materialization",
+    "prepared_package_hash": "sha256:f393cab29c50bd950a2dd6171df82778b8004bf529011744a924a52bde0461cf",
+    "prepared_package_eligible": true,
+    "prepared_authorization_ref": "manifests/prepared-authorization-v15.json",
+    "authorization_acceptance_ref": "manifests/authorization-acceptance-v15.json",
+    "authorization_status": "failed_live_payload_materialization_without_paid_execution",
     "create_job_authorized": false,
     "capability_enable_authorized": false,
     "historical_revision_3": {
