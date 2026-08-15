@@ -411,3 +411,10 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Fix/workaround: keep revision 18 terminal. For a separately approved successor, derive issuance from authoritative provider expiration minus the package's exact duration, serialize canonical UTC, and independently fence the derived instant inside the authorized issuance/dispatch window.
 - Prevention: never manufacture provider credential metadata from UI observation timing. Add a focused second-precision expiration regression and require the secure handoff to prove exact duration/window bounds before issuing the integrity receipt.
 - Resolution update: the shared reader now derives issuance from provider expiration and the package's exact duration, rejects caller-supplied `ALIBABA_CLOUD_STS_ISSUED_AT`, and is used by integrity, qualification and live. Focused regression and strict type gates pass; revision 18 remains terminal.
+
+### 2026-08-15 — Application connection URLs are not automatically libpq URLs
+
+- Symptom: the first revision-19 `pg_dump` invocation failed immediately with `invalid URI query parameter: "schema"` and left one zero-byte target file.
+- Root cause: Prisma uses `?schema=my_researcher_dev` as an application-level connection option, but PostgreSQL client tools reject that query parameter before connecting.
+- Fix/workaround: verify the target is the exact new zero-byte artifact before removing it, delete only the `schema` query parameter from an in-memory URL, and pass the resulting connection to PostgreSQL 17 `pg_dump`/`psql`. The schema-scoped retry also omitted the database-global `vector` extension; an exact prior/current TOC diff caught that two-entry gap, and the final command added `--extension=vector`. Never print the transformed URL.
+- Prevention: recovery scripts must adapt Prisma URLs to libpq in memory, verify PostgreSQL client/server compatibility, explicitly include required database-global extensions and refuse to overwrite any existing dump. Compare normalized TOCs with the latest valid recovery; treat a failed or incomplete dump target as material until its exact path and hash are proven.

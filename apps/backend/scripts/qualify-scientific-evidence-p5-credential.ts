@@ -68,11 +68,11 @@ const OpenApiClientConstructor = require('@alicloud/openapi-core').default as
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PREPARED_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/prepared-authorization-v18.json',
+  'workloads/scifact-recall-p5/manifests/prepared-authorization-v19.json',
 );
 const AUTHORIZATION_PATH = path.join(
   REPO_ROOT,
-  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v18.json',
+  'workloads/scifact-recall-p5/manifests/authorization-acceptance-v19.json',
 );
 const QUALIFICATION_PATH = path.join(
   REPO_ROOT,

@@ -478,3 +478,12 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Completed: route integrity, qualification and live through the same derivation and retain receipt tuple binding, dispatch-window, expiration-upper-bound and live remaining-TTL checks.
 - Verified: credential timing tests pass 8/8; the full focused P5 lane passes 62/62; backend and experiment-script strict typechecks pass; all three revision-18 credential-free terminal preflights pass with zero effects.
 - Gate: the fix does not revive revision 18 or authorize a successor. Complete the expiry/residue audit after `2026-08-15T00:22:55.325Z`, then create a fresh Run/recovery/package and stop at its exact authorization hash.
+
+### Revision-19 local successor pre-stage — 2026-08-15
+
+- Completed local authority: preserve revision 18 as immutable history and freeze independent v4 Cycle/WorkOrder/Run authority for revision 19 / attempt 17. The reviewed named-local scope is capped at 44 rows, denies external fetches and protects v1/v2/v3 sentinels.
+- Completed recovery: preserve the revision-18 manifest, then capture a new mode-0600 full-schema dump and exact 114-table authority-data dump before any successor issuance.
+- Verified: exact apply created 44 rows, replay created zero, 243 protected tables and all explicit historical sentinels were unchanged, and all provider/capability/result effects were zero. Experiment-script TypeScript passes; the focused Node 20 P5 lane passes 62/62.
+- Completed expiry gate: at `2026-08-15T00:23:30.275Z`, revision 18's upper bound was 34.950 seconds in the past. Runner, sensitive/capability environment, supported env files, post-issuance profile changes, forbidden attempt artifacts and temp residue all counted zero.
+- Completed package gate: revision 19 package `sha256:0e2b3286be99947cc5a38521e5421fed286d8a4150b9da52a212b64aea75245f` is eligible and deterministic. Qualification/live/close offline preflights pass with zero credentials, external/cloud calls, database writes and capability changes.
+- Current gate: stop before `authorization-acceptance-v19.json`. Require an exact package-hash confirmation while portal confirmation may still begin by `2026-08-15T00:36:41.231Z` and `AssumeRole` may still dispatch by `2026-08-15T00:38:41.231Z`; otherwise allow the immutable package to expire.
