@@ -276,6 +276,7 @@ The project-structure preview is non-binding. Phase 0 must confirm the exact fil
 ### Phase 5 — Real end-to-end acceptance
 
 - Objective: prove the complete scientific path on a newly authorized real workload.
+- Current evidence: revision 19 proves the exact two-Job WorkOrder → real Result → validation → EvidenceCandidate → REU/trace segment and zero-duplicate replay. ResultAnalysis failed before first runtime-artifact persistence, so scientific Closure, Packet, Claim/Dossier and `M0-SCI` remain incomplete.
 - Deliverables:
   - Versioned P5-ELIG-S validator plus reviewed exact-hash workload/protocol/result-parser package and bounded cloud authorization plan.
   - Durable digest summary of Jobs, lineage, evidence, closure, Packet, claims, cost and cleanup.

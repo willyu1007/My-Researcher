@@ -418,3 +418,10 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Root cause: Prisma uses `?schema=my_researcher_dev` as an application-level connection option, but PostgreSQL client tools reject that query parameter before connecting.
 - Fix/workaround: verify the target is the exact new zero-byte artifact before removing it, delete only the `schema` query parameter from an in-memory URL, and pass the resulting connection to PostgreSQL 17 `pg_dump`/`psql`. The schema-scoped retry also omitted the database-global `vector` extension; an exact prior/current TOC diff caught that two-entry gap, and the final command added `--extension=vector`. Never print the transformed URL.
 - Prevention: recovery scripts must adapt Prisma URLs to libpq in memory, verify PostgreSQL client/server compatibility, explicitly include required database-global extensions and refuse to overwrite any existing dump. Compare normalized TOCs with the latest valid recovery; treat a failed or incomplete dump target as material until its exact path and hash are proven.
+
+### 2026-08-15 — A successful scientific live stage does not imply PI closure completed
+
+- Symptom: revision 19 completed both provider Jobs, scientific validation and EF→PI evidence relay, but close returned only `T136_P5_CLOSE_FAILED` after roughly 44 seconds.
+- Proven boundary: the database contains two Results, one passed report and one REU, but zero ResultAnalysis runtime artifacts/admissions, Closures and Packets. The close claim is permanent and the attempt is terminal, so rerunning close would violate the attempt state machine.
+- Current limitation: the close wrapper deliberately hides provider-derived error text. Without approved instrumentation, durable evidence can place the failure before first ResultAnalysis artifact persistence but cannot distinguish transport, timeout or structured-output validation.
+- Prevention: instrument the ResultAnalysis invocation boundary with a run id and secret-safe stage/outcome codes before authorizing a successor. Recovery must consume the existing durable evidence under a fresh attempt/package and must not repeat the two paid Jobs.
