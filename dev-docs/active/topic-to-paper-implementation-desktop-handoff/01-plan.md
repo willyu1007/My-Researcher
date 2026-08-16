@@ -1,9 +1,10 @@
 # 01 Plan
 
 ## Phases
-1. Produce distinct static HTML interaction mocks outside the repository and wait for user selection.
-2. Implement one typed App-level bridge handoff using existing desktop composition and backend APIs.
-3. Verify existing-project, bootstrap, retry, repeated-click, and terminal-Dossier behavior.
+1. [x] Produce distinct static HTML interaction mocks outside the repository.
+2. [ ] Wait for the user to select A, B, or C.
+3. [ ] Implement one typed App-level bridge handoff using existing desktop composition and backend APIs.
+4. [ ] Verify existing-project, bootstrap, retry, repeated-click, and terminal-Dossier behavior.
 
 ## Detailed steps
 1. Confirm the smallest handoff value required by the current Topic and Paper Implementation surfaces.

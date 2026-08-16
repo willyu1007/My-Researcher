@@ -11,4 +11,11 @@ This file prevents repeated mistakes within T-138. Append resolved failures; do 
 
 ## Pitfall log (append-only)
 
-No resolved implementation pitfalls yet.
+### 2026-08-17 — Legacy `tidy` is not a valid HTML5/UTF-8 gate
+- Symptom: the system `tidy` binary reported Chinese UTF-8 bytes as invalid characters and rejected standard HTML5 semantic elements such as `main`, `header`, and `section`.
+- Context: the self-contained mock uses UTF-8 and HTML5 semantic markup.
+- What we tried: ran the installed `tidy -quiet -errors` as an additional optional validation.
+- Why it failed: the installed validator uses legacy document/encoding assumptions and does not understand the mock's valid HTML5 surface.
+- Fix / workaround: rely on explicit self-contained policy checks, file-size verification, and inline-script syntax validation; do not treat the legacy output as a product defect.
+- Prevention: check a validator's HTML5 and UTF-8 support before using its findings as a gate.
+- References: `t138-handoff-options.html`, `tidy -quiet -errors`.

@@ -1,8 +1,8 @@
 # T-138 Topic to Paper Implementation Desktop Handoff
 
 ## Status
-- State: planned
-- Next step: create several distinct static HTML mocks outside the repository, report their location, and wait for the user's UI selection before editing production components.
+- State: in-progress
+- Next step: user selects static mock A, B, or C from `/Users/yurui/Desktop/My-Researcher-T138-UI-Mocks/t138-handoff-options.html`; do not edit production components before that selection.
 
 ## Goal
 Let a user continue from an admitted Topic Selection `PaperProjectBridge` into the correct Paper Implementation context with one action and no manual technical-id or hash copying.

@@ -12,6 +12,24 @@
 - 2026-08-17 — Governance lint, documentation lint, and `git diff --check` passed. Documentation lint reported only advisory wording warnings; the new T-138 warning was removed before commit.
 - 2026-08-17 — The task-creation diff contains only `dev-docs/active/topic-to-paper-implementation-desktop-handoff/` and `.ai/project/main/` governance files.
 
+## Static mock verification
+- [x] A, B, and C are rendered as real styled variants in one stable self-contained HTML file.
+- [x] Each variant provides interactive existing-project, first-bootstrap, and failure/retry scenarios.
+- [x] Each variant shows source Topic context, destination Paper Implementation context, and terminal `ready_for_writing` Dossier state.
+- [x] File size is below the 512 KB limit (`39,314` bytes at verification).
+- [x] Inline script syntax check passed.
+- [x] Policy scan found no external URL/resource, local filesystem path, form, iframe/embed/object/applet, external script, inline event handler, storage API, fetch, or worker.
+- [x] Repository worktree remained clean before the documentation handoff update; no production component was edited.
+
+### Static mock commands
+- `wc -c /Users/yurui/Desktop/My-Researcher-T138-UI-Mocks/t138-handoff-options.html`
+- focused `rg` policy scan for prohibited HTML capabilities
+- Node `new Function(...)` validation of the single inline classic script
+
+### Static mock result
+- Primary artifact: `/Users/yurui/Desktop/My-Researcher-T138-UI-Mocks/t138-handoff-options.html`.
+- Current gate: user selection of A, B, or C.
+
 ## Automated checks for implementation
 - Desktop typecheck:
   - `PATH=/opt/homebrew/opt/node@20/bin:$PATH pnpm --filter @paper-engineering-assistant/desktop typecheck`
