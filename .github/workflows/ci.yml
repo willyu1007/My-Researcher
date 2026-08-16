@@ -16,12 +16,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
+          package-manager-cache: false
 
       - name: Run governance lint
         run: node .ai/scripts/ctl-project-governance.mjs lint --check --project main
@@ -49,16 +50,16 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
       # reads the pinned version from package.json packageManager and does not
       # depend on the runner's system Node bundling corepack (removed in Node 25+)
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "pnpm"
@@ -87,7 +88,7 @@ jobs:
 
       - name: Upload backend Prisma test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: artifacts-backend-prisma-smoke
           path: artifacts/prisma-smoke
@@ -113,16 +114,16 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
       # reads the pinned version from package.json packageManager and does not
       # depend on the runner's system Node bundling corepack (removed in Node 25+)
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "pnpm"
@@ -140,7 +141,7 @@ jobs:
 
       - name: Upload drift artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: artifacts-prisma-drift
           path: artifacts/prisma-drift
@@ -151,16 +152,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # pnpm must be on PATH before setup-node resolves cache "pnpm"; action-setup
       # reads the pinned version from package.json packageManager and does not
       # depend on the runner's system Node bundling corepack (removed in Node 25+)
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: "pnpm"
