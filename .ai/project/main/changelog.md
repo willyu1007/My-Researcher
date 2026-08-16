@@ -26,3 +26,5 @@ Project: `main`
 - 2026-08-05 T-136 minimal relational spine B2 confirmed: Result relationally persists collection/source id/hash/kind/class plus parser profile and derivation identities, enforces the same collection/Attempt chain, and keeps extensible typed scientific summaries/statistics/artifact refs inside the canonical hash-bound source manifest.
 - 2026-08-05 T-136 strict statistic/uncertainty option B confirmed: use provider-independent discriminated unions with positive sample size, protocol-controlled explicit uncertainty, finite numeric constraints and fail-closed source sealing for missing or invalid required statistics.
 - 2026-08-05 T-136 observation identity/order/hash option O-B confirmed: derive stable observation ids from preregistered RunCell protocol slots, canonicalize by protocol ordinal, treat changed content as conflict under the same identity, and separate provider/source/derivation/Result hash domains.
+- 2026-08-16 task_id=T-136 slug=scientific-evidence-to-paper-closure event=status from=in-progress to=done
+- 2026-08-16 task_id=T-124 slug=paper-implementation-productization-hardening event=status from=in-progress to=done

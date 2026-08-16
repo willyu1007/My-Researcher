@@ -140,7 +140,7 @@ Project: `main`
 | T-115 topic-selection-v1b-human-review-path | archived | dev-docs/archive/topic-selection-v1b-human-review-path |
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-123 topic-selection-productization-hardening | archived | dev-docs/archive/topic-selection-productization-hardening |
-| T-124 paper-implementation-productization-hardening | in-progress | dev-docs/active/paper-implementation-productization-hardening |
+| T-124 paper-implementation-productization-hardening | done | dev-docs/active/paper-implementation-productization-hardening |
 | T-127 topic-selection-backend-hardening-and-expansion | archived | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
 | T-128 topic-selection-product-readiness-closure | archived | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | dev-docs/active/topic-selection-calibration-release |
@@ -149,7 +149,7 @@ Project: `main`
 | T-132 experiment-foundation-productization-closure | archived | dev-docs/archive/experiment-foundation-productization-closure |
 | T-134 experiment-foundation-audit-remainders-closure | archived | dev-docs/archive/experiment-foundation-audit-remainders-closure |
 | T-135 experiment-foundation-v2-semantic-api-activation | archived | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
-| T-136 scientific-evidence-to-paper-closure | in-progress | dev-docs/active/scientific-evidence-to-paper-closure |
+| T-136 scientific-evidence-to-paper-closure | done | dev-docs/active/scientific-evidence-to-paper-closure |
 
 ### F-002 Desktop Frontend Foundation
 
