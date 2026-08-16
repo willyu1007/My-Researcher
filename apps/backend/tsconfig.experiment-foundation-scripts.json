@@ -7,6 +7,11 @@
     "types": ["node"]
   },
   "files": [
+    "scripts/t137-scientific-dossier-canary-profile.ts",
+    "scripts/t137-scientific-dossier-canary-profile.unit.test.ts",
+    "scripts/run-t137-scientific-dossier-preflight.ts",
+    "scripts/run-t137-scientific-dossier-live-window.ts",
+    "scripts/run-t137-scientific-dossier-acceptance.ts",
     "scripts/apply-scientific-evidence-p5-stage-one.ts",
     "scripts/prepare-scientific-evidence-p5-execution-package.ts",
     "scripts/prepare-scientific-evidence-p5-result-analysis-recovery-package.ts",

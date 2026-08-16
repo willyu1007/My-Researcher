@@ -6,6 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 import { PrismaClient } from '@prisma/client';
 
+import {
+  T137_RESEARCH_INTENT,
+  T137_SEMANTIC_PROFILE_ID,
+  T137_SOURCE_LANE,
+  t137EvidenceRole,
+  t137LiteratureIds,
+} from '../../apps/backend/scripts/t137-scientific-dossier-canary-profile.ts';
 import { buildApp } from '../../apps/backend/src/app.ts';
 import { BackendLlmGateway } from '../../apps/backend/src/services/llm-gateway.ts';
 import { PrismaTopicSelectionControlPlaneRepository } from '../../apps/backend/src/repositories/prisma/prisma-topic-selection-control-plane-repository.ts';
@@ -35,6 +42,7 @@ const V1A_GENERATE_EXECUTION_MODE = normalizeExecutionMode(
 const ALLOW_NON_ADVANCE_V1B = process.env.TOPIC_SELECTION_REAL_ALLOW_NON_ADVANCE_V1B === '1';
 const QUALITY_NEGATIVE_MODE = process.env.TOPIC_SELECTION_REAL_QUALITY_NEGATIVE_MODE === '1';
 const EXISTING_RESOURCE_SAMPLE_SET_ID = process.env.TOPIC_SELECTION_REAL_RESOURCE_SAMPLE_SET_ID?.trim() || null;
+const SEMANTIC_PROFILE = semanticProfile(process.env.TOPIC_SELECTION_REAL_SEMANTIC_PROFILE);
 const RUN_ID = process.env.TOPIC_SELECTION_REAL_RUN_ID ?? uniqueId('real-e2e');
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '../..');
@@ -82,6 +90,21 @@ function normalizeExecutionMode(value, fallback) {
     return normalized;
   }
   throw new Error(`Unsupported TOPIC_SELECTION_REAL_V1A_GENERATE_EXECUTION_MODE: ${value}`);
+}
+
+function semanticProfile(raw) {
+  const value = raw?.trim();
+  if (!value) {
+    return null;
+  }
+  if (value === T137_SEMANTIC_PROFILE_ID) {
+    return value;
+  }
+  throw new Error(`Unsupported TOPIC_SELECTION_REAL_SEMANTIC_PROFILE: ${raw}`);
+}
+
+function isT137SemanticProfile() {
+  return SEMANTIC_PROFILE === T137_SEMANTIC_PROFILE_ID;
 }
 
 function ref(refType, refId, titleCardId, versionId = null) {
@@ -894,8 +917,10 @@ async function loadSampledResources(prisma, sampleResult) {
   if (sampleResult.sample_set.status === 'blocked') {
     throw new Error(`resource sample set blocked: ${JSON.stringify(sampleResult.sample_set.warnings)}`);
   }
+  const t137LiteratureIdSet = new Set(t137LiteratureIds());
   const selectedItems = sampleResult.selected_items
-    .filter((item) => ROLE_ORDER.includes(item.selected_role));
+    .filter((item) => ROLE_ORDER.includes(item.selected_role))
+    .filter((item) => !isT137SemanticProfile() || t137LiteratureIdSet.has(item.literature_ref.ref_id));
   if (selectedItems.length < ROLE_ORDER.length) {
     throw new Error(`resource sample set underfilled target roles: ${JSON.stringify(sampleResult.sample_set.role_counts)}`);
   }
@@ -931,7 +956,9 @@ async function loadSampledResources(prisma, sampleResult) {
       activationStatus: row.activationStatus,
       activationScore: row.activationScore,
       scopeReason: row.reason,
-      evidenceRole: item.selected_role,
+      evidenceRole: isT137SemanticProfile()
+        ? t137EvidenceRole(row.literatureId)
+        : item.selected_role,
       sampleSetId: sampleResult.sample_set.resource_sample_set_id,
       sampleItemId: item.resource_sample_item_id,
       sampleRank: item.rank,
@@ -951,15 +978,25 @@ async function loadSampledResources(prisma, sampleResult) {
   for (const role of ROLE_ORDER) {
     assert.ok(resources.some((resource) => resource.evidenceRole === role), `sample did not select literature for ${role}`);
   }
+  if (isT137SemanticProfile()) {
+    assert.deepEqual(
+      new Set(resources.map((resource) => resource.id)),
+      t137LiteratureIdSet,
+      'T-137 must use exactly the fixed four-source lane.',
+    );
+  }
   return resources;
 }
 
 async function createRealTitleCard(app, selectedResources) {
   currentStage = 'create title card';
   const card = await requestJson(app, 'POST', '/title-cards', 201, {
-    working_title: `Real Topic Selection Flow: RAG vs Fine-Tuning Evidence ${RUN_ID}`,
-    brief:
-      'Actual topic-selection rehearsal over the ai-rag-finetuning-2022-2026 literature pool, using role-balanced evidence from real imported resources.',
+    working_title: isT137SemanticProfile()
+      ? `SciFact exact-token retrieval depth: top-k 10 versus top-k 5 (${RUN_ID})`
+      : `Real Topic Selection Flow: RAG vs Fine-Tuning Evidence ${RUN_ID}`,
+    brief: isT137SemanticProfile()
+      ? `${T137_RESEARCH_INTENT.goal} ${T137_RESEARCH_INTENT.claim_ceiling}`
+      : 'Actual topic-selection rehearsal over the ai-rag-finetuning-2022-2026 literature pool, using role-balanced evidence from real imported resources.',
   });
   assert.ok(card.title_card_id, 'title card creation did not return title_card_id');
 
@@ -983,7 +1020,12 @@ function buildCoverageIntents(selectedResources) {
   return ROLE_ORDER.map((role, index) => ({
     coverage_key: `${role}-real-evidence`,
     intent_type: role,
-    query: {
+    query: isT137SemanticProfile() ? {
+      support: 'retrieval depth top-k quality tradeoff for exact-token or sparse retrieval evaluation',
+      challenge: 'nearest-neighbor and retrieval-depth limitations that constrain claims from top-k comparisons',
+      baseline: 'adaptive RAG routing benchmark context for controlled retrieval evaluation',
+      context: 'fixed-budget RAG evaluation and metric discipline for retrieval-depth comparisons',
+    }[role] : {
       support:
         'RAG fine-tuning adaptation evidence for answer quality, attribution, or retrieval control in AI systems',
       challenge:
@@ -994,7 +1036,9 @@ function buildCoverageIntents(selectedResources) {
         'foundational model, transformer, representation learning, and optimization context that constrains RAG versus fine-tuning claims',
     }[role],
     expected_evidence_role: role,
-    rationale: `Real-flow ${role} coverage over ${TOPIC_ID}.`,
+    rationale: isT137SemanticProfile()
+      ? `T-137 ${role} evidence for the fixed SciFact retrieval-depth question.`
+      : `Real-flow ${role} coverage over ${TOPIC_ID}.`,
     required: true,
     priority: index,
     refs: titleCardRefs.filter((item) => item.role === role).map((item) => item.ref),
@@ -1040,36 +1084,45 @@ function buildRealFlowRankedCandidateDraftBatch(input) {
     evidenceStrengthRef,
     conflictRef,
   } = input;
+  const t137 = isT137SemanticProfile();
   return {
     schema_version: 'v1',
     draft_batch: {
       batch_id: `ranked_candidate_batch_${RUN_ID}`,
       node_attempt_id: nodeAttemptId,
       terminal_result: 'finalize',
-      ranking_rationale:
-        'The candidate is grounded in role-balanced support, challenge, baseline, and context evidence from the real E2E resource sample.',
+      ranking_rationale: t137
+        ? 'The candidate preserves the fixed four-source lane, exact SciFact comparison, and narrow claim ceiling.'
+        : 'The candidate is grounded in role-balanced support, challenge, baseline, and context evidence from the real E2E resource sample.',
       max_persisted_candidates: 5,
     },
     drafts: [
       {
         draft_id: `draft_real_flow_need_${RUN_ID}`,
         rank: 1,
-        candidate_need:
-          'AI systems researchers need a bounded decision framework for when RAG, fine-tuning, or hybrid adaptation improves answer quality and source attribution without introducing unacceptable retrieval-conflict, poisoning, or leakage risks.',
-        unmet_need_statement:
-          'The current literature contains many RAG and fine-tuning variants, but the actionable boundary conditions for choosing among them remain hard to audit from evidence alone.',
+        candidate_need: t137
+          ? 'Retrieval researchers need a controlled, literature-backed measurement of whether increasing exact-token retrieval depth from top-k 5 to top-k 10 materially changes positive-judgment micro recall on SciFact.'
+          : 'AI systems researchers need a bounded decision framework for when RAG, fine-tuning, or hybrid adaptation improves answer quality and source attribution without introducing unacceptable retrieval-conflict, poisoning, or leakage risks.',
+        unmet_need_statement: t137
+          ? 'Retrieval-depth tradeoffs are discussed broadly, but this project needs one executable two-cell comparison with a fixed metric, direction, and decision threshold.'
+          : 'The current literature contains many RAG and fine-tuning variants, but the actionable boundary conditions for choosing among them remain hard to audit from evidence alone.',
         mechanism_type: 'evaluation_gap',
-        mechanism_summary:
-          'Benchmarks, attribution checks, and failure-mode evidence are fragmented across RAG, fine-tuning, and agentic retrieval papers.',
+        mechanism_summary: t137
+          ? 'The source lane motivates retrieval-depth evaluation while the SciFact protocol supplies a controlled executable measurement.'
+          : 'Benchmarks, attribution checks, and failure-mode evidence are fragmented across RAG, fine-tuning, and agentic retrieval papers.',
         mechanism_payload: {
-          decision_boundary: 'RAG versus fine-tuning versus hybrid adaptation',
-          evaluation_axes: ['answer_quality', 'source_attribution', 'retrieval_conflict_risk'],
+          decision_boundary: t137 ? T137_RESEARCH_INTENT.question : 'RAG versus fine-tuning versus hybrid adaptation',
+          evaluation_axes: t137
+            ? [T137_RESEARCH_INTENT.metric_key, T137_RESEARCH_INTENT.difference_direction]
+            : ['answer_quality', 'source_attribution', 'retrieval_conflict_risk'],
           real_e2e_run_id: RUN_ID,
         },
-        scope_notes:
-          'Scope is limited to AI/RAG/fine-tuning literature in ai-rag-finetuning-2022-2026; no production deployment or universal superiority claims.',
-        non_goal_notes:
-          'Do not claim universal RAG superiority, universal fine-tuning superiority, or production deployment readiness.',
+        scope_notes: t137
+          ? T137_RESEARCH_INTENT.claim_ceiling
+          : 'Scope is limited to AI/RAG/fine-tuning literature in ai-rag-finetuning-2022-2026; no production deployment or universal superiority claims.',
+        non_goal_notes: t137
+          ? T137_RESEARCH_INTENT.prohibited_claims.map((claim) => `Do not claim ${claim}.`).join(' ')
+          : 'Do not claim universal RAG superiority, universal fine-tuning superiority, or production deployment readiness.',
         prior_art_status: 'partial_solution_known',
         evidence_role_bundle: {
           support_unit_refs: evidenceUnitRefsByRole(evidenceMap, 'support', titleCardId),
@@ -1080,7 +1133,9 @@ function buildRealFlowRankedCandidateDraftBatch(input) {
         conflict_refs: [conflictRef],
         strength_assessment_refs: [evidenceStrengthRef],
         accepted_risk_refs: [],
-        gap_codes: ['decision_boundary_evidence_fragmentation', 'risk_carry_forward_gap'],
+        gap_codes: t137
+          ? ['retrieval_depth_metric_evidence_gap']
+          : ['decision_boundary_evidence_fragmentation', 'risk_carry_forward_gap'],
         speculative: false,
         confidence: 0.82,
       },
@@ -1099,7 +1154,9 @@ function buildExplorationPayload(input) {
     topic_scope: {
       title_card_id: input.titleCardId,
       topic_id: TOPIC_ID,
-      domain: 'RAG, fine-tuning, and hybrid adaptation decision boundaries for AI systems papers',
+      domain: isT137SemanticProfile()
+        ? 'SciFact exact-token retrieval-depth sensitivity under a fixed two-cell comparison'
+        : 'RAG, fine-tuning, and hybrid adaptation decision boundaries for AI systems papers',
     },
     evidence_signal_digest: {
       role_counts: roleCounts,
@@ -1121,17 +1178,21 @@ function buildExplorationPayload(input) {
       candidate_count: 0,
     },
     decision_memory_digest: {
-      required_challenges: [
+      required_challenges: isT137SemanticProfile() ? [
+        'hold every non-top-k experiment input fixed',
+        'use only server-owned micro_recall_ppm',
+        'do not generalize beyond the fixed SciFact exact-token setup',
+      ] : [
         'avoid universal RAG or fine-tuning superiority claims',
         'carry poisoning, leakage, and source-verification risks forward',
       ],
     },
-    exploration_prompts: [
-      'Generate bounded, evidence-grounded need candidates that explain why the selected literature supports a topic-management decision.',
-    ],
-    challenge_prompts: [
-      'Pressure-test whether challenge and baseline evidence prevent overclaiming.',
-    ],
+    exploration_prompts: [isT137SemanticProfile()
+      ? T137_RESEARCH_INTENT.question
+      : 'Generate bounded, evidence-grounded need candidates that explain why the selected literature supports a topic-management decision.'],
+    challenge_prompts: [isT137SemanticProfile()
+      ? `Pressure-test the fixed comparison against this claim ceiling: ${T137_RESEARCH_INTENT.claim_ceiling}`
+      : 'Pressure-test whether challenge and baseline evidence prevent overclaiming.'],
     allowed_outputs: ['ranked_candidate_draft_batch'],
     forbidden_outputs: ['NeedCandidateSet', 'ValidatedNeed', 'TopicQuestionContract', 'SearchPlan mutation'],
   };
@@ -1299,9 +1360,12 @@ async function runV1a(app, workflowHarness, selectedResources, resourceSample) {
 
   const seed = await requestJson(app, 'POST', '/topic-selection/v1a/topic-seeds/from-title-card', 201, {
     title_card_id: titleCardId,
-    intent_summary:
-      'Evaluate whether the current RAG/fine-tuning literature pool supports a bounded, reviewer-auditable research topic about when retrieval, fine-tuning, or hybrid adaptation is justified.',
-    scope_notes: `Real literature scope: ${TOPIC_ID}; selected ${selectedResources.length} key-content-ready records.`,
+    intent_summary: isT137SemanticProfile()
+      ? T137_RESEARCH_INTENT.goal
+      : 'Evaluate whether the current RAG/fine-tuning literature pool supports a bounded, reviewer-auditable research topic about when retrieval, fine-tuning, or hybrid adaptation is justified.',
+    scope_notes: isT137SemanticProfile()
+      ? `${T137_RESEARCH_INTENT.claim_ceiling} Fixed source lane: ${T137_SOURCE_LANE.map((item) => item.literature_id).join(', ')}.`
+      : `Real literature scope: ${TOPIC_ID}; selected ${selectedResources.length} key-content-ready records.`,
     created_by: 'system',
   });
 
@@ -1319,15 +1383,21 @@ async function runV1a(app, workflowHarness, selectedResources, resourceSample) {
     literature_resource_pool_snapshot_id: snapshot.literature_resource_pool_snapshot_id,
     query_intents: coverageIntents.map((intent) => intent.query),
     coverage_intents: coverageIntents,
-    must_check_constraints: [
+    must_check_constraints: isT137SemanticProfile() ? [
+      'Compare retrieval_top_k=10 with retrieval_top_k=5 only.',
+      'Hold corpus, queries, qrels, parser, evaluator, provider/runtime, seed, batch size, and every non-top-k input fixed.',
+      'Use server-owned micro_recall_ppm and the fixed +/-10,000 ppm decision boundary.',
+    ] : [
       'Do not claim RAG or fine-tuning superiority without benchmark-backed evidence.',
       'Separate source-attribution reliability from answer-quality improvement.',
       'Treat poisoning, leakage, and retrieval-conflict evidence as possible blockers.',
     ],
-    exclusion_rules: [
+    exclusion_rules: isT137SemanticProfile()
+      ? T137_RESEARCH_INTENT.prohibited_claims.map((claim) => `Exclude ${claim}.`)
+      : [
       'Exclude claims about production deployment readiness.',
       'Exclude multimodal-only claims unless they generalize to textual RAG/fine-tuning decisions.',
-    ],
+      ],
     created_by: 'system',
   });
 
@@ -1435,8 +1505,13 @@ async function runV1a(app, workflowHarness, selectedResources, resourceSample) {
     {
       support_packet_id: packet.validation_support_packet_id,
       final_decision: 'validate',
-      rationale: 'Real-flow reviewer confirms this is a valid bounded need for v1b drafting rehearsal.',
-      adjudicated_by: { actor_type: 'human', actor_id: 'real-flow-reviewer' },
+      rationale: isT137SemanticProfile()
+        ? 'The user authorized T-137 implementation; the fixed four-source lane supports the bounded SciFact retrieval-depth question.'
+        : 'Real-flow reviewer confirms this is a valid bounded need for v1b drafting rehearsal.',
+      adjudicated_by: {
+        actor_type: 'human',
+        actor_id: isT137SemanticProfile() ? 't137-authorized-operator' : 'real-flow-reviewer',
+      },
     },
   );
   const confirmation = await requestJson(
@@ -1445,9 +1520,13 @@ async function runV1a(app, workflowHarness, selectedResources, resourceSample) {
     `/topic-selection/v1a/adjudications/${encodeURIComponent(adjudication.adjudication_result.adjudication_result_id)}/human-confirmations`,
     201,
     {
-      human_actor: { actor_type: 'human', actor_id: 'real-flow-reviewer' },
-      human_rationale:
-        'Role-balanced support, challenge, baseline, and context evidence are sufficient to test the downstream decision chain.',
+      human_actor: {
+        actor_type: 'human',
+        actor_id: isT137SemanticProfile() ? 't137-authorized-operator' : 'real-flow-reviewer',
+      },
+      human_rationale: isT137SemanticProfile()
+        ? 'Authorization on 2026-08-17 applies to the next T-137 stage through the pre-PAI boundary; the exact question and claim ceiling remain fixed.'
+        : 'Role-balanced support, challenge, baseline, and context evidence are sufficient to test the downstream decision chain.',
     },
   );
   const v1bInputBundle = await requestJson(app, 'POST', '/topic-selection/v1a/v1b-input-bundles', 201, {
@@ -1547,7 +1626,7 @@ async function runV1b(_app, v1a) {
     ...process.env,
     TOPIC_SELECTION_V1B_HARNESS_RUN_ID: v1bRunId,
     TOPIC_SELECTION_V1B_HARNESS_INPUT_BUNDLE_ID: v1a.v1bInputBundleId,
-    TOPIC_SELECTION_V1B_HARNESS_SEMANTIC_MODE: 'fixture',
+    TOPIC_SELECTION_V1B_HARNESS_SEMANTIC_MODE: SEMANTIC_PROFILE ?? 'fixture',
   };
   const child = await runNodeScript({
     script: '.ai/scripts/topic-selection-v1b-harness-e2e.mjs',
@@ -1608,14 +1687,22 @@ async function runV1c(app, v1b) {
   const human = await requestJson(app, 'POST', '/topic-selection/v1c/promotion-decisions', 201, {
     promotion_gate_check_id: gateBundle.promotion_gate_check.promotion_gate_check_id,
     decision: 'promote_with_conditions',
-    human_actor: { actor_type: 'human', actor_id: 'real-flow-reviewer' },
-    rationale: 'Explicitly authorize promotion with bounded claim obligations for real-flow rehearsal.',
+    human_actor: {
+      actor_type: 'human',
+      actor_id: isT137SemanticProfile() ? 't137-authorized-operator' : 'real-flow-reviewer',
+    },
+    rationale: isT137SemanticProfile()
+      ? 'The user authorized the next T-137 implementation stage; promote only the fixed SciFact retrieval-depth question and bounded claim ceiling.'
+      : 'Explicitly authorize promotion with bounded claim obligations for real-flow rehearsal.',
     confirmed_snapshot_hash: gateBundle.promotion_gate_check.promotion_input_snapshot_hash,
     conditions: [
       {
         condition_id: `real_flow_condition_verify_claim_ceiling_${RUN_ID}`,
         condition_code: 'verify_claim_ceiling',
-        owner: { actor_type: 'human', actor_id: 'real-flow-owner' },
+        owner: {
+          actor_type: 'human',
+          actor_id: isT137SemanticProfile() ? 't137-authorized-operator' : 'real-flow-owner',
+        },
         required_action: requiredAction('verify_claim_ceiling', conditionRefs),
         refs: conditionRefs,
         early_check_obligations: ['Verify claim ceiling before outline lock.'],
@@ -1655,6 +1742,29 @@ async function runPaperProjectIntake(app, prisma, v1c) {
     'read bridge before PaperProject intake',
   );
   const bridgePayloadHash = bridgeBefore.bridge_payload_hash;
+
+  if (isT137SemanticProfile()) {
+    const intake = await requestJson(app, 'POST', intakeUrl, 201, {
+      bridge_payload_hash: bridgePayloadHash,
+      title: `T-137 SciFact retrieval-depth canary (${RUN_ID})`,
+      research_direction: T137_RESEARCH_INTENT.question,
+      created_by: 'hybrid',
+    }, 'create T-137 PaperProject intake from active bridge');
+    assert.equal(intake.paper_project_created, true);
+    assert.ok(intake.carried_literature_evidence_ids.length > 0);
+    assert.ok(intake.carried_condition_refs.length > 0);
+    return {
+      paperProjectBridgeId: bridgeId,
+      paperProjectBridgeHash: bridgePayloadHash,
+      paperProjectId: intake.paper_project_id,
+      paperProjectCreated: intake.paper_project_created,
+      paperProjectRef: intake.paper_project_ref,
+      paperProjectIntakeRef: intake.paper_project_intake_ref,
+      carriedLiteratureEvidenceIds: intake.carried_literature_evidence_ids,
+      carriedAcceptedRiskRefs: intake.carried_accepted_risk_refs,
+      carriedConditionRefs: intake.carried_condition_refs,
+    };
+  }
 
   const malformedRes = await app.inject({
     method: 'POST',
@@ -2059,7 +2169,7 @@ try {
       `${JSON.stringify(paperProjectIntake, null, 2)}\n`,
     );
   }
-  const downstream = v1c ? await runDownstreamFeedback(app, v1c) : null;
+  const downstream = v1c && !isT137SemanticProfile() ? await runDownstreamFeedback(app, v1c) : null;
   if (downstream) {
     await fs.writeFile(
       path.join(ARTIFACT_DIR, '06-downstream-feedback.json'),
@@ -2072,6 +2182,7 @@ try {
     scenario_id: REAL_E2E_SCENARIO_ID,
     scenario_type: QUALITY_NEGATIVE_MODE ? 'negative' : 'real_e2e_canary',
     run_id: RUN_ID,
+    semantic_profile_id: SEMANTIC_PROFILE,
     artifact_dir: ARTIFACT_DIR,
     topic_id: TOPIC_ID,
     model_id: MODEL_ID,
@@ -2099,6 +2210,7 @@ try {
     scenario_id: REAL_E2E_SCENARIO_ID,
     scenario_type: QUALITY_NEGATIVE_MODE ? 'negative' : 'real_e2e_canary',
     run_id: RUN_ID,
+    semantic_profile_id: SEMANTIC_PROFILE,
     artifact_dir: ARTIFACT_DIR,
     topic_id: TOPIC_ID,
     model_id: MODEL_ID,

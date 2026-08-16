@@ -28,3 +28,5 @@ Project: `main`
 - 2026-08-05 T-136 observation identity/order/hash option O-B confirmed: derive stable observation ids from preregistered RunCell protocol slots, canonicalize by protocol ordinal, treat changed content as conflict under the same identity, and separate provider/source/derivation/Result hash domains.
 - 2026-08-16 task_id=T-136 slug=scientific-evidence-to-paper-closure event=status from=in-progress to=done
 - 2026-08-16 task_id=T-124 slug=paper-implementation-productization-hardening event=status from=in-progress to=done
+- 2026-08-16 task_id=T-137 slug=promoted-topic-to-scientific-dossier-canary event=registered dev_docs_path=dev-docs/active/promoted-topic-to-scientific-dossier-canary
+- 2026-08-16 task_id=T-137 slug=promoted-topic-to-scientific-dossier-canary event=status from=planned to=in-progress

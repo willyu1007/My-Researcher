@@ -236,6 +236,37 @@ function workOrderRevision(): PaperImplementationExperimentV2WorkOrderRevisionSn
   };
 }
 
+function executableWorkOrderRevision(): Extract<
+  PaperImplementationExperimentV2WorkOrderRevisionSnapshot,
+  { work_order_schema_version: 'v2' }
+> {
+  return {
+    work_order_schema_version: 'v2',
+    title: 'Executable two-cell RAGPerf adapter run',
+    objective: 'Freeze an exact executable two-cell batch.',
+    readiness_attestation_id: 'readiness_001',
+    readiness_attestation_hash: hashes.d,
+    asset_dependencies: [
+      exactRef('Dataset', 'wikipedia', hashes.a),
+      exactRef('EvaluationProtocol', 'ragperf_v2', hashes.b),
+    ],
+    execution_bundle: {
+      execution_bundle_id: 'execution_bundle_001',
+      execution_bundle_revision_id: 'execution_bundle_revision_001',
+      revision_sequence: 1,
+      content_hash: hashes.c,
+    },
+    resource_snapshot: {
+      cpu_cores: 2,
+      memory_mb: 8192,
+    },
+    run_policy: {
+      max_attempts_per_cell: 1,
+      timeout_seconds: 1800,
+    },
+  };
+}
+
 function exactCell(
   cellKey: string,
   seed: number,
@@ -829,6 +860,35 @@ test('PI admission is exact, closed, ordered and has no caller-derived plan hash
     await validates(paperImplementationExperimentV2AdmissionRequestSchema, {
       ...request,
       exact_cells: [{ ...request.exact_cells[0], generator_range: { from: 1, to: 2 } }],
+    }),
+    false,
+  );
+});
+
+test('PI admission selects the executable WorkOrder v2 schema without weakening v1', async () => {
+  const request = admissionRequest();
+  assert.equal(
+    await validates(paperImplementationExperimentV2AdmissionRequestSchema, {
+      ...request,
+      work_order_revision: executableWorkOrderRevision(),
+    }),
+    true,
+  );
+  const { execution_bundle: _missingBundle, ...missingBundle } = executableWorkOrderRevision();
+  assert.equal(
+    await validates(paperImplementationExperimentV2AdmissionRequestSchema, {
+      ...request,
+      work_order_revision: missingBundle,
+    }),
+    false,
+  );
+  assert.equal(
+    await validates(paperImplementationExperimentV2AdmissionRequestSchema, {
+      ...request,
+      work_order_revision: {
+        ...workOrderRevision(),
+        execution_bundle: executableWorkOrderRevision().execution_bundle,
+      },
     }),
     false,
   );

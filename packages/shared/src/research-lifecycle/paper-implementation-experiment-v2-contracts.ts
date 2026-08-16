@@ -606,10 +606,15 @@ export const paperImplementationExperimentV2WorkOrderRevisionSnapshotV1Schema = 
 } as const;
 
 export const paperImplementationExperimentV2WorkOrderRevisionSnapshotSchema = {
-  oneOf: [
-    paperImplementationExperimentV2WorkOrderRevisionSnapshotV1Schema,
-    paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema,
-  ],
+  if: {
+    type: 'object',
+    required: ['work_order_schema_version'],
+    properties: {
+      work_order_schema_version: { type: 'string', const: 'v1' },
+    },
+  },
+  then: paperImplementationExperimentV2WorkOrderRevisionSnapshotV1Schema,
+  else: paperImplementationExecutableWorkOrderRevisionSnapshotV2Schema,
 } as const;
 
 export const paperImplementationExperimentV2AdmissionRequestSchema = {

@@ -1249,3 +1249,14 @@ tasks:
       - R-013
     dev_docs_path: dev-docs/active/scientific-evidence-to-paper-closure
     updated: 2026-08-16
+  - id: T-137
+    slug: promoted-topic-to-scientific-dossier-canary
+    status: done
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-009
+      - R-012
+      - R-013
+    dev_docs_path: dev-docs/active/promoted-topic-to-scientific-dossier-canary
+    updated: 2026-08-17

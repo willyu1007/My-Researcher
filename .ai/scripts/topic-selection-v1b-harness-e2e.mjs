@@ -9,6 +9,10 @@ import { fileURLToPath } from 'node:url';
 import { PrismaClient } from '@prisma/client';
 
 import {
+  T137_RESEARCH_INTENT,
+  T137_SEMANTIC_PROFILE_ID,
+} from '../../apps/backend/scripts/t137-scientific-dossier-canary-profile.ts';
+import {
   buildApp,
   resolveTitleCardManagementStoreConfig,
 } from '../../apps/backend/src/app.ts';
@@ -128,13 +132,17 @@ function positiveInt(raw, fallback) {
 
 function semanticMode(raw) {
   const value = String(raw ?? 'fixture').trim();
-  if (value === 'fixture') {
+  if (value === 'fixture' || value === T137_SEMANTIC_PROFILE_ID) {
     return value;
   }
   throw new Error(
     `Unsupported TOPIC_SELECTION_V1B_HARNESS_SEMANTIC_MODE: ${value}. `
     + 'v1b harness provider mode is retired; use pnpm topic-selection:v1b-provider-canary.',
   );
+}
+
+function isT137SemanticMode() {
+  return SEMANTIC_MODE === T137_SEMANTIC_PROFILE_ID;
 }
 
 function scenarioMode(raw) {
@@ -526,6 +534,29 @@ function v1bHarnessN1Request(bundle, suffix) {
 }
 
 function acceptedConstraintProfilePayload() {
+  if (isT137SemanticMode()) {
+    return {
+      target_community: 'information retrieval and RAG evaluation researchers',
+      target_venue_class: 'systems',
+      intended_contribution_style: 'bounded_empirical_finding',
+      method_constraints: [
+        'SciFact exact-token retrieval only',
+        'compare retrieval_top_k=10 with retrieval_top_k=5',
+        'use server-owned micro_recall_ppm',
+        'hold every non-top-k input fixed',
+      ],
+      resource_constraints: ['reuse the admitted SciFact execution bundle', 'one two-cell run'],
+      available_assets: ['four-source literature lane', 'SciFact corpus and qrels', 'exact-token evaluator'],
+      feasibility_budget: { experiment_cells: 2 },
+      non_goals: T137_RESEARCH_INTENT.prohibited_claims.map((claim) => `Do not claim ${claim}`),
+      claim_ceiling: T137_RESEARCH_INTENT.claim_ceiling,
+      human_constraint_notes: null,
+      constraint_payload: {
+        semantic_profile_id: T137_SEMANTIC_PROFILE_ID,
+        research_intent: T137_RESEARCH_INTENT,
+      },
+    };
+  }
   return {
     target_community: 'LLM systems researchers',
     target_venue_class: 'systems',
@@ -613,7 +644,9 @@ function v1bHarnessN3ReadinessClassificationSupport(input) {
     warning_codes: [],
     loopback_target_code: null,
     cited_refs: input.frozen_input.source_refs,
-    rationale: 'Frozen N1/N2 lineage is sufficient for deterministic readiness assessment in the harness smoke.',
+    rationale: isT137SemanticMode()
+      ? 'The frozen literature-backed intent has one executable SciFact comparison, one metric owner, and an explicit claim ceiling.'
+      : 'Frozen N1/N2 lineage is sufficient for deterministic readiness assessment in the harness smoke.',
     no_authority_write_confirmed: true,
   };
 }
@@ -665,6 +698,57 @@ function harnessRequest(titleCardId, suffix, nodeAttemptSuffix, nodeId, frozenIn
 
 function v1bHarnessN4Draft(bundle) {
   const evidenceRef = bundle.evidence_role_bundle.support_unit_refs[0] ?? bundle.evidence_map_ref;
+  if (isT137SemanticMode()) {
+    return {
+      recommended_option_key: 'scifact_retrieval_depth_slice',
+      comparison_axes: ['positive-judgment micro recall', 'retrieval depth'],
+      comparison_summary: 'Compare top-k 10 with top-k 5 while every non-top-k SciFact input remains fixed.',
+      missing_option_types: [],
+      unresolved_disagreements: [],
+      human_review_triggers: [],
+      options: [{
+        option_key: 'scifact_retrieval_depth_slice',
+        source_validated_need_refs: [bundle.validated_need_ref],
+        slice_statement: T137_RESEARCH_INTENT.goal,
+        problem_space: 'Retrieval-depth sensitivity in a fixed SciFact exact-token evaluation.',
+        target_setting: 'SciFact positive-judgment retrieval evaluation.',
+        target_community: 'information retrieval and RAG evaluation researchers',
+        included_boundaries: [...T137_RESEARCH_INTENT.fixed_inputs, 'top-k 10 versus top-k 5'],
+        excluded_boundaries: T137_RESEARCH_INTENT.prohibited_claims.map((claim) => `Do not claim ${claim}`),
+        contribution_type_candidate: 'bounded_empirical_finding',
+        support_evidence_refs: bundle.evidence_role_bundle.support_unit_refs,
+        challenge_evidence_refs: bundle.evidence_role_bundle.challenge_unit_refs,
+        baseline_evidence_refs: bundle.evidence_role_bundle.baseline_unit_refs,
+        context_evidence_refs: bundle.evidence_role_bundle.context_unit_refs,
+        resource_assumptions: ['The admitted SciFact execution bundle remains active and exact-ready.'],
+        data_assumptions: ['Corpus, queries, qrels, parser, and evaluator remain fixed across both cells.'],
+        evaluation_path: T137_RESEARCH_INTENT.question,
+        baseline_assumptions: [T137_RESEARCH_INTENT.baseline],
+        hard_blockers: [],
+        dependency_risks: ['A changed SciFact asset revision requires a fresh readiness check.'],
+        slice_budget: { experiment_cells: 2 },
+        expected_claim: T137_RESEARCH_INTENT.claim_ceiling,
+        fallback_claim: 'The fixed comparison is inconclusive at the +/-10,000 ppm boundary.',
+        observable_success_criteria: [
+          'Both cells publish server-owned micro_recall_ppm.',
+          'The difference is classified with the fixed +/-10,000 ppm rule.',
+        ],
+        main_risks: ['The bounded SciFact result may not generalize to other corpora or retrievers.'],
+        baseline_risk: 'low',
+        execution_risk: 'low',
+        scope_risk: 'low',
+        claim_ceiling_alignment: {
+          status: 'aligned',
+          rationale: 'The claim is limited to the fixed SciFact exact-token comparison.',
+          confidence: 0.92,
+        },
+        confidence: 0.9,
+        requires_human_review: false,
+        human_review_triggers: [],
+        details_payload: { semantic_profile_id: T137_SEMANTIC_PROFILE_ID },
+      }],
+    };
+  }
   return {
     recommended_option_key: 'traceable_workflow_slice',
     comparison_axes: ['method feasibility', 'evidence traceability'],
@@ -826,7 +910,9 @@ function acceptedV1bHarnessSliceSelectionPayload(option) {
     decision: 'select',
     selected_option_ref: ref('research_slice_option', option.research_slice_option_id, option.title_card_id),
     selected_option_hash: hashV1bHarnessOption(option),
-    selection_rationale: 'Select the traceable workflow slice with the strongest bounded fit.',
+    selection_rationale: isT137SemanticMode()
+      ? 'Select the only slice that preserves the exact SciFact comparison and bounded claim ceiling.'
+      : 'Select the traceable workflow slice with the strongest bounded fit.',
     decision_basis: { selected_option_key: option.option_key },
     rejected_option_reasons: [],
     required_actions: [],
@@ -932,6 +1018,90 @@ async function v1bHarnessN6Request(app, n5Result, suffix) {
 function v1bHarnessN6Draft(bundle, input) {
   const payload = input.frozen_input.payload;
   const evidenceRef = bundle.evidence_role_bundle.support_unit_refs[0] ?? bundle.evidence_map_ref;
+  if (isT137SemanticMode()) {
+    const roleBundle = bundle.evidence_role_bundle;
+    const mappedEvidenceRefs = [
+      ...roleBundle.support_unit_refs,
+      ...roleBundle.challenge_unit_refs,
+      ...roleBundle.baseline_unit_refs,
+      ...roleBundle.context_unit_refs,
+    ];
+    return {
+      question_frame: {
+        target_setting: 'SciFact positive-judgment exact-token retrieval evaluation.',
+        target_community: 'information retrieval and RAG evaluation researchers',
+        object_scope: 'retrieval depth from top-k 5 to top-k 10',
+        task_scope: 'two-cell controlled comparison',
+        intervention_or_approach: T137_RESEARCH_INTENT.intervention,
+        comparison_baseline: T137_RESEARCH_INTENT.baseline,
+        observable_outcome: T137_RESEARCH_INTENT.metric_key,
+        assumption_refs: [],
+        evidence_refs: mappedEvidenceRefs,
+        frame_payload: { semantic_profile_id: T137_SEMANTIC_PROFILE_ID },
+      },
+      recommended_candidate_keys: ['scifact_top_k_10_vs_5'],
+      generation_notes: ['Every scientific input except retrieval_top_k remains fixed.'],
+      human_review_triggers: [],
+      candidates: [{
+        candidate_key: 'scifact_top_k_10_vs_5',
+        main_question: T137_RESEARCH_INTENT.question,
+        sub_questions: ['Does the observed difference cross either fixed +/-10,000 ppm decision boundary?'],
+        question_type: 'benchmark',
+        contribution_hypothesis: 'benchmark',
+        source_validated_need_refs: [bundle.validated_need_ref],
+        answerability_plan: {
+          datasets_or_resources: ['admitted SciFact corpus, queries, and positive qrels'],
+          metrics: [T137_RESEARCH_INTENT.metric_key],
+          baselines: [T137_RESEARCH_INTENT.baseline],
+          ablations_or_comparisons: [T137_RESEARCH_INTENT.intervention],
+          evaluation_setting: 'same exact-token retriever, evaluator, seed, and runtime for both cells',
+          dependency_risks: ['A changed asset revision invalidates exact readiness.'],
+          open_dependencies: [],
+          known_gaps: [],
+          required_evidence_refs: mappedEvidenceRefs,
+        },
+        answerability_verdict: 'answerable',
+        expected_claim: T137_RESEARCH_INTENT.claim_ceiling,
+        fallback_claim: 'The fixed comparison is inconclusive at the +/-10,000 ppm boundary.',
+        max_claim_strength: T137_RESEARCH_INTENT.claim_ceiling,
+        observable_success_criteria: [
+          'Compute micro_recall_ppm(top-k 10) - micro_recall_ppm(top-k 5).',
+          'Classify support, contradiction, or inconclusive with the fixed thresholds.',
+        ],
+        boundary_check: {
+          preserved_boundary_refs: [],
+          excluded_boundary_refs: [],
+          boundary_violations: [],
+          prohibited_claims: [...T137_RESEARCH_INTENT.prohibited_claims],
+          allowed_refinements: ['narrow the claim after observing the fixed metric difference'],
+        },
+        traceability_check: {
+          support_evidence_refs: roleBundle.support_unit_refs,
+          challenge_evidence_refs: roleBundle.challenge_unit_refs,
+          baseline_evidence_refs: roleBundle.baseline_unit_refs,
+          context_evidence_refs: roleBundle.context_unit_refs,
+          mapped_evidence_refs: mappedEvidenceRefs,
+          unmapped_assumptions: [],
+        },
+        falsification_conditions: [{
+          condition_type: 'contradicted_by_evidence',
+          severity: 'hard',
+          statement: 'The bounded support claim is falsified when top-k 10 minus top-k 5 is at most -10,000 ppm.',
+          trigger_evidence_refs: mappedEvidenceRefs,
+          trigger_source_refs: [payload.research_slice_ref],
+          related_contract_fields: ['expected_claim'],
+          expected_action: 'lower_claim_strength',
+          check_timing: 'on_new_evidence',
+          confidence: 'high',
+        }],
+        risk_notes: ['Do not generalize beyond the fixed SciFact exact-token setup.'],
+        blockers: [],
+        objections: [],
+        human_review_triggers: [],
+        confidence: 0.9,
+      }],
+    };
+  }
   return {
     question_frame: {
       target_setting: 'Local-first CS paper engineering assistant workflows.',
@@ -1105,6 +1275,58 @@ function n6InputWithRuntimeProjection(input, projectionRef) {
 function v1bHarnessN8ValueDraft(input) {
   const payload = input.frozen_input.payload;
   const evidenceRef = payload.topic_question_contract_ref;
+  if (isT137SemanticMode()) {
+    return {
+      readiness_status: 'ready',
+      strongest_claim_if_success: T137_RESEARCH_INTENT.claim_ceiling,
+      fallback_claim_if_success: 'The fixed comparison is inconclusive at the +/-10,000 ppm boundary.',
+      hard_gates: TOPIC_SELECTION_VALUE_GATE_KEYS.map((gateKey) => ({
+        gate_key: gateKey,
+        verdict: 'pass',
+        severity: 'info',
+        overridable_with_risk: false,
+        rationale: `${gateKey} passes because the question has one dataset, comparison, metric, and claim ceiling.`,
+        refs: [evidenceRef],
+      })),
+      dimension_scores: TOPIC_SELECTION_VALUE_DIMENSIONS.map((dimensionKey) => ({
+        dimension_key: dimensionKey,
+        score: dimensionKey === 'originality' ? 74 : 86,
+        rationale: `${dimensionKey} is adequate for the bounded SciFact canary.`,
+        evidence_refs: [evidenceRef],
+        uncertainty: 'low',
+      })),
+      risk_penalty: { residual_risk: 'bounded generalization' },
+      reviewer_objections: ['One corpus and one exact-token retriever cannot support a general RAG claim.'],
+      ceiling_case: T137_RESEARCH_INTENT.claim_ceiling,
+      base_case: 'The result reports the fixed SciFact metric difference without broader extrapolation.',
+      floor_case: 'The result is inconclusive but still validates the scientific evidence path.',
+      recommended_disposition: 'advance_to_package',
+      total_score: 84,
+      value_summary: 'The question is executable, falsifiable, and narrow enough for a two-cell scientific canary.',
+      confidence: 0.9,
+      accepted_risk_refs: [],
+      blocker_refs: [],
+      risk_notes: ['Generalization remains outside the claim ceiling.'],
+      reasoning_memo: {
+        recommendation: 'advance_to_package',
+        value_thesis: 'A fixed retrieval-depth comparison produces a reviewer-auditable bounded finding.',
+        significance: 'It tests whether a commonly tuned retrieval parameter changes positive-judgment recall.',
+        originality: 'The value is the controlled evidence and trace, not a broad algorithmic novelty claim.',
+        claim_leverage: T137_RESEARCH_INTENT.claim_ceiling,
+        reviewer_risks: ['Corpus and retriever scope are intentionally narrow.'],
+        effort_to_value: 'Two cells reuse admitted scientific assets and one server-owned metric.',
+        strategic_fit: 'It directly connects literature-backed topic intent to executable scientific evidence.',
+        negative_memory_check: 'No recorded blocker prevents the fixed comparison.',
+        evidence_backed_rationale: 'The selected question retains support, baseline, challenge, and measurement context.',
+        top_objections: ['The finding must not be presented as a general RAG quality or cost result.'],
+        uncertainty: 'Low execution uncertainty; bounded external-validity uncertainty.',
+        disposition_bridge: 'Advance with the exact comparison and claim ceiling unchanged.',
+        requires_critic_review: false,
+        critic_triggers: [],
+        cited_refs: [evidenceRef],
+      },
+    };
+  }
   return {
     readiness_status: 'ready',
     strongest_claim_if_success: 'A harness-native topic-selection flow preserves replayable authority boundaries.',

@@ -146,4 +146,5 @@ Project: `main`
 | T-134 experiment-foundation-audit-remainders-closure | archived | F-001 | dev-docs/archive/experiment-foundation-audit-remainders-closure |
 | T-135 experiment-foundation-v2-semantic-api-activation | archived | F-001 | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
 | T-136 scientific-evidence-to-paper-closure | done | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
+| T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
 <!-- AUTO-GENERATED:END task-index -->

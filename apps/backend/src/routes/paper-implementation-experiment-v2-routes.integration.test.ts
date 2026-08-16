@@ -69,8 +69,39 @@ function requestFixture(): PaperImplementationExperimentV2AdmissionRequest {
   };
 }
 
-function responseFixture(): PaperImplementationExperimentV2AdmissionResponse {
+function executableRequestFixture(): PaperImplementationExperimentV2AdmissionRequest {
   const request = requestFixture();
+  return {
+    ...request,
+    work_order_revision: {
+      work_order_schema_version: 'v2',
+      title: 'Executable RAGPerf adapter-tier evaluation',
+      objective: 'Freeze the exact executable two-cell control-plane lineage.',
+      readiness_attestation_id: 'readiness-protocol-v2',
+      readiness_attestation_hash: HASH,
+      asset_dependencies: request.work_order_revision.asset_dependencies,
+      execution_bundle: {
+        execution_bundle_id: 'execution-bundle-1',
+        execution_bundle_revision_id: 'execution-bundle-revision-1',
+        revision_sequence: 1,
+        content_hash: HASH,
+      },
+      resource_snapshot: {
+        cpu_cores: 2,
+        memory_mb: 8192,
+      },
+      run_policy: {
+        max_attempts_per_cell: 1,
+        timeout_seconds: 300,
+      },
+    },
+    business_idempotency_key: 'admit-ragperf-primary-executable-r1',
+  };
+}
+
+function responseFixture(
+  request = requestFixture(),
+): PaperImplementationExperimentV2AdmissionResponse {
   return {
     branch: {
       branch_id: 'branch-1',
@@ -210,6 +241,36 @@ test('v2 admission route injects the server actor and delegates the validated ex
   assert.equal(captured[0]?.implementation_project_id, 'project-1');
   assert.equal(captured[0]?.validation_cycle_id, 'cycle-1');
   assert.equal(captured[0]?.admitted_by, 'system:paper-implementation-experiment-v2-admission');
+  await app.close();
+});
+
+test('v2 admission route preserves the executable WorkOrder v2 fields', async () => {
+  const request = executableRequestFixture();
+  const captured: Array<Parameters<PaperImplementationExperimentV2AdmissionUseCase['admit']>[0]> = [];
+  const useCase: PaperImplementationExperimentV2AdmissionUseCase = {
+    async admit(input) {
+      captured.push(input);
+      return responseFixture(request);
+    },
+  };
+  const app = Fastify({ logger: false });
+  await registerPaperImplementationExperimentV2Routes(
+    app,
+    new PaperImplementationExperimentV2Controller(useCase),
+  );
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/paper-implementation/projects/project-1/validation-cycles/cycle-1/experiment-work-orders/v2/admissions',
+    payload: request,
+  });
+
+  assert.equal(response.statusCode, 201, response.body);
+  assert.deepEqual(captured[0]?.request.work_order_revision, request.work_order_revision);
+  assert.equal(
+    response.json().revision.work_order_revision.execution_bundle.execution_bundle_revision_id,
+    'execution-bundle-revision-1',
+  );
   await app.close();
 });
 
