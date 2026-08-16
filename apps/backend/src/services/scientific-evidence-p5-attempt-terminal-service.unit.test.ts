@@ -86,6 +86,141 @@ test('an exclusive stage claim permits only one concurrent operation', async (co
   await fs.access(resolveScientificEvidenceP5AttemptStageCompletionPath(input));
 });
 
+test('result-analysis recovery is an independent exact-once attempt stage', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 't136-result-analysis-recovery-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const recoveryBinding = {
+    p5_attempt_id: 't136-p5-result-analysis-recovery-1',
+    package_hash: `sha256:${'b'.repeat(64)}`,
+  };
+  let operationCount = 0;
+  await runScientificEvidenceP5ClaimedStageV1({
+    manifest_directory: directory,
+    binding: recoveryBinding,
+    stage: 'result_analysis_recovery',
+    operation: async () => { operationCount += 1; },
+  });
+  assert.equal(operationCount, 1);
+  await assert.rejects(
+    () => runScientificEvidenceP5ClaimedStageV1({
+      manifest_directory: directory,
+      binding: recoveryBinding,
+      stage: 'result_analysis_recovery',
+      operation: async () => { operationCount += 1; },
+    }),
+    /T136_P5_ATTEMPT_STAGE_ALREADY_CLAIMED_RESULT_ANALYSIS_RECOVERY/,
+  );
+  assert.equal(operationCount, 1);
+});
+
+test('closure-packet continuation is an independent exact-once attempt stage', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 't136-closure-packet-continuation-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const continuationBinding = {
+    p5_attempt_id: 't136-p5-closure-packet-continuation-1',
+    package_hash: `sha256:${'c'.repeat(64)}`,
+  };
+  let operationCount = 0;
+  await runScientificEvidenceP5ClaimedStageV1({
+    manifest_directory: directory,
+    binding: continuationBinding,
+    stage: 'closure_packet_continuation',
+    operation: async () => { operationCount += 1; },
+  });
+  assert.equal(operationCount, 1);
+  await assert.rejects(
+    () => runScientificEvidenceP5ClaimedStageV1({
+      manifest_directory: directory,
+      binding: continuationBinding,
+      stage: 'closure_packet_continuation',
+      operation: async () => { operationCount += 1; },
+    }),
+    /T136_P5_ATTEMPT_STAGE_ALREADY_CLAIMED_CLOSURE_PACKET_CONTINUATION/,
+  );
+  assert.equal(operationCount, 1);
+});
+
+test('packet-trace ResultAnalysis successor is an independent exact-once attempt stage', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 't136-packet-trace-successor-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const successorBinding = {
+    p5_attempt_id: 't136-p5-packet-trace-result-analysis-successor-1',
+    package_hash: `sha256:${'d'.repeat(64)}`,
+  };
+  let operationCount = 0;
+  await runScientificEvidenceP5ClaimedStageV1({
+    manifest_directory: directory,
+    binding: successorBinding,
+    stage: 'packet_trace_result_analysis_successor',
+    operation: async () => { operationCount += 1; },
+  });
+  assert.equal(operationCount, 1);
+  await assert.rejects(
+    () => runScientificEvidenceP5ClaimedStageV1({
+      manifest_directory: directory,
+      binding: successorBinding,
+      stage: 'packet_trace_result_analysis_successor',
+      operation: async () => { operationCount += 1; },
+    }),
+    /T136_P5_ATTEMPT_STAGE_ALREADY_CLAIMED_PACKET_TRACE_RESULT_ANALYSIS_SUCCESSOR/,
+  );
+  assert.equal(operationCount, 1);
+});
+
+test('Packet-only recovery is an independent exact-once attempt stage', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 't136-packet-only-recovery-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const recoveryBinding = {
+    p5_attempt_id: 't136-p5-packet-only-recovery-1',
+    package_hash: `sha256:${'e'.repeat(64)}`,
+  };
+  let operationCount = 0;
+  await runScientificEvidenceP5ClaimedStageV1({
+    manifest_directory: directory,
+    binding: recoveryBinding,
+    stage: 'packet_only_recovery',
+    operation: async () => { operationCount += 1; },
+  });
+  assert.equal(operationCount, 1);
+  await assert.rejects(
+    () => runScientificEvidenceP5ClaimedStageV1({
+      manifest_directory: directory,
+      binding: recoveryBinding,
+      stage: 'packet_only_recovery',
+      operation: async () => { operationCount += 1; },
+    }),
+    /T136_P5_ATTEMPT_STAGE_ALREADY_CLAIMED_PACKET_ONLY_RECOVERY/,
+  );
+  assert.equal(operationCount, 1);
+});
+
+test('Claim/Dossier final acceptance is an independent exact-once attempt stage', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 't136-claim-dossier-final-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const finalBinding = {
+    p5_attempt_id: 't136-p5-claim-dossier-final-acceptance-1',
+    package_hash: `sha256:${'f'.repeat(64)}`,
+  };
+  let operationCount = 0;
+  await runScientificEvidenceP5ClaimedStageV1({
+    manifest_directory: directory,
+    binding: finalBinding,
+    stage: 'claim_dossier_final_acceptance',
+    operation: async () => { operationCount += 1; },
+  });
+  assert.equal(operationCount, 1);
+  await assert.rejects(
+    () => runScientificEvidenceP5ClaimedStageV1({
+      manifest_directory: directory,
+      binding: finalBinding,
+      stage: 'claim_dossier_final_acceptance',
+      operation: async () => { operationCount += 1; },
+    }),
+    /T136_P5_ATTEMPT_STAGE_ALREADY_CLAIMED_CLAIM_DOSSIER_FINAL_ACCEPTANCE/,
+  );
+  assert.equal(operationCount, 1);
+});
+
 for (const [upstream, downstream] of [
   ['credential_integrity', 'credential_qualification'],
   ['credential_qualification', 'live'],

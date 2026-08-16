@@ -259,6 +259,75 @@ function makeUniqueRacePrismaClient(): PrismaClient {
   return client as unknown as PrismaClient;
 }
 
+function makePacketRecoveryPrismaClient(options: { driftInbox?: boolean } = {}): {
+  client: PrismaClient;
+  packetRows: StoredRow[];
+  outboxRows: StoredRow[];
+} {
+  const packetRows: StoredRow[] = [];
+  const closureRows: StoredRow[] = [{
+    id: 'closure_001',
+    closureSnapshotHash: `sha256:${'1'.repeat(64)}`,
+    validationCycleId: 'validation_cycle_001',
+    implementationProjectId: PROJECT_ID,
+    closureKind: 'scientific_evidence_assessed',
+  }];
+  const outboxRows: StoredRow[] = [{
+    id: 'outbox_001',
+    eventId: 'event_001',
+    eventType: 'ValidationCycleClosed@v1',
+    eventEnvelopeHash: `sha256:${'2'.repeat(64)}`,
+    payloadHash: `sha256:${'3'.repeat(64)}`,
+    validationCycleId: 'validation_cycle_001',
+    implementationProjectId: PROJECT_ID,
+    relayStatus: 'terminal',
+    relayAttemptCount: 1,
+    relayLeaseOwner: null,
+    relayLeaseExpiresAt: null,
+    relayNextAttemptAt: null,
+    publishedAt: null,
+    deliveredAt: null,
+    lastRelayErrorCode: 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
+    updatedAt: new Date('2026-05-21T00:00:00.100Z'),
+  }];
+  const inboxRows: StoredRow[] = [{
+    id: 'inbox_001',
+    consumerName: 'pi-projection-feed-v2',
+    eventId: 'event_001',
+    eventType: 'ValidationCycleClosed@v1',
+    eventEnvelopeHash: options.driftInbox
+      ? `sha256:${'4'.repeat(64)}`
+      : `sha256:${'2'.repeat(64)}`,
+    payloadHash: `sha256:${'3'.repeat(64)}`,
+    validationCycleId: 'validation_cycle_001',
+    implementationProjectId: PROJECT_ID,
+    status: 'processed',
+    outcome: 'processed',
+    reasonCode: null,
+    processedAt: new Date('2026-05-21T00:00:00.050Z'),
+  }];
+  const outboxModel = {
+    ...makeModel(outboxRows),
+    updateMany: async ({ where, data }: {
+      where: Partial<StoredRow>;
+      data: Partial<StoredRow>;
+    }) => {
+      const row = outboxRows.find((candidate) => matchesWhereWithDates(candidate, where));
+      if (!row) return { count: 0 };
+      Object.assign(row, normalizeRow({ id: row.id, ...data }));
+      return { count: 1 };
+    },
+  };
+  const client = {
+    paperImplementationResultInterpretationPacket: makeModel(packetRows),
+    paperImplementationValidationCycleClosureV2: makeModel(closureRows),
+    paperImplementationExperimentIntegrationOutboxV2: outboxModel,
+    paperImplementationExperimentIntegrationInboxV2: makeModel(inboxRows),
+    $transaction: async (operation: (transaction: unknown) => Promise<unknown>) => operation(client),
+  };
+  return { client: client as unknown as PrismaClient, packetRows, outboxRows };
+}
+
 function makeClosedResultPacket(): ClosedResultInterpretationPacketV2 {
   const legacy = makeResultPacket();
   const withoutHash = {
@@ -277,6 +346,15 @@ function makeClosedResultPacket(): ClosedResultInterpretationPacketV2 {
 
 function matchesWhere(row: StoredRow, where: Partial<StoredRow>): boolean {
   return Object.entries(where).every(([key, value]) => row[key] === value);
+}
+
+function matchesWhereWithDates(row: StoredRow, where: Partial<StoredRow>): boolean {
+  return Object.entries(where).every(([key, value]) => {
+    const current = row[key];
+    return current instanceof Date && value instanceof Date
+      ? current.getTime() === value.getTime()
+      : current === value;
+  });
 }
 
 function makeFakePrismaClient(): PrismaClient {
@@ -335,6 +413,69 @@ test('Prisma Packet v2 materialization reconciles an identical concurrent unique
     packet,
   );
   assert.equal((await repository.listResultInterpretationPackets(PROJECT_ID)).length, 1);
+});
+
+test('Packet-only recovery atomically materializes Packet and directly delivers terminal outbox', async () => {
+  const fake = makePacketRecoveryPrismaClient();
+  const repository = new PrismaPaperImplementationResultClaimDossierRepository(fake.client);
+  const packet = makeClosedResultPacket();
+  const input = {
+    packet,
+    terminal_outbox: {
+      outbox_id: 'outbox_001',
+      event_id: 'event_001',
+      event_envelope_hash: `sha256:${'2'.repeat(64)}`,
+      payload_hash: `sha256:${'3'.repeat(64)}`,
+      relay_attempt_count: 1,
+      last_relay_error_code: 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
+      terminal_updated_at: '2026-05-21T00:00:00.100Z',
+    },
+    processed_inbox: {
+      inbox_id: 'inbox_001',
+      consumer_name: 'pi-projection-feed-v2',
+      event_id: 'event_001',
+      event_envelope_hash: `sha256:${'2'.repeat(64)}`,
+      payload_hash: `sha256:${'3'.repeat(64)}`,
+      processed_at: '2026-05-21T00:00:00.050Z',
+    },
+    recovered_at: '2026-05-21T00:00:01.000Z',
+  };
+  const first = await repository.recoverTerminalClosedResultInterpretationPacket(input);
+  const replay = await repository.recoverTerminalClosedResultInterpretationPacket(input);
+  assert.equal(first.outbox_transition, 'terminal_to_delivered');
+  assert.equal(replay.outbox_transition, 'already_delivered');
+  assert.deepEqual(first.packet, packet);
+  assert.equal(fake.packetRows.length, 1);
+  assert.equal(fake.outboxRows[0]?.relayStatus, 'delivered');
+  assert.equal(fake.outboxRows[0]?.lastRelayErrorCode, null);
+});
+
+test('Packet-only recovery rejects processed inbox drift before any write', async () => {
+  const fake = makePacketRecoveryPrismaClient({ driftInbox: true });
+  const repository = new PrismaPaperImplementationResultClaimDossierRepository(fake.client);
+  await assert.rejects(repository.recoverTerminalClosedResultInterpretationPacket({
+    packet: makeClosedResultPacket(),
+    terminal_outbox: {
+      outbox_id: 'outbox_001',
+      event_id: 'event_001',
+      event_envelope_hash: `sha256:${'2'.repeat(64)}`,
+      payload_hash: `sha256:${'3'.repeat(64)}`,
+      relay_attempt_count: 1,
+      last_relay_error_code: 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
+      terminal_updated_at: '2026-05-21T00:00:00.100Z',
+    },
+    processed_inbox: {
+      inbox_id: 'inbox_001',
+      consumer_name: 'pi-projection-feed-v2',
+      event_id: 'event_001',
+      event_envelope_hash: `sha256:${'2'.repeat(64)}`,
+      payload_hash: `sha256:${'3'.repeat(64)}`,
+      processed_at: '2026-05-21T00:00:00.050Z',
+    },
+    recovered_at: '2026-05-21T00:00:01.000Z',
+  }), /Processed projection inbox authority drifted/);
+  assert.equal(fake.packetRows.length, 0);
+  assert.equal(fake.outboxRows[0]?.relayStatus, 'terminal');
 });
 
 test('result claim dossier migration declares queryable gate trace and projection indexes', async () => {

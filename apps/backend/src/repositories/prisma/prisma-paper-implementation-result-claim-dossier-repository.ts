@@ -32,6 +32,9 @@ import type {
 
 import type {
   PaperImplementationResultClaimDossierRepository,
+  PaperImplementationTerminalPacketRecoveryV1Input,
+  PaperImplementationTerminalPacketRecoveryV1Repository,
+  PaperImplementationTerminalPacketRecoveryV1Result,
 } from '../paper-implementation-result-claim-dossier.repository.js';
 import {
   PaperImplementationResultPacketV2RepositoryError,
@@ -189,7 +192,8 @@ function toWritingEntryPacket(row: WritingEntryPacketRow): PaperImplementationWr
 }
 
 export class PrismaPaperImplementationResultClaimDossierRepository
-implements PaperImplementationResultClaimDossierRepository {
+implements PaperImplementationResultClaimDossierRepository,
+PaperImplementationTerminalPacketRecoveryV1Repository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async createResultInterpretationPacket(
@@ -206,55 +210,10 @@ implements PaperImplementationResultClaimDossierRepository {
   ): Promise<ClosedResultInterpretationPacketV2> {
     assertClosedPacketInvariant(packet);
     try {
-      return await this.prisma.$transaction(async (transaction) => {
-        const closure = await transaction.paperImplementationValidationCycleClosureV2.findFirst({
-          where: {
-            id: packet.closure_id,
-            closureSnapshotHash: packet.closure_snapshot_hash,
-            validationCycleId: packet.validation_cycle_id,
-            implementationProjectId: packet.implementation_project_id,
-            closureKind: 'scientific_evidence_assessed',
-          },
-          select: { id: true },
-        });
-        if (!closure) {
-          throw new PaperImplementationResultPacketV2RepositoryError(
-            'PACKET_CLOSURE_DRIFT',
-            'Exact scientific Closure changed before Packet materialization.',
-          );
-        }
-        const existingByClosure = await transaction.paperImplementationResultInterpretationPacket.findUnique({
-          where: { closureId: packet.closure_id },
-        });
-        if (existingByClosure) {
-          const existing = toResultInterpretationPacket(existingByClosure);
-          if (existing.schema_version === 'PaperImplementationResultInterpretationPacket@v2') {
-            assertClosedPacketInvariant(existing as ClosedResultInterpretationPacketV2);
-          }
-          if (
-            existing.packet_content_hash === packet.packet_content_hash
-            && existing.created_at === packet.created_at
-          ) return existing as ClosedResultInterpretationPacketV2;
-          throw new PaperImplementationResultPacketV2RepositoryError(
-            'PACKET_CONTENT_CONFLICT',
-            'Scientific Closure is already bound to different Packet content.',
-          );
-        }
-        const existingId = await transaction.paperImplementationResultInterpretationPacket.findUnique({
-          where: { id: packet.result_interpretation_packet_id },
-          select: { id: true },
-        });
-        if (existingId) {
-          throw new PaperImplementationResultPacketV2RepositoryError(
-            'PACKET_ID_CONFLICT',
-            'ResultInterpretationPacket id is already bound to another record.',
-          );
-        }
-        const row = await transaction.paperImplementationResultInterpretationPacket.create({
-          data: this.toResultPacketCreateInput(packet),
-        });
-        return toResultInterpretationPacket(row) as ClosedResultInterpretationPacketV2;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return await this.prisma.$transaction(
+        (transaction) => this.materializeClosedPacket(transaction, packet),
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error) {
       if (error instanceof PaperImplementationResultPacketV2RepositoryError) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -269,6 +228,125 @@ implements PaperImplementationResultClaimDossierRepository {
       }
       throw error;
     }
+  }
+
+  async recoverTerminalClosedResultInterpretationPacket(
+    input: PaperImplementationTerminalPacketRecoveryV1Input,
+  ): Promise<PaperImplementationTerminalPacketRecoveryV1Result> {
+    assertClosedPacketInvariant(input.packet);
+    const recoveredAt = new Date(input.recovered_at);
+    const terminalUpdatedAt = new Date(input.terminal_outbox.terminal_updated_at);
+    const processedAt = new Date(input.processed_inbox.processed_at);
+    if (
+      !Number.isFinite(recoveredAt.getTime())
+      || !Number.isFinite(terminalUpdatedAt.getTime())
+      || !Number.isFinite(processedAt.getTime())
+    ) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_INVARIANT_INVALID',
+        'Packet recovery timestamps are invalid.',
+      );
+    }
+    return this.prisma.$transaction(async (transaction) => {
+      const outbox = await transaction.paperImplementationExperimentIntegrationOutboxV2.findUnique({
+        where: { id: input.terminal_outbox.outbox_id },
+      });
+      if (
+        !outbox
+        || outbox.eventId !== input.terminal_outbox.event_id
+        || outbox.eventType !== 'ValidationCycleClosed@v1'
+        || outbox.eventEnvelopeHash !== input.terminal_outbox.event_envelope_hash
+        || outbox.payloadHash !== input.terminal_outbox.payload_hash
+        || outbox.validationCycleId !== input.packet.validation_cycle_id
+        || outbox.implementationProjectId !== input.packet.implementation_project_id
+        || outbox.relayAttemptCount !== input.terminal_outbox.relay_attempt_count
+        || outbox.relayLeaseOwner !== null
+        || outbox.relayLeaseExpiresAt !== null
+        || outbox.relayNextAttemptAt !== null
+      ) {
+        throw new PaperImplementationResultPacketV2RepositoryError(
+          'PACKET_RECOVERY_OUTBOX_CONFLICT',
+          'Terminal ValidationCycleClosed outbox authority drifted.',
+        );
+      }
+      const terminalStateExact = outbox.relayStatus === 'terminal'
+        && outbox.publishedAt === null
+        && outbox.deliveredAt === null
+        && outbox.lastRelayErrorCode === input.terminal_outbox.last_relay_error_code
+        && outbox.updatedAt.getTime() === terminalUpdatedAt.getTime();
+      const deliveredReplay = outbox.relayStatus === 'delivered'
+        && outbox.publishedAt !== null
+        && outbox.deliveredAt !== null
+        && outbox.lastRelayErrorCode === null;
+      if (!terminalStateExact && !deliveredReplay) {
+        throw new PaperImplementationResultPacketV2RepositoryError(
+          'PACKET_RECOVERY_OUTBOX_CONFLICT',
+          'ValidationCycleClosed outbox is neither the exact terminal source nor a delivered replay.',
+        );
+      }
+
+      const inbox = await transaction.paperImplementationExperimentIntegrationInboxV2.findUnique({
+        where: { id: input.processed_inbox.inbox_id },
+      });
+      if (
+        !inbox
+        || inbox.consumerName !== input.processed_inbox.consumer_name
+        || inbox.eventId !== input.processed_inbox.event_id
+        || inbox.eventId !== outbox.eventId
+        || inbox.eventType !== 'ValidationCycleClosed@v1'
+        || inbox.eventEnvelopeHash !== input.processed_inbox.event_envelope_hash
+        || inbox.eventEnvelopeHash !== outbox.eventEnvelopeHash
+        || inbox.payloadHash !== input.processed_inbox.payload_hash
+        || inbox.payloadHash !== outbox.payloadHash
+        || inbox.validationCycleId !== input.packet.validation_cycle_id
+        || inbox.implementationProjectId !== input.packet.implementation_project_id
+        || inbox.status !== 'processed'
+        || inbox.outcome !== 'processed'
+        || inbox.reasonCode !== null
+        || inbox.processedAt.getTime() !== processedAt.getTime()
+      ) {
+        throw new PaperImplementationResultPacketV2RepositoryError(
+          'PACKET_RECOVERY_INBOX_CONFLICT',
+          'Processed projection inbox authority drifted.',
+        );
+      }
+
+      const packet = await this.materializeClosedPacket(transaction, input.packet);
+      if (deliveredReplay) {
+        return { packet, outbox_transition: 'already_delivered' };
+      }
+      const delivered = await transaction.paperImplementationExperimentIntegrationOutboxV2.updateMany({
+        where: {
+          id: input.terminal_outbox.outbox_id,
+          eventId: input.terminal_outbox.event_id,
+          eventEnvelopeHash: input.terminal_outbox.event_envelope_hash,
+          payloadHash: input.terminal_outbox.payload_hash,
+          relayStatus: 'terminal',
+          relayAttemptCount: input.terminal_outbox.relay_attempt_count,
+          relayLeaseOwner: null,
+          relayLeaseExpiresAt: null,
+          relayNextAttemptAt: null,
+          publishedAt: null,
+          deliveredAt: null,
+          lastRelayErrorCode: input.terminal_outbox.last_relay_error_code,
+          updatedAt: terminalUpdatedAt,
+        },
+        data: {
+          relayStatus: 'delivered',
+          publishedAt: recoveredAt,
+          deliveredAt: recoveredAt,
+          lastRelayErrorCode: null,
+          updatedAt: recoveredAt,
+        },
+      });
+      if (delivered.count !== 1) {
+        throw new PaperImplementationResultPacketV2RepositoryError(
+          'PACKET_RECOVERY_OUTBOX_CONFLICT',
+          'Terminal ValidationCycleClosed outbox recovery CAS failed.',
+        );
+      }
+      return { packet, outbox_transition: 'terminal_to_delivered' };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async findResultInterpretationPacketById(
@@ -330,6 +408,59 @@ implements PaperImplementationResultClaimDossierRepository {
       'PACKET_CONTENT_CONFLICT',
       'Packet identity or Closure ownership is already bound.',
     );
+  }
+
+  private async materializeClosedPacket(
+    transaction: Prisma.TransactionClient,
+    packet: ClosedResultInterpretationPacketV2,
+  ): Promise<ClosedResultInterpretationPacketV2> {
+    const closure = await transaction.paperImplementationValidationCycleClosureV2.findFirst({
+      where: {
+        id: packet.closure_id,
+        closureSnapshotHash: packet.closure_snapshot_hash,
+        validationCycleId: packet.validation_cycle_id,
+        implementationProjectId: packet.implementation_project_id,
+        closureKind: 'scientific_evidence_assessed',
+      },
+      select: { id: true },
+    });
+    if (!closure) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CLOSURE_DRIFT',
+        'Exact scientific Closure changed before Packet materialization.',
+      );
+    }
+    const existingByClosure = await transaction.paperImplementationResultInterpretationPacket.findUnique({
+      where: { closureId: packet.closure_id },
+    });
+    if (existingByClosure) {
+      const existing = toResultInterpretationPacket(existingByClosure);
+      if (existing.schema_version === 'PaperImplementationResultInterpretationPacket@v2') {
+        assertClosedPacketInvariant(existing as ClosedResultInterpretationPacketV2);
+      }
+      if (
+        existing.packet_content_hash === packet.packet_content_hash
+        && existing.created_at === packet.created_at
+      ) return existing as ClosedResultInterpretationPacketV2;
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_CONTENT_CONFLICT',
+        'Scientific Closure is already bound to different Packet content.',
+      );
+    }
+    const existingId = await transaction.paperImplementationResultInterpretationPacket.findUnique({
+      where: { id: packet.result_interpretation_packet_id },
+      select: { id: true },
+    });
+    if (existingId) {
+      throw new PaperImplementationResultPacketV2RepositoryError(
+        'PACKET_ID_CONFLICT',
+        'ResultInterpretationPacket id is already bound to another record.',
+      );
+    }
+    const row = await transaction.paperImplementationResultInterpretationPacket.create({
+      data: this.toResultPacketCreateInput(packet),
+    });
+    return toResultInterpretationPacket(row) as ClosedResultInterpretationPacketV2;
   }
 
   async createClaimCandidate(candidate: ClaimCandidate): Promise<ClaimCandidate> {

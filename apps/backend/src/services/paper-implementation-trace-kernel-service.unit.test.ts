@@ -238,6 +238,25 @@ test('known writing-affecting target with empty required lineage is broken', asy
   );
 });
 
+test('ResultInterpretationPacket with RunEvidenceUnit lineage is complete with no repair queue', async () => {
+  const { service } = makeHarness();
+  const lineage = emptyLineage();
+  lineage.experiment.run_evidence_refs = [
+    ref('run_evidence_unit', 'run_evidence_unit_packet_001', 'sha256:packet-evidence'),
+  ];
+  const manifest = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: ref('result_interpretation_packet', 'result_interpretation_packet_001'),
+    lineage,
+  });
+
+  assert.equal(manifest.trace_status, 'complete');
+  assert.equal(manifest.missing_ref_count, 0);
+  assert.deepEqual(
+    await service.listTraceRepairQueue(PROJECT.implementation_project_id),
+    [],
+  );
+});
+
 test('result interpretation packet target requires experiment lineage', async () => {
   const { service } = makeHarness();
   const broken = await service.createTraceManifest(PROJECT.implementation_project_id, {

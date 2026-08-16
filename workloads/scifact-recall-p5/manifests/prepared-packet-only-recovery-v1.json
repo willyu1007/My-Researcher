@@ -1,0 +1,160 @@
+{
+  "schema_version": "ScientificEvidenceP5PacketOnlyRecoveryPrepared@v1",
+  "status": "eligible",
+  "recovery_package": {
+    "schema_version": "ScientificEvidenceP5PacketOnlyRecoveryPackage@v1",
+    "recovery_attempt_id": "t136-p5-packet-only-recovery-1",
+    "predecessor": {
+      "continuation_attempt_id": "t136-p5-closure-packet-continuation-2",
+      "package_hash": "sha256:6b356bc4cac7b04c9b68b44fa651cdda4e91b7a9bb4af6291c7b5f4273551b04",
+      "prepared_record_sha256": "sha256:76430fd9969c5da54481e817cf7f127923462d81ce6711d64bcbdac546dc89f2",
+      "acceptance_record_sha256": "sha256:f65872475573231d33eee9715810b5c67c7b11a31b4be76428a2fd40067f2bae",
+      "claim_record_sha256": "sha256:305e7357468fef04169844cc5a695b71801c7a608721b1cbb14d69a2f688db55",
+      "terminal_record_sha256": "sha256:8d60689c0be68d842eed43b51b7cab62d65161ec39e807d6040a3eb30c844d49",
+      "completion_absent": true,
+      "terminal_reason_code": "T136_P5_CLOSURE_PACKET_CONTINUATION_FAILED",
+      "source_successor": {
+        "successor_attempt_id": "t136-p5-packet-trace-result-analysis-successor-3",
+        "package_hash": "sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88",
+        "prepared_record_sha256": "sha256:76922d5e283ede9d2e9d36419847aa85ccc95d1c86e2d279faa254e9f6102a4a",
+        "acceptance_record_sha256": "sha256:f2d50e386dc96a46c564749bfeb22e7bfe3ca2f5ae481a3e5a313c0a556e1786",
+        "claim_record_sha256": "sha256:bfc305f8d67df78d85f888febe896b16f6dfdb88d716b0a8bdce8ba4f0303ff2",
+        "completion_record_sha256": "sha256:44e375cb6efaa8bf0245336a7d55bbe5b03905ca313f408d37dba0924d3c94ca"
+      }
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "closure": {
+        "closure_id": "pi_validation_cycle_closure_v2_29e9c28ea2f3bc4be39eb4e8e736f432624384e9056070ba1f06ebc8cccccbce",
+        "closure_snapshot_hash": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68",
+        "closure_kind": "scientific_evidence_assessed",
+        "accepted_proposal_id": "pi_runtime_final_b8f3bf37-2f23-4a58-9ff3-6513ba0814fe",
+        "accepted_proposal_hash": "bb7527851c14d1fcfff1afba3f65de79bab86035a35e6551b33cdd93518d54ee",
+        "scientific_disposition": "positive",
+        "created_at": "2026-08-16T01:20:29.824Z"
+      },
+      "terminal_outbox": {
+        "outbox_id": "pi_validation_cycle_closure_outbox_v2_72953d1397dadad52403ef147732e6b81acdbf767f47ed0a624fa63ac3c553c8",
+        "event_id": "pi_validation_cycle_closed_event_v1_cb2c796c3df59150c3022bf33cfed455e7204c022ca139582f7efd0adedeb332",
+        "event_envelope_hash": "sha256:b0ac5b938548873f10e90a49d2cd0bc54f9fe04723e281032b46d18014ca3602",
+        "payload_hash": "sha256:39c7364d85e2aa8fea5805353fe2a329b54e2765788483b40df2e101ddebe586",
+        "relay_status": "terminal",
+        "relay_attempt_count": 1,
+        "last_relay_error_code": "RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT",
+        "terminal_updated_at": "2026-08-16T01:20:29.862Z"
+      },
+      "processed_inbox": {
+        "inbox_id": "pi_projection_feed_inbox_84318486-0f4c-4d16-90ec-ac3c76906fb5",
+        "consumer_name": "pi-projection-feed-v2",
+        "event_id": "pi_validation_cycle_closed_event_v1_cb2c796c3df59150c3022bf33cfed455e7204c022ca139582f7efd0adedeb332",
+        "event_envelope_hash": "sha256:b0ac5b938548873f10e90a49d2cd0bc54f9fe04723e281032b46d18014ca3602",
+        "payload_hash": "sha256:39c7364d85e2aa8fea5805353fe2a329b54e2765788483b40df2e101ddebe586",
+        "status": "processed",
+        "outcome": "processed",
+        "processed_at": "2026-08-16T01:20:29.847Z"
+      },
+      "packet": {
+        "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+        "packet_content_hash": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36",
+        "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_result_packet",
+        "created_at": "2026-08-16T01:20:29.824Z"
+      },
+      "current_effects": {
+        "packet_trace_manifests": 1,
+        "packet_trace_repair_queue_items": 0,
+        "runtime_artifacts": 4,
+        "runtime_admissions": 4,
+        "closures": 1,
+        "packets": 0,
+        "validation_cycle_closed_outboxes": 1,
+        "validation_cycle_closed_inboxes": 1,
+        "undelivered_integration_outboxes": 1,
+        "claims": 0,
+        "dossiers": 0
+      }
+    },
+    "executor": {
+      "mode": "packet_only_terminal_outbox_recovery",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-packet-only-recovery.ts",
+      "sha256": "sha256:e66aed48b2aa2d70846d871cbe86ac99c081425e7fec3bd0c2ce39b7afddf0ef"
+    },
+    "source_binding": {
+      "source_files": [
+        {
+          "path": "apps/backend/src/repositories/experiment-v2-stored-integration-event.ts",
+          "sha256": "sha256:74d993d850fd3ec6c7fdddef5c60cba54deb4b44cecc378cc5769a5ff07de186"
+        },
+        {
+          "path": "apps/backend/src/repositories/paper-implementation-result-claim-dossier.repository.ts",
+          "sha256": "sha256:d79ebb5cb39f0b69db005a8d2be28e67158cc691a692fdb0b3dd86709d3f9c78"
+        },
+        {
+          "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.ts",
+          "sha256": "sha256:0c6de4975a0135b0b0399994c3c61ab88a62a4c33a2e81abe7566474148ed80d"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts",
+          "sha256": "sha256:632508f4a87d3a3758c068cdb21b736b29de3373d4e77ee09601065f2f02d9b4"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-attempt-terminal-service.ts",
+          "sha256": "sha256:18d13cfead9bc6ddb8e1d0631f1d4cd4e33e652bc1e9d191c438da1b17816574"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-packet-only-recovery-service.ts",
+          "sha256": "sha256:471f6f0f8cbc090dd70ed0ca5e2ba650f49acaa3da712e86a7882a33b9adf47d"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "packet-only-recovery-20260816-1008/t136-p5-packet-only-recovery-point.json",
+      "created_at": "2026-08-16T02:12:11.339Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:721efdcc295cc9d469b1165a3f294bcd892bf8c6dd07635f89cae0636a8079d6",
+      "schema_dump_sha256": "sha256:4fd36ce5d968226bd98c55b4f3956270e22c4fa3e2adfb9d67482333f90af9fd",
+      "authority_data_dump_sha256": "sha256:763033f78655f42b014dc114932be1fd298ddb355fbffa2e12a56e2090b3e9e8",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "packet_only_terminal_outbox_recovery",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "integration_outbox_write_count": 0,
+      "projection_inbox_write_count": 0,
+      "packet_write_count_max": 1,
+      "terminal_outbox_delivery_count_max": 1,
+      "terminal_outbox_reset_count": 0,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-16T02:12:20.059Z",
+      "authorization_not_after": "2026-08-16T08:12:20.059Z",
+      "execute_not_after": "2026-08-16T08:42:20.059Z"
+    },
+    "package_hash": "sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5PacketOnlyRecoveryEligibility@v1",
+    "package_hash": "sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:9db4636b7d27b10e480422442ec8c523e2c440d022b8ad8e50686b4b62391458"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

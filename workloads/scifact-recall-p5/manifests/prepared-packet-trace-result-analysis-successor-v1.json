@@ -1,0 +1,171 @@
+{
+  "schema_version": "ScientificEvidenceP5PacketTraceResultAnalysisSuccessorPrepared@v1",
+  "status": "eligible",
+  "successor_package": {
+    "schema_version": "ScientificEvidenceP5PacketTraceResultAnalysisSuccessorPackage@v1",
+    "successor_attempt_id": "t136-p5-packet-trace-result-analysis-successor-3",
+    "source_result_analysis": {
+      "recovery_attempt_id": "t136-p5-result-analysis-recovery-3",
+      "package_hash": "sha256:79687bf823c52f440664da71ec56ba323ffedbc244815cc3a04593103b7cb9d1",
+      "prepared_record_sha256": "sha256:040aacadb667978bbac68467735520dd754d84994f16af0930c2aa3bb957b25e",
+      "acceptance_record_sha256": "sha256:0412dd4599cfdbbb4c83418f615fd8cea34f919f5a9bac6a831cd751a046fac4",
+      "claim_record_sha256": "sha256:028ba97217322d6793e0e1a5b9ccff09fff0b8afd54d57ceed7d6fbb1ad33b04",
+      "completion_record_sha256": "sha256:5f34349f4762f0ab20f0332dc7d38dd3b107d0a6b04311a9160dcef8913f4d95",
+      "final_artifact": {
+        "id": "pi_runtime_final_3dce68b1-2edf-4253-88dd-75a8fcf6b5f9",
+        "artifact_identity_hash": "a157993b82dc2b7f0c912e4152c54c58ab1b29185ef5574f9ac70d6ec40b1048",
+        "runtime_identity_hash": "8ba5d6e0e59e7c2438d5bdfcccc7671d59b236b27ae7f0a7a8f79deeb7100c43",
+        "final_artifact_hash": "10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7"
+      },
+      "final_admission": {
+        "id": "pi_runtime_admission_d9bb6050-839c-4377-ba80-0faca5245b90",
+        "admission_identity_hash": "f13675ec48773a166e6b45af973b45c11f50d531823cced40a3314b4552deb68",
+        "runtime_artifact_hash": "a157993b82dc2b7f0c912e4152c54c58ab1b29185ef5574f9ac70d6ec40b1048",
+        "admitted_artifact_hash": "10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7",
+        "status": "admitted"
+      }
+    },
+    "source_continuation": {
+      "continuation_attempt_id": "t136-p5-closure-packet-continuation-1",
+      "package_hash": "sha256:0d68a8789fbc97673dbbc5e0d7488370e82a4bde1098fa8cb9a01b922593247a",
+      "prepared_record_sha256": "sha256:5db1f0e27ebd26c04edca4300f44b394b499e55db24204d55df411b5fd8b0dbf",
+      "acceptance_record_sha256": "sha256:8f553760bc46e9cb02fb02510f14d1f7fc1a0439fc4f50b7d2a9590ff92bfd97",
+      "claim_record_sha256": "sha256:5a3dda0c2ed10941b5a31bbd8c268e67cc12d9b5fabb1180ad328ef82028da02",
+      "terminal_record_sha256": "sha256:3ef341ba46aeaec60c0df393efc94c92068d455148668d6bfdef4a2b307271d9",
+      "terminal_reason_code": "T136_P5_CLOSURE_PACKET_CONTINUATION_FAILED"
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "expected_cycle_version": 0,
+      "closure_watermark_hash": "sha256:c3afe15f75e931877ca951dfd4e40de2fd8d3e864ca9b5705c99a3305b0c5898",
+      "run_id": "ef_run_v2_t136_p5_scifact_v4_1",
+      "run_manifest_hash": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+      "source_cycle_trace": {
+        "id": "trace_manifest_t136_p5_scifact_v4",
+        "identity_hash": "sha256:dd17b3d1f6d38662d27a8ef0f8f8f897af6f967d4dec3ca32eb1b3350ad8039e",
+        "target_ref_type": "validation_cycle",
+        "target_ref_id": "validation_cycle_t136_p5_scifact_v4",
+        "trace_status": "complete"
+      },
+      "packet_trace": {
+        "id": "trace_manifest_t136_p5_scifact_v4_result_packet",
+        "target_ref_type": "result_interpretation_packet",
+        "target_ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+        "target_version_id": null,
+        "expected_status": "complete"
+      },
+      "current_effects": {
+        "packet_trace_manifests": 0,
+        "runtime_artifacts": 2,
+        "runtime_admissions": 2,
+        "closures": 0,
+        "packets": 0,
+        "validation_cycle_closed_outboxes": 0,
+        "validation_cycle_closed_inboxes": 0,
+        "undelivered_integration_outboxes": 0
+      }
+    },
+    "runtime_request": {
+      "run_mode": "product",
+      "execution_mode": "provider_llm",
+      "runtime_run_id": "pi_result_analysis_runtime_t136_p5_scifact_v4_packet_trace_successor_3",
+      "model_profile_id": "paper-implementation.result-analysis.interpretation-scenarios.v1",
+      "model_option_id": "paper-implementation.result-analysis.interpretation-scenarios.v1.openai-balanced",
+      "model_profile_hash": "sha256:83e428c1d38653fae535e6a6edc99dc4db6d6b6d1ce86868607540e87ac6a338",
+      "normalized_params_hash": "sha256:c80bce3317b4be82c2f02024af9534a5d571055a847cf680a4699c8e1b0267ac",
+      "provider_id": "openai",
+      "model_id": "gpt-5.6-sol",
+      "max_provider_call_count": 2,
+      "target_version_id": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "input_snapshot_ref_id": "implementation_input_snapshot_t136_p5_scifact_v4_packet_trace_successor_3",
+      "input_snapshot_hash": "sha256:8ac7dab1bf151f1a9584bc786538ce28a567a90f538bd70f0ace8ea9556bb6cf",
+      "source_hashes": [
+        "sha256:53e3f0536cb9ce45f40dd1834139ce233359500c574956d104818b6157b0c0b3",
+        "sha256:8fc1e3923abc10a3f30162817cf1d2573d3913ba4845b042da7d0c034ba5414d"
+      ]
+    },
+    "executor": {
+      "mode": "packet_trace_then_result_analysis",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-packet-trace-result-analysis-successor.ts",
+      "sha256": "sha256:504136baac468e32245d210c26b8329ef8a36de63cb896dbafbe7b561d62b867"
+    },
+    "source_binding": {
+      "source_files": [
+        {
+          "path": "apps/backend/src/services/paper-implementation-trace-kernel-service.ts",
+          "sha256": "sha256:0323fb2cccfe19cbd0e875945ad506e29760c6569078ed14bb81c9cf95a22872"
+        },
+        {
+          "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-trace-repository.ts",
+          "sha256": "sha256:0f6528715be97820ce441064987d2121c7d452d8f76d391b5a4c38f67d1aaf40"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-analysis-runtime-service.ts",
+          "sha256": "sha256:10d50444af5c8210057af63a99a37b092d85d20a1ba7d4318ba1e3dfa665bf00"
+        },
+        {
+          "path": "apps/backend/src/services/topic-selection-agent-orchestrator-service.ts",
+          "sha256": "sha256:d0f97ec49b7b91dfb76c8708a4d7d65cc1c7f5153845c18925805fe073da2e96"
+        },
+        {
+          "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-validation-cycle-closure-v2-repository.ts",
+          "sha256": "sha256:ba14bbff3c3a5ae0f7bcc3d2666d43a239f62dc1cd4078995284096f44ef627f"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-packet-trace-result-analysis-successor-service.ts",
+          "sha256": "sha256:cfb76a4c7e72638323c6064facd7de868151c35821922a7c9cb83d19b99463fe"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "packet-trace-result-analysis-successor-20260815-2107/t136-p5-packet-trace-result-analysis-successor-recovery-point.json",
+      "created_at": "2026-08-15T13:18:31.003Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:cab41fd112e4cdcedf5b838328a4213b63e5d3a04b6b494884b37336ca46ebf7",
+      "schema_dump_sha256": "sha256:6b47a84f77bd188858bf3e395c7c498f78e6f4b8bdbddb6b4862712d89ca62cd",
+      "authority_data_dump_sha256": "sha256:8249bc1951f55e44dc72b6c79c72a689e37812fd86abc6b6918e034adcfb4e99",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "packet_trace_result_analysis_successor",
+      "external_provider": "openai",
+      "provider_call_count_max": 2,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "trace_manifest_write_count_max": 1,
+      "trace_repair_queue_write_count": 0,
+      "runtime_artifact_write_count_max": 2,
+      "runtime_admission_write_count_max": 2,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "packet_write_count": 0,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-16T00:42:36.247Z",
+      "authorization_not_after": "2026-08-16T06:42:36.247Z",
+      "execute_not_after": "2026-08-16T07:12:36.247Z"
+    },
+    "package_hash": "sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5PacketTraceResultAnalysisSuccessorEligibility@v1",
+    "package_hash": "sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:c4ec77975770327a8cac684a6699f9c2f05d0b3331462e5c19802ddb719fb569"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

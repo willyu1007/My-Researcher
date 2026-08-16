@@ -1,0 +1,36 @@
+{
+  "schema_version": "ScientificEvidenceP5ClaimDossierFinalAcceptanceAuthorization@v1",
+  "status": "authorized_pending_execute",
+  "acceptance_attempt_id": "t136-p5-claim-dossier-final-acceptance-1",
+  "package_hash": "sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-16T06:56:34.090Z",
+    "text_utf8_sha256": "sha256:5c0bebe19195894d3d173e942300ee6e69053220dca4a125cdd6a474723fe189",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "authorized_effects": {
+      "operation": "claim_dossier_final_acceptance",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "integration_outbox_write_count": 0,
+      "projection_inbox_write_count": 0,
+      "packet_write_count": 0,
+      "trace_manifest_write_count_max": 2,
+      "trace_repair_queue_write_count": 0,
+      "claim_trace_packet_write_count_max": 1,
+      "trace_gate_result_write_count_max": 1,
+      "claim_write_count_max": 1,
+      "dossier_write_count_max": 1,
+      "writing_entry_packet_write_count": 0,
+      "human_confirmation_write_count": 0,
+      "m0_sci_acceptance_record_write_count_max": 1,
+      "persistent_capability_change_count": 0
+    }
+  }
+}

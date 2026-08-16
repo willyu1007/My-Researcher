@@ -1,0 +1,25 @@
+{
+  "schema_version": "ScientificEvidenceP5ResultAnalysisRecoveryAcceptance@v1",
+  "status": "authorized_pending_execute",
+  "recovery_attempt_id": "t136-p5-result-analysis-recovery-3",
+  "package_hash": "sha256:79687bf823c52f440664da71ec56ba323ffedbc244815cc3a04593103b7cb9d1",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-15T09:26:42.890Z",
+    "text_utf8_sha256": "sha256:7c4d9294f5c12882dac73f8cef247f0b5c0154427dd7f9d38d0a83a1f7b6ee44",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "authorized_effects": {
+      "operation": "result_analysis_diagnostic_recovery",
+      "external_provider": "openai",
+      "provider_call_count_max": 2,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count_max": 2,
+      "runtime_admission_write_count_max": 2,
+      "closure_write_count": 0,
+      "packet_write_count": 0,
+      "persistent_capability_change_count": 0
+    }
+  }
+}

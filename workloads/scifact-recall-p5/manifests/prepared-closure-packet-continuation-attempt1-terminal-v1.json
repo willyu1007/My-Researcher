@@ -1,0 +1,125 @@
+{
+  "schema_version": "ScientificEvidenceP5ClosurePacketContinuationPrepared@v1",
+  "status": "eligible",
+  "continuation_package": {
+    "schema_version": "ScientificEvidenceP5ClosurePacketContinuationPackage@v1",
+    "continuation_attempt_id": "t136-p5-closure-packet-continuation-1",
+    "source_result_analysis": {
+      "recovery_attempt_id": "t136-p5-result-analysis-recovery-3",
+      "package_hash": "sha256:79687bf823c52f440664da71ec56ba323ffedbc244815cc3a04593103b7cb9d1",
+      "prepared_record_sha256": "sha256:040aacadb667978bbac68467735520dd754d84994f16af0930c2aa3bb957b25e",
+      "acceptance_record_sha256": "sha256:0412dd4599cfdbbb4c83418f615fd8cea34f919f5a9bac6a831cd751a046fac4",
+      "completion_record_sha256": "sha256:5f34349f4762f0ab20f0332dc7d38dd3b107d0a6b04311a9160dcef8913f4d95",
+      "final_artifact": {
+        "id": "pi_runtime_final_3dce68b1-2edf-4253-88dd-75a8fcf6b5f9",
+        "artifact_identity_hash": "a157993b82dc2b7f0c912e4152c54c58ab1b29185ef5574f9ac70d6ec40b1048",
+        "runtime_identity_hash": "8ba5d6e0e59e7c2438d5bdfcccc7671d59b236b27ae7f0a7a8f79deeb7100c43",
+        "final_artifact_hash": "10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7"
+      },
+      "final_admission": {
+        "id": "pi_runtime_admission_d9bb6050-839c-4377-ba80-0faca5245b90",
+        "admission_identity_hash": "f13675ec48773a166e6b45af973b45c11f50d531823cced40a3314b4552deb68",
+        "runtime_artifact_hash": "a157993b82dc2b7f0c912e4152c54c58ab1b29185ef5574f9ac70d6ec40b1048",
+        "admitted_artifact_hash": "10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7",
+        "status": "admitted"
+      }
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "expected_cycle_version": 0,
+      "closure_watermark_hash": "sha256:c3afe15f75e931877ca951dfd4e40de2fd8d3e864ca9b5705c99a3305b0c5898",
+      "run_id": "ef_run_v2_t136_p5_scifact_v4_1",
+      "run_manifest_hash": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+      "current_effects": {
+        "runtime_artifacts": 2,
+        "runtime_admissions": 2,
+        "closures": 0,
+        "packets": 0,
+        "validation_cycle_closed_outboxes": 0,
+        "validation_cycle_closed_inboxes": 0,
+        "undelivered_integration_outboxes": 0
+      }
+    },
+    "closure_request": {
+      "closure_kind": "scientific_evidence_assessed",
+      "accepted_proposal_id": "pi_runtime_final_3dce68b1-2edf-4253-88dd-75a8fcf6b5f9",
+      "expected_proposal_hash": "10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7",
+      "idempotency_key": "t136-p5-closure-packet-continuation-1:scientific-close"
+    },
+    "executor": {
+      "mode": "closure_packet_only",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-closure-packet-continuation.ts",
+      "sha256": "sha256:33157c60604b8b7e728c4a8699538f8923ff33bdf558d98bab2b424f813af607"
+    },
+    "source_binding": {
+      "source_files": [
+        {
+          "path": "apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts",
+          "sha256": "sha256:834ea3571fc8cfda651fa8be879ac0827c22defdfbea5fe7c5218c928e22f313"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts",
+          "sha256": "sha256:991af3c35d525357cb26e04808ce44964f8ad7c0770d1795a732adc8410c97f8"
+        },
+        {
+          "path": "apps/backend/src/services/experiment-v2-integration-relay-service.ts",
+          "sha256": "sha256:dd626aedfff7076f85a191665c51968e5d03b7937ac45e8650c8234d9a31aa62"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-projection-feed-v2-consumer.ts",
+          "sha256": "sha256:cd871e00c0bfd21b43be4fa0aaa52d2047e16327f60fd142e2a356e34e6f868f"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "closure-packet-continuation-20260815-1735/t136-p5-closure-packet-recovery-point.json",
+      "created_at": "2026-08-15T10:23:51.861Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:f5a7d6b07d059f13d3b3d3050e8741bfded40ee039d34dd689c2be9740850fde",
+      "schema_dump_sha256": "sha256:3890d4d8b198f1c8b06e937fbd35f18eb87f2ca0aaf69f23b208e8737355010b",
+      "authority_data_dump_sha256": "sha256:9ddb1b0521b5c258161f751cd75e5a269dbe15daa977d07b23edb39cf1025dd3",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "closure_packet_continuation",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count_max": 1,
+      "closure_write_count_max": 1,
+      "integration_outbox_write_count_max": 1,
+      "projection_inbox_write_count_max": 1,
+      "packet_write_count_max": 1,
+      "outbox_delivery_count_max": 1,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-15T10:26:40.500Z",
+      "authorization_not_after": "2026-08-15T16:26:40.500Z",
+      "execute_not_after": "2026-08-15T16:56:40.500Z"
+    },
+    "package_hash": "sha256:0d68a8789fbc97673dbbc5e0d7488370e82a4bde1098fa8cb9a01b922593247a"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5ClosurePacketContinuationEligibility@v1",
+    "package_hash": "sha256:0d68a8789fbc97673dbbc5e0d7488370e82a4bde1098fa8cb9a01b922593247a",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:1b94d4b02c11dc07eaea4a0319ec6f755fd85e879575bf35eaf838cdf703f59d"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

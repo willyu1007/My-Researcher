@@ -1153,6 +1153,17 @@ export class PaperImplementationResultAnalysisRuntimeService {
     if (request.source_refs.length !== request.source_hashes.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'source_refs and source_hashes must have the same length.');
     }
+    const runtimeHashPattern = /^[a-f0-9]{64}$/;
+    if (
+      !runtimeHashPattern.test(request.input_snapshot_hash)
+      || !request.source_hashes.every((hashValue) => runtimeHashPattern.test(hashValue))
+    ) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'input_snapshot_hash and source_hashes must be bare SHA-256 hashes.',
+      );
+    }
     if ('scientific_closure_context' in request) {
       throw new AppError(
         400,

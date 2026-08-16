@@ -156,6 +156,30 @@ test('result analysis runtime records role and final artifacts with telemetry', 
   assert.equal(stableStringify(result).includes('rendered_prompt_text'), false);
 });
 
+test('result analysis rejects prefixed runtime hashes before provider calls', async () => {
+  const { service, repository, orchestrator } = serviceFixture();
+  const request = providerRequest();
+  await assert.rejects(
+    () => service.runInterpretationScenarios(PROJECT_ID, {
+      ...request,
+      input_snapshot_hash: `sha256:${request.input_snapshot_hash}`,
+      source_hashes: request.source_hashes.map((hashValue) => `sha256:${hashValue}`),
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 400);
+      assert.equal(error.errorCode, 'INVALID_PAYLOAD');
+      assert.equal(
+        error.message,
+        'input_snapshot_hash and source_hashes must be bare SHA-256 hashes.',
+      );
+      return true;
+    },
+  );
+  assert.equal(orchestrator.calls.length, 0);
+  assert.equal((await repository.listRuntimeArtifacts(PROJECT_ID)).length, 0);
+});
+
 test('P3 scientific context versions one admitted actual-result closure proposal', async () => {
   const { service, orchestrator } = serviceFixture();
   const context = scientificContextResolution().context;

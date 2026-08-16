@@ -950,3 +950,81 @@ The gate is a global fail-closed runner invariant rather than a new package auth
 - The secure handoff must derive `issued_at = Expiration - credential_policy.issued_duration_seconds`, serialize it in canonical UTC form, and independently prove that the derived instant lies within the package issuance/dispatch window and that `Expiration` does not exceed `automatic_expiration_not_after`.
 - Integrity remains tuple-bound to the derived non-secret metadata and the three secret fields. Qualification still rechecks exact lifetime and window bounds before constructing any provider client, so malformed timing fails locally with zero read-only or paid calls.
 - Terminal attempt 16 is not a migration target for this rule. The correction can apply only to a fresh attempt/package after the current STS automatic-expiration upper bound.
+
+### Cycle-trace and Packet-trace identity boundary
+
+- A ValidationCycle trace and a ResultInterpretationPacket trace may carry the same trusted lineage, but they are different authority records because `target_ref` is part of trace identity. A complete Cycle-targeted trace cannot satisfy a Packet materialization request.
+- Fresh P5 staging therefore owns two explicit trace ids: the Cycle trace remains bound to ValidationCycle admission, while the Packet trace targets `result_interpretation_packet_t136_p5_scifact_v4` with `version_id=null`. ResultAnalysis scientific intent, recovery and Closure source refs bind only the Packet trace.
+- The official `findAdmittedScientificClosureProposal()` resolver remains authoritative and unchanged. Continuation preparation and execute must call it against the exact admitted final artifact id/hash and fail before any business write unless it returns an exact Packet materialization request.
+- Existing admitted ResultAnalysis artifacts are immutable. If one binds the wrong trace, remediation creates a new trace and a successor ResultAnalysis artifact/admission under a separately authorized package; it never rewrites the old artifact, weakens the resolver or replays a terminal continuation attempt.
+- Historical stage-one apply is not a one-row repair tool. Its initial-scope census now includes the Packet trace, so the already materialized v4 Cycle/Run without that trace is classified `partial` and fails before writes. Current-state repair requires its own bounded package and recovery point.
+
+### Packet-trace ResultAnalysis successor boundary
+
+- `packet_trace_result_analysis_successor` is an independent exact-once attempt stage; it does not reuse the terminal continuation claim and has no predecessor in the credential/live chain.
+- Its package binds the completed ResultAnalysis recovery, the terminal Closure/Packet continuation, current `0/2/2/0/0` authority, five production source files, executor bytes and one repository-external recovery point.
+- The only permitted business writes are at most one Packet-targeted TraceManifest plus two ResultAnalysis RuntimeArtifacts and two admissions. The executor cannot write a trace-repair queue item, ValidationCycle state, Closure, Packet, Claim, Dossier or integration event, and it cannot call PAI/Alibaba or persist capabilities.
+- Packet trace creation reuses the verified complete Cycle trace lineage and policy but replaces the target with the exact ResultInterpretationPacket identity. ResultAnalysis binds that new trace and the existing Packet id; completion requires the unchanged official resolver to return that exact pair.
+- The trace and ResultAnalysis writes are deliberately one successor operation, not an in-place repair plus reuse of the old final artifact. A failure after trace creation permanently consumes this attempt and must be handled from the bound recovery point under new authority.
+- Expired-package rotation is fail-closed and byte-preserving. Preparation recognizes only the exact known predecessor package/manifest hashes, requires its execute window and every acceptance/attempt record to be absent, atomically renames it to an attempt-specific expired archive, then generates a new attempt/runtime/input-snapshot identity. A crash after the rename can resume from the exact archive but cannot overwrite or reinterpret it.
+## Packet Trace experiment-lineage correction — 2026-08-16
+
+- A complete ValidationCycle trace is not sufficient input for a ResultInterpretationPacket trace: completeness is target-relative. The Cycle trace may be complete through decision lineage while carrying no experiment lineage.
+- Packet lineage is now assembled from the Cycle trace as a structural base plus the exact authoritative RunEvidenceUnit returned by `PaperImplementationScientificClosureContextService` under the package-bound Cycle watermark. The P5 builder accepts exactly one `run_evidence_unit`, requires the project title card and a `sha256:` content version, and replaces rather than appends `run_evidence_refs`.
+- Preparation and execution use the same typed builder. Preparation proves that current named-local closure authority can produce the lineage without writes; execution creates the Trace, then verifies `complete` and zero manifest-scoped repair items before constructing the ResultAnalysis runtime.
+- The corrected helper source becomes the sixth bound source file for newly generated packages. The v1 validator continues accepting historical five-file packages so terminal/expired records remain verifiable; new preparation emits six bindings.
+- No schema, migration, resolver invariant or effect ceiling changes. Missing/malformed authoritative evidence still fails closed before provider entry, and the executor still rejects any unexpected repair-item ID request.
+
+### Terminal-predecessor rotation boundary
+
+- Fresh successor preparation accepts attempt 2 only as one exact terminal tuple: prepared manifest, acceptance, claim and terminal hashes must match the frozen constants and completion must remain absent. It cannot reinterpret, overwrite or replay those records.
+- First-write preparation atomically renames the current attempt-2 prepared and acceptance records to attempt-specific terminal archives, syncs the manifest directory, then creates successor 3 under new attempt/runtime/input identities. A no-write replay accepts only the resulting exact archive/current layout.
+- Historical attempt 1 remains a distinct expired archive. Expiry and terminality are separate predecessor states and are never collapsed into one generic rotation rule.
+- Recovery point, target authority, effect ceilings and downstream resolver stay unchanged. The fresh package changes only successor identities, operational window and source hashes required by the approved lineage fix.
+
+### Successful successor handoff boundary
+
+- Successor completion owns exactly one Packet-targeted complete Trace and one new admitted ResultAnalysis role/final pair. The previous admitted pair remains immutable historical evidence; downstream continuation must select the new final artifact and its admission explicitly rather than relying on latest-row ordering.
+- Official proposal resolution is the handoff proof: it must resolve the new final artifact/hash to the exact Packet id plus `trace_manifest_t136_p5_scifact_v4_result_packet`. Successor completion records that proof but does not materialize Closure or Packet.
+- A later continuation package must reread and hash-bind successor-3 acceptance, claim and completion plus the new artifact/admission and current `1/0/4/4/0/0` Trace/repair/artifact/admission/Closure/Packet state. It must not call ResultAnalysis again or reuse the terminal continuation-1 package.
+- Closure/Packet execution remains an independent exact-once stage and authorization. Claim/Dossier remains outside that package so the P5 chain retains explicit scientific closure and final acceptance boundaries.
+
+### Post-successor Closure/Packet continuation boundary
+
+- `ScientificEvidenceP5ClosurePacketContinuationPackage@v1` remains the single package schema and is backward-compatible at its source edge. Historical evidence uses the completed ResultAnalysis-recovery tuple; new packages use an explicit `packet_trace_result_analysis_successor` source with exact prepared, acceptance, claim and completion hashes. The two source variants cannot be mixed.
+- The successor source binds final artifact `pi_runtime_final_b8f3bf37-2f23-4a58-9ff3-6513ba0814fe`, its exact admitted record and the current Packet-targeted Trace. Package validation requires Trace status `complete`, target type/id equal to the requested Packet and current counts Trace/repair/artifact/admission/Closure/Packet `1/0/4/4/0/0`.
+- Source-byte binding grows from four historical production files to five for the successor continuation by including the continuation contract itself. This lets the immutable package cover the new source-union/current-authority rules without invalidating verification of the terminal continuation-1 package.
+- Preparation invokes the unchanged official proposal resolver before package materialization and requires it to return the exact Packet id and Packet Trace for the new final artifact/hash. Execution repeats the same read-only proof before its exact-once claim and again relies only on the maintained Closure service, relay, projection consumer and Packet materializer.
+- Continuation-1 is archived only as one exact terminal tuple; its prepared/acceptance bytes are retained under attempt-specific names while its claim/terminal stay in place and completion remains absent. Continuation-2 receives a new attempt and idempotency identity and cannot inherit the predecessor's acceptance.
+- The repository-external recovery point is post-successor and pre-Closure: complete schema plus the exact 114-table authority set, canonical fingerprint and strict `0700` directory/`0600` file permissions. Package and runner reject recovery fingerprint, dump hash, size, TOC-count or permission drift.
+- The fixed execution budget is still Closure/Packet-only: at most one ValidationCycle update, Closure, integration outbox, projection inbox, Packet and delivery; external provider, PAI/Alibaba, runtime artifact/admission, Claim, Dossier and persistent capability changes are exactly zero. Process-local Closure capability exists only inside the claimed operation and is removed in `finally`.
+
+### Partial Closure / Packet recovery boundary
+
+- Closure transaction and `ValidationCycleClosed` relay consumption are intentionally separate commit boundaries. A valid Closure can therefore persist with its outbox while the composite consumer's projection half commits and Packet materialization fails. The durable outbox terminal status prevents an unreviewed automatic retry.
+- Current authority is exactly one completed scientific Cycle, one immutable Closure, one terminal `ValidationCycleClosed` outbox, one processed projection inbox and zero Packets. A successor must not call the close command again, mutate the Closure or erase/requeue the terminal outbox in place.
+- ResultAnalysis role refs may retain the optional historical field `legacy_ref: null`; service-assembled Domain Gate refs deliberately canonicalize to the four current identity fields. Packet agreement must compare the semantic current ref representation instead of raw JSON object shape while continuing to reject type/id/title-card/version drift, changed ordering and changed reliability content.
+- Source correction and production recovery are separate authorities. A local fix may only normalize comparison plus add regression coverage. Packet creation requires a new exact-once Packet-only recovery package that binds the existing Closure/outbox/inbox, accepted proposal/admission, Packet Trace, source bytes, recovery point and current `1/0/4/4/1/0` state.
+- Packet-only recovery must reuse the maintained materializer and independently verify the exact Packet hash, one delivered outbox and zero new Closure/provider/runtime/Claim/Dossier effects. It cannot revive the terminal continuation attempt or infer write authority from fix approval.
+
+### Packet-only terminal-outbox recovery transaction
+
+- `PaperImplementationTerminalPacketRecoveryV1Repository` is an additive narrow port. Its command carries the canonical closed Packet plus exact terminal outbox and processed inbox evidence; ORM types stay inside the repository.
+- `recoverTerminalClosedResultInterpretationPacket()` uses one short serializable transaction. It verifies the Closure binding, terminal outbox identity/hash/attempt/error/timestamp/null-lease tuple and processed inbox identity/hash/status/timestamp before creating the Packet.
+- Delivery is one CAS from `terminal` directly to `delivered`; no `pending` or `leased` state is introduced. Packet insertion and the delivery marker commit or roll back together. An exact delivered replay returns the existing Packet without another write.
+- `PaperImplementationResultPacketV2Materializer.assembleClosedPacket()` exposes existing authority assembly as a read-only path. Normal `consume()` still delegates to it and persists through the maintained Packet repository.
+- The future runner is source/recovery/package bound, uses independent exact-once stage `packet_only_recovery`, and refuses Alibaba credentials plus all PAI/Closure capabilities. Execute remains unavailable without a separate exact acceptance record.
+
+### Claim/Dossier final-acceptance boundary
+
+- `ScientificEvidenceP5ClaimDossierFinalAcceptancePackage@v1` consumes the completed Packet-only tuple as immutable predecessor evidence. It binds the canonical Packet/Closure/REU/literature authorities, exact planned record hashes, ten production source files, executor bytes and the fresh external recovery point.
+- Preparation and offline preflight assemble both products through the maintained Trace Kernel and Result/Claim/Dossier service using read-only overlay repositories. The execution runner uses the same plan and production services with real repositories; there is no alternate Claim/Dossier implementation.
+- The Claim is exactly `moderate`, supported by the Packet-bound v2 REU and capped by the accepted ResultAnalysis proposal. The Dossier is `ready_for_writing`, carries the exact Closure snapshot, includes current literature lineage and preserves every Packet limitation/forbidden overclaim plus failed, inconclusive, negative and stale accounting.
+- Exact-once stage `claim_dossier_final_acceptance` is independent of earlier credential/live/closure/recovery stages. Its maximum business effects are two TraceManifests, one ClaimTracePacket, one TraceGateResult, one ClaimCandidate and one Dossier; one local `M0-SCI` acceptance file is written only after the database post-state and deterministic replay census match the package.
+- External provider, PAI/Alibaba/`CreateJob`, runtime artifact/admission, ValidationCycle, Closure, Packet, outbox/inbox, trace repair, human confirmation, WritingEntryPacket and persistent-capability effects are all exactly zero. Package preparation cannot create its acceptance record or enter execute mode.
+
+### Final resting state
+
+- The accepted final package materializes one supported moderate Claim and one ready-for-writing Dossier from the already closed Packet; it does not reopen scientific interpretation or create a second conclusion authority.
+- `M0-SCI` acceptance is a local hash-bound gate record over package, Packet, Claim, Dossier and replay accounting. It proves this bounded scientific path completed; it is not a capability flag, deployment action, prose-writing action or global M0 release switch.
+- Resting scientific capabilities remain disabled. A future rollout must be separately scoped, reviewed and reversible; T-136 supplies evidence for that decision but grants no rollout authority.

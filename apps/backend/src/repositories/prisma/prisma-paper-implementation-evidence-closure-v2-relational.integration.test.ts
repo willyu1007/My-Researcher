@@ -414,6 +414,28 @@ test(
         data: { recordPayload: jsonInput(admissionBeforePayloadTamper.recordPayload) },
       });
 
+      const packetTraceBeforeTargetTamper = await prisma.paperImplementationTraceManifest
+        .findUniqueOrThrow({
+          where: { id: proposal.traceId },
+          select: { targetRefType: true, targetRefId: true },
+        });
+      await prisma.paperImplementationTraceManifest.update({
+        where: { id: proposal.traceId },
+        data: {
+          targetRefType: 'validation_cycle',
+          targetRefId: fixture.validationCycleId,
+        },
+      });
+      await assert.rejects(service.close(request), appReason('CLOSURE_PROPOSAL_STALE'));
+      assert.deepEqual(await closureCounts(prisma, fixture.validationCycleId), {
+        closures: 0,
+        closedOutboxes: 0,
+      });
+      await prisma.paperImplementationTraceManifest.update({
+        where: { id: proposal.traceId },
+        data: packetTraceBeforeTargetTamper,
+      });
+
       const evidenceBeforeTamper = await prisma.paperImplementationRunEvidenceUnitV2
         .findUniqueOrThrow({
           where: { id: gateway.run_evidence_unit.run_evidence_unit_id },
@@ -2081,7 +2103,7 @@ async function runScientificClosureProposal(
     runEvidenceUnitHash: string;
     primaryFact: ScientificComparisonFactV1;
   },
-): Promise<{ proposalId: string; proposalHash: string; admissionId: string }> {
+): Promise<{ proposalId: string; proposalHash: string; admissionId: string; traceId: string }> {
   const titleCardId = `${input.fixture.namespace}:title-card`;
   const resultPacketId = `${input.fixture.namespace}:result-interpretation-packet`;
   const resultTraceId = `${input.fixture.namespace}:result-analysis-trace`;
@@ -2215,6 +2237,7 @@ async function runScientificClosureProposal(
     proposalId: artifact.runtime_artifact_id,
     proposalHash: artifact.final_artifact_hash!,
     admissionId: admitted.admission_record_id,
+    traceId: resultTraceId,
   };
 }
 

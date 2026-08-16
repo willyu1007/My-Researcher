@@ -1,0 +1,22 @@
+{
+  "schema_version": "ScientificEvidenceP5M0SciAcceptance@v1",
+  "status": "passed",
+  "gate": "M0-SCI",
+  "acceptance_attempt_id": "t136-p5-claim-dossier-final-acceptance-1",
+  "package_hash": "sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953",
+  "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+  "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+  "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+  "packet_content_hash": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36",
+  "claim_candidate_id": "claim_candidate_t136_p5_scifact_v4",
+  "claim_hash": "sha256:4297d01edf34170349bfdfc151bc9da6c1bbf8888365297a4a9e2d870aba3d3b",
+  "dossier_id": "implementation_dossier_t136_p5_scifact_v4",
+  "dossier_hash": "sha256:70568321f4712df00b0563b947ac2f64ce5fffdd94014f4b585e3480fe146ea6",
+  "create_job_call_count": 2,
+  "replay_new_row_count": 0,
+  "undelivered_integration_outbox_count": 0,
+  "persistent_capability_change_count": 0,
+  "capabilities_resting_state": "disabled",
+  "accepted_at": "2026-08-16T06:58:05.344Z",
+  "acceptance_record_hash": "sha256:7bd6d4fe74a075a8ad9d3ba08e59650b46f42e23f9ef379d9e31cf74f60cf8bb"
+}

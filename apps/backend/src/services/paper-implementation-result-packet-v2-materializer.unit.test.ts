@@ -295,6 +295,7 @@ function event(stored: PaperImplementationStoredValidationCycleClosureV2): Valid
 function fixture(options: {
   stored?: PaperImplementationStoredValidationCycleClosureV2;
   request?: CreateResultInterpretationPacketRequest;
+  proposal?: PaperImplementationScientificClosureProposalV1;
   includeEvidence?: boolean;
   packetClosureReader?: { findStoredClosureByCycle: (id: string) => Promise<PaperImplementationStoredValidationCycleClosureV2 | null> };
 } = {}) {
@@ -304,7 +305,7 @@ function fixture(options: {
     proposal_id: 'proposal-p4',
     proposal_hash: 'proposal-hash-p4',
     implementation_project_id: PROJECT_ID,
-    proposal: proposal(request),
+    proposal: options.proposal ?? proposal(request),
     packet_materialization: {
       request,
       trace_manifest_ref: ref('trace_manifest', request.trace_manifest_id),
@@ -350,6 +351,52 @@ test('P4 materializes one closure-bound Packet and exact replay returns it', asy
   assert.equal(packetHash, serverHashPaperImplementationResultInterpretationPacketV2(hashInput));
   assert.equal(first.closure_id, CLOSURE_ID);
   assert.equal(first.source.metric_refs[0]?.ref_id, 'comparison-p4');
+});
+
+test('P4 treats omitted and null legacy ref fields as the same current reliability authority', async () => {
+  const request = packetRequest();
+  request.reliability.limitation_refs = [
+    ref('evaluation_protocol_revision', 'protocol-p4', hash('protocol')),
+  ];
+  const acceptedProposal = proposal(request);
+  acceptedProposal.reliability_assessment.limitation_refs = request.reliability.limitation_refs
+    .map((item) => ({ ...item, legacy_ref: null }));
+  acceptedProposal.limitations.limitation_refs = structuredClone(
+    acceptedProposal.reliability_assessment.limitation_refs,
+  );
+
+  const { stored, materializer } = fixture({ request, proposal: acceptedProposal });
+  const packet = await materializer.consume(event(stored));
+  assert.deepEqual(packet?.reliability.limitation_refs, request.reliability.limitation_refs);
+});
+
+test('P4 still rejects current ref drift and non-null legacy reliability payloads', async () => {
+  const request = packetRequest();
+  const limitationRef = ref(
+    'evaluation_protocol_revision',
+    'protocol-p4',
+    hash('protocol'),
+  );
+  request.reliability.limitation_refs = [limitationRef];
+
+  for (const driftedRef of [
+    { ...limitationRef, version_id: hash('other-protocol') },
+    { ...limitationRef, legacy_ref: { legacy_id: 'must-not-be-ignored' } },
+  ]) {
+    const driftedProposal = proposal(request);
+    driftedProposal.reliability_assessment.limitation_refs = [driftedRef];
+    driftedProposal.limitations.limitation_refs = [structuredClone(driftedRef)];
+    const { stored, materializer, packetRepository } = fixture({
+      request,
+      proposal: driftedProposal,
+    });
+    await assert.rejects(
+      materializer.consume(event(stored)),
+      (error) => error instanceof AppError
+        && error.details?.reason_code === 'RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT',
+    );
+    assert.equal((await packetRepository.listResultInterpretationPackets(PROJECT_ID)).length, 0);
+  }
 });
 
 test('P4 retains failed/cancelled attempt accounting in Packet source', async () => {

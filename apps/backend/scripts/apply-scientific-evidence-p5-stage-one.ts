@@ -66,7 +66,7 @@ import {
 
 const AUTHORIZATION_ENV = 'T136_P5_STAGE_ONE_APPLY_AUTHORIZATION';
 const AUTHORIZATION_VALUE =
-  'authorized-2026-08-15-t136-p5-revision19-successor-max44-no-cloud';
+  'authorized-2026-08-15-t136-p5-revision19-successor-max45-no-cloud';
 const MATERIALIZED_AT = '2026-08-15T00:00:28.000Z';
 const PROJECT_ID = 'implementation_project_642a1879-1137-40f5-b340-330b66509975';
 const SOURCE_CYCLE_ID = 'validation_cycle_t132_m7_l1_p313_v1';
@@ -75,7 +75,9 @@ const EARLIER_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v2';
 const PREVIOUS_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v3';
 const CYCLE_ID = 'validation_cycle_t136_p5_scifact_v4';
 const INPUT_SNAPSHOT_ID = 'validation_input_snapshot_t136_p5_scifact_v4';
-const TRACE_ID = 'trace_manifest_t136_p5_scifact_v4';
+const CYCLE_TRACE_ID = 'trace_manifest_t136_p5_scifact_v4';
+const PACKET_ID = 'result_interpretation_packet_t136_p5_scifact_v4';
+const PACKET_TRACE_ID = 'trace_manifest_t136_p5_scifact_v4_result_packet';
 const BUNDLE_KEY = 't136-p5-scifact-scientific-v2';
 const BUSINESS_KEY = 't136-p5-scifact-two-cell-v4';
 const ATTEMPT_ID = 't136-p5-scifact-attempt-17';
@@ -105,7 +107,7 @@ const TARGET = Object.freeze({
 const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   PaperImplementationValidationCycleInputSnapshot: 1,
   PaperImplementationValidationCycle: 1,
-  PaperImplementationTraceManifest: 1,
+  PaperImplementationTraceManifest: 2,
   PaperImplementationExperimentWorkOrderBranchV2: 1,
   PaperImplementationExperimentWorkOrderRevisionV2: 1,
   PaperImplementationExperimentWorkOrderRevisionCellV2: 2,
@@ -121,7 +123,7 @@ const EXPECTED_WRITE_TABLE_DELTAS = Object.freeze({
   ExperimentFoundationRunCellV2: 2,
   ExperimentFoundationIntegrationOutboxV2: 1,
 });
-const EXPECTED_TOTAL_DELTA = 44;
+const EXPECTED_TOTAL_DELTA = 45;
 
 const STRUCTURAL_METRICS = [
   metricRef('d19-metric-answer_accuracy', 'revision_a004dfe1-d90b-4f2f-ae97-a298c01945ec', '2a53188ea9fb8ddd80ffae77c78ce7ef02c20aa469f9c5af73aba591f85e1bbc'),
@@ -269,7 +271,8 @@ async function main(): Promise<void> {
         execution_bundle: bundle,
         implementation_project_id: PROJECT_ID,
         validation_cycle_id: CYCLE_ID,
-        trace_manifest_id: TRACE_ID,
+        cycle_trace_manifest_id: CYCLE_TRACE_ID,
+        packet_trace_manifest_id: PACKET_TRACE_ID,
         branch_id: lineage.admission.branch.branch_id,
         branch_revision_sequence: lineage.admission.revision.revision_sequence,
         work_order_revision: lineage.admission.revision,
@@ -874,12 +877,20 @@ function buildRepositories(prisma: PrismaClient) {
     new PrismaPaperImplementationValidationCycleClosureV2Repository(prisma);
   const ids = deterministicIdFactory('t136_p5_scifact_v4');
   const now = () => MATERIALIZED_AT;
-  const traceService = new PaperImplementationTraceKernelService({
+  const cycleTraceService = new PaperImplementationTraceKernelService({
     projectRepository,
     traceRepository,
     idFactory: (prefix) => prefix === 'trace_manifest'
-      ? TRACE_ID
+      ? CYCLE_TRACE_ID
       : `${prefix}_t136_p5_scifact_v4`,
+    now,
+  });
+  const packetTraceService = new PaperImplementationTraceKernelService({
+    projectRepository,
+    traceRepository,
+    idFactory: (prefix) => prefix === 'trace_manifest'
+      ? PACKET_TRACE_ID
+      : `${prefix}_t136_p5_scifact_v4_result_packet`,
     now,
   });
   const validationService = new PaperImplementationValidationCyclePlanningService({
@@ -962,7 +973,8 @@ function buildRepositories(prisma: PrismaClient) {
     efRepository,
     assetRepository,
     bundleRepository,
-    traceService,
+    cycleTraceService,
+    packetTraceService,
     validationService,
     admissionService,
     materializationService,
@@ -991,9 +1003,12 @@ async function materializeLineage(
   let cycle = await repositories.validationRepository.findValidationCycleById(PROJECT_ID, CYCLE_ID);
   if (!cycle) cycle = await repositories.validationService.createValidationCycleDraft(PROJECT_ID, request);
   assert.equal(canonical(cycle.validation_frame), canonical(request.validation_frame));
-  let trace = await repositories.traceRepository.findTraceManifestById(PROJECT_ID, TRACE_ID);
+  let trace = await repositories.traceRepository.findTraceManifestById(
+    PROJECT_ID,
+    CYCLE_TRACE_ID,
+  );
   if (!trace) {
-    trace = await repositories.traceService.createTraceManifest(PROJECT_ID, {
+    trace = await repositories.cycleTraceService.createTraceManifest(PROJECT_ID, {
       target_ref: {
         ...sourceTrace.target_ref,
         ref_type: 'validation_cycle',
@@ -1005,9 +1020,29 @@ async function materializeLineage(
     });
   }
   assert.equal(trace.trace_status, 'complete');
+  let packetTrace = await repositories.traceRepository.findTraceManifestById(
+    PROJECT_ID,
+    PACKET_TRACE_ID,
+  );
+  if (!packetTrace) {
+    packetTrace = await repositories.packetTraceService.createTraceManifest(PROJECT_ID, {
+      target_ref: {
+        ...sourceTrace.target_ref,
+        ref_type: 'result_interpretation_packet',
+        ref_id: PACKET_ID,
+        version_id: null,
+      },
+      lineage: structuredClone(sourceTrace.lineage),
+      trace_policy_version_id: sourceTrace.trace_policy_version_id,
+      created_by: 'system',
+    });
+  }
+  assert.equal(packetTrace.trace_status, 'complete');
+  assert.equal(packetTrace.target_ref.ref_type, 'result_interpretation_packet');
+  assert.equal(packetTrace.target_ref.ref_id, PACKET_ID);
   if (cycle.lifecycle_status === 'proposed') {
     cycle = await repositories.validationService.admitValidationCycle(PROJECT_ID, CYCLE_ID, {
-      trace_manifest_id: TRACE_ID,
+      trace_manifest_id: CYCLE_TRACE_ID,
       confirmation_level: 'human_confirmed',
       confirmed_by: 'human',
       created_by: 'system',
@@ -1212,11 +1247,12 @@ function buildCycleRequest(source: NonNullable<Awaited<ReturnType<PrismaPaperImp
 }
 
 async function readInitialScopeState(prisma: PrismaClient): Promise<'missing' | 'partial' | 'complete'> {
-  const [cycle, run, bundle, metricIdentity, protocolIdentity, metricRevision, protocolRevision,
-    previousCycle, previousRun] =
+  const [cycle, run, packetTrace, bundle, metricIdentity, protocolIdentity,
+    metricRevision, protocolRevision, previousCycle, previousRun] =
     await Promise.all([
     prisma.paperImplementationValidationCycle.count({ where: { id: CYCLE_ID } }),
     prisma.experimentFoundationRunV2.count({ where: { id: SUCCESSOR_RUN_ID } }),
+    prisma.paperImplementationTraceManifest.count({ where: { id: PACKET_TRACE_ID } }),
     prisma.experimentFoundationExecutionBundleIdentityV2.count({ where: { bundleKey: BUNDLE_KEY } }),
     prisma.experimentFoundationMetricDefinitionV2.findUnique({
       where: { id: 't136-p5-metric-scifact-micro-recall-ppm' },
@@ -1243,8 +1279,8 @@ async function readInitialScopeState(prisma: PrismaClient): Promise<'missing' | 
   assert.equal(protocolIdentity.currentRevisionId, PROTOCOL_REVISION_ID);
   assert.equal(previousCycle, 1, 'Revision-18 validation cycle is missing');
   assert.equal(previousRun, 1, 'Revision-18 Run is missing');
-  if (cycle === 0 && run === 0) return 'missing';
-  return cycle === 1 && run === 1 ? 'complete' : 'partial';
+  if (cycle === 0 && run === 0 && packetTrace === 0) return 'missing';
+  return cycle === 1 && run === 1 && packetTrace === 1 ? 'complete' : 'partial';
 }
 
 async function readHistoricalSentinels(prisma: PrismaClient) {

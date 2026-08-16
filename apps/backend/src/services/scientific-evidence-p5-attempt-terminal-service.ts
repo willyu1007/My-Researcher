@@ -17,6 +17,11 @@ export const SCIENTIFIC_EVIDENCE_P5_ATTEMPT_STAGES_V1 = Object.freeze([
   'credential_qualification',
   'live',
   'close',
+  'result_analysis_recovery',
+  'closure_packet_continuation',
+  'packet_trace_result_analysis_successor',
+  'packet_only_recovery',
+  'claim_dossier_final_acceptance',
 ] as const);
 
 export type ScientificEvidenceP5AttemptStageV1 =
@@ -357,6 +362,11 @@ async function assertPreviousStageCompleted(input: AttemptRecordContext & {
     credential_qualification: 'credential_integrity',
     live: 'credential_qualification',
     close: 'live',
+    result_analysis_recovery: null,
+    closure_packet_continuation: null,
+    packet_trace_result_analysis_successor: null,
+    packet_only_recovery: null,
+    claim_dossier_final_acceptance: null,
   };
   const prerequisite = previousStage[input.stage];
   if (!prerequisite) return;

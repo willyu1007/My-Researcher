@@ -53,6 +53,9 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Never put relay event ids, leases or delivery attempts into Packet scientific identity. Relay operational state owns delivery metadata; `packetContentHash` covers Closure ref plus Packet-owned semantics only. Search: `packetContentHash`, `ValidationCycleClosed`.
 - Never classify a Serializable Packet-write abort as scientific authority drift. Let the durable relay retry infrastructure conflicts; terminalize only exact authority/content violations. Search: `P2034`, `PACKET_CLOSURE_DRIFT`.
 - Never trust a Packet row merely because its four PKT-S columns are non-null. Recompute its canonical content hash and reassemble the closed view from exact Closure/proposal/evidence authority before Claim/Dossier creation. Search: `ClosedInterpretationPacketView`, `assemblePacket`.
+- Never select recovery TABLE DATA entries from undocumented `pg_restore -l` field positions. Verify the actual TOC shape, quote mixed-case identifiers and assert nonzero/exact counts before retaining a dump. Search: `TABLE DATA`, `authority_table_count`.
+- Never assume a package-manager separator is removed before reaching a script. Inspect the effective argv or invoke the package script with its accepted option form; a literal `--` must fail before first-write. Search: `parseOptions`, `--no-write`.
+- Never assume a stdin-evaluated module resolves imports from a neighboring script file. Relative imports resolve from the evaluation working directory; prove the path before using the helper as an execution gate. Search: `--input-type=module`, `./src`.
 - Never treat a freshly recomputed event hash as proof that Closure mirrors are authentic. Compare every producer-derived mirror and business identity to the exact stored Closure. Search: `assertEventMatchesClosure`, `ValidationCycleClosed`.
 - Never map every Packet `P2002` to content conflict. Reread after the aborted transaction and return a canonically identical concurrent winner as replay. Search: `reconcilePacketUniqueConflict`, `P2002`.
 - Never put a Packet's TraceManifest id in the Packet functional ref `version_id`. Claims and Dossiers bind Packet versions with `packet_content_hash` and must preserve full Claim→Packet lineage. Search: `packet_content_hash`, `assertDossierClaimPacketLineage`.
@@ -425,3 +428,96 @@ This file is an append-only log of resolved failures and dead ends. Current acti
 - Proven boundary: the database contains two Results, one passed report and one REU, but zero ResultAnalysis runtime artifacts/admissions, Closures and Packets. The close claim is permanent and the attempt is terminal, so rerunning close would violate the attempt state machine.
 - Current limitation: the close wrapper deliberately hides provider-derived error text. Without approved instrumentation, durable evidence can place the failure before first ResultAnalysis artifact persistence but cannot distinguish transport, timeout or structured-output validation.
 - Prevention: instrument the ResultAnalysis invocation boundary with a run id and secret-safe stage/outcome codes before authorizing a successor. Recovery must consume the existing durable evidence under a fresh attempt/package and must not repeat the two paid Jobs.
+
+### 2026-08-15 — Hash identity and runtime representation are different contracts
+
+- Symptom: ResultAnalysis received one valid provider response and built a passed role artifact, but the first persistence entry failed with `INVALID_PAYLOAD`; no artifact row existed.
+- Root cause: P5 callers passed package identities as `sha256:<64 hex>`, while the shared RuntimeArtifact schema requires bare 64-hex hashes. The envelope validator runs before repository creation, so this looked like a persistence-boundary failure without being a Prisma or database error.
+- What was tried: one authorized, instrumented ResultAnalysis-only recovery localized the exact boundary; three deterministic fake-provider repetitions reproduced `/input_snapshot_hash` and `/source_hashes/0..4` schema failures with one provider call and zero rows.
+- Fix/workaround: keep package hashes prefixed, convert them to bare form only at the recovery runtime boundary, generate bare values directly in P5 close, and reject non-bare ResultAnalysis request hashes before any provider call.
+- Prevention: treat package identity strings and runtime envelope fields as separate typed representations. Every executable caller must have a boundary regression that exercises the authoritative runtime schema before an external call can occur.
+
+### 2026-08-15 — Dump hashes do not prove the recovery-manifest fingerprint
+
+- Symptom: the fresh Closure/Packet recovery dumps had correct independent byte hashes and TOC counts, but the initially recorded `recovery_fingerprint` did not equal the project's canonical key-sorted manifest-core digest.
+- Root cause: dump generation and the manifest-core digest were validated as separate concerns, and the first local manifest construction supplied a non-canonical fingerprint value.
+- Fix/workaround: preserve the dump files, recompute the full manifest core without `recovery_fingerprint` using the established recursive key-sorted JSON rule, correct only that field before package generation, and independently rehash the manifest.
+- Prevention: recovery readiness requires three distinct checks: dump byte hashes, dump TOC/data scope, and canonical manifest-core fingerprint. Never infer the third from the first two.
+
+### 2026-08-15 — A Cycle trace is not a Packet trace
+
+- Symptom: the exact Closure/Packet continuation was accepted and claimed, then terminalized in 139 ms with zero Closure, outbox, inbox or Packet rows even though the final ResultAnalysis artifact and admission were both passed/admitted.
+- Root cause: P5 stage-one reused its complete ValidationCycle trace as the `trace_manifest_ref` for a future ResultInterpretationPacket. Trace target type/id are authority, not descriptive metadata; the official P4 resolver requires a distinct complete trace targeting the exact requested Packet.
+- What was tried: first compare the artifact row, envelope, admission payload and version identities, then run the official resolver read-only and evaluate each predicate. The early target-version hypothesis was ruled out; every artifact/admission predicate passed and only the two trace-target predicates failed. The terminal attempt was never replayed.
+- Fix/workaround: preserve the resolver invariant. Fresh staging creates separate Cycle and Packet traces; successor ResultAnalysis/close/recovery binds the Packet trace; continuation preparation and execute fail before writes unless the official resolver resolves the exact Packet request. Current immutable artifacts require a new successor rather than an in-place edit.
+- Prevention: every future scientific-closure preflight must invoke the official proposal resolver against the exact admitted final artifact id/hash before producing an executable continuation package. Tests must prove that identical lineage with a Cycle target is rejected and the exact Packet target succeeds.
+
+### 2026-08-15 — Shell emptiness is not environment absence
+
+- Symptom: the first Packet-trace successor preparation exited at its credential-safety guard even though every Alibaba variable had been assigned an empty value and no credential was available.
+- Root cause: environment variables set to `""` are still present; the preparation boundary deliberately requires sensitive keys to be `undefined`, not merely falsey.
+- What was tried: confirm the prepared manifest was still absent and inspect the guard before adding instrumentation or weakening it.
+- Fix/workaround: invoke the preparation/preflight with `env -u` for every forbidden Alibaba key. Keep provider keys empty only where the command explicitly allows present-but-empty provider configuration.
+- Prevention: distinguish “unset” from “empty” in command runbooks whenever code checks credential-material presence. Do not relax an absence guard to accommodate a shell invocation mistake.
+
+### 2026-08-15 — `pg_dump --table` patterns must preserve mixed-case identifiers
+
+- Symptom: the first exact authority-data export reported `no matching tables were found` and left one zero-byte dump, while the source TOC contained the expected 114 table names.
+- Root cause: PostgreSQL pattern matching folds unquoted identifiers; Prisma-generated mixed-case table names require identifier quotes inside each `--table` pattern.
+- What was tried: inspect the old verified TOC, prove the failed new target was exactly zero bytes, and leave the successfully generated full-schema dump untouched.
+- Fix/workaround: remove only the proven zero-byte failed data target and pass each table as `my_researcher_dev.\"ExactMixedCaseName\"`. The corrected dump contains exactly 114 TABLE DATA entries and matches the prior dump size while retaining a new archive digest.
+- Prevention: derive scoped table names from a verified TOC and quote each identifier in the pg_dump pattern. Refuse to replace any non-empty target and independently verify entry count, bytes and hash before manifest construction.
+
+### 2026-08-16 — Trace completeness is target-relative, not transferable
+
+- Symptom: the Packet-trace successor claimed once and terminalized after 105 ms with zero Trace/Queue writes and no provider entry, despite copying a source Trace whose status was `complete`.
+- Root cause: the source was complete for a ValidationCycle because it carried decision lineage. Retargeting the same empty experiment lineage to a ResultInterpretationPacket activated the Packet's required experiment lineage. Building the resulting repair item then reached the executor's deliberate trace-only ID assertion before persistence.
+- What was tried: preserve the terminal attempt, inspect the exact source Trace and Trace Kernel order, then resolve the current scientific-closure context read-only. The context returned one exact RunEvidenceUnit; a production-shaped in-memory Trace creation with that ref completed with zero missing refs and zero repair items.
+- Fix/workaround: assemble Packet lineage from the Cycle structural base plus the exact closure-context RunEvidenceUnit under the bound watermark. Validate the ref's type/title-card/content hash, use the same builder in preparation and execution, and verify manifest-scoped repair count before ResultAnalysis entry.
+- Prevention: never infer that a `complete` Trace can be retargeted. Every target-changing workflow must evaluate the new target's lineage requirements using its authoritative context and prove `complete + zero repair` before any downstream external call.
+
+### 2026-08-16 — Optional ref nullability is not scientific authority drift
+
+- Symptom: the scientific Closure committed, but Packet materialization terminalized under `RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT` even though summary, claim ceiling, reliability notes and every current limitation-ref identity matched.
+- Root cause: ResultAnalysis proposal refs retained optional `legacy_ref: null`; the service-assembled Packet request intentionally cloned only the four current ref identity fields. A raw `JSON.stringify` comparison treated field omission and explicit null as different authority.
+- What was tried: preserve the terminal attempt, inspect the committed Closure/outbox/inbox read-only, run the materializer's authority-load/assembly path without repository materialization, then compare every proposal/request agreement predicate separately. Only reliability/limitation-ref shape failed.
+- Fix/workaround: compare a narrow current-ref projection with exact type/id/title-card/version fields; collapse absent and null optionals, but preserve non-null legacy payload so it remains a conflict. Do not rewrite the immutable proposal or weaken other Packet authority predicates.
+- Prevention: never use raw object serialization as semantic equality when a contract permits both omitted and null optional fields. Add paired positive null/omission and negative current-identity/non-null-legacy regressions at every immutable handoff boundary.
+
+### 2026-08-16 — Recovering a terminal outbox is not retrying it
+
+- Symptom: after fixing Packet authority comparison, the committed Closure event remained terminal and ordinary relay could not claim it; changing it back to `pending` would erase the audited terminal boundary and permit unrelated relay behavior.
+- Root cause: normal outbox methods deliberately accept only `pending/leased` rows. This partial commit needs one bounded repair of the already accepted event, not a generic queue retry.
+- Fix/workaround: use a package-bound repository transaction that verifies the exact terminal outbox, processed inbox, Closure and canonical Packet, then atomically inserts the Packet and moves the same row directly from `terminal` to `delivered`. Never pass through `pending`/`leased` and never rerun Closure.
+- Prevention: model partial-commit recovery as evidence-bound state repair with explicit CAS and zero reset count. Bind a fresh recovery point and exact post-state in a new immutable package; never infer recovery authority from source-fix or predecessor approval.
+
+### 2026-08-16 — Recovery TOC parsing must be proven against the actual archive
+
+- Symptom: one authority-data selection produced zero entries, and one schema selection contained `2,044` rather than `2,046` entries.
+- Root cause: the first TOC parser treated field 6 as the table name even though the PostgreSQL 17 listing placed schema at field 6 and table at field 7. The schema retry also omitted the database-global `vector` extension.
+- What was tried: preserve valid prior artifacts, prove each invalid new target's exact path/size/TOC count, remove only the zero/incomplete targets, inspect the real PostgreSQL 17 TOC and compare it with the prior verified recovery.
+- Fix/workaround: select the verified mixed-case table field, include `--extension=vector`, assert exactly `114` TABLE DATA and `2,046` schema TOC entries, then independently hash and restore both archives before manifest use.
+- Prevention: treat TOC parsing as a versioned input contract, not stable whitespace. A recovery artifact is retainable only after nonzero byte size, exact entry count, independent hash, required extension presence and disposable restore all pass.
+
+### 2026-08-16 — Argument forwarding can turn a safe first-write into a rejected invocation
+
+- Symptom: the first Claim/Dossier package command reached the preparer with two arguments, literal `--` plus `--write`, and exited at usage validation.
+- Root cause: the used pnpm invocation forwarded the separator itself for this script form, while `parseOptions()` deliberately accepts exactly one option.
+- What was tried: confirm the prepared and all downstream acceptance/attempt files remained absent, then repeat with the package script's direct `--write` form.
+- Fix/workaround: keep strict one-argument parsing and use `pnpm <script> --write` / `--no-write` for these entries. The corrected first-write succeeded once; the rejected invocation made no file, database, provider or capability change.
+- Prevention: verify effective argv for safety-critical package scripts and always recheck first-write target absence after a usage failure. Do not loosen strict option parsing to accommodate an invocation typo.
+
+### 2026-08-16 — Stdin module imports resolve from the working directory
+
+- Symptom: the first acceptance-validation helper failed before importing the validator because `../src/...` resolved to `apps/src/...` instead of `apps/backend/src/...`.
+- Root cause: a module evaluated through stdin uses the current working directory as its resolution base; the path was copied from a file under `apps/backend/scripts/`, where `../src` is correct.
+- What was tried: immediately verify that acceptance existed but attempt claim/completion/terminal and `M0-SCI` files were still absent. Execute had not been called and the database boundary was untouched.
+- Fix/workaround: change only the diagnostic import to `./src/...`, rerun acceptance validation and acceptance-present offline preflight, then enter execute after both passed.
+- Prevention: resolve stdin import paths against `pwd`, not a nearby source file. After any pre-execution helper load failure, prove the exact-once claim is absent before continuing.
+
+### 2026-08-16 — Temporary directories must not become recovery authority
+
+- Symptom: `.ai/.tmp` had accumulated roughly 16 GB of historical whole-database dumps, gate output and debug artifacts, while an active release runbook still named one repository-local dump as a recovery checkpoint.
+- Root cause: artifacts created for bounded diagnostics and package execution outlived their exit conditions, allowing a temporary path to acquire operational meaning without ownership or retention policy.
+- Fix/workaround: audit exact paths, dependencies and hashes; retain only the current T-136 package-bound recovery under `/Users/yurui/Desktop/My-Researcher-Recovery/T-136`; update the active runbook to use that scoped recovery; then permanently remove the untracked `.ai/.tmp` tree.
+- Prevention: never cite `.ai/.tmp` as durable recovery authority. A workflow that requires rollback must create and verify a package-bound recovery point outside the repository, record its lifetime and scope, and remove disposable outputs after closure.

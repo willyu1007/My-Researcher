@@ -1,0 +1,30 @@
+{
+  "schema_version": "ScientificEvidenceP5ClosurePacketContinuationAcceptance@v1",
+  "status": "authorized_pending_execute",
+  "continuation_attempt_id": "t136-p5-closure-packet-continuation-2",
+  "package_hash": "sha256:6b356bc4cac7b04c9b68b44fa651cdda4e91b7a9bb4af6291c7b5f4273551b04",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-16T01:19:39.524Z",
+    "text_utf8_sha256": "sha256:40084dc18d587168d8bb335c19218839cc27a10461dda7ae8c68af128a1a71a3",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "authorized_effects": {
+      "operation": "closure_packet_continuation",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count_max": 1,
+      "closure_write_count_max": 1,
+      "integration_outbox_write_count_max": 1,
+      "projection_inbox_write_count_max": 1,
+      "packet_write_count_max": 1,
+      "outbox_delivery_count_max": 1,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    }
+  }
+}

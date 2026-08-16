@@ -1,0 +1,140 @@
+{
+  "schema_version": "ScientificEvidenceP5ClosurePacketContinuationPrepared@v1",
+  "status": "eligible",
+  "continuation_package": {
+    "schema_version": "ScientificEvidenceP5ClosurePacketContinuationPackage@v1",
+    "continuation_attempt_id": "t136-p5-closure-packet-continuation-2",
+    "source_result_analysis": {
+      "source_stage": "packet_trace_result_analysis_successor",
+      "successor_attempt_id": "t136-p5-packet-trace-result-analysis-successor-3",
+      "package_hash": "sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88",
+      "prepared_record_sha256": "sha256:76922d5e283ede9d2e9d36419847aa85ccc95d1c86e2d279faa254e9f6102a4a",
+      "acceptance_record_sha256": "sha256:f2d50e386dc96a46c564749bfeb22e7bfe3ca2f5ae481a3e5a313c0a556e1786",
+      "claim_record_sha256": "sha256:bfc305f8d67df78d85f888febe896b16f6dfdb88d716b0a8bdce8ba4f0303ff2",
+      "completion_record_sha256": "sha256:44e375cb6efaa8bf0245336a7d55bbe5b03905ca313f408d37dba0924d3c94ca",
+      "final_artifact": {
+        "id": "pi_runtime_final_b8f3bf37-2f23-4a58-9ff3-6513ba0814fe",
+        "artifact_identity_hash": "abd706927c0000b25865996fcc961de302596eb37e2c9cd2b31cc4ea53dfc189",
+        "runtime_identity_hash": "f752ba409f708e40c23837186bf55aecb37722891dbd1e66dd2c5381851341d3",
+        "final_artifact_hash": "bb7527851c14d1fcfff1afba3f65de79bab86035a35e6551b33cdd93518d54ee"
+      },
+      "final_admission": {
+        "id": "pi_runtime_admission_917cd29b-f4c2-4a86-bfe7-5d056c655e9c",
+        "admission_identity_hash": "6c9c1738fec7fcf8df68cf35fd26406730a21be1e86b70c8c65f76f9604fee52",
+        "runtime_artifact_hash": "abd706927c0000b25865996fcc961de302596eb37e2c9cd2b31cc4ea53dfc189",
+        "admitted_artifact_hash": "bb7527851c14d1fcfff1afba3f65de79bab86035a35e6551b33cdd93518d54ee",
+        "status": "admitted"
+      }
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "expected_cycle_version": 0,
+      "closure_watermark_hash": "sha256:c3afe15f75e931877ca951dfd4e40de2fd8d3e864ca9b5705c99a3305b0c5898",
+      "run_id": "ef_run_v2_t136_p5_scifact_v4_1",
+      "run_manifest_hash": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+      "packet_trace": {
+        "id": "trace_manifest_t136_p5_scifact_v4_result_packet",
+        "target_ref_type": "result_interpretation_packet",
+        "target_ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+        "target_version_id": null,
+        "expected_status": "complete"
+      },
+      "current_effects": {
+        "packet_trace_manifests": 1,
+        "packet_trace_repair_queue_items": 0,
+        "runtime_artifacts": 4,
+        "runtime_admissions": 4,
+        "closures": 0,
+        "packets": 0,
+        "validation_cycle_closed_outboxes": 0,
+        "validation_cycle_closed_inboxes": 0,
+        "undelivered_integration_outboxes": 0
+      }
+    },
+    "closure_request": {
+      "closure_kind": "scientific_evidence_assessed",
+      "accepted_proposal_id": "pi_runtime_final_b8f3bf37-2f23-4a58-9ff3-6513ba0814fe",
+      "expected_proposal_hash": "bb7527851c14d1fcfff1afba3f65de79bab86035a35e6551b33cdd93518d54ee",
+      "idempotency_key": "t136-p5-closure-packet-continuation-2:scientific-close"
+    },
+    "executor": {
+      "mode": "closure_packet_only",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-closure-packet-continuation.ts",
+      "sha256": "sha256:1a5468371b9147e74836db1f3529ba8b3039ba17cd4a0ed91f02c65caea95248"
+    },
+    "source_binding": {
+      "source_files": [
+        {
+          "path": "apps/backend/src/services/paper-implementation-validation-cycle-closure-v2-service.ts",
+          "sha256": "sha256:834ea3571fc8cfda651fa8be879ac0827c22defdfbea5fe7c5218c928e22f313"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts",
+          "sha256": "sha256:991af3c35d525357cb26e04808ce44964f8ad7c0770d1795a732adc8410c97f8"
+        },
+        {
+          "path": "apps/backend/src/services/experiment-v2-integration-relay-service.ts",
+          "sha256": "sha256:dd626aedfff7076f85a191665c51968e5d03b7937ac45e8650c8234d9a31aa62"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-projection-feed-v2-consumer.ts",
+          "sha256": "sha256:cd871e00c0bfd21b43be4fa0aaa52d2047e16327f60fd142e2a356e34e6f868f"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-closure-packet-continuation-service.ts",
+          "sha256": "sha256:c39f8cb3f7407ef4951350ad4fc6da7cb16e711cd18309964131568cca404747"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "closure-packet-post-successor-20260816-0855/t136-p5-post-successor-closure-packet-recovery-point.json",
+      "created_at": "2026-08-16T01:07:48.846Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:caf703a5ba56a6ea39b4db8cb0735ab2d9c8a47aee0d7a6e81d78d467e4cd369",
+      "schema_dump_sha256": "sha256:160138369c8b6754d175590f0fd55198aeca5f9d2ac540d944b6ca21524ebc03",
+      "authority_data_dump_sha256": "sha256:cc4300c458b969aa0f1fb85c6e3f95443e45d8ad320ceac0a1f555f23fa06c16",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "closure_packet_continuation",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count_max": 1,
+      "closure_write_count_max": 1,
+      "integration_outbox_write_count_max": 1,
+      "projection_inbox_write_count_max": 1,
+      "packet_write_count_max": 1,
+      "outbox_delivery_count_max": 1,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-16T01:10:21.769Z",
+      "authorization_not_after": "2026-08-16T07:10:21.769Z",
+      "execute_not_after": "2026-08-16T07:40:21.769Z"
+    },
+    "package_hash": "sha256:6b356bc4cac7b04c9b68b44fa651cdda4e91b7a9bb4af6291c7b5f4273551b04"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5ClosurePacketContinuationEligibility@v1",
+    "package_hash": "sha256:6b356bc4cac7b04c9b68b44fa651cdda4e91b7a9bb4af6291c7b5f4273551b04",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:46c85087e49d44d84c9fc93bbe5cde4550695aa10e4878eb5152c6fd0bc3f588"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

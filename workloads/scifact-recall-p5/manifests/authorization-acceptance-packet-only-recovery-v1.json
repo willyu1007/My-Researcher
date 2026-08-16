@@ -1,0 +1,31 @@
+{
+  "schema_version": "ScientificEvidenceP5PacketOnlyRecoveryAcceptance@v1",
+  "status": "authorized_pending_execute",
+  "recovery_attempt_id": "t136-p5-packet-only-recovery-1",
+  "package_hash": "sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-16T02:52:15.934Z",
+    "text_utf8_sha256": "sha256:918337e4570e257a12182738d7332d214fe621df5b94048c4aa5264f2359c339",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "authorized_effects": {
+      "operation": "packet_only_terminal_outbox_recovery",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "integration_outbox_write_count": 0,
+      "projection_inbox_write_count": 0,
+      "packet_write_count_max": 1,
+      "terminal_outbox_delivery_count_max": 1,
+      "terminal_outbox_reset_count": 0,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    }
+  }
+}

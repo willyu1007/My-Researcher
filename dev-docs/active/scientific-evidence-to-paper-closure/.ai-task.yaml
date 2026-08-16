@@ -2,8 +2,8 @@ version: 1
 task_id: T-136
 project: main
 slug: scientific-evidence-to-paper-closure
-status: in-progress
-updated: "2026-08-14"
+status: done
+updated: "2026-08-16"
 keywords:
   - experiment-foundation
   - paper-implementation

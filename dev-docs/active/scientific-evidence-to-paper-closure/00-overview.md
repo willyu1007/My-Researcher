@@ -2,13 +2,13 @@
 
 ## Status
 
-- State: in-progress
+- State: done
 - Task ID: `T-136`
 - Mapping: `M-001 > F-001 > R-012 + R-013 > T-136`
 - Product release role: mandatory `M0-SCI` scientific capability gate inside product M0; the gate is not the governance milestone `M-001` and not the sole release gate for all M0 modules.
 - Origin: user-requested follow-up to the four-module completion review on 2026-08-04.
-- Current step: revision 19 / attempt 17 completed its exact two-Job real-provider path and durably created two source-bound Results, one passed scientific validation report, one EvidenceCandidate and one PI RunEvidenceUnit/trace. Top-k 10 scored `430678 ppm`, top-k 5 scored `368731 ppm`; the registered absolute difference is `61947 ppm` and supports the preregistered expectation. Live replay created zero rows and changed no protected table. Credential-free close then failed before the first ResultAnalysis runtime artifact/admission was persisted; attempt 17 is immutable terminal at `close`, and Closure/Packet remain zero. Credentials, clipboard, browser response state and process-local capabilities are clean; both authority booleans are false, so `M0-SCI` is not yet passed.
-- Next step: diagnose the ResultAnalysis provider-call/response boundary with separately approved, run-id-tagged instrumentation. Do not replay attempt 17, call close again, patch its terminal record or issue another credential. Any recovery execution requires a new immutable attempt/package boundary that consumes the already durable v4 scientific evidence without creating replacement Jobs.
+- Current step: exact package `sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953` was authorized and executed once. Claim `claim_candidate_t136_p5_scifact_v4` is `supported/moderate`; Dossier `implementation_dossier_t136_p5_scifact_v4` is `ready_for_writing`; both target-relative traces are complete and the Dossier gate passed. Attempt completion exists, terminal evidence is absent, deterministic replay created zero rows, and `m0-sci-acceptance-v1.json` records `M0-SCI: passed` with acceptance hash `sha256:7bd6d4fe74a075a8ad9d3ba08e59650b46f42e23f9ef379d9e31cf74f60cf8bb`.
+- Next step: no T-136 implementation or execution remains. Preserve this completed state as the stable Git baseline, and request separate approval before archiving the task bundle. Scientific capabilities remain default-off; any rollout/enablement is a separate controlled decision and is not implied by `M0-SCI` passage.
 
 ### Current implementation checkpoint — 2026-08-10
 
@@ -123,24 +123,24 @@ The repository also contains the EF v2 scientific validation kernel, `EvidenceCa
 
 ## Acceptance criteria
 
-- [ ] A newly collected real-provider two-cell workload produces immutable typed scientific result cells; diagnostic/simulation/fake outputs cannot do so.
-- [ ] Manual numbers and external experiment-result imports have no scientific intake path and cannot create ExperimentResult, EvidenceCandidate, REU or scientific closure state.
-- [ ] The product result command accepts identities only; EF derives every observation from one exact committed scientific source with frozen parser/derivation identity.
-- [ ] Provider transport contains no scientific metric interpretation; collection invokes one provider-independent parser before its short source-sealing transaction, with no network call inside the transaction.
-- [ ] Provider transport returns its already validated canonical result envelope plus provider-manifest hash through an internal ephemeral handoff to the worker; the worker performs no second fetch, and the envelope is neither persisted as scientific evidence nor exposed through a product DTO.
-- [ ] The collect handoff has one authoritative `result_manifest_hash` in its strict collect outcome; worker verification recomputes canonical-envelope byte size/content hash and exact authority bindings without adding a duplicate handoff hash or changing the shared normalized outcome.
-- [ ] EvaluationProtocol, result-schema registry, ExecutionBundle/TaskSpec, parser, source sealer, collection transaction and Result service each have one non-overlapping field-assignment role; copied/projection fields cannot become a second semantic authority.
-- [ ] Reader, handoff, scientific preparation and commit failures map to stable closed outcomes/reason codes; only explicitly typed transient failures retry, and no unexpected parser exception can leave an implicitly leased or partially committed source.
-- [ ] Real-provider collection uses deterministic output ordinals `1=diagnostic`, `2=scientific_source`; replay cannot allocate a different ordinal or replace an existing source.
-- [ ] Every Result directly binds one committed canonical `scientific_source`; a valid diagnostic collection with failed/unsupported scientific parsing creates neither scientific source nor Result.
-- [ ] The additive source-binding migration enforces source class, one canonical root per collection and exact Result→source integrity without changing historical diagnostic rows.
-- [ ] The DB-B version gate leaves legacy Result v1 rows source-null and evidence-ineligible while requiring Result v2 rows to carry all eight B2 fields, exact source/Collection/Attempt relations and fixed scientific kind/class.
-- [ ] The Result relational spine enforces the same collection/Attempt and exact source id/hash/kind/class; parser/derivation identities are persisted, while extensible scientific payloads remain in the sealed manifest.
-- [ ] Result observations have stable identity and typed statistic/sample-size/uncertainty semantics; large raw samples remain hash-bound artifacts rather than generic JSON payloads.
-- [ ] M0-SCI v1 describes artifact refs only as exact controlled-run declarations sealed in the canonical envelope/source hash, makes no independent artifact-byte-verification claim and keeps the P5 conclusion independent of unfetched artifact bytes.
-- [ ] Statistic/uncertainty invalid combinations, non-finite values, invalid probabilities/levels, negative dispersion and protocol-required missing uncertainty prevent scientific-source sealing.
-- [ ] Every expected observation slot matches exactly once in protocol order; missing, duplicate or unexpected observations prevent source sealing, while value/uncertainty changes under the same observation id cause a deterministic conflict.
-- [ ] Canonical JSON normalizes `-0` to `0`, rejects non-finite values, uses stable object-key ordering and protocol-defined array ordering, producing byte-identical hashes on replay.
+- [x] A newly collected real-provider two-cell workload produces immutable typed scientific result cells; diagnostic/simulation/fake outputs cannot do so.
+- [x] Manual numbers and external experiment-result imports have no scientific intake path and cannot create ExperimentResult, EvidenceCandidate, REU or scientific closure state.
+- [x] The product result command accepts identities only; EF derives every observation from one exact committed scientific source with frozen parser/derivation identity.
+- [x] Provider transport contains no scientific metric interpretation; collection invokes one provider-independent parser before its short source-sealing transaction, with no network call inside the transaction.
+- [x] Provider transport returns its already validated canonical result envelope plus provider-manifest hash through an internal ephemeral handoff to the worker; the worker performs no second fetch, and the envelope is neither persisted as scientific evidence nor exposed through a product DTO.
+- [x] The collect handoff has one authoritative `result_manifest_hash` in its strict collect outcome; worker verification recomputes canonical-envelope byte size/content hash and exact authority bindings without adding a duplicate handoff hash or changing the shared normalized outcome.
+- [x] EvaluationProtocol, result-schema registry, ExecutionBundle/TaskSpec, parser, source sealer, collection transaction and Result service each have one non-overlapping field-assignment role; copied/projection fields cannot become a second semantic authority.
+- [x] Reader, handoff, scientific preparation and commit failures map to stable closed outcomes/reason codes; only explicitly typed transient failures retry, and no unexpected parser exception can leave an implicitly leased or partially committed source.
+- [x] Real-provider collection uses deterministic output ordinals `1=diagnostic`, `2=scientific_source`; replay cannot allocate a different ordinal or replace an existing source.
+- [x] Every Result directly binds one committed canonical `scientific_source`; a valid diagnostic collection with failed/unsupported scientific parsing creates neither scientific source nor Result.
+- [x] The additive source-binding migration enforces source class, one canonical root per collection and exact Result→source integrity without changing historical diagnostic rows.
+- [x] The DB-B version gate leaves legacy Result v1 rows source-null and evidence-ineligible while requiring Result v2 rows to carry all eight B2 fields, exact source/Collection/Attempt relations and fixed scientific kind/class.
+- [x] The Result relational spine enforces the same collection/Attempt and exact source id/hash/kind/class; parser/derivation identities are persisted, while extensible scientific payloads remain in the sealed manifest.
+- [x] Result observations have stable identity and typed statistic/sample-size/uncertainty semantics; large raw samples remain hash-bound artifacts rather than generic JSON payloads.
+- [x] M0-SCI v1 describes artifact refs only as exact controlled-run declarations sealed in the canonical envelope/source hash, makes no independent artifact-byte-verification claim and keeps the P5 conclusion independent of unfetched artifact bytes.
+- [x] Statistic/uncertainty invalid combinations, non-finite values, invalid probabilities/levels, negative dispersion and protocol-required missing uncertainty prevent scientific-source sealing.
+- [x] Every expected observation slot matches exactly once in protocol order; missing, duplicate or unexpected observations prevent source sealing, while value/uncertainty changes under the same observation id cause a deterministic conflict.
+- [x] Canonical JSON normalizes `-0` to `0`, rejects non-finite values, uses stable object-key ordering and protocol-defined array ordering, producing byte-identical hashes on replay.
 - [x] Complete-batch EF validation emits exactly one eligible EvidenceCandidate and the existing relay creates exactly one trusted PI REU plus trace manifest.
 - [x] Validation eligibility is independent of hypothesis outcome: trustworthy supporting, contradicting and indeterminate comparison facts can all produce EvidenceCandidate, while only PI writes the final disposition.
 - [x] Comparison facts use a preregistered closed rule, exact Result/observation refs, deterministic order/hash and non-overlapping support/contradiction bands; they contain no PI conclusion fields.
@@ -152,15 +152,15 @@ The repository also contains the EF v2 scientific validation kernel, `EvidenceCa
 - [x] `ValidationCycleClosed` materializes exactly one ResultInterpretationPacket; direct pre-closure Packet writes remain closed.
 - [x] The scientific Packet stores only its v2 schema, exact Closure id/hash and canonical Packet hash; replay returns the identical Packet or conflicts, while proposal/disposition/exit are projected from Closure at read time.
 - [x] Claim/Dossier consumes the closed Packet and accounts for all required successful, negative, failed, cancelled and inconclusive evidence states according to existing policy.
-- [ ] A separately authorized real two-cell end-to-end run reaches Claim/Dossier without injected scientific numbers and exact replay creates zero duplicate Jobs, rows or events.
+- [x] A separately authorized real two-cell end-to-end run reaches Claim/Dossier without injected scientific numbers and exact replay creates zero duplicate Jobs, rows or events.
 - [x] P5 preflight admits only one new immutable Run with exactly two ordered real-provider cells, one declared differing factor, comparable parser/metric semantics and exactly two requested `CreateJob` operations.
 - [x] The user authorizes one exact package hash, operation/cost ceilings, capability set, time window and credential-handling plan; changed package content requires a new hash and authorization.
-- [ ] Positive, negative and inconclusive outcomes are equally eligible to pass P5 when the registered chain is valid; Job failure/cancellation or package drift fails the attempt without hidden substitution or automatic resubmission.
-- [ ] Capability defaults remain false, credentials and provider diagnostics are not persisted, and rollout/backout evidence is recorded.
+- [x] Positive, negative and inconclusive outcomes are equally eligible to pass P5 when the registered chain is valid; Job failure/cancellation or package drift fails the attempt without hidden substitution or automatic resubmission.
+- [x] Capability defaults remain false, credentials and provider diagnostics are not persisted, and rollout/backout evidence is recorded.
 - [x] P0 produces an explicit invariant-freeze/late-binding ledger and proves that every real result references a protocol frozen before Run submission.
 - [x] Post-result protocol mutation cannot change an existing Run's validation, disposition or selected exit; changed rules require a new revision/new Run.
 - [x] P0-P4 completion is recorded only as `implementation_complete_unreleased`; neither T-136 nor `M0-SCI` is declared complete before P5.
-- [ ] P5 acceptance explicitly records `M0-SCI: passed`; no science-closure product claim or enablement occurs earlier.
+- [x] P5 acceptance explicitly records `M0-SCI: passed`; no science-closure product claim or enablement occurs earlier.
 
 ## Completion boundary
 
@@ -264,3 +264,11 @@ The task is complete, and `M0-SCI` passes, only after the real end-to-end accept
 - Exact post-terminal census is Attempts `2`, successful submit commands `2`, collected diagnostic outputs `2`, scientific Results `0`, validations `0`, REUs `0`, undelivered outboxes `0`, runtime artifacts/admissions `0`, Closures `0` and Packets `0`. The workload/protocol observation-key mismatch is deterministic code/authority evidence; the stable terminal record deliberately persists only `T136_P5_LIVE_FAILED`.
 - The live child exited through `finally`, the execution lock was removed, current authority booleans are false, the successful qualification record is versioned as `credential-qualification-v16.json`, and the generic slot is empty. Post-expiration audit at `2026-08-14T14:07:24Z` found the STS expired by 52 seconds, all three credential-free preflights passing, and no credential/capability/env/profile/process/temp-log residue.
 - Security note: a post-issuance portal DOM snapshot exposed token contents to transient tool output. No credential value entered repository artifacts or task docs; browser/clipboard/parent buffers were cleared before live. Treat that transient output as sensitive disclosure.
+
+## Current checkpoint — Closure/Packet terminal and Packet-trace correction
+
+- Exact acceptance consumed continuation attempt `t136-p5-closure-packet-continuation-1` once. It terminalized under `T136_P5_CLOSURE_PACKET_CONTINUATION_FAILED`; no completion exists and replay is forbidden.
+- Read-only official resolution isolated the failure to the trace target. The final artifact and admission satisfy every preceding runtime/admission predicate, but `trace_manifest_t136_p5_scifact_v4` targets `validation_cycle_t136_p5_scifact_v4` rather than `result_interpretation_packet_t136_p5_scifact_v4`.
+- The approved source correction preserves the official invariant: fresh staging creates separate Cycle and Packet traces, ResultAnalysis/close/recovery bind the Packet trace, and preparation plus execute reread the official resolver before any continuation write.
+- Local verification is green: strict project and experiment-script TypeScript, 46 focused units, and disposable PostgreSQL Pack C-PI `packc-pi-20260815-r10` with 197/197 total and 6/6 relational tests. The disposable database/container was identity-verified and removed.
+- Current business state is unchanged at `2/2/0/0`. The historical continuation package and terminal records remain immutable evidence; no successor trace, ResultAnalysis artifact, package or execution authority exists yet.

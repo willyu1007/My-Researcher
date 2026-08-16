@@ -1,0 +1,143 @@
+{
+  "schema_version": "ScientificEvidenceP5ResultAnalysisRecoveryPrepared@v1",
+  "status": "eligible",
+  "recovery_package": {
+    "schema_version": "ScientificEvidenceP5ResultAnalysisRecoveryPackage@v1",
+    "recovery_attempt_id": "t136-p5-result-analysis-recovery-1",
+    "source_execution": {
+      "p5_attempt_id": "t136-p5-scifact-attempt-17",
+      "package_hash": "sha256:0e2b3286be99947cc5a38521e5421fed286d8a4150b9da52a212b64aea75245f",
+      "terminal_record_sha256": "sha256:caf981e67c7e096584b6c31f4e8813eb894830f2a1e850705d3722e58982d58e",
+      "terminal_failed_stage": "close",
+      "terminal_reason_code": "T136_P5_CLOSE_FAILED"
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "expected_cycle_version": 0,
+      "closure_watermark_hash": "sha256:c3afe15f75e931877ca951dfd4e40de2fd8d3e864ca9b5705c99a3305b0c5898",
+      "run_id": "ef_run_v2_t136_p5_scifact_v4_1",
+      "run_manifest_hash": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "scientific_results": [
+        {
+          "ordinal": 1,
+          "id": "ef_experiment_result_v2_9e8232fa44251bcf38d87961652f1dff36ba95838691c009cba9e48911c825d1",
+          "content_hash": "sha256:60f1fe999daa9f80de8abbd894e3b641194ed35e04949d6e734081b4bd1f9c78",
+          "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v4_1",
+          "cell_key": "retriever-top-k-10"
+        },
+        {
+          "ordinal": 2,
+          "id": "ef_experiment_result_v2_3100b328113adfa95eb5aacd4cabe66e0be663c64be57ddb3f7546ddfa12a754",
+          "content_hash": "sha256:5fc5986b31ace7d6a7af704b52351ab6aafa358f0ea27a04c914f86e1a36a9de",
+          "run_cell_id": "ef_run_cell_v2_t136_p5_scifact_v4_2",
+          "cell_key": "retriever-top-k-5"
+        }
+      ],
+      "validation_report": {
+        "id": "ef_scientific_validation_report_v2_fd015ec306f8ac3582defe51e4e0f3ccd8ccb770bc5ffa35cb8744df6b51be11",
+        "content_hash": "sha256:c20d8cab055f20c80420ab278d333d880a65b06ca98c1189569f366ee7d44796",
+        "status": "passed"
+      },
+      "run_evidence_unit": {
+        "id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+        "content_hash": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8"
+      },
+      "trace_manifest": {
+        "id": "pi_evidence_trace_manifest_v2_abe233c09b1327deb3adca74ef399d3fd5e25232c4e6729d66660e4db0af3fe4",
+        "content_hash": "sha256:0b2c5dfd269597b8e653b10b43182dd25f3fdacdcdae391224fdaf42986b3a1f"
+      },
+      "current_effects": {
+        "runtime_artifacts": 0,
+        "runtime_admissions": 0,
+        "closures": 0,
+        "packets": 0
+      }
+    },
+    "runtime_request": {
+      "run_mode": "product",
+      "execution_mode": "provider_llm",
+      "runtime_run_id": "pi_result_analysis_runtime_t136_p5_scifact_v4_recovery_1",
+      "model_profile_id": "paper-implementation.result-analysis.interpretation-scenarios.v1",
+      "model_option_id": "paper-implementation.result-analysis.interpretation-scenarios.v1.openai-balanced",
+      "model_profile_hash": "sha256:83e428c1d38653fae535e6a6edc99dc4db6d6b6d1ce86868607540e87ac6a338",
+      "normalized_params_hash": "sha256:c80bce3317b4be82c2f02024af9534a5d571055a847cf680a4699c8e1b0267ac",
+      "provider_id": "openai",
+      "model_id": "gpt-5.6-sol",
+      "max_provider_call_count": 2,
+      "target_version_id": "sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a",
+      "input_snapshot_ref_id": "implementation_input_snapshot_t136_p5_scifact_v4_recovery_1",
+      "input_snapshot_hash": "sha256:544836b1c0db96018c904f45073b0aa7406331b9454cd719b83a055524a3051d",
+      "result_interpretation_packet_ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+      "trace_manifest_ref_id": "trace_manifest_t136_p5_scifact_v4",
+      "source_hashes": [
+        "sha256:53e3f0536cb9ce45f40dd1834139ce233359500c574956d104818b6157b0c0b3",
+        "sha256:888b37ec52eb9f8012857dd80196b3d6d91328f89d49920f16608a974936b031"
+      ]
+    },
+    "executor": {
+      "mode": "result_analysis_only",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-result-analysis-recovery.ts",
+      "sha256": "sha256:b06c7122affc0257f0968ae65e3d643bac96d2d5e63c7b508785a07412c0f342"
+    },
+    "instrumentation": {
+      "debug_run_id": "dbg-20260815-010050-126f",
+      "environment_key": "T136_P5_DEBUG_RUN_ID",
+      "required_environment_value": "dbg-20260815-010050-126f",
+      "log_marker": "[DBG:dbg-20260815-010050-126f]",
+      "source_files": [
+        {
+          "path": "apps/backend/src/services/topic-selection-agent-orchestrator-service.ts",
+          "sha256": "sha256:bca18e56081542b41ee593ac124423b788b16edea6a79ce528404a26f12f9cfa"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-analysis-runtime-service.ts",
+          "sha256": "sha256:9e3c7e47f8c33f70a3b5ecc4b909cf97301424d9fab906722275046b283b4367"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "result-analysis-recovery-20260815-0920/t136-p5-result-analysis-recovery-point.json",
+      "created_at": "2026-08-15T01:20:23.839Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:b96b3db3457e8968146c0b3dd87bec694049c71552ca6480957cae5e8afa794f",
+      "schema_dump_sha256": "sha256:95e8e4fee8cd07ca4e9dcc0b39d21b209985b1a9993f8038b5ae9e09b3301ef3",
+      "authority_data_dump_sha256": "sha256:49d063475a5b64e2cd3f41b0c5ef5f8325fff06de0c42134a1c66961d579d121",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "result_analysis_diagnostic_recovery",
+      "external_provider": "openai",
+      "provider_call_count_max": 2,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count_max": 2,
+      "runtime_admission_write_count_max": 2,
+      "closure_write_count": 0,
+      "packet_write_count": 0,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-15T01:46:32.161Z",
+      "authorization_not_after": "2026-08-15T07:46:32.161Z",
+      "execute_not_after": "2026-08-15T08:16:32.161Z"
+    },
+    "package_hash": "sha256:609e2d3dc8f5e43f6207a114876b69506645d594f3190febdce8cb387cb0035a"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5ResultAnalysisRecoveryEligibility@v1",
+    "package_hash": "sha256:609e2d3dc8f5e43f6207a114876b69506645d594f3190febdce8cb387cb0035a",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:da44ead64ea0bd4891ce2bd3bb3f938f54ed1158e7aa17d97fa2402932ff1926"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

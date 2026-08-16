@@ -113,7 +113,7 @@ const VALIDATION_CYCLE_ID = 'validation_cycle_t136_p5_scifact_v4';
 const RUN_ID = 'ef_run_v2_t136_p5_scifact_v4_1';
 const RUN_MANIFEST_HASH =
   'sha256:72d5aa100f4663ae490946c7e7dcb3e4d36f56333dca5768625d61ce12f4a65a';
-const TRACE_ID = 'trace_manifest_t136_p5_scifact_v4';
+const PACKET_TRACE_ID = 'trace_manifest_t136_p5_scifact_v4_result_packet';
 const PACKET_ID = 'result_interpretation_packet_t136_p5_scifact_v4';
 const RUNTIME_RUN_ID = 'pi_result_analysis_runtime_t136_p5_scifact_v4';
 const CLOSURE_CAPABILITY = 'PAPER_IMPLEMENTATION_EXPERIMENT_V2_CYCLE_CLOSURE_ENABLED';
@@ -260,11 +260,11 @@ async function runWindow(
         }),
         source_refs: [
           ref('result_interpretation_packet', PACKET_ID, project.titleCardId),
-          ref('trace_manifest', TRACE_ID, project.titleCardId),
+          ref('trace_manifest', PACKET_TRACE_ID, project.titleCardId),
         ],
         source_hashes: [
           semanticHash('P5FutureResultPacket', { packet_id: PACKET_ID }),
-          semanticHash('P5TraceManifestRef', { trace_manifest_id: TRACE_ID }),
+          semanticHash('P5TraceManifestRef', { trace_manifest_id: PACKET_TRACE_ID }),
         ],
         scientific_closure_intent: {
           schema_version: 'PaperImplementationScientificClosureIntent@v1',
@@ -500,11 +500,11 @@ function ref(
 }
 
 function semanticHash(recordKind: string, content: Record<string, unknown>): string {
-  return `sha256:${createHash('sha256').update(JSON.stringify({
+  return createHash('sha256').update(JSON.stringify({
     record_kind: recordKind,
     schema_version: 'v1',
     content,
-  }), 'utf8').digest('hex')}`;
+  }), 'utf8').digest('hex');
 }
 
 function assertNoAlibabaCredentialMaterial(): void {

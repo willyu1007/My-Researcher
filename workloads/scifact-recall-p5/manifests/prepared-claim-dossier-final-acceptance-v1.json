@@ -1,0 +1,587 @@
+{
+  "schema_version": "ScientificEvidenceP5ClaimDossierFinalAcceptancePrepared@v1",
+  "status": "eligible",
+  "acceptance_package": {
+    "schema_version": "ScientificEvidenceP5ClaimDossierFinalAcceptancePackage@v1",
+    "acceptance_attempt_id": "t136-p5-claim-dossier-final-acceptance-1",
+    "predecessor": {
+      "packet_recovery_attempt_id": "t136-p5-packet-only-recovery-1",
+      "package_hash": "sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69",
+      "prepared_record_sha256": "sha256:5ba6f8dc4f75a74dd4bb8b025c78fbf70184b59c7a2a8060c54eecc5a3b407f8",
+      "acceptance_record_sha256": "sha256:2c36253ba3c18e3e472dbd92219ed66c1ef058c27a0619a1440de95bc673311b",
+      "claim_record_sha256": "sha256:80b9eed542ec81339d220a9ef03b5b2eb1de0ed715e4f0d54b54d0504bea13c9",
+      "completion_record_sha256": "sha256:b34b3b1357612c419b8d0a465c5b4365904e84a5943b1aeb6627f9ce4f144456",
+      "terminal_absent": true
+    },
+    "authority": {
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "implementation_project_id": "implementation_project_642a1879-1137-40f5-b340-330b66509975",
+      "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+      "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+      "packet": {
+        "result_interpretation_packet_id": "result_interpretation_packet_t136_p5_scifact_v4",
+        "packet_content_hash": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36",
+        "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_result_packet",
+        "interpretation_gate_status": "passed",
+        "allowed_claim_ceiling": "moderate",
+        "created_at": "2026-08-16T01:20:29.824Z"
+      },
+      "closure": {
+        "closure_id": "pi_validation_cycle_closure_v2_29e9c28ea2f3bc4be39eb4e8e736f432624384e9056070ba1f06ebc8cccccbce",
+        "closure_snapshot_hash": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68",
+        "scientific_disposition": "positive",
+        "accepted_proposal_id": "pi_runtime_final_b8f3bf37-2f23-4a58-9ff3-6513ba0814fe",
+        "accepted_proposal_hash": "bb7527851c14d1fcfff1afba3f65de79bab86035a35e6551b33cdd93518d54ee"
+      },
+      "run_evidence_unit": {
+        "run_evidence_unit_id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+        "content_hash": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8",
+        "run_id": "ef_run_v2_t136_p5_scifact_v4_1",
+        "validation_report_id": "ef_scientific_validation_report_v2_fd015ec306f8ac3582defe51e4e0f3ccd8ccb770bc5ffa35cb8744df6b51be11",
+        "validation_hash": "sha256:c20d8cab055f20c80420ab278d333d880a65b06ca98c1189569f366ee7d44796"
+      },
+      "literature_evidence": {
+        "evidence_unit_id": "evidence_unit_480c7962-a1fa-4207-b42a-673ae560c7a9",
+        "evidence_map_version": "v-75c9751f-4351-46f5-91bf-cb6045b0a30f",
+        "literature_id": "LIT-0532",
+        "review_status": "machine_checked",
+        "freshness_status": "current",
+        "authority_hash": "sha256:11ce1fc9c3886f435478e1440ab2767d109999f761abd7550ecb01e50b5dd502"
+      },
+      "scientific_chain_counts": {
+        "real_provider_attempts": 2,
+        "succeeded_real_provider_attempts": 2,
+        "create_job_commands": 2,
+        "experiment_results": 2,
+        "passed_validation_reports": 1,
+        "evidence_candidates": 1,
+        "run_evidence_units": 1,
+        "runtime_artifacts": 4,
+        "runtime_admissions": 4,
+        "closures": 1,
+        "packets": 1,
+        "undelivered_integration_outboxes": 0,
+        "claim_trace_manifests": 0,
+        "dossier_trace_manifests": 0,
+        "claim_trace_packets": 0,
+        "dossier_trace_gate_results": 0,
+        "claims": 0,
+        "dossiers": 0
+      },
+      "final_plan": {
+        "created_at": "2026-08-16T03:37:32.277Z",
+        "claim_trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_claim",
+        "claim_trace_manifest_request": {
+          "target_ref": {
+            "ref_type": "claim_candidate",
+            "ref_id": "claim_candidate_t136_p5_scifact_v4",
+            "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+            "version_id": null
+          },
+          "lineage": {
+            "literature": {
+              "literature_evidence_refs": [],
+              "source_locator_refs": [],
+              "citation_candidate_refs": []
+            },
+            "experiment": {
+              "experiment_plan_refs": [],
+              "work_order_refs": [],
+              "run_refs": [],
+              "run_evidence_refs": [
+                {
+                  "ref_id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+                  "ref_type": "run_evidence_unit",
+                  "version_id": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83"
+                }
+              ],
+              "result_packet_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "metric_refs": []
+            },
+            "artifact": {
+              "dataset_refs": [],
+              "baseline_refs": [],
+              "code_version_refs": [],
+              "model_checkpoint_refs": [],
+              "config_refs": [],
+              "log_artifact_refs": []
+            },
+            "decision": {
+              "validation_cycle_refs": [
+                {
+                  "ref_type": "validation_cycle",
+                  "ref_id": "validation_cycle_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68"
+                }
+              ],
+              "motive_evolution_decision_refs": [],
+              "gate_result_refs": [],
+              "human_decision_refs": [],
+              "accepted_risk_refs": []
+            },
+            "internal_interpretation": {
+              "result_interpretation_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "llm_rationale_refs": [],
+              "board_summary_refs": [],
+              "non_citable_refs": []
+            }
+          },
+          "integrity": {
+            "missing_refs": [],
+            "broken_refs": [],
+            "stale_refs": [],
+            "invalidated_refs": [],
+            "non_citable_refs": [],
+            "partial_refs": []
+          },
+          "trace_policy_version_id": null,
+          "created_by": "system"
+        },
+        "claim_trace_packet_id": "claim_trace_packet_t136_p5_scifact_v4",
+        "claim_trace_packet_request": {
+          "claim_ref": {
+            "ref_type": "claim_candidate",
+            "ref_id": "claim_candidate_t136_p5_scifact_v4",
+            "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+            "version_id": null
+          },
+          "claim_statement": "In the preregistered SciFact evaluation, retrieval top-k 10 produced 61,947 ppm higher micro recall than top-k 5, exceeding the +10,000 ppm positive threshold.",
+          "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_claim",
+          "lineage": {
+            "literature": {
+              "literature_evidence_refs": [],
+              "source_locator_refs": [],
+              "citation_candidate_refs": []
+            },
+            "experiment": {
+              "experiment_plan_refs": [],
+              "work_order_refs": [],
+              "run_refs": [],
+              "run_evidence_refs": [
+                {
+                  "ref_id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+                  "ref_type": "run_evidence_unit",
+                  "version_id": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83"
+                }
+              ],
+              "result_packet_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "metric_refs": []
+            },
+            "artifact": {
+              "dataset_refs": [],
+              "baseline_refs": [],
+              "code_version_refs": [],
+              "model_checkpoint_refs": [],
+              "config_refs": [],
+              "log_artifact_refs": []
+            },
+            "decision": {
+              "validation_cycle_refs": [
+                {
+                  "ref_type": "validation_cycle",
+                  "ref_id": "validation_cycle_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68"
+                }
+              ],
+              "motive_evolution_decision_refs": [],
+              "gate_result_refs": [],
+              "human_decision_refs": [],
+              "accepted_risk_refs": []
+            },
+            "internal_interpretation": {
+              "result_interpretation_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "llm_rationale_refs": [],
+              "board_summary_refs": [],
+              "non_citable_refs": []
+            }
+          },
+          "challenge": {
+            "challenging_result_refs": [],
+            "counter_evidence_refs": [],
+            "unresolved_objections": []
+          },
+          "scope": {
+            "dataset_scope": "SciFact benchmark test split used by the bound Run",
+            "task_scope": "micro recall comparison for retrieval top-k 10 versus top-k 5",
+            "baseline_scope": "top-k 5 cell in the same preregistered two-cell Run",
+            "method_scope": "the exact retriever, parser and ExecutionBundle bound by the Packet",
+            "evaluation_scope": "the preregistered micro_recall_ppm metric and directional threshold"
+          },
+          "boundary": {
+            "forbidden_overclaims": [
+              "Do not claim a universal retrieval advantage for top-k 10.",
+              "Do not generalize beyond the evaluated SciFact benchmark, test split, metric definition, retriever implementation, and top-k comparison.",
+              "Do not claim statistical significance, confidence bounds, or replication because no effect interval or independent repeat was supplied.",
+              "Do not infer improvements in answer accuracy, factual correctness, faithfulness, context precision, latency, throughput, or resource use.",
+              "Do not infer either cell's absolute micro-recall value from the reported difference.",
+              "Do not claim that increasing top-k caused the effect independently of all other implementation or execution factors.",
+              "Do not claim that the passed run proves the implementation cannot fail."
+            ],
+            "claim_strength": "moderate",
+            "human_confirmation_required": false
+          },
+          "created_by": "system"
+        },
+        "claim_request": {
+          "claim_candidate_id": "claim_candidate_t136_p5_scifact_v4",
+          "claim_type": "empirical_finding",
+          "claim_statement": "In the preregistered SciFact evaluation, retrieval top-k 10 produced 61,947 ppm higher micro recall than top-k 5, exceeding the +10,000 ppm positive threshold.",
+          "claim_strength": "moderate",
+          "result_interpretation_packet_ids": [
+            "result_interpretation_packet_t136_p5_scifact_v4"
+          ],
+          "support_refs": [
+            {
+              "ref_id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+              "ref_type": "run_evidence_unit",
+              "version_id": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8",
+              "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83"
+            }
+          ],
+          "challenge_refs": [],
+          "scope": {
+            "population_scope": "SciFact benchmark test queries in the bound Run",
+            "method_scope": "the exact retrieval implementation and ExecutionBundle revision",
+            "dataset_scope": "the bound SciFact corpus, query slice and qrels authority",
+            "metric_scope": "micro_recall_ppm under the registered comparison rule",
+            "negative_scope_notes": [],
+            "excluded_scope_notes": [
+              "Do not claim a universal retrieval advantage for top-k 10.",
+              "Do not generalize beyond the evaluated SciFact benchmark, test split, metric definition, retriever implementation, and top-k comparison.",
+              "Do not claim statistical significance, confidence bounds, or replication because no effect interval or independent repeat was supplied.",
+              "Do not infer improvements in answer accuracy, factual correctness, faithfulness, context precision, latency, throughput, or resource use.",
+              "Do not infer either cell's absolute micro-recall value from the reported difference.",
+              "Do not claim that increasing top-k caused the effect independently of all other implementation or execution factors.",
+              "Do not claim that the passed run proves the implementation cannot fail."
+            ]
+          },
+          "boundary": {
+            "boundary_gate_result_id": null,
+            "rationale": "The claim restates only the registered observed difference and positive threshold within the exact evaluated setup.",
+            "forbidden_overclaims": [
+              "Do not claim a universal retrieval advantage for top-k 10.",
+              "Do not generalize beyond the evaluated SciFact benchmark, test split, metric definition, retriever implementation, and top-k comparison.",
+              "Do not claim statistical significance, confidence bounds, or replication because no effect interval or independent repeat was supplied.",
+              "Do not infer improvements in answer accuracy, factual correctness, faithfulness, context precision, latency, throughput, or resource use.",
+              "Do not infer either cell's absolute micro-recall value from the reported difference.",
+              "Do not claim that increasing top-k caused the effect independently of all other implementation or execution factors.",
+              "Do not claim that the passed run proves the implementation cannot fail."
+            ],
+            "hidden_counter_evidence_refs": [],
+            "required_followup_refs": [],
+            "human_confirmation_ref": null
+          },
+          "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_claim",
+          "claim_trace_packet_id": "claim_trace_packet_t136_p5_scifact_v4",
+          "policy_version_id": null,
+          "created_by": "system"
+        },
+        "dossier_trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_dossier",
+        "dossier_trace_manifest_request": {
+          "target_ref": {
+            "ref_type": "implementation_dossier",
+            "ref_id": "implementation_dossier_t136_p5_scifact_v4",
+            "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+            "version_id": "1"
+          },
+          "lineage": {
+            "literature": {
+              "literature_evidence_refs": [
+                {
+                  "ref_type": "literature_evidence_unit",
+                  "ref_id": "evidence_unit_480c7962-a1fa-4207-b42a-673ae560c7a9",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "v-75c9751f-4351-46f5-91bf-cb6045b0a30f"
+                }
+              ],
+              "source_locator_refs": [],
+              "citation_candidate_refs": []
+            },
+            "experiment": {
+              "experiment_plan_refs": [],
+              "work_order_refs": [],
+              "run_refs": [],
+              "run_evidence_refs": [
+                {
+                  "ref_id": "pi_run_evidence_unit_v2_a4938dc556e5c0d75ed8b1ddf29786d9d2cc8f0d308ff29f1c2aef9308bdbb2a",
+                  "ref_type": "run_evidence_unit",
+                  "version_id": "sha256:eff55e51e199dad93d782e666a38155b161b19ff2a58d92615bb3b95d25219e8",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83"
+                }
+              ],
+              "result_packet_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "metric_refs": []
+            },
+            "artifact": {
+              "dataset_refs": [],
+              "baseline_refs": [],
+              "code_version_refs": [],
+              "model_checkpoint_refs": [],
+              "config_refs": [],
+              "log_artifact_refs": []
+            },
+            "decision": {
+              "validation_cycle_refs": [
+                {
+                  "ref_type": "validation_cycle",
+                  "ref_id": "validation_cycle_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68"
+                }
+              ],
+              "motive_evolution_decision_refs": [],
+              "gate_result_refs": [],
+              "human_decision_refs": [],
+              "accepted_risk_refs": []
+            },
+            "internal_interpretation": {
+              "result_interpretation_refs": [
+                {
+                  "ref_type": "result_interpretation_packet",
+                  "ref_id": "result_interpretation_packet_t136_p5_scifact_v4",
+                  "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                  "version_id": "sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36"
+                }
+              ],
+              "llm_rationale_refs": [],
+              "board_summary_refs": [],
+              "non_citable_refs": []
+            }
+          },
+          "integrity": {
+            "missing_refs": [],
+            "broken_refs": [],
+            "stale_refs": [],
+            "invalidated_refs": [],
+            "non_citable_refs": [],
+            "partial_refs": []
+          },
+          "trace_policy_version_id": null,
+          "created_by": "system"
+        },
+        "dossier_gate_result_id": "trace_gate_result_t136_p5_scifact_v4_dossier",
+        "dossier_gate_request": {
+          "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_dossier"
+        },
+        "dossier_request": {
+          "dossier_id": "implementation_dossier_t136_p5_scifact_v4",
+          "dossier_version": 1,
+          "dossier_status": "ready_for_writing",
+          "result_interpretation_packet_ids": [
+            "result_interpretation_packet_t136_p5_scifact_v4"
+          ],
+          "claim_candidate_ids": [
+            "claim_candidate_t136_p5_scifact_v4"
+          ],
+          "claim_trace_packet_ids": [
+            "claim_trace_packet_t136_p5_scifact_v4"
+          ],
+          "closed_validation_cycle_snapshot_refs": [
+            {
+              "validation_cycle_id": "validation_cycle_t136_p5_scifact_v4",
+              "closure_id": "pi_validation_cycle_closure_v2_29e9c28ea2f3bc4be39eb4e8e736f432624384e9056070ba1f06ebc8cccccbce",
+              "closure_snapshot_hash": "sha256:c95fe6fb168a8561ec441d707a9049fcf3c8a3fef4367962a385becb34414b68"
+            }
+          ],
+          "experiment_section": {
+            "failed_run_refs": [],
+            "inconclusive_run_refs": [],
+            "negative_result_refs": [],
+            "excluded_stale_or_invalidated_evidence_refs": [],
+            "experiment_limitations": [
+              "The run and validation artifacts are hash-linked to the same evaluation-protocol revision, and the validation report passed.",
+              "The conclusion follows a registered directional threshold rather than a post hoc cutoff.",
+              "The protocol explicitly did not require an uncertainty interval, so sampling variability and precision cannot be quantified from the supplied evidence.",
+              "Only one validation-cycle evidence unit is supplied; no independent replication evidence is available.",
+              "No designated confound references were supplied. This absence must not be interpreted as proof that all possible confounds were excluded.",
+              "No failed or inconclusive run references occur in the supplied closure set; both possibilities are nevertheless retained explicitly in the scenario analysis."
+            ]
+          },
+          "claim_section": {
+            "admitted_claim_refs": [
+              {
+                "ref_type": "claim_candidate",
+                "ref_id": "claim_candidate_t136_p5_scifact_v4",
+                "title_card_id": "title_card_671d3b55-b58d-4333-b9c7-333b34e2eb83",
+                "version_id": null
+              }
+            ],
+            "rejected_claim_refs": [],
+            "forbidden_overclaims": [
+              "Do not claim a universal retrieval advantage for top-k 10.",
+              "Do not generalize beyond the evaluated SciFact benchmark, test split, metric definition, retriever implementation, and top-k comparison.",
+              "Do not claim statistical significance, confidence bounds, or replication because no effect interval or independent repeat was supplied.",
+              "Do not infer improvements in answer accuracy, factual correctness, faithfulness, context precision, latency, throughput, or resource use.",
+              "Do not infer either cell's absolute micro-recall value from the reported difference.",
+              "Do not claim that increasing top-k caused the effect independently of all other implementation or execution factors.",
+              "Do not claim that the passed run proves the implementation cannot fail."
+            ],
+            "claim_ceiling": "moderate"
+          },
+          "readiness": {
+            "readiness_gate_result_id": "trace_gate_result_t136_p5_scifact_v4_dossier",
+            "blocker_refs": [],
+            "warning_refs": [],
+            "readiness_notes": [
+              "The exact closed Packet, positive Closure snapshot and supported moderate Claim are present.",
+              "Failed, inconclusive, negative and stale evidence accounting is preserved from the Packet.",
+              "The Dossier remains bounded by every accepted ResultAnalysis forbidden overclaim."
+            ]
+          },
+          "trace_manifest_id": "trace_manifest_t136_p5_scifact_v4_dossier",
+          "projection_policy_version_id": null,
+          "policy_version_id": null,
+          "created_by": "system"
+        }
+      },
+      "expected_record_hashes": {
+        "claim_trace_manifest_hash": "sha256:1829a4ea941faba7536b0ecc5dba86e13a8c3818c5703a20f22a8c605875c242",
+        "claim_trace_packet_hash": "sha256:342055986487518545dbb3be8ea92293337b744ea6a086c34d7ed04877886fbc",
+        "claim_hash": "sha256:4297d01edf34170349bfdfc151bc9da6c1bbf8888365297a4a9e2d870aba3d3b",
+        "dossier_trace_manifest_hash": "sha256:7c90e6245fa0cf59e1668fe56462a482f8a98161d6fb45efaab1f4c6ecec2993",
+        "dossier_gate_result_hash": "sha256:215d4a5999cf946a1f5abcd54a60af8ed439e86e97f00969c417f8c0f9b9cb0c",
+        "dossier_hash": "sha256:70568321f4712df00b0563b947ac2f64ce5fffdd94014f4b585e3480fe146ea6"
+      }
+    },
+    "executor": {
+      "mode": "claim_dossier_final_acceptance",
+      "path": "apps/backend/scripts/run-scientific-evidence-p5-claim-dossier-final-acceptance.ts",
+      "sha256": "sha256:bd9c6e6b427d709a3938ac78cf9656a24c2b22b770747ef5e593a5843fde2eb8"
+    },
+    "source_binding": {
+      "source_files": [
+        {
+          "path": "apps/backend/src/repositories/paper-implementation-result-claim-dossier.repository.ts",
+          "sha256": "sha256:d79ebb5cb39f0b69db005a8d2be28e67158cc691a692fdb0b3dd86709d3f9c78"
+        },
+        {
+          "path": "apps/backend/src/repositories/paper-implementation-trace.repository.ts",
+          "sha256": "sha256:b597f25a6e482f3400e473c5cf859e8374f16e558d7aecd56ce4fc950b9db977"
+        },
+        {
+          "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-result-claim-dossier-repository.ts",
+          "sha256": "sha256:0c6de4975a0135b0b0399994c3c61ab88a62a4c33a2e81abe7566474148ed80d"
+        },
+        {
+          "path": "apps/backend/src/repositories/prisma/prisma-paper-implementation-trace-repository.ts",
+          "sha256": "sha256:0f6528715be97820ce441064987d2121c7d452d8f76d391b5a4c38f67d1aaf40"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-claim-dossier-service.ts",
+          "sha256": "sha256:8fbde8f06299864a2413c413415c5e53fb78598157fba05fd72a0bfdf3ba402c"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-result-packet-v2-materializer.ts",
+          "sha256": "sha256:632508f4a87d3a3758c068cdb21b736b29de3373d4e77ee09601065f2f02d9b4"
+        },
+        {
+          "path": "apps/backend/src/services/paper-implementation-trace-kernel-service.ts",
+          "sha256": "sha256:0323fb2cccfe19cbd0e875945ad506e29760c6569078ed14bb81c9cf95a22872"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-attempt-terminal-service.ts",
+          "sha256": "sha256:42cf756134c16cbb59fbdb3ec649af3a09bdabed840387ba1869d17de90e5a95"
+        },
+        {
+          "path": "apps/backend/src/services/scientific-evidence-p5-claim-dossier-final-acceptance-service.ts",
+          "sha256": "sha256:163af41f2594a7377e5fd113c2bbac21bfd06d087fa4699960f97f32be121918"
+        },
+        {
+          "path": "apps/backend/scripts/scientific-evidence-p5-claim-dossier-final-runtime.ts",
+          "sha256": "sha256:2422e26c46a13b87876344522fb34a8913e7d55610bc99c52bdd264fe218c34a"
+        }
+      ]
+    },
+    "recovery_point": {
+      "manifest_ref": "/Users/yurui/Desktop/My-Researcher-Recovery/T-136/claim-dossier-final-acceptance-20260816-1125/t136-p5-claim-dossier-final-acceptance-point.json",
+      "created_at": "2026-08-16T03:32:36.730Z",
+      "target_fingerprint": "sha256:8851b255b079ad1f049dc1842c41cb3516d5a3ff0b69e21a30e8f2675409cca0",
+      "recovery_fingerprint": "sha256:cbdc973421ec8565b430fa8e157ebb5dc44c27d6e74acbff7352fae856f41b70",
+      "schema_dump_sha256": "sha256:5258fff9805eff5316f26784a7c74ae71ffc97bf1ad68e96b7fa2cdd4ebb3a39",
+      "authority_data_dump_sha256": "sha256:63a1a78edd43fa8c5d5408e2baafefad0b2ae891b7c2aca54cf1e083c96e5b09",
+      "authority_table_count": 114
+    },
+    "authorized_effects": {
+      "operation": "claim_dossier_final_acceptance",
+      "external_provider_call_count": 0,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "runtime_artifact_write_count": 0,
+      "runtime_admission_write_count": 0,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "integration_outbox_write_count": 0,
+      "projection_inbox_write_count": 0,
+      "packet_write_count": 0,
+      "trace_manifest_write_count_max": 2,
+      "trace_repair_queue_write_count": 0,
+      "claim_trace_packet_write_count_max": 1,
+      "trace_gate_result_write_count_max": 1,
+      "claim_write_count_max": 1,
+      "dossier_write_count_max": 1,
+      "writing_entry_packet_write_count": 0,
+      "human_confirmation_write_count": 0,
+      "m0_sci_acceptance_record_write_count_max": 1,
+      "persistent_capability_change_count": 0
+    },
+    "operational_window": {
+      "prepared_at": "2026-08-16T03:37:32.277Z",
+      "authorization_not_after": "2026-08-16T09:37:32.277Z",
+      "execute_not_after": "2026-08-16T10:07:32.277Z"
+    },
+    "package_hash": "sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953"
+  },
+  "eligibility": {
+    "schema_version": "ScientificEvidenceP5ClaimDossierFinalAcceptanceEligibility@v1",
+    "package_hash": "sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953",
+    "status": "eligible",
+    "reason_codes": [],
+    "eligibility_record_hash": "sha256:2053157031fbb736671a6ca65a99de1352ccf4aa3ebf7359227257809c193f60"
+  },
+  "preparation_effect_census": {
+    "database_writes": 0,
+    "external_calls": 0,
+    "create_job_calls": 0,
+    "capability_changes": 0,
+    "provider_credentials_read": 0
+  }
+}

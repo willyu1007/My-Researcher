@@ -13,6 +13,18 @@ No implementation phase may skip the preceding authority/acceptance gate. P5 clo
 
 P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 remains open, `M0-SCI` remains not passed and the affected scientific capabilities remain default-off. Other M0 modules may continue independent development/preview. Only a passing P5 acceptance makes T-136 eligible for completion and records `M0-SCI: passed`; P5 passage does not automatically enable runtime flags.
 
+## Packet-trace successor attempt-3 completed checkpoint and next sequence
+
+- Completed: exact acceptance and one execution of package `sha256:517faaa1d47cadfb781b92c64a060a7503e49acc99ba4ee5e58650c38886ab0d` under `t136-p5-packet-trace-result-analysis-successor-2`.
+- Terminal result: the attempt claimed at `2026-08-15T23:21:59.783Z` and terminalized 105 ms later under `T136_P5_PACKET_TRACE_RESULT_ANALYSIS_SUCCESSOR_FAILED`. Completion is absent; the attempt must not be replayed.
+- Verified boundary: Packet trace/repair queue/runtime artifacts/runtime admissions/Closures/Packets are `0/0/2/2/0/0`; Claims/Dossiers are `0/0`. Provider, PAI/Alibaba, ValidationCycle, Closure/Packet and capability effects are zero.
+- Root cause: the executor copies the existing Cycle trace lineage when constructing the Packet trace. That lineage has no experiment refs, while `result_interpretation_packet` requires experiment lineage. The Trace Kernel therefore requests a blocking repair item; the executor's trace-only ID factory rejects `trace_repair_queue_item` before repository persistence.
+- Fix completed: preparation and execution use one typed lineage builder that accepts exactly one closure-context `run_evidence_unit` with the exact title card and `sha256:` content version. Execution verifies the persisted Trace is complete and its repair queue is empty before ResultAnalysis provider entry.
+- Verification completed: named-local closure-context resolution found exactly one authoritative RunEvidenceUnit; the corrected path created an in-memory Packet Trace with `complete / missing=0 / repair=0`. Focused tests pass 65/65 and full workspace plus experiment-script TypeScript pass.
+- Preparation completed: attempt-2 prepared and acceptance bytes are archived under attempt-specific terminal names with exact SHA-256 values `7c2f64ade73e3b2ace4c39de72a8d488883153979389e490c1de466ef3c0886d` and `dcad620e2ea64ee87ff44ebf4bc0211e9ed00a3a66d9ff6da786a2a5755db6a6`; its claim/terminal remain unchanged and completion remains absent.
+- Successor-3 completed: exact package `sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88` claimed and completed once with no terminal. It created one complete Packet trace, zero repair items, two passed/admitted ResultAnalysis artifacts and used one provider call; the official proposal resolver returned the exact Packet/trace request.
+- Current gate: the next three actions are (1) obtain explicit preparation approval for a fresh post-successor Closure/Packet continuation, (2) bind the new final artifact/admission and Packet trace under a new immutable package with zero provider effects, then (3) separately authorize and execute that exact package before Claim/Dossier. The completed successor must not be replayed and grants no Closure/Packet authority.
+
 ## Revision-15 terminal checkpoint and next sequence
 
 - Completed: revision 15 / attempt 13 fresh recovery, eligible package `sha256:f393cab29c50bd950a2dd6171df82778b8004bf529011744a924a52bde0461cf`, exact acceptance, one 3,600-second controller STS, one successful local integrity stage and one completed three-call read-only qualification stage.
@@ -496,3 +508,125 @@ P0-P4 completion establishes only `implementation_complete_unreleased`: T-136 re
 - Terminal close: close claimed once at `2026-08-15T00:44:41.030Z` and terminalized at `2026-08-15T00:45:25.535Z` under stable reason `T136_P5_CLOSE_FAILED`. Read-only post-failure census is Results `2`, passed reports `1`, REUs `1`, runtime artifacts/admissions `0/0`, Closures `0` and Packets `0`; the failure preceded ResultAnalysis persistence and no close replay is legal.
 - Completed cleanup: erase the exact mode-0600 temporary credential envelope, empty clipboard, replace the credential response page with the prior GetJob page, reset the persistent browser kernel, and verify no P5 runner remains. Process-local capabilities and Alibaba credentials died with their children; workload paid/capability authority is false.
 - Gate: preserve attempt 17 and its scientific evidence unchanged. The next action is a separately approved instrumentation-only diagnosis of the ResultAnalysis provider-call/response boundary. A later recovery must use a new attempt/package boundary and the existing durable v4 evidence; it must not create replacement provider Jobs.
+
+### Packet-trace repair / ResultAnalysis successor package gate — 2026-08-15
+
+- Completed: add independent exact-once stage `packet_trace_result_analysis_successor`, an exact effect-bound package contract, an immutable preparation script and a future executor. The executor first creates the distinct complete Packet-targeted trace, then runs ResultAnalysis and requires the official resolver to return the exact Packet request; it stops before Closure/Packet.
+- Completed: create and verify a repository-external recovery point containing a 2,046-entry full-schema dump and exact 114-table authority-data dump. Directory mode is `0700`; manifest and dumps are `0600`.
+- Completed: first-write eligible package `sha256:2b55d735da79dd293bee70f946aa84521ec731e0ec515b7cf1a9e0a13adb9860`, byte-identical no-write replay and credential-free offline preflight. Current business counts remain Packet trace/runtime artifacts/runtime admissions/Closures/Packets `0/2/2/0/0`.
+- Current gate: acceptance, claim, completion and terminal are absent. Require the exact package hash by `2026-08-15T19:19:51.155Z`; execute entry closes `2026-08-15T19:49:51.155Z`.
+- Remaining after success: prepare and separately authorize a new Closure/Packet-only continuation, then complete Claim/Dossier and the final M0-SCI audit. Package preparation does not authorize any of those steps.
+- Expired gate: the exact matching confirmation was checked at `2026-08-15T22:38:14.844Z`, after both cutoffs. No acceptance or attempt record was created and the package is permanently non-executable. A fresh package requires separate preparation approval and later exact hash authorization.
+- Fresh successor gate: after explicit re-preparation approval, preserve attempt 1 under `prepared-packet-trace-result-analysis-successor-attempt1-expired-v1.json`, rotate to attempt/runtime identity 2 and reuse only the unchanged verified recovery/effect/source authority. Package `sha256:517faaa1d47cadfb781b92c64a060a7503e49acc99ba4ee5e58650c38886ab0d` is eligible and deterministic; authorization closes `2026-08-16T04:47:21.247Z`, execution entry closes `2026-08-16T05:17:21.247Z`, and all attempt-2 execution records are absent.
+
+### ResultAnalysis-only diagnostic recovery gate — 2026-08-15
+
+- Completed instrumentation preparation: debug run `dbg-20260815-010050-126f` covers the orchestrator provider/validation/audit boundary and ResultAnalysis context/classification/first-persistence boundary. Local timeout and incomplete-scenario paths both durably persist a rejected `failed_runtime` artifact, ruling out those ordinary normalized paths as the sole explanation for revision 19's zero artifacts.
+- Completed recovery preparation: capture a mode-0600 post-r19 full-schema dump and exact 114-table authority-data dump outside the repository. Their recovery fingerprint is `sha256:b96b3db3457e8968146c0b3dd87bec694049c71552ca6480957cae5e8afa794f`.
+- Completed immutable package gate: package `sha256:609e2d3dc8f5e43f6207a114876b69506645d594f3190febdce8cb387cb0035a` is eligible and deterministic. It binds the exact r19 terminal, durable Results/report/REU/trace, OpenAI `gpt-5.6-sol` model profile, executor bytes, instrumentation bytes and recovery point.
+- Fixed execution boundary: at most two OpenAI calls, at most two runtime-artifact writes and two runtime-admission writes; exactly zero PAI `CreateJob`, Alibaba calls, Closure writes, Packet writes and persistent capability changes. The exact-once executor stops after ResultAnalysis and never enables the closure capability.
+- Current gate: no acceptance, claim, completion or terminal recovery record exists. Exact authorization must arrive no later than `2026-08-15T07:46:32.161Z`; execution must complete its entry check no later than `2026-08-15T08:16:32.161Z`. Do not infer authorization from instrumentation or package-preparation approval.
+- Expired gate: the matching 108-byte user confirmation was checked at `2026-08-15T08:08:01Z`, after the authorization deadline. Validation stopped before acceptance creation, provider entry or database writes. Package `sha256:609e2d3dc8f5e43f6207a114876b69506645d594f3190febdce8cb387cb0035a` cannot be reused; a fresh package and separate exact authorization are required.
+- Successor gate: preserve the expired manifest byte-for-byte as `prepared-result-analysis-recovery-expired-v1.json`, rotate only to recovery attempt `t136-p5-result-analysis-recovery-2`, and reuse the unchanged executor, instrumentation, r19 authority and post-r19 recovery point. New package `sha256:aafd404faff484acf48691f65f32c91d892d4a64976382054b2db021c865847e` is eligible and deterministic. Authorization closes `2026-08-15T14:15:05.091Z`; execution closes `2026-08-15T14:45:05.091Z`.
+- Terminal recovery outcome: exact authorization was accepted at `2026-08-15T08:26:48.353Z`; attempt 2 claimed once and terminalized at `2026-08-15T08:27:54.820Z`. The first OpenAI call returned parsed output with no retry/timeout, output and audit validation passed, and a `passed` role artifact was built. Its first schema-validation persistence gate threw `AppError/INVALID_PAYLOAD`; no artifact/admission/Closure/Packet row was written and no second provider call occurred.
+- Gate 2 proposal: keep the RuntimeArtifact bare-hash contract unchanged. Convert P5 package-level `sha256:<hex>` identities to bare runtime hashes at the close/recovery caller boundary, and add an early ResultAnalysis request guard plus regression coverage so malformed hash representations fail before any provider call. Do not implement until explicit `APPROVE FIX`.
+
+### ResultAnalysis hash-representation fix — 2026-08-15
+
+- Completed after explicit Gate 2 approval: P5 close now constructs bare runtime hashes, and the recovery executor converts its immutable package-level `sha256:<hex>` identities to bare runtime values at the ResultAnalysis boundary.
+- Completed fail-fast guard: ResultAnalysis rejects any non-bare input/source SHA-256 before project lookup, context assembly or provider entry. The permanent regression proves prefixed hashes produce `INVALID_PAYLOAD`, zero provider calls and zero repository rows.
+- Verified after diagnostic cleanup: backend and experiment-script strict typechecks pass; the three focused suites pass 42/42; the scoped debug-marker scan is empty and the orchestrator service has no residual diff.
+- Gate: no recovery execution is authorized. Attempt 2 is terminal and its byte-bound instrumentation/executor package is historical. A post-fix recovery requires separately approved preparation, a fresh immutable package and a new exact hash-bound execution authorization.
+
+### Post-fix ResultAnalysis recovery attempt 3 package — 2026-08-15
+
+- Completed approved preparation: archive attempt 2 prepared/acceptance bytes under attempt-specific names, retain its claim/terminal records unchanged, and rotate to independent attempt `t136-p5-result-analysis-recovery-3` with new runtime run/input-snapshot identities.
+- Completed immutable package: `sha256:79687bf823c52f440664da71ec56ba323ffedbc244815cc3a04593103b7cb9d1`, eligibility record `sha256:bae98102a4efd851b946a36079c7f0430a34dac079ef871bc5dff8209b86a715`, manifest-file SHA-256 `sha256:040aacadb667978bbac68467735520dd754d84994f16af0930c2aa3bb957b25e`.
+- Verified: no-write generation is byte-identical; offline preflight verifies source evidence, clean source-byte bindings, executor, model, target and recovery point with runtime artifacts/admissions/Closures/Packets `0/0/0/0`; strict typechecks and the focused lane pass 42/42.
+- Current gate: acceptance, attempt-3 claim and terminal are absent. Require exact package-hash authorization by `2026-08-15T14:52:15.289Z`; execution entry closes `2026-08-15T15:22:15.289Z`. Preparation approval grants no execution authority.
+
+### Post-fix ResultAnalysis recovery attempt 3 execution — 2026-08-15
+
+- Completed exact acceptance: bind the user's 124-byte authorization digest `sha256:7c4d9294f5c12882dac73f8cef247f0b5c0154427dd7f9d38d0a83a1f7b6ee44` to the immutable attempt-3 package inside its window.
+- Completed once: claim at `2026-08-15T09:27:21.459Z`, one OpenAI call, one passed role artifact/admission, one passed final artifact/admission, then stop before Closure. Completion was recorded at `2026-08-15T09:28:00.122Z`; no terminal exists.
+- Verified durable outcome: runtime artifacts/admissions/Closures/Packets are `2/2/0/0`; both admissions are `admitted`; final artifact hash is `10c32d592d7553727036ca60a0785532fc2bd80637f38d92a0ff1f336c3061c7`; all stored runtime input/source hashes are bare 64-hex.
+- Gate: ResultAnalysis recovery is consumed and non-reentrant. A new, separately reviewed and authorized continuation is required to create Closure/Packet and complete P5; the executed package explicitly authorized zero such writes.
+
+### Closure/Packet-only continuation package — 2026-08-15
+
+- Completed approved preparation: add independent exact-once stage `closure_packet_continuation`, bind the consumed ResultAnalysis attempt-3 package/completion plus exact admitted final artifact, and reuse the maintained production Closure, relay, projection and Packet materializer chain.
+- Completed recovery: create a repository-external mode-0600 post-ResultAnalysis checkpoint with a complete 2,046-entry schema dump and exact 114-table authority-data dump. Independently verify both dump hashes, TOC counts, sizes and the canonical recovery fingerprint.
+- Completed immutable package: `sha256:0d68a8789fbc97673dbbc5e0d7488370e82a4bde1098fa8cb9a01b922593247a`, eligibility record `sha256:1b94d4b02c11dc07eaea4a0319ec6f755fd85e879575bf35eaf838cdf703f59d`, manifest-file SHA-256 `sha256:5db1f0e27ebd26c04edca4300f44b394b499e55db24204d55df411b5fd8b0dbf`.
+- Fixed execution boundary: external provider, `CreateJob`, Alibaba, runtime artifact/admission, Claim, Dossier and persistent capability changes are zero. The operation permits at most one ValidationCycle update, Closure, integration outbox, projection inbox, Packet and outbox delivery, with process-local Closure capability only during the claimed operation.
+- Verified: no-write preparation is byte-identical; offline preflight binds source records/files, executor, recovery point, final artifact/admission and current `2/2/0/0` state. Backend and experiment-script strict TypeScript pass; the focused lane passes 46/46.
+- Current gate: acceptance, continuation claim and terminal are absent. Require exact authorization by `2026-08-15T16:26:40.500Z`; execute entry closes `2026-08-15T16:56:40.500Z`. Preparation approval does not authorize execution.
+
+### Packet-target trace correction and successor gate — 2026-08-15
+
+- Completed terminal handling: accept the exact continuation package once, preserve its claim/terminal as permanent evidence, and verify zero Cycle/Closure/outbox/inbox/Packet/Claim/Dossier mutation. Never replay attempt `t136-p5-closure-packet-continuation-1`.
+- Completed diagnosis: run the official proposal resolver read-only and compare all runtime, admission, Packet and trace predicates. Only the trace target type/id fail; the current complete trace is Cycle-targeted while P4 requires the exact Packet target.
+- Completed approved source fix: stage distinct Cycle and Packet traces for fresh authority, bind future ResultAnalysis/close/recovery to the Packet trace, and fail package preparation/execute before writes unless the official resolver returns the exact Packet materialization request.
+- Completed verification: project and experiment-script strict typechecks pass; focused units pass 46/46; fresh identity-marked disposable PostgreSQL gate `packc-pi-20260815-r10` passes 197/197 with relational 6/6 and cleanup.
+- Next authorization gate: prepare a new exact-once Packet-trace repair and ResultAnalysis successor package. Because the existing admitted final artifact immutably binds the Cycle trace, the repair cannot safely patch that artifact or reuse the terminal continuation package.
+- Subsequent gate: after the successor ResultAnalysis artifact/admission is completed and reread by the official resolver, prepare a new Closure/Packet continuation package and require a separate exact package-hash authorization. Claim/Dossier remain outside this step.
+
+### Post-successor Closure/Packet continuation-2 package — 2026-08-16
+
+- Completed approved preparation: archive continuation-1 prepared/acceptance bytes only after exact verification of its package, acceptance, claim and terminal hashes and absent completion. The terminal predecessor remains immutable and non-reentrant.
+- Completed source cutover: extend the continuation package contract backward-compatibly so the fresh package binds successor-3 prepared/acceptance/claim/completion records, the new admitted final artifact/admission, the exact complete Packet trace and current `1/0/4/4/0/0` Trace/repair/artifact/admission/Closure/Packet state.
+- Completed fresh recovery: capture a repository-external PostgreSQL 17 checkpoint with a 2,046-entry schema dump and exact 114-table authority-data dump; verify dump bytes, hashes, permissions and canonical recovery fingerprint before package generation.
+- Completed immutable package: attempt `t136-p5-closure-packet-continuation-2`, package `sha256:6b356bc4cac7b04c9b68b44fa651cdda4e91b7a9bb4af6291c7b5f4273551b04`, eligibility `sha256:46c85087e49d44d84c9fc93bbe5cde4550695aa10e4878eb5152c6fd0bc3f588`, prepared-manifest file `sha256:76430fd9969c5da54481e817cf7f127923462d81ce6711d64bcbdac546dc89f2`.
+- Verified preparation: direct no-write replay is byte-identical; credential-free offline preflight passes all source/executor/recovery/Packet-trace/current-authority bindings; strict typechecks pass and the focused six-suite lane passes `67/67`.
+- Current gate: continuation-2 acceptance, claim, completion and terminal are absent. Require exact package authorization by `2026-08-16T07:10:21.769Z`; execute entry closes `2026-08-16T07:40:21.769Z`. Preparation approval grants no execution authority.
+- After successful execution: verify one exact Closure/Packet and zero provider/runtime/Claim/Dossier effects, then stop. Claim/Dossier completion and the final `M0-SCI` audit require a later separately reviewed boundary.
+
+### Continuation-2 partial Closure and terminal Packet materialization — 2026-08-16
+
+- Completed exact acceptance and one execution entry: authorization text is 124 UTF-8 bytes, the package/acceptance/window checks pass, and attempt `t136-p5-closure-packet-continuation-2` claims once.
+- Terminal outcome: Closure commits the exact successor proposal as a positive scientific disposition and completes the Cycle. The relay processes the projection consumer, then Packet materialization rejects under `RESULT_INTERPRETATION_PACKET_AUTHORITY_CONFLICT`; the outbox terminalizes after one attempt and no Packet is written.
+- Durable boundary: Trace/repair/artifact/admission/Closure/Packet/Claim/Dossier `1/0/4/4/1/0/0/0`; closed outbox/inbox `1/1`; one PI outbox remains undelivered. Provider, runtime-artifact/admission, CreateJob, Alibaba, Claim/Dossier and persistent-capability effects remain zero.
+- Root-cause evidence: read-only materializer authority load succeeds through Closure/proposal/evidence checks. Assembly fails only at proposal/request reliability equality. All semantic predicates match except limitation refs: proposal refs include optional `legacy_ref: null`, while the canonical service-assembled request intentionally retains only ref type/id/title-card/version.
+- Completed Gate 1: the user approved the no-instrumentation diagnosis. No debug markers or behavior changes were added.
+- Completed Gate 2: materializer reliability agreement projects both sides to the current ref identity, collapses absent/`null` optionals and retains non-null legacy payload as a conflict. Positive and negative regressions, strict typechecks and the focused lane pass with zero business writes.
+- Current gate: obtain explicit approval to prepare a separate Packet-only recovery package against the committed Closure/terminal outbox. Preparation must bind the verified source bytes, exact read-only Packet hash, current authority and a fresh recovery point, then stop before acceptance.
+- Subsequent gate: require an exact package authorization to materialize one Packet and deliver the existing outbox without creating another Closure, provider/runtime artifact/admission, Claim or Dossier. Stop again before Claim/Dossier.
+
+### Packet-only recovery-1 preparation — 2026-08-16
+
+- [x] Preparation authority remained limited to recovery code, tests, fresh recovery point, first-write package, byte-identical replay and offline preflight. Execute and all business effects remained unauthorized.
+- [x] Added a narrow serializable repository transaction that validates the exact Closure, terminal outbox CAS tuple and processed inbox, then atomically writes the canonical Packet and transitions that outbox directly from `terminal` to `delivered`. It never resets/requeues the row.
+- [x] Created repository-external recovery directory `packet-only-recovery-20260816-1008`: full schema `2,046` TOC entries, exact authority data `114` TABLE DATA entries, canonical fingerprint `sha256:721efdcc295cc9d469b1165a3f294bcd892bf8c6dd07635f89cae0636a8079d6`, modes `0700/0600`.
+- [x] First-write eligible package `sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69`; eligibility `sha256:9db4636b7d27b10e480422442ec8c523e2c440d022b8ad8e50686b4b62391458`; prepared-file SHA-256 `sha256:5ba6f8dc4f75a74dd4bb8b025c78fbf70184b59c7a2a8060c54eecc5a3b407f8`.
+- [x] Byte-identical no-write replay and offline preflight passed. Current Trace/repair/artifact/admission/Closure/Packet/outbox/inbox/undelivered/Claim/Dossier remains `1/0/4/4/1/0/1/1/1/0/0`; acceptance/claim/completion/terminal are absent.
+- [x] Separately accept only the exact package by `2026-08-16T08:12:20.059Z`, then enter execute no later than `2026-08-16T08:42:20.059Z`.
+- [x] After one execution, independently verify Packet hash, direct delivered outbox, zero reset and zero Closure/provider/runtime/Claim/Dossier effects; then stop before the final Claim/Dossier gate.
+
+### Packet-only recovery-1 execution — 2026-08-16
+
+- [x] Accepted exact package `sha256:a77279e3f6878648fe8d929fa5730c7c77fc6509d1939500dce4dd266f420e69` inside its fixed window. The 124-byte authorization digest is `sha256:918337e4570e257a12182738d7332d214fe621df5b94048c4aa5264f2359c339`.
+- [x] Claimed and completed attempt `t136-p5-packet-only-recovery-1` exactly once. Completion status is `packet_materialized_terminal_outbox_delivered`; terminal evidence is absent, so the successful attempt is consumed and non-reentrant.
+- [x] Materialized exact Packet `result_interpretation_packet_t136_p5_scifact_v4` / `sha256:ea5c26f8a69642986396f4145e2f773c7189c384ff5098417f711e0ed3936f36` and directly changed the bound outbox from `terminal` to `delivered`. Delivery attempt count remains `1`; reset/requeue count is `0`.
+- [x] Independently verified Trace/repair/artifact/admission/Closure/Packet/Claim/Dossier `1/0/4/4/1/1/0/0`, closed outbox/inbox `1/1`, undelivered integration outboxes `0`, and the canonical closed view.
+- [x] Verified package effects outside the fixed boundary are zero: repeated Closure, provider/PAI/Alibaba/`CreateJob`, runtime artifact/admission, Claim/Dossier and persistent capability changes.
+- [x] Prepare a separately reviewed Claim/Dossier final-acceptance package against the canonical Packet. Stop before its acceptance; the completed Packet-only authorization grants no downstream write authority.
+
+### Claim/Dossier final-acceptance package preparation — 2026-08-16
+
+- [x] Reuse T-136 and preserve the existing project mapping. No new task, milestone or requirement is introduced.
+- [x] Read-only authority check confirms one canonical closed Packet, one positive Closure, one exact closed v2 RunEvidenceUnit, zero Claim/ClaimTrace/Dossier rows, and current same-title-card literature evidence for the Dossier trace.
+- [x] Add an independent exact-once stage and immutable package contract. Fixed maxima are two TraceManifests, one ClaimTracePacket, one TraceGateResult, one moderate ClaimCandidate, one ready-for-writing Dossier and one `M0-SCI` acceptance record; trace repair and every provider/PAI/Alibaba/`CreateJob`/runtime/Closure/Packet/capability effect are zero.
+- [x] Build both Claim and Dossier through the maintained Trace Kernel and Result/Claim/Dossier service. The Claim uses the exact Packet-bound REU, remains within the accepted moderate ceiling and preserves all forbidden overclaims; the Dossier preserves the exact Closure snapshot and adverse-result accounting.
+- [x] Bind the consumed Packet-only prepared/acceptance/claim/completion records, canonical Packet/Closure/REU/literature authority, exact planned records, executor/source bytes, fresh repository-external recovery point and current zero downstream counts.
+- [x] Prove production-service assembly without writes, run focused tests and strict typechecks, generate the package first-write, prove byte-identical no-write replay and pass offline preflight.
+- [x] Stop before the acceptance file. Package `sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953` requires a later exact-hash confirmation by `2026-08-16T09:37:32.277Z`; preparation authority is not execution authority.
+
+Current gate: acceptance, attempt claim/completion/terminal and `m0-sci-acceptance-v1.json` remain absent. Do not execute from the general preparation approval; accept only the exact package hash above inside its fixed window.
+
+### Claim/Dossier final-acceptance execution — 2026-08-16
+
+- [x] Record the exact 124-byte user authorization for package `sha256:1391ed1775606291d5300f3436f31e6e86eb0437471448ad66cf9da22cd9d953` inside its immutable authorization window.
+- [x] Revalidate package/source/executor/recovery/current-authority bindings with acceptance present and zero preflight effects.
+- [x] Claim and complete exact-once stage `claim_dossier_final_acceptance` once; preserve completion and require terminal evidence to remain absent.
+- [x] Create exactly two complete TraceManifests, one ClaimTracePacket, one passed TraceGateResult, one supported moderate ClaimCandidate and one ready-for-writing Dossier.
+- [x] Verify deterministic record hashes, zero new rows on replay, zero trace repair/WritingEntryPacket/human-confirmation rows and zero external/`CreateJob`/capability changes.
+- [x] Record `M0-SCI: passed` while leaving all scientific capabilities default-off. T-136 implementation and execution are complete; archival remains a separate approval.

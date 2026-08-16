@@ -1,0 +1,30 @@
+{
+  "schema_version": "ScientificEvidenceP5PacketTraceResultAnalysisSuccessorAcceptance@v1",
+  "status": "authorized_pending_execute",
+  "successor_attempt_id": "t136-p5-packet-trace-result-analysis-successor-3",
+  "package_hash": "sha256:61edf09649732fc13f8afc404317d868b02121b91b81dc34d44c0a77d9e08f88",
+  "authorization": {
+    "source": "current_codex_task_user",
+    "received_at": "2026-08-16T00:48:25.127Z",
+    "text_utf8_sha256": "sha256:dee9b717c5e4e96c019b3db2e8fa8a280193e4ead80bfdccadaa54596bab740e",
+    "text_utf8_bytes": 124,
+    "user_authorized": true,
+    "authorized_effects": {
+      "operation": "packet_trace_result_analysis_successor",
+      "external_provider": "openai",
+      "provider_call_count_max": 2,
+      "create_job_call_count": 0,
+      "alibaba_cloud_call_count": 0,
+      "trace_manifest_write_count_max": 1,
+      "trace_repair_queue_write_count": 0,
+      "runtime_artifact_write_count_max": 2,
+      "runtime_admission_write_count_max": 2,
+      "validation_cycle_update_count": 0,
+      "closure_write_count": 0,
+      "packet_write_count": 0,
+      "claim_write_count": 0,
+      "dossier_write_count": 0,
+      "persistent_capability_change_count": 0
+    }
+  }
+}

@@ -1,6 +1,6 @@
-# ExperimentFoundation v2 control-plane operator runbook (T-132 first release)
+# ExperimentFoundation v2 control-plane operator runbook
 
-Scope: the default-off EF/PI v2 control plane shipped by T-132 (Pack A spine, Pack B provider control, Pack C scientific/closure authority, M5 agent/API surface, M7 default-off real provider) plus the T-134 promotion, exploration-attachment and structured-first semantic components. T-132 completed one separately authorized immutable two-cell PAI live window on 2026-08-02; live execution is still not a standing release capability. Those collected outputs remain `diagnostic_only`, and a real-provider-to-scientific-evidence live acceptance has not been claimed.
+Scope: the default-off EF/PI v2 control plane shipped by T-132 (Pack A spine, Pack B provider control, Pack C scientific/closure authority, M5 agent/API surface, M7 default-off real provider) plus the T-134 promotion, exploration-attachment and structured-first semantic components. T-132 completed one separately authorized immutable two-cell PAI live window on 2026-08-02; those outputs remain `diagnostic_only`. T-136 separately completed the SciFact two-cell scientific-evidence acceptance on 2026-08-16 and passed `M0-SCI`. Neither window grants standing live authority: all live capabilities remain default-off and require a separately authorized invocation.
 
 ## Capability posture (release default)
 
@@ -27,7 +27,8 @@ All reads are ungated and server-scoped:
 | Relay events not consumed (e.g. `ValidationCycleClosed@v1` pending) | Events are durable outbox rows; they drain when the app next runs with background work enabled. `INTEGRATION_RELAY_CONSUMER_NOT_CONFIGURED` means a bounded runner claimed a product event — released to retry, never terminalized. |
 | Closure rejected | Stable codes: `CYCLE_ALREADY_CLOSED`, `CYCLE_CLOSURE_SCOPE_DRIFT`, `BRANCH_HEAD_NOT_FROZEN`, closure disabled → 409. Re-derive via `.../closure/v2/preparation`; never hand-assemble the CAS hash. |
 | Suspected schema drift | `pnpm ci:prisma-drift` locally / the CI prisma-drift job; named-local identity check first: `SELECT version()` must be PostgreSQL 17.x on 127.0.0.1:5432 (`postgres` DB, `my_researcher_dev` schema). |
-| Named-local restore | Recovery dumps under `.ai/.tmp/db-recovery/` (latest: `m7-apply-20260724-r1.dump`, SHA `5ce0328b…`); restore with `/opt/homebrew/opt/postgresql@17/bin/pg_restore` after verifying the dump's own SHA and TOC. |
+| EF/PI scoped named-local restore | The current package-bound recovery point is referenced by `workloads/scifact-recall-p5/manifests/prepared-claim-dossier-final-acceptance-v1.json` and stored outside the repository under `Desktop/My-Researcher-Recovery/T-136/claim-dossier-final-acceptance-20260816-1125/`. Before a PostgreSQL 17 restore, verify the manifest fingerprint, both dump hashes, the 2,046 schema TOC entries, the 114 authority table-data entries, and the declared restore order. |
+| Whole-database restore | No repository-local whole-database dump is retained. Before a future cross-domain migration or restore, create a fresh repository-external full dump and independently verify its SHA-256 and TOC; a scoped T-136 recovery point is not a whole-database backup. |
 
 ## Release verification entry points
 

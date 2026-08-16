@@ -58,6 +58,13 @@ interface ScientificMaterializationAuthority {
   evidenceAuthorities: PaperImplementationScientificClosureEvidenceAuthorityV1[];
 }
 
+interface PacketReliabilityAgreement {
+  failed_runs_retained: boolean;
+  confound_refs: TopicSelectionFunctionalRef[];
+  limitation_refs: TopicSelectionFunctionalRef[];
+  reliability_notes: string[];
+}
+
 type MaterializationAuthority = ScientificMaterializationAuthority | {
   kind: 'control_only';
   storedClosure: PaperImplementationStoredValidationCycleClosureV2;
@@ -74,16 +81,8 @@ PaperImplementationClosedInterpretationPacketViewReader {
   async consume(
     event: ValidationCycleClosedEventV1,
   ): Promise<ClosedResultInterpretationPacketV2 | null> {
-    this.assertEvent(event);
-    const authority = await this.loadAuthority(
-      event.implementation_project_id,
-      event.payload.validation_cycle_id,
-      event.payload.closure_id,
-      event.payload.closure_snapshot_hash,
-      event,
-    );
-    if (authority.kind === 'control_only') return null;
-    const packet = this.assemblePacket(authority, event.occurred_at);
+    const packet = await this.assembleClosedPacket(event);
+    if (!packet) return null;
     try {
       return await this.packetRepository.materializeClosedResultInterpretationPacket(packet);
     } catch (error) {
@@ -97,6 +96,22 @@ PaperImplementationClosedInterpretationPacketViewReader {
       }
       throw error;
     }
+  }
+
+  /** Assemble and validate the exact closure-bound Packet without persisting it. */
+  async assembleClosedPacket(
+    event: ValidationCycleClosedEventV1,
+  ): Promise<ClosedResultInterpretationPacketV2 | null> {
+    this.assertEvent(event);
+    const authority = await this.loadAuthority(
+      event.implementation_project_id,
+      event.payload.validation_cycle_id,
+      event.payload.closure_id,
+      event.payload.closure_snapshot_hash,
+      event,
+    );
+    if (authority.kind === 'control_only') return null;
+    return this.assemblePacket(authority, event.occurred_at);
   }
 
   async findClosedInterpretationPacketView(
@@ -339,14 +354,38 @@ PaperImplementationClosedInterpretationPacketViewReader {
       || proposal.validation_cycle_id !== closure.validation_cycle_id
       || request.result_summary.result_summary !== proposal.interpretation_summary
       || request.claim_implications.allowed_claim_ceiling !== proposal.claim_ceiling
-      || JSON.stringify(request.reliability) !== JSON.stringify(proposal.reliability_assessment)
-      || JSON.stringify(request.reliability.limitation_refs)
-        !== JSON.stringify(proposal.limitations.limitation_refs)
+      || JSON.stringify(this.reliabilityForAgreement(request.reliability))
+        !== JSON.stringify(this.reliabilityForAgreement(proposal.reliability_assessment))
+      || JSON.stringify(this.refsForAgreement(request.reliability.limitation_refs))
+        !== JSON.stringify(this.refsForAgreement(proposal.limitations.limitation_refs))
       || JSON.stringify(request.reliability.reliability_notes)
         !== JSON.stringify(proposal.limitations.reliability_notes)
     ) {
       throw packetAuthorityError('Packet semantic content drifted from its accepted ResultAnalysis proposal.');
     }
+  }
+
+  private reliabilityForAgreement(reliability: PacketReliabilityAgreement) {
+    return {
+      failed_runs_retained: reliability.failed_runs_retained,
+      confound_refs: this.refsForAgreement(reliability.confound_refs),
+      limitation_refs: this.refsForAgreement(reliability.limitation_refs),
+      reliability_notes: [...reliability.reliability_notes],
+    };
+  }
+
+  private refsForAgreement(refs: TopicSelectionFunctionalRef[]) {
+    return refs.map((ref) => {
+      const currentRef = {
+        ref_type: ref.ref_type,
+        ref_id: ref.ref_id,
+        title_card_id: ref.title_card_id ?? null,
+        version_id: ref.version_id ?? null,
+      };
+      return ref.legacy_ref === undefined || ref.legacy_ref === null
+        ? currentRef
+        : { ...currentRef, legacy_ref: structuredClone(ref.legacy_ref) };
+    });
   }
 
   private assertEvent(event: ValidationCycleClosedEventV1): void {
