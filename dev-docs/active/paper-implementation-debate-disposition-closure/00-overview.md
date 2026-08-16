@@ -1,11 +1,20 @@
 # 00 Overview — T-133 paper-implementation debate 停驻出口收尾
 
 ## Status
-- State: **in-progress（2026-07-18 开）**。承接 T-124 尾巴 tracker（`../paper-implementation-productization-hardening/15-t124-tail-tracker.md`）的 N2 + N6，独立成包。
+- State: done
+- Completion: 2026-07-18 完成 T-124 尾巴 tracker 的 N2 + N6 独立收口；实现已落于 `40cb820f`，P3 验证、三场景 live 重跑和复审修复均完成。
 - 前置：T-124 已 DONE（D10 五项验收签核，`../paper-implementation-productization-hardening/06-d10-acceptance-report.md`）；N1 已 DONE（gs-003 改 moderate claim 场景）。
 - **P0 勘察 + 决策：DONE（2026-07-18）**。勘察事实=`01-p0-survey.md`；D-133-1/2/3 定案 + 用户四点裁定=本文 §决策；P1 工单=`02-p1-workorder.md`。
 - **P1（N2 skeptic revise 出口）：代码面 DONE（2026-07-18）**；**P2（N6 evolution confirm-and-continue）：代码面 DONE（2026-07-18）**——实施记录=`03-implementation-notes.md`，P2 工单=`04-p2-workorder.md`。两阶段验证全绿（tsc / 全量 2261 例 0 fail / stress 461 passed 含 10 个 T-133 L5 / 三场景 smoke completed）。
-- **P3（D7 收口）：DONE（2026-07-18，`05-p3-closeout.md`）**——三场景 live 重跑（N2 两种出口 live 行使、gs-003 目标闭环、P2 红线 live 实证、runner 权威链 bug live 抓获并修复）+ 8 角度代评审（13 项 CONFIRMED 全修复：含阻断级"校验 409 毁停驻"、治理级"零确认绕过 confirm"、shared 契约测试红灯等）+ 修复轮全绿（backend 2277/0、shared 374/0、stress 11 must-case、smoke ×3）。待提交。
+- **P3（D7 收口）：DONE（2026-07-18，`05-p3-closeout.md`）**——三场景 live 重跑（N2 两种出口 live 行使、gs-003 目标闭环、P2 红线 live 实证、runner 权威链 bug live 抓获并修复）+ 8 角度代评审（13 项 CONFIRMED 全修复：含阻断级"校验 409 毁停驻"、治理级"零确认绕过 confirm"、shared 契约测试红灯等）+ 修复轮全绿（backend 2277/0、shared 374/0、stress 11 must-case、smoke ×3）。实现提交为 `40cb820f`。
+
+## Acceptance Criteria
+
+- [x] N2 skeptic 的 `revise` 语义进入可复审 `waiting_review` 出口，且不可绕过下游 proceed 门。
+- [x] N6 evolution 的 `confirm-and-continue` 使用权威 decision/confirmation refs 直通，不重跑 provider，也不接受零确认或跨 run replay。
+- [x] 两种动词保持确定性互锁；混合缺陷仍 fail closed，审计元数据完整。
+- [x] backend/shared typecheck、全量测试、runtime stress、三场景 smoke、near-prod 与 live 复验全部通过并记录于 `05-p3-closeout.md`。
+- [x] T-124 尾巴 tracker 的 N2/N6 已回填完成状态；剩余 N3/N4/N5/N7 不属于本任务。
 
 ## 定位（诚实框定，2026-07-18 与用户确认）
 - **本包是什么**：paper-implementation 模块的产品完整性硬化——补齐 debate 停驻的**语义出口**，使任何语义有效的停驻都有"可复审续路"，而非终态死堵。
