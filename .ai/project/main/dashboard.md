@@ -8,13 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 137 (planned: 2, in-progress: 0, blocked: 0, done: 48, archived: 87)
+- Tasks: 138 (planned: 3, in-progress: 0, blocked: 0, done: 48, archived: 87)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
+| T-138 topic-to-paper-implementation-desktop-handoff | planned | F-001 | dev-docs/active/topic-to-paper-implementation-desktop-handoff |
 | T-124 paper-implementation-productization-hardening | done | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-136 scientific-evidence-to-paper-closure | done | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
 | T-106 experiment-foundation-real-interaction-hardening | archived | F-001 | dev-docs/archive/experiment-foundation-real-interaction-hardening |
@@ -33,5 +34,4 @@ Project: `main`
 | T-128 topic-selection-product-readiness-closure | archived | F-001 | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
 | T-041 literature-end-to-end-quality-upgrade | archived | F-000 | dev-docs/archive/literature-end-to-end-quality-upgrade |
-| T-119 adaptive-llm-systems-standard-pipeline-expansion | archived | F-000 | dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion |
 <!-- AUTO-GENERATED:END dashboard -->
