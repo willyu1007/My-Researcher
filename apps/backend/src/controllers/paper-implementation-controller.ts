@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BootstrapImplementationProjectRequest,
+  CreatePaperImplementationTopicHandoffRequest,
   RecordImplementationFeedbackEventRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
@@ -83,6 +84,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { PaperImplementationIntakeBootstrapService } from '../services/paper-implementation-intake-bootstrap-service.js';
+import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
@@ -141,6 +143,7 @@ function handleError(reply: FastifyReply, error: unknown) {
 
 export interface PaperImplementationControllerDependencies {
   intakeBootstrap: PaperImplementationIntakeBootstrapService;
+  topicHandoff?: PaperImplementationTopicHandoffService;
   traceKernel: PaperImplementationTraceKernelService;
   motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
   validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
@@ -169,6 +172,7 @@ export interface PaperImplementationControllerDependencies {
 
 export class PaperImplementationController {
   private readonly intakeBootstrap: PaperImplementationIntakeBootstrapService;
+  private readonly topicHandoff?: PaperImplementationTopicHandoffService;
   private readonly traceKernel: PaperImplementationTraceKernelService;
   private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
   private readonly validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
@@ -196,6 +200,7 @@ export class PaperImplementationController {
 
   constructor(dependencies: PaperImplementationControllerDependencies) {
     this.intakeBootstrap = dependencies.intakeBootstrap;
+    this.topicHandoff = dependencies.topicHandoff;
     this.traceKernel = dependencies.traceKernel;
     this.motiveEvidenceBoard = dependencies.motiveEvidenceBoard;
     this.validationCyclePlanning = dependencies.validationCyclePlanning;
@@ -261,6 +266,18 @@ export class PaperImplementationController {
     try {
       const result = await this.intakeBootstrap.bootstrapProject(request.body);
       return reply.status(result.project_created ? 201 : 200).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  createTopicHandoff = async (
+    request: BodyRequest<CreatePaperImplementationTopicHandoffRequest>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireTopicHandoff().continueFromTopic(request.body);
+      return reply.status(result.status === 'created' ? 201 : 200).send(result);
     } catch (error) {
       return handleError(reply, error);
     }
@@ -1149,6 +1166,13 @@ export class PaperImplementationController {
       throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation run coordinator is not configured.');
     }
     return this.runCoordinator;
+  }
+
+  private requireTopicHandoff(): PaperImplementationTopicHandoffService {
+    if (!this.topicHandoff) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation topic handoff is not configured.');
+    }
+    return this.topicHandoff;
   }
 
   private requireLiveExperimentAdapter(): PaperImplementationLiveExperimentAdapterService {

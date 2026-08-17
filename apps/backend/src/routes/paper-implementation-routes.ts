@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   bootstrapImplementationProjectRequestSchema,
+  createPaperImplementationTopicHandoffRequestSchema,
   recordImplementationFeedbackEventRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import {
@@ -214,6 +215,11 @@ export async function registerPaperImplementationRoutes(
     '/paper-implementation/projects/bootstrap',
     { schema: { body: bootstrapImplementationProjectRequestSchema } },
     controller.bootstrapProject,
+  );
+  fastify.post(
+    '/paper-implementation/topic-handoffs',
+    { schema: { body: createPaperImplementationTopicHandoffRequestSchema } },
+    controller.createTopicHandoff,
   );
   fastify.get(
     '/paper-implementation/projects/:implementation_project_id',

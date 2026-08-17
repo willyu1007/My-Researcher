@@ -29,6 +29,8 @@ tags:
     description: Topic selection v1b need-to-draft-package and frozen replay endpoints.
   - name: topic-selection-v1c
     description: Topic selection v1c human promotion, bridge, downstream feedback, and frozen replay endpoints.
+  - name: paper-implementation-handoff
+    description: Minimal LLM-facing semantic continuation from a promoted topic bridge into PaperProject and PaperImplementation.
   - name: paper-implementation-experiment-v2
     description: PI experiment v2 admission, closure, lineage, and agent-action surfaces; committed sagas are relayed through domain-local database inbox/outbox consumers.
   - name: paper-implementation-runtime
@@ -55,6 +57,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+
+  /paper-implementation/topic-handoffs:
+    post:
+      operationId: createPaperImplementationTopicHandoff
+      summary: Continue one promoted topic into PaperProject and PaperImplementation.
+      description: |
+        The caller supplies only the Topic Selection-owned PaperProjectBridge id. The server reads
+        the authoritative bridge hash and workspace, then composes the existing idempotent
+        PaperProject-intake and PaperImplementation-bootstrap writers. Exact replay returns the same
+        lineage without duplicate owner records. The semantic context is advisory working material;
+        lineage identities remain server-owned authority.
+      tags: [paper-implementation-handoff]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationTopicHandoffRequest'
+      responses:
+        '200':
+          description: Existing PaperProject and ImplementationProject resumed without duplicate owner records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationTopicHandoffResponse'
+        '201':
+          description: PaperProject or ImplementationProject owner record created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationTopicHandoffResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions:
     post:
@@ -6568,6 +6609,125 @@ components:
           nullable: true
         legacy_ref:
           $ref: '#/components/schemas/JsonObject'
+
+    PaperImplementationTopicHandoffRequest:
+      type: object
+      additionalProperties: false
+      required: [paper_project_bridge_id]
+      properties:
+        paper_project_bridge_id:
+          type: string
+          minLength: 1
+
+    PaperImplementationTopicHandoffRequiredAction:
+      type: object
+      additionalProperties: false
+      required: [action_code, severity, loopback_target, refs, reason]
+      properties:
+        action_code: { type: string, minLength: 1 }
+        severity: { type: string, enum: [info, warning, blocking] }
+        loopback_target: { type: string, enum: [none, package, value, question, slice, evidence_or_search, park] }
+        refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        reason: { type: string, minLength: 1 }
+
+    PaperImplementationTopicHandoffCondition:
+      type: object
+      additionalProperties: false
+      required: [condition_id, condition_code, owner, required_action, refs, early_check_obligations]
+      properties:
+        condition_id: { type: string, minLength: 1 }
+        condition_code: { type: string, minLength: 1 }
+        owner:
+          type: object
+          additionalProperties: false
+          required: [actor_type, actor_id]
+          properties:
+            actor_type: { type: string, enum: [human, llm, system, hybrid] }
+            actor_id: { type: string, minLength: 1 }
+        required_action:
+          $ref: '#/components/schemas/PaperImplementationTopicHandoffRequiredAction'
+        refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        early_check_obligations:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        verification_note:
+          type: [string, 'null']
+          minLength: 1
+
+    PaperImplementationTopicHandoffSemanticContext:
+      type: object
+      additionalProperties: false
+      required: [editable_title, problem_statement, contribution_summary, evaluation_plan, initial_planning_notes, claim_ceiling, prohibited_claims, conditions, accepted_risk_refs, early_check_obligations, source_lineage_summary]
+      properties:
+        editable_title: { type: string, minLength: 1 }
+        problem_statement: { type: string, minLength: 1 }
+        contribution_summary: { type: string, minLength: 1 }
+        evaluation_plan: { type: string, minLength: 1 }
+        initial_planning_notes:
+          type: array
+          items: { type: string, minLength: 1 }
+        claim_ceiling: { type: string, minLength: 1 }
+        prohibited_claims:
+          type: array
+          items: { type: string, minLength: 1 }
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperImplementationTopicHandoffCondition'
+        accepted_risk_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        early_check_obligations:
+          type: array
+          items: { type: string, minLength: 1 }
+        source_lineage_summary:
+          type: object
+          additionalProperties: true
+
+    PaperImplementationTopicHandoffResponse:
+      type: object
+      additionalProperties: false
+      required: [schema_version, status, effects, semantic_context, lineage, resume_policy]
+      properties:
+        schema_version: { type: string, const: 'PaperImplementationTopicHandoff@v1' }
+        status: { type: string, enum: [created, resumed] }
+        effects:
+          type: object
+          additionalProperties: false
+          required: [paper_project_created, implementation_project_created]
+          properties:
+            paper_project_created: { type: boolean }
+            implementation_project_created: { type: boolean }
+        semantic_context:
+          $ref: '#/components/schemas/PaperImplementationTopicHandoffSemanticContext'
+        lineage:
+          type: object
+          additionalProperties: false
+          required: [paper_project_bridge_ref, title_card_id, topic_package_id, package_version, paper_project_intake_ref, paper_project_ref, implementation_project_id, implementation_intake_snapshot_id]
+          properties:
+            paper_project_bridge_ref:
+              $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            title_card_id: { type: string, minLength: 1 }
+            topic_package_id: { type: string, minLength: 1 }
+            package_version: { type: string, minLength: 1 }
+            paper_project_intake_ref:
+              $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            paper_project_ref:
+              $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            implementation_project_id: { type: string, minLength: 1 }
+            implementation_intake_snapshot_id: { type: string, minLength: 1 }
+        resume_policy:
+          type: string
+          const: read_persisted_owner_state_and_continue_first_incomplete_step
 
     PaperImplementationBackHalfSourceContextPacket:
       type: object

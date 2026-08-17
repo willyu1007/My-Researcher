@@ -12,6 +12,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   BootstrapImplementationProjectResponse,
+  PaperImplementationTopicHandoffResponse,
   RecordImplementationFeedbackEventResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
@@ -36,6 +37,8 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPaperProjectBridgeHandoff,
+  TopicSelectionPaperProjectBridgeIntakeInput,
+  TopicSelectionPaperProjectBridgeIntakeResult,
   TopicSelectionPaperProjectBridgeRecord,
   TopicSelectionPaperProjectBridgeWorkingCopyPayload,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-paper-project-bridge-contracts';
@@ -64,6 +67,7 @@ import {
   PaperImplementationIntakeBootstrapService,
   type PaperImplementationDownstreamFeedbackService,
 } from '../services/paper-implementation-intake-bootstrap-service.js';
+import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from '../services/paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
@@ -485,6 +489,33 @@ class StubBridgeService {
     }
     return structuredClone(this.handoff);
   }
+
+  async createPaperProjectIntakeFromBridge(
+    input: TopicSelectionPaperProjectBridgeIntakeInput,
+  ): Promise<TopicSelectionPaperProjectBridgeIntakeResult> {
+    if (
+      input.paper_project_bridge_id !== this.handoff.paper_project_bridge_id
+      || input.bridge_payload_hash !== this.handoff.bridge_payload_hash
+    ) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'PaperProjectBridge intake input is stale.');
+    }
+    const paperProjectIntakeRef = this.handoff.paper_project_intake_ref;
+    const paperProjectRef = this.handoff.target_paper_project_ref;
+    if (!paperProjectIntakeRef || !paperProjectRef) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Route fixture is missing PaperProject intake refs.');
+    }
+    return {
+      paper_project_bridge: structuredClone(this.handoff.bridge),
+      handoff: structuredClone(this.handoff),
+      paper_project_id: paperProjectRef.ref_id,
+      paper_project_ref: structuredClone(paperProjectRef),
+      paper_project_intake_ref: structuredClone(paperProjectIntakeRef),
+      paper_project_created: false,
+      carried_literature_evidence_ids: ['LIT-001'],
+      carried_accepted_risk_refs: structuredClone(this.handoff.accepted_risk_refs),
+      carried_condition_refs: [],
+    };
+  }
 }
 
 class RecordingDownstreamFeedbackService implements PaperImplementationDownstreamFeedbackService {
@@ -569,6 +600,7 @@ class RecordingDownstreamFeedbackService implements PaperImplementationDownstrea
 function makeRealService(): {
   downstreamFeedback: RecordingDownstreamFeedbackService;
   service: PaperImplementationIntakeBootstrapService;
+  topicHandoff: PaperImplementationTopicHandoffService;
   traceKernel: PaperImplementationTraceKernelService;
   motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
   validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
@@ -599,9 +631,10 @@ function makeRealService(): {
   const resultClaimDossierRepository = new InMemoryPaperImplementationResultClaimDossierRepository();
   const aiWorkflowHarnessRepository = new InMemoryPaperImplementationAiWorkflowHarnessRepository();
   const idFactory = makeIdFactory();
+  const bridgeService = new StubBridgeService();
   const service = new PaperImplementationIntakeBootstrapService({
     repository,
-    paperProjectBridgeService: new StubBridgeService(),
+    paperProjectBridgeService: bridgeService,
     downstreamFeedbackService: downstreamFeedback,
     idFactory,
     now: () => NOW,
@@ -766,6 +799,10 @@ function makeRealService(): {
   return {
     downstreamFeedback,
     service,
+    topicHandoff: new PaperImplementationTopicHandoffService({
+      bridgeService,
+      bootstrapService: service,
+    }),
     traceKernel: new PaperImplementationTraceKernelService({
       projectRepository: repository,
       traceRepository,
@@ -826,6 +863,7 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
   const app = Fastify({ logger: false });
   const {
     service,
+    topicHandoff,
     traceKernel,
     motiveEvidenceBoard,
     validationCyclePlanning,
@@ -851,6 +889,7 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
     app,
     new PaperImplementationController({
       intakeBootstrap: service,
+      topicHandoff,
       traceKernel,
       motiveEvidenceBoard,
       validationCyclePlanning,
@@ -2214,6 +2253,7 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
   const {
     downstreamFeedback,
     service,
+    topicHandoff,
     traceKernel,
     motiveEvidenceBoard,
     validationCyclePlanning,
@@ -2239,6 +2279,7 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
     app,
     new PaperImplementationController({
       intakeBootstrap: service,
+      topicHandoff,
       traceKernel,
       motiveEvidenceBoard,
       validationCyclePlanning,
@@ -2285,6 +2326,34 @@ test('PaperImplementation routes expose bootstrap, idempotent duplicate, stale h
     });
     assert.equal(duplicate.statusCode, 200);
     assert.equal((duplicate.json() as BootstrapImplementationProjectResponse).project_created, false);
+
+    const topicHandoffResponse = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/topic-handoffs',
+      payload: {
+        paper_project_bridge_id: 'paper_project_bridge_001',
+      },
+    });
+    assertStatus(topicHandoffResponse, 200);
+    const topicHandoffBody = topicHandoffResponse.json() as PaperImplementationTopicHandoffResponse;
+    assert.equal(topicHandoffBody.status, 'resumed');
+    assert.deepEqual(topicHandoffBody.effects, {
+      paper_project_created: false,
+      implementation_project_created: false,
+    });
+    assert.equal(topicHandoffBody.semantic_context.problem_statement, 'Problem statement.');
+    assert.equal(
+      topicHandoffBody.lineage.implementation_project_id,
+      createdBody.implementation_project.implementation_project_id,
+    );
+    assert.equal(topicHandoffBody.lineage.paper_project_ref.ref_id, 'paper_project_001');
+
+    const missingBridgeRejected = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/topic-handoffs',
+      payload: {},
+    });
+    assertStatus(missingBridgeRejected, 400);
 
     const stale = await app.inject({
       method: 'POST',

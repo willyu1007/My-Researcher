@@ -1261,12 +1261,12 @@ tasks:
     dev_docs_path: dev-docs/active/promoted-topic-to-scientific-dossier-canary
     updated: 2026-08-17
   - id: T-138
-    slug: topic-to-paper-implementation-desktop-handoff
-    status: in-progress
+    slug: topic-to-paper-implementation-semantic-handoff
+    status: done
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
       - R-013
-    dev_docs_path: dev-docs/active/topic-to-paper-implementation-desktop-handoff
+    dev_docs_path: dev-docs/active/topic-to-paper-implementation-semantic-handoff
     updated: 2026-08-17

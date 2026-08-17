@@ -4,9 +4,10 @@ import {
   type TopicSelectionActorType,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
-import type {
-  TopicSelectionPaperProjectBridgeHandoff,
-  TopicSelectionPaperProjectBridgeWorkingCopyPayload,
+import {
+  topicSelectionPaperProjectBridgeWorkingCopyPayloadSchema,
+  type TopicSelectionPaperProjectBridgeHandoff,
+  type TopicSelectionPaperProjectBridgeWorkingCopyPayload,
 } from './topic-selection-v1c-paper-project-bridge-contracts.js';
 import type {
   TopicSelectionDownstreamFeedbackImpactSummary,
@@ -146,6 +147,40 @@ export interface BootstrapImplementationProjectResponse {
   };
 }
 
+export const PAPER_IMPLEMENTATION_TOPIC_HANDOFF_SCHEMA_VERSION =
+  'PaperImplementationTopicHandoff@v1' as const;
+export const PAPER_IMPLEMENTATION_TOPIC_HANDOFF_STATUSES = ['created', 'resumed'] as const;
+export type PaperImplementationTopicHandoffStatus =
+  (typeof PAPER_IMPLEMENTATION_TOPIC_HANDOFF_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_TOPIC_HANDOFF_RESUME_POLICY =
+  'read_persisted_owner_state_and_continue_first_incomplete_step' as const;
+
+export interface CreatePaperImplementationTopicHandoffRequest {
+  paper_project_bridge_id: string;
+}
+
+export interface PaperImplementationTopicHandoffResponse {
+  schema_version: typeof PAPER_IMPLEMENTATION_TOPIC_HANDOFF_SCHEMA_VERSION;
+  status: PaperImplementationTopicHandoffStatus;
+  effects: {
+    paper_project_created: boolean;
+    implementation_project_created: boolean;
+  };
+  semantic_context: TopicSelectionPaperProjectBridgeWorkingCopyPayload;
+  lineage: {
+    paper_project_bridge_ref: TopicSelectionFunctionalRef;
+    title_card_id: string;
+    topic_package_id: string;
+    package_version: string;
+    paper_project_intake_ref: TopicSelectionFunctionalRef;
+    paper_project_ref: TopicSelectionFunctionalRef;
+    implementation_project_id: string;
+    implementation_intake_snapshot_id: string;
+  };
+  resume_policy: typeof PAPER_IMPLEMENTATION_TOPIC_HANDOFF_RESUME_POLICY;
+}
+
 export interface RecordImplementationFeedbackEventRequest {
   feedback_type: ImplementationFeedbackType;
   severity: TopicSelectionSeverity;
@@ -236,6 +271,15 @@ export const bootstrapImplementationProjectRequestSchema = {
     workspace_id: nullableStringId,
     policy_version_id: nullableStringId,
     created_by: actorTypeSchema,
+  },
+} as const;
+
+export const createPaperImplementationTopicHandoffRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['paper_project_bridge_id'],
+  properties: {
+    paper_project_bridge_id: stringId,
   },
 } as const;
 
@@ -380,6 +424,58 @@ export const bootstrapImplementationProjectResponseSchema = {
         early_check_obligations: stringArray,
       },
     },
+  },
+} as const;
+
+export const paperImplementationTopicHandoffResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'status',
+    'effects',
+    'semantic_context',
+    'lineage',
+    'resume_policy',
+  ],
+  properties: {
+    schema_version: { const: PAPER_IMPLEMENTATION_TOPIC_HANDOFF_SCHEMA_VERSION },
+    status: { enum: [...PAPER_IMPLEMENTATION_TOPIC_HANDOFF_STATUSES] },
+    effects: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['paper_project_created', 'implementation_project_created'],
+      properties: {
+        paper_project_created: { type: 'boolean' },
+        implementation_project_created: { type: 'boolean' },
+      },
+    },
+    semantic_context: topicSelectionPaperProjectBridgeWorkingCopyPayloadSchema,
+    lineage: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'paper_project_bridge_ref',
+        'title_card_id',
+        'topic_package_id',
+        'package_version',
+        'paper_project_intake_ref',
+        'paper_project_ref',
+        'implementation_project_id',
+        'implementation_intake_snapshot_id',
+      ],
+      properties: {
+        paper_project_bridge_ref: topicSelectionFunctionalRefSchema,
+        title_card_id: stringId,
+        topic_package_id: stringId,
+        package_version: stringId,
+        paper_project_intake_ref: topicSelectionFunctionalRefSchema,
+        paper_project_ref: topicSelectionFunctionalRefSchema,
+        implementation_project_id: stringId,
+        implementation_intake_snapshot_id: stringId,
+      },
+    },
+    resume_policy: { const: PAPER_IMPLEMENTATION_TOPIC_HANDOFF_RESUME_POLICY },
   },
 } as const;
 

@@ -8,14 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 138 (planned: 2, in-progress: 1, blocked: 0, done: 48, archived: 87)
+- Tasks: 138 (planned: 2, in-progress: 0, blocked: 0, done: 49, archived: 87)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
-| T-138 topic-to-paper-implementation-desktop-handoff | in-progress | F-001 | dev-docs/active/topic-to-paper-implementation-desktop-handoff |
+| T-138 topic-to-paper-implementation-semantic-handoff | done | F-001 | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
 | T-124 paper-implementation-productization-hardening | done | F-001 | dev-docs/active/paper-implementation-productization-hardening |
 | T-136 scientific-evidence-to-paper-closure | done | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
 | T-106 experiment-foundation-real-interaction-hardening | archived | F-001 | dev-docs/archive/experiment-foundation-real-interaction-hardening |

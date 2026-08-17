@@ -151,7 +151,7 @@ Project: `main`
 | T-135 experiment-foundation-v2-semantic-api-activation | archived | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
 | T-136 scientific-evidence-to-paper-closure | done | dev-docs/active/scientific-evidence-to-paper-closure |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
-| T-138 topic-to-paper-implementation-desktop-handoff | in-progress | dev-docs/active/topic-to-paper-implementation-desktop-handoff |
+| T-138 topic-to-paper-implementation-semantic-handoff | done | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
 
 ### F-002 Desktop Frontend Foundation
 

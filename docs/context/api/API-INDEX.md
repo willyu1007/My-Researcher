@@ -1,13 +1,14 @@
 # API Index
 
-> Auto-generated at 2026-08-08T15:13:31.485Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `2d612b1cf1da...`)
+> Auto-generated at 2026-08-17T00:09:42.726Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `2304098ae87c...`)
 
-Total endpoints: **209**
+Total endpoints: **210**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
 | GET | /health | Check service liveness. | none | — | ok | — |
+| POST | /paper-implementation/topic-handoffs | Continue one promoted topic into PaperProject and PaperImplementation. | none | paper_project_bridge_id | schema_version, status, effects, semantic_context, lineage, resume_policy | 400, 404, 409, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach | Adopt one exact immutable exploration specification as a new PI WorkOrder admission. | none | branch_key, business_idempotency_key | attachment, branch, revision, cells, admission, replayed | 400, 404, 409, 500 |
 | POST | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2 | Close one ValidationCycle against an exact server-derived closure watermark. | none | expected_cycle_version, expected_closure_input_hash, closure_kind, accepted_proposal_id, expected_proposal_hash, idempotency_key | closure | 400, 404, 409, 422, 500 |

@@ -248,6 +248,7 @@ import {
   PaperImplementationIntakeBootstrapService,
   type PaperImplementationDownstreamFeedbackService,
 } from './services/paper-implementation-intake-bootstrap-service.js';
+import { PaperImplementationTopicHandoffService } from './services/paper-implementation-topic-handoff-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from './services/paper-implementation-ai-workflow-harness-service.js';
 import {
   PaperImplementationExperimentV2AdmissionService,
@@ -1253,6 +1254,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     downstreamFeedbackService: options.paperImplementationDownstreamFeedbackService
       ?? topicSelectionV1cDownstreamFeedbackRecheckService,
   });
+  const paperImplementationTopicHandoffService = new PaperImplementationTopicHandoffService({
+    bridgeService: topicSelectionV1cPaperProjectBridgeService,
+    bootstrapService: paperImplementationIntakeBootstrapService,
+  });
   const paperImplementationTraceKernelService = new PaperImplementationTraceKernelService({
     projectRepository: paperImplementationRepository,
     traceRepository: paperImplementationTraceRepository,
@@ -1568,6 +1573,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,
+    topicHandoff: paperImplementationTopicHandoffService,
     traceKernel: paperImplementationTraceKernelService,
     motiveEvidenceBoard: paperImplementationMotiveEvidenceBoardService,
     validationCyclePlanning: paperImplementationValidationCyclePlanningService,
