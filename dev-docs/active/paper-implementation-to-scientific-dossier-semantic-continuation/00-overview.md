@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: in-progress
-- Next step: finish full verification, archive the task, and land the verified change.
+- State: done
+- Next step: treat Topic-semantics-to-CoreMotive composition as a separately governed follow-up if the product needs bare T-138 projects to auto-start.
 
 ## Goal
 
@@ -40,4 +40,4 @@ T-138 creates/resumes the PaperProject and ImplementationProject roots, while th
 - [x] One request may advance at most one already-persisted coordinator lane, then rereads owners before responding.
 - [x] Ambiguous scientific selections, unsupported experiment envelopes, paid execution, provider progress, human confirmation, and uncomposed semantic/domain transitions are explicit.
 - [x] Existing T-137 terminal authority replays credential-free as `ready_for_writing` with stable lineage and zero performed effects.
-- [ ] Full shared/backend tests and typecheck, OpenAPI/Context, project-state, governance, documentation lint, and `git diff --check` pass.
+- [x] Full shared/backend tests and typecheck, OpenAPI/Context, project-state, governance, documentation lint, and `git diff --check` pass.

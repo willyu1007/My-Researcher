@@ -148,5 +148,5 @@ Project: `main`
 | T-136 scientific-evidence-to-paper-closure | done | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
 | T-138 topic-to-paper-implementation-semantic-handoff | done | F-001 | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
-| T-139 paper-implementation-to-scientific-dossier-semantic-continuation | in-progress | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
+| T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 <!-- AUTO-GENERATED:END task-index -->

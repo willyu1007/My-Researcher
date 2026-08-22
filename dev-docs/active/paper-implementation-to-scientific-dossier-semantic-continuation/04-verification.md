@@ -56,12 +56,13 @@
 
 ## Final repository gates
 
-- [ ] Project governance synchronization and final lint after status transition.
+- [x] Project governance synchronization and final lint after status transition.
 - [x] Project-state verification.
 - [x] Documentation strict lint: 6/6 files, 0 warnings, 0 errors.
 - [x] OpenAPI quality, API index freshness, and Context strict verification.
 - [x] `git diff --check` and final diff review.
-- [ ] Commit with `Task: T-139`, push to `main`, and CI green.
+- [x] Implementation commit `95f69945cd77ad74394f2e6ef6c6b75d542b888a` with `Task: T-139` pushed to `main`.
+- [x] Implementation CI run `32571319725` passed all Desktop, Backend, Governance, and Prisma drift jobs.
 
 ## Rollout / backout
 

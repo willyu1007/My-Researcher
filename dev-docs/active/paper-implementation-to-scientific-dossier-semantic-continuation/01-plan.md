@@ -7,7 +7,7 @@
 3. [x] Add the persisted owner-state reader and pure stage resolver.
 4. [x] Add the thin continuation service with existing-coordinator recovery only.
 5. [x] Wire controller, route, app composition, tests, and canonical API context.
-6. [ ] Complete full verification, archive T-139, commit, push, and confirm CI.
+6. [x] Complete full verification, land the implementation, confirm CI, and close T-139 as done.
 
 ## Implemented sequence
 

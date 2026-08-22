@@ -2,5 +2,5 @@ version: 1
 task_id: T-139
 project: main
 slug: paper-implementation-to-scientific-dossier-semantic-continuation
-status: in-progress
+status: done
 updated: "2026-08-22"
