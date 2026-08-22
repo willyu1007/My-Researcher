@@ -181,6 +181,120 @@ export interface PaperImplementationTopicHandoffResponse {
   resume_policy: typeof PAPER_IMPLEMENTATION_TOPIC_HANDOFF_RESUME_POLICY;
 }
 
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_SCHEMA_VERSION =
+  'PaperImplementationScientificContinuation@v1' as const;
+
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STATUSES = [
+  'advanced',
+  'waiting_for_llm',
+  'waiting_for_experiment_specification',
+  'waiting_for_paid_execution_authorization',
+  'waiting_for_provider_execution',
+  'waiting_for_human_confirmation',
+  'blocked',
+  'ready_for_writing',
+] as const;
+export type PaperImplementationScientificContinuationStatus =
+  (typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STAGES = [
+  'implementation_planning',
+  'llm_runtime',
+  'experiment_specification',
+  'experiment_materialization',
+  'paid_execution',
+  'provider_execution',
+  'scientific_validation',
+  'evidence_closure',
+  'claim_dossier',
+  'ready_for_writing',
+] as const;
+export type PaperImplementationScientificContinuationStage =
+  (typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STAGES)[number];
+
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_ACTIONS = [
+  'repeat_continuation',
+  'configure_llm',
+  'select_experiment_assets',
+  'authorize_paid_execution',
+  'await_provider_execution',
+  'provide_human_confirmation',
+  'resolve_blocker',
+  'none',
+] as const;
+export type PaperImplementationScientificContinuationAction =
+  (typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_ACTIONS)[number];
+
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_EFFECTS = [
+  'coordinator_run',
+  'domain_authority',
+  'experiment_work_order',
+  'experiment_run',
+  'provider_attempt',
+  'scientific_result',
+  'scientific_validation',
+  'evidence_candidate',
+  'result_analysis',
+  'closure',
+  'result_packet',
+  'claim',
+  'dossier',
+] as const;
+export type PaperImplementationScientificContinuationEffect =
+  (typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_EFFECTS)[number];
+
+export const PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY =
+  'repeat_same_owner_root_command_and_read_persisted_owner_state' as const;
+
+/**
+ * The single caller-owned continuation input. Every downstream identity,
+ * semantic stage and scientific value is resolved from persisted owner state.
+ */
+export interface CreatePaperImplementationScientificContinuationRequest {
+  implementation_project_id: string;
+}
+
+export interface PaperImplementationScientificContinuationBlocker {
+  code: string;
+  message: string;
+  source: 'continuation' | 'domain' | 'provider';
+  retryable: boolean;
+}
+
+export interface PaperImplementationScientificContinuationResponse {
+  schema_version: typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_SCHEMA_VERSION;
+  status: PaperImplementationScientificContinuationStatus;
+  semantic_stage: PaperImplementationScientificContinuationStage;
+  effects: {
+    performed: PaperImplementationScientificContinuationEffect[];
+    reused: PaperImplementationScientificContinuationEffect[];
+    /** At most one ordinary-LLM lane may be advanced by one command. */
+    llm_lane_id: string | null;
+  };
+  next_action: {
+    action: PaperImplementationScientificContinuationAction;
+    description: string;
+    requires_paid_authorization: boolean;
+    requires_human_confirmation: boolean;
+  };
+  blocker: PaperImplementationScientificContinuationBlocker | null;
+  lineage: {
+    implementation_project_id: string;
+    coordinator_run_id: string | null;
+    validation_cycle_id: string | null;
+    experiment_branch_id: string | null;
+    experiment_work_order_revision_id: string | null;
+    experiment_run_id: string | null;
+    scientific_result_id: string | null;
+    scientific_validation_report_id: string | null;
+    closure_id: string | null;
+    result_packet_id: string | null;
+    claim_id: string | null;
+    dossier_id: string | null;
+  };
+  resume_policy: typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY;
+}
+
 export interface RecordImplementationFeedbackEventRequest {
   feedback_type: ImplementationFeedbackType;
   severity: TopicSelectionSeverity;
@@ -280,6 +394,15 @@ export const createPaperImplementationTopicHandoffRequestSchema = {
   required: ['paper_project_bridge_id'],
   properties: {
     paper_project_bridge_id: stringId,
+  },
+} as const;
+
+export const createPaperImplementationScientificContinuationRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['implementation_project_id'],
+  properties: {
+    implementation_project_id: stringId,
   },
 } as const;
 
@@ -476,6 +599,105 @@ export const paperImplementationTopicHandoffResponseSchema = {
       },
     },
     resume_policy: { const: PAPER_IMPLEMENTATION_TOPIC_HANDOFF_RESUME_POLICY },
+  },
+} as const;
+
+const scientificContinuationEffectSchema = {
+  enum: [...PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_EFFECTS],
+} as const;
+
+export const paperImplementationScientificContinuationResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'status',
+    'semantic_stage',
+    'effects',
+    'next_action',
+    'blocker',
+    'lineage',
+    'resume_policy',
+  ],
+  properties: {
+    schema_version: { const: PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_SCHEMA_VERSION },
+    status: { enum: [...PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STATUSES] },
+    semantic_stage: { enum: [...PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_STAGES] },
+    effects: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['performed', 'reused', 'llm_lane_id'],
+      properties: {
+        performed: { type: 'array', items: scientificContinuationEffectSchema, uniqueItems: true },
+        reused: { type: 'array', items: scientificContinuationEffectSchema, uniqueItems: true },
+        llm_lane_id: nullableStringId,
+      },
+    },
+    next_action: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'action',
+        'description',
+        'requires_paid_authorization',
+        'requires_human_confirmation',
+      ],
+      properties: {
+        action: { enum: [...PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_ACTIONS] },
+        description: stringId,
+        requires_paid_authorization: { type: 'boolean' },
+        requires_human_confirmation: { type: 'boolean' },
+      },
+    },
+    blocker: {
+      anyOf: [
+        {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code', 'message', 'source', 'retryable'],
+          properties: {
+            code: stringId,
+            message: stringId,
+            source: { enum: ['continuation', 'domain', 'provider'] },
+            retryable: { type: 'boolean' },
+          },
+        },
+        { type: 'null' },
+      ],
+    },
+    lineage: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'implementation_project_id',
+        'coordinator_run_id',
+        'validation_cycle_id',
+        'experiment_branch_id',
+        'experiment_work_order_revision_id',
+        'experiment_run_id',
+        'scientific_result_id',
+        'scientific_validation_report_id',
+        'closure_id',
+        'result_packet_id',
+        'claim_id',
+        'dossier_id',
+      ],
+      properties: {
+        implementation_project_id: stringId,
+        coordinator_run_id: nullableStringId,
+        validation_cycle_id: nullableStringId,
+        experiment_branch_id: nullableStringId,
+        experiment_work_order_revision_id: nullableStringId,
+        experiment_run_id: nullableStringId,
+        scientific_result_id: nullableStringId,
+        scientific_validation_report_id: nullableStringId,
+        closure_id: nullableStringId,
+        result_packet_id: nullableStringId,
+        claim_id: nullableStringId,
+        dossier_id: nullableStringId,
+      },
+    },
+    resume_policy: { const: PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY },
   },
 } as const;
 

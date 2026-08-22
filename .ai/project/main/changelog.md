@@ -33,3 +33,4 @@ Project: `main`
 - 2026-08-17 task_id=T-138 slug=topic-to-paper-implementation-desktop-handoff event=registered dev_docs_path=dev-docs/active/topic-to-paper-implementation-desktop-handoff
 - 2026-08-17 task_id=T-138 slug=topic-to-paper-implementation-desktop-handoff event=status from=planned to=in-progress
 - 2026-08-17 task_id=T-138 slug=topic-to-paper-implementation-semantic-handoff event=status from=in-progress to=done
+- 2026-08-22 task_id=T-139 slug=paper-implementation-to-scientific-dossier-semantic-continuation event=registered dev_docs_path=dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation

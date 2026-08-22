@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BootstrapImplementationProjectRequest,
+  CreatePaperImplementationScientificContinuationRequest,
   CreatePaperImplementationTopicHandoffRequest,
   RecordImplementationFeedbackEventRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
@@ -85,6 +86,7 @@ import type {
 import { AppError } from '../errors/app-error.js';
 import { PaperImplementationIntakeBootstrapService } from '../services/paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
+import { PaperImplementationScientificContinuationService } from '../services/paper-implementation-scientific-continuation-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
@@ -144,6 +146,7 @@ function handleError(reply: FastifyReply, error: unknown) {
 export interface PaperImplementationControllerDependencies {
   intakeBootstrap: PaperImplementationIntakeBootstrapService;
   topicHandoff?: PaperImplementationTopicHandoffService;
+  scientificContinuation?: PaperImplementationScientificContinuationService;
   traceKernel: PaperImplementationTraceKernelService;
   motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
   validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
@@ -173,6 +176,7 @@ export interface PaperImplementationControllerDependencies {
 export class PaperImplementationController {
   private readonly intakeBootstrap: PaperImplementationIntakeBootstrapService;
   private readonly topicHandoff?: PaperImplementationTopicHandoffService;
+  private readonly scientificContinuation?: PaperImplementationScientificContinuationService;
   private readonly traceKernel: PaperImplementationTraceKernelService;
   private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
   private readonly validationCyclePlanning: PaperImplementationValidationCyclePlanningService;
@@ -201,6 +205,7 @@ export class PaperImplementationController {
   constructor(dependencies: PaperImplementationControllerDependencies) {
     this.intakeBootstrap = dependencies.intakeBootstrap;
     this.topicHandoff = dependencies.topicHandoff;
+    this.scientificContinuation = dependencies.scientificContinuation;
     this.traceKernel = dependencies.traceKernel;
     this.motiveEvidenceBoard = dependencies.motiveEvidenceBoard;
     this.validationCyclePlanning = dependencies.validationCyclePlanning;
@@ -278,6 +283,18 @@ export class PaperImplementationController {
     try {
       const result = await this.requireTopicHandoff().continueFromTopic(request.body);
       return reply.status(result.status === 'created' ? 201 : 200).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  continueScientificDossier = async (
+    request: BodyRequest<CreatePaperImplementationScientificContinuationRequest>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireScientificContinuation().continue(request.body);
+      return reply.send(result);
     } catch (error) {
       return handleError(reply, error);
     }
@@ -1173,6 +1190,17 @@ export class PaperImplementationController {
       throw new AppError(500, 'INTERNAL_ERROR', 'PaperImplementation topic handoff is not configured.');
     }
     return this.topicHandoff;
+  }
+
+  private requireScientificContinuation(): PaperImplementationScientificContinuationService {
+    if (!this.scientificContinuation) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        'PaperImplementation scientific continuation is not configured.',
+      );
+    }
+    return this.scientificContinuation;
   }
 
   private requireLiveExperimentAdapter(): PaperImplementationLiveExperimentAdapterService {

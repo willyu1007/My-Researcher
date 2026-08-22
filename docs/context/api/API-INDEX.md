@@ -1,14 +1,15 @@
 # API Index
 
-> Auto-generated at 2026-08-17T00:09:42.726Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `2304098ae87c...`)
+> Auto-generated at 2026-08-22T11:19:06.904Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `dff983486700...`)
 
-Total endpoints: **210**
+Total endpoints: **211**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
 | GET | /health | Check service liveness. | none | — | ok | — |
 | POST | /paper-implementation/topic-handoffs | Continue one promoted topic into PaperProject and PaperImplementation. | none | paper_project_bridge_id | schema_version, status, effects, semantic_context, lineage, resume_policy | 400, 404, 409, 500 |
+| POST | /paper-implementation/scientific-continuations | Resolve and resume one ImplementationProject from persisted scientific owner state. | none | implementation_project_id | schema_version, status, semantic_stage, effects, next_action, blocker, lineage, resume_policy | 400, 404, 409, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach | Adopt one exact immutable exploration specification as a new PI WorkOrder admission. | none | branch_key, business_idempotency_key | attachment, branch, revision, cells, admission, replayed | 400, 404, 409, 500 |
 | POST | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2 | Close one ValidationCycle against an exact server-derived closure watermark. | none | expected_cycle_version, expected_closure_input_hash, closure_kind, accepted_proposal_id, expected_proposal_hash, idempotency_key | closure | 400, 404, 409, 422, 500 |

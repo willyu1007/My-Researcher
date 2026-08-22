@@ -12,6 +12,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   BootstrapImplementationProjectResponse,
+  PaperImplementationScientificContinuationResponse,
   PaperImplementationTopicHandoffResponse,
   RecordImplementationFeedbackEventResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
@@ -55,6 +56,7 @@ import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repos
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
 import { InMemoryPaperImplementationResultClaimDossierRepository } from '../repositories/in-memory-paper-implementation-result-claim-dossier-repository.js';
 import { InMemoryPaperImplementationRuntimeRepository } from '../repositories/in-memory-paper-implementation-runtime-repository.js';
+import { InMemoryPaperImplementationCoordinatorRepository } from '../repositories/in-memory-paper-implementation-coordinator-repository.js';
 import { InMemoryPaperImplementationTraceRepository } from '../repositories/in-memory-paper-implementation-trace-repository.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
 import { InMemoryPaperImplementationWorkOrderRepository } from '../repositories/in-memory-paper-implementation-workorder-repository.js';
@@ -1001,6 +1003,57 @@ test('PaperImplementation routes expose AI workflow harness proposal-only closur
     assertStatus(blocked, 201);
     assert.equal((blocked.json() as { harness_run: { run_status: string } }).harness_run.run_status, 'blocked');
     assert.equal((blocked.json() as { queue_items: Array<{ queue_type: string }> }).queue_items[0]?.queue_type, 'trace_repair');
+  } finally {
+    await app.close();
+  }
+});
+
+test('scientific continuation route reports and replays the bare-project semantic blocker', async () => {
+  const projectRepository = new InMemoryPaperImplementationRepository();
+  const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
+  const app = buildApp({
+    paperImplementationRepository: projectRepository,
+    paperImplementationCoordinatorRepository: coordinatorRepository,
+    paperImplementationBridgeService: new StubBridgeService(),
+  });
+  try {
+    const bootstrap = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/projects/bootstrap',
+      payload: {
+        paper_project_bridge_id: 'paper_project_bridge_001',
+        bridge_payload_hash: 'bridge_payload_hash_001',
+      },
+    });
+    assertStatus(bootstrap, 201);
+    const projectId = (bootstrap.json() as BootstrapImplementationProjectResponse)
+      .implementation_project.implementation_project_id;
+
+    const command = {
+      method: 'POST' as const,
+      url: '/paper-implementation/scientific-continuations',
+      payload: { implementation_project_id: projectId },
+    };
+    const first = await app.inject(command);
+    assertStatus(first, 200);
+    const firstBody = first.json() as PaperImplementationScientificContinuationResponse;
+    assert.equal(firstBody.status, 'blocked');
+    assert.equal(firstBody.semantic_stage, 'implementation_planning');
+    assert.equal(firstBody.blocker?.code, 'CORE_MOTIVE_BOOTSTRAP_NOT_COMPOSED');
+    assert.deepEqual(firstBody.effects.performed, []);
+    assert.equal(firstBody.effects.llm_lane_id, null);
+
+    const replay = await app.inject(command);
+    assertStatus(replay, 200);
+    assert.deepEqual(replay.json(), firstBody);
+    assert.deepEqual(await coordinatorRepository.listCoordinatorRunsByProject(projectId), []);
+
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/scientific-continuations',
+      payload: {},
+    });
+    assertStatus(invalid, 400);
   } finally {
     await app.close();
   }

@@ -285,6 +285,8 @@ import { PaperImplementationScientificClosureContextService } from './services/p
 import { PaperImplementationExperimentPlanningRuntimeService } from './services/paper-implementation-experiment-planning-runtime-service.js';
 import { PaperImplementationRoutePlanningRuntimeService } from './services/paper-implementation-route-planning-runtime-service.js';
 import { PaperImplementationRunCoordinatorService } from './services/paper-implementation-run-coordinator-service.js';
+import { PaperImplementationScientificContinuationOwnerStateReader } from './services/paper-implementation-scientific-continuation-owner-state-reader.js';
+import { PaperImplementationScientificContinuationService } from './services/paper-implementation-scientific-continuation-service.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './services/paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationFeasibilityPlanningRuntimeService } from './services/paper-implementation-feasibility-planning-runtime-service.js';
 import { PaperImplementationCrossBoardSynthesisRuntimeService } from './services/paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -1571,9 +1573,27 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         ),
     },
   });
+  const paperImplementationScientificContinuationOwnerStateReader =
+    new PaperImplementationScientificContinuationOwnerStateReader({
+      projectRepository: paperImplementationRepository,
+      motiveRepository: paperImplementationMotiveRepository,
+      validationRepository: paperImplementationValidationRepository,
+      coordinatorReader: paperImplementationRunCoordinatorService,
+      experimentLineageRepository: paperImplementationExperimentLineageV2Repository,
+      experimentSpineRepository: paperImplementationExperimentSpineV2Repository,
+      scientificValidationRepository: experimentFoundationScientificValidationV2Repository,
+      closureReader: closedCycleSnapshotReader,
+      resultClaimDossierRepository: paperImplementationResultClaimDossierRepository,
+    });
+  const paperImplementationScientificContinuationService =
+    new PaperImplementationScientificContinuationService({
+      ownerStateReader: paperImplementationScientificContinuationOwnerStateReader,
+      coordinator: paperImplementationRunCoordinatorService,
+    });
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,
     topicHandoff: paperImplementationTopicHandoffService,
+    scientificContinuation: paperImplementationScientificContinuationService,
     traceKernel: paperImplementationTraceKernelService,
     motiveEvidenceBoard: paperImplementationMotiveEvidenceBoardService,
     validationCyclePlanning: paperImplementationValidationCyclePlanningService,

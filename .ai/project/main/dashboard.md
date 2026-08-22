@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 138 (planned: 2, in-progress: 0, blocked: 0, done: 49, archived: 87)
+- Tasks: 139 (planned: 2, in-progress: 1, blocked: 0, done: 49, archived: 87)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-139 paper-implementation-to-scientific-dossier-semantic-continuation | in-progress | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
 | T-138 topic-to-paper-implementation-semantic-handoff | done | F-001 | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
 | T-124 paper-implementation-productization-hardening | done | F-001 | dev-docs/active/paper-implementation-productization-hardening |
@@ -33,5 +34,4 @@ Project: `main`
 | T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
 | T-128 topic-selection-product-readiness-closure | archived | F-001 | dev-docs/archive/topic-selection-product-readiness-closure |
 | T-129 topic-selection-calibration-release | planned | F-001 | dev-docs/active/topic-selection-calibration-release |
-| T-041 literature-end-to-end-quality-upgrade | archived | F-000 | dev-docs/archive/literature-end-to-end-quality-upgrade |
 <!-- AUTO-GENERATED:END dashboard -->

@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-17T00:09:42.726Z",
+  "generatedAt": "2026-08-22T11:19:06.904Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "2304098ae87cf4d8fecefbab23bf65582e1a0de071d5a9b11e2d07b76bd8d60d",
+  "sourceChecksumSha256": "dff98348670021d83ae8e96972db2ee6e663d2ae46b5c6c90ee5db6503b32d54",
   "stats": {
-    "totalEndpoints": 210,
+    "totalEndpoints": 211,
     "byTag": {
       "health": 1,
-      "paper-implementation-handoff": 1,
+      "paper-implementation-handoff": 2,
       "paper-implementation-experiment-v2": 8,
       "paper-implementation-exploration-attachment-v2": 1,
       "paper-implementation-runtime": 1,
@@ -87,6 +87,46 @@
       ],
       "example": {
         "curl": "curl -X POST '/paper-implementation/topic-handoffs' -H 'Content-Type: application/json' -d '{\"paper_project_bridge_id\":\"<paper_project_bridge_id>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/scientific-continuations",
+      "operationId": "continuePaperImplementationScientificDossier",
+      "summary": "Resolve and resume one ImplementationProject from persisted scientific owner state.",
+      "tag": "paper-implementation-handoff",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "implementation_project_id"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "schema_version",
+          "status",
+          "semantic_stage",
+          "effects",
+          "next_action",
+          "blocker",
+          "lineage",
+          "resume_policy"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/scientific-continuations' -H 'Content-Type: application/json' -d '{\"implementation_project_id\":\"<implementation_project_id>\"}'"
       }
     },
     {

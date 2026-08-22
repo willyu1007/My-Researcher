@@ -36,11 +36,89 @@ test('paper-implementation schemas load through direct and aggregate exports', (
   assert.ok(paperImplementationContracts.implementationProjectSchema);
   assert.ok(paperImplementationContracts.createPaperImplementationTopicHandoffRequestSchema);
   assert.ok(paperImplementationContracts.paperImplementationTopicHandoffResponseSchema);
+  assert.ok(
+    paperImplementationContracts.createPaperImplementationScientificContinuationRequestSchema,
+  );
+  assert.ok(paperImplementationContracts.paperImplementationScientificContinuationResponseSchema);
   assert.ok(paperImplementationContracts.recordImplementationFeedbackEventRequestSchema);
   assert.ok(paperImplementationContracts.implementationFeedbackEventSchema);
   assert.ok(researchLifecycleContracts.bootstrapImplementationProjectRequestSchema);
   assert.ok(researchLifecycleContracts.paperImplementationTopicHandoffResponseSchema);
+  assert.ok(
+    researchLifecycleContracts.paperImplementationScientificContinuationResponseSchema,
+  );
   assert.ok(researchLifecycleContracts.implementationProjectSchema);
+});
+
+test('scientific continuation accepts only one owner-root input', async () => {
+  const schema =
+    paperImplementationContracts.createPaperImplementationScientificContinuationRequestSchema;
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(Object.keys(schema.properties), ['implementation_project_id']);
+  assert.equal(
+    await validateWithSchema(schema, {
+      implementation_project_id: 'implementation_project_001',
+    }),
+    200,
+  );
+  assert.equal(await validateWithSchema(schema, {}), 400);
+});
+
+test('scientific continuation response separates stage, action, blocker, and lineage', async () => {
+  const response = {
+    schema_version:
+      paperImplementationContracts.PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_SCHEMA_VERSION,
+    status: 'waiting_for_paid_execution_authorization',
+    semantic_stage: 'paid_execution',
+    effects: {
+      performed: [],
+      reused: ['experiment_work_order', 'experiment_run'],
+      llm_lane_id: null,
+    },
+    next_action: {
+      action: 'authorize_paid_execution',
+      description: 'Authorize one real-provider execution through the existing execution API.',
+      requires_paid_authorization: true,
+      requires_human_confirmation: false,
+    },
+    blocker: null,
+    lineage: {
+      implementation_project_id: 'implementation_project_001',
+      coordinator_run_id: null,
+      validation_cycle_id: 'validation_cycle_001',
+      experiment_branch_id: 'experiment_branch_001',
+      experiment_work_order_revision_id: 'work_order_revision_001',
+      experiment_run_id: 'run_001',
+      scientific_result_id: null,
+      scientific_validation_report_id: null,
+      closure_id: null,
+      result_packet_id: null,
+      claim_id: null,
+      dossier_id: null,
+    },
+    resume_policy:
+      paperImplementationContracts.PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY,
+  };
+  assert.equal(
+    await validateWithSchema(
+      paperImplementationContracts.paperImplementationScientificContinuationResponseSchema,
+      response,
+    ),
+    200,
+  );
+  assert.equal(
+    await validateWithSchema(
+      paperImplementationContracts.paperImplementationScientificContinuationResponseSchema,
+      {
+        ...response,
+        effects: {
+          ...response.effects,
+          llm_lane_id: ['motive', 'validation-planning'],
+        },
+      },
+    ),
+    400,
+  );
 });
 
 test('bootstrap implementation project request validates required bridge fields', async () => {
