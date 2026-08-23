@@ -150,5 +150,5 @@ Project: `main`
 | T-138 topic-to-paper-implementation-semantic-handoff | done | F-001 | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
-| T-141 core-motive-to-evidence-board-semantic-handoff | in-progress | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
+| T-141 core-motive-to-evidence-board-semantic-handoff | done | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
 <!-- AUTO-GENERATED:END task-index -->

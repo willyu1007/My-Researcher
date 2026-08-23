@@ -6,7 +6,7 @@
 2. [x] Define strict owner-root contracts and stable recovery identity.
 3. [x] Compose initial curation into existing trace/binding/board owners with conservative admission.
 4. [x] Expose the semantic command and prove blockers, replay, concurrency, and T-139 boundary behavior.
-5. [ ] Update context/governance docs and run full release gates.
+5. [x] Update context/governance docs and run full release gates.
 
 ## Detailed steps
 

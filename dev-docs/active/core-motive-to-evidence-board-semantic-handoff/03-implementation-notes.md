@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `in-progress`
+- Current status: `done`
 - Last updated: 2026-08-24
 
 ## Decision Gate
@@ -31,6 +31,7 @@
 - 2026-08-24: release review moved singleflight state from module scope to the service instance, preventing separate app compositions from sharing an in-flight response for the same project id.
 - 2026-08-24: release review added the assertion `minimum_support_level` to final deterministic admission; a curation candidate below the required level now returns an evidence-gap blocker and writes no board.
 - 2026-08-24: all Node 20 focused/full tests, shared/backend typechecks, LLM registry checks, Context/API, project-state, governance strict lint, task-doc strict lint, and diff checks passed locally.
+- 2026-08-24: implementation commit `536214b5aef66750d4c29d8cc7c032660ddbb694` was pushed to `main`; GitHub Actions run `32651843827` passed all four jobs, including the isolated-Prisma backend suite.
 
 ## Parameter ownership
 

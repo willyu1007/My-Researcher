@@ -131,4 +131,4 @@
 - [x] Prove generic source/runtime seam
 - [x] Complete implementation and focused local verification
 - [x] Complete full repository verification
-- [ ] Land commits and record remote CI evidence
+- [x] Land commits and record remote CI evidence

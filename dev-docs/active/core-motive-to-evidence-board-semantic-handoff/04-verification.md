@@ -30,7 +30,8 @@
 - API index regenerated from OpenAPI: 213 endpoints; checksum prefix `92c8856abdecc157`; Context strict verification passed.
 - Project-state verification, governance strict lint, task-doc strict lint (8/8 with zero warnings/errors), and `git diff --check` passed.
 - Real provider/PAI execution: intentionally not run. Verification used deterministic test doubles and local persisted authority only.
-- Remote CI: pending the implementation commit and push.
+- Implementation commit `536214b5aef66750d4c29d8cc7c032660ddbb694` with `Task: T-141` was pushed to `main`.
+- GitHub Actions run `32651843827` passed all four jobs: Backend Checks (including isolated Prisma), Governance Lint, Prisma Migrate Drift, and Desktop Checks.
 
 ## Rollout / Backout
 

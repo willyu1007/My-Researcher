@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: in-progress
-- Next step: commit and push the locally verified implementation, wait for green CI, then close the task handoff.
+- State: done
+- Next step: evaluate T-142 only when the Evidence Board-to-ValidationCycle semantic continuation is prioritized.
 
 ## Goal
 
@@ -32,4 +32,4 @@ T-140 produces an admitted CoreMotive and assertions, while T-095 validation pla
 - [x] Replay/concurrency tests demonstrate exact-once behavior in the supported local backend process.
 - [x] T-139 still reports `VALIDATION_PLANNING_RUN_NOT_STARTED` after successful T-141 completion.
 - [x] No ValidationCycle, provider experiment, or PAI Job is created.
-- [ ] Focused/full tests, typecheck, LLM release, Context/API, project-state, governance, docs, diff, and CI gates pass.
+- [x] Focused/full tests, typecheck, LLM release, Context/API, project-state, governance, docs, diff, and CI gates pass.
