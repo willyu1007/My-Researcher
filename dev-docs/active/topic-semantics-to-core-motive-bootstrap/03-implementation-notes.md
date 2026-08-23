@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `in-progress`
+- Current status: `done`
 - Last updated: 2026-08-23
 
 ## What changed
@@ -63,6 +63,11 @@
 
 - T-141 candidate: an owner-root validation-planning continuation after the admitted CoreMotive boundary. T-140 intentionally returns `continue_validation_planning` and creates no coordinator run.
 - If deployment changes from one local backend process to multiple writers, assess a durable provider invocation lease as a separately governed task.
+
+## Landing evidence
+
+- Implementation commit: `40150423d56c4c5355a36683320622f0bbca8d2f` (`feat(paper-implementation): add motive handoff`).
+- GitHub Actions run `32611209572` passed all Backend, Prisma drift, Desktop, and Governance jobs.
 
 ## Pitfalls / dead ends
 

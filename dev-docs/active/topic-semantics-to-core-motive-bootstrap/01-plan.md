@@ -6,7 +6,7 @@
 2. [x] Add the versioned LLM proposal profile/prompt and persisted runtime path.
 3. [x] Compose proposal into existing CoreMotive, trace, and admission owners with exact-once recovery.
 4. [x] Expose the thin semantic command and prove replay/concurrency/T-139 boundary behavior.
-5. [ ] Update context/governance docs and run full release gates (local gates complete; commit/push/CI pending).
+5. [x] Update context/governance docs and run full release gates.
 
 ## Detailed steps
 

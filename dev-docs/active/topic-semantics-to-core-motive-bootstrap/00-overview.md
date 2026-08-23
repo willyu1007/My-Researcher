@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: in-progress
-- Next step: finish repository gates, land the verified implementation, and record CI evidence.
+- State: done
+- Next step: evaluate T-141 only when an owner-root validation-planning continuation is prioritized.
 
 ## Goal
 
@@ -32,4 +32,4 @@ T-138 gives the product a bare `ImplementationProject` with stable topic semanti
 - [x] The response separates semantic stage, performed/reused effects, next action/blocker, technical lineage, and resume policy.
 - [x] T-139 reports `VALIDATION_PLANNING_RUN_NOT_STARTED` after successful bootstrap.
 - [x] No coordinator run, provider experiment, or PAI Job is created.
-- [ ] Focused/full tests, typecheck, LLM registry, Context/API, project-state, governance, docs, diff, and CI gates pass.
+- [x] Focused/full tests, typecheck, LLM registry, Context/API, project-state, governance, docs, diff, and CI gates pass.

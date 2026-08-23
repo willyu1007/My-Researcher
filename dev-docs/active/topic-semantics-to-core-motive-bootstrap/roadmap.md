@@ -143,4 +143,4 @@ dev-docs/active/topic-semantics-to-core-motive-bootstrap/
 - [x] Confirm user-approved boundary and phase ordering
 - [x] Confirm acceptance and rollback strategy
 - [x] Complete implementation and local repository verification
-- [ ] Land commits and record remote CI evidence
+- [x] Land commits and record remote CI evidence

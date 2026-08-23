@@ -2,7 +2,7 @@ version: 1
 task_id: T-140
 project: main
 slug: topic-semantics-to-core-motive-bootstrap
-status: in-progress
+status: done
 updated: "2026-08-23"
 keywords:
   - paper-implementation
