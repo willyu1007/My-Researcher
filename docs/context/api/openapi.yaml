@@ -131,6 +131,46 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /paper-implementation/core-motive-handoffs:
+    post:
+      operationId: createPaperImplementationCoreMotiveHandoff
+      summary: Bootstrap and admit the first primary CoreMotive for one ImplementationProject.
+      description: |
+        The caller supplies only the Paper Implementation-owned ImplementationProject id. The server
+        resolves the accepted topic semantics and literature lineage, invokes one ordinary LLM semantic
+        proposal when no admitted proposal artifact exists, and deterministically writes the CoreMotive,
+        assertions, complete trace manifest and first-primary admission. Replay reuses persisted effects
+        without rerunning the LLM or creating duplicate authority. The command stops before validation
+        planning and never starts a coordinator run, provider experiment or paid PAI job.
+      tags: [paper-implementation-handoff]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffRequest'
+      responses:
+        '200':
+          description: Persisted bootstrap effects resumed, or an explicit pre-admission blocker returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffResponse'
+        '201':
+          description: The first primary CoreMotive was created, traced and admitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions:
     post:
       operationId: admitPaperImplementationExperimentWorkOrderV2
@@ -6853,6 +6893,114 @@ components:
         resume_policy:
           type: string
           const: repeat_same_owner_root_command_and_read_persisted_owner_state
+
+    PaperImplementationCoreMotiveHandoffRequest:
+      type: object
+      additionalProperties: false
+      required: [implementation_project_id]
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+
+    PaperImplementationCoreMotiveHandoffEffect:
+      type: string
+      enum: [proposal_artifact, core_motive_draft, trace_manifest, core_motive_admission]
+
+    PaperImplementationCoreMotiveHandoffBlocker:
+      type: object
+      additionalProperties: false
+      required: [code, message, source, retryable]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        source: { type: string, enum: [bootstrap, domain, provider] }
+        retryable: { type: boolean }
+
+    PaperImplementationCoreMotiveHandoffResponse:
+      type: object
+      additionalProperties: false
+      required: [schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy]
+      properties:
+        schema_version:
+          type: string
+          const: PaperImplementationCoreMotiveHandoff@v1
+        status:
+          type: string
+          enum: [created, resumed, blocked]
+        semantic_stage:
+          type: string
+          enum: [proposal, motive_draft, trace, admission, core_motive_admitted]
+        effects:
+          type: object
+          additionalProperties: false
+          required: [performed, reused]
+          properties:
+            performed:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffEffect'
+            reused:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffEffect'
+        next_action:
+          type: object
+          additionalProperties: false
+          required: [action, description, requires_human_confirmation]
+          properties:
+            action:
+              type: string
+              enum: [repeat_handoff, continue_validation_planning, resolve_blocker]
+            description: { type: string, minLength: 1 }
+            requires_human_confirmation: { type: boolean, const: false }
+        blocker:
+          anyOf:
+            - $ref: '#/components/schemas/PaperImplementationCoreMotiveHandoffBlocker'
+            - type: 'null'
+        semantic_context:
+          type: object
+          additionalProperties: false
+          required: [topic, admitted_core_motive]
+          properties:
+            topic:
+              $ref: '#/components/schemas/PaperImplementationTopicHandoffSemanticContext'
+            admitted_core_motive:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required: [short_name, motivation_claim, problem_pressure, expected_contribution_path, maximum_allowed_claim, forbidden_overclaims, assertion_count]
+                  properties:
+                    short_name: { type: string, minLength: 1 }
+                    motivation_claim: { type: string, minLength: 1 }
+                    problem_pressure: { type: string, minLength: 1 }
+                    expected_contribution_path: { type: string, minLength: 1 }
+                    maximum_allowed_claim: { type: string, minLength: 1 }
+                    forbidden_overclaims:
+                      type: array
+                      items: { type: string, minLength: 1 }
+                    assertion_count: { type: integer, minimum: 1 }
+                - type: 'null'
+        lineage:
+          type: object
+          additionalProperties: false
+          required: [implementation_project_id, intake_snapshot_id, proposal_runtime_artifact_id, motive_id, core_motive_version_id, assertion_ids, trace_manifest_id, admission_gate_result_id]
+          properties:
+            implementation_project_id: { type: string, minLength: 1 }
+            intake_snapshot_id: { type: string, minLength: 1 }
+            proposal_runtime_artifact_id: { type: [string, 'null'], minLength: 1 }
+            motive_id: { type: [string, 'null'], minLength: 1 }
+            core_motive_version_id: { type: [string, 'null'], minLength: 1 }
+            assertion_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            trace_manifest_id: { type: [string, 'null'], minLength: 1 }
+            admission_gate_result_id: { type: [string, 'null'], minLength: 1 }
+        resume_policy:
+          type: string
+          const: repeat_same_owner_root_command_and_reuse_persisted_effects
 
     PaperImplementationBackHalfSourceContextPacket:
       type: object

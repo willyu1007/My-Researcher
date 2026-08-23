@@ -618,6 +618,22 @@ templates:
       - Keep decomposition_result_status and role_status aligned: blocked results use role_status blocked, while candidates_proposed and no_decomposition_needed use role_status passed.
       - Do not create MotiveAssertion, CoreMotiveVersion, MotiveEvolutionDecision, board, evidence binding, trace repair queue, queue, Domain Gate, prompt text, source_assertion_reviews, or raw provider output payloads.
 
+  - prompt_template_id: paper-implementation-core-motive-bootstrap-proposal
+    version: 1
+    runtime_profile_id: paper-implementation.core-motive-bootstrap.proposal.v1
+    description: Propose bounded CoreMotive semantics from one accepted PaperImplementation intake snapshot.
+    variables_schema:
+      type: object
+      required: [bootstrap_input_json]
+      properties:
+        bootstrap_input_json:
+          type: object
+    notes:
+      - Return only JSON matching CoreMotiveBootstrapProposal@v1.
+      - Preserve the supplied problem, contribution, evaluation plan, claim ceiling, prohibited claims, conditions, risks, obligations, and literature grounding.
+      - Propose scientific semantics only; do not output ids, refs, hashes, authority state, provider settings, credentials, PAI instructions, or workflow commands.
+      - Do not weaken the upstream claim ceiling or prohibited claims and do not invent literature evidence.
+
   - prompt_template_id: paper-implementation-motive-evolution-decision-support
     version: 3
     runtime_profile_id: paper-implementation.motive-evolution.evolution-decision-support.v1

@@ -1,0 +1,12 @@
+version: 1
+task_id: T-140
+project: main
+slug: topic-semantics-to-core-motive-bootstrap
+status: in-progress
+updated: "2026-08-23"
+keywords:
+  - paper-implementation
+  - core-motive
+  - semantic-handoff
+  - llm-proposal
+  - exact-once

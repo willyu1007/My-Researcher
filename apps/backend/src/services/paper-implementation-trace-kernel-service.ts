@@ -30,6 +30,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { stableStringify } from './literature-content-processing-utils.js';
 import { normalizedPaperImplementationRefType } from './paper-implementation-runtime-utils.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationTraceRepository } from '../repositories/paper-implementation-trace.repository.js';
@@ -95,34 +96,106 @@ export class PaperImplementationTraceKernelService {
     implementationProjectId: string,
     request: CreateTraceManifestRequest,
   ): Promise<TraceManifest> {
+    const manifest = await this.buildTraceManifest(
+      implementationProjectId,
+      this.idFactory('trace_manifest'),
+      request,
+    );
+    const queueItems = this.buildRepairQueueItems(
+      manifest,
+      manifest.created_by,
+      manifest.created_at,
+    );
+    return this.traceRepository.createTraceManifest(manifest, queueItems);
+  }
+
+  /** Internal exact-once seam for owner-root composition; the public contract stays semantic-only. */
+  async ensureTraceManifest(
+    implementationProjectId: string,
+    traceManifestId: string,
+    request: CreateTraceManifestRequest,
+  ): Promise<{ manifest: TraceManifest; created: boolean }> {
+    const expected = await this.buildTraceManifest(implementationProjectId, traceManifestId, request);
+    const existing = await this.traceRepository.findTraceManifestById(
+      implementationProjectId,
+      traceManifestId,
+    );
+    if (existing) {
+      this.assertExpectedManifest(existing, expected);
+      return { manifest: existing, created: false };
+    }
+    const queueItems = this.buildRepairQueueItems(
+      expected,
+      expected.created_by,
+      expected.created_at,
+    );
+    try {
+      return {
+        manifest: await this.traceRepository.createTraceManifest(expected, queueItems),
+        created: true,
+      };
+    } catch (error) {
+      if (!(error instanceof AppError) || error.errorCode !== 'VERSION_CONFLICT') {
+        throw error;
+      }
+      const raced = await this.traceRepository.findTraceManifestById(
+        implementationProjectId,
+        traceManifestId,
+      );
+      if (!raced) {
+        throw error;
+      }
+      this.assertExpectedManifest(raced, expected);
+      return { manifest: raced, created: false };
+    }
+  }
+
+  private async buildTraceManifest(
+    implementationProjectId: string,
+    traceManifestId: string,
+    request: CreateTraceManifestRequest,
+  ): Promise<TraceManifest> {
     const project = await this.requireProject(implementationProjectId);
     this.assertFunctionalRef(request.target_ref, 'target_ref');
     this.assertLineageBundle(request.lineage);
-    const createdAt = this.now();
-    const createdBy = request.created_by ?? 'system';
     const integrity = this.withRequiredLineageGaps(
       request.target_ref,
       request.lineage,
       this.normalizeIntegrity(request.integrity),
     );
-    const traceStatus = this.computeTraceStatus(integrity);
-    const manifest: TraceManifest = {
-      trace_manifest_id: this.idFactory('trace_manifest'),
+    return {
+      trace_manifest_id: traceManifestId,
       implementation_project_id: project.implementation_project_id,
       target_ref: request.target_ref,
       lineage: request.lineage,
       integrity,
-      trace_status: traceStatus,
+      trace_status: this.computeTraceStatus(integrity),
       broken_ref_count: integrity.broken_refs.length,
       stale_ref_count: integrity.stale_refs.length,
       missing_ref_count: integrity.missing_refs.length,
       non_citable_ref_count: integrity.non_citable_refs.length,
       trace_policy_version_id: request.trace_policy_version_id ?? project.policy_version_id ?? null,
-      created_by: createdBy,
-      created_at: createdAt,
+      created_by: request.created_by ?? 'system',
+      created_at: this.now(),
     };
-    const queueItems = this.buildRepairQueueItems(manifest, createdBy, createdAt);
-    return this.traceRepository.createTraceManifest(manifest, queueItems);
+  }
+
+  private assertExpectedManifest(existing: TraceManifest, expected: TraceManifest): void {
+    const comparable = (manifest: TraceManifest) => ({
+      implementation_project_id: manifest.implementation_project_id,
+      target_ref: manifest.target_ref,
+      lineage: manifest.lineage,
+      integrity: manifest.integrity,
+      trace_status: manifest.trace_status,
+      trace_policy_version_id: manifest.trace_policy_version_id ?? null,
+    });
+    if (stableStringify(comparable(existing)) !== stableStringify(comparable(expected))) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `TraceManifest ${existing.trace_manifest_id} exists with different owner semantics.`,
+      );
+    }
   }
 
   async listTraceManifests(

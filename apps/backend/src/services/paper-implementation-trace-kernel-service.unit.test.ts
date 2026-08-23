@@ -220,6 +220,29 @@ test('complete trace manifest creates no repair queue items and passes trace gat
   assert.deepEqual(gate.blocker_codes, []);
 });
 
+test('ensureTraceManifest converges concurrent deterministic writes and rejects semantic drift', async () => {
+  const { service, traceRepository } = makeHarness();
+  const request = {
+    target_ref: ref('core_motive_version', 'core_motive_version_ensure_001', 'v1'),
+    lineage: lineageWithLiterature(),
+  };
+  const results = await Promise.all([
+    service.ensureTraceManifest(PROJECT.implementation_project_id, 'trace_manifest_ensure_001', request),
+    service.ensureTraceManifest(PROJECT.implementation_project_id, 'trace_manifest_ensure_001', request),
+  ]);
+  assert.deepEqual(results.map((result) => result.created).sort(), [false, true]);
+  assert.equal((await traceRepository.listTraceManifests(PROJECT.implementation_project_id)).length, 1);
+
+  await assertAppError(
+    service.ensureTraceManifest(PROJECT.implementation_project_id, 'trace_manifest_ensure_001', {
+      ...request,
+      target_ref: ref('core_motive_version', 'different_version', 'v1'),
+    }),
+    409,
+    'VERSION_CONFLICT',
+  );
+});
+
 test('known writing-affecting target with empty required lineage is broken', async () => {
   const { service } = makeHarness();
   const manifest = await service.createTraceManifest(PROJECT.implementation_project_id, {

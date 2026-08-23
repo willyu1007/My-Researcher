@@ -278,6 +278,20 @@ profiles:
         model_id: gpt-5.5
         weight: 100
 
+  - profile_id: paper-implementation.core-motive-bootstrap.proposal.v1
+    intent: paper_implementation_core_motive_bootstrap_semantic_proposal_runtime
+    candidates:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 80
+      - provider_id: dashscope
+        model_id: qwen3.6-plus
+        weight: 20
+    fallback:
+      - provider_id: openai
+        model_id: gpt-5.5
+        weight: 100
+
   - profile_id: paper-implementation.motive-evolution.evolution-decision-support.v1
     intent: paper_implementation_motive_evolution_evolution_decision_support_runtime
     candidates:

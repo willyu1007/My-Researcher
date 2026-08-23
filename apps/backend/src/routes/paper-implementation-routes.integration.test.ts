@@ -12,6 +12,8 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/experiment-v2-canonical-hash';
 import type {
   BootstrapImplementationProjectResponse,
+  CoreMotiveBootstrapProposal,
+  PaperImplementationCoreMotiveHandoffResponse,
   PaperImplementationScientificContinuationResponse,
   PaperImplementationTopicHandoffResponse,
   RecordImplementationFeedbackEventResponse,
@@ -51,6 +53,11 @@ import type {
 import { buildApp } from '../app.js';
 import { PaperImplementationController } from '../controllers/paper-implementation-controller.js';
 import { AppError } from '../errors/app-error.js';
+import type {
+  LlmCallTelemetry,
+  LlmStructuredOutputRequest,
+  LlmStructuredOutputResponse,
+} from '../services/llm-gateway.js';
 import { InMemoryPaperImplementationRepository } from '../repositories/in-memory-paper-implementation-repository.js';
 import { InMemoryPaperImplementationAiWorkflowHarnessRepository } from '../repositories/in-memory-paper-implementation-ai-workflow-harness-repository.js';
 import { InMemoryPaperImplementationMotiveRepository } from '../repositories/in-memory-paper-implementation-motive-repository.js';
@@ -516,6 +523,91 @@ class StubBridgeService {
       carried_literature_evidence_ids: ['LIT-001'],
       carried_accepted_risk_refs: structuredClone(this.handoff.accepted_risk_refs),
       carried_condition_refs: [],
+    };
+  }
+}
+
+function coreMotiveBootstrapProposal(): CoreMotiveBootstrapProposal {
+  return {
+    schema_version: 'CoreMotiveBootstrapProposal@v1',
+    motive_contract: {
+      short_name: 'Scoped evidence comparison',
+      current_solution_insufficiency: 'Existing comparisons do not isolate the admitted factor.',
+      unmet_or_failure_mechanism: 'The factor is confounded with non-treatment changes.',
+      target_setting: 'The admitted PaperProject evaluation setting.',
+      why_this_is_not_trivial: 'All non-treatment inputs must remain fixed.',
+      why_existing_baselines_do_not_already_solve_it: 'Existing baselines change multiple inputs.',
+      what_makes_this_researchable_now: 'The accepted evaluation plan bounds the comparison.',
+    },
+    scope_contract: {
+      included_scope: ['The admitted evaluation setting'],
+      excluded_scope: ['Other datasets'],
+      non_goals: ['Universal generalization'],
+    },
+    falsification_contract: {
+      invalidation_conditions: ['The factor cannot be isolated.'],
+      weakening_conditions: ['The observed effect is below the planned threshold.'],
+      minimum_evidence_to_continue: ['One controlled comparison.'],
+      decisive_negative_conditions: ['The controlled effect reverses.'],
+    },
+    claim_boundary: {
+      minimum_defensible_contribution_claim: 'Report the scoped comparison.',
+      claim_types_allowed: ['empirical_comparison'],
+    },
+    route_interface: {
+      plausible_route_families: ['controlled comparison'],
+      disallowed_route_families: ['uncontrolled sweep'],
+      required_route_properties: ['fixed non-treatment inputs'],
+      cheapest_validation_route_hint: 'Run the admitted comparison.',
+    },
+    assertions: [{
+      assertion_type: 'experimental_answerability',
+      assertion_text: 'The admitted question is answerable with a controlled comparison.',
+      importance: { role: 'core', must_hold_for_motive_to_continue: true },
+      validation_requirements: {
+        minimum_support_level: 'moderate',
+        required_evidence_types: ['literature', 'experiment_result'],
+        required_counter_evidence_check: true,
+      },
+      falsification: {
+        what_would_contradict_this: ['The factor cannot be isolated.'],
+        what_would_weaken_this: ['The metric is too noisy.'],
+      },
+    }],
+  };
+}
+
+class StubCoreMotiveBootstrapGateway {
+  readonly calls: LlmStructuredOutputRequest[] = [];
+
+  async createStructuredOutput<T>(
+    request: LlmStructuredOutputRequest,
+  ): Promise<LlmStructuredOutputResponse<T>> {
+    this.calls.push(request);
+    const telemetry: LlmCallTelemetry = {
+      provider_id: request.model.providerId,
+      model_id: request.model.modelId,
+      profile_id: request.model.profileId ?? null,
+      prompt_template_id: request.prompt.promptTemplateId,
+      prompt_template_version: request.prompt.version,
+      elapsed_ms: 5,
+      request_count: 1,
+      retry_count: 0,
+      timeout_count: 0,
+      rate_limit_count: 0,
+      input_tokens: null,
+      output_tokens: null,
+      embedding_input_tokens: null,
+      total_tokens: null,
+      cost_usd: null,
+      provider_side_cache_hit: null,
+      provider_side_cache_read_tokens: null,
+      provider_side_cache_write_tokens: null,
+    };
+    return {
+      parsed: coreMotiveBootstrapProposal() as T,
+      raw: { redacted_stub: true },
+      telemetry,
     };
   }
 }
@@ -1051,6 +1143,95 @@ test('scientific continuation route reports and replays the bare-project semanti
     const invalid = await app.inject({
       method: 'POST',
       url: '/paper-implementation/scientific-continuations',
+      payload: {},
+    });
+    assertStatus(invalid, 400);
+  } finally {
+    await app.close();
+  }
+});
+
+test('CoreMotive handoff route creates, replays, and exposes the T-139 validation-planning boundary', async () => {
+  const projectRepository = new InMemoryPaperImplementationRepository();
+  const motiveRepository = new InMemoryPaperImplementationMotiveRepository();
+  const traceRepository = new InMemoryPaperImplementationTraceRepository();
+  const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
+  const coordinatorRepository = new InMemoryPaperImplementationCoordinatorRepository();
+  const gateway = new StubCoreMotiveBootstrapGateway();
+  const app = buildApp({
+    paperImplementationRepository: projectRepository,
+    paperImplementationMotiveRepository: motiveRepository,
+    paperImplementationTraceRepository: traceRepository,
+    paperImplementationRuntimeRepository: runtimeRepository,
+    paperImplementationCoordinatorRepository: coordinatorRepository,
+    paperImplementationBridgeService: new StubBridgeService(),
+    paperImplementationCoreMotiveBootstrapLlmGateway: gateway,
+  });
+  try {
+    const bootstrap = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/projects/bootstrap',
+      payload: {
+        paper_project_bridge_id: 'paper_project_bridge_001',
+        bridge_payload_hash: 'bridge_payload_hash_001',
+      },
+    });
+    assertStatus(bootstrap, 201);
+    const projectId = (bootstrap.json() as BootstrapImplementationProjectResponse)
+      .implementation_project.implementation_project_id;
+    const command = {
+      method: 'POST' as const,
+      url: '/paper-implementation/core-motive-handoffs',
+      payload: { implementation_project_id: projectId },
+    };
+
+    const first = await app.inject(command);
+    assertStatus(first, 201);
+    const firstBody = first.json() as PaperImplementationCoreMotiveHandoffResponse;
+    assert.equal(firstBody.status, 'created');
+    assert.equal(firstBody.semantic_stage, 'core_motive_admitted');
+    assert.deepEqual(firstBody.effects.performed, [
+      'proposal_artifact',
+      'core_motive_draft',
+      'trace_manifest',
+      'core_motive_admission',
+    ]);
+    assert.equal(firstBody.next_action.action, 'continue_validation_planning');
+    assert.equal(firstBody.semantic_context.admitted_core_motive?.maximum_allowed_claim,
+      'Bounded claim ceiling.');
+    assert.equal(gateway.calls.length, 1);
+    assert.equal(gateway.calls[0]?.prompt.promptTemplateId,
+      'paper-implementation-core-motive-bootstrap-proposal');
+
+    const replay = await app.inject(command);
+    assertStatus(replay, 200);
+    const replayBody = replay.json() as PaperImplementationCoreMotiveHandoffResponse;
+    assert.equal(replayBody.status, 'resumed');
+    assert.deepEqual(replayBody.effects.performed, []);
+    assert.deepEqual(replayBody.lineage, firstBody.lineage);
+    assert.equal(gateway.calls.length, 1);
+    const runtimeArtifacts = await runtimeRepository.listRuntimeArtifacts(projectId);
+    assert.equal(runtimeArtifacts.length, 2);
+    assert.deepEqual(
+      runtimeArtifacts.map((artifact) => artifact.artifact_scope).sort(),
+      ['final', 'role'],
+    );
+    assert.equal((await runtimeRepository.listAdmissionRecords(projectId)).length, 2);
+
+    const downstream = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/scientific-continuations',
+      payload: { implementation_project_id: projectId },
+    });
+    assertStatus(downstream, 200);
+    const downstreamBody = downstream.json() as PaperImplementationScientificContinuationResponse;
+    assert.equal(downstreamBody.status, 'blocked');
+    assert.equal(downstreamBody.blocker?.code, 'VALIDATION_PLANNING_RUN_NOT_STARTED');
+    assert.deepEqual(await coordinatorRepository.listCoordinatorRunsByProject(projectId), []);
+
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/core-motive-handoffs',
       payload: {},
     });
     assertStatus(invalid, 400);

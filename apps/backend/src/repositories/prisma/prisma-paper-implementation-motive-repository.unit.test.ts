@@ -379,6 +379,15 @@ function makeModel(rows: StoredRow[]) {
       rows[index] = { ...rows[index], ...data };
       return rows[index];
     },
+    updateMany: async ({ where, data }: { where: Partial<StoredRow>; data: Partial<StoredRow> }) => {
+      const matchingIndexes = rows.flatMap((row, index) => (
+        matchesWhere(row, where) ? [index] : []
+      ));
+      for (const index of matchingIndexes) {
+        rows[index] = { ...rows[index], ...data };
+      }
+      return { count: matchingIndexes.length };
+    },
   };
 }
 

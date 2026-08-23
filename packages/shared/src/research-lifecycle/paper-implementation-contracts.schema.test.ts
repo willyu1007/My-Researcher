@@ -40,6 +40,9 @@ test('paper-implementation schemas load through direct and aggregate exports', (
     paperImplementationContracts.createPaperImplementationScientificContinuationRequestSchema,
   );
   assert.ok(paperImplementationContracts.paperImplementationScientificContinuationResponseSchema);
+  assert.ok(paperImplementationContracts.coreMotiveBootstrapProposalSchema);
+  assert.ok(paperImplementationContracts.createPaperImplementationCoreMotiveHandoffRequestSchema);
+  assert.ok(paperImplementationContracts.paperImplementationCoreMotiveHandoffResponseSchema);
   assert.ok(paperImplementationContracts.recordImplementationFeedbackEventRequestSchema);
   assert.ok(paperImplementationContracts.implementationFeedbackEventSchema);
   assert.ok(researchLifecycleContracts.bootstrapImplementationProjectRequestSchema);
@@ -47,7 +50,150 @@ test('paper-implementation schemas load through direct and aggregate exports', (
   assert.ok(
     researchLifecycleContracts.paperImplementationScientificContinuationResponseSchema,
   );
+  assert.ok(researchLifecycleContracts.paperImplementationCoreMotiveHandoffResponseSchema);
   assert.ok(researchLifecycleContracts.implementationProjectSchema);
+});
+
+function coreMotiveBootstrapProposal() {
+  return {
+    schema_version: 'CoreMotiveBootstrapProposal@v1',
+    motive_contract: {
+      short_name: 'Scoped retrieval depth',
+      current_solution_insufficiency: 'Current evidence does not isolate retrieval depth.',
+      unmet_or_failure_mechanism: 'Depth changes are conflated with other inputs.',
+      target_setting: 'One admitted retrieval benchmark.',
+      why_this_is_not_trivial: 'The comparison requires controlled inputs.',
+      why_existing_baselines_do_not_already_solve_it: 'Reported baselines change multiple factors.',
+      what_makes_this_researchable_now: 'The accepted plan fixes the non-treatment inputs.',
+    },
+    scope_contract: {
+      included_scope: ['Admitted benchmark'],
+      excluded_scope: ['Other tasks'],
+      non_goals: ['Universal generalization'],
+      evaluation_scope: 'Compare two admitted cells.',
+    },
+    falsification_contract: {
+      invalidation_conditions: ['No measurable difference under the admitted comparison.'],
+      weakening_conditions: ['The effect is smaller than expected.'],
+      minimum_evidence_to_continue: ['One controlled comparison.'],
+      decisive_negative_conditions: ['The result reverses consistently.'],
+    },
+    claim_boundary: {
+      minimum_defensible_contribution_claim: 'Report the scoped comparison.',
+      claim_types_allowed: ['empirical'],
+    },
+    route_interface: {
+      plausible_route_families: ['controlled comparison'],
+      disallowed_route_families: ['uncontrolled benchmark sweep'],
+      required_route_properties: ['fixed non-treatment inputs'],
+      cheapest_validation_route_hint: 'Run two cells.',
+    },
+    assertions: [{
+      assertion_type: 'experimental_answerability',
+      assertion_text: 'The scoped question is answerable with two controlled cells.',
+      importance: { role: 'core', must_hold_for_motive_to_continue: true },
+      validation_requirements: {
+        minimum_support_level: 'moderate',
+        required_evidence_types: ['literature', 'experiment_result'],
+        required_counter_evidence_check: true,
+      },
+      falsification: {
+        what_would_contradict_this: ['The treatment cannot be isolated.'],
+        what_would_weaken_this: ['The metric is too noisy.'],
+      },
+    }],
+  };
+}
+
+test('CoreMotive handoff accepts one owner root and proposal remains semantic-only', async () => {
+  const requestSchema =
+    paperImplementationContracts.createPaperImplementationCoreMotiveHandoffRequestSchema;
+  assert.equal(requestSchema.additionalProperties, false);
+  assert.deepEqual(Object.keys(requestSchema.properties), ['implementation_project_id']);
+  assert.equal(await validateWithSchema(requestSchema, {
+    implementation_project_id: 'implementation_project_001',
+  }), 200);
+
+  const proposal = coreMotiveBootstrapProposal();
+  assert.equal(
+    paperImplementationContracts.coreMotiveBootstrapProposalSchema.additionalProperties,
+    false,
+  );
+  assert.equal(
+    Object.hasOwn(
+      paperImplementationContracts.coreMotiveBootstrapProposalSchema.properties,
+      'motive_id',
+    ),
+    false,
+  );
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.coreMotiveBootstrapProposalSchema,
+    proposal,
+  ), 200);
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.coreMotiveBootstrapProposalSchema,
+    {
+      ...proposal,
+      assertions: proposal.assertions.map((assertion) => ({
+        ...assertion,
+        importance: { ...assertion.importance, role: 'supporting' },
+      })),
+    },
+  ), 400);
+
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.paperImplementationCoreMotiveHandoffResponseSchema,
+    {
+      schema_version: 'PaperImplementationCoreMotiveHandoff@v1',
+      status: 'created',
+      semantic_stage: 'core_motive_admitted',
+      effects: {
+        performed: ['proposal_artifact', 'core_motive_draft', 'trace_manifest', 'core_motive_admission'],
+        reused: [],
+      },
+      next_action: {
+        action: 'continue_validation_planning',
+        description: 'Continue to validation planning.',
+        requires_human_confirmation: false,
+      },
+      blocker: null,
+      semantic_context: {
+        topic: {
+          editable_title: 'Scoped comparison',
+          problem_statement: 'One scoped problem.',
+          contribution_summary: 'One bounded contribution.',
+          evaluation_plan: 'Run one comparison.',
+          initial_planning_notes: [],
+          claim_ceiling: 'Only claim the scoped comparison.',
+          prohibited_claims: ['No universal claim.'],
+          conditions: [],
+          accepted_risk_refs: [],
+          early_check_obligations: [],
+          source_lineage_summary: {},
+        },
+        admitted_core_motive: {
+          short_name: 'Scoped comparison',
+          motivation_claim: 'One bounded contribution.',
+          problem_pressure: 'One scoped problem.',
+          expected_contribution_path: 'One bounded contribution.',
+          maximum_allowed_claim: 'Only claim the scoped comparison.',
+          forbidden_overclaims: ['No universal claim.'],
+          assertion_count: 1,
+        },
+      },
+      lineage: {
+        implementation_project_id: 'implementation_project_001',
+        intake_snapshot_id: 'intake_snapshot_001',
+        proposal_runtime_artifact_id: 'runtime_artifact_001',
+        motive_id: 'motive_001',
+        core_motive_version_id: 'motive_version_001',
+        assertion_ids: ['assertion_001'],
+        trace_manifest_id: 'trace_manifest_001',
+        admission_gate_result_id: 'admission_gate_001',
+      },
+      resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+    },
+  ), 200);
 });
 
 test('scientific continuation accepts only one owner-root input', async () => {

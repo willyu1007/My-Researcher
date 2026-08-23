@@ -37,6 +37,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import type {
   AdmitCoreMotiveVersionPersistence,
   MotiveEvidenceBoardPersistence,
@@ -321,48 +322,59 @@ implements PaperImplementationMotiveRepository {
   async createCoreMotiveDraft(
     draft: CoreMotiveDraftResponse,
   ): Promise<CoreMotiveDraftResponse> {
-    await this.prisma.$transaction(async (tx) => {
-      const existingSet = await tx.paperImplementationCoreMotiveSet.findUnique({
-        where: { implementationProjectId: draft.motive_set.implementation_project_id },
-      });
-      const existingIdentity = await tx.paperImplementationCoreMotiveIdentity.findFirst({
-        where: {
-          id: draft.motive_identity.motive_id,
-          implementationProjectId: draft.motive_identity.implementation_project_id,
-        },
-      });
-      if (existingIdentity) {
-        await tx.paperImplementationCoreMotiveIdentity.update({
-          where: { id: draft.motive_identity.motive_id },
-          data: this.toMotiveIdentityUpdateInput(draft.motive_identity),
-        });
-      } else {
-        await tx.paperImplementationCoreMotiveIdentity.create({
-          data: this.toMotiveIdentityCreateInput(draft.motive_identity),
-        });
-      }
-      if (existingSet) {
-        await tx.paperImplementationCoreMotiveSet.update({
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const existingSet = await tx.paperImplementationCoreMotiveSet.findUnique({
           where: { implementationProjectId: draft.motive_set.implementation_project_id },
-          data: this.toMotiveSetUpdateInput(draft.motive_set),
         });
-      } else {
-        await tx.paperImplementationCoreMotiveSet.create({
-          data: this.toMotiveSetCreateInput(draft.motive_set),
+        const existingIdentity = await tx.paperImplementationCoreMotiveIdentity.findFirst({
+          where: {
+            id: draft.motive_identity.motive_id,
+            implementationProjectId: draft.motive_identity.implementation_project_id,
+          },
         });
-      }
-      await tx.paperImplementationCoreMotiveVersion.create({
-        data: this.toCoreMotiveVersionCreateInput(draft.core_motive_version),
+        if (existingIdentity) {
+          await tx.paperImplementationCoreMotiveIdentity.update({
+            where: { id: draft.motive_identity.motive_id },
+            data: this.toMotiveIdentityUpdateInput(draft.motive_identity),
+          });
+        } else {
+          await tx.paperImplementationCoreMotiveIdentity.create({
+            data: this.toMotiveIdentityCreateInput(draft.motive_identity),
+          });
+        }
+        if (existingSet) {
+          await tx.paperImplementationCoreMotiveSet.update({
+            where: { implementationProjectId: draft.motive_set.implementation_project_id },
+            data: this.toMotiveSetUpdateInput(draft.motive_set),
+          });
+        } else {
+          await tx.paperImplementationCoreMotiveSet.create({
+            data: this.toMotiveSetCreateInput(draft.motive_set),
+          });
+        }
+        await tx.paperImplementationCoreMotiveVersion.create({
+          data: this.toCoreMotiveVersionCreateInput(draft.core_motive_version),
+        });
+        await tx.paperImplementationCoreMotiveVersionState.create({
+          data: this.toVersionStateCreateInput(draft.motive_version_state),
+        });
+        if (draft.assertions.length > 0) {
+          await tx.paperImplementationMotiveAssertion.createMany({
+            data: draft.assertions.map((assertion) => this.toAssertionCreateInput(assertion)),
+          });
+        }
       });
-      await tx.paperImplementationCoreMotiveVersionState.create({
-        data: this.toVersionStateCreateInput(draft.motive_version_state),
-      });
-      if (draft.assertions.length > 0) {
-        await tx.paperImplementationMotiveAssertion.createMany({
-          data: draft.assertions.map((assertion) => this.toAssertionCreateInput(assertion)),
-        });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `CoreMotiveVersion ${draft.core_motive_version.core_motive_version_id} already exists.`,
+        );
       }
-    });
+      throw error;
+    }
     return draft;
   }
 
@@ -441,6 +453,17 @@ implements PaperImplementationMotiveRepository {
     persistence: AdmitCoreMotiveVersionPersistence,
   ): Promise<AdmitCoreMotiveVersionPersistence> {
     await this.prisma.$transaction(async (tx) => {
+      const claimedVersion = await tx.paperImplementationCoreMotiveVersion.updateMany({
+        where: {
+          id: persistence.core_motive_version.core_motive_version_id,
+          implementationProjectId: persistence.core_motive_version.implementation_project_id,
+          versionStatus: 'draft',
+        },
+        data: this.toCoreMotiveVersionUpdateInput(persistence.core_motive_version),
+      });
+      if (claimedVersion.count !== 1) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Only one CoreMotiveVersion admission may win.');
+      }
       await tx.paperImplementationMotivePortfolioDecision.create({
         data: this.toPortfolioDecisionCreateInput(persistence.portfolio_decision),
       });
@@ -457,10 +480,6 @@ implements PaperImplementationMotiveRepository {
       await tx.paperImplementationCoreMotiveSet.update({
         where: { implementationProjectId: persistence.motive_set.implementation_project_id },
         data: this.toMotiveSetUpdateInput(persistence.motive_set),
-      });
-      await tx.paperImplementationCoreMotiveVersion.update({
-        where: { id: persistence.core_motive_version.core_motive_version_id },
-        data: this.toCoreMotiveVersionUpdateInput(persistence.core_motive_version),
       });
       await tx.paperImplementationCoreMotiveVersionState.update({
         where: { coreMotiveVersionId: persistence.motive_version_state.core_motive_version_id },

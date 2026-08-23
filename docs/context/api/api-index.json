@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-22T11:19:06.904Z",
+  "generatedAt": "2026-08-23T01:28:35.470Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "dff98348670021d83ae8e96972db2ee6e663d2ae46b5c6c90ee5db6503b32d54",
+  "sourceChecksumSha256": "6cf91534b24f70bb88dd94f3da4f44ea3e388dedcbb764dff407343ed91576fb",
   "stats": {
-    "totalEndpoints": 211,
+    "totalEndpoints": 212,
     "byTag": {
       "health": 1,
-      "paper-implementation-handoff": 2,
+      "paper-implementation-handoff": 3,
       "paper-implementation-experiment-v2": 8,
       "paper-implementation-exploration-attachment-v2": 1,
       "paper-implementation-runtime": 1,
@@ -127,6 +127,47 @@
       ],
       "example": {
         "curl": "curl -X POST '/paper-implementation/scientific-continuations' -H 'Content-Type: application/json' -d '{\"implementation_project_id\":\"<implementation_project_id>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/core-motive-handoffs",
+      "operationId": "createPaperImplementationCoreMotiveHandoff",
+      "summary": "Bootstrap and admit the first primary CoreMotive for one ImplementationProject.",
+      "tag": "paper-implementation-handoff",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "implementation_project_id"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "schema_version",
+          "status",
+          "semantic_stage",
+          "effects",
+          "next_action",
+          "blocker",
+          "semantic_context",
+          "lineage",
+          "resume_policy"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/core-motive-handoffs' -H 'Content-Type: application/json' -d '{\"implementation_project_id\":\"<implementation_project_id>\"}'"
       }
     },
     {

@@ -105,6 +105,20 @@ export class PaperImplementationRuntimeAdmissionService {
     return artifact;
   }
 
+  async findRuntimeArtifact(
+    implementationProjectId: string,
+    runtimeArtifactId: string,
+  ): Promise<PaperImplementationRuntimeArtifactEnvelope | null> {
+    const artifact = await this.repository.findRuntimeArtifactById(
+      implementationProjectId,
+      runtimeArtifactId,
+    );
+    if (artifact) {
+      this.assertRuntimeArtifactSchema(artifact);
+    }
+    return artifact;
+  }
+
   async listAdmissionRecords(
     implementationProjectId: string,
     filter: ListPaperImplementationRuntimeAdmissionRecordsFilter = {},

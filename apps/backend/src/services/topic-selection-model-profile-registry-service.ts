@@ -14,6 +14,7 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
   PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROFILE_ID,
+  PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROFILE_ID,
   PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROFILE_ID,
   PAPER_IMPLEMENTATION_DOSSIER_READINESS_AUDIT_PROFILE_ID,
   PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROFILE_ID,
@@ -1149,6 +1150,30 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
       output_contract: 'PaperImplementationMotiveDecompositionRoleArtifact@v1',
       model_options: providerOptions(PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID).map(
+        (option) => ({
+          ...option,
+          normalized_params: normalizedParams({
+            creativity: 'low',
+            reasoning_depth: 'high',
+            output_budget: 'large',
+          }),
+        }),
+      ),
+    }),
+    profileBase({
+      profile_id: PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROFILE_ID,
+      profile_function: 'paper_implementation_core_motive_bootstrap_semantic_proposal',
+      role_family: 'single_agent',
+      stage_family: 'paper_implementation_core_motive_bootstrap',
+      quality_objectives: [
+        'propose_core_motive_semantics_without_authority_or_workflow_write',
+        'preserve_topic_claim_scope_evaluation_risk_obligation_and_literature_constraints',
+        'produce_one_schema_valid_core_motive_bootstrap_proposal',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      run_mode_eligibility: PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY,
+      output_contract: 'CoreMotiveBootstrapProposal@v1',
+      model_options: providerOptions(PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROFILE_ID).map(
         (option) => ({
           ...option,
           normalized_params: normalizedParams({

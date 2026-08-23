@@ -20,6 +20,18 @@ import type {
 import type {
   TopicSelectionSeverity,
 } from './topic-selection-recheck-risk-memory-contracts.js';
+import {
+  PAPER_IMPLEMENTATION_MOTIVE_ASSERTION_IMPORTANCE_ROLES,
+  PAPER_IMPLEMENTATION_MOTIVE_ASSERTION_TYPES,
+  PAPER_IMPLEMENTATION_MOTIVE_EVIDENCE_TYPES,
+  PAPER_IMPLEMENTATION_MOTIVE_SUPPORT_LEVELS,
+  type CoreMotiveContract,
+  type CoreMotiveScopeContract,
+  type PaperImplementationMotiveAssertionImportanceRole,
+  type PaperImplementationMotiveAssertionType,
+  type PaperImplementationMotiveEvidenceType,
+  type PaperImplementationMotiveSupportLevel,
+} from './paper-implementation-motive-contracts.js';
 
 export const PAPER_IMPLEMENTATION_SOURCE_STATUSES = [
   'active',
@@ -295,6 +307,144 @@ export interface PaperImplementationScientificContinuationResponse {
   resume_policy: typeof PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY;
 }
 
+export const CORE_MOTIVE_BOOTSTRAP_PROPOSAL_SCHEMA_VERSION =
+  'CoreMotiveBootstrapProposal@v1' as const;
+
+export interface CoreMotiveBootstrapProposalAssertion {
+  assertion_type: PaperImplementationMotiveAssertionType;
+  assertion_text: string;
+  importance: {
+    role: PaperImplementationMotiveAssertionImportanceRole;
+    must_hold_for_motive_to_continue: boolean;
+  };
+  validation_requirements: {
+    minimum_support_level: PaperImplementationMotiveSupportLevel;
+    required_evidence_types: PaperImplementationMotiveEvidenceType[];
+    required_counter_evidence_check: boolean;
+  };
+  falsification: {
+    what_would_contradict_this: string[];
+    what_would_weaken_this: string[];
+  };
+}
+
+/** Semantic proposal only. Authority fields are assigned by deterministic writers. */
+export interface CoreMotiveBootstrapProposal {
+  schema_version: typeof CORE_MOTIVE_BOOTSTRAP_PROPOSAL_SCHEMA_VERSION;
+  motive_contract: Omit<
+    CoreMotiveContract,
+    'motivation_claim' | 'problem_pressure' | 'expected_contribution_path'
+  >;
+  scope_contract: CoreMotiveScopeContract;
+  falsification_contract: {
+    invalidation_conditions: string[];
+    weakening_conditions: string[];
+    minimum_evidence_to_continue: string[];
+    decisive_negative_conditions: string[];
+  };
+  claim_boundary: {
+    minimum_defensible_contribution_claim: string;
+    claim_types_allowed: string[];
+  };
+  route_interface: {
+    plausible_route_families: string[];
+    disallowed_route_families: string[];
+    required_route_properties: string[];
+    cheapest_validation_route_hint?: string | null;
+  };
+  assertions: CoreMotiveBootstrapProposalAssertion[];
+}
+
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_SCHEMA_VERSION =
+  'PaperImplementationCoreMotiveHandoff@v1' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STATUSES = [
+  'created',
+  'resumed',
+  'blocked',
+] as const;
+export type PaperImplementationCoreMotiveHandoffStatus =
+  (typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STAGES = [
+  'proposal',
+  'motive_draft',
+  'trace',
+  'admission',
+  'core_motive_admitted',
+] as const;
+export type PaperImplementationCoreMotiveHandoffStage =
+  (typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STAGES)[number];
+
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_EFFECTS = [
+  'proposal_artifact',
+  'core_motive_draft',
+  'trace_manifest',
+  'core_motive_admission',
+] as const;
+export type PaperImplementationCoreMotiveHandoffEffect =
+  (typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_EFFECTS)[number];
+
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_ACTIONS = [
+  'repeat_handoff',
+  'continue_validation_planning',
+  'resolve_blocker',
+] as const;
+export type PaperImplementationCoreMotiveHandoffAction =
+  (typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_ACTIONS)[number];
+
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_RESUME_POLICY =
+  'repeat_same_owner_root_command_and_reuse_persisted_effects' as const;
+
+export interface CreatePaperImplementationCoreMotiveHandoffRequest {
+  implementation_project_id: string;
+}
+
+export interface PaperImplementationCoreMotiveHandoffBlocker {
+  code: string;
+  message: string;
+  source: 'bootstrap' | 'domain' | 'provider';
+  retryable: boolean;
+}
+
+export interface PaperImplementationCoreMotiveHandoffResponse {
+  schema_version: typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_SCHEMA_VERSION;
+  status: PaperImplementationCoreMotiveHandoffStatus;
+  semantic_stage: PaperImplementationCoreMotiveHandoffStage;
+  effects: {
+    performed: PaperImplementationCoreMotiveHandoffEffect[];
+    reused: PaperImplementationCoreMotiveHandoffEffect[];
+  };
+  next_action: {
+    action: PaperImplementationCoreMotiveHandoffAction;
+    description: string;
+    requires_human_confirmation: false;
+  };
+  blocker: PaperImplementationCoreMotiveHandoffBlocker | null;
+  semantic_context: {
+    topic: TopicSelectionPaperProjectBridgeWorkingCopyPayload;
+    admitted_core_motive: {
+      short_name: string;
+      motivation_claim: string;
+      problem_pressure: string;
+      expected_contribution_path: string;
+      maximum_allowed_claim: string;
+      forbidden_overclaims: string[];
+      assertion_count: number;
+    } | null;
+  };
+  lineage: {
+    implementation_project_id: string;
+    intake_snapshot_id: string;
+    proposal_runtime_artifact_id: string | null;
+    motive_id: string | null;
+    core_motive_version_id: string | null;
+    assertion_ids: string[];
+    trace_manifest_id: string | null;
+    admission_gate_result_id: string | null;
+  };
+  resume_policy: typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_RESUME_POLICY;
+}
+
 export interface RecordImplementationFeedbackEventRequest {
   feedback_type: ImplementationFeedbackType;
   severity: TopicSelectionSeverity;
@@ -403,6 +553,175 @@ export const createPaperImplementationScientificContinuationRequestSchema = {
   required: ['implementation_project_id'],
   properties: {
     implementation_project_id: stringId,
+  },
+} as const;
+
+export const createPaperImplementationCoreMotiveHandoffRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['implementation_project_id'],
+  properties: {
+    implementation_project_id: stringId,
+  },
+} as const;
+
+const nullableText = { anyOf: [{ type: 'string' }, { type: 'null' }] } as const;
+
+export const coreMotiveBootstrapProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'motive_contract',
+    'scope_contract',
+    'falsification_contract',
+    'claim_boundary',
+    'route_interface',
+    'assertions',
+  ],
+  properties: {
+    schema_version: { const: CORE_MOTIVE_BOOTSTRAP_PROPOSAL_SCHEMA_VERSION },
+    motive_contract: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'short_name',
+        'current_solution_insufficiency',
+        'unmet_or_failure_mechanism',
+        'target_setting',
+        'why_this_is_not_trivial',
+        'why_existing_baselines_do_not_already_solve_it',
+        'what_makes_this_researchable_now',
+      ],
+      properties: {
+        short_name: stringId,
+        current_solution_insufficiency: stringId,
+        unmet_or_failure_mechanism: stringId,
+        target_setting: stringId,
+        why_this_is_not_trivial: stringId,
+        why_existing_baselines_do_not_already_solve_it: stringId,
+        what_makes_this_researchable_now: stringId,
+      },
+    },
+    scope_contract: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['included_scope', 'excluded_scope', 'non_goals'],
+      properties: {
+        included_scope: stringArray,
+        excluded_scope: stringArray,
+        non_goals: stringArray,
+        dataset_scope: nullableText,
+        task_scope: nullableText,
+        baseline_scope: nullableText,
+        method_scope: nullableText,
+        evaluation_scope: nullableText,
+      },
+    },
+    falsification_contract: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'invalidation_conditions',
+        'weakening_conditions',
+        'minimum_evidence_to_continue',
+        'decisive_negative_conditions',
+      ],
+      properties: {
+        invalidation_conditions: { ...stringArray, minItems: 1 },
+        weakening_conditions: stringArray,
+        minimum_evidence_to_continue: { ...stringArray, minItems: 1 },
+        decisive_negative_conditions: stringArray,
+      },
+    },
+    claim_boundary: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['minimum_defensible_contribution_claim', 'claim_types_allowed'],
+      properties: {
+        minimum_defensible_contribution_claim: stringId,
+        claim_types_allowed: stringArray,
+      },
+    },
+    route_interface: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['plausible_route_families', 'disallowed_route_families', 'required_route_properties'],
+      properties: {
+        plausible_route_families: stringArray,
+        disallowed_route_families: stringArray,
+        required_route_properties: stringArray,
+        cheapest_validation_route_hint: nullableText,
+      },
+    },
+    assertions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 8,
+      contains: {
+        type: 'object',
+        required: ['importance'],
+        properties: {
+          importance: {
+            type: 'object',
+            required: ['role'],
+            properties: { role: { const: 'core' } },
+          },
+        },
+      },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'assertion_type',
+          'assertion_text',
+          'importance',
+          'validation_requirements',
+          'falsification',
+        ],
+        properties: {
+          assertion_type: { enum: [...PAPER_IMPLEMENTATION_MOTIVE_ASSERTION_TYPES] },
+          assertion_text: stringId,
+          importance: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['role', 'must_hold_for_motive_to_continue'],
+            properties: {
+              role: { enum: [...PAPER_IMPLEMENTATION_MOTIVE_ASSERTION_IMPORTANCE_ROLES] },
+              must_hold_for_motive_to_continue: { type: 'boolean' },
+            },
+          },
+          validation_requirements: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'minimum_support_level',
+              'required_evidence_types',
+              'required_counter_evidence_check',
+            ],
+            properties: {
+              minimum_support_level: { enum: [...PAPER_IMPLEMENTATION_MOTIVE_SUPPORT_LEVELS] },
+              required_evidence_types: {
+                type: 'array',
+                minItems: 1,
+                items: { enum: [...PAPER_IMPLEMENTATION_MOTIVE_EVIDENCE_TYPES] },
+                uniqueItems: true,
+              },
+              required_counter_evidence_check: { type: 'boolean' },
+            },
+          },
+          falsification: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['what_would_contradict_this', 'what_would_weaken_this'],
+            properties: {
+              what_would_contradict_this: stringArray,
+              what_would_weaken_this: stringArray,
+            },
+          },
+        },
+      },
+    },
   },
 } as const;
 
@@ -698,6 +1017,120 @@ export const paperImplementationScientificContinuationResponseSchema = {
       },
     },
     resume_policy: { const: PAPER_IMPLEMENTATION_SCIENTIFIC_CONTINUATION_RESUME_POLICY },
+  },
+} as const;
+
+const coreMotiveHandoffEffectSchema = {
+  enum: [...PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_EFFECTS],
+} as const;
+
+export const paperImplementationCoreMotiveHandoffResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'status',
+    'semantic_stage',
+    'effects',
+    'next_action',
+    'blocker',
+    'semantic_context',
+    'lineage',
+    'resume_policy',
+  ],
+  properties: {
+    schema_version: { const: PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_SCHEMA_VERSION },
+    status: { enum: [...PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STATUSES] },
+    semantic_stage: { enum: [...PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_STAGES] },
+    effects: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['performed', 'reused'],
+      properties: {
+        performed: { type: 'array', items: coreMotiveHandoffEffectSchema, uniqueItems: true },
+        reused: { type: 'array', items: coreMotiveHandoffEffectSchema, uniqueItems: true },
+      },
+    },
+    next_action: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['action', 'description', 'requires_human_confirmation'],
+      properties: {
+        action: { enum: [...PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_ACTIONS] },
+        description: stringId,
+        requires_human_confirmation: { const: false },
+      },
+    },
+    blocker: {
+      anyOf: [{
+        type: 'object',
+        additionalProperties: false,
+        required: ['code', 'message', 'source', 'retryable'],
+        properties: {
+          code: stringId,
+          message: stringId,
+          source: { enum: ['bootstrap', 'domain', 'provider'] },
+          retryable: { type: 'boolean' },
+        },
+      }, { type: 'null' }],
+    },
+    semantic_context: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['topic', 'admitted_core_motive'],
+      properties: {
+        topic: topicSelectionPaperProjectBridgeWorkingCopyPayloadSchema,
+        admitted_core_motive: {
+          anyOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'short_name',
+              'motivation_claim',
+              'problem_pressure',
+              'expected_contribution_path',
+              'maximum_allowed_claim',
+              'forbidden_overclaims',
+              'assertion_count',
+            ],
+            properties: {
+              short_name: stringId,
+              motivation_claim: stringId,
+              problem_pressure: stringId,
+              expected_contribution_path: stringId,
+              maximum_allowed_claim: stringId,
+              forbidden_overclaims: stringArray,
+              assertion_count: { type: 'integer', minimum: 1 },
+            },
+          }, { type: 'null' }],
+        },
+      },
+    },
+    lineage: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'implementation_project_id',
+        'intake_snapshot_id',
+        'proposal_runtime_artifact_id',
+        'motive_id',
+        'core_motive_version_id',
+        'assertion_ids',
+        'trace_manifest_id',
+        'admission_gate_result_id',
+      ],
+      properties: {
+        implementation_project_id: stringId,
+        intake_snapshot_id: stringId,
+        proposal_runtime_artifact_id: nullableStringId,
+        motive_id: nullableStringId,
+        core_motive_version_id: nullableStringId,
+        assertion_ids: stringArray,
+        trace_manifest_id: nullableStringId,
+        admission_gate_result_id: nullableStringId,
+      },
+    },
+    resume_policy: { const: PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_RESUME_POLICY },
   },
 } as const;
 

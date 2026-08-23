@@ -1,4 +1,5 @@
 export const PAPER_IMPLEMENTATION_AGENT_WORKFLOW_TYPES = [
+  'core_motive_bootstrap',
   'motive_decomposition',
   'evidence_board_curation',
   'validation_cycle_planning',

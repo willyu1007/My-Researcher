@@ -216,6 +216,8 @@ export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_SLOT_ID =
   'motive_decomposition.draft_assertion_candidates' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_SLOT_ID =
   'motive_evolution.evolution_decision_support' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_SLOT_ID =
+  'core_motive_bootstrap.proposal' as const;
 export const PAPER_IMPLEMENTATION_ROUTE_ARCHITECTURE_PROFILE_ID =
   'paper-implementation.route-architecture.route-candidates.v1' as const;
 export const PAPER_IMPLEMENTATION_ROUTE_SKEPTIC_REVIEW_PROFILE_ID =
@@ -232,6 +234,8 @@ export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROFILE_ID =
   'paper-implementation.motive-decomposition.draft-assertion-candidates.v1' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROFILE_ID =
   'paper-implementation.motive-evolution.evolution-decision-support.v1' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROFILE_ID =
+  'paper-implementation.core-motive-bootstrap.proposal.v1' as const;
 
 export const PAPER_IMPLEMENTATION_CLAIM_BOUNDARY_DEBATE_PROMPT_TEMPLATE_ID =
   'paper-implementation-claim-boundary-debate' as const;
@@ -259,6 +263,8 @@ export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_ID =
   'paper-implementation-motive-decomposition-draft-assertion-candidates' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID =
   'paper-implementation-motive-evolution-decision-support' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROMPT_TEMPLATE_ID =
+  'paper-implementation-core-motive-bootstrap-proposal' as const;
 // T-124 G4.5 Fix 1: v2 adds source-body (source_context_packets) handling and
 // target Create*Request schema guidance to the back-half slot prompts.
 // T-124 G4.6: v3 — the model proposes typed SEMANTIC content blocks only
@@ -286,6 +292,9 @@ export const PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_VERSION =
 export const PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export const PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROMPT_TEMPLATE_VERSION = 'v1' as const;
+export const PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_OUTPUT_SCHEMA_ID =
+  'CoreMotiveBootstrapProposal@v1' as const;
 // v2 (T-124 S3-β1): provider_llm rounds now instruct the roles to emit the
 // wire encoding (designed_option_entries / decision_option_entries arrays with
 // unique option_key) plus explicit result-status invariants; v1 prompts left

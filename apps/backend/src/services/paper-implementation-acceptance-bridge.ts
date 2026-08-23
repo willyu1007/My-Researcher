@@ -58,7 +58,7 @@ export const PAPER_IMPLEMENTATION_ACCEPTANCE_BRIDGE_WORKFLOW_TYPES: Readonly<
   feasibility_probe: ['feasibility_planning'],
   experiment_plan_light: ['feasibility_planning'],
   research_work_order: ['experiment_design'],
-  core_motive_version: ['motive_decomposition'],
+  core_motive_version: ['core_motive_bootstrap', 'motive_decomposition'],
 };
 
 export interface PaperImplementationAcceptanceBridgeLineage {

@@ -168,6 +168,12 @@ implements PaperImplementationMotiveRepository {
     persistence: AdmitCoreMotiveVersionPersistence,
   ): Promise<AdmitCoreMotiveVersionPersistence> {
     this.assertExistingCoreObjects(persistence);
+    const storedVersion = this.coreMotiveVersions.get(
+      persistence.core_motive_version.core_motive_version_id,
+    );
+    if (storedVersion?.version_status !== 'draft') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Only one CoreMotiveVersion admission may win.');
+    }
     this.assertNewId(
       this.portfolioDecisions,
       persistence.portfolio_decision.portfolio_decision_id,

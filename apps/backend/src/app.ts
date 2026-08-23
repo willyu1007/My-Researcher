@@ -287,6 +287,8 @@ import { PaperImplementationRoutePlanningRuntimeService } from './services/paper
 import { PaperImplementationRunCoordinatorService } from './services/paper-implementation-run-coordinator-service.js';
 import { PaperImplementationScientificContinuationOwnerStateReader } from './services/paper-implementation-scientific-continuation-owner-state-reader.js';
 import { PaperImplementationScientificContinuationService } from './services/paper-implementation-scientific-continuation-service.js';
+import { PaperImplementationCoreMotiveBootstrapProposalService } from './services/paper-implementation-core-motive-bootstrap-proposal-service.js';
+import { PaperImplementationCoreMotiveHandoffService } from './services/paper-implementation-core-motive-handoff-service.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './services/paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationFeasibilityPlanningRuntimeService } from './services/paper-implementation-feasibility-planning-runtime-service.js';
 import { PaperImplementationCrossBoardSynthesisRuntimeService } from './services/paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -362,6 +364,7 @@ export type BuildAppOptions = {
   paperImplementationCrossBoardSynthesisLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationEvidenceBoardCurationLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationMotiveDecompositionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
+  paperImplementationCoreMotiveBootstrapLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationMotiveEvolutionLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationExperimentPlanningLlmGateway?: Pick<BackendLlmGateway, 'createStructuredOutput'>;
   paperImplementationSemanticEmbeddingGateway?: Pick<BackendLlmGateway, 'createEmbeddings'>;
@@ -1481,6 +1484,28 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       agentOrchestrator: paperImplementationMotiveDecompositionAgentOrchestratorService,
       telemetryCollector: paperImplementationRuntimeTelemetryService,
     });
+  const paperImplementationCoreMotiveBootstrapAgentOrchestratorService =
+    new TopicSelectionAgentOrchestratorService({
+      controlPlane: topicSelectionControlPlaneService,
+      llmGateway: options.paperImplementationCoreMotiveBootstrapLlmGateway
+        ?? options.paperImplementationMotiveDecompositionLlmGateway
+        ?? options.paperImplementationEvidenceBoardCurationLlmGateway
+        ?? llmGateway,
+      promptPacketCache: topicSelectionPromptPacketCacheService,
+    });
+  const paperImplementationCoreMotiveBootstrapProposalService =
+    new PaperImplementationCoreMotiveBootstrapProposalService({
+      runtimeAdmission: paperImplementationRuntimeAdmissionService,
+      agentOrchestrator: paperImplementationCoreMotiveBootstrapAgentOrchestratorService,
+    });
+  const paperImplementationCoreMotiveHandoffService =
+    new PaperImplementationCoreMotiveHandoffService({
+      projectRepository: paperImplementationRepository,
+      motiveRepository: paperImplementationMotiveRepository,
+      proposalRuntime: paperImplementationCoreMotiveBootstrapProposalService,
+      motiveService: paperImplementationMotiveEvidenceBoardService,
+      traceKernel: paperImplementationTraceKernelService,
+    });
   const paperImplementationMotiveEvolutionAgentOrchestratorService =
     new TopicSelectionAgentOrchestratorService({
       controlPlane: topicSelectionControlPlaneService,
@@ -1593,6 +1618,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,
     topicHandoff: paperImplementationTopicHandoffService,
+    coreMotiveHandoff: paperImplementationCoreMotiveHandoffService,
     scientificContinuation: paperImplementationScientificContinuationService,
     traceKernel: paperImplementationTraceKernelService,
     motiveEvidenceBoard: paperImplementationMotiveEvidenceBoardService,

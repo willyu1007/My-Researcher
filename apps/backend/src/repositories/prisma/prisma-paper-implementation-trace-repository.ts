@@ -193,16 +193,27 @@ implements PaperImplementationTraceRepository {
     manifest: TraceManifest,
     repairQueueItems: TraceRepairQueueItem[],
   ): Promise<TraceManifest> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.paperImplementationTraceManifest.create({
-        data: this.toTraceManifestCreateInput(manifest),
-      });
-      if (repairQueueItems.length > 0) {
-        await tx.paperImplementationTraceRepairQueueItem.createMany({
-          data: repairQueueItems.map((item) => this.toQueueItemCreateInput(item)),
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.paperImplementationTraceManifest.create({
+          data: this.toTraceManifestCreateInput(manifest),
         });
+        if (repairQueueItems.length > 0) {
+          await tx.paperImplementationTraceRepairQueueItem.createMany({
+            data: repairQueueItems.map((item) => this.toQueueItemCreateInput(item)),
+          });
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `TraceManifest ${manifest.trace_manifest_id} already exists.`,
+        );
       }
-    });
+      throw error;
+    }
     return manifest;
   }
 
