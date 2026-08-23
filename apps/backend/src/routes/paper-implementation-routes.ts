@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   bootstrapImplementationProjectRequestSchema,
   createPaperImplementationCoreMotiveHandoffRequestSchema,
+  createPaperImplementationEvidenceBoardHandoffRequestSchema,
   createPaperImplementationScientificContinuationRequestSchema,
   createPaperImplementationTopicHandoffRequestSchema,
   recordImplementationFeedbackEventRequestSchema,
@@ -232,6 +233,11 @@ export async function registerPaperImplementationRoutes(
     '/paper-implementation/core-motive-handoffs',
     { schema: { body: createPaperImplementationCoreMotiveHandoffRequestSchema } },
     controller.createCoreMotiveHandoff,
+  );
+  fastify.post(
+    '/paper-implementation/evidence-board-handoffs',
+    { schema: { body: createPaperImplementationEvidenceBoardHandoffRequestSchema } },
+    controller.createEvidenceBoardHandoff,
   );
   fastify.get(
     '/paper-implementation/projects/:implementation_project_id',

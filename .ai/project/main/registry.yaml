@@ -1290,3 +1290,12 @@ tasks:
       - R-009
     dev_docs_path: dev-docs/active/topic-semantics-to-core-motive-bootstrap
     updated: 2026-08-23
+  - id: T-141
+    slug: core-motive-to-evidence-board-semantic-handoff
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-013
+    dev_docs_path: dev-docs/active/core-motive-to-evidence-board-semantic-handoff
+    updated: 2026-08-23

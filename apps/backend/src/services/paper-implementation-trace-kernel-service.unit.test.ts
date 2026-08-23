@@ -398,6 +398,68 @@ test('citation candidate accepts citable source with locator and blocks missing 
   );
 });
 
+test('reviewed citation projection accepts checked Topic Selection EvidenceUnit and replays exactly once', async () => {
+  const { service, traceRepository } = makeHarness();
+  const target = ref('core_motive_version', 'core_motive_version_reviewed_001', 'v1');
+  const manifest = await service.createTraceManifest(PROJECT.implementation_project_id, {
+    target_ref: target,
+    lineage: {
+      ...emptyLineage(),
+      literature: {
+        literature_evidence_refs: [ref('evidence_unit', 'evidence_unit_reviewed_001', 'v1')],
+        source_locator_refs: [ref('source_locator', 'source_locator_reviewed_001')],
+        citation_candidate_refs: [],
+      },
+    },
+  });
+  const request: CreateCitationCandidateRequest = {
+    ...validCitationRequest(manifest),
+    source_evidence_unit_ref: ref('evidence_unit', 'evidence_unit_reviewed_001', 'v1'),
+    source_locator_id: 'source_locator_reviewed_001',
+    linked_target_refs: [target],
+  };
+
+  const first = await service.ensureReviewedCitationCandidate(
+    PROJECT.implementation_project_id,
+    'citation_candidate_reviewed_001',
+    request,
+    'machine_checked',
+  );
+  const replay = await service.ensureReviewedCitationCandidate(
+    PROJECT.implementation_project_id,
+    'citation_candidate_reviewed_001',
+    request,
+    'machine_checked',
+  );
+
+  assert.equal(first.created, true);
+  assert.equal(first.candidate.status, 'reviewed');
+  assert.equal(replay.created, false);
+  assert.deepEqual(replay.candidate, first.candidate);
+  assert.equal((await traceRepository.listCitationCandidates(PROJECT.implementation_project_id)).length, 1);
+
+  await assertAppError(
+    service.ensureReviewedCitationCandidate(
+      PROJECT.implementation_project_id,
+      'citation_candidate_reviewed_001',
+      { ...request, normalized_source_statement: 'Semantic drift must not overwrite authority.' },
+      'human_reviewed',
+    ),
+    409,
+    'VERSION_CONFLICT',
+  );
+  await assertAppError(
+    service.ensureReviewedCitationCandidate(
+      PROJECT.implementation_project_id,
+      'citation_candidate_draft_001',
+      request,
+      'draft' as 'machine_checked',
+    ),
+    409,
+    'GATE_CONSTRAINT_FAILED',
+  );
+});
+
 test('field role policy blocks rationale memo as evidence or citation', async () => {
   const { service } = makeHarness();
   await assertAppError(

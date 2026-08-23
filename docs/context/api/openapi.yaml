@@ -171,6 +171,48 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /paper-implementation/evidence-board-handoffs:
+    post:
+      operationId: createPaperImplementationEvidenceBoardHandoff
+      summary: Continue an admitted CoreMotive to a trace-complete initial Evidence Board.
+      description: |
+        The caller supplies only the Paper Implementation-owned ImplementationProject id. The server
+        resolves the admitted primary CoreMotive and selected Topic Selection EvidenceUnits, projects
+        already reviewed source authority into exact-once CitationCandidates, and reuses the existing
+        evidence-board-curation coordinator lane to propose assertion bindings. Only fresh, reviewed,
+        traceable and challenge-passed candidates can produce an evidence_ready board; gap-only or
+        blocked output writes no board. Replay recovers the same persisted citations, curation artifact,
+        traces, bindings and board without rerunning the LLM. The command stops before ValidationCycle,
+        Experiment Foundation, provider execution and paid PAI work.
+      tags: [paper-implementation-handoff]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffRequest'
+      responses:
+        '200':
+          description: Persisted effects resumed, or an explicit source/curation blocker returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffResponse'
+        '201':
+          description: A fresh trace-complete Evidence Board was created from the admitted owner state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions:
     post:
       operationId: admitPaperImplementationExperimentWorkOrderV2
@@ -6998,6 +7040,137 @@ components:
               items: { type: string, minLength: 1 }
             trace_manifest_id: { type: [string, 'null'], minLength: 1 }
             admission_gate_result_id: { type: [string, 'null'], minLength: 1 }
+        resume_policy:
+          type: string
+          const: repeat_same_owner_root_command_and_reuse_persisted_effects
+
+    PaperImplementationEvidenceBoardHandoffRequest:
+      type: object
+      additionalProperties: false
+      required: [implementation_project_id]
+      properties:
+        implementation_project_id:
+          type: string
+          minLength: 1
+
+    PaperImplementationEvidenceBoardHandoffEffect:
+      type: string
+      enum: [citation_context, curation_artifact, trace_manifests, evidence_board]
+
+    PaperImplementationEvidenceBoardHandoffBlocker:
+      type: object
+      additionalProperties: false
+      required: [code, message, source, retryable]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        source: { type: string, enum: [owner_state, domain, provider] }
+        retryable: { type: boolean }
+
+    PaperImplementationEvidenceBoardHandoffResponse:
+      type: object
+      additionalProperties: false
+      required: [schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy]
+      properties:
+        schema_version:
+          type: string
+          const: PaperImplementationEvidenceBoardHandoff@v1
+        status:
+          type: string
+          enum: [created, resumed, blocked]
+        semantic_stage:
+          type: string
+          enum: [source_resolution, curation, board_write, evidence_board_ready]
+        effects:
+          type: object
+          additionalProperties: false
+          required: [performed, reused]
+          properties:
+            performed:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffEffect'
+            reused:
+              type: array
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffEffect'
+        next_action:
+          type: object
+          additionalProperties: false
+          required: [action, description, requires_human_confirmation]
+          properties:
+            action:
+              type: string
+              enum: [repeat_handoff, continue_validation_planning, resolve_evidence_gap, resolve_blocker]
+            description: { type: string, minLength: 1 }
+            requires_human_confirmation: { type: boolean, const: false }
+        blocker:
+          anyOf:
+            - $ref: '#/components/schemas/PaperImplementationEvidenceBoardHandoffBlocker'
+            - type: 'null'
+        semantic_context:
+          type: object
+          additionalProperties: false
+          required: [admitted_core_motive, source_evidence_count, evidence_gaps, board]
+          properties:
+            admitted_core_motive:
+              type: object
+              additionalProperties: false
+              required: [short_name, assertion_count, required_assertion_count]
+              properties:
+                short_name: { type: string, minLength: 1 }
+                assertion_count: { type: integer, minimum: 1 }
+                required_assertion_count: { type: integer, minimum: 1 }
+            source_evidence_count: { type: integer, minimum: 0 }
+            evidence_gaps:
+              type: array
+              items: { type: string, minLength: 1 }
+            board:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required: [readiness_status, freshness_status, support_state, challenge_status, binding_count, current_support_summary, current_challenge_summary]
+                  properties:
+                    readiness_status: { type: string, minLength: 1 }
+                    freshness_status: { type: string, minLength: 1 }
+                    support_state: { type: string, minLength: 1 }
+                    challenge_status: { type: string, minLength: 1 }
+                    binding_count: { type: integer, minimum: 1 }
+                    current_support_summary: { type: string, minLength: 1 }
+                    current_challenge_summary: { type: string, minLength: 1 }
+                - type: 'null'
+        lineage:
+          type: object
+          additionalProperties: false
+          required: [implementation_project_id, intake_snapshot_id, motive_id, core_motive_version_id, assertion_ids, source_evidence_ids, source_locator_ids, citation_candidate_ids, coordinator_run_id, curation_runtime_artifact_id, board_version_id, evidence_binding_ids, trace_manifest_ids]
+          properties:
+            implementation_project_id: { type: string, minLength: 1 }
+            intake_snapshot_id: { type: string, minLength: 1 }
+            motive_id: { type: string, minLength: 1 }
+            core_motive_version_id: { type: string, minLength: 1 }
+            assertion_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            source_evidence_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            source_locator_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            citation_candidate_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            coordinator_run_id: { type: [string, 'null'], minLength: 1 }
+            curation_runtime_artifact_id: { type: [string, 'null'], minLength: 1 }
+            board_version_id: { type: [string, 'null'], minLength: 1 }
+            evidence_binding_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            trace_manifest_ids:
+              type: array
+              items: { type: string, minLength: 1 }
         resume_policy:
           type: string
           const: repeat_same_owner_root_command_and_reuse_persisted_effects

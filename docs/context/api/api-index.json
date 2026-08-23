@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-23T01:28:35.470Z",
+  "generatedAt": "2026-08-23T16:03:03.834Z",
   "sourceOpenapi": "docs/context/api/openapi.yaml",
-  "sourceChecksumSha256": "6cf91534b24f70bb88dd94f3da4f44ea3e388dedcbb764dff407343ed91576fb",
+  "sourceChecksumSha256": "92c8856abdecc1574a3ae80413171bed1de8d504bb2030fabc549c9d9321cb5a",
   "stats": {
-    "totalEndpoints": 212,
+    "totalEndpoints": 213,
     "byTag": {
       "health": 1,
-      "paper-implementation-handoff": 3,
+      "paper-implementation-handoff": 4,
       "paper-implementation-experiment-v2": 8,
       "paper-implementation-exploration-attachment-v2": 1,
       "paper-implementation-runtime": 1,
@@ -168,6 +168,47 @@
       ],
       "example": {
         "curl": "curl -X POST '/paper-implementation/core-motive-handoffs' -H 'Content-Type: application/json' -d '{\"implementation_project_id\":\"<implementation_project_id>\"}'"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/paper-implementation/evidence-board-handoffs",
+      "operationId": "createPaperImplementationEvidenceBoardHandoff",
+      "summary": "Continue an admitted CoreMotive to a trace-complete initial Evidence Board.",
+      "tag": "paper-implementation-handoff",
+      "auth": "none",
+      "input": {
+        "params": [],
+        "query": [],
+        "body": {
+          "required": [
+            "implementation_project_id"
+          ],
+          "optional": []
+        }
+      },
+      "output": {
+        "successStatus": 200,
+        "coreFields": [
+          "schema_version",
+          "status",
+          "semantic_stage",
+          "effects",
+          "next_action",
+          "blocker",
+          "semantic_context",
+          "lineage",
+          "resume_policy"
+        ]
+      },
+      "errors": [
+        400,
+        404,
+        409,
+        500
+      ],
+      "example": {
+        "curl": "curl -X POST '/paper-implementation/evidence-board-handoffs' -H 'Content-Type: application/json' -d '{\"implementation_project_id\":\"<implementation_project_id>\"}'"
       }
     },
     {

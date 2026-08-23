@@ -445,6 +445,107 @@ export interface PaperImplementationCoreMotiveHandoffResponse {
   resume_policy: typeof PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_RESUME_POLICY;
 }
 
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_SCHEMA_VERSION =
+  'PaperImplementationEvidenceBoardHandoff@v1' as const;
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STATUSES = [
+  'created',
+  'resumed',
+  'blocked',
+] as const;
+export type PaperImplementationEvidenceBoardHandoffStatus =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STAGES = [
+  'source_resolution',
+  'curation',
+  'board_write',
+  'evidence_board_ready',
+] as const;
+export type PaperImplementationEvidenceBoardHandoffStage =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STAGES)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_EFFECTS = [
+  'citation_context',
+  'curation_artifact',
+  'trace_manifests',
+  'evidence_board',
+] as const;
+export type PaperImplementationEvidenceBoardHandoffEffect =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_EFFECTS)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_ACTIONS = [
+  'repeat_handoff',
+  'continue_validation_planning',
+  'resolve_evidence_gap',
+  'resolve_blocker',
+] as const;
+export type PaperImplementationEvidenceBoardHandoffAction =
+  (typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_ACTIONS)[number];
+
+export const PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_RESUME_POLICY =
+  'repeat_same_owner_root_command_and_reuse_persisted_effects' as const;
+
+export interface CreatePaperImplementationEvidenceBoardHandoffRequest {
+  implementation_project_id: string;
+}
+
+export interface PaperImplementationEvidenceBoardHandoffBlocker {
+  code: string;
+  message: string;
+  source: 'owner_state' | 'domain' | 'provider';
+  retryable: boolean;
+}
+
+export interface PaperImplementationEvidenceBoardHandoffResponse {
+  schema_version: typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_SCHEMA_VERSION;
+  status: PaperImplementationEvidenceBoardHandoffStatus;
+  semantic_stage: PaperImplementationEvidenceBoardHandoffStage;
+  effects: {
+    performed: PaperImplementationEvidenceBoardHandoffEffect[];
+    reused: PaperImplementationEvidenceBoardHandoffEffect[];
+  };
+  next_action: {
+    action: PaperImplementationEvidenceBoardHandoffAction;
+    description: string;
+    requires_human_confirmation: false;
+  };
+  blocker: PaperImplementationEvidenceBoardHandoffBlocker | null;
+  semantic_context: {
+    admitted_core_motive: {
+      short_name: string;
+      assertion_count: number;
+      required_assertion_count: number;
+    };
+    source_evidence_count: number;
+    evidence_gaps: string[];
+    board: {
+      readiness_status: string;
+      freshness_status: string;
+      support_state: string;
+      challenge_status: string;
+      binding_count: number;
+      current_support_summary: string;
+      current_challenge_summary: string;
+    } | null;
+  };
+  lineage: {
+    implementation_project_id: string;
+    intake_snapshot_id: string;
+    motive_id: string;
+    core_motive_version_id: string;
+    assertion_ids: string[];
+    source_evidence_ids: string[];
+    source_locator_ids: string[];
+    citation_candidate_ids: string[];
+    coordinator_run_id: string | null;
+    curation_runtime_artifact_id: string | null;
+    board_version_id: string | null;
+    evidence_binding_ids: string[];
+    trace_manifest_ids: string[];
+  };
+  resume_policy: typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_RESUME_POLICY;
+}
+
 export interface RecordImplementationFeedbackEventRequest {
   feedback_type: ImplementationFeedbackType;
   severity: TopicSelectionSeverity;
@@ -557,6 +658,15 @@ export const createPaperImplementationScientificContinuationRequestSchema = {
 } as const;
 
 export const createPaperImplementationCoreMotiveHandoffRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['implementation_project_id'],
+  properties: {
+    implementation_project_id: stringId,
+  },
+} as const;
+
+export const createPaperImplementationEvidenceBoardHandoffRequestSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['implementation_project_id'],
@@ -1131,6 +1241,141 @@ export const paperImplementationCoreMotiveHandoffResponseSchema = {
       },
     },
     resume_policy: { const: PAPER_IMPLEMENTATION_CORE_MOTIVE_HANDOFF_RESUME_POLICY },
+  },
+} as const;
+
+const evidenceBoardHandoffEffectSchema = {
+  enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_EFFECTS],
+} as const;
+
+export const paperImplementationEvidenceBoardHandoffResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'status',
+    'semantic_stage',
+    'effects',
+    'next_action',
+    'blocker',
+    'semantic_context',
+    'lineage',
+    'resume_policy',
+  ],
+  properties: {
+    schema_version: { const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_SCHEMA_VERSION },
+    status: { enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STATUSES] },
+    semantic_stage: { enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_STAGES] },
+    effects: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['performed', 'reused'],
+      properties: {
+        performed: { type: 'array', items: evidenceBoardHandoffEffectSchema, uniqueItems: true },
+        reused: { type: 'array', items: evidenceBoardHandoffEffectSchema, uniqueItems: true },
+      },
+    },
+    next_action: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['action', 'description', 'requires_human_confirmation'],
+      properties: {
+        action: { enum: [...PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_ACTIONS] },
+        description: stringId,
+        requires_human_confirmation: { const: false },
+      },
+    },
+    blocker: {
+      anyOf: [{
+        type: 'object',
+        additionalProperties: false,
+        required: ['code', 'message', 'source', 'retryable'],
+        properties: {
+          code: stringId,
+          message: stringId,
+          source: { enum: ['owner_state', 'domain', 'provider'] },
+          retryable: { type: 'boolean' },
+        },
+      }, { type: 'null' }],
+    },
+    semantic_context: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['admitted_core_motive', 'source_evidence_count', 'evidence_gaps', 'board'],
+      properties: {
+        admitted_core_motive: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['short_name', 'assertion_count', 'required_assertion_count'],
+          properties: {
+            short_name: stringId,
+            assertion_count: { type: 'integer', minimum: 1 },
+            required_assertion_count: { type: 'integer', minimum: 1 },
+          },
+        },
+        source_evidence_count: { type: 'integer', minimum: 0 },
+        evidence_gaps: stringArray,
+        board: {
+          anyOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'readiness_status',
+              'freshness_status',
+              'support_state',
+              'challenge_status',
+              'binding_count',
+              'current_support_summary',
+              'current_challenge_summary',
+            ],
+            properties: {
+              readiness_status: stringId,
+              freshness_status: stringId,
+              support_state: stringId,
+              challenge_status: stringId,
+              binding_count: { type: 'integer', minimum: 1 },
+              current_support_summary: stringId,
+              current_challenge_summary: stringId,
+            },
+          }, { type: 'null' }],
+        },
+      },
+    },
+    lineage: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'implementation_project_id',
+        'intake_snapshot_id',
+        'motive_id',
+        'core_motive_version_id',
+        'assertion_ids',
+        'source_evidence_ids',
+        'source_locator_ids',
+        'citation_candidate_ids',
+        'coordinator_run_id',
+        'curation_runtime_artifact_id',
+        'board_version_id',
+        'evidence_binding_ids',
+        'trace_manifest_ids',
+      ],
+      properties: {
+        implementation_project_id: stringId,
+        intake_snapshot_id: stringId,
+        motive_id: stringId,
+        core_motive_version_id: stringId,
+        assertion_ids: stringArray,
+        source_evidence_ids: stringArray,
+        source_locator_ids: stringArray,
+        citation_candidate_ids: stringArray,
+        coordinator_run_id: nullableStringId,
+        curation_runtime_artifact_id: nullableStringId,
+        board_version_id: nullableStringId,
+        evidence_binding_ids: stringArray,
+        trace_manifest_ids: stringArray,
+      },
+    },
+    resume_policy: { const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_RESUME_POLICY },
   },
 } as const;
 

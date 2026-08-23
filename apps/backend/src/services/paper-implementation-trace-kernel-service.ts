@@ -198,6 +198,57 @@ export class PaperImplementationTraceKernelService {
     }
   }
 
+  private async buildCitationCandidate(
+    implementationProjectId: string,
+    citationCandidateId: string,
+    request: CreateCitationCandidateRequest,
+    status: CitationCandidate['status'],
+  ): Promise<CitationCandidate> {
+    const project = await this.requireProject(implementationProjectId);
+    const manifest = await this.requireTraceManifest(implementationProjectId, request.trace_manifest_id);
+    this.assertCitationRequest(request, manifest);
+    return {
+      citation_candidate_id: citationCandidateId,
+      implementation_project_id: project.implementation_project_id,
+      trace_manifest_id: manifest.trace_manifest_id,
+      trace_manifest_ref: this.ref('trace_manifest', manifest.trace_manifest_id, project.title_card_id),
+      source_kind: request.source_kind,
+      source_type: request.source_type,
+      source_id: request.source_id,
+      source_evidence_unit_ref: request.source_evidence_unit_ref,
+      source_locator_id: request.source_locator_id,
+      locator_quality: request.locator_quality,
+      locator: request.locator,
+      cited_for: request.cited_for,
+      linked_target_refs: this.prioritizeManifestTargetRef(
+        request.linked_target_refs,
+        manifest.target_ref,
+      ),
+      status,
+      normalized_source_statement: request.normalized_source_statement.trim(),
+      citation_limitation: request.citation_limitation ?? null,
+      created_by: request.created_by ?? 'system',
+      created_at: this.now(),
+    };
+  }
+
+  private assertExpectedCitationCandidate(
+    existing: CitationCandidate,
+    expected: CitationCandidate,
+  ): void {
+    const comparable = (candidate: CitationCandidate) => ({
+      ...candidate,
+      created_at: undefined,
+    });
+    if (stableStringify(comparable(existing)) !== stableStringify(comparable(expected))) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `CitationCandidate ${existing.citation_candidate_id} exists with different owner semantics.`,
+      );
+    }
+  }
+
   async listTraceManifests(
     implementationProjectId: string,
   ): Promise<TraceManifest[]> {
@@ -217,35 +268,56 @@ export class PaperImplementationTraceKernelService {
     implementationProjectId: string,
     request: CreateCitationCandidateRequest,
   ): Promise<CitationCandidate> {
-    const project = await this.requireProject(implementationProjectId);
-    const manifest = await this.requireTraceManifest(implementationProjectId, request.trace_manifest_id);
-    this.assertCitationRequest(request, manifest);
-    const linkedTargetRefs = this.prioritizeManifestTargetRef(
-      request.linked_target_refs,
-      manifest.target_ref,
+    const candidate = await this.buildCitationCandidate(
+      implementationProjectId,
+      this.idFactory('citation_candidate'),
+      request,
+      'candidate',
     );
-    const createdAt = this.now();
-    const candidate: CitationCandidate = {
-      citation_candidate_id: this.idFactory('citation_candidate'),
-      implementation_project_id: project.implementation_project_id,
-      trace_manifest_id: manifest.trace_manifest_id,
-      trace_manifest_ref: this.ref('trace_manifest', manifest.trace_manifest_id, project.title_card_id),
-      source_kind: request.source_kind,
-      source_type: request.source_type,
-      source_id: request.source_id,
-      source_evidence_unit_ref: request.source_evidence_unit_ref,
-      source_locator_id: request.source_locator_id,
-      locator_quality: request.locator_quality,
-      locator: request.locator,
-      cited_for: request.cited_for,
-      linked_target_refs: linkedTargetRefs,
-      status: 'candidate',
-      normalized_source_statement: request.normalized_source_statement.trim(),
-      citation_limitation: request.citation_limitation ?? null,
-      created_by: request.created_by ?? 'system',
-      created_at: createdAt,
-    };
     return this.traceRepository.createCitationCandidate(candidate);
+  }
+
+  /** Exact-once internal projection of an already reviewed upstream EvidenceUnit. */
+  async ensureReviewedCitationCandidate(
+    implementationProjectId: string,
+    citationCandidateId: string,
+    request: CreateCitationCandidateRequest,
+    upstreamReviewStatus: 'machine_checked' | 'human_reviewed',
+  ): Promise<{ candidate: CitationCandidate; created: boolean }> {
+    if (!['machine_checked', 'human_reviewed'].includes(upstreamReviewStatus)) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Reviewed CitationCandidate projection requires an already reviewed upstream EvidenceUnit.',
+      );
+    }
+    const expected = await this.buildCitationCandidate(
+      implementationProjectId,
+      citationCandidateId,
+      request,
+      'reviewed',
+    );
+    const find = async () => (await this.traceRepository.listCitationCandidates(implementationProjectId))
+      .find((candidate) => candidate.citation_candidate_id === citationCandidateId);
+    const existing = await find();
+    if (existing) {
+      this.assertExpectedCitationCandidate(existing, expected);
+      return { candidate: existing, created: false };
+    }
+    try {
+      return {
+        candidate: await this.traceRepository.createCitationCandidate(expected),
+        created: true,
+      };
+    } catch (error) {
+      if (!(error instanceof AppError) || error.errorCode !== 'VERSION_CONFLICT') {
+        throw error;
+      }
+      const raced = await find();
+      if (!raced) throw error;
+      this.assertExpectedCitationCandidate(raced, expected);
+      return { candidate: raced, created: false };
+    }
   }
 
   async listCitationCandidates(
@@ -798,7 +870,7 @@ export class PaperImplementationTraceKernelService {
       return false;
     }
     if (sourceKind === 'literature_evidence_unit') {
-      return refType === 'literatureevidenceunit';
+      return refType === 'literatureevidenceunit' || refType === 'evidenceunit';
     }
     return refType === 'citablesourceevidenceunit';
   }

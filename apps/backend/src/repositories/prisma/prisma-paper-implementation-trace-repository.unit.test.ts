@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type {
   CitationCandidate,
   ClaimTracePacket,
@@ -15,6 +15,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import { PrismaPaperImplementationTraceRepository } from './prisma-paper-implementation-trace-repository.js';
 
 const NOW = '2026-05-20T00:00:00.000Z';
@@ -290,6 +291,27 @@ test('Prisma PaperImplementationTrace repository round-trips trace objects and r
 
   const byManifest = await repository.listTraceRepairQueueItemsByManifest(PROJECT_ID, manifest.trace_manifest_id);
   assert.equal(byManifest[0]?.status, 'resolved');
+});
+
+test('Prisma PaperImplementationTrace repository maps CitationCandidate unique races to VERSION_CONFLICT', async () => {
+  const client = {
+    paperImplementationCitationCandidate: {
+      create: async () => {
+        throw new Prisma.PrismaClientKnownRequestError('simulated citation race', {
+          code: 'P2002',
+          clientVersion: '5.22.0',
+        });
+      },
+    },
+  } as unknown as PrismaClient;
+  const repository = new PrismaPaperImplementationTraceRepository(client);
+
+  await assert.rejects(
+    repository.createCitationCandidate(makeCandidate(makeManifest())),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
 });
 
 test('trace kernel migration declares query indexes for gate queue dossier and evaluation lookups', async () => {

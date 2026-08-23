@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   BootstrapImplementationProjectRequest,
   CreatePaperImplementationCoreMotiveHandoffRequest,
+  CreatePaperImplementationEvidenceBoardHandoffRequest,
   CreatePaperImplementationScientificContinuationRequest,
   CreatePaperImplementationTopicHandoffRequest,
   RecordImplementationFeedbackEventRequest,
@@ -89,6 +90,7 @@ import { PaperImplementationIntakeBootstrapService } from '../services/paper-imp
 import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
 import { PaperImplementationScientificContinuationService } from '../services/paper-implementation-scientific-continuation-service.js';
 import { PaperImplementationCoreMotiveHandoffService } from '../services/paper-implementation-core-motive-handoff-service.js';
+import { PaperImplementationEvidenceBoardHandoffService } from '../services/paper-implementation-evidence-board-handoff-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
@@ -149,6 +151,7 @@ export interface PaperImplementationControllerDependencies {
   intakeBootstrap: PaperImplementationIntakeBootstrapService;
   topicHandoff?: PaperImplementationTopicHandoffService;
   coreMotiveHandoff?: PaperImplementationCoreMotiveHandoffService;
+  evidenceBoardHandoff?: PaperImplementationEvidenceBoardHandoffService;
   scientificContinuation?: PaperImplementationScientificContinuationService;
   traceKernel: PaperImplementationTraceKernelService;
   motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
@@ -180,6 +183,7 @@ export class PaperImplementationController {
   private readonly intakeBootstrap: PaperImplementationIntakeBootstrapService;
   private readonly topicHandoff?: PaperImplementationTopicHandoffService;
   private readonly coreMotiveHandoff?: PaperImplementationCoreMotiveHandoffService;
+  private readonly evidenceBoardHandoff?: PaperImplementationEvidenceBoardHandoffService;
   private readonly scientificContinuation?: PaperImplementationScientificContinuationService;
   private readonly traceKernel: PaperImplementationTraceKernelService;
   private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
@@ -210,6 +214,7 @@ export class PaperImplementationController {
     this.intakeBootstrap = dependencies.intakeBootstrap;
     this.topicHandoff = dependencies.topicHandoff;
     this.coreMotiveHandoff = dependencies.coreMotiveHandoff;
+    this.evidenceBoardHandoff = dependencies.evidenceBoardHandoff;
     this.scientificContinuation = dependencies.scientificContinuation;
     this.traceKernel = dependencies.traceKernel;
     this.motiveEvidenceBoard = dependencies.motiveEvidenceBoard;
@@ -311,6 +316,18 @@ export class PaperImplementationController {
   ) => {
     try {
       const result = await this.requireCoreMotiveHandoff().continue(request.body);
+      return reply.status(result.status === 'created' ? 201 : 200).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  createEvidenceBoardHandoff = async (
+    request: BodyRequest<CreatePaperImplementationEvidenceBoardHandoffRequest>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireEvidenceBoardHandoff().continue(request.body);
       return reply.status(result.status === 'created' ? 201 : 200).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -1229,6 +1246,17 @@ export class PaperImplementationController {
       );
     }
     return this.coreMotiveHandoff;
+  }
+
+  private requireEvidenceBoardHandoff(): PaperImplementationEvidenceBoardHandoffService {
+    if (!this.evidenceBoardHandoff) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        'PaperImplementation Evidence Board handoff is not configured.',
+      );
+    }
+    return this.evidenceBoardHandoff;
   }
 
   private requireLiveExperimentAdapter(): PaperImplementationLiveExperimentAdapterService {

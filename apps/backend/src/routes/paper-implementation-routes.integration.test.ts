@@ -14,6 +14,7 @@ import type {
   BootstrapImplementationProjectResponse,
   CoreMotiveBootstrapProposal,
   PaperImplementationCoreMotiveHandoffResponse,
+  PaperImplementationEvidenceBoardHandoffResponse,
   PaperImplementationScientificContinuationResponse,
   PaperImplementationTopicHandoffResponse,
   RecordImplementationFeedbackEventResponse,
@@ -77,6 +78,7 @@ import {
   type PaperImplementationDownstreamFeedbackService,
 } from '../services/paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
+import { PaperImplementationEvidenceBoardHandoffService } from '../services/paper-implementation-evidence-board-handoff-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from '../services/paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
@@ -1235,6 +1237,101 @@ test('CoreMotive handoff route creates, replays, and exposes the T-139 validatio
       payload: {},
     });
     assertStatus(invalid, 400);
+  } finally {
+    await app.close();
+  }
+});
+
+test('Evidence Board handoff route accepts only the owner root and maps create versus replay status', async () => {
+  const app = Fastify({ logger: false });
+  const calls: Array<{ implementation_project_id: string }> = [];
+  const service = {
+    continue: async (request: { implementation_project_id: string }) => {
+      calls.push(structuredClone(request));
+      const created = calls.length === 1;
+      return {
+        schema_version: 'PaperImplementationEvidenceBoardHandoff@v1',
+        status: created ? 'created' : 'resumed',
+        semantic_stage: 'evidence_board_ready',
+        effects: {
+          performed: created ? ['citation_context', 'curation_artifact', 'trace_manifests', 'evidence_board'] : [],
+          reused: created ? [] : ['citation_context', 'curation_artifact', 'trace_manifests', 'evidence_board'],
+        },
+        next_action: {
+          action: 'continue_validation_planning',
+          description: 'The trace-complete board is ready for validation planning.',
+          requires_human_confirmation: false,
+        },
+        blocker: null,
+        semantic_context: {
+          admitted_core_motive: {
+            short_name: 'Traceable board seed',
+            assertion_count: 1,
+            required_assertion_count: 1,
+          },
+          source_evidence_count: 1,
+          evidence_gaps: [],
+          board: {
+            readiness_status: 'evidence_ready',
+            freshness_status: 'fresh',
+            support_state: 'partial',
+            challenge_status: 'addressed',
+            binding_count: 1,
+            current_support_summary: 'One reviewed source supports the assertion.',
+            current_challenge_summary: 'The limitation remains explicit.',
+          },
+        },
+        lineage: {
+          implementation_project_id: request.implementation_project_id,
+          intake_snapshot_id: 'implementation_intake_snapshot_route_t141',
+          motive_id: 'core_motive_route_t141',
+          core_motive_version_id: 'core_motive_version_route_t141',
+          assertion_ids: ['motive_assertion_route_t141'],
+          source_evidence_ids: ['evidence_unit_route_t141'],
+          source_locator_ids: ['source_locator_route_t141'],
+          citation_candidate_ids: ['citation_candidate_route_t141'],
+          coordinator_run_id: 'coordinator_run_route_t141',
+          curation_runtime_artifact_id: 'runtime_artifact_route_t141',
+          board_version_id: 'board_version_route_t141',
+          evidence_binding_ids: ['evidence_binding_route_t141'],
+          trace_manifest_ids: ['trace_manifest_route_t141'],
+        },
+        resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+      } satisfies PaperImplementationEvidenceBoardHandoffResponse;
+    },
+  } as unknown as PaperImplementationEvidenceBoardHandoffService;
+  await registerPaperImplementationRoutes(app, new PaperImplementationController({
+    evidenceBoardHandoff: service,
+  } as never));
+
+  try {
+    const command = {
+      method: 'POST' as const,
+      url: '/paper-implementation/evidence-board-handoffs',
+      payload: {
+        implementation_project_id: 'implementation_project_route_t141',
+        motive_id: 'caller_supplied_lineage_must_be_ignored',
+      },
+    };
+    const first = await app.inject(command);
+    assertStatus(first, 201);
+    const firstBody = first.json() as PaperImplementationEvidenceBoardHandoffResponse;
+    assert.equal(firstBody.status, 'created');
+    assert.equal(firstBody.semantic_stage, 'evidence_board_ready');
+    assert.deepEqual(calls[0], { implementation_project_id: 'implementation_project_route_t141' });
+
+    const replay = await app.inject(command);
+    assertStatus(replay, 200);
+    assert.equal((replay.json() as PaperImplementationEvidenceBoardHandoffResponse).status, 'resumed');
+    assert.equal(calls.length, 2);
+
+    const malformed = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/evidence-board-handoffs',
+      payload: {},
+    });
+    assertStatus(malformed, 400);
+    assert.equal(calls.length, 2);
   } finally {
     await app.close();
   }

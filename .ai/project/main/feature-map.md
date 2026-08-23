@@ -154,6 +154,7 @@ Project: `main`
 | T-138 topic-to-paper-implementation-semantic-handoff | done | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
+| T-141 core-motive-to-evidence-board-semantic-handoff | in-progress | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
 
 ### F-002 Desktop Frontend Foundation
 

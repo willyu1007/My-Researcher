@@ -243,10 +243,21 @@ implements PaperImplementationTraceRepository {
   async createCitationCandidate(
     candidate: CitationCandidate,
   ): Promise<CitationCandidate> {
-    const row = await this.prisma.paperImplementationCitationCandidate.create({
-      data: this.toCitationCandidateCreateInput(candidate),
-    });
-    return toCitationCandidate(row);
+    try {
+      const row = await this.prisma.paperImplementationCitationCandidate.create({
+        data: this.toCitationCandidateCreateInput(candidate),
+      });
+      return toCitationCandidate(row);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `CitationCandidate ${candidate.citation_candidate_id} already exists.`,
+        );
+      }
+      throw error;
+    }
   }
 
   async listCitationCandidates(

@@ -43,6 +43,10 @@ test('paper-implementation schemas load through direct and aggregate exports', (
   assert.ok(paperImplementationContracts.coreMotiveBootstrapProposalSchema);
   assert.ok(paperImplementationContracts.createPaperImplementationCoreMotiveHandoffRequestSchema);
   assert.ok(paperImplementationContracts.paperImplementationCoreMotiveHandoffResponseSchema);
+  assert.ok(
+    paperImplementationContracts.createPaperImplementationEvidenceBoardHandoffRequestSchema,
+  );
+  assert.ok(paperImplementationContracts.paperImplementationEvidenceBoardHandoffResponseSchema);
   assert.ok(paperImplementationContracts.recordImplementationFeedbackEventRequestSchema);
   assert.ok(paperImplementationContracts.implementationFeedbackEventSchema);
   assert.ok(researchLifecycleContracts.bootstrapImplementationProjectRequestSchema);
@@ -51,7 +55,72 @@ test('paper-implementation schemas load through direct and aggregate exports', (
     researchLifecycleContracts.paperImplementationScientificContinuationResponseSchema,
   );
   assert.ok(researchLifecycleContracts.paperImplementationCoreMotiveHandoffResponseSchema);
+  assert.ok(researchLifecycleContracts.paperImplementationEvidenceBoardHandoffResponseSchema);
   assert.ok(researchLifecycleContracts.implementationProjectSchema);
+});
+
+test('Evidence Board handoff accepts one owner root and closes its semantic response', async () => {
+  const requestSchema =
+    paperImplementationContracts.createPaperImplementationEvidenceBoardHandoffRequestSchema;
+  assert.equal(requestSchema.additionalProperties, false);
+  assert.deepEqual(Object.keys(requestSchema.properties), ['implementation_project_id']);
+  assert.equal(await validateWithSchema(requestSchema, {
+    implementation_project_id: 'implementation_project_001',
+  }), 200);
+
+  const response = {
+    schema_version: 'PaperImplementationEvidenceBoardHandoff@v1',
+    status: 'created',
+    semantic_stage: 'evidence_board_ready',
+    effects: {
+      performed: ['citation_context', 'curation_artifact', 'trace_manifests', 'evidence_board'],
+      reused: [],
+    },
+    next_action: {
+      action: 'continue_validation_planning',
+      description: 'Continue through the validation-planning semantic boundary.',
+      requires_human_confirmation: false,
+    },
+    blocker: null,
+    semantic_context: {
+      admitted_core_motive: {
+        short_name: 'Scoped comparison',
+        assertion_count: 1,
+        required_assertion_count: 1,
+      },
+      source_evidence_count: 1,
+      evidence_gaps: [],
+      board: {
+        readiness_status: 'evidence_ready',
+        freshness_status: 'fresh',
+        support_state: 'partial',
+        challenge_status: 'addressed',
+        binding_count: 1,
+        current_support_summary: 'One traceable source supports the scoped assertion.',
+        current_challenge_summary: 'The source limitation remains explicit.',
+      },
+    },
+    lineage: {
+      implementation_project_id: 'implementation_project_001',
+      intake_snapshot_id: 'intake_snapshot_001',
+      motive_id: 'motive_001',
+      core_motive_version_id: 'motive_version_001',
+      assertion_ids: ['assertion_001'],
+      source_evidence_ids: ['evidence_001'],
+      source_locator_ids: ['locator_001'],
+      citation_candidate_ids: ['citation_001'],
+      coordinator_run_id: 'coordinator_run_001',
+      curation_runtime_artifact_id: 'runtime_artifact_001',
+      board_version_id: 'board_001',
+      evidence_binding_ids: ['binding_001'],
+      trace_manifest_ids: ['trace_board_001', 'trace_binding_001'],
+    },
+    resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+  };
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.paperImplementationEvidenceBoardHandoffResponseSchema,
+    response,
+  ), 200);
 });
 
 function coreMotiveBootstrapProposal() {
