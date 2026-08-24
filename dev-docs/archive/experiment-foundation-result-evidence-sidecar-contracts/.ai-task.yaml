@@ -1,0 +1,12 @@
+version: 1
+task_id: T-074
+project: main
+slug: experiment-foundation-result-evidence-sidecar-contracts
+status: archived
+updated: "2026-08-24"
+keywords:
+  - experiment-foundation
+  - parent-task:T-043
+  - experiment-result
+  - evidence-candidate
+  - paper-sidecar

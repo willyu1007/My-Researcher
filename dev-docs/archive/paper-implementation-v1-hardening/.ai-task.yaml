@@ -1,0 +1,15 @@
+version: 1
+task_id: T-102
+project: main
+slug: paper-implementation-v1-hardening
+status: archived
+updated: "2026-08-24"
+keywords:
+  - paper-implementation
+  - follow-up:T-091
+  - post-v1-hardening
+  - R-013
+  - trace-hardening
+  - claim-readiness
+  - semantic-safety
+  - flow-node:v1-hardening

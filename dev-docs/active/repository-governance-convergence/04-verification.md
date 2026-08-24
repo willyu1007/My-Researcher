@@ -71,6 +71,17 @@
 - Scan for repository-local skill manifests/wrappers and old-contract-only markers after cutover.
 - Assert `T-043` and `T-129` remain active and all execution-baseline effective `done` bundles are archived.
 
+#### Phase 2 evidence
+
+- [x] Dry validation of old-CLI `done` inventory and all move boundaries.
+  - Result: exactly 55 candidates; every source/target stayed within the intended active/archive roots, no target collision existed, and retained tasks were absent.
+- [x] Bounded PowerShell `Move-Item -LiteralPath` lifecycle normalization.
+  - Result: moved exactly 55 task directories from `dev-docs/active/` to `dev-docs/archive/`.
+- [x] Old authoritative `sync --apply` followed by `lint --check`.
+  - Result: sync refreshed 55 task metadata files plus registry-derived views; lint passed.
+- [x] Post-move task queries.
+  - Result: `done=[]`; planned contains only `T-043` and `T-129`; in-progress contains only `T-145`.
+
 ### UI boundary
 
 - Trace renderer style entrypoints and imports before removal.

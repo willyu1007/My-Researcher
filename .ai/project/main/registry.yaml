@@ -659,112 +659,112 @@ tasks:
     updated: 2026-05-16
   - id: T-068
     slug: topic-selection-backend-decision-chain-acceptance
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-backend-decision-chain-acceptance
-    updated: 2026-05-16
+    dev_docs_path: dev-docs/archive/topic-selection-backend-decision-chain-acceptance
+    updated: 2026-08-24
   - id: T-069
     slug: experiment-foundation-design-review-sync
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-design-review-sync
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-design-review-sync
+    updated: 2026-08-24
   - id: T-070
     slug: experiment-foundation-dataset-registry-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-dataset-registry-contracts
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-dataset-registry-contracts
+    updated: 2026-08-24
   - id: T-071
     slug: experiment-foundation-benchmark-protocol-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-benchmark-protocol-contracts
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-benchmark-protocol-contracts
+    updated: 2026-08-24
   - id: T-072
     slug: experiment-foundation-version-lock-recipe-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-version-lock-recipe-contracts
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-version-lock-recipe-contracts
+    updated: 2026-08-24
   - id: T-073
     slug: experiment-foundation-materialization-adapter-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-materialization-adapter-contracts
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-materialization-adapter-contracts
+    updated: 2026-08-24
   - id: T-074
     slug: experiment-foundation-result-evidence-sidecar-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-result-evidence-sidecar-contracts
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/experiment-foundation-result-evidence-sidecar-contracts
+    updated: 2026-08-24
   - id: T-075
     slug: experiment-foundation-candidate-promotion-contracts
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-candidate-promotion-contracts
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/experiment-foundation-candidate-promotion-contracts
+    updated: 2026-08-24
   - id: T-076
     slug: experiment-foundation-persistence-api-readiness
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-persistence-api-readiness
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/experiment-foundation-persistence-api-readiness
+    updated: 2026-08-24
   - id: T-077
     slug: experiment-foundation-execution-adapters
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-execution-adapters
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/experiment-foundation-execution-adapters
+    updated: 2026-08-24
   - id: T-078
     slug: experiment-foundation-desktop-workbench
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-desktop-workbench
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/experiment-foundation-desktop-workbench
+    updated: 2026-08-24
   - id: T-079
     slug: topic-selection-resource-sampling-policy
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-resource-sampling-policy
-    updated: 2026-05-17
+    dev_docs_path: dev-docs/archive/topic-selection-resource-sampling-policy
+    updated: 2026-08-24
   - id: T-080
     slug: topic-selection-v1b-quality-deep-acceptance
     status: archived
@@ -785,34 +785,34 @@ tasks:
     updated: 2026-05-18
   - id: T-082
     slug: topic-selection-paper-project-bridge-downstream-acceptance
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-paper-project-bridge-downstream-acceptance
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/topic-selection-paper-project-bridge-downstream-acceptance
+    updated: 2026-08-24
   - id: T-083
     slug: backend-full-suite-environment-isolation
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/backend-full-suite-environment-isolation
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/backend-full-suite-environment-isolation
+    updated: 2026-08-24
   - id: T-084
     slug: topic-selection-real-e2e-canary
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/topic-selection-real-e2e-canary
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/topic-selection-real-e2e-canary
+    updated: 2026-08-24
   - id: T-085
     slug: topic-selection-real-e2e-scale-quality
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/topic-selection-real-e2e-scale-quality
-    updated: 2026-05-18
+    dev_docs_path: dev-docs/archive/topic-selection-real-e2e-scale-quality
+    updated: 2026-08-24
   - id: T-086
     slug: research-argument-writing-entry-bridge-acceptance
     status: archived
@@ -833,166 +833,166 @@ tasks:
     updated: 2026-05-20
   - id: T-088
     slug: topic-selection-workflow-runtime-foundation
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-workflow-runtime-foundation
-    updated: 2026-07-05
+    dev_docs_path: dev-docs/archive/topic-selection-workflow-runtime-foundation
+    updated: 2026-08-24
   - id: T-089
     slug: topic-selection-agent-workflow-review
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-agent-workflow-review
-    updated: 2026-07-06
+    dev_docs_path: dev-docs/archive/topic-selection-agent-workflow-review
+    updated: 2026-08-24
   - id: T-090
     slug: experiment-foundation-capability-validation
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-capability-validation
-    updated: 2026-05-24
+    dev_docs_path: dev-docs/archive/experiment-foundation-capability-validation
+    updated: 2026-08-24
   - id: T-091
     slug: paper-implementation-full-landing
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-full-landing
-    updated: 2026-05-22
+    dev_docs_path: dev-docs/archive/paper-implementation-full-landing
+    updated: 2026-08-24
   - id: T-092
     slug: paper-implementation-contracts-and-gap-map
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-contracts-and-gap-map
-    updated: 2026-05-20
+    dev_docs_path: dev-docs/archive/paper-implementation-contracts-and-gap-map
+    updated: 2026-08-24
   - id: T-093
     slug: paper-implementation-intake-bootstrap
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-intake-bootstrap
-    updated: 2026-05-20
+    dev_docs_path: dev-docs/archive/paper-implementation-intake-bootstrap
+    updated: 2026-08-24
   - id: T-094
     slug: paper-implementation-motive-evidence-board
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-motive-evidence-board
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-motive-evidence-board
+    updated: 2026-08-24
   - id: T-095
     slug: paper-implementation-validation-cycle-planning
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-validation-cycle-planning
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-validation-cycle-planning
+    updated: 2026-08-24
   - id: T-096
     slug: paper-implementation-workorder-experiment-bridge
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-workorder-experiment-bridge
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-workorder-experiment-bridge
+    updated: 2026-08-24
   - id: T-097
     slug: paper-implementation-trace-kernel
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-trace-kernel
-    updated: 2026-05-20
+    dev_docs_path: dev-docs/archive/paper-implementation-trace-kernel
+    updated: 2026-08-24
   - id: T-098
     slug: paper-implementation-result-claim-dossier
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-result-claim-dossier
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-result-claim-dossier
+    updated: 2026-08-24
   - id: T-099
     slug: paper-implementation-ai-workflow-harness
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-ai-workflow-harness
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-ai-workflow-harness
+    updated: 2026-08-24
   - id: T-100
     slug: paper-implementation-desktop-workbench
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-desktop-workbench
-    updated: 2026-05-21
+    dev_docs_path: dev-docs/archive/paper-implementation-desktop-workbench
+    updated: 2026-08-24
   - id: T-101
     slug: paper-implementation-contract-evaluation-suite
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-contract-evaluation-suite
-    updated: 2026-05-22
+    dev_docs_path: dev-docs/archive/paper-implementation-contract-evaluation-suite
+    updated: 2026-08-24
   - id: T-102
     slug: paper-implementation-v1-hardening
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-v1-hardening
-    updated: 2026-05-24
+    dev_docs_path: dev-docs/archive/paper-implementation-v1-hardening
+    updated: 2026-08-24
   - id: T-103
     slug: experiment-foundation-full-flow-validation-runner
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-full-flow-validation-runner
-    updated: 2026-05-24
+    dev_docs_path: dev-docs/archive/experiment-foundation-full-flow-validation-runner
+    updated: 2026-08-24
   - id: T-104
     slug: paper-implementation-live-experiment-adapter
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-live-experiment-adapter
-    updated: 2026-05-24
+    dev_docs_path: dev-docs/archive/paper-implementation-live-experiment-adapter
+    updated: 2026-08-24
   - id: T-105
     slug: paper-implementation-provider-variance-evaluation
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-provider-variance-evaluation
-    updated: 2026-05-24
+    dev_docs_path: dev-docs/archive/paper-implementation-provider-variance-evaluation
+    updated: 2026-08-24
   - id: T-106
     slug: experiment-foundation-real-interaction-hardening
     status: archived
@@ -1004,31 +1004,31 @@ tasks:
     updated: 2026-08-03
   - id: T-107
     slug: topic-selection-v1b-workflow-hardening
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-v1b-workflow-hardening
-    updated: 2026-05-27
+    dev_docs_path: dev-docs/archive/topic-selection-v1b-workflow-hardening
+    updated: 2026-08-24
   - id: T-108
     slug: topic-selection-v1c-workflow-hardening
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-v1c-workflow-hardening
-    updated: 2026-05-29
+    dev_docs_path: dev-docs/archive/topic-selection-v1c-workflow-hardening
+    updated: 2026-08-24
   - id: T-109
     slug: paper-implementation-v1-runnable-closure
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-v1-runnable-closure
-    updated: 2026-05-27
+    dev_docs_path: dev-docs/archive/paper-implementation-v1-runnable-closure
+    updated: 2026-08-24
   - id: T-110
     slug: experiment-foundation-research-workbench
     status: archived
@@ -1040,38 +1040,38 @@ tasks:
     updated: 2026-05-29
   - id: T-111
     slug: topic-selection-v1a-production-orchestration
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/topic-selection-v1a-production-orchestration
-    updated: 2026-05-29
+    dev_docs_path: dev-docs/archive/topic-selection-v1a-production-orchestration
+    updated: 2026-08-24
   - id: T-112
     slug: topic-selection-llm-context-cache-runtime
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
-    dev_docs_path: dev-docs/active/topic-selection-llm-context-cache-runtime
-    updated: 2026-06-02
+    dev_docs_path: dev-docs/archive/topic-selection-llm-context-cache-runtime
+    updated: 2026-08-24
   - id: T-113
     slug: paper-implementation-legacy-authority-cleanup
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-legacy-authority-cleanup
-    updated: 2026-06-01
+    dev_docs_path: dev-docs/archive/paper-implementation-legacy-authority-cleanup
+    updated: 2026-08-24
   - id: T-114
     slug: paper-implementation-runtime-orchestration-hardening
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-runtime-orchestration-hardening
-    updated: 2026-06-11
+    dev_docs_path: dev-docs/archive/paper-implementation-runtime-orchestration-hardening
+    updated: 2026-08-24
   - id: T-115
     slug: topic-selection-v1b-human-review-path
     status: archived
@@ -1083,18 +1083,18 @@ tasks:
     updated: 2026-07-05
   - id: T-116
     slug: adaptive-llm-systems-literature-collection-ingestion
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/adaptive-llm-systems-literature-collection-ingestion
-    updated: 2026-06-04
+    dev_docs_path: dev-docs/archive/adaptive-llm-systems-literature-collection-ingestion
+    updated: 2026-08-24
   - id: T-117
     slug: adaptive-llm-systems-readiness-followup
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/adaptive-llm-systems-readiness-followup
-    updated: 2026-06-04
+    dev_docs_path: dev-docs/archive/adaptive-llm-systems-readiness-followup
+    updated: 2026-08-24
   - id: T-118
     slug: adaptive-llm-systems-experiment-foundation-promotion
     status: archived
@@ -1143,11 +1143,11 @@ tasks:
     updated: 2026-07-05
   - id: T-124
     slug: paper-implementation-productization-hardening
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-001
-    dev_docs_path: dev-docs/active/paper-implementation-productization-hardening
-    updated: 2026-08-16
+    dev_docs_path: dev-docs/archive/paper-implementation-productization-hardening
+    updated: 2026-08-24
   - id: T-125
     slug: literature-balanced-corpus-scaleout-v2
     status: archived
@@ -1198,13 +1198,13 @@ tasks:
     updated: 2026-07-08
   - id: T-131
     slug: experiment-foundation-first-promotion-closure
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
-    dev_docs_path: dev-docs/active/experiment-foundation-first-promotion-closure
-    updated: 2026-07-25
+    dev_docs_path: dev-docs/archive/experiment-foundation-first-promotion-closure
+    updated: 2026-08-24
   - id: T-132
     slug: experiment-foundation-productization-closure
     status: archived
@@ -1216,11 +1216,11 @@ tasks:
     updated: 2026-08-02
   - id: T-133
     slug: paper-implementation-debate-disposition-closure
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/paper-implementation-debate-disposition-closure
-    updated: 2026-07-23
+    dev_docs_path: dev-docs/archive/paper-implementation-debate-disposition-closure
+    updated: 2026-08-24
   - id: T-134
     slug: experiment-foundation-audit-remainders-closure
     status: archived
@@ -1241,90 +1241,90 @@ tasks:
     updated: 2026-08-03
   - id: T-136
     slug: scientific-evidence-to-paper-closure
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
       - R-013
-    dev_docs_path: dev-docs/active/scientific-evidence-to-paper-closure
-    updated: 2026-08-16
+    dev_docs_path: dev-docs/archive/scientific-evidence-to-paper-closure
+    updated: 2026-08-24
   - id: T-137
     slug: promoted-topic-to-scientific-dossier-canary
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
       - R-012
       - R-013
-    dev_docs_path: dev-docs/active/promoted-topic-to-scientific-dossier-canary
-    updated: 2026-08-17
+    dev_docs_path: dev-docs/archive/promoted-topic-to-scientific-dossier-canary
+    updated: 2026-08-24
   - id: T-138
     slug: topic-to-paper-implementation-semantic-handoff
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-009
       - R-013
-    dev_docs_path: dev-docs/active/topic-to-paper-implementation-semantic-handoff
-    updated: 2026-08-17
+    dev_docs_path: dev-docs/archive/topic-to-paper-implementation-semantic-handoff
+    updated: 2026-08-24
   - id: T-139
     slug: paper-implementation-to-scientific-dossier-semantic-continuation
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-012
       - R-013
-    dev_docs_path: dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation
-    updated: 2026-08-22
+    dev_docs_path: dev-docs/archive/paper-implementation-to-scientific-dossier-semantic-continuation
+    updated: 2026-08-24
   - id: T-140
     slug: topic-semantics-to-core-motive-bootstrap
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
       - R-009
-    dev_docs_path: dev-docs/active/topic-semantics-to-core-motive-bootstrap
-    updated: 2026-08-23
+    dev_docs_path: dev-docs/archive/topic-semantics-to-core-motive-bootstrap
+    updated: 2026-08-24
   - id: T-141
     slug: core-motive-to-evidence-board-semantic-handoff
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/core-motive-to-evidence-board-semantic-handoff
+    dev_docs_path: dev-docs/archive/core-motive-to-evidence-board-semantic-handoff
     updated: 2026-08-24
   - id: T-142
     slug: evidence-board-to-validation-cycle-semantic-handoff
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff
+    dev_docs_path: dev-docs/archive/evidence-board-to-validation-cycle-semantic-handoff
     updated: 2026-08-24
   - id: T-143
     slug: validation-cycle-handoff-authority-recovery-hardening
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/validation-cycle-handoff-authority-recovery-hardening
+    dev_docs_path: dev-docs/archive/validation-cycle-handoff-authority-recovery-hardening
     updated: 2026-08-24
   - id: T-144
     slug: validation-cycle-handoff-deep-cleanup
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:
       - R-013
-    dev_docs_path: dev-docs/active/validation-cycle-handoff-deep-cleanup
+    dev_docs_path: dev-docs/archive/validation-cycle-handoff-deep-cleanup
     updated: 2026-08-24
   - id: T-145
     slug: repository-governance-convergence

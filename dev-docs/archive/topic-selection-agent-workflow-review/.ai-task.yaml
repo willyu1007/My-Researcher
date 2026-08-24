@@ -1,0 +1,13 @@
+version: 1
+task_id: T-089
+project: main
+slug: topic-selection-agent-workflow-review
+status: archived
+updated: "2026-08-24"
+keywords:
+  - topic-selection
+  - agent-workflow
+  - multi-agent-debate
+  - codex-assisted
+  - R-009
+  - parent-task:T-042

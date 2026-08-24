@@ -1,0 +1,12 @@
+version: 1
+task_id: T-072
+project: main
+slug: experiment-foundation-version-lock-recipe-contracts
+status: archived
+updated: "2026-08-24"
+keywords:
+  - experiment-foundation
+  - parent-task:T-043
+  - version-lock
+  - run-recipe
+  - method-recipe

@@ -1,0 +1,17 @@
+version: 1
+task_id: T-108
+project: main
+slug: topic-selection-v1c-workflow-hardening
+status: archived
+updated: "2026-08-24"
+keywords:
+  - topic-selection
+  - v1c
+  - workflow-harness
+  - promotion-bridge
+  - paper-project-bridge
+  - agent-workflow
+  - R-009
+  - follow-up:T-088
+  - follow-up:T-089
+  - follows:T-107

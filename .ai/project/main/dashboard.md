@@ -8,30 +8,30 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 145 (planned: 2, in-progress: 1, blocked: 0, done: 55, archived: 87)
+- Tasks: 145 (planned: 2, in-progress: 1, blocked: 0, done: 0, archived: 142)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-141 core-motive-to-evidence-board-semantic-handoff | done | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
-| T-142 evidence-board-to-validation-cycle-semantic-handoff | done | F-001 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
-| T-143 validation-cycle-handoff-authority-recovery-hardening | done | F-001 | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
-| T-144 validation-cycle-handoff-deep-cleanup | done | F-001 | dev-docs/active/validation-cycle-handoff-deep-cleanup |
-| T-145 repository-governance-convergence | in-progress | F-000 | dev-docs/active/repository-governance-convergence |
-| T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
-| T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
-| T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
-| T-138 topic-to-paper-implementation-semantic-handoff | done | F-001 | dev-docs/active/topic-to-paper-implementation-semantic-handoff |
-| T-124 paper-implementation-productization-hardening | done | F-001 | dev-docs/active/paper-implementation-productization-hardening |
-| T-136 scientific-evidence-to-paper-closure | done | F-001 | dev-docs/active/scientific-evidence-to-paper-closure |
-| T-106 experiment-foundation-real-interaction-hardening | archived | F-001 | dev-docs/archive/experiment-foundation-real-interaction-hardening |
-| T-134 experiment-foundation-audit-remainders-closure | archived | F-001 | dev-docs/archive/experiment-foundation-audit-remainders-closure |
-| T-135 experiment-foundation-v2-semantic-api-activation | archived | F-001 | dev-docs/archive/experiment-foundation-v2-semantic-api-activation |
-| T-132 experiment-foundation-productization-closure | archived | F-001 | dev-docs/archive/experiment-foundation-productization-closure |
-| T-131 experiment-foundation-first-promotion-closure | done | F-001 | dev-docs/active/experiment-foundation-first-promotion-closure |
-| T-133 paper-implementation-debate-disposition-closure | done | F-000 | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
-| T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
-| T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
+| T-068 topic-selection-backend-decision-chain-acceptance | archived | F-001 | dev-docs/archive/topic-selection-backend-decision-chain-acceptance |
+| T-069 experiment-foundation-design-review-sync | archived | F-001 | dev-docs/archive/experiment-foundation-design-review-sync |
+| T-070 experiment-foundation-dataset-registry-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-dataset-registry-contracts |
+| T-071 experiment-foundation-benchmark-protocol-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-benchmark-protocol-contracts |
+| T-072 experiment-foundation-version-lock-recipe-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-version-lock-recipe-contracts |
+| T-073 experiment-foundation-materialization-adapter-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-materialization-adapter-contracts |
+| T-074 experiment-foundation-result-evidence-sidecar-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-result-evidence-sidecar-contracts |
+| T-075 experiment-foundation-candidate-promotion-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-candidate-promotion-contracts |
+| T-076 experiment-foundation-persistence-api-readiness | archived | F-001 | dev-docs/archive/experiment-foundation-persistence-api-readiness |
+| T-077 experiment-foundation-execution-adapters | archived | F-001 | dev-docs/archive/experiment-foundation-execution-adapters |
+| T-078 experiment-foundation-desktop-workbench | archived | F-001 | dev-docs/archive/experiment-foundation-desktop-workbench |
+| T-079 topic-selection-resource-sampling-policy | archived | F-001 | dev-docs/archive/topic-selection-resource-sampling-policy |
+| T-082 topic-selection-paper-project-bridge-downstream-acceptance | archived | F-001 | dev-docs/archive/topic-selection-paper-project-bridge-downstream-acceptance |
+| T-083 backend-full-suite-environment-isolation | archived | F-000 | dev-docs/archive/backend-full-suite-environment-isolation |
+| T-084 topic-selection-real-e2e-canary | archived | F-000 | dev-docs/archive/topic-selection-real-e2e-canary |
+| T-085 topic-selection-real-e2e-scale-quality | archived | F-000 | dev-docs/archive/topic-selection-real-e2e-scale-quality |
+| T-088 topic-selection-workflow-runtime-foundation | archived | F-001 | dev-docs/archive/topic-selection-workflow-runtime-foundation |
+| T-089 topic-selection-agent-workflow-review | archived | F-001 | dev-docs/archive/topic-selection-agent-workflow-review |
+| T-090 experiment-foundation-capability-validation | archived | F-001 | dev-docs/archive/experiment-foundation-capability-validation |
+| T-091 paper-implementation-full-landing | archived | F-001 | dev-docs/archive/paper-implementation-full-landing |
 <!-- AUTO-GENERATED:END dashboard -->

@@ -1,0 +1,11 @@
+version: 1
+task_id: T-069
+project: main
+slug: experiment-foundation-design-review-sync
+status: archived
+updated: "2026-08-24"
+keywords:
+  - experiment-foundation
+  - parent-task:T-043
+  - design-review
+  - contract-boundaries

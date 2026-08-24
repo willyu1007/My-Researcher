@@ -1,0 +1,13 @@
+version: 1
+task_id: T-099
+project: main
+slug: paper-implementation-ai-workflow-harness
+status: archived
+updated: "2026-08-24"
+keywords:
+  - paper-implementation
+  - parent-task:T-091
+  - R-013
+  - agent-runtime
+  - workflow-harness
+  - flow-node:ai-harness

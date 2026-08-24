@@ -3,7 +3,7 @@
 ## Status
 
 - State: in-progress
-- Next step: checkpoint the verified live-asset relocation, then normalize lifecycle placement and begin the bounded governance cutover.
+- Next step: checkpoint normalized lifecycle placement, remove the old skill trees, and refresh the approved fixed governance assets for conversion.
 
 ## Goal
 
@@ -27,7 +27,7 @@ The migration direction is already approved: preserve the graph, normalize task 
 
 - [x] The old-contract opening has a CLI-allocated unique Task ID and maps to `F-000` / `M-000` without a new M/F/R object.
 - [x] Before migration, the current M/F graph, task lifecycle inventory, and consumers of removal/archive-bound paths are captured.
-- [ ] Every effective `done` active bundle at the execution baseline is archived; `T-043` and `T-129` remain active.
+- [x] Every effective `done` active bundle at the execution baseline is archived; `T-043` and `T-129` remain active.
 - [x] Every live fixture/contract needed by supported code/tests is relocated to a maintained owner and its focused consumers are verified before archive compression.
 - [ ] Approved fixed task-governance assets are refreshed; repository-local skill mechanisms are removed.
 - [ ] All task bundles and the project hub conform to the new contract with unique stable task IDs.

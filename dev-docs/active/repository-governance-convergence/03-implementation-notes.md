@@ -82,6 +82,14 @@
 - Exact SHA-256 comparison passed for both relocated fixtures and both environment scripts.
 - The remaining direct `dev-docs/archive/experiment-foundation-productization-closure/artifacts` consumers are T-132 one-off productization/landing scripts. They are not package entrypoints and will retire with their old `.ai` gates; copying that historical evidence into a new permanent runtime surface would preserve the obsolete mechanism.
 
+## Phase 2 — Lifecycle normalization
+
+- Queried the old authority at execution time and found exactly 55 effective `done` tasks under `dev-docs/active/`.
+- Validated every resolved source and target before moving: sources were descendants of `dev-docs/active/`, targets were descendants of `dev-docs/archive/`, all sources existed, no target existed, and none of `T-043`, `T-129`, or `T-145` was selected.
+- Moved all 55 bundles to `dev-docs/archive/` and ran the old authoritative sync once to refresh their metadata paths/statuses and derived hub views.
+- Post-move inventory: 142 archived tasks, two planned active tasks (`T-043`, `T-129`), and one in-progress active task (`T-145`); zero effective `done` tasks remain active.
+- Old governance lint passes after the lifecycle normalization.
+
 ## Known issues / follow-ups
 
 - Node 24 emits ts-node loader deprecation warnings; focused tests pass with `TS_NODE_TRANSPILE_ONLY=1`, and both backend and desktop TypeScript checks pass normally.

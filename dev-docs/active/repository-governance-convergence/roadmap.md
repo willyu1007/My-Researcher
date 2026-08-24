@@ -191,4 +191,5 @@ dev-docs/active/repository-governance-convergence/
 - [x] Let the old CLI allocate `T-145` and verify `F-000` / `M-000` placement.
 - [x] Confirm implementation kickoff before executing migration phases; the user authorized the complete migration after approving all four alignment decisions.
 - [x] Refresh execution-time inventory and complete Phase 1 before destructive work.
-- [ ] Checkpoint Phase 1, then normalize lifecycle placement before the fixed-asset cutover.
+- [x] Checkpoint Phase 1, then normalize lifecycle placement before the fixed-asset cutover.
+- [ ] Remove repository-local skill trees and refresh the approved fixed governance assets.

@@ -1,0 +1,12 @@
+version: 1
+task_id: T-141
+project: main
+slug: core-motive-to-evidence-board-semantic-handoff
+status: archived
+updated: "2026-08-24"
+keywords:
+  - paper-implementation
+  - core-motive
+  - evidence-board
+  - semantic-handoff
+  - exact-once
