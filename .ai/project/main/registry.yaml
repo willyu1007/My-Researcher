@@ -1310,7 +1310,7 @@ tasks:
     updated: 2026-08-24
   - id: T-143
     slug: validation-cycle-handoff-authority-recovery-hardening
-    status: in-progress
+    status: done
     milestone_id: M-001
     feature_id: F-001
     requirement_ids:

@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `in-progress`
+- Current status: `done`
 - Last updated: 2026-08-24
 
 ## What changed
@@ -45,7 +45,8 @@
 ## Known issues / follow-ups
 
 - No implementation issue remains from the T-143 review scope.
-- Delivery follow-up: commit/push the verified work and confirm GitHub Actions before marking the task done.
+- The task bundle remains under `dev-docs/active/` until explicit archival approval; this is a documentation lifecycle action, not unfinished implementation.
+- A future ValidationCycle-to-experiment-specification continuation remains a separate product task and was not pulled into T-143.
 
 ## Pitfalls / dead ends (do not repeat)
 

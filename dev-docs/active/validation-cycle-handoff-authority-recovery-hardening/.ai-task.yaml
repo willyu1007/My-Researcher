@@ -2,7 +2,7 @@ version: 1
 task_id: T-143
 project: main
 slug: validation-cycle-handoff-authority-recovery-hardening
-status: in-progress
+status: done
 updated: "2026-08-24"
 keywords:
   - paper-implementation

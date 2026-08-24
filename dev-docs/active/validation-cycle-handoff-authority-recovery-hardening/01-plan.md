@@ -6,7 +6,7 @@
 2. [x] Replace unbounded ValidationCycle scans with one bounded owner query.
 3. [x] Harden coordinator recovery, blocked-run resume, and blocker classification.
 4. [x] Enforce proposal, runtime artifact, technical-lineage, and trace authority gates.
-5. [ ] Land the locally verified change and confirm remote CI.
+5. [x] Land the locally verified change and confirm remote CI.
 
 ## Detailed steps
 

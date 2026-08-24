@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: in-progress
-- Next step: land the locally verified implementation, wait for green CI, then mark T-143 done.
+- State: done
+- Next step: none within T-143; archive the task bundle only after explicit approval.
 
 ## Goal
 
@@ -31,4 +31,4 @@ T-142 is green and correctly composes the existing validation-planning coordinat
 - [x] Missing/ineligible owner state can be expressed at `owner_resolution` without fabricated semantic context or lineage.
 - [x] T-142 uses a bounded owner-scoped ValidationCycle lookup for reuse and ambiguity detection.
 - [x] Recovered traces, coordinator steps, and runtime artifacts are rejected on exact owner/target/ref/hash drift or ambiguity.
-- [ ] Focused contract, repository, service, route, replay, full test/typecheck, Context/API, governance, and CI gates pass.
+- [x] Focused contract, repository, service, route, replay, full test/typecheck, Context/API, governance, and CI gates pass.

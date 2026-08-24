@@ -36,9 +36,11 @@ Expected result: all tests/checks pass; environment-gated skips remain explicit;
 - `git diff --check`
   - Passed after the final implementation changes.
 
-## Pending delivery check
+## Delivery evidence
 
-- Commit/push to `main` and wait for green GitHub Actions before changing T-143 to `done`.
+- Implementation commit: `4fd4d52505950855541765eb07e8234d3bcce77f` (`Task: T-143`), pushed to `origin/main`.
+- GitHub Actions run [32689052079](https://github.com/willyu1007/My-Researcher/actions/runs/32689052079) passed all jobs: Backend Checks (including isolated Prisma schema), Desktop Checks, Governance Lint, and Prisma Migrate Drift.
+- No real LLM, PAI Job, WorkOrder, Experiment Foundation Run, provider Attempt, scientific result, claim, dossier, credential, or paid side effect was created during verification.
 
 ## Manual smoke checks
 
