@@ -77,7 +77,7 @@
 - No uncovered high-risk review point remains after this split.
 - The main execution dependency is now closed for the minimum chain: dataset and benchmark/protocol contracts closed before version locks; version locks closed before materialization; materialization and result contracts closed before adapters and UI.
 - The project contract lacks native child-task edges. Mitigation: child packages carry `parent-task:T-043` keywords, parent docs carry this matrix, and registry tasks map to `R-012`.
-- The registry does not encode child execution order. Mitigation: parent `06-child-task-review.md` and each child `01-plan.md` carry closure gates; governance lint confirms identity/mapping, while humans follow the documented order.
+- The registry does not encode child execution order. Mitigation: parent `06-child-task-review.md` carried closure gates with each child’s `01-plan.md` (children now archived; their plans are summarized in each child’s `dev-docs/archive/<child>/summary.md`); governance lint confirms identity/mapping, while humans follow the documented order.
 - Remaining product gaps are not child-task misses in T-069~T-078. They are explicit follow-up scopes: productized tuning workflow, candidate extraction/import, typed asset APIs/UI beyond generic registry, dedicated paper-project sidecar bridge, live DB migration smoke, and real Aliyun SDK/credential hardening.
 
 ## Overall Implementation Order
@@ -99,7 +99,7 @@
 - Confirm no child duplicates another child ownership.
 
 ## Final Parent Review Gate
-- Re-read this file and all child `00-overview.md` files.
+- Re-read this file and each archived child’s `dev-docs/archive/<child>/summary.md`.
 - Confirm child acceptance criteria cover parent acceptance criteria.
 - Run project governance sync and lint.
 - Only then start implementation under the first child package.
