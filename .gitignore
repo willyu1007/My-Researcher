@@ -3,10 +3,7 @@
 .copilot/
 .gemini/
 
-# Generated entry files
-CLAUDE.md
-!/.ai/project/CLAUDE.md
-!/dev-docs/CLAUDE.md
+# Agent entry files: AGENTS.md owns rules; CLAUDE.md files are tracked pointers.
 .cursorrules
 
 # Temporary files
