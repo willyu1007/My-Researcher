@@ -30,6 +30,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
@@ -171,7 +172,8 @@ const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n4_record_human_promotion_decision;
 const SLOT_ID = TOPIC_SELECTION_V1C_N4_INVOCATION_SLOT_IDS.delegated_promotion_decision_candidate;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-delegated-promotion-decision' as const;
-const PROMPT_TEMPLATE_VERSION = '1' as const;
+const PROMPT_TEMPLATE = defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID);
+const PROMPT_TEMPLATE_VERSION = PROMPT_TEMPLATE.version;
 const DEFAULT_POLICY_VERSION = 'topic-selection-v1c-n4-delegated-promotion-decision-runtime-v1' as const;
 
 type N4CompressionAppliedRuntime = {
@@ -182,17 +184,7 @@ type N4CompressionAppliedRuntime = {
 };
 
 export function buildV1cN4DelegatedPromotionDecisionSystemContent(): string {
-  return [
-    'You are drafting a non-authority delegated promotion-decision candidate for Topic Selection v1c N4, proposing what a human promotion reviewer could decide from the supplied N3 gate handoff and context packet so that the human can later accept it through the N4 authority writer.',
-    'Emit a TopicSelectionV1cDelegatedPromotionDecisionCandidate JSON object: set schema_version, no_authority_write_confirmed, no_bridge_creation_confirmed, and human_review_required exactly as the schema fixes them, and preserve promotion_gate_check_id, promotion_input_snapshot_id, promotion_input_snapshot_hash, title_card_id, and confirmed_snapshot_hash exactly from the gate handoff.',
-    'Set decision to one of promote_to_paper_project, promote_with_conditions, merge_packages, refine_package, reassess_value, revise_question, revise_slice, recheck_evidence_or_search, park, or drop, and give a rationale grounded in the gate handoff, promotion input snapshot, dossier, readiness, accepted risks, required actions, and loopback hints.',
-    'For a promote-class decision (promote_to_paper_project or promote_with_conditions) set loopback_target to null and leave required_actions empty, supplying at least one conditions entry when the decision is promote_with_conditions and leaving conditions empty when the decision is promote_to_paper_project.',
-    'For a non-promote decision leave conditions empty and set loopback_target to the single value fixed by that decision (merge_packages and refine_package use package, reassess_value uses value, revise_question uses question, revise_slice uses slice, recheck_evidence_or_search uses evidence_or_search, park uses park, and drop uses none), and supply at least one required_actions entry for every non-promote decision except park and drop.',
-    'Populate required_actions, allowed_refinements, stop_conditions, reopen_conditions, cited_refs, and decision_support_refs only from the supplied refs and hints, citing only refs present in the context packet and never inventing refs or hashes.',
-    'Do not create HumanPromotionDecision, PromotionDecision, PromotionCommitmentProfile, PaperProjectBridge, downstream feedback, recheck, gate patches, or workflow automation commands.',
-    'The candidate cannot supply a human actor; explicit human acceptance through the N4 authority writer is required.',
-    'Return only JSON matching TopicSelectionV1cDelegatedPromotionDecisionCandidate@v1.',
-  ].join(' ');
+  return PROMPT_TEMPLATE.system;
 }
 
 export class TopicSelectionV1cN4DelegatedPromotionDecisionRuntimeService {

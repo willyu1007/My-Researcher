@@ -50,6 +50,7 @@ import {
 import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import type { ResolvedTopicSelectionDecisionMemoryPacket } from './topic-selection-decision-memory-projection-service.js';
 import {
@@ -97,7 +98,6 @@ const N6_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' a
 const DEBATE_LOOP_ID = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID;
 const DEBATE_POLICY_ID = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID;
 const OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
 const DEFAULT_POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 /** Minimal role-output schema (mirrors N8): the discriminated optional fields ride additionalProperties. */
@@ -130,6 +130,12 @@ const PROMPT_TEMPLATE_ID_BY_SLOT: Record<TopicSelectionV1bN6DivergentDebateRoleS
   n6_debate_critic: 'topic-selection-v1b-n6-debate-critic',
   n6_debate_arbiter: 'topic-selection-v1b-n6-debate-arbiter',
 };
+
+function configuredPrompt(slotId: TopicSelectionV1bN6DivergentDebateRoleSlotId) {
+  return defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID_BY_SLOT[slotId]);
+}
+
+const PROMPT_TEMPLATE_VERSION = configuredPrompt('n6_debate_explorer').version;
 
 /** Pre-resolved shared N6 context, resolved ONCE per run (f5) and threaded as the core's opaque handoff. */
 export interface V1bN6DebateHandoff {
@@ -292,23 +298,10 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
     ctx: V1bN6DebateRoleContext,
     contextPacket: Record<string, unknown>,
   ): Array<{ role: 'system' | 'user'; content: string }> {
-    // SKELETON role instructions (D1) — enough to drive a mocked/codex end-to-end and pin the
-    // prompt_packet_hash; product-grade authoring is T-128.
-    const roleInstruction = ctx.slotId === 'n6_debate_explorer'
-      ? 'You are the EXPLORER. Emit candidate_seeds: multiple non-overlapping topic-question framings that widen the candidate set. Do not produce authority records.'
-      : ctx.slotId === 'n6_debate_critic'
-        ? 'You are the CRITIC. Emit critic_findings: weak-set / duplicate-overlap challenges and objections over the prior explorer seeds. Do not produce authority records.'
-        : 'You are the ARBITER. Synthesize the prior explorer seeds and critic findings into synthesized_candidate_set, a TopicQuestionCandidateSet draft (TopicQuestionCandidateSetDraft@v1). Do not produce authority records.';
     return [
       {
         role: 'system',
-        content: [
-          'Act as exactly one fixed role in the Topic Selection v1b N6 divergent candidate-generation debate.',
-          'Use only the supplied frozen N6 refs, hashes, context packet, mode context, and prior role artifact hashes.',
-          'Do not output TopicQuestionCandidate/CandidateSet/Contract authority, ResearchSlice, N6ToN7 handoff, route decisions, gate status, or candidate mutations.',
-          roleInstruction,
-          'Return only JSON matching the requested role output contract.',
-        ].join(' '),
+        content: configuredPrompt(ctx.slotId).system,
       },
       {
         role: 'user',
@@ -348,7 +341,10 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
       // back to the base ctx.modelOptionId; absent a plan the resolver returns null -> ctx.modelOptionId
       // (null today), so this is byte-identical to the pre-W09 single-profile behavior.
       model_option_id: resolveDebateExecutionModelOptionId(ctx.handoff.executionPlan, ctx.slotId) ?? ctx.modelOptionId,
-      prompt: { promptTemplateId: PROMPT_TEMPLATE_ID_BY_SLOT[ctx.slotId], version: PROMPT_TEMPLATE_VERSION },
+      prompt: {
+        promptTemplateId: PROMPT_TEMPLATE_ID_BY_SLOT[ctx.slotId],
+        version: configuredPrompt(ctx.slotId).version,
+      },
       prompt_variant_key: ctx.slotId,
       schema_name: OUTPUT_CONTRACT,
       schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
@@ -491,7 +487,7 @@ export class V1bN6DivergentDebateStrategy implements DivergentDebateStrategy<
       node_id: N6_NODE_ID,
       node_attempt_id: input.node_attempt_id,
       prompt_template_id: PROMPT_TEMPLATE_ID_BY_SLOT[input.slot_id],
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_version: configuredPrompt(input.slot_id).version,
       prompt_variant_key: input.slot_id,
       invocation_slot_id: input.slot_id,
       runtime_invocation_context_hash: ric,

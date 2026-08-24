@@ -43,6 +43,7 @@ import {
 import { AppError } from '../errors/app-error.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { stableStringify } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import type { ResolvedTopicSelectionDecisionMemoryPacket } from './topic-selection-decision-memory-projection-service.js';
 import {
@@ -89,7 +90,7 @@ const DEBATE_LOOP_ID = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_LOOP_ID;
 const DEBATE_POLICY_ID = 'topic-selection.v1b.n8.bounded-micro-debate.v1' as const;
 const OUTPUT_CONTRACT = TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
 const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n8.bounded-micro-debate.runtime-role' as const;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
+const PROMPT_TEMPLATE = defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID);
 const DEFAULT_POLICY_VERSION = TOPIC_SELECTION_V1B_NODE_POLICY_VERSION;
 
 const ROLE_OUTPUT_SCHEMA = {
@@ -475,13 +476,7 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
     return [
       {
         role: 'system',
-        content: [
-          'Act as exactly one fixed role in the Topic Selection v1b N8 bounded value-assessment debate.',
-          'Use only the supplied frozen N7->N8 refs, hashes, context packet, and prior role artifact hashes.',
-          'Do not output TopicValueAssessment authority, N8ToN9 handoff, N8ToN7 feedback, route decisions, gate disposition, trial ledger changes, or candidate changes.',
-          'assessor_draft/assessor_repair/synthesizer_final carry assessment_draft (TopicValueAssessmentDraft@v1); value_critic carries critic_findings; the synthesizer is the only gate-facing output after deterministic admission.',
-          'Return only JSON matching the requested role output contract.',
-        ].join(' '),
+        content: PROMPT_TEMPLATE.system,
       },
       {
         role: 'user',
@@ -519,7 +514,7 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       // back to the base ctx.modelOptionId. Absent a plan the resolver returns null -> ctx.modelOptionId
       // (null today), so this is byte-identical to the pre-W09 single-profile behavior.
       model_option_id: resolveDebateExecutionModelOptionId(ctx.handoff.executionPlan, ctx.slotId) ?? ctx.modelOptionId,
-      prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: PROMPT_TEMPLATE_VERSION },
+      prompt: { promptTemplateId: PROMPT_TEMPLATE_ID, version: PROMPT_TEMPLATE.version },
       prompt_variant_key: this.invocationSlotId(ctx.slotId),
       schema_name: OUTPUT_CONTRACT,
       schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
@@ -656,7 +651,7 @@ class V1bN8DebateStrategy implements BoundedDebateStrategy<
       node_id: N8_NODE_ID,
       node_attempt_id: input.node_attempt_id,
       prompt_template_id: PROMPT_TEMPLATE_ID,
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_version: PROMPT_TEMPLATE.version,
       prompt_variant_key: this.invocationSlotId(input.slot_id),
       invocation_slot_id: this.invocationSlotId(input.slot_id),
       runtime_invocation_context_hash: ric,

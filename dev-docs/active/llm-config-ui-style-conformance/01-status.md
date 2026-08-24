@@ -6,7 +6,7 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 ## Progress
 - State: in-progress
 - Current phase: Topic-selection prompt migration
-- Next step: Continue with Topic Selection v1b/v1c debate and promotion prompt families, preserving role-specific prompt-packet hashes and dynamic appendices.
+- Next step: Migrate the remaining Topic Selection need-generation, need-discovery, and resource-sampling prompt authorities, then run a Topic Selection duplicate-authority scan.
 - Blocker: none
 
 ## Done when

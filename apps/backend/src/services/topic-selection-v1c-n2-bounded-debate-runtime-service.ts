@@ -22,6 +22,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
 import { AppError } from '../errors/app-error.js';
 import { stableStringify } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
@@ -157,7 +158,7 @@ type N2RuntimeSlotBinding = {
   output_contract: 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1';
   model_profile_id: typeof TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID;
   prompt_template_id: 'topic-selection-v1c-promotion-support-bounded-micro-debate';
-  prompt_template_version: '1';
+  prompt_template_version: string;
   schema: Record<string, unknown>;
 };
 
@@ -179,7 +180,7 @@ type V1cN2RoleContext = BoundedDebateRoleContext<
 const NODE_ID = TOPIC_SELECTION_V1C_NODE_ID.n2_generate_promotion_support;
 const OUTPUT_CONTRACT = 'TopicSelectionV1cBoundedMicroDebateRoleOrFinal@v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection-v1c-promotion-support-bounded-micro-debate' as const;
-const PROMPT_TEMPLATE_VERSION = '1' as const;
+const PROMPT_TEMPLATE = defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_ID);
 const DEFAULT_POLICY_VERSION = 'topic-selection-v1c-n2-bounded-debate-runtime-v1' as const;
 const DEBATE_LOOP_ID = 'v1c_n2_bounded_micro_debate' as const;
 
@@ -194,12 +195,13 @@ const ROLE_OUTPUT_SCHEMA = {
 } as const;
 
 /**
- * T-123 Phase 3 (DP-3.1) — v1c N2 bounded-debate strategy: owns ALL v1c-specific byte-bearing
- * computation (source hashes, runtime-invocation-context literal, context packet, messages,
+ * T-123 Phase 3 (DP-3.1) — v1c N2 bounded-debate strategy: owns the v1c-specific byte-bearing
+ * composition (source hashes, runtime-invocation-context literal, context packet, messages,
  * token budget/compression, role-artifact + admission-identity literals). Relocated VERBATIM from
  * the former runtime-service private methods so the v1c-n2-runtime-smoke prompt_packet_hashes and
  * the N2_BOUNDED_DEBATE_ARTIFACT_PROMPT_DRIFT block stay byte-identical. The shared core drives the
- * role turn; the smoke continues to drive roles via the runtime service's own loop.
+ * role turn; the smoke continues to drive roles via the runtime service's own loop. The static system
+ * body and its version are loaded from the Topic Selection prompt catalog.
  */
 class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
   TopicSelectionPromotionInputSnapshotHandoff,
@@ -531,13 +533,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
     return [
       {
         role: 'system',
-        content: [
-          'Act as exactly one fixed role in the Topic Selection v1c N2 bounded micro-debate.',
-          'Use only the supplied frozen N1 handoff refs, hashes, context packet, and prior role artifact hashes.',
-          'Do not output gate disposition, promotion decision, human decision, PaperProjectBridge, PaperProject, WorkOrder, downstream feedback, or recheck authority fields.',
-          'Intermediate role outputs are diagnostic support only; only synthesizer final can be admitted as advisory N2 support after deterministic admission.',
-          'Return only JSON matching the requested output contract.',
-        ].join(' '),
+        content: PROMPT_TEMPLATE.system,
       },
       {
         role: 'user',
@@ -853,7 +849,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
         output_contract: OUTPUT_CONTRACT,
         model_profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
         prompt_template_id: PROMPT_TEMPLATE_ID,
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_version: PROMPT_TEMPLATE.version,
         schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       };
     }
@@ -866,7 +862,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
         output_contract: OUTPUT_CONTRACT,
         model_profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
         prompt_template_id: PROMPT_TEMPLATE_ID,
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_version: PROMPT_TEMPLATE.version,
         schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       };
     }
@@ -879,7 +875,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
         output_contract: OUTPUT_CONTRACT,
         model_profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
         prompt_template_id: PROMPT_TEMPLATE_ID,
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_version: PROMPT_TEMPLATE.version,
         schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       };
     }
@@ -892,7 +888,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
         output_contract: OUTPUT_CONTRACT,
         model_profile_id: TOPIC_SELECTION_V1C_BOUNDED_MICRO_DEBATE_PROFILE_ID,
         prompt_template_id: PROMPT_TEMPLATE_ID,
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_version: PROMPT_TEMPLATE.version,
         schema: ROLE_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
       };
     }

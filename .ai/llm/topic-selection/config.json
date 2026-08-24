@@ -104,6 +104,38 @@
     "topic-selection.v1b.n8.topic-value-assessment.runtime-draft": {
       "version": "v1",
       "system": "prompts/v1b/n8-topic-value-assessment/system.md"
+    },
+    "topic-selection-v1b-n6-debate-explorer": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-debate-explorer/system.md"
+    },
+    "topic-selection-v1b-n6-debate-critic": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-debate-critic/system.md"
+    },
+    "topic-selection-v1b-n6-debate-arbiter": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-debate-arbiter/system.md"
+    },
+    "topic-selection.v1b.n8.bounded-micro-debate.runtime-role": {
+      "version": "v1",
+      "system": "prompts/v1b/n8-bounded-micro-debate/system.md"
+    },
+    "topic-selection-v1c-promotion-support-bounded-micro-debate": {
+      "version": "1",
+      "system": "prompts/v1c/n2-bounded-micro-debate/system.md"
+    },
+    "topic-selection-promotion-decision-support": {
+      "version": "1",
+      "system": "prompts/v1c/n3-promotion-decision-support/system.md"
+    },
+    "topic-selection-v1c-delegated-promotion-decision": {
+      "version": "1",
+      "system": "prompts/v1c/n4-delegated-promotion-decision/system.md"
+    },
+    "topic-selection-v1c-downstream-feedback-normalization": {
+      "version": "1",
+      "system": "prompts/v1c/n6-feedback-normalization/system.md"
     }
   }
 }
