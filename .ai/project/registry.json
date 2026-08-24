@@ -1194,9 +1194,9 @@
     {
       "id": "T-145",
       "slug": "repository-governance-convergence",
-      "status": "done",
+      "status": "archived",
       "updated": "2026-08-24",
-      "dev_docs_path": "dev-docs/active/repository-governance-convergence",
+      "dev_docs_path": "dev-docs/archive/repository-governance-convergence",
       "feature_id": "F-000"
     }
   ]
