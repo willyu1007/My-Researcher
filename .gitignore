@@ -8,6 +8,7 @@ CLAUDE.md
 .cursorrules
 
 # Temporary files
+.ai/.tmp/
 .env.local
 .env.*.local
 env/.secrets-store/
