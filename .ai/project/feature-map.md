@@ -51,7 +51,7 @@
 | T-126 literature-rag-frontier-tech-radar | archived | dev-docs/archive/literature-rag-frontier-tech-radar |
 | T-133 paper-implementation-debate-disposition-closure | archived | dev-docs/archive/paper-implementation-debate-disposition-closure |
 | T-145 repository-governance-convergence | archived | dev-docs/archive/repository-governance-convergence |
-| T-146 llm-config-ui-style-conformance | in-progress | dev-docs/active/llm-config-ui-style-conformance |
+| T-146 llm-config-ui-style-conformance | done | dev-docs/active/llm-config-ui-style-conformance |
 
 ## M-001 LLM Research Lifecycle v1
 
