@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 /**
  * Reviewer card — the canonical 5-section template enforced by
- * design-spec §4039 (`dev-docs/archive/topic-selection-decision-chain-redesign/06-design-spec.md`).
+ * `docs/context/ui/topic-workbench.md`.
  *
  * Every human-confirmed / high-risk agent-actionable / escalated review
  * surface MUST render through this component so reviewer cards cannot

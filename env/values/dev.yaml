@@ -1,7 +1,7 @@
 SERVICE_NAME: paper-engineering-assistant-backend
 PORT: 3000
 HOST: 127.0.0.1
-EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT: /Volumes/DataDisk/Project/My-Researcher/.ai/.tmp/experiment-foundation-local-execution
+EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT: artifacts/experiment-foundation-local-execution
 EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED: 'true'
 EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS: node
 TITLE_CARD_REPOSITORY: prisma

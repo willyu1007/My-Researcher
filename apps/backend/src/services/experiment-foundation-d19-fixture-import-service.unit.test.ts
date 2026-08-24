@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 
 import { AppError } from '../errors/app-error.js';
@@ -31,24 +32,26 @@ import {
 import { ExperimentFoundationV2Service } from './experiment-foundation-v2-service.js';
 
 const SOURCE_POLICY_URL = new URL(
-  '../../../../dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
+  './test-fixtures/experiment-foundation-d19-source-policy-attestation.fixture.json',
   import.meta.url,
 );
-const REPO_ROOT = '/workspace/my-researcher';
+const REPO_ROOT = path.resolve('workspace/my-researcher');
 
 test('D-19 importer CLI resolves output from repo root and documents its local DATABASE_URL contract', () => {
   const parsed = parseExperimentFoundationD19FixtureImportArgs([
     '--apply',
     '--output',
-    '.ai/.tmp/experiment-foundation-productization/local-r1/fixture-import-summary.json',
+    'artifacts/experiment-foundation-productization/local-r1/fixture-import-summary.json',
   ], REPO_ROOT);
   assert.deepEqual(parsed, {
     help: false,
     apply: true,
     sourcePolicyPath:
-      'dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json',
-    outputPath:
-      '/workspace/my-researcher/.ai/.tmp/experiment-foundation-productization/local-r1/fixture-import-summary.json',
+      'apps/backend/src/services/test-fixtures/experiment-foundation-d19-source-policy-attestation.fixture.json',
+    outputPath: path.join(
+      REPO_ROOT,
+      'artifacts/experiment-foundation-productization/local-r1/fixture-import-summary.json',
+    ),
   });
   assert.deepEqual(
     parseExperimentFoundationD19FixtureImportArgs(['--help'], REPO_ROOT),
@@ -58,14 +61,14 @@ test('D-19 importer CLI resolves output from repo root and documents its local D
     () => parseExperimentFoundationD19FixtureImportArgs([
       '--apply',
       '--output',
-      '../../.ai/.tmp/experiment-foundation-productization/wrong.json',
+      '../../artifacts/experiment-foundation-productization/wrong.json',
     ], REPO_ROOT),
     /must remain inside the repository/,
   );
   const help = experimentFoundationD19FixtureImportHelp();
-  assert.match(help, /--output \.ai\/\.tmp\/experiment-foundation-productization/);
+  assert.match(help, /--output artifacts\/experiment-foundation-productization/);
   assert.match(help, /loads \.\.\/\.\.\/\.env\.local/);
-  assert.doesNotMatch(help, /--output \.\.\/\.\.\/\.ai/);
+  assert.doesNotMatch(help, /--output \.\.\/\.\.\/artifacts/);
 });
 
 test('D-19 importer CLI accepts only the reviewed named local PostgreSQL target without exposing credentials', () => {

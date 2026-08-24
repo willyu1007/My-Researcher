@@ -44,3 +44,13 @@
 - Fix / workaround: remove the extra EOF line in this planning checkpoint and run check and commit as separate invocations.
 - Prevention: never place a commit after a verification command in the same semicolon-separated shell command; inspect the check result first.
 - References: `git diff --cached --check`, commit `3e0a07fd`.
+
+### 2026-08-24 — Focused Node tests initially failed before assertions
+
+- Symptom: ts-node reported missing package `ajv`; after restoring dependencies, one D-19 path test failed on Windows.
+- Context: focused verification of fixture relocation under Node 24.11.0 on Windows.
+- What we tried: direct Node test execution, then `pnpm install --frozen-lockfile`, then the same focused tests with transpile-only loading.
+- Why it failed: the local install tree was stale despite `ajv` being present in the lockfile and backend manifest; the test also mixed a POSIX literal root with Windows path resolution.
+- Fix / workaround: restore the frozen dependency tree and build the test root/expectation with `node:path`. Production path containment was not weakened.
+- Prevention: distinguish dependency/loader startup failures from assertion failures, and keep filesystem tests platform-native.
+- References: D-19 fixture-import unit test; N8 calibration-runner unit test; 16/16 focused tests passed.

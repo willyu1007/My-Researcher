@@ -64,12 +64,28 @@
 
 ## Deviations from plan
 
-- None.
+- The first focused Node test attempt stopped before assertions because the local install tree lacked declared dependency `ajv`. `pnpm install --frozen-lockfile` restored the lockfile-defined tree without changing dependency metadata.
+- The D-19 CLI unit test used a POSIX-only literal repository root. Once assertions ran on Windows, path containment correctly rejected the mismatched root representation. The test now constructs its root and expected output with `node:path`; production containment behavior is unchanged.
+
+## Phase 1 — Live-asset relocation
+
+- Copied the reviewed D-19 source-policy attestation from T-132 historical evidence to the backend-owned fixture directory:
+  - old: `dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json`
+  - new: `apps/backend/src/services/test-fixtures/experiment-foundation-d19-source-policy-attestation.fixture.json`
+- Copied the N8 placeholder corpus from T-123 historical evidence to the backend-owned fixture directory:
+  - old: `dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/corpus-template.json`
+  - new: `apps/backend/src/services/test-fixtures/topic-selection-v1b-n8-calibration-corpus-template.fixture.json`
+- Copied the still-supported environment controller and its minimal YAML parser from the old skill tree to `env/scripts/`, then repointed root package scripts there.
+- Moved volatile output defaults from `.ai/.tmp/**` to the already ignored repository-level `artifacts/**` boundary.
+- Added maintained process contracts for N8 calibration and the Topic Workbench, and changed source comments to point at those contracts rather than historical task-bundle files.
+- Removed a live fixture/document dependency on `.ai/scripts/experiment-foundation-protocol-hash.mjs` by documenting the canonical-JSON algorithm directly. The one-off historical tool remains eligible for retirement during `.ai` cleanup.
+- Exact SHA-256 comparison passed for both relocated fixtures and both environment scripts.
+- The remaining direct `dev-docs/archive/experiment-foundation-productization-closure/artifacts` consumers are T-132 one-off productization/landing scripts. They are not package entrypoints and will retire with their old `.ai` gates; copying that historical evidence into a new permanent runtime surface would preserve the obsolete mechanism.
 
 ## Known issues / follow-ups
 
-- Refresh counts and path inventories at kickoff because repository state may change after this opening.
-- No planning blocker remains; refresh the execution-time inventory before migration writes.
+- Node 24 emits ts-node loader deprecation warnings; focused tests pass with `TS_NODE_TRANSPILE_ONLY=1`, and both backend and desktop TypeScript checks pass normally.
+- Maintained documentation, CI guidance, hooks, and package scripts still contain old governance/skill commands. They remain valid only until the bounded cutover and are scheduled for the integration cleanup phase.
 
 ## Pitfalls / dead ends
 

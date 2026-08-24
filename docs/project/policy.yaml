@@ -12,7 +12,7 @@ policy:
         mode: warn
 
     evidence:
-      fallback_dir: .ai/.tmp/env/fallback
+      fallback_dir: artifacts/env/fallback
 
     preflight:
       detect:

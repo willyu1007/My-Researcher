@@ -6,8 +6,7 @@
  * the runtime types that bind UI surfaces to backend authority/workflow
  * objects under the v1a/b/c decision chain.
  *
- * Design SSOT: `dev-docs/archive/topic-selection-decision-chain-redesign/06-design-spec.md` §3977
- * Dev-docs: `dev-docs/archive/topic-selection-desktop-workbench-v1abc/02-architecture.md`
+ * Maintained contract: `docs/context/ui/topic-workbench.md`.
  */
 
 import type {
@@ -58,4 +57,3 @@ export type TopicWorkbenchModuleProps = {
     subTab: string,
   ) => void;
 };
-

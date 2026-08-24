@@ -2,7 +2,7 @@
  "generated_at": "2026-07-08T00:00:00.000Z",
  "task_id": "T-131",
  "protocol_hash": "cpu_adapter:sha256:aac51e52b0e4736636b2e2ec7a18efeb3b874d90aae081d198c66b087a5d6f84",
- "hash_scheme": "see .ai/scripts/experiment-foundation-protocol-hash.mjs (canonical-JSON sha256; cpu_adapter tier folds adapter_patch_digest)",
+ "hash_scheme": "canonical-JSON sha256; cpu_adapter tier folds adapter_patch_digest",
  "document": {
   "tier": "cpu_adapter",
   "adapter_patch_digest": "sha256:7d6f073f1de7fd2a6c0b1bf1cee3aa4cf80e6318ebbb9e1be5fb1c93cd52f2f7",

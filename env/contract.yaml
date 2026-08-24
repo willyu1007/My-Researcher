@@ -107,7 +107,7 @@ variables:
   EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT:
     type: string
     required: false
-    default: .ai/.tmp/experiment-foundation-local-execution
+    default: artifacts/experiment-foundation-local-execution
     scopes: [dev]
     description: LocalScript execution root for experiment-foundation smoke runs; all working directories and outputs must stay inside this root.
   EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED:

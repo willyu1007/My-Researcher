@@ -3,7 +3,7 @@
 ## Purpose & Ownership
 - 本文件是 topic-selection 全链（resource-sampling → v1a → v1b → v1c → downstream）节点分类的**唯一语义入口（SSOT）**。任何 ordinary agent / multi-agent debate / Codex-assisted / provider-backed / deterministic / human-review 决策都必须绑定到具体 `node_id`。
 - 叙述性章节可以解释理由，但**不得定义矩阵中不存在的行为**。
-- 历史：由 T-089（agent-workflow-review）创建于 `dev-docs/active/topic-selection-agent-workflow-review/06-workflow-matrix.md`；T-123 Phase 0（2026-06-11）完成实现对齐并迁移至本永久位置。新增 debate 节点分类的语义裁决仍归 T-089 职责域。
+- 历史：由 T-089（agent-workflow-review）创建；T-123 Phase 0（2026-06-11）完成实现对齐并迁移至本永久位置。新增 debate 节点分类的语义裁决仍归 T-089 职责域。
 - 节点策略细节（blockers/validators 全文）见各 contracts 文件与 T-089 `07-node-policies.md`（历史详情）。
 
 ## Machine-Check Contract

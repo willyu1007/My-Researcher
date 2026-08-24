@@ -1,4 +1,4 @@
--- Topic management v1: topic_id is logical FK (no FK to TopicProfile). See dev-docs/active/automated-topic-management/03-implementation-notes.
+-- Topic management v1: topic_id is a logical FK (no FK to TopicProfile). Historical rationale: T-014.
 
 -- CreateEnum
 CREATE TYPE "TopicResearchRecordType" AS ENUM ('evidence_review', 'need_review', 'question', 'value_assessment', 'topic_package', 'promotion_decision');

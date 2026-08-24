@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const EXPERIMENT_FOUNDATION_D19_DEFAULT_SOURCE_POLICY_PATH =
-  'dev-docs/archive/experiment-foundation-productization-closure/artifacts/source-policy/00-d19-source-policy-attestation.json';
+  'apps/backend/src/services/test-fixtures/experiment-foundation-d19-source-policy-attestation.fixture.json';
 
 // This command is intentionally bound to the one named local-development
 // target reviewed for T-132. Loopback alone is insufficient because an SSH
@@ -61,10 +61,10 @@ export function parseExperimentFoundationD19FixtureImportArgs(
     throw new Error('source-policy attestation path must be repository-relative');
   }
 
-  const outputRoot = path.join(repoRoot, '.ai/.tmp/experiment-foundation-productization');
+  const outputRoot = path.join(repoRoot, 'artifacts/experiment-foundation-productization');
   const outputPath = resolveInside(repoRoot, output, 'output');
   if (!outputPath.startsWith(`${outputRoot}${path.sep}`)) {
-    throw new Error('Output must be below .ai/.tmp/experiment-foundation-productization/');
+    throw new Error('Output must be below artifacts/experiment-foundation-productization/');
   }
   resolveInside(repoRoot, sourcePolicyPath, 'source-policy attestation');
   return { help: false, apply: true, sourcePolicyPath, outputPath };
@@ -153,11 +153,11 @@ export function experimentFoundationD19FixtureImportHelp(): string {
     'Import the reviewed D-19 EF v2 typed asset/readiness fixture into a local PostgreSQL target.',
     '',
     'Usage:',
-    '  pnpm run experiment-foundation:d19-fixture:import -- --apply --output .ai/.tmp/experiment-foundation-productization/<run-id>/fixture-import-summary.json',
+    '  pnpm run experiment-foundation:d19-fixture:import -- --apply --output artifacts/experiment-foundation-productization/<run-id>/fixture-import-summary.json',
     '',
     'Options:',
     '  --apply                         Required write confirmation.',
-    '  --output <repo-relative-path>   Required; must be below .ai/.tmp/experiment-foundation-productization/.',
+    '  --output <repo-relative-path>   Required; must be below artifacts/experiment-foundation-productization/.',
     '  --source-policy-attestation <repo-relative-path>',
     `                                  Defaults to ${EXPERIMENT_FOUNDATION_D19_DEFAULT_SOURCE_POLICY_PATH}.`,
     '  -h, --help                      Show this help.',

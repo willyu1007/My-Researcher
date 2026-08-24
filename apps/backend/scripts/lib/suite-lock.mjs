@@ -2,10 +2,9 @@
 //
 // Two such fleets on one machine exhaust CPU/RAM and children crash at load
 // time (~11-13s in, TSError-style `[Object: null prototype]` dumps), yielding
-// file-level `not ok` false reds and dropped test totals (confirmed
-// 2026-07-03; see dev-docs/active/paper-implementation-productization-
-// hardening/04-verification.md). Every entrypoint that spawns a multi-file
-// fleet must take this lock before spawning: the backend full-suite runner
+// file-level `not ok` false reds and dropped test totals. This was confirmed
+// by the T-124 concurrency investigation on 2026-07-03. Every entrypoint that
+// spawns a multi-file fleet must take this lock before spawning: the backend full-suite runner
 // (run-node-tests.mjs) and the .ai multi-file test steps
 // (paper-implementation-runtime-stress.mjs, topic-selection-v1c-
 // production-depth.mjs). One shared module = one lock path — two copies of

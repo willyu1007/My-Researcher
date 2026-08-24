@@ -47,6 +47,23 @@
 - For each relocation, record old path, new owner/path, consumers updated, and focused check.
 - Require zero live references to compressed or removed paths.
 
+#### Phase 1 evidence
+
+- [x] Exact SHA-256 comparisons for the two relocated JSON fixtures and the two environment scripts.
+  - Result: each old/new pair matched byte-for-byte.
+- [x] `D:\Else\Python311\python.exe -B -S env/scripts/env_localctl.py --help`
+  - Result: passed; the relocated controller exposes `doctor`, `compile`, and `connectivity`.
+- [x] Relocated environment-controller doctor path with report under `artifacts/env-local/`.
+  - Result: the controller parsed the migrated contract/policy and produced a redacted report; exit `1` was the expected local-readiness result because the gitignored `DATABASE_URL` secret file is absent, not a tooling/path failure.
+- [x] `TS_NODE_TRANSPILE_ONLY=1 pnpm exec node --test --loader ts-node/esm src/services/experiment-foundation-d19-fixture-import-service.unit.test.ts src/services/topic-selection-v1b-n8-calibration-runner.unit.test.ts`
+  - Result: passed, 16/16 tests.
+- [x] `pnpm --filter @paper-engineering-assistant/backend typecheck`
+  - Result: passed after Prisma client generation.
+- [x] `pnpm --filter @paper-engineering-assistant/desktop typecheck`
+  - Result: passed.
+- [x] Repository scan for the two former archived fixture paths and the old environment-skill script path outside removal-bound trees.
+  - Result: zero supported consumers remain.
+
 ### Governance cutover
 
 - Run the validator/lint supplied by the approved fixed assets against the complete active/archive task corpus and project hub.

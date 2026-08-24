@@ -86,7 +86,7 @@ async function main(): Promise<void> {
     const summary = summarizeExperimentFoundationD19FixtureImport(imported);
     await fs.mkdir(path.dirname(args.outputPath), { recursive: true });
     await requireRealPathInside(
-      path.join(REPO_ROOT, '.ai/.tmp/experiment-foundation-productization'),
+      path.join(REPO_ROOT, 'artifacts/experiment-foundation-productization'),
       path.dirname(args.outputPath),
       'output directory',
     );

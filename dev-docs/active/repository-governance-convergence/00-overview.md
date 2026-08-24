@@ -3,7 +3,7 @@
 ## Status
 
 - State: in-progress
-- Next step: freeze the execution-time graph/task/reference baseline, then relocate live fixtures and contracts out of task and governance paths before any deletion or archive conversion.
+- Next step: checkpoint the verified live-asset relocation, then normalize lifecycle placement and begin the bounded governance cutover.
 
 ## Goal
 
@@ -26,9 +26,9 @@ The migration direction is already approved: preserve the graph, normalize task 
 ## Acceptance criteria
 
 - [x] The old-contract opening has a CLI-allocated unique Task ID and maps to `F-000` / `M-000` without a new M/F/R object.
-- [ ] Before migration, the current M/F graph, task lifecycle inventory, and consumers of removal/archive-bound paths are captured.
+- [x] Before migration, the current M/F graph, task lifecycle inventory, and consumers of removal/archive-bound paths are captured.
 - [ ] Every effective `done` active bundle at the execution baseline is archived; `T-043` and `T-129` remain active.
-- [ ] Every live fixture/contract is relocated to a maintained owner and all consumers are verified before archive compression.
+- [x] Every live fixture/contract needed by supported code/tests is relocated to a maintained owner and its focused consumers are verified before archive compression.
 - [ ] Approved fixed task-governance assets are refreshed; repository-local skill mechanisms are removed.
 - [ ] All task bundles and the project hub conform to the new contract with unique stable task IDs.
 - [ ] The pre-migration M/F graph is semantically unchanged after conversion.

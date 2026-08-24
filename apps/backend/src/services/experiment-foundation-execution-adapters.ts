@@ -256,7 +256,7 @@ class FakeAliyunPaiDlcClient implements AliyunPaiDlcClient {
 function resolveExecutionRoot(): string {
   return path.resolve(
     process.env.EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT
-      ?? path.join(process.cwd(), '.ai/.tmp/experiment-foundation-local-execution'),
+      ?? path.join(process.cwd(), 'artifacts/experiment-foundation-local-execution'),
   );
 }
 

@@ -248,7 +248,7 @@
       "type": "enum"
     },
     "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT": {
-      "default": ".ai/.tmp/experiment-foundation-local-execution",
+      "default": "artifacts/experiment-foundation-local-execution",
       "deprecate_after": null,
       "description": "LocalScript execution root for experiment-foundation smoke runs; all working directories and outputs must stay inside this root.",
       "legacy": {

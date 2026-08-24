@@ -13,11 +13,11 @@
 | 2 | S1 冒烟(adapter 档起步) | 工件 JSON:补丁清单/偏差/env pins/结果/blockers_remaining | 一次性工作区在 repo 外;工件不入原始数据;独立复现加分 |
 | 3 | payload 回填与门对账 | 候选 payload 文档:缺字段列收敛 + gate blockers 分活跃/已解除 | 档位必须显式标注(adapter ≠ faithful) |
 | 4 | duplicate check 实测 | registry 全查记录(计数/命中/判定) | 机械项,写进 duplicate_check.rationale |
-| 5 | protocol_hash + 协议定义工件 | `<lane>-protocol-definition.json` + 档位化 hash | 脚本 `.ai/scripts/experiment-foundation-protocol-hash.mjs`:canonical-JSON sha256 哈希**协议定义**(非 repo tree);cpu_adapter 档拼补丁摘要 |
+| 5 | protocol_hash + 协议定义工件 | `<lane>-protocol-definition.json` + 档位化 hash | canonical-JSON sha256 哈希**协议定义**（非 repo tree）；`cpu_adapter` 档拼入补丁摘要 |
 | 6 | registry 记录化 | canonical 前置记录(data_policy/metric_definition/协议本体)→ candidate(六门内嵌)→ triage report | 走 `service.createRecord`(真实 schema 校验),不直插表;payload hash 约定=去自身 hash 字段后 canonical-JSON sha256 |
 | 7 | 晋升裁决执行 | promotion request(manual_promote,reviewer 留痕)+ result(promoted,四组 canonical refs 全非空) | `service.decidePromotion`;promoted 要求全部 canonical refs 已存在且非候选记录 |
 
-参考实现:`dev-docs/active/experiment-foundation-first-promotion-closure/tools/lit-0204-evaluation-protocol-promotion-runner.mjs`(含 `--verify-only`/`--negative` 模式)。
+历史验证由 T-131 完成；该一次性 runner 不再作为维护中的操作入口。
 
 ## 约定(第一条 lane 落定,2026-07-08)
 - **档位(tier)**:`cpu_adapter` 与 `faithful` 是不同协议版本(protocol_version 后缀 + hash 分档)。adapter 档证据**不得**冒充 faithful 档能力;faithful 化 = 新 protocol_version + 新 hash,非覆写。

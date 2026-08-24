@@ -68,7 +68,7 @@ const DEFAULT_TOKEN_CALIBRATION: ProviderTokenCalibration = {
  * Per-provider calibration, keyed by `provider_id`. Calibrated 2026-06-15 from REAL
  * tokenizer measurements over representative topic-selection payloads (technical
  * Chinese + English + JSON). See the F-10 calibration evidence in
- * `dev-docs/archive/topic-selection-productization-hardening/03-implementation-notes.md`
+ * `docs/context/process/topic-selection-n8-calibration.md`
  * and the reproducible harness under `.../evidence/f10-token-calibration/measure.py`.
  *
  * Only the CJK ratio and the newline term diverge per provider:

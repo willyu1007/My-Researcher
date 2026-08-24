@@ -18,8 +18,7 @@ import type { TopicWorkbenchModuleProps } from './types';
  * - QueuePanel (Phase 5) aggregating cross-stage human-review / recheck /
  *   blocker / accepted-risk queues for the active title-card
  *
- * See `dev-docs/active/topic-selection-desktop-workbench-v1abc/` for the
- * full task bundle.
+ * See `docs/context/ui/topic-workbench.md` for the maintained interaction contract.
  */
 export function TopicWorkbenchModule({
   titleCardId,

@@ -1,5 +1,5 @@
 -- Reconciliation migration: align historical index names and TopicResearchRecord with schema.prisma.
--- Analysis: dev-docs/active/experiment-foundation-productization-closure/artifacts/db/migrate-drift-reconciliation-20260719/01-analysis.md
+-- Drift analysis was recorded by T-132 on 2026-07-19.
 -- Part 1: 228 pure index renames (metadata-only, no behavior change).
 -- Sources: hand-written migrations used names >63 bytes (PG silently truncated, 81) or custom
 -- short names never pinned via map: in schema.prisma (147).

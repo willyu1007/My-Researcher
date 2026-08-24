@@ -15,7 +15,7 @@
  * produces scores and never sets thresholds — it only orchestrates capture + hands the records to the analyzer.
  *
  * Calibration TOOLING — not wired into any product route. See
- * dev-docs/archive/topic-selection-productization-hardening/evidence/dp33-n8-threshold-calibration/README.md.
+ * docs/context/process/topic-selection-n8-calibration.md.
  */
 import type {
   TopicSelectionV1bN8DebateTriggerThresholds,

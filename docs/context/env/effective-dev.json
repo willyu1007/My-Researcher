@@ -12,7 +12,7 @@
     "DATABASE_URL": "***REDACTED***",
     "DEEPSEEK_API_KEY": "***REDACTED***",
     "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ENABLED": "true",
-    "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT": "/Volumes/DataDisk/Project/My-Researcher/.ai/.tmp/experiment-foundation-local-execution",
+    "EXPERIMENT_FOUNDATION_LOCAL_EXECUTION_ROOT": "artifacts/experiment-foundation-local-execution",
     "EXPERIMENT_FOUNDATION_LOCAL_SCRIPT_ALLOWED_COMMANDS": "node",
     "EXPERIMENT_FOUNDATION_V2_WORKFLOW_SIMULATION_ENABLED": false,
     "HOST": "127.0.0.1",
