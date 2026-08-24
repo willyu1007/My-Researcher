@@ -1,6 +1,0 @@
-@layer feature {
-  .literature-content-processing-profile-select:focus,
-  .literature-content-processing-profile-select:focus-visible {
-    outline: none;
-  }
-}

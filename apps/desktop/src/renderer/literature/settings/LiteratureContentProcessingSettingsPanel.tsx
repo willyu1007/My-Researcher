@@ -10,7 +10,6 @@ import type {
   LiteratureLocalSecretsStatus,
   UiOperationStatus,
 } from '../shared/types';
-import './LiteratureContentProcessingSettingsPanel.css';
 
 const storageRootKeys = [
   'raw_files',
