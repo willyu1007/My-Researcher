@@ -157,6 +157,7 @@ Project: `main`
 | T-141 core-motive-to-evidence-board-semantic-handoff | done | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | done | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 | T-143 validation-cycle-handoff-authority-recovery-hardening | done | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
+| T-144 validation-cycle-handoff-deep-cleanup | in-progress | dev-docs/active/validation-cycle-handoff-deep-cleanup |
 
 ### F-002 Desktop Frontend Foundation
 

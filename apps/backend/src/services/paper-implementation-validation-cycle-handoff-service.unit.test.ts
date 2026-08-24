@@ -19,6 +19,7 @@ import {
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
   type PaperImplementationRuntimeArtifactEnvelope,
+  type PaperImplementationValidationCycleCandidateProposal,
   type PaperImplementationValidationCyclePlanningArtifact,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-runtime-contracts';
 import type {
@@ -36,6 +37,7 @@ import type {
 
 import { AppError } from '../errors/app-error.js';
 import { InMemoryPaperImplementationValidationRepository } from '../repositories/in-memory-paper-implementation-validation-repository.js';
+import { buildFinalRuntimeArtifactEnvelope } from './paper-implementation-acceptance-bridge-test-fixtures.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { PaperImplementationValidationCycleHandoffService } from './paper-implementation-validation-cycle-handoff-service.js';
 import { resolvePaperImplementationScientificContinuationStage } from './paper-implementation-scientific-continuation-stage-resolver.js';
@@ -252,6 +254,8 @@ type CoordinatorRunDrift =
   | 'model_option_id'
   | 'budget_envelope';
 
+type PlanningArtifactPayloadDrift = 'missing_candidates' | 'extra_field';
+
 class Coordinator {
   createCalls = 0;
   advanceCalls = 0;
@@ -266,6 +270,7 @@ class Coordinator {
     private readonly iterationBudgetRef = false,
     private readonly duplicateSelectedStep = false,
     private readonly runDrift?: CoordinatorRunDrift,
+    private readonly artifactPayloadDrift?: PlanningArtifactPayloadDrift,
   ) {}
 
   async createCoordinatorRun(projectId: string, request: CreatePaperImplementationCoordinatorRunRequest) {
@@ -340,62 +345,108 @@ class Coordinator {
     }
     const targetRef = this.run.slot_request_payloads[PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID]
       ?.target_ref as TopicSelectionFunctionalRef;
-    const artifactPayload: PaperImplementationValidationCyclePlanningArtifact = {
-      status: 'passed', slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
-      workflow_type: 'validation_cycle_planning', target_ref: targetRef, preflight_blockers: [],
-      role_summary: 'One bounded cycle is viable.', role_blocker_codes: [], role_warning_codes: [],
-      blockers: [], warnings: [], runtime_failure_code: null,
-      reviewed_route_proposal_ref: ref('paper_implementation_runtime_artifact', 'route_artifact_t142'),
-      reviewed_route_proposal_hash: 'route_hash_t142',
-      reviewed_route_skeptic_artifact_ref: ref('paper_implementation_runtime_artifact', 'skeptic_artifact_t142'),
-      reviewed_route_skeptic_artifact_hash: 'skeptic_hash_t142', reviewed_candidate_keys: ['route_candidate_t142'],
-      cycle_candidate_proposals: [{
-        candidate_key: 'cycle_candidate_t142', reviewed_route_candidate_key: 'route_candidate_t142',
-        target_ref: this.driftCandidate ? ref('motive_evidence_board', 'different_board_t142') : targetRef,
-        target_frame_summary: 'The board is ready for a bounded route-feasibility check.',
-        cycle_type: 'route_feasibility', trigger_refs: [targetRef],
-        validation_question: 'Can a controlled route answer the bounded assertion?',
-        assumptions_under_test: ['Controls can remain fixed.'],
-        assertion_refs_under_test: [ref('motive_assertion', ASSERTION_ID)],
-        decision_if_pass: 'Continue to experiment specification.',
-        decision_if_fail: 'Return a route blocker.',
-        decision_if_inconclusive: 'Narrow the validation question.',
-        expected_information_gain: 'high',
-        criteria: {
-          pass_conditions: ['A controlled route is viable.'], fail_conditions: ['No controlled route is viable.'],
-          inconclusive_conditions: ['Feasibility remains ambiguous.'], stop_conditions: ['Stop after the bounded check.'],
-          minimum_artifacts_required: ['Trace-complete feasibility evidence.'],
-        },
-        budget_envelope: {
-          ...(this.iterationBudgetRef
-            ? { iteration_budget_ref: ref('iteration_budget', 'llm_invented_budget_t143') }
-            : {}),
-          retry_budget: 0,
-          max_runtime: 'PT4H',
-          max_compute: 'local_cpu',
-          max_human_review_count: 1,
-        },
-        included_context_refs: [targetRef], trace_refs: [ref('trace_manifest', 'trace_board_t142')],
-        confirmatory_marker: this.confirmatoryCandidate, blocker_codes: [], warning_codes: [],
-      }],
-      no_domain_gate_request: true, no_queue_side_effect: true, no_validation_cycle_side_effect: true,
-      role_artifact_refs: [], role_artifact_hashes: [], admitted_role_artifact_refs: [], admitted_role_artifact_hashes: [],
-      role_prompt_packet_refs: [], role_prompt_packet_hashes: [], role_token_budget_gate_result_refs: [],
-      role_compression_report_refs: [], runtime_identity: {}, cache_identity: {}, source_refs: [],
-      source_hash_bundle_hash: 'source_hash_t142',
+    const selectedCandidate: PaperImplementationValidationCycleCandidateProposal = {
+      candidate_key: 'cycle_candidate_t142',
+      reviewed_route_candidate_key: 'route_candidate_t142',
+      target_ref: this.driftCandidate ? ref('motive_evidence_board', 'different_board_t142') : targetRef,
+      target_frame_summary: 'The board is ready for a bounded route-feasibility check.',
+      cycle_type: 'route_feasibility',
+      trigger_refs: [targetRef],
+      validation_question: 'Can a controlled route answer the bounded assertion?',
+      assumptions_under_test: ['Controls can remain fixed.'],
+      assertion_refs_under_test: [ref('motive_assertion', ASSERTION_ID)],
+      decision_if_pass: 'Continue to experiment specification.',
+      decision_if_fail: 'Return a route blocker.',
+      decision_if_inconclusive: 'Narrow the validation question.',
+      expected_information_gain: 'high',
+      criteria: {
+        pass_conditions: ['A controlled route is viable.'],
+        fail_conditions: ['No controlled route is viable.'],
+        inconclusive_conditions: ['Feasibility remains ambiguous.'],
+        stop_conditions: ['Stop after the bounded check.'],
+        minimum_artifacts_required: ['Trace-complete feasibility evidence.'],
+      },
+      budget_envelope: {
+        ...(this.iterationBudgetRef
+          ? { iteration_budget_ref: ref('iteration_budget', 'llm_invented_budget_t143') }
+          : {}),
+        retry_budget: 0,
+        max_runtime: 'PT4H',
+        max_compute: 'local_cpu',
+        max_human_review_count: 1,
+      },
+      included_context_refs: [targetRef],
+      trace_refs: [ref('trace_manifest', 'trace_board_t142')],
+      confirmatory_marker: this.confirmatoryCandidate,
+      blocker_codes: [],
+      warning_codes: [],
     };
-    const hash = sha256Text(stableStringify(artifactPayload));
+    const alternativeCandidate: PaperImplementationValidationCycleCandidateProposal = {
+      ...selectedCandidate,
+      candidate_key: 'cycle_candidate_alternative_t144',
+      target_ref: targetRef,
+      validation_question: 'Can a smaller diagnostic check reduce the same uncertainty?',
+      expected_information_gain: 'medium',
+      confirmatory_marker: false,
+    };
+    const roleArtifactRef = ref('paper_implementation_runtime_artifact', 'cycle_role_artifact_t144');
+    const rolePromptPacketRef = ref('paper_implementation_prompt_packet', 'cycle_prompt_packet_t144');
+    const roleBudgetGateRef = ref('paper_implementation_token_budget_gate', 'cycle_budget_gate_t144');
+    const artifactPayload: PaperImplementationValidationCyclePlanningArtifact = {
+      status: 'passed',
+      slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+      workflow_type: 'validation_cycle_planning',
+      target_ref: targetRef,
+      preflight_blockers: [],
+      role_summary: 'Two bounded cycle candidates were compared.',
+      role_blocker_codes: [],
+      role_warning_codes: [],
+      blockers: [],
+      warnings: [],
+      runtime_failure_code: null,
+      reviewed_route_proposal_ref: ref('paper_implementation_runtime_artifact', 'route_artifact_t142'),
+      reviewed_route_proposal_hash: sha256Text('route_artifact_t142'),
+      reviewed_route_skeptic_artifact_ref: ref('paper_implementation_runtime_artifact', 'skeptic_artifact_t142'),
+      reviewed_route_skeptic_artifact_hash: sha256Text('skeptic_artifact_t142'),
+      reviewed_candidate_keys: ['route_candidate_t142'],
+      cycle_candidate_proposals: [selectedCandidate, alternativeCandidate],
+      no_domain_gate_request: true,
+      no_queue_side_effect: true,
+      no_validation_cycle_side_effect: true,
+      role_artifact_refs: [roleArtifactRef],
+      role_artifact_hashes: [sha256Text('cycle_role_artifact_t144')],
+      admitted_role_artifact_refs: [roleArtifactRef],
+      admitted_role_artifact_hashes: [sha256Text('cycle_role_artifact_t144')],
+      role_prompt_packet_refs: [rolePromptPacketRef],
+      role_prompt_packet_hashes: [sha256Text('cycle_prompt_packet_t144')],
+      role_token_budget_gate_result_refs: [roleBudgetGateRef],
+      role_compression_report_refs: [],
+      runtime_identity: {},
+      cache_identity: {},
+      source_refs: [targetRef],
+      source_hash_bundle_hash: sha256Text('cycle_source_bundle_t144'),
+    };
+    let persistedPayload: Record<string, unknown> = { ...artifactPayload };
+    if (this.artifactPayloadDrift === 'missing_candidates') {
+      const { cycle_candidate_proposals: _omitted, ...withoutCandidates } = artifactPayload;
+      persistedPayload = withoutCandidates;
+    } else if (this.artifactPayloadDrift === 'extra_field') {
+      persistedPayload = { ...artifactPayload, unexpected_authority_field: true };
+    }
+    const hash = sha256Text(stableStringify(persistedPayload));
     const finalArtifactRef = ref(
       'validation_cycle_planning_runtime_artifact',
       `${this.run.coordinator_run_id}.final`,
       hash,
     );
     this.runtime.artifact = {
-      implementation_project_id: PROJECT_ID,
-      runtime_artifact_id: 'runtime_artifact_cycle_t142',
-      workflow_type: 'validation_cycle_planning',
+      ...buildFinalRuntimeArtifactEnvelope({
+        implementationProjectId: PROJECT_ID,
+        workflowType: 'validation_cycle_planning',
+        runtimeArtifactId: 'runtime_artifact_cycle_t142',
+        titleCardId: TITLE_CARD_ID,
+      }),
       slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
-      artifact_scope: 'final',
       target_ref: targetRef,
       target_version_id: BOARD_ID,
       artifact_payload_ref: finalArtifactRef,
@@ -405,10 +456,13 @@ class Coordinator {
       model_profile_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
       runtime_status: 'passed',
       source_hash_bundle_hash: artifactPayload.source_hash_bundle_hash,
-      artifact_payload: artifactPayload as unknown as Record<string, unknown>,
+      source_refs: [targetRef],
+      source_hashes: [sha256Text(stableStringify(targetRef))],
+      artifact_payload: persistedPayload,
       artifact_payload_hash: hash,
       final_artifact_hash: hash,
-    } as PaperImplementationRuntimeArtifactEnvelope;
+      output_hash: hash,
+    };
     const selectedStep: PaperImplementationCoordinatorRunWithSteps['steps'][number] = {
       schema_version: 'PaperImplementationCoordinatorStep@v1', coordinator_step_id: 'step_cycle_t142',
       coordinator_run_id: this.run.coordinator_run_id, implementation_project_id: PROJECT_ID,
@@ -424,8 +478,15 @@ class Coordinator {
       },
       decision_record: {
         policy_id: 'paper-implementation.coordinator.candidate-selection', policy_version: 'v1', inputs_hash: 'inputs_t142',
-        candidate_projections: [{ candidate_key: 'cycle_candidate_t142', expected_information_gain: 'high', blocker_codes: [] }],
-        selected_candidate_key: 'cycle_candidate_t142', rationale_codes: ['single_eligible_candidate'],
+        candidate_projections: [
+          { candidate_key: 'cycle_candidate_t142', expected_information_gain: 'high', blocker_codes: [] },
+          {
+            candidate_key: 'cycle_candidate_alternative_t144',
+            expected_information_gain: 'medium',
+            blocker_codes: [],
+          },
+        ],
+        selected_candidate_key: 'cycle_candidate_t142', rationale_codes: ['max_expected_information_gain'],
       },
       outcome: 'passed', provider_call_count: 1, blocker_codes: [], created_at: NOW,
     };
@@ -451,6 +512,7 @@ async function makeHarness(options: {
   iterationBudgetRef?: boolean;
   duplicateSelectedStep?: boolean;
   coordinatorRunDrift?: CoordinatorRunDrift;
+  artifactPayloadDrift?: PlanningArtifactPayloadDrift;
   ownerTraceDrift?: 'board' | 'binding';
   missingProject?: boolean;
   ownerDrift?: 'motive' | 'version' | 'state' | 'board' | 'binding';
@@ -482,6 +544,7 @@ async function makeHarness(options: {
     options.iterationBudgetRef,
     options.duplicateSelectedStep,
     options.coordinatorRunDrift,
+    options.artifactPayloadDrift,
   );
   let createCalls = 0;
   let admitCalls = 0;
@@ -888,6 +951,27 @@ test('ValidationCycle handoff rejects a selected proposal whose target drifts fr
       && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
   assert.deepEqual(await harness.validationRepository.listValidationCycles(PROJECT_ID), []);
+});
+
+test('ValidationCycle handoff rejects hash-consistent planning artifacts outside the persisted schema', async () => {
+  for (const artifactPayloadDrift of ['missing_candidates', 'extra_field'] as const) {
+    const harness = await makeHarness({ artifactPayloadDrift });
+    await assert.rejects(
+      harness.service.continue({ implementation_project_id: PROJECT_ID }),
+      (error) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'VERSION_CONFLICT',
+      artifactPayloadDrift,
+    );
+    assert.deepEqual(
+      await harness.validationRepository.listValidationCycles(PROJECT_ID),
+      [],
+      artifactPayloadDrift,
+    );
+    assert.equal(harness.createCalls(), 0, artifactPayloadDrift);
+    assert.equal(harness.admitCalls(), 0, artifactPayloadDrift);
+    assert.equal(harness.traceCount(), 2, artifactPayloadDrift);
+  }
 });
 
 test('ValidationCycle handoff stops a confirmatory proposal before trace or cycle authority is written', async () => {

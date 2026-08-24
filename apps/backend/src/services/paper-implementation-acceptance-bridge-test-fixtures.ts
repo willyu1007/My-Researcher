@@ -36,6 +36,11 @@ export interface PaperImplementationAcceptedProposalFixtureOptions {
   runtimeStatus?: Extract<PaperImplementationRuntimeStatus, 'passed' | 'blocked'>;
 }
 
+export type PaperImplementationFinalRuntimeArtifactEnvelopeFixtureOptions = Omit<
+  PaperImplementationAcceptedProposalFixtureOptions,
+  'admissionService'
+>;
+
 function sha(seed: string): string {
   return createHash('sha256').update(seed).digest('hex');
 }
@@ -54,7 +59,7 @@ function fixtureRef(
 }
 
 export function buildFinalRuntimeArtifactEnvelope(
-  options: PaperImplementationAcceptedProposalFixtureOptions,
+  options: PaperImplementationFinalRuntimeArtifactEnvelopeFixtureOptions,
 ): PaperImplementationRuntimeArtifactEnvelope {
   const {
     implementationProjectId,
