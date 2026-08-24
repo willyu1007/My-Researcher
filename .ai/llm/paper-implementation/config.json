@@ -1,0 +1,43 @@
+{
+  "calls": {
+    "openai-balanced": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "model-route.v1",
+      "parameters": {},
+      "tools": []
+    },
+    "openai-quality": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "model-route.v1",
+      "parameters": {},
+      "tools": []
+    },
+    "openai-deep-reasoning": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "model-route.v1",
+      "parameters": {},
+      "tools": []
+    },
+    "dashscope-thinking-budget": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "model-route.v1",
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    },
+    "dashscope-budget": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "model-route.v1",
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    }
+  }
+}

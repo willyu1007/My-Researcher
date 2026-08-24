@@ -33,6 +33,34 @@ test('default LLM configuration resolves providers, feature calls, prompts, and 
   );
 });
 
+test('topic-selection and paper-implementation keep independent shipped model routes', () => {
+  const loader = new LlmConfigLoader({ env: {} });
+
+  const topicOpenAi = loader.getCall('topic-selection', 'openai-balanced');
+  const paperOpenAi = loader.getCall('paper-implementation', 'openai-balanced');
+  assert.equal(topicOpenAi.provider.id, 'openai');
+  assert.equal(topicOpenAi.model, 'gpt-5.6-sol');
+  assert.equal(paperOpenAi.provider.id, 'openai');
+  assert.equal(paperOpenAi.model, 'gpt-5.6-sol');
+
+  const topicDashScope = loader.getCall('topic-selection', 'dashscope-thinking-budget');
+  const paperDashScope = loader.getCall('paper-implementation', 'dashscope-thinking-budget');
+  assert.deepEqual(topicDashScope.parameters, { enable_thinking: true });
+  assert.deepEqual(paperDashScope.parameters, { enable_thinking: true });
+
+  const topicDeepSeek = loader.getCall('topic-selection', 'deepseek-v4-thinking');
+  assert.equal(topicDeepSeek.provider.id, 'deepseek');
+  assert.equal(topicDeepSeek.model, 'deepseek-v4-pro');
+  assert.deepEqual(topicDeepSeek.parameters, {
+    thinking: { type: 'enabled' },
+    reasoning_effort: 'high',
+  });
+  assert.throws(
+    () => loader.getCall('paper-implementation', 'deepseek-v4-thinking'),
+    /is not configured/u,
+  );
+});
+
 test('LLM configuration rejects unknown providers and prompt traversal', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'my-researcher-llm-config-'));
   t.after(async () => rm(root, { recursive: true, force: true }));

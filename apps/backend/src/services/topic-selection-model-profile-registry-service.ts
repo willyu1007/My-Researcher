@@ -45,6 +45,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 
 export type TopicSelectionModelProfileRegistryValidationIssueCode =
   | 'SCHEMA_VALIDATION_FAILED'
@@ -198,19 +199,47 @@ function normalizedParams(
   };
 }
 
+function configuredModelRoute(
+  profileKey: string,
+  routeId: string,
+): {
+  providerId: RegisteredProviderId;
+  modelId: string;
+  providerOverrides: TopicSelectionModelOption['provider_overrides'];
+} {
+  const featureId = profileKey.startsWith('paper-implementation')
+    ? 'paper-implementation'
+    : 'topic-selection';
+  const call = defaultLlmConfig().getCall(featureId, routeId);
+  const providerId = REGISTERED_PROVIDER_IDS.find((provider) => provider === call.provider.id);
+  if (!providerId) {
+    throw new Error(`${featureId}/${routeId} uses an unregistered model-profile provider.`);
+  }
+  return {
+    providerId,
+    modelId: call.model,
+    providerOverrides: { ...call.parameters },
+  };
+}
+
 function providerOptions(profileKey: string): TopicSelectionModelOption[] {
+  const openAiBalanced = configuredModelRoute(profileKey, 'openai-balanced');
+  const openAiQuality = configuredModelRoute(profileKey, 'openai-quality');
+  const openAiDeepReasoning = configuredModelRoute(profileKey, 'openai-deep-reasoning');
+  const dashScopeThinkingBudget = configuredModelRoute(profileKey, 'dashscope-thinking-budget');
+  const dashScopeBudget = configuredModelRoute(profileKey, 'dashscope-budget');
   const options: TopicSelectionModelOption[] = [
     {
       option_id: `${profileKey}.openai-balanced`,
       option_purpose: 'default_balanced_provider_run',
-      provider_id: 'openai',
-      model_id: 'gpt-5.6-sol',
+      provider_id: openAiBalanced.providerId,
+      model_id: openAiBalanced.modelId,
       use_when: ['default_provider_run'],
       request_policy: {
         timeout_ms: 180000,
       },
       normalized_params: normalizedParams(),
-      provider_overrides: {},
+      provider_overrides: openAiBalanced.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
@@ -218,8 +247,8 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
     {
       option_id: `${profileKey}.openai-quality`,
       option_purpose: 'quality_sensitive_explicit_provider_run',
-      provider_id: 'openai',
-      model_id: 'gpt-5.6-sol',
+      provider_id: openAiQuality.providerId,
+      model_id: openAiQuality.modelId,
       use_when: ['quality_sensitive_manual_selection'],
       request_policy: {
         timeout_ms: 300000,
@@ -228,7 +257,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
         reasoning_depth: 'high',
         output_budget: 'large',
       }),
-      provider_overrides: {},
+      provider_overrides: openAiQuality.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
@@ -236,8 +265,8 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
     {
       option_id: `${profileKey}.openai-deep-reasoning`,
       option_purpose: 'deep_reasoning_explicit_provider_run',
-      provider_id: 'openai',
-      model_id: 'gpt-5.6-sol',
+      provider_id: openAiDeepReasoning.providerId,
+      model_id: openAiDeepReasoning.modelId,
       use_when: ['deep_reasoning_manual_selection'],
       request_policy: {
         timeout_ms: 450000,
@@ -250,7 +279,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
         reasoning_depth: 'high',
         output_budget: 'large',
       }),
-      provider_overrides: {},
+      provider_overrides: openAiDeepReasoning.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
@@ -258,16 +287,14 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
     {
       option_id: `${profileKey}.dashscope-thinking-budget`,
       option_purpose: 'budget_sensitive_thinking_provider_run',
-      provider_id: 'dashscope',
-      model_id: 'qwen3.7-plus',
+      provider_id: dashScopeThinkingBudget.providerId,
+      model_id: dashScopeThinkingBudget.modelId,
       use_when: ['budget_sensitive_manual_selection', 'thinking_budget_manual_selection'],
       request_policy: {
         timeout_ms: 300000,
       },
       normalized_params: normalizedParams(),
-      provider_overrides: {
-        enable_thinking: true,
-      },
+      provider_overrides: dashScopeThinkingBudget.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
@@ -275,16 +302,14 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
     {
       option_id: `${profileKey}.dashscope-budget`,
       option_purpose: 'legacy_budget_sensitive_thinking_provider_run',
-      provider_id: 'dashscope',
-      model_id: 'qwen3.7-plus',
+      provider_id: dashScopeBudget.providerId,
+      model_id: dashScopeBudget.modelId,
       use_when: ['legacy_budget_sensitive_manual_selection'],
       request_policy: {
         timeout_ms: 300000,
       },
       normalized_params: normalizedParams(),
-      provider_overrides: {
-        enable_thinking: true,
-      },
+      provider_overrides: dashScopeBudget.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
@@ -292,11 +317,12 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
   ];
 
   if (DEBATE_WORKER_DEEPSEEK_ELIGIBLE_PROFILE_IDS.has(profileKey)) {
+    const deepSeekThinking = configuredModelRoute(profileKey, 'deepseek-v4-thinking');
     options.push({
       option_id: `${profileKey}.deepseek-v4-thinking`,
       option_purpose: 'alternative_debate_worker_thinking_provider_run',
-      provider_id: 'deepseek',
-      model_id: 'deepseek-v4-pro',
+      provider_id: deepSeekThinking.providerId,
+      model_id: deepSeekThinking.modelId,
       use_when: ['alternative_explorer_deep_critic_manual_selection'],
       request_policy: {
         timeout_ms: 450000,
@@ -305,10 +331,7 @@ function providerOptions(profileKey: string): TopicSelectionModelOption[] {
         reasoning_depth: 'high',
         output_budget: 'large',
       }),
-      provider_overrides: {
-        thinking: { type: 'enabled' },
-        reasoning_effort: 'high',
-      },
+      provider_overrides: deepSeekThinking.providerOverrides,
       capability_degrade_policy: {
         allow_optional_degrade: false,
       },
