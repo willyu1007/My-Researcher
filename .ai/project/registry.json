@@ -1202,9 +1202,9 @@
     {
       "id": "T-146",
       "slug": "llm-config-ui-style-conformance",
-      "status": "done",
+      "status": "archived",
       "updated": "2026-08-24",
-      "dev_docs_path": "dev-docs/active/llm-config-ui-style-conformance",
+      "dev_docs_path": "dev-docs/archive/llm-config-ui-style-conformance",
       "feature_id": "F-000"
     }
   ]

@@ -18,7 +18,7 @@ next step here.
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 146 (planned: 2, in-progress: 0, blocked: 0, done: 1, archived: 143)
+- Tasks: 146 (planned: 2, in-progress: 0, blocked: 0, done: 0, archived: 144)
 
 ## Recently registered or status-changed tasks
 
