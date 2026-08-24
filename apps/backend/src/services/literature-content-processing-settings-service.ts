@@ -18,6 +18,11 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { ApplicationSettingsRepository } from '../repositories/application-settings-repository.js';
+import {
+  defaultLlmConfig,
+  type LlmConfigReader,
+  type LlmFeatureCallConfig,
+} from './llm-config-loader.js';
 
 const SETTINGS_NAMESPACE = 'literature_content_processing';
 const OPENAI_PROVIDER: LiteratureContentProcessingProviderId = 'openai';
@@ -80,40 +85,14 @@ function readConfiguredKeyContentReadyMethod(value: string | undefined): Literat
     : null;
 }
 
-const DEFAULT_EMBEDDING_PROFILES: LiteratureEmbeddingProfileDTO[] = [
-  {
-    profile_id: 'default',
-    provider: OPENAI_PROVIDER,
-    model: 'text-embedding-3-large',
-    dimensions: null,
-  },
-  {
-    profile_id: 'economy',
-    provider: OPENAI_PROVIDER,
-    model: 'text-embedding-3-small',
-    dimensions: null,
-  },
-];
-
-const DEFAULT_EXTRACTION_PROFILES: LiteratureExtractionProfileDTO[] = [
-  {
-    profile_id: 'default',
-    provider: OPENAI_PROVIDER,
-    model: 'gpt-5.6-sol',
-  },
-  {
-    profile_id: 'high_accuracy',
-    provider: OPENAI_PROVIDER,
-    model: 'gpt-5.6-sol',
-  },
-];
-
-const DEFAULT_EXTRACTION_RUNTIME: LiteratureContentProcessingSettingsDTO['extraction']['runtime'] = {
+const DEFAULT_EXTRACTION_RUNTIME_BASE: Omit<
+  LiteratureContentProcessingSettingsDTO['extraction']['runtime'],
+  'prompt_profile_id'
+> = {
   preferred_key_content_method: 'codex_curated',
   section_concurrency: 3,
   request_timeout_ms: 120_000,
   max_retries: 1,
-  prompt_profile_id: 'literature_key_content_v2',
   diagnostic_policy: 'actionable_v1',
 };
 
@@ -145,7 +124,36 @@ export type OpenAIExtractionConfig = {
 };
 
 export class LiteratureContentProcessingSettingsService {
-  constructor(private readonly repository: ApplicationSettingsRepository) {}
+  private readonly llmConfig: LlmConfigReader;
+  private readonly defaultEmbeddingProfiles: LiteratureEmbeddingProfileDTO[];
+  private readonly defaultExtractionProfiles: LiteratureExtractionProfileDTO[];
+  private readonly defaultExtractionRuntime: LiteratureContentProcessingSettingsDTO['extraction']['runtime'];
+
+  constructor(
+    private readonly repository: ApplicationSettingsRepository,
+    llmConfig: LlmConfigReader = defaultLlmConfig(),
+  ) {
+    this.llmConfig = llmConfig;
+    const embeddingDefault = llmConfig.getCall('literature-processing', 'embedding-default');
+    const embeddingEconomy = llmConfig.getCall('literature-processing', 'embedding-economy');
+    const extractionDefault = llmConfig.getCall('literature-processing', 'key-content-section-default');
+    const extractionHighAccuracy = llmConfig.getCall(
+      'literature-processing',
+      'key-content-section-high-accuracy',
+    );
+    this.defaultEmbeddingProfiles = [
+      this.embeddingProfileFromCall('default', embeddingDefault),
+      this.embeddingProfileFromCall('economy', embeddingEconomy),
+    ];
+    this.defaultExtractionProfiles = [
+      this.extractionProfileFromCall('default', extractionDefault),
+      this.extractionProfileFromCall('high_accuracy', extractionHighAccuracy),
+    ];
+    this.defaultExtractionRuntime = {
+      ...DEFAULT_EXTRACTION_RUNTIME_BASE,
+      prompt_profile_id: extractionDefault.version,
+    };
+  }
 
   async getSettings(): Promise<LiteratureContentProcessingSettingsDTO> {
     const [providerOpenAI, providerDashScope, embedding, extraction, storageRoots, fulltextParser, autoAdvance, retrieval] = await Promise.all([
@@ -181,12 +189,12 @@ export class LiteratureContentProcessingSettingsService {
       providers: [
         {
           provider: OPENAI_PROVIDER,
-          api_key_set: Boolean(providerOpenAI?.secretValue) || Boolean(process.env.OPENAI_API_KEY?.trim()),
+          api_key_set: Boolean(providerOpenAI?.secretValue) || Boolean(this.llmConfig.resolveProviderApiKey('openai')),
           api_key_last_updated_at: this.readString(providerOpenAI?.value.api_key_last_updated_at),
         },
         {
           provider: DASHSCOPE_PROVIDER,
-          api_key_set: Boolean(providerDashScope?.secretValue) || Boolean(process.env.DASHSCOPE_API_KEY?.trim()),
+          api_key_set: Boolean(providerDashScope?.secretValue) || Boolean(this.llmConfig.resolveProviderApiKey('dashscope')),
           api_key_last_updated_at: this.readString(providerDashScope?.value.api_key_last_updated_at),
         },
       ],
@@ -429,7 +437,7 @@ export class LiteratureContentProcessingSettingsService {
       this.repository.findSetting(SETTINGS_NAMESPACE, PROVIDER_OPENAI_KEY),
       this.getSettings(),
     ]);
-    const apiKey = providerOpenAI?.secretValue?.trim() || process.env.OPENAI_API_KEY?.trim();
+    const apiKey = providerOpenAI?.secretValue?.trim() || this.llmConfig.resolveProviderApiKey('openai');
     if (!apiKey) {
       return null;
     }
@@ -450,7 +458,7 @@ export class LiteratureContentProcessingSettingsService {
 
   async resolveOpenAIProviderApiKey(): Promise<string | null> {
     const providerOpenAI = await this.repository.findSetting(SETTINGS_NAMESPACE, PROVIDER_OPENAI_KEY);
-    const apiKey = providerOpenAI?.secretValue?.trim() || process.env.OPENAI_API_KEY?.trim();
+    const apiKey = providerOpenAI?.secretValue?.trim() || this.llmConfig.resolveProviderApiKey('openai');
     return apiKey || null;
   }
 
@@ -489,7 +497,7 @@ export class LiteratureContentProcessingSettingsService {
     }
     const apiKey = profile.provider === DASHSCOPE_PROVIDER
       ? await this.resolveDashScopeProviderApiKey()
-      : providerOpenAI?.secretValue?.trim() || process.env.OPENAI_API_KEY?.trim();
+      : providerOpenAI?.secretValue?.trim() || this.llmConfig.resolveProviderApiKey('openai');
     if (!apiKey) {
       return null;
     }
@@ -505,7 +513,7 @@ export class LiteratureContentProcessingSettingsService {
 
   async resolveDashScopeProviderApiKey(): Promise<string | null> {
     const providerDashScope = await this.repository.findSetting(SETTINGS_NAMESPACE, PROVIDER_DASHSCOPE_KEY);
-    const apiKey = providerDashScope?.secretValue?.trim() || process.env.DASHSCOPE_API_KEY?.trim();
+    const apiKey = providerDashScope?.secretValue?.trim() || this.llmConfig.resolveProviderApiKey('dashscope');
     return apiKey || null;
   }
 
@@ -857,25 +865,25 @@ export class LiteratureContentProcessingSettingsService {
       preferred_key_content_method: this.readKeyContentReadyMethod(row.preferred_key_content_method)
         ?? this.resolveDefaultKeyContentReadyMethod(),
       section_concurrency: this.clampInteger(
-        this.readNumber(row.section_concurrency, DEFAULT_EXTRACTION_RUNTIME.section_concurrency),
-        DEFAULT_EXTRACTION_RUNTIME.section_concurrency,
+        this.readNumber(row.section_concurrency, this.defaultExtractionRuntime.section_concurrency),
+        this.defaultExtractionRuntime.section_concurrency,
         1,
         8,
       ),
       request_timeout_ms: this.clampInteger(
-        this.readNumber(row.request_timeout_ms, DEFAULT_EXTRACTION_RUNTIME.request_timeout_ms),
-        DEFAULT_EXTRACTION_RUNTIME.request_timeout_ms,
+        this.readNumber(row.request_timeout_ms, this.defaultExtractionRuntime.request_timeout_ms),
+        this.defaultExtractionRuntime.request_timeout_ms,
         1_000,
         300_000,
       ),
       max_retries: this.clampInteger(
-        this.readNumber(row.max_retries, DEFAULT_EXTRACTION_RUNTIME.max_retries),
-        DEFAULT_EXTRACTION_RUNTIME.max_retries,
+        this.readNumber(row.max_retries, this.defaultExtractionRuntime.max_retries),
+        this.defaultExtractionRuntime.max_retries,
         0,
         3,
       ),
-      prompt_profile_id: this.readString(row.prompt_profile_id) ?? DEFAULT_EXTRACTION_RUNTIME.prompt_profile_id,
-      diagnostic_policy: this.readString(row.diagnostic_policy) ?? DEFAULT_EXTRACTION_RUNTIME.diagnostic_policy,
+      prompt_profile_id: this.readString(row.prompt_profile_id) ?? this.defaultExtractionRuntime.prompt_profile_id,
+      diagnostic_policy: this.readString(row.diagnostic_policy) ?? this.defaultExtractionRuntime.diagnostic_policy,
     };
   }
 
@@ -919,7 +927,7 @@ export class LiteratureContentProcessingSettingsService {
 
   private resolveDefaultKeyContentReadyMethod(): LiteratureKeyContentReadyMethod {
     return readConfiguredKeyContentReadyMethod(process.env[LITERATURE_KEY_CONTENT_READY_METHOD_ENV])
-      ?? DEFAULT_EXTRACTION_RUNTIME.preferred_key_content_method;
+      ?? this.defaultExtractionRuntime.preferred_key_content_method;
   }
 
   private normalizeKeyContentReadyMethod(value: LiteratureKeyContentReadyMethod): LiteratureKeyContentReadyMethod {
@@ -932,7 +940,7 @@ export class LiteratureContentProcessingSettingsService {
 
   private mergeDefaultProfiles(profiles: LiteratureEmbeddingProfileDTO[]): LiteratureEmbeddingProfileDTO[] {
     const byId = new Map<LiteratureEmbeddingProfileId, LiteratureEmbeddingProfileDTO>();
-    for (const profile of DEFAULT_EMBEDDING_PROFILES) {
+    for (const profile of this.defaultEmbeddingProfiles) {
       byId.set(profile.profile_id, profile);
     }
     for (const profile of profiles) {
@@ -946,11 +954,11 @@ export class LiteratureContentProcessingSettingsService {
 
   private mergeDefaultExtractionProfiles(profiles: LiteratureExtractionProfileDTO[]): LiteratureExtractionProfileDTO[] {
     const byId = new Map<LiteratureExtractionProfileId, LiteratureExtractionProfileDTO>();
-    for (const profile of DEFAULT_EXTRACTION_PROFILES) {
+    for (const profile of this.defaultExtractionProfiles) {
       byId.set(profile.profile_id, profile);
     }
     for (const profile of profiles) {
-      const defaultProfile = DEFAULT_EXTRACTION_PROFILES.find((item) => item.profile_id === profile.profile_id);
+      const defaultProfile = this.defaultExtractionProfiles.find((item) => item.profile_id === profile.profile_id);
       const legacyModel = LEGACY_EXTRACTION_MODEL_BY_PROFILE[profile.profile_id];
       byId.set(profile.profile_id, defaultProfile && profile.model === legacyModel ? defaultProfile : profile);
     }
@@ -958,6 +966,44 @@ export class LiteratureContentProcessingSettingsService {
       const order: Record<LiteratureExtractionProfileId, number> = { default: 0, high_accuracy: 1 };
       return order[left.profile_id] - order[right.profile_id];
     });
+  }
+
+  private embeddingProfileFromCall(
+    profileId: LiteratureEmbeddingProfileId,
+    call: LlmFeatureCallConfig,
+  ): LiteratureEmbeddingProfileDTO {
+    if (call.provider.id !== OPENAI_PROVIDER) {
+      throw new Error(`literature-processing/${call.id} must use the supported openai embedding provider.`);
+    }
+    const dimensions = call.parameters.dimensions;
+    if (dimensions !== null && dimensions !== undefined && (!Number.isInteger(dimensions) || Number(dimensions) <= 0)) {
+      throw new Error(`literature-processing/${call.id} dimensions must be null or a positive integer.`);
+    }
+    return {
+      profile_id: profileId,
+      provider: OPENAI_PROVIDER,
+      model: call.model,
+      dimensions: dimensions === null || dimensions === undefined ? null : Number(dimensions),
+    };
+  }
+
+  private extractionProfileFromCall(
+    profileId: LiteratureExtractionProfileId,
+    call: LlmFeatureCallConfig,
+  ): LiteratureExtractionProfileDTO {
+    const provider = call.provider.id === OPENAI_PROVIDER
+      ? OPENAI_PROVIDER
+      : call.provider.id === DASHSCOPE_PROVIDER
+        ? DASHSCOPE_PROVIDER
+        : null;
+    if (!provider) {
+      throw new Error(`literature-processing/${call.id} uses an unsupported extraction provider.`);
+    }
+    return {
+      profile_id: profileId,
+      provider,
+      model: call.model,
+    };
   }
 
   private normalizePath(value: string, key: string): string {

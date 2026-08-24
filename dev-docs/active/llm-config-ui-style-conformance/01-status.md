@@ -5,8 +5,8 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 
 ## Progress
 - State: in-progress
-- Current phase: Configuration foundation and literature workflow integration
-- Next step: Add the typed `.ai/llm` loader and literature feature configuration, then replace the literature shipped model/prompt defaults without changing persisted overrides.
+- Current phase: Topic-selection model routing and prompt migration
+- Next step: Move topic-selection shipped model options into `.ai/llm/topic-selection`, preserve profile and prompt-packet hashes, then migrate one prompt family through the shared loader.
 - Blocker: none
 
 ## Done when

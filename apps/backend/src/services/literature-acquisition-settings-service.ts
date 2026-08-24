@@ -4,13 +4,17 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { ApplicationSettingsRepository } from '../repositories/application-settings-repository.js';
+import {
+  defaultLlmConfig,
+  type LlmConfigReader,
+} from './llm-config-loader.js';
 
 const SETTINGS_NAMESPACE = 'literature_acquisition';
 const SETTINGS_KEY = 'settings';
 
 type LiteratureAcquisitionThrottleSource = keyof LiteratureAcquisitionSettingsDTO['source_throttle'];
 
-const DEFAULT_SETTINGS: Omit<LiteratureAcquisitionSettingsDTO, 'updated_at'> = {
+const DEFAULT_NON_LLM_SETTINGS = {
   unpaywall: {
     enabled: false,
     email: null,
@@ -43,17 +47,30 @@ const DEFAULT_SETTINGS: Omit<LiteratureAcquisitionSettingsDTO, 'updated_at'> = {
       concurrency: 2,
     },
   },
-  quality_scorer: {
-    enabled: true,
-    provider: 'openai',
-    model: 'gpt-5.6-sol',
-    prompt_version: 'auto_pull_quality.v1',
-    external_endpoint_configured: false,
-  },
-};
+} as const;
 
 export class LiteratureAcquisitionSettingsService {
-  constructor(private readonly repository: ApplicationSettingsRepository) {}
+  private readonly defaultSettings: Omit<LiteratureAcquisitionSettingsDTO, 'updated_at'>;
+
+  constructor(
+    private readonly repository: ApplicationSettingsRepository,
+    llmConfig: LlmConfigReader = defaultLlmConfig(),
+  ) {
+    const qualityScorer = llmConfig.getCall('literature-processing', 'auto-pull-quality');
+    if (qualityScorer.provider.id !== 'openai') {
+      throw new Error('literature-processing/auto-pull-quality must use the supported openai provider.');
+    }
+    this.defaultSettings = {
+      ...DEFAULT_NON_LLM_SETTINGS,
+      quality_scorer: {
+        enabled: true,
+        provider: 'openai',
+        model: qualityScorer.model,
+        prompt_version: qualityScorer.version,
+        external_endpoint_configured: false,
+      },
+    };
+  }
 
   async getSettings(): Promise<LiteratureAcquisitionSettingsDTO> {
     const setting = await this.repository.findSetting(SETTINGS_NAMESPACE, SETTINGS_KEY);
@@ -167,31 +184,31 @@ export class LiteratureAcquisitionSettingsService {
     const qualityScorer = this.readRecord(root.quality_scorer);
     return {
       unpaywall: {
-        enabled: typeof unpaywall.enabled === 'boolean' ? unpaywall.enabled : DEFAULT_SETTINGS.unpaywall.enabled,
-        email: this.readString(unpaywall.email) ?? DEFAULT_SETTINGS.unpaywall.email,
+        enabled: typeof unpaywall.enabled === 'boolean' ? unpaywall.enabled : this.defaultSettings.unpaywall.enabled,
+        email: this.readString(unpaywall.email) ?? this.defaultSettings.unpaywall.email,
       },
       downloader: {
-        max_byte_size: this.readNumber(downloader.max_byte_size, DEFAULT_SETTINGS.downloader.max_byte_size),
-        timeout_ms: this.readNumber(downloader.timeout_ms, DEFAULT_SETTINGS.downloader.timeout_ms),
-        max_redirects: this.readNumber(downloader.max_redirects, DEFAULT_SETTINGS.downloader.max_redirects),
+        max_byte_size: this.readNumber(downloader.max_byte_size, this.defaultSettings.downloader.max_byte_size),
+        timeout_ms: this.readNumber(downloader.timeout_ms, this.defaultSettings.downloader.timeout_ms),
+        max_redirects: this.readNumber(downloader.max_redirects, this.defaultSettings.downloader.max_redirects),
         require_pdf_signature: typeof downloader.require_pdf_signature === 'boolean'
           ? downloader.require_pdf_signature
-          : DEFAULT_SETTINGS.downloader.require_pdf_signature,
+          : this.defaultSettings.downloader.require_pdf_signature,
       },
       source_throttle: {
-        arxiv: this.readThrottle(sourceThrottle.arxiv, DEFAULT_SETTINGS.source_throttle.arxiv),
-        crossref: this.readThrottle(sourceThrottle.crossref, DEFAULT_SETTINGS.source_throttle.crossref),
-        zotero: this.readThrottle(sourceThrottle.zotero, DEFAULT_SETTINGS.source_throttle.zotero),
-        unpaywall: this.readThrottle(sourceThrottle.unpaywall, DEFAULT_SETTINGS.source_throttle.unpaywall),
-        download: this.readThrottle(sourceThrottle.download, DEFAULT_SETTINGS.source_throttle.download),
+        arxiv: this.readThrottle(sourceThrottle.arxiv, this.defaultSettings.source_throttle.arxiv),
+        crossref: this.readThrottle(sourceThrottle.crossref, this.defaultSettings.source_throttle.crossref),
+        zotero: this.readThrottle(sourceThrottle.zotero, this.defaultSettings.source_throttle.zotero),
+        unpaywall: this.readThrottle(sourceThrottle.unpaywall, this.defaultSettings.source_throttle.unpaywall),
+        download: this.readThrottle(sourceThrottle.download, this.defaultSettings.source_throttle.download),
       },
       quality_scorer: {
         enabled: typeof qualityScorer.enabled === 'boolean'
           ? qualityScorer.enabled
-          : DEFAULT_SETTINGS.quality_scorer.enabled,
+          : this.defaultSettings.quality_scorer.enabled,
         provider: 'openai',
-        model: this.readString(qualityScorer.model) ?? DEFAULT_SETTINGS.quality_scorer.model,
-        prompt_version: this.readString(qualityScorer.prompt_version) ?? DEFAULT_SETTINGS.quality_scorer.prompt_version,
+        model: this.readString(qualityScorer.model) ?? this.defaultSettings.quality_scorer.model,
+        prompt_version: this.readString(qualityScorer.prompt_version) ?? this.defaultSettings.quality_scorer.prompt_version,
         external_endpoint_configured: Boolean((process.env.AUTO_PULL_LLM_SCORER_URL ?? '').trim()),
       },
     };

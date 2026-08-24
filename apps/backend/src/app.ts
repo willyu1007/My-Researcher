@@ -243,6 +243,7 @@ import { LiteratureFlowService } from './services/literature-flow-service.js';
 import { LiteratureFulltextAcquisitionService } from './services/literature-fulltext-acquisition-service.js';
 import { LiteratureService } from './services/literature-service.js';
 import { LiteratureContentProcessingSettingsService } from './services/literature-content-processing-settings-service.js';
+import { defaultLlmConfig } from './services/llm-config-loader.js';
 import { BackendLlmGateway } from './services/llm-gateway.js';
 import {
   PaperImplementationIntakeBootstrapService,
@@ -1054,9 +1055,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionOfflineEvaluationReplayService = new TopicSelectionOfflineEvaluationReplayService(
     topicSelectionOfflineEvaluationReplayRepository,
   );
-  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(applicationSettingsRepository);
+  const llmConfig = defaultLlmConfig();
+  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
+    applicationSettingsRepository,
+    llmConfig,
+  );
   const llmGateway = new BackendLlmGateway({
     settingsService: literatureContentProcessingSettingsService,
+    llmConfig,
   });
   const hasSemanticV2Composition = (
     hasDefaultDurableExperimentV2Composition
@@ -1679,7 +1685,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionV1cN2BoundedDebateCoordinator,
     topicSelectionV1cN4DelegatedPromotionDecisionService,
   );
-  const literatureAcquisitionSettingsService = new LiteratureAcquisitionSettingsService(applicationSettingsRepository);
+  const literatureAcquisitionSettingsService = new LiteratureAcquisitionSettingsService(
+    applicationSettingsRepository,
+    llmConfig,
+  );
   const literatureAcquisitionSettingsController = new LiteratureAcquisitionSettingsController(
     literatureAcquisitionSettingsService,
   );

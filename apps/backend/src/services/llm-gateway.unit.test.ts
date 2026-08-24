@@ -442,7 +442,7 @@ test('LLM gateway normalizes OpenAI response format names without changing the i
 
 test('LLM gateway falls back to curl for OpenAI fetch connection failures without leaking auth in args', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'pea-openai-curl-fallback-'));
-  const fakeCurlPath = join(tempDir, 'curl');
+  const fakeCurlPath = join(tempDir, 'curl.js');
   const recordPath = join(tempDir, 'record.json');
   const originalPath = process.env.PATH;
   const originalFetch = globalThis.fetch;
@@ -476,6 +476,10 @@ process.stdin.on('end', () => {
 
     const gateway = new BackendLlmGateway({
       settingsService: createSettingsService(),
+      curlCommand: {
+        command: process.execPath,
+        args: [fakeCurlPath],
+      },
     });
     const response = await gateway.createStructuredOutput<{ ok: boolean }>({
       executionContext: { feature: 'test', operation: 'openai-curl-fallback' },

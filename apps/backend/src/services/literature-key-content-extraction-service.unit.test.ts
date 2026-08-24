@@ -8,6 +8,7 @@ import type {
   OpenAIExtractionConfig,
 } from './literature-content-processing-settings-service.js';
 import { LiteratureKeyContentExtractionService } from './literature-key-content-extraction-service.js';
+import { BackendLlmGateway } from './llm-gateway.js';
 
 const CATEGORY_KEYS = [
   'research_problem',
@@ -147,14 +148,18 @@ async function seedSourceBundle(
 
 function createSettingsService(
   runtime: Partial<OpenAIExtractionConfig['runtime']> = {},
+  profile: Pick<OpenAIExtractionConfig, 'provider' | 'model' | 'profileId'> = {
+    provider: 'openai',
+    model: 'gpt-5.6-sol',
+    profileId: 'default',
+  },
 ): LiteratureContentProcessingSettingsService {
   return {
     resolveOpenAIProviderApiKey: async () => 'sk-test',
+    resolveDashScopeProviderApiKey: async () => 'dashscope-test',
     resolveExtractionConfig: async () => ({
       apiKey: 'sk-test',
-      provider: 'openai',
-      model: 'gpt-5.6-sol',
-      profileId: 'default',
+      ...profile,
       runtime: {
         section_concurrency: 3,
         request_timeout_ms: 120_000,
@@ -369,6 +374,48 @@ test('key-content extraction uses low reasoning for section calls and high reaso
     assert.deepEqual(calls[1]?.reasoning, { effort: 'high' });
   } finally {
     globalThis.fetch = previousFetch;
+  }
+});
+
+test('key-content extraction uses DashScope-native parameters for a persisted DashScope profile', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const literatureId = 'KEY-DASHSCOPE-PROFILE-1';
+  await seedLiterature(repository, literatureId);
+  await seedSourceBundle(repository, literatureId);
+  const literature = await repository.findLiteratureById(literatureId);
+  assert.ok(literature);
+
+  const calls: Array<Record<string, unknown>> = [];
+  const settingsService = createSettingsService({}, {
+    provider: 'dashscope',
+    model: 'qwen3.7-plus',
+    profileId: 'high_accuracy',
+  });
+  const gateway = new BackendLlmGateway({
+    settingsService,
+    fetchImpl: (async (_input, init) => {
+      calls.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(buildOutputPayload()) } }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch,
+  });
+
+  const result = await new LiteratureKeyContentExtractionService(
+    repository,
+    settingsService,
+    gateway,
+  ).extract(literature);
+
+  assert.equal(result.ready, true);
+  assert.equal(calls.length, 2);
+  for (const call of calls) {
+    const extraBody = call.extra_body as Record<string, unknown>;
+    assert.equal(extraBody.enable_thinking, true);
+    assert.equal(extraBody.reasoning, undefined);
   }
 });
 

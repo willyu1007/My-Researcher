@@ -1,0 +1,1 @@
+Score whether a CS paper candidate is relevant and useful for literature intake. Return JSON only with quality_score from 0 to 100. Do not reward missing abstracts, invalid identifiers, or irrelevant source metadata.

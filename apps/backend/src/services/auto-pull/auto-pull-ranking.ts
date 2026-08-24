@@ -2,9 +2,11 @@ import { AppError } from '../../errors/app-error.js';
 import type { LiteratureAcquisitionSettingsService } from '../literature-acquisition-settings-service.js';
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
 import {
-  BackendLlmGateway,
-  DEFAULT_HIGH_REASONING_JSON_SCHEMA_PARAMS,
-} from '../llm-gateway.js';
+  defaultLlmConfig,
+  type LlmConfigReader,
+  type LlmFeatureCallConfig,
+} from '../llm-config-loader.js';
+import { BackendLlmGateway } from '../llm-gateway.js';
 import { AUTOPULL_ALERT_CODES } from './auto-pull-alert-codes.js';
 import type {
   AutoPullRankingMode,
@@ -19,6 +21,7 @@ type QualityScorerConfig = {
   model: string;
   promptVersion: string;
   enabled: boolean;
+  call: LlmFeatureCallConfig | null;
   llmGateway?: BackendLlmGateway;
 };
 
@@ -28,6 +31,7 @@ export async function scoreAutoPullRankedCandidates(
   dependencies: {
     contentProcessingSettingsService?: LiteratureContentProcessingSettingsService;
     acquisitionSettingsService?: LiteratureAcquisitionSettingsService;
+    llmConfig?: LlmConfigReader;
     llmGateway?: BackendLlmGateway;
   } = {},
 ): Promise<RankedCandidate[]> {
@@ -101,6 +105,7 @@ function computeCitationScore(citationCount: number | null): number {
 async function resolveQualityScorerConfig(dependencies: {
   contentProcessingSettingsService?: LiteratureContentProcessingSettingsService;
   acquisitionSettingsService?: LiteratureAcquisitionSettingsService;
+  llmConfig?: LlmConfigReader;
   llmGateway?: BackendLlmGateway;
 }): Promise<QualityScorerConfig> {
   const endpoint = (process.env.AUTO_PULL_LLM_SCORER_URL ?? '').trim();
@@ -113,6 +118,7 @@ async function resolveQualityScorerConfig(dependencies: {
       model,
       promptVersion: 'external_endpoint',
       enabled: true,
+      call: null,
     };
   }
 
@@ -124,17 +130,25 @@ async function resolveQualityScorerConfig(dependencies: {
       model: profile.model,
       promptVersion: profile.prompt_version,
       enabled: false,
+      call: null,
     };
   }
 
+  const llmConfig = dependencies.llmConfig ?? defaultLlmConfig();
+  const call = llmConfig.getCall('literature-processing', 'auto-pull-quality');
+  if (call.provider.id !== 'openai') {
+    throw new Error('literature-processing/auto-pull-quality must use the supported openai provider.');
+  }
   return {
     endpoint: null,
     apiKey: null,
-    model: profile?.model ?? 'gpt-5.6-sol',
-    promptVersion: profile?.prompt_version ?? 'auto_pull_quality.v1',
+    model: profile?.model ?? call.model,
+    promptVersion: profile?.prompt_version ?? call.version,
     enabled: true,
+    call,
     llmGateway: dependencies.llmGateway ?? new BackendLlmGateway({
       settingsService: dependencies.contentProcessingSettingsService,
+      llmConfig,
     }),
   };
 }
@@ -203,6 +217,13 @@ async function scoreQualityCandidateViaOpenAI(
       `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: LLM gateway is not configured.`,
     );
   }
+  if (!config.call?.prompts.system) {
+    throw new AppError(
+      500,
+      'INTERNAL_ERROR',
+      `${AUTOPULL_ALERT_CODES.QUALITY_SCORE_UNAVAILABLE}: auto-pull LLM prompt is not configured.`,
+    );
+  }
   try {
     const response = await config.llmGateway.createStructuredOutput<{ quality_score?: number }>({
       executionContext: {
@@ -225,11 +246,7 @@ async function scoreQualityCandidateViaOpenAI(
       messages: [
         {
           role: 'system',
-          content: [
-            'Score whether a CS paper candidate is relevant and useful for literature intake.',
-            'Return JSON only with quality_score from 0 to 100.',
-            'Do not reward missing abstracts, invalid identifiers, or irrelevant source metadata.',
-          ].join(' '),
+          content: config.call.prompts.system,
         },
         {
           role: 'user',
@@ -256,7 +273,8 @@ async function scoreQualityCandidateViaOpenAI(
           quality_score: { type: 'number', minimum: 0, maximum: 100 },
         },
       },
-      normalizedParams: DEFAULT_HIGH_REASONING_JSON_SCHEMA_PARAMS,
+      parameters: { ...config.call.parameters },
+      tools: config.call.tools,
     });
     const parsed = readQualityScore(response.parsed);
     if (parsed === null) {

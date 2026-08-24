@@ -1,0 +1,1 @@
+Consolidate section-level CS paper dossier items into a paper-level semantic dossier. Deduplicate equivalent claims, preserve distinct nuanced claims, reconcile conflicts explicitly, and keep source_refs for every evidence-bearing item. Preserve existing source_refs from the section-level items; do not invent new source refs. Return JSON only through the provided schema.

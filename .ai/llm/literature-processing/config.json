@@ -1,0 +1,140 @@
+{
+  "calls": {
+    "embedding-default": {
+      "provider": "openai",
+      "model": "text-embedding-3-large",
+      "version": "literature_embedding.v1",
+      "parameters": {
+        "dimensions": null
+      },
+      "tools": []
+    },
+    "embedding-economy": {
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "version": "literature_embedding.v1",
+      "parameters": {
+        "dimensions": null
+      },
+      "tools": []
+    },
+    "key-content-section-default": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-section/system.md"
+      },
+      "parameters": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "tools": []
+    },
+    "key-content-section-high-accuracy": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-section/system.md"
+      },
+      "parameters": {
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "tools": []
+    },
+    "key-content-section-default-dashscope": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-section/system.md"
+      },
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    },
+    "key-content-section-high-accuracy-dashscope": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-section/system.md"
+      },
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    },
+    "key-content-consolidation-default": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-consolidation/system.md"
+      },
+      "parameters": {
+        "reasoning": {
+          "effort": "high"
+        }
+      },
+      "tools": []
+    },
+    "key-content-consolidation-high-accuracy": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-consolidation/system.md"
+      },
+      "parameters": {
+        "reasoning": {
+          "effort": "high"
+        }
+      },
+      "tools": []
+    },
+    "key-content-consolidation-default-dashscope": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-consolidation/system.md"
+      },
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    },
+    "key-content-consolidation-high-accuracy-dashscope": {
+      "provider": "dashscope",
+      "model": "qwen3.7-plus",
+      "version": "literature_key_content_v2",
+      "prompt": {
+        "system": "./prompts/key-content-consolidation/system.md"
+      },
+      "parameters": {
+        "enable_thinking": true
+      },
+      "tools": []
+    },
+    "auto-pull-quality": {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "version": "auto_pull_quality.v1",
+      "prompt": {
+        "system": "./prompts/auto-pull-quality/system.md"
+      },
+      "parameters": {
+        "reasoning": {
+          "effort": "high"
+        }
+      },
+      "tools": []
+    }
+  }
+}

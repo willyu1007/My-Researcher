@@ -34,12 +34,10 @@ type StorageRootForm = Record<StorageRootKey, string>;
 type EmbeddingChoice = {
   id: LiteratureEmbeddingProfileId;
   label: string;
-  defaultModel: string;
 };
 type ExtractionChoice = {
   id: LiteratureExtractionProfileId;
   label: string;
-  defaultModel: string;
 };
 type KeyContentMethodChoice = {
   id: LiteratureKeyContentReadyMethod;
@@ -50,12 +48,10 @@ const embeddingChoices: EmbeddingChoice[] = [
   {
     id: 'default',
     label: '高精度',
-    defaultModel: 'text-embedding-3-large',
   },
   {
     id: 'economy',
     label: '经济',
-    defaultModel: 'text-embedding-3-small',
   },
 ];
 
@@ -63,12 +59,10 @@ const extractionChoices: ExtractionChoice[] = [
   {
     id: 'default',
     label: '通用',
-    defaultModel: 'gpt-5.5',
   },
   {
     id: 'high_accuracy',
     label: '高精度',
-    defaultModel: 'gpt-5.5',
   },
 ];
 
@@ -218,11 +212,6 @@ function formatTimestamp(value: string | null | undefined): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
-}
-
-function formatModelName(value: string): string {
-  if (value === 'gpt-5.5') return 'GPT-5.5';
-  return value;
 }
 
 export function LiteratureContentProcessingSettingsPanel() {
@@ -416,11 +405,7 @@ export function LiteratureContentProcessingSettingsPanel() {
       embeddingChoices.map((choice) => ({
         id: choice.id,
         label: choice.label,
-        modelHint:
-          formatModelName(
-            settings?.embedding.profiles.find((profile) => profile.profile_id === choice.id)?.model
-            ?? choice.defaultModel,
-          ),
+        modelHint: settings?.embedding.profiles.find((profile) => profile.profile_id === choice.id)?.model ?? null,
       })),
     [settings?.embedding.profiles],
   );
@@ -430,11 +415,7 @@ export function LiteratureContentProcessingSettingsPanel() {
       extractionChoices.map((choice) => ({
         id: choice.id,
         label: choice.label,
-        modelHint:
-          formatModelName(
-            settings?.extraction.profiles.find((profile) => profile.profile_id === choice.id)?.model
-            ?? choice.defaultModel,
-          ),
+        modelHint: settings?.extraction.profiles.find((profile) => profile.profile_id === choice.id)?.model ?? null,
       })),
     [settings?.extraction.profiles],
   );
@@ -606,7 +587,9 @@ export function LiteratureContentProcessingSettingsPanel() {
               }}
             >
               {embeddingOptions.map((option) => (
-                <option key={option.id} value={option.id}>{option.label} · {option.modelHint}</option>
+                <option key={option.id} value={option.id}>
+                  {option.label}{option.modelHint ? ` · ${option.modelHint}` : ''}
+                </option>
               ))}
             </select>
           </label>
@@ -624,7 +607,9 @@ export function LiteratureContentProcessingSettingsPanel() {
               }}
             >
               {extractionOptions.map((option) => (
-                <option key={option.id} value={option.id}>{option.label} · {option.modelHint}</option>
+                <option key={option.id} value={option.id}>
+                  {option.label}{option.modelHint ? ` · ${option.modelHint}` : ''}
+                </option>
               ))}
             </select>
           </label>

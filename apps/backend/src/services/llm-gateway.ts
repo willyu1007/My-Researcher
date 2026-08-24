@@ -4,6 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import type { LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import {
+  defaultLlmConfig,
+  type LlmConfigReader,
+} from './llm-config-loader.js';
+import {
   computeLlmCostUsd,
   loadDefaultLlmPricingTable,
   type LlmPricingTable,
@@ -116,6 +120,8 @@ export type LlmStructuredOutputRequest = {
   schemaName: string;
   schema: Record<string, unknown>;
   policy?: LlmRequestPolicy;
+  parameters?: Record<string, unknown>;
+  tools?: readonly unknown[];
   normalizedParams?: TopicSelectionModelProfileNormalizedParams | object;
   providerOverrides?: TopicSelectionProviderOverrides | Record<string, unknown>;
 };
@@ -323,16 +329,24 @@ function withJsonObjectInstruction(
 
 export class BackendLlmGateway {
   private resolvedPricingTable: LlmPricingTable | null = null;
+  private readonly llmConfig: LlmConfigReader;
 
   constructor(
     private readonly options: {
       settingsService?: LiteratureContentProcessingSettingsService;
+      llmConfig?: LlmConfigReader;
       fetchImpl?: typeof fetch;
       defaultTimeoutMs?: number;
       defaultMaxRetries?: number;
       pricingTable?: LlmPricingTable;
+      curlCommand?: {
+        command: string;
+        args?: string[];
+      };
     } = {},
-  ) {}
+  ) {
+    this.llmConfig = options.llmConfig ?? defaultLlmConfig();
+  }
 
   private pricingTable(): LlmPricingTable {
     this.resolvedPricingTable ??= this.options.pricingTable ?? loadDefaultLlmPricingTable();
@@ -385,7 +399,8 @@ export class BackendLlmGateway {
   }
 
   async createEmbeddings(request: LlmEmbeddingRequest): Promise<LlmEmbeddingResponse> {
-    if (request.model.providerId !== 'openai') {
+    const provider = this.llmConfig.getProvider(request.model.providerId);
+    if (request.model.providerId !== 'openai' || provider.protocol !== 'openai-responses') {
       throw new LlmGatewayError('InvalidRequestError', `Embeddings are not implemented for provider ${request.model.providerId}.`, {
         retryable: false,
       });
@@ -417,7 +432,7 @@ export class BackendLlmGateway {
       startedAt,
       externalSignal: request.signal,
       operation: async (signal) => {
-        const response = await this.fetchProvider('https://api.openai.com/v1/embeddings', {
+        const response = await this.fetchProvider(`${this.llmConfig.resolveProviderBaseUrl(provider.id)}/embeddings`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -615,7 +630,8 @@ export class BackendLlmGateway {
 
     try {
       return await new Promise<Response>((resolve, reject) => {
-        const child = spawn('curl', args, {
+        const curlCommand = this.options.curlCommand ?? { command: 'curl', args: [] };
+        const child = spawn(curlCommand.command, [...(curlCommand.args ?? []), ...args], {
           stdio: ['pipe', 'pipe', 'pipe'],
         });
         const stdoutChunks: Buffer[] = [];
@@ -692,12 +708,13 @@ export class BackendLlmGateway {
     apiKey: string,
     signal: AbortSignal,
   ): Promise<Record<string, unknown>> {
-    if (request.model.providerId === 'openai') {
+    const provider = this.llmConfig.getProvider(request.model.providerId);
+    if (provider.protocol === 'openai-responses') {
       const runtimeOptions = this.openAiRuntimeOptions(request);
       // T-124 S3 复审 F5-2: reject strict-mode-degenerate schemas before they are
       // silently collapsed to always-empty objects (see the function comment).
       assertOpenAiStructuredOutputSchemaEncodable(request.schema);
-      const response = await this.fetchProvider('https://api.openai.com/v1/responses', {
+      const response = await this.fetchProvider(`${this.llmConfig.resolveProviderBaseUrl(provider.id)}/responses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -709,6 +726,7 @@ export class BackendLlmGateway {
           model: request.model.modelId,
           input: request.messages,
           ...runtimeOptions,
+          ...this.toolOptions(request.tools),
           text: {
             format: {
               type: 'json_schema',
@@ -722,9 +740,9 @@ export class BackendLlmGateway {
       return this.readJsonResponse(response);
     }
 
-    if (request.model.providerId === 'dashscope') {
+    if (provider.protocol === 'openai-compatible-chat-completions' && request.model.providerId === 'dashscope') {
       const dashScopeRuntimeOptions = this.dashScopeRuntimeOptions(request);
-      const response = await this.fetchProvider(`${this.resolveDashScopeBaseUrl()}/chat/completions`, {
+      const response = await this.fetchProvider(`${this.llmConfig.resolveProviderBaseUrl(provider.id)}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -736,8 +754,10 @@ export class BackendLlmGateway {
           model: request.model.modelId,
           messages: withJsonObjectInstruction(request.messages, request.schemaName, request.schema),
           response_format: { type: 'json_object' },
+          ...this.toolOptions(request.tools),
           extra_body: {
             ...dashScopeRuntimeOptions,
+            ...(request.parameters ?? {}),
             ...(request.providerOverrides ?? {}),
           },
         }),
@@ -745,9 +765,9 @@ export class BackendLlmGateway {
       return this.readJsonResponse(response);
     }
 
-    if (request.model.providerId === 'deepseek') {
+    if (provider.protocol === 'openai-compatible-chat-completions' && request.model.providerId === 'deepseek') {
       const deepSeekRuntimeOptions = this.deepSeekRuntimeOptions(request);
-      const response = await this.fetchProvider(`${this.resolveDeepSeekBaseUrl()}/chat/completions`, {
+      const response = await this.fetchProvider(`${this.llmConfig.resolveProviderBaseUrl(provider.id)}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -759,7 +779,9 @@ export class BackendLlmGateway {
           model: request.model.modelId,
           messages: withJsonObjectInstruction(request.messages, request.schemaName, request.schema),
           response_format: { type: 'json_object' },
+          ...this.toolOptions(request.tools),
           ...deepSeekRuntimeOptions,
+          ...(request.parameters ?? {}),
           ...(request.providerOverrides ?? {}),
         }),
       });
@@ -774,8 +796,13 @@ export class BackendLlmGateway {
   private openAiRuntimeOptions(request: LlmStructuredOutputRequest): Record<string, unknown> {
     return {
       ...this.openAiNormalizedRuntimeOptions(request.normalizedParams),
+      ...(request.parameters ?? {}),
       ...(request.providerOverrides ?? {}),
     };
+  }
+
+  private toolOptions(tools: readonly unknown[] | undefined): Record<string, unknown> {
+    return tools && tools.length > 0 ? { tools } : {};
   }
 
   private openAiNormalizedRuntimeOptions(normalizedParams: unknown): Record<string, unknown> {
@@ -855,7 +882,7 @@ export class BackendLlmGateway {
     const apiKey = await settings?.resolveOpenAIProviderApiKey?.()
       ?? (await settings?.resolveOpenAIExtractionConfig?.())?.apiKey?.trim()
       ?? (await settings?.resolveOpenAIEmbeddingConfig?.())?.apiKey?.trim()
-      ?? process.env.OPENAI_API_KEY?.trim()
+      ?? this.llmConfig.resolveProviderApiKey('openai')
       ?? '';
     if (!apiKey) {
       throw new LlmGatewayError('AuthError', 'OpenAI API key is not configured.', { retryable: false });
@@ -868,7 +895,7 @@ export class BackendLlmGateway {
       resolveDashScopeProviderApiKey?: () => Promise<string | null>;
     }) | undefined;
     const apiKey = await settings?.resolveDashScopeProviderApiKey?.()
-      ?? process.env.DASHSCOPE_API_KEY?.trim()
+      ?? this.llmConfig.resolveProviderApiKey('dashscope')
       ?? '';
     if (!apiKey) {
       throw new LlmGatewayError('AuthError', 'DashScope API key is not configured.', { retryable: false });
@@ -881,7 +908,7 @@ export class BackendLlmGateway {
       resolveDeepSeekProviderApiKey?: () => Promise<string | null>;
     }) | undefined;
     const apiKey = await settings?.resolveDeepSeekProviderApiKey?.()
-      ?? process.env.DEEPSEEK_API_KEY?.trim()
+      ?? this.llmConfig.resolveProviderApiKey('deepseek')
       ?? '';
     if (!apiKey) {
       throw new LlmGatewayError('AuthError', 'DeepSeek API key is not configured.', { retryable: false });
@@ -897,18 +924,6 @@ export class BackendLlmGateway {
       return this.resolveDeepSeekApiKey();
     }
     return this.resolveOpenAIApiKey();
-  }
-
-  private resolveDashScopeBaseUrl(): string {
-    const value = process.env.DASHSCOPE_BASE_URL?.trim()
-      || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
-    return value.replace(/\/+$/u, '');
-  }
-
-  private resolveDeepSeekBaseUrl(): string {
-    const value = process.env.DEEPSEEK_BASE_URL?.trim()
-      || 'https://api.deepseek.com';
-    return value.replace(/\/+$/u, '');
   }
 
   private mapHttpError(status: number, message: string, retryAfterMs?: number): LlmGatewayError {

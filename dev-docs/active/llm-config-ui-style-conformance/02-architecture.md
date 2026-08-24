@@ -19,6 +19,7 @@ Inventory evidence shows 42 active model-profile definitions, 31 registered topi
 ## Interfaces and contracts
 - Provider entries contain `protocol`, `base_url`, and `api_key_env`.
 - Feature call entries start from the `manage-llm-config` shape: stable call key, provider, model, native `parameters`, prompt paths relative to `config.json`, and `tools`. Existing selectable model options are represented as separately keyed call entries and related to code-owned profile admission policy by their stable option IDs; config loading must not invent implicit provider fallback.
+- A workflow that supports multiple providers uses separate call entries per provider so each entry passes only that provider's native parameter shape. Persisted user selection chooses among configured entries; it never mutates or synthesizes a cross-provider parameter object.
 - The first slice contains literature embedding, extraction, and auto-pull quality calls. Topic-selection and paper-implementation entries land by workflow group after the loader contract is proven, because their prompt bytes and model-profile hashes are already persisted/audited identities.
 - Loader failures are startup/configuration errors with paths and logical IDs, never silent fallback to stale hardcoded configuration.
 - Prompt identifiers used by telemetry, hashes, replay, or idempotency remain stable while content moves. Exact prompt-byte compatibility is verified for migrations where those bytes participate in identity.
