@@ -38,6 +38,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import {
   type TopicSelectionAgentInvocationResult,
   type TopicSelectionAgentRuntimeTokenBudgetInput,
@@ -76,6 +77,16 @@ const EXPLORER_SLOT = roleStageSlot('explorer.round_1_discovery');
 const DEEP_CRITIC_SLOT = roleStageSlot('deep_critic.round_1_discovery');
 const ISSUE_FRAME_SLOT = roleStageSlot('arbiter.issue_framing');
 const FINAL_SYNTHESIS_SLOT = roleStageSlot('arbiter.final_synthesis');
+
+function configuredPrompt(slot: TopicSelectionDebateRoleStageSlot) {
+  const prompt = defaultLlmConfig().getPrompt('topic-selection', slot.prompt_template_id);
+  if (prompt.version !== slot.prompt_template_version) {
+    throw new Error(
+      `Prompt version drift for ${slot.slot_id}: scenario=${slot.prompt_template_version}, config=${prompt.version}.`,
+    );
+  }
+  return prompt;
+}
 
 export type TopicSelectionNeedDiscoveryDebateMockedOutputs = {
   explorer: Array<TopicSelectionMockedAgentOutput<TopicSelectionNeedDiscoveryExplorerNotes>>;
@@ -294,8 +305,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         profile_id: EXPLORER_SLOT.profile_id,
         output_contract: EXPLORER_SLOT.output_contract,
         prompt: {
-          promptTemplateId: EXPLORER_SLOT.prompt_template_id,
-          version: EXPLORER_SLOT.prompt_template_version,
+          promptTemplateId: configuredPrompt(EXPLORER_SLOT).id,
+          version: configuredPrompt(EXPLORER_SLOT).version,
         },
         schema_name: EXPLORER_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryExplorerNotesSchema as unknown as Record<string, unknown>,
@@ -340,8 +351,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
         profile_id: DEEP_CRITIC_SLOT.profile_id,
         output_contract: DEEP_CRITIC_SLOT.output_contract,
         prompt: {
-          promptTemplateId: DEEP_CRITIC_SLOT.prompt_template_id,
-          version: DEEP_CRITIC_SLOT.prompt_template_version,
+          promptTemplateId: configuredPrompt(DEEP_CRITIC_SLOT).id,
+          version: configuredPrompt(DEEP_CRITIC_SLOT).version,
         },
         schema_name: DEEP_CRITIC_SLOT.schema_name,
         schema: topicSelectionNeedDiscoveryDeepCriticNotesSchema as unknown as Record<string, unknown>,
@@ -389,8 +400,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       profile_id: ISSUE_FRAME_SLOT.profile_id,
       output_contract: ISSUE_FRAME_SLOT.output_contract,
       prompt: {
-        promptTemplateId: ISSUE_FRAME_SLOT.prompt_template_id,
-        version: ISSUE_FRAME_SLOT.prompt_template_version,
+        promptTemplateId: configuredPrompt(ISSUE_FRAME_SLOT).id,
+        version: configuredPrompt(ISSUE_FRAME_SLOT).version,
       },
       schema_name: ISSUE_FRAME_SLOT.schema_name,
       schema: topicSelectionNeedDiscoveryDebateIssueFrameSchema as unknown as Record<string, unknown>,
@@ -443,8 +454,8 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       profile_id: FINAL_SYNTHESIS_SLOT.profile_id,
       output_contract: FINAL_SYNTHESIS_SLOT.output_contract,
       prompt: {
-        promptTemplateId: FINAL_SYNTHESIS_SLOT.prompt_template_id,
-        version: FINAL_SYNTHESIS_SLOT.prompt_template_version,
+        promptTemplateId: configuredPrompt(FINAL_SYNTHESIS_SLOT).id,
+        version: configuredPrompt(FINAL_SYNTHESIS_SLOT).version,
       },
       schema_name: FINAL_SYNTHESIS_SLOT.schema_name,
       schema: topicSelectionRankedCandidateDraftBatchSchema as unknown as Record<string, unknown>,
@@ -981,26 +992,11 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     input: TopicSelectionNeedDiscoveryDebateLoopInput,
     role: 'explorer' | 'deep_critic',
   ): Array<{ role: 'system' | 'user'; content: string }> {
-    const roleLines = role === 'explorer'
-      ? [
-          'You are the divergent explorer in a single round of need-discovery debate; surface distinct, evidence-grounded candidate need angles, maximizing coverage rather than ranking.',
-          'Emit candidate_angles, each with a stable angle_id, a one-line summary, evidence_refs drawn only from supplied exploration_context refs, and an optional candidate_need_hint (a need phrasing, not a NeedCandidate id); list open items in unresolved_questions, data or coverage gaps in warnings, and cross-angle support in top-level evidence_refs.',
-          'Cite only exploration_context evidence refs; never invent refs or need IDs. This is round-1 divergence: do not score, rank, or pick winners. Do not emit a role other than explorer.',
-        ]
-      : [
-          'You are the deep critic in a single round of need-discovery debate; adversarially stress-test candidate value, prior-art and pseudo-gap risk, and evidence sufficiency.',
-          'Emit critique_points, each with a critique_id, a one-line summary, a severity of low, medium, or high, and evidence_refs citing the prior-art or strength refs that justify it; put systemic risks in failure_modes, evidence you lack in missing_evidence_questions, and meta or data-quality issues in warnings.',
-          'Every critique cites supplied evidence or names the missing evidence; make no unsupported assertions. Do not propose new candidate need angles (explorer-only) or rank or decide (arbiter-only). Do not emit a role other than deep_critic.',
-        ];
+    const prompt = configuredPrompt(role === 'explorer' ? EXPLORER_SLOT : DEEP_CRITIC_SLOT);
     return [
       {
         role: 'system',
-        content: [
-          ...roleLines,
-          'Use only supplied context refs and payloads.',
-          'Return only structured role notes.',
-          'Do not write authority objects or include hidden reasoning.',
-        ].join(' '),
+        content: prompt.system,
       },
       {
         role: 'user',
@@ -1030,13 +1026,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       return [
         {
           role: 'system',
-          content: [
-            'You are the debate arbiter in the issue-framing stage; from the role-level summaries, decide what final synthesis must resolve.',
-            'Use arbiter context and the supplied role-level summaries only.',
-            'Emit a DebateIssueFrame: set frame_id; focused_questions are the specific points final synthesis must settle, drawn from each role-level summary candidate_need_signals, risk_signals, and unresolved_questions; requested_roles lists any of explorer or deep_critic whose further input is still needed (empty if none); source_role_summary_refs are the role-level summary refs you used; stop_condition states when framing is complete, else null.',
-            'Do not produce a ranked candidate draft batch, candidate drafts, or evidence role-bundles here; that is the final-synthesis stage.',
-            'Do not write authority objects or include hidden reasoning.',
-          ].join(' '),
+          content: configuredPrompt(ISSUE_FRAME_SLOT).system,
         },
         {
           role: 'user',
@@ -1052,21 +1042,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
     return [
       {
         role: 'system',
-        content: [
-          'You are the debate arbiter in final synthesis; resolve the issue frame into a ranked candidate need draft batch, the sole external output of this debate.',
-          'Use arbiter context, role-level summaries, and referenced artifacts only.',
-          'Emit draft_batch with terminal_result, a ranking_rationale explaining the order, and max_persisted_candidates set to the cap given in arbiter context; list drafts ranked best-first and never more than that cap; record dropped angles in rejected_framings (framing_id, reason_code, summary, refs) and anything unsettled in unresolved_points (routed_to = supplemental_round, human_review, or blocked).',
-          'Echo node_input.schema_version into the batch and node_input.node_attempt_id into draft_batch.node_attempt_id, and only set terminal_result=finalize when at least one admissible draft exists.',
-          'For every candidate draft, include non-empty scope_notes that state the exact population, technique, evidence boundary, and validation boundary, and set speculative=false unless the supplied evidence directly forces uncertainty.',
-          'Rank drafts contiguously from 1 with no gaps by descending need strength, and for each draft give a candidate_need with a distinct unmet_need_statement, a mechanism_type, a prior_art_status, and at least one gap_code.',
-          'Each draft must cite at least one support or challenge evidence_unit ref and at least one evidence_strength_assessment ref in strength_assessment_refs; drop drafts whose prior_art_status is already_solved or falsified rather than ranking them.',
-          'If producing a ranked candidate draft batch, role bundle refs must be role-specific evidence_unit refs only: support_unit_refs use support units, challenge_unit_refs use challenge units, baseline_unit_refs use baseline units, and context_unit_refs use context units.',
-          'Before returning a ranked candidate draft batch, check every role-bundle ref against role_ref_constraints; if a role has no allowed evidence_unit refs, return an empty array for that role rather than borrowing another role.',
-          'Do not use baseline, challenge, or context units in support_unit_refs to mean they support the written argument; EvidenceMap role is authoritative.',
-          'Do not place evidence_conflict/evidence_conflict_set or evidence_strength_assessment refs in the role bundle; put them only in conflict_refs or strength_assessment_refs.',
-          'Never exceed max_persisted_candidates drafts and choose terminal_result honestly; do not fabricate consensus. This batch is a NeedCandidate draft feed only; do not assert a NeedCandidateSet, ValidatedNeed, or TopicQuestionContract.',
-          'Do not write authority objects or include hidden reasoning.',
-        ].join(' '),
+        content: configuredPrompt(FINAL_SYNTHESIS_SLOT).system,
       },
       {
         role: 'user',

@@ -5,8 +5,8 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 
 ## Progress
 - State: in-progress
-- Current phase: Topic-selection prompt migration
-- Next step: Migrate the remaining Topic Selection need-generation, need-discovery, and resource-sampling prompt authorities, then run a Topic Selection duplicate-authority scan.
+- Current phase: Paper Implementation prompt migration
+- Next step: Externalize Paper Implementation system prompts by runtime family while preserving the slot manifest, prompt-template versions, compression re-rendering, and runtime artifact hashes.
 - Blocker: none
 
 ## Done when

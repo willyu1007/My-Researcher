@@ -32,6 +32,7 @@ import type {
 } from '../repositories/literature-repository.js';
 import type { TopicSelectionResourceSamplingRepository } from '../repositories/topic-selection-resource-sampling.repository.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import {
   TOPIC_SELECTION_RUNTIME_INVOCATION_CONTEXT_SCHEMA_VERSION,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-llm-runtime-contracts';
@@ -62,7 +63,12 @@ export const TOPIC_SELECTION_RESOURCE_SAMPLING_WORKFLOW_PROFILE_KEY =
   TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID;
 export const TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID =
   'topic-selection-resource-sampling-classification' as const;
-export const TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_VERSION = '1' as const;
+const RESOURCE_SAMPLING_PROMPT = defaultLlmConfig().getPrompt(
+  'topic-selection',
+  TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_ID,
+);
+export const TOPIC_SELECTION_RESOURCE_SAMPLING_PROMPT_TEMPLATE_VERSION =
+  RESOURCE_SAMPLING_PROMPT.version;
 export const TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_ID =
   'topic-selection.resource-sampling.create-sample-set.v1' as const;
 const RESOURCE_SAMPLING_INVOCATION_SLOT_ID =
@@ -265,17 +271,7 @@ const CLASSIFICATION_BATCH_RETRY_BACKOFF_MS = 1500;
 const NON_RETRYABLE_CLASSIFICATION_BLOCKER_PREFIXES = ['TOKEN_BUDGET_', 'COMPRESSION_QUALITY_GATE_'] as const;
 
 export function buildResourceSamplingClassificationSystemContent(): string {
-  return [
-    'You are classifying a batch of topic-scoped literature into a role-balanced topic-selection resource sample, working only from the supplied batch so a deterministic sampler can later assemble the set.',
-    'Emit a TopicSelectionResourceSamplingLlmOutput object whose classifications array holds exactly one classification per eligible literature_ref in this batch, copying each literature_ref verbatim and neither adding, dropping, nor merging candidates.',
-    'Set primary_role to one of support, challenge, baseline, context, review, or excluded: support is positive method or enabling evidence; challenge is risks, attacks, poisoning, failures, or source-verification issues; baseline is evaluation, benchmark, comparison, dataset, leaderboard, or metric material; context is foundation or background material; review is genuinely mixed or uncertain material that needs human judgement before sampling; excluded is off-topic or topic-drift material that is not usable for this topic.',
-    'Set role_scores to a 0-to-1 score for every role (support, challenge, baseline, context, review, excluded) and make primary_role the highest-scoring role.',
-    'Set topic_relevance and confidence each as a 0-to-1 number, where topic_relevance is how on-topic the item is and confidence is your certainty in the classification.',
-    'Set evidence_polarity to one of positive_method, risk_or_failure, evaluation_baseline, foundation_context, topic_drift, mixed, or unknown, aligned with the primary_role.',
-    'Provide a brief classification_rationale and never expose hidden chain-of-thought; supply exclusion_reason when the role is excluded, supply review_reason when the role is review, and list method_families only when the method semantics are clear.',
-    'Use only the supplied batch fields (title, abstract, key_content_digest, tags, year, activation score and reason, source_count) and never invent literature, refs, or facts not present in the batch.',
-    'Return only JSON matching TopicSelectionResourceSamplingLlmOutput@v1.',
-  ].join(' ');
+  return RESOURCE_SAMPLING_PROMPT.system;
 }
 
 export class TopicSelectionResourceSamplingService {

@@ -136,6 +136,30 @@
     "topic-selection-v1c-downstream-feedback-normalization": {
       "version": "1",
       "system": "prompts/v1c/n6-feedback-normalization/system.md"
+    },
+    "topic-selection-generate-need-candidate": {
+      "version": "v1",
+      "system": "prompts/v1a/generate-need-candidate/system.md"
+    },
+    "topic-selection-need-discovery-explorer": {
+      "version": "v1",
+      "system": "prompts/v1a/need-discovery-explorer/system.md"
+    },
+    "topic-selection-need-discovery-deep-critic": {
+      "version": "v1",
+      "system": "prompts/v1a/need-discovery-deep-critic/system.md"
+    },
+    "topic-selection-need-discovery-arbiter-issue-frame": {
+      "version": "v1",
+      "system": "prompts/v1a/need-discovery-arbiter-issue-frame/system.md"
+    },
+    "topic-selection-need-discovery-arbiter-final": {
+      "version": "v1",
+      "system": "prompts/v1a/need-discovery-arbiter-final/system.md"
+    },
+    "topic-selection-resource-sampling-classification": {
+      "version": "1",
+      "system": "prompts/resource-sampling/classification/system.md"
     }
   }
 }
