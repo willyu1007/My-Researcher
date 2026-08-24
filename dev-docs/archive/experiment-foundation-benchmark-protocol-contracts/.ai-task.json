@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-071",
+  "slug": "experiment-foundation-benchmark-protocol-contracts",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "benchmark-asset",
+    "evaluation-protocol",
+    "baseline-asset"
+  ]
+}

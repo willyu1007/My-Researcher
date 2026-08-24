@@ -1,5 +1,8 @@
 # 07 Quality Closure Review
 
+> Historical closure record. References to retired `.ai` paths below are provenance, not current
+> commands or storage contracts.
+
 ## Purpose
 本文件用于把外部设计审查报告的高价值观点，对照当前 repo 实际状态，收口为母包级质量结论。
 

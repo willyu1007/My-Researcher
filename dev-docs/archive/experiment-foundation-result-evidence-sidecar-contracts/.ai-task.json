@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-074",
+  "slug": "experiment-foundation-result-evidence-sidecar-contracts",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "experiment-result",
+    "evidence-candidate",
+    "paper-sidecar"
+  ]
+}

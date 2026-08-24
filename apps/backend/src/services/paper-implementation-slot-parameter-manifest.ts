@@ -6,7 +6,7 @@
 // facts (route, prompt template, context policy id, token budget, materialization
 // class, canary flag, runtime-stress must-check cases) that the registry does not
 // own. A committed JSON snapshot (see PAPER_IMPLEMENTATION_SLOT_PARAMETER_MANIFEST_SNAPSHOT_PATH,
-// regenerated via `node .ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs`)
+// regenerated via `node apps/backend/scripts/paper-implementation-slot-parameter-manifest-export.mjs`)
 // makes every parameter change a reviewable diff; the unit test suite enforces
 // snapshot freshness and four-way completeness (routes ↔ manifest ↔ runtime-stress
 // must-check cases ↔ provider canary env flags).
@@ -107,7 +107,7 @@ export const PAPER_IMPLEMENTATION_SLOT_PARAMETER_MANIFEST_SNAPSHOT_PATH =
   'docs/context/paper-implementation/slot-parameter-manifest.json' as const;
 
 export const PAPER_IMPLEMENTATION_SLOT_PARAMETER_MANIFEST_EXPORT_SCRIPT =
-  '.ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs' as const;
+  'apps/backend/scripts/paper-implementation-slot-parameter-manifest-export.mjs' as const;
 
 export const PAPER_IMPLEMENTATION_SLOT_MATERIALIZATION_CLASSES = [
   // Slot final artifacts may be materialized through the runtime Domain Gate
@@ -334,7 +334,7 @@ export const PAPER_IMPLEMENTATION_SLOT_MANIFEST_BINDINGS: readonly PaperImplemen
     runtime_stress_required_case_keys: [
       'result_analysis_provider_failure_retry_exhausted_no_domain_gate_payload',
       'result_analysis_inactive_project_rejected_before_orchestrator',
-      'domain_gate_result_analysis_final_artifact_idempotency',
+      'domain_gate_result_analysis_materialization_closed',
     ],
   },
   {
@@ -700,7 +700,7 @@ export interface PaperImplementationSlotParameterManifestCompletenessInput {
   manifest: PaperImplementationSlotParameterManifest;
   /** runtime-slots/<segment>/run segments parsed from paper-implementation-routes.ts */
   route_slot_segments: readonly string[];
-  /** required-case keys parsed from .ai/scripts/paper-implementation-runtime-stress.mjs */
+  /** required-case keys parsed from apps/backend/scripts/paper-implementation-runtime-stress.mjs */
   stress_required_case_keys: readonly string[];
   /** T114_*_CANARY_LIVE flags parsed from the runtime-stress script */
   canary_env_flags: readonly string[];

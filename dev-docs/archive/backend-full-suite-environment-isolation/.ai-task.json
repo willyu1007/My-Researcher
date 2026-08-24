@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-083",
+  "slug": "backend-full-suite-environment-isolation",
+  "keywords": [
+    "backend-tests",
+    "full-suite",
+    "environment-isolation",
+    "prisma-smoke",
+    "R-009"
+  ]
+}

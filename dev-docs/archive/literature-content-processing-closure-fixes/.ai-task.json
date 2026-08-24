@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-040",
+  "slug": "literature-content-processing-closure-fixes",
+  "keywords": [
+    "literature",
+    "content-processing",
+    "closure",
+    "grobid",
+    "retrieval"
+  ]
+}

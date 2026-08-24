@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-088",
+  "slug": "topic-selection-workflow-runtime-foundation",
+  "keywords": [
+    "topic-selection",
+    "workflow-harness",
+    "agent-orchestrator",
+    "profile-escalation",
+    "R-009",
+    "parent-task:T-042"
+  ]
+}

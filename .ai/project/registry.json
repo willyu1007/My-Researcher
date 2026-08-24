@@ -1,0 +1,1203 @@
+{
+  "version": 1,
+  "milestones": [
+    {
+      "id": "M-000",
+      "title": "Inbox / Triage",
+      "status": "in-progress",
+      "description": "Triage queue for new or unplanned work."
+    },
+    {
+      "id": "M-001",
+      "title": "LLM Research Lifecycle v1",
+      "status": "in-progress",
+      "description": "Establish governance contracts and an executable baseline for LLM-driven research lifecycle workflows."
+    }
+  ],
+  "features": [
+    {
+      "id": "F-000",
+      "title": "Inbox / Untriaged",
+      "milestone_id": "M-000",
+      "status": "in-progress",
+      "description": "Untriaged tasks live here until mapped to a real feature."
+    },
+    {
+      "id": "F-001",
+      "title": "Research Lifecycle Governance Core",
+      "milestone_id": "M-001",
+      "status": "in-progress",
+      "description": "Deliver Stage DAG + Value Gate governance with versioned lifecycle execution for M1-M8 modules."
+    },
+    {
+      "id": "F-002",
+      "title": "Desktop Frontend Foundation",
+      "milestone_id": "M-001",
+      "status": "in-progress",
+      "description": "Build Electron desktop shell with React/Vite renderer and brand-aligned UI theme system."
+    }
+  ],
+  "ideas": [],
+  "tasks": [
+    {
+      "id": "T-001",
+      "slug": "unify-ci-verify-entrypoint",
+      "status": "archived",
+      "updated": "2026-02-08",
+      "dev_docs_path": "dev-docs/archive/unify-ci-verify-entrypoint",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-002",
+      "slug": "paper-assistant-core-modules",
+      "status": "archived",
+      "updated": "2026-02-24",
+      "dev_docs_path": "dev-docs/archive/paper-assistant-core-modules",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-003",
+      "slug": "llm-research-lifecycle-governance-v1",
+      "status": "archived",
+      "updated": "2026-02-24",
+      "dev_docs_path": "dev-docs/archive/llm-research-lifecycle-governance-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-004",
+      "slug": "desktop-app-electron-ui-v1",
+      "status": "archived",
+      "updated": "2026-02-24",
+      "dev_docs_path": "dev-docs/archive/desktop-app-electron-ui-v1",
+      "feature_id": "F-002"
+    },
+    {
+      "id": "T-005",
+      "slug": "analemma-borrowing-governance-v1",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/analemma-borrowing-governance-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-006",
+      "slug": "desktop-governance-observability-panels",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/desktop-governance-observability-panels",
+      "feature_id": "F-002"
+    },
+    {
+      "id": "T-007",
+      "slug": "governance-read-api-and-release-review-gate",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/governance-read-api-and-release-review-gate",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-008",
+      "slug": "governance-event-delivery-mechanism-v1",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/governance-event-delivery-mechanism-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-009",
+      "slug": "governance-event-delivery-backend-implementation-v1",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/governance-event-delivery-backend-implementation-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-010",
+      "slug": "governance-event-delivery-observability-ops-v1",
+      "status": "archived",
+      "updated": "2026-02-23",
+      "dev_docs_path": "dev-docs/archive/governance-event-delivery-observability-ops-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-011",
+      "slug": "literature-management-flow",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-management-flow",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-012",
+      "slug": "app-tsx-layout-split",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/app-tsx-layout-split",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-013",
+      "slug": "topic-initial-pull-and-rule-preview",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/topic-initial-pull-and-rule-preview",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-014",
+      "slug": "automated-topic-management",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/automated-topic-management",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-015",
+      "slug": "maintainability-file-split-governance",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/maintainability-file-split-governance",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-016",
+      "slug": "backend-service-boundary-split-wave3",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/backend-service-boundary-split-wave3",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-017",
+      "slug": "frontend-normalizers-and-css-split-wave2",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/frontend-normalizers-and-css-split-wave2",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-018",
+      "slug": "literature-container-controller-split-wave1",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-container-controller-split-wave1",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-019",
+      "slug": "shared-contract-decomposition-wave4",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/shared-contract-decomposition-wave4",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-020",
+      "slug": "shared-contract-compat-cleanup-and-consumer-migration",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/shared-contract-compat-cleanup-and-consumer-migration",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-021",
+      "slug": "topic-management-workbench-ui",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/topic-management-workbench-ui",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-022",
+      "slug": "desktop-legacy-css-retirement",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/desktop-legacy-css-retirement",
+      "feature_id": "F-002"
+    },
+    {
+      "id": "T-023",
+      "slug": "research-argument-control-plane-v1",
+      "status": "archived",
+      "updated": "2026-06-01",
+      "dev_docs_path": "dev-docs/archive/research-argument-control-plane-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-024",
+      "slug": "research-argument-contracts-and-ssot",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/research-argument-contracts-and-ssot",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-025",
+      "slug": "research-argument-graph-and-state-v1",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/research-argument-graph-and-state-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-026",
+      "slug": "research-argument-titlecard-paper-bridge",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/research-argument-titlecard-paper-bridge",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-027",
+      "slug": "research-argument-control-plane-ui-v1",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/research-argument-control-plane-ui-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-028",
+      "slug": "research-argument-planner-critic-v15",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/research-argument-planner-critic-v15",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-029",
+      "slug": "literature-collection-content-processing-boundary",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-collection-content-processing-boundary",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-030",
+      "slug": "literature-content-processing-landing-roadmap",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-content-processing-landing-roadmap",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-031",
+      "slug": "literature-content-processing-contracts-stage-state",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-content-processing-contracts-stage-state",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-032",
+      "slug": "literature-settings-provider-storage-roots",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-settings-provider-storage-roots",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-033",
+      "slug": "literature-content-assets-fulltext-preprocessing",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-content-assets-fulltext-preprocessing",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-034",
+      "slug": "literature-key-content-extraction-v1",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-key-content-extraction-v1",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-035",
+      "slug": "literature-chunk-embedding-index-pipeline",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-chunk-embedding-index-pipeline",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-036",
+      "slug": "literature-retrieve-stale-trigger-ui",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-retrieve-stale-trigger-ui",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-037",
+      "slug": "literature-backfill-operations-workbench",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-backfill-operations-workbench",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-038",
+      "slug": "literature-content-processing-cutover-verification",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-content-processing-cutover-verification",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-039",
+      "slug": "literature-citation-abstract-readiness",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-citation-abstract-readiness",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-040",
+      "slug": "literature-content-processing-closure-fixes",
+      "status": "archived",
+      "updated": "2026-05-13",
+      "dev_docs_path": "dev-docs/archive/literature-content-processing-closure-fixes",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-041",
+      "slug": "literature-end-to-end-quality-upgrade",
+      "status": "archived",
+      "updated": "2026-07-02",
+      "dev_docs_path": "dev-docs/archive/literature-end-to-end-quality-upgrade",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-042",
+      "slug": "topic-selection-decision-chain-redesign",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-decision-chain-redesign",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-043",
+      "slug": "experiment-foundation-v1",
+      "status": "planned",
+      "updated": "2026-05-12",
+      "dev_docs_path": "dev-docs/active/experiment-foundation-v1",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-044",
+      "slug": "topic-selection-v1a-evidence-to-need",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-evidence-to-need",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-045",
+      "slug": "topic-selection-v1b-need-to-draft-topic",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-need-to-draft-topic",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-046",
+      "slug": "topic-selection-v1c-promotion-bridge",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-promotion-bridge",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-047",
+      "slug": "topic-selection-v1a-evidence-map-strength",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-evidence-map-strength",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-048",
+      "slug": "topic-selection-v1a-foundation-control-plane",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-foundation-control-plane",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-049",
+      "slug": "topic-selection-v1a-need-validation",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-need-validation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-050",
+      "slug": "topic-selection-v1a-offline-evaluation-replay",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-offline-evaluation-replay",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-051",
+      "slug": "topic-selection-v1a-recheck-risk-memory",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-recheck-risk-memory",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-052",
+      "slug": "topic-selection-v1a-search-resource-evidence-inputs",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-search-resource-evidence-inputs",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-053",
+      "slug": "topic-selection-v1a-http-api-closure",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-http-api-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-054",
+      "slug": "topic-selection-v1b-http-api-closure",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-http-api-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-055",
+      "slug": "topic-selection-v1b-intake-constraint-profile",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-intake-constraint-profile",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-056",
+      "slug": "topic-selection-v1b-offline-evaluation-replay",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-offline-evaluation-replay",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-057",
+      "slug": "topic-selection-v1b-research-slice",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-research-slice",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-058",
+      "slug": "topic-selection-v1b-topic-package-draft",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-topic-package-draft",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-059",
+      "slug": "topic-selection-v1b-topic-question-contract",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-topic-question-contract",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-060",
+      "slug": "topic-selection-v1b-value-assessment",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-value-assessment",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-061",
+      "slug": "topic-selection-v1c-promotion-input-snapshot",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-promotion-input-snapshot",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-062",
+      "slug": "topic-selection-v1c-promotion-gate-support",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-promotion-gate-support",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-063",
+      "slug": "topic-selection-v1c-human-promotion-decision-profile",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-human-promotion-decision-profile",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-064",
+      "slug": "topic-selection-v1c-paper-project-bridge",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-paper-project-bridge",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-065",
+      "slug": "topic-selection-v1c-downstream-feedback-recheck",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-downstream-feedback-recheck",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-066",
+      "slug": "topic-selection-v1c-offline-evaluation-replay",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-offline-evaluation-replay",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-067",
+      "slug": "topic-selection-v1c-http-api-closure",
+      "status": "archived",
+      "updated": "2026-05-16",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-http-api-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-068",
+      "slug": "topic-selection-backend-decision-chain-acceptance",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-backend-decision-chain-acceptance",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-069",
+      "slug": "experiment-foundation-design-review-sync",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-design-review-sync",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-070",
+      "slug": "experiment-foundation-dataset-registry-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-dataset-registry-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-071",
+      "slug": "experiment-foundation-benchmark-protocol-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-benchmark-protocol-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-072",
+      "slug": "experiment-foundation-version-lock-recipe-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-version-lock-recipe-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-073",
+      "slug": "experiment-foundation-materialization-adapter-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-materialization-adapter-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-074",
+      "slug": "experiment-foundation-result-evidence-sidecar-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-result-evidence-sidecar-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-075",
+      "slug": "experiment-foundation-candidate-promotion-contracts",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-candidate-promotion-contracts",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-076",
+      "slug": "experiment-foundation-persistence-api-readiness",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-persistence-api-readiness",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-077",
+      "slug": "experiment-foundation-execution-adapters",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-execution-adapters",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-078",
+      "slug": "experiment-foundation-desktop-workbench",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-desktop-workbench",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-079",
+      "slug": "topic-selection-resource-sampling-policy",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-resource-sampling-policy",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-080",
+      "slug": "topic-selection-v1b-quality-deep-acceptance",
+      "status": "archived",
+      "updated": "2026-05-18",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-quality-deep-acceptance",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-081",
+      "slug": "topic-selection-v1b-quality-loopback-acceptance",
+      "status": "archived",
+      "updated": "2026-05-18",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-quality-loopback-acceptance",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-082",
+      "slug": "topic-selection-paper-project-bridge-downstream-acceptance",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-paper-project-bridge-downstream-acceptance",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-083",
+      "slug": "backend-full-suite-environment-isolation",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/backend-full-suite-environment-isolation",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-084",
+      "slug": "topic-selection-real-e2e-canary",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-real-e2e-canary",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-085",
+      "slug": "topic-selection-real-e2e-scale-quality",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-real-e2e-scale-quality",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-086",
+      "slug": "research-argument-writing-entry-bridge-acceptance",
+      "status": "archived",
+      "updated": "2026-06-01",
+      "dev_docs_path": "dev-docs/archive/research-argument-writing-entry-bridge-acceptance",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-087",
+      "slug": "topic-selection-desktop-workbench-v1abc",
+      "status": "archived",
+      "updated": "2026-05-20",
+      "dev_docs_path": "dev-docs/archive/topic-selection-desktop-workbench-v1abc",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-088",
+      "slug": "topic-selection-workflow-runtime-foundation",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-workflow-runtime-foundation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-089",
+      "slug": "topic-selection-agent-workflow-review",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-agent-workflow-review",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-090",
+      "slug": "experiment-foundation-capability-validation",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-capability-validation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-091",
+      "slug": "paper-implementation-full-landing",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-full-landing",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-092",
+      "slug": "paper-implementation-contracts-and-gap-map",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-contracts-and-gap-map",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-093",
+      "slug": "paper-implementation-intake-bootstrap",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-intake-bootstrap",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-094",
+      "slug": "paper-implementation-motive-evidence-board",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-motive-evidence-board",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-095",
+      "slug": "paper-implementation-validation-cycle-planning",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-validation-cycle-planning",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-096",
+      "slug": "paper-implementation-workorder-experiment-bridge",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-workorder-experiment-bridge",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-097",
+      "slug": "paper-implementation-trace-kernel",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-trace-kernel",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-098",
+      "slug": "paper-implementation-result-claim-dossier",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-result-claim-dossier",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-099",
+      "slug": "paper-implementation-ai-workflow-harness",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-ai-workflow-harness",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-100",
+      "slug": "paper-implementation-desktop-workbench",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-desktop-workbench",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-101",
+      "slug": "paper-implementation-contract-evaluation-suite",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-contract-evaluation-suite",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-102",
+      "slug": "paper-implementation-v1-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-v1-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-103",
+      "slug": "experiment-foundation-full-flow-validation-runner",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-full-flow-validation-runner",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-104",
+      "slug": "paper-implementation-live-experiment-adapter",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-live-experiment-adapter",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-105",
+      "slug": "paper-implementation-provider-variance-evaluation",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-provider-variance-evaluation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-106",
+      "slug": "experiment-foundation-real-interaction-hardening",
+      "status": "archived",
+      "updated": "2026-08-03",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-real-interaction-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-107",
+      "slug": "topic-selection-v1b-workflow-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-workflow-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-108",
+      "slug": "topic-selection-v1c-workflow-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1c-workflow-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-109",
+      "slug": "paper-implementation-v1-runnable-closure",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-v1-runnable-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-110",
+      "slug": "experiment-foundation-research-workbench",
+      "status": "archived",
+      "updated": "2026-05-29",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-research-workbench",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-111",
+      "slug": "topic-selection-v1a-production-orchestration",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1a-production-orchestration",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-112",
+      "slug": "topic-selection-llm-context-cache-runtime",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-selection-llm-context-cache-runtime",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-113",
+      "slug": "paper-implementation-legacy-authority-cleanup",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-legacy-authority-cleanup",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-114",
+      "slug": "paper-implementation-runtime-orchestration-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-runtime-orchestration-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-115",
+      "slug": "topic-selection-v1b-human-review-path",
+      "status": "archived",
+      "updated": "2026-07-05",
+      "dev_docs_path": "dev-docs/archive/topic-selection-v1b-human-review-path",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-116",
+      "slug": "adaptive-llm-systems-literature-collection-ingestion",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/adaptive-llm-systems-literature-collection-ingestion",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-117",
+      "slug": "adaptive-llm-systems-readiness-followup",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/adaptive-llm-systems-readiness-followup",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-118",
+      "slug": "adaptive-llm-systems-experiment-foundation-promotion",
+      "status": "archived",
+      "updated": "2026-07-08",
+      "dev_docs_path": "dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-119",
+      "slug": "adaptive-llm-systems-standard-pipeline-expansion",
+      "status": "archived",
+      "updated": "2026-07-02",
+      "dev_docs_path": "dev-docs/archive/adaptive-llm-systems-standard-pipeline-expansion",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-120",
+      "slug": "adaptive-llm-systems-literature-pipeline-completion",
+      "status": "archived",
+      "updated": "2026-07-02",
+      "dev_docs_path": "dev-docs/archive/adaptive-llm-systems-literature-pipeline-completion",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-121",
+      "slug": "literature-retrieval-pgvector-index-design",
+      "status": "archived",
+      "updated": "2026-06-06",
+      "dev_docs_path": "dev-docs/archive/literature-retrieval-pgvector-index-design",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-122",
+      "slug": "literature-scaleout-corpus-strategy",
+      "status": "archived",
+      "updated": "2026-06-19",
+      "dev_docs_path": "dev-docs/archive/literature-scaleout-corpus-strategy",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-123",
+      "slug": "topic-selection-productization-hardening",
+      "status": "archived",
+      "updated": "2026-07-05",
+      "dev_docs_path": "dev-docs/archive/topic-selection-productization-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-124",
+      "slug": "paper-implementation-productization-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-productization-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-125",
+      "slug": "literature-balanced-corpus-scaleout-v2",
+      "status": "archived",
+      "updated": "2026-06-19",
+      "dev_docs_path": "dev-docs/archive/literature-balanced-corpus-scaleout-v2",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-126",
+      "slug": "literature-rag-frontier-tech-radar",
+      "status": "archived",
+      "updated": "2026-06-19",
+      "dev_docs_path": "dev-docs/archive/literature-rag-frontier-tech-radar",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-127",
+      "slug": "topic-selection-backend-hardening-and-expansion",
+      "status": "archived",
+      "updated": "2026-07-05",
+      "dev_docs_path": "dev-docs/archive/topic-selection-backend-hardening-and-expansion",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-128",
+      "slug": "topic-selection-product-readiness-closure",
+      "status": "archived",
+      "updated": "2026-07-05",
+      "dev_docs_path": "dev-docs/archive/topic-selection-product-readiness-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-129",
+      "slug": "topic-selection-calibration-release",
+      "status": "planned",
+      "updated": "2026-07-05",
+      "dev_docs_path": "dev-docs/active/topic-selection-calibration-release",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-130",
+      "slug": "literature-productization-hardening",
+      "status": "archived",
+      "updated": "2026-07-08",
+      "dev_docs_path": "dev-docs/archive/literature-productization-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-131",
+      "slug": "experiment-foundation-first-promotion-closure",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-first-promotion-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-132",
+      "slug": "experiment-foundation-productization-closure",
+      "status": "archived",
+      "updated": "2026-08-02",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-productization-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-133",
+      "slug": "paper-implementation-debate-disposition-closure",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-debate-disposition-closure",
+      "feature_id": "F-000"
+    },
+    {
+      "id": "T-134",
+      "slug": "experiment-foundation-audit-remainders-closure",
+      "status": "archived",
+      "updated": "2026-08-03",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-audit-remainders-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-135",
+      "slug": "experiment-foundation-v2-semantic-api-activation",
+      "status": "archived",
+      "updated": "2026-08-03",
+      "dev_docs_path": "dev-docs/archive/experiment-foundation-v2-semantic-api-activation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-136",
+      "slug": "scientific-evidence-to-paper-closure",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/scientific-evidence-to-paper-closure",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-137",
+      "slug": "promoted-topic-to-scientific-dossier-canary",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/promoted-topic-to-scientific-dossier-canary",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-138",
+      "slug": "topic-to-paper-implementation-semantic-handoff",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-to-paper-implementation-semantic-handoff",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-139",
+      "slug": "paper-implementation-to-scientific-dossier-semantic-continuation",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/paper-implementation-to-scientific-dossier-semantic-continuation",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-140",
+      "slug": "topic-semantics-to-core-motive-bootstrap",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/topic-semantics-to-core-motive-bootstrap",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-141",
+      "slug": "core-motive-to-evidence-board-semantic-handoff",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/core-motive-to-evidence-board-semantic-handoff",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-142",
+      "slug": "evidence-board-to-validation-cycle-semantic-handoff",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/evidence-board-to-validation-cycle-semantic-handoff",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-143",
+      "slug": "validation-cycle-handoff-authority-recovery-hardening",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/validation-cycle-handoff-authority-recovery-hardening",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-144",
+      "slug": "validation-cycle-handoff-deep-cleanup",
+      "status": "archived",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/archive/validation-cycle-handoff-deep-cleanup",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-145",
+      "slug": "repository-governance-convergence",
+      "status": "done",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/active/repository-governance-convergence",
+      "feature_id": "F-000"
+    }
+  ]
+}

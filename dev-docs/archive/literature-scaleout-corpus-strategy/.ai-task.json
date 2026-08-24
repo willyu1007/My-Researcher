@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "task_id": "T-122",
+  "slug": "literature-scaleout-corpus-strategy",
+  "keywords": [
+    "literature",
+    "scaleout",
+    "corpus-strategy",
+    "candidate-pool",
+    "managed-corpus",
+    "effective-literature",
+    "adaptive-llm-systems",
+    "follows:T-120",
+    "follows:T-121"
+  ]
+}

@@ -5682,7 +5682,7 @@ test('L5 feasibility planning refuses a non-proceed route skeptic final with a f
 
 // ---------------------------------------------------------------------------
 // T-124 D2-core: enforced debate tiering must-checks (registered in
-// .ai/scripts/paper-implementation-runtime-stress.mjs before implementation).
+// apps/backend/scripts/paper-implementation-runtime-stress.mjs before implementation).
 // ---------------------------------------------------------------------------
 
 /** D2-core: light-tier trace request (1 statement, 1 source → light). */

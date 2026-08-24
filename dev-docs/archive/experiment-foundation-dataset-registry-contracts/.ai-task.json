@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-070",
+  "slug": "experiment-foundation-dataset-registry-contracts",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "dataset-asset",
+    "dataset-version",
+    "storage-mirror"
+  ]
+}

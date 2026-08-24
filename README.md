@@ -69,23 +69,19 @@ apps/
   frontend/        # Placeholder for potential web-only frontend extraction
 packages/
   shared/          # Shared libraries
-.ai/skills/        # AI skills (SSOT)
+.ai/               # Project hub and governance CLI only
+dev-docs/          # Active and archived task bundles
 docs/              # Documentation
 ops/               # DevOps configuration
 ```
 
-## Skills & AI Assistance
+## Task governance
 
-This project uses the AI-Friendly Repository pattern:
+Durable work is tracked under `dev-docs/` and projected into `.ai/project/`.
+The repository does not carry provider-specific skill packs or generated wrappers.
 
-- **SSOT Skills**: `.ai/skills/` - Edit skills here only
-- **Generated Wrappers**: `.codex/skills/`, `.claude/skills/` - Do NOT edit directly
-
-Regenerate wrappers after skill changes:
-
-```bash
-node .ai/scripts/sync-skills.mjs --scope current --providers both --mode reset --yes
-```
+Run `node .ai/scripts/ctl-project-governance.mjs lint --strict` to validate task bundles and
+the project hub.
 
 ## Contributing
 

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task_id": "T-120",
+  "slug": "adaptive-llm-systems-literature-pipeline-completion",
+  "keywords": [
+    "literature",
+    "adaptive-llm-systems",
+    "content-processing",
+    "fulltext-acquisition",
+    "pipeline-completion",
+    "follows:T-116",
+    "follows:T-117",
+    "follows:T-119"
+  ]
+}

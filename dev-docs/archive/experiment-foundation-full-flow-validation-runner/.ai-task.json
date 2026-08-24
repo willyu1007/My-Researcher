@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task_id": "T-103",
+  "slug": "experiment-foundation-full-flow-validation-runner",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "post-v1-validation",
+    "full-flow-runner",
+    "environment-preflight",
+    "real-db-smoke",
+    "external-canary",
+    "R-012"
+  ]
+}

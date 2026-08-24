@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-143",
+  "slug": "validation-cycle-handoff-authority-recovery-hardening",
+  "keywords": [
+    "paper-implementation",
+    "validation-cycle",
+    "semantic-handoff",
+    "authority-integrity",
+    "recovery"
+  ]
+}

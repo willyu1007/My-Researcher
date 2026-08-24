@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 // backend suite so matrix-vs-contracts drift fails CI, and exercises its drift-injection negatives.
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-const scriptPath = path.join(repoRoot, '.ai', 'scripts', 'topic-selection-workflow-matrix-consistency.mjs');
+const scriptPath = path.join(repoRoot, 'apps', 'backend', 'scripts', 'topic-selection-workflow-matrix-consistency.mjs');
 
 test('topic-selection workflow matrix matches code authority sources', () => {
   const result = spawnSync(process.execPath, [scriptPath], { encoding: 'utf8' });

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "task_id": "T-112",
+  "slug": "topic-selection-llm-context-cache-runtime",
+  "keywords": [
+    "topic-selection",
+    "llm-runtime",
+    "context-cache",
+    "token-budget",
+    "context-compression",
+    "agent-orchestrator",
+    "R-009",
+    "parent-task:T-088",
+    "parent-task:T-089"
+  ]
+}

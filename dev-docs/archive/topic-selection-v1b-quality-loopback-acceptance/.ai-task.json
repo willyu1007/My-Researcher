@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-081",
+  "slug": "topic-selection-v1b-quality-loopback-acceptance",
+  "keywords": [
+    "topic-selection",
+    "v1b",
+    "loopback",
+    "value-disposition",
+    "quality-acceptance",
+    "R-009",
+    "parent-task:T-042"
+  ]
+}

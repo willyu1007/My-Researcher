@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 // its drift-injection negatives.
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-const scriptPath = path.join(repoRoot, '.ai', 'scripts', 'literature-pipeline-matrix-consistency.mjs');
+const scriptPath = path.join(repoRoot, 'apps', 'backend', 'scripts', 'literature-pipeline-matrix-consistency.mjs');
 
 test('literature pipeline matrix matches code authority sources', () => {
   const result = spawnSync(process.execPath, [scriptPath], { encoding: 'utf8' });

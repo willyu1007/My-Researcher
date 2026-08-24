@@ -29,7 +29,7 @@
 - stageC: wrappersSynced yes; skillRetentionReviewed yes; approved yes
 
 ### Next (suggested)
-- Migrate glossary: transfer terms from `docs/project/overview/domain-glossary.md` to `docs/context/glossary.json`, then run `ctl-context touch`.
+- Migrate glossary: transfer terms from `docs/project/overview/domain-glossary.md` to `docs/context/glossary.json`. The historical checksum command has been retired.
 - Initialization is complete; no additional `init/` cleanup action is required.
 
 <!-- INIT-BOARD:MACHINE_SNAPSHOT:END -->

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-051",
+  "slug": "topic-selection-v1a-recheck-risk-memory",
+  "keywords": [
+    "topic-selection",
+    "v1a",
+    "recheck",
+    "accepted-risk",
+    "human-override",
+    "decision-memory",
+    "work-queue"
+  ]
+}

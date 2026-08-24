@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "task_id": "T-107",
+  "slug": "topic-selection-v1b-workflow-hardening",
+  "keywords": [
+    "topic-selection",
+    "v1b",
+    "workflow-harness",
+    "agent-workflow",
+    "topic-question",
+    "value-assessment",
+    "R-009",
+    "follow-up:T-088",
+    "follow-up:T-089"
+  ]
+}

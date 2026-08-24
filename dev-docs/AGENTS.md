@@ -1,165 +1,148 @@
-# Dev Docs
+# Task documentation
 
-Persistent task documentation for context preservation across sessions.
+`dev-docs/` is the repository record for durable task intent, progress, design, verification,
+recovery, and history. This file defines the stable meaning of a task bundle. The workflow active
+at a particular moment defines how to create, plan, synchronize, resume, hand off, inspect, or
+archive it.
 
-## Trigger Conditions
+Only the repository's top-level `dev-docs/` directory is governed as the task-document root.
 
-| Condition | Action |
-|-----------|--------|
-| Complex task (multi-module, multi-session, >2 hours) | Create task bundle |
-| Existing task continued by user intent or a related task branch | Run `ctl-project-governance.mjs resume --json` |
-| User requests a pause or handoff | Update docs via `update-dev-docs-for-handoff` |
-| Task completed and verified | Archive via `update-dev-docs-for-handoff` with status=done |
+## Bundle shapes
 
-## Decision Gate (MUST)
+Each immediate child of `dev-docs/active/` is one active task:
 
-Create a dev-docs task bundle under `dev-docs/active/<task-slug>/` only when the task is **complex** and benefits from context preservation.
-
-### Skip Conditions (fast path)
-
-Do NOT create dev-docs when **any** is true:
-- Single-file change (including adjacent tests/docs)
-- Trivial fix (`< 30 min`)
-- Simple refactor with clear scope (even if it touches multiple folders)
-
-### Create Conditions
-
-Create a dev-docs task bundle when **any** is true:
-- Expected duration is `> 2 hours`, or likely to span multiple sessions
-- The work will be paused/handed off, archived, or otherwise needs context recovery artifacts
-- The change is high-risk or cross-cutting (examples: DB/schema migration, auth/security, CI/CD/infra, multi-service/API boundary changes)
-
-Notes:
-- Touching multiple folders (e.g., `src/` + `tests/` + docs) is **not** a sufficient trigger by itself.
-- “>= 3 sequential steps with verification” is too common; it is **not** a trigger for dev-docs.
-
-If the user asks for a roadmap/plan before coding:
-- If the task meets the Create Conditions above, use `plan-maker` to create `roadmap.md`, then use `create-dev-docs-plan` for the full bundle.
-- Otherwise, provide an in-chat plan and do NOT write under `dev-docs/`.
-
-## Coding Gate (MUST)
-
-Before making any code/config changes for a task that meets the Decision Gate:
-1. Ensure the task bundle exists under `dev-docs/active/<task-slug>/` (create via `create-dev-docs-plan` if missing).
-2. If the work is ambiguous, or the user asked for a plan/roadmap, create `roadmap.md` via `plan-maker` before implementation.
-3. During implementation, keep the bundle current:
-   - update `00-overview.md` when status changes
-   - append to `03-implementation-notes.md` after each phase
-   - record every verification run in `04-verification.md` (commands + outcomes)
-4. Before an explicit pause, handoff, or task completion, run `update-dev-docs-for-handoff`.
-
-## Commit Gate (MUST)
-
-Task docs describe intent and current state; commits record what landed.
-
-- SHOULD commit after completing and verifying a revertible work unit.
-- MAY commit a known-green rollback point before risky changes.
-- MUST add `Task: T-###` when the commit belongs to that task.
-- MUST NOT attach a task to unrelated work.
-- MUST NOT force broken or unverified work into a commit. Preserve and report any remaining
-  worktree changes accurately.
-
-When hooks are installed (`node .githooks/install.mjs`), `prepare-commit-msg` injects `Task`
-only from a branch containing one valid task ID. Full commit rules: `git-commit-conventions`.
-
-## Directory Structure
-
-```
-dev-docs/
-  active/<task-slug>/
-    roadmap.md              # Macro-level planning (plan-maker)
-    00-overview.md          # Goal, non-goals, status
-    01-plan.md              # Phases, acceptance criteria
-    02-architecture.md      # Boundaries, interfaces, risks
-    03-implementation-notes.md  # Decisions, changes, rationale
-    04-verification.md      # Checks run, results
-    05-pitfalls.md          # Resolved failures, historical lessons, "do-not-repeat" notes
-  archive/                  # Completed tasks
+```text
+dev-docs/active/<slug>/
+├── .ai-task.json
+├── 00-roadmap.md
+├── 01-status.md
+├── 02-architecture.md
+└── verification.md
 ```
 
-## File Purposes
+These five files are required. The task may also contain the common optional entries described
+below or other supporting documents and directories when the actual work benefits from them. Give
+each addition a distinct, durable purpose and do not use one to duplicate the goal, status, plan,
+decisions, architecture, or verification authorities.
 
-| File | Contains | Update Frequency |
-|------|----------|------------------|
-| `roadmap.md` | Macro-level planning: milestones, scope, risks, rollback | On initial planning |
-| `00-overview.md` | Goal, non-goals, current status | On status change |
-| `01-plan.md` | Phases, steps, acceptance criteria | On scope/phase change |
-| `02-architecture.md` | Boundaries, interfaces, key risks | On design decision |
-| `03-implementation-notes.md` | What changed, why, and open issues (actionable TODOs) | After each phase |
-| `04-verification.md` | Checks run and results | After each check |
-| `05-pitfalls.md` | Resolved failures, dead ends, historical lessons (not current issues) | After issue is resolved |
+Templates are starting shapes, not a request for filler. Preserve headings and fields consumed by
+governance tooling, adapt the depth to the task, remove authoring prompts, and record uncertainty
+instead of inventing facts. Omit irrelevant optional detail where the contract allows it.
 
-### Artifact size policy (`artifacts/**`)
+Each immediate child of `dev-docs/archive/` is one archived task and contains exactly:
 
-Raw machine output (smoke/gate JSON dumps, full API responses, run transcripts) larger
-than ~500 lines must NOT be committed verbatim. Commit a digest instead: the run
-metadata (command, timestamp, target), the pass/fail verdict per check, any failing
-excerpts, and a SHA-256 of the full output (keep the full file untracked under
-`/artifacts/` or session storage if it may be needed again). Rationale: 2026-07
-baseline audit found multi-thousand-line raw JSON dumps in `artifacts/**` that inflate
-history without adding reviewable signal. Existing committed files are grandfathered —
-do not rewrite history to remove them.
-
-## AI Instructions
-
-### Resume Existing Work
-
-For a request that continues an existing task, run this before reading implementation files:
-
-```bash
-node .ai/scripts/ctl-project-governance.mjs resume --json
+```text
+dev-docs/archive/<slug>/
+├── .ai-task.json
+└── summary.md
 ```
 
-- If the request identifies `T-###`, pass `--task T-###`.
-- Resolution order is explicit task, branch task, single `in-progress`, then single `blocked`.
-- If resolution is ambiguous, do not guess.
-- If `worktree.clean` is false, inspect the returned `suggested_commands` before writing code.
-- Treat an empty `timeline.commits` as unknown progress, not zero progress.
-- Read only the returned `suggested_reads`; inspect source files named in `truncated_fields` when
-  they affect the next decision.
-- Reconcile genuine disagreements about landed work in favor of Git history, then correct the
-  task document.
-- Do not run task recovery for unrelated work.
+Archive location makes the effective state `archived`. `summary.md` preserves the durable outcome
+and evidence; the active working files do not survive the archive transition.
 
-### During Work
+When behavior, interfaces, or implementation paths described in task records are removed or
+replaced, identify the affected active bundles and archived summaries and reconcile them in the
+same checkpoint. Preserve historical outcomes, but mark superseded content so it cannot be
+mistaken for the live system.
 
-- Update `00-overview.md` status field on state change
-- Append to `03-implementation-notes.md` after each phase
-- Record all verification runs in `04-verification.md`
-- Record pitfalls in `05-pitfalls.md` after resolving a significant error/bug/dead-end (historical lessons, not current issues):
-  - MUST include: symptom, root cause, what was tried, fix/workaround, and a prevention note
+## Document responsibilities
 
-### Workflows
+- **`.ai-task.json`** — Stable task identity and lookup metadata. It contains exactly schema
+  version, `task_id`, directory `slug`, and `keywords`; progress and timestamps live elsewhere.
+- **`00-roadmap.md`** — Decision alignment and rationale, working assumptions, relationships
+  touching this task, the implementation kickoff gate, phased route, phase closeout, and recovery
+  strategy.
+- **`01-status.md`** — Current goal, progress state, phase, next step, blocker, and the current
+  `Done when` acceptance references.
+- **`02-architecture.md`** — Current settled technical design and contracts, without alternatives
+  or decision history.
+- **`verification.md`** — Planned checks and the latest decisive evidence for relevant claims,
+  acceptance references, phase outcomes, and material limitations.
+- **`implementation.md`** *(optional)* — Current realization map when architecture alone is not
+  enough to resume safely.
+- **`pitfalls.md`** *(optional)* — Current anti-error register for recurring, evidenced hazards.
+- **`requirement.md`** *(optional)* — Requirements-alignment input; it does not override the
+  current status or roadmap.
+- **`artifacts/` and other supporting entries** *(optional)* — Task-specific evidence or context
+  with a stated purpose and no competing authority.
 
-| Workflow | Use When |
-|----------|----------|
-| `create-dev-docs-plan` | Starting new complex task |
-| `update-dev-docs-for-handoff` | Pausing, resuming, handing off, or completing |
+Update these as current snapshots. Git history retains superseded states; avoid chronological
+journals and repeated raw logs in the main documents.
 
-### Project Governance Integration
+`Done when` holds the task's current acceptance references. They help planning, review, and
+verification, but do not independently prove completion or override confirmed requirements,
+repository reality, verification evidence, or required user acceptance. Revise them when the
+understood outcome changes. Roadmap phase outcomes and exit criteria guide execution only; they do
+not define task acceptance.
 
-If the repository uses a project hub (`.ai/project/<project>/`), keep the hub in sync with task changes:
+## Lifecycle model
 
-| Event | Action |
-|-------|--------|
-| Task bundle created | Run `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` to register the task |
-| Task status changed | Run `sync --apply` to propagate the new status to the registry |
-| Task archived | Run `sync --apply` to update the registry (status becomes `archived`) |
+Progress lives in `01-status.md` under `## Progress` as exactly one `State:` value:
 
-Notes:
-- `sync --apply` is idempotent; safe to run after any task change.
-- If the project hub is not initialized, sync will prompt you to run `init` first.
-- For full project governance details, see `.ai/project/AGENTS.md`.
+- **`planned`** — The task is opened but no later alignment, discovery, or implementation
+  checkpoint has landed.
+- **`in-progress`** — Work is actively advancing.
+- **`blocked`** — External input or a dependency prevents meaningful progress.
+- **`done`** — The task-level completion contract below holds.
 
-### Archive Rules
+### Completion contract
 
-When task status changes to "done" and all verification passes:
-1. Move `dev-docs/active/<task-slug>/` to `dev-docs/archive/<task-slug>/`
-2. This is handled by `update-dev-docs-for-handoff` when status=done
+Mark a task `done` only when all three claims hold at the task boundary:
 
-## Skip Conditions
+- **Outcome closure** — Repository reality supports the goal as an end-to-end outcome, and no
+  known in-scope roadmap work remains unresolved.
+- **Implementation or artifact quality** — Relevant review and checks are complete, and no known
+  material defect, unresolved review finding, temporary instrumentation, or residue contradicts
+  the accepted outcome or repository conventions.
+- **Semantic convergence** — Code, interfaces, configuration, documentation, the task bundle, and
+  the project hub agree on the accepted result; no unintended parallel old/new paths, duplicated
+  behavior, or competing authority remains.
 
-Do NOT create dev docs for:
-- Single-file changes
-- Trivial fixes (<30 min)
-- Simple refactors with clear scope
+Ground each claim in decisive evidence and obtain any required user acceptance. For non-code
+tasks, apply the quality claim to the delivered artifacts. An explicit transitional dual track may
+remain while work is in progress only when its purpose, recovery boundary, and exit are recorded.
+Before completion, remove the superseded path unless permanent compatibility is part of the
+confirmed outcome.
+
+Implementation readiness lives separately in the roadmap kickoff gate:
+
+- Every new task starts `pending`.
+- While `pending`, alignment and independent discovery may continue, but implementation that
+  depends on the unresolved route may not.
+- `ready` means the roadmap gate is fully satisfied and the first implementation action is
+  executable.
+- Kickoff is `pending` whenever evidence invalidates a gating premise or route; route-dependent
+  implementation remains paused until alignment is restored.
+- A `done` task must have kickoff `ready`.
+
+Checking every `Done when` item does not make a task `done`, and an outdated item must be revised
+rather than used to block or justify completion mechanically.
+
+A completed task remains active with `State: done` until an authorized archive transition is
+performed.
+
+## Authorities and repository reality
+
+Use each source only for what it proves:
+
+- The task bundle owns its task-level identity, intent, progress, design, verification, and
+  lifecycle according to the document responsibilities above.
+- The project hub provides the cross-task semantic map. `.ai/project/registry.json` owns
+  Milestones, Features, and their task mappings; its task entries are projections of task bundles.
+- Generated hub views are derived and may be rebuilt. Neither registry task entries nor generated
+  views override a task bundle.
+- Git history proves committed work; a task commit carries exactly one `Task: T-###` trailer.
+- The worktree proves current uncommitted work.
+
+Report disagreements instead of silently choosing one source. Never describe uncommitted or
+missing work as landed.
+
+## Using a bundle
+
+1. Read `01-status.md` for the task head.
+2. Read current `pitfalls.md` when present, reconcile linked commits and worktree changes, and
+   check roadmap kickoff before implementation.
+3. Expand to roadmap decisions and phases, architecture, implementation context, verification, or
+   other supporting documents only for the current question.
+4. When reality changes, update only the documents whose responsibility changed and keep status
+   pointed at the first unfinished action.

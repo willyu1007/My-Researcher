@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "task_id": "T-110",
+  "slug": "experiment-foundation-research-workbench",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "desktop",
+    "ui-workbench",
+    "data-ui",
+    "research-workbench",
+    "dataset-asset-typed-form",
+    "ref-picker",
+    "experiment-flow",
+    "paper-binding",
+    "R-012",
+    "follows:T-078",
+    "follow-up:T-106"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-041",
+  "slug": "literature-end-to-end-quality-upgrade",
+  "keywords": [
+    "literature",
+    "e2e",
+    "quality",
+    "auto-pull",
+    "download",
+    "retrieval"
+  ]
+}

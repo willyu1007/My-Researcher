@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-068",
+  "slug": "topic-selection-backend-decision-chain-acceptance",
+  "keywords": [
+    "topic-selection",
+    "backend",
+    "acceptance",
+    "decision-chain",
+    "api",
+    "prisma"
+  ]
+}

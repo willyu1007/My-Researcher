@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-135",
+  "slug": "experiment-foundation-v2-semantic-api-activation",
+  "keywords": [
+    "experiment-foundation",
+    "semantic-retrieval",
+    "named-local-migration",
+    "embedding",
+    "api",
+    "R-012"
+  ]
+}

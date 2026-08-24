@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-078",
+  "slug": "experiment-foundation-desktop-workbench",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "desktop",
+    "ui-workbench",
+    "data-ui"
+  ]
+}

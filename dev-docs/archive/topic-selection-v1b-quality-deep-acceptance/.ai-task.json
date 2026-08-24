@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-080",
+  "slug": "topic-selection-v1b-quality-deep-acceptance",
+  "keywords": [
+    "topic-selection",
+    "v1b",
+    "topic-question-contract",
+    "value-assessment",
+    "quality-acceptance",
+    "R-009",
+    "parent-task:T-042"
+  ]
+}

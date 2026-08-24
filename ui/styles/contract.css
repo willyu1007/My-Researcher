@@ -1,6 +1,4 @@
-/* Contract styles. Values must come from tokens (CSS variables).
- * Edit only via approved UI spec change.
- */
+/* Current desktop runtime contract styles. Values come from CSS token variables. */
 @layer contract {
   /* ---------- Base / Page ---------- */
   [data-ui="page"] {

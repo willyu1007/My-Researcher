@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-050",
+  "slug": "topic-selection-v1a-offline-evaluation-replay",
+  "keywords": [
+    "topic-selection",
+    "v1a",
+    "offline-evaluation",
+    "replay",
+    "metrics",
+    "benchmark",
+    "eval-dataset"
+  ]
+}

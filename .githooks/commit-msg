@@ -106,7 +106,8 @@ if [ -z "$TASK_VALUE" ]; then
     command -v node >/dev/null 2>&1 &&
     [ -f .ai/scripts/ctl-project-governance.mjs ]; then
     BRANCH_TASK_ID=$BRANCH_TASKS
-    if node .ai/scripts/ctl-project-governance.mjs current-task --task "$BRANCH_TASK_ID" --format id >/dev/null 2>&1; then
+    if node .ai/scripts/ctl-project-governance.mjs query --id "$BRANCH_TASK_ID" |
+      grep -q "\"id\":\"$BRANCH_TASK_ID\""; then
       report "Missing 'Task: $BRANCH_TASK_ID' trailer for task branch '$BRANCH'." "$FIX_HINT"
     fi
   fi

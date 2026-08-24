@@ -123,7 +123,7 @@ export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_ID =
 // v2 (T-124 S3-α2): the template now instructs each role to emit its structured
 // section — support_mapper_map → per_statement_support_map, skeptic_challenge →
 // challenge_findings, support_mapper_reconcile → finding_dispositions,
-// arbiter_final → coverage. Registry entry: .ai/llm-config/registry/prompt_templates.yaml.
+// arbiter_final → coverage. Prompt selection is owned by the runtime implementation.
 export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION =
   'v2' as const;
 export const PAPER_IMPLEMENTATION_TRACE_INTEGRITY_RETRIEVAL_PACKET_SCHEMA_VERSION =

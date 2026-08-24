@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "task_id": "T-108",
+  "slug": "topic-selection-v1c-workflow-hardening",
+  "keywords": [
+    "topic-selection",
+    "v1c",
+    "workflow-harness",
+    "promotion-bridge",
+    "paper-project-bridge",
+    "agent-workflow",
+    "R-009",
+    "follow-up:T-088",
+    "follow-up:T-089",
+    "follows:T-107"
+  ]
+}

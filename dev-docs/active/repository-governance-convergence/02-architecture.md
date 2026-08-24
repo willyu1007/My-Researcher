@@ -1,119 +1,90 @@
 # 仓库治理收敛 / Repository governance convergence — Architecture
 
-## Context and current state
+## Final authority model
 
-- Task progress is currently authoritative in each bundle's `00-overview.md`; task identity is authoritative in CLI-owned `.ai-task.yaml`; semantic project mapping is authoritative in `.ai/project/main/registry.yaml`.
-- The old CLI scans configured `dev-docs` roots, allocates the next unused monotonically increasing `T-###`, defaults unmapped tasks to `F-000` / `M-000`, updates registry tasks, and regenerates derived views.
-- The current graph contains reserved inbox nodes plus the existing product Milestone/Feature hierarchy. Migration must preserve that graph, not reinterpret it.
-- `.ai/` currently mixes the project hub with repository-local skills, scripts, tests, LLM configuration, and scenario assets.
-- `ui/` currently contains runtime styles/tokens and governance-oriented approvals, codegen, config, contracts, and patterns. Classification must be consumer-driven.
-- Historical task material may contain files that remain live inputs to tests, tooling, or documentation; archive location alone does not prove an item is dead.
+1. The fixed task-governance contract owns task metadata, active task records, archive summaries, and project-hub projections.
+2. `.ai/project/registry.json` is the project graph authority; `dashboard.md` and `feature-map.md` are derived views.
+3. `.ai/scripts/ctl-project-governance.mjs` and its four `governance-*.mjs` libraries are the only repository governance implementation retained under `.ai/`.
+4. Repository-local skill trees and their wrapper/sync mechanisms have no compatibility role and are removed.
+5. Runtime UI CSS is a compatibility asset under `ui/styles/`; removed UI approvals, codegen, token-source, and contract scaffolding are not runtime authority.
+6. Archived task bundles are compact historical records. Live fixtures, scenario contracts, scripts, and process documentation belong to maintained module/docs paths.
 
-## Target authority model
-
-1. Approved fixed task-governance assets define the new contract and tooling.
-2. Repository task bundles and the project hub store project-specific records under that contract.
-3. `.ai/` contains only the project hub; repository-local skill/tool authority is removed.
-4. Runtime UI CSS remains owned by the UI/runtime path, independent of removed UI governance scaffolding.
-5. Historical task archives are evidence, not a live dependency source; any live fixture/contract is owned elsewhere before compression.
-
-## Migration topology
+## Final topology
 
 ```text
-old contract + old CLI
-        |
-        v
-baseline snapshot and consumer inventory
-        |
-        v
-relocate live fixtures/contracts
-        |
-        v
-archive effective-done active bundles
-        |
-        v
-fixed new governance assets + full record conversion
-        |
-        +--> project hub only under .ai/
-        +--> preserved M/F graph and stable task IDs
-        +--> retained active T-043 and T-129
-        |
-        v
-UI/reference cleanup
-        |
-        v
-archive compression last
+dev-docs active/archive task records
+                |
+                v
+.ai/scripts/ctl-project-governance.mjs
+                |
+                v
+.ai/project/registry.json
+        +--> dashboard.md
+        +--> feature-map.md
+
+maintained runtime assets
+        +--> apps/backend/scripts and test-fixtures
+        +--> docs/context process/UI contracts
+        +--> env/scripts
+        +--> ui/styles runtime compatibility CSS
 ```
 
 ## Contracts and invariants
 
 ### Identity and lifecycle
 
-- Task IDs are stable, unique, and tool-allocated; they are never guessed, reused, or bulk-renumbered.
-- `T-043` and `T-129` remain active throughout the migration.
-- Effective `done` bundles under `active/` move to archive without changing their identity or historical content beyond contract conversion.
-- This convergence task remains planned until implementation kickoff and remains active until verified closure.
+- Task IDs remain stable and unique. The conversion preserves every existing `T-###` identity.
+- T-043 and T-129 remain planned and active; T-145 remains active until this migration is verified and archived.
+- All 142 archived bundles contain exactly `.ai-task.json` and `summary.md`.
+- Active bundles retain their task metadata and maintained planning/status documents; the governance reader tolerates additional durable task documents.
 
 ### Project graph
 
-- Preserve Milestone and Feature IDs, fields, and edges exactly at the semantic level.
-- Do not create a migration-specific Milestone, Feature, or Requirement.
-- The convergence task uses the reserved inbox placement `F-000` / `M-000`.
-- Derived views are regenerated; they are not hand-edited as authority.
+- The semantic graph remains exactly M-000/M-001 and F-000/F-001/F-002 with the same edges and fields.
+- The 13 retired Requirement records remain migration provenance only; they are not promoted into Features or retained as a parallel registry model.
+- T-145 uses reserved inbox placement F-000/M-000.
 
-### Governance assets
+### `.ai` boundary
 
-- The current old contract remains authoritative until the cutover checkpoint.
-- The new contract comes only from approved fixed task-governance assets.
-- Conversion must finish with one authority; compatibility shims are temporary and removed in the same migration.
-- `.ai/` postcondition: project hub only.
+- Allowed content is `.ai/project/**`, `.ai/scripts/ctl-project-governance.mjs`, and `.ai/scripts/lib/governance-*.mjs`.
+- Product validation, fixtures, LLM routing, scenario harnesses, and repository-local skills must not regain authority under `.ai`.
+- Independently supported checks live with their owning backend module; historical one-off gates are retired rather than preserved behind aliases.
 
 ### UI boundary
 
-- Preserve runtime style loading through `ui/styles/ui.css` and any still-required `ui/styles/desktop-runtime/**` selectors.
-- Do not recreate the retired `apps/desktop/src/renderer/styles/**` layer or `apps/desktop/src/renderer/app-layout.css`.
-- Remove only assets proven to be governance scaffolding or replace their supported consumer references first.
+- `ui/styles/ui.css`, `tokens.css`, `contract.css`, and `desktop-runtime/**` remain loaded runtime compatibility CSS.
+- The retained filenames do not imply that the retired UI governance/code-generation model remains authoritative.
+- This migration intentionally makes no visual or component-architecture change. A later UI redesign may replace the compatibility layer as a separate task.
+- Retired renderer style paths are not recreated.
 
-### Archive boundary
+### Archive and live-content boundary
 
-- A file is historical only when no live code, test, CI, hook, or maintained documentation consumes it.
-- Live fixtures/contracts move to their owning maintained surface before task archives are compressed.
-- Compression must retain a discoverable index, integrity evidence, and a documented recovery path.
+- Archive compression is permitted only after consumer scans and relocation of live content.
+- Maintained copies now own the D-19 and N8 fixtures, environment utilities, Topic Workbench contract, N8 calibration contract, and topic-selection scenario contract.
+- Commit `5cf904fb` is the complete normalized old-contract recovery point if historical detail beyond a compact summary is needed.
 
 ## Interfaces and ownership
 
-- Old opening interface: `node .ai/scripts/ctl-project-governance.mjs` owns allocation, mapping, sync, and lint until this task is registered and old lint passes.
-- New migration interface: commands and file schemas supplied by the approved fixed assets; exact names are discovered from those assets and must not be invented here.
-- Project graph owner: project hub registry/manifest defined by the active contract.
-- Task status owner: bundle status field defined by the active contract.
-- UI runtime owner: renderer entrypoint plus `ui/styles/` runtime files, not the governance contract.
-- Fixture/contract owner: the maintained module or test/docs surface that consumes the item.
+- Governance: `node .ai/scripts/ctl-project-governance.mjs lint --strict`, `sync`, `query`, and project queries supplied by the fixed assets.
+- Task state: the active bundle's `01-status.md`; task identity: `.ai-task.json`.
+- Project mapping and graph: `.ai/project/registry.json`; Markdown project views are regenerated.
+- Backend validation: supported general-purpose checks under `apps/backend/scripts/` and root/package commands that point there.
+- Environment control: `env/scripts/env_localctl.py` and `env/scripts/yaml_min.py`.
+- UI runtime: renderer imports plus `ui/styles/**`; no separate governance manifest or approval path.
 
-## Data migration
+## Migration and recovery
 
 - Application/database migration: none.
-- Repository-record migration: all active/archive task records and project-hub graph/derived views.
-- Filesystem lifecycle migration: effective-done bundles to archive; live artifacts out of archive-bound/removal-bound locations; historical archives compressed last using the format supported by the new contract.
-- Backward compatibility: preserve the old system through the pre-cutover checkpoint, then complete the new conversion without leaving dual authority.
+- Repository-record migration: 142 archived and three active task bundles plus the project hub.
+- Backward compatibility: none for the retired task/skill/UI governance mechanisms. Recovery is Git-based, not a committed dual authority.
+- Known coherent checkpoints:
+  - `405c6049`: live assets detached from removal-bound historical paths.
+  - `5cf904fb`: lifecycle normalized while the old contract remained complete and valid.
+- Failure response: restore a coherent checkpoint and reclassify a disputed consumer; do not reintroduce broad compatibility machinery.
 
-## Failure and rollback rules
+## Non-functional properties
 
-- Stop before destructive work if the old baseline is not clean, the fixed asset source is unavailable, the graph conversion is lossy, or a removal-bound path has unresolved live consumers.
-- Checkpoint before archive moves, governance cutover, UI removal, reference cleanup, and compression.
-- Restore the last coherent single-contract checkpoint on failure; do not patch around an inconsistent hybrid.
-- Never use rollback to delete retained tasks, rewrite IDs, mutate the M/F graph, or discard unresolved live assets.
-
-## Non-functional considerations
-
-- Recoverability: phase-local checkpoints, archive index, and extraction/read proof.
-- Auditability: normalized before/after graph and task inventories plus recorded command results.
-- Simplicity: one governance authority, one project hub, no repository-local skill framework, and no duplicate UI governance layer.
-- Security: no secrets, credentials, global configuration, external deployment, or paid execution.
-- Performance: not a product-runtime concern; prefer deterministic bulk conversion and bounded repository scans.
-
-## Technical discovery questions
-
-- Confirm the authoritative new fixed-asset source and its supported conversion command.
-- Enumerate exact repository-local skill wrapper paths and every consumer before removal.
-- Build the live fixture/contract consumer map before archive movement or compression.
-- Prove the runtime/governance split inside `ui/` from imports and entrypoints rather than directory names alone.
+- Auditability: stable IDs, normalized graph/task comparisons, task-linked commits, and durable verification evidence.
+- Recoverability: old-contract Git checkpoint plus compact new archives.
+- Simplicity: one governance authority, one project hub, module-owned runtime tools, and no repository-local skill framework.
+- Runtime safety: no product feature, schema, API, LLM behavior, or visual redesign is part of the cutover.

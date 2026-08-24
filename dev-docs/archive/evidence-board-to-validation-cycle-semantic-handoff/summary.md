@@ -1,0 +1,28 @@
+# evidence-board-to-validation-cycle-semantic-handoff
+
+## Outcome
+
+Let an LLM start from one existing `ImplementationProject` with a current eligible Evidence Board and create or recover one admitted, trace-complete `ValidationCycle` through one semantic command, without caller-authored technical lineage or internal API choreography.
+
+The task was complete under the previous repository contract and is archived by location under the current contract.
+
+## Project placement
+
+- Task: `T-142`
+- Feature: `F-001` — Research Lifecycle Governance Core
+- Milestone: `M-001` — LLM Research Lifecycle v1
+- Last old-contract update: `2026-08-24`
+
+### Historical Requirement provenance
+
+- `R-013` — Paper implementation full landing baseline
+
+The retired Requirement objects are provenance only; they were not promoted into the current Milestone/Feature graph.
+
+## Durable verification
+
+- The complete old verification record remains available at the recovery reference below.
+
+## Recovery and migration note
+
+The complete pre-conversion bundle, including detailed decisions, verification, tools, and historical artifacts, is recoverable from Git at `5cf904fb:dev-docs/archive/evidence-board-to-validation-cycle-semantic-handoff/`. During T-145 the archive was compressed only after live fixtures and maintained contracts had moved to supported owners. Historical paths and commands in that snapshot are evidence, not current operational interfaces.

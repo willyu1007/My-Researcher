@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-142",
+  "slug": "evidence-board-to-validation-cycle-semantic-handoff",
+  "keywords": [
+    "paper-implementation",
+    "evidence-board",
+    "validation-cycle",
+    "semantic-handoff",
+    "exact-once"
+  ]
+}

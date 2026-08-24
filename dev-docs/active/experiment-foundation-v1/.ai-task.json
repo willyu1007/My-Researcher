@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-043",
+  "slug": "experiment-foundation-v1",
+  "keywords": [
+    "experiment-foundation",
+    "dataset-assets",
+    "baseline-assets",
+    "benchmark-assets",
+    "evaluation-protocol",
+    "run-recipe"
+  ]
+}

@@ -1,3 +1,0 @@
-SERVICE_NAME: demo-service
-PORT: 8000
-FEATURE_X_ENABLED: true

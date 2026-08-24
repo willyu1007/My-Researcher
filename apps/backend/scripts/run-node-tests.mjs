@@ -10,7 +10,7 @@
 // (confirmed 2026-07-03). The runner takes the machine-wide suite lock before
 // spawning; mechanics (staleness, heartbeat, serialized takeover, ownership
 // release, BACKEND_TEST_SUITE_LOCK=0 escape hatch) live in ./lib/suite-lock.mjs,
-// shared with the .ai multi-file fleet runners.
+// shared with backend validation runners.
 // Set BACKEND_TEST_CONCURRENCY to a positive integer for a bounded node:test
 // fleet; leaving it unset preserves Node's default concurrency.
 

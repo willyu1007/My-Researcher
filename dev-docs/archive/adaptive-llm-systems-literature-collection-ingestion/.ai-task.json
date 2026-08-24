@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "task_id": "T-116",
+  "slug": "adaptive-llm-systems-literature-collection-ingestion",
+  "keywords": [
+    "literature",
+    "corpus-collection",
+    "adaptive-llm-systems",
+    "rag-aware-allocation",
+    "llm-serving",
+    "test-time-compute",
+    "theory-support",
+    "experiment-foundation",
+    "paper-implementation"
+  ]
+}

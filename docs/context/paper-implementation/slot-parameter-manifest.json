@@ -2,7 +2,7 @@
   "schema_version": "SlotParameterManifest@v1",
   "domain": "paper_implementation",
   "registry_schema_version": "TopicSelectionModelProfileRegistry@v1",
-  "export_script": ".ai/scripts/paper-implementation-slot-parameter-manifest-export.mjs",
+  "export_script": "apps/backend/scripts/paper-implementation-slot-parameter-manifest-export.mjs",
   "slot_count": 14,
   "slots": [
     {
@@ -2167,7 +2167,7 @@
       "runtime_stress_required_case_keys": [
         "result_analysis_provider_failure_retry_exhausted_no_domain_gate_payload",
         "result_analysis_inactive_project_rejected_before_orchestrator",
-        "domain_gate_result_analysis_final_artifact_idempotency"
+        "domain_gate_result_analysis_materialization_closed"
       ],
       "debate_policy": null,
       "candidate_selection_policy": null,

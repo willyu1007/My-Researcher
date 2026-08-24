@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-072",
+  "slug": "experiment-foundation-version-lock-recipe-contracts",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "version-lock",
+    "run-recipe",
+    "method-recipe"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "task_id": "T-115",
+  "slug": "topic-selection-v1b-human-review-path",
+  "keywords": [
+    "topic-selection",
+    "v1b",
+    "human-review",
+    "workflow-harness",
+    "human_delegated",
+    "runtime-human-compatible",
+    "reviewer-workbench",
+    "R-009",
+    "parent-task:T-087",
+    "depends:T-088"
+  ]
+}

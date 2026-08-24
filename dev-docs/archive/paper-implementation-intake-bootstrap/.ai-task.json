@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-093",
+  "slug": "paper-implementation-intake-bootstrap",
+  "keywords": [
+    "paper-implementation",
+    "parent-task:T-091",
+    "R-013",
+    "implementation-intake",
+    "topic-selection",
+    "flow-node:intake-bootstrap"
+  ]
+}

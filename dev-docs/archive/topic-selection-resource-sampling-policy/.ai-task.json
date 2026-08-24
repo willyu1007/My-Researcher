@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-079",
+  "slug": "topic-selection-resource-sampling-policy",
+  "keywords": [
+    "topic-selection",
+    "resource-sampling",
+    "evidence-polarity",
+    "R-009",
+    "parent-task:T-042"
+  ]
+}

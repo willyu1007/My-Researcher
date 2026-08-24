@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-096",
+  "slug": "paper-implementation-workorder-experiment-bridge",
+  "keywords": [
+    "paper-implementation",
+    "parent-task:T-091",
+    "R-013",
+    "research-workorder",
+    "experiment-foundation",
+    "flow-node:workorder-bridge"
+  ]
+}

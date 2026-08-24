@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "task_id": "T-105",
+  "slug": "paper-implementation-provider-variance-evaluation",
+  "keywords": [
+    "paper-implementation",
+    "parent-task:T-091",
+    "follow-up:T-102",
+    "live-llm",
+    "provider-variance",
+    "ai-harness",
+    "evaluation",
+    "R-013",
+    "flow-node:provider-evaluation"
+  ]
+}

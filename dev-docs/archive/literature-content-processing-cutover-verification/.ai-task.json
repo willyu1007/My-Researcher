@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "task_id": "T-038",
+  "slug": "literature-content-processing-cutover-verification",
+  "keywords": [
+    "literature",
+    "cutover",
+    "verification",
+    "cleanup"
+  ]
+}

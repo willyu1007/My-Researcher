@@ -45,8 +45,6 @@ run `CREATE EXTENSION vector`).
 ## Background
 
 Reconciliation migration (stable in-repo reference):
-`20260719120000_reconcile_index_names_and_topic_research_record`. Full drift
-inventory and attribution: `01-analysis.md` under
-`artifacts/db/migrate-drift-reconciliation-20260719/` in the
-`experiment-foundation-productization-closure` dev-docs package (in
-`dev-docs/active/` until that package is archived, then `dev-docs/archive/`).
+`20260719120000_reconcile_index_names_and_topic_research_record`. Historical attribution is
+summarized in `dev-docs/archive/experiment-foundation-productization-closure/summary.md`; the
+complete pre-conversion bundle is recoverable from the commit recorded there.

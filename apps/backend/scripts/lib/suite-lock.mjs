@@ -5,9 +5,8 @@
 // file-level `not ok` false reds and dropped test totals. This was confirmed
 // by the T-124 concurrency investigation on 2026-07-03. Every entrypoint that
 // spawns a multi-file fleet must take this lock before spawning: the backend full-suite runner
-// (run-node-tests.mjs) and the .ai multi-file test steps
-// (paper-implementation-runtime-stress.mjs, topic-selection-v1c-
-// production-depth.mjs). One shared module = one lock path — two copies of
+// (run-node-tests.mjs) and backend validation runners such as
+// paper-implementation-runtime-stress.mjs. One shared module = one lock path — two copies of
 // the constant could drift and silently stop excluding each other.
 //
 // Lock lifecycle:

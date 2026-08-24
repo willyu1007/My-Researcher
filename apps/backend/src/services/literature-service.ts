@@ -938,7 +938,7 @@ export class LiteratureService {
       // FULLTEXT_PREPROCESSED — the trusted abstract is an independent trust decision and the
       // fulltext parse is derived from the raw asset, neither depends on citation identity.
       // Key content and below embed citation fields, so they go stale. The exact stage sets are
-      // pinned by .ai/scripts/literature-pipeline-matrix-consistency.mjs against the matrix SSOT.
+      // pinned by apps/backend/scripts/literature-pipeline-matrix-consistency.mjs against the matrix SSOT.
       await this.literatureFlowService.markStagesStale({
         literatureId: updated.id,
         stages: ['CITATION_NORMALIZED', 'KEY_CONTENT_READY', 'CHUNKED', 'EMBEDDED', 'INDEXED'],

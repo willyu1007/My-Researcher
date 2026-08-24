@@ -25,7 +25,7 @@ jobs:
           package-manager-cache: false
 
       - name: Run governance lint
-        run: node .ai/scripts/ctl-project-governance.mjs lint --check --project main
+        run: node .ai/scripts/ctl-project-governance.mjs lint --strict
 
   backend-checks:
     name: Backend Checks

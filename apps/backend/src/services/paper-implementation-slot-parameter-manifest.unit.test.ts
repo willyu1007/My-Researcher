@@ -49,7 +49,7 @@ const ROUTES_FILE_PATH = fileURLToPath(
   new URL('../routes/paper-implementation-routes.ts', import.meta.url),
 );
 const STRESS_SCRIPT_PATH = fileURLToPath(
-  new URL('.ai/scripts/paper-implementation-runtime-stress.mjs', REPO_ROOT_URL),
+  new URL('apps/backend/scripts/paper-implementation-runtime-stress.mjs', REPO_ROOT_URL),
 );
 const SNAPSHOT_PATH = fileURLToPath(
   new URL(PAPER_IMPLEMENTATION_SLOT_PARAMETER_MANIFEST_SNAPSHOT_PATH, REPO_ROOT_URL),

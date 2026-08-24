@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-121",
+  "slug": "literature-retrieval-pgvector-index-design",
+  "keywords": [
+    "literature",
+    "retrieval",
+    "pgvector",
+    "embedding-index",
+    "postgres",
+    "migration-design",
+    "follows:T-120"
+  ]
+}

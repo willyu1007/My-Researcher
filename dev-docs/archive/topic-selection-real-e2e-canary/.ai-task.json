@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-084",
+  "slug": "topic-selection-real-e2e-canary",
+  "keywords": [
+    "topic-selection",
+    "real-e2e",
+    "resource-sampling",
+    "paper-project-intake",
+    "R-009"
+  ]
+}

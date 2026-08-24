@@ -7,7 +7,7 @@
 - 节点策略细节（blockers/validators 全文）见各 contracts 文件与 T-089 `07-node-policies.md`（历史详情）。
 
 ## Machine-Check Contract
-本文件由一致性脚本自动校验：`.ai/scripts/topic-selection-workflow-matrix-consistency.mjs`（接入 backend 默认测试套件）。
+本文件由一致性脚本自动校验：`apps/backend/scripts/topic-selection-workflow-matrix-consistency.mjs`（接入 backend 默认测试套件）。
 
 校验内容与权威源：
 
@@ -27,7 +27,6 @@
 | v1a / resource_sampling 全语义列 | 同上 8 列 | `TOPIC_SELECTION_V1A_NODE_SEMANTIC_POLICIES` / `TOPIC_SELECTION_RESOURCE_SAMPLING_NODE_SEMANTIC_POLICIES`（…/topic-selection-node-semantic-policy-contracts.ts，T-089 ①尾巴 2026-07-06）——8 列全部行首 token **严格相等**（含 `conditional`/`reserved` 全词汇，无 yes/no 前缀解析）;rs 节点 id 双源字面量由脚本交叉核对 |
 | v1b 其余 4 语义列 | provider_required / debate_allowed / debate_primitive / human_review_required | `TOPIC_SELECTION_V1B_NODE_SEMANTIC_SUPPLEMENT_POLICIES`（…/topic-selection-node-semantic-policy-contracts.ts，2026-07-07）——行首 token 严格相等（含 `conditional`）；仅补此 4 列，另 4 列维持上方运行时策略推导校验（单权威，不双轨）；schema test 钉 id 集合与 v1b harness node ids 全等 |
 | covered_scenarios ↔ 场景注册表 | 全表 `covered_scenarios` 列 | T-089 `08-scenarios.md` 注册表：矩阵引用的 scenario 必须已注册、注册的 scenario 必须被矩阵引用、每个 scenario 的矩阵行集合与注册表 `covered_nodes` **集合相等**、covered_nodes 必须是已知 node id（T-089 ③） |
-| 脚本登记（T-088 D-28） | —— | 每个 `.ai/scripts/topic-selection-*.mjs` 文件名必须出现在 T-089 `08-scenarios.md`（Script Registration Map） |
 | 行形状守卫 | 每行格数 = 表头格数 | ——（缺格会让其后列静默左移；实案：v1c N2 曾缺 deterministic_validators 格） |
 | stage 词汇守卫 | 每行 `stage` ∈ 五个已知 stage | ——（未知/笔误 stage 的行否则对全部 id-set 检查不可见） |
 | 契约抽取完备性 | —— | 每个 v1b node 必须抽取到 policy modes+execution_kind（防常量化重构令校验静默失效）；每个 v1c/downstream node 必须有 policy 条目；未映射的 v1b `execution_kind` 显式报错 |

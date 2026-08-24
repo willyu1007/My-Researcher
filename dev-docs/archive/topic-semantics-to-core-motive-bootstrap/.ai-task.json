@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-140",
+  "slug": "topic-semantics-to-core-motive-bootstrap",
+  "keywords": [
+    "paper-implementation",
+    "core-motive",
+    "semantic-handoff",
+    "llm-proposal",
+    "exact-once"
+  ]
+}

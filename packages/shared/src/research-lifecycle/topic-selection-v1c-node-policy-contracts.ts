@@ -4,7 +4,7 @@
 // call invokeNode), so unlike v1a/v1b there is no runtime policy registry to re-export. This file
 // is the structured code authority for the SEMANTIC classification columns of the SSOT matrix
 // (docs/context/process/topic-selection-workflow-matrix.md) — consumed by
-// .ai/scripts/topic-selection-workflow-matrix-consistency.mjs to machine-check matrix drift.
+// apps/backend/scripts/topic-selection-workflow-matrix-consistency.mjs to machine-check matrix drift.
 //
 // Values were derived from the matrix rows verified against implementations by T-128 W-08
 // (2026-07-02 live-surface classification) and cross-checked against the v1c runtime services

@@ -6,7 +6,7 @@
 - 历史:七阶段模型定型于 T-031;域边界决策 T-029(2026-07 由 T-130 W-06 修订,见 §Pre-stage Domains);本文件由 T-130 W-08 创建(2026-07-08),消除阶段序列双写无守卫(L-12)与 fulltext 采集阶段归属表述漂移(L-16)。
 
 ## Machine-Check Contract
-本文件由一致性脚本自动校验:`.ai/scripts/literature-pipeline-matrix-consistency.mjs`(经 `apps/backend/src/services/literature-pipeline-matrix-consistency.unit.test.ts` 接入 backend 默认测试套件,含 `--self-test` 漂移注入负例)。
+本文件由一致性脚本自动校验：`apps/backend/scripts/literature-pipeline-matrix-consistency.mjs`（经 `apps/backend/src/services/literature-pipeline-matrix-consistency.unit.test.ts` 接入 backend 默认测试套件，含 `--self-test` 漂移注入负例）。
 
 | 校验 | 矩阵侧 | 代码权威源 |
 |---|---|---|

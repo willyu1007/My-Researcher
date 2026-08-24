@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-048",
+  "slug": "topic-selection-v1a-foundation-control-plane",
+  "keywords": [
+    "topic-selection",
+    "v1a",
+    "foundation",
+    "control-plane",
+    "input-snapshot",
+    "readiness-gate",
+    "transition"
+  ]
+}

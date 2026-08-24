@@ -8,7 +8,7 @@
 1. Add a new section under **Principles** when a cross-cutting rule is established.
 2. If a principle is superseded, keep it with a `[SUPERSEDED by ...]` tag — do not delete.
 3. When an alternative approach is evaluated and rejected, record it under **Rejected Approaches** with the reason.
-4. After editing, run `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs touch` to update checksums.
+4. Update directly related context documents in the same change; there is no checksum registry.
 
 ## Principles
 

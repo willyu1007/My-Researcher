@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-075",
+  "slug": "experiment-foundation-candidate-promotion-contracts",
+  "keywords": [
+    "experiment-foundation",
+    "parent-task:T-043",
+    "asset-candidate",
+    "literature-import",
+    "auto-promotion"
+  ]
+}

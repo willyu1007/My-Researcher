@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "task_id": "T-130",
+  "slug": "literature-productization-hardening",
+  "keywords": [
+    "literature",
+    "pipeline",
+    "productization",
+    "pgvector",
+    "grobid",
+    "R-009"
+  ]
+}
