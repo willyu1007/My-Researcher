@@ -60,5 +60,5 @@ repairs that do not alter composition or visual language do not require a mock.
 - Audit changed TSX for inline styles, raw colors, and unnecessary new primitives.
 - Run `pnpm desktop:typecheck` after UI-boundary or renderer changes.
 
-Current positive controls on 2026-08-24: 2,073 `data-ui` uses and 741 `var(--ui-...)` uses; renderer
+Current positive controls on 2026-08-24: 2,076 `data-ui` uses and 741 `var(--ui-...)` uses; renderer
 TSX contains no `style={{...}}` and no raw hex colors.
