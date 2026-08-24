@@ -151,19 +151,18 @@ type N6RuntimeSlotBinding = {
 
 const NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n6.question-candidate-draft.runtime-initial' as const;
+const PROMPT_TEMPLATE_WITH_DECISION_MEMORY_ID =
+  'topic-selection.v1b.n6.question-candidate-draft.runtime-initial.with-decision-memory' as const;
 // Product-grade v1b N6 topic-question candidate-set draft system prompt (T-128 W-05 Commit 3). N6
 // has a single dedicated slot, so this is exported as a config-backed renderer (drift-anchored directly
-// in the unit test) with one boolean branch: when the run carries a resolved decision-memory packet the
-// anti-repeat clause is appended verbatim. The output is a NON-AUTHORITY candidate-set draft — a
+// in the unit test) that selects the decision-memory prompt variant when the packet is present. The
+// output is a NON-AUTHORITY candidate-set draft — a
 // downstream deterministic N6 gate + human reviewer admit/merge/park/reject; it never writes authority.
 export function buildV1bN6DraftSystemContent(hasDecisionMemory: boolean): string {
-  const base = defaultLlmConfig().getPrompt(
+  return defaultLlmConfig().getPrompt(
     'topic-selection',
-    PROMPT_TEMPLATE_ID,
+    hasDecisionMemory ? PROMPT_TEMPLATE_WITH_DECISION_MEMORY_ID : PROMPT_TEMPLATE_ID,
   ).system;
-  return base + (hasDecisionMemory
-    ? ' context_packet.decision_memory lists previously rejected/parked/duplicate directions for this title card; do not regenerate equivalent candidates, and if intentionally revisiting one, justify it explicitly in the candidate rationale.'
-    : '');
 }
 
 export class TopicSelectionV1bN6DraftRuntimeService {

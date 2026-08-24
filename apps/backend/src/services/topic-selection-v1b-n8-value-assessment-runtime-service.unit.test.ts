@@ -35,8 +35,12 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { sha256Text } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
-import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
+import {
+  TopicSelectionV1bN8ValueAssessmentRuntimeService,
+  buildV1bN8ValueAssessmentSystemContent,
+} from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
 
 const N8_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
 const TITLE_CARD_ID = 'title_card_001';
@@ -312,6 +316,32 @@ async function recordProjectionRef(
   });
   return { ref_type: 'artifact_ref', ref_id: artifact.artifact_ref_id, title_card_id: TITLE_CARD_ID, version_id: null };
 }
+
+const N8_VALUE_ASSESSMENT_SYSTEM_BODY_GOLDEN = {
+  without_decision_memory: 'a64b22f2f0dac6e0724ab38ff67612e4961ea5ce68e1f748f4ad221c0e408eda',
+  with_decision_memory: '00babb8cfb2bed6c2ddaa5f65fec44c48fa27837a430d95aaebbd53f8ed8e72f',
+} as const;
+
+const N8_VALUE_ASSESSMENT_DECISION_MEMORY_CLAUSE =
+  "context_packet.decision_memory lists this title card's historical negative decisions (rejections, parks, drops, accepted risks); ground the negative_memory_check dimension and reviewer-risk reasoning in these entries and cite conflicts in risk_notes.";
+
+test('v1b N8 value-assessment system prompt is byte-stable for both decision-memory branches', () => {
+  const withoutMemory = buildV1bN8ValueAssessmentSystemContent(false);
+  const withMemory = buildV1bN8ValueAssessmentSystemContent(true);
+
+  assert.equal(
+    sha256Text(withoutMemory),
+    N8_VALUE_ASSESSMENT_SYSTEM_BODY_GOLDEN.without_decision_memory,
+  );
+  assert.equal(
+    sha256Text(withMemory),
+    N8_VALUE_ASSESSMENT_SYSTEM_BODY_GOLDEN.with_decision_memory,
+  );
+  assert.equal(
+    withMemory.slice(withoutMemory.length),
+    ' ' + N8_VALUE_ASSESSMENT_DECISION_MEMORY_CLAUSE,
+  );
+});
 
 test('v1b N8 value runtime generates a non-authority model_draft_for_gate from a codex_assisted draft', async () => {
   const controlPlane = makeControlPlane();

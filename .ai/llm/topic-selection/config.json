@@ -85,6 +85,10 @@
       "version": "v1",
       "system": "prompts/v1b/n6-question-candidate-draft/system.md"
     },
+    "topic-selection.v1b.n6.question-candidate-draft.runtime-initial.with-decision-memory": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-question-candidate-draft-with-decision-memory/system.md"
+    },
     "topic-selection.v1b.n6.loopback-triage.runtime-support": {
       "version": "v1",
       "system": "prompts/v1b/n6-loopback-triage/system.md"
@@ -104,6 +108,10 @@
     "topic-selection.v1b.n8.topic-value-assessment.runtime-draft": {
       "version": "v1",
       "system": "prompts/v1b/n8-topic-value-assessment/system.md"
+    },
+    "topic-selection.v1b.n8.topic-value-assessment.runtime-draft.with-decision-memory": {
+      "version": "v1",
+      "system": "prompts/v1b/n8-topic-value-assessment-with-decision-memory/system.md"
     },
     "topic-selection-v1b-n6-debate-explorer": {
       "version": "v1",

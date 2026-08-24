@@ -161,7 +161,16 @@ export type TopicSelectionV1bN8RuntimeDraftGenerationResult =
 
 const NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
 const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n8.topic-value-assessment.runtime-draft' as const;
+const PROMPT_TEMPLATE_WITH_DECISION_MEMORY_ID =
+  'topic-selection.v1b.n8.topic-value-assessment.runtime-draft.with-decision-memory' as const;
 const PROMPT_VARIANT_KEY = 'n8_value_assessment_draft.initial_from_n7' as const;
+
+export function buildV1bN8ValueAssessmentSystemContent(hasDecisionMemory: boolean): string {
+  return defaultLlmConfig().getPrompt(
+    'topic-selection',
+    hasDecisionMemory ? PROMPT_TEMPLATE_WITH_DECISION_MEMORY_ID : PROMPT_TEMPLATE_ID,
+  ).system;
+}
 
 export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
@@ -524,12 +533,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     return [
       {
         role: 'system',
-        content: defaultLlmConfig().getPrompt(
-          'topic-selection',
-          PROMPT_TEMPLATE_ID,
-        ).system + (contextPacket.decision_memory
-          ? ' context_packet.decision_memory lists this title card\'s historical negative decisions (rejections, parks, drops, accepted risks); ground the negative_memory_check dimension and reviewer-risk reasoning in these entries and cite conflicts in risk_notes.'
-          : ''),
+        content: buildV1bN8ValueAssessmentSystemContent(Boolean(contextPacket.decision_memory)),
       },
       {
         role: 'user',
