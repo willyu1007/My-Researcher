@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-08T03:15:37.310Z",
+  "updatedAt": "2026-08-24T15:20:45.418Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -1741,7 +1741,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "lifecycleSequence",
@@ -2282,7 +2282,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "createdAt",
@@ -2304,7 +2304,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "draftStateVersion",
@@ -2436,7 +2436,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "externalJobRefHash",
@@ -2956,7 +2956,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "dataPolicyDraftJson",
@@ -2978,7 +2978,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "draftStateVersion",
@@ -3449,7 +3449,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "datasetDraftJson",
@@ -3471,7 +3471,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "draftStateVersion",
@@ -4102,7 +4102,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "draftStateVersion",
@@ -4135,7 +4135,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -4245,7 +4245,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runManifestHash",
@@ -4289,7 +4289,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -4482,7 +4482,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "providerPayloadHash",
@@ -4768,7 +4768,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "providerPayloadHash",
@@ -5222,7 +5222,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "createdAt",
@@ -5871,7 +5871,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "contentHash",
@@ -5915,7 +5915,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -5992,7 +5992,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runId",
@@ -6058,7 +6058,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "sourceOutputKind",
@@ -6228,7 +6228,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "commandHash",
@@ -6271,7 +6271,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -6369,7 +6369,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -6508,7 +6508,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -6531,7 +6531,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "stateVersion",
@@ -7456,7 +7456,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "eventPayloadJson",
@@ -8097,7 +8097,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "draftStateVersion",
@@ -8141,7 +8141,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "updatedAt",
@@ -8399,7 +8399,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "commandHash",
@@ -8754,7 +8754,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "eventPayloadJson",
@@ -8842,7 +8842,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "publishedAt",
@@ -9221,7 +9221,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "providerPayloadHash",
@@ -9434,7 +9434,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "payloadByteSize",
@@ -9876,7 +9876,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "attestedAt",
@@ -10671,7 +10671,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -10737,7 +10737,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -10893,7 +10893,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -10915,7 +10915,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "readinessAttestationId",
@@ -10970,7 +10970,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -11108,7 +11108,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "frozenAt",
@@ -11152,7 +11152,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -11346,7 +11346,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "orderedCellResultCount",
@@ -11390,7 +11390,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runManifestHash",
@@ -11646,7 +11646,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runRecipeId",
@@ -12035,7 +12035,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -12068,7 +12068,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "readinessAttestationHash",
@@ -17189,7 +17189,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "status",
@@ -19391,7 +19391,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "latestPortfolioDecisionId",
@@ -19942,7 +19942,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "currentBoardVersionId",
@@ -21525,7 +21525,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "schemaVersion",
@@ -22345,7 +22345,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "eventPayloadJson",
@@ -23199,7 +23199,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -23353,7 +23353,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "currentRevisionSequence",
@@ -23386,7 +23386,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "headRevisionSequence",
@@ -24134,7 +24134,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "commandHash",
@@ -24166,7 +24166,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -24223,7 +24223,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "approvedPlanHash",
@@ -24277,7 +24277,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -24300,7 +24300,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "specContentHash",
@@ -24344,7 +24344,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "validationCycleId",
@@ -26280,7 +26280,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "intakeSnapshotHash",
@@ -28016,7 +28016,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "lifecycleStatus",
@@ -28038,7 +28038,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "policyVersionId",
@@ -29394,7 +29394,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "closureSnapshotHash",
@@ -30503,7 +30503,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -30536,7 +30536,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runId",
@@ -30547,7 +30547,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runManifestHash",
@@ -30602,7 +30602,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "workOrderRevisionHash",
@@ -32328,7 +32328,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "runtimeInvocationContextHash",
@@ -32913,7 +32913,7 @@
           "dbName": null,
           "dbType": null,
           "default": null,
-          "primaryKey": false,
+          "primaryKey": true,
           "unique": false
         },
         {
@@ -35084,7 +35084,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "implementationProjectId",
@@ -35150,7 +35150,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         }
       ],
       "relations": [
@@ -39832,7 +39832,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "titleCardId",
@@ -46774,7 +46774,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "id",
@@ -50668,7 +50668,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "sourcePromotionDecisionRef",
@@ -51511,7 +51511,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "promotionGateCheckId",
@@ -51757,7 +51757,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "decision",
@@ -52258,7 +52258,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "supportStatus",
@@ -52515,7 +52515,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "titleCardId",
@@ -52855,7 +52855,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "titleCardId",
@@ -66915,7 +66915,7 @@
           "dbType": null,
           "default": null,
           "primaryKey": false,
-          "unique": false
+          "unique": true
         },
         {
           "name": "strengthAssessmentRefs",
