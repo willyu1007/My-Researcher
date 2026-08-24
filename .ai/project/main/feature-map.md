@@ -49,7 +49,7 @@ Project: `main`
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | dev-docs/archive/literature-rag-frontier-tech-radar |
 | T-133 paper-implementation-debate-disposition-closure | done | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-145 repository-governance-convergence | planned | dev-docs/active/repository-governance-convergence |
+| T-145 repository-governance-convergence | in-progress | dev-docs/active/repository-governance-convergence |
 
 ### F-001 Research Lifecycle Governance Core
 

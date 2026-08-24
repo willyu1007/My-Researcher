@@ -35,3 +35,12 @@
 - Prevention:
 - References:
 
+### 2026-08-24 — Staged diff check warning did not stop the opening commit
+
+- Symptom: `git diff --cached --check` reported a blank line at EOF in `05-pitfalls.md`, but the following commit still ran.
+- Context: the opening checkpoint command used PowerShell semicolons, so a non-zero check did not stop the later `git commit` command.
+- What we tried: staged diff check, stat, and commit in one shell invocation.
+- Why it failed: command sequencing did not enforce fail-fast behavior.
+- Fix / workaround: remove the extra EOF line in this planning checkpoint and run check and commit as separate invocations.
+- Prevention: never place a commit after a verification command in the same semicolon-separated shell command; inspect the check result first.
+- References: `git diff --cached --check`, commit `3e0a07fd`.

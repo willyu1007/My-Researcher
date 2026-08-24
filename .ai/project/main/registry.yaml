@@ -1328,7 +1328,7 @@ tasks:
     updated: 2026-08-24
   - id: T-145
     slug: repository-governance-convergence
-    status: planned
+    status: in-progress
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/repository-governance-convergence

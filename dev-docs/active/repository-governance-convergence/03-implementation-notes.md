@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `planned`
+- Current status: `in-progress`
 - Last updated: 2026-08-24
 
 ## Decision Gate
@@ -37,13 +37,19 @@
 - Old CLI dry-run proposed allocation `T-145` plus updates to `registry.yaml`, `dashboard.md`, `feature-map.md`, and `task-index.md`; no other writes were proposed.
 - Old CLI apply allocated `T-145`; ID and slug queries both returned one `planned` entry mapped to `F-000` / `M-000`.
 - Repository-wide metadata search found exactly one `task_id: T-145` occurrence.
-- Final old governance lint passed, `git diff --check` passed, and the scoped worktree audit showed only this bundle plus the four CLI-managed hub outputs.
+- Final old governance lint passed, and the scoped worktree audit showed only this bundle plus the four CLI-managed hub outputs.
 
 ## What changed in this opening
 
 - Created the planned seven-file old-format task bundle only.
 - Did not create `.ai-task.yaml`; the old CLI owns task identity allocation.
 - Did not implement any migration, removal, move, compression, application, CI, hook, root-doc, skill, or UI change.
+
+## Planning checkpoint
+
+- The opening checkpoint landed as commit `3e0a07fd` with exactly one `Task: T-145` trailer.
+- The user had already approved all four top-level migration decisions and authorized the complete implementation boundary.
+- The task is now `in-progress`; kickoff is ready, and the first action is the execution-time baseline plus live-dependency relocation.
 
 ## Decisions and tradeoffs
 
@@ -62,9 +68,8 @@
 
 ## Known issues / follow-ups
 
-- Implementation has not been kicked off; all migration phases remain pending.
 - Refresh counts and path inventories at kickoff because repository state may change after this opening.
-- No opening follow-up remains; migration implementation still requires a separate kickoff.
+- No planning blocker remains; refresh the execution-time inventory before migration writes.
 
 ## Pitfalls / dead ends
 

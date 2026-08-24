@@ -28,7 +28,10 @@
   - Result: passed; `[ok] Lint passed.`
 - [x] Final scoped diff review.
   - Expected: changes limited to this bundle and old CLI-managed project-hub registry/derived outputs.
-  - Result: passed; only the new bundle plus `registry.yaml`, `dashboard.md`, `feature-map.md`, and `task-index.md` are changed. `git diff --check` is clean.
+  - Result: scope passed; only the new bundle plus `registry.yaml`, `dashboard.md`, `feature-map.md`, and `task-index.md` were changed.
+- [x] Planning checkpoint validation.
+  - Expected: task state and registry projection are `in-progress`, old governance lint passes, and staged diff has no whitespace warning.
+  - Result: passed; the task query reports `in-progress` at `F-000` / `M-000`, old governance lint passes, and `git diff --check` is clean after correcting the EOF warning.
 
 ## Migration verification plan
 

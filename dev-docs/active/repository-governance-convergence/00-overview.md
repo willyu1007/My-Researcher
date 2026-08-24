@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: planned
-- Next step: land the old-contract opening checkpoint, then mark `T-145` in progress and refresh the read-only graph/task/reference inventory before migration writes.
+- State: in-progress
+- Next step: freeze the execution-time graph/task/reference baseline, then relocate live fixtures and contracts out of task and governance paths before any deletion or archive conversion.
 
 ## Goal
 

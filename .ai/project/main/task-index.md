@@ -154,5 +154,5 @@ Project: `main`
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | done | F-001 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 | T-143 validation-cycle-handoff-authority-recovery-hardening | done | F-001 | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
 | T-144 validation-cycle-handoff-deep-cleanup | done | F-001 | dev-docs/active/validation-cycle-handoff-deep-cleanup |
-| T-145 repository-governance-convergence | planned | F-000 | dev-docs/active/repository-governance-convergence |
+| T-145 repository-governance-convergence | in-progress | F-000 | dev-docs/active/repository-governance-convergence |
 <!-- AUTO-GENERATED:END task-index -->
