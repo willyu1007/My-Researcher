@@ -63,6 +63,7 @@
 ## Kickoff gate
 
 - Status: pending
+- Authorized boundary: none
 - [ ] Decisions: qualifying external corpus evidence is supplied or explicitly identified.
 - [x] Design: advisory calibration and complete-wiring-only activation boundaries are settled.
 - [x] Route: corpus validation precedes prompt work and provider activation.

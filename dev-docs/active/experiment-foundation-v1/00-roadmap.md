@@ -51,6 +51,7 @@
 ## Kickoff gate
 
 - Status: pending
+- Authorized boundary: none
 - [ ] Decisions: the next experiment-foundation product slice is explicitly selected.
 - [x] Design: the stable V1 boundaries and historical child ownership are recorded.
 - [x] Route: implementation must move through a dedicated bounded child task.

@@ -5,6 +5,8 @@
 
 # Generated entry files
 CLAUDE.md
+!/.ai/project/CLAUDE.md
+!/dev-docs/CLAUDE.md
 .cursorrules
 
 # Temporary files
