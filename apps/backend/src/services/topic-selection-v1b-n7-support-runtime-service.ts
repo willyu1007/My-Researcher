@@ -32,6 +32,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
@@ -120,13 +121,24 @@ type N7RuntimeSlotBinding = {
 };
 
 const NODE_ID = 'topic-selection.v1b.materialize-topic-question-contract.v1' as const;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
+const PROMPT_TEMPLATE_IDS: Record<TopicSelectionV1bN7SupportSlotId, string> = {
+  n7_candidate_grouping:
+    'topic-selection.v1b.n7.candidate-grouping.runtime-support',
+  n7_failed_trial_synthesis:
+    'topic-selection.v1b.n7.failed-trial-synthesis.runtime-support',
+  n7_n8_debate_admission_review:
+    'topic-selection.v1b.n7.n8-debate-admission-review.runtime-support',
+};
+
+function configuredPrompt(slotId: TopicSelectionV1bN7SupportSlotId) {
+  return defaultLlmConfig().getPrompt('topic-selection', PROMPT_TEMPLATE_IDS[slotId]);
+}
 
 /**
- * Product-grade v1b N7 support system prompt (W-05 Commit 5, SPLIT-2). Exported as a pure, slot-keyed
- * builder so each of the three N7 support slots gets its own SHA-256 drift anchor (there is no
- * harness/replay golden over these bodies). slotLines carry the per-slot role + per-field contract; the
- * shared tail repeats the support-only / no-authority / no-gate-override / JSON-only boundary verbatim.
+ * Product-grade v1b N7 support system prompt (W-05 Commit 5, SPLIT-2). Exported as a config-backed,
+ * slot-keyed renderer so each support slot gets its own SHA-256 drift anchor (there is no
+ * harness/replay golden over these bodies). Each catalog entry carries the per-slot role, field
+ * contract, and shared support-only / no-authority / no-gate-override / JSON-only boundary.
  * The n8_debate_admission_review slot pins BOTH debate_level enum literals verbatim
  * (compact_assessment_debate / provider_diverse_deep_debate) because those values drive the real N8
  * execution-plan cost (debateLevelToExecutionPlanName), so a prose/enum drift here is high-value.
@@ -134,30 +146,7 @@ const PROMPT_TEMPLATE_VERSION = 'v1' as const;
 export function buildV1bN7SupportSystemContent(
   slotId: TopicSelectionV1bN7SupportSlotId,
 ): string {
-  const slotLines = slotId === 'n7_candidate_grouping'
-    ? [
-        'You are the N7 non-authority candidate-grouping support reviewer over the admissible topic-question candidates; you organize and prioritize them and never write the TopicQuestionContract or any authority record.',
-        'Set selected_candidate_ref and selected_candidate_hash to the strongest admissible candidate, give priority_order as a ranked list of at least one supplied candidate ref, populate duplicate_or_overlap_groups (each with a group_key, candidate_refs, a canonical_candidate_ref, and a rationale), record candidate_relationships as a structured object, and summarize the grouping in grouping_summary.',
-        'Ground every ref in the supplied candidate set, admissible candidates, selected research slice, generation artifact, and candidate grouping refs.',
-      ]
-    : slotId === 'n7_failed_trial_synthesis'
-      ? [
-          'You are the N7 non-authority failed-trial-synthesis support analyst over exhausted topic-question trials; you synthesize why they failed and hint at N6 regeneration, and never write authority records or re-run the deterministic gate.',
-          'List exhausted_candidate_refs with at least one supplied ref, give failure_reason_codes and n6_regeneration_hints as ref-grounded string arrays, write a synthesis_summary, and list affected_refs with at least one supplied ref.',
-          'Ground every ref and reason in the supplied candidate set, admissible candidates, trial lineage, and any N8 feedback refs.',
-        ]
-      : [
-          'You are the N7 non-authority N8-debate-admission-review support reviewer; you recommend the N8 debate cost tier and never admit the debate, set the gate, or write authority records.',
-          'Set debate_level to exactly compact_assessment_debate (the lower-cost tier for routine assessments) or provider_diverse_deep_debate (the higher-cost tier reserved for high-value or high-risk candidates that justify provider-diverse deep debate), set recommended_profile_id, give high_value_signal_codes and risk_signal_codes as ref-grounded string arrays that justify the chosen tier, and explain the choice in rationale.',
-          'Ground the recommendation in the supplied candidate set, admissible candidates, selected research slice, and candidate gate refs.',
-        ];
-  return [
-    ...slotLines,
-    'Use only the supplied refs, hashes, and context packet.',
-    'Do not create TopicQuestionContract, TopicValueAssessment, loopback, recheck, package, or authority records.',
-    'Do not override deterministic N7 gates, route policy, executable prompts, or ref/hash lineage.',
-    'Return only JSON matching the requested support output contract.',
-  ].join(' ');
+  return configuredPrompt(slotId).system;
 }
 
 export class TopicSelectionV1bN7SupportRuntimeService {
@@ -594,37 +583,40 @@ export class TopicSelectionV1bN7SupportRuntimeService {
   private slotBinding(slotId: TopicSelectionV1bN7SupportSlotId): N7RuntimeSlotBinding {
     const slot = this.slotPolicy(slotId);
     if (slotId === 'n7_candidate_grouping') {
+      const prompt = configuredPrompt(slotId);
       return {
         slot_id: slotId,
         invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.candidate_grouping,
         context_policy_profile_id: TOPIC_SELECTION_V1B_N7_CONTEXT_RUNTIME_PROFILE_IDS.candidate_grouping,
         output_contract: slot.output_contract,
         model_profile_id: slot.default_profile_id,
-        prompt_template_id: 'topic-selection.v1b.n7.candidate-grouping.runtime-support',
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_id: prompt.id,
+        prompt_template_version: prompt.version,
         schema: topicSelectionV1bCandidateGroupingSupportPayloadSchema as unknown as Record<string, unknown>,
       };
     }
     if (slotId === 'n7_failed_trial_synthesis') {
+      const prompt = configuredPrompt(slotId);
       return {
         slot_id: slotId,
         invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.failed_trial_synthesis,
         context_policy_profile_id: TOPIC_SELECTION_V1B_N7_CONTEXT_RUNTIME_PROFILE_IDS.failed_trial_synthesis,
         output_contract: slot.output_contract,
         model_profile_id: slot.default_profile_id,
-        prompt_template_id: 'topic-selection.v1b.n7.failed-trial-synthesis.runtime-support',
-        prompt_template_version: PROMPT_TEMPLATE_VERSION,
+        prompt_template_id: prompt.id,
+        prompt_template_version: prompt.version,
         schema: topicSelectionV1bN8FailedTrialSynthesisSupportPayloadSchema as unknown as Record<string, unknown>,
       };
     }
+    const prompt = configuredPrompt(slotId);
     return {
       slot_id: slotId,
       invocation_slot_id: TOPIC_SELECTION_V1B_N7_INVOCATION_SLOT_IDS.n8_debate_admission_review,
       context_policy_profile_id: TOPIC_SELECTION_V1B_N7_CONTEXT_RUNTIME_PROFILE_IDS.n8_debate_admission_review,
       output_contract: slot.output_contract,
       model_profile_id: slot.default_profile_id,
-      prompt_template_id: 'topic-selection.v1b.n7.n8-debate-admission-review.runtime-support',
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_id: prompt.id,
+      prompt_template_version: prompt.version,
       schema: topicSelectionV1bN8DebateAdmissionReviewSupportPayloadSchema as unknown as Record<string, unknown>,
     };
   }

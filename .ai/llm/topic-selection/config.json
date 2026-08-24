@@ -64,6 +64,46 @@
     "topic-selection-human-confirmation-semantic-review": {
       "version": "v1",
       "system": "prompts/v1a/human-confirmation-semantic-review/system.md"
+    },
+    "topic-selection.v1b.n2.constraint-profile.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n2-constraint-profile-support/system.md"
+    },
+    "topic-selection.v1b.n3.intake-readiness.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n3-intake-readiness-support/system.md"
+    },
+    "topic-selection.v1b.n4.research-slice-options.runtime-draft": {
+      "version": "v1",
+      "system": "prompts/v1b/n4-research-slice-options/system.md"
+    },
+    "topic-selection.v1b.n5.slice-selection.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n5-slice-selection-support/system.md"
+    },
+    "topic-selection.v1b.n6.question-candidate-draft.runtime-initial": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-question-candidate-draft/system.md"
+    },
+    "topic-selection.v1b.n6.loopback-triage.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n6-loopback-triage/system.md"
+    },
+    "topic-selection.v1b.n7.candidate-grouping.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n7-candidate-grouping/system.md"
+    },
+    "topic-selection.v1b.n7.failed-trial-synthesis.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n7-failed-trial-synthesis/system.md"
+    },
+    "topic-selection.v1b.n7.n8-debate-admission-review.runtime-support": {
+      "version": "v1",
+      "system": "prompts/v1b/n7-n8-debate-admission-review/system.md"
+    },
+    "topic-selection.v1b.n8.topic-value-assessment.runtime-draft": {
+      "version": "v1",
+      "system": "prompts/v1b/n8-topic-value-assessment/system.md"
     }
   }
 }

@@ -30,6 +30,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   resolveDecisionMemoryPacketFromSourceRefs,
@@ -159,7 +160,7 @@ export type TopicSelectionV1bN8RuntimeDraftGenerationResult =
   };
 
 const NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
+const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n8.topic-value-assessment.runtime-draft' as const;
 const PROMPT_VARIANT_KEY = 'n8_value_assessment_draft.initial_from_n7' as const;
 
 export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
@@ -523,13 +524,10 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Generate a non-authority topic value assessment draft for v1b N8.',
-          'Use only the supplied refs, hashes, context packet, and required structure manifest.',
-          'Do not create TopicValueAssessment, N8ToN9 handoff, N8ToN7 feedback, route decisions, trial ledger changes, candidate changes, package, recheck, or authority records.',
-          'Do not override deterministic N8 gates, feedback boundaries, executable prompts, or ref/hash lineage.',
-          'Return only JSON matching TopicValueAssessmentDraft@v1.',
-        ].join(' ') + (contextPacket.decision_memory
+        content: defaultLlmConfig().getPrompt(
+          'topic-selection',
+          PROMPT_TEMPLATE_ID,
+        ).system + (contextPacket.decision_memory
           ? ' context_packet.decision_memory lists this title card\'s historical negative decisions (rejections, parks, drops, accepted risks); ground the negative_memory_check dimension and reviewer-risk reasoning in these entries and cite conflicts in risk_notes.'
           : ''),
       },
@@ -1101,14 +1099,18 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
 
   private slotBinding(): N8RuntimeSlotBinding {
     const slot = this.slotPolicy();
+    const prompt = defaultLlmConfig().getPrompt(
+      'topic-selection',
+      PROMPT_TEMPLATE_ID,
+    );
     return {
       slot_id: 'n8_value_assessment_draft',
       invocation_slot_id: TOPIC_SELECTION_V1B_N8_INVOCATION_SLOT_IDS.value_assessment_draft,
       context_policy_profile_id: TOPIC_SELECTION_V1B_N8_CONTEXT_RUNTIME_PROFILE_IDS.value_assessment_draft,
       output_contract: slot.output_contract,
       model_profile_id: slot.default_profile_id,
-      prompt_template_id: 'topic-selection.v1b.n8.topic-value-assessment.runtime-draft',
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_id: prompt.id,
+      prompt_template_version: prompt.version,
       prompt_variant_key: PROMPT_VARIANT_KEY,
       schema: topicSelectionV1bTopicValueAssessmentDraftPayloadSchema as unknown as Record<string, unknown>,
     };

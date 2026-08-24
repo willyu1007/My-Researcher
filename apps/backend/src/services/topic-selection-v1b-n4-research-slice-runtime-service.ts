@@ -35,6 +35,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   TOPIC_SELECTION_CONTEXT_RUNTIME_REDACTION_POLICY,
@@ -158,25 +159,18 @@ export type TopicSelectionV1bN4RuntimeDraftGenerationResult =
   };
 
 const NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
+const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n4.research-slice-options.runtime-draft' as const;
 const PROMPT_VARIANT_KEY = 'n4_research_slice_option_draft.initial_from_n3' as const;
 
 // Product-grade N4 research-slice option-set draft system prompt (T-128 W-05). N4 has a single
-// dedicated slot, so this is a no-branch builder; it is exported as a pure function so the prompt body
-// is drift-anchored directly in the unit test. The output is a NON-AUTHORITY comparative option set —
+// dedicated slot, so this is a no-branch config-backed renderer whose prompt body is drift-anchored
+// directly in the unit test. The output is a NON-AUTHORITY comparative option set —
 // a deterministic gate + human reviewer select among the options downstream; it never writes authority.
 export function buildV1bN4ResearchSliceSystemContent(): string {
-  return [
-    'You are drafting a non-authority comparative research-slice option set for v1b N4: propose multiple distinct, executable research slices that satisfy the validated need within the stated constraints, for a downstream deterministic gate and human reviewer to select among.',
-    'Use only the supplied refs, hashes, planning input, context packet, and required structure manifest.',
-    'Emit options (at least one), each a self-contained slice with an option_key, slice_statement, problem_space, target_setting, target_community, included_boundaries and excluded_boundaries, contribution_type_candidate, role-specific support/challenge/baseline/context evidence refs, expected_claim and fallback_claim, observable_success_criteria, baseline_risk/execution_risk/scope_risk (low, medium, high, or unknown), and claim_ceiling_alignment.status with a rationale; set requires_human_review with its human_review_triggers and a confidence (which may be null) per option.',
-    'Set recommended_option_key to one option_key or null when there is no clear winner; give comparison_axes and a comparison_summary of how the options differ; list missing_option_types, unresolved_disagreements, and top-level human_review_triggers.',
-    'Cite only refs present in context_packet.source_refs; every evidence ref must be a supplied ref and you must not invent refs or hashes; respect context_packet.planning_input.non_goals and context_packet.planning_input.claim_ceiling as hard ceilings.',
-    "Every option's source_validated_need_refs must include context_packet.planning_input.validated_need_ref; keep both included_boundaries and excluded_boundaries non-empty; echo context_packet.planning_input.target_community rather than drifting to a new community; keep each claim_ceiling_alignment.status off exceeds; and restate every context_packet.planning_input.non_goal inside excluded_boundaries.",
-    'Do not create ResearchSliceOptionSet, ResearchSliceOption, PlanResearchSliceRun, N4ToN5 handoff, selection decisions, packages, rechecks, or authority records.',
-    'Do not override deterministic N4 gates, executable prompts, frozen input lineage, claim ceiling, non-goals, or evidence boundaries.',
-    'Return only JSON matching ResearchSliceOptionSetDraft@v1.',
-  ].join(' ');
+  return defaultLlmConfig().getPrompt(
+    'topic-selection',
+    PROMPT_TEMPLATE_ID,
+  ).system;
 }
 
 export class TopicSelectionV1bN4ResearchSliceRuntimeService {
@@ -858,14 +852,18 @@ export class TopicSelectionV1bN4ResearchSliceRuntimeService {
 
   private slotBinding(): N4RuntimeSlotBinding {
     const slot = this.slotPolicy();
+    const prompt = defaultLlmConfig().getPrompt(
+      'topic-selection',
+      PROMPT_TEMPLATE_ID,
+    );
     return {
       slot_id: 'n4_research_slice_option_draft',
       invocation_slot_id: TOPIC_SELECTION_V1B_N4_INVOCATION_SLOT_IDS.research_slice_option_draft,
       context_policy_profile_id: TOPIC_SELECTION_V1B_N4_CONTEXT_RUNTIME_PROFILE_IDS.research_slice_option_draft,
       output_contract: slot.output_contract,
       model_profile_id: slot.default_profile_id,
-      prompt_template_id: 'topic-selection.v1b.n4.research-slice-options.runtime-draft',
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_id: prompt.id,
+      prompt_template_version: prompt.version,
       prompt_variant_key: PROMPT_VARIANT_KEY,
       schema: topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema as unknown as Record<string, unknown>,
     };

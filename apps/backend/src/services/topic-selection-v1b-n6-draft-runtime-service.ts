@@ -30,6 +30,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import { defaultLlmConfig } from './llm-config-loader.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   resolveDecisionMemoryPacketFromSourceRefs,
@@ -149,28 +150,17 @@ type N6RuntimeSlotBinding = {
 };
 
 const NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
-const PROMPT_TEMPLATE_VERSION = 'v1' as const;
-
+const PROMPT_TEMPLATE_ID = 'topic-selection.v1b.n6.question-candidate-draft.runtime-initial' as const;
 // Product-grade v1b N6 topic-question candidate-set draft system prompt (T-128 W-05 Commit 3). N6
-// has a single dedicated slot, so this is exported as a pure function (drift-anchored directly in the
-// unit test) with one boolean branch: when the run carries a resolved decision-memory packet the
+// has a single dedicated slot, so this is exported as a config-backed renderer (drift-anchored directly
+// in the unit test) with one boolean branch: when the run carries a resolved decision-memory packet the
 // anti-repeat clause is appended verbatim. The output is a NON-AUTHORITY candidate-set draft — a
 // downstream deterministic N6 gate + human reviewer admit/merge/park/reject; it never writes authority.
 export function buildV1bN6DraftSystemContent(hasDecisionMemory: boolean): string {
-  const base = [
-    'You are drafting a non-authority topic-question candidate set for v1b N6: form one shared question_frame and one or more distinct, answerable topic-question candidates grounded in the selected research slice and validated need, for a downstream deterministic N6 gate and human reviewer to admit, merge, park, or reject.',
-    'Use only the supplied refs, hashes, and context packet; when generation_mode is a regeneration, honor the supplied N7 loopback or N6 gate-failure retry projection and do not repeat exhausted, blocked, or already-rejected candidates.',
-    'Fill question_frame with target_setting, target_community, object_scope, task_scope, intervention_or_approach, comparison_baseline, and observable_outcome, plus assumption_refs and evidence_refs taken only from supplied refs and a frame_payload object.',
-    'Emit candidates, at least one, each with a unique candidate_key, a main_question and sub_questions, question_type and contribution_hypothesis (one of method, benchmark, analysis, resource, system), source_validated_need_refs, an answerability_verdict (answerable, answerable_with_risk, needs_slice_refinement, or not_answerable), expected_claim, fallback_claim, max_claim_strength, observable_success_criteria, and a confidence that may be null.',
-    'For each candidate give an answerability_plan (datasets_or_resources, metrics, baselines, ablations_or_comparisons, evaluation_setting, dependency_risks, open_dependencies, known_gaps, required_evidence_refs), a boundary_check (preserved_boundary_refs, excluded_boundary_refs, boundary_violations, prohibited_claims, allowed_refinements), a traceability_check (support_evidence_refs, challenge_evidence_refs, baseline_evidence_refs, context_evidence_refs, mapped_evidence_refs, unmapped_assumptions), and falsification_conditions, each with condition_type, severity (hard, soft, or answerability), statement, trigger_evidence_refs, trigger_source_refs, related_contract_fields, expected_action, check_timing, and confidence (low, medium, or high), plus risk_notes, blockers, objections, and human_review_triggers.',
-    'Set recommended_candidate_keys to a subset of the emitted candidate_keys, record generation_notes, and raise top-level human_review_triggers for set-level concerns.',
-    'Cite only refs present in the supplied context packet; every evidence, need, boundary, and assumption ref must be a supplied ref, and you must not invent refs or hashes.',
-    'Emit at most five candidates and make each one pass the deterministic N6 gate: set answerability_verdict to answerable or answerable_with_risk (needs_slice_refinement and not_answerable are blocked before admission), write a specific main_question that ends with a question mark and avoids broad how/what-about framing, populate the traceability_check support/challenge/baseline/context evidence_refs each non-empty, and keep boundary_check.boundary_violations and blockers empty.',
-    'For each candidate keep answerability_plan.datasets_or_resources, metrics, baselines, and evaluation_setting non-empty, keep observable_success_criteria non-empty, give at least one falsification_condition and make every falsification_condition non-weak (a statement of at least 24 characters, at least one trigger_evidence_ref or trigger_source_ref, non-empty related_contract_fields, and a non-empty expected_action; a single weak condition blocks the whole candidate), hold expected_claim, fallback_claim, and max_claim_strength within the selected ResearchSlice claim ceiling, and set source_validated_need_refs to the frozen slice validated need ref.',
-    'Do not create QuestionFrame, TopicQuestionCandidate, CandidateSet, N6ToN7 handoff, package, recheck, or authority records.',
-    'Do not override deterministic N6 gates, route policy, executable prompts, or ref/hash lineage.',
-    'Return only JSON matching TopicQuestionCandidateSetDraft@v1.',
-  ].join(' ');
+  const base = defaultLlmConfig().getPrompt(
+    'topic-selection',
+    PROMPT_TEMPLATE_ID,
+  ).system;
   return base + (hasDecisionMemory
     ? ' context_packet.decision_memory lists previously rejected/parked/duplicate directions for this title card; do not regenerate equivalent candidates, and if intentionally revisiting one, justify it explicitly in the candidate rationale.'
     : '');
@@ -703,6 +693,10 @@ export class TopicSelectionV1bN6DraftRuntimeService {
 
   private slotBinding(generationMode: TopicSelectionV1bN6DraftGenerationMode): N6RuntimeSlotBinding {
     const slot = this.slotPolicy();
+    const prompt = defaultLlmConfig().getPrompt(
+      'topic-selection',
+      PROMPT_TEMPLATE_ID,
+    );
     return {
       slot_id: 'n6_question_candidate_draft',
       invocation_slot_id: TOPIC_SELECTION_V1B_N6_INVOCATION_SLOT_IDS.question_candidate_draft,
@@ -710,8 +704,8 @@ export class TopicSelectionV1bN6DraftRuntimeService {
       context_policy_profile_id: TOPIC_SELECTION_V1B_N6_CONTEXT_RUNTIME_PROFILE_IDS.question_candidate_draft,
       output_contract: slot.output_contract,
       model_profile_id: slot.default_profile_id,
-      prompt_template_id: 'topic-selection.v1b.n6.question-candidate-draft.runtime-initial',
-      prompt_template_version: PROMPT_TEMPLATE_VERSION,
+      prompt_template_id: prompt.id,
+      prompt_template_version: prompt.version,
       prompt_variant_key: `n6_question_candidate_draft.${generationMode}`,
       schema: topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema as unknown as Record<string, unknown>,
     };
