@@ -34,6 +34,7 @@ import { AppError } from '../../errors/app-error.js';
 import type {
   PaperImplementationValidationRepository,
   ValidationCycleDraftPersistence,
+  ValidationCycleOwnerScopeQuery,
 } from '../paper-implementation-validation.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -299,6 +300,34 @@ implements PaperImplementationValidationRepository {
     const rows = await this.prisma.paperImplementationValidationCycle.findMany({
       where: { implementationProjectId },
       orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => toValidationCycle(row));
+  }
+
+  async listValidationCyclesByOwnerScope(
+    implementationProjectId: string,
+    query: ValidationCycleOwnerScopeQuery,
+  ): Promise<ValidationCycle[]> {
+    const ownerPredicates: Prisma.PaperImplementationValidationCycleWhereInput[] = [
+      { targetRefType: 'motive_evidence_board', targetRefId: query.board_version_id },
+      { targetRefType: 'core_motive_version', targetRefId: query.core_motive_version_id },
+      { targetVersionId: query.core_motive_version_id },
+    ];
+    if (query.assertion_ids.length > 0) {
+      ownerPredicates.push({
+        targetRefType: 'motive_assertion',
+        targetRefId: { in: query.assertion_ids },
+        targetVersionId: query.core_motive_version_id,
+      });
+    }
+    const rows = await this.prisma.paperImplementationValidationCycle.findMany({
+      where: {
+        implementationProjectId,
+        cycleStatus: { in: query.lifecycle_statuses },
+        OR: ownerPredicates,
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
+      take: query.limit,
     });
     return rows.map((row) => toValidationCycle(row));
   }

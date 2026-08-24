@@ -224,7 +224,9 @@ paths:
         and consumes only the coordinator-selected admitted ValidationCycle proposal through the T-095
         draft, trace and admission writers. Replay reuses persisted coordinator, runtime, trace and cycle
         authority. Existing admitted cycles are returned without an LLM call. The command creates no
-        WorkOrder, Experiment Foundation Run, provider Job or paid PAI side effect.
+        WorkOrder, Experiment Foundation Run, provider Job or paid PAI side effect. Missing or ineligible
+        owner state is returned as an owner-resolution blocker; a confirmatory selected proposal stops for
+        explicit human review before trace or ValidationCycle authority is written.
       tags: [paper-implementation-handoff]
       requestBody:
         required: true
@@ -7282,20 +7284,24 @@ components:
           required: [admitted_core_motive, evidence_board, validation_cycle]
           properties:
             admitted_core_motive:
-              type: object
-              additionalProperties: false
-              required: [short_name, required_assertion_count]
-              properties:
-                short_name: { type: string, minLength: 1 }
-                required_assertion_count: { type: integer, minimum: 1 }
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required: [short_name, required_assertion_count]
+                  properties:
+                    short_name: { type: string, minLength: 1 }
+                    required_assertion_count: { type: integer, minimum: 1 }
+                - type: 'null'
             evidence_board:
-              type: object
-              additionalProperties: false
-              required: [support_state, challenge_status, binding_count]
-              properties:
-                support_state: { type: string, minLength: 1 }
-                challenge_status: { type: string, minLength: 1 }
-                binding_count: { type: integer, minimum: 0 }
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required: [support_state, challenge_status, binding_count]
+                  properties:
+                    support_state: { type: string, minLength: 1 }
+                    challenge_status: { type: string, minLength: 1 }
+                    binding_count: { type: integer, minimum: 0 }
+                - type: 'null'
             validation_cycle:
               anyOf:
                 - type: object
@@ -7314,13 +7320,13 @@ components:
           required: [implementation_project_id, intake_snapshot_id, motive_id, core_motive_version_id, assertion_ids, board_version_id, evidence_binding_ids, coordinator_run_id, validation_planning_runtime_artifact_id, selected_candidate_key, validation_cycle_id, validation_input_snapshot_id, trace_manifest_id, admission_gate_result_id]
           properties:
             implementation_project_id: { type: string, minLength: 1 }
-            intake_snapshot_id: { type: string, minLength: 1 }
-            motive_id: { type: string, minLength: 1 }
-            core_motive_version_id: { type: string, minLength: 1 }
+            intake_snapshot_id: { type: [string, 'null'], minLength: 1 }
+            motive_id: { type: [string, 'null'], minLength: 1 }
+            core_motive_version_id: { type: [string, 'null'], minLength: 1 }
             assertion_ids:
               type: array
               items: { type: string, minLength: 1 }
-            board_version_id: { type: string, minLength: 1 }
+            board_version_id: { type: [string, 'null'], minLength: 1 }
             evidence_binding_ids:
               type: array
               items: { type: string, minLength: 1 }

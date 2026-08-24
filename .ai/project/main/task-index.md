@@ -152,4 +152,5 @@ Project: `main`
 | T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
 | T-141 core-motive-to-evidence-board-semantic-handoff | done | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | done | F-001 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
+| T-143 validation-cycle-handoff-authority-recovery-hardening | in-progress | F-001 | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
 <!-- AUTO-GENERATED:END task-index -->

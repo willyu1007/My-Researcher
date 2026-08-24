@@ -16,6 +16,7 @@ import type {
   MotiveEvidenceBoardVersion,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-motive-contracts';
 import {
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
   PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
   type PaperImplementationRuntimeArtifactEnvelope,
   type PaperImplementationValidationCyclePlanningArtifact,
@@ -79,11 +80,14 @@ function emptyLineage(): TraceLineageBundle {
   };
 }
 
-function completeTrace(traceManifestId: string): TraceManifest {
+function completeTrace(
+  traceManifestId: string,
+  targetRef: TopicSelectionFunctionalRef = ref('motive_evidence_board_version', BOARD_ID),
+): TraceManifest {
   return {
     trace_manifest_id: traceManifestId,
     implementation_project_id: PROJECT_ID,
-    target_ref: ref('motive_evidence_board', BOARD_ID),
+    target_ref: targetRef,
     lineage: {
       ...emptyLineage(),
       literature: {
@@ -234,6 +238,20 @@ class RuntimeReader {
   }
 }
 
+type CoordinatorStop =
+  | 'waiting_review'
+  | 'failed_runtime'
+  | 'failed_runtime_once'
+  | 'blocked'
+  | 'terminal_failed'
+  | 'budget_exhausted';
+
+type CoordinatorRunDrift =
+  | 'implementation_project_id'
+  | 'execution_mode'
+  | 'model_option_id'
+  | 'budget_envelope';
+
 class Coordinator {
   createCalls = 0;
   advanceCalls = 0;
@@ -242,8 +260,12 @@ class Coordinator {
 
   constructor(
     private readonly runtime: RuntimeReader,
-    private readonly stop?: 'waiting_review' | 'failed_runtime' | 'blocked',
+    private stop: CoordinatorStop | undefined,
     private readonly driftCandidate = false,
+    private readonly confirmatoryCandidate = false,
+    private readonly iterationBudgetRef = false,
+    private readonly duplicateSelectedStep = false,
+    private readonly runDrift?: CoordinatorRunDrift,
   ) {}
 
   async createCoordinatorRun(projectId: string, request: CreatePaperImplementationCoordinatorRunRequest) {
@@ -257,6 +279,15 @@ class Coordinator {
       model_option_id: null, budget_envelope: request.budget_envelope, consumed: { steps: 0, provider_calls: 0 },
       lease: null, slot_request_payloads: structuredClone(request.slot_request_payloads), created_at: NOW, updated_at: NOW,
     };
+    if (this.runDrift === 'implementation_project_id') {
+      this.run.implementation_project_id = 'implementation_project_run_drift';
+    } else if (this.runDrift === 'execution_mode') {
+      this.run.execution_mode = 'mocked_llm';
+    } else if (this.runDrift === 'model_option_id') {
+      this.run.model_option_id = 'model_option_run_drift';
+    } else if (this.runDrift === 'budget_envelope') {
+      this.run.budget_envelope = { max_steps: 40, max_provider_calls: 80 };
+    }
     return structuredClone(this.run);
   }
 
@@ -275,22 +306,36 @@ class Coordinator {
     this.run = { ...this.run, run_status: 'advancing', updated_at: NOW };
     await Promise.resolve();
     if (this.stop) {
-      const outcome = this.stop === 'waiting_review' ? 'waiting_review' : this.stop;
+      const activeStop = this.stop;
+      const outcome = activeStop === 'waiting_review'
+        ? 'waiting_review'
+        : activeStop === 'failed_runtime'
+          || activeStop === 'failed_runtime_once'
+          || activeStop === 'terminal_failed'
+          ? 'failed_runtime'
+          : 'blocked';
       this.steps = [{
         schema_version: 'PaperImplementationCoordinatorStep@v1', coordinator_step_id: 'step_stop_t142',
         coordinator_run_id: this.run.coordinator_run_id, implementation_project_id: PROJECT_ID,
         step_index: 1, slot_id: 'route_skeptic_review.route_risk_critique', node_attempt_id: 'attempt_stop_t142',
         runtime_artifact_ref: null, runtime_artifact_hash: null, runtime_artifact_id: null,
         admission_ref: null, decision_record: null, outcome, provider_call_count: 1,
-        blocker_codes: [this.stop === 'failed_runtime' ? 'PROVIDER_UNAVAILABLE' : 'ROUTE_REVIEW_REQUIRED'],
+        blocker_codes: [outcome === 'failed_runtime' ? 'PROVIDER_UNAVAILABLE' : 'ROUTE_REVIEW_REQUIRED'],
         created_at: NOW,
       }];
       this.run = {
         ...this.run,
-        run_status: this.stop === 'waiting_review' ? 'waiting_review' : 'blocked',
+        run_status: activeStop === 'waiting_review'
+          ? 'waiting_review'
+          : activeStop === 'terminal_failed'
+            ? 'failed'
+            : activeStop === 'budget_exhausted'
+              ? 'budget_exhausted'
+              : 'blocked',
         consumed: { steps: 1, provider_calls: 1 },
         updated_at: NOW,
       };
+      if (activeStop === 'failed_runtime_once') this.stop = undefined;
       return this.getCoordinatorRun();
     }
     const targetRef = this.run.slot_request_payloads[PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID]
@@ -321,9 +366,17 @@ class Coordinator {
           inconclusive_conditions: ['Feasibility remains ambiguous.'], stop_conditions: ['Stop after the bounded check.'],
           minimum_artifacts_required: ['Trace-complete feasibility evidence.'],
         },
-        budget_envelope: { retry_budget: 0, max_runtime: 'PT4H', max_compute: 'local_cpu', max_human_review_count: 1 },
+        budget_envelope: {
+          ...(this.iterationBudgetRef
+            ? { iteration_budget_ref: ref('iteration_budget', 'llm_invented_budget_t143') }
+            : {}),
+          retry_budget: 0,
+          max_runtime: 'PT4H',
+          max_compute: 'local_cpu',
+          max_human_review_count: 1,
+        },
         included_context_refs: [targetRef], trace_refs: [ref('trace_manifest', 'trace_board_t142')],
-        confirmatory_marker: false, blocker_codes: [], warning_codes: [],
+        confirmatory_marker: this.confirmatoryCandidate, blocker_codes: [], warning_codes: [],
       }],
       no_domain_gate_request: true, no_queue_side_effect: true, no_validation_cycle_side_effect: true,
       role_artifact_refs: [], role_artifact_hashes: [], admitted_role_artifact_refs: [], admitted_role_artifact_hashes: [],
@@ -332,30 +385,58 @@ class Coordinator {
       source_hash_bundle_hash: 'source_hash_t142',
     };
     const hash = sha256Text(stableStringify(artifactPayload));
+    const finalArtifactRef = ref(
+      'validation_cycle_planning_runtime_artifact',
+      `${this.run.coordinator_run_id}.final`,
+      hash,
+    );
     this.runtime.artifact = {
       implementation_project_id: PROJECT_ID,
       runtime_artifact_id: 'runtime_artifact_cycle_t142',
       workflow_type: 'validation_cycle_planning',
       slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
+      artifact_scope: 'final',
+      target_ref: targetRef,
+      target_version_id: BOARD_ID,
+      artifact_payload_ref: finalArtifactRef,
+      final_artifact_ref: finalArtifactRef,
+      run_mode: 'product',
+      execution_mode: 'provider_llm',
+      model_profile_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID,
+      runtime_status: 'passed',
+      source_hash_bundle_hash: artifactPayload.source_hash_bundle_hash,
       artifact_payload: artifactPayload as unknown as Record<string, unknown>,
       artifact_payload_hash: hash,
       final_artifact_hash: hash,
     } as PaperImplementationRuntimeArtifactEnvelope;
-    this.steps = [{
+    const selectedStep: PaperImplementationCoordinatorRunWithSteps['steps'][number] = {
       schema_version: 'PaperImplementationCoordinatorStep@v1', coordinator_step_id: 'step_cycle_t142',
       coordinator_run_id: this.run.coordinator_run_id, implementation_project_id: PROJECT_ID,
       step_index: 2, slot_id: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID,
       node_attempt_id: 'attempt_cycle_t142',
-      runtime_artifact_ref: ref('paper_implementation_runtime_artifact', this.runtime.artifact.runtime_artifact_id),
+      runtime_artifact_ref: finalArtifactRef,
       runtime_artifact_hash: hash, runtime_artifact_id: this.runtime.artifact.runtime_artifact_id,
-      admission_ref: ref('runtime_admission', 'admission_cycle_t142'),
+      admission_ref: {
+        ref_type: 'paper_implementation_runtime_admission_record',
+        ref_id: 'admission_cycle_t142',
+        title_card_id: null,
+        version_id: null,
+      },
       decision_record: {
         policy_id: 'paper-implementation.coordinator.candidate-selection', policy_version: 'v1', inputs_hash: 'inputs_t142',
         candidate_projections: [{ candidate_key: 'cycle_candidate_t142', expected_information_gain: 'high', blocker_codes: [] }],
         selected_candidate_key: 'cycle_candidate_t142', rationale_codes: ['single_eligible_candidate'],
       },
       outcome: 'passed', provider_call_count: 1, blocker_codes: [], created_at: NOW,
-    }];
+    };
+    this.steps = this.duplicateSelectedStep
+      ? [selectedStep, {
+        ...structuredClone(selectedStep),
+        coordinator_step_id: 'step_cycle_duplicate_t143',
+        node_attempt_id: 'attempt_cycle_duplicate_t143',
+        step_index: selectedStep.step_index + 1,
+      }]
+      : [selectedStep];
     this.run = { ...this.run, run_status: 'completed', consumed: { steps: 4, provider_calls: 4 }, updated_at: NOW };
     return this.getCoordinatorRun();
   }
@@ -364,8 +445,14 @@ class Coordinator {
 async function makeHarness(options: {
   failFirstAdmission?: boolean;
   blockAdmission?: boolean;
-  coordinatorStop?: 'waiting_review' | 'failed_runtime' | 'blocked';
+  coordinatorStop?: CoordinatorStop;
   driftCandidate?: boolean;
+  confirmatoryCandidate?: boolean;
+  iterationBudgetRef?: boolean;
+  duplicateSelectedStep?: boolean;
+  coordinatorRunDrift?: CoordinatorRunDrift;
+  ownerTraceDrift?: 'board' | 'binding';
+  missingProject?: boolean;
   ownerDrift?: 'motive' | 'version' | 'state' | 'board' | 'binding';
 } = {}) {
   const owner = owners();
@@ -374,18 +461,40 @@ async function makeHarness(options: {
   }
   const validationRepository = new InMemoryPaperImplementationValidationRepository();
   const traces = new Map([
-    ['trace_board_t142', completeTrace('trace_board_t142')],
-    ['trace_binding_t142', completeTrace('trace_binding_t142')],
+    ['trace_board_t142', completeTrace(
+      'trace_board_t142',
+      ref(
+        'motive_evidence_board_version',
+        options.ownerTraceDrift === 'board' ? 'board_trace_owner_drift_t143' : BOARD_ID,
+      ),
+    )],
+    ['trace_binding_t142', completeTrace(
+      'trace_binding_t142',
+      ref('evidence_binding', options.ownerTraceDrift === 'binding' ? 'binding_trace_owner_drift_t143' : BINDING_ID),
+    )],
   ]);
   const runtime = new RuntimeReader();
-  const coordinator = new Coordinator(runtime, options.coordinatorStop, options.driftCandidate);
+  const coordinator = new Coordinator(
+    runtime,
+    options.coordinatorStop,
+    options.driftCandidate,
+    options.confirmatoryCandidate,
+    options.iterationBudgetRef,
+    options.duplicateSelectedStep,
+    options.coordinatorRunDrift,
+  );
   let createCalls = 0;
   let admitCalls = 0;
   let failNextAdmission = options.failFirstAdmission === true;
   const cycleWriter = {
     createValidationCycleDraft: async (_projectId: string, request: CreateValidationCycleDraftRequest) => {
       createCalls += 1;
-      const context = request.context as ValidationCycleInputSnapshot;
+      const context = {
+        ...request.context,
+        implementation_project_id: PROJECT_ID,
+        created_by: request.created_by ?? 'system',
+        created_at: NOW,
+      } as ValidationCycleInputSnapshot;
       const cycle: ValidationCycle = {
         validation_cycle_id: request.validation_cycle_id!, implementation_project_id: PROJECT_ID,
         input_snapshot_id: context.input_snapshot_id, target: request.target, trigger: request.trigger,
@@ -427,7 +536,7 @@ async function makeHarness(options: {
   };
   const serviceOptions = {
     projectRepository: {
-      findProjectById: async () => ({
+      findProjectById: async () => options.missingProject ? null : ({
         implementation_project_id: PROJECT_ID, intake_snapshot_id: 'intake_t142', workspace_id: 'workspace_t142',
         title_card_id: TITLE_CARD_ID, paper_project_bridge_id: 'bridge_t142', bridge_payload_hash: 'bridge_hash_t142',
         lifecycle_status: 'active', freshness_status: 'fresh', source_status: 'active', version_number: 1,
@@ -497,6 +606,7 @@ async function makeHarness(options: {
       cycleId?: string;
       lifecycleStatus?: ValidationCycle['lifecycle_status'];
       createdAt?: string;
+      traceTargetRef?: TopicSelectionFunctionalRef;
     } = {}) => {
       const cycleId = seed.cycleId ?? 'legacy_validation_cycle_t142';
       const createdAt = seed.createdAt ?? NOW;
@@ -546,7 +656,13 @@ async function makeHarness(options: {
         source_proposal_artifact_hash: null, created_by: 'system', created_at: createdAt, updated_at: createdAt,
         admitted_at: createdAt, completed_at: lifecycleStatus === 'completed' ? createdAt : null,
       };
-      traces.set(cycle.trace_manifest_id!, completeTrace(cycle.trace_manifest_id!));
+      traces.set(
+        cycle.trace_manifest_id!,
+        completeTrace(
+          cycle.trace_manifest_id!,
+          seed.traceTargetRef ?? ref('validation_cycle', cycle.validation_cycle_id),
+        ),
+      );
       await validationRepository.createValidationCycleDraft({ input_snapshot: context, validation_cycle: cycle });
     },
   };
@@ -717,18 +833,29 @@ test('ValidationCycle handoff returns a semantic cycle-write blocker when T-095 
   ]);
 });
 
-test('ValidationCycle handoff rejects persisted motive-owner drift before planning', async () => {
-  for (const ownerDrift of ['motive', 'version', 'state', 'board', 'binding'] as const) {
+test('ValidationCycle handoff reports unresolved owner eligibility before planning', async () => {
+  for (const ownerDrift of ['motive', 'version', 'state', 'board'] as const) {
     const harness = await makeHarness({ ownerDrift });
-    await assert.rejects(
-      harness.service.continue({ implementation_project_id: PROJECT_ID }),
-      (error) => error instanceof AppError
-        && error.statusCode === 409
-        && ['GATE_CONSTRAINT_FAILED', 'VERSION_CONFLICT'].includes(error.errorCode),
-      ownerDrift,
-    );
+    const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+    assert.equal(response.status, 'blocked', ownerDrift);
+    assert.equal(response.semantic_stage, 'owner_resolution', ownerDrift);
+    assert.equal(response.blocker?.source, 'owner_state', ownerDrift);
+    assert.equal(response.next_action.action, 'resolve_blocker', ownerDrift);
+    assert.equal(response.semantic_context.admitted_core_motive, null, ownerDrift);
+    assert.equal(response.lineage.core_motive_version_id, null, ownerDrift);
     assert.equal(harness.coordinator.createCalls, 0);
   }
+});
+
+test('ValidationCycle handoff rejects immutable EvidenceBinding owner drift before planning', async () => {
+  const harness = await makeHarness({ ownerDrift: 'binding' });
+  await assert.rejects(
+    harness.service.continue({ implementation_project_id: PROJECT_ID }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(harness.coordinator.createCalls, 0);
 });
 
 test('ValidationCycle handoff reports coordinator review, provider, and domain stops truthfully', async () => {
@@ -761,4 +888,136 @@ test('ValidationCycle handoff rejects a selected proposal whose target drifts fr
       && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
   assert.deepEqual(await harness.validationRepository.listValidationCycles(PROJECT_ID), []);
+});
+
+test('ValidationCycle handoff stops a confirmatory proposal before trace or cycle authority is written', async () => {
+  const harness = await makeHarness({ confirmatoryCandidate: true });
+
+  const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+  assert.equal(response.status, 'waiting_for_human_confirmation');
+  assert.equal(response.semantic_stage, 'cycle_write');
+  assert.equal(response.blocker?.code, 'VALIDATION_CYCLE_CONFIRMATORY_REVIEW_REQUIRED');
+  assert.equal(response.next_action.action, 'provide_human_confirmation');
+  assert.equal(response.next_action.requires_human_confirmation, true);
+  assert.equal(response.lineage.validation_cycle_id, null);
+  assert.deepEqual(response.effects.performed, ['coordinator_run', 'validation_planning_artifacts']);
+  assert.deepEqual(await harness.validationRepository.listValidationCycles(PROJECT_ID), []);
+  assert.equal(harness.createCalls(), 0);
+  assert.equal(harness.admitCalls(), 0);
+  assert.equal(harness.traceCount(), 2);
+});
+
+test('ValidationCycle handoff never persists an unresolved model-authored iteration budget id', async () => {
+  const harness = await makeHarness({ iterationBudgetRef: true });
+
+  const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+  const cycle = await harness.validationRepository.findValidationCycleById(
+    PROJECT_ID,
+    response.lineage.validation_cycle_id!,
+  );
+  assert.ok(cycle);
+  assert.equal(cycle.budget.iteration_budget_id, null);
+  assert.notEqual(cycle.budget.budget_id, 'llm_invented_budget_t143');
+});
+
+test('ValidationCycle handoff resumes a retryable provider stop through the same deterministic run', async () => {
+  const harness = await makeHarness({ coordinatorStop: 'failed_runtime_once' });
+  const command = { implementation_project_id: PROJECT_ID };
+
+  const waiting = await harness.service.continue(command);
+  assert.equal(waiting.status, 'waiting_for_llm');
+  assert.equal(waiting.blocker?.retryable, true);
+  assert.equal(harness.coordinator.createCalls, 1);
+  assert.equal(harness.coordinator.advanceCalls, 1);
+
+  const resumed = await harness.service.continue(command);
+  assert.equal(resumed.status, 'created');
+  assert.equal(resumed.semantic_stage, 'validation_cycle_ready');
+  assert.equal(harness.coordinator.createCalls, 1);
+  assert.equal(harness.coordinator.advanceCalls, 2);
+  assert.equal((await harness.validationRepository.listValidationCycles(PROJECT_ID)).length, 1);
+});
+
+test('ValidationCycle handoff does not advertise terminal or budget-exhausted coordinator runs as retryable', async () => {
+  for (const coordinatorStop of ['terminal_failed', 'budget_exhausted'] as const) {
+    const harness = await makeHarness({ coordinatorStop });
+    const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+    assert.equal(response.status, 'blocked', coordinatorStop);
+    assert.equal(response.next_action.action, 'resolve_blocker', coordinatorStop);
+    assert.equal(response.blocker?.retryable, false, coordinatorStop);
+    assert.equal(
+      response.blocker?.code,
+      coordinatorStop === 'terminal_failed'
+        ? 'VALIDATION_PLANNING_TERMINAL_FAILED'
+        : 'VALIDATION_PLANNING_BUDGET_EXHAUSTED',
+      coordinatorStop,
+    );
+  }
+});
+
+test('ValidationCycle handoff rejects deterministic coordinator authority drift before advance', async () => {
+  for (const coordinatorRunDrift of [
+    'implementation_project_id', 'execution_mode', 'model_option_id', 'budget_envelope',
+  ] as const) {
+    const harness = await makeHarness({ coordinatorRunDrift });
+    await assert.rejects(
+      harness.service.continue({ implementation_project_id: PROJECT_ID }),
+      (error) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'VERSION_CONFLICT',
+      coordinatorRunDrift,
+    );
+    assert.equal(harness.coordinator.advanceCalls, 0, coordinatorRunDrift);
+  }
+});
+
+test('ValidationCycle handoff rejects ambiguous selected coordinator steps', async () => {
+  const harness = await makeHarness({ duplicateSelectedStep: true });
+  await assert.rejects(
+    harness.service.continue({ implementation_project_id: PROJECT_ID }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.deepEqual(await harness.validationRepository.listValidationCycles(PROJECT_ID), []);
+});
+
+test('ValidationCycle handoff returns a semantic owner blocker for a missing project root', async () => {
+  const harness = await makeHarness({ missingProject: true });
+
+  const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+  assert.equal(response.status, 'blocked');
+  assert.equal(response.semantic_stage, 'owner_resolution');
+  assert.equal(response.blocker?.code, 'VALIDATION_CYCLE_OWNER_NOT_FOUND');
+  assert.equal(response.blocker?.source, 'owner_state');
+  assert.equal(response.blocker?.retryable, false);
+  assert.equal(response.semantic_context.admitted_core_motive, null);
+  assert.equal(response.semantic_context.evidence_board, null);
+  assert.equal(response.lineage.implementation_project_id, PROJECT_ID);
+  assert.equal(response.lineage.intake_snapshot_id, null);
+  assert.equal(harness.coordinator.createCalls, 0);
+});
+
+test('ValidationCycle handoff rejects board, binding, and cycle trace owner drift', async () => {
+  for (const ownerTraceDrift of ['board', 'binding'] as const) {
+    const harness = await makeHarness({ ownerTraceDrift });
+    await assert.rejects(
+      harness.service.continue({ implementation_project_id: PROJECT_ID }),
+      (error) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'VERSION_CONFLICT',
+      ownerTraceDrift,
+    );
+  }
+
+  const cycleHarness = await makeHarness();
+  await cycleHarness.seedLegacyCycle({
+    traceTargetRef: ref('validation_cycle', 'different_validation_cycle_t143'),
+  });
+  await assert.rejects(
+    cycleHarness.service.continue({ implementation_project_id: PROJECT_ID }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
 });

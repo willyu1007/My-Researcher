@@ -618,12 +618,12 @@ export interface PaperImplementationValidationCycleHandoffResponse {
     admitted_core_motive: {
       short_name: string;
       required_assertion_count: number;
-    };
+    } | null;
     evidence_board: {
       support_state: string;
       challenge_status: string;
       binding_count: number;
-    };
+    } | null;
     validation_cycle: {
       lifecycle_status: string;
       cycle_type: string;
@@ -634,11 +634,11 @@ export interface PaperImplementationValidationCycleHandoffResponse {
   };
   lineage: {
     implementation_project_id: string;
-    intake_snapshot_id: string;
-    motive_id: string;
-    core_motive_version_id: string;
+    intake_snapshot_id: string | null;
+    motive_id: string | null;
+    core_motive_version_id: string | null;
     assertion_ids: string[];
-    board_version_id: string;
+    board_version_id: string | null;
     evidence_binding_ids: string[];
     coordinator_run_id: string | null;
     validation_planning_runtime_artifact_id: string | null;
@@ -1546,23 +1546,27 @@ export const paperImplementationValidationCycleHandoffResponseSchema = {
       required: ['admitted_core_motive', 'evidence_board', 'validation_cycle'],
       properties: {
         admitted_core_motive: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['short_name', 'required_assertion_count'],
-          properties: {
-            short_name: stringId,
-            required_assertion_count: { type: 'integer', minimum: 1 },
-          },
+          anyOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: ['short_name', 'required_assertion_count'],
+            properties: {
+              short_name: stringId,
+              required_assertion_count: { type: 'integer', minimum: 1 },
+            },
+          }, { type: 'null' }],
         },
         evidence_board: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['support_state', 'challenge_status', 'binding_count'],
-          properties: {
-            support_state: stringId,
-            challenge_status: stringId,
-            binding_count: { type: 'integer', minimum: 0 },
-          },
+          anyOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: ['support_state', 'challenge_status', 'binding_count'],
+            properties: {
+              support_state: stringId,
+              challenge_status: stringId,
+              binding_count: { type: 'integer', minimum: 0 },
+            },
+          }, { type: 'null' }],
         },
         validation_cycle: {
           anyOf: [{
@@ -1596,11 +1600,11 @@ export const paperImplementationValidationCycleHandoffResponseSchema = {
       ],
       properties: {
         implementation_project_id: stringId,
-        intake_snapshot_id: stringId,
-        motive_id: stringId,
-        core_motive_version_id: stringId,
+        intake_snapshot_id: nullableStringId,
+        motive_id: nullableStringId,
+        core_motive_version_id: nullableStringId,
         assertion_ids: stringArray,
-        board_version_id: stringId,
+        board_version_id: nullableStringId,
         evidence_binding_ids: stringArray,
         coordinator_run_id: nullableStringId,
         validation_planning_runtime_artifact_id: nullableStringId,

@@ -11,6 +11,7 @@ import { AppError } from '../errors/app-error.js';
 import type {
   PaperImplementationValidationRepository,
   ValidationCycleDraftPersistence,
+  ValidationCycleOwnerScopeQuery,
 } from './paper-implementation-validation.repository.js';
 
 export class InMemoryPaperImplementationValidationRepository
@@ -63,6 +64,35 @@ implements PaperImplementationValidationRepository {
     return (this.validationCycleIdsByProject.get(implementationProjectId) ?? [])
       .map((id) => this.validationCycles.get(id))
       .filter((cycle): cycle is ValidationCycle => Boolean(cycle))
+      .map((cycle) => structuredClone(cycle));
+  }
+
+  async listValidationCyclesByOwnerScope(
+    implementationProjectId: string,
+    query: ValidationCycleOwnerScopeQuery,
+  ): Promise<ValidationCycle[]> {
+    const assertionIds = new Set(query.assertion_ids);
+    const lifecycleStatuses = new Set(query.lifecycle_statuses);
+    return (this.validationCycleIdsByProject.get(implementationProjectId) ?? [])
+      .map((id) => this.validationCycles.get(id))
+      .filter((cycle): cycle is ValidationCycle => Boolean(cycle))
+      .filter((cycle) => lifecycleStatuses.has(cycle.lifecycle_status))
+      .filter((cycle) => (
+        (cycle.target.target_type === 'motive_evidence_board'
+          && cycle.target.target_id === query.board_version_id)
+        || (cycle.target.target_type === 'core_motive_version'
+          && cycle.target.target_id === query.core_motive_version_id)
+        || (cycle.target.target_type === 'motive_assertion'
+          && cycle.target.target_version_id === query.core_motive_version_id
+          && assertionIds.has(cycle.target.target_id))
+        || cycle.target.target_version_id === query.core_motive_version_id
+      ))
+      .sort((left, right) => (
+        right.updated_at.localeCompare(left.updated_at)
+        || right.created_at.localeCompare(left.created_at)
+        || left.validation_cycle_id.localeCompare(right.validation_cycle_id)
+      ))
+      .slice(0, query.limit)
       .map((cycle) => structuredClone(cycle));
   }
 

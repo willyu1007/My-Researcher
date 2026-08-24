@@ -1308,3 +1308,12 @@ tasks:
       - R-013
     dev_docs_path: dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff
     updated: 2026-08-24
+  - id: T-143
+    slug: validation-cycle-handoff-authority-recovery-hardening
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    requirement_ids:
+      - R-013
+    dev_docs_path: dev-docs/active/validation-cycle-handoff-authority-recovery-hardening
+    updated: 2026-08-24

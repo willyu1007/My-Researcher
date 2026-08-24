@@ -37,3 +37,4 @@ Project: `main`
 - 2026-08-23 task_id=T-140 slug=topic-semantics-to-core-motive-bootstrap event=registered dev_docs_path=dev-docs/active/topic-semantics-to-core-motive-bootstrap
 - 2026-08-24 task_id=T-142 slug=evidence-board-to-validation-cycle-semantic-handoff event=registered dev_docs_path=dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff
 - 2026-08-24 task_id=T-142 slug=evidence-board-to-validation-cycle-semantic-handoff event=status from=in-progress to=done
+- 2026-08-24 task_id=T-143 slug=validation-cycle-handoff-authority-recovery-hardening event=registered dev_docs_path=dev-docs/active/validation-cycle-handoff-authority-recovery-hardening

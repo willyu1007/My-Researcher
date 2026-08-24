@@ -253,13 +253,13 @@ function makeModel(rows: StoredRow[]) {
       rows.push(normalizeRow(data));
       return rows.at(-1);
     },
-    findFirst: async ({ where }: { where: Partial<StoredRow> }) =>
+    findFirst: async ({ where }: { where: Record<string, unknown> }) =>
       rows.find((row) => matchesWhere(row, where)) ?? null,
-    findMany: async ({ where, take }: { where?: Partial<StoredRow>; take?: number }) => {
+    findMany: async ({ where, take }: { where?: Record<string, unknown>; take?: number }) => {
       const matched = rows.filter((row) => matchesWhere(row, where ?? {}));
       return typeof take === 'number' ? matched.slice(0, take) : matched;
     },
-    update: async ({ where, data }: { where: Partial<StoredRow>; data: Partial<StoredRow> }) => {
+    update: async ({ where, data }: { where: Record<string, unknown>; data: Partial<StoredRow> }) => {
       const index = rows.findIndex((row) => matchesWhere(row, where));
       if (index < 0) {
         throw new Error('row not found');
@@ -270,8 +270,18 @@ function makeModel(rows: StoredRow[]) {
   };
 }
 
-function matchesWhere(row: StoredRow, where: Partial<StoredRow>): boolean {
-  return Object.entries(where).every(([key, value]) => row[key] === value);
+function matchesWhere(row: StoredRow, where: Record<string, unknown>): boolean {
+  return Object.entries(where).every(([key, value]) => {
+    if (key === 'OR') {
+      return Array.isArray(value)
+        && value.some((candidate) => matchesWhere(row, candidate as Record<string, unknown>));
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value) && 'in' in value) {
+      const candidates = (value as { in: unknown[] }).in;
+      return candidates.includes(row[key]);
+    }
+    return row[key] === value;
+  });
 }
 
 function makeFakePrismaClient(): PrismaClient {
@@ -322,6 +332,16 @@ test('Prisma PaperImplementationValidation repository round-trips validation pla
     (await repository.listRecentCompletedCyclesByTarget(PROJECT_ID, 'core_motive_version', 'core_motive_version_001', 1))[0]
       ?.cycle_assessment?.information_gain_realized,
     'low',
+  );
+  assert.equal(
+    (await repository.listValidationCyclesByOwnerScope(PROJECT_ID, {
+      board_version_id: 'board_001',
+      core_motive_version_id: 'core_motive_version_001',
+      assertion_ids: ['motive_assertion_001'],
+      lifecycle_statuses: ['completed'],
+      limit: 1,
+    }))[0]?.validation_cycle_id,
+    cycle.validation_cycle_id,
   );
 
   const route = await repository.createTechnicalRouteCandidate(makeRoute());

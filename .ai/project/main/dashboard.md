@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 142 (planned: 2, in-progress: 0, blocked: 0, done: 53, archived: 87)
+- Tasks: 143 (planned: 2, in-progress: 1, blocked: 0, done: 53, archived: 87)
 
 ## Recent tasks
 
@@ -16,6 +16,7 @@ Project: `main`
 | --- | --- | --- | --- |
 | T-141 core-motive-to-evidence-board-semantic-handoff | done | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | done | F-001 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
+| T-143 validation-cycle-handoff-authority-recovery-hardening | in-progress | F-001 | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
@@ -33,5 +34,4 @@ Project: `main`
 | T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
 | T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
-| T-123 topic-selection-productization-hardening | archived | F-001 | dev-docs/archive/topic-selection-productization-hardening |
 <!-- AUTO-GENERATED:END dashboard -->

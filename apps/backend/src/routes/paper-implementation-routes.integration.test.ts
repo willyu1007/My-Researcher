@@ -1345,6 +1345,47 @@ test('ValidationCycle handoff route accepts only the owner root and maps create 
   const service = {
     continue: async (request: { implementation_project_id: string }) => {
       calls.push(structuredClone(request));
+      if (request.implementation_project_id === 'implementation_project_missing_t143') {
+        return {
+          schema_version: 'PaperImplementationValidationCycleHandoff@v1',
+          status: 'blocked',
+          semantic_stage: 'owner_resolution',
+          effects: { performed: [], reused: [] },
+          next_action: {
+            action: 'resolve_blocker',
+            description: 'ImplementationProject not found.',
+            requires_human_confirmation: false,
+          },
+          blocker: {
+            code: 'VALIDATION_CYCLE_OWNER_NOT_FOUND',
+            message: 'ImplementationProject not found.',
+            source: 'owner_state',
+            retryable: false,
+          },
+          semantic_context: {
+            admitted_core_motive: null,
+            evidence_board: null,
+            validation_cycle: null,
+          },
+          lineage: {
+            implementation_project_id: request.implementation_project_id,
+            intake_snapshot_id: null,
+            motive_id: null,
+            core_motive_version_id: null,
+            assertion_ids: [],
+            board_version_id: null,
+            evidence_binding_ids: [],
+            coordinator_run_id: null,
+            validation_planning_runtime_artifact_id: null,
+            selected_candidate_key: null,
+            validation_cycle_id: null,
+            validation_input_snapshot_id: null,
+            trace_manifest_id: null,
+            admission_gate_result_id: null,
+          },
+          resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+        } satisfies PaperImplementationValidationCycleHandoffResponse;
+      }
       const created = calls.length === 1;
       return {
         schema_version: 'PaperImplementationValidationCycleHandoff@v1',
@@ -1420,13 +1461,24 @@ test('ValidationCycle handoff route accepts only the owner root and maps create 
     assertStatus(replay, 200);
     assert.equal((replay.json() as PaperImplementationValidationCycleHandoffResponse).status, 'resumed');
 
+    const unresolvedOwner = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycle-handoffs',
+      payload: { implementation_project_id: 'implementation_project_missing_t143' },
+    });
+    assertStatus(unresolvedOwner, 200);
+    const unresolvedOwnerBody = unresolvedOwner.json() as PaperImplementationValidationCycleHandoffResponse;
+    assert.equal(unresolvedOwnerBody.semantic_stage, 'owner_resolution');
+    assert.equal(unresolvedOwnerBody.blocker?.source, 'owner_state');
+    assert.equal(unresolvedOwnerBody.lineage.intake_snapshot_id, null);
+
     const malformed = await app.inject({
       method: 'POST',
       url: '/paper-implementation/validation-cycle-handoffs',
       payload: {},
     });
     assertStatus(malformed, 400);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
   } finally {
     await app.close();
   }

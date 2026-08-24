@@ -8,6 +8,8 @@ import {
   type PaperImplementationValidationCycleHandoffResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
+  CreatePaperImplementationCoordinatorRunRequest,
+  PaperImplementationCoordinatorRun,
   PaperImplementationCoordinatorRunWithSteps,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-coordinator-contracts';
 import type {
@@ -47,7 +49,10 @@ import { AppError } from '../errors/app-error.js';
 import type { PaperImplementationMotiveRepository } from '../repositories/paper-implementation-motive.repository.js';
 import type { PaperImplementationRepository } from '../repositories/paper-implementation.repository.js';
 import type { PaperImplementationRuntimeRepository } from '../repositories/paper-implementation-runtime.repository.js';
-import type { PaperImplementationValidationRepository } from '../repositories/paper-implementation-validation.repository.js';
+import type {
+  PaperImplementationValidationRepository,
+  ValidationCycleOwnerScopeQuery,
+} from '../repositories/paper-implementation-validation.repository.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import type { PaperImplementationRunCoordinatorService } from './paper-implementation-run-coordinator-service.js';
 import type { PaperImplementationTraceKernelService } from './paper-implementation-trace-kernel-service.js';
@@ -132,7 +137,6 @@ export class PaperImplementationValidationCycleHandoffService {
   private async continueOnce(
     implementationProjectId: string,
   ): Promise<PaperImplementationValidationCycleHandoffResponse> {
-    const owner = await this.readOwner(implementationProjectId);
     const state: ResponseState = {
       performed: [],
       reused: [],
@@ -142,6 +146,18 @@ export class PaperImplementationValidationCycleHandoffService {
       cycle: null,
       traceManifestId: null,
     };
+    let owner: OwnerContext;
+    try {
+      owner = await this.readOwner(implementationProjectId);
+    } catch (error) {
+      if (
+        error instanceof AppError
+        && (error.errorCode === 'NOT_FOUND' || error.errorCode === 'GATE_CONSTRAINT_FAILED')
+      ) {
+        return this.ownerBlocked(implementationProjectId, error);
+      }
+      throw error;
+    }
 
     const existingCycle = await this.readExistingActiveCycle(owner);
     if (existingCycle) {
@@ -162,6 +178,14 @@ export class PaperImplementationValidationCycleHandoffService {
     const selected = await this.readSelectedCycleProposal(owner, planning.run);
     state.validationArtifactId = selected.artifact.runtime_artifact_id;
     state.selectedCandidateKey = selected.candidate.candidate_key;
+    if (selected.candidate.confirmatory_marker) {
+      return this.blocked(owner, state, 'cycle_write', 'waiting_for_human_confirmation', {
+        code: 'VALIDATION_CYCLE_CONFIRMATORY_REVIEW_REQUIRED',
+        message: 'The selected ValidationCycle proposal is confirmatory and requires explicit human review before authority is written.',
+        source: 'domain',
+        retryable: false,
+      });
+    }
     const cycle = await this.ensureCycle(owner, selected.artifact, selected.candidate);
     state.cycle = cycle.cycle;
     state.traceManifestId = cycle.traceManifestId;
@@ -272,7 +296,28 @@ export class PaperImplementationValidationCycleHandoffService {
       || board.board_state.freshness_status !== 'fresh'
       || board.board_state.blocker_status !== 'none'
       || board.assertion_refs.some((ref) =>
-        !assertions.some((assertion) => assertion.assertion_id === ref.ref_id))
+        !this.refTargets(
+          ref,
+          'motive_assertion',
+          ref.ref_id,
+          snapshot.title_card_id,
+          false,
+        )
+        || !assertions.some((assertion) => assertion.assertion_id === ref.ref_id))
+      || board.evidence_binding_refs.some((ref) => !this.refTargets(
+        ref,
+        'evidence_binding',
+        ref.ref_id,
+        snapshot.title_card_id,
+        false,
+      ))
+      || !this.refTargets(
+        board.trace_manifest_ref,
+        'trace_manifest',
+        board.trace_manifest_id,
+        snapshot.title_card_id,
+        false,
+      )
     ) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'The current EvidenceBoard is not fresh and evidence-ready.');
     }
@@ -289,15 +334,56 @@ export class PaperImplementationValidationCycleHandoffService {
         || binding.core_motive_version_id !== version.core_motive_version_id
         || !assertions.some((assertion) => assertion.assertion_id === binding.assertion_id)
         || binding.freshness_status !== 'fresh'
+        || !this.refTargets(
+          bindingRef,
+          'evidence_binding',
+          binding.binding_id,
+          snapshot.title_card_id,
+          false,
+        )
+        || !this.refTargets(
+          binding.trace_manifest_ref,
+          'trace_manifest',
+          binding.trace_manifest_id,
+          snapshot.title_card_id,
+          false,
+        )
+        || binding.evidence_ref.title_card_id !== snapshot.title_card_id
       ) {
         throw new AppError(409, 'VERSION_CONFLICT', `EvidenceBinding ${bindingRef.ref_id} is missing or owner-drifted.`);
       }
       return binding;
     }));
-    const boardTraces = await Promise.all(this.uniqueStrings([
-      board.trace_manifest_id,
-      ...bindings.map((binding) => binding.trace_manifest_id),
-    ]).map((traceId) => this.options.traceKernel.getTraceManifest(implementationProjectId, traceId)));
+    const traceTargets = [
+      {
+        traceManifestId: board.trace_manifest_id,
+        targetType: 'motive_evidence_board_version',
+        targetId: board.board_version_id,
+        label: `EvidenceBoard ${board.board_version_id}`,
+      },
+      ...bindings.map((binding) => ({
+        traceManifestId: binding.trace_manifest_id,
+        targetType: 'evidence_binding',
+        targetId: binding.binding_id,
+        label: `EvidenceBinding ${binding.binding_id}`,
+      })),
+    ];
+    let boardTraces: TraceManifest[];
+    try {
+      boardTraces = await Promise.all(traceTargets.map(async (target) => {
+        const trace = await this.options.traceKernel.getTraceManifest(
+          implementationProjectId,
+          target.traceManifestId,
+        );
+        this.assertTraceTarget(trace, target.targetType, target.targetId, snapshot, target.label);
+        return trace;
+      }));
+    } catch (error) {
+      if (error instanceof AppError && error.errorCode === 'NOT_FOUND') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'The current EvidenceBoard references missing trace authority.');
+      }
+      throw error;
+    }
     if (boardTraces.some((trace) => trace.trace_status !== 'complete')) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'The current EvidenceBoard contains incomplete trace authority.');
     }
@@ -305,12 +391,10 @@ export class PaperImplementationValidationCycleHandoffService {
   }
 
   private async readExistingActiveCycle(owner: OwnerContext): Promise<ValidationCycle | null> {
-    const ownerCycles = (await this.options.validationRepository.listValidationCycles(
+    const activeCycles = await this.options.validationRepository.listValidationCyclesByOwnerScope(
       owner.snapshot.implementation_project_id,
-    ))
-      .filter((cycle) => this.cycleTargetsOwner(cycle, owner))
-      .sort((left, right) => this.cycleRecency(right).localeCompare(this.cycleRecency(left)));
-    const activeCycles = ownerCycles.filter((cycle) => ACTIVE_CYCLE_STATUSES.has(cycle.lifecycle_status));
+      this.ownerCycleQuery(owner, [...ACTIVE_CYCLE_STATUSES], 2),
+    );
     if (activeCycles.length > 1) {
       throw new AppError(
         409,
@@ -318,9 +402,13 @@ export class PaperImplementationValidationCycleHandoffService {
         'More than one active ValidationCycle targets the current motive owner; resolve the ambiguity first.',
       );
     }
-    const cycle = activeCycles[0]
-      ?? ownerCycles.find((item) => item.lifecycle_status === 'completed')
-      ?? null;
+    const completedCycles = activeCycles.length === 0
+      ? await this.options.validationRepository.listValidationCyclesByOwnerScope(
+        owner.snapshot.implementation_project_id,
+        this.ownerCycleQuery(owner, ['completed'], 1),
+      )
+      : [];
+    const cycle = activeCycles[0] ?? completedCycles[0] ?? null;
     if (!cycle) return null;
     if (cycle.policy_version_id === HANDOFF_POLICY_VERSION) return null;
     if (cycle.lifecycle_status === 'proposed') {
@@ -333,13 +421,21 @@ export class PaperImplementationValidationCycleHandoffService {
     if (!cycle.trace_manifest_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'The existing active ValidationCycle has no admitted trace authority.');
     }
-    const trace = await this.options.traceKernel.getTraceManifest(
+    const trace = await this.readTraceOrConflict(
       owner.snapshot.implementation_project_id,
       cycle.trace_manifest_id,
+      `ValidationCycle ${cycle.validation_cycle_id}`,
     );
     if (trace.trace_status !== 'complete') {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'The existing active ValidationCycle trace is incomplete.');
     }
+    this.assertTraceTarget(
+      trace,
+      'validation_cycle',
+      cycle.validation_cycle_id,
+      owner.snapshot,
+      `ValidationCycle ${cycle.validation_cycle_id}`,
+    );
     return cycle;
   }
 
@@ -358,17 +454,22 @@ export class PaperImplementationValidationCycleHandoffService {
       board: owner.board.board_version_id,
       payloads,
     }));
+    const expectedRequest: CreatePaperImplementationCoordinatorRunRequest = {
+      coordinator_run_id: coordinatorRunId,
+      lane_id: 'validation-planning',
+      run_mode: 'product',
+      execution_mode: 'provider_llm',
+      model_profile_id: null,
+      model_option_id: null,
+      budget_envelope: { max_steps: 4, max_provider_calls: 8 },
+      slot_request_payloads: payloads,
+    };
     let created = false;
     try {
-      await this.options.coordinator.createCoordinatorRun(owner.snapshot.implementation_project_id, {
-        coordinator_run_id: coordinatorRunId,
-        lane_id: 'validation-planning',
-        run_mode: 'product',
-        execution_mode: 'provider_llm',
-        model_profile_id: null,
-        budget_envelope: { max_steps: 4, max_provider_calls: 8 },
-        slot_request_payloads: payloads,
-      });
+      await this.options.coordinator.createCoordinatorRun(
+        owner.snapshot.implementation_project_id,
+        expectedRequest,
+      );
       created = true;
     } catch (error) {
       if (!(error instanceof AppError) || error.errorCode !== 'VERSION_CONFLICT') throw error;
@@ -377,14 +478,15 @@ export class PaperImplementationValidationCycleHandoffService {
       owner.snapshot.implementation_project_id,
       coordinatorRunId,
     );
-    if (
-      run.run.lane_id !== 'validation-planning'
-      || stableStringify(run.run.slot_request_payloads) !== stableStringify(payloads)
-    ) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Deterministic validation-planning run is bound to different owner state.');
-    }
+    this.assertExpectedCoordinatorRun(run.run, expectedRequest, owner.snapshot.implementation_project_id);
     let performed = false;
-    if (run.run.run_status === 'created' || run.run.run_status === 'advancing') {
+    const retryableRuntimeStop = run.run.run_status === 'blocked'
+      && run.steps.at(-1)?.outcome === 'failed_runtime';
+    if (
+      run.run.run_status === 'created'
+      || run.run.run_status === 'advancing'
+      || retryableRuntimeStop
+    ) {
       try {
         run = await this.options.coordinator.advance(
           owner.snapshot.implementation_project_id,
@@ -407,11 +509,40 @@ export class PaperImplementationValidationCycleHandoffService {
         };
       }
     }
+    this.assertExpectedCoordinatorRun(run.run, expectedRequest, owner.snapshot.implementation_project_id);
     if (run.run.run_status === 'completed') {
       return { run, created, performed, status: created ? 'created' : 'resumed', blocker: null };
     }
     const waitingReview = run.run.run_status === 'waiting_review';
-    const failedRuntime = run.steps.at(-1)?.outcome === 'failed_runtime' || run.run.run_status === 'failed';
+    const failedRuntime = run.steps.at(-1)?.outcome === 'failed_runtime';
+    if (run.run.run_status === 'failed') {
+      return {
+        run,
+        created,
+        performed,
+        status: 'blocked',
+        blocker: {
+          code: 'VALIDATION_PLANNING_TERMINAL_FAILED',
+          message: 'The persisted validation-planning run is terminal failed and cannot be resumed by this handoff.',
+          source: 'domain',
+          retryable: false,
+        },
+      };
+    }
+    if (run.run.run_status === 'budget_exhausted') {
+      return {
+        run,
+        created,
+        performed,
+        status: 'blocked',
+        blocker: {
+          code: 'VALIDATION_PLANNING_BUDGET_EXHAUSTED',
+          message: 'The persisted validation-planning run exhausted its coordinator budget; raise that run budget explicitly before repeating this handoff.',
+          source: 'domain',
+          retryable: false,
+        },
+      };
+    }
     return {
       run,
       created,
@@ -425,9 +556,67 @@ export class PaperImplementationValidationCycleHandoffService {
             : 'VALIDATION_PLANNING_BLOCKED',
         message: `Validation-planning stopped in ${run.run.run_status}: ${run.steps.at(-1)?.blocker_codes[0] ?? 'no admitted continuation artifact'}.`,
         source: failedRuntime ? 'provider' : 'domain',
-        retryable: failedRuntime || run.run.run_status === 'budget_exhausted',
+        retryable: failedRuntime,
       },
     };
+  }
+
+  private assertExpectedCoordinatorRun(
+    run: PaperImplementationCoordinatorRun,
+    request: CreatePaperImplementationCoordinatorRunRequest,
+    implementationProjectId: string,
+  ): void {
+    const expected = {
+      coordinator_run_id: request.coordinator_run_id,
+      implementation_project_id: implementationProjectId,
+      lane_id: request.lane_id,
+      run_mode: request.run_mode,
+      execution_mode: request.execution_mode,
+      model_profile_id: request.model_profile_id ?? null,
+      model_option_id: request.model_option_id ?? null,
+      slot_request_payloads: request.slot_request_payloads,
+    };
+    const actual = {
+      coordinator_run_id: run.coordinator_run_id,
+      implementation_project_id: run.implementation_project_id,
+      lane_id: run.lane_id,
+      run_mode: run.run_mode,
+      execution_mode: run.execution_mode,
+      model_profile_id: run.model_profile_id,
+      model_option_id: run.model_option_id,
+      slot_request_payloads: run.slot_request_payloads,
+    };
+    if (
+      stableStringify(actual) !== stableStringify(expected)
+      || !this.coordinatorBudgetMatches(run, request.budget_envelope)
+    ) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Deterministic validation-planning run is bound to different server-owned semantics.',
+      );
+    }
+  }
+
+  private coordinatorBudgetMatches(
+    run: PaperImplementationCoordinatorRun,
+    initialBudget: CreatePaperImplementationCoordinatorRunRequest['budget_envelope'],
+  ): boolean {
+    if (stableStringify(run.budget_envelope) === stableStringify(initialBudget)) return true;
+    const events = run.budget_raise_events ?? [];
+    let expectedFrom = initialBudget;
+    for (const event of events) {
+      if (stableStringify(event.from) !== stableStringify(expectedFrom)) return false;
+      if (
+        event.to.max_steps < event.from.max_steps
+        || event.to.max_provider_calls < event.from.max_provider_calls
+      ) {
+        return false;
+      }
+      expectedFrom = event.to;
+    }
+    return events.length > 0
+      && stableStringify(expectedFrom) === stableStringify(run.budget_envelope);
   }
 
   private planningPayloads(owner: OwnerContext): Record<string, Record<string, unknown>> {
@@ -514,14 +703,37 @@ export class PaperImplementationValidationCycleHandoffService {
     artifact: PaperImplementationRuntimeArtifactEnvelope;
     candidate: PaperImplementationValidationCycleCandidateProposal;
   }> {
-    const step = run.steps.find((item) =>
+    const selectedSteps = run.steps.filter((item) =>
       item.slot_id === PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID && item.outcome === 'passed');
+    if (selectedSteps.length !== 1) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `Completed planning run must contain exactly one passed ValidationCycle selection step; found ${selectedSteps.length}.`,
+      );
+    }
+    const step = selectedSteps[0];
     const selectedCandidateKey = step?.decision_record?.selected_candidate_key ?? null;
+    const selectedProjection = step?.decision_record?.candidate_projections.find(
+      (projection) => projection.candidate_key === selectedCandidateKey,
+    ) ?? null;
     if (
       !step?.runtime_artifact_id
       || !step.runtime_artifact_ref
       || !step.runtime_artifact_hash
+      || !step.admission_ref
       || !selectedCandidateKey
+      || !selectedProjection
+      || selectedProjection.blocker_codes.length > 0
+      || step.implementation_project_id !== owner.snapshot.implementation_project_id
+      || step.coordinator_run_id !== run.run.coordinator_run_id
+      || !this.refTargets(
+        step.admission_ref,
+        'paper_implementation_runtime_admission_record',
+        step.admission_ref.ref_id,
+        owner.snapshot.title_card_id,
+        true,
+      )
     ) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Completed planning run has no admitted selected ValidationCycle proposal.');
     }
@@ -531,8 +743,25 @@ export class PaperImplementationValidationCycleHandoffService {
     );
     if (
       !artifact
+      || artifact.implementation_project_id !== owner.snapshot.implementation_project_id
+      || artifact.runtime_artifact_id !== step.runtime_artifact_id
       || artifact.slot_id !== PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID
-      || step.runtime_artifact_ref.ref_id !== step.runtime_artifact_id
+      || artifact.workflow_type !== 'validation_cycle_planning'
+      || artifact.artifact_scope !== 'final'
+      || artifact.runtime_status !== 'passed'
+      || artifact.run_mode !== run.run.run_mode
+      || artifact.execution_mode !== run.run.execution_mode
+      || artifact.model_profile_id !== PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROFILE_ID
+      || !this.sameRef(
+        step.runtime_artifact_ref,
+        artifact.final_artifact_ref ?? artifact.artifact_payload_ref,
+      )
+      || !this.sameRef(
+        artifact.target_ref,
+        this.ref('motive_evidence_board', owner.board.board_version_id, owner),
+      )
+      || artifact.target_version_id !== owner.board.board_version_id
+      || sha256Text(stableStringify(artifact.artifact_payload)) !== artifact.artifact_payload_hash
       || (artifact.final_artifact_hash ?? artifact.artifact_payload_hash) !== step.runtime_artifact_hash
     ) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Selected validation-planning artifact is missing or hash-drifted.');
@@ -543,14 +772,23 @@ export class PaperImplementationValidationCycleHandoffService {
       : null;
     if (
       payload.status !== 'passed'
+      || payload.slot_id !== PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_SLOT_ID
       || payload.workflow_type !== 'validation_cycle_planning'
+      || payload.source_hash_bundle_hash !== artifact.source_hash_bundle_hash
       || !this.sameRef(payload.target_ref, this.ref('motive_evidence_board', owner.board.board_version_id, owner))
       || !candidate
       || candidate.blocker_codes.length > 0
       || !this.sameRef(candidate.target_ref, this.ref('motive_evidence_board', owner.board.board_version_id, owner))
       || candidate.assertion_refs_under_test.length === 0
       || candidate.assertion_refs_under_test.some((ref) =>
-        !owner.assertions.some((assertion) => assertion.assertion_id === ref.ref_id))
+        !this.refTargets(
+          ref,
+          'motive_assertion',
+          ref.ref_id,
+          owner.snapshot.title_card_id,
+          false,
+        )
+        || !owner.assertions.some((assertion) => assertion.assertion_id === ref.ref_id))
     ) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Selected ValidationCycle proposal is blocked or owner-drifted.');
     }
@@ -584,12 +822,10 @@ export class PaperImplementationValidationCycleHandoffService {
       owner,
       artifact.final_artifact_hash ?? artifact.artifact_payload_hash,
     );
-    const competingCycle = (await this.options.validationRepository.listValidationCycles(
+    const competingCycle = (await this.options.validationRepository.listValidationCyclesByOwnerScope(
       owner.snapshot.implementation_project_id,
-    )).find((item) =>
-      item.validation_cycle_id !== cycleId
-      && ACTIVE_CYCLE_STATUSES.has(item.lifecycle_status)
-      && this.cycleTargetsOwner(item, owner));
+      this.ownerCycleQuery(owner, [...ACTIVE_CYCLE_STATUSES], 2),
+    )).find((item) => item.validation_cycle_id !== cycleId);
     if (competingCycle) {
       throw new AppError(
         409,
@@ -644,7 +880,7 @@ export class PaperImplementationValidationCycleHandoffService {
       criteria: candidate.criteria,
       budget: {
         budget_id: this.id('validation_budget', identity),
-        iteration_budget_id: candidate.budget_envelope.iteration_budget_ref?.ref_id ?? null,
+        iteration_budget_id: null,
         retry_budget: candidate.budget_envelope.retry_budget,
         max_runtime: candidate.budget_envelope.max_runtime ?? null,
         max_compute: candidate.budget_envelope.max_compute ?? null,
@@ -677,23 +913,29 @@ export class PaperImplementationValidationCycleHandoffService {
         if (!cycle) throw error;
       }
     }
-    this.assertExpectedCycle(cycle, request);
+    this.assertExpectedCycle(cycle, request, owner);
     if (cycle.lifecycle_status !== 'proposed') {
-      if (!cycle.trace_manifest_id) {
-        throw new AppError(409, 'VERSION_CONFLICT', 'Recovered ValidationCycle has no admitted trace authority.');
-      }
-      const trace = await this.options.traceKernel.getTraceManifest(
+      this.assertAdmittedCycleLineage(cycle, traceManifestId, gateResultId, owner);
+      const trace = await this.readTraceOrConflict(
         owner.snapshot.implementation_project_id,
-        cycle.trace_manifest_id,
+        traceManifestId,
+        `ValidationCycle ${cycle.validation_cycle_id}`,
       );
       if (trace.trace_status !== 'complete') {
         throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Recovered ValidationCycle trace is incomplete.');
       }
+      this.assertTraceTarget(
+        trace,
+        'validation_cycle',
+        cycle.validation_cycle_id,
+        owner.snapshot,
+        `ValidationCycle ${cycle.validation_cycle_id}`,
+      );
       return {
         cycle,
         cycleCreated,
         traceCreated: false,
-        traceManifestId: cycle.trace_manifest_id,
+        traceManifestId,
         blocker: null,
       };
     }
@@ -706,6 +948,16 @@ export class PaperImplementationValidationCycleHandoffService {
         lineage: this.cycleTraceLineage(owner, cycleRef, artifactRef),
         created_by: 'system',
       },
+    );
+    if (trace.manifest.trace_status !== 'complete') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'ValidationCycle admission requires a complete trace manifest.');
+    }
+    this.assertTraceTarget(
+      trace.manifest,
+      'validation_cycle',
+      cycleId,
+      owner.snapshot,
+      `ValidationCycle ${cycleId}`,
     );
     try {
       cycle = await this.options.cycleWriter.admitValidationCycle(
@@ -741,6 +993,7 @@ export class PaperImplementationValidationCycleHandoffService {
       }
       cycle = raced;
     }
+    this.assertAdmittedCycleLineage(cycle, traceManifestId, gateResultId, owner);
     return {
       cycle,
       cycleCreated,
@@ -750,29 +1003,88 @@ export class PaperImplementationValidationCycleHandoffService {
     };
   }
 
-  private assertExpectedCycle(cycle: ValidationCycle, request: CreateValidationCycleDraftRequest): void {
+  private assertExpectedCycle(
+    cycle: ValidationCycle,
+    request: CreateValidationCycleDraftRequest,
+    owner: OwnerContext,
+  ): void {
+    const context = request.context;
     const expected = {
+      validation_cycle_id: request.validation_cycle_id,
+      implementation_project_id: owner.snapshot.implementation_project_id,
+      input_snapshot_id: context?.input_snapshot_id,
       target: request.target,
       trigger: request.trigger,
       cycle_type: request.cycle_type,
       validation_frame: request.validation_frame,
+      context: {
+        implementation_project_id: owner.snapshot.implementation_project_id,
+        input_snapshot_id: context?.input_snapshot_id,
+        context_policy_version_id: context?.context_policy_version_id,
+        included_refs: context?.included_refs,
+        excluded_context_notes: context?.excluded_context_notes,
+        input_snapshot_hash: context?.input_snapshot_hash,
+        created_by: request.created_by,
+      },
       criteria: request.criteria,
       budget: request.budget,
+      confirmation_level: request.confirmation_level,
+      confirmed_by: request.confirmed_by ?? null,
+      policy_version_id: request.policy_version_id,
       source_proposal_artifact_ref: request.source_proposal_artifact_ref,
       source_proposal_artifact_hash: request.source_proposal_artifact_hash,
+      created_by: request.created_by,
     };
     const actual = {
+      validation_cycle_id: cycle.validation_cycle_id,
+      implementation_project_id: cycle.implementation_project_id,
+      input_snapshot_id: cycle.input_snapshot_id,
       target: cycle.target,
       trigger: cycle.trigger,
       cycle_type: cycle.cycle_type,
       validation_frame: cycle.validation_frame,
+      context: {
+        implementation_project_id: cycle.context.implementation_project_id,
+        input_snapshot_id: cycle.context.input_snapshot_id,
+        context_policy_version_id: cycle.context.context_policy_version_id,
+        included_refs: cycle.context.included_refs,
+        excluded_context_notes: cycle.context.excluded_context_notes,
+        input_snapshot_hash: cycle.context.input_snapshot_hash,
+        created_by: cycle.context.created_by,
+      },
       criteria: cycle.criteria,
       budget: cycle.budget,
+      confirmation_level: cycle.confirmation_level,
+      confirmed_by: cycle.confirmed_by ?? null,
+      policy_version_id: cycle.policy_version_id,
       source_proposal_artifact_ref: cycle.source_proposal_artifact_ref,
       source_proposal_artifact_hash: cycle.source_proposal_artifact_hash,
+      created_by: cycle.created_by,
     };
     if (stableStringify(actual) !== stableStringify(expected)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Deterministic ValidationCycle identity is bound to different semantics.');
+    }
+  }
+
+  private assertAdmittedCycleLineage(
+    cycle: ValidationCycle,
+    traceManifestId: string,
+    gateResultId: string,
+    owner: OwnerContext,
+  ): void {
+    if (
+      cycle.trace_manifest_id !== traceManifestId
+      || cycle.gate_result_id !== gateResultId
+      || !cycle.trace_manifest_ref
+      || !this.refTargets(
+        cycle.trace_manifest_ref,
+        'trace_manifest',
+        traceManifestId,
+        owner.snapshot.title_card_id,
+        false,
+      )
+    ) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Recovered ValidationCycle admission lineage is not deterministic.');
     }
   }
 
@@ -811,23 +1123,51 @@ export class PaperImplementationValidationCycleHandoffService {
     };
   }
 
-  private cycleTargetsOwner(cycle: ValidationCycle, owner: OwnerContext): boolean {
-    if (cycle.implementation_project_id !== owner.snapshot.implementation_project_id) return false;
-    if (cycle.target.target_type === 'motive_evidence_board') {
-      return cycle.target.target_id === owner.board.board_version_id;
-    }
-    if (cycle.target.target_type === 'core_motive_version') {
-      return cycle.target.target_id === owner.version.core_motive_version_id;
-    }
-    if (cycle.target.target_type === 'motive_assertion') {
-      return cycle.target.target_version_id === owner.version.core_motive_version_id
-        && owner.assertions.some((assertion) => assertion.assertion_id === cycle.target.target_id);
-    }
-    return cycle.target.target_version_id === owner.version.core_motive_version_id;
+  private ownerCycleQuery(
+    owner: OwnerContext,
+    lifecycleStatuses: ValidationCycle['lifecycle_status'][],
+    limit: number,
+  ): ValidationCycleOwnerScopeQuery {
+    return {
+      board_version_id: owner.board.board_version_id,
+      core_motive_version_id: owner.version.core_motive_version_id,
+      assertion_ids: owner.assertions.map((assertion) => assertion.assertion_id),
+      lifecycle_statuses: lifecycleStatuses,
+      limit,
+    };
   }
 
-  private cycleRecency(cycle: ValidationCycle): string {
-    return cycle.completed_at ?? cycle.updated_at ?? cycle.created_at;
+  private assertTraceTarget(
+    trace: TraceManifest,
+    targetType: string,
+    targetId: string,
+    snapshot: ImplementationIntakeSnapshot,
+    label: string,
+  ): void {
+    if (
+      trace.implementation_project_id !== snapshot.implementation_project_id
+      || !this.refTargets(trace.target_ref, targetType, targetId, snapshot.title_card_id, false)
+    ) {
+      throw new AppError(409, 'VERSION_CONFLICT', `${label} trace authority targets a different owner.`);
+    }
+  }
+
+  private async readTraceOrConflict(
+    implementationProjectId: string,
+    traceManifestId: string,
+    label: string,
+  ): Promise<TraceManifest> {
+    try {
+      return await this.options.traceKernel.getTraceManifest(
+        implementationProjectId,
+        traceManifestId,
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.errorCode === 'NOT_FOUND') {
+        throw new AppError(409, 'VERSION_CONFLICT', `${label} references missing trace authority.`);
+      }
+      throw error;
+    }
   }
 
   private success(
@@ -845,6 +1185,54 @@ export class PaperImplementationValidationCycleHandoffService {
       description: 'Continue with experiment asset selection and specification; no paid execution was authorized here.',
       requiresHumanConfirmation: false,
     });
+  }
+
+  private ownerBlocked(
+    implementationProjectId: string,
+    error: AppError,
+  ): PaperImplementationValidationCycleHandoffResponse {
+    const notFound = error.errorCode === 'NOT_FOUND';
+    return {
+      schema_version: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_SCHEMA_VERSION,
+      status: 'blocked',
+      semantic_stage: 'owner_resolution',
+      effects: { performed: [], reused: [] },
+      next_action: {
+        action: 'resolve_blocker',
+        description: error.message,
+        requires_human_confirmation: false,
+      },
+      blocker: {
+        code: notFound
+          ? 'VALIDATION_CYCLE_OWNER_NOT_FOUND'
+          : 'VALIDATION_CYCLE_OWNER_NOT_ELIGIBLE',
+        message: error.message,
+        source: 'owner_state',
+        retryable: !notFound,
+      },
+      semantic_context: {
+        admitted_core_motive: null,
+        evidence_board: null,
+        validation_cycle: null,
+      },
+      lineage: {
+        implementation_project_id: implementationProjectId,
+        intake_snapshot_id: null,
+        motive_id: null,
+        core_motive_version_id: null,
+        assertion_ids: [],
+        board_version_id: null,
+        evidence_binding_ids: [],
+        coordinator_run_id: null,
+        validation_planning_runtime_artifact_id: null,
+        selected_candidate_key: null,
+        validation_cycle_id: null,
+        validation_input_snapshot_id: null,
+        trace_manifest_id: null,
+        admission_gate_result_id: null,
+      },
+      resume_policy: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_RESUME_POLICY,
+    };
   }
 
   private blocked(
@@ -957,10 +1345,29 @@ export class PaperImplementationValidationCycleHandoffService {
   }
 
   private sameRef(left: TopicSelectionFunctionalRef, right: TopicSelectionFunctionalRef): boolean {
-    return left.ref_type.replaceAll('_', '').toLowerCase() === right.ref_type.replaceAll('_', '').toLowerCase()
+    return this.normalizedRefType(left.ref_type) === this.normalizedRefType(right.ref_type)
       && left.ref_id === right.ref_id
       && (left.version_id ?? null) === (right.version_id ?? null)
       && (left.title_card_id ?? null) === (right.title_card_id ?? null);
+  }
+
+  private refTargets(
+    ref: TopicSelectionFunctionalRef,
+    refType: string,
+    refId: string,
+    titleCardId: string,
+    allowNullTitleCard: boolean,
+  ): boolean {
+    return this.normalizedRefType(ref.ref_type) === this.normalizedRefType(refType)
+      && ref.ref_id === refId
+      && (
+        ref.title_card_id === titleCardId
+        || (allowNullTitleCard && (ref.title_card_id ?? null) === null)
+      );
+  }
+
+  private normalizedRefType(refType: string): string {
+    return refType.replaceAll('_', '').toLowerCase();
   }
 
   private uniqueRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {

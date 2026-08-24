@@ -13,6 +13,14 @@ export type ValidationCycleDraftPersistence = {
   validation_cycle: ValidationCycle;
 };
 
+export interface ValidationCycleOwnerScopeQuery {
+  board_version_id: string;
+  core_motive_version_id: string;
+  assertion_ids: string[];
+  lifecycle_statuses: ValidationCycle['lifecycle_status'][];
+  limit: number;
+}
+
 export interface PaperImplementationValidationRepository {
   createValidationCycleDraft(
     persistence: ValidationCycleDraftPersistence,
@@ -25,6 +33,11 @@ export interface PaperImplementationValidationRepository {
 
   listValidationCycles(
     implementationProjectId: string,
+  ): Promise<ValidationCycle[]>;
+
+  listValidationCyclesByOwnerScope(
+    implementationProjectId: string,
+    query: ValidationCycleOwnerScopeQuery,
   ): Promise<ValidationCycle[]>;
 
   updateValidationCycle(

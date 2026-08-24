@@ -197,6 +197,49 @@ test('ValidationCycle handoff accepts one owner root and separates semantic stat
     paperImplementationContracts.paperImplementationValidationCycleHandoffResponseSchema,
     response,
   ), 200);
+
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.paperImplementationValidationCycleHandoffResponseSchema,
+    {
+      schema_version: 'PaperImplementationValidationCycleHandoff@v1',
+      status: 'blocked',
+      semantic_stage: 'owner_resolution',
+      effects: { performed: [], reused: [] },
+      next_action: {
+        action: 'resolve_blocker',
+        description: 'The ImplementationProject owner does not exist.',
+        requires_human_confirmation: false,
+      },
+      blocker: {
+        code: 'VALIDATION_CYCLE_OWNER_NOT_FOUND',
+        message: 'The ImplementationProject owner does not exist.',
+        source: 'owner_state',
+        retryable: false,
+      },
+      semantic_context: {
+        admitted_core_motive: null,
+        evidence_board: null,
+        validation_cycle: null,
+      },
+      lineage: {
+        implementation_project_id: 'implementation_project_missing',
+        intake_snapshot_id: null,
+        motive_id: null,
+        core_motive_version_id: null,
+        assertion_ids: [],
+        board_version_id: null,
+        evidence_binding_ids: [],
+        coordinator_run_id: null,
+        validation_planning_runtime_artifact_id: null,
+        selected_candidate_key: null,
+        validation_cycle_id: null,
+        validation_input_snapshot_id: null,
+        trace_manifest_id: null,
+        admission_gate_result_id: null,
+      },
+      resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+    },
+  ), 200);
 });
 
 function coreMotiveBootstrapProposal() {
