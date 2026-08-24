@@ -1198,6 +1198,14 @@
       "updated": "2026-08-24",
       "dev_docs_path": "dev-docs/archive/repository-governance-convergence",
       "feature_id": "F-000"
+    },
+    {
+      "id": "T-146",
+      "slug": "llm-config-ui-style-conformance",
+      "status": "planned",
+      "updated": "2026-08-24",
+      "dev_docs_path": "dev-docs/active/llm-config-ui-style-conformance",
+      "feature_id": "F-000"
     }
   ]
 }

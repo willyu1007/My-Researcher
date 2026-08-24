@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "task_id": "T-146",
+  "slug": "llm-config-ui-style-conformance",
+  "keywords": [
+    "llm-config",
+    "prompt-loading",
+    "provider-routing",
+    "ui-style",
+    "runtime-configuration"
+  ]
+}
