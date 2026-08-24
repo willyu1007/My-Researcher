@@ -78,6 +78,7 @@ import type {
 import type {
   PaperImplementationScientificClosureContextResolver,
 } from './paper-implementation-scientific-closure-context-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 
 export interface PaperImplementationResultAnalysisRuntimeResult {
   run_id: string;
@@ -127,6 +128,11 @@ interface SlotProfile {
   artifactContractId: string;
   promptPolicyId: string;
 }
+
+const RESULT_ANALYSIS_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_RESULT_ANALYSIS_PROMPT_TEMPLATE_VERSION,
+);
 
 interface RecordedRuntimeArtifact {
   artifact: PaperImplementationRuntimeArtifactEnvelope;
@@ -963,23 +969,7 @@ export class PaperImplementationResultAnalysisRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation result-analysis interpretation scenarios.',
-          'Interpretations are not evidence; cite run evidence, validation reports, failed-run summaries, limitations, and required follow-up refs separately.',
-          // T-124 G4.5 Fix 1: source_context_packets carry the verbatim bodies of
-          // the cited run evidence / validation report / experiment result. Ground
-          // every number and interpretation in those bodies — do not condition on
-          // absent data or emit a skeleton when the bodies are present.
-          'Read source_context_packets for the actual experiment results, validation report, and run evidence bodies; interpret those concrete numbers rather than emitting a conditional skeleton.',
-          // T-124 G4.6: the model proposes SEMANTIC content only; the service
-          // assembles the CreateResultInterpretationPacketRequest deterministically
-          // from the request context. No request envelope, no id transcription.
-          'When the analysis passes (role_status=passed), you MUST fill all four scenario_outputs kinds (positive, negative, inconclusive, failed_run) AND the three semantic blocks: interpretation (result_summary text, supports_assertion_refs, challenges_assertion_refs, unexpected_findings, failed_run_refs, inconclusive_run_refs, stale_or_invalidated_evidence_refs, failed_runs_accounted_for, inconclusive_runs_accounted_for, exploratory_confirmatory_separated), reliability (failed_runs_retained, confound_refs, limitation_refs, reliability_notes), and claim_implications (allowed_claim_ceiling, forbidden_overclaims, recommended_claim_refs, required_followup_refs). Set them to null only when role_status=blocked.',
-          // T-124 G5 FIX-A item 12 (prompt v4): assertion-ref position discipline.
-          'supports_assertion_refs and challenges_assertion_refs name the PAPER-ARGUMENT ASSERTIONS (motive_assertion refs) the result supports or challenges — NOT the evidence that backs them. Never put run_evidence_unit, result_validation_report, metric, experiment_result, or the interpretation packet in the assertion-ref fields; that evidence is already linked through the source bundle (run_evidence_refs / validation_report_refs / metric_refs) and failed_run_refs / inconclusive_run_refs. If no argument-assertion ref is available in the source refs, leave the assertion-ref lists empty rather than substituting evidence refs.',
-          'Do not emit a request envelope: no service, request_type, ids, source_refs, source_hashes, or trace manifest fields — the deterministic service assembles the Domain Gate request from the request context.',
-          'Do not write claims, dossiers, trace repairs, queue items, prompt text, or raw provider output.',
-        ].join(' '),
+        content: RESULT_ANALYSIS_PROMPT.system,
       },
       {
         role: 'user',

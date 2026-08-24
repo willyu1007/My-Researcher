@@ -61,6 +61,7 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import {
   assertResumeRunIdConsistency,
   PaperImplementationRuntimeResumeEngine,
@@ -1250,30 +1251,16 @@ export class PaperImplementationP1RuntimeReviewService {
     spec: RoleSpec,
     priorArtifacts: RecordedRuntimeArtifact[],
   ): Array<{ role: 'system' | 'user'; content: string }> {
+    const system = paperImplementationPrompt(
+      runtimeBase.profile.promptTemplateId,
+      runtimeBase.profile.promptTemplateVersion,
+    ).system;
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for the requested PaperImplementation P1 runtime review role.',
-          'Do not write claims, dossier readiness, writing packets, trace repairs, queue items, prompt text, or raw provider output.',
-          // T-124 G4.5 Fix 1: source_context_packets carry verbatim upstream bodies
-          // (the materialized result-interpretation packet / claim candidate and
-          // the run evidence). Ground the adjudication in those bodies.
-          'Read source_context_packets for the verbatim bodies of the cited upstream artifacts; ground the review in those concrete contents rather than conditioning on absent data.',
-          // T-124 G4.6: the adjudicator proposes SEMANTIC content only; the service
-          // assembles the Create*Request deterministically from the request context.
-          ...this.finalGateSemanticGuidance(runtimeBase.profile.workflowType),
-          'Do not emit a request envelope: no service, request_type, ids, source_refs, source_hashes, or trace manifest fields — the deterministic service assembles the Domain Gate request from the request context.',
-          // T-124 S3 复审 F5-1 (narrowed by G4.6): provider strict mode cannot emit
-          // free/dynamic-key objects, so per-scenario outputs travel as JSON
-          // strings on the wire; the semantic proposal blocks are typed and ride
-          // the wire directly.
-          ...(request.execution_mode === 'provider_llm'
-            ? [
-              'Encode each scenario output as a JSON-object string inside the scenario_output_jsons array; leave it empty when there is nothing to report.',
-            ]
-            : []),
-        ].join(' '),
+        content: system + (request.execution_mode === 'provider_llm'
+          ? ' Encode each scenario output as a JSON-object string inside the scenario_output_jsons array; leave it empty when there is nothing to report.'
+          : ''),
       },
       {
         role: 'user',
@@ -1293,33 +1280,6 @@ export class PaperImplementationP1RuntimeReviewService {
           prior_role_outputs: priorArtifacts.flatMap((item) => item.output ? [item.output] : []),
         }),
       },
-    ];
-  }
-
-  /**
-   * T-124 G4.6: semantic-proposal guidance for the final adjudicator. The model
-   * fills the typed block with judgement content only; every structural id is
-   * assembled by the service (this is prompt guidance, not a validation
-   * relaxation — the Domain Gate schema is unchanged).
-   */
-  private finalGateSemanticGuidance(
-    workflowType: 'claim_boundary_review' | 'dossier_readiness_prep',
-  ): string[] {
-    if (workflowType === 'claim_boundary_review') {
-      return [
-        'When you are the final adjudicator (claim_boundary_review.adjudicator_final) and the review passes, you MUST fill claim_proposal with the SEMANTIC claim content: claim_type, claim_statement (the bounded claim wording), claim_strength, support_refs, challenge_refs, scope (population_scope, method_scope, dataset_scope, metric_scope, negative_scope_notes, excluded_scope_notes), boundary_rationale, forbidden_overclaims, hidden_counter_evidence_refs, and required_followup_refs. Set claim_proposal to null for every other role or when the review does not pass; dossier_proposal is always null in this workflow.',
-        // T-124 G5 FIX-A item 4 (prompt v4): support_refs must cite the run-evidence (REU) refs one-by-one.
-        'support_refs MUST cite the actual run-evidence (run_evidence_unit / citation / source-evidence) refs that back the claim — one entry per supporting evidence object, taken only from the declared source refs. Never leave support_refs empty and never put the result_interpretation_packet, a memo, or a summary ref in support_refs (the interpretation packet is already linked structurally); challenge_refs likewise cite only declared source refs. The service will NOT supply evidence on your behalf: an empty or evidence-free support selection fails and is retried.',
-        // T-124 G5 FIX-A item 2 (prompt v4): strong needs a human confirmation ref in the source refs.
-        'Only set claim_strength="strong" when a human_confirmation_record ref is present in the source refs; otherwise cap the claim at "moderate" (or lower). A strong claim without that confirmation ref cannot be materialized and is retried.',
-      ];
-    }
-    return [
-      'When you are the final adjudicator (dossier_readiness_prep.scenario_adjudicator_final) and the review passes, you MUST fill dossier_proposal with the SEMANTIC readiness content: dossier_status (the readiness disposition, e.g. ready_for_writing), experiment_limitations, failed_run_refs, inconclusive_run_refs, negative_result_refs, excluded_stale_or_invalidated_evidence_refs, admitted_claim_refs, rejected_claim_refs, forbidden_overclaims, claim_ceiling, readiness_blocker_refs, readiness_warning_refs, and readiness_notes. Set dossier_proposal to null for every other role or when the review does not pass; claim_proposal is always null in this workflow.',
-      // T-124 G5 FIX-A item 1 (prompt v4): disposition channels for non-ready states.
-      'When dossier_status is "parked_with_reopen_condition" you MUST supply reopen_condition (the concrete condition under which the dossier reopens); when it is "abandoned_with_trace" you MUST supply abandon_reason. A disposition without its channel is retried.',
-      // T-124 G5 FIX-A items 2/5 (prompt v4): readiness gate + claim disposition are structural.
-      'Only set dossier_status="ready_for_writing" when a readiness gate_result ref is present in the source refs. admitted_claim_refs / rejected_claim_refs are your disposition of the claim candidates named in the source refs — cite ONLY claim_candidate refs there (never a packet or run-evidence ref); the service takes the source claim candidates as authoritative and admits every one you do not explicitly reject.',
     ];
   }
 

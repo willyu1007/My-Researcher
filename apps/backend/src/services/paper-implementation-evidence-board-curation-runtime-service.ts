@@ -60,6 +60,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -144,6 +145,11 @@ interface RuntimeBase {
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
 }
+
+const EVIDENCE_BOARD_CURATION_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_EVIDENCE_BOARD_CURATION_PROMPT_TEMPLATE_VERSION,
+);
 
 interface BuildArtifactInput {
   artifactScope: 'role' | 'final';
@@ -1058,12 +1064,7 @@ export class PaperImplementationEvidenceBoardCurationRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation evidence-board binding/gap candidate curation.',
-          'Use request-owned refs as the only authority and preserve assertion, evidence, source locator, citation candidate, trace, board, and existing binding refs exactly.',
-          'Produce append-only binding candidate proposals and gap candidate proposals only; candidate keys are runtime-local and not persisted domain ids.',
-          'Every binding candidate must include a challenge_check. Do not create board versions, evidence bindings, transfer bindings, citation candidates, trace repair queue items, queue actions, Domain Gate requests, prompt text, or raw provider output.',
-        ].join(' '),
+        content: EVIDENCE_BOARD_CURATION_PROMPT.system,
       },
       {
         role: 'user',

@@ -39,5 +39,67 @@
       },
       "tools": []
     }
+  },
+  "prompts": {
+    "paper-implementation-core-motive-bootstrap-proposal": {
+      "version": "v1",
+      "system": "prompts/core-motive-bootstrap/proposal/system.md"
+    },
+    "paper-implementation-result-analysis-scenarios": {
+      "version": "v4",
+      "system": "prompts/result-analysis/scenarios/system.md"
+    },
+    "paper-implementation-experiment-design-work-order-draft": {
+      "version": "v1",
+      "system": "prompts/experiment-planning/design/system.md"
+    },
+    "paper-implementation-experiment-critique-plan-critique": {
+      "version": "v1",
+      "system": "prompts/experiment-planning/critique/system.md"
+    },
+    "paper-implementation-route-architecture-route-candidates": {
+      "version": "v2",
+      "system": "prompts/route-planning/architecture/system.md"
+    },
+    "paper-implementation-route-skeptic-review-route-risk-critique": {
+      "version": "v2",
+      "system": "prompts/route-planning/skeptic-review/system.md"
+    },
+    "paper-implementation-claim-boundary-debate": {
+      "version": "v4",
+      "system": "prompts/p1-review/claim-boundary/system.md"
+    },
+    "paper-implementation-dossier-readiness-audit": {
+      "version": "v4",
+      "system": "prompts/p1-review/dossier-readiness/system.md"
+    },
+    "paper-implementation-trace-integrity-boundary-debate": {
+      "version": "v2",
+      "system": "prompts/trace-integrity/debate/system.md"
+    },
+    "paper-implementation-validation-cycle-planning-cycle-candidates": {
+      "version": "v1",
+      "system": "prompts/validation-cycle-planning/cycle-candidates/system.md"
+    },
+    "paper-implementation-feasibility-planning-probe-plan-candidates": {
+      "version": "v1",
+      "system": "prompts/feasibility-planning/probe-plan-candidates/system.md"
+    },
+    "paper-implementation-cross-board-synthesis-merge-split-reuse-scenarios": {
+      "version": "v1",
+      "system": "prompts/cross-board-synthesis/merge-split-reuse-scenarios/system.md"
+    },
+    "paper-implementation-evidence-board-curation-binding-gap-candidates": {
+      "version": "v1",
+      "system": "prompts/evidence-board-curation/binding-gap-candidates/system.md"
+    },
+    "paper-implementation-motive-decomposition-draft-assertion-candidates": {
+      "version": "v1",
+      "system": "prompts/motive-decomposition/draft-assertion-candidates/system.md"
+    },
+    "paper-implementation-motive-evolution-decision-support": {
+      "version": "v3",
+      "system": "prompts/motive-evolution/decision-support/system.md"
+    }
   }
 }

@@ -1,0 +1,1 @@
+Return only structured JSON for the requested PaperImplementation trace integrity debate role. Do not write trace repairs, claims, dossier readiness, work orders, queue items, prompt text, or raw provider output. Cite only refs from the bounded retrieval packet; prior role artifacts are context and must not be used as cited refs.

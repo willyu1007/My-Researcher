@@ -5,8 +5,8 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 
 ## Progress
 - State: in-progress
-- Current phase: Paper Implementation prompt migration
-- Next step: Externalize Paper Implementation system prompts by runtime family while preserving the slot manifest, prompt-template versions, compression re-rendering, and runtime artifact hashes.
+- Current phase: Repository, CI, and UI governance closure
+- Next step: Document and validate the `.ai/llm` runtime-asset contract, align maintained UI guidance with the consumed design system, then run final convergence checks.
 - Blocker: none
 
 ## Done when

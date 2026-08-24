@@ -57,6 +57,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -141,6 +142,11 @@ interface RuntimeBase {
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
 }
+
+const CROSS_BOARD_SYNTHESIS_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_CROSS_BOARD_SYNTHESIS_PROMPT_TEMPLATE_VERSION,
+);
 
 interface BuildArtifactInput {
   artifactScope: 'role' | 'final';
@@ -926,12 +932,7 @@ export class PaperImplementationCrossBoardSynthesisRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation cross-board merge/split/reuse scenario planning.',
-          'Use board_anchors as the primary runtime authority and preserve board refs, board hashes, conflicts, challenges, source locators, and evidence transfer binding refs exactly.',
-          'Produce typed proposal scenarios only; scenario keys are runtime-local and not persisted domain ids.',
-          'Do not create CrossBoardReview records, EvidenceTransferBinding records, motive portfolio decisions, motive evolution decisions, queue items, Domain Gate requests, prompt text, or raw provider output.',
-        ].join(' '),
+        content: CROSS_BOARD_SYNTHESIS_PROMPT.system,
       },
       {
         role: 'user',

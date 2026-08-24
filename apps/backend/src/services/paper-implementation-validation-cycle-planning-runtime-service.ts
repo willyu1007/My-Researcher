@@ -58,6 +58,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import {
   requireAdmittedPassedFinalArtifact,
   requireProceedRouteSkepticFinalArtifact,
@@ -148,6 +149,11 @@ interface RuntimeBase {
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
 }
+
+const VALIDATION_CYCLE_PLANNING_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_VALIDATION_CYCLE_PLANNING_PROMPT_TEMPLATE_VERSION,
+);
 
 interface BuildArtifactInput {
   artifactScope: 'role' | 'final';
@@ -904,12 +910,7 @@ export class PaperImplementationValidationCyclePlanningRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation validation-cycle candidate planning.',
-          'Use the admitted route proposal artifact and admitted route skeptic artifact as primary inputs; deterministic route refs are secondary context only.',
-          'Produce at least two candidate proposals with validation question, pass/fail/inconclusive criteria, budget envelope, expected information gain, and trace refs.',
-          'Do not create validation cycle records, feasibility probes, queue items, Domain Gate requests, prompt text, or raw provider output.',
-        ].join(' '),
+        content: VALIDATION_CYCLE_PLANNING_PROMPT.system,
       },
       {
         role: 'user',

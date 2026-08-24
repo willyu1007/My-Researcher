@@ -59,6 +59,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   normalizedPaperImplementationRefType,
@@ -222,6 +223,11 @@ const EVOLUTION_DECISION_SUPPORT_PROFILE: SlotProfile = {
   artifactContractId: 'MotiveEvolutionDecisionSupportArtifact',
   promptPolicyId: 'paper-implementation.motive-evolution.prompt-redaction.v1',
 };
+
+const MOTIVE_EVOLUTION_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_EVOLUTION_PROMPT_TEMPLATE_VERSION,
+);
 
 /**
  * S2-B B1: role schema names are sent verbatim as the OpenAI structured-output
@@ -1385,14 +1391,13 @@ export class PaperImplementationMotiveEvolutionRuntimeService {
         // as an entry array (wire encoding) only for provider_llm; other modes use
         // the canonical by-key maps. Result-status invariants are stated
         // explicitly instead of being left to schema inference.
-        content: [
-          'Return only structured JSON for PaperImplementation motive evolution decision support.',
-          'Use request-owned refs as the only authority and preserve motive, core motive version, portfolio, evidence, trace, validation, result, accepted-risk, human-confirmation, and source refs exactly.',
-          isChallenger ? challengerInstruction : designerInstruction,
-          isChallenger ? challengerWireSurfaceInstruction : designerEchoInstruction,
-          `Result-status invariants: support_result_status="options_proposed" requires role_status="passed" and a non-empty ${optionShapeNoun}; "no_evolution_needed" requires role_status="passed", an empty ${optionShapeNoun}, and empty blocker_codes; "blocked" requires role_status="blocked" and at least one blocker_codes entry.`,
-          'Do not create motive evolution decisions, portfolio decisions, motive role changes, board/evidence writes, trace repair queue items, queue items, Domain Gate requests, prompt text, debate transcripts, or raw provider output.',
-        ].join(' '),
+        content: MOTIVE_EVOLUTION_PROMPT.system
+          .replace('{{role_instruction}}', isChallenger ? challengerInstruction : designerInstruction)
+          .replace(
+            '{{role_surface_instruction}}',
+            isChallenger ? challengerWireSurfaceInstruction : designerEchoInstruction,
+          )
+          .replaceAll('{{option_shape_noun}}', optionShapeNoun),
       },
       {
         role: 'user',

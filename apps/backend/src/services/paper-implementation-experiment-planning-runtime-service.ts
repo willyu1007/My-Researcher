@@ -61,6 +61,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -895,23 +896,14 @@ export class PaperImplementationExperimentPlanningRuntimeService {
     packets: readonly PaperImplementationExperimentPlanningSourceContextPacket[]
       = request.source_context_packets ?? [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
-    const system = runtimeBase.profile.workflowType === 'experiment_design'
-      ? [
-        'Return only structured JSON for PaperImplementation experiment-design WorkOrder draft candidates.',
-        'Produce at least two WorkOrder-ready alternatives with dataset, baseline, metric, code, config, budget, run policy, and stop-condition refs.',
-        'Keep confirmatory and exploratory plans explicitly separated.',
-        'Do not create WorkOrders, submit live experiments, queue items, prompt text, or raw provider output.',
-      ]
-      : [
-        'Return only structured JSON for the independent PaperImplementation experiment-plan critique role.',
-        'Check confirmatory/exploratory separation, compute budget, dataset/metric alignment, baseline controls, and execution side-effect risk.',
-        'The critique may block a plan but must not create WorkOrders or submit live experiments.',
-        'Do not write queue items, prompt text, raw provider output, or experiment adapter payloads.',
-      ];
+    const system = paperImplementationPrompt(
+      runtimeBase.profile.promptTemplateId,
+      runtimeBase.profile.promptTemplateVersion,
+    ).system;
     return [
       {
         role: 'system',
-        content: system.join(' '),
+        content: system,
       },
       {
         role: 'user',

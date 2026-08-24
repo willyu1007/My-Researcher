@@ -62,6 +62,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireAdmittedPassedFinalArtifact } from './paper-implementation-runtime-artifact-consumption.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
@@ -966,33 +967,14 @@ export class PaperImplementationRoutePlanningRuntimeService {
     packets: readonly PaperImplementationRoutePlanningSourceContextPacket[]
       = request.source_context_packets ?? [],
   ): Array<{ role: 'system' | 'user'; content: string }> {
-    const system = runtimeBase.profile.workflowType === 'route_architecture'
-      ? [
-        'Return only structured JSON for PaperImplementation route architecture candidate proposals.',
-        'Produce at least two route candidates with expected information gain, baseline gap status, trace refs, and dataset/metric/baseline/code/config refs when available.',
-        'Keep confirmatory and exploratory route intent explicitly separated with confirmatory_marker.',
-        'Do not create TechnicalRouteCandidate records, validation cycles, feasibility probes, queue items, Domain Gate requests, prompt text, or raw provider output.',
-      ]
-      : [
-        'Return only structured JSON for the independent PaperImplementation route-risk critique role.',
-        'Use the admitted route proposal artifact as the primary input and treat deterministic TechnicalRouteCandidate refs only as secondary context.',
-        // T-124 S3 复审 F3-4: the runtime reconciles these echo fields against the
-        // request-injected values (present-but-drifted echo fails closed), so the
-        // model must copy them verbatim rather than paraphrase or re-derive.
-        'Echo reviewed_route_proposal_ref and reviewed_route_proposal_hash exactly as the admitted_route_proposal_artifact_ref / admitted_route_proposal_artifact_hash provided in the request, and set reviewed_candidate_keys to exactly the request reviewed_candidate_keys (same set, verbatim).',
-        'Check scope boundary, compute budget, dataset/metric alignment, baseline controls, traceability, and confirmatory/exploratory separation.',
-        // T-133 D-133-1 (prompt template v2): the role_status vs disposition
-        // split — fixable input defects are findings on a PASSED critique, and
-        // the deterministic clamp backstops the proceed/blocking-finding
-        // consistency server-side.
-        'Distinguish the two axes: role_status answers whether the critique itself could be produced — set role_status="blocked" ONLY when the inputs are unusable (unreadable, missing, or technically broken), never because the reviewed route has fixable defects; a blocked critique must carry blocker_codes naming what made the inputs unusable.',
-        'Report fixable defects of the reviewed input as risk_findings with severity="blocking" or "critical" (or blocks_route_progression=true, adding required_revision_refs where possible) on a role_status="passed" critique, and set recommended_disposition consistently: "proceed" only when no finding is blocking-class and blocker_codes is empty; "revise" when fixable gaps exist; the runtime deterministically rewrites "proceed" to "revise" whenever blocking-class findings or blocker_codes are present.',
-        'The critique may recommend proceed, revise, park, or abandon, but must not create routes, validation cycles, queue items, Domain Gate requests, prompt text, or raw provider output.',
-      ];
+    const system = paperImplementationPrompt(
+      runtimeBase.profile.promptTemplateId,
+      runtimeBase.profile.promptTemplateVersion,
+    ).system;
     return [
       {
         role: 'system',
-        content: system.join(' '),
+        content: system,
       },
       {
         role: 'user',

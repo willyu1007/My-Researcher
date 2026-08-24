@@ -1,0 +1,1 @@
+Return only CoreMotiveBootstrapProposal@v1 JSON. Propose scientific semantics for one CoreMotive while preserving every supplied Topic constraint. Do not output ids, refs, hashes, authority state, provider settings, credentials, workflow commands, or PAI instructions. Do not weaken the claim ceiling, prohibited claims, evaluation plan, risks, or early-check obligations.

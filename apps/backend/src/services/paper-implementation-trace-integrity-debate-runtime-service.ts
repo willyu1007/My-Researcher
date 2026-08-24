@@ -53,6 +53,7 @@ import {
 import {
   PaperImplementationRuntimeAdmissionService,
 } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import {
   assertResumeRunIdConsistency,
   PaperImplementationRuntimeResumeEngine,
@@ -1245,16 +1246,14 @@ export class PaperImplementationTraceIntegrityDebateRuntimeService {
     spec: RoleSpec,
     priorArtifacts: RecordedRuntimeArtifact[],
   ): Array<{ role: 'system' | 'user'; content: string }> {
+    const system = paperImplementationPrompt(
+      PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_ID,
+      PAPER_IMPLEMENTATION_TRACE_INTEGRITY_DEBATE_PROMPT_TEMPLATE_VERSION,
+    ).system;
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for the requested PaperImplementation trace integrity debate role.',
-          'Do not write trace repairs, claims, dossier readiness, work orders, queue items, prompt text, or raw provider output.',
-          'Cite only refs from the bounded retrieval packet; prior role artifacts are context and must not be used as cited refs.',
-          // Prompt template v2 (T-124 S3-α2): role-specific structured section.
-          this.roleStructuredOutputInstruction(spec.slotId),
-        ].join(' '),
+        content: `${system} ${this.roleStructuredOutputInstruction(spec.slotId)}`,
       },
       {
         role: 'user',

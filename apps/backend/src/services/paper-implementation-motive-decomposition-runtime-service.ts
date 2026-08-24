@@ -51,6 +51,7 @@ import {
   type TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import { requireActiveImplementationProject } from './paper-implementation-runtime-preflight.js';
 import {
   PAPER_IMPLEMENTATION_ROLE_SLOT_ECHO_MISMATCH_FAILURE_CODE,
@@ -135,6 +136,11 @@ interface RuntimeBase {
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
 }
+
+const MOTIVE_DECOMPOSITION_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_MOTIVE_DECOMPOSITION_PROMPT_TEMPLATE_VERSION,
+);
 
 interface BuildArtifactInput {
   artifactScope: 'role' | 'final';
@@ -948,12 +954,7 @@ export class PaperImplementationMotiveDecompositionRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation motive decomposition draft assertion candidate generation.',
-          'Use request-owned refs as the only authority and preserve target assertion, evidence, source locator, citation candidate, trace, and source refs exactly.',
-          'Produce draft assertion candidates only; candidate keys are runtime-local and are not persisted motive assertion ids.',
-          'Flag new-claim risk with human confirmation or motive evolution review. Do not write motive assertions, evolve motive versions, create evidence bindings, enqueue trace repair, request Domain Gate, persist prompt text, or include raw provider output.',
-        ].join(' '),
+        content: MOTIVE_DECOMPOSITION_PROMPT.system,
       },
       {
         role: 'user',

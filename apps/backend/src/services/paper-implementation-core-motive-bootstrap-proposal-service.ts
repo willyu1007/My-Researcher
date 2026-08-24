@@ -30,8 +30,14 @@ import type {
   TopicSelectionAgentOrchestratorService,
 } from './topic-selection-agent-orchestrator-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 
 export const CORE_MOTIVE_BOOTSTRAP_PROFILE_VERSION = 'v1' as const;
+
+const CORE_MOTIVE_BOOTSTRAP_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_CORE_MOTIVE_BOOTSTRAP_PROMPT_TEMPLATE_VERSION,
+);
 
 export interface CoreMotiveBootstrapProposalRuntimeResult {
   status: 'created' | 'reused' | 'blocked';
@@ -296,12 +302,7 @@ export class PaperImplementationCoreMotiveBootstrapProposalService {
     const messages = [
       {
         role: 'system' as const,
-        content: [
-          'Return only CoreMotiveBootstrapProposal@v1 JSON.',
-          'Propose scientific semantics for one CoreMotive while preserving every supplied Topic constraint.',
-          'Do not output ids, refs, hashes, authority state, provider settings, credentials, workflow commands, or PAI instructions.',
-          'Do not weaken the claim ceiling, prohibited claims, evaluation plan, risks, or early-check obligations.',
-        ].join(' '),
+        content: CORE_MOTIVE_BOOTSTRAP_PROMPT.system,
       },
       {
         role: 'user' as const,

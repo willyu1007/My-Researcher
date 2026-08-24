@@ -59,6 +59,7 @@ import type {
   TopicSelectionCompressionFactInventory,
 } from './topic-selection-compression-runtime-service.js';
 import { PaperImplementationRuntimeAdmissionService } from './paper-implementation-runtime-admission-service.js';
+import { paperImplementationPrompt } from './paper-implementation-prompt-config.js';
 import {
   requireAdmittedPassedFinalArtifact,
   requireProceedRouteSkepticFinalArtifact,
@@ -149,6 +150,11 @@ interface RuntimeBase {
   promptRedactionPolicyHash: string;
   compressionPolicyProfileHash: string;
 }
+
+const FEASIBILITY_PLANNING_PROMPT = paperImplementationPrompt(
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_ID,
+  PAPER_IMPLEMENTATION_FEASIBILITY_PLANNING_PROMPT_TEMPLATE_VERSION,
+);
 
 interface BuildArtifactInput {
   artifactScope: 'role' | 'final';
@@ -934,12 +940,7 @@ export class PaperImplementationFeasibilityPlanningRuntimeService {
     return [
       {
         role: 'system',
-        content: [
-          'Return only structured JSON for PaperImplementation feasibility candidate planning.',
-          'Use the admitted validation-cycle candidate artifact as primary input with route proposal and route skeptic artifacts only as lineage anchors.',
-          'Produce at least two probe/plan candidate proposals with probe question, baseline gap status, metric/data/baseline/code/config refs, budget envelope, stop conditions, expected information gain, and trace refs.',
-          'Do not create validation cycle records, feasibility probes, experiment plan-light objects, queue items, Domain Gate requests, WorkOrders, live experiment requests, prompt text, or raw provider output.',
-        ].join(' '),
+        content: FEASIBILITY_PLANNING_PROMPT.system,
       },
       {
         role: 'user',
