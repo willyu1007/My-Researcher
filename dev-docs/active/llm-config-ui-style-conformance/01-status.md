@@ -4,9 +4,9 @@
 Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-reference, and tool configuration for existing LLM workflows, while aligning UI change governance with the consumed design system without changing current product behavior or forcing a visual rewrite.
 
 ## Progress
-- State: planned
-- Current phase: Runtime and UI authority inventory
-- Next step: Complete the production call, packaging, and consumed UI authority inventory, then settle the typed loader and migration boundaries.
+- State: in-progress
+- Current phase: Configuration foundation and literature workflow integration
+- Next step: Add the typed `.ai/llm` loader and literature feature configuration, then replace the literature shipped model/prompt defaults without changing persisted overrides.
 - Blocker: none
 
 ## Done when

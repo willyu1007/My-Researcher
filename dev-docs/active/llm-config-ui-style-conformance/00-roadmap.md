@@ -95,11 +95,11 @@
 
 ## Kickoff gate
 
-- Status: pending
-- [ ] Decisions: every user-owned choice that blocks implementation is decided.
-- [ ] Design: settled design and interfaces are reflected in `02-architecture.md`.
-- [ ] Route: the major route connects the current Goal to the completion contract, and the first implementation phase is executable with exit, verification, and recovery criteria.
-- [ ] Verification: verification needed for the proposed route is identified in `verification.md`.
+- Status: ready
+- [x] Decisions: the user confirmed `.ai/llm` adaptation, preservation of product behavior, and `manage-ui-style` conformance without a visual rewrite.
+- [x] Design: the shared loader, feature boundaries, compatibility ordering, and UI authority are settled in `02-architecture.md`.
+- [x] Route: the phased route reaches one runtime authority and starts with a focused literature/configuration slice that can be independently rolled back.
+- [x] Verification: exact configuration, compatibility, UI, type, and governance checks are identified in `verification.md`.
 
 ## Risks and recovery
 
