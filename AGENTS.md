@@ -26,7 +26,7 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
 | `packages/` | Shared packages | - |
 | `docs/project/overview/` | Initialization archive and project baseline decisions | `docs/project/overview/START-HERE.md` |
 | `docs/context/` | LLM-readable contracts (API/DB/process/UI) | `docs/context/INDEX.md` |
-| `.ai/` | Project hub and its governance CLI | `.ai/project/AGENTS.md` |
+| `.ai/` | Runtime LLM configuration and project governance | `.ai/llm/AGENTS.md`, `.ai/project/AGENTS.md` |
 | `dev-docs/` | Complex task documentation | `dev-docs/AGENTS.md` |
 
 ## Routing
@@ -36,6 +36,7 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
 | **First time / Project setup** | `README.md` |
 | **Initialization decisions / baseline** | `docs/project/overview/START-HERE.md` |
 | **Project progress governance** | `.ai/project/AGENTS.md` |
+| **LLM provider/model/prompt configuration** | `.ai/llm/AGENTS.md` |
 | **Complex task documentation** | `dev-docs/AGENTS.md` |
 
 ## Global Rules
@@ -70,6 +71,23 @@ paper-engineering-assistant - Local-first desktop assistant for CS paper enginee
 - Desktop runtime styles load through `ui/styles/ui.css`; any remaining compatibility selectors live under `ui/styles/desktop-runtime/**` until their owning UI surfaces are rewritten.
 - Treat the current runtime styles as compatibility assets, not as a permanent design-system
   commitment. Replace them only inside an explicitly scoped UI refactor.
+- Ground UI work in the researcher task being changed and read
+  `docs/context/ui/current-state-alignment.md` before changing composition or visual style.
+- Reuse an existing component and `data-ui` contract first, extend the current contract/tokens
+  second, and create a new visual primitive only when neither can express the task.
+- Before implementing a non-trivial new or restructured page, modal, navigation surface, dense
+  panel, or multi-section layout, create a standalone static HTML mock and obtain user approval.
+  Copy changes, data-authority fixes, and small local compatibility repairs do not require a mock.
+
+## LLM Runtime Configuration (MUST)
+
+- `.ai/llm/**` owns shipped provider connections, feature model routes, provider-native parameters,
+  tool declarations, and production prompt bodies. Read `.ai/llm/AGENTS.md` before changing them.
+- Secret values never belong in `.ai/llm`; configuration may name environment variables only.
+- Keep dynamic user payloads, output schemas, retries, telemetry, admission, and safety checks in
+  typed runtime code. Do not create a second hardcoded authority for configured values.
+- The repository carries no agent skill packs. Do not restore `.codex/skills`, `.claude/skills`,
+  or feature-specific agent execution mechanisms under `.ai`.
 
 ## Workspace Safety (MUST)
 

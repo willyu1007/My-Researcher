@@ -5,8 +5,8 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 
 ## Progress
 - State: in-progress
-- Current phase: Repository, CI, and UI governance closure
-- Next step: Document and validate the `.ai/llm` runtime-asset contract, align maintained UI guidance with the consumed design system, then run final convergence checks.
+- Current phase: Final verification and review
+- Next step: Run final typecheck, compatibility checks, governance lint, documentation review, and duplicate-authority/residue scans; then archive the task if all evidence remains green.
 - Blocker: none
 
 ## Done when

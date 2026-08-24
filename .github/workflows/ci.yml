@@ -73,6 +73,9 @@ jobs:
       - name: Backend typecheck
         run: pnpm --filter @paper-engineering-assistant/backend typecheck
 
+      - name: LLM runtime configuration check
+        run: pnpm llm:config:check
+
       - name: Backend tests with isolated Prisma schema
         run: pnpm ci:prisma-smoke
         env:

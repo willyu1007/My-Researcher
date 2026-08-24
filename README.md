@@ -69,7 +69,7 @@ apps/
   frontend/        # Placeholder for potential web-only frontend extraction
 packages/
   shared/          # Shared libraries
-.ai/               # Project hub and governance CLI only
+.ai/               # Runtime LLM configuration plus project hub/governance CLI
 dev-docs/          # Active and archived task bundles
 docs/              # Documentation
 ops/               # DevOps configuration
@@ -80,8 +80,16 @@ ops/               # DevOps configuration
 Durable work is tracked under `dev-docs/` and projected into `.ai/project/`.
 The repository does not carry provider-specific skill packs or generated wrappers.
 
+Shipped LLM provider metadata, feature model routes, native parameters, tool declarations, and
+production prompt bodies live under `.ai/llm/`. Secret values stay in the existing environment or
+encrypted settings paths; only environment-variable names are committed. The backend currently
+runs from the repository, so `.ai/llm/` is part of the runtime checkout. Any future standalone
+backend package must place the same directory at its application root or supply an explicit loader
+root.
+
 Run `node .ai/scripts/ctl-project-governance.mjs lint --strict` to validate task bundles and
-the project hub.
+the project hub. Run `pnpm llm:config:check` to fail fast on malformed or missing LLM runtime
+configuration.
 
 ## Contributing
 
