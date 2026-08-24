@@ -30,6 +30,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import type {
   PaperImplementationValidationRepository,
   ValidationCycleDraftPersistence,
@@ -246,23 +247,36 @@ implements PaperImplementationValidationRepository {
   async createValidationCycleDraft(
     persistence: ValidationCycleDraftPersistence,
   ): Promise<ValidationCycleDraftPersistence> {
-    const [inputSnapshotRow, cycleRow] = await this.prisma.$transaction([
-      this.prisma.paperImplementationValidationCycleInputSnapshot.create({
-        data: {
-          id: persistence.input_snapshot.input_snapshot_id,
-          implementationProjectId: persistence.input_snapshot.implementation_project_id,
-          contextPolicyVersionId: persistence.input_snapshot.context_policy_version_id ?? null,
-          includedRefs: toJsonValue(persistence.input_snapshot.included_refs),
-          excludedContextNotes: persistence.input_snapshot.excluded_context_notes,
-          inputSnapshotHash: persistence.input_snapshot.input_snapshot_hash ?? null,
-          createdBy: persistence.input_snapshot.created_by,
-          createdAt: persistence.input_snapshot.created_at,
-        },
-      }),
-      this.prisma.paperImplementationValidationCycle.create({
-        data: this.toCycleCreateInput(persistence.validation_cycle),
-      }),
-    ]);
+    let inputSnapshotRow: ValidationCycleInputSnapshotRow;
+    let cycleRow: ValidationCycleRow;
+    try {
+      [inputSnapshotRow, cycleRow] = await this.prisma.$transaction([
+        this.prisma.paperImplementationValidationCycleInputSnapshot.create({
+          data: {
+            id: persistence.input_snapshot.input_snapshot_id,
+            implementationProjectId: persistence.input_snapshot.implementation_project_id,
+            contextPolicyVersionId: persistence.input_snapshot.context_policy_version_id ?? null,
+            includedRefs: toJsonValue(persistence.input_snapshot.included_refs),
+            excludedContextNotes: persistence.input_snapshot.excluded_context_notes,
+            inputSnapshotHash: persistence.input_snapshot.input_snapshot_hash ?? null,
+            createdBy: persistence.input_snapshot.created_by,
+            createdAt: persistence.input_snapshot.created_at,
+          },
+        }),
+        this.prisma.paperImplementationValidationCycle.create({
+          data: this.toCycleCreateInput(persistence.validation_cycle),
+        }),
+      ]);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `ValidationCycle ${persistence.validation_cycle.validation_cycle_id} already exists.`,
+        );
+      }
+      throw error;
+    }
     return {
       input_snapshot: toInputSnapshot(inputSnapshotRow),
       validation_cycle: toValidationCycle(cycleRow),

@@ -3,6 +3,7 @@ import {
   bootstrapImplementationProjectRequestSchema,
   createPaperImplementationCoreMotiveHandoffRequestSchema,
   createPaperImplementationEvidenceBoardHandoffRequestSchema,
+  createPaperImplementationValidationCycleHandoffRequestSchema,
   createPaperImplementationScientificContinuationRequestSchema,
   createPaperImplementationTopicHandoffRequestSchema,
   recordImplementationFeedbackEventRequestSchema,
@@ -238,6 +239,11 @@ export async function registerPaperImplementationRoutes(
     '/paper-implementation/evidence-board-handoffs',
     { schema: { body: createPaperImplementationEvidenceBoardHandoffRequestSchema } },
     controller.createEvidenceBoardHandoff,
+  );
+  fastify.post(
+    '/paper-implementation/validation-cycle-handoffs',
+    { schema: { body: createPaperImplementationValidationCycleHandoffRequestSchema } },
+    controller.createValidationCycleHandoff,
   );
   fastify.get(
     '/paper-implementation/projects/:implementation_project_id',

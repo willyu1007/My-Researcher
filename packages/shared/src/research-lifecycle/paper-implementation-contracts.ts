@@ -546,6 +546,111 @@ export interface PaperImplementationEvidenceBoardHandoffResponse {
   resume_policy: typeof PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_RESUME_POLICY;
 }
 
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_SCHEMA_VERSION =
+  'PaperImplementationValidationCycleHandoff@v1' as const;
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STATUSES = [
+  'created',
+  'resumed',
+  'waiting_for_llm',
+  'waiting_for_human_confirmation',
+  'blocked',
+] as const;
+export type PaperImplementationValidationCycleHandoffStatus =
+  (typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STATUSES)[number];
+
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STAGES = [
+  'owner_resolution',
+  'validation_planning',
+  'cycle_write',
+  'validation_cycle_ready',
+] as const;
+export type PaperImplementationValidationCycleHandoffStage =
+  (typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STAGES)[number];
+
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_EFFECTS = [
+  'coordinator_run',
+  'validation_planning_artifacts',
+  'trace_manifest',
+  'validation_cycle',
+] as const;
+export type PaperImplementationValidationCycleHandoffEffect =
+  (typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_EFFECTS)[number];
+
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_ACTIONS = [
+  'repeat_handoff',
+  'configure_llm',
+  'provide_human_confirmation',
+  'resolve_blocker',
+  'continue_experiment_specification',
+] as const;
+export type PaperImplementationValidationCycleHandoffAction =
+  (typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_ACTIONS)[number];
+
+export const PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_RESUME_POLICY =
+  'repeat_same_owner_root_command_and_reuse_persisted_effects' as const;
+
+export interface CreatePaperImplementationValidationCycleHandoffRequest {
+  implementation_project_id: string;
+}
+
+export interface PaperImplementationValidationCycleHandoffBlocker {
+  code: string;
+  message: string;
+  source: 'owner_state' | 'domain' | 'provider';
+  retryable: boolean;
+}
+
+export interface PaperImplementationValidationCycleHandoffResponse {
+  schema_version: typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_SCHEMA_VERSION;
+  status: PaperImplementationValidationCycleHandoffStatus;
+  semantic_stage: PaperImplementationValidationCycleHandoffStage;
+  effects: {
+    performed: PaperImplementationValidationCycleHandoffEffect[];
+    reused: PaperImplementationValidationCycleHandoffEffect[];
+  };
+  next_action: {
+    action: PaperImplementationValidationCycleHandoffAction;
+    description: string;
+    requires_human_confirmation: boolean;
+  };
+  blocker: PaperImplementationValidationCycleHandoffBlocker | null;
+  semantic_context: {
+    admitted_core_motive: {
+      short_name: string;
+      required_assertion_count: number;
+    };
+    evidence_board: {
+      support_state: string;
+      challenge_status: string;
+      binding_count: number;
+    };
+    validation_cycle: {
+      lifecycle_status: string;
+      cycle_type: string;
+      validation_question: string;
+      expected_information_gain: string;
+      assertion_count: number;
+    } | null;
+  };
+  lineage: {
+    implementation_project_id: string;
+    intake_snapshot_id: string;
+    motive_id: string;
+    core_motive_version_id: string;
+    assertion_ids: string[];
+    board_version_id: string;
+    evidence_binding_ids: string[];
+    coordinator_run_id: string | null;
+    validation_planning_runtime_artifact_id: string | null;
+    selected_candidate_key: string | null;
+    validation_cycle_id: string | null;
+    validation_input_snapshot_id: string | null;
+    trace_manifest_id: string | null;
+    admission_gate_result_id: string | null;
+  };
+  resume_policy: typeof PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_RESUME_POLICY;
+}
+
 export interface RecordImplementationFeedbackEventRequest {
   feedback_type: ImplementationFeedbackType;
   severity: TopicSelectionSeverity;
@@ -667,6 +772,15 @@ export const createPaperImplementationCoreMotiveHandoffRequestSchema = {
 } as const;
 
 export const createPaperImplementationEvidenceBoardHandoffRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['implementation_project_id'],
+  properties: {
+    implementation_project_id: stringId,
+  },
+} as const;
+
+export const createPaperImplementationValidationCycleHandoffRequestSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['implementation_project_id'],
@@ -1333,7 +1447,7 @@ export const paperImplementationEvidenceBoardHandoffResponseSchema = {
               freshness_status: stringId,
               support_state: stringId,
               challenge_status: stringId,
-              binding_count: { type: 'integer', minimum: 1 },
+              binding_count: { type: 'integer', minimum: 0 },
               current_support_summary: stringId,
               current_challenge_summary: stringId,
             },
@@ -1376,6 +1490,128 @@ export const paperImplementationEvidenceBoardHandoffResponseSchema = {
       },
     },
     resume_policy: { const: PAPER_IMPLEMENTATION_EVIDENCE_BOARD_HANDOFF_RESUME_POLICY },
+  },
+} as const;
+
+const validationCycleHandoffEffectSchema = {
+  enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_EFFECTS],
+} as const;
+
+export const paperImplementationValidationCycleHandoffResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'status', 'semantic_stage', 'effects', 'next_action',
+    'blocker', 'semantic_context', 'lineage', 'resume_policy',
+  ],
+  properties: {
+    schema_version: { const: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_SCHEMA_VERSION },
+    status: { enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STATUSES] },
+    semantic_stage: { enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_STAGES] },
+    effects: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['performed', 'reused'],
+      properties: {
+        performed: { type: 'array', items: validationCycleHandoffEffectSchema, uniqueItems: true },
+        reused: { type: 'array', items: validationCycleHandoffEffectSchema, uniqueItems: true },
+      },
+    },
+    next_action: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['action', 'description', 'requires_human_confirmation'],
+      properties: {
+        action: { enum: [...PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_ACTIONS] },
+        description: stringId,
+        requires_human_confirmation: { type: 'boolean' },
+      },
+    },
+    blocker: {
+      anyOf: [{
+        type: 'object',
+        additionalProperties: false,
+        required: ['code', 'message', 'source', 'retryable'],
+        properties: {
+          code: stringId,
+          message: stringId,
+          source: { enum: ['owner_state', 'domain', 'provider'] },
+          retryable: { type: 'boolean' },
+        },
+      }, { type: 'null' }],
+    },
+    semantic_context: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['admitted_core_motive', 'evidence_board', 'validation_cycle'],
+      properties: {
+        admitted_core_motive: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['short_name', 'required_assertion_count'],
+          properties: {
+            short_name: stringId,
+            required_assertion_count: { type: 'integer', minimum: 1 },
+          },
+        },
+        evidence_board: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['support_state', 'challenge_status', 'binding_count'],
+          properties: {
+            support_state: stringId,
+            challenge_status: stringId,
+            binding_count: { type: 'integer', minimum: 0 },
+          },
+        },
+        validation_cycle: {
+          anyOf: [{
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'lifecycle_status', 'cycle_type', 'validation_question',
+              'expected_information_gain', 'assertion_count',
+            ],
+            properties: {
+              lifecycle_status: stringId,
+              cycle_type: stringId,
+              validation_question: stringId,
+              expected_information_gain: stringId,
+              assertion_count: { type: 'integer', minimum: 1 },
+            },
+          }, { type: 'null' }],
+        },
+      },
+    },
+    lineage: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'implementation_project_id', 'intake_snapshot_id', 'motive_id',
+        'core_motive_version_id', 'assertion_ids', 'board_version_id',
+        'evidence_binding_ids', 'coordinator_run_id',
+        'validation_planning_runtime_artifact_id', 'selected_candidate_key',
+        'validation_cycle_id', 'validation_input_snapshot_id',
+        'trace_manifest_id', 'admission_gate_result_id',
+      ],
+      properties: {
+        implementation_project_id: stringId,
+        intake_snapshot_id: stringId,
+        motive_id: stringId,
+        core_motive_version_id: stringId,
+        assertion_ids: stringArray,
+        board_version_id: stringId,
+        evidence_binding_ids: stringArray,
+        coordinator_run_id: nullableStringId,
+        validation_planning_runtime_artifact_id: nullableStringId,
+        selected_candidate_key: nullableStringId,
+        validation_cycle_id: nullableStringId,
+        validation_input_snapshot_id: nullableStringId,
+        trace_manifest_id: nullableStringId,
+        admission_gate_result_id: nullableStringId,
+      },
+    },
+    resume_policy: { const: PAPER_IMPLEMENTATION_VALIDATION_CYCLE_HANDOFF_RESUME_POLICY },
   },
 } as const;
 

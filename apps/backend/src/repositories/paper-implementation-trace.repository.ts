@@ -29,6 +29,11 @@ export interface PaperImplementationTraceRepository {
     candidate: CitationCandidate,
   ): Promise<CitationCandidate>;
 
+  findCitationCandidateById(
+    implementationProjectId: string,
+    citationCandidateId: string,
+  ): Promise<CitationCandidate | null>;
+
   listCitationCandidates(
     implementationProjectId: string,
   ): Promise<CitationCandidate[]>;

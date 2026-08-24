@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type {
   ExperimentPlanLight,
   FeasibilityProbe,
@@ -16,6 +17,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import { PrismaPaperImplementationValidationRepository } from './prisma-paper-implementation-validation-repository.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
@@ -347,6 +349,33 @@ test('Prisma PaperImplementationValidation repository round-trips validation pla
     dispatched_at: NOW,
   });
   assert.equal(dispatched.feedback_event_ref?.ref_id, 'feedback_event_001');
+});
+
+test('Prisma PaperImplementationValidation repository maps ValidationCycle unique races to VERSION_CONFLICT', async () => {
+  const race = new Prisma.PrismaClientKnownRequestError('simulated cycle race', {
+    code: 'P2002',
+    clientVersion: '5.22.0',
+  });
+  const client = {
+    paperImplementationValidationCycleInputSnapshot: {
+      create: async () => { throw race; },
+    },
+    paperImplementationValidationCycle: {
+      create: async () => { throw race; },
+    },
+    $transaction: async (input: Array<Promise<unknown>>) => Promise.all(input),
+  } as unknown as PrismaClient;
+  const repository = new PrismaPaperImplementationValidationRepository(client);
+
+  await assert.rejects(
+    repository.createValidationCycleDraft({
+      input_snapshot: makeInputSnapshot(),
+      validation_cycle: makeCycle(),
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
 });
 
 test('validation migration declares queryable cycle route probe plan review and feedback indexes', async () => {

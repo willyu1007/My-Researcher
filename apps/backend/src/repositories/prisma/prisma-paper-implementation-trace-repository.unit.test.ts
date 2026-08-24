@@ -258,9 +258,13 @@ test('Prisma PaperImplementationTrace repository round-trips trace objects and r
   assert.equal((await repository.listTraceManifests(PROJECT_ID)).length, 1);
 
   const candidate = await repository.createCitationCandidate(makeCandidate(manifest));
-    assert.equal(candidate.source_locator_id, 'source_locator_001');
+  assert.equal(candidate.source_locator_id, 'source_locator_001');
   assert.equal(candidate.source_evidence_unit_ref.ref_id, 'literature_evidence_unit_001');
   assert.equal((await repository.listCitationCandidates(PROJECT_ID))[0]?.citation_candidate_id, candidate.citation_candidate_id);
+  assert.equal(
+    (await repository.findCitationCandidateById(PROJECT_ID, candidate.citation_candidate_id))?.citation_candidate_id,
+    candidate.citation_candidate_id,
+  );
 
   const packet = await repository.createClaimTracePacket(makeClaimPacket(manifest, candidate));
   assert.equal(packet.claim_ref.ref_id, 'claim_candidate_001');

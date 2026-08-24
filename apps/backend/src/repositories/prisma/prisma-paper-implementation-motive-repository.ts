@@ -492,20 +492,31 @@ implements PaperImplementationMotiveRepository {
   async createMotiveEvidenceBoardVersion(
     persistence: MotiveEvidenceBoardPersistence,
   ): Promise<MotiveEvidenceBoardPersistence> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.paperImplementationMotiveEvidenceBoardVersion.create({
-        data: this.toBoardVersionCreateInput(persistence.board_version),
-      });
-      if (persistence.evidence_bindings.length > 0) {
-        await tx.paperImplementationEvidenceBinding.createMany({
-          data: persistence.evidence_bindings.map((binding) => this.toEvidenceBindingCreateInput(binding)),
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.paperImplementationMotiveEvidenceBoardVersion.create({
+          data: this.toBoardVersionCreateInput(persistence.board_version),
         });
-      }
-      await tx.paperImplementationCoreMotiveVersionState.update({
-        where: { coreMotiveVersionId: persistence.motive_version_state.core_motive_version_id },
-        data: this.toVersionStateUpdateInput(persistence.motive_version_state),
+        if (persistence.evidence_bindings.length > 0) {
+          await tx.paperImplementationEvidenceBinding.createMany({
+            data: persistence.evidence_bindings.map((binding) => this.toEvidenceBindingCreateInput(binding)),
+          });
+        }
+        await tx.paperImplementationCoreMotiveVersionState.update({
+          where: { coreMotiveVersionId: persistence.motive_version_state.core_motive_version_id },
+          data: this.toVersionStateUpdateInput(persistence.motive_version_state),
+        });
       });
-    });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `MotiveEvidenceBoardVersion ${persistence.board_version.board_version_id} already exists.`,
+        );
+      }
+      throw error;
+    }
     return persistence;
   }
 

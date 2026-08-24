@@ -3,6 +3,7 @@ import type {
   BootstrapImplementationProjectRequest,
   CreatePaperImplementationCoreMotiveHandoffRequest,
   CreatePaperImplementationEvidenceBoardHandoffRequest,
+  CreatePaperImplementationValidationCycleHandoffRequest,
   CreatePaperImplementationScientificContinuationRequest,
   CreatePaperImplementationTopicHandoffRequest,
   RecordImplementationFeedbackEventRequest,
@@ -91,6 +92,7 @@ import { PaperImplementationTopicHandoffService } from '../services/paper-implem
 import { PaperImplementationScientificContinuationService } from '../services/paper-implementation-scientific-continuation-service.js';
 import { PaperImplementationCoreMotiveHandoffService } from '../services/paper-implementation-core-motive-handoff-service.js';
 import { PaperImplementationEvidenceBoardHandoffService } from '../services/paper-implementation-evidence-board-handoff-service.js';
+import { PaperImplementationValidationCycleHandoffService } from '../services/paper-implementation-validation-cycle-handoff-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationTraceKernelService } from '../services/paper-implementation-trace-kernel-service.js';
 import { PaperImplementationValidationCyclePlanningService } from '../services/paper-implementation-validation-cycle-planning-service.js';
@@ -152,6 +154,7 @@ export interface PaperImplementationControllerDependencies {
   topicHandoff?: PaperImplementationTopicHandoffService;
   coreMotiveHandoff?: PaperImplementationCoreMotiveHandoffService;
   evidenceBoardHandoff?: PaperImplementationEvidenceBoardHandoffService;
+  validationCycleHandoff?: PaperImplementationValidationCycleHandoffService;
   scientificContinuation?: PaperImplementationScientificContinuationService;
   traceKernel: PaperImplementationTraceKernelService;
   motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
@@ -184,6 +187,7 @@ export class PaperImplementationController {
   private readonly topicHandoff?: PaperImplementationTopicHandoffService;
   private readonly coreMotiveHandoff?: PaperImplementationCoreMotiveHandoffService;
   private readonly evidenceBoardHandoff?: PaperImplementationEvidenceBoardHandoffService;
+  private readonly validationCycleHandoff?: PaperImplementationValidationCycleHandoffService;
   private readonly scientificContinuation?: PaperImplementationScientificContinuationService;
   private readonly traceKernel: PaperImplementationTraceKernelService;
   private readonly motiveEvidenceBoard: PaperImplementationMotiveEvidenceBoardService;
@@ -215,6 +219,7 @@ export class PaperImplementationController {
     this.topicHandoff = dependencies.topicHandoff;
     this.coreMotiveHandoff = dependencies.coreMotiveHandoff;
     this.evidenceBoardHandoff = dependencies.evidenceBoardHandoff;
+    this.validationCycleHandoff = dependencies.validationCycleHandoff;
     this.scientificContinuation = dependencies.scientificContinuation;
     this.traceKernel = dependencies.traceKernel;
     this.motiveEvidenceBoard = dependencies.motiveEvidenceBoard;
@@ -328,6 +333,18 @@ export class PaperImplementationController {
   ) => {
     try {
       const result = await this.requireEvidenceBoardHandoff().continue(request.body);
+      return reply.status(result.status === 'created' ? 201 : 200).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  createValidationCycleHandoff = async (
+    request: BodyRequest<CreatePaperImplementationValidationCycleHandoffRequest>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      const result = await this.requireValidationCycleHandoff().continue(request.body);
       return reply.status(result.status === 'created' ? 201 : 200).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -1257,6 +1274,17 @@ export class PaperImplementationController {
       );
     }
     return this.evidenceBoardHandoff;
+  }
+
+  private requireValidationCycleHandoff(): PaperImplementationValidationCycleHandoffService {
+    if (!this.validationCycleHandoff) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        'PaperImplementation ValidationCycle handoff is not configured.',
+      );
+    }
+    return this.validationCycleHandoff;
   }
 
   private requireLiveExperimentAdapter(): PaperImplementationLiveExperimentAdapterService {

@@ -270,6 +270,16 @@ implements PaperImplementationTraceRepository {
     return rows.map(toCitationCandidate);
   }
 
+  async findCitationCandidateById(
+    implementationProjectId: string,
+    citationCandidateId: string,
+  ): Promise<CitationCandidate | null> {
+    const row = await this.prisma.paperImplementationCitationCandidate.findFirst({
+      where: { id: citationCandidateId, implementationProjectId },
+    });
+    return row ? toCitationCandidate(row) : null;
+  }
+
   async createClaimTracePacket(
     packet: ClaimTracePacket,
   ): Promise<ClaimTracePacket> {

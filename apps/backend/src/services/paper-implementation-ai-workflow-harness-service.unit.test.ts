@@ -125,6 +125,10 @@ class StaticTraceRepository implements PaperImplementationTraceRepository {
     return candidate;
   }
 
+  async findCitationCandidateById(): Promise<CitationCandidate | null> {
+    return null;
+  }
+
   async listCitationCandidates(): Promise<CitationCandidate[]> {
     return [];
   }

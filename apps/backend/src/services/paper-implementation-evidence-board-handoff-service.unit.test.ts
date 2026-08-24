@@ -565,7 +565,11 @@ class CurationCoordinator {
 
 async function makeHarness(
   outcome: 'passed' | 'gap' | 'weak' = 'passed',
-  options: { failFirstBoardWrite?: boolean } = {},
+  options: {
+    failFirstBoardWrite?: boolean;
+    motiveFreshness?: 'fresh' | 'stale' | 'recheck_required' | 'invalidated';
+    evidenceMapVersion?: string;
+  } = {},
 ) {
   const projectRepository = new InMemoryPaperImplementationRepository();
   await projectRepository.createBootstrap({
@@ -585,10 +589,19 @@ async function makeHarness(
     created_by: 'system',
   });
   assert.equal(motiveTrace.manifest.trace_status, 'complete');
-  await motiveRepository.createCoreMotiveDraft(admittedMotive(motiveTrace.manifest.trace_manifest_id));
+  const motiveAuthority = admittedMotive(motiveTrace.manifest.trace_manifest_id);
+  motiveAuthority.motive_version_state.freshness_status = options.motiveFreshness ?? 'fresh';
+  await motiveRepository.createCoreMotiveDraft(motiveAuthority);
 
   const evidenceMapRepository = new InMemoryTopicSelectionEvidenceMapRepository();
-  await evidenceMapRepository.createEvidenceMapWithRecords(evidenceMap());
+  const evidenceAuthority = evidenceMap();
+  if (options.evidenceMapVersion) {
+    evidenceAuthority.evidence_map.evidence_map_version = options.evidenceMapVersion;
+    for (const unit of evidenceAuthority.evidence_units) {
+      unit.evidence_map_version = options.evidenceMapVersion;
+    }
+  }
+  await evidenceMapRepository.createEvidenceMapWithRecords(evidenceAuthority);
   const runtimeRepository = new InMemoryPaperImplementationRuntimeRepository();
   const boardAuthority = new PaperImplementationMotiveEvidenceBoardService({
     projectRepository,
@@ -849,6 +862,34 @@ test('stale EvidenceMap owner state blocks before citation, coordinator, or boar
   assert.equal(response.status, 'blocked');
   assert.equal(response.semantic_stage, 'source_resolution');
   assert.equal(response.blocker?.code, 'EVIDENCE_BOARD_SOURCE_EVIDENCE_NOT_REVIEWED_OR_FRESH');
+  assert.equal(harness.coordinator.createCalls, 0);
+  assert.equal(harness.coordinator.advanceCalls, 0);
+  assert.equal((await harness.traceRepository.listCitationCandidates(PROJECT_ID)).length, 0);
+  assert.deepEqual(await harness.motiveRepository.listMotiveEvidenceBoards(PROJECT_ID), []);
+});
+
+test('stale CoreMotiveVersion state blocks before citation, coordinator, or board effects', async () => {
+  const harness = await makeHarness('passed', { motiveFreshness: 'stale' });
+
+  await assert.rejects(
+    harness.service.continue({ implementation_project_id: PROJECT_ID }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(harness.coordinator.createCalls, 0);
+  assert.equal(harness.coordinator.advanceCalls, 0);
+  assert.equal((await harness.traceRepository.listCitationCandidates(PROJECT_ID)).length, 0);
+  assert.deepEqual(await harness.motiveRepository.listMotiveEvidenceBoards(PROJECT_ID), []);
+});
+
+test('accepted EvidenceUnit version mismatch blocks before citation, coordinator, or board effects', async () => {
+  const harness = await makeHarness('passed', { evidenceMapVersion: 'v2' });
+
+  const response = await harness.service.continue({ implementation_project_id: PROJECT_ID });
+  assert.equal(response.status, 'blocked');
+  assert.equal(response.semantic_stage, 'source_resolution');
+  assert.equal(response.blocker?.code, 'EVIDENCE_BOARD_SOURCE_EVIDENCE_UNRESOLVED');
   assert.equal(harness.coordinator.createCalls, 0);
   assert.equal(harness.coordinator.advanceCalls, 0);
   assert.equal((await harness.traceRepository.listCitationCandidates(PROJECT_ID)).length, 0);

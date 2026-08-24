@@ -47,6 +47,7 @@ test('paper-implementation schemas load through direct and aggregate exports', (
     paperImplementationContracts.createPaperImplementationEvidenceBoardHandoffRequestSchema,
   );
   assert.ok(paperImplementationContracts.paperImplementationEvidenceBoardHandoffResponseSchema);
+  assert.ok(paperImplementationContracts.paperImplementationValidationCycleHandoffResponseSchema);
   assert.ok(paperImplementationContracts.recordImplementationFeedbackEventRequestSchema);
   assert.ok(paperImplementationContracts.implementationFeedbackEventSchema);
   assert.ok(researchLifecycleContracts.bootstrapImplementationProjectRequestSchema);
@@ -56,6 +57,7 @@ test('paper-implementation schemas load through direct and aggregate exports', (
   );
   assert.ok(researchLifecycleContracts.paperImplementationCoreMotiveHandoffResponseSchema);
   assert.ok(researchLifecycleContracts.paperImplementationEvidenceBoardHandoffResponseSchema);
+  assert.ok(researchLifecycleContracts.paperImplementationValidationCycleHandoffResponseSchema);
   assert.ok(researchLifecycleContracts.implementationProjectSchema);
 });
 
@@ -119,6 +121,80 @@ test('Evidence Board handoff accepts one owner root and closes its semantic resp
   };
   assert.equal(await validateWithSchema(
     paperImplementationContracts.paperImplementationEvidenceBoardHandoffResponseSchema,
+    response,
+  ), 200);
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.paperImplementationEvidenceBoardHandoffResponseSchema,
+    {
+      ...response,
+      semantic_context: {
+        ...response.semantic_context,
+        board: {
+          ...response.semantic_context.board,
+          binding_count: 0,
+        },
+      },
+    },
+  ), 200);
+});
+
+test('ValidationCycle handoff accepts one owner root and separates semantic state from lineage', async () => {
+  const requestSchema =
+    paperImplementationContracts.createPaperImplementationValidationCycleHandoffRequestSchema;
+  assert.deepEqual(Object.keys(requestSchema.properties), ['implementation_project_id']);
+  assert.equal(await validateWithSchema(requestSchema, {
+    implementation_project_id: 'implementation_project_001',
+  }), 200);
+  assert.equal(await validateWithSchema(requestSchema, {
+    implementation_project_id: 'implementation_project_001',
+    board_version_id: 'caller_must_not_assign_this',
+  }), 200);
+
+  const response = {
+    schema_version: 'PaperImplementationValidationCycleHandoff@v1',
+    status: 'created',
+    semantic_stage: 'validation_cycle_ready',
+    effects: {
+      performed: ['coordinator_run', 'validation_planning_artifacts', 'trace_manifest', 'validation_cycle'],
+      reused: [],
+    },
+    next_action: {
+      action: 'continue_experiment_specification',
+      description: 'Continue with experiment specification.',
+      requires_human_confirmation: false,
+    },
+    blocker: null,
+    semantic_context: {
+      admitted_core_motive: { short_name: 'Scoped route', required_assertion_count: 1 },
+      evidence_board: { support_state: 'partial', challenge_status: 'addressed', binding_count: 1 },
+      validation_cycle: {
+        lifecycle_status: 'admitted',
+        cycle_type: 'route_feasibility',
+        validation_question: 'Can the bounded route answer the assertion?',
+        expected_information_gain: 'high',
+        assertion_count: 1,
+      },
+    },
+    lineage: {
+      implementation_project_id: 'implementation_project_001',
+      intake_snapshot_id: 'intake_snapshot_001',
+      motive_id: 'motive_001',
+      core_motive_version_id: 'motive_version_001',
+      assertion_ids: ['assertion_001'],
+      board_version_id: 'board_001',
+      evidence_binding_ids: ['binding_001'],
+      coordinator_run_id: 'coordinator_run_001',
+      validation_planning_runtime_artifact_id: 'runtime_artifact_001',
+      selected_candidate_key: 'cycle_candidate_001',
+      validation_cycle_id: 'validation_cycle_001',
+      validation_input_snapshot_id: 'validation_input_snapshot_001',
+      trace_manifest_id: 'trace_manifest_001',
+      admission_gate_result_id: 'gate_result_001',
+    },
+    resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+  };
+  assert.equal(await validateWithSchema(
+    paperImplementationContracts.paperImplementationValidationCycleHandoffResponseSchema,
     response,
   ), 200);
 });

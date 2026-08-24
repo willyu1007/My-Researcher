@@ -106,6 +106,17 @@ implements PaperImplementationTraceRepository {
       .map((candidate) => structuredClone(candidate));
   }
 
+  async findCitationCandidateById(
+    implementationProjectId: string,
+    citationCandidateId: string,
+  ): Promise<CitationCandidate | null> {
+    const candidate = this.citationCandidates.get(citationCandidateId);
+    if (!candidate || candidate.implementation_project_id !== implementationProjectId) {
+      return null;
+    }
+    return structuredClone(candidate);
+  }
+
   async createClaimTracePacket(
     packet: ClaimTracePacket,
   ): Promise<ClaimTracePacket> {

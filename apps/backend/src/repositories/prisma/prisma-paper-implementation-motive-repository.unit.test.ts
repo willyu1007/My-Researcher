@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type {
   CoreMotiveDraftResponse,
   CrossBoardReview,
@@ -16,6 +17,7 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
+import { AppError } from '../../errors/app-error.js';
 import { PrismaPaperImplementationMotiveRepository } from './prisma-paper-implementation-motive-repository.js';
 
 const NOW = '2026-05-21T00:00:00.000Z';
@@ -510,6 +512,29 @@ test('Prisma PaperImplementationMotive repository round-trips motive board portf
   assert.equal(
     (await repository.findMotiveEvolutionDecisionById(PROJECT_ID, evolution.motive_evolution_decision_id))?.effect_class,
     'semantic_evolution',
+  );
+});
+
+test('Prisma PaperImplementationMotive repository maps EvidenceBoard unique races to VERSION_CONFLICT', async () => {
+  const client = {
+    $transaction: async () => {
+      throw new Prisma.PrismaClientKnownRequestError('simulated board race', {
+        code: 'P2002',
+        clientVersion: '5.22.0',
+      });
+    },
+  } as unknown as PrismaClient;
+  const repository = new PrismaPaperImplementationMotiveRepository(client);
+
+  await assert.rejects(
+    repository.createMotiveEvidenceBoardVersion({
+      board_version: makeBoard(),
+      evidence_bindings: [makeBinding()],
+      motive_version_state: makeDraft().motive_version_state,
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
   );
 });
 

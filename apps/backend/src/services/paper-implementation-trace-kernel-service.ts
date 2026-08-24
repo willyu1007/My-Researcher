@@ -297,8 +297,10 @@ export class PaperImplementationTraceKernelService {
       request,
       'reviewed',
     );
-    const find = async () => (await this.traceRepository.listCitationCandidates(implementationProjectId))
-      .find((candidate) => candidate.citation_candidate_id === citationCandidateId);
+    const find = async () => this.traceRepository.findCitationCandidateById(
+      implementationProjectId,
+      citationCandidateId,
+    );
     const existing = await find();
     if (existing) {
       this.assertExpectedCitationCandidate(existing, expected);
@@ -325,6 +327,17 @@ export class PaperImplementationTraceKernelService {
   ): Promise<CitationCandidate[]> {
     await this.requireProject(implementationProjectId);
     return this.traceRepository.listCitationCandidates(implementationProjectId);
+  }
+
+  async findCitationCandidate(
+    implementationProjectId: string,
+    citationCandidateId: string,
+  ): Promise<CitationCandidate | null> {
+    await this.requireProject(implementationProjectId);
+    return this.traceRepository.findCitationCandidateById(
+      implementationProjectId,
+      citationCandidateId,
+    );
   }
 
   async createClaimTracePacket(

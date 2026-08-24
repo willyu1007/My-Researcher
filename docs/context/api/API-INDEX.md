@@ -1,9 +1,9 @@
 # API Index
 
-> Auto-generated at 2026-08-23T16:03:03.834Z — do NOT hand-edit.
-> Source: `docs/context/api/openapi.yaml` (SHA-256: `92c8856abdec...`)
+> Auto-generated at 2026-08-24T00:53:41.399Z — do NOT hand-edit.
+> Source: `docs/context/api/openapi.yaml` (SHA-256: `524d3c844718...`)
 
-Total endpoints: **213**
+Total endpoints: **214**
 
 | Method | Path | Summary | Auth | Input (required) | Output (core) | Errors |
 |--------|------|---------|------|------------------|---------------|--------|
@@ -12,6 +12,7 @@ Total endpoints: **213**
 | POST | /paper-implementation/scientific-continuations | Resolve and resume one ImplementationProject from persisted scientific owner state. | none | implementation_project_id | schema_version, status, semantic_stage, effects, next_action, blocker, lineage, resume_policy | 400, 404, 409, 500 |
 | POST | /paper-implementation/core-motive-handoffs | Bootstrap and admit the first primary CoreMotive for one ImplementationProject. | none | implementation_project_id | schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy | 400, 404, 409, 500 |
 | POST | /paper-implementation/evidence-board-handoffs | Continue an admitted CoreMotive to a trace-complete initial Evidence Board. | none | implementation_project_id | schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy | 400, 404, 409, 500 |
+| POST | /paper-implementation/validation-cycle-handoffs | Continue a current Evidence Board to one admitted ValidationCycle. | none | implementation_project_id | schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy | 400, 404, 409, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions | Admit one immutable PI experiment WorkOrder revision and its exact ordered cells. | none | branch_key, branch_frame, work_order_revision, exact_cells, business_idempotency_key | branch, revision, cells, admission, replayed | 400, 404, 409, 422, 500 |
 | POST | /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/exploration-specifications/{spec_id}/revisions/{spec_revision}/attach | Adopt one exact immutable exploration specification as a new PI WorkOrder admission. | none | branch_key, business_idempotency_key | attachment, branch, revision, cells, admission, replayed | 400, 404, 409, 500 |
 | POST | /paper-implementation/validation-cycles/{validation_cycle_id}/closure/v2 | Close one ValidationCycle against an exact server-derived closure watermark. | none | expected_cycle_version, expected_closure_input_hash, closure_kind, accepted_proposal_id, expected_proposal_hash, idempotency_key | closure | 400, 404, 409, 422, 500 |

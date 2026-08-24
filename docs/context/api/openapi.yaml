@@ -213,6 +213,47 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /paper-implementation/validation-cycle-handoffs:
+    post:
+      operationId: createPaperImplementationValidationCycleHandoff
+      summary: Continue a current Evidence Board to one admitted ValidationCycle.
+      description: |
+        The caller supplies only the Paper Implementation-owned ImplementationProject id. The server
+        resolves the admitted primary motive, fresh evidence-ready board, bindings and trace authority;
+        creates or recovers one deterministic run of the existing four-slot validation-planning lane;
+        and consumes only the coordinator-selected admitted ValidationCycle proposal through the T-095
+        draft, trace and admission writers. Replay reuses persisted coordinator, runtime, trace and cycle
+        authority. Existing admitted cycles are returned without an LLM call. The command creates no
+        WorkOrder, Experiment Foundation Run, provider Job or paid PAI side effect.
+      tags: [paper-implementation-handoff]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffRequest'
+      responses:
+        '200':
+          description: Persisted effects resumed, or an explicit planning/review blocker returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffResponse'
+        '201':
+          description: One coordinator-selected ValidationCycle was traced and admitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /paper-implementation/projects/{implementation_project_id}/validation-cycles/{validation_cycle_id}/experiment-work-orders/v2/admissions:
     post:
       operationId: admitPaperImplementationExperimentWorkOrderV2
@@ -7137,7 +7178,7 @@ components:
                     freshness_status: { type: string, minLength: 1 }
                     support_state: { type: string, minLength: 1 }
                     challenge_status: { type: string, minLength: 1 }
-                    binding_count: { type: integer, minimum: 1 }
+                    binding_count: { type: integer, minimum: 0 }
                     current_support_summary: { type: string, minLength: 1 }
                     current_challenge_summary: { type: string, minLength: 1 }
                 - type: 'null'
@@ -7171,6 +7212,125 @@ components:
             trace_manifest_ids:
               type: array
               items: { type: string, minLength: 1 }
+        resume_policy:
+          type: string
+          const: repeat_same_owner_root_command_and_reuse_persisted_effects
+
+    PaperImplementationValidationCycleHandoffRequest:
+      type: object
+      additionalProperties: false
+      required: [implementation_project_id]
+      properties:
+        implementation_project_id: { type: string, minLength: 1 }
+
+    PaperImplementationValidationCycleHandoffEffect:
+      type: string
+      enum: [coordinator_run, validation_planning_artifacts, trace_manifest, validation_cycle]
+
+    PaperImplementationValidationCycleHandoffBlocker:
+      type: object
+      additionalProperties: false
+      required: [code, message, source, retryable]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        source: { type: string, enum: [owner_state, domain, provider] }
+        retryable: { type: boolean }
+
+    PaperImplementationValidationCycleHandoffResponse:
+      type: object
+      additionalProperties: false
+      required: [schema_version, status, semantic_stage, effects, next_action, blocker, semantic_context, lineage, resume_policy]
+      properties:
+        schema_version: { type: string, const: PaperImplementationValidationCycleHandoff@v1 }
+        status:
+          type: string
+          enum: [created, resumed, waiting_for_llm, waiting_for_human_confirmation, blocked]
+        semantic_stage:
+          type: string
+          enum: [owner_resolution, validation_planning, cycle_write, validation_cycle_ready]
+        effects:
+          type: object
+          additionalProperties: false
+          required: [performed, reused]
+          properties:
+            performed:
+              type: array
+              uniqueItems: true
+              items: { $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffEffect' }
+            reused:
+              type: array
+              uniqueItems: true
+              items: { $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffEffect' }
+        next_action:
+          type: object
+          additionalProperties: false
+          required: [action, description, requires_human_confirmation]
+          properties:
+            action:
+              type: string
+              enum: [repeat_handoff, configure_llm, provide_human_confirmation, resolve_blocker, continue_experiment_specification]
+            description: { type: string, minLength: 1 }
+            requires_human_confirmation: { type: boolean }
+        blocker:
+          anyOf:
+            - $ref: '#/components/schemas/PaperImplementationValidationCycleHandoffBlocker'
+            - type: 'null'
+        semantic_context:
+          type: object
+          additionalProperties: false
+          required: [admitted_core_motive, evidence_board, validation_cycle]
+          properties:
+            admitted_core_motive:
+              type: object
+              additionalProperties: false
+              required: [short_name, required_assertion_count]
+              properties:
+                short_name: { type: string, minLength: 1 }
+                required_assertion_count: { type: integer, minimum: 1 }
+            evidence_board:
+              type: object
+              additionalProperties: false
+              required: [support_state, challenge_status, binding_count]
+              properties:
+                support_state: { type: string, minLength: 1 }
+                challenge_status: { type: string, minLength: 1 }
+                binding_count: { type: integer, minimum: 0 }
+            validation_cycle:
+              anyOf:
+                - type: object
+                  additionalProperties: false
+                  required: [lifecycle_status, cycle_type, validation_question, expected_information_gain, assertion_count]
+                  properties:
+                    lifecycle_status: { type: string, minLength: 1 }
+                    cycle_type: { type: string, minLength: 1 }
+                    validation_question: { type: string, minLength: 1 }
+                    expected_information_gain: { type: string, minLength: 1 }
+                    assertion_count: { type: integer, minimum: 1 }
+                - type: 'null'
+        lineage:
+          type: object
+          additionalProperties: false
+          required: [implementation_project_id, intake_snapshot_id, motive_id, core_motive_version_id, assertion_ids, board_version_id, evidence_binding_ids, coordinator_run_id, validation_planning_runtime_artifact_id, selected_candidate_key, validation_cycle_id, validation_input_snapshot_id, trace_manifest_id, admission_gate_result_id]
+          properties:
+            implementation_project_id: { type: string, minLength: 1 }
+            intake_snapshot_id: { type: string, minLength: 1 }
+            motive_id: { type: string, minLength: 1 }
+            core_motive_version_id: { type: string, minLength: 1 }
+            assertion_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            board_version_id: { type: string, minLength: 1 }
+            evidence_binding_ids:
+              type: array
+              items: { type: string, minLength: 1 }
+            coordinator_run_id: { type: [string, 'null'], minLength: 1 }
+            validation_planning_runtime_artifact_id: { type: [string, 'null'], minLength: 1 }
+            selected_candidate_key: { type: [string, 'null'], minLength: 1 }
+            validation_cycle_id: { type: [string, 'null'], minLength: 1 }
+            validation_input_snapshot_id: { type: [string, 'null'], minLength: 1 }
+            trace_manifest_id: { type: [string, 'null'], minLength: 1 }
+            admission_gate_result_id: { type: [string, 'null'], minLength: 1 }
         resume_policy:
           type: string
           const: repeat_same_owner_root_command_and_reuse_persisted_effects

@@ -17,6 +17,7 @@ import type {
   PaperImplementationEvidenceBoardHandoffResponse,
   PaperImplementationScientificContinuationResponse,
   PaperImplementationTopicHandoffResponse,
+  PaperImplementationValidationCycleHandoffResponse,
   RecordImplementationFeedbackEventResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-contracts';
 import type {
@@ -79,6 +80,7 @@ import {
 } from '../services/paper-implementation-intake-bootstrap-service.js';
 import { PaperImplementationTopicHandoffService } from '../services/paper-implementation-topic-handoff-service.js';
 import { PaperImplementationEvidenceBoardHandoffService } from '../services/paper-implementation-evidence-board-handoff-service.js';
+import { PaperImplementationValidationCycleHandoffService } from '../services/paper-implementation-validation-cycle-handoff-service.js';
 import { PaperImplementationAiWorkflowHarnessService } from '../services/paper-implementation-ai-workflow-harness-service.js';
 import { PaperImplementationMotiveEvidenceBoardService } from '../services/paper-implementation-motive-evidence-board-service.js';
 import { PaperImplementationP1RuntimeReviewService } from '../services/paper-implementation-p1-runtime-review-service.js';
@@ -1337,6 +1339,99 @@ test('Evidence Board handoff route accepts only the owner root and maps create v
   }
 });
 
+test('ValidationCycle handoff route accepts only the owner root and maps create versus replay status', async () => {
+  const app = Fastify({ logger: false });
+  const calls: Array<{ implementation_project_id: string }> = [];
+  const service = {
+    continue: async (request: { implementation_project_id: string }) => {
+      calls.push(structuredClone(request));
+      const created = calls.length === 1;
+      return {
+        schema_version: 'PaperImplementationValidationCycleHandoff@v1',
+        status: created ? 'created' : 'resumed',
+        semantic_stage: 'validation_cycle_ready',
+        effects: {
+          performed: created
+            ? ['coordinator_run', 'validation_planning_artifacts', 'trace_manifest', 'validation_cycle']
+            : [],
+          reused: created
+            ? []
+            : ['coordinator_run', 'validation_planning_artifacts', 'trace_manifest', 'validation_cycle'],
+        },
+        next_action: {
+          action: 'continue_experiment_specification',
+          description: 'Continue with experiment specification.',
+          requires_human_confirmation: false,
+        },
+        blocker: null,
+        semantic_context: {
+          admitted_core_motive: { short_name: 'Scoped route', required_assertion_count: 1 },
+          evidence_board: { support_state: 'partial', challenge_status: 'addressed', binding_count: 1 },
+          validation_cycle: {
+            lifecycle_status: 'admitted',
+            cycle_type: 'route_feasibility',
+            validation_question: 'Can the route answer the assertion?',
+            expected_information_gain: 'high',
+            assertion_count: 1,
+          },
+        },
+        lineage: {
+          implementation_project_id: request.implementation_project_id,
+          intake_snapshot_id: 'intake_snapshot_route_t142',
+          motive_id: 'motive_route_t142',
+          core_motive_version_id: 'motive_version_route_t142',
+          assertion_ids: ['assertion_route_t142'],
+          board_version_id: 'board_route_t142',
+          evidence_binding_ids: ['binding_route_t142'],
+          coordinator_run_id: 'coordinator_route_t142',
+          validation_planning_runtime_artifact_id: 'runtime_artifact_route_t142',
+          selected_candidate_key: 'candidate_route_t142',
+          validation_cycle_id: 'cycle_route_t142',
+          validation_input_snapshot_id: 'input_route_t142',
+          trace_manifest_id: 'trace_route_t142',
+          admission_gate_result_id: 'gate_route_t142',
+        },
+        resume_policy: 'repeat_same_owner_root_command_and_reuse_persisted_effects',
+      } satisfies PaperImplementationValidationCycleHandoffResponse;
+    },
+  } as unknown as PaperImplementationValidationCycleHandoffService;
+  await registerPaperImplementationRoutes(app, new PaperImplementationController({
+    validationCycleHandoff: service,
+  } as never));
+
+  try {
+    const first = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycle-handoffs',
+      payload: {
+        implementation_project_id: 'implementation_project_route_t142',
+        board_version_id: 'caller_supplied_lineage_must_be_ignored',
+      },
+    });
+    assertStatus(first, 201);
+    assert.equal((first.json() as PaperImplementationValidationCycleHandoffResponse).status, 'created');
+    assert.deepEqual(calls[0], { implementation_project_id: 'implementation_project_route_t142' });
+
+    const replay = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycle-handoffs',
+      payload: { implementation_project_id: 'implementation_project_route_t142' },
+    });
+    assertStatus(replay, 200);
+    assert.equal((replay.json() as PaperImplementationValidationCycleHandoffResponse).status, 'resumed');
+
+    const malformed = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycle-handoffs',
+      payload: {},
+    });
+    assertStatus(malformed, 400);
+    assert.equal(calls.length, 2);
+  } finally {
+    await app.close();
+  }
+});
+
 test('buildApp registers PaperImplementation routes and drives bootstrap happy path', async () => {
   const downstreamFeedback = new RecordingDownstreamFeedbackService();
   const app = buildApp({
@@ -1346,6 +1441,13 @@ test('buildApp registers PaperImplementation routes and drives bootstrap happy p
     paperImplementationDownstreamFeedbackService: downstreamFeedback,
   });
   try {
+    const malformedValidationHandoff = await app.inject({
+      method: 'POST',
+      url: '/paper-implementation/validation-cycle-handoffs',
+      payload: {},
+    });
+    assert.equal(malformedValidationHandoff.statusCode, 400);
+
     const malformed = await app.inject({
       method: 'POST',
       url: '/paper-implementation/projects/bootstrap',

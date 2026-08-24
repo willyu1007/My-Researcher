@@ -8,13 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 141 (planned: 2, in-progress: 0, blocked: 0, done: 52, archived: 87)
+- Tasks: 142 (planned: 2, in-progress: 1, blocked: 0, done: 52, archived: 87)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-141 core-motive-to-evidence-board-semantic-handoff | done | F-001 | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
+| T-142 evidence-board-to-validation-cycle-semantic-handoff | in-progress | F-000 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
@@ -33,5 +34,4 @@ Project: `main`
 | T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 | T-115 topic-selection-v1b-human-review-path | archived | F-001 | dev-docs/archive/topic-selection-v1b-human-review-path |
 | T-123 topic-selection-productization-hardening | archived | F-001 | dev-docs/archive/topic-selection-productization-hardening |
-| T-127 topic-selection-backend-hardening-and-expansion | archived | F-001 | dev-docs/archive/topic-selection-backend-hardening-and-expansion |
 <!-- AUTO-GENERATED:END dashboard -->

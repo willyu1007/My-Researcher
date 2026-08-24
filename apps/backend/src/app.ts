@@ -290,6 +290,7 @@ import { PaperImplementationScientificContinuationService } from './services/pap
 import { PaperImplementationCoreMotiveBootstrapProposalService } from './services/paper-implementation-core-motive-bootstrap-proposal-service.js';
 import { PaperImplementationCoreMotiveHandoffService } from './services/paper-implementation-core-motive-handoff-service.js';
 import { PaperImplementationEvidenceBoardHandoffService } from './services/paper-implementation-evidence-board-handoff-service.js';
+import { PaperImplementationValidationCycleHandoffService } from './services/paper-implementation-validation-cycle-handoff-service.js';
 import { PaperImplementationValidationCyclePlanningRuntimeService } from './services/paper-implementation-validation-cycle-planning-runtime-service.js';
 import { PaperImplementationFeasibilityPlanningRuntimeService } from './services/paper-implementation-feasibility-planning-runtime-service.js';
 import { PaperImplementationCrossBoardSynthesisRuntimeService } from './services/paper-implementation-cross-board-synthesis-runtime-service.js';
@@ -1626,11 +1627,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       boardWriter: paperImplementationMotiveEvidenceBoardService,
       coordinator: paperImplementationRunCoordinatorService,
     });
+  const paperImplementationValidationCycleHandoffService =
+    new PaperImplementationValidationCycleHandoffService({
+      projectRepository: paperImplementationRepository,
+      motiveRepository: paperImplementationMotiveRepository,
+      validationRepository: paperImplementationValidationRepository,
+      runtimeRepository: paperImplementationRuntimeRepository,
+      traceKernel: paperImplementationTraceKernelService,
+      cycleWriter: paperImplementationValidationCyclePlanningService,
+      coordinator: paperImplementationRunCoordinatorService,
+    });
   const paperImplementationController = new PaperImplementationController({
     intakeBootstrap: paperImplementationIntakeBootstrapService,
     topicHandoff: paperImplementationTopicHandoffService,
     coreMotiveHandoff: paperImplementationCoreMotiveHandoffService,
     evidenceBoardHandoff: paperImplementationEvidenceBoardHandoffService,
+    validationCycleHandoff: paperImplementationValidationCycleHandoffService,
     scientificContinuation: paperImplementationScientificContinuationService,
     traceKernel: paperImplementationTraceKernelService,
     motiveEvidenceBoard: paperImplementationMotiveEvidenceBoardService,

@@ -55,7 +55,7 @@ import type { PaperImplementationTraceKernelService } from './paper-implementati
 
 type HandoffTraceKernel = Pick<
   PaperImplementationTraceKernelService,
-  'ensureTraceManifest' | 'ensureReviewedCitationCandidate' | 'getTraceManifest' | 'listCitationCandidates'
+  'ensureTraceManifest' | 'ensureReviewedCitationCandidate' | 'getTraceManifest' | 'findCitationCandidate'
 >;
 
 type HandoffCoordinator = Pick<
@@ -238,7 +238,11 @@ export class PaperImplementationEvidenceBoardHandoffService {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'ImplementationProject has no persisted intake snapshot.');
     }
     if (
-      project.lifecycle_status !== 'active'
+      snapshot.implementation_project_id !== project.implementation_project_id
+      || snapshot.intake_snapshot_id !== project.intake_snapshot_id
+      || snapshot.title_card_id !== project.title_card_id
+      || (snapshot.workspace_id ?? null) !== (project.workspace_id ?? null)
+      || project.lifecycle_status !== 'active'
       || project.freshness_status !== 'fresh'
       || project.source_status !== 'active'
       || snapshot.source_status !== 'active'
@@ -263,7 +267,16 @@ export class PaperImplementationEvidenceBoardHandoffService {
     const version = versionId
       ? await this.options.motiveRepository.findCoreMotiveVersionById(implementationProjectId, versionId)
       : null;
-    if (!motive || !version || version.version_status !== 'admitted') {
+    if (
+      !motive
+      || !version
+      || motive.implementation_project_id !== implementationProjectId
+      || motive.portfolio_role.role !== 'primary'
+      || motive.lifecycle_status !== 'active'
+      || version.implementation_project_id !== implementationProjectId
+      || version.motive_id !== motive.motive_id
+      || version.version_status !== 'admitted'
+    ) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
@@ -280,11 +293,23 @@ export class PaperImplementationEvidenceBoardHandoffService {
     );
     const requiredAssertions = assertions.filter((assertion) =>
       assertion.importance.role === 'core' || assertion.importance.must_hold_for_motive_to_continue);
-    if (!state || assertions.length === 0 || requiredAssertions.length === 0) {
+    if (
+      !state
+      || state.implementation_project_id !== implementationProjectId
+      || state.motive_id !== motive.motive_id
+      || state.core_motive_version_id !== version.core_motive_version_id
+      || state.freshness_status !== 'fresh'
+      || assertions.length === 0
+      || assertions.some((assertion) =>
+        assertion.implementation_project_id !== implementationProjectId
+        || assertion.motive_id !== motive.motive_id
+        || assertion.core_motive_version_id !== version.core_motive_version_id)
+      || requiredAssertions.length === 0
+    ) {
       throw new AppError(
         409,
         'GATE_CONSTRAINT_FAILED',
-        'Admitted CoreMotiveVersion is missing state or required assertions.',
+        'Admitted CoreMotiveVersion requires fresh, owner-consistent state and assertions.',
       );
     }
     return { snapshot, motive, version, state, assertions, requiredAssertions };
@@ -358,17 +383,24 @@ export class PaperImplementationEvidenceBoardHandoffService {
     const maps = await this.options.evidenceMapRepository.listEvidenceMapsByTitleCardId(
       owner.snapshot.title_card_id,
     );
+    const workspaceId = owner.snapshot.workspace_id ?? null;
     const eligibleMaps = maps.filter((map) =>
-      map.status === 'ready'
+      (map.workspace_id ?? null) === workspaceId
+      && map.title_card_id === owner.snapshot.title_card_id
+      && map.status === 'ready'
       && map.freshness_status === 'current'
       && ['machine_checked', 'human_reviewed'].includes(map.review_status));
     const units = (await Promise.all(maps.map((map) =>
       this.options.evidenceMapRepository.listEvidenceUnitsByEvidenceMapId(map.evidence_map_id))))
       .flat();
     const eligibleMapIds = new Set(eligibleMaps.map((map) => map.evidence_map_id));
-    const byId = new Map(units.map((unit) => [unit.evidence_unit_id, unit]));
     const selectedUnits = selectedRefs
-      .map((ref) => byId.get(ref.ref_id) ?? null)
+      .map((ref) => units.find((unit) =>
+        unit.evidence_unit_id === ref.ref_id
+        && unit.title_card_id === owner.snapshot.title_card_id
+        && (unit.workspace_id ?? null) === workspaceId
+        && ref.title_card_id === owner.snapshot.title_card_id
+        && ref.version_id === unit.evidence_map_version) ?? null)
       .filter((unit): unit is TopicSelectionEvidenceUnitRecord => unit !== null);
     if (selectedUnits.length !== selectedRefs.length) {
       return { blocker: {
@@ -506,12 +538,11 @@ export class PaperImplementationEvidenceBoardHandoffService {
     const refs = this.uniqueRefs(boardTraces.flatMap((trace) =>
       trace.lineage.literature.citation_candidate_refs));
     if (refs.length === 0) return source;
-    const allCandidates = await this.options.traceKernel.listCitationCandidates(
-      owner.snapshot.implementation_project_id,
-    );
-    const byId = new Map(allCandidates.map((candidate) => [candidate.citation_candidate_id, candidate]));
-    const candidates = refs
-      .map((ref) => byId.get(ref.ref_id) ?? null)
+    const candidates = (await Promise.all(refs.map((ref) =>
+      this.options.traceKernel.findCitationCandidate(
+        owner.snapshot.implementation_project_id,
+        ref.ref_id,
+      ))))
       .filter((candidate): candidate is CitationCandidate => candidate !== null);
     if (candidates.length !== refs.length) {
       throw new AppError(
