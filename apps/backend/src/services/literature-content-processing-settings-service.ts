@@ -23,6 +23,7 @@ import {
   type LlmConfigReader,
   type LlmFeatureCallConfig,
 } from './llm-config-loader.js';
+import { configuredLiteratureEmbeddingProfile } from './literature-llm-config.js';
 
 const SETTINGS_NAMESPACE = 'literature_content_processing';
 const OPENAI_PROVIDER: LiteratureContentProcessingProviderId = 'openai';
@@ -96,6 +97,8 @@ const DEFAULT_EXTRACTION_RUNTIME_BASE: Omit<
   diagnostic_policy: 'actionable_v1',
 };
 
+// Migration recognition only: these values identify persisted former defaults and never select
+// the effective runtime model, which comes from `.ai/llm/literature-processing`.
 const LEGACY_EXTRACTION_MODEL_BY_PROFILE: Partial<Record<LiteratureExtractionProfileId, string>> = {
   default: 'gpt-5.6-sol',
   high_accuracy: 'gpt-5.6-sol',
@@ -134,16 +137,14 @@ export class LiteratureContentProcessingSettingsService {
     llmConfig: LlmConfigReader = defaultLlmConfig(),
   ) {
     this.llmConfig = llmConfig;
-    const embeddingDefault = llmConfig.getCall('literature-processing', 'embedding-default');
-    const embeddingEconomy = llmConfig.getCall('literature-processing', 'embedding-economy');
     const extractionDefault = llmConfig.getCall('literature-processing', 'key-content-section-default');
     const extractionHighAccuracy = llmConfig.getCall(
       'literature-processing',
       'key-content-section-high-accuracy',
     );
     this.defaultEmbeddingProfiles = [
-      this.embeddingProfileFromCall('default', embeddingDefault),
-      this.embeddingProfileFromCall('economy', embeddingEconomy),
+      configuredLiteratureEmbeddingProfile('default', llmConfig),
+      configuredLiteratureEmbeddingProfile('economy', llmConfig),
     ];
     this.defaultExtractionProfiles = [
       this.extractionProfileFromCall('default', extractionDefault),
@@ -966,25 +967,6 @@ export class LiteratureContentProcessingSettingsService {
       const order: Record<LiteratureExtractionProfileId, number> = { default: 0, high_accuracy: 1 };
       return order[left.profile_id] - order[right.profile_id];
     });
-  }
-
-  private embeddingProfileFromCall(
-    profileId: LiteratureEmbeddingProfileId,
-    call: LlmFeatureCallConfig,
-  ): LiteratureEmbeddingProfileDTO {
-    if (call.provider.id !== OPENAI_PROVIDER) {
-      throw new Error(`literature-processing/${call.id} must use the supported openai embedding provider.`);
-    }
-    const dimensions = call.parameters.dimensions;
-    if (dimensions !== null && dimensions !== undefined && (!Number.isInteger(dimensions) || Number(dimensions) <= 0)) {
-      throw new Error(`literature-processing/${call.id} dimensions must be null or a positive integer.`);
-    }
-    return {
-      profile_id: profileId,
-      provider: OPENAI_PROVIDER,
-      model: call.model,
-      dimensions: dimensions === null || dimensions === undefined ? null : Number(dimensions),
-    };
   }
 
   private extractionProfileFromCall(

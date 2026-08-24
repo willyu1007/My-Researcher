@@ -24,6 +24,7 @@ import {
   PaperImplementationSemanticRetrievalV2Service,
   type PaperImplementationSemanticRankingInputV2Reader,
 } from './paper-implementation-semantic-retrieval-v2-service.js';
+import { configuredLiteratureEmbeddingProfile } from './literature-llm-config.js';
 
 export type PaperImplementationSemanticV2ServiceReasonCode =
   | 'SEMANTIC_RETRIEVAL_V2_DISABLED'
@@ -270,10 +271,13 @@ export class PaperImplementationSemanticV2Service {
 
   private async resolveEmbeddingProfile(): Promise<PaperImplementationSemanticEmbeddingProfileV2> {
     const configured = await this.options.embeddingProfileResolver();
+    const shippedDefault = configuredLiteratureEmbeddingProfile('default');
     const explicitlySupportsDimension = configured.dimensions
       === PAPER_IMPLEMENTATION_SEMANTIC_VECTOR_DIMENSION_V2;
     const usesKnownNativeDimension = configured.dimensions === null
-      && configured.model === 'text-embedding-3-large';
+      && shippedDefault.dimensions === null
+      && configured.provider === shippedDefault.provider
+      && configured.model === shippedDefault.model;
     if (
       configured.provider !== 'openai'
       || configured.profileId.trim().length === 0

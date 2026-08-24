@@ -19,6 +19,7 @@ import type {
 import type { LiteratureContentProcessingSettingsService } from '../literature-content-processing-settings-service.js';
 import { sha256Text, splitEmbeddingInputBatches } from '../literature-content-processing-utils.js';
 import { LiteratureKeyContentExtractionService } from '../literature-key-content-extraction-service.js';
+import { configuredLiteratureEmbeddingProfile } from '../literature-llm-config.js';
 import { BackendLlmGateway, type LlmCallTelemetry } from '../llm-gateway.js';
 import { LiteratureContentProcessingFileStore } from './literature-content-processing-file-store.js';
 import { LiteratureGrobidFulltextParser, type GrobidFulltextParseResult } from './literature-grobid-fulltext-parser.js';
@@ -589,10 +590,11 @@ export class LiteratureFlowArtifactRuntime {
     }
 
     const profile = await this.options.settingsService?.resolveActiveEmbeddingProfile();
-    const expectedProfileId = profile?.profileId ?? 'default';
-    const expectedProvider = profile?.provider ?? 'openai';
-    const expectedModel = profile?.model ?? 'text-embedding-3-large';
-    const expectedDimension = profile?.dimensions ?? null;
+    const configuredDefaultProfile = configuredLiteratureEmbeddingProfile('default');
+    const expectedProfileId = profile?.profileId ?? configuredDefaultProfile.profile_id;
+    const expectedProvider = profile?.provider ?? configuredDefaultProfile.provider;
+    const expectedModel = profile?.model ?? configuredDefaultProfile.model;
+    const expectedDimension = profile ? profile.dimensions : configuredDefaultProfile.dimensions;
     if (
       existing.payload.profile_id !== expectedProfileId
       || existing.payload.provider !== expectedProvider

@@ -18,6 +18,7 @@ import type {
 } from '../repositories/literature-repository.js';
 import type { ActiveEmbeddingProfileConfig, LiteratureContentProcessingSettingsService } from './literature-content-processing-settings-service.js';
 import { LiteratureEvidenceActivationService } from './literature-evidence-activation-service.js';
+import { configuredLiteratureEmbeddingProfile } from './literature-llm-config.js';
 import { BackendLlmGateway } from './llm-gateway.js';
 import type { LlmCallTelemetry } from './llm-gateway.js';
 import {
@@ -323,10 +324,11 @@ export class LiteratureRetrievalService {
     const staleByVersionId = new Map(staleWarnings.map((warning) => [warning.embedding_version_id, warning]));
     const versionById = new Map(input.candidateVersions.map((version) => [version.id, version]));
     const firstVersion = input.candidateVersions[0];
+    const configuredDefaultProfile = configuredLiteratureEmbeddingProfile('default');
     const retrievalProfile = this.toRetrievalProfile({
       profileId: firstVersion?.profileId === 'economy' ? 'economy' : 'default',
       provider: firstVersion?.provider === 'dashscope' ? 'dashscope' : 'openai',
-      model: firstVersion?.model ?? 'text-embedding-3-large',
+      model: firstVersion?.model ?? configuredDefaultProfile.model,
       dimensions: firstVersion?.dimension ?? null,
     }, input.candidateVersions);
 
@@ -571,11 +573,12 @@ export class LiteratureRetrievalService {
 
   private async resolveActiveEmbeddingProfile(): Promise<ActiveEmbeddingProfileConfig> {
     if (!this.settingsService) {
+      const profile = configuredLiteratureEmbeddingProfile('default');
       return {
-        profileId: 'default',
-        provider: 'openai',
-        model: 'text-embedding-3-large',
-        dimensions: null,
+        profileId: profile.profile_id,
+        provider: profile.provider,
+        model: profile.model,
+        dimensions: profile.dimensions,
       };
     }
     return this.settingsService.resolveActiveEmbeddingProfile();
