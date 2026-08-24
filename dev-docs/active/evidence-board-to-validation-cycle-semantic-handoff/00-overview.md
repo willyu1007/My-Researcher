@@ -2,9 +2,9 @@
 
 ## Status
 
-- State: in-progress
+- State: done
 - Mapping: `M-001 > F-001 > R-013`
-- Next step: finish the post-fix full regression, land the implementation, and wait for green CI.
+- Next step: open an explicit follow-up only when ValidationCycle-to-experiment-specification composition is approved.
 
 ## Goal
 
@@ -34,4 +34,4 @@ The implementation-readiness review also found five prerequisite issues in the T
 - [x] Blocked/waiting states expose the first executable semantic action without inventing scientific values.
 - [x] No Experiment Foundation, PAI, WorkOrder, provider Attempt, result, claim, or dossier effect occurs.
 - [x] T-141 quality findings are fixed with focused regression tests.
-- [ ] Contract, service, route, persisted replay, full test/typecheck, Context/API, governance, and CI gates pass.
+- [x] Contract, service, route, persisted replay, full test/typecheck, Context/API, governance, and CI gates pass.

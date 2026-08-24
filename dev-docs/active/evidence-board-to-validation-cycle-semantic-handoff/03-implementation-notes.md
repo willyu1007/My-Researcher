@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `implemented; final regression and CI pending`
+- Current status: `done`
 - Last updated: 2026-08-24
 
 ## What changed

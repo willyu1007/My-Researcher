@@ -7,7 +7,7 @@
 3. [x] Compose current board context into the existing validation-planning coordinator.
 4. [x] Consume the coordinator-selected admitted proposal through the existing ValidationCycle draft/trace/admission writers.
 5. [x] Expose HTTP, recovery semantics, and the T-139 experiment-specification boundary.
-6. [ ] Update Context/governance docs and run release gates.
+6. [x] Update Context/governance docs and run release gates.
 
 ## Detailed steps
 

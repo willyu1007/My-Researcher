@@ -49,7 +49,6 @@ Project: `main`
 | T-125 literature-balanced-corpus-scaleout-v2 | archived | dev-docs/archive/literature-balanced-corpus-scaleout-v2 |
 | T-126 literature-rag-frontier-tech-radar | archived | dev-docs/archive/literature-rag-frontier-tech-radar |
 | T-133 paper-implementation-debate-disposition-closure | done | dev-docs/active/paper-implementation-debate-disposition-closure |
-| T-142 evidence-board-to-validation-cycle-semantic-handoff | in-progress | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 
 ### F-001 Research Lifecycle Governance Core
 
@@ -156,6 +155,7 @@ Project: `main`
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
 | T-141 core-motive-to-evidence-board-semantic-handoff | done | dev-docs/active/core-motive-to-evidence-board-semantic-handoff |
+| T-142 evidence-board-to-validation-cycle-semantic-handoff | done | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 
 ### F-002 Desktop Frontend Foundation
 
