@@ -4,7 +4,7 @@
 
 1. [x] Add the missing runtime schema boundary and make the test artifact production-representative.
 2. [x] Extract pure authority comparison helpers without changing behavior.
-3. [ ] Run focused and full verification, then land and close T-144. Local verification is complete; commit, push, and CI remain.
+3. [x] Run focused and full verification, then land and close T-144.
 
 ## Detailed steps
 

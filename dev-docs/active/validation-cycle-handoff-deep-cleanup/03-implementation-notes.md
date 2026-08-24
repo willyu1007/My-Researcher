@@ -2,7 +2,7 @@
 
 ## Status
 
-- Current status: `in-progress`
+- Current status: `done`
 - Last updated: 2026-08-24
 
 ## What changed
@@ -37,7 +37,7 @@
 ## Known issues / follow-ups
 
 - No local implementation issue remains.
-- Delivery is pending the T-144 commit, push to `main`, and green GitHub Actions.
+- Implementation commit `002aea4a5a67801f8fd8bc95764a7ac7a02fc527` is on `origin/main`; GitHub Actions run `32696150106` passed all jobs.
 - The task bundle remains under `dev-docs/active/` until explicit archival approval; archival is documentation lifecycle work, not unfinished implementation.
 - ValidationCycle-to-experiment-specification continuation remains a separate product task and was not pulled into this cleanup.
 

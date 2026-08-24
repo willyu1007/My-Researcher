@@ -2,8 +2,8 @@
 
 ## Status
 
-- State: in-progress
-- Next step: commit and push the locally verified implementation, then confirm GitHub Actions before closing T-144.
+- State: done
+- Next step: none for implementation; archive the task bundle only after explicit approval.
 
 ## Goal
 
@@ -28,4 +28,4 @@ The T-143 implementation is correct and fully green, but its post-landing module
 - [x] The handoff fixture models a complete runtime envelope and a schema-valid two-candidate planning artifact without broad type assertions.
 - [x] Pure ref, deterministic-run, trace, and ValidationCycle comparison logic is isolated from the application orchestration service.
 - [x] No public API, app wiring, repository interface, database schema, LLM configuration, or side-effect boundary changes.
-- [ ] Focused and full Node 20 tests, typecheck, Context/API, project-state, governance, docs, diff, and CI gates pass. Local gates pass; remote CI remains.
+- [x] Focused and full Node 20 tests, typecheck, Context/API, project-state, governance, docs, diff, and CI gates pass.

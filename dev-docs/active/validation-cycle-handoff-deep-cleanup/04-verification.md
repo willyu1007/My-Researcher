@@ -26,6 +26,12 @@ Expected result: all checks pass; environment-gated skips remain explicit; no pr
 - T-144 strict task-doc lint: 6/6 files, zero warnings and zero errors.
 - `git diff --check`: passed.
 
+## Delivery evidence
+
+- Implementation commit: `002aea4a5a67801f8fd8bc95764a7ac7a02fc527` with exactly one `Task: T-144` trailer, pushed to `origin/main`.
+- GitHub Actions run [32696150106](https://github.com/willyu1007/My-Researcher/actions/runs/32696150106) passed Governance Lint, Prisma Migrate Drift, Desktop Checks, and Backend Checks with isolated Prisma schema.
+- No real LLM, PAI Job, WorkOrder, Experiment Foundation Run, provider Attempt, scientific result, claim, dossier, credential, or paid side effect was created.
+
 ## Manual smoke checks
 
 - Valid create/replay responses retain the T-142 contract and exact-once authority counts.
