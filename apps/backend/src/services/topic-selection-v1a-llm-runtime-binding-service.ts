@@ -9,10 +9,6 @@ import type {
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
-import {
-  TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_SCHEMA_VERSION,
-  TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION,
-} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type {
   TopicSelectionBuildEvidenceMapNodeInput,
   TopicSelectionEvidenceMapExtractionContextPacket,
@@ -46,6 +42,10 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import {
+  defaultLlmConfig,
+  type LlmConfigReader,
+} from './llm-config-loader.js';
 
 type RuntimePromptRef = {
   promptTemplateId: string;
@@ -225,12 +225,15 @@ export type BuildTopicSelectionV1aHumanConfirmationRuntimeBindingInput = {
 
 export class TopicSelectionV1aLlmRuntimeBindingService {
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
+  private readonly llmConfig: LlmConfigReader;
 
   constructor(options: {
     contextPolicyProfileRegistry?: TopicSelectionContextPolicyProfileRegistryService;
+    llmConfig?: LlmConfigReader;
   } = {}) {
     this.contextPolicyProfileRegistry = options.contextPolicyProfileRegistry
       ?? new TopicSelectionContextPolicyProfileRegistryService();
+    this.llmConfig = options.llmConfig ?? defaultLlmConfig();
   }
 
   buildEvidenceExtractionBinding(
@@ -248,7 +251,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
     return {
       prompt: {
         promptTemplateId: 'topic-selection-evidence-map-extraction',
-        version: 'v1',
+        version: this.promptVersion('topic-selection-evidence-map-extraction'),
       },
       prompt_variant_key: 'evidence_extraction',
       messages: this.evidenceMapExtractionMessages(input),
@@ -341,7 +344,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
     return {
       prompt: {
         promptTemplateId: 'topic-selection-need-adjudication',
-        version: 'v1',
+        version: this.promptVersion('topic-selection-need-adjudication'),
       },
       prompt_variant_key: 'adjudication_recommendation',
       messages: this.needAdjudicationMessages(input),
@@ -442,7 +445,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
     return {
       prompt: {
         promptTemplateId: 'topic-selection-human-confirmation-semantic-review',
-        version: 'v1',
+        version: this.promptVersion('topic-selection-human-confirmation-semantic-review'),
       },
       prompt_variant_key: 'confirmation_semantic_review',
       messages: this.humanConfirmationSemanticReviewMessages(input),
@@ -514,20 +517,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
     return [
       {
         role: 'system',
-        content: [
-          'You are the v1a node-N5 evidence-map extraction agent.',
-          'Produce TopicSelectionEvidenceMapExtractionDraft@v1 only.',
-          'Echo the frozen lineage exactly: set title_card_ref, search_run_ref, search_plan_ref, literature_resource_pool_snapshot_ref, literature_snapshot_hash, input_refs_hash, policy_version, and output_schema_version to the values supplied in node_input and search_run_handoff, since any mismatch blocks materialization.',
-          'Use source-grounded EvidenceUnits and never include hidden reasoning or raw provider logs.',
-          'Create at least one draft_unit for every literature_record in search_run_handoff.evidence_map_input_refs; missing source-candidate coverage blocks materialization.',
-          'If an EvidenceUnit cites coverage_row_intent_ref, evidence_role must match search_run_handoff.coverage_role_expectations.',
-          'For each draft_unit set a unique client_unit_key, an evidence_role, a literature_ref and source_refs drawn only from the supplied handoff refs, a locator, a source_statement, a source_attribution_kind, and an interpretation_payload; confidence may be null and issue_codes records problems.',
-          "For each draft_unit, set source_attribution_kind to a value other than llm_inference, give a non-empty source_statement, and keep locator.literature_ref equal to the unit's literature_ref with locator.source_ref and any locator provenance refs drawn only from the supplied handoff refs.",
-          'In draft_links, draft_clusters, draft_patterns, and draft_conflicts, every unit-key reference must name a declared draft_unit client_unit_key.',
-          'Do not invent a literature_ref or source_refs absent from search_run_handoff, and do not emit evidence_map_id, evidence_unit_id, or created_authority_refs.',
-          'When compressed_evidence_extraction_context is provided, treat it as advisory ref-backed context only.',
-          'Do not write authority records; the deterministic materialization gate owns persistence.',
-        ].join('\n'),
+        content: this.systemPrompt('topic-selection-evidence-map-extraction'),
       },
       {
         role: 'user',
@@ -583,16 +573,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       {
         role: 'system',
         content: [
-          'You are the v1a validate-need adjudicator at node N7.',
-          `Produce ${TOPIC_SELECTION_NEED_ADJUDICATION_RECOMMENDATION_PACKET_SCHEMA_VERSION} only.`,
-          'Set final_decision from the decision enum with a rationale grounded in the support packet; whenever risks or coverage gaps are carried, give non-empty required_actions, carry any gap_codes, and partition the carried risks across accepted_risk_refs and residual_risk_refs without dropping any.',
-          'Set rejected_reason only on a reject and merge_target_need_candidate_ref only on a merge; always emit searchplan_recheck_gap_codes (empty unless a searchplan recheck is needed) and set searchplan_recheck_reason only when one is needed; trace source_refs to support-packet refs.',
-          'A return_to_candidate decision requires non-empty required_actions; a merge requires merge_target_need_candidate_ref pointing at a different NeedCandidate and never the candidate under adjudication; a reject requires rejected_reason; and a park requires required_actions or a non-empty rationale.',
-          'Do not include route_outcome, next_node_id, DB status fields, authority ids to create, hidden reasoning, or workflow commands.',
-          'Use the validation support packet as frozen truth; do not invent evidence, risks, merge targets, or recheck refs.',
-          'If residual_risk_refs or METHOD_FAMILY_COVERAGE_GAP are present, validate must carry those risks in residual_risk_refs or accepted_risk_refs and include required_actions for follow-up.',
-          'Do not return clean validate by dropping support-packet residual risks or coverage warnings.',
-          'When compressed_need_adjudication_context is provided, treat it as advisory ref-backed context only.',
+          this.systemPrompt('topic-selection-need-adjudication'),
           ...(input.diagnostic_prompt_appendix?.trim() ? [input.diagnostic_prompt_appendix.trim()] : []),
         ].join('\n'),
       },
@@ -742,17 +723,7 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
     return [
       {
         role: 'system',
-        content: [
-          'You are the advisory semantic reviewer for v1a human-confirm-need (node N8); you review alignment only and never confirm.',
-          `Produce ${TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_SCHEMA_VERSION} only.`,
-          'Review alignment between validate adjudication, support-packet checks, residual risks, and confirmation input.',
-          'Copy output_lineage fields exactly into the matching top-level output fields.',
-          'Set status from the status enum; summarize the alignment checks in alignment_codes, set risk_coverage and required_check_coverage from their coverage enums, list any out-of-scope action in scope_violations, and give a grounded rationale_summary.',
-          'Use review_reason_codes only when status is warning and manual review is required; leave it empty for pass.',
-          'A pass requires complete risk_coverage, complete required_check_coverage, and no scope_violations.',
-          'When compressed_human_confirmation_context is provided, treat it as advisory ref-backed context only.',
-          'Do not re-adjudicate candidate value, infer new evidence roles, create new risk refs, mutate upstream content, or run debate.',
-        ].join('\n'),
+        content: this.systemPrompt('topic-selection-human-confirmation-semantic-review'),
       },
       {
         role: 'user',
@@ -797,6 +768,14 @@ export class TopicSelectionV1aLlmRuntimeBindingService {
       context_payloads: input.contextPayloads ?? [],
       extra_payloads: input.extraPayloads ?? [],
     };
+  }
+
+  private systemPrompt(promptId: string): string {
+    return this.llmConfig.getPrompt('topic-selection', promptId).system;
+  }
+
+  private promptVersion(promptId: string): string {
+    return this.llmConfig.getPrompt('topic-selection', promptId).version;
   }
 
   private applyRuntimeTokenBudgetOverrides(

@@ -6,7 +6,7 @@ Make `.ai/llm` the runtime source of provider, model, native parameter, prompt-r
 ## Progress
 - State: in-progress
 - Current phase: Topic-selection prompt migration
-- Next step: Move the Topic Selection v1a runtime-binding system prompts into `.ai/llm/topic-selection/prompts` and preserve prompt-packet hashes through the shared loader.
+- Next step: Continue migrating Topic Selection prompt families through the feature prompt catalog, beginning with the v1b single-agent runtime services that already carry byte-stability tests.
 - Blocker: none
 
 ## Done when

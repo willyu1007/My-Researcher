@@ -51,5 +51,19 @@
       },
       "tools": []
     }
+  },
+  "prompts": {
+    "topic-selection-evidence-map-extraction": {
+      "version": "v1",
+      "system": "prompts/v1a/evidence-map-extraction/system.md"
+    },
+    "topic-selection-need-adjudication": {
+      "version": "v1",
+      "system": "prompts/v1a/need-adjudication/system.md"
+    },
+    "topic-selection-human-confirmation-semantic-review": {
+      "version": "v1",
+      "system": "prompts/v1a/human-confirmation-semantic-review/system.md"
+    }
   }
 }

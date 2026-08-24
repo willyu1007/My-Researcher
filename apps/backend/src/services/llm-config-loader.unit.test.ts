@@ -61,6 +61,19 @@ test('topic-selection and paper-implementation keep independent shipped model ro
   );
 });
 
+test('topic-selection prompt catalog stays independent from dynamic model routes', () => {
+  const loader = new LlmConfigLoader({ env: {} });
+
+  const prompt = loader.getPrompt(
+    'topic-selection',
+    'topic-selection-need-adjudication',
+  );
+  assert.equal(prompt.version, 'v1');
+  assert.match(prompt.system, /^You are the v1a validate-need adjudicator/u);
+  assert.equal('provider' in prompt, false);
+  assert.equal('model' in prompt, false);
+});
+
 test('LLM configuration rejects unknown providers and prompt traversal', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'my-researcher-llm-config-'));
   t.after(async () => rm(root, { recursive: true, force: true }));

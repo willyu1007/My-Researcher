@@ -27,9 +27,16 @@ export type LlmFeatureCallConfig = {
   tools: readonly unknown[];
 };
 
+export type LlmPromptConfig = {
+  id: string;
+  featureId: string;
+  version: string;
+  system: string;
+};
+
 export type LlmConfigReader = Pick<
   LlmConfigLoader,
-  'getProvider' | 'getCall' | 'resolveProviderBaseUrl' | 'resolveProviderApiKey'
+  'getProvider' | 'getCall' | 'getPrompt' | 'resolveProviderBaseUrl' | 'resolveProviderApiKey'
 >;
 
 const DEFAULT_LLM_ROOT = path.resolve(
@@ -47,6 +54,7 @@ const SUPPORTED_PROTOCOLS = new Set<LlmProviderProtocol>([
 export class LlmConfigLoader {
   private readonly providers: ReadonlyMap<string, LlmProviderConfig>;
   private readonly calls = new Map<string, ReadonlyMap<string, LlmFeatureCallConfig>>();
+  private readonly prompts = new Map<string, ReadonlyMap<string, LlmPromptConfig>>();
 
   constructor(
     private readonly options: {
@@ -72,6 +80,17 @@ export class LlmConfigLoader {
       throw new Error(`LLM call "${featureId}/${callId}" is not configured.`);
     }
     return call;
+  }
+
+  getPrompt(featureId: string, promptId: string): LlmPromptConfig {
+    if (!this.calls.has(featureId)) {
+      this.loadFeature(featureId);
+    }
+    const prompt = this.prompts.get(featureId)?.get(promptId);
+    if (!prompt) {
+      throw new Error(`LLM prompt "${featureId}/${promptId}" is not configured.`);
+    }
+    return prompt;
   }
 
   resolveProviderBaseUrl(providerId: string): string {
@@ -126,6 +145,10 @@ export class LlmConfigLoader {
     const root = this.readJson(filePath);
     const calls = this.record(root.calls, `${filePath} calls`);
     const parsed = new Map<string, LlmFeatureCallConfig>();
+    const promptEntries = root.prompts === undefined
+      ? {}
+      : this.record(root.prompts, `${filePath} prompts`);
+    const parsedPrompts = new Map<string, LlmPromptConfig>();
 
     for (const [callId, value] of Object.entries(calls)) {
       this.assertId(callId, 'call');
@@ -155,11 +178,28 @@ export class LlmConfigLoader {
       }));
     }
 
+    for (const [promptId, value] of Object.entries(promptEntries)) {
+      this.assertId(promptId, 'prompt');
+      const entry = this.record(value, `${featureId}/${promptId}`);
+      const systemPath = this.resolvePrompt(
+        featureRoot,
+        entry.system,
+        `${featureId}/${promptId}.system`,
+      );
+      parsedPrompts.set(promptId, Object.freeze({
+        id: promptId,
+        featureId,
+        version: this.string(entry.version, `${featureId}/${promptId}.version`),
+        system: readFileSync(systemPath, 'utf8').trim(),
+      }));
+    }
+
     if (parsed.size === 0) {
       throw new Error(`${filePath} must configure at least one LLM call.`);
     }
     const result = parsed as ReadonlyMap<string, LlmFeatureCallConfig>;
     this.calls.set(featureId, result);
+    this.prompts.set(featureId, parsedPrompts);
     return result;
   }
 
