@@ -1,0 +1,11 @@
+version: 1
+task_id: T-145
+project: main
+slug: repository-governance-convergence
+status: planned
+updated: "2026-08-24"
+keywords:
+  - repository-governance
+  - task-bundle
+  - project-hub
+  - governance-migration

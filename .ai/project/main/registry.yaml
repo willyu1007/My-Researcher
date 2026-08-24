@@ -1326,3 +1326,10 @@ tasks:
       - R-013
     dev_docs_path: dev-docs/active/validation-cycle-handoff-deep-cleanup
     updated: 2026-08-24
+  - id: T-145
+    slug: repository-governance-convergence
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/repository-governance-convergence
+    updated: 2026-08-24

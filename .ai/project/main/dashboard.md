@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 144 (planned: 2, in-progress: 0, blocked: 0, done: 55, archived: 87)
+- Tasks: 145 (planned: 3, in-progress: 0, blocked: 0, done: 55, archived: 87)
 
 ## Recent tasks
 
@@ -18,6 +18,7 @@ Project: `main`
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | done | F-001 | dev-docs/active/evidence-board-to-validation-cycle-semantic-handoff |
 | T-143 validation-cycle-handoff-authority-recovery-hardening | done | F-001 | dev-docs/active/validation-cycle-handoff-authority-recovery-hardening |
 | T-144 validation-cycle-handoff-deep-cleanup | done | F-001 | dev-docs/active/validation-cycle-handoff-deep-cleanup |
+| T-145 repository-governance-convergence | planned | F-000 | dev-docs/active/repository-governance-convergence |
 | T-140 topic-semantics-to-core-motive-bootstrap | done | F-001 | dev-docs/active/topic-semantics-to-core-motive-bootstrap |
 | T-139 paper-implementation-to-scientific-dossier-semantic-continuation | done | F-001 | dev-docs/active/paper-implementation-to-scientific-dossier-semantic-continuation |
 | T-137 promoted-topic-to-scientific-dossier-canary | done | F-001 | dev-docs/active/promoted-topic-to-scientific-dossier-canary |
@@ -33,5 +34,4 @@ Project: `main`
 | T-118 adaptive-llm-systems-experiment-foundation-promotion | archived | F-001 | dev-docs/archive/adaptive-llm-systems-experiment-foundation-promotion |
 | T-130 literature-productization-hardening | archived | F-001 | dev-docs/archive/literature-productization-hardening |
 | T-089 topic-selection-agent-workflow-review | done | F-001 | dev-docs/active/topic-selection-agent-workflow-review |
-| T-088 topic-selection-workflow-runtime-foundation | done | F-001 | dev-docs/active/topic-selection-workflow-runtime-foundation |
 <!-- AUTO-GENERATED:END dashboard -->
