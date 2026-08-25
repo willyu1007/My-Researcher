@@ -1210,6 +1210,14 @@
       "updated": "2026-08-24",
       "dev_docs_path": "dev-docs/archive/llm-config-ui-style-conformance",
       "feature_id": "F-000"
+    },
+    {
+      "id": "T-147",
+      "slug": "topic-selection-research-checkpoint-control-plane",
+      "status": "planned",
+      "updated": "2026-08-25",
+      "dev_docs_path": "dev-docs/active/topic-selection-research-checkpoint-control-plane",
+      "feature_id": "F-001"
     }
   ]
 }

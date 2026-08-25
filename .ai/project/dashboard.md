@@ -18,12 +18,13 @@ next step here.
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 146 (planned: 2, in-progress: 0, blocked: 0, done: 0, archived: 144)
+- Tasks: 147 (planned: 3, in-progress: 0, blocked: 0, done: 0, archived: 144)
 
 ## Recently registered or status-changed tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-147 topic-selection-research-checkpoint-control-plane | planned | F-001 | dev-docs/active/topic-selection-research-checkpoint-control-plane |
 | T-068 topic-selection-backend-decision-chain-acceptance | archived | F-001 | dev-docs/archive/topic-selection-backend-decision-chain-acceptance |
 | T-069 experiment-foundation-design-review-sync | archived | F-001 | dev-docs/archive/experiment-foundation-design-review-sync |
 | T-070 experiment-foundation-dataset-registry-contracts | archived | F-001 | dev-docs/archive/experiment-foundation-dataset-registry-contracts |
@@ -43,5 +44,4 @@ next step here.
 | T-088 topic-selection-workflow-runtime-foundation | archived | F-001 | dev-docs/archive/topic-selection-workflow-runtime-foundation |
 | T-089 topic-selection-agent-workflow-review | archived | F-001 | dev-docs/archive/topic-selection-agent-workflow-review |
 | T-090 experiment-foundation-capability-validation | archived | F-001 | dev-docs/archive/experiment-foundation-capability-validation |
-| T-091 paper-implementation-full-landing | archived | F-001 | dev-docs/archive/paper-implementation-full-landing |
 <!-- AUTO-GENERATED:END dashboard -->
