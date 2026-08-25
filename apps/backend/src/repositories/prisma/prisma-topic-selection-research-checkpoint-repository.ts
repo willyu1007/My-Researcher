@@ -435,6 +435,14 @@ implements TopicSelectionResearchCheckpointRepository {
     return rows.map(toObjection);
   }
 
+  async listObjectionsByTitleCardId(titleCardId: string): Promise<TopicSelectionResearchObjectionRecord[]> {
+    const rows = await this.prisma.topicSelectionResearchObjection.findMany({
+      where: { titleCardId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(toObjection);
+  }
+
   async createObjectionResolution(
     record: TopicSelectionResearchObjectionResolutionRecord,
   ): Promise<TopicSelectionResearchObjectionResolutionRecord> {

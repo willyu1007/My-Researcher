@@ -16,6 +16,17 @@ import type {
 import type {
   TopicSelectionCoverageRowIntentRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import type {
+  TopicSelectionQuestionFrameRecord,
+  TopicSelectionTopicQuestionAnswerabilityPlanRecord,
+  TopicSelectionTopicQuestionAssumptionRefRecord,
+  TopicSelectionTopicQuestionBoundaryRefRecord,
+  TopicSelectionTopicQuestionCandidateRecord,
+  TopicSelectionTopicQuestionContractRecord,
+  TopicSelectionTopicQuestionEvidenceRefRecord,
+  TopicSelectionTopicQuestionFalsificationConditionRecord,
+  TopicSelectionTopicQuestionRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS,
@@ -94,12 +105,40 @@ export type MaterializeGapSelectionCheckpointInput = {
   policy_version_id?: string | null;
 };
 
+export type MaterializeQuestionContractCheckpointInput = {
+  contract: TopicSelectionTopicQuestionContractRecord;
+  question: TopicSelectionTopicQuestionRecord;
+  candidate: TopicSelectionTopicQuestionCandidateRecord;
+  question_frame: TopicSelectionQuestionFrameRecord;
+  answerability_plan: TopicSelectionTopicQuestionAnswerabilityPlanRecord;
+  evidence_refs: TopicSelectionTopicQuestionEvidenceRefRecord[];
+  boundary_refs: TopicSelectionTopicQuestionBoundaryRefRecord[];
+  assumption_refs: TopicSelectionTopicQuestionAssumptionRefRecord[];
+  falsification_conditions: TopicSelectionTopicQuestionFalsificationConditionRecord[];
+  upstream_refs?: TopicSelectionFunctionalRef[];
+  policy_version_id?: string | null;
+};
+
 export type AdaptExistingResearchDecisionInput = {
   decision_authority_ref: TopicSelectionFunctionalRef;
   confirmed_snapshot_hash: string;
 };
 
 const BLOCKING_OBJECTION_SEVERITIES = new Set(['blocking', 'critical']);
+const OBJECTION_LOOPBACK_REF_TYPES = {
+  evidence_landscape: 'evidence_map',
+  gap_selection: 'validated_need',
+  research_slice: 'research_slice',
+  question_contract: 'topic_question_contract',
+} as const;
+const OBJECTION_EVIDENCE_REF_TYPES = new Set([
+  'evidence_map',
+  'evidence_unit',
+  'literature_record',
+  'literature_snapshot',
+  'search_run',
+  'validated_need',
+]);
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
@@ -423,6 +462,182 @@ export class TopicSelectionResearchCheckpointService {
     });
   }
 
+  async materializeQuestionContractCheckpoint(
+    input: MaterializeQuestionContractCheckpointInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const { contract, question, candidate, question_frame: frame, answerability_plan: plan } = input;
+    const titleCardId = contract.title_card_id;
+    if (question.title_card_id !== titleCardId
+      || candidate.title_card_id !== titleCardId
+      || frame.title_card_id !== titleCardId
+      || plan.title_card_id !== titleCardId
+      || question.topic_question_id !== contract.topic_question_id
+      || candidate.topic_question_candidate_id !== contract.source_candidate_id
+      || candidate.question_frame_id !== frame.question_frame_id
+      || question.research_slice_id !== contract.source_research_slice_id
+      || plan.topic_question_id !== question.topic_question_id
+      || plan.topic_question_contract_id !== contract.topic_question_contract_id
+      || [
+        ...input.evidence_refs,
+        ...input.boundary_refs,
+        ...input.assumption_refs,
+        ...input.falsification_conditions,
+      ].some((record) => record.title_card_id !== titleCardId
+        || record.topic_question_contract_id !== contract.topic_question_contract_id)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Question checkpoint inputs do not identify one contract authority.');
+    }
+
+    const contractRef = this.ref(
+      'topic_question_contract',
+      contract.topic_question_contract_id,
+      titleCardId,
+      contract.version,
+    );
+    const mechanismEvidence = [
+      frame.intervention_or_approach,
+      frame.comparison_baseline,
+      contract.expected_claim,
+    ].filter((value) => value.trim().length > 0);
+    const confoundAndAlternativeMaterial = this.uniqueStrings([
+      ...plan.dependency_risks,
+      ...input.assumption_refs
+        .filter((assumption) => assumption.risk_level !== 'low')
+        .map((assumption) => assumption.statement),
+      ...candidate.objections,
+    ]);
+    const activePreValueFalsification = input.falsification_conditions.filter((condition) =>
+      condition.status === 'active'
+      && condition.check_timing === 'before_value_assessment'
+      && condition.statement.trim().length > 0
+      && condition.related_contract_fields.length > 0
+      && (condition.trigger_evidence_refs.length > 0 || condition.trigger_source_refs.length > 0));
+    const challengeRefs = input.evidence_refs
+      .filter((record) => record.evidence_role === 'challenge')
+      .map((record) => record.evidence_ref);
+    const boundaryViolations = input.boundary_refs.filter((record) => record.boundary_kind === 'violated');
+    const issueCodes = [
+      ...(contract.status !== 'active' || question.status !== 'active' ? ['QUESTION_AUTHORITY_NOT_CURRENT'] : []),
+      ...(mechanismEvidence.length < 3 ? ['MECHANISM_IDENTIFIABILITY_REQUIRED'] : []),
+      ...(frame.observable_outcome.trim().length === 0
+        || plan.metrics.length === 0
+        || candidate.observable_success_criteria.length === 0
+        ? ['OPERATIONAL_PROXY_REQUIRED'] : []),
+      ...(confoundAndAlternativeMaterial.length === 0 ? ['MATERIAL_CONFOUND_REVIEW_REQUIRED'] : []),
+      ...(challengeRefs.length === 0 ? ['ALTERNATIVE_EXPLANATION_PRESSURE_REQUIRED'] : []),
+      ...(plan.datasets_or_resources.length === 0
+        || plan.baselines.length === 0
+        || plan.ablations_or_comparisons.length === 0
+        || plan.evaluation_setting.trim().length === 0
+        ? ['FEASIBLE_EVALUATION_ROUTE_REQUIRED'] : []),
+      ...(activePreValueFalsification.length === 0 ? ['FALSIFICATION_CONDITIONS_REQUIRED'] : []),
+      ...(!contract.claim_ceiling.trim()
+        || !contract.max_claim_strength.trim()
+        || contract.prohibited_claims.length === 0
+        ? ['CLAIM_CEILING_REQUIRED'] : []),
+      ...(boundaryViolations.length > 0 ? ['RESEARCH_BOUNDARY_VIOLATION'] : []),
+      ...(!['answerable', 'answerable_with_risk'].includes(plan.answerability_verdict)
+        ? ['QUESTION_NOT_ANSWERABLE'] : []),
+    ];
+    const policyIssues = issueCodes.map((code) => ({
+      code,
+      message: this.questionPolicyIssueMessage(code),
+      recommended_loopback: this.questionPolicyLoopback(code),
+    }));
+    const snapshotPayload = {
+      topic_question_ref: this.ref('topic_question', question.topic_question_id, titleCardId),
+      topic_question_contract_ref: contractRef,
+      source_candidate_ref: this.ref(
+        'topic_question_candidate',
+        candidate.topic_question_candidate_id,
+        titleCardId,
+      ),
+      research_slice_ref: this.ref(
+        'research_slice',
+        contract.source_research_slice_id,
+        titleCardId,
+        contract.source_research_slice_version,
+      ),
+      mechanism_design: {
+        intervention_or_approach: frame.intervention_or_approach,
+        comparison_baseline: frame.comparison_baseline,
+        expected_claim: contract.expected_claim,
+      },
+      operationalization: {
+        observable_outcome: frame.observable_outcome,
+        metrics: plan.metrics,
+        observable_success_criteria: candidate.observable_success_criteria,
+      },
+      confounds_and_alternatives: confoundAndAlternativeMaterial,
+      challenge_evidence_refs: challengeRefs,
+      evaluation_design: {
+        datasets_or_resources: plan.datasets_or_resources,
+        baselines: plan.baselines,
+        ablations_or_comparisons: plan.ablations_or_comparisons,
+        evaluation_setting: plan.evaluation_setting,
+        open_dependencies: plan.open_dependencies,
+        known_gaps: plan.known_gaps,
+      },
+      falsification_conditions: activePreValueFalsification.map((condition) => ({
+        condition_ref: this.ref(
+          'topic_question_falsification_condition',
+          condition.topic_question_falsification_condition_id,
+          titleCardId,
+        ),
+        condition_type: condition.condition_type,
+        severity: condition.severity,
+        statement: condition.statement,
+        related_contract_fields: condition.related_contract_fields,
+        expected_action: condition.expected_action,
+        confidence: condition.confidence,
+      })),
+      claim_boundary: {
+        expected_claim: contract.expected_claim,
+        fallback_claim: contract.fallback_claim,
+        max_claim_strength: contract.max_claim_strength,
+        claim_ceiling: contract.claim_ceiling,
+        prohibited_claims: contract.prohibited_claims,
+      },
+      boundary_violations: boundaryViolations.map((record) => ({
+        boundary_ref: this.ref('topic_question_boundary_ref', record.topic_question_boundary_ref_id, titleCardId),
+        note: record.note,
+      })),
+      answerability_verdict: plan.answerability_verdict,
+      policy_result: issueCodes.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
+      policy_issue_codes: issueCodes,
+      policy_issues: policyIssues,
+      policy_note: 'Question advancement is semantic and snapshot-bound; wording changes do not resolve blocking objections.',
+    };
+    const targetSnapshotHash = this.hash(snapshotPayload);
+    return this.materializeCheckpoint({
+      workspace_id: contract.workspace_id ?? null,
+      title_card_id: titleCardId,
+      checkpoint_kind: 'question_contract',
+      policy_version_id: input.policy_version_id ?? 'topic-selection-question-contract@v1',
+      target_ref: contractRef,
+      target_snapshot_hash: targetSnapshotHash,
+      source_refs: this.uniqueRefs([
+        ...(input.upstream_refs ?? []),
+        contractRef,
+        this.ref('topic_question', question.topic_question_id, titleCardId),
+        this.ref('topic_question_candidate', candidate.topic_question_candidate_id, titleCardId),
+        this.ref('question_frame', frame.question_frame_id, titleCardId),
+        this.ref('topic_question_answerability_plan', plan.topic_question_answerability_plan_id, titleCardId),
+        this.ref('research_slice', contract.source_research_slice_id, titleCardId, contract.source_research_slice_version),
+        ...input.evidence_refs.map((record) => record.evidence_ref),
+        ...input.assumption_refs.flatMap((record) => record.evidence_refs),
+        ...input.falsification_conditions.flatMap((condition) => [
+          ...condition.trigger_evidence_refs,
+          ...condition.trigger_source_refs,
+        ]),
+      ]),
+      allowed_actions: issueCodes.length === 0
+        ? ['advance', 'loopback', 'reject', 'hold']
+        : ['loopback', 'reject', 'hold'],
+      required_action_refs: issueCodes.map((code) => this.requiredActionRef(titleCardId, contractRef, code)),
+      packet_payload: snapshotPayload,
+    });
+  }
+
   async listCheckpoints(titleCardId: string): Promise<TopicSelectionResearchCheckpointRecord[]> {
     return this.repository.listCheckpointsByTitleCardId(titleCardId);
   }
@@ -437,7 +652,7 @@ export class TopicSelectionResearchCheckpointService {
     const checkpoint = await this.getCheckpoint(checkpointId);
     const [decision, objections, inputSnapshot] = await Promise.all([
       this.repository.findDecisionByCheckpointId(checkpointId),
-      this.listOpenObjections(checkpointId),
+      this.listOpenObjectionsForTitleCard(checkpoint.title_card_id),
       this.controlPlane.getInputSnapshot(checkpoint.input_snapshot_id),
     ]);
     if (!inputSnapshot) {
@@ -458,7 +673,9 @@ export class TopicSelectionResearchCheckpointService {
       target_ref: checkpoint.target_ref,
       target_snapshot_hash: checkpoint.target_snapshot_hash,
       source_refs: checkpoint.source_refs,
-      allowed_actions: checkpoint.allowed_actions,
+      allowed_actions: this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0
+        ? checkpoint.allowed_actions.filter((action) => action !== 'advance')
+        : checkpoint.allowed_actions,
       required_action_refs: checkpoint.required_action_refs,
       packet_payload: packetPayload as Record<string, unknown>,
       open_objections: objections,
@@ -495,6 +712,12 @@ export class TopicSelectionResearchCheckpointService {
       );
     }
     this.assertReviewPayload(checkpoint.checkpoint_kind, input);
+    if (input.decision === 'advance') {
+      const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
+      if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Research checkpoint has an unresolved blocking human objection.');
+      }
+    }
     const requiredActionRefs = this.uniqueRefs(input.required_action_refs ?? []);
     const loopbackRefs = this.uniqueRefs(input.loopback_refs ?? []);
     if (input.decision === 'advance' && requiredActionRefs.length > 0) {
@@ -646,8 +869,8 @@ export class TopicSelectionResearchCheckpointService {
         'Gap selection requires an academically viable alternative with substantive distinctness from the selected candidate.',
       );
     }
-    const objections = await this.listOpenObjections(checkpoint.research_checkpoint_id);
-    if (objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))) {
+    const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
+    if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Gap selection checkpoint has open blocking objections.');
     }
     return checkpoint;
@@ -684,8 +907,8 @@ export class TopicSelectionResearchCheckpointService {
     if (!checkpoint.allowed_actions.includes('advance') || checkpoint.required_action_refs.length > 0) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Checkpoint is not eligible for advancement.');
     }
-    const objections = await this.listOpenObjections(checkpoint.research_checkpoint_id);
-    if (objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))) {
+    const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
+    if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Checkpoint has open blocking objections.');
     }
     const now = this.now();
@@ -719,7 +942,7 @@ export class TopicSelectionResearchCheckpointService {
     const checkpoint = await this.getCheckpoint(checkpointId);
     const replay = await this.repository.findObjectionByKey(input.objection_key);
     if (replay) {
-      if (this.hash(this.objectionReplayPayload(replay)) !== this.hash(this.objectionInputPayload(checkpointId, input))) {
+      if (this.hash(this.objectionReplayPayload(replay)) !== this.hash(this.objectionInputPayload(checkpoint, input))) {
         throw new AppError(409, 'VERSION_CONFLICT', 'objection_key already identifies different objection content.');
       }
       return replay;
@@ -728,6 +951,14 @@ export class TopicSelectionResearchCheckpointService {
     this.assertStrictHuman(input.actor);
     if (input.confirmed_snapshot_hash !== checkpoint.target_snapshot_hash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Research objection snapshot is stale.');
+    }
+    if (BLOCKING_OBJECTION_SEVERITIES.has(input.severity)
+      && !Object.hasOwn(OBJECTION_LOOPBACK_REF_TYPES, input.required_loopback ?? '')) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Blocking objections require an explicit evidence_landscape, gap_selection, research_slice, or question_contract loopback.',
+      );
     }
     const record: TopicSelectionResearchObjectionRecord = {
       research_objection_id: this.idFactory('research_objection'),
@@ -742,12 +973,16 @@ export class TopicSelectionResearchCheckpointService {
       summary: input.summary,
       rationale: input.rationale,
       required_loopback: input.required_loopback ?? null,
-      source_refs: this.uniqueRefs(input.source_refs ?? []),
+      source_refs: this.uniqueRefs([
+        checkpoint.target_ref,
+        ...checkpoint.source_refs,
+        ...(input.source_refs ?? []),
+      ]),
       actor: input.actor,
       created_at: this.now(),
     };
     const persisted = await this.repository.createObjection(record);
-    this.assertObjectionReplayMatches(persisted, checkpointId, input);
+    this.assertObjectionReplayMatches(persisted, checkpoint, input);
     return persisted;
   }
 
@@ -772,6 +1007,54 @@ export class TopicSelectionResearchCheckpointService {
     if (input.output_refs.length === 0) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'ResearchObjection resolution requires at least one output_ref.');
     }
+    const currentCheckpoint = await this.repository.findCurrentCheckpoint(
+      objection.title_card_id,
+      objection.checkpoint_kind,
+    );
+    if (!currentCheckpoint) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'ResearchObjection resolution requires a current affected checkpoint.');
+    }
+    if (input.resolved_snapshot_hash !== currentCheckpoint.target_snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'ResearchObjection resolution is not bound to the current checkpoint snapshot.');
+    }
+    const outputRefs = this.uniqueRefs(input.output_refs);
+    if (!outputRefs.some((ref) => this.refsEqual(ref, currentCheckpoint.target_ref))) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'ResearchObjection resolution must name the current checkpoint target authority.');
+    }
+    const revisionResolution = input.resolution_type !== 'resolved_with_evidence'
+      || BLOCKING_OBJECTION_SEVERITIES.has(objection.severity);
+    if (revisionResolution && currentCheckpoint.target_snapshot_hash === objection.target_snapshot_hash) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'A blocking or revision resolution requires a genuinely revised checkpoint snapshot.');
+    }
+    if (objection.required_loopback
+      && Object.hasOwn(OBJECTION_LOOPBACK_REF_TYPES, objection.required_loopback)) {
+      const requiredRefType = OBJECTION_LOOPBACK_REF_TYPES[
+        objection.required_loopback as keyof typeof OBJECTION_LOOPBACK_REF_TYPES
+      ];
+      const previousRefs = objection.source_refs.filter((ref) => ref.ref_type === requiredRefType);
+      const currentRefs = [currentCheckpoint.target_ref, ...currentCheckpoint.source_refs]
+        .filter((ref) => ref.ref_type === requiredRefType);
+      const revisedRef = currentRefs.find((ref) => !previousRefs.some((previous) => this.refsEqual(previous, ref)));
+      if (!revisedRef || !outputRefs.some((ref) => this.refsEqual(ref, revisedRef))) {
+        throw new AppError(
+          422,
+          'GATE_CONSTRAINT_FAILED',
+          `ResearchObjection resolution requires a revised ${requiredRefType} authority from the requested loopback.`,
+        );
+      }
+    }
+    if (BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)) {
+      const currentEvidenceRefs = currentCheckpoint.source_refs
+        .filter((ref) => OBJECTION_EVIDENCE_REF_TYPES.has(ref.ref_type));
+      if (currentEvidenceRefs.length === 0
+        || !outputRefs.some((ref) => currentEvidenceRefs.some((evidenceRef) => this.refsEqual(ref, evidenceRef)))) {
+        throw new AppError(
+          422,
+          'GATE_CONSTRAINT_FAILED',
+          'Blocking objection resolution must cite current evidence or validated-need authority.',
+        );
+      }
+    }
     const persisted = await this.repository.createObjectionResolution({
       research_objection_resolution_id: this.idFactory('research_objection_resolution'),
       resolution_key: input.resolution_key,
@@ -782,7 +1065,7 @@ export class TopicSelectionResearchCheckpointService {
       actor: input.actor,
       resolved_snapshot_hash: input.resolved_snapshot_hash,
       rationale: input.rationale,
-      output_refs: this.uniqueRefs(input.output_refs),
+      output_refs: outputRefs,
       created_at: this.now(),
     });
     this.assertResolutionReplayMatches(persisted, objectionId, input);
@@ -812,8 +1095,8 @@ export class TopicSelectionResearchCheckpointService {
     if (checkpoint.required_action_refs.length > 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', `Current ${input.checkpoint_kind} checkpoint has unresolved required actions.`);
     }
-    const objections = await this.listOpenObjections(checkpoint.research_checkpoint_id);
-    if (objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))) {
+    const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
+    if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', `Current ${input.checkpoint_kind} checkpoint has open blocking objections.`);
     }
     return checkpoint;
@@ -839,8 +1122,7 @@ export class TopicSelectionResearchCheckpointService {
     let currentPacket: TopicSelectionResearchCheckpointPacket | null = null;
     let requiredCheckpointKind: TopicSelectionResearchCheckpointKind | null = 'evidence_landscape';
     let nextAuthorizedTransition: string | null = null;
-    const openBlockingObjectionCount = [...packetByKind.values()]
-      .flatMap((packet) => packet.open_objections)
+    const openBlockingObjectionCount = (await this.listOpenObjectionsForTitleCard(titleCardId))
       .filter((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)).length;
     for (const kind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
       requiredCheckpointKind = kind;
@@ -851,7 +1133,7 @@ export class TopicSelectionResearchCheckpointService {
       const advancing = checkpoint.status === 'decided'
         && Boolean(checkpoint.decision_authority_ref)
         && checkpoint.required_action_refs.length === 0
-        && !packet.open_objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))
+        && this.blockingObjectionsForCheckpoint(packet.open_objections, kind).length === 0
         && (!packet.decision || packet.decision.decision === 'advance');
       if (!advancing) {
         currentCheckpoint = checkpoint;
@@ -876,14 +1158,26 @@ export class TopicSelectionResearchCheckpointService {
     };
   }
 
-  private async listOpenObjections(checkpointId: string): Promise<TopicSelectionResearchObjectionRecord[]> {
-    const objections = await this.repository.listObjectionsByCheckpointId(checkpointId);
+  private async listOpenObjectionsForTitleCard(
+    titleCardId: string,
+  ): Promise<TopicSelectionResearchObjectionRecord[]> {
+    const objections = await this.repository.listObjectionsByTitleCardId(titleCardId);
     const open: TopicSelectionResearchObjectionRecord[] = [];
     for (const objection of objections) {
       const resolution = await this.repository.findObjectionResolutionByObjectionId(objection.research_objection_id);
       if (!resolution) open.push(objection);
     }
     return open;
+  }
+
+  private blockingObjectionsForCheckpoint(
+    objections: TopicSelectionResearchObjectionRecord[],
+    checkpointKind: TopicSelectionResearchCheckpointKind,
+  ): TopicSelectionResearchObjectionRecord[] {
+    const checkpointIndex = TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS.indexOf(checkpointKind);
+    return objections.filter((objection) =>
+      BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)
+      && checkpointIndex >= TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS.indexOf(objection.checkpoint_kind));
   }
 
   private assertCurrent(checkpoint: TopicSelectionResearchCheckpointRecord): void {
@@ -959,11 +1253,11 @@ export class TopicSelectionResearchCheckpointService {
 
   private assertObjectionReplayMatches(
     replay: TopicSelectionResearchObjectionRecord,
-    checkpointId: string,
+    checkpoint: TopicSelectionResearchCheckpointRecord,
     input: TopicSelectionResearchObjectionInput,
   ): void {
     if (this.hash(this.objectionReplayPayload(replay))
-      !== this.hash(this.objectionInputPayload(checkpointId, input))) {
+      !== this.hash(this.objectionInputPayload(checkpoint, input))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'objection_key already identifies different objection content.');
     }
   }
@@ -994,7 +1288,7 @@ export class TopicSelectionResearchCheckpointService {
   }
 
   private objectionInputPayload(
-    checkpointId: string,
+    checkpoint: TopicSelectionResearchCheckpointRecord,
     input: TopicSelectionResearchObjectionInput,
   ): Record<string, unknown> {
     return {
@@ -1004,9 +1298,13 @@ export class TopicSelectionResearchCheckpointService {
       rationale: input.rationale,
       required_loopback: input.required_loopback ?? null,
       severity: input.severity,
-      source_refs: this.uniqueRefs(input.source_refs ?? []),
+      source_refs: this.uniqueRefs([
+        checkpoint.target_ref,
+        ...checkpoint.source_refs,
+        ...(input.source_refs ?? []),
+      ]),
       summary: input.summary,
-      checkpoint_id: checkpointId,
+      checkpoint_id: checkpoint.research_checkpoint_id,
     };
   }
 
@@ -1086,6 +1384,10 @@ export class TopicSelectionResearchCheckpointService {
     }).sort((left, right) => this.refKey(left).localeCompare(this.refKey(right)));
   }
 
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort();
+  }
+
   private refKey(ref: TopicSelectionFunctionalRef): string {
     return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
   }
@@ -1138,6 +1440,29 @@ export class TopicSelectionResearchCheckpointService {
         machine_viable: entry.machine_viable,
       };
     });
+  }
+
+  private questionPolicyIssueMessage(code: string): string {
+    const messages: Record<string, string> = {
+      QUESTION_AUTHORITY_NOT_CURRENT: 'The question and contract must both be current active authorities.',
+      MECHANISM_IDENTIFIABILITY_REQUIRED: 'Name the intervention or mechanism, direct comparison, and expected causal or behavioral claim.',
+      OPERATIONAL_PROXY_REQUIRED: 'Operationalize the outcome with explicit metrics and observable success criteria.',
+      MATERIAL_CONFOUND_REVIEW_REQUIRED: 'Record material confounds, dependency risks, or alternative explanations before review.',
+      ALTERNATIVE_EXPLANATION_PRESSURE_REQUIRED: 'Bind at least one challenge evidence source to the question design.',
+      FEASIBLE_EVALUATION_ROUTE_REQUIRED: 'Specify resources, baselines, comparisons or ablations, and the evaluation setting.',
+      FALSIFICATION_CONDITIONS_REQUIRED: 'Define an active pre-value falsification condition tied to contract fields.',
+      CLAIM_CEILING_REQUIRED: 'Set a claim ceiling, maximum claim strength, and prohibited claims.',
+      RESEARCH_BOUNDARY_VIOLATION: 'Resolve violated research-slice boundaries before question confirmation.',
+      QUESTION_NOT_ANSWERABLE: 'Revise the question or slice until the answerability verdict permits evaluation.',
+    };
+    return messages[code] ?? `Resolve question policy issue ${code}.`;
+  }
+
+  private questionPolicyLoopback(code: string): string {
+    if (code === 'QUESTION_AUTHORITY_NOT_CURRENT' || code === 'RESEARCH_BOUNDARY_VIOLATION'
+      || code === 'QUESTION_NOT_ANSWERABLE') return 'research_slice';
+    if (code === 'ALTERNATIVE_EXPLANATION_PRESSURE_REQUIRED') return 'evidence_landscape';
+    return 'question_contract';
   }
 
   private async currentGapRejectedFramings(

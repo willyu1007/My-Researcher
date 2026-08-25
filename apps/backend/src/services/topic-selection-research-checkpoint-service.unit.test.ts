@@ -13,6 +13,7 @@ import { TopicSelectionResearchCheckpointService } from './topic-selection-resea
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+const HASH_C = 'c'.repeat(64);
 const NOW = '2026-08-25T10:00:00.000Z';
 
 function createService() {
@@ -68,6 +69,58 @@ function advancingDecision(snapshotHash = HASH_A) {
   };
 }
 
+async function materializeQuestion(
+  service: TopicSelectionResearchCheckpointService,
+  input: { snapshotHash: string; contractId: string; sliceVersion: string },
+) {
+  return service.materializeCheckpoint({
+    title_card_id: 'title_question',
+    checkpoint_kind: 'question_contract',
+    target_ref: {
+      ref_type: 'topic_question_contract',
+      ref_id: input.contractId,
+      title_card_id: 'title_question',
+      version_id: input.contractId,
+    },
+    target_snapshot_hash: input.snapshotHash,
+    source_refs: [
+      {
+        ref_type: 'research_slice',
+        ref_id: 'research_slice_1',
+        title_card_id: 'title_question',
+        version_id: input.sliceVersion,
+      },
+      {
+        ref_type: 'evidence_map',
+        ref_id: 'evidence_map_question',
+        title_card_id: 'title_question',
+        version_id: 'v1',
+      },
+    ],
+    allowed_actions: ['advance', 'loopback', 'reject', 'hold'],
+    packet_payload: { semantic_design_snapshot: input.snapshotHash },
+  });
+}
+
+function questionDecision(snapshotHash: string, decisionKey: string) {
+  return {
+    decision_key: decisionKey,
+    decision: 'advance' as const,
+    actor: { actor_type: 'human' as const, actor_id: 'researcher_1' },
+    confirmed_snapshot_hash: snapshotHash,
+    rationale: 'Reviewed the current research design and its claim boundary.',
+    review_payload: {
+      review_kind: 'question_contract' as const,
+      mechanism_identifiable: true,
+      proxy_operationalized: true,
+      confounds_reviewed: true,
+      falsification_reviewed: true,
+      claim_ceiling_reviewed: true,
+      review_notes: ['Exact-snapshot question confirmation.'],
+    },
+  };
+}
+
 test('checkpoint lifecycle is recoverable, snapshot-bound, and fail-closed', async () => {
   const { service } = createService();
   const first = await materialize(service);
@@ -98,6 +151,7 @@ test('checkpoint lifecycle is recoverable, snapshot-bound, and fail-closed', asy
     severity: 'blocking',
     summary: 'The evidence does not rule out the main alternative.',
     rationale: 'The negative evidence is too weak to distinguish mechanisms.',
+    required_loopback: 'evidence_landscape',
     actor: { actor_type: 'human', actor_id: 'researcher_1' },
     confirmed_snapshot_hash: HASH_A,
   });
@@ -105,22 +159,41 @@ test('checkpoint lifecycle is recoverable, snapshot-bound, and fail-closed', asy
     service.assertTransitionAllowed({ title_card_id: 'title_1', checkpoint_kind: 'evidence_landscape' }),
     /open blocking objections/u,
   );
+  const second = await materialize(service, HASH_B);
+  await assert.rejects(
+    service.resolveObjection(objection.research_objection_id, {
+      resolution_key: 'resolution_same_snapshot',
+      resolution_type: 'resolved_with_evidence',
+      actor: { actor_type: 'human', actor_id: 'researcher_1' },
+      resolved_snapshot_hash: HASH_A,
+      rationale: 'A wording-only change must not resolve the objection.',
+      output_refs: [first.target_ref],
+    }),
+    /current checkpoint snapshot/u,
+  );
   await service.resolveObjection(objection.research_objection_id, {
     resolution_key: 'resolution_1',
     resolution_type: 'resolved_with_evidence',
     actor: { actor_type: 'human', actor_id: 'researcher_1' },
-    resolved_snapshot_hash: HASH_A,
-    rationale: 'A discriminating negative result has been added and reviewed.',
-    output_refs: [{ ref_type: 'evidence_unit', ref_id: 'evidence_unit_2' }],
+    resolved_snapshot_hash: HASH_B,
+    rationale: 'A revised evidence landscape now contains the discriminating negative result.',
+    output_refs: [
+      second.target_ref,
+      { ref_type: 'literature_record', ref_id: 'paper_1' },
+    ],
   });
-  await service.assertTransitionAllowed({ title_card_id: 'title_1', checkpoint_kind: 'evidence_landscape' });
+  await service.recordDecision(second.research_checkpoint_id, advancingDecision(HASH_B));
+  await service.assertTransitionAllowed({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'evidence_landscape',
+    target_snapshot_hash: HASH_B,
+  });
 
-  const second = await materialize(service, HASH_B);
   const history = await service.listCheckpoints('title_1');
   assert.equal(history.length, 2);
   assert.equal(history[0]?.status, 'superseded');
   assert.equal(history[0]?.superseded_by_checkpoint_id, second.research_checkpoint_id);
-  assert.equal(history[1]?.status, 'pending');
+  assert.equal(history[1]?.status, 'decided');
   await assert.rejects(
     service.recordDecision(first.research_checkpoint_id, {
       ...advancingDecision(),
@@ -150,6 +223,94 @@ test('advance requires all semantic evidence-review checks', async () => {
     }),
     /every semantic review check/u,
   );
+});
+
+test('blocking academic-sufficiency objections survive question rewording until the requested slice loopback changes', async () => {
+  const { service } = createService();
+  const first = await materializeQuestion(service, {
+    snapshotHash: HASH_A,
+    contractId: 'question_contract_v1',
+    sliceVersion: 'v1',
+  });
+  await service.recordDecision(first.research_checkpoint_id, questionDecision(HASH_A, 'question_decision_v1'));
+  const objection = await service.recordObjection(first.research_checkpoint_id, {
+    objection_key: 'academic_sufficiency_objection',
+    severity: 'critical',
+    summary: 'The research object is a parameter choice rather than an academic contribution.',
+    rationale: 'Changing top-k wording does not introduce a distinct mechanism or research object.',
+    required_loopback: 'research_slice',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_snapshot_hash: HASH_A,
+  });
+
+  const upstreamEvidence = await service.materializeCheckpoint({
+    title_card_id: 'title_question',
+    checkpoint_kind: 'evidence_landscape',
+    target_ref: {
+      ref_type: 'evidence_map',
+      ref_id: 'evidence_map_revised_for_question',
+      title_card_id: 'title_question',
+      version_id: 'v2',
+    },
+    target_snapshot_hash: HASH_B,
+    source_refs: [{ ref_type: 'literature_record', ref_id: 'paper_revised' }],
+    allowed_actions: ['advance', 'loopback'],
+    packet_payload: { revised_for_question_objection: true },
+  });
+  await service.recordDecision(upstreamEvidence.research_checkpoint_id, {
+    ...advancingDecision(HASH_B),
+    decision_key: 'upstream_evidence_revision',
+  });
+  await service.assertTransitionAllowed({
+    title_card_id: 'title_question',
+    checkpoint_kind: 'evidence_landscape',
+    target_ref: upstreamEvidence.target_ref,
+  });
+
+  const reworded = await materializeQuestion(service, {
+    snapshotHash: HASH_B,
+    contractId: 'question_contract_reworded',
+    sliceVersion: 'v1',
+  });
+  await assert.rejects(
+    service.resolveObjection(objection.research_objection_id, {
+      resolution_key: 'rewording_resolution',
+      resolution_type: 'resolved_with_revision',
+      actor: { actor_type: 'human', actor_id: 'researcher_1' },
+      resolved_snapshot_hash: HASH_B,
+      rationale: 'The question wording changed.',
+      output_refs: [reworded.target_ref],
+    }),
+    /revised research_slice authority/u,
+  );
+  await assert.rejects(
+    service.recordDecision(reworded.research_checkpoint_id, questionDecision(HASH_B, 'question_decision_reworded')),
+    /unresolved blocking human objection/u,
+  );
+
+  const revised = await materializeQuestion(service, {
+    snapshotHash: HASH_C,
+    contractId: 'question_contract_revised_object',
+    sliceVersion: 'v2',
+  });
+  const revisedSliceRef = revised.source_refs.find((ref) => ref.ref_type === 'research_slice');
+  const revisedEvidenceRef = revised.source_refs.find((ref) => ref.ref_type === 'evidence_map');
+  assert.ok(revisedSliceRef);
+  assert.ok(revisedEvidenceRef);
+  await service.resolveObjection(objection.research_objection_id, {
+    resolution_key: 'substantive_resolution',
+    resolution_type: 'resolved_with_revision',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    resolved_snapshot_hash: HASH_C,
+    rationale: 'The selected research slice now changes the research object and mechanism.',
+    output_refs: [revised.target_ref, revisedSliceRef, revisedEvidenceRef],
+  });
+  await service.recordDecision(revised.research_checkpoint_id, questionDecision(HASH_C, 'question_decision_v2'));
+  await service.assertTransitionAllowed({
+    title_card_id: 'title_question',
+    checkpoint_kind: 'question_contract',
+    target_ref: revised.target_ref,
+  });
 });
 
 function evidenceMap(): TopicSelectionEvidenceMapRecord {

@@ -71,6 +71,7 @@ import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in
 import { InMemoryTopicSelectionEvidenceMapRepository } from '../repositories/in-memory-topic-selection-evidence-map-repository.js';
 import { InMemoryTopicSelectionNeedValidationRepository } from '../repositories/in-memory-topic-selection-need-validation-repository.js';
 import { InMemoryTopicSelectionRecheckRiskMemoryRepository } from '../repositories/in-memory-topic-selection-recheck-risk-memory-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/in-memory-topic-selection-search-resource-repository.js';
 import { InMemoryTopicSelectionV1bIntakeRepository } from '../repositories/in-memory-topic-selection-v1b-intake-repository.js';
 import { InMemoryTopicSelectionV1bResearchSliceRepository } from '../repositories/in-memory-topic-selection-v1b-research-slice-repository.js';
@@ -79,6 +80,7 @@ import { InMemoryTopicSelectionV1bValueAssessmentRepository } from '../repositor
 import { InMemoryTopicSelectionV1bTopicPackageRepository } from '../repositories/in-memory-topic-selection-v1b-topic-package-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionV1bWorkflowHarnessService } from './topic-selection-v1b-workflow-harness-service.js';
 import {
   TopicSelectionV1bEarlySemanticSupportRuntimeService,
@@ -121,6 +123,7 @@ function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
   const evidenceRepository = new InMemoryTopicSelectionEvidenceMapRepository();
   const needRepository = new InMemoryTopicSelectionNeedValidationRepository();
   const recheckRepository = new InMemoryTopicSelectionRecheckRiskMemoryRepository();
+  const researchCheckpointRepository = new InMemoryTopicSelectionResearchCheckpointRepository();
   const searchRepository = new InMemoryTopicSelectionSearchResourceRepository();
   const v1bRepository = new InMemoryTopicSelectionV1bIntakeRepository();
   const researchSliceRepository = new InMemoryTopicSelectionV1bResearchSliceRepository();
@@ -131,6 +134,11 @@ function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
     idFactory,
     now: () => NOW,
   });
+  const researchCheckpointService = new TopicSelectionResearchCheckpointService(
+    researchCheckpointRepository,
+    controlPlane,
+    { idFactory, now: () => NOW },
+  );
   const service = new TopicSelectionV1bWorkflowHarnessService(controlPlane, {
     idFactory,
     now: () => NOW,
@@ -139,6 +147,7 @@ function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
         evidenceMapRepository: evidenceRepository,
         needValidationRepository: needRepository,
         recheckRiskMemoryRepository: recheckRepository,
+        researchCheckpointService,
         researchSliceRepository,
         searchResourceRepository: searchRepository,
         topicQuestionRepository,
@@ -155,6 +164,8 @@ function makeContext(options: { withRunnerDependencies?: boolean } = {}) {
     evidenceRepository,
     needRepository,
     recheckRepository,
+    researchCheckpointRepository,
+    researchCheckpointService,
     researchSliceRepository,
     searchRepository,
     service,
@@ -1543,6 +1554,7 @@ async function n8Request(
     hashes: { authority_hash: string | null; handoff_hash: string | null };
   },
   overrides: Partial<TopicSelectionV1bWorkflowHarnessRunRequest> = {},
+  options: { confirmQuestionCheckpoint?: boolean } = {},
 ): Promise<TopicSelectionV1bWorkflowHarnessRunRequest> {
   if (!n7Result.authority_ref || !n7Result.handoff_ref || !n7Result.hashes.handoff_hash) {
     throw new Error('N8 fixture requires admitted N7 result.');
@@ -1556,6 +1568,9 @@ async function n8Request(
     ...(handoff.payload as Omit<TopicSelectionV1bN8HarnessFrozenInputPayload, 'n7_handoff_hash'>),
     n7_handoff_hash: n7Result.hashes.handoff_hash,
   };
+  if (options.confirmQuestionCheckpoint !== false) {
+    await confirmQuestionCheckpoint(ctx, n7Result.authority_ref.title_card_id ?? TITLE_CARD_ID);
+  }
   const projectionRef = await n7ToN8ProjectionRef(ctx, n7Result);
   return request({
     workflow_run_id: 'workflow_run_v1b_n8',
@@ -1572,6 +1587,31 @@ async function n8Request(
       payload: payload as unknown as Record<string, unknown>,
     },
     ...overrides,
+  });
+}
+
+async function confirmQuestionCheckpoint(
+  ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>,
+  titleCardId = TITLE_CARD_ID,
+): Promise<void> {
+  const checkpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(titleCardId, 'question_contract');
+  if (!checkpoint) throw new Error('N8 fixture requires the N7 question checkpoint.');
+  if (checkpoint.status === 'decided') return;
+  await ctx.researchCheckpointService.recordDecision(checkpoint.research_checkpoint_id, {
+    decision_key: `question_confirmation_${checkpoint.research_checkpoint_id}`,
+    decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'unit_test_researcher' },
+    confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+    rationale: 'The researcher confirms the identifiable, operationalized, falsifiable, and bounded design.',
+    review_payload: {
+      review_kind: 'question_contract',
+      mechanism_identifiable: true,
+      proxy_operationalized: true,
+      confounds_reviewed: true,
+      falsification_reviewed: true,
+      claim_ceiling_reviewed: true,
+      review_notes: ['Qualified fixture confirmation for the exact N7 contract snapshot.'],
+    },
   });
 }
 
@@ -2090,7 +2130,7 @@ async function assertAuthorityWriteFailureCanRetry(
   input: TopicSelectionV1bWorkflowHarnessRunRequest,
   expectedError: RegExp,
   assertNoAuthority: () => Promise<void>,
-): Promise<void> {
+): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
   await assert.rejects(
     () => ctx.service.invokeNode(input),
     expectedError,
@@ -2106,6 +2146,7 @@ async function assertAuthorityWriteFailureCanRetry(
   const replay = await ctx.service.invokeNode(input);
   assert.equal(replay.replay_provenance?.replayed, true);
   assert.equal(replay.authority_ref?.ref_id, result.authority_ref?.ref_id);
+  return result;
 }
 
 async function seedHarnessV1aBundle(options: {
@@ -3126,7 +3167,7 @@ test('v1b workflow harness multi-record authority write failures do not leave re
       return originalCreate(creation);
     };
 
-    await assertAuthorityWriteFailureCanRetry(ctx, input, /injected N7 authority write failure/, async () => {
+    const recovered = await assertAuthorityWriteFailureCanRetry(ctx, input, /injected N7 authority write failure/, async () => {
       assert.ok(captured);
       const materialization = captured.materializations[0]!;
       assert.equal(await ctx.topicQuestionRepository.findSelectionDecisionById(captured.decision.topic_question_selection_decision_id), null);
@@ -3145,6 +3186,14 @@ test('v1b workflow harness multi-record authority write failures do not leave re
       );
       await assertNoRuntimeContextProjectionForAttempt(ctx, input);
     });
+    const currentCheckpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(
+      TITLE_CARD_ID,
+      'question_contract',
+    );
+    assert.equal(currentCheckpoint?.target_ref.ref_id, recovered.authority_ref?.ref_id);
+    const checkpointHistory = await ctx.researchCheckpointRepository.listCheckpointsByTitleCardId(TITLE_CARD_ID);
+    assert.equal(checkpointHistory.filter((checkpoint) => checkpoint.checkpoint_kind === 'question_contract').length, 2);
+    assert.equal(checkpointHistory[0]?.status, 'superseded');
   }
 
   {
@@ -4268,6 +4317,12 @@ test('v1b workflow harness N7 materializes an active TopicQuestionContract from 
   assert.equal(question?.active_question_contract_id, result.authority_ref!.ref_id);
   assert.equal(plan?.answerability_verdict, 'answerable');
   assert.equal(decision?.decision, 'admit');
+  const checkpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(TITLE_CARD_ID, 'question_contract');
+  assert.equal(checkpoint?.status, 'pending');
+  assert.equal(checkpoint?.target_ref.ref_id, contract?.topic_question_contract_id);
+  const packet = await ctx.researchCheckpointService.getPacket(checkpoint!.research_checkpoint_id);
+  assert.equal(packet.packet_payload.policy_result, 'eligible_for_human_review');
+  assert.equal(packet.allowed_actions.includes('advance'), true);
 
   const handoffArtifact = await ctx.controlPlane.getArtifactRef(result.handoff_ref!.ref_id);
   const handoff = handoffArtifact?.payload as TopicSelectionV1bWorkflowHarnessHandoff | null;
@@ -4308,6 +4363,58 @@ test('v1b workflow harness N7 materializes an active TopicQuestionContract from 
     transitionRecord?.created_authority_refs.some((authorityRef) => authorityRef.ref_type === 'topic_value_assessment') ?? false,
     false,
   );
+});
+
+test('v1b workflow harness N8 cannot begin before strict-human question confirmation', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n7 } = await runReadyN7(ctx);
+  const input = await n8Request(ctx, n7, {}, { confirmQuestionCheckpoint: false });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, input, n8ValueDraft(input))],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N8_QUESTION_CHECKPOINT_NOT_ADVANCED');
+  assert.equal(result.authority_ref, null);
+  assert.deepEqual(await ctx.valueAssessmentRepository.listAssessmentsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b N7 question checkpoint requires explicit confound or alternative-explanation material', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const n6Input = await n6Request(ctx, n5, {
+    workflow_run_id: 'workflow_run_v1b_n6_no_confounds',
+    node_attempt_id: 'node_attempt_v1b_n6_no_confounds',
+  });
+  const draft = await n6Draft(ctx, n6Input);
+  const candidate = draft.candidates[0]!;
+  const n6 = await ctx.service.invokeNode({
+    ...n6Input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, n6Input, {
+      ...draft,
+      candidates: [{
+        ...candidate,
+        answerability_plan: {
+          ...candidate.answerability_plan,
+          dependency_risks: [],
+        },
+        objections: [],
+        risk_notes: [],
+      }],
+    })],
+  });
+  assert.notEqual(n6.gate_status, 'blocked');
+  const n7 = await ctx.service.invokeNode(await n7Request(ctx, n6, {
+    workflow_run_id: 'workflow_run_v1b_n7_no_confounds',
+    node_attempt_id: 'node_attempt_v1b_n7_no_confounds',
+  }));
+  const checkpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(TITLE_CARD_ID, 'question_contract');
+  assert.ok(checkpoint);
+  const packet = await ctx.researchCheckpointService.getPacket(checkpoint.research_checkpoint_id);
+  assert.equal(packet.allowed_actions.includes('advance'), false);
+  assert.deepEqual(packet.packet_payload.policy_issue_codes, ['MATERIAL_CONFOUND_REVIEW_REQUIRED']);
+  assert.equal(n7.authority_ref?.ref_type, 'topic_question_contract');
 });
 
 test('v1b workflow harness N7 accepts Codex grouping support but blocks unknown grouping refs', async () => {

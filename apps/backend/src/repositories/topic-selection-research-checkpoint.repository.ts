@@ -44,6 +44,7 @@ export interface TopicSelectionResearchCheckpointRepository {
   findObjectionById(objectionId: string): Promise<TopicSelectionResearchObjectionRecord | null>;
   findObjectionByKey(objectionKey: string): Promise<TopicSelectionResearchObjectionRecord | null>;
   listObjectionsByCheckpointId(checkpointId: string): Promise<TopicSelectionResearchObjectionRecord[]>;
+  listObjectionsByTitleCardId(titleCardId: string): Promise<TopicSelectionResearchObjectionRecord[]>;
 
   createObjectionResolution(
     record: TopicSelectionResearchObjectionResolutionRecord,

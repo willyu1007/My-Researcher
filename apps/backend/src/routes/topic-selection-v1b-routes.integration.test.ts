@@ -967,6 +967,7 @@ async function runV1bHarnessHttpN1ToN11(
   });
   assert.ok(n6.handoff_ref, JSON.stringify(n6));
   const n7 = await invokeV1bHarnessNode(app, await v1bHarnessN7Request(app, n6, suffix));
+  await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
   const n8Input = await v1bHarnessN8Request(app, n7, suffix);
   const n8 = await invokeV1bHarnessNode(app, {
     ...n8Input,
@@ -989,6 +990,80 @@ function assertStatus(response: { statusCode: number; body: string }, expected: 
   if (response.statusCode !== expected) {
     assert.fail(`Expected HTTP ${expected}, received ${response.statusCode}: ${response.body}`);
   }
+}
+
+async function researchCheckpoint(
+  app: FastifyInstance,
+  titleCardId: string,
+  expectedKind: 'evidence_landscape' | 'gap_selection' | 'question_contract',
+) {
+  const response = await app.inject({
+    method: 'GET',
+    url: `/topic-selection/title-cards/${encodeURIComponent(titleCardId)}/research-status`,
+  });
+  assertStatus(response, 200);
+  const status = response.json() as {
+    current_checkpoint: {
+      research_checkpoint_id: string;
+      checkpoint_kind: string;
+      target_snapshot_hash: string;
+      allowed_actions: string[];
+      target_ref: TopicSelectionFunctionalRef;
+    } | null;
+  };
+  assert.equal(status.current_checkpoint?.checkpoint_kind, expectedKind);
+  assert.ok(status.current_checkpoint);
+  return status.current_checkpoint;
+}
+
+async function advanceEvidenceCheckpoint(app: FastifyInstance, titleCardId: string): Promise<void> {
+  const checkpoint = await researchCheckpoint(app, titleCardId, 'evidence_landscape');
+  assert.ok(checkpoint.allowed_actions.includes('advance'));
+  const response = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${encodeURIComponent(checkpoint.research_checkpoint_id)}/decisions`,
+    payload: {
+      decision_key: uniqueId('evidence-decision'),
+      decision: 'advance',
+      actor: { actor_type: 'human', actor_id: 'v1b-route-researcher' },
+      confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+      rationale: 'Reviewed current source quality, direct neighbors, and disconfirming evidence.',
+      review_payload: {
+        review_kind: 'evidence_landscape',
+        nearest_work_reviewed: true,
+        disconfirming_evidence_reviewed: true,
+        source_quality_reviewed: true,
+        limitations: [],
+      },
+    },
+  });
+  assertStatus(response, 201);
+}
+
+async function advanceQuestionCheckpoint(app: FastifyInstance, titleCardId: string): Promise<void> {
+  const checkpoint = await researchCheckpoint(app, titleCardId, 'question_contract');
+  assert.ok(checkpoint.allowed_actions.includes('advance'));
+  const response = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${encodeURIComponent(checkpoint.research_checkpoint_id)}/decisions`,
+    payload: {
+      decision_key: uniqueId('question-decision'),
+      decision: 'advance',
+      actor: { actor_type: 'human', actor_id: 'v1b-route-researcher' },
+      confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+      rationale: 'Reviewed the exact mechanism, proxy, confounds, falsification conditions, and claim boundary.',
+      review_payload: {
+        review_kind: 'question_contract',
+        mechanism_identifiable: true,
+        proxy_operationalized: true,
+        confounds_reviewed: true,
+        falsification_reviewed: true,
+        claim_ceiling_reviewed: true,
+        review_notes: ['Current N7 design is suitable for value assessment.'],
+      },
+    },
+  });
+  assertStatus(response, 201);
 }
 
 function minimalReplayGoldExpectation() {
@@ -1327,6 +1402,35 @@ function buildV1aNativeRankedBatch(input: {
         speculative: false,
         confidence: 0.82,
       },
+      {
+        draft_id: `draft_alternative_${input.nodeAttemptId}`,
+        rank: 2,
+        candidate_need: 'Adaptive evidence routing may improve reviewer-facing decision quality.',
+        unmet_need_statement: 'Static evidence routing cannot adapt review pressure to unresolved objections.',
+        mechanism_type: 'system_gap',
+        mechanism_summary: 'An adaptive routing intervention changes which counter-evidence is prioritized.',
+        mechanism_payload: {
+          research_object: 'reviewer-facing evidence routing',
+          intervention: 'adaptive counter-evidence routing',
+          comparison: 'static role-balanced evidence routing',
+          outcome: 'objection resolution quality',
+        },
+        scope_notes: 'A substantively different intervention within the same evidence boundary.',
+        non_goal_notes: 'No claim that a top-k parameter alone is an academic contribution.',
+        prior_art_status: 'no_strong_solution_found',
+        evidence_role_bundle: {
+          support_unit_refs: refsByV1aEvidenceRole(input.evidenceMapRecords, 'support', input.titleCardId),
+          challenge_unit_refs: refsByV1aEvidenceRole(input.evidenceMapRecords, 'challenge', input.titleCardId),
+          baseline_unit_refs: refsByV1aEvidenceRole(input.evidenceMapRecords, 'baseline', input.titleCardId),
+          context_unit_refs: refsByV1aEvidenceRole(input.evidenceMapRecords, 'context', input.titleCardId),
+        },
+        conflict_refs: conflictRefs,
+        strength_assessment_refs: [input.strengthRef],
+        accepted_risk_refs: [],
+        gap_codes: ['adaptive_routing_gap'],
+        speculative: false,
+        confidence: 0.76,
+      },
     ],
     rejected_framings: [],
     unresolved_points: [],
@@ -1646,6 +1750,7 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
   );
   const n6AttemptId = `node_attempt_v1a_for_v1b_n6_${suffix}`;
   const n6StrengthRef = ref('evidence_strength_assessment', `strength_${suffix}`, titleCardId);
+  await advanceEvidenceCheckpoint(app, titleCardId);
   const n6 = await invokeV1aNativeHarnessNode(
     app,
     'topic-selection.v1a.generate-need-candidate.v1',
@@ -1692,8 +1797,8 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       expectations: {
         status: 'succeeded',
         routing_decision: 'finalize_with_admitted_batch',
-        admitted_draft_count: 1,
-        persisted_candidate_count: 1,
+        admitted_draft_count: 2,
+        persisted_candidate_count: 2,
         persistence: 'required',
       },
       created_by: 'system',
@@ -1705,6 +1810,8 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
     },
   );
   const candidate = n6.scenario_result.adapter_result.persist_need_candidate_batch_result.persisted_candidates[0];
+  const alternativeCandidate = n6.scenario_result.adapter_result.persist_need_candidate_batch_result.persisted_candidates[1];
+  assert.ok(alternativeCandidate);
   const candidateRef = ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version);
   const n7 = await invokeV1aNativeHarnessNode(
     app,
@@ -1741,6 +1848,8 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
       route_target_node_id: 'topic-selection.v1a.human-confirm-need.v1',
     },
   );
+  const gapCheckpoint = await researchCheckpoint(app, titleCardId, 'gap_selection');
+  assert.ok(gapCheckpoint.allowed_actions.includes('advance'));
   const n8 = await invokeV1aNativeHarnessNode(
     app,
     'topic-selection.v1a.human-confirm-need.v1',
@@ -1768,6 +1877,32 @@ async function createV1bInputBundle(app: FastifyInstance, suffix: string) {
           'confirm_v1b_handoff_readiness',
         ].map((checkId) => ({ check_id: checkId, result: 'accepted' })),
         delegated_executor: null,
+        gap_selection_review: {
+          research_checkpoint_id: gapCheckpoint.research_checkpoint_id,
+          confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
+          selected_candidate_ref: candidateRef,
+          direct_prior_art_pressure_reviewed: true,
+          disconfirming_evidence_reviewed: true,
+          candidate_reviews: [
+            {
+              need_candidate_ref: candidateRef,
+              disposition: 'selected',
+              distinct_from_selected_axes: [],
+              rationale: 'Most identifiable gap for the scoped study.',
+            },
+            {
+              need_candidate_ref: ref(
+                'need_candidate',
+                alternativeCandidate.need_candidate_id,
+                titleCardId,
+                alternativeCandidate.candidate_version,
+              ),
+              disposition: 'viable_alternative',
+              distinct_from_selected_axes: ['intervention'],
+              rationale: 'Changes the intervention and outcome rather than only wording or top-k.',
+            },
+          ],
+        },
       },
       execution_mode: 'deterministic_parser',
       policy_version: 'v1',
@@ -2596,6 +2731,7 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     assert.equal(afterN7.halt.node_id, N8_ID);
 
     // 7) N8 draft from the materialized contract → chain completes through N9/N10/N11
+    await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
     const n8Input = await v1bHarnessN8Request(app, fabricateResult(afterN7.run_state, N7_ID), suffix);
     const finalReport = await advance({
       node_inputs: {
@@ -2705,6 +2841,7 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
     assert.equal(afterN7.halt.node_id, N8_ID);
 
     // First N8 eval with a borderline draft -> T1 first-pass loopback.
+    await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
     const n8Input = await v1bHarnessN8Request(app, fabricate(afterN7.run_state, N7_ID), suffix);
     const loopbackReport = await advance({ node_inputs: { [N8_ID]: { draft_payload: borderline(v1bHarnessN8ValueDraft(n8Input) as unknown as Record<string, unknown>) } } });
     assert.equal(loopbackReport.halt.reason, 'harness_loopback');

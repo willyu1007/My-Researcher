@@ -1209,6 +1209,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         searchResourceRepository: topicSelectionSearchResourceRepository,
         topicPackageRepository: topicSelectionV1bTopicPackageRepository,
         topicQuestionRepository: topicSelectionV1bTopicQuestionRepository,
+        researchCheckpointService: topicSelectionResearchCheckpointService,
         v1bIntakeRepository: topicSelectionV1bIntakeRepository,
         valueAssessmentRepository: topicSelectionV1bValueAssessmentRepository,
       },

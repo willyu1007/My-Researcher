@@ -154,6 +154,7 @@ import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import {
   computeDecisionMemoryDedupWarnings,
   resolveDecisionMemoryPacketFromSourceRefs,
@@ -440,6 +441,7 @@ type HarnessRunnerDependencies = {
   topicQuestionRepository?: TopicSelectionV1bTopicQuestionRepository;
   valueAssessmentRepository?: TopicSelectionV1bValueAssessmentRepository;
   topicPackageRepository?: TopicSelectionV1bTopicPackageRepository;
+  researchCheckpointService?: TopicSelectionResearchCheckpointService;
 };
 
 type RecheckResolution = {
@@ -1822,6 +1824,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       nodeId === 'topic-selection.v1b.generate-topic-question-candidates.v1'
       || nodeId === 'topic-selection.v1b.materialize-topic-question-contract.v1'
       || nodeId === 'topic-selection.v1b.assess-topic-value.v1';
+    const requireResearchCheckpoint =
+      nodeId === 'topic-selection.v1b.materialize-topic-question-contract.v1'
+      || nodeId === 'topic-selection.v1b.assess-topic-value.v1';
     const requireValueAssessment =
       nodeId === 'topic-selection.v1b.assess-topic-value.v1'
       || nodeId === 'topic-selection.v1b.decide-value-disposition.v1'
@@ -1849,6 +1854,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (requireTopicQuestion && !this.runnerDependencies.topicQuestionRepository) {
       missing.push('topicQuestionRepository');
+    }
+    if (requireResearchCheckpoint && !this.runnerDependencies.researchCheckpointService) {
+      missing.push('researchCheckpointService');
     }
     if (requireValueAssessment && !this.runnerDependencies.valueAssessmentRepository) {
       missing.push('valueAssessmentRepository');
@@ -3591,6 +3599,26 @@ export class TopicSelectionV1bWorkflowHarnessService {
           ]),
           created_at: now,
         };
+        await this.runnerDependencies.researchCheckpointService!.materializeQuestionContractCheckpoint({
+          contract: materialization.topic_question_contract,
+          question: materialization.topic_question,
+          candidate: choice.value.candidate,
+          question_frame: loaded.value.frame,
+          answerability_plan: materialization.answerability_plan,
+          evidence_refs: materialization.evidence_refs,
+          boundary_refs: materialization.boundary_refs,
+          assumption_refs: materialization.assumption_refs,
+          falsification_conditions: materialization.falsification_conditions,
+          upstream_refs: uniqueRefs([
+            loaded.value.run.research_slice_ref,
+            loaded.value.run.validated_need_ref,
+            loaded.value.run.evidence_map_ref,
+            loaded.value.run.search_run_ref,
+            loaded.value.run.search_plan_ref,
+            loaded.value.run.literature_snapshot_ref,
+          ]),
+          policy_version_id: input.policy_version,
+        });
         await this.runnerDependencies.topicQuestionRepository!.createSelectionDecisionWithMaterializations({
           decision,
           candidate_set_patch: {
@@ -4916,6 +4944,27 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: lineageBlocker.message,
       });
     }
+    const contractRef = buildRef(
+      'topic_question_contract',
+      loaded.value.contract.topic_question_contract_id,
+      loaded.value.contract.title_card_id,
+      loaded.value.contract.version,
+    );
+    try {
+      await this.runnerDependencies.researchCheckpointService!.assertTransitionAllowed({
+        title_card_id: loaded.value.contract.title_card_id,
+        checkpoint_kind: 'question_contract',
+        target_ref: contractRef,
+      });
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: error.errorCode === 'VERSION_CONFLICT'
+          ? 'N8_QUESTION_CHECKPOINT_STALE'
+          : 'N8_QUESTION_CHECKPOINT_NOT_ADVANCED',
+        message: error.message,
+      });
+    }
     const draftResolution = await this.resolveN8DraftPayload(input, payload.value);
     if (!draftResolution.ok) {
       return this.persistBlockedResult(input, hashContext, {
@@ -4972,12 +5021,6 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const memoId = this.idFactory('value_reasoning_memo');
     const titleCardId = loaded.value.contract.title_card_id;
     const questionRef = buildRef('topic_question', loaded.value.question.topic_question_id, titleCardId);
-    const contractRef = buildRef(
-      'topic_question_contract',
-      loaded.value.contract.topic_question_contract_id,
-      titleCardId,
-      loaded.value.contract.version,
-    );
     const answerabilityPlanRef = buildRef(
       'topic_question_answerability_plan',
       loaded.value.answerabilityPlan.topic_question_answerability_plan_id,

@@ -155,6 +155,12 @@ implements TopicSelectionResearchCheckpointRepository {
       .sort((left, right) => left.created_at.localeCompare(right.created_at));
   }
 
+  async listObjectionsByTitleCardId(titleCardId: string): Promise<TopicSelectionResearchObjectionRecord[]> {
+    return [...this.objections.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
+  }
+
   async createObjectionResolution(
     record: TopicSelectionResearchObjectionResolutionRecord,
   ): Promise<TopicSelectionResearchObjectionResolutionRecord> {
