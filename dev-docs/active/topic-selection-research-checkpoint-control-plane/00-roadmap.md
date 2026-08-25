@@ -124,7 +124,7 @@
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: none
+- Authorized boundary: complete task
 - [x] Decisions: checkpoint-control direction, cutover, academic-policy strictness, minimal persistence, and legacy-route treatment are confirmed.
 - [x] Design: persistence authorities, stage adapters, central guard seams, cutover behavior, and policy classification are settled for implementation.
 - [x] Route: contract discovery precedes control-plane implementation, then evidence/gap, question/objection, and promotion closure.

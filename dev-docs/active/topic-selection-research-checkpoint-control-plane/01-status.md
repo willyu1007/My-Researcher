@@ -6,7 +6,7 @@ Make topic selection a product-governed research process in which current eviden
 ## Progress
 - State: in-progress
 - Current phase: Phase 2 — establish checkpoint control and research-status APIs
-- Next step: Select an implementation boundary, then begin with the shared checkpoint/decision/objection contracts, Prisma authorities, and central currentness guard needed by every later phase.
+- Next step: Implement the shared checkpoint/decision/objection contracts, Prisma authorities, and central currentness guard needed by every later phase.
 - Blocker: none
 
 ## Done when
