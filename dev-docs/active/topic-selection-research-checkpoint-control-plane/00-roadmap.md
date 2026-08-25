@@ -25,8 +25,10 @@
 | Semantic authority | Product control plane / Codex runbook / GUI workflow | Product control plane | decided | User | Latest confirmed instruction | Clients render packets and submit exact decisions but cannot define or bypass gates. |
 | Human participation structure | Four major checkpoint phases / ad hoc human prompts | Evidence, gap, question, and promotion checkpoints, with existing slice selection retained inside the research-design flow | decided | User | Confirmed enhancement direction | Product must expose pending review and block unauthorized transitions. |
 | Checkpoint ownership model | Generic duplicate content authority / lightweight control state referencing existing authorities | Lightweight checkpoint state and packet projection; reuse existing decisions and add only missing evidence/question decisions | decided | User | Confirmed task opening | Avoids a second content authority while giving all clients one control interface. |
-| Existing-record cutover | Grandfather all / block all / derive pending checkpoints from current authority and require review before new advance | Discover current record classes, then recommend a versioned fail-closed cutover | open | User after Phase 1 recommendation | Record inventory and compatibility tests | Determines migrations and advance behavior for existing packages, decisions, and bridges. |
-| Academic policy strictness | Fixed numeric thresholds / role-and-quality rules with bounded policy triggers | Prefer semantic role/quality blockers; use counts and scores only as explicit, configurable tripwires | proposed | User after Phase 1 policy review | Current-run evidence plus negative-case suite | Prevents arbitrary counts from becoming academic authority while still failing shallow evidence. |
+| Existing-record cutover | Grandfather all / block all / derive pending checkpoints from current authority and require review before new advance | Keep all records readable; backfill pending anchors; require the earliest unsatisfied current checkpoint before any new advance; preserve completed intake only as pre-checkpoint provenance | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Avoids retroactive deletion and blanket grandfathering while making every future transition fail closed. |
+| Academic policy strictness | Fixed numeric thresholds / role-and-quality rules with bounded policy triggers | Semantic role/quality blockers are authoritative; counts, similarity, recency, confidence, and scores are configurable escalation tripwires only | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Direct-neighbor/disconfirming coverage, distinct alternatives, question identifiability, objections, and obligation closure become hard semantics. |
+| Minimal persistence | Per-stage duplicate content tables / generic event engine / lightweight coordination with existing authorities | Checkpoint + missing-stage decision + objection + objection-resolution authorities; reuse existing snapshots, stage decisions, recheck propagation, and projections | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Adds explicit currentness and human control without duplicating evidence/question/package content. |
+| Legacy semantic routes | Preserve as compatibility writers / retire all TitleCard APIs / retain intake and reads but cut over semantic writes | Keep title-card/evidence-basket intake and reads; reject legacy need/question/value/package/promotion writes after enforcement | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Closes the direct PaperProject promotion bypass while preserving useful compatibility reads. |
 
 ### Assumptions
 
@@ -59,7 +61,7 @@
   4. Present a concrete cutover recommendation for current packages, decisions, bridges, and in-flight runs.
 - Affected boundaries / entry points: Topic-selection shared contracts, workflow matrix, v1a/v1b/v1c service boundaries, promotion/bridge intake handoff, and OpenAPI design.
 - Dependencies: Confirmed task opening; user decisions on the Phase 1 cutover and academic-policy recommendations before implementation kickoff.
-- Exit criteria: No competing authority remains in the design; cutover and policy choices are confirmed; the first implementation slice is executable.
+- Exit criteria: No competing authority remains in the design; cutover, strictness, persistence, and legacy-route choices are confirmed; the first implementation slice is executable.
 - Verification: Contract review against current code, representative API records, archived task outcomes, and negative-case definitions.
 - Recovery: Keep kickoff pending and make no application-code change if inventory invalidates the proposed control model.
 
@@ -121,10 +123,10 @@
 
 ## Kickoff gate
 
-- Status: pending
+- Status: ready
 - Authorized boundary: none
-- [ ] Decisions: opening placement and checkpoint-control direction are approved; cutover and academic-policy strictness remain Phase 1 user decisions.
-- [ ] Design: Phase 1 must confirm persistence, authority adapters, cutover, and policy classification before implementation.
+- [x] Decisions: checkpoint-control direction, cutover, academic-policy strictness, minimal persistence, and legacy-route treatment are confirmed.
+- [x] Design: persistence authorities, stage adapters, central guard seams, cutover behavior, and policy classification are settled for implementation.
 - [x] Route: contract discovery precedes control-plane implementation, then evidence/gap, question/objection, and promotion closure.
 - [x] Verification: contract, negative, replay, migration, and full-chain evidence obligations are identified in `verification.md`.
 

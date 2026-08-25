@@ -5,8 +5,8 @@ Make topic selection a product-governed research process in which current eviden
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 — checkpoint and cutover contract discovery
-- Next step: Inventory current domain authorities, transition entry points, record classes, and policy-enforcement seams; then present concrete cutover and academic-policy recommendations before implementation kickoff.
+- Current phase: Phase 2 — establish checkpoint control and research-status APIs
+- Next step: Select an implementation boundary, then begin with the shared checkpoint/decision/objection contracts, Prisma authorities, and central currentness guard needed by every later phase.
 - Blocker: none
 
 ## Done when
