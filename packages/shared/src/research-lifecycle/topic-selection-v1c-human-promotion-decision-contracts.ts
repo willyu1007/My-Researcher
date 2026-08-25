@@ -270,6 +270,15 @@ export type PromotionLoopbackTarget = TopicSelectionPromotionLoopbackTarget;
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const objectPayload = { type: 'object', additionalProperties: true } as const;
+export const topicSelectionHumanActorRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actor_type', 'actor_id'],
+  properties: {
+    actor_type: { const: 'human' },
+    actor_id: stringId,
+  },
+} as const;
 const requiredActorRefSchema = {
   allOf: [
     topicSelectionActorRefSchema,

@@ -842,6 +842,54 @@ async function makeV1cRouteHarness(
   return { app, offlineReplayService, paperProjectGateway };
 }
 
+test('POST /promotion-decisions validates the required human actor identity at the HTTP boundary', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('human-actor-contract'));
+  const app = await makeV1cRouteApp(repository);
+  try {
+    const { gateBundle } = await createReadyGate(
+      app,
+      repository.v1cInputBundle.v1b_to_v1c_input_bundle_id,
+    );
+    const promotionGateCheckId = gateBundle.promotion_gate_check.promotion_gate_check_id;
+    const confirmedSnapshotHash = gateBundle.promotion_gate_check.promotion_input_snapshot_hash;
+    const missingActorId = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decisions',
+      payload: {
+        promotion_gate_check_id: promotionGateCheckId,
+        decision: 'promote_to_paper_project',
+        human_actor: { actor_type: 'human' },
+        rationale: 'Confirmed.',
+        confirmed_snapshot_hash: confirmedSnapshotHash,
+      },
+    });
+    assert.equal(missingActorId.statusCode, 400);
+    assert.match(
+      (missingActorId.json() as { error: { message: string } }).error.message,
+      /human_actor.*required property.*actor_id/i,
+    );
+
+    const nonHumanActor = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1c/promotion-decisions',
+      payload: {
+        promotion_gate_check_id: promotionGateCheckId,
+        decision: 'promote_to_paper_project',
+        human_actor: { actor_type: 'llm', actor_id: 'agent_001' },
+        rationale: 'Confirmed.',
+        confirmed_snapshot_hash: confirmedSnapshotHash,
+      },
+    });
+    assert.equal(nonHumanActor.statusCode, 400);
+    assert.match(
+      (nonHumanActor.json() as { error: { message: string } }).error.message,
+      /human_actor.*actor_type.*constant/i,
+    );
+  } finally {
+    await app.close();
+  }
+});
+
 test('POST /promotion-decision-support/bounded-debate reaches the runtime+admission over HTTP (admit is NOT bypassed; the canary skipped it)', async () => {
   const repository = makeSeededTopicPackageRepository(uniqueId('bounded-debate'));
   const app = await makeV1cRouteApp(repository);

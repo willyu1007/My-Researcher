@@ -7520,6 +7520,18 @@ components:
           type: string
           nullable: true
 
+    TopicSelectionHumanActorRef:
+      type: object
+      required: [actor_type, actor_id]
+      additionalProperties: false
+      properties:
+        actor_type:
+          type: string
+          enum: [human]
+        actor_id:
+          type: string
+          minLength: 1
+
     TopicSelectionV1aRecord:
       type: object
       additionalProperties: true
@@ -8165,7 +8177,7 @@ components:
           type: string
           enum: [promote_to_paper_project, promote_with_conditions, merge_packages, refine_package, reassess_value, revise_question, revise_slice, recheck_evidence_or_search, park, drop]
         human_actor:
-          $ref: '#/components/schemas/TopicSelectionActorRef'
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
         rationale: { type: string, minLength: 1 }
         confirmed_snapshot_hash: { type: string, minLength: 1 }
         decision_timestamp: { type: string, nullable: true }

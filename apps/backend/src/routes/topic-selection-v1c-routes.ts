@@ -1,7 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   TOPIC_SELECTION_ACTOR_TYPES,
-  topicSelectionActorRefSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_SOURCES,
@@ -18,6 +17,7 @@ import {
 import {
   TOPIC_SELECTION_HUMAN_PROMOTION_DECISIONS,
   TOPIC_SELECTION_PROMOTION_LOOPBACK_TARGETS,
+  topicSelectionHumanActorRefSchema,
   topicSelectionPromotionAllowedRefinementSchema,
   topicSelectionPromotionConditionSchema,
   topicSelectionPromotionStopOrReopenConditionSchema,
@@ -158,7 +158,7 @@ const humanPromotionDecisionBody = bodySchema([
 ], {
   promotion_gate_check_id: stringId,
   decision: { enum: [...TOPIC_SELECTION_HUMAN_PROMOTION_DECISIONS] },
-  human_actor: topicSelectionActorRefSchema,
+  human_actor: topicSelectionHumanActorRefSchema,
   rationale: stringId,
   confirmed_snapshot_hash: stringId,
   decision_timestamp: nullableStringId,
