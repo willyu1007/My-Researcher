@@ -73,9 +73,35 @@
 - **collection import**(手动/auto-pull/Zotero):落 literature+source 记录并按 §Invalidation Chains 标 STALE。**边界(2026-07 修订)**:collection 不直接执行处理,但**可经显式闸门编排**处理任务——AUTO_ADVANCE backfill job(质量分档 ≥75 全链 / 55–75 至 FULLTEXT_PREPROCESSED,日预算,总开关默认 OFF,D8/W-06);原 T-029「collection 不触发 processing」表述废止。
 - **fulltext acquisition**:9 态 Job 状态机(W-07 起有直测)获取 raw_fulltext 资产;资产注册经 `RAW_FULLTEXT_ASSET_CHANGED` 链驱动重处理。**它喂给 `FULLTEXT_PREPROCESSED` 阶段,自身不是阶段码**——历史文档把它当第三阶段的表述以本表为准。
 
+## Corpus Accounting & Reporting
+文献数量必须同时声明**口径、范围和时点/来源**。以下数字不可互相代替:
+
+| 口径 | 含义 | 不代表什么 |
+|---|---|---|
+| candidate/discovery count | 一次发现、采集预览或候选筛选产生的候选数;候选可以重复、失败或尚未晋升 | 不是 managed corpus,也不是可检索文献数 |
+| managed/record count | 指定范围内已持久化并由文献域管理的 `LiteratureRecord` 数 | 不自动表示已完成内容处理或质量激活 |
+| retrieval-ready count | 指定范围内经 `LiteratureEvidenceActivationService.resolveRetrievalReadiness` 判为 `EVIDENCE_READY` 的记录数 | 不等于物理记录总数;`STALE` 记录可纳入但必须随行报告 freshness warning |
+| effective literature | 历史 B12 扩容任务使用的验收词;只有在引用对应任务、日期和当时门禁时才使用 | 不是当前 API 的无范围全库计数别名 |
+| workload corpus documents | 实验数据集里的文档行数,例如 benchmark corpus documents | 不是论文篇数或 `LiteratureRecord` 数 |
+
+`GET /literature/overview` 是 topic/paper-scoped projection,至少需要 `topic_id` 或 `paper_id`;其 `summary.total_literatures` 是所请求 topic scope 与 paper links 的去重并集,**不是全局文献库总数**。当前 API 没有无范围的全库计数读端点时,不得用 scoped overview、历史归档或 workload 文档数推算 live 全库总数。
+
+数量报告至少包含:
+
+```text
+count:
+metric: candidate | managed | retrieval_ready | historical_effective | workload_documents
+scope:
+as_of_or_source:
+freshness:
+```
+
+优先使用运行中的产品 API 和明确 owner scope。后端不可用时,历史归档只能表述为“该任务在该时点的验收快照”,并明确 live count 未核实;较早任务快照不得覆盖较晚闭环记录。
+
 ## Retrieval Readiness(消费侧,W-05/D7)
 retrieval-ready 唯一判定 = `LiteratureEvidenceActivationService.resolveRetrievalReadiness`:判定链 QUALITY_NOT_ACTIVE → KEY_CONTENT_NOT_READY → INDEX_NOT_ACTIVE → EVIDENCE_READY;freshness = INDEXED 阶段是否 STALE(并集信号)。stale 纳入但标记,标记随行至检索 warnings 与选题采样 audit。
 
 ## Change Log
 - 2026-07-08(T-130 W-08):创建;载明 T-029 边界修订(AUTO_ADVANCE 显式闸门)、fulltext 采集非阶段归属、KEY_CONTENT_READY 方法优先级语义;一致性脚本上线。
 - 2026-07-08(T-130 W-09):补 codex_curated 半自动回填语义、parser 评分权重硬编码注记;discovery 死表已删(D9)、token index 停写标废弃(D9)。
+- 2026-08-25:补 corpus accounting/reporting 语义,禁止把 scoped overview、历史快照或 workload documents 误报为 live 全库规模。

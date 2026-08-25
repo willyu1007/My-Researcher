@@ -83,6 +83,25 @@ test('title-card management canonical paths stay aligned between routes and Open
 test('title-card component schemas stay aligned with canonical title-card semantics', () => {
   const openapiSource = fs.readFileSync(openapiPath, 'utf8');
 
+  const titleCardStatusBlock = extractSchemaBlock(openapiSource, 'TitleCardStatus');
+  assert.match(titleCardStatusBlock, /enum: \[draft, active, promoted, parked\]/);
+
+  const titleCardBlock = extractSchemaBlock(openapiSource, 'TitleCardResponse');
+  assert.match(titleCardBlock, /TitleCardStatus/);
+  assert.match(titleCardBlock, /- evidence_count/);
+  assert.match(titleCardBlock, /- promotion_decision_count/);
+
+  const titleCardListBlock = extractSchemaBlock(openapiSource, 'TitleCardListResponse');
+  assert.match(titleCardListBlock, /required: \[items, summary\]/);
+  assert.match(titleCardListBlock, /TitleCardResponse/);
+  assert.match(titleCardListBlock, /TitleCardListSummary/);
+
+  const createTitleCardBlock = extractSchemaBlock(openapiSource, 'CreateTitleCardRequest');
+  assert.match(createTitleCardBlock, /required: \[working_title, brief\]/);
+
+  const updateTitleCardBlock = extractSchemaBlock(openapiSource, 'UpdateTitleCardRequest');
+  assert.match(updateTitleCardBlock, /minProperties: 1/);
+
   const reviewRefBlock = extractSchemaBlock(openapiSource, 'TopicReviewRef');
   assert.match(reviewRefBlock, /enum: \[evidence_review, need_review, research_question, value_assessment, package, promotion_decision\]/);
   assert.doesNotMatch(reviewRefBlock, /topic_package|need_review, question/);
@@ -113,4 +132,23 @@ test('title-card component schemas stay aligned with canonical title-card semant
   const createPromotionDecisionBlock = extractSchemaBlock(openapiSource, 'CreatePromotionDecisionRequest');
   assert.match(createPromotionDecisionBlock, /enum: \[need_review, research_question, value_assessment, package\]/);
   assert.doesNotMatch(createPromotionDecisionBlock, /topic_package|need_review, question/);
+});
+
+test('title-card root operations publish their canonical request and response schemas', () => {
+  const openapiSource = fs.readFileSync(openapiPath, 'utf8');
+  const listAndCreateStart = openapiSource.indexOf('  /title-cards:\n');
+  const detailStart = openapiSource.indexOf('  /title-cards/{titleCardId}:\n');
+  const evidenceBasketStart = openapiSource.indexOf('  /title-cards/{titleCardId}/evidence-basket:\n');
+
+  assert.notEqual(listAndCreateStart, -1);
+  assert.notEqual(detailStart, -1);
+  assert.notEqual(evidenceBasketStart, -1);
+
+  const listAndCreateBlock = openapiSource.slice(listAndCreateStart, detailStart);
+  assert.match(listAndCreateBlock, /operationId: listTitleCards[\s\S]*TitleCardListResponse/);
+  assert.match(listAndCreateBlock, /operationId: createTitleCard[\s\S]*CreateTitleCardRequest[\s\S]*TitleCardResponse/);
+
+  const detailBlock = openapiSource.slice(detailStart, evidenceBasketStart);
+  assert.match(detailBlock, /operationId: getTitleCard[\s\S]*TitleCardResponse/);
+  assert.match(detailBlock, /operationId: updateTitleCard[\s\S]*UpdateTitleCardRequest[\s\S]*TitleCardResponse/);
 });
