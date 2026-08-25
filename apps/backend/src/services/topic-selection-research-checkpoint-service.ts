@@ -3,6 +3,19 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionHumanConfirmedDecisionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type {
+  TopicSelectionEvidenceConflictSetRecord,
+  TopicSelectionEvidenceMapRecord,
+  TopicSelectionEvidenceUnitRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
+import type {
+  TopicSelectionGapSelectionReview,
+  TopicSelectionNeedCandidateRecord,
+  TopicSelectionRejectedNeedCandidateFraming,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import type {
+  TopicSelectionCoverageRowIntentRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS,
@@ -37,6 +50,12 @@ type ServiceOptions = {
   now?: () => string;
 };
 
+type GapCandidatePacketEntry = {
+  need_candidate_ref: TopicSelectionFunctionalRef;
+  semantic_group_key: string;
+  machine_viable: boolean;
+};
+
 export type MaterializeResearchCheckpointInput = {
   workspace_id?: string | null;
   title_card_id: string;
@@ -56,6 +75,28 @@ export type AssertResearchTransitionInput = {
   checkpoint_kind: TopicSelectionResearchCheckpointKind;
   target_ref?: TopicSelectionFunctionalRef;
   target_snapshot_hash?: string;
+};
+
+export type MaterializeEvidenceLandscapeCheckpointInput = {
+  evidence_map: TopicSelectionEvidenceMapRecord;
+  evidence_units: TopicSelectionEvidenceUnitRecord[];
+  conflict_sets: TopicSelectionEvidenceConflictSetRecord[];
+  coverage_row_intents: TopicSelectionCoverageRowIntentRecord[];
+  policy_version_id?: string | null;
+};
+
+export type MaterializeGapSelectionCheckpointInput = {
+  workspace_id?: string | null;
+  title_card_id: string;
+  evidence_map_ref: TopicSelectionFunctionalRef;
+  candidates: TopicSelectionNeedCandidateRecord[];
+  rejected_framings?: TopicSelectionRejectedNeedCandidateFraming[];
+  policy_version_id?: string | null;
+};
+
+export type AdaptExistingResearchDecisionInput = {
+  decision_authority_ref: TopicSelectionFunctionalRef;
+  confirmed_snapshot_hash: string;
 };
 
 const BLOCKING_OBJECTION_SEVERITIES = new Set(['blocking', 'critical']);
@@ -147,6 +188,239 @@ export class TopicSelectionResearchCheckpointService {
       }
       throw error;
     }
+  }
+
+  async materializeEvidenceLandscapeCheckpoint(
+    input: MaterializeEvidenceLandscapeCheckpointInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const evidenceMap = input.evidence_map;
+    const evidenceMapRef = this.ref(
+      'evidence_map',
+      evidenceMap.evidence_map_id,
+      evidenceMap.title_card_id,
+      evidenceMap.evidence_map_version,
+    );
+    const requiredBaselineRows = input.coverage_row_intents.filter((row) =>
+      row.required && (row.intent_type === 'baseline' || row.expected_evidence_role === 'baseline'));
+    const requiredChallengeRows = input.coverage_row_intents.filter((row) =>
+      row.required && (row.intent_type === 'challenge' || row.expected_evidence_role === 'challenge'));
+    const claimBearing = (unit: TopicSelectionEvidenceUnitRecord): boolean =>
+      !unit.abstract_only
+      && unit.freshness_status === 'current'
+      && unit.review_status !== 'rejected'
+      && unit.source_statement.trim().length > 0
+      && (unit.source_attribution_kind === 'source_claim' || unit.source_attribution_kind === 'counter_evidence');
+    const coversAny = (
+      unit: TopicSelectionEvidenceUnitRecord,
+      rows: TopicSelectionCoverageRowIntentRecord[],
+    ): boolean => rows.length === 0
+      || rows.some((row) => row.coverage_row_intent_id === unit.coverage_row_intent_ref?.ref_id);
+    const supportUnits = input.evidence_units.filter((unit) => unit.evidence_role === 'support');
+    const nearestWorkUnits = input.evidence_units.filter((unit) =>
+      unit.evidence_role === 'baseline' && claimBearing(unit) && coversAny(unit, requiredBaselineRows));
+    const disconfirmingUnits = input.evidence_units.filter((unit) =>
+      unit.evidence_role === 'challenge' && claimBearing(unit) && coversAny(unit, requiredChallengeRows));
+    const missingBaselineRows = requiredBaselineRows.filter((row) => !nearestWorkUnits.some((unit) =>
+      unit.coverage_row_intent_ref?.ref_id === row.coverage_row_intent_id));
+    const missingChallengeRows = requiredChallengeRows.filter((row) => !disconfirmingUnits.some((unit) =>
+      unit.coverage_row_intent_ref?.ref_id === row.coverage_row_intent_id));
+    const coreUnits = input.evidence_units.filter((unit) =>
+      unit.evidence_role === 'support' || unit.evidence_role === 'baseline' || unit.evidence_role === 'challenge');
+    const issues: Array<{ code: string; message: string; refs: TopicSelectionFunctionalRef[] }> = [];
+    if (!supportUnits.some(claimBearing)) {
+      issues.push({ code: 'CLAIM_BEARING_SUPPORT_REQUIRED', message: 'Support must include an inspectable claim beyond abstract-only text.', refs: [] });
+    }
+    if (nearestWorkUnits.length === 0 || missingBaselineRows.length > 0) {
+      issues.push({
+        code: 'DIRECT_NEIGHBOR_COVERAGE_REQUIRED',
+        message: 'Every required direct-neighbor baseline intent needs claim-bearing, inspectable evidence.',
+        refs: missingBaselineRows.map((row) => this.ref('coverage_row_intent', row.coverage_row_intent_id, evidenceMap.title_card_id)),
+      });
+    }
+    if (disconfirmingUnits.length === 0 || missingChallengeRows.length > 0) {
+      issues.push({
+        code: 'DISCONFIRMING_EVIDENCE_REQUIRED',
+        message: 'Every required disconfirming intent needs claim-bearing, inspectable challenge evidence.',
+        refs: missingChallengeRows.map((row) => this.ref('coverage_row_intent', row.coverage_row_intent_id, evidenceMap.title_card_id)),
+      });
+    }
+    const abstractCoreRefs = coreUnits.filter((unit) => unit.abstract_only).map((unit) => this.evidenceUnitRef(unit));
+    if (abstractCoreRefs.length > 0) {
+      issues.push({
+        code: 'ABSTRACT_ONLY_CORE_EVIDENCE',
+        message: 'Abstract-only material cannot serve as support, direct-neighbor, or disconfirming core evidence.',
+        refs: abstractCoreRefs,
+      });
+    }
+    const nonSourceClaimRefs = coreUnits
+      .filter((unit) => unit.source_attribution_kind === 'llm_inference')
+      .map((unit) => this.evidenceUnitRef(unit));
+    if (nonSourceClaimRefs.length > 0) {
+      issues.push({
+        code: 'SOURCE_AUTHORITY_REQUIRED',
+        message: 'LLM inference cannot substitute for claim-bearing source authority.',
+        refs: nonSourceClaimRefs,
+      });
+    }
+    const blockingConflictRefs = input.conflict_sets
+      .filter((conflict) => conflict.severity === 'blocking')
+      .map((conflict) => this.ref('evidence_conflict_set', conflict.evidence_conflict_set_id, evidenceMap.title_card_id));
+    if (blockingConflictRefs.length > 0) {
+      issues.push({
+        code: 'BLOCKING_EVIDENCE_CONFLICT',
+        message: 'Blocking evidence conflicts must be resolved before evidence review can advance.',
+        refs: blockingConflictRefs,
+      });
+    }
+    if (evidenceMap.freshness_status !== 'current') {
+      issues.push({
+        code: 'CURRENT_EVIDENCE_MAP_REQUIRED',
+        message: 'Evidence landscape review requires a current EvidenceMap.',
+        refs: [evidenceMapRef],
+      });
+    }
+    const snapshotPayload = {
+      evidence_map_ref: evidenceMapRef,
+      evidence_map_freshness_status: evidenceMap.freshness_status,
+      evidence_units: input.evidence_units.map((unit) => ({
+        evidence_unit_ref: this.evidenceUnitRef(unit),
+        literature_ref: unit.literature_ref,
+        coverage_row_intent_ref: unit.coverage_row_intent_ref ?? null,
+        evidence_role: unit.evidence_role,
+        source_attribution_kind: unit.source_attribution_kind,
+        locator: unit.locator,
+        abstract_only: unit.abstract_only,
+        review_status: unit.review_status,
+        freshness_status: unit.freshness_status,
+        issue_codes: unit.issue_codes,
+      })),
+      coverage_row_intents: input.coverage_row_intents.map((row) => ({
+        coverage_row_intent_id: row.coverage_row_intent_id,
+        coverage_key: row.coverage_key,
+        intent_type: row.intent_type,
+        required: row.required,
+        expected_evidence_role: row.expected_evidence_role,
+        rationale: row.rationale,
+      })),
+      nearest_work_unit_refs: nearestWorkUnits.map((unit) => this.evidenceUnitRef(unit)),
+      disconfirming_unit_refs: disconfirmingUnits.map((unit) => this.evidenceUnitRef(unit)),
+      claim_bearing_support_unit_refs: supportUnits.filter(claimBearing).map((unit) => this.evidenceUnitRef(unit)),
+      material_conflict_refs: input.conflict_sets
+        .filter((conflict) => conflict.severity === 'material' || conflict.severity === 'blocking')
+        .map((conflict) => this.ref('evidence_conflict_set', conflict.evidence_conflict_set_id, evidenceMap.title_card_id)),
+      policy_result: issues.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
+      policy_issues: issues,
+      policy_note: 'Counts are diagnostic only; role, source authority, currentness, and inspectability govern eligibility.',
+    };
+    const targetSnapshotHash = this.hash(snapshotPayload);
+    return this.materializeCheckpoint({
+      workspace_id: evidenceMap.workspace_id ?? null,
+      title_card_id: evidenceMap.title_card_id,
+      checkpoint_kind: 'evidence_landscape',
+      policy_version_id: input.policy_version_id ?? 'topic-selection-evidence-landscape@v1',
+      target_ref: evidenceMapRef,
+      target_snapshot_hash: targetSnapshotHash,
+      source_refs: this.uniqueRefs([
+        evidenceMap.search_run_ref,
+        evidenceMap.search_plan_ref,
+        evidenceMap.literature_snapshot_ref,
+        ...input.evidence_units.flatMap((unit) => [this.evidenceUnitRef(unit), unit.literature_ref, ...unit.source_refs]),
+      ]),
+      allowed_actions: issues.length === 0
+        ? ['advance', 'loopback', 'reject', 'hold']
+        : ['loopback', 'reject', 'hold'],
+      required_action_refs: issues.map((issue) => this.requiredActionRef(evidenceMap.title_card_id, evidenceMapRef, issue.code)),
+      packet_payload: snapshotPayload,
+    });
+  }
+
+  async materializeGapSelectionCheckpoint(
+    input: MaterializeGapSelectionCheckpointInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    this.assertTarget(input.title_card_id, input.evidence_map_ref);
+    const rejectedFramings = input.rejected_framings
+      ?? await this.currentGapRejectedFramings(input.title_card_id);
+    const candidates = input.candidates
+      .filter((candidate) => candidate.evidence_map_id === input.evidence_map_ref.ref_id)
+      .sort((left, right) => left.need_candidate_id.localeCompare(right.need_candidate_id));
+    const entries = candidates.map((candidate) => {
+      const semanticGroupKey = this.gapSemanticGroupKey(candidate);
+      const machineBlockerCodes = [
+        ...(candidate.speculative ? ['SPECULATIVE_CANDIDATE'] : []),
+        ...(['already_solved', 'falsified'].includes(candidate.prior_art_status) ? ['PRIOR_ART_BLOCKED'] : []),
+        ...(candidate.freshness_status !== 'current' ? ['STALE_CANDIDATE'] : []),
+        ...(candidate.gap_codes.includes('PSEUDO_GAP_RISK') ? ['PSEUDO_GAP_RISK'] : []),
+      ];
+      return {
+        need_candidate_ref: this.needCandidateRef(candidate),
+        candidate_need: candidate.candidate_need,
+        unmet_need_statement: candidate.unmet_need_statement,
+        mechanism_type: candidate.mechanism_type,
+        mechanism_summary: candidate.mechanism_summary ?? null,
+        mechanism_payload: candidate.mechanism_payload,
+        prior_art_status: candidate.prior_art_status,
+        freshness_status: candidate.freshness_status,
+        gap_codes: candidate.gap_codes,
+        speculative: candidate.speculative,
+        semantic_group_key: semanticGroupKey,
+        machine_viable: machineBlockerCodes.length === 0,
+        machine_blocker_codes: machineBlockerCodes,
+      };
+    });
+    const viableEntries = entries.filter((entry) => entry.machine_viable);
+    const viableSemanticGroups = new Set(viableEntries.map((entry) => entry.semantic_group_key));
+    const issueCodes = [
+      ...(viableEntries.length < 2 ? ['COMPETING_CANDIDATE_REQUIRED'] : []),
+      ...(viableSemanticGroups.size < 2 ? ['GENUINELY_DISTINCT_ALTERNATIVE_REQUIRED'] : []),
+    ];
+    const policyIssues = issueCodes.map((code) => ({
+      code,
+      message: code === 'COMPETING_CANDIDATE_REQUIRED'
+        ? 'Return to candidate discovery and retain at least one additional academically viable candidate.'
+        : 'Return to candidate discovery; wording or parameter changes do not count as a distinct alternative.',
+      recommended_loopback: 'generate_need_candidate',
+    }));
+    const snapshotPayload = {
+      evidence_map_ref: input.evidence_map_ref,
+      candidate_entries: entries,
+      rejected_alternatives: rejectedFramings.map((framing) => ({
+        framing_id: framing.framing_id,
+        reason_code: framing.reason_code,
+        summary: framing.summary,
+        source_draft_id: framing.source_draft_id ?? null,
+        refs: framing.refs,
+      })),
+      policy_result: issueCodes.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
+      policy_issue_codes: issueCodes,
+      policy_issues: policyIssues,
+      distinctness_axes: ['research_object', 'mechanism', 'intervention', 'comparison', 'outcome'],
+      policy_note: 'Candidate counts and semantic groups are tripwires only; human review must identify an academically viable alternative and its substantive distinctness axes.',
+    };
+    const targetSnapshotHash = this.hash(snapshotPayload);
+    const targetRef = this.ref(
+      'need_candidate_arena',
+      `need_candidate_arena_${targetSnapshotHash.slice(0, 24)}`,
+      input.title_card_id,
+      TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
+    );
+    return this.materializeCheckpoint({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      checkpoint_kind: 'gap_selection',
+      policy_version_id: input.policy_version_id ?? 'topic-selection-gap-selection@v1',
+      target_ref: targetRef,
+      target_snapshot_hash: targetSnapshotHash,
+      source_refs: this.uniqueRefs([
+        input.evidence_map_ref,
+        ...candidates.map((candidate) => this.needCandidateRef(candidate)),
+        ...rejectedFramings.flatMap((framing) => framing.refs),
+      ]),
+      allowed_actions: issueCodes.length === 0
+        ? ['advance', 'loopback', 'reject', 'hold']
+        : ['loopback', 'reject', 'hold'],
+      required_action_refs: issueCodes.map((code) => this.requiredActionRef(input.title_card_id, targetRef, code)),
+      packet_payload: snapshotPayload,
+    });
   }
 
   async listCheckpoints(titleCardId: string): Promise<TopicSelectionResearchCheckpointRecord[]> {
@@ -289,6 +563,149 @@ export class TopicSelectionResearchCheckpointService {
       return persisted;
     } catch (error) {
       if (error instanceof TopicSelectionResearchCheckpointCurrentConflictError) {
+        throw new AppError(409, 'VERSION_CONFLICT', error.message);
+      }
+      throw error;
+    }
+  }
+
+  async assertGapSelectionConfirmation(input: {
+    title_card_id: string;
+    selected_candidate: TopicSelectionNeedCandidateRecord;
+    review: TopicSelectionGapSelectionReview;
+  }): Promise<TopicSelectionResearchCheckpointRecord> {
+    const checkpoint = await this.getCheckpoint(input.review.research_checkpoint_id);
+    this.assertCurrent(checkpoint);
+    if (checkpoint.status !== 'pending' && checkpoint.status !== 'decided') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection checkpoint is no longer reviewable.');
+    }
+    if (checkpoint.checkpoint_kind !== 'gap_selection' || checkpoint.title_card_id !== input.title_card_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection review does not identify the current title-card checkpoint.');
+    }
+    if (input.review.confirmed_candidate_pool_hash !== checkpoint.target_snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection candidate-pool snapshot is stale.');
+    }
+    if (!checkpoint.allowed_actions.includes('advance') || checkpoint.required_action_refs.length > 0) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Gap selection arena is not eligible for human advancement.');
+    }
+    if (!input.review.direct_prior_art_pressure_reviewed || !input.review.disconfirming_evidence_reviewed) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Gap selection must review direct prior-art pressure and disconfirming evidence.');
+    }
+    const selectedCandidateRef = this.needCandidateRef(input.selected_candidate);
+    if (!this.refsEqual(input.review.selected_candidate_ref, selectedCandidateRef)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection chose a different NeedCandidate than HumanConfirmNeed.');
+    }
+    const packet = await this.getPacket(checkpoint.research_checkpoint_id);
+    const candidateEntries = this.gapCandidateEntries(packet.packet_payload);
+    const entryById = new Map(candidateEntries.map((entry) => [entry.need_candidate_ref.ref_id, entry]));
+    if (!entryById.has(input.selected_candidate.need_candidate_id)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Selected NeedCandidate is absent from the reviewed candidate arena.');
+    }
+    const reviewById = new Map<string, TopicSelectionGapSelectionReview['candidate_reviews'][number]>();
+    for (const candidateReview of input.review.candidate_reviews) {
+      const candidateId = candidateReview.need_candidate_ref.ref_id;
+      if (reviewById.has(candidateId)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `Gap selection contains duplicate review for ${candidateId}.`);
+      }
+      const packetEntry = entryById.get(candidateId);
+      if (!packetEntry) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Gap selection review candidate ${candidateId} is outside the frozen arena.`);
+      }
+      if (!this.refsEqual(candidateReview.need_candidate_ref, packetEntry.need_candidate_ref)) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Gap selection review candidate ${candidateId} uses a stale version.`);
+      }
+      if (!candidateReview.rationale.trim()) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `Gap selection review candidate ${candidateId} requires rationale.`);
+      }
+      if (candidateReview.disposition === 'rejected' && !candidateReview.rejection_reason?.trim()) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `Rejected candidate ${candidateId} requires an explicit rejection reason.`);
+      }
+      reviewById.set(candidateId, candidateReview);
+    }
+    if (reviewById.size !== entryById.size) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Gap selection must preserve a disposition for every candidate in the frozen arena.');
+    }
+    const selectedReviews = [...reviewById.values()].filter((review) => review.disposition === 'selected');
+    if (selectedReviews.length !== 1 || selectedReviews[0]?.need_candidate_ref.ref_id !== input.selected_candidate.need_candidate_id) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Gap selection requires exactly one selected candidate matching HumanConfirmNeed.');
+    }
+    const selectedEntry = entryById.get(input.selected_candidate.need_candidate_id);
+    if (!selectedEntry) throw new AppError(409, 'VERSION_CONFLICT', 'Selected candidate arena entry is missing.');
+    if (!selectedEntry.machine_viable) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Selected NeedCandidate is not machine-eligible for gap confirmation.');
+    }
+    const viableAlternative = [...reviewById.values()].find((review) => {
+      if (review.disposition !== 'viable_alternative' || review.distinct_from_selected_axes.length === 0) return false;
+      const entry = entryById.get(review.need_candidate_ref.ref_id);
+      return entry?.machine_viable === true && entry.semantic_group_key !== selectedEntry.semantic_group_key;
+    });
+    if (!viableAlternative) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Gap selection requires an academically viable alternative with substantive distinctness from the selected candidate.',
+      );
+    }
+    const objections = await this.listOpenObjections(checkpoint.research_checkpoint_id);
+    if (objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Gap selection checkpoint has open blocking objections.');
+    }
+    return checkpoint;
+  }
+
+  async adaptExistingStageDecision(
+    checkpointId: string,
+    input: AdaptExistingResearchDecisionInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const checkpoint = await this.getCheckpoint(checkpointId);
+    if (checkpoint.checkpoint_kind !== 'gap_selection' && checkpoint.checkpoint_kind !== 'promotion') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only gap and promotion checkpoints reuse an existing stage authority.');
+    }
+    const expectedAuthorityType = checkpoint.checkpoint_kind === 'gap_selection'
+      ? 'human_confirmed_decision'
+      : 'human_promotion_decision';
+    if (input.decision_authority_ref.ref_type !== expectedAuthorityType) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `${checkpoint.checkpoint_kind} checkpoint requires ${expectedAuthorityType} authority.`,
+      );
+    }
+    this.assertTarget(checkpoint.title_card_id, input.decision_authority_ref);
+    this.assertHash(input.confirmed_snapshot_hash, 'confirmed_snapshot_hash');
+    if (input.confirmed_snapshot_hash !== checkpoint.target_snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Stage decision snapshot is stale.');
+    }
+    if (checkpoint.status === 'decided' && checkpoint.decision_authority_ref
+      && this.refsEqual(checkpoint.decision_authority_ref, input.decision_authority_ref)) {
+      return checkpoint;
+    }
+    this.assertCurrentPending(checkpoint);
+    if (!checkpoint.allowed_actions.includes('advance') || checkpoint.required_action_refs.length > 0) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Checkpoint is not eligible for advancement.');
+    }
+    const objections = await this.listOpenObjections(checkpoint.research_checkpoint_id);
+    if (objections.some((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity))) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Checkpoint has open blocking objections.');
+    }
+    const now = this.now();
+    const decidedCheckpoint: TopicSelectionResearchCheckpointRecord = {
+      ...checkpoint,
+      status: 'decided',
+      decision_authority_ref: input.decision_authority_ref,
+      required_action_refs: [],
+      updated_at: now,
+      decided_at: now,
+    };
+    try {
+      return await this.repository.advanceWithExistingAuthority(decidedCheckpoint);
+    } catch (error) {
+      if (error instanceof TopicSelectionResearchCheckpointCurrentConflictError) {
+        const current = await this.repository.findCheckpointById(checkpointId);
+        if (current?.status === 'decided' && current.decision_authority_ref
+          && this.refsEqual(current.decision_authority_ref, input.decision_authority_ref)) {
+          return current;
+        }
         throw new AppError(409, 'VERSION_CONFLICT', error.message);
       }
       throw error;
@@ -673,8 +1090,91 @@ export class TopicSelectionResearchCheckpointService {
     return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
   }
 
-  private ref(refType: string, refId: string, titleCardId: string): TopicSelectionFunctionalRef {
-    return { ref_type: refType, ref_id: refId, title_card_id: titleCardId };
+  private evidenceUnitRef(unit: TopicSelectionEvidenceUnitRecord): TopicSelectionFunctionalRef {
+    return this.ref('evidence_unit', unit.evidence_unit_id, unit.title_card_id, unit.evidence_map_version);
+  }
+
+  private needCandidateRef(candidate: TopicSelectionNeedCandidateRecord): TopicSelectionFunctionalRef {
+    return this.ref('need_candidate', candidate.need_candidate_id, candidate.title_card_id, candidate.candidate_version);
+  }
+
+  private requiredActionRef(
+    titleCardId: string,
+    targetRef: TopicSelectionFunctionalRef,
+    issueCode: string,
+  ): TopicSelectionFunctionalRef {
+    const id = this.hash({ issue_code: issueCode, target_ref: targetRef, title_card_id: titleCardId }).slice(0, 24);
+    return this.ref('research_required_action', `research_required_action_${id}`, titleCardId);
+  }
+
+  private gapSemanticGroupKey(candidate: TopicSelectionNeedCandidateRecord): string {
+    const semanticAxes = ['research_object', 'mechanism', 'intervention', 'comparison', 'outcome']
+      .map((key) => [key, candidate.mechanism_payload[key] ?? null]);
+    return this.hash({ mechanism_type: candidate.mechanism_type, semantic_axes: semanticAxes });
+  }
+
+  private gapCandidateEntries(packetPayload: Record<string, unknown>): GapCandidatePacketEntry[] {
+    const rawEntries = packetPayload.candidate_entries;
+    if (!Array.isArray(rawEntries)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection packet is missing candidate entries.');
+    }
+    return rawEntries.map((rawEntry) => {
+      if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection packet contains an invalid candidate entry.');
+      }
+      const entry = rawEntry as Record<string, unknown>;
+      const ref = entry.need_candidate_ref;
+      if (!ref || typeof ref !== 'object' || Array.isArray(ref)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection packet candidate ref is invalid.');
+      }
+      const candidateRef = ref as Record<string, unknown>;
+      if (candidateRef.ref_type !== 'need_candidate' || typeof candidateRef.ref_id !== 'string'
+        || typeof entry.semantic_group_key !== 'string' || typeof entry.machine_viable !== 'boolean') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Gap selection packet candidate entry is incomplete.');
+      }
+      return {
+        need_candidate_ref: ref as TopicSelectionFunctionalRef,
+        semantic_group_key: entry.semantic_group_key,
+        machine_viable: entry.machine_viable,
+      };
+    });
+  }
+
+  private async currentGapRejectedFramings(
+    titleCardId: string,
+  ): Promise<TopicSelectionRejectedNeedCandidateFraming[]> {
+    const current = await this.repository.findCurrentCheckpoint(titleCardId, 'gap_selection');
+    if (!current) return [];
+    const packet = await this.getPacket(current.research_checkpoint_id);
+    const raw = packet.packet_payload.rejected_alternatives;
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+      const record = item as Record<string, unknown>;
+      if (typeof record.framing_id !== 'string' || typeof record.reason_code !== 'string'
+        || typeof record.summary !== 'string' || !Array.isArray(record.refs)) return [];
+      return [{
+        framing_id: record.framing_id,
+        reason_code: record.reason_code,
+        summary: record.summary,
+        source_draft_id: typeof record.source_draft_id === 'string' ? record.source_draft_id : null,
+        refs: record.refs as TopicSelectionFunctionalRef[],
+      }];
+    });
+  }
+
+  private ref(
+    refType: string,
+    refId: string,
+    titleCardId: string,
+    versionId?: string,
+  ): TopicSelectionFunctionalRef {
+    return {
+      ref_type: refType,
+      ref_id: refId,
+      title_card_id: titleCardId,
+      ...(versionId ? { version_id: versionId } : {}),
+    };
   }
 
   private hash(value: unknown): string {

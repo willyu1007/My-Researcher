@@ -33,6 +33,9 @@ export interface TopicSelectionResearchCheckpointRepository {
   createDecision(
     persistence: TopicSelectionResearchCheckpointDecisionPersistence,
   ): Promise<TopicSelectionResearchCheckpointDecisionRecord>;
+  advanceWithExistingAuthority(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+  ): Promise<TopicSelectionResearchCheckpointRecord>;
   findDecisionById(decisionId: string): Promise<TopicSelectionResearchCheckpointDecisionRecord | null>;
   findDecisionByKey(decisionKey: string): Promise<TopicSelectionResearchCheckpointDecisionRecord | null>;
   findDecisionByCheckpointId(checkpointId: string): Promise<TopicSelectionResearchCheckpointDecisionRecord | null>;

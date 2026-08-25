@@ -747,7 +747,7 @@ export class TopicSelectionNeedDiscoveryDebateLoopService {
       ranked_candidate_draft_batch_hash: this.hash(batch),
       terminal_result: batch.draft_batch.terminal_result,
       draft_count: batch.drafts.length,
-      rejected_framing_count: batch.rejected_framings.length,
+      rejected_framing_count: batch.rejected_framings?.length ?? 0,
       unresolved_point_count: batch.unresolved_points.length,
     };
     const artifact = await this.dependencies.artifactBoundary.recordArtifact({

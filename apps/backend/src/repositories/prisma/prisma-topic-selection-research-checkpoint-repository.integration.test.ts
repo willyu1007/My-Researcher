@@ -74,6 +74,39 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
       decision(stored[0]!.decisionKey),
     );
     assert.equal(replay.research_checkpoint_decision_id, stored[0]!.id);
+
+    const gapHash = 'b'.repeat(64);
+    const gapCheckpoint = await service.materializeCheckpoint({
+      title_card_id: titleCardId,
+      checkpoint_kind: 'gap_selection',
+      target_ref: {
+        ref_type: 'need_candidate_arena',
+        ref_id: `arena_${suffix}`,
+        title_card_id: titleCardId,
+      },
+      target_snapshot_hash: gapHash,
+      allowed_actions: ['advance', 'loopback'],
+      packet_payload: { candidate_entries: [] },
+    });
+    const existingAuthority = await controlPlane.recordHumanDecision({
+      title_card_id: titleCardId,
+      target_ref: { ref_type: 'validated_need', ref_id: `validated_need_${suffix}`, title_card_id: titleCardId },
+      decision_type: 'confirm',
+      actor: { actor_type: 'human', actor_id: 'researcher_t147' },
+      rationale: 'HumanConfirmNeed authority for the frozen candidate pool.',
+      resulting_authority_refs: [],
+    });
+    const adapted = await service.adaptExistingStageDecision(gapCheckpoint.research_checkpoint_id, {
+      decision_authority_ref: {
+        ref_type: 'human_confirmed_decision',
+        ref_id: existingAuthority.human_confirmed_decision_id,
+        title_card_id: titleCardId,
+      },
+      confirmed_snapshot_hash: gapHash,
+    });
+    assert.equal(adapted.status, 'decided');
+    assert.equal(adapted.decision_authority_ref?.ref_id, existingAuthority.human_confirmed_decision_id);
+    await service.assertTransitionAllowed({ title_card_id: titleCardId, checkpoint_kind: 'gap_selection' });
   } finally {
     await prisma.topicSelectionResearchObjectionResolution.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchObjection.deleteMany({ where: { titleCardId } });

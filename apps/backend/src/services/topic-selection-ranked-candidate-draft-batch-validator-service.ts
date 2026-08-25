@@ -115,7 +115,7 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
     }
     if (
       batch.drafts.length === 0
-      && batch.rejected_framings.length === 0
+      && (batch.rejected_framings?.length ?? 0) === 0
       && batch.unresolved_points.length === 0
     ) {
       this.addBlockingIssue(issues, {

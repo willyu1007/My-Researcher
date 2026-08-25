@@ -313,6 +313,35 @@ test('topic-selection HumanConfirmationInput schema accepts delegated fixed-poli
   assert.equal(await validatesBody(humanConfirmationInputSchema, humanConfirmationInput()), true);
 });
 
+test('topic-selection HumanConfirmationInput schema accepts a snapshot-bound competitive gap review', async () => {
+  const input = humanConfirmationInput();
+  input.gap_selection_review = {
+    research_checkpoint_id: 'research_checkpoint_gap_001',
+    confirmed_candidate_pool_hash: 'a'.repeat(64),
+    selected_candidate_ref: ref('need_candidate', 'need_candidate_001', 'v1'),
+    direct_prior_art_pressure_reviewed: true,
+    disconfirming_evidence_reviewed: true,
+    candidate_reviews: [
+      {
+        need_candidate_ref: ref('need_candidate', 'need_candidate_001', 'v1'),
+        disposition: 'selected',
+        distinct_from_selected_axes: [],
+        rationale: 'Selected after direct comparison.',
+      },
+      {
+        need_candidate_ref: ref('need_candidate', 'need_candidate_002', 'v1'),
+        disposition: 'viable_alternative',
+        distinct_from_selected_axes: ['mechanism'],
+        rationale: 'Changes the causal mechanism.',
+      },
+    ],
+  };
+  assert.equal(await validatesBody(humanConfirmationInputSchema, input), true);
+
+  input.gap_selection_review.candidate_reviews = [input.gap_selection_review.candidate_reviews[0]!];
+  assert.equal(await validatesBody(humanConfirmationInputSchema, input), false);
+});
+
 test('topic-selection HumanConfirmationInput schema rejects delegated input without fixed policy', async () => {
   const input = humanConfirmationInput() as unknown as Record<string, unknown>;
   input.delegated_executor = {

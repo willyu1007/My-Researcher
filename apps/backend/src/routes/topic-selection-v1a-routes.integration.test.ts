@@ -50,6 +50,53 @@ function assertStatus(response: { statusCode: number; body: string }, expected: 
   }
 }
 
+async function researchCheckpoint(
+  app: ReturnType<typeof buildApp>,
+  titleCardId: string,
+  expectedKind: 'evidence_landscape' | 'gap_selection',
+) {
+  const statusRes = await app.inject({
+    method: 'GET',
+    url: `/topic-selection/title-cards/${encodeURIComponent(titleCardId)}/research-status`,
+  });
+  assertStatus(statusRes, 200);
+  const status = statusRes.json() as {
+    current_checkpoint: {
+      research_checkpoint_id: string;
+      checkpoint_kind: string;
+      target_snapshot_hash: string;
+      allowed_actions: string[];
+    } | null;
+  };
+  assert.equal(status.current_checkpoint?.checkpoint_kind, expectedKind);
+  assert.ok(status.current_checkpoint);
+  return status.current_checkpoint;
+}
+
+async function advanceEvidenceCheckpoint(app: ReturnType<typeof buildApp>, titleCardId: string): Promise<void> {
+  const checkpoint = await researchCheckpoint(app, titleCardId, 'evidence_landscape');
+  assert.ok(checkpoint.allowed_actions.includes('advance'));
+  const decisionRes = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${encodeURIComponent(checkpoint.research_checkpoint_id)}/decisions`,
+    payload: {
+      decision_key: uniqueId('evidence-decision'),
+      decision: 'advance',
+      actor: { actor_type: 'human', actor_id: 'route-test-researcher' },
+      confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+      rationale: 'Reviewed current source quality, direct neighbors, and disconfirming evidence.',
+      review_payload: {
+        review_kind: 'evidence_landscape',
+        nearest_work_reviewed: true,
+        disconfirming_evidence_reviewed: true,
+        source_quality_reviewed: true,
+        limitations: [],
+      },
+    },
+  });
+  assertStatus(decisionRes, 201);
+}
+
 function manualLocator(input: {
   titleCardId: string;
   literatureRef: TopicSelectionFunctionalRef;
@@ -250,8 +297,37 @@ function buildNativeRankedBatch(input: {
         speculative: false,
         confidence: 0.82,
       },
+      {
+        draft_id: `draft_alternative_${input.nodeAttemptId}`,
+        rank: 2,
+        candidate_need: 'Adaptive evidence routing may change reviewer-facing decision quality.',
+        unmet_need_statement: 'Adaptive routing remains untested under reviewer-facing constraints.',
+        mechanism_type: 'system_gap',
+        mechanism_summary: 'Compare a routing intervention rather than rewording the traceability gap.',
+        mechanism_payload: { intervention: 'adaptive evidence routing' },
+        scope_notes: 'Local-first CS paper engineering workflows.',
+        non_goal_notes: 'No production deployment claim.',
+        prior_art_status: 'partial_solution_known',
+        evidence_role_bundle: {
+          support_unit_refs: refsByEvidenceRole(input.evidenceMapRecords, 'support', input.titleCardId),
+          challenge_unit_refs: refsByEvidenceRole(input.evidenceMapRecords, 'challenge', input.titleCardId),
+          baseline_unit_refs: refsByEvidenceRole(input.evidenceMapRecords, 'baseline', input.titleCardId),
+          context_unit_refs: refsByEvidenceRole(input.evidenceMapRecords, 'context', input.titleCardId),
+        },
+        conflict_refs: conflictRefs,
+        strength_assessment_refs: [input.strengthRef],
+        accepted_risk_refs: [],
+        gap_codes: ['intervention_gap'],
+        speculative: false,
+        confidence: 0.78,
+      },
     ],
-    rejected_framings: [],
+    rejected_framings: [{
+      framing_id: `top_k_reframe_${input.nodeAttemptId}`,
+      reason_code: 'PSEUDO_GAP_RISK',
+      summary: 'Changing only top-k does not create a substantively different research object.',
+      refs: [],
+    }],
     unresolved_points: [],
   };
 }
@@ -509,6 +585,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
         literature_resource_pool_snapshot_id: snapshot.literature_resource_pool_snapshot_id,
         query_intents: [
           'support reviewer-facing traceability gap',
+          'challenge reviewer-facing traceability gap',
           'baseline decision chain misses provenance',
           'context local CS paper engineering workflow',
         ],
@@ -518,6 +595,12 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
             intent_type: 'support',
             query: 'support reviewer-facing traceability gap',
             expected_evidence_role: 'support',
+          },
+          {
+            coverage_key: 'challenge-traceability',
+            intent_type: 'challenge',
+            query: 'challenge reviewer-facing traceability gap',
+            expected_evidence_role: 'challenge',
           },
           {
             coverage_key: 'baseline-provenance',
@@ -540,8 +623,9 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
       search_plan: { search_plan_id: string; plan_version: string };
       coverage_row_intents: Array<{ coverage_row_intent_id: string }>;
     };
-    const [supportRow, baselineRow, contextRow] = plan.coverage_row_intents;
+    const [supportRow, challengeRow, baselineRow, contextRow] = plan.coverage_row_intents;
     assert.ok(supportRow);
+    assert.ok(challengeRow);
     assert.ok(baselineRow);
     assert.ok(contextRow);
 
@@ -552,7 +636,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
         title_card_id: titleCardId,
         search_plan_id: plan.search_plan.search_plan_id,
         result_accounting: {
-          total_result_count: 3,
+          total_result_count: 4,
           unique_literature_count: 1,
           duplicate_result_count: 0,
           failed_source_count: 0,
@@ -597,7 +681,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     });
     assertStatus(matrixRes, 200);
     const matrix = matrixRes.json() as { summary: { satisfied_count: number } };
-    assert.equal(matrix.summary.satisfied_count, 3);
+    assert.equal(matrix.summary.satisfied_count, 4);
 
     const evidenceMapRes = await app.inject({
       method: 'POST',
@@ -618,6 +702,20 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
               key: `support-${suffix}`,
             }),
             source_statement: 'Reviewers need traceability from source claims to topic-selection decisions.',
+          },
+          {
+            client_unit_key: 'challenge',
+            coverage_row_intent_id: challengeRow.coverage_row_intent_id,
+            evidence_role: 'challenge',
+            literature_ref: literatureRef,
+            locator: manualLocator({
+              titleCardId,
+              literatureRef,
+              sourceRef,
+              key: `challenge-${suffix}`,
+            }),
+            source_attribution_kind: 'counter_evidence',
+            source_statement: 'A direct alternative explanation challenges whether traceability alone improves reviewer decisions.',
           },
           {
             client_unit_key: 'baseline',
@@ -654,6 +752,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
       evidence_map: { evidence_map_id: string; support_unit_count: number };
     };
     assert.equal(evidenceMap.evidence_map.support_unit_count, 1);
+    await advanceEvidenceCheckpoint(app, titleCardId);
 
     // T-087 Phase 2.3 — EvidenceUnit list by evidence-map drives the drilldown UI.
     const unitsRes = await app.inject({
@@ -688,7 +787,24 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
       },
     });
     assertStatus(candidateRes, 201);
-    const candidate = candidateRes.json() as { need_candidate_id: string };
+    const candidate = candidateRes.json() as { need_candidate_id: string; candidate_version: string };
+
+    const alternativeCandidateRes = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/need-candidates',
+      payload: {
+        title_card_id: titleCardId,
+        evidence_map_id: evidenceMap.evidence_map.evidence_map_id,
+        candidate_need: 'Adaptive evidence routing may change reviewer-facing decision quality.',
+        mechanism_type: 'system_gap',
+        mechanism_payload: { intervention: 'adaptive evidence routing' },
+        scope_notes: 'A substantively different intervention within the same evidence boundary.',
+        prior_art_status: 'no_strong_solution_found',
+        created_by: 'system',
+      },
+    });
+    assertStatus(alternativeCandidateRes, 201);
+    const alternativeCandidate = alternativeCandidateRes.json() as { need_candidate_id: string; candidate_version: string };
 
     const readinessRes = await app.inject({
       method: 'POST',
@@ -711,7 +827,11 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
       },
     });
     assertStatus(packetRes, 201);
-    const packet = packetRes.json() as { validation_support_packet_id: string };
+    const packet = packetRes.json() as {
+      validation_support_packet_id: string;
+      residual_risk_refs: TopicSelectionFunctionalRef[];
+      required_human_checks: string[];
+    };
 
     // T-087 Phase 2.5 — packet picker driver: assert candidate-scoped list.
     const packetListRes = await app.inject({
@@ -742,6 +862,8 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     assert.ok(adjudication.adjudication_result.output_validated_need_id);
     assert.equal(adjudication.validated_need, null);
     assert.equal(adjudication.v1b_input_bundle, null);
+    const gapCheckpoint = await researchCheckpoint(app, titleCardId, 'gap_selection');
+    assert.ok(gapCheckpoint.allowed_actions.includes('advance'));
 
     const confirmationRes = await app.inject({
       method: 'POST',
@@ -749,8 +871,36 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
         adjudication.adjudication_result.adjudication_result_id,
       )}/human-confirmations`,
       payload: {
-        human_actor: { actor_type: 'human', actor_id: 'route-test-reviewer' },
-        human_rationale: 'Support, baseline, context, and handoff refs are sufficient for v1b input.',
+        confirmation_input: {
+          schema_version: TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
+          actor_mode: 'human',
+          accountable_human_ref: { actor_type: 'human', actor_id: 'route-test-reviewer' },
+          rationale: 'Support, baseline, challenge, candidate competition, and handoff refs are sufficient for v1b input.',
+          accepted_risk_refs: packet.residual_risk_refs,
+          required_check_results: packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
+          delegated_executor: null,
+          gap_selection_review: {
+            research_checkpoint_id: gapCheckpoint.research_checkpoint_id,
+            confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
+            selected_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
+            direct_prior_art_pressure_reviewed: true,
+            disconfirming_evidence_reviewed: true,
+            candidate_reviews: [
+              {
+                need_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
+                disposition: 'selected',
+                distinct_from_selected_axes: [],
+                rationale: 'Most identifiable gap for this research scope.',
+              },
+              {
+                need_candidate_ref: ref('need_candidate', alternativeCandidate.need_candidate_id, titleCardId, alternativeCandidate.candidate_version),
+                disposition: 'viable_alternative',
+                distinct_from_selected_axes: ['intervention'],
+                rationale: 'Changes the intervention rather than rewording the selected gap.',
+              },
+            ],
+          },
+        },
       },
     });
     assertStatus(confirmationRes, 201);
@@ -1344,6 +1494,7 @@ test('topic-selection v1a native workflow harness drives N1-N9 without direct au
     );
     const n6AttemptId = `node_attempt_n6_${suffix}`;
     const n6StrengthRef = ref('evidence_strength_assessment', `strength_${suffix}`, titleCardId);
+    await advanceEvidenceCheckpoint(app, titleCardId);
     const n6 = await invokeV1aNativeHarnessNode(
       app,
       'topic-selection.v1a.generate-need-candidate.v1',
@@ -1390,8 +1541,8 @@ test('topic-selection v1a native workflow harness drives N1-N9 without direct au
         expectations: {
           status: 'succeeded',
           routing_decision: 'finalize_with_admitted_batch',
-          admitted_draft_count: 1,
-          persisted_candidate_count: 1,
+          admitted_draft_count: 2,
+          persisted_candidate_count: 2,
           persistence: 'required',
         },
         created_by: 'system',
@@ -1403,6 +1554,8 @@ test('topic-selection v1a native workflow harness drives N1-N9 without direct au
       },
     );
     const candidate = n6.scenario_result.adapter_result.persist_need_candidate_batch_result.persisted_candidates[0];
+    const alternativeCandidate = n6.scenario_result.adapter_result.persist_need_candidate_batch_result.persisted_candidates[1];
+    assert.ok(alternativeCandidate);
     const candidateRef = ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version);
     const n7 = await invokeV1aNativeHarnessNode(
       app,
@@ -1439,6 +1592,8 @@ test('topic-selection v1a native workflow harness drives N1-N9 without direct au
         route_target_node_id: 'topic-selection.v1a.human-confirm-need.v1',
       },
     );
+    const gapCheckpoint = await researchCheckpoint(app, titleCardId, 'gap_selection');
+    assert.ok(gapCheckpoint.allowed_actions.includes('advance'));
     const n8 = await invokeV1aNativeHarnessNode(
       app,
       'topic-selection.v1a.human-confirm-need.v1',
@@ -1466,6 +1621,32 @@ test('topic-selection v1a native workflow harness drives N1-N9 without direct au
             'confirm_v1b_handoff_readiness',
           ].map((checkId) => ({ check_id: checkId, result: 'accepted' })),
           delegated_executor: null,
+          gap_selection_review: {
+            research_checkpoint_id: gapCheckpoint.research_checkpoint_id,
+            confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
+            selected_candidate_ref: candidateRef,
+            direct_prior_art_pressure_reviewed: true,
+            disconfirming_evidence_reviewed: true,
+            candidate_reviews: [
+              {
+                need_candidate_ref: candidateRef,
+                disposition: 'selected',
+                distinct_from_selected_axes: [],
+                rationale: 'Most identifiable gap for the scoped study.',
+              },
+              {
+                need_candidate_ref: ref(
+                  'need_candidate',
+                  alternativeCandidate.need_candidate_id,
+                  titleCardId,
+                  alternativeCandidate.candidate_version,
+                ),
+                disposition: 'viable_alternative',
+                distinct_from_selected_axes: ['intervention'],
+                rationale: 'Changes the intervention rather than only wording or top-k.',
+              },
+            ],
+          },
         },
         execution_mode: 'deterministic_parser',
         policy_version: 'v1',

@@ -4,6 +4,7 @@ import type {
   TopicSelectionActorType,
   TopicSelectionFunctionalRef,
   TopicSelectionGateIssue,
+  TopicSelectionHumanConfirmedDecisionRecord,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
@@ -39,6 +40,7 @@ import type {
   TopicSelectionNeedValidationRepository,
 } from '../repositories/topic-selection-need-validation.repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
@@ -48,7 +50,11 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
-  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
+  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>
+    & Partial<Pick<
+      TopicSelectionResearchCheckpointService,
+      'materializeGapSelectionCheckpoint' | 'assertGapSelectionConfirmation' | 'adaptExistingStageDecision'
+    >>;
 };
 
 type CreateNeedCandidateInput = {
@@ -159,7 +165,7 @@ const VALIDATE_READY_STATUSES = new Set<TopicSelectionNeedCandidateDecisionStatu
 export class TopicSelectionNeedValidationService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
-  private readonly checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
+  private readonly checkpointGuard?: ServiceOptions['checkpointGuard'];
 
   constructor(
     private readonly repository: TopicSelectionNeedValidationRepository,
@@ -283,7 +289,7 @@ export class TopicSelectionNeedValidationService {
       created_by: input.created_by ?? 'system',
     });
     const now = this.now();
-    return this.repository.createNeedCandidate({
+    const persisted = await this.repository.createNeedCandidate({
       need_candidate_id: candidateId,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
@@ -327,6 +333,16 @@ export class TopicSelectionNeedValidationService {
       created_at: now,
       updated_at: now,
     });
+    const candidates = (await this.repository.listNeedCandidatesByTitleCardId(input.title_card_id))
+      .filter((candidate) => candidate.evidence_map_id === input.evidence_map_id);
+    await this.checkpointGuard?.materializeGapSelectionCheckpoint?.({
+      workspace_id: persisted.workspace_id ?? null,
+      title_card_id: persisted.title_card_id,
+      evidence_map_ref: persisted.evidence_map_ref,
+      candidates,
+      policy_version_id: input.policy_version_id ?? null,
+    });
+    return persisted;
   }
 
   async assessCandidateReadiness(
@@ -484,13 +500,14 @@ export class TopicSelectionNeedValidationService {
     };
     const saved = await this.repository.createReadinessAssessment(readiness);
     if (transition.result === 'passed') {
-      await this.repository.updateNeedCandidateStatus(candidate.need_candidate_id, {
+      const updated = await this.repository.updateNeedCandidateStatus(candidate.need_candidate_id, {
         decision_status: 'ready_for_validation',
         review_status: 'needs_human_review',
         open_recheck_request_refs: openRecheckRefs,
         gap_codes: readiness.gap_codes,
         updated_at: this.now(),
       });
+      await this.refreshGapSelectionCheckpoint(updated, input.policy_version_id ?? null);
     }
     return saved;
   }
@@ -822,7 +839,7 @@ export class TopicSelectionNeedValidationService {
       traceSnapshotId: trace.trace_snapshot_id,
       artifactRefs: workflow.artifact_refs.map((artifact) => this.ref('artifact_ref', artifact.artifact_ref_id, candidate.title_card_id)),
     });
-    return this.repository.adjudicateWithSideEffects({
+    const result = await this.repository.adjudicateWithSideEffects({
       adjudication_result: adjudicationResult,
       candidate_patch: {
         lifecycle_status: this.adjudicationPendingLifecycleStatusForDecision(input.final_decision, candidate.lifecycle_status),
@@ -846,6 +863,8 @@ export class TopicSelectionNeedValidationService {
       memory_suggestion: memorySuggestion,
       v1b_input_bundle: null,
     });
+    await this.refreshGapSelectionCheckpoint(result.need_candidate, input.policy_version_id ?? null);
+    return result;
   }
 
   async confirmValidatedNeed(input: ConfirmValidatedNeedInput): Promise<ConfirmValidatedNeedResult> {
@@ -861,12 +880,13 @@ export class TopicSelectionNeedValidationService {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Validate adjudication is missing output_validated_need_id.');
     }
     const existing = await this.repository.findValidatedNeedById(adjudication.output_validated_need_id);
-    if (existing) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'ValidatedNeed already exists for this adjudication.');
-    }
     const candidate = await this.requireCandidate(adjudication.need_candidate_id);
-    if (candidate.result_validated_need_id) {
+    if (candidate.result_validated_need_id
+      && candidate.result_validated_need_id !== adjudication.output_validated_need_id) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'NeedCandidate already produced a ValidatedNeed.');
+    }
+    if (!existing && candidate.result_validated_need_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'NeedCandidate references a missing ValidatedNeed.');
     }
     if (candidate.result_adjudication_id && candidate.result_adjudication_id !== adjudication.adjudication_result_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'NeedCandidate result adjudication does not match confirmation adjudication.');
@@ -877,27 +897,72 @@ export class TopicSelectionNeedValidationService {
     }
     const confirmationInput = this.normalizeHumanConfirmationInput(input, adjudication, supportPacket);
     this.assertHumanConfirmationInput(confirmationInput, adjudication, supportPacket);
-    const validatedNeedRef = this.ref('validated_need', adjudication.output_validated_need_id, candidate.title_card_id);
-    const existingHumanDecisions = await this.controlPlane.listHumanDecisionsByTargetRef(validatedNeedRef);
-    if (existingHumanDecisions.length > 0) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'HumanConfirmedDecision exists but ValidatedNeed was not materialized.');
+    await this.refreshGapSelectionCheckpoint(candidate, input.policy_version_id ?? null);
+    const gapReviewRequired = Boolean(this.checkpointGuard?.assertGapSelectionConfirmation);
+    if (gapReviewRequired && !confirmationInput.gap_selection_review) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'HumanConfirmNeed requires gap_selection_review bound to the frozen candidate arena.');
     }
+    const gapCheckpoint = confirmationInput.gap_selection_review
+      ? await this.checkpointGuard?.assertGapSelectionConfirmation?.({
+        title_card_id: candidate.title_card_id,
+        selected_candidate: candidate,
+        review: confirmationInput.gap_selection_review,
+      })
+      : undefined;
+    if (gapReviewRequired && !gapCheckpoint) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Current gap selection checkpoint is required.');
+    }
+    const validatedNeedRef = this.ref('validated_need', adjudication.output_validated_need_id, candidate.title_card_id);
     const confirmationArtifactRefs = this.uniqueRefs([
       ...(input.artifact_refs ?? []),
       input.semantic_review_context_packet_ref ?? null,
       input.semantic_review_ref ?? null,
     ]);
-    const humanDecision = await this.controlPlane.recordHumanDecision({
-      workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
-      title_card_id: candidate.title_card_id,
-      target_ref: validatedNeedRef,
-      decision_type: 'confirm',
-      actor: confirmationInput.accountable_human_ref,
-      rationale: confirmationInput.rationale,
-      artifact_refs: confirmationArtifactRefs,
-      policy_version_id: input.policy_version_id ?? null,
-      resulting_authority_refs: [validatedNeedRef],
-    });
+    if (existing) {
+      const existingHumanDecision = await this.controlPlane.getHumanDecision(existing.human_decision_id);
+      if (!existingHumanDecision) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'ValidatedNeed human decision authority is missing.');
+      }
+      this.assertHumanDecisionReplayMatches(
+        existingHumanDecision,
+        validatedNeedRef,
+        confirmationInput,
+        confirmationArtifactRefs,
+      );
+      if (gapCheckpoint) {
+        await this.checkpointGuard?.adaptExistingStageDecision?.(gapCheckpoint.research_checkpoint_id, {
+          decision_authority_ref: this.ref(
+            'human_confirmed_decision',
+            existingHumanDecision.human_confirmed_decision_id,
+            candidate.title_card_id,
+          ),
+          confirmed_snapshot_hash: confirmationInput.gap_selection_review?.confirmed_candidate_pool_hash
+            ?? gapCheckpoint.target_snapshot_hash,
+        });
+      }
+      return {
+        validated_need: existing,
+        need_candidate: candidate,
+        adjudication_result: adjudication,
+      };
+    }
+    const existingHumanDecisions = await this.controlPlane.listHumanDecisionsByTargetRef(validatedNeedRef);
+    if (existingHumanDecisions.length > 1) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Multiple HumanConfirmedDecision records target the reserved ValidatedNeed.');
+    }
+    const humanDecision = existingHumanDecisions[0]
+      ?? await this.controlPlane.recordHumanDecision({
+        workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
+        title_card_id: candidate.title_card_id,
+        target_ref: validatedNeedRef,
+        decision_type: 'confirm',
+        actor: confirmationInput.accountable_human_ref,
+        rationale: confirmationInput.rationale,
+        artifact_refs: confirmationArtifactRefs,
+        policy_version_id: input.policy_version_id ?? null,
+        resulting_authority_refs: [validatedNeedRef],
+      });
+    this.assertHumanDecisionReplayMatches(humanDecision, validatedNeedRef, confirmationInput, confirmationArtifactRefs);
     const inputSnapshot = await this.controlPlane.compileInputSnapshot({
       workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
       title_card_id: candidate.title_card_id,
@@ -1014,6 +1079,17 @@ export class TopicSelectionNeedValidationService {
         updated_at: this.now(),
       },
     });
+    if (gapCheckpoint) {
+      await this.checkpointGuard?.adaptExistingStageDecision?.(gapCheckpoint.research_checkpoint_id, {
+        decision_authority_ref: this.ref(
+          'human_confirmed_decision',
+          humanDecision.human_confirmed_decision_id,
+          candidate.title_card_id,
+        ),
+        confirmed_snapshot_hash: confirmationInput.gap_selection_review?.confirmed_candidate_pool_hash
+          ?? gapCheckpoint.target_snapshot_hash,
+      });
+    }
     return {
       ...result,
       adjudication_result: adjudication,
@@ -1033,6 +1109,10 @@ export class TopicSelectionNeedValidationService {
       return existingBundle;
     }
     const candidate = await this.requireCandidate(validatedNeed.source_need_candidate_id);
+    await this.checkpointGuard?.assertTransitionAllowed({
+      title_card_id: candidate.title_card_id,
+      checkpoint_kind: 'gap_selection',
+    });
     const supportPacket = await this.requireSupportPacket(validatedNeed.support_packet_id);
     const adjudication = await this.repository.findAdjudicationResultById(validatedNeed.adjudication_result_id);
     if (!adjudication) {
@@ -1243,6 +1323,31 @@ export class TopicSelectionNeedValidationService {
     }
   }
 
+  private assertHumanDecisionReplayMatches(
+    decision: TopicSelectionHumanConfirmedDecisionRecord,
+    targetRef: TopicSelectionFunctionalRef,
+    confirmationInput: HumanConfirmationInput,
+    artifactRefs: TopicSelectionFunctionalRef[],
+  ): void {
+    const expected = {
+      actor: confirmationInput.accountable_human_ref,
+      artifact_refs: artifactRefs,
+      decision_type: 'confirm',
+      rationale: confirmationInput.rationale,
+      target_ref: targetRef,
+    };
+    const actual = {
+      actor: decision.actor,
+      artifact_refs: this.uniqueRefs(decision.artifact_refs),
+      decision_type: decision.decision_type,
+      rationale: decision.rationale,
+      target_ref: decision.target_ref,
+    };
+    if (sha256Text(stableStringify(actual)) !== sha256Text(stableStringify(expected))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'HumanConfirmNeed replay content does not match the existing human decision.');
+    }
+  }
+
   private buildAdjudicationResult(input: {
     candidate: TopicSelectionNeedCandidateRecord;
     supportPacket: TopicSelectionValidationDecisionSupportPacketRecord;
@@ -1438,6 +1543,22 @@ export class TopicSelectionNeedValidationService {
     return null;
   }
 
+  private async refreshGapSelectionCheckpoint(
+    candidate: TopicSelectionNeedCandidateRecord,
+    policyVersionId: string | null,
+  ): Promise<void> {
+    if (!this.checkpointGuard?.materializeGapSelectionCheckpoint) return;
+    const candidates = (await this.repository.listNeedCandidatesByTitleCardId(candidate.title_card_id))
+      .filter((item) => item.evidence_map_id === candidate.evidence_map_id);
+    await this.checkpointGuard.materializeGapSelectionCheckpoint({
+      workspace_id: candidate.workspace_id ?? null,
+      title_card_id: candidate.title_card_id,
+      evidence_map_ref: candidate.evidence_map_ref,
+      candidates,
+      policy_version_id: policyVersionId,
+    });
+  }
+
   private candidateCreationBlockers(input: CreateNeedCandidateInput): TopicSelectionGateIssue[] {
     const blockers: TopicSelectionGateIssue[] = [];
     if (input.candidate_need.trim().length === 0) {
@@ -1466,6 +1587,18 @@ export class TopicSelectionNeedValidationService {
     ) {
       blockers.push(this.blocker('SECTION_BACKED_SUPPORT_REQUIRED', 'Abstract-only support cannot make a candidate validation-ready.'));
     }
+    if (roleBundle.challenge_unit_refs.length === 0) {
+      blockers.push(this.blocker('DISCONFIRMING_EVIDENCE_REQUIRED', 'NeedCandidate validation requires explicit disconfirming evidence.'));
+    }
+    if (
+      roleBundle.challenge_unit_refs.length > 0
+      && roleBundle.challenge_unit_refs.every((unitRef) => {
+        const unit = bundle.challenge_units.find((item) => item.evidence_unit_id === unitRef.ref_id);
+        return unit?.abstract_only === true;
+      })
+    ) {
+      blockers.push(this.blocker('SECTION_BACKED_CHALLENGE_REQUIRED', 'Abstract-only challenge material cannot satisfy disconfirming evidence review.'));
+    }
     if (bundle.freshness_status !== 'current') {
       blockers.push(this.blocker('EVIDENCE_MAP_CURRENT_REQUIRED', 'NeedCandidate readiness requires a current EvidenceMap.'));
     }
@@ -1484,8 +1617,8 @@ export class TopicSelectionNeedValidationService {
     if (!candidate.scope_notes || candidate.scope_notes.trim().length === 0) {
       blockers.push(this.blocker('SCOPE_REVIEW_REQUIRED', 'NeedCandidate requires explicit scope notes before validation.'));
     }
-    if (roleBundle.baseline_unit_refs.length === 0 && roleBundle.context_unit_refs.length === 0) {
-      blockers.push(this.blocker('COVERAGE_BASELINE_OR_CONTEXT_REQUIRED', 'Validation needs baseline or context coverage.'));
+    if (roleBundle.baseline_unit_refs.length === 0) {
+      blockers.push(this.blocker('DIRECT_NEIGHBOR_BASELINE_REQUIRED', 'Validation requires direct-neighbor baseline evidence; context alone is insufficient.'));
     }
     if (candidate.gap_codes.includes('PSEUDO_GAP_RISK')) {
       blockers.push(this.blocker('PSEUDO_GAP_RISK_UNRESOLVED', 'Pseudo-gap risk must be resolved before validation.'));

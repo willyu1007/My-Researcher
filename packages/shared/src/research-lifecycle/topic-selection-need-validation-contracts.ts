@@ -440,7 +440,7 @@ export interface TopicSelectionRankedCandidateDraftBatch {
   schema_version: string;
   draft_batch: TopicSelectionRankedCandidateDraftBatchMetadata;
   drafts: TopicSelectionNeedCandidateDraft[];
-  rejected_framings: TopicSelectionRejectedNeedCandidateFraming[];
+  rejected_framings?: TopicSelectionRejectedNeedCandidateFraming[];
   unresolved_points: TopicSelectionNeedCandidateUnresolvedPoint[];
 }
 
@@ -560,6 +560,7 @@ export interface TopicSelectionPersistNeedCandidateBatchCommand {
   admission_report_artifact_ref: TopicSelectionArtifactFunctionalRef;
   supplemental_routing_artifact_refs: TopicSelectionArtifactFunctionalRef[];
   admitted_drafts: TopicSelectionPersistNeedCandidateBatchDraft[];
+  rejected_framings: TopicSelectionRejectedNeedCandidateFraming[];
   idempotency_key: string;
 }
 
@@ -1097,6 +1098,41 @@ export interface HumanConfirmationRequiredCheckResult {
   result: TopicSelectionHumanConfirmationRequiredCheckResult;
 }
 
+export const TOPIC_SELECTION_GAP_DISTINCTNESS_AXES = [
+  'research_object',
+  'mechanism',
+  'intervention',
+  'comparison',
+  'outcome',
+] as const;
+export type TopicSelectionGapDistinctnessAxis =
+  (typeof TOPIC_SELECTION_GAP_DISTINCTNESS_AXES)[number];
+
+export const TOPIC_SELECTION_GAP_CANDIDATE_DISPOSITIONS = [
+  'selected',
+  'viable_alternative',
+  'rejected',
+] as const;
+export type TopicSelectionGapCandidateDisposition =
+  (typeof TOPIC_SELECTION_GAP_CANDIDATE_DISPOSITIONS)[number];
+
+export interface TopicSelectionGapCandidateReview {
+  need_candidate_ref: TopicSelectionFunctionalRef;
+  disposition: TopicSelectionGapCandidateDisposition;
+  distinct_from_selected_axes: TopicSelectionGapDistinctnessAxis[];
+  rationale: string;
+  rejection_reason?: string | null;
+}
+
+export interface TopicSelectionGapSelectionReview {
+  research_checkpoint_id: string;
+  confirmed_candidate_pool_hash: string;
+  selected_candidate_ref: TopicSelectionFunctionalRef;
+  direct_prior_art_pressure_reviewed: boolean;
+  disconfirming_evidence_reviewed: boolean;
+  candidate_reviews: TopicSelectionGapCandidateReview[];
+}
+
 export interface HumanConfirmationInput {
   schema_version: typeof TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION;
   actor_mode: TopicSelectionHumanConfirmationActorMode;
@@ -1105,6 +1141,7 @@ export interface HumanConfirmationInput {
   accepted_risk_refs: TopicSelectionFunctionalRef[];
   required_check_results: HumanConfirmationRequiredCheckResult[];
   delegated_executor?: HumanConfirmationDelegatedExecutor | null;
+  gap_selection_review?: TopicSelectionGapSelectionReview | null;
 }
 
 export interface HumanConfirmationSemanticReviewContextPacket {
@@ -1410,6 +1447,53 @@ const humanConfirmationRequiredCheckResultArray = {
   items: humanConfirmationRequiredCheckResultSchema,
 } as const;
 
+export const topicSelectionGapCandidateReviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'need_candidate_ref',
+    'disposition',
+    'distinct_from_selected_axes',
+    'rationale',
+  ],
+  properties: {
+    need_candidate_ref: topicSelectionFunctionalRefSchema,
+    disposition: { enum: [...TOPIC_SELECTION_GAP_CANDIDATE_DISPOSITIONS] },
+    distinct_from_selected_axes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_GAP_DISTINCTNESS_AXES] },
+      uniqueItems: true,
+    },
+    rationale: stringId,
+    rejection_reason: nullableStringId,
+  },
+} as const;
+
+export const topicSelectionGapSelectionReviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'research_checkpoint_id',
+    'confirmed_candidate_pool_hash',
+    'selected_candidate_ref',
+    'direct_prior_art_pressure_reviewed',
+    'disconfirming_evidence_reviewed',
+    'candidate_reviews',
+  ],
+  properties: {
+    research_checkpoint_id: stringId,
+    confirmed_candidate_pool_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    selected_candidate_ref: topicSelectionFunctionalRefSchema,
+    direct_prior_art_pressure_reviewed: booleanValue,
+    disconfirming_evidence_reviewed: booleanValue,
+    candidate_reviews: {
+      type: 'array',
+      items: topicSelectionGapCandidateReviewSchema,
+      minItems: 2,
+    },
+  },
+} as const;
+
 export const humanConfirmationInputSchema = {
   type: 'object',
   additionalProperties: false,
@@ -1430,6 +1514,9 @@ export const humanConfirmationInputSchema = {
     required_check_results: humanConfirmationRequiredCheckResultArray,
     delegated_executor: {
       anyOf: [humanConfirmationDelegatedExecutorSchema, { type: 'null' }],
+    },
+    gap_selection_review: {
+      anyOf: [topicSelectionGapSelectionReviewSchema, { type: 'null' }],
     },
   },
   allOf: [
@@ -1806,6 +1893,19 @@ export const topicSelectionGenerateNeedCandidateNodeInputSchema = {
   },
 } as const;
 
+const topicSelectionRejectedNeedCandidateFramingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['framing_id', 'reason_code', 'summary', 'refs'],
+  properties: {
+    framing_id: stringId,
+    reason_code: stringId,
+    summary: stringId,
+    source_draft_id: nullableStringId,
+    refs: functionalRefArray,
+  },
+} as const;
+
 export const topicSelectionRankedCandidateDraftBatchSchema = {
   type: 'object',
   additionalProperties: false,
@@ -1827,18 +1927,7 @@ export const topicSelectionRankedCandidateDraftBatchSchema = {
     drafts: { type: 'array', items: topicSelectionNeedCandidateDraftSchema },
     rejected_framings: {
       type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['framing_id', 'reason_code', 'summary', 'refs'],
-        properties: {
-          framing_id: stringId,
-          reason_code: stringId,
-          summary: stringId,
-          source_draft_id: nullableStringId,
-          refs: functionalRefArray,
-        },
-      },
+      items: topicSelectionRejectedNeedCandidateFramingSchema,
     },
     unresolved_points: {
       type: 'array',
@@ -2068,6 +2157,10 @@ export const topicSelectionPersistNeedCandidateBatchCommandSchema = {
           source_admission_decision_ref: topicSelectionFunctionalRefSchema,
         },
       },
+    },
+    rejected_framings: {
+      type: 'array',
+      items: topicSelectionRejectedNeedCandidateFramingSchema,
     },
     idempotency_key: stringId,
   },

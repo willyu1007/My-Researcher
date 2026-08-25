@@ -336,6 +336,34 @@ implements TopicSelectionResearchCheckpointRepository {
     }
   }
 
+  async advanceWithExistingAuthority(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const claimed = await this.prisma.topicSelectionResearchCheckpoint.updateMany({
+      where: {
+        id: checkpoint.research_checkpoint_id,
+        currentCheckpointKey: checkpoint.current_checkpoint_key,
+        status: 'pending',
+      },
+      data: {
+        status: checkpoint.status,
+        decisionAuthorityRef: jsonOrNull(checkpoint.decision_authority_ref),
+        requiredActionRefs: toJsonValue(checkpoint.required_action_refs),
+        decidedAt: checkpoint.decided_at ? new Date(checkpoint.decided_at) : null,
+        updatedAt: new Date(checkpoint.updated_at),
+      },
+    });
+    if (claimed.count !== 1) {
+      throw new TopicSelectionResearchCheckpointCurrentConflictError(
+        checkpoint.current_checkpoint_key ?? `${checkpoint.title_card_id}:${checkpoint.checkpoint_kind}`,
+      );
+    }
+    const row = await this.prisma.topicSelectionResearchCheckpoint.findUniqueOrThrow({
+      where: { id: checkpoint.research_checkpoint_id },
+    });
+    return toCheckpoint(row);
+  }
+
   async findDecisionById(decisionId: string): Promise<TopicSelectionResearchCheckpointDecisionRecord | null> {
     const row = await this.prisma.topicSelectionResearchCheckpointDecision.findUnique({ where: { id: decisionId } });
     return row ? toDecision(row) : null;

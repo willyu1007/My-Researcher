@@ -2,17 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type { TopicSelectionEvidenceSourceLocator } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
+import type { HumanConfirmationInput } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import { InMemoryTitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionEvidenceMapRepository } from '../repositories/in-memory-topic-selection-evidence-map-repository.js';
 import { InMemoryTopicSelectionNeedValidationRepository } from '../repositories/in-memory-topic-selection-need-validation-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/in-memory-topic-selection-search-resource-repository.js';
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
 import { TopicSelectionNeedValidationService } from './topic-selection-need-validation-service.js';
+import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
 function ref(refType: string, refId: string, titleCardId = 'title_card_1'): TopicSelectionFunctionalRef {
@@ -148,6 +151,7 @@ function makeContext() {
     { idFactory, now },
   );
   return {
+    controlPlane,
     controlPlaneRepository,
     evidenceRepository,
     evidenceService,
@@ -409,7 +413,7 @@ async function createCandidateFixture(options: EvidenceMapFixtureOptions & {
 }
 
 async function createReadyPacketFixture() {
-  const ctx = await createCandidateFixture({ includeChallenge: false });
+  const ctx = await createCandidateFixture();
   const readiness = await ctx.needService.assessCandidateReadiness({
     need_candidate_id: ctx.candidate.need_candidate_id,
     assessed_by: 'system',
@@ -469,7 +473,8 @@ test('readiness handles an intentionally empty role bundle as blocked without st
 
   assert.equal(readiness.strength_assessment_ref, null);
   assert.ok(readiness.blockers.some((blocker) => blocker.code === 'SUPPORT_EVIDENCE_REQUIRED'));
-  assert.ok(readiness.blockers.some((blocker) => blocker.code === 'COVERAGE_BASELINE_OR_CONTEXT_REQUIRED'));
+  assert.ok(readiness.blockers.some((blocker) => blocker.code === 'DIRECT_NEIGHBOR_BASELINE_REQUIRED'));
+  assert.ok(readiness.blockers.some((blocker) => blocker.code === 'DISCONFIRMING_EVIDENCE_REQUIRED'));
 });
 
 test('readiness blocks no support, abstract-only support, stale EvidenceMap, speculative candidates, open recheck, and strong unresolved challenge', async () => {
@@ -515,7 +520,7 @@ test('readiness blocks no support, abstract-only support, stale EvidenceMap, spe
 });
 
 test('readiness pass updates candidate to ready_for_validation through T-048 gate and transition', async () => {
-  const ctx = await createCandidateFixture({ includeChallenge: false });
+  const ctx = await createCandidateFixture();
   const readiness = await ctx.needService.assessCandidateReadiness({
     need_candidate_id: ctx.candidate.need_candidate_id,
     assessed_by: 'system',
@@ -530,7 +535,7 @@ test('readiness pass updates candidate to ready_for_validation through T-048 gat
 });
 
 test('support packet creation rejects readiness assessment from a different NeedCandidate', async () => {
-  const ctx = await createCandidateFixture({ includeChallenge: false });
+  const ctx = await createCandidateFixture();
   const firstReadiness = await ctx.needService.assessCandidateReadiness({
     need_candidate_id: ctx.candidate.need_candidate_id,
   });
@@ -678,6 +683,102 @@ test('validate adjudication requires explicit human confirmation before Validate
   assert.equal(humanDecision?.decision_type, 'confirm');
 });
 
+test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpoint', async () => {
+  const ctx = await createReadyPacketFixture();
+  const adjudication = await ctx.needService.adjudicateNeed({
+    need_candidate_id: ctx.candidate.need_candidate_id,
+    support_packet_id: ctx.packet.validation_support_packet_id,
+    final_decision: 'validate',
+    rationale: 'The selected gap remains credible after candidate competition review.',
+    adjudicated_by: { actor_type: 'human', actor_id: 'reviewer_1' },
+  });
+  let sequence = 0;
+  const checkpointService = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    ctx.controlPlane,
+    {
+      idFactory: (prefix) => `${prefix}_guarded_${++sequence}`,
+      now: () => '2026-05-13T00:00:00.000Z',
+    },
+  );
+  const selectedCandidate = adjudication.need_candidate;
+  const alternative = {
+    ...selectedCandidate,
+    need_candidate_id: 'need_candidate_alternative',
+    candidate_version: 'v-alt',
+    candidate_need: 'Test an adaptive evidence-routing intervention.',
+    unmet_need_statement: 'Adaptive routing remains untested under reviewer-facing constraints.',
+    mechanism_type: 'system_gap' as const,
+    mechanism_payload: { intervention: 'adaptive evidence routing' },
+  };
+  await ctx.needValidationRepository.createNeedCandidate(alternative);
+  const checkpoint = await checkpointService.materializeGapSelectionCheckpoint({
+    title_card_id: ctx.titleCard.title_card_id,
+    evidence_map_ref: selectedCandidate.evidence_map_ref,
+    candidates: [selectedCandidate, alternative],
+  });
+  const guardedNeedService = new TopicSelectionNeedValidationService(
+    ctx.needValidationRepository,
+    ctx.controlPlane,
+    ctx.evidenceService,
+    ctx.searchService,
+    { checkpointGuard: checkpointService },
+  );
+  const candidateRef = ref('need_candidate', selectedCandidate.need_candidate_id, ctx.titleCard.title_card_id);
+  candidateRef.version_id = selectedCandidate.candidate_version;
+  const alternativeRef = ref('need_candidate', alternative.need_candidate_id, ctx.titleCard.title_card_id);
+  alternativeRef.version_id = alternative.candidate_version;
+
+  const confirmationInput: HumanConfirmationInput = {
+    schema_version: 'HumanConfirmationInput@v1',
+      actor_mode: 'human',
+      accountable_human_ref: { actor_type: 'human', actor_id: 'reviewer_1' },
+      rationale: 'Selected after comparing a substantively different intervention path.',
+      accepted_risk_refs: ctx.packet.residual_risk_refs,
+      required_check_results: ctx.packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
+      delegated_executor: null,
+      gap_selection_review: {
+        research_checkpoint_id: checkpoint.research_checkpoint_id,
+        confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+        selected_candidate_ref: candidateRef,
+        direct_prior_art_pressure_reviewed: true,
+        disconfirming_evidence_reviewed: true,
+        candidate_reviews: [
+          {
+            need_candidate_ref: candidateRef,
+            disposition: 'selected',
+            distinct_from_selected_axes: [],
+            rationale: 'Best identifiable evaluation object.',
+          },
+          {
+            need_candidate_ref: alternativeRef,
+            disposition: 'viable_alternative',
+            distinct_from_selected_axes: ['intervention'],
+            rationale: 'Changes the intervention and remains academically viable.',
+          },
+        ],
+      },
+  };
+  const confirmation = await guardedNeedService.confirmValidatedNeed({
+    adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+    confirmation_input: confirmationInput,
+  });
+  const advanced = await checkpointService.assertTransitionAllowed({
+    title_card_id: ctx.titleCard.title_card_id,
+    checkpoint_kind: 'gap_selection',
+  });
+  assert.equal(advanced.decision_authority_ref?.ref_id, confirmation.validated_need.human_decision_id);
+  const replay = await guardedNeedService.confirmValidatedNeed({
+    adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+    confirmation_input: confirmationInput,
+  });
+  assert.equal(replay.validated_need.validated_need_id, confirmation.validated_need.validated_need_id);
+  const bundle = await guardedNeedService.publishV1bInputBundle({
+    validated_need_id: confirmation.validated_need.validated_need_id,
+  });
+  assert.equal(bundle.validated_need_id, confirmation.validated_need.validated_need_id);
+});
+
 test('v1b input bundle publication rejects non-confirm human decision before persistence', async () => {
   const ctx = await createReadyPacketFixture();
   const adjudication = await ctx.needService.adjudicateNeed({
@@ -759,7 +860,7 @@ test('validate confirmation rejects invalid legacy actor before missing adjudica
   );
 });
 
-test('validated candidate cannot be re-adjudicated or produce duplicate ValidatedNeed', async () => {
+test('validated candidate cannot be re-adjudicated and confirmation replay is content-bound', async () => {
   const ctx = await createReadyPacketFixture();
   const adjudication = await ctx.needService.adjudicateNeed({
     need_candidate_id: ctx.candidate.need_candidate_id,
@@ -789,6 +890,12 @@ test('validated candidate cannot be re-adjudicated or produce duplicate Validate
     human_actor: { actor_type: 'human', actor_id: 'reviewer_1' },
     human_rationale: 'Validated after reviewing support, prior art, and scope.',
   });
+  const replay = await ctx.needService.confirmValidatedNeed({
+    adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+    human_actor: { actor_type: 'human', actor_id: 'reviewer_1' },
+    human_rationale: 'Validated after reviewing support, prior art, and scope.',
+  });
+  assert.equal(replay.validated_need.validated_need_id, first.validated_need.validated_need_id);
 
   let duplicateConfirmationError: unknown;
   try {
@@ -802,7 +909,7 @@ test('validated candidate cannot be re-adjudicated or produce duplicate Validate
   }
   assert.ok(duplicateConfirmationError instanceof AppError);
   assert.equal(duplicateConfirmationError.statusCode, 409);
-  assert.equal(duplicateConfirmationError.errorCode, 'GATE_CONSTRAINT_FAILED');
+  assert.equal(duplicateConfirmationError.errorCode, 'VERSION_CONFLICT');
 
   let duplicateAdjudicationError: unknown;
   try {

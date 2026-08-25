@@ -102,6 +102,19 @@ implements TopicSelectionResearchCheckpointRepository {
     return decision;
   }
 
+  async advanceWithExistingAuthority(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const current = this.requireCheckpoint(checkpoint.research_checkpoint_id);
+    if (current.current_checkpoint_key !== checkpoint.current_checkpoint_key || current.status !== 'pending') {
+      throw new TopicSelectionResearchCheckpointCurrentConflictError(
+        checkpoint.current_checkpoint_key ?? `${checkpoint.title_card_id}:${checkpoint.checkpoint_kind}`,
+      );
+    }
+    this.checkpoints.set(current.research_checkpoint_id, checkpoint);
+    return checkpoint;
+  }
+
   async findDecisionById(decisionId: string): Promise<TopicSelectionResearchCheckpointDecisionRecord | null> {
     return this.decisions.get(decisionId) ?? null;
   }

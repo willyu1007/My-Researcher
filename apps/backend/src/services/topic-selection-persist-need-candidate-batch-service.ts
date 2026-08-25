@@ -64,12 +64,13 @@ type CandidateRecordWithKey = {
 
 type ServiceOptions = {
   now?: () => string;
-  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
+  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>
+    & Partial<Pick<TopicSelectionResearchCheckpointService, 'materializeGapSelectionCheckpoint'>>;
 };
 
 export class TopicSelectionPersistNeedCandidateBatchService {
   private readonly now: () => string;
-  private readonly checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
+  private readonly checkpointGuard?: ServiceOptions['checkpointGuard'];
 
   constructor(
     private readonly repository: TopicSelectionNeedValidationRepository,
@@ -150,6 +151,7 @@ export class TopicSelectionPersistNeedCandidateBatchService {
       admission_report_artifact_ref: input.admission_report_artifact_ref,
       supplemental_routing_artifact_refs: input.supplemental_routing_artifact_refs,
       admitted_drafts: admittedDrafts,
+      rejected_framings: input.ranked_candidate_draft_batch.rejected_framings ?? [],
       idempotency_key: idempotencyKey,
     };
   }
@@ -184,6 +186,7 @@ export class TopicSelectionPersistNeedCandidateBatchService {
     );
     const existingRecords = existingById.filter((record): record is TopicSelectionNeedCandidateRecord => Boolean(record));
     if (existingRecords.length === records.length) {
+      await this.materializeGapCheckpoint(input, titleCardId);
       return this.result(input.command, existingRecords, true);
     }
     if (existingRecords.length > 0) {
@@ -200,7 +203,24 @@ export class TopicSelectionPersistNeedCandidateBatchService {
 
     await this.assertNoNormalizedKeyConflict(titleCardId, records);
     const persisted = await this.repository.createNeedCandidatesBatch(records.map((item) => item.record));
+    await this.materializeGapCheckpoint(input, titleCardId);
     return this.result(input.command, persisted, false);
+  }
+
+  private async materializeGapCheckpoint(
+    input: TopicSelectionPersistNeedCandidateBatchInput,
+    titleCardId: string,
+  ): Promise<void> {
+    if (!this.checkpointGuard?.materializeGapSelectionCheckpoint) return;
+    const candidates = (await this.repository.listNeedCandidatesByTitleCardId(titleCardId))
+      .filter((candidate) => candidate.evidence_map_id === input.command.evidence_map_ref.ref_id);
+    await this.checkpointGuard.materializeGapSelectionCheckpoint({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: titleCardId,
+      evidence_map_ref: input.command.evidence_map_ref,
+      candidates,
+      rejected_framings: input.command.rejected_framings ?? [],
+    });
   }
 
   private toNeedCandidateRecord(input: {

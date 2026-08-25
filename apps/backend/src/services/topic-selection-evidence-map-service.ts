@@ -47,12 +47,14 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 
 type IdFactory = (prefix: string) => string;
 
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>;
 };
 
 type EvidenceRole = Exclude<TopicSelectionEvidenceRole, 'unknown'>;
@@ -157,6 +159,7 @@ const EVIDENCE_AUTHORITY_ATTRIBUTION_KINDS = new Set<TopicSelectionEvidenceAttri
 export class TopicSelectionEvidenceMapService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>;
 
   constructor(
     private readonly repository: TopicSelectionEvidenceMapRepository,
@@ -167,6 +170,7 @@ export class TopicSelectionEvidenceMapService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.checkpointControl = options.checkpointControl;
   }
 
   async createEvidenceMapFromSearchRun(
@@ -380,7 +384,7 @@ export class TopicSelectionEvidenceMapService {
       created_at: createdAt,
     };
 
-    return this.repository.createEvidenceMapWithRecords({
+    const persisted = await this.repository.createEvidenceMapWithRecords({
       evidence_map: evidenceMap,
       evidence_units: evidenceUnits,
       typed_links: typedLinks,
@@ -388,6 +392,14 @@ export class TopicSelectionEvidenceMapService {
       patterns,
       conflict_sets: conflictSets,
     });
+    await this.checkpointControl?.materializeEvidenceLandscapeCheckpoint({
+      evidence_map: persisted.evidence_map,
+      evidence_units: persisted.evidence_units,
+      conflict_sets: persisted.conflict_sets,
+      coverage_row_intents: coverageRows,
+      policy_version_id: input.policy_version_id ?? null,
+    });
+    return persisted;
   }
 
   async getNeedValidationEvidenceBundle(evidenceMapId: string): Promise<TopicSelectionNeedValidationEvidenceBundle> {

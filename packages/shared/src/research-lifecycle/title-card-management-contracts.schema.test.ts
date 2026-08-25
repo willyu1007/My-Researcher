@@ -546,6 +546,7 @@ test('topic-selection generate-need-candidate contracts validate v1a-only node p
           source_admission_decision_ref: ref('candidate_draft_admission', 'draft_001'),
         },
       ],
+      rejected_framings: [],
       idempotency_key: 'workflow_run_001:node_attempt_001:draft_001',
     },
   });

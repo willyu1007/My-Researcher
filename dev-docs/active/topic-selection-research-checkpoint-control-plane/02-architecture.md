@@ -55,6 +55,13 @@ Packets and research status remain deterministic projections; no packet-content 
 
 Checkpoint provenance is explicit: `native` means the checkpoint was materialized by the guarded product flow, while `backfilled` means the pending anchor was derived from a pre-cutover immutable authority. Provenance never certifies a human review. The v1 cutover backfill materialized 2,249 pending anchors across 1,080 title cards (647 evidence, 642 gap, 524 question, and 436 promotion) and a second application produced no additional checkpoint or input-snapshot rows.
 
+Phase 3 activates native evidence and gap assembly on the maintained v1a product path:
+
+- Successful EvidenceMap persistence materializes an evidence-landscape checkpoint from the exact map, source locators, required coverage intents, conflict sets, and source-authority classifications. Every required baseline and challenge intent must have inspectable claim-bearing evidence; abstract-only core evidence, LLM inference, stale maps, and blocking conflicts produce required actions and remove `advance` from the advertised actions.
+- Candidate creation remains downstream of the advancing evidence decision. Both the direct writer and the batch orchestrator rebuild one frozen candidate arena from current NeedCandidate authority. New batch commands carry rejected framings and reasons; pre-Phase-3 commands remain readable when that additive field is absent.
+- Candidate count and structured semantic-group identity are only eligibility tripwires. HumanConfirmNeed must review every candidate in the frozen arena, preserve one selected disposition and all rejected reasons, identify at least one machine-eligible viable alternative, and state whether the research object, mechanism, intervention, comparison, or outcome differs. Wording or `k` changes do not satisfy distinctness.
+- Candidate facts that affect academic eligibility refresh the arena before confirmation. The HumanConfirmNeed adapter verifies checkpoint id, pool hash, candidate versions, evidence-pressure review, and open objections, then reuses the existing `human_confirmed_decision` authority to advance the checkpoint. Exact retries recover partial writes; changed confirmation content conflicts. v1b publication independently rechecks the advancing gap checkpoint.
+
 The contract preserves these invariants:
 
 - A checkpoint target and packet bind to a canonical input snapshot hash.

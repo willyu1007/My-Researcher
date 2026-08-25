@@ -5,12 +5,16 @@ Make topic selection a product-governed research process in which current eviden
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 3 — enforce evidence and gap quality
-- Next step: Materialize native evidence/gap checkpoints from the guarded writers, strengthen semantic evidence and candidate-arena policy, and adapt HumanConfirmNeed to the current gap checkpoint.
+- Current phase: Phase 4 — enforce research-design confirmation and durable objections
+- Next step: Materialize current question checkpoints from N7, bind strict-human question confirmation to the exact design snapshot, propagate blocking objections through semantic revisions, and guard N8 entry.
 - Blocker: none
 
 ## Latest checkpoint
 
+- Phase 3 closed the evidence-to-gap path with native checkpoint assembly. Evidence review now requires current source authority, inspectable non-abstract core claims, complete required direct-neighbor coverage, complete required disconfirming coverage, and no blocking evidence conflict before `advance` is advertised.
+- Candidate arenas now preserve admitted candidates and rejected framings, fail closed on a lone viable candidate or wording/parameter-only duplicates, and expose actionable candidate-generation loopbacks. Counts and semantic-group hashes remain tripwires; the strict-human gap review must name a genuinely distinct viable alternative and the substantive axes that differ.
+- Both direct and batch candidate writers materialize the same current arena. Readiness/adjudication changes refresh meaningful candidate facts, stale pool hashes fail, and HumanConfirmNeed advances the gap checkpoint only through its existing human-confirmed decision authority. Exact confirmation replay is recoverable; drifted replay conflicts.
+- v1b bundle publication now requires the current advancing gap checkpoint. API and native-harness route tests traverse the same evidence decision and competitive gap review rather than a test-only quality mode.
 - Phase 2 closed with product-owned v1 checkpoint, missing-stage decision, objection, and objection-resolution authorities; canonical packet/history/status APIs; snapshot-bound strict-human decisions; deterministic supersession; and a central transition guard.
 - Both NeedCandidate persistence paths now call the same evidence-checkpoint guard before any write. Pending, stale, non-advancing, required-action, and blocking-objection states fail closed.
 - Migration `20260825120000_add_topic_selection_research_checkpoints` replayed without Prisma drift and is applied to the local development schema. DB context and OpenAPI are aligned.

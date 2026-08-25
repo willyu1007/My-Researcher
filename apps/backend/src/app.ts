@@ -1055,6 +1055,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionControlPlaneService,
     topicSelectionSearchResourceRepository,
     literatureRepository,
+    { checkpointControl: topicSelectionResearchCheckpointService },
   );
   const topicSelectionNeedValidationService = new TopicSelectionNeedValidationService(
     topicSelectionNeedValidationRepository,
