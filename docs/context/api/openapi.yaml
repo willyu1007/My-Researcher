@@ -23,6 +23,8 @@ tags:
     description: Rule-driven automatic pull, runs, and alerts.
   - name: topic-research
     description: Topic-level research question, need, package, and promotion endpoints.
+  - name: topic-selection-research
+    description: Product-owned research checkpoint, decision, objection, and status endpoints.
   - name: topic-selection-v1a
     description: Topic selection v1a evidence-to-need decision-chain endpoints.
   - name: topic-selection-v1b
@@ -3685,6 +3687,171 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /topic-selection/title-cards/{titleCardId}/checkpoints:
+    get:
+      operationId: listTopicSelectionResearchCheckpoints
+      summary: List the full pending, decided, and superseded research checkpoint history for a title card.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+      responses:
+        '200':
+          description: Ordered checkpoint history.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopicSelectionResearchCheckpoint'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/checkpoints/{checkpointId}:
+    get:
+      operationId: getTopicSelectionResearchCheckpoint
+      summary: Get one research checkpoint, including lifecycle and supersession state.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchCheckpointId'
+      responses:
+        '200':
+          description: Research checkpoint.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchCheckpoint'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/checkpoints/{checkpointId}/packet:
+    get:
+      operationId: getTopicSelectionResearchCheckpointPacket
+      summary: Get the complete snapshot-bound review packet and open objections for a checkpoint.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchCheckpointId'
+      responses:
+        '200':
+          description: Current or historical review packet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchCheckpointPacket'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/checkpoints/{checkpointId}/decisions:
+    post:
+      operationId: recordTopicSelectionResearchCheckpointDecision
+      summary: Record an exact strict-human evidence or question checkpoint decision.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchCheckpointId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchCheckpointDecisionInput'
+      responses:
+        '201':
+          description: Decision recorded or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchCheckpointDecision'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/checkpoints/{checkpointId}/objections:
+    post:
+      operationId: recordTopicSelectionResearchObjection
+      summary: Record an immutable strict-human objection against the exact checkpoint snapshot.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchCheckpointId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchObjectionInput'
+      responses:
+        '201':
+          description: Objection recorded or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchObjection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/objections/{objectionId}/resolutions:
+    post:
+      operationId: resolveTopicSelectionResearchObjection
+      summary: Record an immutable strict-human evidence- or revision-backed objection resolution.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchObjectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchObjectionResolutionInput'
+      responses:
+        '201':
+          description: Objection resolution recorded or idempotently replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchObjectionResolution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/title-cards/{titleCardId}/research-status:
+    get:
+      operationId: getTopicSelectionResearchStatus
+      summary: Recover the product-owned checkpoint chain, current packet, blockers, and next authorized transition.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+      responses:
+        '200':
+          description: Deterministic research-status projection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchStatus'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/v1a/topic-seeds/from-title-card:
     post:
       operationId: createTopicSelectionV1aTopicSeedFromTitleCard
@@ -5701,6 +5868,27 @@ paths:
 
 components:
   parameters:
+    TitleCardId:
+      name: titleCardId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ResearchCheckpointId:
+      name: checkpointId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ResearchObjectionId:
+      name: objectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
     PaperIdParam:
       name: id
       in: path
@@ -7531,6 +7719,326 @@ components:
         actor_id:
           type: string
           minLength: 1
+
+    TopicSelectionResearchCheckpoint:
+      type: object
+      additionalProperties: false
+      required:
+        - research_checkpoint_id
+        - checkpoint_key
+        - title_card_id
+        - checkpoint_kind
+        - contract_version
+        - provenance_class
+        - target_ref
+        - target_snapshot_hash
+        - packet_hash
+        - input_snapshot_id
+        - source_refs
+        - allowed_actions
+        - required_action_refs
+        - status
+        - created_at
+        - updated_at
+      properties:
+        research_checkpoint_id: { type: string, minLength: 1 }
+        checkpoint_key: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_checkpoint_key: { type: [string, 'null'] }
+        workspace_id: { type: [string, 'null'] }
+        title_card_id: { type: string, minLength: 1 }
+        checkpoint_kind:
+          type: string
+          enum: [evidence_landscape, gap_selection, question_contract, promotion]
+        contract_version: { type: string, const: v1 }
+        provenance_class:
+          type: string
+          enum: [native, backfilled]
+        policy_version_id: { type: [string, 'null'] }
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        target_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        packet_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        input_snapshot_id: { type: string, minLength: 1 }
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        allowed_actions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [advance, loopback, reject, hold]
+        required_action_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        decision_authority_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        status:
+          type: string
+          enum: [pending, decided, superseded]
+        supersedes_checkpoint_id: { type: [string, 'null'] }
+        superseded_by_checkpoint_id: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        decided_at: { type: [string, 'null'], format: date-time }
+        superseded_at: { type: [string, 'null'], format: date-time }
+
+    TopicSelectionEvidenceLandscapeReview:
+      type: object
+      additionalProperties: false
+      required: [review_kind, nearest_work_reviewed, disconfirming_evidence_reviewed, source_quality_reviewed, limitations]
+      properties:
+        review_kind: { type: string, const: evidence_landscape }
+        nearest_work_reviewed: { type: boolean }
+        disconfirming_evidence_reviewed: { type: boolean }
+        source_quality_reviewed: { type: boolean }
+        limitations:
+          type: array
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionQuestionContractReview:
+      type: object
+      additionalProperties: false
+      required: [review_kind, mechanism_identifiable, proxy_operationalized, confounds_reviewed, falsification_reviewed, claim_ceiling_reviewed, review_notes]
+      properties:
+        review_kind: { type: string, const: question_contract }
+        mechanism_identifiable: { type: boolean }
+        proxy_operationalized: { type: boolean }
+        confounds_reviewed: { type: boolean }
+        falsification_reviewed: { type: boolean }
+        claim_ceiling_reviewed: { type: boolean }
+        review_notes:
+          type: array
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionResearchCheckpointDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [decision_key, decision, actor, confirmed_snapshot_hash, rationale, review_payload]
+      properties:
+        decision_key: { type: string, minLength: 1 }
+        decision:
+          type: string
+          enum: [advance, loopback, reject, hold]
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        confirmed_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        rationale: { type: string, minLength: 1 }
+        review_payload:
+          oneOf:
+            - $ref: '#/components/schemas/TopicSelectionEvidenceLandscapeReview'
+            - $ref: '#/components/schemas/TopicSelectionQuestionContractReview'
+        required_action_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        loopback_target: { type: [string, 'null'] }
+        loopback_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+
+    TopicSelectionResearchCheckpointDecision:
+      type: object
+      additionalProperties: false
+      required: [research_checkpoint_decision_id, decision_key, research_checkpoint_id, human_confirmed_decision_id, title_card_id, checkpoint_kind, decision_kind, decision, actor, confirmed_snapshot_hash, rationale, review_payload, required_action_refs, loopback_refs, created_at]
+      properties:
+        research_checkpoint_decision_id: { type: string, minLength: 1 }
+        decision_key: { type: string, minLength: 1 }
+        research_checkpoint_id: { type: string, minLength: 1 }
+        human_confirmed_decision_id: { type: string, minLength: 1 }
+        workspace_id: { type: [string, 'null'] }
+        title_card_id: { type: string, minLength: 1 }
+        checkpoint_kind:
+          type: string
+          enum: [evidence_landscape, question_contract]
+        decision_kind:
+          type: string
+          enum: [evidence_landscape_confirmation, topic_question_confirmation]
+        decision:
+          type: string
+          enum: [advance, loopback, reject, hold]
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        confirmed_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        rationale: { type: string, minLength: 1 }
+        review_payload:
+          oneOf:
+            - $ref: '#/components/schemas/TopicSelectionEvidenceLandscapeReview'
+            - $ref: '#/components/schemas/TopicSelectionQuestionContractReview'
+        required_action_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        loopback_target: { type: [string, 'null'] }
+        loopback_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        created_at: { type: string, format: date-time }
+
+    TopicSelectionResearchObjectionInput:
+      type: object
+      additionalProperties: false
+      required: [objection_key, severity, summary, rationale, actor, confirmed_snapshot_hash]
+      properties:
+        objection_key: { type: string, minLength: 1 }
+        severity:
+          type: string
+          enum: [info, warning, blocking, critical]
+        summary: { type: string, minLength: 1 }
+        rationale: { type: string, minLength: 1 }
+        required_loopback: { type: [string, 'null'] }
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        confirmed_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionResearchObjection:
+      type: object
+      additionalProperties: false
+      required: [research_objection_id, objection_key, title_card_id, research_checkpoint_id, checkpoint_kind, target_ref, target_snapshot_hash, severity, summary, rationale, source_refs, actor, created_at]
+      properties:
+        research_objection_id: { type: string, minLength: 1 }
+        objection_key: { type: string, minLength: 1 }
+        workspace_id: { type: [string, 'null'] }
+        title_card_id: { type: string, minLength: 1 }
+        research_checkpoint_id: { type: string, minLength: 1 }
+        checkpoint_kind:
+          type: string
+          enum: [evidence_landscape, gap_selection, question_contract, promotion]
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        target_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        severity:
+          type: string
+          enum: [info, warning, blocking, critical]
+        summary: { type: string, minLength: 1 }
+        rationale: { type: string, minLength: 1 }
+        required_loopback: { type: [string, 'null'] }
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        created_at: { type: string, format: date-time }
+
+    TopicSelectionResearchObjectionResolutionInput:
+      type: object
+      additionalProperties: false
+      required: [resolution_key, resolution_type, actor, resolved_snapshot_hash, rationale, output_refs]
+      properties:
+        resolution_key: { type: string, minLength: 1 }
+        resolution_type:
+          type: string
+          enum: [resolved_with_revision, resolved_with_evidence, superseded_by_current_authority]
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        resolved_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        rationale: { type: string, minLength: 1 }
+        output_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+
+    TopicSelectionResearchObjectionResolution:
+      type: object
+      additionalProperties: false
+      required: [research_objection_resolution_id, resolution_key, research_objection_id, title_card_id, resolution_type, actor, resolved_snapshot_hash, rationale, output_refs, created_at]
+      properties:
+        research_objection_resolution_id: { type: string, minLength: 1 }
+        resolution_key: { type: string, minLength: 1 }
+        research_objection_id: { type: string, minLength: 1 }
+        workspace_id: { type: [string, 'null'] }
+        title_card_id: { type: string, minLength: 1 }
+        resolution_type:
+          type: string
+          enum: [resolved_with_revision, resolved_with_evidence, superseded_by_current_authority]
+        actor:
+          $ref: '#/components/schemas/TopicSelectionHumanActorRef'
+        resolved_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        rationale: { type: string, minLength: 1 }
+        output_refs:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        created_at: { type: string, format: date-time }
+
+    TopicSelectionResearchCheckpointPacket:
+      type: object
+      additionalProperties: false
+      required: [research_checkpoint_id, checkpoint_kind, title_card_id, contract_version, target_ref, target_snapshot_hash, source_refs, allowed_actions, required_action_refs, packet_payload, open_objections, packet_hash]
+      properties:
+        research_checkpoint_id: { type: string, minLength: 1 }
+        checkpoint_kind:
+          type: string
+          enum: [evidence_landscape, gap_selection, question_contract, promotion]
+        title_card_id: { type: string, minLength: 1 }
+        contract_version: { type: string, const: v1 }
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        target_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        allowed_actions:
+          type: array
+          items:
+            type: string
+            enum: [advance, loopback, reject, hold]
+        required_action_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        packet_payload:
+          $ref: '#/components/schemas/JsonObject'
+        open_objections:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchObjection'
+        decision:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchCheckpointDecision'
+            - type: 'null'
+        packet_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionResearchStatus:
+      type: object
+      additionalProperties: false
+      required: [title_card_id, contract_version, checkpoint_chain, current_checkpoint, current_packet, required_checkpoint_kind, next_authorized_transition, open_blocking_objection_count, legacy_provenance]
+      properties:
+        title_card_id: { type: string, minLength: 1 }
+        contract_version: { type: string, const: v1 }
+        checkpoint_chain:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchCheckpoint'
+        current_checkpoint:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchCheckpoint'
+            - type: 'null'
+        current_packet:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchCheckpointPacket'
+            - type: 'null'
+        required_checkpoint_kind:
+          type: [string, 'null']
+          enum: [evidence_landscape, gap_selection, question_contract, promotion, null]
+        next_authorized_transition: { type: [string, 'null'] }
+        open_blocking_objection_count: { type: integer, minimum: 0 }
+        legacy_provenance: { type: boolean }
 
     TopicSelectionV1aRecord:
       type: object

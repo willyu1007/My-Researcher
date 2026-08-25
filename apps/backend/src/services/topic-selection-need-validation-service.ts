@@ -39,6 +39,7 @@ import type {
   TopicSelectionNeedValidationRepository,
 } from '../repositories/topic-selection-need-validation.repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
@@ -47,6 +48,7 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
 };
 
 type CreateNeedCandidateInput = {
@@ -157,6 +159,7 @@ const VALIDATE_READY_STATUSES = new Set<TopicSelectionNeedCandidateDecisionStatu
 export class TopicSelectionNeedValidationService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
 
   constructor(
     private readonly repository: TopicSelectionNeedValidationRepository,
@@ -167,11 +170,17 @@ export class TopicSelectionNeedValidationService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.checkpointGuard = options.checkpointGuard;
   }
 
   async createNeedCandidateFromEvidenceMap(input: CreateNeedCandidateInput): Promise<TopicSelectionNeedCandidateRecord> {
     const bundle = await this.evidenceMaps.getNeedValidationEvidenceBundle(input.evidence_map_id);
     this.assertSameTitleCard(input.title_card_id, bundle.evidence_map_ref.title_card_id, 'EvidenceMap');
+    await this.checkpointGuard?.assertTransitionAllowed({
+      title_card_id: input.title_card_id,
+      checkpoint_kind: 'evidence_landscape',
+      target_ref: bundle.evidence_map_ref,
+    });
     const candidateId = this.idFactory('need_candidate');
     const candidateVersion = input.candidate_version ?? this.versionFromId(candidateId);
     const candidateRef = this.ref('need_candidate', candidateId, input.title_card_id, candidateVersion);

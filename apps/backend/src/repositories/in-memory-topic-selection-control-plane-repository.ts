@@ -71,6 +71,8 @@ export class InMemoryTopicSelectionControlPlaneRepository implements TopicSelect
   }
 
   async createInputSnapshot(record: TopicSelectionInputSnapshotRecord): Promise<TopicSelectionInputSnapshotRecord> {
+    const existing = this.inputSnapshots.get(record.input_snapshot_id);
+    if (existing) return existing;
     this.inputSnapshots.set(record.input_snapshot_id, record);
     return record;
   }

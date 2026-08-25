@@ -17,6 +17,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 
 export type TopicSelectionPersistNeedCandidateBatchCommandBuildInput = {
   node_input: TopicSelectionGenerateNeedCandidateNodeInput;
@@ -63,16 +64,19 @@ type CandidateRecordWithKey = {
 
 type ServiceOptions = {
   now?: () => string;
+  checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
 };
 
 export class TopicSelectionPersistNeedCandidateBatchService {
   private readonly now: () => string;
+  private readonly checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>;
 
   constructor(
     private readonly repository: TopicSelectionNeedValidationRepository,
     options: ServiceOptions = {},
   ) {
     this.now = options.now ?? (() => new Date().toISOString());
+    this.checkpointGuard = options.checkpointGuard;
   }
 
   buildCommand(
@@ -155,6 +159,11 @@ export class TopicSelectionPersistNeedCandidateBatchService {
   ): Promise<TopicSelectionPersistNeedCandidateBatchResult> {
     this.assertPersistInput(input);
     const titleCardId = this.titleCardId(input);
+    await this.checkpointGuard?.assertTransitionAllowed({
+      title_card_id: titleCardId,
+      checkpoint_kind: 'evidence_landscape',
+      target_ref: input.command.evidence_map_ref,
+    });
     const records = input.command.admitted_drafts.map((draft) =>
       this.toNeedCandidateRecord({
         command: input.command,

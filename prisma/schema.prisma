@@ -1438,6 +1438,109 @@ model TopicSelectionHumanConfirmedDecision {
   @@index([policyVersionId])
 }
 
+model TopicSelectionResearchCheckpoint {
+  id                       String    @id
+  checkpointKey            String    @unique(map: "tsrc_checkpoint_key_key")
+  currentCheckpointKey     String?   @unique(map: "tsrc_current_key_key")
+  workspaceId              String?
+  titleCardId              String
+  checkpointKind           String
+  contractVersion          String
+  provenanceClass          String
+  policyVersionId          String?
+  targetRefType            String
+  targetRefId              String
+  targetVersionId          String?
+  targetSnapshotHash       String
+  packetHash               String
+  inputSnapshotId          String
+  sourceRefs               Json      @default("[]")
+  allowedActions           String[]  @default([])
+  requiredActionRefs       Json      @default("[]")
+  decisionAuthorityRef     Json?
+  status                   String
+  supersedesCheckpointId   String?
+  supersededByCheckpointId String?
+  createdAt                DateTime  @db.Timestamptz(6)
+  updatedAt                DateTime  @db.Timestamptz(6)
+  decidedAt                DateTime? @db.Timestamptz(6)
+  supersededAt             DateTime? @db.Timestamptz(6)
+
+  @@index([titleCardId, checkpointKind, createdAt(sort: Desc)], map: "tsrc_title_kind_created_idx")
+  @@index([targetRefType, targetRefId], map: "tsrc_target_ref_idx")
+  @@index([status], map: "tsrc_status_idx")
+  @@index([inputSnapshotId], map: "tsrc_input_snapshot_idx")
+  @@index([policyVersionId], map: "tsrc_policy_version_idx")
+}
+
+model TopicSelectionResearchCheckpointDecision {
+  id                       String   @id
+  decisionKey              String   @unique(map: "tsrcd_decision_key_key")
+  researchCheckpointId     String   @unique(map: "tsrcd_checkpoint_key")
+  humanConfirmedDecisionId String   @unique(map: "tsrcd_human_confirmed_key")
+  workspaceId              String?
+  titleCardId              String
+  checkpointKind           String
+  decisionKind             String
+  decision                 String
+  actorType                String
+  actorId                  String
+  confirmedSnapshotHash    String
+  rationale                String
+  reviewPayload            Json     @default("{}")
+  requiredActionRefs       Json     @default("[]")
+  loopbackTarget           String?
+  loopbackRefs             Json     @default("[]")
+  createdAt                DateTime @db.Timestamptz(6)
+
+  @@index([titleCardId, createdAt(sort: Desc)], map: "tsrcd_title_created_idx")
+  @@index([checkpointKind, decision], map: "tsrcd_kind_decision_idx")
+}
+
+model TopicSelectionResearchObjection {
+  id                   String   @id
+  objectionKey         String   @unique(map: "tsro_objection_key_key")
+  workspaceId          String?
+  titleCardId          String
+  researchCheckpointId String
+  checkpointKind       String
+  targetRefType        String
+  targetRefId          String
+  targetVersionId      String?
+  targetSnapshotHash   String
+  severity             String
+  summary              String
+  rationale            String
+  requiredLoopback     String?
+  sourceRefs           Json     @default("[]")
+  actorType            String
+  actorId              String
+  createdAt            DateTime @db.Timestamptz(6)
+
+  @@index([researchCheckpointId, createdAt(sort: Desc)], map: "tsro_checkpoint_created_idx")
+  @@index([titleCardId, createdAt(sort: Desc)], map: "tsro_title_created_idx")
+  @@index([targetRefType, targetRefId], map: "tsro_target_ref_idx")
+  @@index([severity], map: "tsro_severity_idx")
+}
+
+model TopicSelectionResearchObjectionResolution {
+  id                   String   @id
+  resolutionKey        String   @unique(map: "tsror_resolution_key_key")
+  researchObjectionId  String   @unique(map: "tsror_objection_key")
+  workspaceId          String?
+  titleCardId          String
+  resolutionType       String
+  actorType            String
+  actorId              String
+  resolvedSnapshotHash String
+  rationale            String
+  outputRefs           Json     @default("[]")
+  createdAt            DateTime @db.Timestamptz(6)
+
+  @@index([titleCardId, createdAt(sort: Desc)], map: "tsror_title_created_idx")
+  @@index([resolutionType], map: "tsror_resolution_type_idx")
+}
+
 model TopicSelectionTopicSeed {
   id                  String   @id
   workspaceId         String?

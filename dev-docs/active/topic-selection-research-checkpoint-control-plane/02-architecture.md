@@ -39,6 +39,8 @@ GET  /topic-selection/title-cards/{titleCardId}/checkpoints
 GET  /topic-selection/checkpoints/{checkpointId}
 GET  /topic-selection/checkpoints/{checkpointId}/packet
 POST /topic-selection/checkpoints/{checkpointId}/decisions
+POST /topic-selection/checkpoints/{checkpointId}/objections
+POST /topic-selection/objections/{objectionId}/resolutions
 GET  /topic-selection/title-cards/{titleCardId}/research-status
 ```
 
@@ -50,6 +52,8 @@ The confirmed Phase 1 design uses four small persistence authorities rather than
 4. `TopicSelectionResearchObjectionResolution` records an immutable strict-human resolution bound to a revised authority or explicit evidence-backed disposition. Existing RecheckEvent/Impact/WorkQueue records propagate its effects but do not become the objection authority.
 
 Packets and research status remain deterministic projections; no packet-content or writable status-summary table is added. Existing `InputSnapshot`, functional refs, hashes, transition attempts, recheck/risk memory, and human-confirmed envelopes are reused.
+
+Checkpoint provenance is explicit: `native` means the checkpoint was materialized by the guarded product flow, while `backfilled` means the pending anchor was derived from a pre-cutover immutable authority. Provenance never certifies a human review. The v1 cutover backfill materialized 2,249 pending anchors across 1,080 title cards (647 evidence, 642 gap, 524 question, and 436 promotion) and a second application produced no additional checkpoint or input-snapshot rows.
 
 The contract preserves these invariants:
 

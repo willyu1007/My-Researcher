@@ -181,6 +181,28 @@ function persistInput(command: ReturnType<TopicSelectionPersistNeedCandidateBatc
   };
 }
 
+test('batch persistence cannot bypass a pending evidence checkpoint', async () => {
+  const repository = new InMemoryTopicSelectionNeedValidationRepository();
+  const service = new TopicSelectionPersistNeedCandidateBatchService(repository, {
+    checkpointGuard: {
+      async assertTransitionAllowed() {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Current evidence checkpoint has not advanced.');
+      },
+    },
+  });
+  const command = service.buildCommand({
+    node_input: nodeInput(),
+    ranked_candidate_draft_batch: rankedBatch(),
+    admission_report: admissionReport(),
+    ranked_candidate_draft_batch_artifact_ref: artifactRef('ranked_batch_001'),
+    admission_report_artifact_ref: artifactRef('admission_001'),
+    supplemental_routing_artifact_refs: [],
+  });
+
+  await assert.rejects(service.persistBatch(persistInput(command)), /has not advanced/u);
+  assert.equal(await repository.findNeedCandidateById('need_candidate_missing'), null);
+});
+
 test('persist need candidate batch command contains admitted drafts only and stable idempotency', () => {
   const { service } = makeService();
   const batch = rankedBatch();

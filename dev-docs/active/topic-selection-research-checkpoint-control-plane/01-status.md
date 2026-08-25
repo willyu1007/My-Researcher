@@ -5,9 +5,17 @@ Make topic selection a product-governed research process in which current eviden
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 — establish checkpoint control and research-status APIs
-- Next step: Implement the shared checkpoint/decision/objection contracts, Prisma authorities, and central currentness guard needed by every later phase.
+- Current phase: Phase 3 — enforce evidence and gap quality
+- Next step: Materialize native evidence/gap checkpoints from the guarded writers, strengthen semantic evidence and candidate-arena policy, and adapt HumanConfirmNeed to the current gap checkpoint.
 - Blocker: none
+
+## Latest checkpoint
+
+- Phase 2 closed with product-owned v1 checkpoint, missing-stage decision, objection, and objection-resolution authorities; canonical packet/history/status APIs; snapshot-bound strict-human decisions; deterministic supersession; and a central transition guard.
+- Both NeedCandidate persistence paths now call the same evidence-checkpoint guard before any write. Pending, stale, non-advancing, required-action, and blocking-objection states fail closed.
+- Migration `20260825120000_add_topic_selection_research_checkpoints` replayed without Prisma drift and is applied to the local development schema. DB context and OpenAPI are aligned.
+- The versioned backfill produced 2,249 pending `backfilled` anchors across 1,080 title cards: 647 evidence, 642 gap, 524 question, and 436 promotion. Reapplying it kept checkpoint and checkpoint-input-snapshot counts at 2,249 each.
+- Focused contracts, service, route, bypass, and real-Postgres concurrency tests pass; one of two simultaneous distinct human decisions wins atomically and exact replay returns the winner.
 
 ## Done when
 - [ ] A1: Product-owned checkpoint state, packets, decisions, currentness, supersession, and transition guards cover evidence, gap, question, and promotion review through documented HTTP APIs.

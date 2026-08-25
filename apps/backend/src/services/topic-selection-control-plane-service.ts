@@ -37,6 +37,7 @@ type ServiceOptions = {
 };
 
 type CompileInputSnapshotInput = {
+  input_snapshot_id?: string;
   workspace_id?: string | null;
   title_card_id?: string | null;
   target_ref: TopicSelectionFunctionalRef;
@@ -203,8 +204,8 @@ export class TopicSelectionControlPlaneService {
       source_refs: sourceRefs,
       target_ref: input.target_ref,
     }));
-    return this.repository.createInputSnapshot({
-      input_snapshot_id: this.idFactory('input_snapshot'),
+    const persisted = await this.repository.createInputSnapshot({
+      input_snapshot_id: input.input_snapshot_id ?? this.idFactory('input_snapshot'),
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? input.target_ref.title_card_id ?? null,
       target_ref: input.target_ref,
@@ -217,6 +218,14 @@ export class TopicSelectionControlPlaneService {
       created_by: input.created_by ?? 'system',
       created_at: this.now(),
     });
+    if (persisted.snapshot_hash !== snapshotHash) {
+      throw new Error(`InputSnapshot ${persisted.input_snapshot_id} already identifies different content.`);
+    }
+    return persisted;
+  }
+
+  async getInputSnapshot(inputSnapshotId: string): Promise<TopicSelectionInputSnapshotRecord | null> {
+    return this.repository.findInputSnapshotById(inputSnapshotId);
   }
 
   async recordArtifactRef(input: ArtifactInput): Promise<TopicSelectionArtifactRefRecord> {

@@ -55,6 +55,7 @@ import { InMemoryPaperImplementationValidationCycleClosureV2Repository } from '.
 import { ResearchLifecycleController } from './controllers/research-lifecycle-controller.js';
 import { InMemoryResearchLifecycleRepository } from './repositories/in-memory-research-lifecycle-repository.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from './repositories/in-memory-topic-selection-control-plane-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from './repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { InMemoryTopicSelectionEvidenceMapRepository } from './repositories/in-memory-topic-selection-evidence-map-repository.js';
 import { InMemoryTopicSelectionNeedValidationRepository } from './repositories/in-memory-topic-selection-need-validation-repository.js';
 import { InMemoryTopicSelectionOfflineEvaluationReplayRepository } from './repositories/in-memory-topic-selection-offline-evaluation-replay-repository.js';
@@ -104,6 +105,7 @@ import { PrismaResearchLifecycleRepository } from './repositories/prisma/prisma-
 import { InMemoryTitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import { PrismaTitleCardManagementRepository } from './repositories/prisma/prisma-title-card-management-repository.js';
 import { PrismaTopicSelectionControlPlaneRepository } from './repositories/prisma/prisma-topic-selection-control-plane-repository.js';
+import { PrismaTopicSelectionResearchCheckpointRepository } from './repositories/prisma/prisma-topic-selection-research-checkpoint-repository.js';
 import { PrismaTopicSelectionEvidenceMapRepository } from './repositories/prisma/prisma-topic-selection-evidence-map-repository.js';
 import { PrismaTopicSelectionNeedValidationRepository } from './repositories/prisma/prisma-topic-selection-need-validation-repository.js';
 import { PrismaTopicSelectionOfflineEvaluationReplayRepository } from './repositories/prisma/prisma-topic-selection-offline-evaluation-replay-repository.js';
@@ -146,6 +148,7 @@ import { registerTopicSettingsRoutes } from './routes/topic-settings-routes.js';
 import { registerTopicSelectionV1aRoutes } from './routes/topic-selection-v1a-routes.js';
 import { registerTopicSelectionV1bRoutes } from './routes/topic-selection-v1b-routes.js';
 import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-routes.js';
+import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-selection-research-checkpoint-routes.js';
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
@@ -184,6 +187,7 @@ import type { PaperImplementationWorkOrderRepository } from './repositories/pape
 import type { ResearchLifecycleRepository } from './repositories/research-lifecycle-repository.js';
 import type { TitleCardManagementRepository } from './repositories/title-card-management.repository.js';
 import type { TopicSelectionControlPlaneRepository } from './repositories/topic-selection-control-plane.repository.js';
+import type { TopicSelectionResearchCheckpointRepository } from './repositories/topic-selection-research-checkpoint.repository.js';
 import type { TopicSelectionEvidenceMapRepository } from './repositories/topic-selection-evidence-map.repository.js';
 import type { TopicSelectionNeedValidationRepository } from './repositories/topic-selection-need-validation.repository.js';
 import type { TopicSelectionOfflineEvaluationReplayRepository } from './repositories/topic-selection-offline-evaluation-replay.repository.js';
@@ -306,6 +310,8 @@ import {
 } from './services/title-card-management.service.js';
 import { TitleCardManagementController } from './controllers/title-card-management.controller.js';
 import { TopicSelectionControlPlaneService } from './services/topic-selection-control-plane-service.js';
+import { TopicSelectionResearchCheckpointService } from './services/topic-selection-research-checkpoint-service.js';
+import { TopicSelectionResearchCheckpointController } from './controllers/topic-selection-research-checkpoint-controller.js';
 import { TopicSelectionEvidenceMapService } from './services/topic-selection-evidence-map-service.js';
 import { TopicSelectionEvidenceMapMaterializationService } from './services/topic-selection-evidence-map-materialization-service.js';
 import { TopicSelectionAgentOrchestratorService } from './services/topic-selection-agent-orchestrator-service.js';
@@ -562,6 +568,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       storeConfig.experimentFoundationStrategy,
     );
   const topicSelectionControlPlaneRepository = createTopicSelectionControlPlaneRepository(storeConfig.titleCardStrategy);
+  const topicSelectionResearchCheckpointRepository = createTopicSelectionResearchCheckpointRepository(
+    storeConfig.titleCardStrategy,
+  );
   const topicSelectionResourceSamplingRepository = createTopicSelectionResourceSamplingRepository(storeConfig.titleCardStrategy);
   const topicSelectionSearchResourceRepository = createTopicSelectionSearchResourceRepository(storeConfig.titleCardStrategy);
   const topicSelectionEvidenceMapRepository = createTopicSelectionEvidenceMapRepository(storeConfig.titleCardStrategy);
@@ -1028,6 +1037,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     })
     : null;
   const topicSelectionControlPlaneService = new TopicSelectionControlPlaneService(topicSelectionControlPlaneRepository);
+  const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
+    topicSelectionResearchCheckpointRepository,
+    topicSelectionControlPlaneService,
+  );
+  const topicSelectionResearchCheckpointController = new TopicSelectionResearchCheckpointController(
+    topicSelectionResearchCheckpointService,
+  );
   const topicSelectionSearchResourceService = new TopicSelectionSearchResourceService(
     topicSelectionSearchResourceRepository,
     topicSelectionControlPlaneService,
@@ -1045,6 +1061,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionControlPlaneService,
     topicSelectionEvidenceMapService,
     topicSelectionSearchResourceService,
+    { checkpointGuard: topicSelectionResearchCheckpointService },
   );
   const topicSelectionRecheckRiskMemoryService = new TopicSelectionRecheckRiskMemoryService(
     topicSelectionRecheckRiskMemoryRepository,
@@ -1113,6 +1130,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const topicSelectionV1aNeedCandidateBatchPersistenceService = new TopicSelectionPersistNeedCandidateBatchService(
     topicSelectionNeedValidationRepository,
+    { checkpointGuard: topicSelectionResearchCheckpointService },
   );
   const topicSelectionV1aGenerateNeedCandidateAdapterService =
     new TopicSelectionGenerateNeedCandidateOrchestratorAdapterService({
@@ -1860,6 +1878,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionV1aRoutes(instance, topicSelectionV1aController, topicSelectionResourceSamplingController);
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
     await registerTopicSelectionV1cRoutes(instance, topicSelectionV1cController);
+    await registerTopicSelectionResearchCheckpointRoutes(instance, topicSelectionResearchCheckpointController);
     await registerPaperImplementationRoutes(
       instance,
       paperImplementationController,
@@ -2016,6 +2035,16 @@ function createTopicSelectionControlPlaneRepository(
   }
 
   return new InMemoryTopicSelectionControlPlaneRepository();
+}
+
+function createTopicSelectionResearchCheckpointRepository(
+  strategy: RepositoryStrategy,
+): TopicSelectionResearchCheckpointRepository {
+  if (strategy === 'prisma') {
+    return new PrismaTopicSelectionResearchCheckpointRepository(getPrismaClient());
+  }
+
+  return new InMemoryTopicSelectionResearchCheckpointRepository();
 }
 
 function createTopicSelectionPromptPacketCacheStore(

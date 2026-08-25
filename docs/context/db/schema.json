@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-24T15:20:45.418Z",
+  "updatedAt": "2026-08-25T12:00:00.000Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -55767,6 +55767,133 @@
           "name": null,
           "map": null
         }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchCheckpoint",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "allowedActions", "type": "String", "nullable": false, "list": true, "dbName": null, "dbType": null, "default": "[]", "primaryKey": false, "unique": false },
+        { "name": "checkpointKey", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "checkpointKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "contractVersion", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "currentCheckpointKey", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "decidedAt", "type": "DateTime", "nullable": true, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "decisionAuthorityRef", "type": "Json", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "inputSnapshotId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "packetHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "policyVersionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "provenanceClass", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "requiredActionRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "sourceRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "status", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersededAt", "type": "DateTime", "nullable": true, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersededByCheckpointId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersedesCheckpointId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetVersionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "updatedAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "workspaceId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [],
+      "indexes": [
+        { "type": "index", "fields": ["inputSnapshotId"], "name": null, "map": "tsrc_input_snapshot_idx" },
+        { "type": "index", "fields": ["policyVersionId"], "name": null, "map": "tsrc_policy_version_idx" },
+        { "type": "index", "fields": ["status"], "name": null, "map": "tsrc_status_idx" },
+        { "type": "index", "fields": ["targetRefType", "targetRefId"], "name": null, "map": "tsrc_target_ref_idx" },
+        { "type": "index", "fields": ["titleCardId", "checkpointKind", "createdAt"], "name": null, "map": "tsrc_title_kind_created_idx" }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchCheckpointDecision",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "actorId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "actorType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "checkpointKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "confirmedSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "decision", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "decisionKey", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "decisionKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "humanConfirmedDecisionId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "loopbackRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "loopbackTarget", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "rationale", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "requiredActionRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "researchCheckpointId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "reviewPayload", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "workspaceId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [],
+      "indexes": [
+        { "type": "index", "fields": ["checkpointKind", "decision"], "name": null, "map": "tsrcd_kind_decision_idx" },
+        { "type": "index", "fields": ["titleCardId", "createdAt"], "name": null, "map": "tsrcd_title_created_idx" }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchObjection",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "actorId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "actorType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "checkpointKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "objectionKey", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "rationale", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "requiredLoopback", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "researchCheckpointId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "severity", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "sourceRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "summary", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetVersionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "workspaceId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [],
+      "indexes": [
+        { "type": "index", "fields": ["researchCheckpointId", "createdAt"], "name": null, "map": "tsro_checkpoint_created_idx" },
+        { "type": "index", "fields": ["severity"], "name": null, "map": "tsro_severity_idx" },
+        { "type": "index", "fields": ["targetRefType", "targetRefId"], "name": null, "map": "tsro_target_ref_idx" },
+        { "type": "index", "fields": ["titleCardId", "createdAt"], "name": null, "map": "tsro_title_created_idx" }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchObjectionResolution",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "actorId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "actorType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "outputRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "rationale", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "researchObjectionId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "resolutionKey", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "resolutionType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "resolvedSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "workspaceId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [],
+      "indexes": [
+        { "type": "index", "fields": ["resolutionType"], "name": null, "map": "tsror_resolution_type_idx" },
+        { "type": "index", "fields": ["titleCardId", "createdAt"], "name": null, "map": "tsror_title_created_idx" }
       ]
     },
     {

@@ -591,8 +591,10 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
   }
 
   async createInputSnapshot(record: TopicSelectionInputSnapshotRecord): Promise<TopicSelectionInputSnapshotRecord> {
-    const row = await this.prisma.topicSelectionInputSnapshot.create({
-      data: {
+    const row = await this.prisma.topicSelectionInputSnapshot.upsert({
+      where: { id: record.input_snapshot_id },
+      update: {},
+      create: {
         id: record.input_snapshot_id,
         workspaceId: record.workspace_id ?? null,
         titleCardId: record.title_card_id ?? null,

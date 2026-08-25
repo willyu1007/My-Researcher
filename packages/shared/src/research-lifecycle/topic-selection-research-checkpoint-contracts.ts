@@ -1,0 +1,422 @@
+import {
+  topicSelectionFunctionalRefSchema,
+  type TopicSelectionFunctionalRef,
+} from './topic-selection-control-plane-contracts.js';
+
+export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION = 'v1' as const;
+
+export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS = [
+  'evidence_landscape',
+  'gap_selection',
+  'question_contract',
+  'promotion',
+] as const;
+export type TopicSelectionResearchCheckpointKind =
+  (typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_STATUSES = [
+  'pending',
+  'decided',
+  'superseded',
+] as const;
+export type TopicSelectionResearchCheckpointStatus =
+  (typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_STATUSES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_PROVENANCE_CLASSES = [
+  'native',
+  'backfilled',
+] as const;
+export type TopicSelectionResearchCheckpointProvenanceClass =
+  (typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_PROVENANCE_CLASSES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_ACTIONS = [
+  'advance',
+  'loopback',
+  'reject',
+  'hold',
+] as const;
+export type TopicSelectionResearchCheckpointAction =
+  (typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_ACTIONS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_DECISION_KINDS = [
+  'evidence_landscape_confirmation',
+  'topic_question_confirmation',
+] as const;
+export type TopicSelectionResearchDecisionKind =
+  (typeof TOPIC_SELECTION_RESEARCH_DECISION_KINDS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_OBJECTION_SEVERITIES = [
+  'info',
+  'warning',
+  'blocking',
+  'critical',
+] as const;
+export type TopicSelectionResearchObjectionSeverity =
+  (typeof TOPIC_SELECTION_RESEARCH_OBJECTION_SEVERITIES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_OBJECTION_RESOLUTION_TYPES = [
+  'resolved_with_revision',
+  'resolved_with_evidence',
+  'superseded_by_current_authority',
+] as const;
+export type TopicSelectionResearchObjectionResolutionType =
+  (typeof TOPIC_SELECTION_RESEARCH_OBJECTION_RESOLUTION_TYPES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_TRANSITIONS_BY_CHECKPOINT = {
+  evidence_landscape: 'topic-selection.research.generate-need-candidates',
+  gap_selection: 'topic-selection.research.publish-v1b-input',
+  question_contract: 'topic-selection.research.assess-topic-value',
+  promotion: 'topic-selection.research.create-paper-project-bridge',
+} as const satisfies Record<TopicSelectionResearchCheckpointKind, string>;
+
+export interface TopicSelectionResearchCheckpointRecord {
+  research_checkpoint_id: string;
+  checkpoint_key: string;
+  current_checkpoint_key?: string | null;
+  workspace_id?: string | null;
+  title_card_id: string;
+  checkpoint_kind: TopicSelectionResearchCheckpointKind;
+  contract_version: typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION;
+  provenance_class: TopicSelectionResearchCheckpointProvenanceClass;
+  policy_version_id?: string | null;
+  target_ref: TopicSelectionFunctionalRef;
+  target_snapshot_hash: string;
+  packet_hash: string;
+  input_snapshot_id: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  allowed_actions: TopicSelectionResearchCheckpointAction[];
+  required_action_refs: TopicSelectionFunctionalRef[];
+  decision_authority_ref?: TopicSelectionFunctionalRef | null;
+  status: TopicSelectionResearchCheckpointStatus;
+  supersedes_checkpoint_id?: string | null;
+  superseded_by_checkpoint_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  decided_at?: string | null;
+  superseded_at?: string | null;
+}
+
+export interface TopicSelectionEvidenceLandscapeReviewPayload {
+  review_kind: 'evidence_landscape';
+  nearest_work_reviewed: boolean;
+  disconfirming_evidence_reviewed: boolean;
+  source_quality_reviewed: boolean;
+  limitations: string[];
+}
+
+export interface TopicSelectionTopicQuestionReviewPayload {
+  review_kind: 'question_contract';
+  mechanism_identifiable: boolean;
+  proxy_operationalized: boolean;
+  confounds_reviewed: boolean;
+  falsification_reviewed: boolean;
+  claim_ceiling_reviewed: boolean;
+  review_notes: string[];
+}
+
+export type TopicSelectionResearchCheckpointReviewPayload =
+  | TopicSelectionEvidenceLandscapeReviewPayload
+  | TopicSelectionTopicQuestionReviewPayload;
+
+export interface TopicSelectionResearchCheckpointDecisionRecord {
+  research_checkpoint_decision_id: string;
+  decision_key: string;
+  research_checkpoint_id: string;
+  human_confirmed_decision_id: string;
+  workspace_id?: string | null;
+  title_card_id: string;
+  checkpoint_kind: 'evidence_landscape' | 'question_contract';
+  decision_kind: TopicSelectionResearchDecisionKind;
+  decision: TopicSelectionResearchCheckpointAction;
+  actor: { actor_type: 'human'; actor_id: string };
+  confirmed_snapshot_hash: string;
+  rationale: string;
+  review_payload: TopicSelectionResearchCheckpointReviewPayload;
+  required_action_refs: TopicSelectionFunctionalRef[];
+  loopback_target?: string | null;
+  loopback_refs: TopicSelectionFunctionalRef[];
+  created_at: string;
+}
+
+export interface TopicSelectionResearchObjectionRecord {
+  research_objection_id: string;
+  objection_key: string;
+  workspace_id?: string | null;
+  title_card_id: string;
+  research_checkpoint_id: string;
+  checkpoint_kind: TopicSelectionResearchCheckpointKind;
+  target_ref: TopicSelectionFunctionalRef;
+  target_snapshot_hash: string;
+  severity: TopicSelectionResearchObjectionSeverity;
+  summary: string;
+  rationale: string;
+  required_loopback?: string | null;
+  source_refs: TopicSelectionFunctionalRef[];
+  actor: { actor_type: 'human'; actor_id: string };
+  created_at: string;
+}
+
+export interface TopicSelectionResearchObjectionResolutionRecord {
+  research_objection_resolution_id: string;
+  resolution_key: string;
+  research_objection_id: string;
+  workspace_id?: string | null;
+  title_card_id: string;
+  resolution_type: TopicSelectionResearchObjectionResolutionType;
+  actor: { actor_type: 'human'; actor_id: string };
+  resolved_snapshot_hash: string;
+  rationale: string;
+  output_refs: TopicSelectionFunctionalRef[];
+  created_at: string;
+}
+
+export interface TopicSelectionResearchCheckpointPacket {
+  research_checkpoint_id: string;
+  checkpoint_kind: TopicSelectionResearchCheckpointKind;
+  title_card_id: string;
+  contract_version: typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION;
+  target_ref: TopicSelectionFunctionalRef;
+  target_snapshot_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+  allowed_actions: TopicSelectionResearchCheckpointAction[];
+  required_action_refs: TopicSelectionFunctionalRef[];
+  packet_payload: Record<string, unknown>;
+  open_objections: TopicSelectionResearchObjectionRecord[];
+  decision?: TopicSelectionResearchCheckpointDecisionRecord | null;
+  packet_hash: string;
+}
+
+export interface TopicSelectionResearchCheckpointDecisionInput {
+  decision_key: string;
+  decision: TopicSelectionResearchCheckpointAction;
+  actor: { actor_type: 'human'; actor_id: string };
+  confirmed_snapshot_hash: string;
+  rationale: string;
+  review_payload: TopicSelectionResearchCheckpointReviewPayload;
+  required_action_refs?: TopicSelectionFunctionalRef[];
+  loopback_target?: string | null;
+  loopback_refs?: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchObjectionInput {
+  objection_key: string;
+  severity: TopicSelectionResearchObjectionSeverity;
+  summary: string;
+  rationale: string;
+  required_loopback?: string | null;
+  source_refs?: TopicSelectionFunctionalRef[];
+  actor: { actor_type: 'human'; actor_id: string };
+  confirmed_snapshot_hash: string;
+}
+
+export interface TopicSelectionResearchObjectionResolutionInput {
+  resolution_key: string;
+  resolution_type: TopicSelectionResearchObjectionResolutionType;
+  actor: { actor_type: 'human'; actor_id: string };
+  resolved_snapshot_hash: string;
+  rationale: string;
+  output_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchStatusProjection {
+  title_card_id: string;
+  contract_version: typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION;
+  checkpoint_chain: TopicSelectionResearchCheckpointRecord[];
+  current_checkpoint?: TopicSelectionResearchCheckpointRecord | null;
+  current_packet?: TopicSelectionResearchCheckpointPacket | null;
+  required_checkpoint_kind: TopicSelectionResearchCheckpointKind | null;
+  next_authorized_transition?: string | null;
+  open_blocking_objection_count: number;
+  legacy_provenance: boolean;
+}
+
+const stringId = { type: 'string', minLength: 1 } as const;
+const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
+const hashString = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
+const stringArray = { type: 'array', items: stringId } as const;
+const functionalRefArray = { type: 'array', items: topicSelectionFunctionalRefSchema } as const;
+const strictHumanActorSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actor_type', 'actor_id'],
+  properties: {
+    actor_type: { const: 'human' },
+    actor_id: stringId,
+  },
+} as const;
+
+export const topicSelectionEvidenceLandscapeReviewPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'review_kind',
+    'nearest_work_reviewed',
+    'disconfirming_evidence_reviewed',
+    'source_quality_reviewed',
+    'limitations',
+  ],
+  properties: {
+    review_kind: { const: 'evidence_landscape' },
+    nearest_work_reviewed: { type: 'boolean' },
+    disconfirming_evidence_reviewed: { type: 'boolean' },
+    source_quality_reviewed: { type: 'boolean' },
+    limitations: stringArray,
+  },
+} as const;
+
+export const topicSelectionTopicQuestionReviewPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'review_kind',
+    'mechanism_identifiable',
+    'proxy_operationalized',
+    'confounds_reviewed',
+    'falsification_reviewed',
+    'claim_ceiling_reviewed',
+    'review_notes',
+  ],
+  properties: {
+    review_kind: { const: 'question_contract' },
+    mechanism_identifiable: { type: 'boolean' },
+    proxy_operationalized: { type: 'boolean' },
+    confounds_reviewed: { type: 'boolean' },
+    falsification_reviewed: { type: 'boolean' },
+    claim_ceiling_reviewed: { type: 'boolean' },
+    review_notes: stringArray,
+  },
+} as const;
+
+export const topicSelectionResearchCheckpointReviewPayloadSchema = {
+  oneOf: [
+    topicSelectionEvidenceLandscapeReviewPayloadSchema,
+    topicSelectionTopicQuestionReviewPayloadSchema,
+  ],
+} as const;
+
+export const topicSelectionResearchCheckpointRecordSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'research_checkpoint_id',
+    'checkpoint_key',
+    'title_card_id',
+    'checkpoint_kind',
+    'contract_version',
+    'provenance_class',
+    'target_ref',
+    'target_snapshot_hash',
+    'packet_hash',
+    'input_snapshot_id',
+    'source_refs',
+    'allowed_actions',
+    'required_action_refs',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+  properties: {
+    research_checkpoint_id: stringId,
+    checkpoint_key: hashString,
+    current_checkpoint_key: nullableStringId,
+    workspace_id: nullableStringId,
+    title_card_id: stringId,
+    checkpoint_kind: { enum: [...TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS] },
+    contract_version: { const: TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION },
+    provenance_class: { enum: [...TOPIC_SELECTION_RESEARCH_CHECKPOINT_PROVENANCE_CLASSES] },
+    policy_version_id: nullableStringId,
+    target_ref: topicSelectionFunctionalRefSchema,
+    target_snapshot_hash: hashString,
+    packet_hash: hashString,
+    input_snapshot_id: stringId,
+    source_refs: functionalRefArray,
+    allowed_actions: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_CHECKPOINT_ACTIONS] },
+      minItems: 1,
+      uniqueItems: true,
+    },
+    required_action_refs: functionalRefArray,
+    decision_authority_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    status: { enum: [...TOPIC_SELECTION_RESEARCH_CHECKPOINT_STATUSES] },
+    supersedes_checkpoint_id: nullableStringId,
+    superseded_by_checkpoint_id: nullableStringId,
+    created_at: stringId,
+    updated_at: stringId,
+    decided_at: nullableStringId,
+    superseded_at: nullableStringId,
+  },
+} as const;
+
+export const topicSelectionResearchCheckpointDecisionInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'decision_key',
+    'decision',
+    'actor',
+    'confirmed_snapshot_hash',
+    'rationale',
+    'review_payload',
+  ],
+  properties: {
+    decision_key: stringId,
+    decision: { enum: [...TOPIC_SELECTION_RESEARCH_CHECKPOINT_ACTIONS] },
+    actor: strictHumanActorSchema,
+    confirmed_snapshot_hash: hashString,
+    rationale: stringId,
+    review_payload: topicSelectionResearchCheckpointReviewPayloadSchema,
+    required_action_refs: functionalRefArray,
+    loopback_target: nullableStringId,
+    loopback_refs: functionalRefArray,
+  },
+} as const;
+
+export const topicSelectionResearchObjectionInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'objection_key',
+    'severity',
+    'summary',
+    'rationale',
+    'actor',
+    'confirmed_snapshot_hash',
+  ],
+  properties: {
+    objection_key: stringId,
+    severity: { enum: [...TOPIC_SELECTION_RESEARCH_OBJECTION_SEVERITIES] },
+    summary: stringId,
+    rationale: stringId,
+    required_loopback: nullableStringId,
+    source_refs: functionalRefArray,
+    actor: strictHumanActorSchema,
+    confirmed_snapshot_hash: hashString,
+  },
+} as const;
+
+export const topicSelectionResearchObjectionResolutionInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'resolution_key',
+    'resolution_type',
+    'actor',
+    'resolved_snapshot_hash',
+    'rationale',
+    'output_refs',
+  ],
+  properties: {
+    resolution_key: stringId,
+    resolution_type: { enum: [...TOPIC_SELECTION_RESEARCH_OBJECTION_RESOLUTION_TYPES] },
+    actor: strictHumanActorSchema,
+    resolved_snapshot_hash: hashString,
+    rationale: stringId,
+    output_refs: { ...functionalRefArray, minItems: 1 },
+  },
+} as const;
+
+export const topicSelectionResearchCheckpointListSchema = {
+  type: 'array',
+  items: topicSelectionResearchCheckpointRecordSchema,
+} as const;
