@@ -121,10 +121,25 @@
 - Verification: Full-chain positive and negative API scenarios, top-k objection regression, real-DB migration/replay, concurrent decision/idempotency checks, typecheck, OpenAPI drift tests, and relevant backend suites.
 - Recovery: Keep bridge/intake fail-closed, retain prior authority read access, and roll back the cutover version rather than weakening checkpoint policy.
 
+### Phase 6 — Fresh dual-track product-path acceptance
+- Outcome: One fresh negative lineage and one fresh positive/recovery lineage prove that the checkpoint control plane governs real API operation rather than only test fixtures.
+- Approach: Use the current local development database and retrieval-ready corpus without paid-provider execution. Treat the historical SciFact top-k 10-versus-5 framing as a negative control, and use a mechanism-level adaptive-retrieval question for the positive path. Persist fresh, clearly labeled owner records as audit evidence.
+- Planned changes:
+  1. Run a read-only runtime, API-identity, topic-profile, scoped-corpus, evidence-readiness, and backup-readiness preflight before creating records.
+  2. Drive a parameter-only negative TitleCard through qualified evidence to the competitive-gap boundary and prove that wording or top-k variants cannot advance.
+  3. Drive a mechanism-level positive TitleCard through evidence, gap, question, promotion, and bridge checkpoints, stopping for every strict-human authority decision.
+  4. Record a strict-human blocking objection after bridge creation but before topic handoff; prove the handoff fails, a wording-only repair cannot resolve it, and a substantive ResearchSlice/evidence revision creates a new current lineage.
+  5. Reconfirm the repaired chain, complete one topic handoff, exact-replay it without duplicate owners, and reconcile the maintained Codex operator guidance with the accepted positive/negative roles.
+- Affected boundaries / entry points: Canonical local HTTP APIs for topic-selection research status/checkpoints, v1a/v1b/v1c workflow actions, PaperProject bridge and `/paper-implementation/topic-handoffs`; maintained operator documentation and T-147 verification evidence only if runtime behavior remains correct.
+- Dependencies: Local backend and database availability; one unambiguous active topic profile; current retrieval-ready, claim-bearing role-balanced literature; user decisions at every Human-authority stop. Provider/cost execution remains disabled.
+- Exit criteria: The negative lineage remains non-advancing; the objection invalidates an unconsumed bridge; wording-only resolution fails; substantive repair yields a new current checkpoint chain; the repaired topic handoff creates exactly one downstream lineage and exact replay returns it.
+- Verification: Read `research-status`, checkpoint history/packets, blockers, allowed actions, bridge state, and topic-handoff owner IDs after every mutation. Preserve idempotency keys and verify `409`/`422` fail-closed outcomes before following returned loopbacks.
+- Recovery: Stop at the last persisted owner projection, retain IDs and idempotency keys, and resume only through the returned allowed action. Do not delete audit records, query Prisma directly, start a server without approval, or substitute provider output for missing product authority.
+
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: complete task
+- Authorized boundary: through Phase 6 product-path acceptance
 - [x] Decisions: checkpoint-control direction, cutover, academic-policy strictness, minimal persistence, and legacy-route treatment are confirmed.
 - [x] Design: persistence authorities, stage adapters, central guard seams, cutover behavior, and policy classification are settled for implementation.
 - [x] Route: contract discovery precedes control-plane implementation, then evidence/gap, question/objection, and promotion closure.

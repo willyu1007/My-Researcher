@@ -169,7 +169,7 @@
 | T-142 evidence-board-to-validation-cycle-semantic-handoff | archived | dev-docs/archive/evidence-board-to-validation-cycle-semantic-handoff |
 | T-143 validation-cycle-handoff-authority-recovery-hardening | archived | dev-docs/archive/validation-cycle-handoff-authority-recovery-hardening |
 | T-144 validation-cycle-handoff-deep-cleanup | archived | dev-docs/archive/validation-cycle-handoff-deep-cleanup |
-| T-147 topic-selection-research-checkpoint-control-plane | done | dev-docs/active/topic-selection-research-checkpoint-control-plane |
+| T-147 topic-selection-research-checkpoint-control-plane | in-progress | dev-docs/active/topic-selection-research-checkpoint-control-plane |
 
 ### F-002 Desktop Frontend Foundation
 

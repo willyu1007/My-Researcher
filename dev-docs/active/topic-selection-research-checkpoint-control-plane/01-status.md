@@ -4,13 +4,14 @@
 Make topic selection a product-governed research process in which current evidence, gap, question, and promotion checkpoints—and not client behavior—control academic-quality review, human participation, loopbacks, and downstream eligibility.
 
 ## Progress
-- State: done
-- Current phase: Complete — post-audit checkpoint hardening verified through PaperProject intake
-- Next step: None; task is ready for a separate authorized archive transition.
+- State: in-progress
+- Current phase: Phase 6 — fresh dual-track product-path acceptance
+- Next step: Run the read-only local-runtime, topic-profile, scoped-corpus, evidence-readiness, and backup-readiness preflight; report the exact proposed first write before mutating product state.
 - Blocker: none
 
 ## Latest checkpoint
 
+- The user authorized a fresh local-DB, no-paid-provider product-path acceptance through topic handoff. The historical SciFact top-k 10-versus-5 question is now an explicit negative control; the positive lineage uses a mechanism-level uncertainty-conditioned adaptive-retrieval question with genuinely distinct alternatives. Fresh labeled owner records remain durable audit evidence, and execution stops for every Human-authority decision.
 - A post-completion implementation audit repaired six gaps before archive: every downstream checkpoint now carries and validates the exact current predecessor-checkpoint ref; question advancement requires an explicit `objections_reviewed: true`; concurrent input-snapshot creation converges on the unique winner; concurrent distinct objection resolutions yield one winner and one stable `409`; the matrix negative self-test removes a real parsed cell instead of relying on brittle string replacement; and v1a workflow fixtures now satisfy the production support/context/challenge/direct-neighbor evidence contract.
 - The supported Node range is executable again on Node 26: backend/shared TypeScript entrypoints use `tsx` via `--import` instead of the incompatible `ts-node` ESM loader. Developer commands, operator scripts, canaries, the full-suite runner, and runtime-stress children use the same loader contract.
 - Decisive post-audit verification is green: `pnpm typecheck`; root `pnpm test` on Node 26 (backend 2,776 tests: 2,707 passed, 69 conditional skips, 0 failed); three repeated real-Postgres checkpoint integration runs plus the full-suite run; workflow-matrix and injected-drift checks; LLM config, N8 dry-run, and slot-manifest operator checks; DB-context alignment; and disposable-shadow migration drift with an empty diff.
@@ -42,3 +43,4 @@ Make topic selection a product-governed research process in which current eviden
 - [x] A6: An API-first research-status projection lets any client recover completed work, alternatives, unresolved issues, current checkpoint, allowed decisions, and next authorized transition without reconstructing internal records.
 - [x] A7: Production contains no rehearsal/reduced-quality runtime path and no Codex- or GUI-specific semantic authority; test scenarios exercise the same guarded product contracts.
 - [x] A8: Versioned cutover, migration, replay/idempotency, OpenAPI/context alignment, and a full-chain negative regression based on the top-k academic-objection case are decisively verified.
+- [ ] A9: A fresh dual-track local API acceptance proves the parameter-only negative boundary, strict-human checkpoint operation, post-bridge objection invalidation, substantive-repair lineage refresh, and exactly-once topic handoff without paid-provider execution.
