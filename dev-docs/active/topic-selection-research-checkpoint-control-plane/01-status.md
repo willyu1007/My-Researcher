@@ -6,11 +6,12 @@ Make topic selection a product-governed research process in which current eviden
 ## Progress
 - State: in-progress
 - Current phase: Phase 6 — fresh dual-track product-path acceptance
-- Next step: Run the read-only local-runtime, topic-profile, scoped-corpus, evidence-readiness, and backup-readiness preflight; report the exact proposed first write before mutating product state.
-- Blocker: none
+- Next step: After explicit user approval, start the local database-backed backend with `pnpm backend:dev:prisma`, then resume the read-only topic-profile, scoped-corpus, evidence-readiness, and backup-readiness preflight.
+- Blocker: The My-Researcher backend is not listening on the configured/default local API base; starting a development server requires explicit user approval.
 
 ## Latest checkpoint
 
+- Phase 6 preflight resolved no configured API-base override and found no My-Researcher listener at `http://127.0.0.1:3000`; health, title-card, and topic-settings reads all failed before product access. The listeners on ports 8001, 8081, and 3202 were identified as My-Chat or The-Nurture processes and were not used. The operator/API lint passes, so the next safe action is only to start the repository backend after approval.
 - The user authorized a fresh local-DB, no-paid-provider product-path acceptance through topic handoff. The historical SciFact top-k 10-versus-5 question is now an explicit negative control; the positive lineage uses a mechanism-level uncertainty-conditioned adaptive-retrieval question with genuinely distinct alternatives. Fresh labeled owner records remain durable audit evidence, and execution stops for every Human-authority decision.
 - A post-completion implementation audit repaired six gaps before archive: every downstream checkpoint now carries and validates the exact current predecessor-checkpoint ref; question advancement requires an explicit `objections_reviewed: true`; concurrent input-snapshot creation converges on the unique winner; concurrent distinct objection resolutions yield one winner and one stable `409`; the matrix negative self-test removes a real parsed cell instead of relying on brittle string replacement; and v1a workflow fixtures now satisfy the production support/context/challenge/direct-neighbor evidence contract.
 - The supported Node range is executable again on Node 26: backend/shared TypeScript entrypoints use `tsx` via `--import` instead of the incompatible `ts-node` ESM loader. Developer commands, operator scripts, canaries, the full-suite runner, and runtime-stress children use the same loader contract.
