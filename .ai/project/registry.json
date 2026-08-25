@@ -37,7 +37,11 @@
       "description": "Build Electron desktop shell with React/Vite renderer and brand-aligned UI theme system."
     }
   ],
-  "ideas": [],
+  "ideas": [
+    {
+      "idea": "After the API-first Codex-assisted rehearsal produces concrete operability evidence, productize a transport-neutral Codex operator adapter using Codex App Server or the Codex SDK, persist operator-run to Codex thread/turn and product workflow-attempt correlation, and keep product owner state—not conversation history—as research authority."
+    }
+  ],
   "tasks": [
     {
       "id": "T-001",
