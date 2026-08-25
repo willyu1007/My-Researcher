@@ -1,7 +1,3 @@
-// Warm the ts-node ESM loader with an npm resolution before the first local
-// `.ts` import (matches every other shared test importing Fastify) — otherwise
-// the loader worker throws at module load in this repo.
-import 'fastify';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 

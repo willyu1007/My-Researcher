@@ -1610,6 +1610,7 @@ async function confirmQuestionCheckpoint(
       confounds_reviewed: true,
       falsification_reviewed: true,
       claim_ceiling_reviewed: true,
+      objections_reviewed: true,
       review_notes: ['Qualified fixture confirmation for the exact N7 contract snapshot.'],
     },
   });

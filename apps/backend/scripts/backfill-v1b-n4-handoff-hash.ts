@@ -1,9 +1,9 @@
 // T-127 W-11 — operator script for the one-time n4_handoff_hash backfill (in-process, no HTTP route).
 //
 // Run (dry-run by default — classifies + counts, writes NOTHING):
-//   node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-v1b-n4-handoff-hash.ts
+//   node --env-file=../../.env.local --import tsx scripts/backfill-v1b-n4-handoff-hash.ts
 // Apply the backfill:
-//   node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-v1b-n4-handoff-hash.ts --apply
+//   node --env-file=../../.env.local --import tsx scripts/backfill-v1b-n4-handoff-hash.ts --apply
 // Scope:
 //   --title-card-id <id>            (repeatable; restricts the global sweep)
 //   --option-set-ids <a,b,c>        (exact ids; present ones are skipped)

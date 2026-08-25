@@ -13,13 +13,13 @@
     "prisma:format": "prisma format --schema ../../prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ../../prisma/schema.prisma",
-    "dev": "node --enable-source-maps --loader ts-node/esm src/server.ts",
-    "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --loader ts-node/esm src/server.ts",
+    "dev": "node --enable-source-maps --import tsx src/server.ts",
+    "dev:prisma": "node --env-file=../../.env.local --enable-source-maps --import tsx src/server.ts",
     "content-processing:backfill": "node scripts/backfill-literature-content-processing.mjs",
-    "experiment-foundation:d19-fixture:import": "node --env-file=../../.env.local --loader ts-node/esm scripts/import-experiment-foundation-d19-typed-fixture.ts",
-    "v1b:backfill-n4-handoff-hash": "node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-v1b-n4-handoff-hash.ts",
-    "v1b:n8-calibration-dry-run": "node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts",
-    "topic-selection:research-checkpoint-backfill": "TS_NODE_TRANSPILE_ONLY=1 node --env-file=../../.env.local --loader ts-node/esm scripts/backfill-topic-selection-research-checkpoints.ts"
+    "experiment-foundation:d19-fixture:import": "node --env-file=../../.env.local --import tsx scripts/import-experiment-foundation-d19-typed-fixture.ts",
+    "v1b:backfill-n4-handoff-hash": "node --env-file=../../.env.local --import tsx scripts/backfill-v1b-n4-handoff-hash.ts",
+    "v1b:n8-calibration-dry-run": "node --import tsx scripts/run-n8-calibration-dry-run.ts",
+    "topic-selection:research-checkpoint-backfill": "node --env-file=../../.env.local --import tsx scripts/backfill-topic-selection-research-checkpoints.ts"
   },
   "dependencies": {
     "@alicloud/aiworkspace20210204": "6.2.0",
@@ -35,6 +35,6 @@
   "devDependencies": {
     "@types/node": "^20.17.0",
     "prisma": "^5.22.0",
-    "ts-node": "^10.9.2"
+    "tsx": "^4.23.12"
   }
 }

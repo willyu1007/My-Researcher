@@ -145,3 +145,4 @@
 - Review: At each phase, review authority boundaries, human decision semantics, bypass analysis, and whether new rules improve informed control rather than only adding records.
 - Record update: Keep status, architecture, verification evidence, workflow matrix, OpenAPI, and project mapping aligned with confirmed product reality.
 - Checkpoint: Land only verified, recoverable phase units with the task trailer after scoped sync and governance lint.
+- Post-completion audit: Re-run lineage, concurrency, contract-completeness, matrix-drift, fixture-realism, and supported-Node verification before archive readiness; any discovered gap remains owned by T-147 until repaired and decisively reverified.

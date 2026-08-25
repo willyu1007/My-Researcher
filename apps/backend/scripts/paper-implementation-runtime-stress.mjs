@@ -762,8 +762,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       'src/services/paper-implementation-runtime-l5-stress.unit.test.ts',
     ],
   },
@@ -774,8 +774,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       'src/services/paper-implementation-compression-attempt.unit.test.ts',
       'src/services/paper-implementation-trace-integrity-debate-runtime-service.unit.test.ts',
       'src/services/paper-implementation-p1-runtime-review-service.unit.test.ts',
@@ -808,8 +808,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       '--test-name-pattern',
       DETERMINISTIC_LANE_TEST_NAME_PATTERN,
       'src/services/paper-implementation-intake-bootstrap-service.unit.test.ts',
@@ -825,8 +825,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       '--test-name-pattern',
       DECISION_WORK_QUEUE_TEST_NAME_PATTERN,
       'src/services/paper-implementation-ai-workflow-harness-service.unit.test.ts',
@@ -841,8 +841,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       '--test-name-pattern',
       LIVE_EXPERIMENT_ADAPTER_TEST_NAME_PATTERN,
       'src/services/paper-implementation-live-experiment-adapter-service.unit.test.ts',
@@ -863,8 +863,8 @@ const steps = [
     args: [
       '--test',
       '--test-reporter=tap',
-      '--loader',
-      'ts-node/esm',
+      '--import',
+      'tsx',
       '--test-name-pattern',
       PROVIDER_VARIANCE_EVALUATION_TEST_NAME_PATTERN,
       'src/services/paper-implementation-provider-variance-evaluation-service.unit.test.ts',
@@ -1041,7 +1041,7 @@ async function runStep(step) {
   await fs.mkdir(ARTIFACT_DIR, { recursive: true });
   await fs.writeFile(logPath, '');
 
-  // Multi-file `node --test` steps spawn a ts-node fleet as wide as the full
+  // Multi-file `node --test` steps spawn a fleet as wide as the full
   // backend suite's — take the machine-wide suite lock so they never overlap
   // another session's fleet. Acquired before the step timer starts, so lock
   // wait does not consume the step budget. Residual (pre-existing): a step

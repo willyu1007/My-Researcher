@@ -5,12 +5,15 @@ Make topic selection a product-governed research process in which current eviden
 
 ## Progress
 - State: done
-- Current phase: Complete — native research checkpoint chain enforced through PaperProject intake
+- Current phase: Complete — post-audit checkpoint hardening verified through PaperProject intake
 - Next step: None; task is ready for a separate authorized archive transition.
 - Blocker: none
 
 ## Latest checkpoint
 
+- A post-completion implementation audit repaired six gaps before archive: every downstream checkpoint now carries and validates the exact current predecessor-checkpoint ref; question advancement requires an explicit `objections_reviewed: true`; concurrent input-snapshot creation converges on the unique winner; concurrent distinct objection resolutions yield one winner and one stable `409`; the matrix negative self-test removes a real parsed cell instead of relying on brittle string replacement; and v1a workflow fixtures now satisfy the production support/context/challenge/direct-neighbor evidence contract.
+- The supported Node range is executable again on Node 26: backend/shared TypeScript entrypoints use `tsx` via `--import` instead of the incompatible `ts-node` ESM loader. Developer commands, operator scripts, canaries, the full-suite runner, and runtime-stress children use the same loader contract.
+- Decisive post-audit verification is green: `pnpm typecheck`; root `pnpm test` on Node 26 (backend 2,776 tests: 2,707 passed, 69 conditional skips, 0 failed); three repeated real-Postgres checkpoint integration runs plus the full-suite run; workflow-matrix and injected-drift checks; LLM config, N8 dry-run, and slot-manifest operator checks; DB-context alignment; and disposable-shadow migration drift with an empty diff.
 - Phase 5 closes promotion and intake. HumanPromotionDecision now materializes an exact hash-versioned promotion checkpoint, rejects an incomplete native evidence→gap→question chain, and requires every advancement-relevant warning or independent critic finding to map to an accepted risk, evidence-backed disposition, or owned condition/action.
 - Promotion and bridge services require checkpoint control as a constructor dependency; omission is a type error rather than a silent runtime bypass. Bridge creation and every intake attempt re-run the complete current checkpoint chain before replay or any PaperProject write, so later objections, stale hashes, or open actions invalidate an unconsumed bridge.
 - Non-promote human decisions remain durable and decided but non-advancing, with product-owned required actions. The bounded-debate N3 semantic layer and critic resolution map survive into the promotion dossier.

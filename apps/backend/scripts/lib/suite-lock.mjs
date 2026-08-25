@@ -1,4 +1,4 @@
-// Machine-wide mutex for heavy `node --test --loader ts-node/esm` fleets.
+// Machine-wide mutex for heavy multi-file `node --test` fleets.
 //
 // Two such fleets on one machine exhaust CPU/RAM and children crash at load
 // time (~11-13s in, TSError-style `[Object: null prototype]` dumps), yielding

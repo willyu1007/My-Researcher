@@ -391,6 +391,7 @@ async function createAdvancingCheckpointControl() {
       confounds_reviewed: true,
       falsification_reviewed: true,
       claim_ceiling_reviewed: true,
+      objections_reviewed: true,
       review_notes: [],
     },
   });

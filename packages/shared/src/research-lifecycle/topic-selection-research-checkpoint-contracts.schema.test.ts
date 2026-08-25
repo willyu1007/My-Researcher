@@ -51,6 +51,7 @@ test('research checkpoint decision schema rejects non-human authority and hidden
       confounds_reviewed: true,
       falsification_reviewed: true,
       claim_ceiling_reviewed: true,
+      objections_reviewed: true,
       review_notes: [],
     },
   };
@@ -65,6 +66,15 @@ test('research checkpoint decision schema rejects non-human authority and hidden
     bypass_currentness: true,
   });
   assert.equal(hidden.statusCode, 400);
+
+  const reviewWithoutObjectionConfirmation = Object.fromEntries(
+    Object.entries(base.review_payload).filter(([key]) => key !== 'objections_reviewed'),
+  );
+  const missingObjectionReview = await inject(topicSelectionResearchCheckpointDecisionInputSchema, {
+    ...base,
+    review_payload: reviewWithoutObjectionConfirmation,
+  });
+  assert.equal(missingObjectionReview.statusCode, 400);
 });
 
 test('objection and resolution schemas require snapshot-bound human input', async () => {

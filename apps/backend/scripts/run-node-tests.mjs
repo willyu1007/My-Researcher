@@ -1,9 +1,8 @@
 // Full-suite runner for the backend tests (`pnpm test`).
 //
 // Discovers every src/**/*.test.ts and hands the whole list to a single
-// `node --test --loader ts-node/esm` invocation (default node:test
-// concurrency: ~cores-1 child processes, each type-checking the backend
-// import graph via ts-node — a heavy fleet).
+// `node --test --import tsx` invocation (default node:test concurrency:
+// ~cores-1 child processes, each loading the backend import graph).
 //
 // Cross-process suite mutex: two such fleets on one machine exhaust CPU/RAM
 // and children crash at load time, yielding file-level `not ok` false reds
@@ -70,12 +69,12 @@ const releaseSuiteLock = await acquireSuiteLock();
 
 // detached: the fleet gets its own process group so a termination signal can
 // reach every worker directly — signalling only the coordinator is not enough
-// (it dies instantly on SIGTERM, orphaning compute-bound ts-node workers).
+// (it dies instantly on SIGTERM, orphaning compute-bound test workers).
 const args = [
   '--test',
   ...(testConcurrency === null ? [] : [`--test-concurrency=${testConcurrency}`]),
-  '--loader',
-  'ts-node/esm',
+  '--import',
+  'tsx',
   ...testFiles,
 ];
 const child = spawn(process.execPath, args, {

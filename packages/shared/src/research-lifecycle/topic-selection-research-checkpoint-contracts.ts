@@ -111,6 +111,7 @@ export interface TopicSelectionTopicQuestionReviewPayload {
   confounds_reviewed: boolean;
   falsification_reviewed: boolean;
   claim_ceiling_reviewed: boolean;
+  objections_reviewed: boolean;
   review_notes: string[];
 }
 
@@ -274,6 +275,7 @@ export const topicSelectionTopicQuestionReviewPayloadSchema = {
     'confounds_reviewed',
     'falsification_reviewed',
     'claim_ceiling_reviewed',
+    'objections_reviewed',
     'review_notes',
   ],
   properties: {
@@ -283,6 +285,7 @@ export const topicSelectionTopicQuestionReviewPayloadSchema = {
     confounds_reviewed: { type: 'boolean' },
     falsification_reviewed: { type: 'boolean' },
     claim_ceiling_reviewed: { type: 'boolean' },
+    objections_reviewed: { type: 'boolean' },
     review_notes: stringArray,
   },
 } as const;

@@ -28,8 +28,8 @@
 //   --out <path>                Write the JSON report to a file instead of stdout.
 //
 // Run (no DB / env needed — fully in-memory):
-//   node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts --self-test
-//   node --loader ts-node/esm scripts/run-n8-calibration-dry-run.ts --corpus ./my-corpus.json
+//   node --import tsx scripts/run-n8-calibration-dry-run.ts --self-test
+//   node --import tsx scripts/run-n8-calibration-dry-run.ts --corpus ./my-corpus.json
 //
 // See docs/context/process/topic-selection-n8-calibration.md.
 

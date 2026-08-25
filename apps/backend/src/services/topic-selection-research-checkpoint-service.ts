@@ -201,7 +201,17 @@ export class TopicSelectionResearchCheckpointService {
   ): Promise<TopicSelectionResearchCheckpointRecord> {
     this.assertHash(input.target_snapshot_hash, 'target_snapshot_hash');
     this.assertTarget(input.title_card_id, input.target_ref);
-    const sourceRefs = this.uniqueRefs(input.source_refs ?? []);
+    const checkpointIndex = TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS.indexOf(input.checkpoint_kind);
+    const predecessorKind = checkpointIndex > 0
+      ? TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS[checkpointIndex - 1]
+      : null;
+    const predecessor = predecessorKind
+      ? await this.repository.findCurrentCheckpoint(input.title_card_id, predecessorKind)
+      : null;
+    const sourceRefs = this.uniqueRefs([
+      ...(input.source_refs ?? []),
+      ...(predecessor ? [this.checkpointRef(predecessor)] : []),
+    ]);
     const requiredActionRefs = this.uniqueRefs(input.required_action_refs ?? []);
     const allowedActions = [...new Set(input.allowed_actions)].sort();
     if (allowedActions.length === 0) {
@@ -827,6 +837,18 @@ export class TopicSelectionResearchCheckpointService {
       }
       checkpoints.push(checkpoint);
     }
+    for (let index = 1; index < checkpoints.length; index += 1) {
+      const predecessor = checkpoints[index - 1];
+      const checkpoint = checkpoints[index];
+      if (!predecessor || !checkpoint
+        || !checkpoint.source_refs.some((ref) => this.refsEqual(ref, this.checkpointRef(predecessor)))) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          `Current ${checkpoint?.checkpoint_kind ?? 'research'} checkpoint has stale upstream checkpoint lineage.`,
+        );
+      }
+    }
     return checkpoints;
   }
 
@@ -1271,6 +1293,9 @@ export class TopicSelectionResearchCheckpointService {
       output_refs: outputRefs,
       created_at: this.now(),
     });
+    if (persisted.resolution_key !== input.resolution_key) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'ResearchObjection is already resolved.');
+    }
     this.assertResolutionReplayMatches(persisted, objectionId, input);
     return persisted;
   }
@@ -1389,6 +1414,7 @@ export class TopicSelectionResearchCheckpointService {
       'evidence_landscape' | 'gap_selection' | 'question_contract'
     >;
     const entries = [];
+    let predecessor: TopicSelectionResearchCheckpointRecord | null = null;
     for (const kind of kinds) {
       const checkpoint = await this.repository.findCurrentCheckpoint(titleCardId, kind);
       if (!checkpoint) {
@@ -1400,9 +1426,11 @@ export class TopicSelectionResearchCheckpointService {
           advancing: false,
           issue_codes: ['CHECKPOINT_MISSING'],
         });
+        predecessor = null;
         continue;
       }
       const localDecision = await this.repository.findDecisionByCheckpointId(checkpoint.research_checkpoint_id);
+      const predecessorRef = predecessor ? this.checkpointRef(predecessor) : null;
       const issueCodes = this.uniqueStrings([
         ...(checkpoint.provenance_class !== 'native' ? ['NATIVE_REVIEW_REQUIRED'] : []),
         ...(checkpoint.status !== 'decided' || !checkpoint.decision_authority_ref
@@ -1411,6 +1439,9 @@ export class TopicSelectionResearchCheckpointService {
         ...(checkpoint.required_action_refs.length > 0 ? ['CHECKPOINT_REQUIRED_ACTIONS_OPEN'] : []),
         ...(this.blockingObjectionsForCheckpoint(objections, kind).length > 0
           ? ['CHECKPOINT_BLOCKING_OBJECTION_OPEN'] : []),
+        ...(predecessorRef
+          && !checkpoint.source_refs.some((ref) => this.refsEqual(ref, predecessorRef))
+          ? ['CHECKPOINT_UPSTREAM_STALE'] : []),
         ...(kind === 'question_contract' && !this.refsEqual(checkpoint.target_ref, topicQuestionContractRef)
           ? ['QUESTION_CHECKPOINT_TARGET_STALE'] : []),
       ]);
@@ -1422,6 +1453,7 @@ export class TopicSelectionResearchCheckpointService {
         advancing: issueCodes.length === 0,
         issue_codes: issueCodes,
       });
+      predecessor = checkpoint;
     }
     return entries;
   }
@@ -1458,6 +1490,13 @@ export class TopicSelectionResearchCheckpointService {
     }
     if (input.decision !== 'advance') return;
     const payload = input.review_payload;
+    if (payload.review_kind === 'question_contract' && !payload.objections_reviewed) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'An advancing question decision requires explicit human objection review.',
+      );
+    }
     const complete = payload.review_kind === 'evidence_landscape'
       ? payload.nearest_work_reviewed
         && payload.disconfirming_evidence_reviewed
@@ -1466,7 +1505,8 @@ export class TopicSelectionResearchCheckpointService {
         && payload.proxy_operationalized
         && payload.confounds_reviewed
         && payload.falsification_reviewed
-        && payload.claim_ceiling_reviewed;
+        && payload.claim_ceiling_reviewed
+        && payload.objections_reviewed;
     if (!complete) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'An advancing decision requires every semantic review check to pass.');
     }
@@ -1621,6 +1661,10 @@ export class TopicSelectionResearchCheckpointService {
 
   private currentKey(titleCardId: string, kind: TopicSelectionResearchCheckpointKind): string {
     return `${titleCardId}:${kind}`;
+  }
+
+  private checkpointRef(checkpoint: TopicSelectionResearchCheckpointRecord): TopicSelectionFunctionalRef {
+    return this.ref('research_checkpoint', checkpoint.research_checkpoint_id, checkpoint.title_card_id);
   }
 
   private refsEqual(left: TopicSelectionFunctionalRef, right: TopicSelectionFunctionalRef): boolean {

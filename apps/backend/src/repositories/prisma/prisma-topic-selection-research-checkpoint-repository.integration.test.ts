@@ -37,8 +37,12 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
       allowed_actions: ['advance', 'loopback'],
       packet_payload: { nearest_work: [], disconfirming_evidence: [] },
     });
-    const [checkpoint, checkpointReplay] = await Promise.all([materialize(), materialize()]);
-    assert.equal(checkpointReplay.research_checkpoint_id, checkpoint.research_checkpoint_id);
+    const materialized = await Promise.all(Array.from({ length: 8 }, () => materialize()));
+    const checkpoint = materialized[0]!;
+    assert.deepEqual(
+      new Set(materialized.map((entry) => entry.research_checkpoint_id)),
+      new Set([checkpoint.research_checkpoint_id]),
+    );
     assert.equal(await prisma.topicSelectionInputSnapshot.count({
       where: { titleCardId, policyVersion: 'v1' },
     }), 1);
@@ -151,6 +155,7 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
         confounds_reviewed: true,
         falsification_reviewed: true,
         claim_ceiling_reviewed: true,
+        objections_reviewed: true,
         review_notes: ['Prisma integration confirmation.'],
       },
     });
@@ -196,14 +201,30 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     const revisedSlice = revised.source_refs.find((ref) => ref.ref_type === 'research_slice');
     const currentEvidence = revised.source_refs.find((ref) => ref.ref_type === 'evidence_map');
     assert.ok(revisedSlice && currentEvidence);
-    await service.resolveObjection(objection.research_objection_id, {
-      resolution_key: `substantive_resolution_${suffix}`,
-      resolution_type: 'resolved_with_revision',
-      actor: { actor_type: 'human', actor_id: 'researcher_t147' },
+    const substantiveResolution = (resolutionKey: string) => ({
+      resolution_key: resolutionKey,
+      resolution_type: 'resolved_with_revision' as const,
+      actor: { actor_type: 'human' as const, actor_id: 'researcher_t147' },
       resolved_snapshot_hash: revised.target_snapshot_hash,
       rationale: 'The revised slice changes the research object and cites the current evidence authority.',
       output_refs: [revised.target_ref, revisedSlice, currentEvidence],
     });
+    const resolutionResults = await Promise.allSettled([
+      service.resolveObjection(
+        objection.research_objection_id,
+        substantiveResolution(`substantive_resolution_a_${suffix}`),
+      ),
+      service.resolveObjection(
+        objection.research_objection_id,
+        substantiveResolution(`substantive_resolution_b_${suffix}`),
+      ),
+    ]);
+    assert.equal(resolutionResults.filter((result) => result.status === 'fulfilled').length, 1);
+    const rejectedResolution = resolutionResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    assert.ok(rejectedResolution);
+    assert.equal((rejectedResolution.reason as { statusCode?: number }).statusCode, 409);
     await service.recordDecision(
       revised.research_checkpoint_id,
       questionDecision(revised.target_snapshot_hash, `question_decision_v2_${suffix}`),

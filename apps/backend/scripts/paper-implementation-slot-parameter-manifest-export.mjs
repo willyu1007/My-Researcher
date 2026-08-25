@@ -12,7 +12,7 @@
 // --check: do not write; exit 1 if the committed snapshot differs from the
 // runtime export (same comparison the backend unit test enforces).
 //
-// The script re-executes itself under the backend ts-node ESM loader so it can
+// The script re-executes itself under the backend tsx loader so it can
 // import the TypeScript manifest module directly.
 
 import { spawnSync } from 'node:child_process';
@@ -25,11 +25,11 @@ const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '../../..');
 const TS_CHILD_ENV_FLAG = 'PAPER_IMPLEMENTATION_SLOT_MANIFEST_EXPORT_TS_CHILD';
 
 if (!process.env[TS_CHILD_ENV_FLAG]) {
-  // cwd apps/backend so ts-node resolves the backend tsconfig ("types": ["node"]),
-  // matching how the runtime-stress script spawns its ts-node children.
+  // cwd apps/backend so tsx resolves the backend-local runtime dependency,
+  // matching how the runtime-stress script spawns its TypeScript children.
   const result = spawnSync(
     process.execPath,
-    ['--no-warnings', '--loader', 'ts-node/esm', SCRIPT_PATH, ...process.argv.slice(2)],
+    ['--no-warnings', '--import', 'tsx', SCRIPT_PATH, ...process.argv.slice(2)],
     {
       cwd: path.join(REPO_ROOT, 'apps/backend'),
       stdio: 'inherit',

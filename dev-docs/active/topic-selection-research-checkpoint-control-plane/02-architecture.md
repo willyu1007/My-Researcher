@@ -77,12 +77,21 @@ Phase 5 activates the promotion checkpoint and closes every topic-selection inta
 - Human-promotion and bridge constructors require their checkpoint-control dependency. Bridge creation checks the exact promotion target/hash before persistence; every intake checks the complete chain again before replay or PaperProject creation. A blocking objection added after bridge creation therefore blocks intake without calling the gateway.
 - Legacy `/title-cards/*` semantic writers remain registered as explicit `409 GATE_CONSTRAINT_FAILED` recovery surfaces pointing to `/topic-selection/title-cards/{titleCardId}/research-status`. Their historical GETs and the title-card/evidence-basket intake remain supported; no second semantic write path survives.
 
+The post-completion audit adds four fail-closed implementation invariants without introducing new persistence authorities:
+
+- Every native checkpoint after `evidence_landscape` records the exact current predecessor checkpoint as a functional `research_checkpoint` source ref. Complete-chain validation and pre-promotion inspection compare that ref with the current predecessor, so rematerializing an upstream checkpoint invalidates downstream eligibility even when its domain target ref is unchanged. Pre-audit or backfilled chains without this explicit lineage must rematerialize before advancing.
+- A topic-question decision carries an explicit strict-human `objections_reviewed` boolean. Question advancement accepts only `true`; the service does not infer review from an empty objection list or other completeness fields.
+- Prisma input-snapshot creation is insert-first and reconciles `P2002` by reading the deterministic winner; the control-plane service still compares the requested snapshot hash, so exact concurrency converges while semantic drift conflicts. Objection-resolution persistence similarly returns the unique winner, and the service permits only exact-key replay—two distinct resolution keys for one objection deterministically produce one success and one `409`.
+- Repository TypeScript entrypoints use the `tsx` import hook across supported Node versions. This is verification/runtime infrastructure only and does not change checkpoint authority or product behavior.
+
 The contract preserves these invariants:
 
 - A checkpoint target and packet bind to a canonical input snapshot hash.
 - A decision binds to the same hash and names only product-advertised allowed actions.
 - Changed upstream authority supersedes affected checkpoint state and prevents stale advance.
+- Every downstream checkpoint proves the exact current predecessor-checkpoint lineage; target-ref equality alone is insufficient.
 - Checkpoint decisions reference the stage-specific human authority that owns the decision.
+- Question advancement proves that the human explicitly reviewed objections for the bound snapshot.
 - Research status is a deterministic read projection, not a writable summary.
 - Direct workflow/node routes invoke the same central transition guard as coordinated runs.
 - Replays are idempotent and conflicting decisions or snapshot drift fail closed.

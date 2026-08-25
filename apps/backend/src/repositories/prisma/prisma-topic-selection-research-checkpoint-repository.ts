@@ -468,6 +468,8 @@ implements TopicSelectionResearchCheckpointRepository {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const replay = await this.findObjectionResolutionByKey(record.resolution_key);
         if (replay) return replay;
+        const winner = await this.findObjectionResolutionByObjectionId(record.research_objection_id);
+        if (winner) return winner;
       }
       throw error;
     }

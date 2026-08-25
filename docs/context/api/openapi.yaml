@@ -7807,7 +7807,7 @@ components:
     TopicSelectionQuestionContractReview:
       type: object
       additionalProperties: false
-      required: [review_kind, mechanism_identifiable, proxy_operationalized, confounds_reviewed, falsification_reviewed, claim_ceiling_reviewed, review_notes]
+      required: [review_kind, mechanism_identifiable, proxy_operationalized, confounds_reviewed, falsification_reviewed, claim_ceiling_reviewed, objections_reviewed, review_notes]
       properties:
         review_kind: { type: string, const: question_contract }
         mechanism_identifiable: { type: boolean }
@@ -7815,6 +7815,7 @@ components:
         confounds_reviewed: { type: boolean }
         falsification_reviewed: { type: boolean }
         claim_ceiling_reviewed: { type: boolean }
+        objections_reviewed: { type: boolean }
         review_notes:
           type: array
           items: { type: string, minLength: 1 }

@@ -661,6 +661,24 @@ function mutateRowCell(matrix, nodeId, headerName, value) {
   throw new Error(`row not found for mutation: ${nodeId}`);
 }
 
+function dropRowCell(matrix, nodeId, headerName) {
+  const lines = matrix.split('\n');
+  let headerCells = null;
+  for (let i = 0; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (/^\|\s*node_id\s*\|/.test(trimmed)) headerCells = splitRow(trimmed);
+    if (headerCells && trimmed.startsWith(`| \`${nodeId}\``)) {
+      const cellIndex = headerCells.indexOf(headerName);
+      if (cellIndex === -1) throw new Error(`header not found for mutation: ${headerName}`);
+      const cells = splitRow(trimmed);
+      cells.splice(cellIndex, 1);
+      lines[i] = `| ${cells.join(' | ')} |`;
+      return lines.join('\n');
+    }
+  }
+  throw new Error(`row not found for mutation: ${nodeId}`);
+}
+
 function runSelfTest(real) {
   const expectIssues = (label, inputs, predicate) => {
     const issues = checkConsistency({
@@ -753,7 +771,11 @@ function runSelfTest(real) {
 
   // --- T-089 slice ①③ drift negatives ---
 
-  const cellDropped = real.matrix.replace('| intake trace | intake trace |', '| intake trace |');
+  const cellDropped = dropRowCell(
+    real.matrix,
+    'topic-selection.downstream.paper-project-intake.v1',
+    'artifact_refs',
+  );
   results.push(
     expectIssues('short row (dropped cell) detected', { matrix: cellDropped }, (issues) =>
       issues.some((i) => i.check === 'row_cell_shape_mismatch' && i.detail.includes('paper-project-intake')),

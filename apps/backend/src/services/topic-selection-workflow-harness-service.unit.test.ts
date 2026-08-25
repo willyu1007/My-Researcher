@@ -1138,6 +1138,22 @@ async function seedValidateNeedAdjudicationRuntime(options: {
       source_statement: 'The paper reports a traceable evidence workflow gap for risk-aware RAG adaptation.',
       normalized_statement: 'Risk-aware RAG adaptation lacks traceable validation workflows.',
     },
+    {
+      client_unit_key: 'baseline_ready',
+      coverage_row_intent_id: null,
+      evidence_role: 'baseline' as const,
+      literature_ref: literatureRef,
+      source_refs: [sourceRef],
+      locator: validationManualLocator({
+        title_card_id: titleCardId,
+        literature_ref: literatureRef,
+        source_ref: sourceRef,
+        manual_ref: refForTitleCard('manual_locator', 'manual_validate_need_baseline_001', titleCardId),
+        manual_label: 'manual direct-neighbor baseline provenance for validation fixture',
+      }),
+      source_statement: 'The closest workflow baseline exposes the same topic-selection validation boundary.',
+      normalized_statement: 'The direct-neighbor baseline lacks checkpoint-governed validation lineage.',
+    },
   ];
   if (options.includeContext !== false) {
     evidenceUnits.push({
@@ -1157,7 +1173,7 @@ async function seedValidateNeedAdjudicationRuntime(options: {
       normalized_statement: 'The candidate is scoped to local-first reviewer-facing evidence workflows.',
     });
   }
-  if (options.includeChallenge) {
+  if (options.includeChallenge !== false) {
     evidenceUnits.push({
       client_unit_key: 'challenge_ready',
       coverage_row_intent_id: null,
@@ -1179,7 +1195,7 @@ async function seedValidateNeedAdjudicationRuntime(options: {
     title_card_id: titleCardId,
     search_run_id: searchRunResult.node_result.search_run_ref.ref_id,
     evidence_units: evidenceUnits,
-    conflict_sets: options.includeChallenge
+    conflict_sets: options.includeChallenge === true
       ? [{
           conflict_type: 'claim_conflict',
           severity: 'moderate',
@@ -5132,7 +5148,7 @@ test('workflow harness blocks new human-confirm-need attempt when reserved id is
   assert.equal(duplicate.node_result.validated_need_ref, null);
 });
 
-test('workflow harness blocks partial human confirmation write without automatic backfill', async () => {
+test('workflow harness rejects a drifted replay after a partial human confirmation write', async () => {
   const ctx = await seedValidateNeedAdjudicationRuntime();
   const validateResult = await runValidateNeedForHumanConfirm(ctx);
   await ctx.controlPlaneRepository.createHumanConfirmedDecision({
@@ -5155,8 +5171,8 @@ test('workflow harness blocks partial human confirmation write without automatic
       expectations: {
         status: 'blocked',
         route_outcome: 'blocked',
-        error_code: 'GATE_CONSTRAINT_FAILED',
-        blocker_codes: ['PARTIAL_CONFIRMATION_WRITE'],
+        error_code: 'VERSION_CONFLICT',
+        blocker_codes: ['VERSION_CONFLICT'],
         validated_need_created: false,
         v1b_bundle_created: false,
       },
@@ -5428,7 +5444,7 @@ test('workflow harness blocks recommendation profile and policy drift before aut
 });
 
 test('workflow harness blocks validate-need-adjudication before support packet creation when readiness is not ready', async () => {
-  const ctx = await seedValidateNeedAdjudicationRuntime({ includeContext: false });
+  const ctx = await seedValidateNeedAdjudicationRuntime({ includeChallenge: false });
   const result = await ctx.workflowHarness.runValidateNeedAdjudicationScenario(
     validateNeedAdjudicationScenarioInput(ctx, null, {
       workflow_run_id: 'workflow_run_validate_need_readiness_blocked',
@@ -5968,6 +5984,20 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
     manual_ref: refForTitleCard('manual_locator', 'runtime_stress_context_locator', titleCardId),
     manual_label: 'runtime stress context locator',
   });
+  const challengeLocator = validationManualLocator({
+    title_card_id: titleCardId,
+    literature_ref: literatureRef,
+    source_ref: sourceRef,
+    manual_ref: refForTitleCard('manual_locator', 'runtime_stress_challenge_locator', titleCardId),
+    manual_label: 'runtime stress challenge locator',
+  });
+  const baselineLocator = validationManualLocator({
+    title_card_id: titleCardId,
+    literature_ref: literatureRef,
+    source_ref: sourceRef,
+    manual_ref: refForTitleCard('manual_locator', 'runtime_stress_baseline_locator', titleCardId),
+    manual_label: 'runtime stress direct-neighbor baseline locator',
+  });
   const baseDraft = evidenceMapExtractionDraft({
     title_card_id: titleCardId,
     handoff: ctx.searchRunHandoff,
@@ -5999,7 +6029,41 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
         confidence: 0.8,
         issue_codes: [],
       },
+      {
+        ...supportDraftUnit,
+        client_unit_key: 'unit_challenge_001',
+        coverage_row_intent_ref: null,
+        evidence_role: 'challenge',
+        locator: challengeLocator,
+        source_statement: 'The paper reports a competing explanation that challenges the proposed workflow mechanism.',
+        normalized_statement: 'A competing explanation could account for the observed validation gap.',
+        source_attribution_kind: 'counter_evidence',
+        interpretation_payload: { role_hint: 'challenge' },
+        confidence: 0.81,
+        issue_codes: [],
+      },
+      {
+        ...supportDraftUnit,
+        client_unit_key: 'unit_baseline_001',
+        coverage_row_intent_ref: null,
+        evidence_role: 'baseline',
+        locator: baselineLocator,
+        source_statement: 'The closest workflow baseline exposes the same traceability boundary.',
+        normalized_statement: 'The direct-neighbor baseline lacks checkpoint-governed validation lineage.',
+        interpretation_payload: { role_hint: 'baseline' },
+        confidence: 0.83,
+        issue_codes: [],
+      },
     ],
+    draft_conflicts: [{
+      conflict_type: 'claim_conflict',
+      severity: 'moderate',
+      support_unit_keys: [supportDraftUnit.client_unit_key],
+      challenge_unit_keys: ['unit_challenge_001'],
+      baseline_unit_keys: [],
+      context_unit_keys: [],
+      issue_codes: ['RESIDUAL_RISK_PRESENT'],
+    }],
     warning_codes: ['COVERAGE_ROW_INTENT_REF_MISSING'],
   };
   ctx.llmGateway.setOutputForSchema('TopicSelectionEvidenceMapExtractionDraft@v1', providerDraft);
@@ -6025,7 +6089,7 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
     expectations: {
       status: 'succeeded',
       materialization_status: 'ready_with_warning',
-      evidence_unit_count: 2,
+      evidence_unit_count: 4,
       downstream_handoff_present: true,
       warning_codes: ['COVERAGE_ROW_INTENT_REF_MISSING'],
     },
@@ -6042,10 +6106,16 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
   const evidenceUnits = n5.node_result.evidence_map_records?.evidence_units ?? [];
   const supportUnit = evidenceUnits.find((unit) => unit.evidence_role === 'support');
   const contextUnit = evidenceUnits.find((unit) => unit.evidence_role === 'context');
+  const challengeUnit = evidenceUnits.find((unit) => unit.evidence_role === 'challenge');
+  const baselineUnit = evidenceUnits.find((unit) => unit.evidence_role === 'baseline');
   assert.ok(supportUnit);
   assert.ok(contextUnit);
+  assert.ok(challengeUnit);
+  assert.ok(baselineUnit);
   const supportRef = refForTitleCard('evidence_unit', supportUnit.evidence_unit_id, titleCardId);
   const contextRef = refForTitleCard('evidence_unit', contextUnit.evidence_unit_id, titleCardId);
+  const challengeRef = refForTitleCard('evidence_unit', challengeUnit.evidence_unit_id, titleCardId);
+  const baselineRef = refForTitleCard('evidence_unit', baselineUnit.evidence_unit_id, titleCardId);
   const strengthRef = refForTitleCard('evidence_strength_assessment', 'runtime_stress_strength', titleCardId);
   const n6NodeAttemptId = 'node_attempt_runtime_stress_n6';
   const n6Batch = rankedBatch(n6NodeAttemptId);
@@ -6053,8 +6123,8 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
     ...n6Batch.drafts[0]!,
     evidence_role_bundle: {
       support_unit_refs: [supportRef],
-      challenge_unit_refs: [],
-      baseline_unit_refs: [],
+      challenge_unit_refs: [challengeRef],
+      baseline_unit_refs: [baselineRef],
       context_unit_refs: [contextRef],
     },
     conflict_refs: [],
@@ -6085,11 +6155,11 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
       },
       evidence_signal_digest: {
         support_count: 1,
-        challenge_count: 0,
+        challenge_count: 1,
       },
       resource_sample_digest: {
         sample_set_id: handoff.literature_resource_pool_snapshot_ref.ref_id,
-        role_counts: { support: 1, context: 1 },
+        role_counts: { support: 1, challenge: 1, baseline: 1, context: 1 },
         topic_method_family_targets: ['retrieval_augmented_generation', 'fine_tuning'],
       },
     },
@@ -6099,6 +6169,8 @@ test('workflow harness stress-tests v1a LLM runtime gates from N5 through N8', a
       output_schema_ref: refForTitleCard('schema', 'ranked_candidate_draft_batch_v1', titleCardId),
       evidence_ref_table: [
         { evidence_ref: supportRef, role: 'support' },
+        { evidence_ref: challengeRef, role: 'challenge' },
+        { evidence_ref: baselineRef, role: 'baseline' },
         { evidence_ref: contextRef, role: 'context' },
         { evidence_ref: strengthRef, role: 'strength' },
       ],

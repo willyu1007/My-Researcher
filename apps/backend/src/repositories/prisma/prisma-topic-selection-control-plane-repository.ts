@@ -591,27 +591,33 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
   }
 
   async createInputSnapshot(record: TopicSelectionInputSnapshotRecord): Promise<TopicSelectionInputSnapshotRecord> {
-    const row = await this.prisma.topicSelectionInputSnapshot.upsert({
-      where: { id: record.input_snapshot_id },
-      update: {},
-      create: {
-        id: record.input_snapshot_id,
-        workspaceId: record.workspace_id ?? null,
-        titleCardId: record.title_card_id ?? null,
-        targetRefType: record.target_ref.ref_type,
-        targetRefId: record.target_ref.ref_id,
-        targetVersionId: record.target_ref.version_id ?? null,
-        contextPolicyVersionId: record.context_policy_version_id ?? null,
-        policyVersion: record.policy_version ?? null,
-        snapshotHash: record.snapshot_hash,
-        sourceRefs: toJsonValue(record.source_refs),
-        permissionRefs: toJsonValue(record.permission_refs),
-        payload: toJsonValue(record.payload),
-        createdBy: record.created_by,
-        createdAt: new Date(record.created_at),
-      },
-    });
-    return toInputSnapshotRecord(row);
+    try {
+      const row = await this.prisma.topicSelectionInputSnapshot.create({
+        data: {
+          id: record.input_snapshot_id,
+          workspaceId: record.workspace_id ?? null,
+          titleCardId: record.title_card_id ?? null,
+          targetRefType: record.target_ref.ref_type,
+          targetRefId: record.target_ref.ref_id,
+          targetVersionId: record.target_ref.version_id ?? null,
+          contextPolicyVersionId: record.context_policy_version_id ?? null,
+          policyVersion: record.policy_version ?? null,
+          snapshotHash: record.snapshot_hash,
+          sourceRefs: toJsonValue(record.source_refs),
+          permissionRefs: toJsonValue(record.permission_refs),
+          payload: toJsonValue(record.payload),
+          createdBy: record.created_by,
+          createdAt: new Date(record.created_at),
+        },
+      });
+      return toInputSnapshotRecord(row);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const replay = await this.findInputSnapshotById(record.input_snapshot_id);
+        if (replay) return replay;
+      }
+      throw error;
+    }
   }
 
   async findInputSnapshotById(inputSnapshotId: string): Promise<TopicSelectionInputSnapshotRecord | null> {

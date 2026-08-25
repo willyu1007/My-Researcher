@@ -117,6 +117,7 @@ function questionDecision(snapshotHash: string, decisionKey: string) {
       confounds_reviewed: true,
       falsification_reviewed: true,
       claim_ceiling_reviewed: true,
+      objections_reviewed: true,
       review_notes: ['Exact-snapshot question confirmation.'],
     },
   };
@@ -223,6 +224,26 @@ test('advance requires all semantic evidence-review checks', async () => {
       },
     }),
     /every semantic review check/u,
+  );
+});
+
+test('question advance requires explicit human objection review', async () => {
+  const { service } = createService();
+  const checkpoint = await materializeQuestion(service, {
+    snapshotHash: HASH_A,
+    contractId: 'question_contract_review',
+    sliceVersion: 'v1',
+  });
+  const decision = questionDecision(HASH_A, 'question_decision_without_objection_review');
+  await assert.rejects(
+    service.recordDecision(checkpoint.research_checkpoint_id, {
+      ...decision,
+      review_payload: {
+        ...decision.review_payload,
+        objections_reviewed: false,
+      },
+    }),
+    /objection review/u,
   );
 });
 
@@ -719,4 +740,18 @@ test('promotion checkpoint requires the complete chain and maps every advancemen
     promotion_input_snapshot_ref: promotionInputRef,
     promotion_input_snapshot_hash: HASH_D,
   });
+
+  const revisedEvidence = await materialize(service, HASH_D);
+  await service.recordDecision(revisedEvidence.research_checkpoint_id, {
+    ...advancingDecision(HASH_D),
+    decision_key: 'revised_evidence_decision',
+  });
+  await assert.rejects(
+    service.assertCompleteCheckpointChain({
+      title_card_id: 'title_1',
+      promotion_input_snapshot_ref: promotionInputRef,
+      promotion_input_snapshot_hash: HASH_D,
+    }),
+    /stale upstream checkpoint lineage/u,
+  );
 });
