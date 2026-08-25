@@ -84,5 +84,5 @@ Upgrade topic selection so product-owned, snapshot-bound research checkpoints, a
 
 ## Confirmation
 
-- [ ] Outcome, scenarios, boundaries, and constraints are confirmed or their unresolved owners are explicit.
+- [x] Outcome, scenarios, boundaries, and constraints are confirmed or their unresolved owners are explicit.
 - [x] The current goal and relevant acceptance references have been transferred to `01-status.md`.

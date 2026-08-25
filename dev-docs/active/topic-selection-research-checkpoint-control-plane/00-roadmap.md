@@ -24,7 +24,7 @@
 | Runtime modes | Research-only production / rehearsal plus research | Research-only production; fixtures and canaries remain test scenarios | decided | User | Latest confirmed instruction | No reduced-quality business path or `rehearsal` runtime semantic is introduced. |
 | Semantic authority | Product control plane / Codex runbook / GUI workflow | Product control plane | decided | User | Latest confirmed instruction | Clients render packets and submit exact decisions but cannot define or bypass gates. |
 | Human participation structure | Four major checkpoint phases / ad hoc human prompts | Evidence, gap, question, and promotion checkpoints, with existing slice selection retained inside the research-design flow | decided | User | Confirmed enhancement direction | Product must expose pending review and block unauthorized transitions. |
-| Checkpoint ownership model | Generic duplicate content authority / lightweight control state referencing existing authorities | Lightweight checkpoint state and packet projection; reuse existing decisions and add only missing evidence/question decisions | proposed | User at opening review | This task-package review | Avoids a second content authority while giving all clients one control interface. |
+| Checkpoint ownership model | Generic duplicate content authority / lightweight control state referencing existing authorities | Lightweight checkpoint state and packet projection; reuse existing decisions and add only missing evidence/question decisions | decided | User | Confirmed task opening | Avoids a second content authority while giving all clients one control interface. |
 | Existing-record cutover | Grandfather all / block all / derive pending checkpoints from current authority and require review before new advance | Discover current record classes, then recommend a versioned fail-closed cutover | open | User after Phase 1 recommendation | Record inventory and compatibility tests | Determines migrations and advance behavior for existing packages, decisions, and bridges. |
 | Academic policy strictness | Fixed numeric thresholds / role-and-quality rules with bounded policy triggers | Prefer semantic role/quality blockers; use counts and scores only as explicit, configurable tripwires | proposed | User after Phase 1 policy review | Current-run evidence plus negative-case suite | Prevents arbitrary counts from becoming academic authority while still failing shallow evidence. |
 
@@ -58,7 +58,7 @@
   3. Classify academic rules as hard semantic blockers, configurable triggers, or advisory packet content.
   4. Present a concrete cutover recommendation for current packages, decisions, bridges, and in-flight runs.
 - Affected boundaries / entry points: Topic-selection shared contracts, workflow matrix, v1a/v1b/v1c service boundaries, promotion/bridge intake handoff, and OpenAPI design.
-- Dependencies: User confirmation of the task opening and Phase 1 recommendations.
+- Dependencies: Confirmed task opening; user decisions on the Phase 1 cutover and academic-policy recommendations before implementation kickoff.
 - Exit criteria: No competing authority remains in the design; cutover and policy choices are confirmed; the first implementation slice is executable.
 - Verification: Contract review against current code, representative API records, archived task outcomes, and negative-case definitions.
 - Recovery: Keep kickoff pending and make no application-code change if inventory invalidates the proposed control model.
@@ -123,7 +123,7 @@
 
 - Status: pending
 - Authorized boundary: none
-- [ ] Decisions: opening placement and checkpoint-control direction are approved; cutover and policy strictness remain Phase 1 user decisions.
+- [ ] Decisions: opening placement and checkpoint-control direction are approved; cutover and academic-policy strictness remain Phase 1 user decisions.
 - [ ] Design: Phase 1 must confirm persistence, authority adapters, cutover, and policy classification before implementation.
 - [x] Route: contract discovery precedes control-plane implementation, then evidence/gap, question/objection, and promotion closure.
 - [x] Verification: contract, negative, replay, migration, and full-chain evidence obligations are identified in `verification.md`.

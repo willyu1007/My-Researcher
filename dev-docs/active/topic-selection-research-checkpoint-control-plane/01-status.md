@@ -4,9 +4,9 @@
 Make topic selection a product-governed research process in which current evidence, gap, question, and promotion checkpoints—and not client behavior—control academic-quality review, human participation, loopbacks, and downstream eligibility.
 
 ## Progress
-- State: planned
-- Current phase: Opening review and planning alignment
-- Next step: Confirm the task outcome, F-001 project placement, checkpoint-control direction, and the two recorded cutover/policy choices before implementation planning is finalized.
+- State: in-progress
+- Current phase: Phase 1 — checkpoint and cutover contract discovery
+- Next step: Inventory current domain authorities, transition entry points, record classes, and policy-enforcement seams; then present concrete cutover and academic-policy recommendations before implementation kickoff.
 - Blocker: none
 
 ## Done when
