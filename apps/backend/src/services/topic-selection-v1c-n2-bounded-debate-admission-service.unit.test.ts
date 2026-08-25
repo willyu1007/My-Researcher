@@ -246,6 +246,10 @@ test('v1c N2 admission admits a canonical, byte-matching 4-role chain and produc
   assert.equal(result.promotion_support_draft.dossier_markdown, '# Dossier\n\nReady for human review.');
   assert.deepEqual(result.promotion_support_draft.reviewer_questions, ['Is the evaluation plan adequate?']);
   assert.deepEqual(result.promotion_support_draft.risk_notes, ['Residual scope risk accepted.']);
+  assert.deepEqual(
+    result.promotion_support_draft.n3_semantic_layer?.critic_finding_resolution_map,
+    [{ finding_id: 'CF1', resolution_status: 'accepted_and_repaired' }],
+  );
   // admission identity hash is the canonical hash of the identity object.
   assert.equal(result.admission_identity_hash, hash(result.admission_identity));
   assert.deepEqual(result.warnings, []);

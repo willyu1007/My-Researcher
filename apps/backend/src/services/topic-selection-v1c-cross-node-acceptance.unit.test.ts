@@ -58,6 +58,7 @@ import {
 import {
   TopicSelectionV1cPromotionInputService,
 } from './topic-selection-v1c-promotion-input-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 class RecordingPromotionInputRepository extends InMemoryTopicSelectionV1cPromotionInputRepository {
   readonly writes: TopicSelectionV1cPromotionInputPersistence[] = [];
@@ -220,12 +221,14 @@ function createWorkflowSubject(graph = createReadyGraph()) {
   const humanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: humanPromotionDecisionRepository,
     promotionGateService,
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
   });
   const paperProjectBridgeService = new TopicSelectionV1cPaperProjectBridgeService({
     repository: paperProjectBridgeRepository,
     humanPromotionDecisionService,
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
   });

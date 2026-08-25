@@ -51,6 +51,7 @@ import {
 import {
   TopicSelectionV1cPromotionInputService,
 } from './topic-selection-v1c-promotion-input-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 class RecordingPromotionGateRepository extends InMemoryTopicSelectionV1cPromotionGateRepository {
   readonly writes: TopicSelectionV1cPromotionGatePersistenceBundle[] = [];
@@ -277,6 +278,7 @@ test('T-108 N4 ready gate creates promotion authority while action-required gate
   const humanDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository(),
     promotionGateService: readySubject.service,
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
   });
@@ -309,6 +311,7 @@ test('T-108 N4 ready gate creates promotion authority while action-required gate
   const actionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository(),
     promotionGateService: actionSubject.service,
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
   });
@@ -351,6 +354,7 @@ test('T-108 N6 feedback opens one recheck projection and replay is fingerprint-i
     humanPromotionDecisionService: new TopicSelectionV1cAcceptancePromotionBridgeHandoffProvider(
       createTopicSelectionV1cPromotionBridgeHandoffFixture(),
     ),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
   });

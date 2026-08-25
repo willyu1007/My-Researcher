@@ -16,36 +16,36 @@ Upgrade topic selection so product-owned, snapshot-bound research checkpoints, a
 - Actor / caller: Researcher through any API client
 - Trigger: A current EvidenceMap and its strength/readiness material are available before NeedCandidate generation.
 - Expected flow: The product assembles a current evidence-landscape packet, exposes unresolved coverage and nearest-work limitations, and requires an explicit human decision before downstream generation.
-- [ ] Evidence review cannot advance when direct-neighbor coverage, disconfirming evidence, source quality, or required coverage roles fail the product policy.
-- [ ] A stale packet or decision cannot authorize a changed EvidenceMap or literature snapshot.
+- [x] Evidence review cannot advance when direct-neighbor coverage, disconfirming evidence, source quality, or required coverage roles fail the product policy.
+- [x] A stale packet or decision cannot authorize a changed EvidenceMap or literature snapshot.
 
 ### Gap selection
 - Actor / caller: Researcher through any API client
 - Trigger: A candidate pool and need-validation material are ready.
 - Expected flow: The product presents genuinely distinct candidates, nearest-work collision evidence, rejected alternatives, and unresolved objections before reusing the existing human-confirmed need authority.
-- [ ] Production research cannot validate a lone unopposed NeedCandidate or treat wording variants as independent candidates.
-- [ ] Human confirmation remains the authority for the selected gap and is bound to the reviewed candidate-pool snapshot.
+- [x] Production research cannot validate a lone unopposed NeedCandidate or treat wording variants as independent candidates.
+- [x] Human confirmation remains the authority for the selected gap and is bound to the reviewed candidate-pool snapshot.
 
 ### Research question confirmation
 - Actor / caller: Researcher through any API client
 - Trigger: A ResearchSlice selection and TopicQuestionContract with answerability and falsification material are ready.
 - Expected flow: The product checks mechanism identifiability, proxy definitions, confounds, claim ceiling, and open objections, then requires an explicit human confirmation before value assessment.
-- [ ] A user objection that rejects the research object or its academic sufficiency makes the affected slice/question stale and requires the product-selected loopback.
-- [ ] Rewording or narrative enrichment alone cannot resolve a blocking academic objection.
+- [x] A user objection that rejects the research object or its academic sufficiency makes the affected slice/question stale and requires the product-selected loopback.
+- [x] Rewording or narrative enrichment alone cannot resolve a blocking academic objection.
 
 ### Promotion review
 - Actor / caller: Researcher through any API client
 - Trigger: TopicPackage and promotion support are current.
 - Expected flow: Promotion reuses the existing human PromotionDecision authority after product gates reconcile risks, required actions, user objections, and independent criticism.
-- [ ] Every `pass_with_risk` that can affect advancement maps to an accepted risk or a required action.
-- [ ] Open blocking objections or incomplete required actions prevent promotion and PaperProject intake.
+- [x] Every `pass_with_risk` that can affect advancement maps to an accepted risk or a required action.
+- [x] Open blocking objections or incomplete required actions prevent promotion and PaperProject intake.
 
 ### API-first research control
 - Actor / caller: Codex, a future GUI, or another API client
 - Trigger: The client asks for the current topic-selection state or attempts a transition.
 - Expected flow: The product returns the current checkpoint, packet, allowed actions, blockers, and next authorized transition; transition guards reject bypass attempts.
-- [ ] No Codex skill, prompt, GUI behavior, or conversation memory is required to preserve checkpoint semantics.
-- [ ] Production exposes only the research path; rehearsal remains a test/scenario concern and is not a runtime product mode.
+- [x] No Codex skill, prompt, GUI behavior, or conversation memory is required to preserve checkpoint semantics.
+- [x] Production exposes only the research path; rehearsal remains a test/scenario concern and is not a runtime product mode.
 
 ## Boundaries
 

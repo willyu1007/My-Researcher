@@ -63,6 +63,15 @@ function extractSchemaBlock(source: string, schemaName: string): string {
   return lines.slice(start, end).join('\n');
 }
 
+function extractOperationBlock(source: string, operationId: string): string {
+  const start = source.indexOf(`      operationId: ${operationId}\n`);
+  assert.notEqual(start, -1, `Operation ${operationId} should exist in OpenAPI.`);
+  const nextOperation = source.indexOf('\n      operationId:', start + 1);
+  const nextPath = source.indexOf('\n  /', start + 1);
+  const candidates = [nextOperation, nextPath].filter((index) => index !== -1);
+  return source.slice(start, candidates.length > 0 ? Math.min(...candidates) : source.length);
+}
+
 test('title-card management canonical paths stay aligned between routes and OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');
   const openapiSource = fs.readFileSync(openapiPath, 'utf8');
@@ -151,4 +160,26 @@ test('title-card root operations publish their canonical request and response sc
   const detailBlock = openapiSource.slice(detailStart, evidenceBasketStart);
   assert.match(detailBlock, /operationId: getTitleCard[\s\S]*TitleCardResponse/);
   assert.match(detailBlock, /operationId: updateTitleCard[\s\S]*UpdateTitleCardRequest[\s\S]*TitleCardResponse/);
+});
+
+test('legacy title-card semantic writers are documented as deprecated conflict-only recovery operations', () => {
+  const openapiSource = fs.readFileSync(openapiPath, 'utf8');
+  for (const operationId of [
+    'createNeedReview',
+    'updateNeedReview',
+    'createResearchQuestion',
+    'updateResearchQuestion',
+    'createValueAssessment',
+    'updateValueAssessment',
+    'createPackage',
+    'updatePackage',
+    'createPromotionDecision',
+    'updatePromotionDecision',
+    'promoteTitleCardToPaperProject',
+  ]) {
+    const block = extractOperationBlock(openapiSource, operationId);
+    assert.match(block, /deprecated: true/);
+    assert.match(block, /'409':/);
+    assert.doesNotMatch(block, /'(200|201)':/);
+  }
 });

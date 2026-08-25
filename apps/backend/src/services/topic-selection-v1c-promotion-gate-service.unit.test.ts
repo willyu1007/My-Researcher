@@ -605,12 +605,20 @@ test('LLM draft success stores draft prose while deterministic gate remains auth
 
 test('verified runtime draft creates N2 support without bypassing N3 gate', async () => {
   const { service, repository } = makeSubject();
+  const semanticLayer = {
+    critic_finding_resolution_map: [{
+      finding_id: 'critic_finding_001',
+      resolution_status: 'accepted_and_repaired',
+      source_refs: [ref('evidence_unit', 'evidence_unit_001')],
+    }],
+  };
   const draft: TopicSelectionPromotionDecisionSupportLlmDraft = {
     summary: 'Runtime-admitted bounded debate support summary.',
     reviewer_questions: ['Does the claim ceiling remain visible?'],
     risk_notes: ['Accepted risk was carried forward.'],
     recheck_notes: ['Recheck obligation was preserved.'],
     dossier_markdown: 'Runtime-admitted dossier markdown.',
+    n3_semantic_layer: semanticLayer,
   };
 
   const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
@@ -643,6 +651,7 @@ test('verified runtime draft creates N2 support without bypassing N3 gate', asyn
     gate.promotion_decision_support.promotion_decision_support_id,
     support.promotion_decision_support.promotion_decision_support_id,
   );
+  assert.deepEqual(gate.promotion_dossier.dossier_payload.n3_semantic_layer, semanticLayer);
 });
 
 test('verified runtime draft run key is bound to admitted runtime identity', async () => {

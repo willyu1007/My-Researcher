@@ -79,6 +79,7 @@ export interface TopicSelectionPromotionDecisionSupportLlmDraft {
   risk_notes?: string[];
   recheck_notes?: string[];
   dossier_markdown?: string | null;
+  n3_semantic_layer?: Record<string, unknown> | null;
 }
 
 export interface TopicSelectionPromotionDecisionSupportRecord {
@@ -274,6 +275,9 @@ export const topicSelectionPromotionDecisionSupportLlmDraftSchema = {
     risk_notes: stringArray,
     recheck_notes: stringArray,
     dossier_markdown: nullableStringId,
+    n3_semantic_layer: {
+      anyOf: [objectPayload, { type: 'null' }],
+    },
   },
 } as const;
 

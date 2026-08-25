@@ -67,46 +67,6 @@ function needPayload() {
   };
 }
 
-function valuePayload(researchQuestionId: string) {
-  const gate = { pass: true, reason: 'Passes current threshold.' };
-  const dim = { score: 4, reason: 'Competitive and defensible.', confidence: 0.8 };
-  return {
-    research_question_id: researchQuestionId,
-    strongest_claim_if_success: 'The method improves long-context retrieval robustness under realistic baselines.',
-    hard_gates: {
-      significance: gate,
-      originality: gate,
-      answerability: gate,
-      feasibility: gate,
-      venue_fit: gate,
-    },
-    scored_dimensions: {
-      significance: dim,
-      originality: dim,
-      claim_strength: dim,
-      answerability: dim,
-      venue_fit: dim,
-      strategic_leverage: dim,
-    },
-    risk_penalty: {
-      data_risk: 1,
-      compute_risk: 1,
-      baseline_risk: 2,
-      execution_risk: 2,
-      ethics_risk: 0,
-      penalty_summary: 'Manageable implementation risk.',
-    },
-    ceiling_case: 'Strong workshop or findings paper.',
-    base_case: 'Useful empirical paper.',
-    floor_case: 'Internal benchmark asset.',
-    verdict: 'promote',
-    total_score: 82,
-    judgement_summary: 'Value is sufficient for promotion if package aligns.',
-    confidence: 0.78,
-    evidence_refs: [{ literature_id: 'lit_001', source_type: 'abstract' }],
-  };
-}
-
 async function createTitleCard(app: Awaited<ReturnType<typeof makeApp>>['app']) {
   const titleCardRes = await app.inject({
     method: 'POST',
@@ -191,74 +151,38 @@ test('POST /title-cards/:titleCardId/promotion-decisions rejects loopback withou
   await app.close();
 });
 
-test('full HTTP flow can promote a title card to paper project', async () => {
+test('legacy semantic routes reject valid writes before creating PaperProject authority', async () => {
   const { app, paperCalls } = await makeApp();
   await app.ready();
   const titleCard = await createTitleCard(app);
 
-  const needRes = await app.inject({
+  const needResponse = await app.inject({
     method: 'POST',
     url: `/title-cards/${titleCard.title_card_id}/needs`,
     payload: needPayload(),
   });
-  assert.equal(needRes.statusCode, 201);
-  const need = needRes.json() as { need_id: string };
-
-  const questionRes = await app.inject({
-    method: 'POST',
-    url: `/title-cards/${titleCard.title_card_id}/research-questions`,
-    payload: {
-      main_question: 'How can retrieval remain stable under long-context literature reasoning?',
-      research_slice: 'robust long-context retrieval',
-      contribution_hypothesis: 'method',
-      source_need_ids: [need.need_id],
-      judgement_summary: 'Question derived from validated robustness need.',
-      confidence: 0.81,
-    },
+  assert.equal(needResponse.statusCode, 409);
+  assert.deepEqual(needResponse.json().error.details, {
+    canonical_recovery: '/topic-selection/title-cards/{titleCardId}/research-status',
+    disabled_capability: 'need',
   });
-  assert.equal(questionRes.statusCode, 201);
-  const question = questionRes.json() as { research_question_id: string };
 
-  const valueRes = await app.inject({
-    method: 'POST',
-    url: `/title-cards/${titleCard.title_card_id}/value-assessments`,
-    payload: valuePayload(question.research_question_id),
-  });
-  assert.equal(valueRes.statusCode, 201);
-  const value = valueRes.json() as { value_assessment_id: string };
-
-  const packageRes = await app.inject({
-    method: 'POST',
-    url: `/title-cards/${titleCard.title_card_id}/packages`,
-    payload: {
-      research_question_id: question.research_question_id,
-      value_assessment_id: value.value_assessment_id,
-      title_candidates: ['Robust Long-Context Retrieval for Literature Reasoning'],
-      research_background: 'Prior work does not adequately stabilize retrieval under long-context reasoning workflows.',
-      contribution_summary: 'A robust retrieval approach plus targeted evaluation.',
-      candidate_methods: ['adaptive retrieval', 'context compression'],
-      evaluation_plan: 'Compare against strong retrieval baselines on long-context literature QA.',
-      selected_literature_evidence_ids: ['lit_001'],
-    },
-  });
-  assert.equal(packageRes.statusCode, 201);
-  const pkg = packageRes.json() as { package_id: string };
-
-  const promoteRes = await app.inject({
+  const promoteResponse = await app.inject({
     method: 'POST',
     url: `/title-cards/${titleCard.title_card_id}/promote-to-paper-project`,
     payload: {
-      research_question_id: question.research_question_id,
-      value_assessment_id: value.value_assessment_id,
-      package_id: pkg.package_id,
+      research_question_id: 'research_question_001',
+      value_assessment_id: 'value_001',
+      package_id: 'package_001',
       title: 'Robust Retrieval for Literature Reasoning',
       created_by: 'hybrid',
     },
   });
-  assert.equal(promoteRes.statusCode, 201);
-  const promoteBody = promoteRes.json() as { paper_id: string; decision_id: string };
-  assert.ok(promoteBody.paper_id);
-  assert.ok(promoteBody.decision_id);
-  assert.equal(paperCalls.length, 1);
+  assert.equal(promoteResponse.statusCode, 409);
+  assert.deepEqual(promoteResponse.json().error.details, {
+    canonical_recovery: '/topic-selection/title-cards/{titleCardId}/research-status',
+    disabled_capability: 'promotion',
+  });
+  assert.equal(paperCalls.length, 0);
   await app.close();
 });

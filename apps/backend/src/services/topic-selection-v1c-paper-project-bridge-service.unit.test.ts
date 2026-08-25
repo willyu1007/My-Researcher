@@ -37,6 +37,7 @@ import {
 import {
   TopicSelectionV1cPaperProjectBridgeService,
 } from './topic-selection-v1c-paper-project-bridge-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 const NOW = '2026-05-15T00:00:00.000Z';
 
@@ -302,6 +303,7 @@ function makeSubject(sourceHandoff: TopicSelectionPromotionBridgeHandoff = makeS
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(sourceHandoff),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     paperProjectGateway,
     idFactory: makeIdFactory(),
     now: () => NOW,
@@ -502,6 +504,7 @@ test('paper project intake requires gateway and rolls back PaperProject on attac
   const noGatewayService = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -523,6 +526,7 @@ test('paper project intake requires gateway and rolls back PaperProject on attac
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository: conflictRepository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     paperProjectGateway,
     idFactory: makeIdFactory(),
     now: () => NOW,
@@ -639,6 +643,7 @@ test('Prisma bridge repository round-trips bridge and control-plane records', as
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -686,6 +691,7 @@ test('Prisma bridge repository attaches downstream PaperProject refs with hash g
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -738,6 +744,7 @@ test('Prisma bridge repository maps source promotion unique race to existing bri
   const service = new TopicSelectionV1cPaperProjectBridgeService({
     repository,
     humanPromotionDecisionService: new StubHumanPromotionDecisionService(makeSourceHandoff()),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });

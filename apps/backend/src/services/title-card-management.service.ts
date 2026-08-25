@@ -7,9 +7,12 @@ import type {
   CreateValueAssessmentRequest,
   EvidenceCandidateListResponse,
   EvidenceCandidateQuery,
+  NeedReviewDTO,
+  PackageDTO,
   PromoteTitleCardToPaperProjectRequest,
   PromoteTitleCardToPaperProjectResponse,
   PromotionDecisionDTO,
+  ResearchQuestionDTO,
   TitleCardDTO,
   TitleCardEvidenceBasketDTO,
   TitleCardListResponse,
@@ -20,13 +23,13 @@ import type {
   UpdateTitleCardEvidenceBasketRequest,
   UpdateTitleCardRequest,
   UpdateValueAssessmentRequest,
+  ValueAssessmentDTO,
 } from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { createTitleCardManagementGuardrails } from './title-card-management/guardrails.js';
 import { createTitleCardManagementReadModels } from './title-card-management/read-models.js';
 import {
-  allHardGatesPass,
   type PaperProjectGateway,
   type TitleCardManagementReferenceGateway,
 } from './title-card-management/support.js';
@@ -41,7 +44,7 @@ export class TitleCardManagementService {
 
   constructor(
     private readonly repository: TitleCardManagementRepository,
-    private readonly paperProjects: PaperProjectGateway,
+    _paperProjects: PaperProjectGateway,
     references: TitleCardManagementReferenceGateway,
   ) {
     this.guardrails = createTitleCardManagementGuardrails({ repository, references });
@@ -115,14 +118,8 @@ export class TitleCardManagementService {
     return this.readModels.listEvidenceCandidates(titleCardId, query);
   }
 
-  async createNeedReview(titleCardId: string, input: CreateNeedReviewRequest) {
-    await this.guardrails.assertTitleCardExists(titleCardId);
-    if (input.literature_ids.length === 0) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'NeedReview must reference at least one literature record.');
-    }
-    await this.guardrails.assertLiteraturesExist(input.literature_ids);
-    await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, input.literature_ids);
-    return this.repository.createNeedReview(titleCardId, input);
+  async createNeedReview(_titleCardId: string, _input: CreateNeedReviewRequest): Promise<NeedReviewDTO> {
+    this.rejectLegacySemanticWrite('need');
   }
 
   async listNeedReviews(titleCardId: string) {
@@ -139,38 +136,19 @@ export class TitleCardManagementService {
     return review;
   }
 
-  async updateNeedReview(titleCardId: string, needId: string, input: UpdateNeedReviewRequest) {
-    const current = await this.guardrails.assertNeedReviewUsable(titleCardId, needId);
-    const next = {
-      ...current,
-      ...input,
-      literature_ids: input.literature_ids ?? current.literature_ids,
-    };
-    await this.guardrails.assertLiteraturesExist(next.literature_ids);
-    await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, next.literature_ids);
-    const updated = await this.repository.updateNeedReview(titleCardId, needId, input);
-    if (!updated) {
-      throw new AppError(404, 'NOT_FOUND', `NeedReview ${needId} not found for title card ${titleCardId}.`);
-    }
-    return updated;
+  async updateNeedReview(
+    _titleCardId: string,
+    _needId: string,
+    _input: UpdateNeedReviewRequest,
+  ): Promise<NeedReviewDTO> {
+    this.rejectLegacySemanticWrite('need');
   }
 
-  async createResearchQuestion(titleCardId: string, input: CreateResearchQuestionRequest) {
-    await this.guardrails.assertTitleCardExists(titleCardId);
-    const needIds = input.source_need_ids ?? [];
-    const literatureEvidenceIds = input.source_literature_evidence_ids ?? [];
-    if (needIds.length + literatureEvidenceIds.length === 0) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        'ResearchQuestion must reference at least one upstream need review or literature evidence.',
-      );
-    }
-    await Promise.all(needIds.map((needId) => this.guardrails.assertNeedReviewUsable(titleCardId, needId)));
-    if (literatureEvidenceIds.length > 0) {
-      await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, literatureEvidenceIds);
-    }
-    return this.repository.createResearchQuestion(titleCardId, input);
+  async createResearchQuestion(
+    _titleCardId: string,
+    _input: CreateResearchQuestionRequest,
+  ): Promise<ResearchQuestionDTO> {
+    this.rejectLegacySemanticWrite('question');
   }
 
   async listResearchQuestions(titleCardId: string) {
@@ -188,43 +166,18 @@ export class TitleCardManagementService {
   }
 
   async updateResearchQuestion(
-    titleCardId: string,
-    researchQuestionId: string,
-    input: UpdateResearchQuestionRequest,
-  ) {
-    const current = await this.guardrails.assertResearchQuestionUsable(titleCardId, researchQuestionId);
-    const nextNeedIds = input.source_need_ids ?? current.source_need_ids;
-    const nextLiteratureEvidenceIds =
-      input.source_literature_evidence_ids ?? current.source_literature_evidence_ids;
-    if (nextNeedIds.length + nextLiteratureEvidenceIds.length === 0) {
-      throw new AppError(
-        400,
-        'INVALID_PAYLOAD',
-        'ResearchQuestion must reference at least one upstream need review or literature evidence.',
-      );
-    }
-    await Promise.all(nextNeedIds.map((needId) => this.guardrails.assertNeedReviewUsable(titleCardId, needId)));
-    if (nextLiteratureEvidenceIds.length > 0) {
-      await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, nextLiteratureEvidenceIds);
-    }
-    const updated = await this.repository.updateResearchQuestion(titleCardId, researchQuestionId, input);
-    if (!updated) {
-      throw new AppError(404, 'NOT_FOUND', `ResearchQuestion ${researchQuestionId} not found for title card ${titleCardId}.`);
-    }
-    return updated;
+    _titleCardId: string,
+    _researchQuestionId: string,
+    _input: UpdateResearchQuestionRequest,
+  ): Promise<ResearchQuestionDTO> {
+    this.rejectLegacySemanticWrite('question');
   }
 
-  async createValueAssessment(titleCardId: string, input: CreateValueAssessmentRequest) {
-    await this.guardrails.assertTitleCardExists(titleCardId);
-    await this.guardrails.assertResearchQuestionUsable(titleCardId, input.research_question_id);
-    if (!Object.values(input.hard_gates).every((gate) => gate.pass) && input.verdict === 'promote') {
-      throw new AppError(
-        422,
-        'GATE_CONSTRAINT_FAILED',
-        'ValueAssessment verdict cannot be promote when any hard gate fails.',
-      );
-    }
-    return this.repository.createValueAssessment(titleCardId, input);
+  async createValueAssessment(
+    _titleCardId: string,
+    _input: CreateValueAssessmentRequest,
+  ): Promise<ValueAssessmentDTO> {
+    this.rejectLegacySemanticWrite('value');
   }
 
   async listValueAssessments(titleCardId: string) {
@@ -242,45 +195,15 @@ export class TitleCardManagementService {
   }
 
   async updateValueAssessment(
-    titleCardId: string,
-    valueAssessmentId: string,
-    input: UpdateValueAssessmentRequest,
-  ) {
-    const current = await this.guardrails.assertValueAssessmentUsable(titleCardId, valueAssessmentId);
-    const next = {
-      ...current,
-      ...input,
-      hard_gates: input.hard_gates ?? current.hard_gates,
-      verdict: input.verdict ?? current.verdict,
-    };
-    if (!Object.values(next.hard_gates).every((gate) => gate.pass) && next.verdict === 'promote') {
-      throw new AppError(
-        422,
-        'GATE_CONSTRAINT_FAILED',
-        'ValueAssessment verdict cannot be promote when any hard gate fails.',
-      );
-    }
-    const updated = await this.repository.updateValueAssessment(titleCardId, valueAssessmentId, input);
-    if (!updated) {
-      throw new AppError(404, 'NOT_FOUND', `ValueAssessment ${valueAssessmentId} not found for title card ${titleCardId}.`);
-    }
-    return updated;
+    _titleCardId: string,
+    _valueAssessmentId: string,
+    _input: UpdateValueAssessmentRequest,
+  ): Promise<ValueAssessmentDTO> {
+    this.rejectLegacySemanticWrite('value');
   }
 
-  async createPackage(titleCardId: string, input: CreatePackageRequest) {
-    await this.guardrails.assertTitleCardExists(titleCardId);
-    const question = await this.guardrails.assertResearchQuestionUsable(titleCardId, input.research_question_id);
-    const assessment = await this.guardrails.assertValueAssessmentUsable(titleCardId, input.value_assessment_id);
-    if (assessment.research_question_id !== question.research_question_id) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'Package must reference an existing ValueAssessment for the same research question.',
-      );
-    }
-    await this.guardrails.assertLiteraturesExist(input.selected_literature_evidence_ids);
-    await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, input.selected_literature_evidence_ids);
-    return this.repository.createPackage(titleCardId, input);
+  async createPackage(_titleCardId: string, _input: CreatePackageRequest): Promise<PackageDTO> {
+    this.rejectLegacySemanticWrite('package');
   }
 
   async listPackages(titleCardId: string) {
@@ -297,32 +220,19 @@ export class TitleCardManagementService {
     return pkg;
   }
 
-  async updatePackage(titleCardId: string, packageId: string, input: UpdatePackageRequest) {
-    const current = await this.guardrails.assertPackageUsable(titleCardId, packageId);
-    const nextQuestionId = input.research_question_id ?? current.research_question_id;
-    const nextValueId = input.value_assessment_id ?? current.value_assessment_id;
-    const nextEvidenceIds = input.selected_literature_evidence_ids ?? current.selected_literature_evidence_ids;
-    const question = await this.guardrails.assertResearchQuestionUsable(titleCardId, nextQuestionId);
-    const assessment = await this.guardrails.assertValueAssessmentUsable(titleCardId, nextValueId);
-    if (assessment.research_question_id !== question.research_question_id) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'Package must reference a ValueAssessment aligned with the target research question.',
-      );
-    }
-    await this.guardrails.assertLiteraturesExist(nextEvidenceIds);
-    await this.guardrails.assertEvidenceSelectedInBasket(titleCardId, nextEvidenceIds);
-    const updated = await this.repository.updatePackage(titleCardId, packageId, input);
-    if (!updated) {
-      throw new AppError(404, 'NOT_FOUND', `Package ${packageId} not found for title card ${titleCardId}.`);
-    }
-    return updated;
+  async updatePackage(
+    _titleCardId: string,
+    _packageId: string,
+    _input: UpdatePackageRequest,
+  ): Promise<PackageDTO> {
+    this.rejectLegacySemanticWrite('package');
   }
 
-  async createPromotionDecision(titleCardId: string, input: CreatePromotionDecisionRequest) {
-    await this.guardrails.assertTitleCardExists(titleCardId);
-    return this.createValidatedPromotionDecision(titleCardId, input);
+  async createPromotionDecision(
+    _titleCardId: string,
+    _input: CreatePromotionDecisionRequest,
+  ): Promise<PromotionDecisionDTO> {
+    this.rejectLegacySemanticWrite('promotion');
   }
 
   async listPromotionDecisions(titleCardId: string) {
@@ -340,165 +250,32 @@ export class TitleCardManagementService {
   }
 
   async updatePromotionDecision(
-    titleCardId: string,
-    decisionId: string,
-    input: UpdatePromotionDecisionRequest,
-  ) {
-    const current = await this.getPromotionDecision(titleCardId, decisionId);
-    const next = {
-      ...current,
-      ...input,
-    };
-    await this.validatePromotionDecision(titleCardId, next);
-    const updated = await this.repository.updatePromotionDecision(titleCardId, decisionId, input);
-    if (!updated) {
-      throw new AppError(404, 'NOT_FOUND', `PromotionDecision ${decisionId} not found for title card ${titleCardId}.`);
-    }
-    return updated;
+    _titleCardId: string,
+    _decisionId: string,
+    _input: UpdatePromotionDecisionRequest,
+  ): Promise<PromotionDecisionDTO> {
+    this.rejectLegacySemanticWrite('promotion');
   }
 
   async promoteTitleCardToPaperProject(
-    titleCardId: string,
-    input: PromoteTitleCardToPaperProjectRequest,
+    _titleCardId: string,
+    _input: PromoteTitleCardToPaperProjectRequest,
   ): Promise<PromoteTitleCardToPaperProjectResponse> {
-    const titleCard = await this.guardrails.assertTitleCardExists(titleCardId);
-    const question = await this.guardrails.assertResearchQuestionUsable(titleCardId, input.research_question_id);
-    const assessment = await this.guardrails.assertValueAssessmentUsable(titleCardId, input.value_assessment_id);
-    if (assessment.research_question_id !== question.research_question_id) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'Promotion requires a ValueAssessment attached to the target research question.',
-      );
-    }
-    if (!allHardGatesPass(assessment)) {
-      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Promotion requires all ValueAssessment hard gates to pass.');
-    }
-
-    const pkg = await this.guardrails.assertPackageUsable(titleCardId, input.package_id);
-    if (
-      pkg.research_question_id !== question.research_question_id
-      || pkg.value_assessment_id !== assessment.value_assessment_id
-    ) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'Promotion requires a Package aligned with the target research question and value assessment.',
-      );
-    }
-    if (pkg.selected_literature_evidence_ids.length === 0) {
-      throw new AppError(
-        422,
-        'GATE_CONSTRAINT_FAILED',
-        'Promotion requires at least one selected literature evidence id.',
-      );
-    }
-    await this.guardrails.assertLiteraturesExist(pkg.selected_literature_evidence_ids);
-
-    let createdPaperId: string | null = null;
-    try {
-      const created = await this.paperProjects.createPaperProject({
-        title_card_id: titleCardId,
-        title: input.title,
-        research_direction: input.research_direction,
-        created_by: input.created_by,
-        initial_context: {
-          literature_evidence_ids: pkg.selected_literature_evidence_ids,
-        },
-      });
-      createdPaperId = created.paper_id;
-
-      const decision = await this.repository.createPromotionDecision(titleCardId, {
-        research_question_id: input.research_question_id,
-        value_assessment_id: input.value_assessment_id,
-        package_id: input.package_id,
-        decision: 'promote',
-        reason_summary: `Promoted title card ${titleCard.working_title} to paper project ${created.paper_id}.`,
-        target_paper_title: input.title,
-        created_by: input.created_by,
-        promoted_paper_id: created.paper_id,
-      });
-
-      await this.repository.updateTitleCard(titleCardId, { status: 'promoted' });
-
-      return {
-        paper_id: created.paper_id,
-        decision_id: decision.decision_id,
-      };
-    } catch (error) {
-      if (createdPaperId) {
-        try {
-          await this.paperProjects.deletePaperProject(createdPaperId);
-        } catch (rollbackError) {
-          throw new AppError(
-            500,
-            'INTERNAL_ERROR',
-            'Promotion failed and rollback of the created paper project also failed.',
-            {
-              created_paper_id: createdPaperId,
-              original_error: error instanceof Error ? error.message : 'unknown',
-              rollback_error: rollbackError instanceof Error ? rollbackError.message : 'unknown',
-            },
-          );
-        }
-      }
-      throw error;
-    }
+    this.rejectLegacySemanticWrite('promotion');
   }
 
-  private async createValidatedPromotionDecision(
-    titleCardId: string,
-    input: CreatePromotionDecisionRequest,
-  ): Promise<PromotionDecisionDTO> {
-    await this.validatePromotionDecision(titleCardId, input);
-    return this.repository.createPromotionDecision(titleCardId, input);
-  }
-
-  private async validatePromotionDecision(
-    titleCardId: string,
-    input: CreatePromotionDecisionRequest | PromotionDecisionDTO,
-  ): Promise<void> {
-    const question = await this.guardrails.assertResearchQuestionUsable(titleCardId, input.research_question_id);
-    const valueAssessment = await this.guardrails.assertValueAssessmentUsable(titleCardId, input.value_assessment_id);
-    if (valueAssessment.research_question_id !== question.research_question_id) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'PromotionDecision must reference a ValueAssessment belonging to the same research question.',
-      );
-    }
-
-    const pkg = input.package_id ? await this.guardrails.assertPackageUsable(titleCardId, input.package_id) : null;
-    if (
-      pkg
-      && (
-        pkg.research_question_id !== question.research_question_id
-        || pkg.value_assessment_id !== valueAssessment.value_assessment_id
-      )
-    ) {
-      throw new AppError(
-        409,
-        'VERSION_CONFLICT',
-        'PromotionDecision package_id must align with the target research question and value assessment.',
-      );
-    }
-
-    if (input.decision === 'promote') {
-      if (!allHardGatesPass(valueAssessment)) {
-        throw new AppError(
-          422,
-          'GATE_CONSTRAINT_FAILED',
-          'Cannot promote title card when value assessment hard gates are not all passing.',
-        );
-      }
-      if (!input.package_id || !input.target_paper_title) {
-        throw new AppError(400, 'INVALID_PAYLOAD', 'Promote decision requires package_id and target_paper_title.');
-      }
-    }
-
-    if (input.decision === 'loopback' && !input.loopback_target) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Loopback decision requires loopback_target.');
-    }
+  private rejectLegacySemanticWrite(
+    capability: 'need' | 'question' | 'value' | 'package' | 'promotion',
+  ): never {
+    throw new AppError(
+      409,
+      'GATE_CONSTRAINT_FAILED',
+      `Legacy title-card ${capability} writes are disabled; resume through the canonical topic-selection checkpoint APIs.`,
+      {
+        canonical_recovery: '/topic-selection/title-cards/{titleCardId}/research-status',
+        disabled_capability: capability,
+      },
+    );
   }
 
 }

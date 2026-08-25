@@ -1619,7 +1619,7 @@ export class TopicSelectionV1cPromotionGateService {
       reviewer_questions: support.reviewer_questions,
       risk_notes: support.risk_notes,
       recheck_notes: support.recheck_notes,
-      n3_semantic_layer: {
+      n3_semantic_layer: draft?.n3_semantic_layer ?? {
         claim_ceiling_alignment: {
           status: claimCeiling ? 'addressed' : 'missing',
           refs: [handoff.topic_question_contract_ref],

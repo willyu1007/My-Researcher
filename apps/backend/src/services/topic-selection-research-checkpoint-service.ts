@@ -119,9 +119,52 @@ export type MaterializeQuestionContractCheckpointInput = {
   policy_version_id?: string | null;
 };
 
+export type TopicSelectionPromotionCheckpointFinding = {
+  finding_id: string;
+  summary: string;
+  refs: TopicSelectionFunctionalRef[];
+  mapped_accepted_risk_refs?: TopicSelectionFunctionalRef[];
+};
+
+export type TopicSelectionPromotionCheckpointCriticFinding = {
+  finding_id: string;
+  summary: string;
+  resolution_status?: 'accepted_and_repaired' | 'accepted_as_risk' | 'rebutted_with_refs' | null;
+  mapping_refs?: TopicSelectionFunctionalRef[];
+};
+
+export type MaterializePromotionCheckpointInput = {
+  workspace_id?: string | null;
+  title_card_id: string;
+  promotion_input_snapshot_ref: TopicSelectionFunctionalRef;
+  promotion_input_snapshot_hash: string;
+  topic_question_contract_ref: TopicSelectionFunctionalRef;
+  source_refs?: TopicSelectionFunctionalRef[];
+  gate_ready: boolean;
+  accepted_risk_refs: TopicSelectionFunctionalRef[];
+  required_actions: Array<{
+    action_code: string;
+    refs: TopicSelectionFunctionalRef[];
+  }>;
+  pass_with_risk_findings: TopicSelectionPromotionCheckpointFinding[];
+  critic_findings: TopicSelectionPromotionCheckpointCriticFinding[];
+  proposed_condition_actions: Array<{
+    action_code: string;
+    refs: TopicSelectionFunctionalRef[];
+  }>;
+  policy_version_id?: string | null;
+};
+
+export type AssertCompleteResearchCheckpointChainInput = {
+  title_card_id: string;
+  promotion_input_snapshot_ref: TopicSelectionFunctionalRef;
+  promotion_input_snapshot_hash: string;
+};
+
 export type AdaptExistingResearchDecisionInput = {
   decision_authority_ref: TopicSelectionFunctionalRef;
   confirmed_snapshot_hash: string;
+  advances?: boolean;
 };
 
 const BLOCKING_OBJECTION_SEVERITIES = new Set(['blocking', 'critical']);
@@ -638,6 +681,155 @@ export class TopicSelectionResearchCheckpointService {
     });
   }
 
+  async materializePromotionCheckpoint(
+    input: MaterializePromotionCheckpointInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord> {
+    this.assertHash(input.promotion_input_snapshot_hash, 'promotion_input_snapshot_hash');
+    this.assertTarget(input.title_card_id, input.promotion_input_snapshot_ref);
+    this.assertTarget(input.title_card_id, input.topic_question_contract_ref);
+    const chain = await this.inspectPrePromotionChain(
+      input.title_card_id,
+      input.topic_question_contract_ref,
+    );
+    const acceptedRiskKeys = new Set(input.accepted_risk_refs.map((ref) => this.refKey(ref)));
+    const conditionActionRefKeys = new Set(
+      input.proposed_condition_actions.flatMap((action) => action.refs.map((ref) => this.refKey(ref))),
+    );
+    const conditionActionCodes = new Set(
+      input.proposed_condition_actions.map((action) => action.action_code.trim()).filter(Boolean),
+    );
+    const passWithRiskFindings = input.pass_with_risk_findings.map((finding) => {
+      const mappedAcceptedRiskRefs = this.uniqueRefs(finding.mapped_accepted_risk_refs ?? []);
+      const acceptedRiskMapped = mappedAcceptedRiskRefs.length > 0
+        && mappedAcceptedRiskRefs.every((ref) => acceptedRiskKeys.has(this.refKey(ref)));
+      const requiredActionMapped = conditionActionCodes.has(finding.finding_id)
+        || finding.refs.some((ref) => conditionActionRefKeys.has(this.refKey(ref)));
+      return {
+        ...finding,
+        refs: this.uniqueRefs(finding.refs),
+        mapped_accepted_risk_refs: mappedAcceptedRiskRefs,
+        mapping_status: acceptedRiskMapped
+          ? 'accepted_risk'
+          : requiredActionMapped
+            ? 'required_action'
+            : 'unmapped',
+      };
+    });
+    const criticFindings = input.critic_findings.map((finding) => {
+      const mappingRefs = this.uniqueRefs(finding.mapping_refs ?? []);
+      const acceptedAsRiskMapped = finding.resolution_status === 'accepted_as_risk'
+        && mappingRefs.length > 0
+        && mappingRefs.every((ref) => acceptedRiskKeys.has(this.refKey(ref)));
+      const resolved = (finding.resolution_status === 'accepted_and_repaired' && mappingRefs.length > 0)
+        || (finding.resolution_status === 'rebutted_with_refs' && mappingRefs.length > 0)
+        || acceptedAsRiskMapped;
+      return {
+        ...finding,
+        mapping_refs: mappingRefs,
+        resolution_status: finding.resolution_status ?? null,
+        mapping_status: resolved ? 'resolved' : 'unresolved',
+      };
+    });
+    const issueCodes = this.uniqueStrings([
+      ...(!input.gate_ready ? ['PROMOTION_GATE_NOT_READY'] : []),
+      ...(chain.every((entry) => entry.advancing) ? [] : ['CHECKPOINT_CHAIN_INCOMPLETE']),
+      ...(input.required_actions.length > 0 ? ['PROMOTION_REQUIRED_ACTIONS_OPEN'] : []),
+      ...(passWithRiskFindings.some((finding) => finding.mapping_status === 'unmapped')
+        ? ['UNMAPPED_PASS_WITH_RISK_FINDING'] : []),
+      ...(criticFindings.some((finding) => finding.mapping_status === 'unresolved')
+        ? ['UNRESOLVED_INDEPENDENT_CRITIC_FINDING'] : []),
+    ]);
+    const policyIssues = issueCodes.map((code) => ({
+      code,
+      message: this.promotionPolicyIssueMessage(code),
+      recommended_loopback: this.promotionPolicyLoopback(code),
+    }));
+    const packetPayload = {
+      promotion_input_snapshot_ref: input.promotion_input_snapshot_ref,
+      topic_question_contract_ref: input.topic_question_contract_ref,
+      checkpoint_chain: chain,
+      accepted_risk_refs: this.uniqueRefs(input.accepted_risk_refs),
+      required_actions: input.required_actions.map((action) => ({
+        action_code: action.action_code,
+        refs: this.uniqueRefs(action.refs),
+      })),
+      proposed_condition_actions: input.proposed_condition_actions.map((action) => ({
+        action_code: action.action_code,
+        refs: this.uniqueRefs(action.refs),
+      })),
+      pass_with_risk_findings: passWithRiskFindings,
+      independent_critic_findings: criticFindings,
+      policy_result: issueCodes.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
+      policy_issue_codes: issueCodes,
+      policy_issues: policyIssues,
+      policy_note: 'Promotion requires a current native checkpoint chain and explicit risk or action ownership; scores and narrative warnings cannot silently advance.',
+    };
+    const requiredActionRefs = this.uniqueRefs([
+      ...input.required_actions.map((action) => this.requiredActionRef(
+        input.title_card_id,
+        input.promotion_input_snapshot_ref,
+        action.action_code,
+      )),
+      ...issueCodes.map((code) => this.requiredActionRef(
+        input.title_card_id,
+        input.promotion_input_snapshot_ref,
+        code,
+      )),
+    ]);
+    return this.materializeCheckpoint({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      checkpoint_kind: 'promotion',
+      policy_version_id: input.policy_version_id ?? 'topic-selection-promotion@v1',
+      target_ref: input.promotion_input_snapshot_ref,
+      target_snapshot_hash: input.promotion_input_snapshot_hash,
+      source_refs: this.uniqueRefs([
+        ...(input.source_refs ?? []),
+        input.topic_question_contract_ref,
+        ...input.accepted_risk_refs,
+        ...input.required_actions.flatMap((action) => action.refs),
+        ...input.proposed_condition_actions.flatMap((action) => action.refs),
+        ...input.pass_with_risk_findings.flatMap((finding) => [
+          ...finding.refs,
+          ...(finding.mapped_accepted_risk_refs ?? []),
+        ]),
+        ...input.critic_findings.flatMap((finding) => finding.mapping_refs ?? []),
+      ]),
+      allowed_actions: issueCodes.length === 0
+        ? ['advance', 'loopback', 'reject', 'hold']
+        : ['loopback', 'reject', 'hold'],
+      required_action_refs: requiredActionRefs,
+      packet_payload: packetPayload,
+    });
+  }
+
+  async assertCompleteCheckpointChain(
+    input: AssertCompleteResearchCheckpointChainInput,
+  ): Promise<TopicSelectionResearchCheckpointRecord[]> {
+    const checkpoints: TopicSelectionResearchCheckpointRecord[] = [];
+    for (const checkpointKind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
+      const checkpoint = await this.assertTransitionAllowed({
+        title_card_id: input.title_card_id,
+        checkpoint_kind: checkpointKind,
+        ...(checkpointKind === 'promotion'
+          ? {
+              target_ref: input.promotion_input_snapshot_ref,
+              target_snapshot_hash: input.promotion_input_snapshot_hash,
+            }
+          : {}),
+      });
+      if (checkpoint.provenance_class !== 'native') {
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          `Current ${checkpointKind} checkpoint is backfilled provenance and requires native review.`,
+        );
+      }
+      checkpoints.push(checkpoint);
+    }
+    return checkpoints;
+  }
+
   async listCheckpoints(titleCardId: string): Promise<TopicSelectionResearchCheckpointRecord[]> {
     return this.repository.listCheckpointsByTitleCardId(titleCardId);
   }
@@ -904,19 +1096,30 @@ export class TopicSelectionResearchCheckpointService {
       return checkpoint;
     }
     this.assertCurrentPending(checkpoint);
-    if (!checkpoint.allowed_actions.includes('advance') || checkpoint.required_action_refs.length > 0) {
-      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Checkpoint is not eligible for advancement.');
-    }
-    const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
-    if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Checkpoint has open blocking objections.');
+    const advances = input.advances ?? true;
+    if (advances) {
+      if (!checkpoint.allowed_actions.includes('advance') || checkpoint.required_action_refs.length > 0) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Checkpoint is not eligible for advancement.');
+      }
+      const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
+      if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Checkpoint has open blocking objections.');
+      }
+    } else if (checkpoint.checkpoint_kind !== 'promotion') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Only promotion authority can adapt a non-advancing stage decision.');
+    } else if (checkpoint.required_action_refs.length === 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'A non-advancing promotion decision requires a product-owned required action or loopback reason.',
+      );
     }
     const now = this.now();
     const decidedCheckpoint: TopicSelectionResearchCheckpointRecord = {
       ...checkpoint,
       status: 'decided',
       decision_authority_ref: input.decision_authority_ref,
-      required_action_refs: [],
+      required_action_refs: advances ? [] : checkpoint.required_action_refs,
       updated_at: now,
       decided_at: now,
     };
@@ -1168,6 +1371,59 @@ export class TopicSelectionResearchCheckpointService {
       if (!resolution) open.push(objection);
     }
     return open;
+  }
+
+  private async inspectPrePromotionChain(
+    titleCardId: string,
+    topicQuestionContractRef: TopicSelectionFunctionalRef,
+  ): Promise<Array<{
+    checkpoint_kind: 'evidence_landscape' | 'gap_selection' | 'question_contract';
+    checkpoint_ref: TopicSelectionFunctionalRef | null;
+    target_ref: TopicSelectionFunctionalRef | null;
+    provenance_class: TopicSelectionResearchCheckpointRecord['provenance_class'] | null;
+    advancing: boolean;
+    issue_codes: string[];
+  }>> {
+    const objections = await this.listOpenObjectionsForTitleCard(titleCardId);
+    const kinds = TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS.slice(0, 3) as Array<
+      'evidence_landscape' | 'gap_selection' | 'question_contract'
+    >;
+    const entries = [];
+    for (const kind of kinds) {
+      const checkpoint = await this.repository.findCurrentCheckpoint(titleCardId, kind);
+      if (!checkpoint) {
+        entries.push({
+          checkpoint_kind: kind,
+          checkpoint_ref: null,
+          target_ref: null,
+          provenance_class: null,
+          advancing: false,
+          issue_codes: ['CHECKPOINT_MISSING'],
+        });
+        continue;
+      }
+      const localDecision = await this.repository.findDecisionByCheckpointId(checkpoint.research_checkpoint_id);
+      const issueCodes = this.uniqueStrings([
+        ...(checkpoint.provenance_class !== 'native' ? ['NATIVE_REVIEW_REQUIRED'] : []),
+        ...(checkpoint.status !== 'decided' || !checkpoint.decision_authority_ref
+          ? ['CHECKPOINT_NOT_ADVANCED'] : []),
+        ...(localDecision && localDecision.decision !== 'advance' ? ['CHECKPOINT_DECISION_NOT_ADVANCE'] : []),
+        ...(checkpoint.required_action_refs.length > 0 ? ['CHECKPOINT_REQUIRED_ACTIONS_OPEN'] : []),
+        ...(this.blockingObjectionsForCheckpoint(objections, kind).length > 0
+          ? ['CHECKPOINT_BLOCKING_OBJECTION_OPEN'] : []),
+        ...(kind === 'question_contract' && !this.refsEqual(checkpoint.target_ref, topicQuestionContractRef)
+          ? ['QUESTION_CHECKPOINT_TARGET_STALE'] : []),
+      ]);
+      entries.push({
+        checkpoint_kind: kind,
+        checkpoint_ref: this.ref('research_checkpoint', checkpoint.research_checkpoint_id, titleCardId),
+        target_ref: checkpoint.target_ref,
+        provenance_class: checkpoint.provenance_class,
+        advancing: issueCodes.length === 0,
+        issue_codes: issueCodes,
+      });
+    }
+    return entries;
   }
 
   private blockingObjectionsForCheckpoint(
@@ -1456,6 +1712,28 @@ export class TopicSelectionResearchCheckpointService {
       QUESTION_NOT_ANSWERABLE: 'Revise the question or slice until the answerability verdict permits evaluation.',
     };
     return messages[code] ?? `Resolve question policy issue ${code}.`;
+  }
+
+  private promotionPolicyIssueMessage(code: string): string {
+    const messages: Record<string, string> = {
+      PROMOTION_GATE_NOT_READY: 'Promotion gate authority must allow a promote-class human decision.',
+      CHECKPOINT_CHAIN_INCOMPLETE: 'Evidence, gap, and question checkpoints must all be current, native, and advancing.',
+      PROMOTION_REQUIRED_ACTIONS_OPEN: 'Promotion gate required actions must be resolved or explicitly owned as downstream conditions.',
+      UNMAPPED_PASS_WITH_RISK_FINDING: 'Every advancement-relevant pass-with-risk finding needs an accepted-risk or required-action mapping.',
+      UNRESOLVED_INDEPENDENT_CRITIC_FINDING: 'Every independent critic finding needs a repaired, evidence-rebutted, or accepted-risk disposition.',
+    };
+    return messages[code] ?? `Resolve promotion policy issue ${code}.`;
+  }
+
+  private promotionPolicyLoopback(code: string): string {
+    const loopbacks: Record<string, string> = {
+      PROMOTION_GATE_NOT_READY: 'promotion_gate',
+      CHECKPOINT_CHAIN_INCOMPLETE: 'earliest_unsatisfied_checkpoint',
+      PROMOTION_REQUIRED_ACTIONS_OPEN: 'promotion_gate',
+      UNMAPPED_PASS_WITH_RISK_FINDING: 'promotion_review',
+      UNRESOLVED_INDEPENDENT_CRITIC_FINDING: 'promotion_support',
+    };
+    return loopbacks[code] ?? 'promotion_review';
   }
 
   private questionPolicyLoopback(code: string): string {

@@ -46,6 +46,10 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import type {
+  MaterializePromotionCheckpointInput,
+  TopicSelectionResearchCheckpointService,
+} from './topic-selection-research-checkpoint-service.js';
 
 const WORKFLOW_KEY = 'topic-selection.v1c-human-promotion-decision-profile';
 const GATE_KEY = 'topic-selection.v1c-human-promotion-authorization-check';
@@ -117,6 +121,10 @@ export type TopicSelectionV1cHumanPromotionDecisionCreationResult =
 export type TopicSelectionV1cHumanPromotionDecisionServiceOptions = {
   repository: TopicSelectionV1cHumanPromotionDecisionRepository;
   promotionGateService: TopicSelectionPromotionGateHandoffProvider;
+  checkpointControl: Pick<
+    TopicSelectionResearchCheckpointService,
+    'adaptExistingStageDecision' | 'getPacket' | 'materializePromotionCheckpoint'
+  >;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -137,12 +145,14 @@ type NormalizedDecisionInput = {
 export class TopicSelectionV1cHumanPromotionDecisionService {
   private readonly repository: TopicSelectionV1cHumanPromotionDecisionRepository;
   private readonly promotionGateService: TopicSelectionPromotionGateHandoffProvider;
+  private readonly checkpointControl: TopicSelectionV1cHumanPromotionDecisionServiceOptions['checkpointControl'];
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
   constructor(options: TopicSelectionV1cHumanPromotionDecisionServiceOptions) {
     this.repository = options.repository;
     this.promotionGateService = options.promotionGateService;
+    this.checkpointControl = options.checkpointControl;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -169,6 +179,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
     }
 
     const normalized = this.normalizeDecisionInput(input, gateHandoff);
+    const promotionCheckpoint = await this.preparePromotionCheckpoint(gateHandoff, normalized);
     const humanPromotionDecisionKey = this.computeHumanPromotionDecisionKey({
       input,
       gateHandoff,
@@ -178,6 +189,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       humanPromotionDecisionKey,
     );
     if (existingByKey) {
+      await this.adaptPromotionCheckpoint(promotionCheckpoint, existingByKey);
       return {
         ...existingByKey,
         bridge_handoff: existingByKey.promotion_decision.bridge_eligible
@@ -354,11 +366,139 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       throw error;
     }
 
+    await this.adaptPromotionCheckpoint(promotionCheckpoint, bundle);
+
     return {
       ...bundle,
       bridge_handoff: bundle.promotion_decision.bridge_eligible
         ? this.toBridgeHandoff(bundle)
         : null,
+    };
+  }
+
+  private async preparePromotionCheckpoint(
+    gateHandoff: TopicSelectionPromotionGateHandoff,
+    normalized: NormalizedDecisionInput,
+  ) {
+    const checkpointInput = this.toPromotionCheckpointInput(gateHandoff, normalized);
+    const checkpoint = await this.checkpointControl.materializePromotionCheckpoint(checkpointInput);
+    if (!normalized.bridgeEligible) return checkpoint;
+    const packet = await this.checkpointControl.getPacket(checkpoint.research_checkpoint_id);
+    if (!packet.allowed_actions.includes('advance') || packet.required_action_refs.length > 0) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Promotion checkpoint cannot advance while pass-with-risk findings, critic findings, prior checkpoints, objections, or required actions remain unresolved.',
+        {
+          research_checkpoint_id: checkpoint.research_checkpoint_id,
+          policy_issue_codes: this.asStringArray(packet.packet_payload.policy_issue_codes),
+        },
+      );
+    }
+    return checkpoint;
+  }
+
+  private async adaptPromotionCheckpoint(
+    checkpoint: Awaited<ReturnType<TopicSelectionResearchCheckpointService['materializePromotionCheckpoint']>> | null,
+    bundle: TopicSelectionV1cHumanPromotionDecisionRecordBundle,
+  ): Promise<void> {
+    if (!checkpoint) return;
+    await this.checkpointControl.adaptExistingStageDecision(checkpoint.research_checkpoint_id, {
+      decision_authority_ref: this.ref(
+        'human_promotion_decision',
+        bundle.human_promotion_decision.human_promotion_decision_id,
+        bundle.human_promotion_decision.title_card_id,
+        bundle.human_promotion_decision.confirmed_snapshot_hash,
+      ),
+      confirmed_snapshot_hash: bundle.human_promotion_decision.confirmed_snapshot_hash,
+      advances: bundle.promotion_decision.bridge_eligible,
+    });
+  }
+
+  private toPromotionCheckpointInput(
+    gateHandoff: TopicSelectionPromotionGateHandoff,
+    normalized: NormalizedDecisionInput,
+  ): MaterializePromotionCheckpointInput {
+    const canonicalPromotionInputSnapshotRef = {
+      ...gateHandoff.promotion_input_snapshot_ref,
+      version_id: gateHandoff.promotion_input_snapshot_hash,
+    };
+    const sourceRefs = this.uniqueRefs([
+      gateHandoff.promotion_gate_check_ref,
+      gateHandoff.promotion_decision_support_ref,
+      gateHandoff.promotion_dossier_ref,
+      gateHandoff.argument_readiness_mini_check_ref,
+      canonicalPromotionInputSnapshotRef,
+      ...gateHandoff.support.source_refs,
+      ...gateHandoff.dossier.source_refs,
+      ...gateHandoff.argument_readiness_mini_check.source_refs,
+      ...gateHandoff.gate_check.source_refs,
+    ]);
+    const topicQuestionContractRef = sourceRefs.find((ref) => ref.ref_type === 'topic_question_contract');
+    if (!topicQuestionContractRef) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Promotion checkpoint requires the frozen TopicQuestionContract ref.',
+      );
+    }
+    const acceptedRiskKeys = new Set(gateHandoff.accepted_risk_refs.map((ref) => this.refKey(ref)));
+    const warnings = this.uniqueGateIssues([
+      ...gateHandoff.support.warnings,
+      ...gateHandoff.argument_readiness_mini_check.warnings,
+      ...gateHandoff.gate_check.warnings,
+    ]);
+    const passWithRiskFindings = warnings.map((warning) => ({
+      finding_id: warning.code,
+      summary: warning.message,
+      refs: this.uniqueRefs(warning.refs ?? []),
+      mapped_accepted_risk_refs: this.uniqueRefs(
+        (warning.refs ?? []).filter((ref) => acceptedRiskKeys.has(this.refKey(ref))),
+      ),
+    }));
+    const dossierPayload = this.asRecord(gateHandoff.dossier.dossier_payload);
+    const semanticLayer = this.asRecord(dossierPayload.n3_semantic_layer);
+    const criticFindings = this.asArray(semanticLayer.critic_finding_resolution_map).map((item, index) => {
+      const finding = this.asRecord(item);
+      const findingId = this.readString(finding, 'finding_id') ?? `critic_finding_${index + 1}`;
+      return {
+        finding_id: findingId,
+        summary: this.readString(finding, 'summary')
+          ?? this.readString(finding, 'statement')
+          ?? this.readString(finding, 'rationale')
+          ?? findingId,
+        resolution_status: this.criticResolutionStatus(finding.resolution_status),
+        mapping_refs: this.functionalRefs([
+          ...this.asArray(finding.risk_refs),
+          ...this.asArray(finding.repair_refs),
+          ...this.asArray(finding.required_action_refs),
+          ...this.asArray(finding.source_refs),
+          ...this.asArray(finding.refs),
+        ]),
+      };
+    });
+    return {
+      workspace_id: gateHandoff.gate_check.workspace_id ?? null,
+      title_card_id: gateHandoff.gate_check.title_card_id,
+      promotion_input_snapshot_ref: canonicalPromotionInputSnapshotRef,
+      promotion_input_snapshot_hash: gateHandoff.promotion_input_snapshot_hash,
+      topic_question_contract_ref: topicQuestionContractRef,
+      source_refs: sourceRefs,
+      gate_ready: gateHandoff.disposition === 'ready_for_human_decision' && gateHandoff.promote_allowed,
+      accepted_risk_refs: gateHandoff.accepted_risk_refs,
+      required_actions: this.uniqueRequiredActions([
+        ...gateHandoff.required_actions,
+        ...normalized.requiredActions,
+      ]).map((action) => ({
+        action_code: action.action_code,
+        refs: action.refs,
+      })),
+      pass_with_risk_findings: passWithRiskFindings,
+      critic_findings: criticFindings,
+      proposed_condition_actions: normalized.conditions.map((condition) => ({
+        action_code: condition.required_action.action_code,
+        refs: this.uniqueRefs([...condition.refs, ...condition.required_action.refs]),
+      })),
     };
   }
 
@@ -1113,6 +1253,51 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       }
     }
     return result;
+  }
+
+  private refKey(ref: TopicSelectionFunctionalRef): string {
+    return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
+  }
+
+  private uniqueGateIssues(issues: TopicSelectionGateIssue[]): TopicSelectionGateIssue[] {
+    const seen = new Set<string>();
+    return issues.filter((issue) => {
+      const key = `${issue.code}:${issue.message}:${stableStringify(issue.refs ?? [])}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private uniqueRequiredActions(
+    actions: TopicSelectionPromotionGateRequiredAction[],
+  ): TopicSelectionPromotionGateRequiredAction[] {
+    const seen = new Set<string>();
+    return actions.filter((action) => {
+      const key = `${action.action_code}:${stableStringify(this.uniqueRefs(action.refs))}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private functionalRefs(values: unknown[]): TopicSelectionFunctionalRef[] {
+    return this.uniqueRefs(values.flatMap((value) => {
+      const record = this.asRecord(value);
+      return typeof record.ref_type === 'string' && typeof record.ref_id === 'string'
+        ? [record as unknown as TopicSelectionFunctionalRef]
+        : [];
+    }));
+  }
+
+  private criticResolutionStatus(
+    value: unknown,
+  ): 'accepted_and_repaired' | 'accepted_as_risk' | 'rebutted_with_refs' | null {
+    return value === 'accepted_and_repaired'
+      || value === 'accepted_as_risk'
+      || value === 'rebutted_with_refs'
+      ? value
+      : null;
   }
 
   private uniqueStrings(values: string[]): string[] {

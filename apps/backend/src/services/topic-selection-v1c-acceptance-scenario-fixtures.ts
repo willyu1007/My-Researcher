@@ -427,27 +427,28 @@ export function createTopicSelectionV1cPromotionConditionFixture(): TopicSelecti
 export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
   overrides: Partial<TopicSelectionPromotionBridgeHandoff> = {},
 ): TopicSelectionPromotionBridgeHandoff {
+  const promotionInputSnapshotHash = 'd'.repeat(64);
   const decisionRef = topicSelectionV1cAcceptanceRef(
     'promotion_decision',
     'promotion_decision_001',
-    'promotion_input_snapshot_hash_001',
+    promotionInputSnapshotHash,
   );
   const humanRef = topicSelectionV1cAcceptanceRef(
     'human_promotion_decision',
     'human_promotion_decision_001',
-    'promotion_input_snapshot_hash_001',
+    promotionInputSnapshotHash,
   );
   const humanConfirmedRef = topicSelectionV1cAcceptanceRef('human_confirmed_decision', 'human_confirmed_decision_001');
   const commitmentRef = topicSelectionV1cAcceptanceRef(
     'promotion_commitment_profile',
     'promotion_commitment_profile_001',
-    'promotion_input_snapshot_hash_001',
+    promotionInputSnapshotHash,
   );
   const gateRef = topicSelectionV1cAcceptanceRef('promotion_gate_check', 'promotion_gate_check_001');
   const inputRef = topicSelectionV1cAcceptanceRef(
     'promotion_input_snapshot',
     'promotion_input_snapshot_001',
-    'promotion_input_snapshot_hash_001',
+    promotionInputSnapshotHash,
   );
   const evidenceRef = topicSelectionV1cAcceptanceRef('evidence_unit', 'evidence_unit_001');
   const acceptedRiskRef = topicSelectionV1cAcceptanceRef('accepted_risk', 'accepted_risk_001');
@@ -456,7 +457,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
     bundle_hash: 'bundle_hash_001',
     package_snapshot_hash: 'package_snapshot_hash_001',
     package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
-    promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    promotion_input_snapshot_hash: promotionInputSnapshotHash,
   };
   const sourceRefs = [
     gateRef,
@@ -479,7 +480,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
     promotion_gate_check_id: 'promotion_gate_check_001',
     promotion_gate_check_ref: gateRef,
     promotion_input_snapshot_id: 'promotion_input_snapshot_001',
-    promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    promotion_input_snapshot_hash: promotionInputSnapshotHash,
     decision: 'promote_with_conditions' as const,
     decision_class: 'promote' as const,
     actor: {
@@ -487,7 +488,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
       actor_id: 'reviewer_001',
     },
     decision_timestamp: TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP,
-    confirmed_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    confirmed_snapshot_hash: promotionInputSnapshotHash,
     rationale: 'Ready to promote with one condition.',
     conditions: [condition],
     required_actions: [],
@@ -517,7 +518,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
     title_card_id: 'title_card_001',
     promotion_gate_check_id: 'promotion_gate_check_001',
     promotion_input_snapshot_id: 'promotion_input_snapshot_001',
-    promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    promotion_input_snapshot_hash: promotionInputSnapshotHash,
     gate_disposition: 'ready_for_human_decision' as const,
     decision: 'promote_with_conditions' as const,
     decision_class: 'promote' as const,
@@ -541,7 +542,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
     title_card_id: 'title_card_001',
     promotion_gate_check_id: 'promotion_gate_check_001',
     promotion_input_snapshot_id: 'promotion_input_snapshot_001',
-    promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    promotion_input_snapshot_hash: promotionInputSnapshotHash,
     topic_package_id: 'topic_package_001',
     package_version: 'v1',
     scope: {
@@ -581,7 +582,7 @@ export function createTopicSelectionV1cPromotionBridgeHandoffFixture(
     promotion_gate_check_ref: gateRef,
     promotion_input_snapshot_id: 'promotion_input_snapshot_001',
     promotion_input_snapshot_ref: inputRef,
-    promotion_input_snapshot_hash: 'promotion_input_snapshot_hash_001',
+    promotion_input_snapshot_hash: promotionInputSnapshotHash,
     topic_package_id: 'topic_package_001',
     package_version: 'v1',
     decision: 'promote_with_conditions',

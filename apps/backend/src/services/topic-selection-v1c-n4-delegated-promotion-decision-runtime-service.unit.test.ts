@@ -37,6 +37,7 @@ import {
 import {
   sha256Text,
 } from './literature-content-processing-utils.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 const NOW = TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP;
 
@@ -101,6 +102,7 @@ function makeGateHandoff(): TopicSelectionPromotionGateHandoff {
   const readinessRef = ref('argument_readiness_mini_check', 'argument_readiness_mini_check_001');
   const inputRef = ref('promotion_input_snapshot', 'promotion_input_snapshot_001');
   const topicPackageRef = ref('topic_package', 'topic_package_001', 'v1');
+  const topicQuestionContractRef = ref('topic_question_contract', 'topic_question_contract_001', 'v1');
   const acceptedRiskRef = ref('accepted_risk', 'accepted_risk_001');
   const artifactRef = ref('artifact_ref', 'artifact_ref_001');
   return {
@@ -144,7 +146,7 @@ function makeGateHandoff(): TopicSelectionPromotionGateHandoff {
       reviewer_questions: [],
       risk_notes: [],
       recheck_notes: [],
-      source_refs: [inputRef, topicPackageRef],
+      source_refs: [inputRef, topicPackageRef, topicQuestionContractRef],
       accepted_risk_refs: [acceptedRiskRef],
       blocker_refs: [],
       recheck_request_refs: [],
@@ -345,6 +347,7 @@ test('v1c N4 runtime emits candidate and admission prepares human decision input
   const humanDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: humanRepository,
     promotionGateService: new GateHandoffProvider(handoff),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => NOW,
   });

@@ -213,6 +213,55 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
       checkpoint_kind: 'question_contract',
       target_ref: revised.target_ref,
     });
+    const promotionHash = 'f'.repeat(64);
+    const promotionInputRef = {
+      ref_type: 'promotion_input_snapshot',
+      ref_id: `promotion_input_${suffix}`,
+      title_card_id: titleCardId,
+      version_id: promotionHash,
+    };
+    const criticEvidenceRef = {
+      ref_type: 'topic_value_assessment',
+      ref_id: `value_assessment_${suffix}`,
+      title_card_id: titleCardId,
+    };
+    const promotion = await service.materializePromotionCheckpoint({
+      title_card_id: titleCardId,
+      promotion_input_snapshot_ref: promotionInputRef,
+      promotion_input_snapshot_hash: promotionHash,
+      topic_question_contract_ref: revised.target_ref,
+      source_refs: [criticEvidenceRef],
+      gate_ready: true,
+      accepted_risk_refs: [],
+      required_actions: [],
+      pass_with_risk_findings: [],
+      critic_findings: [{
+        finding_id: `critic_${suffix}`,
+        summary: 'The independent critic repair cites the inspected value authority.',
+        resolution_status: 'accepted_and_repaired',
+        mapping_refs: [criticEvidenceRef],
+      }],
+      proposed_condition_actions: [],
+    });
+    assert.equal(promotion.allowed_actions.includes('advance'), true);
+    await service.adaptExistingStageDecision(promotion.research_checkpoint_id, {
+      decision_authority_ref: {
+        ref_type: 'human_promotion_decision',
+        ref_id: `human_promotion_decision_${suffix}`,
+        title_card_id: titleCardId,
+        version_id: promotionHash,
+      },
+      confirmed_snapshot_hash: promotionHash,
+    });
+    const completeChain = await service.assertCompleteCheckpointChain({
+      title_card_id: titleCardId,
+      promotion_input_snapshot_ref: promotionInputRef,
+      promotion_input_snapshot_hash: promotionHash,
+    });
+    assert.deepEqual(
+      completeChain.map((entry) => entry.checkpoint_kind),
+      ['evidence_landscape', 'gap_selection', 'question_contract', 'promotion'],
+    );
     assert.equal(await prisma.topicSelectionResearchObjectionResolution.count({ where: { titleCardId } }), 1);
   } finally {
     await prisma.topicSelectionResearchObjectionResolution.deleteMany({ where: { titleCardId } });

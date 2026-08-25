@@ -616,6 +616,7 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       risk_notes: this.toTextArray(finalOutput.risk_notes),
       recheck_notes: this.toTextArray(finalOutput.recheck_notes),
       dossier_markdown: this.stringValue(finalOutput.dossier_markdown) ?? null,
+      n3_semantic_layer: this.asRecord(finalOutput.n3_semantic_layer),
     };
   }
 

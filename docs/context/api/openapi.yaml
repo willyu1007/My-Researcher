@@ -3320,7 +3320,8 @@ paths:
           description: Need review list.
     post:
       operationId: createNeedReview
-      summary: Persist a need review for a title card.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3330,8 +3331,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Need review created.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/needs/{needId}:
     get:
@@ -3356,7 +3357,8 @@ paths:
           description: Need review detail.
     patch:
       operationId: updateNeedReview
-      summary: Patch the current need review.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3372,8 +3374,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '200':
-          description: Need review updated.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/research-questions:
     get:
@@ -3392,7 +3394,8 @@ paths:
           description: Research question list.
     post:
       operationId: createResearchQuestion
-      summary: Create a research question for a title card.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3402,8 +3405,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Research question created.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/research-questions/{researchQuestionId}:
     get:
@@ -3428,7 +3431,8 @@ paths:
           description: Research question detail.
     patch:
       operationId: updateResearchQuestion
-      summary: Patch the current research question.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3444,8 +3448,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '200':
-          description: Research question updated.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/value-assessments:
     get:
@@ -3464,7 +3468,8 @@ paths:
           description: Value assessment list.
     post:
       operationId: createValueAssessment
-      summary: Create a value assessment for a title card.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3474,8 +3479,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Value assessment created.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/value-assessments/{valueAssessmentId}:
     get:
@@ -3500,7 +3505,8 @@ paths:
           description: Value assessment detail.
     patch:
       operationId: updateValueAssessment
-      summary: Patch the current value assessment.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3516,8 +3522,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '200':
-          description: Value assessment updated.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/packages:
     get:
@@ -3536,7 +3542,8 @@ paths:
           description: Package list.
     post:
       operationId: createPackage
-      summary: Create a package for a title card.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3546,8 +3553,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Package created.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/packages/{packageId}:
     get:
@@ -3572,7 +3579,8 @@ paths:
           description: Package detail.
     patch:
       operationId: updatePackage
-      summary: Patch the current package.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3588,8 +3596,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '200':
-          description: Package updated.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/promotion-decisions:
     get:
@@ -3608,7 +3616,8 @@ paths:
           description: Promotion decision list.
     post:
       operationId: createPromotionDecision
-      summary: Create a promotion decision for a title card.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3618,8 +3627,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Promotion decision created.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/promotion-decisions/{decisionId}:
     get:
@@ -3644,7 +3653,8 @@ paths:
           description: Promotion decision detail.
     patch:
       operationId: updatePromotionDecision
-      summary: Patch the current promotion decision.
+      summary: Legacy semantic writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3660,13 +3670,14 @@ paths:
             type: string
             minLength: 4
       responses:
-        '200':
-          description: Promotion decision updated.
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /title-cards/{titleCardId}/promote-to-paper-project:
     post:
       operationId: promoteTitleCardToPaperProject
-      summary: Promote a title card into a paper project using aligned question, value, and package ids.
+      summary: Legacy direct promotion writer; always reject and direct callers to the canonical checkpoint API.
+      deprecated: true
       tags: [title-card-management]
       parameters:
         - name: titleCardId
@@ -3676,16 +3687,8 @@ paths:
             type: string
             minLength: 4
       responses:
-        '201':
-          description: Title card promoted and paper project created.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
 
   /topic-selection/title-cards/{titleCardId}/checkpoints:
     get:

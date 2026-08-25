@@ -42,6 +42,7 @@ import {
   sha256Text,
   stableStringify,
 } from './literature-content-processing-utils.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 
 const WORKFLOW_KEY = 'topic-selection.v1c-paper-project-bridge';
 const GATE_KEY = 'topic-selection.v1c-paper-project-bridge-check';
@@ -70,6 +71,7 @@ export type TopicSelectionV1cPaperProjectBridgeServiceOptions = {
   repository: TopicSelectionV1cPaperProjectBridgeRepository;
   humanPromotionDecisionService: TopicSelectionPromotionBridgeHandoffProvider;
   paperProjectGateway?: TopicSelectionPaperProjectIntakeGateway;
+  checkpointControl: Pick<TopicSelectionResearchCheckpointService, 'assertCompleteCheckpointChain'>;
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -78,6 +80,7 @@ export class TopicSelectionV1cPaperProjectBridgeService {
   private readonly repository: TopicSelectionV1cPaperProjectBridgeRepository;
   private readonly humanPromotionDecisionService: TopicSelectionPromotionBridgeHandoffProvider;
   private readonly paperProjectGateway: TopicSelectionPaperProjectIntakeGateway | null;
+  private readonly checkpointControl: TopicSelectionV1cPaperProjectBridgeServiceOptions['checkpointControl'];
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -85,6 +88,7 @@ export class TopicSelectionV1cPaperProjectBridgeService {
     this.repository = options.repository;
     this.humanPromotionDecisionService = options.humanPromotionDecisionService;
     this.paperProjectGateway = options.paperProjectGateway ?? null;
+    this.checkpointControl = options.checkpointControl;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -96,6 +100,11 @@ export class TopicSelectionV1cPaperProjectBridgeService {
       input.promotion_decision_id,
     );
     this.assertBridgeEligibleSource(sourceHandoff);
+    await this.assertCompleteCheckpointChain({
+      title_card_id: sourceHandoff.promotion_commitment_profile.title_card_id,
+      promotion_input_snapshot_ref: sourceHandoff.promotion_input_snapshot_ref,
+      promotion_input_snapshot_hash: sourceHandoff.promotion_input_snapshot_hash,
+    });
     this.assertHandoffLineageConsistency(sourceHandoff);
     this.assertRequiredBridgeSemantics(sourceHandoff);
     this.assertWorkspace(input.workspace_id ?? null, sourceHandoff);
@@ -251,6 +260,11 @@ export class TopicSelectionV1cPaperProjectBridgeService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'PaperProjectBridge intake requires bridge_payload_hash.');
     }
     const bridge = await this.getPaperProjectBridge(input.paper_project_bridge_id);
+    await this.assertCompleteCheckpointChain({
+      title_card_id: bridge.title_card_id,
+      promotion_input_snapshot_ref: bridge.promotion_input_snapshot_ref,
+      promotion_input_snapshot_hash: bridge.promotion_input_snapshot_hash,
+    });
     this.assertConsumableBridge(bridge, input);
 
     if (bridge.paper_project_intake_ref && bridge.target_paper_project_ref) {
@@ -316,6 +330,14 @@ export class TopicSelectionV1cPaperProjectBridgeService {
       await this.rollbackPaperProject(paperProject.paper_id, error);
       throw this.toAttachError(error, bridge.paper_project_bridge_id);
     }
+  }
+
+  private async assertCompleteCheckpointChain(input: {
+    title_card_id: string;
+    promotion_input_snapshot_ref: TopicSelectionFunctionalRef;
+    promotion_input_snapshot_hash: string;
+  }): Promise<void> {
+    await this.checkpointControl.assertCompleteCheckpointChain(input);
   }
 
   private assertWorkspace(

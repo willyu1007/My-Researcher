@@ -202,168 +202,41 @@ async function createTitleCardWithEvidence(service: TitleCardManagementService) 
   return titleCard;
 }
 
-test('createNeedReview rejects empty literature_ids', async () => {
-  const { service } = createService();
-  const titleCard = await createTitleCardWithEvidence(service);
-
-  await assert.rejects(
-    () => service.createNeedReview(titleCard.title_card_id, makeNeedInput({ literature_ids: [] })),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 400
-      && error.errorCode === 'INVALID_PAYLOAD'
-      && error.message.includes('at least one literature record'),
-  );
-});
-
-test('createNeedReview rejects literature not selected into evidence basket', async () => {
-  const { service } = createService();
-  const titleCard = await service.createTitleCard(makeTitleCardInput());
-
-  await assert.rejects(
-    () => service.createNeedReview(titleCard.title_card_id, makeNeedInput()),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 422
-      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('evidence basket'),
-  );
-});
-
-test('createResearchQuestion rejects when no upstream sources are provided', async () => {
-  const { service } = createService();
-  const titleCard = await createTitleCardWithEvidence(service);
-
-  await assert.rejects(
-    () =>
-      service.createResearchQuestion(
-        titleCard.title_card_id,
-        makeQuestionInput({ source_need_ids: [], source_literature_evidence_ids: [] }),
-      ),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 400
-      && error.errorCode === 'INVALID_PAYLOAD'
-      && error.message.includes('at least one upstream'),
-  );
-});
-
-test('createResearchQuestion accepts selected literature evidence ids as canonical upstream evidence sources', async () => {
-  const { service } = createService();
-  const titleCard = await createTitleCardWithEvidence(service);
-
-  const question = await service.createResearchQuestion(
-    titleCard.title_card_id,
-    makeQuestionInput({
-      source_need_ids: [],
-      source_literature_evidence_ids: ['lit_001'],
-    }),
-  );
-
-  assert.deepEqual(question.source_literature_evidence_ids, ['lit_001']);
-  assert.deepEqual(question.source_need_ids, []);
-});
-
-test('createValueAssessment rejects promote verdict when any hard gate fails', async () => {
-  const { service } = createService();
-  const titleCard = await createTitleCardWithEvidence(service);
-  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
-  const question = await service.createResearchQuestion(
-    titleCard.title_card_id,
-    makeQuestionInput({ source_need_ids: [need.need_id] }),
-  );
-  const input = makeValueInput({
-    research_question_id: question.research_question_id,
-    hard_gates: {
-      significance: { pass: true, reason: 'ok' },
-      originality: { pass: false, reason: 'not sufficiently distinct' },
-      answerability: { pass: true, reason: 'ok' },
-      feasibility: { pass: true, reason: 'ok' },
-      venue_fit: { pass: true, reason: 'ok' },
-    },
-  });
-
-  await assert.rejects(
-    () => service.createValueAssessment(titleCard.title_card_id, input),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 422
-      && error.errorCode === 'GATE_CONSTRAINT_FAILED'
-      && error.message.includes('cannot be promote'),
-  );
-});
-
-test('createPackage rejects when value assessment is not aligned to the same research question', async () => {
-  const { service } = createService();
-  const titleCard = await createTitleCardWithEvidence(service);
-  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
-  const question = await service.createResearchQuestion(
-    titleCard.title_card_id,
-    makeQuestionInput({ source_need_ids: [need.need_id] }),
-  );
-  const otherQuestion = await service.createResearchQuestion(
-    titleCard.title_card_id,
-    makeQuestionInput({
-      main_question: 'How should retrieval be evaluated under distribution shift?',
-      research_slice: 'distribution shift evaluation',
-      source_need_ids: [need.need_id],
-    }),
-  );
-  const value = await service.createValueAssessment(
-    titleCard.title_card_id,
-    makeValueInput({ research_question_id: question.research_question_id }),
-  );
-
-  await assert.rejects(
-    () => service.createPackage(titleCard.title_card_id, makePackageInput({
-      research_question_id: otherQuestion.research_question_id,
-      value_assessment_id: value.value_assessment_id,
-    })),
-    (error: unknown) =>
-      error instanceof AppError
-      && error.statusCode === 409
-      && error.errorCode === 'VERSION_CONFLICT'
-      && error.message.includes('same research question'),
-  );
-});
-
-test('promoteTitleCardToPaperProject forwards literature evidence ids and persists promotion decision', async () => {
+test('legacy semantic writers are uniformly closed while title and evidence intake remain writable', async () => {
   const { service, repository, calls } = createService();
   const titleCard = await createTitleCardWithEvidence(service);
-  const need = await service.createNeedReview(titleCard.title_card_id, makeNeedInput());
-  const question = await service.createResearchQuestion(
-    titleCard.title_card_id,
-    makeQuestionInput({ source_need_ids: [need.need_id] }),
-  );
-  const value = await service.createValueAssessment(
-    titleCard.title_card_id,
-    makeValueInput({ research_question_id: question.research_question_id }),
-  );
-  const pkg = await service.createPackage(titleCard.title_card_id, makePackageInput({
-    research_question_id: question.research_question_id,
-    value_assessment_id: value.value_assessment_id,
-  }));
+  const semanticWrites = [
+    ['need', () => service.createNeedReview(titleCard.title_card_id, makeNeedInput())],
+    ['question', () => service.createResearchQuestion(titleCard.title_card_id, makeQuestionInput())],
+    ['value', () => service.createValueAssessment(titleCard.title_card_id, makeValueInput())],
+    ['package', () => service.createPackage(titleCard.title_card_id, makePackageInput())],
+    ['promotion', () => service.createPromotionDecision(titleCard.title_card_id, {
+      research_question_id: 'question_001',
+      value_assessment_id: 'value_001',
+      decision: 'hold',
+      reason_summary: 'Legacy write must be closed.',
+      created_by: 'human',
+    })],
+    ['promotion', () => service.promoteTitleCardToPaperProject(titleCard.title_card_id, {
+      research_question_id: 'question_001',
+      value_assessment_id: 'value_001',
+      package_id: 'package_001',
+      title: 'Legacy promotion must be closed',
+      created_by: 'hybrid',
+    })],
+  ] as const;
 
-  const result = await service.promoteTitleCardToPaperProject(titleCard.title_card_id, {
-    research_question_id: question.research_question_id,
-    value_assessment_id: value.value_assessment_id,
-    package_id: pkg.package_id,
-    title: 'Robust Retrieval for Literature Reasoning',
-    created_by: 'hybrid',
-  });
-
-  assert.equal(result.paper_id, 'paper_001');
-  assert.match(result.decision_id, /^decision_/);
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].initial_context.literature_evidence_ids, ['lit_001']);
-
-  const decision = await repository.createPromotionDecision(titleCard.title_card_id, {
-    research_question_id: question.research_question_id,
-    value_assessment_id: value.value_assessment_id,
-    package_id: pkg.package_id,
-    decision: 'hold',
-    reason_summary: 'sanity check direct repository access',
-    created_by: 'human',
-  });
-  assert.equal(decision.decision, 'hold');
+  for (const [capability, write] of semanticWrites) {
+    await assert.rejects(
+      write,
+      (error: unknown) => error instanceof AppError
+        && error.statusCode === 409
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+        && error.details?.disabled_capability === capability
+        && error.details?.canonical_recovery === '/topic-selection/title-cards/{titleCardId}/research-status',
+    );
+  }
+  assert.equal((await repository.listNeedReviews(titleCard.title_card_id)).length, 0);
+  assert.equal(calls.length, 0);
+  assert.deepEqual((await service.getEvidenceBasket(titleCard.title_card_id)).items.map((item) => item.literature_id), ['lit_001']);
 });

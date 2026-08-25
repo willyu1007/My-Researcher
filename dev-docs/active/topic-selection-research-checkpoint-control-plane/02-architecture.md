@@ -69,6 +69,14 @@ Phase 4 activates the native question checkpoint and durable objection loop:
 - N8 invokes the central transition guard against the exact current TopicQuestionContract before resolving a value draft or invoking a model. A strict-human question decision bound to the checkpoint snapshot is the only advancing authority; N7 materialization, Codex support, and client state cannot stand in for it.
 - Blocking and critical objections name one required loopback checkpoint and freeze both the challenged target and source refs. Their effect is scoped from that checkpoint downstream so the required upstream repair remains possible. Resolution is strict-human, current-snapshot-bound, and evidence-backed; a blocking resolution must cite the revised expected authority type and demonstrate a changed snapshot, so question rewording cannot clear a ResearchSlice-level academic objection.
 
+Phase 5 activates the promotion checkpoint and closes every topic-selection intake bypass:
+
+- The bounded N2 final output preserves its `n3_semantic_layer`; promotion dossier materialization carries the independent critic resolution map instead of rebuilding a lossy default layer.
+- HumanPromotionDecision canonicalizes the promotion-input ref with the exact snapshot hash, locates the frozen TopicQuestionContract ref, and materializes the promotion checkpoint before persisting a bridge-eligible authority. Every warning is classified as mapped to an accepted risk, mapped to an owned condition/action, or unresolved; every critic finding must be repaired with refs, rebutted with refs, or accepted through a named accepted-risk ref.
+- Promote-class decisions require a current native and advancing evidence, gap, and question chain and an advance-eligible promotion packet. Non-promote decisions remain durable but retain product-owned required actions, so `decided` never implies downstream eligibility.
+- Human-promotion and bridge constructors require their checkpoint-control dependency. Bridge creation checks the exact promotion target/hash before persistence; every intake checks the complete chain again before replay or PaperProject creation. A blocking objection added after bridge creation therefore blocks intake without calling the gateway.
+- Legacy `/title-cards/*` semantic writers remain registered as explicit `409 GATE_CONSTRAINT_FAILED` recovery surfaces pointing to `/topic-selection/title-cards/{titleCardId}/research-status`. Their historical GETs and the title-card/evidence-basket intake remain supported; no second semantic write path survives.
+
 The contract preserves these invariants:
 
 - A checkpoint target and packet bind to a canonical input snapshot hash.

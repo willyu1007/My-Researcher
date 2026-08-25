@@ -4,13 +4,18 @@
 Make topic selection a product-governed research process in which current evidence, gap, question, and promotion checkpoints—and not client behavior—control academic-quality review, human participation, loopbacks, and downstream eligibility.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 5 — enforce promotion and PaperProject intake eligibility
-- Next step: Materialize promotion checkpoints, bind HumanPromotionDecision to the complete current checkpoint chain, map advancement-relevant risks and actions, and guard bridge creation plus topic-selection intake.
+- State: done
+- Current phase: Complete — native research checkpoint chain enforced through PaperProject intake
+- Next step: None; task is ready for a separate authorized archive transition.
 - Blocker: none
 
 ## Latest checkpoint
 
+- Phase 5 closes promotion and intake. HumanPromotionDecision now materializes an exact hash-versioned promotion checkpoint, rejects an incomplete native evidence→gap→question chain, and requires every advancement-relevant warning or independent critic finding to map to an accepted risk, evidence-backed disposition, or owned condition/action.
+- Promotion and bridge services require checkpoint control as a constructor dependency; omission is a type error rather than a silent runtime bypass. Bridge creation and every intake attempt re-run the complete current checkpoint chain before replay or any PaperProject write, so later objections, stale hashes, or open actions invalidate an unconsumed bridge.
+- Non-promote human decisions remain durable and decided but non-advancing, with product-owned required actions. The bounded-debate N3 semantic layer and critic resolution map survive into the promotion dossier.
+- Legacy title-card semantic writers for need, question, value, package, decision, and direct promotion now return only `409 GATE_CONSTRAINT_FAILED` with the canonical research-status recovery path. Title-card/evidence intake and historical reads remain available.
+- A real HTTP product chain, real-Postgres full-chain persistence, incomplete-chain and post-bridge objection negatives, and the original top-k parameter-only academic objection regression pass. Full v1c route, focused checkpoint, legacy cutover, v1b compatibility, shared contract, type, OpenAPI, workflow-matrix, DB-context, migration-drift, and idempotent-backfill checks are green.
 - Phase 4 closed the research-design path. N7 now derives a pending question-contract checkpoint from the exact selected candidate, contract, question frame, answerability plan, evidence/boundary/assumption/falsification rows, and upstream refs before publishing its handoff.
 - Question advancement requires identifiable mechanism/comparison/claim, operational outcome plus metrics and success criteria, explicit confounds or alternative explanations, challenge evidence, resources/baselines/ablations/setting, active source-bound pre-value falsification, claim ceiling/prohibited claims, no boundary violation, and an answerable verdict. Aggregate scores or generic risk prose cannot substitute for a missing component.
 - N8 independently invokes the central guard before draft resolution or provider work and accepts only a current strict-human `advance` decision bound to the exact TopicQuestionContract snapshot. A partial N7 authority-write failure is recoverable: retry supersedes the orphan preregistration and binds the current contract without weakening the guard.
@@ -22,15 +27,15 @@ Make topic selection a product-governed research process in which current eviden
 - Phase 2 closed with product-owned v1 checkpoint, missing-stage decision, objection, and objection-resolution authorities; canonical packet/history/status APIs; snapshot-bound strict-human decisions; deterministic supersession; and a central transition guard.
 - Both NeedCandidate persistence paths now call the same evidence-checkpoint guard before any write. Pending, stale, non-advancing, required-action, and blocking-objection states fail closed.
 - Migration `20260825120000_add_topic_selection_research_checkpoints` replayed without Prisma drift and is applied to the local development schema. DB context and OpenAPI are aligned.
-- The versioned backfill produced 2,249 pending `backfilled` anchors across 1,080 title cards: 647 evidence, 642 gap, 524 question, and 436 promotion. Reapplying it kept checkpoint and checkpoint-input-snapshot counts at 2,249 each.
+- The versioned backfill initially produced 2,249 pending `backfilled` anchors across 1,080 title cards. Final replay after later local fixtures returned the same 2,295 anchors across 1,100 title cards twice: 665 evidence, 660 gap, 532 question, and 438 promotion.
 - Focused contracts, service, route, bypass, and real-Postgres concurrency tests pass; one of two simultaneous distinct human decisions wins atomically and exact replay returns the winner.
 
 ## Done when
-- [ ] A1: Product-owned checkpoint state, packets, decisions, currentness, supersession, and transition guards cover evidence, gap, question, and promotion review through documented HTTP APIs.
+- [x] A1: Product-owned checkpoint state, packets, decisions, currentness, supersession, and transition guards cover evidence, gap, question, and promotion review through documented HTTP APIs.
 - [x] A2: Evidence and gap advancement requires product-validated source quality, nearest-work/disconfirming coverage, and genuinely distinct candidate competition under current policy.
 - [x] A3: TopicQuestion value assessment cannot begin without a current human question confirmation that includes mechanism identifiability, proxy/confound, falsification, claim-ceiling, and objection review.
 - [x] A4: Durable blocking human objections invalidate affected downstream authority and cannot be cleared by rewording, client memory, or non-human action.
-- [ ] A5: Promotion and PaperProject intake fail closed on unresolved objections, incomplete required actions, stale decisions, or unmapped advancement-relevant risks.
-- [ ] A6: An API-first research-status projection lets any client recover completed work, alternatives, unresolved issues, current checkpoint, allowed decisions, and next authorized transition without reconstructing internal records.
-- [ ] A7: Production contains no rehearsal/reduced-quality runtime path and no Codex- or GUI-specific semantic authority; test scenarios exercise the same guarded product contracts.
-- [ ] A8: Versioned cutover, migration, replay/idempotency, OpenAPI/context alignment, and a full-chain negative regression based on the top-k academic-objection case are decisively verified.
+- [x] A5: Promotion and PaperProject intake fail closed on unresolved objections, incomplete required actions, stale decisions, or unmapped advancement-relevant risks.
+- [x] A6: An API-first research-status projection lets any client recover completed work, alternatives, unresolved issues, current checkpoint, allowed decisions, and next authorized transition without reconstructing internal records.
+- [x] A7: Production contains no rehearsal/reduced-quality runtime path and no Codex- or GUI-specific semantic authority; test scenarios exercise the same guarded product contracts.
+- [x] A8: Versioned cutover, migration, replay/idempotency, OpenAPI/context alignment, and a full-chain negative regression based on the top-k academic-objection case are decisively verified.

@@ -34,6 +34,7 @@ import {
 import {
   TopicSelectionV1cPaperProjectBridgeService,
 } from './topic-selection-v1c-paper-project-bridge-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 const NOW = TOPIC_SELECTION_V1C_ACCEPTANCE_TIMESTAMP;
 
@@ -52,6 +53,7 @@ async function makeSubject(options: {
     humanPromotionDecisionService: new TopicSelectionV1cAcceptancePromotionBridgeHandoffProvider(
       promotionBridgeHandoff,
     ),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: createTopicSelectionV1cAcceptanceIdFactory(),
     now: () => NOW,
   });

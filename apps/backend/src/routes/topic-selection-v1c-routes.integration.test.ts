@@ -53,6 +53,9 @@ import { TopicSelectionV1cPaperProjectBridgeService } from '../services/topic-se
 import { TopicSelectionV1cPromotionGateService } from '../services/topic-selection-v1c-promotion-gate-service.js';
 import { TopicSelectionControlPlaneService } from '../services/topic-selection-control-plane-service.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
+import { PrismaTopicSelectionControlPlaneRepository } from '../repositories/prisma/prisma-topic-selection-control-plane-repository.js';
+import { PrismaTopicSelectionResearchCheckpointRepository } from '../repositories/prisma/prisma-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionV1cN2BoundedDebateRuntimeService } from '../services/topic-selection-v1c-n2-bounded-debate-runtime-service.js';
 import { TopicSelectionV1cN2BoundedDebateAdmissionService } from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from '../services/topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
@@ -66,6 +69,8 @@ import { TopicSelectionV1cN4DelegatedPromotionDecisionService } from '../service
 import { TOPIC_SELECTION_V1C_DELEGATED_PROMOTION_DECISION_CANDIDATE_SCHEMA_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
 import { TopicSelectionV1cPromotionInputService } from '../services/topic-selection-v1c-promotion-input-service.js';
 import { registerTopicSelectionV1cRoutes } from './topic-selection-v1c-routes.js';
+import { TopicSelectionResearchCheckpointService } from '../services/topic-selection-research-checkpoint-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from '../services/test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 const NOW = '2026-05-16T00:00:00.000Z';
 
@@ -759,6 +764,10 @@ async function makeV1cRouteApp(
 
 async function makeV1cRouteHarness(
   topicPackageRepository: TopicSelectionV1bTopicPackageRepository,
+  checkpointControl: Pick<
+    TopicSelectionResearchCheckpointService,
+    'adaptExistingStageDecision' | 'assertCompleteCheckpointChain' | 'getPacket' | 'materializePromotionCheckpoint'
+  > = createAdvancingTopicSelectionCheckpointControlFixture(),
 ): Promise<V1cRouteHarness> {
   const app = Fastify({ logger: false });
   app.setErrorHandler((error, _request, reply) => {
@@ -791,6 +800,7 @@ async function makeV1cRouteHarness(
   const humanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository(),
     promotionGateService,
+    checkpointControl,
     now: () => NOW,
   });
   const paperProjectGateway = new RecordingPaperProjectGateway();
@@ -798,6 +808,7 @@ async function makeV1cRouteHarness(
     repository: new InMemoryTopicSelectionV1cPaperProjectBridgeRepository(),
     humanPromotionDecisionService,
     paperProjectGateway,
+    checkpointControl,
     now: () => NOW,
   });
   const downstreamFeedbackRecheckService = new TopicSelectionV1cDownstreamFeedbackRecheckService({
@@ -840,6 +851,70 @@ async function makeV1cRouteHarness(
   );
   await registerTopicSelectionV1cRoutes(app, controller);
   return { app, offlineReplayService, paperProjectGateway };
+}
+
+async function seedAdvancingResearchCheckpoints(
+  checkpointControl: TopicSelectionResearchCheckpointService,
+  repository: SeededTopicPackageRepository,
+): Promise<void> {
+  const titleCardId = repository.topicPackage.title_card_id;
+  const evidence = await checkpointControl.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'evidence_landscape',
+    target_ref: ref('evidence_map', `evidence_map_${titleCardId}`, titleCardId, 'v1'),
+    target_snapshot_hash: 'a'.repeat(64),
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.recordDecision(evidence.research_checkpoint_id, {
+    decision_key: `route_evidence_decision_${titleCardId}`,
+    decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'route-reviewer' },
+    confirmed_snapshot_hash: evidence.target_snapshot_hash,
+    rationale: 'Reviewed current neighboring and disconfirming evidence.',
+    review_payload: {
+      review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true,
+      disconfirming_evidence_reviewed: true,
+      source_quality_reviewed: true,
+      limitations: [],
+    },
+  });
+  const gap = await checkpointControl.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'gap_selection',
+    target_ref: ref('need_candidate_arena', `need_candidate_arena_${titleCardId}`, titleCardId, 'v1'),
+    target_snapshot_hash: 'b'.repeat(64),
+    source_refs: [evidence.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.adaptExistingStageDecision(gap.research_checkpoint_id, {
+    decision_authority_ref: ref('human_confirmed_decision', `gap_decision_${titleCardId}`, titleCardId),
+    confirmed_snapshot_hash: gap.target_snapshot_hash,
+  });
+  const question = await checkpointControl.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'question_contract',
+    target_ref: repository.topicPackage.topic_question_contract_ref,
+    target_snapshot_hash: 'c'.repeat(64),
+    source_refs: [gap.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.recordDecision(question.research_checkpoint_id, {
+    decision_key: `route_question_decision_${titleCardId}`,
+    decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'route-reviewer' },
+    confirmed_snapshot_hash: question.target_snapshot_hash,
+    rationale: 'Reviewed mechanism, proxy, confounds, falsification, and claim ceiling.',
+    review_payload: {
+      review_kind: 'question_contract',
+      mechanism_identifiable: true,
+      proxy_operationalized: true,
+      confounds_reviewed: true,
+      falsification_reviewed: true,
+      claim_ceiling_reviewed: true,
+      review_notes: [],
+    },
+  });
 }
 
 test('POST /promotion-decisions validates the required human actor identity at the HTTP boundary', async () => {
@@ -1304,6 +1379,37 @@ test('topic-selection v1c HTTP paper-project-intake consumes active bridge with 
     assert.equal(staleDuplicateRes.statusCode, 409);
     assert.equal((staleDuplicateRes.json() as { error: { code: string } }).error.code, 'VERSION_CONFLICT');
     assert.equal(paperProjectGateway.createCalls.length, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('checkpoint-enabled v1c HTTP path advances the complete native chain through PaperProject intake', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('checkpoint-http'));
+  const checkpointControl = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository(), { now: () => NOW }),
+    { now: () => NOW },
+  );
+  await seedAdvancingResearchCheckpoints(checkpointControl, repository);
+  const { app, paperProjectGateway } = await makeV1cRouteHarness(repository, checkpointControl);
+  try {
+    const { bridge } = await createActiveBridge(app, repository.v1cInputBundle.v1b_to_v1c_input_bundle_id);
+    const intakeRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1c/paper-project-bridges/${encodeURIComponent(bridge.paper_project_bridge.paper_project_bridge_id)}/paper-project-intake`,
+      payload: {
+        bridge_payload_hash: bridge.paper_project_bridge.bridge_payload_hash,
+        title: 'Checkpoint-governed PaperProject',
+        created_by: 'human',
+      },
+    });
+
+    assertStatus(intakeRes, 201);
+    assert.equal(paperProjectGateway.createCalls.length, 1);
+    const status = await checkpointControl.getResearchStatus(repository.topicPackage.title_card_id);
+    assert.equal(status.required_checkpoint_kind, null);
+    assert.equal(status.next_authorized_transition, 'topic-selection.research.create-paper-project-bridge');
   } finally {
     await app.close();
   }
@@ -2320,6 +2426,12 @@ test('T-067 Prisma HTTP smoke requires DATABASE_URL and drives v1c routes agains
   let repository: SeededTopicPackageRepository | null = null;
   try {
     repository = await seedReadyV1cInputBundleInPrisma(prisma, suffix);
+    const checkpointControl = new TopicSelectionResearchCheckpointService(
+      new PrismaTopicSelectionResearchCheckpointRepository(prisma),
+      new TopicSelectionControlPlaneService(new PrismaTopicSelectionControlPlaneRepository(prisma), { now: () => NOW }),
+      { now: () => NOW },
+    );
+    await seedAdvancingResearchCheckpoints(checkpointControl, repository);
   } finally {
     await prisma.$disconnect();
   }

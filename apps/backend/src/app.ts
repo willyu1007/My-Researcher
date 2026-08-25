@@ -1256,6 +1256,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionV1cHumanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
     repository: topicSelectionV1cHumanPromotionDecisionRepository,
     promotionGateService: topicSelectionV1cPromotionGateService,
+    checkpointControl: topicSelectionResearchCheckpointService,
   });
   // T-128 W-13: v1c-N4 delegated promotion-decision production caller (distinct delegated endpoint; human still
   // authorizes; not RBAC-gated today — a tracked follow-up).
@@ -1270,6 +1271,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionV1cPaperProjectBridgeService = new TopicSelectionV1cPaperProjectBridgeService({
     repository: topicSelectionV1cPaperProjectBridgeRepository,
     humanPromotionDecisionService: topicSelectionV1cHumanPromotionDecisionService,
+    checkpointControl: topicSelectionResearchCheckpointService,
     paperProjectGateway: {
       createPaperProject: (input) => researchLifecycleService.createPaperProject(input),
       deletePaperProject: (paperId) => researchLifecycleService.deletePaperProject(paperId),

@@ -26,12 +26,17 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 
 import { AppError } from '../errors/app-error.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { InMemoryTopicSelectionV1cHumanPromotionDecisionRepository } from '../repositories/in-memory-topic-selection-v1c-human-promotion-decision-repository.js';
 import { PrismaTopicSelectionV1cHumanPromotionDecisionRepository } from '../repositories/prisma/prisma-topic-selection-v1c-human-promotion-decision-repository.js';
 import {
   TopicSelectionV1cHumanPromotionDecisionService,
   type RecordHumanPromotionDecisionInput,
 } from './topic-selection-v1c-human-promotion-decision-service.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
+import { createAdvancingTopicSelectionCheckpointControlFixture } from './test-fixtures/topic-selection-v1c-checkpoint-control.fixture.js';
 
 const NOW = '2026-05-15T00:00:00.000Z';
 
@@ -74,6 +79,7 @@ function makeGateHandoff(
     promotionInputSnapshotRef,
     ref('topic_package', 'topic_package_001', 'v1'),
     ref('topic_question', 'topic_question_001'),
+    ref('topic_question_contract', 'topic_question_contract_001', 'v1'),
   ];
   const support: TopicSelectionPromotionDecisionSupportRecord = {
     promotion_decision_support_id: 'promotion_decision_support_001',
@@ -297,12 +303,19 @@ class StubPromotionGateService {
   }
 }
 
-function makeSubject(handoff: TopicSelectionPromotionGateHandoff = makeGateHandoff()) {
+function makeSubject(
+  handoff: TopicSelectionPromotionGateHandoff = makeGateHandoff(),
+  checkpointControl: Pick<
+    TopicSelectionResearchCheckpointService,
+    'adaptExistingStageDecision' | 'getPacket' | 'materializePromotionCheckpoint'
+  > = createAdvancingTopicSelectionCheckpointControlFixture(),
+) {
   const repository = new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository();
   const promotionGateService = new StubPromotionGateService(handoff);
   const service = new TopicSelectionV1cHumanPromotionDecisionService({
     repository,
     promotionGateService,
+    checkpointControl,
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -311,6 +324,77 @@ function makeSubject(handoff: TopicSelectionPromotionGateHandoff = makeGateHando
     promotionGateService,
     service,
   };
+}
+
+async function createAdvancingCheckpointControl() {
+  let sequence = 0;
+  const controlPlane = new TopicSelectionControlPlaneService(
+    new InMemoryTopicSelectionControlPlaneRepository(),
+    { idFactory: (prefix) => `${prefix}_${++sequence}`, now: () => NOW },
+  );
+  const checkpointControl = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    controlPlane,
+    { idFactory: (prefix) => `${prefix}_${++sequence}`, now: () => NOW },
+  );
+  const evidence = await checkpointControl.materializeCheckpoint({
+    title_card_id: 'title_card_001',
+    checkpoint_kind: 'evidence_landscape',
+    target_ref: ref('evidence_map', 'evidence_map_001', 'v1'),
+    target_snapshot_hash: 'a'.repeat(64),
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.recordDecision(evidence.research_checkpoint_id, {
+    decision_key: 'promotion_evidence_decision',
+    decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    confirmed_snapshot_hash: evidence.target_snapshot_hash,
+    rationale: 'Evidence reviewed for promotion.',
+    review_payload: {
+      review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true,
+      disconfirming_evidence_reviewed: true,
+      source_quality_reviewed: true,
+      limitations: [],
+    },
+  });
+  const gap = await checkpointControl.materializeCheckpoint({
+    title_card_id: 'title_card_001',
+    checkpoint_kind: 'gap_selection',
+    target_ref: ref('need_candidate_arena', 'arena_001', 'v1'),
+    target_snapshot_hash: 'b'.repeat(64),
+    source_refs: [evidence.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.adaptExistingStageDecision(gap.research_checkpoint_id, {
+    decision_authority_ref: ref('human_confirmed_decision', 'gap_decision_001'),
+    confirmed_snapshot_hash: gap.target_snapshot_hash,
+  });
+  const question = await checkpointControl.materializeCheckpoint({
+    title_card_id: 'title_card_001',
+    checkpoint_kind: 'question_contract',
+    target_ref: ref('topic_question_contract', 'topic_question_contract_001', 'v1'),
+    target_snapshot_hash: 'c'.repeat(64),
+    source_refs: [gap.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await checkpointControl.recordDecision(question.research_checkpoint_id, {
+    decision_key: 'promotion_question_decision',
+    decision: 'advance',
+    actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    confirmed_snapshot_hash: question.target_snapshot_hash,
+    rationale: 'Question contract reviewed for promotion.',
+    review_payload: {
+      review_kind: 'question_contract',
+      mechanism_identifiable: true,
+      proxy_operationalized: true,
+      confounds_reviewed: true,
+      falsification_reviewed: true,
+      claim_ceiling_reviewed: true,
+      review_notes: [],
+    },
+  });
+  return checkpointControl;
 }
 
 test('ready gate and human promote decision create commitment profile and T-064 handoff', async () => {
@@ -342,6 +426,134 @@ test('ready gate and human promote decision create commitment profile and T-064 
   assert.equal(result.bridge_handoff?.promotion_decision_id, result.promotion_decision.promotion_decision_id);
   assert.equal(bridgeHandoff.topic_package_id, 'topic_package_001');
   assert.equal(stored?.human_promotion_decision.human_confirmed_decision_id, 'human_confirmed_decision_001');
+});
+
+test('human promotion authority cannot advance an unmapped pass-with-risk finding and adapts the exact promotion checkpoint', async () => {
+  const checkpointControl = await createAdvancingCheckpointControl();
+  const hash = 'd'.repeat(64);
+  const findingRef = ref('topic_value_assessment', 'topic_value_assessment_001');
+  const warning = {
+    code: 'originality_pass_with_risk',
+    message: 'Originality remains exposed to a direct-neighbor result.',
+    severity: 'warning' as const,
+    refs: [findingRef],
+  };
+  const handoff = makeGateHandoff({
+    promotion_input_snapshot_hash: hash,
+    snapshot_hashes: {
+      bundle_hash: 'bundle_hash_001',
+      package_snapshot_hash: 'package_snapshot_hash_001',
+      package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+      promotion_input_snapshot_hash: hash,
+    },
+    support: {
+      promotion_input_snapshot_hash: hash,
+      warnings: [warning],
+    } as never,
+    gate_check: {
+      promotion_input_snapshot_hash: hash,
+      warnings: [warning],
+      snapshot_hashes: {
+        bundle_hash: 'bundle_hash_001',
+        package_snapshot_hash: 'package_snapshot_hash_001',
+        package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+        promotion_input_snapshot_hash: hash,
+      },
+    } as never,
+  });
+  const { service, repository } = makeSubject(handoff, checkpointControl);
+
+  await assert.rejects(
+    () => service.recordHumanPromotionDecision({
+      promotion_gate_check_id: handoff.promotion_gate_check_id,
+      decision: 'promote_to_paper_project',
+      human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+      rationale: 'Do not silently accept the warning.',
+      confirmed_snapshot_hash: hash,
+    }),
+    /pass-with-risk/u,
+  );
+  assert.equal(await repository.findCurrentBundleByPromotionInputSnapshotId(handoff.promotion_input_snapshot_id), null);
+
+  const action = requiredAction('originality_pass_with_risk', 'question');
+  action.refs = [findingRef];
+  const condition: TopicSelectionPromotionCondition = {
+    ...makeCondition(),
+    condition_id: 'condition_originality_001',
+    condition_code: action.action_code,
+    required_action: action,
+    refs: [findingRef],
+    early_check_obligations: ['Verify novelty against the direct neighbor before implementation scope lock.'],
+  };
+  const result = await service.recordHumanPromotionDecision({
+    promotion_gate_check_id: handoff.promotion_gate_check_id,
+    decision: 'promote_with_conditions',
+    human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    rationale: 'Promote only with an owned novelty verification.',
+    confirmed_snapshot_hash: hash,
+    conditions: [condition],
+  });
+  const status = await checkpointControl.getResearchStatus('title_card_001');
+  assert.equal(result.promotion_decision.bridge_eligible, true);
+  assert.equal(status.required_checkpoint_kind, null);
+  assert.equal(status.next_authorized_transition, 'topic-selection.research.create-paper-project-bridge');
+});
+
+test('non-promote human authority decides the promotion checkpoint without making the chain bridge-eligible', async () => {
+  const checkpointControl = await createAdvancingCheckpointControl();
+  const hash = 'e'.repeat(64);
+  const action = requiredAction('resolve_recheck_before_promotion', 'evidence_or_search');
+  const handoff = makeGateHandoff({
+    promotion_input_snapshot_hash: hash,
+    disposition: 'recheck_required',
+    promote_allowed: false,
+    required_actions: [action],
+    snapshot_hashes: {
+      bundle_hash: 'bundle_hash_001',
+      package_snapshot_hash: 'package_snapshot_hash_001',
+      package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+      promotion_input_snapshot_hash: hash,
+    },
+    support: { promotion_input_snapshot_hash: hash } as never,
+    gate_check: {
+      promotion_input_snapshot_hash: hash,
+      disposition: 'recheck_required',
+      promote_allowed: false,
+      required_actions: [action],
+      snapshot_hashes: {
+        bundle_hash: 'bundle_hash_001',
+        package_snapshot_hash: 'package_snapshot_hash_001',
+        package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+        promotion_input_snapshot_hash: hash,
+      },
+    } as never,
+  });
+  const { service } = makeSubject(handoff, checkpointControl);
+
+  const result = await service.recordHumanPromotionDecision({
+    promotion_gate_check_id: handoff.promotion_gate_check_id,
+    decision: 'recheck_evidence_or_search',
+    human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    rationale: 'Return to evidence recheck before promotion.',
+    confirmed_snapshot_hash: hash,
+  });
+  const status = await checkpointControl.getResearchStatus('title_card_001');
+
+  assert.equal(result.promotion_decision.bridge_eligible, false);
+  assert.equal(status.current_checkpoint?.checkpoint_kind, 'promotion');
+  assert.equal(status.current_checkpoint?.status, 'decided');
+  assert.equal((status.current_checkpoint?.required_action_refs.length ?? 0) > 0, true);
+  await assert.rejects(
+    () => checkpointControl.assertCompleteCheckpointChain({
+      title_card_id: 'title_card_001',
+      promotion_input_snapshot_ref: {
+        ...handoff.promotion_input_snapshot_ref,
+        version_id: hash,
+      },
+      promotion_input_snapshot_hash: hash,
+    }),
+    /unresolved required actions/u,
+  );
 });
 
 test('promote_with_conditions requires and freezes conditions in commitment handoff', async () => {
@@ -623,6 +835,7 @@ test('Prisma human promotion repository round-trips all records and control-plan
   const service = new TopicSelectionV1cHumanPromotionDecisionService({
     repository,
     promotionGateService: new StubPromotionGateService(),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -659,6 +872,7 @@ test('Prisma current snapshot unique conflict maps to VERSION_CONFLICT', async (
   const service = new TopicSelectionV1cHumanPromotionDecisionService({
     repository,
     promotionGateService: new StubPromotionGateService(),
+    checkpointControl: createAdvancingTopicSelectionCheckpointControlFixture(),
     idFactory: makeIdFactory(),
     now: () => NOW,
   });

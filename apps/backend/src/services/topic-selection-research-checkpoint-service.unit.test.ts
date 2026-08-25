@@ -14,6 +14,7 @@ import { TopicSelectionResearchCheckpointService } from './topic-selection-resea
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 const HASH_C = 'c'.repeat(64);
+const HASH_D = 'd'.repeat(64);
 const NOW = '2026-08-25T10:00:00.000Z';
 
 function createService() {
@@ -587,4 +588,135 @@ test('qualified evidence and a genuinely distinct candidate arena advance throug
     confirmed_snapshot_hash: qualifiedCheckpoint.target_snapshot_hash,
   });
   await service.assertTransitionAllowed({ title_card_id: 'title_1', checkpoint_kind: 'gap_selection' });
+});
+
+test('promotion checkpoint requires the complete chain and maps every advancement risk before bridge eligibility', async () => {
+  const { service } = createService();
+  const promotionInputRef = {
+    ref_type: 'promotion_input_snapshot',
+    ref_id: 'promotion_input_1',
+    title_card_id: 'title_1',
+    version_id: HASH_D,
+  };
+  const questionContractRef = {
+    ref_type: 'topic_question_contract',
+    ref_id: 'question_contract_1',
+    title_card_id: 'title_1',
+    version_id: 'v1',
+  };
+  const findingRef = {
+    ref_type: 'topic_value_assessment',
+    ref_id: 'value_assessment_1',
+    title_card_id: 'title_1',
+  };
+  const basePromotionInput = {
+    title_card_id: 'title_1',
+    promotion_input_snapshot_ref: promotionInputRef,
+    promotion_input_snapshot_hash: HASH_D,
+    topic_question_contract_ref: questionContractRef,
+    source_refs: [findingRef],
+    gate_ready: true,
+    accepted_risk_refs: [],
+    required_actions: [],
+    pass_with_risk_findings: [{
+      finding_id: 'value_assessment_pass_with_risk',
+      summary: 'Originality remains exposed to a direct-neighbor result.',
+      refs: [findingRef],
+    }],
+    critic_findings: [],
+    proposed_condition_actions: [],
+  };
+
+  const blocked = await service.materializePromotionCheckpoint(basePromotionInput);
+  assert.equal(blocked.allowed_actions.includes('advance'), false);
+  const blockedPacket = await service.getPacket(blocked.research_checkpoint_id);
+  assert.deepEqual(
+    (blockedPacket.packet_payload.policy_issue_codes as string[]).sort(),
+    ['CHECKPOINT_CHAIN_INCOMPLETE', 'UNMAPPED_PASS_WITH_RISK_FINDING'],
+  );
+
+  const evidence = await materialize(service);
+  await service.recordDecision(evidence.research_checkpoint_id, advancingDecision());
+  const gap = await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_1', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_B,
+    source_refs: [evidence.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await service.adaptExistingStageDecision(gap.research_checkpoint_id, {
+    decision_authority_ref: {
+      ref_type: 'human_confirmed_decision',
+      ref_id: 'gap_human_decision_1',
+      title_card_id: 'title_1',
+    },
+    confirmed_snapshot_hash: HASH_B,
+  });
+  const question = await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'question_contract',
+    target_ref: questionContractRef,
+    target_snapshot_hash: HASH_C,
+    source_refs: [gap.target_ref],
+    allowed_actions: ['advance', 'loopback'],
+  });
+  await service.recordDecision(
+    question.research_checkpoint_id,
+    questionDecision(HASH_C, 'question_decision_for_promotion'),
+  );
+
+  const unmapped = await service.materializePromotionCheckpoint(basePromotionInput);
+  const unmappedPacket = await service.getPacket(unmapped.research_checkpoint_id);
+  assert.deepEqual(
+    unmappedPacket.packet_payload.policy_issue_codes,
+    ['UNMAPPED_PASS_WITH_RISK_FINDING'],
+  );
+
+  const criticWithoutEvidence = await service.materializePromotionCheckpoint({
+    ...basePromotionInput,
+    proposed_condition_actions: [{
+      action_code: 'verify_direct_neighbor_novelty',
+      refs: [findingRef],
+    }],
+    critic_findings: [{
+      finding_id: 'critic_finding_1',
+      summary: 'The repair needs source-bound evidence.',
+      resolution_status: 'accepted_and_repaired',
+      mapping_refs: [],
+    }],
+  });
+  const criticPacket = await service.getPacket(criticWithoutEvidence.research_checkpoint_id);
+  assert.deepEqual(
+    criticPacket.packet_payload.policy_issue_codes,
+    ['UNRESOLVED_INDEPENDENT_CRITIC_FINDING'],
+  );
+
+  const qualified = await service.materializePromotionCheckpoint({
+    ...basePromotionInput,
+    proposed_condition_actions: [{
+      action_code: 'verify_direct_neighbor_novelty',
+      refs: [findingRef],
+    }],
+    critic_findings: [{
+      finding_id: 'critic_finding_1',
+      summary: 'The repair is bound to the inspected value evidence.',
+      resolution_status: 'accepted_and_repaired',
+      mapping_refs: [findingRef],
+    }],
+  });
+  assert.equal(qualified.allowed_actions.includes('advance'), true);
+  await service.adaptExistingStageDecision(qualified.research_checkpoint_id, {
+    decision_authority_ref: {
+      ref_type: 'human_promotion_decision',
+      ref_id: 'human_promotion_decision_1',
+      title_card_id: 'title_1',
+    },
+    confirmed_snapshot_hash: HASH_D,
+  });
+  await service.assertCompleteCheckpointChain({
+    title_card_id: 'title_1',
+    promotion_input_snapshot_ref: promotionInputRef,
+    promotion_input_snapshot_hash: HASH_D,
+  });
 });
