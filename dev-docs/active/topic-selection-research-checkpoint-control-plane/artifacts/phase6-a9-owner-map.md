@@ -58,7 +58,7 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Selected-candidate readiness | `need_readiness_17887e0e-9dd6-442e-b73f-a79a658395d9`; `ready_for_validation`; zero blockers/warnings/actions; 2 support / 1 challenge / 0 abstract-only support / 0 strong unresolved challenge |
 | Current validation support packet | `validation_packet_3fb847c6-4cda-4ffe-99ab-01c3d7236210`; `ready`; five required human checks; zero residual risks and open gap codes |
 | Preparation action keys | `t147-a9-pos-gap-readiness-v1`; `t147-a9-pos-validation-support-v1` |
-| Current human authorization | Exact current-packet HumanConfirmNeed recorded; exact presented N2 constraint profile accepted but not yet written |
+| Current human authorization | Exact current-packet HumanConfirmNeed and N2 constraint-profile acceptance recorded; N5 ResearchSlice choice is pending exact researcher review |
 | Current gap ResearchCheckpoint | `research_checkpoint_36c4ad76-6a0c-4dcd-bcf9-ab326f893bd5` |
 | Gap target snapshot hash | `699cc0f155358f173f45c0c38558398214b834c52076a58443fe10fc8874f5a5` |
 | Gap packet hash | `11b422de126557fe01e4359ca35b78bc42234b96be4183962fb08fc8b9b616e4` |
@@ -72,10 +72,21 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | N1 admitted attempt | `node_attempt_t147_a9_pos_v1b_n1_v2`; no blockers/warnings |
 | v1b IntakeSnapshot | `v1b_intake_snapshot_05a8b8e9-0973-48d9-8b87-9df1609722e0` / `v_05a8b8e9-0973-48d9-8b87-9df1609722e0` |
 | N1 authority / handoff hash | `662958ee380a75e124c2d41a4f14e0189bc06b43466e839d16e55e3d8d22060b` / `e6cefbd6588af3e3cdf98086b1590aa5d081f7e6c2a05b561ac18a45951eb81a` |
-| Current v1b frontier | `topic-selection.v1b.record-research-constraint-profile.v1`; strict-human N2; exact authority confirmed, no profile written |
+| N2 human attempt | `node_attempt_v1b_n2_human_8deb4e1f-b226-4f24-96e9-2b402120b0da` |
+| ResearchConstraintProfile | `research_constraint_profile_9a415e01-c998-47c7-b248-7e8cd6d7a924` |
+| N2 authority / handoff | `a1c1fe882b18549001de14a4301c463b2794c4c8ef871d35cd9aecb75f8bcd88` / `artifact_ref_23229f8d-c193-418b-b8a5-3e6f5951330e` (`e41ba6d7feda4439bb2c8213c42d46d9510ddb529b2dc5fc214373693ac58e38`) |
+| N3 IntakeReadiness | `v1b_intake_readiness_fa81a8f7-d39a-4964-8226-2c3bb85d1335`; `ready_for_slice`; no blockers |
+| N3 authority / handoff | `128e1ba42a255cb25c08ca560fe8336833fb625f0860d9c6b142f209e7a45fac` / `artifact_ref_b5386a03-b967-4f9d-bd46-c12994248c67` (`77b113529199a7697032bfec0aae53fb71cb4f4cbea06652e99c8226ddedefaf`) |
+| N4 product attempt | `node_attempt_t147_a9_pos_v1b_n4_v1`; non-provider `codex_assisted` / `product`; `admitted_with_warnings`; no blockers |
+| ResearchSliceOptionSet | `research_slice_option_set_ac409c36-8626-44e6-bf63-d95f97be981a`; `ready_for_selection`; three options; no selected option |
+| Recommended option | `research_slice_option_2dabeb7c-c545-4bc7-a7cc-a442572c4b69` / `uncertainty_conditioned_tri_level_allocation` |
+| Alternative options | `research_slice_option_798bfe0c-9e68-44d2-9656-15e53b5f730f` / `uncertainty_triggered_selective_retrieval`; `research_slice_option_9d5e69f9-ac62-441f-8519-18449d05af41` / `uncertainty_feedback_sequential_retrieval` |
+| N4 authority / handoff | `1f09c01142a06d694c07fc86da1b4ad08793085298fe5ddc59071a954cd14c36` / `artifact_ref_676eaade-221b-446e-af8a-6a50957407af` (`0f9bd3e9d34a4676c35746bdae0a2c9ce95f6d0706a2b38029b72eeeba820e22`) |
+| N4 runtime audit | `artifact_ref_a9606d80-1a50-4b99-a93a-e0bbd6c6a00c`; `non_provider=true`; source `codex_response`; operator `codex-t147-a9-n4-slice-options-v1` |
+| Current v1b frontier | `topic-selection.v1b.select-research-slice.v1`; strict-human N5; exact option choice pending, no ResearchSlice written |
 
 ## Resume guard
 
-The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is now a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. The researcher separately confirmed the exact presented N2 constraint profile after N1. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read its state and intake snapshot, submit that unchanged N2 profile once through the documented human semantic route, then recover owner, authority, handoff, and route state before continuing or retrying.
+The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is now a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. N2 and deterministic N3 are complete. N4 used the product-only Codex-assisted HTTP bridge and persisted three mechanism-distinct options with non-provider provenance. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read the run and option-set owners, obtain the researcher's exact N5 option choice, submit it once through the documented human route, then recover the ResearchSlice authority, handoff, and route state before continuing.
 
 Two rejected request attempts produced no owner state: a SearchRun used an invalid `manual_selection` binding kind before the coverage matrix was re-read as empty, and an EvidenceMap included an unbound section ref before the title-card EvidenceMap list was re-read as empty. The successful owners above use `manual_source` bindings and SearchRun-bound fulltext paragraph refs.
