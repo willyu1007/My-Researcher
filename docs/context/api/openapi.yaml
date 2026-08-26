@@ -4286,6 +4286,40 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /topic-selection/v1a/adjudications/{adjudicationResultId}/human-confirmations:
+    post:
+      operationId: confirmTopicSelectionV1aValidatedNeed
+      summary: Record the exact human confirmation for a validated NeedCandidate adjudication.
+      tags: [topic-selection-v1a]
+      parameters:
+        - name: adjudicationResultId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1aHumanConfirmationRequest'
+      responses:
+        '201':
+          description: Human confirmation, ValidatedNeed, and advancing gap authority written.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1aHumanConfirmationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
   /topic-selection/v1a/v1b-input-bundles:
     post:
       operationId: publishTopicSelectionV1aToV1bInputBundle
@@ -8122,6 +8156,18 @@ components:
         v1b_input_bundle:
           $ref: '#/components/schemas/TopicSelectionV1aRecord'
 
+    TopicSelectionV1aHumanConfirmationResponse:
+      type: object
+      required: [adjudication_result, need_candidate, validated_need]
+      additionalProperties: false
+      properties:
+        adjudication_result:
+          $ref: '#/components/schemas/TopicSelectionV1aRecord'
+        need_candidate:
+          $ref: '#/components/schemas/TopicSelectionV1aRecord'
+        validated_need:
+          $ref: '#/components/schemas/TopicSelectionV1aRecord'
+
     TopicSelectionV1aInterpretationResponse:
       type: object
       required: [event, impact, queue_item]
@@ -9186,8 +9232,151 @@ components:
         rationale: { type: string, minLength: 1 }
         adjudicated_by:
           $ref: '#/components/schemas/TopicSelectionActorRef'
+
+    TopicSelectionV1aHumanConfirmationRequest:
+      type: object
+      additionalProperties: true
+      anyOf:
+        - required: [human_actor, human_rationale]
+        - required: [confirmation_input]
+      properties:
+        workspace_id: { type: string, nullable: true }
         human_actor:
           $ref: '#/components/schemas/TopicSelectionActorRef'
+        human_rationale: { type: string, minLength: 1 }
+        confirmation_input:
+          $ref: '#/components/schemas/TopicSelectionHumanConfirmationInput'
+        semantic_review_context_packet_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        semantic_review_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        artifact_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        policy_version_id: { type: string, nullable: true }
+
+    TopicSelectionHumanConfirmationRequiredCheckResult:
+      type: object
+      additionalProperties: false
+      required: [check_id, result]
+      properties:
+        check_id: { type: string, minLength: 1 }
+        result:
+          type: string
+          enum: [accepted, not_applicable]
+
+    TopicSelectionHumanConfirmationDelegatedExecutor:
+      type: object
+      additionalProperties: false
+      required: [executor_type, provenance_ref, policy_id]
+      properties:
+        executor_type:
+          type: string
+          enum: [codex, provider_llm]
+        provenance_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        policy_id:
+          type: string
+          enum: [n8-validate-only-delegation-v1]
+
+    TopicSelectionGapCandidateReview:
+      type: object
+      additionalProperties: false
+      required: [need_candidate_ref, disposition, distinct_from_selected_axes, rationale]
+      properties:
+        need_candidate_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        disposition:
+          type: string
+          enum: [selected, viable_alternative, rejected]
+        distinct_from_selected_axes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [research_object, mechanism, intervention, comparison, outcome]
+        rationale: { type: string, minLength: 1 }
+        rejection_reason: { type: string, nullable: true }
+
+    TopicSelectionGapSelectionReview:
+      type: object
+      additionalProperties: false
+      required:
+        - research_checkpoint_id
+        - confirmed_candidate_pool_hash
+        - selected_candidate_ref
+        - direct_prior_art_pressure_reviewed
+        - disconfirming_evidence_reviewed
+        - candidate_reviews
+      properties:
+        research_checkpoint_id: { type: string, minLength: 1 }
+        confirmed_candidate_pool_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        selected_candidate_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        direct_prior_art_pressure_reviewed: { type: boolean }
+        disconfirming_evidence_reviewed: { type: boolean }
+        candidate_reviews:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/TopicSelectionGapCandidateReview'
+
+    TopicSelectionHumanConfirmationInput:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - actor_mode
+        - accountable_human_ref
+        - rationale
+        - accepted_risk_refs
+        - required_check_results
+      properties:
+        schema_version:
+          type: string
+          enum: [HumanConfirmationInput@v1]
+        actor_mode:
+          type: string
+          enum: [human, hybrid, human_delegated]
+        accountable_human_ref:
+          $ref: '#/components/schemas/TopicSelectionActorRef'
+        rationale: { type: string, minLength: 1 }
+        accepted_risk_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        required_check_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionHumanConfirmationRequiredCheckResult'
+        delegated_executor:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionHumanConfirmationDelegatedExecutor'
+            - type: 'null'
+        gap_selection_review:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionGapSelectionReview'
+            - type: 'null'
+      allOf:
+        - if:
+            properties:
+              actor_mode: { const: human_delegated }
+          then:
+            required: [delegated_executor]
+            properties:
+              delegated_executor:
+                $ref: '#/components/schemas/TopicSelectionHumanConfirmationDelegatedExecutor'
+          else:
+            properties:
+              delegated_executor:
+                type: 'null'
 
     TopicSelectionV1aV1bInputBundleRequest:
       type: object
