@@ -155,6 +155,7 @@
 | Academic policy becomes arbitrary count-based bureaucracy. | Advancement depends on raw paper/candidate counts despite weak evidence roles. | Make semantic role/quality rules authoritative and counts configurable tripwires only. | Reclassify the rule and preserve the negative evidence that exposed it. |
 | Clients retain hidden bypasses. | Direct node routes can advance without a current checkpoint decision. | Centralize transition guard enforcement and cover every entry point with negative tests. | Fail closed at the control plane and remove the bypass before cutover. |
 | Human participation becomes ceremonial again. | Packets omit alternatives, eliminated paths, unresolved objections, or allowed loopbacks. | Define packet completeness in product contracts and acceptance tests. | Block the checkpoint and regenerate the packet from current authority. |
+| Acquired source assets depend on a transient configured raw-file root. | `storage_roots.raw_files` resolves under the macOS temporary directory even though normalized processing roots are persistent. | Preserve paragraph-level normalized text and key-content owners; do not overwrite the storage setting without a separate exact control authorization. | Reacquire the two explicit OA assets through a new bounded dry-run if the raw files disappear; never broaden the corpus or downloader policy implicitly. |
 
 ## Phase closeout
 
