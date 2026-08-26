@@ -58,7 +58,7 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Selected-candidate readiness | `need_readiness_17887e0e-9dd6-442e-b73f-a79a658395d9`; `ready_for_validation`; zero blockers/warnings/actions; 2 support / 1 challenge / 0 abstract-only support / 0 strong unresolved challenge |
 | Current validation support packet | `validation_packet_3fb847c6-4cda-4ffe-99ab-01c3d7236210`; `ready`; five required human checks; zero residual risks and open gap codes |
 | Preparation action keys | `t147-a9-pos-gap-readiness-v1`; `t147-a9-pos-validation-support-v1` |
-| Current human authorization | Exact current-packet HumanConfirmNeed confirmation recorded; N2 constraint-profile acceptance is not yet received |
+| Current human authorization | Exact current-packet HumanConfirmNeed recorded; exact presented N2 constraint profile accepted but not yet written |
 | Current gap ResearchCheckpoint | `research_checkpoint_36c4ad76-6a0c-4dcd-bcf9-ab326f893bd5` |
 | Gap target snapshot hash | `699cc0f155358f173f45c0c38558398214b834c52076a58443fe10fc8874f5a5` |
 | Gap packet hash | `11b422de126557fe01e4359ca35b78bc42234b96be4183962fb08fc8b9b616e4` |
@@ -72,10 +72,10 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | N1 admitted attempt | `node_attempt_t147_a9_pos_v1b_n1_v2`; no blockers/warnings |
 | v1b IntakeSnapshot | `v1b_intake_snapshot_05a8b8e9-0973-48d9-8b87-9df1609722e0` / `v_05a8b8e9-0973-48d9-8b87-9df1609722e0` |
 | N1 authority / handoff hash | `662958ee380a75e124c2d41a4f14e0189bc06b43466e839d16e55e3d8d22060b` / `e6cefbd6588af3e3cdf98086b1590aa5d081f7e6c2a05b561ac18a45951eb81a` |
-| Current v1b frontier | `topic-selection.v1b.record-research-constraint-profile.v1`; strict-human N2; no profile written |
+| Current v1b frontier | `topic-selection.v1b.record-research-constraint-profile.v1`; strict-human N2; exact authority confirmed, no profile written |
 
 ## Resume guard
 
-The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is now a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read its state and the intake snapshot, obtain exact researcher acceptance for the N2 constraint profile, and submit the human semantic route once. Do not infer N2 acceptance from the earlier HumanConfirmNeed confirmation. After every write, recover owner, authority, handoff, and route state before continuing or retrying.
+The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is now a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. The researcher separately confirmed the exact presented N2 constraint profile after N1. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read its state and intake snapshot, submit that unchanged N2 profile once through the documented human semantic route, then recover owner, authority, handoff, and route state before continuing or retrying.
 
 Two rejected request attempts produced no owner state: a SearchRun used an invalid `manual_selection` binding kind before the coverage matrix was re-read as empty, and an EvidenceMap included an unbound section ref before the title-card EvidenceMap list was re-read as empty. The successful owners above use `manual_source` bindings and SearchRun-bound fulltext paragraph refs.

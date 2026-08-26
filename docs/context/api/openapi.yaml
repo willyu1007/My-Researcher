@@ -4834,6 +4834,38 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /topic-selection/v1b/intake-snapshots/{intakeSnapshotId}/constraint-profile/human:
+    post:
+      operationId: recordTopicSelectionV1bHumanConstraintProfile
+      summary: Record the researcher's accepted v1b constraint profile through the workflow harness.
+      tags: [topic-selection-v1b]
+      parameters:
+        - name: intakeSnapshotId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1bHumanConstraintProfileRequest'
+      responses:
+        '201':
+          description: Human-authored constraint profile processed through the v1b workflow harness.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /topic-selection/v1b/workflow-harness/artifacts:
     post:
       operationId: recordTopicSelectionV1bWorkflowHarnessArtifact
@@ -4976,6 +5008,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TopicSelectionV1bListResponse'
+
+  /topic-selection/v1b/research-slice-option-sets/{optionSetId}/human-selection:
+    post:
+      operationId: selectTopicSelectionV1bHumanResearchSlice
+      summary: Record the researcher's selected v1b research slice through the workflow harness.
+      tags: [topic-selection-v1b]
+      parameters:
+        - name: optionSetId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1bHumanSliceSelectionRequest'
+      responses:
+        '201':
+          description: Human-selected research slice processed through the v1b workflow harness.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /topic-selection/v1b/topic-question-candidate-sets/{candidateSetId}/candidates:
     get:
@@ -8328,6 +8392,75 @@ components:
         created_by:
           type: string
           enum: [human, llm, system, hybrid]
+
+    TopicSelectionV1bHumanConstraintProfileRequest:
+      type: object
+      required: [actor, profile]
+      additionalProperties: true
+      properties:
+        actor:
+          $ref: '#/components/schemas/TopicSelectionV1bHumanOrHybridActorRef'
+        workflow_run_id: { type: string, nullable: true }
+        profile:
+          $ref: '#/components/schemas/TopicSelectionV1bResearchConstraintProfileInput'
+
+    TopicSelectionV1bResearchConstraintProfileInput:
+      type: object
+      required: [target_community, claim_ceiling]
+      additionalProperties: true
+      properties:
+        target_community: { type: string, minLength: 1 }
+        claim_ceiling: { type: string, minLength: 1 }
+        target_venue_class: { type: string, nullable: true }
+        intended_contribution_style: { type: string, nullable: true }
+        method_constraints:
+          type: array
+          items: { type: string, minLength: 1 }
+        resource_constraints:
+          type: array
+          items: { type: string, minLength: 1 }
+        available_assets:
+          type: array
+          items: { type: string, minLength: 1 }
+        feasibility_budget:
+          $ref: '#/components/schemas/JsonObject'
+        non_goals:
+          type: array
+          items: { type: string, minLength: 1 }
+        human_constraint_notes: { type: string, nullable: true }
+        constraint_payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    TopicSelectionV1bHumanOrHybridActorRef:
+      type: object
+      required: [actor_type]
+      additionalProperties: false
+      properties:
+        actor_type:
+          type: string
+          enum: [human, hybrid]
+        actor_id: { type: string, nullable: true }
+
+    TopicSelectionV1bHumanSliceSelectionRequest:
+      type: object
+      required: [selected_option_id, selection_rationale, actor]
+      additionalProperties: true
+      properties:
+        selected_option_id: { type: string, minLength: 1 }
+        selection_rationale: { type: string, minLength: 1 }
+        actor:
+          $ref: '#/components/schemas/TopicSelectionV1bHumanOrHybridActorRef'
+        confidence: { type: number, nullable: true }
+        decision_basis:
+          $ref: '#/components/schemas/JsonObject'
+        required_actions:
+          type: array
+          items: { type: string, minLength: 1 }
+        accepted_risk_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsonObject'
+        workflow_run_id: { type: string, nullable: true }
 
     TopicSelectionV1bWorkflowHarnessReplayIdentity:
       type: object
