@@ -25,6 +25,10 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Current ResearchCheckpoint | `research_checkpoint_34e5f6c2-8161-450d-a7a7-49be24512b14` |
 | Target snapshot hash | `1fcdda990a345e847db69bebd14f87d3747629a10b3f257f1d8873f6fe3aee73` |
 | Packet result | `eligible_for_human_review`; no policy issues; no open objections |
+| ResearchCheckpointDecision | `research_checkpoint_decision_26f6989c-67d1-4ed6-8f02-a01ed95939c9` (`advance`) |
+| HumanConfirmedDecision | `human_decision_3a12f9ae-15b0-43ab-ba58-c15d5d65c8fd` |
+| Decision key / actor | `t147-a9-neg-evidence-advance-1fcdda99-v1` / `human:yurui` |
+| Current projection | evidence decided; `gap_selection` required; `topic-selection.research.generate-need-candidates` authorized |
 
 ## Positive lineage — uncertainty-conditioned allocation
 
@@ -40,9 +44,13 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Current ResearchCheckpoint | `research_checkpoint_97040836-ea54-44fb-a34f-61a4c89879e8` |
 | Target snapshot hash | `e0bb98d25dc6848337f5b7e75758a5ab582bfe82b1961a83b5104d99a585dc5e` |
 | Packet result | `eligible_for_human_review`; no policy issues; no open objections |
+| ResearchCheckpointDecision | `research_checkpoint_decision_4f660942-b4fc-4b54-90df-c9d44af4e55b` (`advance`) |
+| HumanConfirmedDecision | `human_decision_a4bb710b-8ceb-4684-80fb-20ff051239d1` |
+| Decision key / actor | `t147-a9-pos-evidence-advance-e0bb98d2-v1` / `human:yurui` |
+| Current projection | evidence decided; `gap_selection` required; `topic-selection.research.generate-need-candidates` authorized |
 
 ## Resume guard
 
-Before any decision write, re-read each TitleCard's `/research-status` and the checkpoint `/packet`. Continue only when the current checkpoint IDs and target snapshot hashes still equal the values above. The next writes require the user's strict-human evidence decisions; do not infer them from this artifact. No checkpoint decision keys have been allocated yet.
+The two evidence decisions above are complete and idempotently keyed. Before candidate generation, re-read each TitleCard's `/research-status` and continue only while it advertises `topic-selection.research.generate-need-candidates`. Preserve the negative and positive semantic roles when constructing the candidate arenas: the negative must retain its parameter-only novelty limitation, while the positive must retain its direct-neighbor, matched-budget, and base-model-robustness constraints. Stop again before the strict-human gap authority.
 
 Two rejected request attempts produced no owner state: a SearchRun used an invalid `manual_selection` binding kind before the coverage matrix was re-read as empty, and an EvidenceMap included an unbound section ref before the title-card EvidenceMap list was re-read as empty. The successful owners above use `manual_source` bindings and SearchRun-bound fulltext paragraph refs.
