@@ -4836,8 +4836,8 @@ paths:
 
   /topic-selection/v1b/workflow-harness/nodes/{nodeId}/codex-assisted-invocations:
     post:
-      operationId: invokeTopicSelectionV1bN4CodexAssisted
-      summary: Generate a runtime-verified Codex-assisted N4 draft and submit it to the v1b harness.
+      operationId: invokeTopicSelectionV1bCodexAssisted
+      summary: Generate a runtime-verified Codex-assisted N4 or initial N6 draft and submit it to the v1b harness.
       tags: [topic-selection-v1b]
       parameters:
         - name: nodeId
@@ -4845,16 +4845,18 @@ paths:
           required: true
           schema:
             type: string
-            const: topic-selection.v1b.generate-research-slice-options.v1
+            enum:
+              - topic-selection.v1b.generate-research-slice-options.v1
+              - topic-selection.v1b.generate-topic-question-candidates.v1
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TopicSelectionV1bN4CodexAssistedInvocationRequest'
+              $ref: '#/components/schemas/TopicSelectionV1bCodexAssistedInvocationRequest'
       responses:
         '201':
-          description: Runtime-verified N4 draft processed through the deterministic v1b harness gate.
+          description: Runtime-verified Codex-assisted draft processed through the matching deterministic v1b harness gate.
           content:
             application/json:
               schema:
@@ -8439,6 +8441,11 @@ components:
           type: string
           enum: [human, llm, system, hybrid]
 
+    TopicSelectionV1bCodexAssistedInvocationRequest:
+      oneOf:
+        - $ref: '#/components/schemas/TopicSelectionV1bN4CodexAssistedInvocationRequest'
+        - $ref: '#/components/schemas/TopicSelectionV1bN6CodexAssistedInvocationRequest'
+
     TopicSelectionV1bN4CodexAssistedInvocationRequest:
       type: object
       required: [request, codex_response]
@@ -8459,6 +8466,213 @@ components:
         operator_label: { type: string, minLength: 1 }
         response_hash: { type: string, nullable: true }
         prompt_packet_hash: { type: string, nullable: true }
+
+    TopicSelectionV1bN6CodexAssistedInvocationRequest:
+      type: object
+      required: [request, codex_response]
+      additionalProperties: false
+      properties:
+        request:
+          $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationRequest'
+        codex_response:
+          $ref: '#/components/schemas/TopicSelectionV1bN6CodexAssistedResponse'
+
+    TopicSelectionV1bN6CodexAssistedResponse:
+      type: object
+      required: [output, operator_label]
+      additionalProperties: false
+      properties:
+        output:
+          $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionCandidateSetDraft'
+        operator_label: { type: string, minLength: 1 }
+        response_hash: { type: string, nullable: true }
+        prompt_packet_hash: { type: string, nullable: true }
+
+    TopicSelectionV1bTopicQuestionAnswerabilityPlanDraft:
+      type: object
+      required: [datasets_or_resources, metrics, baselines, ablations_or_comparisons, evaluation_setting, dependency_risks, open_dependencies, known_gaps, required_evidence_refs]
+      additionalProperties: false
+      properties:
+        datasets_or_resources:
+          type: array
+          items: { type: string, minLength: 1 }
+        metrics:
+          type: array
+          items: { type: string, minLength: 1 }
+        baselines:
+          type: array
+          items: { type: string, minLength: 1 }
+        ablations_or_comparisons:
+          type: array
+          items: { type: string, minLength: 1 }
+        evaluation_setting: { type: string, minLength: 1 }
+        dependency_risks:
+          type: array
+          items: { type: string, minLength: 1 }
+        open_dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        known_gaps:
+          type: array
+          items: { type: string, minLength: 1 }
+        required_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+
+    TopicSelectionV1bTopicQuestionBoundaryCheckDraft:
+      type: object
+      required: [preserved_boundary_refs, excluded_boundary_refs, boundary_violations, prohibited_claims, allowed_refinements]
+      additionalProperties: false
+      properties:
+        preserved_boundary_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        excluded_boundary_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        boundary_violations:
+          type: array
+          items: { type: string, minLength: 1 }
+        prohibited_claims:
+          type: array
+          items: { type: string, minLength: 1 }
+        allowed_refinements:
+          type: array
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionV1bTopicQuestionTraceabilityCheckDraft:
+      type: object
+      required: [support_evidence_refs, challenge_evidence_refs, baseline_evidence_refs, context_evidence_refs, mapped_evidence_refs, unmapped_assumptions]
+      additionalProperties: false
+      properties:
+        support_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        challenge_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        baseline_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        context_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        mapped_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        unmapped_assumptions:
+          type: array
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionV1bTopicQuestionFalsificationConditionDraft:
+      type: object
+      required: [condition_type, severity, statement, trigger_evidence_refs, trigger_source_refs, related_contract_fields, expected_action, check_timing, confidence]
+      additionalProperties: false
+      properties:
+        condition_type:
+          type: string
+          enum: [solved_by_baseline, contradicted_by_evidence, out_of_boundary, data_unavailable, baseline_unreproducible, metric_invalid, evaluation_infeasible, claim_overstrong, resource_blocked, need_invalidated]
+        severity: { type: string, enum: [hard, soft, answerability] }
+        statement: { type: string, minLength: 1 }
+        trigger_evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        trigger_source_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        related_contract_fields:
+          type: array
+          items: { type: string, minLength: 1 }
+        expected_action: { type: string, enum: [revise_question, revise_slice, recheck_evidence, lower_claim_strength, park, drop] }
+        check_timing: { type: string, enum: [before_value_assessment, during_value_assessment, before_package, before_promotion, on_new_evidence] }
+        confidence: { type: string, enum: [low, medium, high] }
+
+    TopicSelectionV1bQuestionFrameDraft:
+      type: object
+      required: [target_setting, target_community, object_scope, task_scope, intervention_or_approach, comparison_baseline, observable_outcome, assumption_refs, evidence_refs, frame_payload]
+      additionalProperties: false
+      properties:
+        target_setting: { type: string, minLength: 1 }
+        target_community: { type: string, minLength: 1 }
+        object_scope: { type: string, minLength: 1 }
+        task_scope: { type: string, minLength: 1 }
+        intervention_or_approach: { type: string }
+        comparison_baseline: { type: string, minLength: 1 }
+        observable_outcome: { type: string, minLength: 1 }
+        assumption_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        evidence_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        frame_payload:
+          $ref: '#/components/schemas/JsonObject'
+
+    TopicSelectionV1bTopicQuestionCandidateDraft:
+      type: object
+      required: [candidate_key, main_question, sub_questions, question_type, contribution_hypothesis, source_validated_need_refs, answerability_plan, answerability_verdict, expected_claim, fallback_claim, max_claim_strength, observable_success_criteria, boundary_check, traceability_check, falsification_conditions, risk_notes, blockers, objections, human_review_triggers, confidence]
+      additionalProperties: false
+      properties:
+        candidate_key: { type: string, minLength: 1 }
+        main_question: { type: string, minLength: 1 }
+        sub_questions:
+          type: array
+          items: { type: string, minLength: 1 }
+        question_type: { type: string, enum: [method, benchmark, analysis, resource, system] }
+        contribution_hypothesis: { type: string, enum: [method, benchmark, analysis, resource, system] }
+        source_validated_need_refs:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        answerability_plan:
+          $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionAnswerabilityPlanDraft'
+        answerability_verdict: { type: string, enum: [answerable, answerable_with_risk, needs_slice_refinement, not_answerable] }
+        expected_claim: { type: string, minLength: 1 }
+        fallback_claim: { type: string, minLength: 1 }
+        max_claim_strength: { type: string, minLength: 1 }
+        observable_success_criteria:
+          type: array
+          items: { type: string, minLength: 1 }
+        boundary_check:
+          $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionBoundaryCheckDraft'
+        traceability_check:
+          $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionTraceabilityCheckDraft'
+        falsification_conditions:
+          type: array
+          items: { $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionFalsificationConditionDraft' }
+        risk_notes:
+          type: array
+          items: { type: string, minLength: 1 }
+        blockers:
+          type: array
+          items: { type: string, minLength: 1 }
+        objections:
+          type: array
+          items: { type: string, minLength: 1 }
+        human_review_triggers:
+          type: array
+          items: { type: string, minLength: 1 }
+        confidence: { type: number, nullable: true }
+
+    TopicSelectionV1bTopicQuestionCandidateSetDraft:
+      type: object
+      required: [question_frame, recommended_candidate_keys, generation_notes, human_review_triggers, candidates]
+      additionalProperties: false
+      properties:
+        question_frame:
+          $ref: '#/components/schemas/TopicSelectionV1bQuestionFrameDraft'
+        recommended_candidate_keys:
+          type: array
+          items: { type: string, minLength: 1 }
+        generation_notes:
+          type: array
+          items: { type: string, minLength: 1 }
+        human_review_triggers:
+          type: array
+          items: { type: string, minLength: 1 }
+        candidates:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionCandidateDraft' }
 
     TopicSelectionV1bResearchSliceClaimCeilingAlignment:
       type: object

@@ -24,6 +24,7 @@ import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+  topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
@@ -31,8 +32,8 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-execution-plan-contracts';
 import {
   TopicSelectionV1bController,
+  type CodexAssistedInvocationBody,
   type ConstraintProfileHumanBody,
-  type N4CodexAssistedInvocationBody,
   type OfflineDatasetBody,
   type SliceHumanSelectionBody,
   type WorkflowHarnessArtifactBody,
@@ -200,8 +201,9 @@ const workflowHarnessRunBody = {
   body: topicSelectionV1bWorkflowHarnessRunRequestSchema,
 };
 const n4CodexAssistedNodeId = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
-const n4CodexAssistedInvocationSchema = {
-  ...paramsSchema({ nodeId: { const: n4CodexAssistedNodeId } }),
+const n6CodexAssistedNodeId = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+const codexAssistedInvocationSchema = {
+  ...paramsSchema({ nodeId: { enum: [n4CodexAssistedNodeId, n6CodexAssistedNodeId] } }),
   body: {
     type: 'object',
     additionalProperties: false,
@@ -213,7 +215,12 @@ const n4CodexAssistedInvocationSchema = {
         additionalProperties: false,
         required: ['output', 'operator_label'],
         properties: {
-          output: topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+          output: {
+            anyOf: [
+              topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+              topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
+            ],
+          },
           operator_label: stringId,
           response_hash: nullableStringId,
           prompt_packet_hash: nullableStringId,
@@ -354,10 +361,10 @@ export async function registerTopicSelectionV1bRoutes(
     { schema: workflowHarnessRunBody },
     controller.invokeWorkflowHarnessNode,
   );
-  fastify.post<{ Body: N4CodexAssistedInvocationBody; Params: { nodeId: string } }>(
+  fastify.post<{ Body: CodexAssistedInvocationBody; Params: { nodeId: string } }>(
     '/topic-selection/v1b/workflow-harness/nodes/:nodeId/codex-assisted-invocations',
-    { schema: n4CodexAssistedInvocationSchema },
-    controller.invokeN4CodexAssisted,
+    { schema: codexAssistedInvocationSchema },
+    controller.invokeCodexAssisted,
   );
   fastify.get<{ Params: { workflowRunId: string } }>(
     '/topic-selection/v1b/workflow-runs/:workflowRunId/state',

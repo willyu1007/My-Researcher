@@ -103,7 +103,7 @@ test('v1b human N5 slice-selection runtime route is fully documented in OpenAPI'
   assert.match(requestBlock, /accepted_risk_refs/);
 });
 
-test('v1b N4 Codex-assisted product runtime route is fully documented in OpenAPI', () => {
+test('v1b N4/N6 Codex-assisted product runtime route is fully documented in OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');
   const openapiSource = fs.readFileSync(openapiPath, 'utf8');
 
@@ -118,12 +118,19 @@ test('v1b N4 Codex-assisted product runtime route is fully documented in OpenAPI
 
   const operationBlock = extractOperationBlock(
     openapiSource,
-    'invokeTopicSelectionV1bN4CodexAssisted',
+    'invokeTopicSelectionV1bCodexAssisted',
   );
-  assert.match(operationBlock, /TopicSelectionV1bN4CodexAssistedInvocationRequest/);
+  assert.match(operationBlock, /TopicSelectionV1bCodexAssistedInvocationRequest/);
   assert.match(operationBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationResult/);
   assert.match(operationBlock, /'400':\n\s+\$ref: '#\/components\/responses\/BadRequest'/);
   assert.match(operationBlock, /'409':\n\s+\$ref: '#\/components\/responses\/Conflict'/);
+
+  const unionRequestBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bCodexAssistedInvocationRequest',
+  );
+  assert.match(unionRequestBlock, /TopicSelectionV1bN4CodexAssistedInvocationRequest/);
+  assert.match(unionRequestBlock, /TopicSelectionV1bN6CodexAssistedInvocationRequest/);
 
   const requestBlock = extractSchemaBlock(
     openapiSource,
@@ -139,4 +146,19 @@ test('v1b N4 Codex-assisted product runtime route is fully documented in OpenAPI
   );
   assert.match(responseBlock, /required: \[output, operator_label\]/);
   assert.match(responseBlock, /TopicSelectionV1bResearchSliceOptionSetDraft/);
+
+  const n6RequestBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN6CodexAssistedInvocationRequest',
+  );
+  assert.match(n6RequestBlock, /required: \[request, codex_response\]/);
+  assert.match(n6RequestBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationRequest/);
+  assert.match(n6RequestBlock, /TopicSelectionV1bN6CodexAssistedResponse/);
+
+  const n6ResponseBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN6CodexAssistedResponse',
+  );
+  assert.match(n6ResponseBlock, /required: \[output, operator_label\]/);
+  assert.match(n6ResponseBlock, /TopicSelectionV1bTopicQuestionCandidateSetDraft/);
 });

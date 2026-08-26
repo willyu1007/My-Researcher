@@ -864,6 +864,102 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
   }
 
+  /**
+   * Product HTTP bridge for the initial N6 non-authority draft. The frozen N5 lineage is checked
+   * before runtime artifacts are recorded; the route then pins product/Codex provenance and sends
+   * the resulting runtime_verified draft through the existing deterministic N6 gate.
+   */
+  async invokeN6CodexAssisted(input: {
+    request: TopicSelectionV1bWorkflowHarnessRunRequest;
+    codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>;
+  }): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const nodeId = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+    const profileId = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent;
+    if (input.request.node_id !== nodeId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N6 route only accepts the topic-question candidate node.');
+    }
+    if (input.request.semantic_artifacts && input.request.semantic_artifacts.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N6 route records its own runtime-verified semantic artifact.');
+    }
+    if (input.request.run_mode && input.request.run_mode !== 'product') {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N6 route is product-mode only.');
+    }
+    if (input.request.profile_id && input.request.profile_id !== profileId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N6 route pins the configured topic-question candidate profile.');
+    }
+    if (
+      input.request.execution_spec
+      && (
+        input.request.execution_spec.execution_mode !== 'codex_assisted'
+        || input.request.execution_spec.model_option_id != null
+      )
+    ) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N6 route does not accept provider or mocked execution.');
+    }
+
+    const request: TopicSelectionV1bWorkflowHarnessRunRequest = {
+      ...input.request,
+      execution_spec: { execution_mode: 'codex_assisted', model_option_id: null },
+      profile_id: profileId,
+      run_mode: 'product',
+      semantic_artifacts: [],
+    };
+    this.assertRequest(request);
+    const prepared = await this.prepareN6Context(request);
+    if (!prepared.ok) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message, {
+        blocker_code: prepared.code,
+      });
+    }
+    const generated = await this.n6DraftRuntime.generateDraftArtifact({
+      request,
+      generation_mode: 'initial_from_n5',
+      execution_mode: 'codex_assisted',
+      run_mode: 'product',
+      codex_response: input.codex_response,
+      created_by: request.created_by ?? 'system',
+    });
+    if (generated.status !== 'succeeded') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'The Codex-assisted N6 runtime did not produce an admissible topic-question candidate draft.',
+        {
+          blocker_codes: generated.invocation_result.blocker_codes,
+          context_packet_ref: generated.context_packet_ref,
+          context_packet_hash: generated.context_packet_hash,
+          error_code: generated.invocation_result.error_code,
+        },
+      );
+    }
+    return this.invokeNode({
+      ...request,
+      semantic_artifacts: [generated.semantic_artifact],
+    });
+  }
+
+  private async prepareN6Context(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+    const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
+    if (dependencyBlocker) {
+      return { ok: false, code: dependencyBlocker.code, message: dependencyBlocker.message };
+    }
+    const payload = parseN6Payload(input.frozen_input.payload);
+    if (!payload.ok) {
+      return payload;
+    }
+    const loaded = await this.loadN6Context(payload.value);
+    if (!loaded.ok) {
+      return loaded;
+    }
+    const lineageBlocker = await this.n6LineageBlocker(input, payload.value, loaded.value);
+    if (lineageBlocker) {
+      return { ok: false, code: lineageBlocker.code, message: lineageBlocker.message };
+    }
+    return { ok: true };
+  }
+
   private async prepareN4Context(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
   ): Promise<

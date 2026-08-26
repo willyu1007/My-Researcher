@@ -22,6 +22,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionV1bResearchSliceOptionSetDraftPayload,
+  TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import type { TopicSelectionCodexAssistedAgentOutput } from '../services/topic-selection-agent-orchestrator-service.js';
@@ -62,10 +63,26 @@ export type ConstraintProfileHumanBody = {
 
 export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationReplayService['createDataset']>[0];
 export type WorkflowHarnessRunBody = TopicSelectionV1bWorkflowHarnessRunRequest;
-export type N4CodexAssistedInvocationBody = {
-  request: TopicSelectionV1bWorkflowHarnessRunRequest;
+const N4_CODEX_ASSISTED_NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
+const N6_CODEX_ASSISTED_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+
+type N4CodexAssistedInvocationBody = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest & { node_id: typeof N4_CODEX_ASSISTED_NODE_ID };
   codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bResearchSliceOptionSetDraftPayload>;
 };
+
+type N6CodexAssistedInvocationBody = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest & { node_id: typeof N6_CODEX_ASSISTED_NODE_ID };
+  codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>;
+};
+
+export type CodexAssistedInvocationBody = N4CodexAssistedInvocationBody | N6CodexAssistedInvocationBody;
+
+function isN4CodexAssistedInvocation(
+  body: CodexAssistedInvocationBody,
+): body is N4CodexAssistedInvocationBody {
+  return body.request.node_id === N4_CODEX_ASSISTED_NODE_ID;
+}
 export type WorkflowHarnessArtifactBody = Parameters<TopicSelectionControlPlaneService['recordArtifactRef']>[0];
 type OfflineCaseBody = Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0];
 type OfflineRunBody = Parameters<TopicSelectionOfflineEvaluationReplayService['startRun']>[0];
@@ -194,15 +211,17 @@ export class TopicSelectionV1bController {
     }
   };
 
-  invokeN4CodexAssisted = async (
-    request: BodyParamsRequest<N4CodexAssistedInvocationBody, { nodeId: string }>,
+  invokeCodexAssisted = async (
+    request: BodyParamsRequest<CodexAssistedInvocationBody, { nodeId: string }>,
     reply: FastifyReply,
   ) => {
     try {
       if (request.body.request.node_id !== request.params.nodeId) {
-        throw new AppError(400, 'INVALID_PAYLOAD', 'Codex-assisted N4 request node_id must match the route nodeId.');
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Codex-assisted request node_id must match the route nodeId.');
       }
-      const result = await this.workflowHarness.invokeN4CodexAssisted(request.body);
+      const result = isN4CodexAssistedInvocation(request.body)
+        ? await this.workflowHarness.invokeN4CodexAssisted(request.body)
+        : await this.workflowHarness.invokeN6CodexAssisted(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
