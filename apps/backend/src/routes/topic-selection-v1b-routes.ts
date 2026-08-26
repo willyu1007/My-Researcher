@@ -24,6 +24,7 @@ import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+  topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
@@ -202,8 +203,9 @@ const workflowHarnessRunBody = {
 };
 const n4CodexAssistedNodeId = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
 const n6CodexAssistedNodeId = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+const n8CodexAssistedNodeId = 'topic-selection.v1b.assess-topic-value.v1' as const;
 const codexAssistedInvocationSchema = {
-  ...paramsSchema({ nodeId: { enum: [n4CodexAssistedNodeId, n6CodexAssistedNodeId] } }),
+  ...paramsSchema({ nodeId: { enum: [n4CodexAssistedNodeId, n6CodexAssistedNodeId, n8CodexAssistedNodeId] } }),
   body: {
     type: 'object',
     additionalProperties: false,
@@ -219,6 +221,7 @@ const codexAssistedInvocationSchema = {
             anyOf: [
               topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
               topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
+              topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
             ],
           },
           operator_label: stringId,

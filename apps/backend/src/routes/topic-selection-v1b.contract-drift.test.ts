@@ -103,7 +103,7 @@ test('v1b human N5 slice-selection runtime route is fully documented in OpenAPI'
   assert.match(requestBlock, /accepted_risk_refs/);
 });
 
-test('v1b N4/N6 Codex-assisted product runtime route is fully documented in OpenAPI', () => {
+test('v1b N4/N6/N8 Codex-assisted product runtime route is fully documented in OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');
   const openapiSource = fs.readFileSync(openapiPath, 'utf8');
 
@@ -131,6 +131,7 @@ test('v1b N4/N6 Codex-assisted product runtime route is fully documented in Open
   );
   assert.match(unionRequestBlock, /TopicSelectionV1bN4CodexAssistedInvocationRequest/);
   assert.match(unionRequestBlock, /TopicSelectionV1bN6CodexAssistedInvocationRequest/);
+  assert.match(unionRequestBlock, /TopicSelectionV1bN8CodexAssistedInvocationRequest/);
 
   const requestBlock = extractSchemaBlock(
     openapiSource,
@@ -161,4 +162,19 @@ test('v1b N4/N6 Codex-assisted product runtime route is fully documented in Open
   );
   assert.match(n6ResponseBlock, /required: \[output, operator_label\]/);
   assert.match(n6ResponseBlock, /TopicSelectionV1bTopicQuestionCandidateSetDraft/);
+
+  const n8RequestBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN8CodexAssistedInvocationRequest',
+  );
+  assert.match(n8RequestBlock, /required: \[request, codex_response\]/);
+  assert.match(n8RequestBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationRequest/);
+  assert.match(n8RequestBlock, /TopicSelectionV1bN8CodexAssistedResponse/);
+
+  const n8ResponseBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN8CodexAssistedResponse',
+  );
+  assert.match(n8ResponseBlock, /required: \[output, operator_label\]/);
+  assert.match(n8ResponseBlock, /TopicSelectionV1bTopicValueAssessmentDraft/);
 });

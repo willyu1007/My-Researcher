@@ -22,6 +22,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionV1bResearchSliceOptionSetDraftPayload,
+  TopicSelectionV1bTopicValueAssessmentDraftPayload,
   TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
@@ -65,6 +66,7 @@ export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationRepla
 export type WorkflowHarnessRunBody = TopicSelectionV1bWorkflowHarnessRunRequest;
 const N4_CODEX_ASSISTED_NODE_ID = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
 const N6_CODEX_ASSISTED_NODE_ID = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
+const N8_CODEX_ASSISTED_NODE_ID = 'topic-selection.v1b.assess-topic-value.v1' as const;
 
 type N4CodexAssistedInvocationBody = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest & { node_id: typeof N4_CODEX_ASSISTED_NODE_ID };
@@ -76,12 +78,26 @@ type N6CodexAssistedInvocationBody = {
   codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>;
 };
 
-export type CodexAssistedInvocationBody = N4CodexAssistedInvocationBody | N6CodexAssistedInvocationBody;
+type N8CodexAssistedInvocationBody = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest & { node_id: typeof N8_CODEX_ASSISTED_NODE_ID };
+  codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload>;
+};
+
+export type CodexAssistedInvocationBody =
+  | N4CodexAssistedInvocationBody
+  | N6CodexAssistedInvocationBody
+  | N8CodexAssistedInvocationBody;
 
 function isN4CodexAssistedInvocation(
   body: CodexAssistedInvocationBody,
 ): body is N4CodexAssistedInvocationBody {
   return body.request.node_id === N4_CODEX_ASSISTED_NODE_ID;
+}
+
+function isN6CodexAssistedInvocation(
+  body: CodexAssistedInvocationBody,
+): body is N6CodexAssistedInvocationBody {
+  return body.request.node_id === N6_CODEX_ASSISTED_NODE_ID;
 }
 export type WorkflowHarnessArtifactBody = Parameters<TopicSelectionControlPlaneService['recordArtifactRef']>[0];
 type OfflineCaseBody = Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0];
@@ -221,7 +237,9 @@ export class TopicSelectionV1bController {
       }
       const result = isN4CodexAssistedInvocation(request.body)
         ? await this.workflowHarness.invokeN4CodexAssisted(request.body)
-        : await this.workflowHarness.invokeN6CodexAssisted(request.body);
+        : isN6CodexAssistedInvocation(request.body)
+          ? await this.workflowHarness.invokeN6CodexAssisted(request.body)
+          : await this.workflowHarness.invokeN8CodexAssisted(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

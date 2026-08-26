@@ -4837,7 +4837,7 @@ paths:
   /topic-selection/v1b/workflow-harness/nodes/{nodeId}/codex-assisted-invocations:
     post:
       operationId: invokeTopicSelectionV1bCodexAssisted
-      summary: Generate a runtime-verified Codex-assisted N4 or initial N6 draft and submit it to the v1b harness.
+      summary: Generate a runtime-verified Codex-assisted N4, initial N6, or initial N8 draft and submit it to the v1b harness.
       tags: [topic-selection-v1b]
       parameters:
         - name: nodeId
@@ -4848,6 +4848,7 @@ paths:
             enum:
               - topic-selection.v1b.generate-research-slice-options.v1
               - topic-selection.v1b.generate-topic-question-candidates.v1
+              - topic-selection.v1b.assess-topic-value.v1
       requestBody:
         required: true
         content:
@@ -8445,6 +8446,7 @@ components:
       oneOf:
         - $ref: '#/components/schemas/TopicSelectionV1bN4CodexAssistedInvocationRequest'
         - $ref: '#/components/schemas/TopicSelectionV1bN6CodexAssistedInvocationRequest'
+        - $ref: '#/components/schemas/TopicSelectionV1bN8CodexAssistedInvocationRequest'
 
     TopicSelectionV1bN4CodexAssistedInvocationRequest:
       type: object
@@ -8487,6 +8489,180 @@ components:
         operator_label: { type: string, minLength: 1 }
         response_hash: { type: string, nullable: true }
         prompt_packet_hash: { type: string, nullable: true }
+
+    TopicSelectionV1bN8CodexAssistedInvocationRequest:
+      type: object
+      required: [request, codex_response]
+      additionalProperties: false
+      properties:
+        request:
+          $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationRequest'
+        codex_response:
+          $ref: '#/components/schemas/TopicSelectionV1bN8CodexAssistedResponse'
+
+    TopicSelectionV1bN8CodexAssistedResponse:
+      type: object
+      required: [output, operator_label]
+      additionalProperties: false
+      properties:
+        output:
+          $ref: '#/components/schemas/TopicSelectionV1bTopicValueAssessmentDraft'
+        operator_label: { type: string, minLength: 1 }
+        response_hash: { type: string, nullable: true }
+        prompt_packet_hash: { type: string, nullable: true }
+
+    TopicSelectionV1bTopicValueAssessmentDraft:
+      type: object
+      additionalProperties: false
+      required:
+        - readiness_status
+        - strongest_claim_if_success
+        - hard_gates
+        - dimension_scores
+        - risk_penalty
+        - reviewer_objections
+        - ceiling_case
+        - base_case
+        - floor_case
+        - recommended_disposition
+        - total_score
+        - value_summary
+        - confidence
+        - accepted_risk_refs
+        - blocker_refs
+        - risk_notes
+        - reasoning_memo
+      properties:
+        readiness_status:
+          type: string
+          enum: [ready, ready_with_accepted_risk, needs_refinement, recheck_required, blocked, parked, dropped]
+        strongest_claim_if_success: { type: string, minLength: 1 }
+        fallback_claim_if_success: { type: [string, 'null'] }
+        hard_gates:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/TopicSelectionV1bTopicValueGateResult'
+        dimension_scores:
+          type: array
+          minItems: 9
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/TopicSelectionV1bTopicValueDimensionScore'
+        risk_penalty:
+          $ref: '#/components/schemas/JsonObject'
+        reviewer_objections:
+          type: array
+          items: { type: string, minLength: 1 }
+        ceiling_case: { type: string, minLength: 1 }
+        base_case: { type: string, minLength: 1 }
+        floor_case: { type: string, minLength: 1 }
+        recommended_disposition:
+          type: string
+          enum: [advance_to_package, refine_question, refine_slice, recheck_evidence_or_search, park, drop]
+        total_score: { type: number, minimum: 0, maximum: 100 }
+        value_summary: { type: string, minLength: 1 }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        accepted_risk_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        blocker_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        risk_notes:
+          type: array
+          items: { type: string, minLength: 1 }
+        reasoning_memo:
+          $ref: '#/components/schemas/TopicSelectionV1bValueReasoningMemoDraft'
+
+    TopicSelectionV1bTopicValueGateResult:
+      type: object
+      additionalProperties: false
+      required: [gate_key, verdict, severity, overridable_with_risk, rationale, refs]
+      properties:
+        gate_key:
+          type: string
+          enum: [value_signal, non_solved_sanity, answerability_sanity, feasibility_sanity, evidence_sanity, claim_ceiling_fit]
+        verdict:
+          type: string
+          enum: [pass, pass_with_risk, fail]
+        severity:
+          type: string
+          enum: [info, warning, blocking]
+        overridable_with_risk: { type: boolean }
+        rationale: { type: string, minLength: 1 }
+        refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+
+    TopicSelectionV1bTopicValueDimensionScore:
+      type: object
+      additionalProperties: false
+      required: [dimension_key, score, rationale, evidence_refs, uncertainty]
+      properties:
+        dimension_key:
+          type: string
+          enum: [significance, originality, answerability, feasibility, claim_ceiling_fit, reviewer_risk, effort_to_value_fit, strategic_fit, negative_memory_check]
+        score: { type: number, minimum: 0, maximum: 100 }
+        rationale: { type: string, minLength: 1 }
+        evidence_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        uncertainty: { type: string, minLength: 1 }
+
+    TopicSelectionV1bValueReasoningMemoDraft:
+      type: object
+      additionalProperties: false
+      required:
+        - recommendation
+        - value_thesis
+        - significance
+        - originality
+        - claim_leverage
+        - reviewer_risks
+        - effort_to_value
+        - strategic_fit
+        - negative_memory_check
+        - evidence_backed_rationale
+        - top_objections
+        - uncertainty
+        - disposition_bridge
+        - requires_critic_review
+        - critic_triggers
+        - cited_refs
+      properties:
+        recommendation:
+          type: string
+          enum: [advance_to_package, refine_question, refine_slice, recheck_evidence_or_search, park, drop]
+        value_thesis: { type: string, minLength: 1 }
+        significance: { type: string, minLength: 1 }
+        originality: { type: string, minLength: 1 }
+        claim_leverage: { type: string, minLength: 1 }
+        reviewer_risks:
+          type: array
+          items: { type: string, minLength: 1 }
+        effort_to_value: { type: string, minLength: 1 }
+        strategic_fit: { type: string, minLength: 1 }
+        negative_memory_check: { type: string, minLength: 1 }
+        evidence_backed_rationale: { type: string, minLength: 1 }
+        top_objections:
+          type: array
+          items: { type: string, minLength: 1 }
+        uncertainty: { type: string, minLength: 1 }
+        disposition_bridge: { type: string, minLength: 1 }
+        requires_critic_review: { type: boolean }
+        critic_triggers:
+          type: array
+          items: { type: string, minLength: 1 }
+        cited_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
 
     TopicSelectionV1bTopicQuestionAnswerabilityPlanDraft:
       type: object

@@ -2356,6 +2356,135 @@ test('topic-selection v1b N6 Codex-assisted product route records runtime-verifi
   }
 });
 
+test('topic-selection v1b N8 Codex-assisted product route records runtime-verified draft and invokes the harness', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-n8-codex-product');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1 = await invokeV1bHarnessNode(app, v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix));
+    const profile = acceptedConstraintProfilePayload();
+    const n2 = await invokeV1bHarnessNode(
+      app,
+      v1bHarnessN2Request(bundleResult.v1bInputBundle, n1, suffix, profile),
+    );
+    const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+    const n4Input = v1bHarnessN4Request(n1, n2, n3, suffix);
+    const n4 = await invokeV1bHarnessNode(app, {
+      ...n4Input,
+      semantic_artifacts: [
+        await recordWorkflowHarnessSemanticArtifact(app, n4Input, {
+          slot_id: 'n4_research_slice_option_draft',
+          allowed_effect: 'model_draft_for_gate',
+          output_contract: 'ResearchSliceOptionSetDraft@v1',
+          profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent,
+        }, v1bHarnessN4Draft(bundleResult.v1bInputBundle) as unknown as Record<string, unknown>),
+      ],
+    });
+    const selectedOption = await selectedV1bHarnessOption(app, n4);
+    const n5 = await invokeV1bHarnessNode(
+      app,
+      v1bHarnessN5Request(n4, acceptedV1bHarnessSliceSelectionPayload(selectedOption), suffix),
+    );
+    const n6Input = await v1bHarnessN6Request(app, n5, suffix);
+    const n6 = await invokeV1bHarnessNode(app, {
+      ...n6Input,
+      semantic_artifacts: [
+        await recordWorkflowHarnessSemanticArtifact(app, n6Input, {
+          slot_id: 'n6_question_candidate_draft',
+          allowed_effect: 'model_draft_for_gate',
+          output_contract: 'TopicQuestionCandidateSetDraft@v1',
+          profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent,
+        }, v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown>),
+      ],
+    });
+    const n7 = await invokeV1bHarnessNode(app, await v1bHarnessN7Request(app, n6, suffix));
+    const request = await v1bHarnessN8Request(app, n7, suffix);
+    const routeUrl = `/topic-selection/v1b/workflow-harness/nodes/${encodeURIComponent(request.node_id)}/codex-assisted-invocations`;
+    const codexResponse = {
+      output: v1bHarnessN8ValueDraft(request),
+      operator_label: 'route-integration-codex',
+    };
+
+    const pendingCheckpointAttempt = await app.inject({
+      method: 'POST',
+      url: routeUrl,
+      payload: { request, codex_response: codexResponse },
+    });
+    assert.equal(pendingCheckpointAttempt.statusCode, 409);
+    assert.match(
+      (pendingCheckpointAttempt.json() as { error: { message: string } }).error.message,
+      /checkpoint.*advance|advance.*checkpoint/i,
+    );
+    const pendingArtifactResponse = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(request.workflow_run_id)}/artifacts`,
+    });
+    assertStatus(pendingArtifactResponse, 200);
+    const pendingArtifacts = pendingArtifactResponse.json() as {
+      items: Array<{ payload: Record<string, unknown> | null }>;
+    };
+    const pendingN8Payloads = JSON.stringify(
+      pendingArtifacts.items
+        .map((item) => item.payload)
+        .filter((payload) => JSON.stringify(payload).includes(request.node_attempt_id)),
+    );
+    assert.doesNotMatch(pendingN8Payloads, /TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket@v1/);
+
+    await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
+
+    const providerAttempt = await app.inject({
+      method: 'POST',
+      url: routeUrl,
+      payload: {
+        request: {
+          ...request,
+          execution_spec: { execution_mode: 'provider_llm', model_option_id: 'forbidden-provider-option' },
+        },
+        codex_response: codexResponse,
+      },
+    });
+    assert.equal(providerAttempt.statusCode, 400);
+    assert.match(
+      (providerAttempt.json() as { error: { message: string } }).error.message,
+      /does not accept provider or mocked execution/,
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: routeUrl,
+      payload: { request, codex_response: codexResponse },
+    });
+    assertStatus(response, 201);
+    const result = response.json() as WorkflowHarnessHttpResult;
+    assert.ok(
+      result.gate_status === 'admitted' || result.gate_status === 'admitted_with_warnings',
+      JSON.stringify(result),
+    );
+    assert.equal(result.authority_ref?.ref_type, 'topic_value_assessment');
+    assert.equal(result.handoff_ref?.ref_type, 'artifact_ref');
+
+    const artifactResponse = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(request.workflow_run_id)}/artifacts`,
+    });
+    assertStatus(artifactResponse, 200);
+    const artifacts = artifactResponse.json() as { items: Array<{ payload: Record<string, unknown> | null }> };
+    const n8Payloads = JSON.stringify(
+      artifacts.items
+        .map((item) => item.payload)
+        .filter((payload) => JSON.stringify(payload).includes(request.node_attempt_id)),
+    );
+    assert.match(n8Payloads, /"execution_mode":"codex_assisted"/);
+    assert.match(n8Payloads, /"run_mode":"product"/);
+    assert.match(n8Payloads, /TopicSelectionV1bN8ValueAssessmentRuntimeContextPacket@v1/);
+    assert.doesNotMatch(n8Payloads, /fixture_replay/);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice through the harness', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

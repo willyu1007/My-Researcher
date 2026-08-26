@@ -938,6 +938,97 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
   }
 
+  /**
+   * Product HTTP bridge for the initial N8 non-authority value draft. The current question
+   * checkpoint is rechecked before the runtime records artifacts; the route then pins
+   * product/Codex provenance and submits the runtime_verified draft to the existing N8 gate.
+   */
+  async invokeN8CodexAssisted(input: {
+    request: TopicSelectionV1bWorkflowHarnessRunRequest;
+    codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicValueAssessmentDraftPayload>;
+  }): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const nodeId = 'topic-selection.v1b.assess-topic-value.v1' as const;
+    const profileId = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_value_assessment_single_agent;
+    if (input.request.node_id !== nodeId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N8 route only accepts the topic-value assessment node.');
+    }
+    if (input.request.semantic_artifacts && input.request.semantic_artifacts.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N8 route records its own runtime-verified semantic artifact.');
+    }
+    if (input.request.run_mode && input.request.run_mode !== 'product') {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N8 route is product-mode only.');
+    }
+    if (input.request.profile_id && input.request.profile_id !== profileId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N8 route pins the configured topic-value assessment profile.');
+    }
+    if (
+      input.request.execution_spec
+      && (
+        input.request.execution_spec.execution_mode !== 'codex_assisted'
+        || input.request.execution_spec.model_option_id != null
+      )
+    ) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N8 route does not accept provider or mocked execution.');
+    }
+
+    const request: TopicSelectionV1bWorkflowHarnessRunRequest = {
+      ...input.request,
+      execution_spec: { execution_mode: 'codex_assisted', model_option_id: null },
+      profile_id: profileId,
+      run_mode: 'product',
+      semantic_artifacts: [],
+    };
+    this.assertRequest(request);
+    const dependencyBlocker = this.runnerDependencyBlocker(nodeId);
+    if (dependencyBlocker) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', dependencyBlocker.message, {
+        blocker_code: dependencyBlocker.code,
+      });
+    }
+    const payload = parseN8Payload(request.frozen_input.payload);
+    if (!payload.ok) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', payload.message, {
+        blocker_code: payload.code,
+      });
+    }
+    const titleCardId = payload.value.topic_question_contract_ref.title_card_id;
+    if (!titleCardId) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'N8 TopicQuestionContract ref must carry its TitleCard owner.', {
+        blocker_code: 'N8_TOPIC_QUESTION_CONTRACT_TITLE_CARD_REQUIRED',
+      });
+    }
+    await this.runnerDependencies.researchCheckpointService!.assertTransitionAllowed({
+      title_card_id: titleCardId,
+      checkpoint_kind: 'question_contract',
+      target_ref: payload.value.topic_question_contract_ref,
+    });
+
+    const generated = await this.n8ValueAssessmentRuntime.generateDraftArtifact({
+      request,
+      execution_mode: 'codex_assisted',
+      run_mode: 'product',
+      codex_response: input.codex_response,
+      created_by: request.created_by ?? 'system',
+    });
+    if (generated.status !== 'succeeded') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'The Codex-assisted N8 runtime did not produce an admissible topic-value assessment draft.',
+        {
+          blocker_codes: generated.invocation_result.blocker_codes,
+          context_packet_ref: generated.context_packet_ref,
+          context_packet_hash: generated.context_packet_hash,
+          error_code: generated.invocation_result.error_code,
+        },
+      );
+    }
+    return this.invokeNode({
+      ...request,
+      semantic_artifacts: [generated.semantic_artifact],
+    });
+  }
+
   private async prepareN6Context(
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
   ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
