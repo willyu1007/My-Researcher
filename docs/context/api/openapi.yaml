@@ -4846,6 +4846,13 @@ paths:
           schema:
             type: string
             minLength: 1
+        - name: X-Coordinator-Attempt-Nonce
+          in: header
+          required: false
+          description: Stable caller key that rejects a duplicate accepted human submission for the same workflow run.
+          schema:
+            type: string
+            minLength: 1
       requestBody:
         required: true
         content:
@@ -5018,6 +5025,13 @@ paths:
         - name: optionSetId
           in: path
           required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: X-Coordinator-Attempt-Nonce
+          in: header
+          required: false
+          description: Stable caller key that rejects a duplicate accepted human submission for the same workflow run.
           schema:
             type: string
             minLength: 1

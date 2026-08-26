@@ -49,6 +49,7 @@ test('v1b human N2 constraint-profile runtime route is fully documented in OpenA
   );
   assert.match(operationBlock, /TopicSelectionV1bHumanConstraintProfileRequest/);
   assert.match(operationBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationResult/);
+  assert.match(operationBlock, /name: X-Coordinator-Attempt-Nonce/);
   assert.match(operationBlock, /'400':\n\s+\$ref: '#\/components\/responses\/BadRequest'/);
 
   const requestBlock = extractSchemaBlock(
@@ -88,6 +89,7 @@ test('v1b human N5 slice-selection runtime route is fully documented in OpenAPI'
   );
   assert.match(operationBlock, /TopicSelectionV1bHumanSliceSelectionRequest/);
   assert.match(operationBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationResult/);
+  assert.match(operationBlock, /name: X-Coordinator-Attempt-Nonce/);
   assert.match(operationBlock, /'400':\n\s+\$ref: '#\/components\/responses\/BadRequest'/);
 
   const requestBlock = extractSchemaBlock(
