@@ -22,13 +22,19 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | SearchRun | `search_run_ecb3af74-b586-4c57-95c8-b1b357f01896` |
 | EvidenceMap | `evidence_map_92ba546b-f11c-4c45-8149-1556f3f41809` |
 | EvidenceStrengthAssessment | `evidence_strength_2afa16e8-6b19-4679-b6ef-9c596d0ea699` (`mixed`, confidence `0.45`) |
-| Current ResearchCheckpoint | `research_checkpoint_34e5f6c2-8161-450d-a7a7-49be24512b14` |
-| Target snapshot hash | `1fcdda990a345e847db69bebd14f87d3747629a10b3f257f1d8873f6fe3aee73` |
-| Packet result | `eligible_for_human_review`; no policy issues; no open objections |
+| Evidence ResearchCheckpoint | `research_checkpoint_34e5f6c2-8161-450d-a7a7-49be24512b14` |
+| Evidence target snapshot hash | `1fcdda990a345e847db69bebd14f87d3747629a10b3f257f1d8873f6fe3aee73` |
+| Evidence packet result | `eligible_for_human_review`; no policy issues; no open objections |
 | ResearchCheckpointDecision | `research_checkpoint_decision_26f6989c-67d1-4ed6-8f02-a01ed95939c9` (`advance`) |
 | HumanConfirmedDecision | `human_decision_3a12f9ae-15b0-43ab-ba58-c15d5d65c8fd` |
 | Decision key / actor | `t147-a9-neg-evidence-advance-1fcdda99-v1` / `human:yurui` |
-| Current projection | evidence decided; `gap_selection` required; `topic-selection.research.generate-need-candidates` authorized |
+| Primary NeedCandidate | `need_candidate_cebfe499-d4d0-4b1c-872e-a0b52354094d` / `t147-a9-neg-fixed-depth-primary-v1` |
+| Reworded NeedCandidate | `need_candidate_81345c16-ecff-4911-bd91-7a595ae50476` / `t147-a9-neg-fixed-depth-reword-v1` |
+| Candidate semantic groups | both `db876292ef9d60b4cca29351c05a9d7d0dd6bd0ab598ecab0b1633bb5d8dd4a9` |
+| Current gap ResearchCheckpoint | `research_checkpoint_c5f4af13-ab65-4998-ab38-a681702dccaf` |
+| Gap target snapshot hash | `703f7f57470172223a6e4e9ac38320e414a087137f1337083edcec37ef5beb8c` |
+| Gap packet hash | `e805c8a3856193de32d5fa43de930d0f005062c226aa95110bd11fbd6a13802a` |
+| Current projection | `loopback_required`; only `GENUINELY_DISTINCT_ALTERNATIVE_REQUIRED`; one required action; allowed `hold`, `loopback`, `reject`; no `advance` |
 
 ## Positive lineage — uncertainty-conditioned allocation
 
@@ -41,16 +47,21 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | SearchRun | `search_run_1a19b9a5-b1c0-4b7a-952b-a58323926d09` |
 | EvidenceMap | `evidence_map_15a7c143-a26a-4059-98f7-9c9d8f2b71b8` |
 | EvidenceStrengthAssessment | `evidence_strength_b2f896b0-199d-456b-b101-9894987984bf` (`mixed`, confidence `0.45`) |
-| Current ResearchCheckpoint | `research_checkpoint_97040836-ea54-44fb-a34f-61a4c89879e8` |
-| Target snapshot hash | `e0bb98d25dc6848337f5b7e75758a5ab582bfe82b1961a83b5104d99a585dc5e` |
-| Packet result | `eligible_for_human_review`; no policy issues; no open objections |
+| Evidence ResearchCheckpoint | `research_checkpoint_97040836-ea54-44fb-a34f-61a4c89879e8` |
+| Evidence target snapshot hash | `e0bb98d25dc6848337f5b7e75758a5ab582bfe82b1961a83b5104d99a585dc5e` |
+| Evidence packet result | `eligible_for_human_review`; no policy issues; no open objections |
 | ResearchCheckpointDecision | `research_checkpoint_decision_4f660942-b4fc-4b54-90df-c9d44af4e55b` (`advance`) |
 | HumanConfirmedDecision | `human_decision_a4bb710b-8ceb-4684-80fb-20ff051239d1` |
 | Decision key / actor | `t147-a9-pos-evidence-advance-e0bb98d2-v1` / `human:yurui` |
-| Current projection | evidence decided; `gap_selection` required; `topic-selection.research.generate-need-candidates` authorized |
+| Uncertainty-allocation NeedCandidate | `need_candidate_afd352f0-047c-4ec2-93f9-130f8ba7416b` / `t147-a9-pos-uncertainty-allocation-v1`; semantic group `2cbeaad166b18557cf680367613ab8b23869df8f85e1dec51e90a400d0ef31eb` |
+| Adaptive-ranking NeedCandidate | `need_candidate_59da9bc1-8066-4211-b0b1-f74ffeffbfb3` / `t147-a9-pos-adaptive-ranking-v1`; semantic group `5275de8b9ad6a1d18fff5a3dcf81f989eb3fdffb59d4d9b12c6ca95d48d502ec` |
+| Current gap ResearchCheckpoint | `research_checkpoint_36c4ad76-6a0c-4dcd-bcf9-ab326f893bd5` |
+| Gap target snapshot hash | `699cc0f155358f173f45c0c38558398214b834c52076a58443fe10fc8874f5a5` |
+| Gap packet hash | `11b422de126557fe01e4359ca35b78bc42234b96be4183962fb08fc8b9b616e4` |
+| Current projection | `eligible_for_human_review`; no policy issues, required actions, or objections; allowed `advance`, `hold`, `loopback`, `reject` |
 
 ## Resume guard
 
-The two evidence decisions above are complete and idempotently keyed. Before candidate generation, re-read each TitleCard's `/research-status` and continue only while it advertises `topic-selection.research.generate-need-candidates`. Preserve the negative and positive semantic roles when constructing the candidate arenas: the negative must retain its parameter-only novelty limitation, while the positive must retain its direct-neighbor, matched-budget, and base-model-robustness constraints. Stop again before the strict-human gap authority.
+The two evidence decisions above are complete and idempotently keyed, and both candidate arenas are now materialized through canonical APIs. Preserve the negative arena as a non-advancing control. Resume the positive lineage only after re-reading its `/research-status`, confirming the current gap checkpoint and hashes above are unchanged, and obtaining the user's exact strict-human selection/disposition over both candidates. Do not infer that decision from machine eligibility.
 
 Two rejected request attempts produced no owner state: a SearchRun used an invalid `manual_selection` binding kind before the coverage matrix was re-read as empty, and an EvidenceMap included an unbound section ref before the title-card EvidenceMap list was re-read as empty. The successful owners above use `manual_source` bindings and SearchRun-bound fulltext paragraph refs.
