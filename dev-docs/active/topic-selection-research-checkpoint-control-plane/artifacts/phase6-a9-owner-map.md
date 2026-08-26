@@ -58,7 +58,7 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Selected-candidate readiness | `need_readiness_17887e0e-9dd6-442e-b73f-a79a658395d9`; `ready_for_validation`; zero blockers/warnings/actions; 2 support / 1 challenge / 0 abstract-only support / 0 strong unresolved challenge |
 | Current validation support packet | `validation_packet_3fb847c6-4cda-4ffe-99ab-01c3d7236210`; `ready`; five required human checks; zero residual risks and open gap codes |
 | Preparation action keys | `t147-a9-pos-gap-readiness-v1`; `t147-a9-pos-validation-support-v1` |
-| Current human authorization | Exact current-packet HumanConfirmNeed and N2 constraint-profile acceptance recorded; N5 ResearchSlice choice is pending exact researcher review |
+| Current human authorization | Exact current-packet HumanConfirmNeed, N2 constraint-profile acceptance, and N5 option A selection recorded; N7 question-checkpoint disposition is pending exact researcher review |
 | Current gap ResearchCheckpoint | `research_checkpoint_36c4ad76-6a0c-4dcd-bcf9-ab326f893bd5` |
 | Gap target snapshot hash | `699cc0f155358f173f45c0c38558398214b834c52076a58443fe10fc8874f5a5` |
 | Gap packet hash | `11b422de126557fe01e4359ca35b78bc42234b96be4183962fb08fc8b9b616e4` |
@@ -83,10 +83,26 @@ This file preserves the exact live-API owner lineage needed to resume the fresh 
 | Alternative options | `research_slice_option_798bfe0c-9e68-44d2-9656-15e53b5f730f` / `uncertainty_triggered_selective_retrieval`; `research_slice_option_9d5e69f9-ac62-441f-8519-18449d05af41` / `uncertainty_feedback_sequential_retrieval` |
 | N4 authority / handoff | `1f09c01142a06d694c07fc86da1b4ad08793085298fe5ddc59071a954cd14c36` / `artifact_ref_676eaade-221b-446e-af8a-6a50957407af` (`0f9bd3e9d34a4676c35746bdae0a2c9ce95f6d0706a2b38029b72eeeba820e22`) |
 | N4 runtime audit | `artifact_ref_a9606d80-1a50-4b99-a93a-e0bbd6c6a00c`; `non_provider=true`; source `codex_response`; operator `codex-t147-a9-n4-slice-options-v1` |
-| Current v1b frontier | `topic-selection.v1b.select-research-slice.v1`; strict-human N5; exact option choice pending, no ResearchSlice written |
+| N5 human attempt | `node_attempt_v1b_n5_human_90ae1b5a-047f-494d-a1eb-ee52e8099e8d`; actor `human:yurui`; selected option A |
+| ResearchSlice selection | `slice_selection_decision_c5ee77b3-8dc6-468a-9d70-20da6e6134a4`; selected option hash `69dabd73494b565a24c4165ce1c95a87c9a84dd1bb42269c2047dd053e180c76` |
+| ResearchSlice | `research_slice_b588bfa5-839a-48f1-afe5-1834820a9896` / `v_b588bfa5-839a-48f1-afe5-1834820a9896`; hash `838144b087b4fff9c84c2153338e0ddc08a56e51efda5f032f8765673289f6f3` |
+| N5 authority / handoff | `3c1cbec546f6dfbcae2bedfc801f73175edd61cab37616bdb96602b13c305c36` / `artifact_ref_57491a50-7786-489e-aa74-f25a6da8de8c` (`367de06bbd45e1735c692446d45ea289917dcf180709367892fc973ea45bc7b1`) |
+| N6 product attempt | `node_attempt_t147_a9_pos_v1b_n6_v1`; non-provider `codex_assisted` / `product`; `admitted_with_warnings`; no blockers |
+| TopicQuestionCandidateSet | `topic_question_candidate_set_3d33bd98-1a34-46bc-aa3e-135b97596698`; `ready_for_selection`; three bounded candidates |
+| Recommended question candidate | `topic_question_candidate_4ce6c565-6a19-471b-920e-f511ec19e89a` / `matched_budget_tri_level_frontier`; hash `2a2a27e75c0db90ce6907b2cdc0b22771d7baae0ca9d22612097ffef6aa327aa` |
+| Alternative question candidates | `topic_question_candidate_8e4af7b4-423a-41de-a26c-2a5b40236213` / `marginal_retrieval_utility_identification`; `topic_question_candidate_9eb2a474-bcdf-4025-ba9b-b484ce82362b` / `model_strength_subgroup_failure_boundaries` |
+| N6 authority / handoff | `890b408d14e30fdc8a8d900c226811015b237ea3ffb777f9aadd66aacfa157d9` / `artifact_ref_572363de-81f8-4c3a-8e8e-b6bd83bcd6b6` (`384bb3137c78d6c921fa91fe735b560318cdf0443faca50664b376e2f8701b5e`) |
+| N6 runtime audit | `artifact_ref_dacffb2e-aa18-4cd4-955d-a37b3fc9420d`; `non_provider=true`; `run_mode=product`; `executor_kind=codex_assisted`; operator `codex-t147-a9-n6-topic-questions-v1` |
+| N7 deterministic attempt | `node_attempt_t147_a9_pos_v1b_n7_v1`; `admitted_with_warnings`; no blockers; active candidate is the recommended matched-budget frontier |
+| TopicQuestion / AnswerabilityPlan | `topic_question_12eabe3e-f385-4a74-9dc7-9e885033d23a` / `topic_question_answerability_plan_63e7e00c-5eec-49ba-b662-84f5a6db48a9` |
+| TopicQuestionContract | `topic_question_contract_9a1aaa47-6931-4eb6-83e1-08be9e8d6d56` / `v_9a1aaa47-6931-4eb6-83e1-08be9e8d6d56`; authority hash `016d0de79af690007b646908a2ffa86a382dff851f93ae724f84eab7ad719140` |
+| N7 handoff | `artifact_ref_25ed6845-407e-47bd-bdf7-5e2c50a8a15c` / `000f14b5377a1e189e060fd35e5c136b1d5b66585366b0e5a49770f0c1032544` |
+| Pending question ResearchCheckpoint | `research_checkpoint_df82d263-8a1d-4399-893f-f7b8ea4ed12e`; target snapshot `c3503610a75eb7a2f6cf413238c7f576d5420285fa4a32445a862cebc4b07cd4`; packet `7812de502b8a9165a970e7194f16054e38945498781a5560918c6a233093a70b` |
+| Question checkpoint state | `eligible_for_human_review`; allowed `advance`, `hold`, `loopback`, `reject`; no policy issues, required actions, boundary violations, or open objections |
+| Current v1b frontier | strict-human question checkpoint after N7; N8 has zero attempts and no value-assessment/provider work has begun |
 
 ## Resume guard
 
-The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is now a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. N2 and deterministic N3 are complete. N4 used the product-only Codex-assisted HTTP bridge and persisted three mechanism-distinct options with non-provider provenance. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read the run and option-set owners, obtain the researcher's exact N5 option choice, submit it once through the documented human route, then recover the ResearchSlice authority, handoff, and route state before continuing.
+The two evidence decisions above are complete and idempotently keyed, both candidate arenas are materialized, and the selected positive candidate is a human-confirmed ValidatedNeed with a decided gap checkpoint. Preserve the negative arena as a non-advancing control. N2 through N7 are complete: N4 and N6 used the product-only Codex-assisted HTTP bridge with non-provider provenance, N5 records exact option A authority, and deterministic N7 owns the current TopicQuestionContract. Resume v1b from `workflow_run_t147_a9_pos_v1b_v1`: re-read research status and question-checkpoint packet, obtain the researcher's exact `advance`, `hold`, `loopback`, or `reject` decision for snapshot `c3503610...7cd4`, and do not start N8 until an advancing decision includes all required semantic review confirmations.
 
 Two rejected request attempts produced no owner state: a SearchRun used an invalid `manual_selection` binding kind before the coverage matrix was re-read as empty, and an EvidenceMap included an unbound section ref before the title-card EvidenceMap list was re-read as empty. The successful owners above use `manual_source` bindings and SearchRun-bound fulltext paragraph refs.
