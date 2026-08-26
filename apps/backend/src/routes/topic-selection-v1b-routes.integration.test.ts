@@ -2201,6 +2201,75 @@ test('topic-selection v1b workflow harness HTTP route drives N1-N11 without lega
   }
 });
 
+test('topic-selection v1b N4 Codex-assisted product route records runtime-verified draft and invokes the harness', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const suffix = uniqueId('v1b-n4-codex-product');
+    const bundleResult = await createV1bInputBundle(app, suffix);
+    const n1 = await invokeV1bHarnessNode(app, v1bHarnessN1Request(bundleResult.v1bInputBundle, suffix));
+    const profile = acceptedConstraintProfilePayload();
+    const n2 = await invokeV1bHarnessNode(
+      app,
+      v1bHarnessN2Request(bundleResult.v1bInputBundle, n1, suffix, profile),
+    );
+    const n3 = await invokeV1bHarnessNode(app, v1bHarnessN3Request(n1, n2, suffix));
+    const request = v1bHarnessN4Request(n1, n2, n3, suffix);
+    assert.ok(n1.authority_ref && n2.authority_ref && n3.authority_ref);
+    const routeUrl = `/topic-selection/v1b/workflow-harness/nodes/${encodeURIComponent(request.node_id)}/codex-assisted-invocations`;
+    const codexResponse = {
+      output: v1bHarnessN4Draft(bundleResult.v1bInputBundle),
+      operator_label: 'route-integration-codex',
+    };
+
+    const providerAttempt = await app.inject({
+      method: 'POST',
+      url: routeUrl,
+      payload: {
+        request: {
+          ...request,
+          execution_spec: { execution_mode: 'provider_llm', model_option_id: 'forbidden-provider-option' },
+        },
+        codex_response: codexResponse,
+      },
+    });
+    assert.equal(providerAttempt.statusCode, 400);
+    assert.match(
+      (providerAttempt.json() as { error: { message: string } }).error.message,
+      /does not accept provider or mocked execution/,
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: routeUrl,
+      payload: {
+        request,
+        codex_response: codexResponse,
+      },
+    });
+    assertStatus(response, 201);
+    const result = response.json() as WorkflowHarnessHttpResult;
+    assert.equal(result.gate_status, 'admitted', JSON.stringify(result));
+    assert.equal(result.authority_ref?.ref_type, 'research_slice_option_set');
+    assert.equal(result.handoff_ref?.ref_type, 'artifact_ref');
+
+    const artifactResponse = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(request.workflow_run_id)}/artifacts`,
+    });
+    assertStatus(artifactResponse, 200);
+    const artifacts = artifactResponse.json() as { items: Array<{ payload: Record<string, unknown> | null }> };
+    const recordedPayloads = JSON.stringify(artifacts.items.map((item) => item.payload));
+    assert.match(recordedPayloads, /\"execution_mode\":\"codex_assisted\"/);
+    assert.match(recordedPayloads, /\"run_mode\":\"product\"/);
+    assert.match(recordedPayloads, /TopicSelectionV1bN4ResearchSliceRuntimeContextPacket@v1/);
+    assert.doesNotMatch(recordedPayloads, /fixture_replay/);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b human N5 selection (T-115) produces a ResearchSlice through the harness', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

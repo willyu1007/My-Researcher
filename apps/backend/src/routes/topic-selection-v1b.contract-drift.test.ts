@@ -102,3 +102,41 @@ test('v1b human N5 slice-selection runtime route is fully documented in OpenAPI'
   assert.match(requestBlock, /required_actions/);
   assert.match(requestBlock, /accepted_risk_refs/);
 });
+
+test('v1b N4 Codex-assisted product runtime route is fully documented in OpenAPI', () => {
+  const routeSource = fs.readFileSync(routePath, 'utf8');
+  const openapiSource = fs.readFileSync(openapiPath, 'utf8');
+
+  assert.match(
+    routeSource,
+    /\/topic-selection\/v1b\/workflow-harness\/nodes\/:nodeId\/codex-assisted-invocations/,
+  );
+  assert.match(
+    openapiSource,
+    /\/topic-selection\/v1b\/workflow-harness\/nodes\/\{nodeId\}\/codex-assisted-invocations:/,
+  );
+
+  const operationBlock = extractOperationBlock(
+    openapiSource,
+    'invokeTopicSelectionV1bN4CodexAssisted',
+  );
+  assert.match(operationBlock, /TopicSelectionV1bN4CodexAssistedInvocationRequest/);
+  assert.match(operationBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationResult/);
+  assert.match(operationBlock, /'400':\n\s+\$ref: '#\/components\/responses\/BadRequest'/);
+  assert.match(operationBlock, /'409':\n\s+\$ref: '#\/components\/responses\/Conflict'/);
+
+  const requestBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN4CodexAssistedInvocationRequest',
+  );
+  assert.match(requestBlock, /required: \[request, codex_response\]/);
+  assert.match(requestBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationRequest/);
+  assert.match(requestBlock, /TopicSelectionV1bN4CodexAssistedResponse/);
+
+  const responseBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionV1bN4CodexAssistedResponse',
+  );
+  assert.match(responseBlock, /required: \[output, operator_label\]/);
+  assert.match(responseBlock, /TopicSelectionV1bResearchSliceOptionSetDraft/);
+});

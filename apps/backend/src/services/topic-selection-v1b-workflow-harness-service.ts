@@ -29,6 +29,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import type {
   TopicSelectionResearchConstraintProfileRecord,
+  TopicSelectionV1bIntakeReadinessAssessmentRecord,
   TopicSelectionV1bIntakeReadinessRecommendation,
   TopicSelectionV1bIntakeSnapshotRecord,
   TopicSelectionV1bResearchSlicePlanningInput,
@@ -178,6 +179,7 @@ import {
   type TopicSelectionV1bN4ResearchSliceAdmissionExpectedIdentity,
 } from './topic-selection-v1b-n4-research-slice-admission-service.js';
 import { TopicSelectionV1bN4ResearchSliceRuntimeService } from './topic-selection-v1b-n4-research-slice-runtime-service.js';
+import type { TopicSelectionCodexAssistedAgentOutput } from './topic-selection-agent-orchestrator-service.js';
 import {
   TopicSelectionV1bEarlySemanticSupportAdmissionService,
   type TopicSelectionV1bEarlySemanticSupportSlotId,
@@ -513,6 +515,17 @@ type N4DraftResolution = {
   semanticArtifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
 };
 
+type N4PreparedContext = {
+  payload: TopicSelectionV1bN4HarnessFrozenInputPayload;
+  snapshot: TopicSelectionV1bIntakeSnapshotRecord;
+  profile: TopicSelectionResearchConstraintProfileRecord;
+  readiness: TopicSelectionV1bIntakeReadinessAssessmentRecord;
+  snapshotHash: string;
+  profileHash: string;
+  readinessHash: string;
+  planningInput: TopicSelectionV1bResearchSlicePlanningInput;
+};
+
 type N5LoadedOptionSet = {
   optionSet: TopicSelectionResearchSliceOptionSetRecord;
   options: TopicSelectionResearchSliceOptionRecord[];
@@ -775,6 +788,145 @@ export class TopicSelectionV1bWorkflowHarnessService {
       throw new AppError(400, 'INVALID_PAYLOAD', `Unknown v1b workflow harness node_id: ${nodeId}.`);
     }
     return policy;
+  }
+
+  /**
+   * Product HTTP bridge for the N4 non-authority draft. The service rebuilds the planning input from
+   * frozen N1/N2/N3 owners, pins product/codex runtime identity, records runtime_verified provenance,
+   * then submits the exact Codex response artifact to the deterministic gate.
+   */
+  async invokeN4CodexAssisted(input: {
+    request: TopicSelectionV1bWorkflowHarnessRunRequest;
+    codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bResearchSliceOptionSetDraftPayload>;
+  }): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const nodeId = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
+    const profileId = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent;
+    if (input.request.node_id !== nodeId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N4 route only accepts the research-slice option node.');
+    }
+    if (input.request.semantic_artifacts && input.request.semantic_artifacts.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N4 route records its own runtime-verified semantic artifact.');
+    }
+    if (input.request.run_mode && input.request.run_mode !== 'product') {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N4 route is product-mode only.');
+    }
+    if (input.request.profile_id && input.request.profile_id !== profileId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N4 route pins the configured N4 research-slice profile.');
+    }
+    if (
+      input.request.execution_spec
+      && (
+        input.request.execution_spec.execution_mode !== 'codex_assisted'
+        || input.request.execution_spec.model_option_id != null
+      )
+    ) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The Codex-assisted N4 route does not accept provider or mocked execution.');
+    }
+
+    const request: TopicSelectionV1bWorkflowHarnessRunRequest = {
+      ...input.request,
+      execution_spec: { execution_mode: 'codex_assisted', model_option_id: null },
+      profile_id: profileId,
+      run_mode: 'product',
+      semantic_artifacts: [],
+    };
+    this.assertRequest(request);
+    const prepared = await this.prepareN4Context(request);
+    if (!prepared.ok) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', prepared.message, {
+        blocker_code: prepared.code,
+      });
+    }
+    const generated = await this.n4ResearchSliceRuntime.generateDraftArtifact({
+      request,
+      planning_input: prepared.value.planningInput,
+      execution_mode: 'codex_assisted',
+      run_mode: 'product',
+      codex_response: input.codex_response,
+      created_by: request.created_by ?? 'system',
+    });
+    if (generated.status !== 'succeeded') {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'The Codex-assisted N4 runtime did not produce an admissible research-slice draft.',
+        {
+          blocker_codes: generated.invocation_result.blocker_codes,
+          context_packet_ref: generated.context_packet_ref,
+          context_packet_hash: generated.context_packet_hash,
+          error_code: generated.invocation_result.error_code,
+        },
+      );
+    }
+    return this.invokeNode({
+      ...request,
+      semantic_artifacts: [generated.semantic_artifact],
+    });
+  }
+
+  private async prepareN4Context(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<
+    | { ok: true; value: N4PreparedContext }
+    | { ok: false; code: string; message: string }
+  > {
+    const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
+    if (dependencyBlocker) {
+      return { ok: false, code: dependencyBlocker.code, message: dependencyBlocker.message };
+    }
+    const payload = parseN4Payload(input.frozen_input.payload);
+    if (!payload.ok) {
+      return payload;
+    }
+
+    const v1bRepository = this.runnerDependencies.v1bIntakeRepository!;
+    const [snapshot, profile, readiness] = await Promise.all([
+      v1bRepository.findIntakeSnapshotById(payload.value.intake_snapshot_ref.ref_id),
+      v1bRepository.findResearchConstraintProfileById(payload.value.constraint_profile_ref.ref_id),
+      v1bRepository.findReadinessAssessmentById(payload.value.intake_readiness_ref.ref_id),
+    ]);
+    if (!snapshot || !profile || !readiness) {
+      return {
+        ok: false,
+        code: 'N4_FROZEN_AUTHORITY_NOT_FOUND',
+        message: 'N4 requires frozen N1 snapshot, N2 constraint profile, and N3 readiness authorities.',
+      };
+    }
+    const snapshotHash = hashSnapshotAuthority(snapshot);
+    const profileHash = hashProfileAuthority(profile);
+    const readinessHash = hashReadinessAuthority(readiness, {
+      constraintProfileHash: profileHash,
+      n2HandoffHash: payload.value.n2_handoff_hash,
+      snapshotHash,
+    });
+    const lineageBlocker = n4LineageBlocker(payload.value, snapshot, profile, readiness, {
+      profileHash,
+      readinessHash,
+      snapshotHash,
+    });
+    if (lineageBlocker) {
+      return { ok: false, code: lineageBlocker.code, message: lineageBlocker.message };
+    }
+    if (readiness.recommendation !== 'ready_for_slice' || readiness.blockers.length > 0) {
+      return {
+        ok: false,
+        code: 'N4_UPSTREAM_NOT_READY',
+        message: 'N4 can only generate ResearchSlice options from an N3 ready_for_slice handoff.',
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        payload: payload.value,
+        snapshot,
+        profile,
+        readiness,
+        snapshotHash,
+        profileHash,
+        readinessHash,
+        planningInput: buildN4PlanningInput(snapshot, profile, readiness),
+      },
+    };
   }
 
   async invokeNode(
@@ -2462,61 +2614,25 @@ export class TopicSelectionV1bWorkflowHarnessService {
     input: TopicSelectionV1bWorkflowHarnessRunRequest,
     hashContext: HashContext,
   ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
-    const dependencyBlocker = this.runnerDependencyBlocker(input.node_id);
-    if (dependencyBlocker) {
+    const prepared = await this.prepareN4Context(input);
+    if (!prepared.ok) {
       return this.persistBlockedResult(input, hashContext, {
-        blockerCode: dependencyBlocker.code,
-        message: dependencyBlocker.message,
+        blockerCode: prepared.code,
+        message: prepared.message,
       });
     }
-    const payload = parseN4Payload(input.frozen_input.payload);
-    if (!payload.ok) {
-      return this.persistBlockedResult(input, hashContext, {
-        blockerCode: payload.code,
-        message: payload.message,
-      });
-    }
-
-    const v1bRepository = this.runnerDependencies.v1bIntakeRepository!;
-    const researchSliceRepository = this.runnerDependencies.researchSliceRepository!;
-    const [snapshot, profile, readiness] = await Promise.all([
-      v1bRepository.findIntakeSnapshotById(payload.value.intake_snapshot_ref.ref_id),
-      v1bRepository.findResearchConstraintProfileById(payload.value.constraint_profile_ref.ref_id),
-      v1bRepository.findReadinessAssessmentById(payload.value.intake_readiness_ref.ref_id),
-    ]);
-    if (!snapshot || !profile || !readiness) {
-      return this.persistBlockedResult(input, hashContext, {
-        blockerCode: 'N4_FROZEN_AUTHORITY_NOT_FOUND',
-        message: 'N4 requires frozen N1 snapshot, N2 constraint profile, and N3 readiness authorities.',
-      });
-    }
-    const snapshotHash = hashSnapshotAuthority(snapshot);
-    const profileHash = hashProfileAuthority(profile);
-    const readinessHash = hashReadinessAuthority(readiness, {
-      constraintProfileHash: profileHash,
-      n2HandoffHash: payload.value.n2_handoff_hash,
+    const {
+      payload,
+      snapshot,
+      profile,
+      readiness,
       snapshotHash,
-    });
-    const lineageBlocker = n4LineageBlocker(payload.value, snapshot, profile, readiness, {
       profileHash,
       readinessHash,
-      snapshotHash,
-    });
-    if (lineageBlocker) {
-      return this.persistBlockedResult(input, hashContext, {
-        blockerCode: lineageBlocker.code,
-        message: lineageBlocker.message,
-      });
-    }
-    if (readiness.recommendation !== 'ready_for_slice' || readiness.blockers.length > 0) {
-      return this.persistBlockedResult(input, hashContext, {
-        blockerCode: 'N4_UPSTREAM_NOT_READY',
-        message: 'N4 can only generate ResearchSlice options from an N3 ready_for_slice handoff.',
-      });
-    }
-
-    const planningInput = buildN4PlanningInput(snapshot, profile, readiness);
-    const draftResolution = await this.resolveN4DraftPayload(input, payload.value, planningInput);
+      planningInput,
+    } = prepared.value;
+    const researchSliceRepository = this.runnerDependencies.researchSliceRepository!;
+    const draftResolution = await this.resolveN4DraftPayload(input, payload, planningInput);
     if (!draftResolution.ok) {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: draftResolution.code,
@@ -2546,7 +2662,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const authorityHash = canonicalHash({
       draft_hash: resolvedDraft.draftHash,
       intake_readiness_hash: readinessHash,
-      n3_handoff_hash: payload.value.n3_handoff_hash,
+      n3_handoff_hash: payload.n3_handoff_hash,
       option_keys: validation.value.options.map((option) => option.option_key),
       option_set_ref: optionSetRef,
       plan_run_ref: planRunRef,
@@ -2585,7 +2701,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         constraint_profile_hash: profileHash,
         draft_hash: resolvedDraft.draftHash,
         intake_readiness_hash: readinessHash,
-        n3_handoff_hash: payload.value.n3_handoff_hash,
+        n3_handoff_hash: payload.n3_handoff_hash,
         snapshot_hash: snapshotHash,
       }),
       warningCodes: validation.value.warnings.map((warning) => warning.code),
@@ -2690,7 +2806,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
             constraint_profile_hash: profileHash,
             draft_hash: resolvedDraft.draftHash,
             intake_readiness_hash: readinessHash,
-            n3_handoff_hash: payload.value.n3_handoff_hash,
+            n3_handoff_hash: payload.n3_handoff_hash,
             // T-115 Phase 2: persist the N4->N5 handoff hash so a human-driven N5
             // selection can reconstruct a valid frozen_input from persisted state
             // (read by V1bSliceHumanSelectionService). Harness-internal N5 uses

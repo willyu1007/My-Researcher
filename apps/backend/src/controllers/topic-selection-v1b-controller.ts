@@ -21,8 +21,10 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionV1bResearchSliceOptionSetDraftPayload,
   TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import type { TopicSelectionCodexAssistedAgentOutput } from '../services/topic-selection-agent-orchestrator-service.js';
 
 type BodyRequest<T> = FastifyRequest<{ Body: T }>;
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
@@ -60,6 +62,10 @@ export type ConstraintProfileHumanBody = {
 
 export type OfflineDatasetBody = Parameters<TopicSelectionOfflineEvaluationReplayService['createDataset']>[0];
 export type WorkflowHarnessRunBody = TopicSelectionV1bWorkflowHarnessRunRequest;
+export type N4CodexAssistedInvocationBody = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest;
+  codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bResearchSliceOptionSetDraftPayload>;
+};
 export type WorkflowHarnessArtifactBody = Parameters<TopicSelectionControlPlaneService['recordArtifactRef']>[0];
 type OfflineCaseBody = Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0];
 type OfflineRunBody = Parameters<TopicSelectionOfflineEvaluationReplayService['startRun']>[0];
@@ -182,6 +188,21 @@ export class TopicSelectionV1bController {
         throw new AppError(400, 'INVALID_PAYLOAD', 'Workflow harness body node_id must match the route nodeId.');
       }
       const result = await this.workflowHarness.invokeNode(request.body);
+      return reply.status(201).send(result);
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  invokeN4CodexAssisted = async (
+    request: BodyParamsRequest<N4CodexAssistedInvocationBody, { nodeId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      if (request.body.request.node_id !== request.params.nodeId) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Codex-assisted N4 request node_id must match the route nodeId.');
+      }
+      const result = await this.workflowHarness.invokeN4CodexAssisted(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

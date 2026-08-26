@@ -23,6 +23,7 @@ import {
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
+  topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
@@ -31,6 +32,7 @@ import {
 import {
   TopicSelectionV1bController,
   type ConstraintProfileHumanBody,
+  type N4CodexAssistedInvocationBody,
   type OfflineDatasetBody,
   type SliceHumanSelectionBody,
   type WorkflowHarnessArtifactBody,
@@ -197,6 +199,29 @@ const workflowHarnessRunBody = {
   ...workflowHarnessNodeParams,
   body: topicSelectionV1bWorkflowHarnessRunRequestSchema,
 };
+const n4CodexAssistedNodeId = 'topic-selection.v1b.generate-research-slice-options.v1' as const;
+const n4CodexAssistedInvocationSchema = {
+  ...paramsSchema({ nodeId: { const: n4CodexAssistedNodeId } }),
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['request', 'codex_response'],
+    properties: {
+      request: topicSelectionV1bWorkflowHarnessRunRequestSchema,
+      codex_response: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['output', 'operator_label'],
+        properties: {
+          output: topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+          operator_label: stringId,
+          response_hash: nullableStringId,
+          prompt_packet_hash: nullableStringId,
+        },
+      },
+    },
+  },
+};
 // T-123 Phase 2 — run-coordinator routes. The advance body validates budgets/enums at
 // the schema layer (the coordinator trusts numeric budgets), and bootstrap_request
 // reuses the SAME contract schema the direct harness-invocation route enforces.
@@ -328,6 +353,11 @@ export async function registerTopicSelectionV1bRoutes(
     '/topic-selection/v1b/workflow-harness/nodes/:nodeId/invocations',
     { schema: workflowHarnessRunBody },
     controller.invokeWorkflowHarnessNode,
+  );
+  fastify.post<{ Body: N4CodexAssistedInvocationBody; Params: { nodeId: string } }>(
+    '/topic-selection/v1b/workflow-harness/nodes/:nodeId/codex-assisted-invocations',
+    { schema: n4CodexAssistedInvocationSchema },
+    controller.invokeN4CodexAssisted,
   );
   fastify.get<{ Params: { workflowRunId: string } }>(
     '/topic-selection/v1b/workflow-runs/:workflowRunId/state',
