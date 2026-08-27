@@ -47,6 +47,20 @@ Upgrade topic selection so product-owned, snapshot-bound research checkpoints, a
 - [x] No Codex skill, prompt, GUI behavior, or conversation memory is required to preserve checkpoint semantics.
 - [x] Production exposes only the research path; rehearsal remains a test/scenario concern and is not a runtime product mode.
 
+### Acceptance-derived stage communication and authorization cadence
+- Actor / caller: Researcher operating topic selection through Codex or another client
+- Trigger: Work enters, advances, loops back from, or closes a major semantic stage.
+- Expected flow: The researcher sees the evolving research object in ordinary domain language, receives a stable human-readable stage result, and can authorize bounded progress to the next genuine human decision without approving each internal node or routine local operation.
+- [ ] Produce one concise, derived Markdown result for each major semantic stage—overview, evidence landscape, research gap, research question, value/feasibility, topic package, and promotion review—rather than one file per internal node.
+- [ ] Each human-facing file leads with conclusions, evidence and counterevidence, alternatives and rejection reasons, claim/falsification boundaries, open risks, recommendation, and the exact decision requested; record IDs, hashes, node names, and replay material live in a secondary technical trace section.
+- [ ] The Markdown view is generated from canonical product authorities and remains a projection/export rather than a second editable content authority.
+- [ ] A bounded instruction such as “advance to the next human decision point” covers routine reads, local deterministic writes, short or multi-minute local jobs, verification, recoverable retries, and restarts of the already selected local backend environment. These actions may emit progress updates but do not pause for repeated authorization while effect class and scope remain unchanged.
+- [ ] Stop for exact confirmation when an action changes research meaning or human authority, invokes a provider or material cost/external acquisition, is destructive or control-sensitive, materially expands scope, changes the target environment, or encounters an ambiguous recovery branch.
+- [ ] Authorization decisions are based on effect and authority boundaries, not elapsed time, HTTP method, internal node count, or implementation vocabulary.
+- [ ] Decide whether LLM consumers need a separate, substantially larger artifact plane, and define its authority, granularity, retention, retrieval, and relationship to the concise human-facing files before implementation planning.
+
+This section records Phase 6 acceptance findings and follow-up input. It does not add GUI composition or client-specific semantic authority to the current implementation scope; implementation ownership and roadmap placement remain to be decided after the artifact discussion.
+
 ## Boundaries
 
 ### In scope
@@ -81,6 +95,8 @@ Upgrade topic selection so product-owned, snapshot-bound research checkpoints, a
 |---|---|---|---|
 | How should pre-cutover current packages, promotion decisions, and active bridges acquire or satisfy the new checkpoint chain? | User after repository discovery and recommendation | Determines migration shape, legacy advance rules, and whether current records are blocked, grandfathered, or explicitly reviewed. | Phase 1 cutover review before implementation kickoff. |
 | Which evidence and candidate-quality rules are hard blockers versus configurable advisory triggers? | User after policy inventory and negative-case design | Changes production advance behavior and acceptance tests. | Phase 1 policy proposal before quality-gate implementation. |
+| Should LLM consumers read a separate high-volume artifact set, a structured projection over canonical owners, or both? | User after discussion and repository recommendation | Determines whether the human Markdown can remain concise without starving later agents of evidence, alternatives, failure history, and exact lineage. | Acceptance follow-up alignment before implementation ownership is assigned. |
+| What exact stage-level authorization envelope may cover local deterministic work, backend lifecycle, retries, and verification without a new pause? | User after safety-boundary proposal | Determines interaction speed while preserving hard stops for human authority, provider/cost, destructive/control, environment, and scope changes. | Acceptance follow-up alignment before operator or product changes. |
 
 ## Confirmation
 
