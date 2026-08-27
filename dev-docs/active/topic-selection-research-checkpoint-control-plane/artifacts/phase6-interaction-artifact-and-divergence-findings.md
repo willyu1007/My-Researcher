@@ -176,6 +176,32 @@ The cheapest useful policy is one bounded challenge round using abstracts, metad
 
 This audit is source- and contract-level evidence, not a behavioral A/B result. No prompt, schema, gate, provider path, or current research authority changed during the audit.
 
+## Literature and RAG utilization audit
+
+The literature-management foundation is materially stronger than its use inside the live topic-selection reasoning loop.
+
+### What the product can do
+
+The maintained literature pipeline supports fulltext preprocessing, curated or LLM key-content dossiers, deterministic chunking, embeddings, pgvector indexing, retrieval-readiness checks, and stale-index warnings. `LiteratureRetrievalService` performs query embedding and bounded pgvector candidate retrieval, then applies hybrid vector, lexical, and metadata scoring. The preflight topic scope exposed 410 readable, in-scope, active, high-confidence literature records.
+
+### What the live lineage actually did
+
+Topic-selection snapshots were assembled from each TitleCard's EvidenceBasket. `TopicSelectionSearchResourceService.recordSearchRun` persisted caller-supplied query provenance, accounting, evidence refs, and coverage bindings; it did not itself invoke `LiteratureRetrievalService`. The successful novelty refresh was a `manual_import` run with manual-source bindings, not a product-native RAG call.
+
+One substantive re-reading cycle did occur and materially improved the topic. A separately delegated Codex subagent investigated whether the mechanism was a retrieval method, found two near-isomorphic primary sources, and triggered bounded acquisition, fulltext preprocessing, curated key-content dossiers, a seven-work SearchRun, and an 11-unit paragraph-level EvidenceMap with support, challenge, direct-baseline, and context roles. This was supporting research rather than a product debate: it had no opposing roles, rebuttal, arbiter, or product debate ledger.
+
+After the refreshed EvidenceMap froze, N4 and later stages primarily propagated the ValidatedNeed, evidence-role refs, source hashes, compact handoff content, question/value/package structures, and risk summaries. N4 planning input names the EvidenceMap and role-bundle refs but does not itself resolve those refs into source excerpts; topic-selection model routes expose no retrieval tools. Later reasoning therefore reused structured evidence identity and summaries rather than repeatedly querying and reading the literature corpus.
+
+The accurate conclusion is:
+
+- ingestion, fulltext handling, source location, evidence roles, freshness, and traceability are effective;
+- the single loopback-driven literature refresh was high value;
+- the live topic-selection chain did not systematically use product-native RAG;
+- the 410-record scope was not repeatedly searched by role or decision point;
+- a persistent evidence ref proves lineage, but a model cannot reason from a UUID unless the product resolves it into bounded claim-bearing content.
+
+The desired retrieval loop is incremental rather than a full-corpus reread. Each independent role receives a distinct query intent and bounded evidence slice; convergence merges only claims, counterclaims, nearest work, and unresolved evidence gaps. A new loop retrieves the delta required by the previous disagreement. Query provenance, cache identity, evidence freshness, and saturation/termination must remain visible.
+
 ## Required divergence capability before convergence
 
 A future design should separate **topic search** from **topic defense** and make “no worthwhile topic in the current scope” a successful terminal result. Before expensive value/package work, the system should compare at least four dispositions:
@@ -196,6 +222,22 @@ Useful independent roles include:
 
 Independence must be designed, not assumed: blinded first-pass proposals, different retrieval queries or evidence partitions, role-specific objectives, semantic-duplicate collapse, and explicit disagreement preservation matter more than simply increasing the number of agents.
 
+Full divergence is appropriate at research-semantic choices: evidence/search scope, gap/need portfolio, slice/question design, and comparative value disposition. Mechanical snapshot, publication, package assembly, and gate-wiring steps should remain deterministic or adversarially checked without reopening the research object. Otherwise the proposed improvement would reproduce the slow authorization and node ceremony already observed in the live run.
+
+A divergence call may itself converge. Its output should be a disposition plus a zero-to-many candidate set: independent roles may agree on one clear winner, retain several viable paths, conclude that evidence is insufficient, or return no viable topic. Diversity is evidence, not a quota.
+
+## ResearchArena overlay candidate
+
+The existing system is sufficient for a focused extension rather than a replacement pipeline. Reusable foundations include the literature processing and retrieval services, SearchPlan/SearchRun coverage records, EvidenceMap roles and conflicts, v1a/N6/N8/v1c role and transcript artifacts, model/context/runtime audits, snapshots, checkpoint currentness, objections, rechecks, loopbacks, and Codex-assisted execution.
+
+The smallest proposed addition is one lightweight `ResearchArena` coordination owner bound to an exact input snapshot, semantic stage, current research path, participant policy, retrieval budget, termination rule, role-output artifacts, and final disposition. Existing artifact and workflow-run owners should retain transcripts, retrieval packets, hashes, failures, costs, and role outputs rather than introducing one new table per agent. This is a design candidate, not settled architecture.
+
+For the first vertical slice, place one early arena before HumanConfirmNeed. Product orchestration should execute role-specific bounded retrieval before model calls; Codex may spawn independent subagents for opportunity scouting, nearest-work/topic killing, and empirical skepticism, then run a portfolio arbiter only after the independent outputs are durable. The outcome may select one, park alternatives, request one evidence expansion or substantive reframe, fork an explicitly approved second research path, or stop successfully.
+
+Do not begin with a generic agent platform, live multi-provider execution, debate at every internal node, unrestricted model-controlled browsing, or parallel downstream execution of every candidate. First validate that the current coherent-but-moderate-value topic can be honestly parked or dropped and that a clearly worthwhile historical topic is retained. Generalize the arena to question and N8 only after that behavioral calibration succeeds.
+
+One architectural question remains open: current checkpoint semantics emphasize one current lineage per TitleCard and stage. A `fork` must not allow one valid sibling to supersede another accidentally. Before branch support is accepted, determine whether the smallest safe representation is an explicit branch identity, child TitleCards, or a bounded parked-alternative projection with only one active lineage.
+
 ## Dedicated debate records and agent management
 
 A first-class mechanism should make the following recoverable:
@@ -215,6 +257,7 @@ Agent management should own role/profile registration, participant selection, in
 
 - The checkpoint control plane correctly rejected incomplete and stale authority chains.
 - The most meaningful novelty correction came from the retrieval-method loopback and nearest-work refresh.
+- The literature pipeline and hybrid retrieval capability exist, but the live topic-selection lineage used a manual-import evidence refresh rather than product-native, role-specific RAG; downstream stages mostly propagated refs and summaries.
 - Product truth is fragmented across owners, packets, hashes, and projections, motivating one manifest/current-pointer surface.
 - A green gate can coexist with material narrative risks when structured risk arrays fail to carry them forward visibly.
 - The research-status projection can expose stale checkpoints and transitions after repair.
@@ -222,6 +265,8 @@ Agent management should own role/profile registration, participant selection, in
 - Divergence must precede expensive topic defense; otherwise loopback and value assessment create confirmation pressure around the initial scope.
 - Multi-agent debate is useful only when its roles, evidence acquisition, independence, records, and stop conditions are product-visible and recoverable.
 - Prompt wording cannot create an honest stop path while non-empty candidate schemas, repair-biased debate admission, and blocking non-advance semantics still reward continuation.
+- Debate and literature retrieval form one quality mechanism only when independent roles acquire different evidence and convergence resolves actual claim-bearing excerpts rather than shared refs or summaries.
+- The system can add this mechanism on current foundations through a small arena/orchestration layer; a generic agent platform or pipeline rewrite is not the recommended first move.
 
 ## Open design decisions
 
@@ -229,6 +274,8 @@ Agent management should own role/profile registration, participant selection, in
 - What cheap stop rule prevents repeated rescue of a low-upside topic?
 - Which disposition, schema, loopback, and status changes must land with the prompt upgrade so `none viable`, `park`, and `drop` are honest successful outputs?
 - Which stages require independent retrieval rather than shared-context role play?
+- What evidence-resolution contract guarantees that every role can inspect the claim-bearing content behind its refs without loading the whole corpus?
 - Should the existing node-local debate artifacts be projected into one cross-stage DebateSession read model or replaced by a shared canonical session owner?
+- How should deliberate branch identity coexist with the current single-current checkpoint and supersession semantics?
 - How much agent diversity is required before the system may claim a topic was genuinely contested?
 - Which of these changes belong to T-147 acceptance follow-up versus a focused feature task after requirements are confirmed?
