@@ -30,6 +30,24 @@ The local record population is large enough that blanket invalidation is not cre
 - Checkpoint packets and research status are product projections derived from current authority and checkpoint state. They expose alternatives, eliminated paths, evidence limitations, objections, risks, allowed decisions, and next transition without becoming a second content authority.
 - Provider debate/calibration remains outside this task. Existing deterministic, Codex-assisted, mocked, or provider execution may supply support artifacts only where current policies permit; none may cross human authority.
 
+## Evidence-grounded divergence and convergence
+
+Research-semantic decisions extend the checkpoint control plane with one logical, snapshot-bound arena loop. This is not a second topic-selection pipeline or a generic agent platform. It coordinates existing literature, retrieval, runtime-artifact, checkpoint, objection, recheck, and human-decision authorities and adds a new persistence owner only if Phase 7 proves that existing owners cannot express the required identity/currentness safely.
+
+The logical arena contract has five inseparable parts:
+
+1. **EvidencePacket projection** — the exact bounded excerpts a participant can inspect, including source locator, retrieval intent, evidence role, freshness, and the claim it supports or challenges. Persisted UUIDs and upstream summaries prove lineage but do not prove model-visible content.
+2. **Candidate portfolio** — zero-to-many research objects with semantic grouping, genealogy, expected contribution, strongest nearest work, feasibility/falsification limits, and explicit rejection or parking reasons.
+3. **Dissent ledger** — objections, critic findings, concessions, unresolved minority reports, severity, affected target, and one explicit downstream disposition. Material dissent stays current until repaired, accepted as a named risk, looped back, parked, or dropped.
+4. **Decision disposition** — `select`, `park`, `drop`, `reframe`, `expand`, or explicitly human-approved `fork`. No viable candidate is a successful research-management result rather than a runtime failure.
+5. **Loop delta** — new evidence, candidate scope, constraint, or human research objective required before another arena version may run. Repeating the same context is not a loop.
+
+Independent opportunity, prior-art/topic-killer, and empirical-skeptic work is durable before any portfolio synthesis. Product orchestration owns role-specific retrieval and evidence resolution; Codex subagents or runtime models may execute advisory roles but cannot create human authority. Full arenas run only at evidence/search scope, gap/need portfolio, question design, and comparative value decisions. Snapshot, package, publication, and gate-wiring operations remain deterministic.
+
+The default branch model is one active research path plus a bounded parked portfolio. A second active lineage requires a substantive independently supported alternative, an exact human fork decision, and a representation that cannot collide under checkpoint supersession. Until Phase 7 proves that representation, `fork` remains unavailable even if an arena recommends it.
+
+Human interaction follows effect boundaries: routine local reads, deterministic writes, bounded non-provider runs, recoverable retries, and an already selected backend lifecycle may proceed to the next semantic decision under one instruction. Research-meaning decisions, material risk acceptance, provider/cost or external acquisition, destructive/control effects, environment changes, material scope expansion, and ambiguous recovery still stop for exact confirmation.
+
 ## Interfaces and contracts
 
 The planning direction is a canonical checkpoint API family plus a title-card research-status projection:

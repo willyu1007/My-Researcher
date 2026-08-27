@@ -7,9 +7,15 @@
 - Make user objections, academic-quality obligations, currentness, and allowed loopbacks enforceable by backend transition guards.
 - Expose checkpoint packets and current research state through canonical local HTTP APIs for Codex and future clients.
 - Upgrade existing v1a/v1b/v1c gates without creating a parallel topic-selection pipeline.
+- Add evidence-grounded divergence before convergence at research-semantic decisions, beginning with the gap/need portfolio before HumanConfirmNeed.
+- Resolve persisted evidence refs into bounded, claim-bearing model-visible packets and connect role-specific retrieval to existing literature/SearchRun authority.
+- Preserve candidate alternatives, fatal or minority objections, explicit stop/park/reframe dispositions, and loop deltas through downstream handoffs.
+- Produce concise human stage artifacts and authorize routine local execution by effect boundary rather than by internal node.
+- Validate the new behavior in shadow mode against worthwhile, low-value, and ambiguous historical/current topic cases before production adoption.
 
 ### Out of scope
 - GUI surfaces, Codex-specific decision logic, writing-center work, experiment execution, provider activation, calibration release, and any production rehearsal mode.
+- A generic multi-agent platform, unrestricted model-controlled browsing, debate at mechanical packaging/publication nodes, live multi-provider activation, or parallel downstream execution of every candidate.
 
 ### Constraints and dependencies
 - Existing domain authorities remain authoritative; checkpoint records coordinate review and transition eligibility only.
@@ -30,6 +36,12 @@
 | Minimal persistence | Per-stage duplicate content tables / generic event engine / lightweight coordination with existing authorities | Checkpoint + missing-stage decision + objection + objection-resolution authorities; reuse existing snapshots, stage decisions, recheck propagation, and projections | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Adds explicit currentness and human control without duplicating evidence/question/package content. |
 | Legacy semantic routes | Preserve as compatibility writers / retire all TitleCard APIs / retain intake and reads but cut over semantic writes | Keep title-card/evidence-basket intake and reads; reject legacy need/question/value/package/promotion writes after enforcement | decided | User | Phase 1 planning checkpoint confirmed 2026-08-25 | Closes the direct PaperProject promotion bypass while preserving useful compatibility reads. |
 | Positive-lineage novelty repair | Keep calibrated closed-book confidence as the primary graded-budget mechanism / use binary marginal utility / predict signed adjacent-depth utility under fixed retrieval components | Predict signed `0→1` and `1→5` answer-utility changes while fixing reader, retriever, corpus/index, candidate ranking, prompt, and decoding; retain calibrated tri-level confidence and binary budgeted utility as nearest-work comparators rather than novelty claims | decided | User | Researcher advanced the refreshed evidence packet and selected the signed-depthwise option on 2026-08-26 | Evaluation must test incremental value over both nearest-work mechanisms and report benefit, harm, realized retrieval calls, passage tokens, trigger cost, and measured latency separately. |
+| Research-decision rhythm | Converge immediately / debate every node / diverge then converge only at semantic choices | Evidence/search scope, gap portfolio, question design, and comparative value first form independent alternatives with role-specific evidence, then challenge and converge; mechanical nodes remain deterministic | decided | User | Research-process review on 2026-08-27 | Debate becomes a bounded research-quality mechanism rather than workflow ceremony. |
+| Model-visible evidence | Persisted refs and upstream summaries / whole-corpus context / bounded claim-bearing packets | Resolve refs into inspectable excerpts with locator, query intent, role, freshness, and support/challenge relation; load only task-relevant slices | decided | User | Literature/RAG audit on 2026-08-27 | UUID lineage remains traceability evidence but no longer masquerades as content the role actually read. |
+| Arena result and branching | Force one winner / unrestricted multi-branch / zero-to-many portfolio with one active path | Permit `select`, `park`, `drop`, `reframe`, `expand`, or explicitly approved `fork`; default to one active path plus bounded parked alternatives | decided | User | Divergence discussion on 2026-08-27 | “No worthwhile topic” is a successful result, while branch explosion remains bounded. |
+| Objection and risk survival | Re-summarize at each stage / immutable carry ledger with explicit disposition | Every unresolved material objection or risk remains machine-visible through package and promotion until repaired, accepted, looped back, parked, or dropped | decided | User | Live N8-to-promotion audit on 2026-08-27 | A green final gate cannot silently erase a material earlier critic finding. |
+| Adoption strategy | Replace the live path immediately / shadow first and calibrate | Start before HumanConfirmNeed in shadow mode, compare against known worthwhile, low-value, and ambiguous topics, then activate only after false-continue/false-drop and cost evidence is acceptable | decided | User | Integrated recommendation on 2026-08-27 | The system must prove that justified stopping is useful before it controls production state. |
+| Current medium-value lineage | Promote to finish the acceptance / delete it / freeze it as an ambiguous calibration fixture | Freeze the current gate without a HumanPromotionDecision and reuse the lineage as an ambiguous shadow-evaluation case; complete A9 later with a topic the improved process recommends advancing | decided | User | User approved the integrated checkpoint and requested its full commit/push on 2026-08-28 | Prevents process-completion pressure from becoming evidence that the topic deserves promotion. |
 
 ### Assumptions
 
@@ -123,28 +135,88 @@
 - Recovery: Keep bridge/intake fail-closed, retain prior authority read access, and roll back the cutover version rather than weakening checkpoint policy.
 
 ### Phase 6 — Fresh dual-track product-path acceptance
-- Outcome: One fresh negative lineage and one fresh positive/recovery lineage prove that the checkpoint control plane governs real API operation rather than only test fixtures.
+- Outcome: One fresh negative lineage and one fresh positive/recovery lineage prove that the checkpoint control plane governs real API operation rather than only test fixtures, while preserving the live interaction and research-quality gaps as the baseline for the next route.
 - Approach: Use the current local development database and retrieval-ready corpus without paid-provider execution. Treat the historical SciFact top-k 10-versus-5 framing as a negative control. For the positive recovery lineage, predict signed adjacent-depth answer utility for `0→1` and `1→5` under fixed retrieval components and treat calibrated closed-book confidence plus binary marginal-utility routing as nearest-work comparators. Persist fresh, clearly labeled owner records as audit evidence.
 - Planned changes:
   1. Run a read-only runtime, API-identity, topic-profile, scoped-corpus, evidence-readiness, and backup-readiness preflight before creating records.
   2. Drive a parameter-only negative TitleCard through qualified evidence to the competitive-gap boundary and prove that wording or top-k variants cannot advance.
   3. Drive a mechanism-level positive TitleCard through evidence, gap, question, promotion, and bridge checkpoints, stopping for every strict-human authority decision.
-  4. Record a strict-human blocking objection after bridge creation but before topic handoff; prove the handoff fails, a wording-only repair cannot resolve it, and a substantive signed-adjacent-depth ResearchSlice plus nearest-work evidence revision creates a new current lineage.
-  5. Reconfirm the repaired chain, complete one topic handoff, exact-replay it without duplicate owners, and reconcile the maintained Codex operator guidance with the accepted positive/negative roles.
+  4. Stop at the exact current promotion gate, audit whether the topic is comparatively worth advancing, and preserve interaction, artifact, retrieval, debate, risk-carry, and authorization findings without inferring a HumanPromotionDecision.
+  5. Freeze the current coherent-but-moderate lineage as the confirmed ambiguous calibration fixture; move the post-bridge objection and exactly-once handoff proof to Phase 10 using a topic the improved process recommends advancing.
 - Affected boundaries / entry points: Canonical local HTTP APIs for topic-selection research status/checkpoints, v1a/v1b/v1c workflow actions, PaperProject bridge and `/paper-implementation/topic-handoffs`; maintained operator documentation and T-147 verification evidence only if runtime behavior remains correct.
 - Dependencies: Local backend and database availability; one unambiguous recoverable topic literature scope (normally an active topic profile); current retrieval-ready, claim-bearing role-balanced literature; user decisions at every Human-authority stop. Provider/cost execution remains disabled.
-- Exit criteria: The negative lineage remains non-advancing; the objection invalidates an unconsumed bridge; wording-only resolution fails; substantive repair yields a new current checkpoint chain; the repaired topic handoff creates exactly one downstream lineage and exact replay returns it.
-- Verification: Read `research-status`, checkpoint history/packets, blockers, allowed actions, bridge state, and topic-handoff owner IDs after every mutation. Preserve idempotency keys and verify `409`/`422` fail-closed outcomes before following returned loopbacks.
+- Exit criteria: The negative lineage remains non-advancing; the repaired positive lineage reaches a current promotion gate; its moderate comparative value and process gaps are durably recorded; and the researcher freezes it as the ambiguous calibration fixture. Full post-bridge objection and handoff closure remains A9 work in Phase 10 rather than a reason to force this topic forward.
+- Verification: Read `research-status`, checkpoint history/packets, blockers, allowed actions, and current promotion owner IDs after every mutation. Preserve idempotency keys and verified `409`/`422` fail-closed outcomes. No HumanPromotionDecision, bridge, or topic handoff is created solely to close the phase.
 - Recovery: Stop at the last persisted owner projection, retain IDs and idempotency keys, and resume only through the returned allowed action. Do not delete audit records, query Prisma directly, start a server without approval, or substitute provider output for missing product authority.
+
+### Phase 7 — Settle the evidence-bearing arena contract
+- Outcome: One minimal contract joins evidence resolution, independent role work, candidate portfolios, durable dissent, disposition, loop delta, human artifacts, and currentness without creating a second research authority.
+- Approach: Treat `ResearchArena` as a logical snapshot-bound coordination boundary first. Audit existing SearchPlan/SearchRun, EvidenceMap, runtime artifacts, debate artifacts, checkpoints, objections, rechecks, and human decisions before choosing whether any new persistence owner is required.
+- Planned changes:
+  1. Define the bounded EvidencePacket projection and prove that every cited source ref resolves to the exact excerpt a role can inspect.
+  2. Define arena input, role/evidence partition, candidate genealogy, objection/minority report, disposition, termination, delta, replay, and supersession contracts.
+  3. Define one-active-plus-parked branch behavior and audit whether an explicit fork requires a child TitleCard or branch identity.
+  4. Define concise human stage Markdown and a manifest-first LLM working-plane projection over canonical owners.
+  5. Define the effect-based authorization envelope and the evaluation fixtures, labels, budgets, and activation thresholds.
+- Affected boundaries / entry points: Literature retrieval and SearchRun orchestration, topic-selection runtime artifacts, v1a candidate arena/checkpoint packets, process context, and task verification fixtures. No provider route is activated.
+- Dependencies: Confirmation of the integrated plan and disposition of the current medium-value lineage; existing retrieval-ready corpus and canonical checkpoint owners.
+- Exit criteria: The first shadow slice can be implemented without deciding product semantics inside a prompt, duplicating content authority, or reopening branch and risk-survival questions.
+- Verification: Contract review against current owners and three representative lineages; ref-to-excerpt resolution proof; supersession/branch thought experiments; authorization-effect table review.
+- Recovery: Keep kickoff pending and perform only read-only discovery if owner mapping, branch currentness, or evidence resolution cannot be made unambiguous.
+
+### Phase 8 — Prove an early ResearchArena in shadow mode
+- Outcome: Before HumanConfirmNeed, independent opportunity, prior-art/topic-killer, and empirical-skeptic roles receive distinct product-retrieved EvidencePackets; a portfolio arbiter returns a traceable zero-to-many candidate disposition without changing live authority.
+- Approach: Reuse existing Codex-assisted/runtime artifact mechanisms and product-owned retrieval. Persist independent pre-exposure outputs before synthesis; expose one concise human artifact and a technical trace.
+- Planned changes:
+  1. Generate role-specific query intents and execute bounded hybrid retrieval through the product, recording SearchRun provenance and claim-bearing hits.
+  2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment.
+  3. Admit one bounded synthesis only after independent outputs are durable; allow `select`, `park`, `drop`, `reframe`, or one evidence-expansion request.
+  4. Enforce one arena retry only when a recorded evidence, candidate, constraint, or human-objective delta exists.
+  5. Render the result for humans without making the Markdown file a writable authority.
+- Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
+- Dependencies: Phase 7 contracts. Provider/multi-provider work remains with T-129 and is not required for this phase.
+- Exit criteria: Every role can be replayed from its actual evidence; a no-topic result is successful; correlated shared-summary role play and evidence-free criticism fail admission.
+- Verification: Shadow replay on the current ambiguous lineage plus one clearly worthwhile and one clearly low-value case; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
+- Recovery: Disable the shadow projection without changing checkpoint or research authority; retain artifacts as diagnostic evidence.
+
+### Phase 9 — Integrate disposition, dissent, and bounded human control
+- Outcome: The validated arena can govern the gap checkpoint, carry unresolved material dissent through value/package/promotion, and let the researcher advance routine work to the next semantic decision without repeated operational authorization.
+- Approach: Activate the smallest proven contracts only. Keep one active research lineage, project parked candidates, and require exact human authority for research-meaning choices, material risk acceptance, or explicit fork creation.
+- Planned changes:
+  1. Make zero-viable, park, drop, reframe, expand, and select outcomes valid workflow dispositions rather than generation failures.
+  2. Bind HumanConfirmNeed to the selected arena snapshot and preserve rejected/parked candidates with evidence-backed reasons.
+  3. Carry unresolved high-severity objections and minority reports by stable refs into N8, v1c support, gate checks, and the human promotion packet.
+  4. Block a green gate when a material carried item lacks an explicit repair, accepted-risk, loopback, park, or drop disposition.
+  5. Implement stage-level human Markdown plus the bounded “advance to next human decision” effect envelope.
+- Affected boundaries / entry points: v1a disposition/schema and HumanConfirmNeed adapter, v1b N8/N9-N11 handoffs, v1c support/gate packet, research status, operator/process docs, and any minimal confirmed persistence change.
+- Dependencies: Phase 8 behavioral evidence and a confirmed branch representation. Prompt wording changes land only with their schemas, gates, loopbacks, and terminal semantics.
+- Exit criteria: A low-value topic can stop cleanly, an accepted topic advances through the exact current arena, no material dissent disappears, and routine deterministic execution reaches the next human boundary without an extra approval.
+- Verification: Positive/negative disposition tests, risk-carry lineage tests, stale/supersession and retry tests, human artifact regeneration, authorization-boundary scenarios, OpenAPI/context alignment, and relevant typecheck/suites.
+- Recovery: Fall back to the existing checkpoint chain with arena authority disabled; never reinterpret a shadow artifact as a human decision.
+
+### Phase 10 — Calibrate, adopt, and generalize only where valuable
+- Outcome: Production adoption is justified by measured research-decision quality and cost, and later arena placement is limited to semantic stages where it materially improves outcomes.
+- Approach: Evaluate clearly worthwhile, clearly low-value, and ambiguous cases before activation. Count justified `drop`/`park` as success and compare against the current single-path baseline.
+- Planned changes:
+  1. Measure false continuation, false drop, human override/reopen rate, new semantic-group/direct-neighbor discovery, retrieval/model cost, latency, and downstream work avoided.
+  2. Require every loop to demonstrate evidence/candidate/constraint/objective delta and stop when marginal information gain is exhausted.
+  3. Activate the early arena only after accepted thresholds and researcher review; otherwise revise or remove it.
+  4. Consider question-design and comparative N8 arenas separately, only when the early slice proves value; keep mechanical nodes deterministic.
+  5. Complete the fresh dual-track A9 acceptance with a process-selected advancing topic and exactly-once handoff; retain stopped/parked cases as first-class successful controls.
+- Affected boundaries / entry points: Evaluation fixtures, policy versions, phase-specific arena admission, final process documentation, and T-129 coordination only for later provider calibration.
+- Dependencies: Phase 9 integration and researcher-approved evaluation labels/thresholds.
+- Exit criteria: The system demonstrably improves stop/continue decisions at bounded cost, does not systematically kill worthwhile topics, and closes A9-A13 with a recoverable product-path acceptance.
+- Verification: Historical/current shadow matrix, human review, cost and latency accounting, false-continue/false-drop report, full-chain positive and successful-stop cases, exact replay, and no-bypass regressions.
+- Recovery: Keep the arena shadow-only or disable the affected semantic stage when calibration fails; retain the checkpoint control plane and collected evidence.
 
 ## Kickoff gate
 
-- Status: ready
-- Authorized boundary: through Phase 6 product-path acceptance
-- [x] Decisions: checkpoint-control direction, cutover, academic-policy strictness, minimal persistence, and legacy-route treatment are confirmed.
-- [x] Design: persistence authorities, stage adapters, central guard seams, cutover behavior, and policy classification are settled for implementation.
-- [x] Route: contract discovery precedes control-plane implementation, then evidence/gap, question/objection, and promotion closure.
-- [x] Verification: contract, negative, replay, migration, and full-chain evidence obligations are identified in `verification.md`.
+- Status: pending
+- Authorized boundary: none
+- [x] Decisions: the current medium-value gate is frozen as an ambiguous calibration fixture instead of being promoted for process completion.
+- [ ] Design: settle exact EvidencePacket resolution, ResearchArena owner reuse, risk-carry projection, and safe explicit-fork representation in Phase 7.
+- [x] Route: contract alignment precedes shadow validation, then bounded authority integration and measured adoption.
+- [x] Verification: worthwhile, low-value, and ambiguous fixtures plus false-continue/false-drop, evidence-delta, cost, risk-survival, replay, and full-chain obligations are identified in `verification.md`.
 
 ## Risks and recovery
 
@@ -156,6 +228,11 @@
 | Clients retain hidden bypasses. | Direct node routes can advance without a current checkpoint decision. | Centralize transition guard enforcement and cover every entry point with negative tests. | Fail closed at the control plane and remove the bypass before cutover. |
 | Human participation becomes ceremonial again. | Packets omit alternatives, eliminated paths, unresolved objections, or allowed loopbacks. | Define packet completeness in product contracts and acceptance tests. | Block the checkpoint and regenerate the packet from current authority. |
 | Acquired source assets depend on a transient configured raw-file root. | `storage_roots.raw_files` resolves under the macOS temporary directory even though normalized processing roots are persistent. | Preserve paragraph-level normalized text and key-content owners; do not overwrite the storage setting without a separate exact control authorization. | Reacquire the two explicit OA assets through a new bounded dry-run if the raw files disappear; never broaden the corpus or downloader policy implicitly. |
+| Arena roles receive correlated summaries instead of independent evidence. | Different roles repeat the same framing, citations, and conclusions despite distinct names. | Persist pre-exposure outputs and product-owned role-specific retrieval scopes; reject evidence-free or semantic-duplicate participation. | Return the arena to shadow mode and revise role/evidence partitioning. |
+| Evidence refs are traceable but not model-visible. | A role cites UUIDs or inherited summaries without resolvable claim-bearing excerpts. | Require EvidencePacket resolution with locator and support/challenge relation before admission. | Fail the arena input and repair retrieval/index ownership rather than hallucinating content. |
+| Material dissent disappears before promotion. | N8 critic risks exist while the final gate contains no warning, risk ref, action, or accepted disposition. | Carry stable objection/minority-report refs through every handoff and gate on explicit disposition. | Invalidate the affected downstream packet and rematerialize it from current dissent authority. |
+| Branch currentness collides. | Two valid siblings for one TitleCard/stage supersede each other or both appear canonical. | Default to one active path plus parked alternatives; require explicit human fork and a validated branch representation. | Collapse back to one active path without deleting parked evidence. |
+| Calibration rewards continuation. | Ready-gate rate improves while low-value topics keep advancing or worthwhile topics are over-killed. | Treat justified stop as success and measure false continuation, false drop, override, evidence delta, and work avoided. | Keep the arena shadow-only or disable the underperforming stage. |
 
 ## Phase closeout
 

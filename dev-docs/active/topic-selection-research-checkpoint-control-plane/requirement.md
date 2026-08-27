@@ -8,7 +8,7 @@
 
 ## Required outcome
 
-Upgrade topic selection so product-owned, snapshot-bound research checkpoints, academic-quality gates, and durable human objections govern every production research transition from evidence review through promotion, while API clients remain executors rather than semantic authorities.
+Upgrade topic selection so evidence-grounded divergence precedes convergence at research-semantic decisions and product-owned, snapshot-bound checkpoints, academic-quality gates, durable dissent, and honest stopping govern every production transition from evidence review through promotion, while API clients remain executors rather than semantic authorities.
 
 ## Scenarios and detailed acceptance
 
@@ -46,6 +46,19 @@ Upgrade topic selection so product-owned, snapshot-bound research checkpoints, a
 - Expected flow: The product returns the current checkpoint, packet, allowed actions, blockers, and next authorized transition; transition guards reject bypass attempts.
 - [x] No Codex skill, prompt, GUI behavior, or conversation memory is required to preserve checkpoint semantics.
 - [x] Production exposes only the research path; rehearsal remains a test/scenario concern and is not a runtime product mode.
+
+### Evidence-grounded divergence and convergence
+- Actor / caller: Product orchestration using bounded retrieval and advisory Codex/model participants, with the researcher retaining semantic authority.
+- Trigger: Work reaches an evidence/search-scope, gap/need-portfolio, question-design, or comparative-value decision where the current framing could exclude a better topic or conceal a reason to stop.
+- Expected flow: Independent roles receive claim-bearing role-specific EvidencePackets, record pre-exposure positions, challenge candidates against actual evidence, and converge to a traceable zero-to-many portfolio disposition before downstream topic defense.
+- [ ] Persisted refs resolve to the exact excerpts each role can inspect; inherited UUIDs or summaries alone do not satisfy evidence grounding.
+- [ ] Opportunity, strongest-prior-art/topic-killer, and empirical-skeptic outputs are durable before portfolio synthesis and preserve unresolved minority reports.
+- [ ] `select`, `park`, `drop`, `reframe`, `expand`, and human-approved `fork` are explicit outcomes; zero viable candidates is successful when evidence and reopening conditions are recorded.
+- [ ] Every material objection or risk survives downstream by stable ref until it is repaired, accepted, looped back, parked, or dropped.
+- [ ] Another arena version is admitted only for a recorded evidence, candidate, constraint, or human-objective delta.
+- [ ] One active path plus bounded parked alternatives is the default; a second active branch requires exact human authority and a supersession-safe representation.
+- [ ] Mechanical snapshot, package, publication, and gate-wiring work does not manufacture alternatives or invoke full debate.
+- [ ] Shadow calibration on worthwhile, low-value, and ambiguous cases precedes production activation and treats justified stopping as a success.
 
 ### Acceptance-derived stage communication and authorization cadence
 - Actor / caller: Researcher operating topic selection through Codex or another client
@@ -87,6 +100,9 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Durable user objections, required loopbacks, academic-quality gates, and risk-to-action consistency.
 - OpenAPI, shared contracts, backend services/repositories/routes, context documentation, migrations when required, and focused/full-chain verification.
 - Compatibility and cutover behavior for existing topic-selection records.
+- Claim-bearing EvidencePacket resolution, role-specific product retrieval, and a lightweight snapshot-bound ResearchArena coordination contract.
+- Zero-to-many candidate portfolios, successful stop/park/reframe outcomes, loop-delta admission, durable minority reports, and risk carry to promotion.
+- Derived manifest/LLM/human stage views, effect-based authorization, and shadow calibration of stop/continue quality.
 
 ### Out of scope
 - GUI or reviewer-workbench composition.
@@ -95,6 +111,7 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Experiment execution beyond guarding PaperProject intake eligibility.
 - Provider-debate activation, prompt calibration, or external-corpus work owned by T-129.
 - A rehearsal or reduced-quality production mode.
+- A generic agent platform, unrestricted agent browsing, debate at deterministic mechanical nodes, automatic parallel execution of every branch, or provider/multi-provider activation owned by T-129.
 
 ## Constraints and dependencies
 
@@ -104,18 +121,13 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Current topic-selection workflow IDs, traceability, replay, and hash semantics must remain recoverable or receive an explicit versioned cutover.
 - Tests use scenario fixtures and the same guarded APIs; test needs do not create a product runtime mode.
 
-## Unresolved before planning
+## Open decisions for the integrated route
 
 | Question or assumption | Owner | Impact if unresolved or wrong | Validation / due point |
 |---|---|---|---|
-| How should pre-cutover current packages, promotion decisions, and active bridges acquire or satisfy the new checkpoint chain? | User after repository discovery and recommendation | Determines migration shape, legacy advance rules, and whether current records are blocked, grandfathered, or explicitly reviewed. | Phase 1 cutover review before implementation kickoff. |
-| Which evidence and candidate-quality rules are hard blockers versus configurable advisory triggers? | User after policy inventory and negative-case design | Changes production advance behavior and acceptance tests. | Phase 1 policy proposal before quality-gate implementation. |
-| What exact storage and projection contract should implement the agreed manifest + LLM working plane + human stage-file model? | User after repository recommendation | Determines regeneration, retention, retrieval, schema/versioning, and whether derived files can drift from canonical owners. | Acceptance follow-up alignment before implementation ownership is assigned. |
-| What exact stage-level authorization envelope may cover local deterministic work, backend lifecycle, retries, and verification without a new pause? | User after safety-boundary proposal | Determines interaction speed while preserving hard stops for human authority, provider/cost, destructive/control, environment, and scope changes. | Acceptance follow-up alignment before operator or product changes. |
-| Where must a first-class divergence arena sit, and what cheap stop rule prevents repeated rescue of a low-upside topic? | User after Phase 6 value-path review | Determines whether initial scope quality continues to dominate the whole lineage and whether abandonment is a supported successful outcome. | Acceptance follow-up alignment before workflow changes. |
-| Which prompt changes belong with T-147's disposition/schema/loopback contracts, and which calibration/provider-execution changes remain with T-129? | User after prompt and consumer audit | Prevents a wording-only patch that conflicts with non-empty schemas, advancement gates, or dormant provider paths, while avoiding an unauthorized expansion of T-147 into calibration release. | Ownership split before prompt or runtime implementation planning. |
-| Should existing node-local debate artifacts project into one cross-stage DebateSession read model, or should a shared canonical debate owner replace the fragmented mechanism? | User after debate audit and recommendation | Determines agent/session management, cross-stage recovery, debate visibility, and migration scope. | Acceptance follow-up alignment before multi-agent implementation planning. |
-| Can the existing single-current checkpoint lineage represent a deliberate `fork` with two active research paths, or must branches become child TitleCards or receive an explicit branch identity? | User after ResearchArena recommendation | A wrong choice could make one valid sibling silently supersede the other or create competing current authority. | Currentness and supersession audit before accepting `fork` as an arena outcome. |
+| Can current owners express EvidencePacket resolution, arena/session identity, and manifest/LLM/human projections without a new persisted ResearchArena authority? | Product design audit, then user if the ownership boundary changes | Determines schema/migration scope and whether a new coordination owner is actually necessary. | Phase 7 owner map before implementation kickoff. |
+| Can the existing single-current checkpoint lineage represent an exact human `fork`, or must branches become child TitleCards or receive an explicit branch identity? | Product currentness audit, then user | A wrong choice could make one valid sibling silently supersede the other or create competing current authority. | Phase 7 supersession proof; keep only one active path until resolved. |
+| What false-continuation, false-drop, human-override, evidence-delta, cost, and work-avoided thresholds justify production activation? | User after shadow evidence | Determines whether the arena activates, remains shadow-only, or is removed. | Phase 10 calibration review. |
 
 ## Confirmation
 

@@ -6,7 +6,7 @@ This directory contains maintained context, not a generated discovery registry.
 - `db/schema.json` — compact database context snapshot.
 - `env/` — environment contract, effective development projection, and integration notes.
 - `glossary.json` — domain terminology.
-- `architecture-principles.md` — standing cross-cutting constraints.
+- `architecture-principles.md` — standing cross-cutting constraints, including canonical lifecycle terminology and the project-wide diverge-before-converge rule for research-semantic decisions.
 - `paper-implementation/` — maintained paper-implementation runtime manifests.
 - `process/` — current process matrices, scenarios, calibration notes, and operational playbooks;
   `process/codex-assisted-operator.md` defines the current Codex-operated rehearsal boundary and

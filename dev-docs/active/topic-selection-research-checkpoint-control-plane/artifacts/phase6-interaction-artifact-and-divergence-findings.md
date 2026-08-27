@@ -4,7 +4,7 @@
 
 This artifact preserves acceptance evidence and design input from operating the fresh Phase 6 topic-selection lineage. It is not a second task status, roadmap, architecture, verification authority, or research-content authority. Canonical research records remain product-owned; `01-status.md`, `requirement.md`, and `verification.md` own the task state, requirements, and evidence claims.
 
-The research chain is intentionally unchanged while these findings are discussed. Current gate `promotion_gate_check_39bfb045-47d2-4e67-b6b4-f9a125aa88be` remains `ready_for_human_decision` with `promote_allowed=true`; no HumanPromotionDecision, bridge, or PaperProject exists for the current lineage.
+The research chain remains unchanged after the findings were accepted. Current gate `promotion_gate_check_39bfb045-47d2-4e67-b6b4-f9a125aa88be` is frozen as an ambiguous calibration fixture: it remains `ready_for_human_decision` with `promote_allowed=true`, but no HumanPromotionDecision, bridge, or PaperProject exists or should be created for this lineage under the confirmed route.
 
 ## Direct experience findings
 
