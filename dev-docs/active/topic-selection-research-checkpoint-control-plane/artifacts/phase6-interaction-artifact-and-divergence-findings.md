@@ -132,6 +132,50 @@ The current mechanisms mostly operate after the search space has narrowed:
 
 These mechanisms can improve criticism and synthesis, but they cannot compensate for a poor initial scope if every role receives the same narrow evidence set and mandate. Correlated agents with the same context, model family, and success objective can produce the appearance of debate while converging on the same local optimum.
 
+## Prompt and execution-contract audit
+
+The prompt audit followed each prompt through its actual user payload, output schema, admission logic, gate consumer, model route, and tool boundary. The main defect is structural continuation bias rather than insufficiently forceful wording.
+
+### Candidate generation makes “nothing worth pursuing” illegal
+
+- The N4 slice prompt requires multiple executable slices and says to emit at least one. Its output schema also requires a non-empty `options` array.
+- The N6 question prompt requires at least one candidate and explicitly asks that every candidate pass the deterministic N6 gate. Its schema likewise requires a non-empty `candidates` array.
+- N6 loopback can regenerate, escalate to debate, or select a different slice, but cannot reject the validated need, reopen the broader scope, or terminate successfully without a topic.
+
+This means an LLM cannot truthfully represent “the current need or slice has no worthwhile question.” It must manufacture an admissible-looking continuation or fail schema validation. Adding “be willing to reject the topic” to the prompt without changing these consumers would create a contradictory call contract.
+
+### Value assessment permits rejection but does not reward it
+
+The N8 value-assessment contract contains `park` and `drop` dispositions, but its prompt does not define an advancement burden of proof, opportunity-cost comparison, calibration anchors, or `park`/`drop` as successful research outcomes. Current gates emphasize readiness, a score floor, confidence, and dimension-spread triggers. A defensible mid-value topic can therefore advance without demonstrating that it is a better use of research time than a visible alternative.
+
+Non-advance dispositions also appear operationally as blocking outcomes and required actions in the deterministic follow-up even when they are the correct terminal research decision. This presentation reinforces the impression that stopping is failure rather than saved cost and avoided path dependence.
+
+### Debate roles are under-specified and correlated
+
+- v1a need discovery has the strongest role separation, but its deep critic cannot propose a new angle and every role is bounded to the supplied exploration context.
+- N6 divergence remains inside one selected ResearchSlice and must synthesize a non-empty candidate set.
+- N8 and v1c use one generic system prompt across their role sequence. Role identity is supplied in the input, while detailed semantic expectations live mostly in admission code rather than in the receiver-visible request.
+- Critic findings are expected to be repaired, accepted as risk, or rebutted. No explicit rule says that unresolved fatal criticism should yield a successful `park`, `drop`, or scope switch instead of another repair.
+
+The configured OpenAI balanced, quality, and deep-reasoning topic-selection routes currently resolve to the same model with empty native parameter sets, and the prompt routes expose no tools. Named `provider_diverse` execution plans currently change prompt-packet identity and provenance only; live per-role provider execution remains dormant. The existing mechanism therefore supplies staged roles but not independent retrieval or live multi-provider diversity.
+
+### Required prompt and contract upgrade
+
+The stable instruction should state that the objective is to choose the best-supported disposition, not to help the current topic pass. The current topic, alternative topics, and the null option must have equal standing; `park`, `drop`, `switch_scope`, and zero viable candidates must be valid successful outputs. Continue should require positive evidence for significance, nearest-work novelty, discriminating falsifiability, feasibility, claim ceiling, and opportunity cost against the best visible alternative.
+
+Role prompts should be distinct:
+
+- an opportunity scout develops the strongest current case and genuinely adjacent alternatives, and may return none;
+- a prior-art hunter or topic killer seeks the strongest collapse case and is prohibited from repairing the topic;
+- an empirical skeptic tests identifiability, data, cost, and experiment feasibility;
+- a portfolio arbiter compares current, alternative, and null outcomes, preserves unresolved fatal findings and minority reports, and may select no topic.
+
+Independence should come from blinded first passes, different queries or evidence partitions, role-specific objectives, semantic-duplicate collapse, and explicit disagreement preservation. Adding more agents or providers before these contracts are corrected would multiply correlated continuation pressure.
+
+The cheapest useful policy is one bounded challenge round using abstracts, metadata, nearest work, constraints, and rough experiment cost before expensive topic defense. Permit at most one scoped evidence expansion and one substantive reframe; a repeated value or novelty failure returns to the candidate portfolio rather than initiating recursive rescue. Prompt calibration must include clearly worthwhile, clearly low-value, and ambiguous historical topics and evaluate disposition quality, not prose polish.
+
+This audit is source- and contract-level evidence, not a behavioral A/B result. No prompt, schema, gate, provider path, or current research authority changed during the audit.
+
 ## Required divergence capability before convergence
 
 A future design should separate **topic search** from **topic defense** and make “no worthwhile topic in the current scope” a successful terminal result. Before expensive value/package work, the system should compare at least four dispositions:
@@ -177,11 +221,13 @@ Agent management should own role/profile registration, participant selection, in
 - Authorization should bind to effect and human authority, not node count, HTTP calls, job duration, or backend lifecycle.
 - Divergence must precede expensive topic defense; otherwise loopback and value assessment create confirmation pressure around the initial scope.
 - Multi-agent debate is useful only when its roles, evidence acquisition, independence, records, and stop conditions are product-visible and recoverable.
+- Prompt wording cannot create an honest stop path while non-empty candidate schemas, repair-biased debate admission, and blocking non-advance semantics still reward continuation.
 
 ## Open design decisions
 
 - Where should the divergence arena sit: before EvidenceMap commitment, before HumanConfirmNeed, or both?
 - What cheap stop rule prevents repeated rescue of a low-upside topic?
+- Which disposition, schema, loopback, and status changes must land with the prompt upgrade so `none viable`, `park`, and `drop` are honest successful outputs?
 - Which stages require independent retrieval rather than shared-context role play?
 - Should the existing node-local debate artifacts be projected into one cross-stage DebateSession read model or replaced by a shared canonical session owner?
 - How much agent diversity is required before the system may claim a topic was genuinely contested?
