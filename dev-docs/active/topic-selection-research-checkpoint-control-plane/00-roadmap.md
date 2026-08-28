@@ -168,32 +168,74 @@
 - Verification: Contract review against current owners and three representative lineages; ref-to-excerpt resolution proof; supersession/branch thought experiments; authorization-effect table review.
 - Recovery: Keep kickoff pending and perform only read-only discovery if owner mapping, branch currentness, or evidence resolution cannot be made unambiguous.
 
-### Phase 8 — Prove an early ResearchArena in shadow mode
-- Outcome: Before HumanConfirmNeed, an independent opportunity scout (bounded out-of-basket retrieval) and a prior-art/topic-killer receive distinct product-retrieved EvidencePackets; a deterministic or human portfolio arbiter returns a traceable zero-to-many candidate disposition without changing live authority. The empirical skeptic joins only after the scout-killer pair proves value.
-- Approach: Land the disposition-contract precondition first — N4/N6 output schemas, gates, loopbacks, and terminal semantics admit `none_viable`, `park`, and `drop` as successful outputs — before or with this slice. Reuse existing Codex-assisted/runtime artifact mechanisms and product-owned retrieval. Persist independent pre-exposure outputs before synthesis; expose one concise human artifact and a technical trace.
+### Phase 8A — Legalize honest portfolio outcomes
+- Outcome: N4/N6 can return zero viable candidates without being treated as generation failure, while set-level routing and per-candidate disposition remain unambiguous and evidence-backed.
+- Approach: Change contracts before prompts or agents. Introduce the two-layer disposition in shared/output schemas, then make gates, loopbacks, and terminal semantics recognize `none_viable`, `evidence_expansion_required`, and `reframe_required` as successful research-management outcomes rather than malformed advancing answers.
 - Planned changes:
-  1. Generate role-specific query intents and execute bounded hybrid retrieval through the product, recording SearchRun provenance and claim-bearing hits.
-  2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment.
-  3. Admit one bounded synthesis only after independent outputs are durable; it returns a set-level outcome (`selected`/`none_viable`/`evidence_expansion_required`/`reframe_required`) plus per-candidate `selected`/`parked`/`dropped` dispositions, with drop recommendations carrying enumerated reason codes.
-  4. Enforce one arena retry only when a recorded evidence, candidate, constraint, or human-objective delta exists.
-  5. Render the result for humans without making the Markdown file a writable authority.
-- Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
-- Dependencies: Phase 7 contracts. Provider/multi-provider work remains with T-129 and is not required for this phase.
-- Exit criteria: Every role can be replayed from its actual evidence; a no-topic result is successful; correlated shared-summary role play and evidence-free criticism fail admission.
-- Verification: Shadow replay on the current ambiguous lineage plus recorded dominance pairs (pre- versus post-loopback framing; the parameter-only negative control versus the mechanism-level positive lineage) and evidence-perturbation variants; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
+  1. Add set-level outcomes (`selected`/`none_viable`/`evidence_expansion_required`/`reframe_required`) and per-candidate dispositions (`selected`/`parked`/`dropped`) to the N4/N6 boundaries without permitting a bare candidate `drop` to terminate the portfolio.
+  2. Require evidence, rejection rationale, confidence, and reopening conditions for a zero-viable portfolio; require every `dropped` candidate to carry one enumerated evidence-backed drop-reason code.
+  3. Route stop, expansion, and reframe through deterministic checkpoint/workflow semantics; do not manufacture a candidate to preserve downstream progress.
+  4. Align focused contract, gate, loopback, replay, and compatibility tests before changing prompt incentives.
+- Affected boundaries / entry points: v1b N4/N6 shared contracts and output schemas, deterministic gates, loopback routing, terminal status, fixtures, and maintained API/process documentation.
+- Dependencies: Phase 7 disposition contract. No arena persistence or provider execution is required.
+- Exit criteria: A well-formed `none_viable` result completes the generation decision successfully and chooses an explicit stop/expand/reframe route; an ambiguous layer, evidence-free drop, or missing reopening contract fails admission.
+- Verification: Red/green schema and route tests for selected, successful no-topic, expansion, reframe, park, and every invalid drop/replay case; relevant typecheck and focused suites.
+- Recovery: Revert the additive contract path as one unit; the existing advancing-candidate path remains current until Phase 9 activation.
+
+### Phase 8B — Deliver derived research views and effect authorization
+- Outcome: The researcher can read one concise Markdown result per semantic stage, while LLM consumers obtain a substantially richer manifest-led working plane and routine local work proceeds to the next human decision under one effect-bounded instruction.
+- Approach: Build read-time projections over canonical owners and a protocol-level authorization envelope; neither surface becomes a writable research authority or depends on arena activation.
+- Planned changes:
+  1. Expose a manifest/current-pointer projection with an explicit current-selection rule and resolvable artifact references.
+  2. Generate task-scoped LLM working-plane slices and concise human stage Markdown from the same canonical refs, hashes, alternatives, objections, risks, and supersession state.
+  3. Encode and document the effect boundary that permits routine local reads, deterministic writes, bounded non-provider jobs, recoverable retries, and the already selected backend lifecycle without node-by-node confirmation.
+  4. Verify regeneration, staleness, and human legibility without persisting a competing corpus.
+- Affected boundaries / entry points: Research-status/artifact read APIs, stage projection services, operator/process documentation, and client-facing action envelopes.
+- Dependencies: Phase 7 projection and authorization contracts; independent of Phase 8A and arena migration where the underlying owner already exists.
+- Exit criteria: Every current stage has a regenerable human view and manifest-led LLM view, stale refs cannot appear current, and routine execution reaches the next semantic decision without an extra authority write.
+- Verification: Projection snapshots, current-selection and artifact-resolution negatives, stage-view review, and effect-boundary scenarios.
+- Recovery: Remove or disable derived routes; canonical owners and checkpoint behavior remain unchanged.
+
+### Phase 8C — Establish evidence and arena integrity
+- Outcome: Product-resolved EvidencePackets and one minimal arena-session root can prove what each role independently saw and produced, without becoming a second evidence, candidate, or decision authority.
+- Approach: Add the settled `TopicSelectionResearchArenaSession` root and `TopicSelectionResearchArenaRoleExecution` child table, then connect role-specific retrieval and read-time excerpt resolution to their admission invariants before any shadow synthesis runs.
+- Planned changes:
+  1. Resolve row/parser locators into bounded claim-bearing excerpts with query intent, role, freshness, and support/challenge relation; validate quote integrity against resolved text.
+  2. Persist session snapshot binding, one-current identity, supersession, enumerated termination reason, and loop-delta refs.
+  3. Persist role execution with exposure-set hash, evidence partition, runtime identity, role-slot/instance uniqueness, and durable pre-exposure output.
+  4. Reject UUID-only, summary-only, evidence-free, peer-contaminated, stale, or semantically duplicate first-pass participation.
+- Affected boundaries / entry points: Literature keyed resolution and retrieval, SearchRun provenance, runtime artifacts, Prisma/repository contracts, checkpoint packet projection, and DB context.
+- Dependencies: Phase 7 owner audit and settled child-table shape. Uses the Phase 8A disposition vocabulary but does not activate it as checkpoint authority.
+- Exit criteria: Every admitted role execution replays from its exact snapshot and actual evidence exposure; invalid independence/evidence cases fail before synthesis.
+- Verification: Focused resolver/admission tests, migration replay and drift check, real-repository uniqueness/currentness cases, and ref-to-excerpt replay.
+- Recovery: Disable arena writes and retain diagnostic sessions; remove no canonical literature or checkpoint authority.
+
+### Phase 8D — Prove the scout–killer arena in shadow mode
+- Outcome: Before HumanConfirmNeed, an independent opportunity scout and prior-art/topic-killer produce a traceable zero-to-many recommendation from distinct product-retrieved evidence without changing live authority; the empirical skeptic remains deferred until the pair proves value.
+- Approach: Reuse Codex-assisted/runtime mechanisms over the Phase 8C integrity boundary. Persist both pre-exposure outputs before one bounded deterministic or human synthesis, and evaluate the recommendation only as a shadow projection.
+- Planned changes:
+  1. Run bounded out-of-basket retrieval for the opportunity scout and collision/fatal-flaw retrieval for the topic-killer, recording query and SearchRun provenance.
+  2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment before synthesis.
+  3. Synthesize the Phase 8A set-level outcome plus per-candidate dispositions, with enumerated evidence-backed reason codes for every drop recommendation.
+  4. Admit at most one retry, only when a recorded evidence, candidate, constraint, or human-objective delta exists.
+  5. Render the shadow result through the Phase 8B views and retain a replayable technical trace.
+- Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, arena/runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
+- Dependencies: Phases 8A and 8C; Phase 8B for the maintained human/LLM views. Provider/multi-provider work remains with T-129.
+- Exit criteria: Every role replays from its actual evidence; a no-topic result is successful; correlated shared-summary role play and evidence-free criticism fail admission; no shadow result writes live research authority.
+- Verification: Shadow replay on the current ambiguous lineage, recorded dominance pairs, and evidence-perturbation variants; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
 - Recovery: Disable the shadow projection without changing checkpoint or research authority; retain artifacts as diagnostic evidence.
 
 ### Phase 9 — Integrate disposition, dissent, and bounded human control
 - Outcome: The validated arena can govern the gap checkpoint, carry unresolved material dissent through value/package/promotion, and let the researcher advance routine work to the next semantic decision without repeated operational authorization.
 - Approach: Activate the smallest proven contracts only. Keep one active research lineage, project parked candidates, and require exact human authority for research-meaning choices and material risk acceptance.
 - Planned changes:
-  1. Make zero-viable, park, drop, reframe, expand, and select outcomes valid workflow dispositions rather than generation failures.
+  1. Activate the validated Phase 8A portfolio outcomes as gap-checkpoint authority and bind their routing to the exact current arena snapshot.
   2. Bind HumanConfirmNeed to the selected arena snapshot and preserve rejected/parked candidates with evidence-backed reasons.
   3. Carry unresolved high-severity objections and minority reports by stable refs into N8, v1c support, gate checks, and the human promotion packet.
   4. Block a green gate when a material carried item lacks an explicit repair, accepted-risk, loopback, park, or drop disposition.
-  5. Implement stage-level human Markdown plus the bounded “advance to next human decision” effect envelope.
+  5. Adopt the Phase 8B stage views and bounded “advance to next human decision” effect envelope as the maintained operating surfaces.
 - Affected boundaries / entry points: v1a disposition/schema and HumanConfirmNeed adapter, v1b N8/N9-N11 handoffs, v1c support/gate packet, research status, operator/process docs, and any minimal confirmed persistence change.
-- Dependencies: Phase 8 behavioral evidence. Prompt wording changes land only with their schemas, gates, loopbacks, and terminal semantics.
+- Dependencies: Phase 8A–8D contract, integrity, projection, and behavioral evidence. Prompt wording changes land only with their schemas, gates, loopbacks, and terminal semantics.
 - Exit criteria: A low-value topic can stop cleanly, an accepted topic advances through the exact current arena, no material dissent disappears, and routine deterministic execution reaches the next human boundary without an extra approval.
 - Verification: Positive/negative disposition tests, risk-carry lineage tests, stale/supersession and retry tests, human artifact regeneration, authorization-boundary scenarios, OpenAPI/context alignment, and relevant typecheck/suites.
 - Recovery: Fall back to the existing checkpoint chain with arena authority disabled; never reinterpret a shadow artifact as a human decision.
@@ -216,7 +258,7 @@
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: none
+- Authorized boundary: through Phase 8D shadow validation
 - [x] Decisions: the current medium-value gate is frozen as an ambiguous calibration fixture instead of being promoted for process completion.
 - [x] Design: EvidencePacket resolution, arena owner boundary, and risk-carry projection are settled by the Phase 7 audit (`artifacts/phase7-owner-map.md`) and the researcher-confirmed `TopicSelectionResearchArenaSession` coordination root; branching is settled — fork is out of scope, and parked-alternative return is serial and delta-gated.
 - [x] Route: contract alignment precedes shadow validation, then bounded authority integration and measured adoption.
