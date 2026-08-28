@@ -1040,6 +1040,12 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
     topicSelectionResearchCheckpointRepository,
     topicSelectionControlPlaneService,
+    {
+      stageProjectionSources: {
+        topicPackageRepository: topicSelectionV1bTopicPackageRepository,
+        valueAssessmentRepository: topicSelectionV1bValueAssessmentRepository,
+      },
+    },
   );
   const topicSelectionResearchCheckpointController = new TopicSelectionResearchCheckpointController(
     topicSelectionResearchCheckpointService,

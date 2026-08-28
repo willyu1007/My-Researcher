@@ -21,6 +21,13 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
     controlPlane,
     { idFactory: (prefix) => `${prefix}_${++sequence}` },
   );
+  const artifact = await controlPlane.recordArtifactRef({
+    title_card_id: 'title_route_1',
+    artifact_kind: 'structured_output',
+    storage_kind: 'inline',
+    payload: { summary: 'Reviewer packet content.' },
+    created_by: 'system',
+  });
   const checkpoint = await service.materializeCheckpoint({
     title_card_id: 'title_route_1',
     checkpoint_kind: 'question_contract',
@@ -84,6 +91,26 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
   assert.equal(statusResponse.statusCode, 200, statusResponse.body);
   assert.equal(statusResponse.json().next_authorized_transition, null);
   assert.equal(statusResponse.json().checkpoint_chain.length, 1);
+
+  const manifestResponse = await app.inject({
+    method: 'GET',
+    url: '/topic-selection/title-cards/title_route_1/stage-manifest',
+  });
+  assert.equal(manifestResponse.statusCode, 200, manifestResponse.body);
+  assert.equal(manifestResponse.json().schema_version, 'TopicSelectionResearchStageManifest@v1');
+  assert.equal(manifestResponse.json().stages.length, 7);
+  assert.equal(
+    manifestResponse.json().stages.find((stage: { stage: string }) => stage.stage === 'research_question')
+      ?.authority_ref.ref_id,
+    'question_1',
+  );
+
+  const artifactResponse = await app.inject({
+    method: 'GET',
+    url: `/topic-selection/artifacts/${artifact.artifact_ref_id}`,
+  });
+  assert.equal(artifactResponse.statusCode, 200, artifactResponse.body);
+  assert.deepEqual(artifactResponse.json().payload, { summary: 'Reviewer packet content.' });
 
   const listResponse = await app.inject({
     method: 'GET',

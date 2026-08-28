@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
+import { topicSelectionArtifactRefRecordSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   topicSelectionResearchCheckpointDecisionInputSchema,
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
+  topicSelectionResearchStageManifestSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import type { TopicSelectionResearchCheckpointController } from '../controllers/topic-selection-research-checkpoint-controller.js';
 
@@ -63,5 +65,25 @@ export async function registerTopicSelectionResearchCheckpointRoutes(
     '/topic-selection/title-cards/:titleCardId/research-status',
     { schema: { params: titleCardParams } },
     controller.getResearchStatus,
+  );
+  fastify.get(
+    '/topic-selection/title-cards/:titleCardId/stage-manifest',
+    {
+      schema: {
+        params: titleCardParams,
+        response: { 200: topicSelectionResearchStageManifestSchema },
+      },
+    },
+    controller.getStageManifest,
+  );
+  fastify.get(
+    '/topic-selection/artifacts/:artifactRefId',
+    {
+      schema: {
+        params: paramsSchema({ artifactRefId: stringId }),
+        response: { 200: topicSelectionArtifactRefRecordSchema },
+      },
+    },
+    controller.getArtifact,
   );
 }

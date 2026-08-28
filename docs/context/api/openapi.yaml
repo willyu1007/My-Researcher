@@ -3855,6 +3855,47 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /topic-selection/title-cards/{titleCardId}/stage-manifest:
+    get:
+      operationId: getTopicSelectionResearchStageManifest
+      summary: Resolve deterministic current pointers for the seven human and LLM semantic stage views.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+      responses:
+        '200':
+          description: Read-only manifest projected from canonical current owners.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchStageManifest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/artifacts/{artifactRefId}:
+    get:
+      operationId: getTopicSelectionArtifact
+      summary: Resolve a manifest-linked topic-selection artifact without creating a new projection authority.
+      tags: [topic-selection-research]
+      parameters:
+        - name: artifactRefId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Existing canonical control-plane artifact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionArtifactRefRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/v1a/topic-seeds/from-title-card:
     post:
       operationId: createTopicSelectionV1aTopicSeedFromTitleCard
@@ -8190,6 +8231,98 @@ components:
         next_authorized_transition: { type: [string, 'null'] }
         open_blocking_objection_count: { type: integer, minimum: 0 }
         legacy_provenance: { type: boolean }
+
+    TopicSelectionResearchStageManifestEntry:
+      type: object
+      additionalProperties: false
+      required: [stage, state, current_selection_rule, authority_ref, checkpoint_ref, supersedes_ref, snapshot_hash, status, source_refs, artifact_refs, issue_codes]
+      properties:
+        stage:
+          type: string
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review]
+        state:
+          type: string
+          enum: [current, unavailable]
+        current_selection_rule:
+          type: string
+          enum: [derived_from_current_manifest, checkpoint_unique_current_key, value_disposition_is_current, latest_created_at_then_id]
+        authority_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        checkpoint_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        supersedes_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        snapshot_hash:
+          type: [string, 'null']
+          pattern: '^[a-f0-9]{64}$'
+        status: { type: [string, 'null'] }
+        source_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        artifact_refs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        issue_codes:
+          type: array
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionResearchStageManifest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, title_card_id, current_stage, next_human_decision_stage, stages, manifest_hash]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchStageManifest@v1' }
+        title_card_id: { type: string, minLength: 1 }
+        current_stage:
+          type: [string, 'null']
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review, null]
+        next_human_decision_stage:
+          type: [string, 'null']
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review, null]
+        stages:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchStageManifestEntry'
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionArtifactRefRecord:
+      type: object
+      additionalProperties: false
+      required: [artifact_ref_id, artifact_kind, storage_kind, created_by, created_at]
+      properties:
+        artifact_ref_id: { type: string, minLength: 1 }
+        workspace_id: { type: [string, 'null'] }
+        title_card_id: { type: [string, 'null'] }
+        artifact_kind:
+          type: string
+          enum: [input, prompt, structured_output, raw_output, diagnostic, trace, other]
+        storage_kind:
+          type: string
+          enum: [inline, file, uri]
+        uri: { type: [string, 'null'] }
+        payload:
+          anyOf:
+            - $ref: '#/components/schemas/JsonObject'
+            - type: 'null'
+        checksum: { type: [string, 'null'] }
+        byte_size: { type: [integer, 'null'], minimum: 0 }
+        mime_type: { type: [string, 'null'] }
+        workflow_run_id: { type: [string, 'null'] }
+        input_snapshot_id: { type: [string, 'null'] }
+        created_by:
+          type: string
+          enum: [human, llm, system, hybrid]
+        created_at: { type: string, minLength: 1 }
 
     TopicSelectionV1aRecord:
       type: object

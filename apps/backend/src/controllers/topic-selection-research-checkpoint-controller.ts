@@ -114,4 +114,26 @@ export class TopicSelectionResearchCheckpointController {
       return handleError(reply, error);
     }
   };
+
+  getStageManifest = async (
+    request: ParamsRequest<{ titleCardId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(await this.service.getStageManifest(request.params.titleCardId));
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getArtifact = async (
+    request: ParamsRequest<{ artifactRefId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(await this.service.getArtifact(request.params.artifactRefId));
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
 }

@@ -6,6 +6,11 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type { TopicSelectionNeedCandidateRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type { TopicSelectionCoverageRowIntentRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import type { TopicSelectionTopicPackageRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
+import type {
+  TopicSelectionTopicValueAssessmentRecord,
+  TopicSelectionValueDispositionDecisionRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
@@ -17,7 +22,11 @@ const HASH_C = 'c'.repeat(64);
 const HASH_D = 'd'.repeat(64);
 const NOW = '2026-08-25T10:00:00.000Z';
 
-function createService() {
+type StageProjectionSources = NonNullable<
+  ConstructorParameters<typeof TopicSelectionResearchCheckpointService>[2]
+>['stageProjectionSources'];
+
+function createService(stageProjectionSources?: StageProjectionSources) {
   let sequence = 0;
   const controlPlane = new TopicSelectionControlPlaneService(
     new InMemoryTopicSelectionControlPlaneRepository(),
@@ -27,6 +36,7 @@ function createService() {
   const service = new TopicSelectionResearchCheckpointService(repository, controlPlane, {
     idFactory: (prefix) => `${prefix}_${++sequence}`,
     now: () => NOW,
+    stageProjectionSources,
   });
   return { repository, service };
 }
@@ -102,6 +112,159 @@ async function materializeQuestion(
     packet_payload: { semantic_design_snapshot: input.snapshotHash },
   });
 }
+
+test('stage manifest is deterministic and exposes only the current checkpoint head', async () => {
+  const { service } = createService();
+  const first = await materialize(service, HASH_A);
+  const second = await materialize(service, HASH_B);
+
+  const manifest = await service.getStageManifest('title_1');
+  const replay = await service.getStageManifest('title_1');
+  const evidenceStage = manifest.stages.find((stage) => stage.stage === 'evidence_landscape');
+
+  assert.deepEqual(replay, manifest);
+  assert.match(manifest.manifest_hash, /^[a-f0-9]{64}$/u);
+  assert.deepEqual(manifest.stages.map((stage) => stage.stage), [
+    'overview',
+    'evidence_landscape',
+    'research_gap',
+    'research_question',
+    'value_feasibility',
+    'topic_package',
+    'promotion_review',
+  ]);
+  assert.equal(evidenceStage?.state, 'current');
+  assert.equal(evidenceStage?.authority_ref?.ref_id, second.target_ref.ref_id);
+  assert.equal(evidenceStage?.supersedes_ref?.ref_id, first.research_checkpoint_id);
+  assert.equal(
+    manifest.stages.some((stage) => stage.authority_ref?.ref_id === first.target_ref.ref_id),
+    false,
+  );
+});
+
+test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
+  const titleCardId = 'title_projection';
+  const assessment = {
+    topic_value_assessment_id: 'assessment_current',
+    title_card_id: titleCardId,
+    topic_question_contract_id: 'question_contract_current',
+    readiness_status: 'ready',
+    freshness_status: 'current',
+    artifact_refs: [],
+  } as unknown as TopicSelectionTopicValueAssessmentRecord;
+  const currentDecision = {
+    value_disposition_decision_id: 'decision_current',
+    title_card_id: titleCardId,
+    topic_value_assessment_id: assessment.topic_value_assessment_id,
+    decision: 'advance_to_package',
+    status: 'active',
+    is_current: true,
+    artifact_refs: [],
+  } as unknown as TopicSelectionValueDispositionDecisionRecord;
+  const topicPackage = (
+    id: string,
+    decisionId: string,
+    createdAt: string,
+  ) => ({
+    topic_package_id: id,
+    title_card_id: titleCardId,
+    value_disposition_decision_id: decisionId,
+    value_disposition_decision_ref: {
+      ref_type: 'value_disposition_decision',
+      ref_id: decisionId,
+      title_card_id: titleCardId,
+    },
+    topic_value_assessment_ref: {
+      ref_type: 'topic_value_assessment',
+      ref_id: assessment.topic_value_assessment_id,
+      title_card_id: titleCardId,
+    },
+    topic_question_contract_ref: {
+      ref_type: 'topic_question_contract',
+      ref_id: assessment.topic_question_contract_id,
+      title_card_id: titleCardId,
+    },
+    research_slice_ref: {
+      ref_type: 'research_slice',
+      ref_id: 'slice_current',
+      title_card_id: titleCardId,
+    },
+    topic_package_ref: { ref_type: 'topic_package', ref_id: id, title_card_id: titleCardId },
+    package_readiness_status: 'ready',
+    validated_need_refs: [],
+    selected_evidence_refs: [],
+    accepted_risk_refs: [],
+    blocker_refs: [],
+    recheck_request_refs: [],
+    artifact_refs: [],
+    created_at: createdAt,
+  }) as unknown as TopicSelectionTopicPackageRecord;
+  const packages = [
+    topicPackage('package_current_old', currentDecision.value_disposition_decision_id, '2026-08-25T10:00:00Z'),
+    topicPackage('package_current_new', currentDecision.value_disposition_decision_id, '2026-08-25T11:00:00Z'),
+    topicPackage('package_stale_newer', 'decision_stale', '2026-08-25T12:00:00Z'),
+  ];
+  const { service } = createService({
+    valueAssessmentRepository: {
+      listAssessmentsByTitleCardId: async () => [assessment],
+      listDispositionDecisionsByTitleCardId: async () => [currentDecision],
+    },
+    topicPackageRepository: {
+      listPackagesByTitleCardId: async () => packages,
+    },
+  });
+  await service.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'question_contract',
+    target_ref: {
+      ref_type: 'topic_question_contract',
+      ref_id: assessment.topic_question_contract_id,
+      title_card_id: titleCardId,
+    },
+    target_snapshot_hash: HASH_A,
+    allowed_actions: ['advance', 'loopback'],
+  });
+
+  const manifest = await service.getStageManifest(titleCardId);
+  const valueStage = manifest.stages.find((stage) => stage.stage === 'value_feasibility');
+  const packageStage = manifest.stages.find((stage) => stage.stage === 'topic_package');
+
+  assert.equal(valueStage?.authority_ref?.ref_id, assessment.topic_value_assessment_id);
+  assert.equal(packageStage?.authority_ref?.ref_id, 'package_current_new');
+  assert.equal(
+    manifest.stages.some((stage) => stage.authority_ref?.ref_id === 'package_stale_newer'),
+    false,
+  );
+
+  const staleSubject = createService({
+    valueAssessmentRepository: {
+      listAssessmentsByTitleCardId: async () => [assessment],
+      listDispositionDecisionsByTitleCardId: async () => [currentDecision],
+    },
+    topicPackageRepository: {
+      listPackagesByTitleCardId: async () => packages,
+    },
+  });
+  await staleSubject.service.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'question_contract',
+    target_ref: {
+      ref_type: 'topic_question_contract',
+      ref_id: 'question_contract_revised',
+      title_card_id: titleCardId,
+    },
+    target_snapshot_hash: HASH_B,
+    allowed_actions: ['advance', 'loopback'],
+  });
+  const staleManifest = await staleSubject.service.getStageManifest(titleCardId);
+  const staleValueStage = staleManifest.stages.find((stage) => stage.stage === 'value_feasibility');
+  assert.equal(staleValueStage?.state, 'unavailable');
+  assert.deepEqual(staleValueStage?.issue_codes, ['CURRENT_VALUE_UPSTREAM_STALE']);
+  assert.equal(
+    staleManifest.stages.some((stage) => stage.authority_ref?.ref_id === 'package_current_new'),
+    false,
+  );
+});
 
 function questionDecision(snapshotHash: string, decisionKey: string) {
   return {

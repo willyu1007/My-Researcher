@@ -69,6 +69,27 @@ export const TOPIC_SELECTION_RESEARCH_TRANSITIONS_BY_CHECKPOINT = {
   promotion: 'topic-selection.research.create-paper-project-bridge',
 } as const satisfies Record<TopicSelectionResearchCheckpointKind, string>;
 
+export const TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES = [
+  'overview',
+  'evidence_landscape',
+  'research_gap',
+  'research_question',
+  'value_feasibility',
+  'topic_package',
+  'promotion_review',
+] as const;
+export type TopicSelectionResearchStageViewStage =
+  (typeof TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_STAGE_CURRENT_SELECTION_RULES = [
+  'derived_from_current_manifest',
+  'checkpoint_unique_current_key',
+  'value_disposition_is_current',
+  'latest_created_at_then_id',
+] as const;
+export type TopicSelectionResearchStageCurrentSelectionRule =
+  (typeof TOPIC_SELECTION_RESEARCH_STAGE_CURRENT_SELECTION_RULES)[number];
+
 export interface TopicSelectionResearchCheckpointRecord {
   research_checkpoint_id: string;
   checkpoint_key: string;
@@ -229,6 +250,29 @@ export interface TopicSelectionResearchStatusProjection {
   next_authorized_transition?: string | null;
   open_blocking_objection_count: number;
   legacy_provenance: boolean;
+}
+
+export interface TopicSelectionResearchStageManifestEntry {
+  stage: TopicSelectionResearchStageViewStage;
+  state: 'current' | 'unavailable';
+  current_selection_rule: TopicSelectionResearchStageCurrentSelectionRule;
+  authority_ref: TopicSelectionFunctionalRef | null;
+  checkpoint_ref: TopicSelectionFunctionalRef | null;
+  supersedes_ref: TopicSelectionFunctionalRef | null;
+  snapshot_hash: string | null;
+  status: string | null;
+  source_refs: TopicSelectionFunctionalRef[];
+  artifact_refs: TopicSelectionFunctionalRef[];
+  issue_codes: string[];
+}
+
+export interface TopicSelectionResearchStageManifest {
+  schema_version: 'TopicSelectionResearchStageManifest@v1';
+  title_card_id: string;
+  current_stage: TopicSelectionResearchStageViewStage | null;
+  next_human_decision_stage: TopicSelectionResearchStageViewStage | null;
+  stages: TopicSelectionResearchStageManifestEntry[];
+  manifest_hash: string;
 }
 
 const stringId = { type: 'string', minLength: 1 } as const;
@@ -422,4 +466,65 @@ export const topicSelectionResearchObjectionResolutionInputSchema = {
 export const topicSelectionResearchCheckpointListSchema = {
   type: 'array',
   items: topicSelectionResearchCheckpointRecordSchema,
+} as const;
+
+export const topicSelectionResearchStageManifestEntrySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'stage',
+    'state',
+    'current_selection_rule',
+    'authority_ref',
+    'checkpoint_ref',
+    'supersedes_ref',
+    'snapshot_hash',
+    'status',
+    'source_refs',
+    'artifact_refs',
+    'issue_codes',
+  ],
+  properties: {
+    stage: { enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] },
+    state: { enum: ['current', 'unavailable'] },
+    current_selection_rule: { enum: [...TOPIC_SELECTION_RESEARCH_STAGE_CURRENT_SELECTION_RULES] },
+    authority_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    checkpoint_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    supersedes_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    snapshot_hash: { anyOf: [hashString, { type: 'null' }] },
+    status: nullableStringId,
+    source_refs: functionalRefArray,
+    artifact_refs: functionalRefArray,
+    issue_codes: stringArray,
+  },
+} as const;
+
+export const topicSelectionResearchStageManifestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'title_card_id',
+    'current_stage',
+    'next_human_decision_stage',
+    'stages',
+    'manifest_hash',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchStageManifest@v1' },
+    title_card_id: stringId,
+    current_stage: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] }, { type: 'null' }],
+    },
+    next_human_decision_stage: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] }, { type: 'null' }],
+    },
+    stages: {
+      type: 'array',
+      items: topicSelectionResearchStageManifestEntrySchema,
+      minItems: TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES.length,
+      maxItems: TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES.length,
+    },
+    manifest_hash: hashString,
+  },
 } as const;

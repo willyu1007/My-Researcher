@@ -5,6 +5,7 @@ import {
   topicSelectionResearchCheckpointDecisionInputSchema,
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
+  topicSelectionResearchStageManifestSchema,
 } from './topic-selection-research-checkpoint-contracts.js';
 
 const HASH = 'a'.repeat(64);
@@ -18,6 +19,55 @@ async function inject(schema: object, payload: object) {
   await app.close();
   return response;
 }
+
+async function injectResponse(schema: object, payload: object) {
+  const app = Fastify();
+  app.get('/', { schema: { response: { 200: schema } } }, async () => payload);
+  const response = await app.inject({ method: 'GET', url: '/' });
+  await app.close();
+  return response;
+}
+
+test('research stage manifest schema accepts the canonical seven-stage current-pointer projection', async () => {
+  const stages = [
+    'overview',
+    'evidence_landscape',
+    'research_gap',
+    'research_question',
+    'value_feasibility',
+    'topic_package',
+    'promotion_review',
+  ].map((stage, index) => ({
+    stage,
+    state: index < 2 ? 'current' : 'unavailable',
+    current_selection_rule: stage === 'overview'
+      ? 'derived_from_current_manifest'
+      : stage === 'value_feasibility'
+        ? 'value_disposition_is_current'
+        : stage === 'topic_package'
+          ? 'latest_created_at_then_id'
+          : 'checkpoint_unique_current_key',
+    authority_ref: index === 1 ? ref : null,
+    checkpoint_ref: index === 1
+      ? { ref_type: 'research_checkpoint', ref_id: 'checkpoint_1', title_card_id: 'title_1' }
+      : null,
+    supersedes_ref: null,
+    snapshot_hash: index < 2 ? HASH : null,
+    status: index < 2 ? 'pending' : null,
+    source_refs: index === 1 ? [ref] : [],
+    artifact_refs: [],
+    issue_codes: index < 2 ? [] : ['STAGE_NOT_MATERIALIZED'],
+  }));
+  const response = await injectResponse(topicSelectionResearchStageManifestSchema, {
+    schema_version: 'TopicSelectionResearchStageManifest@v1',
+    title_card_id: 'title_1',
+    current_stage: 'evidence_landscape',
+    next_human_decision_stage: 'evidence_landscape',
+    stages,
+    manifest_hash: HASH,
+  });
+  assert.equal(response.statusCode, 200, response.body);
+});
 
 test('research checkpoint decision schema accepts complete strict-human evidence review', async () => {
   const response = await inject(topicSelectionResearchCheckpointDecisionInputSchema, {

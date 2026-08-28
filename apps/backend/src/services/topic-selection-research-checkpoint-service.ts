@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type {
+  TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
   TopicSelectionHumanConfirmedDecisionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -42,8 +43,13 @@ import {
   type TopicSelectionResearchObjectionResolutionInput,
   type TopicSelectionResearchObjectionResolutionRecord,
   type TopicSelectionResearchStatusProjection,
+  type TopicSelectionResearchStageManifest,
+  type TopicSelectionResearchStageManifestEntry,
+  type TopicSelectionResearchStageViewStage,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { AppError } from '../errors/app-error.js';
+import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
+import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories/topic-selection-v1b-value-assessment.repository.js';
 import {
   TopicSelectionResearchCheckpointCurrentConflictError,
   type TopicSelectionResearchCheckpointRepository,
@@ -59,6 +65,13 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  stageProjectionSources?: {
+    topicPackageRepository: Pick<TopicSelectionV1bTopicPackageRepository, 'listPackagesByTitleCardId'>;
+    valueAssessmentRepository: Pick<
+      TopicSelectionV1bValueAssessmentRepository,
+      'listAssessmentsByTitleCardId' | 'listDispositionDecisionsByTitleCardId'
+    >;
+  };
 };
 
 type GapCandidatePacketEntry = {
@@ -182,10 +195,17 @@ const OBJECTION_EVIDENCE_REF_TYPES = new Set([
   'search_run',
   'validated_need',
 ]);
+const STAGE_BY_CHECKPOINT_KIND = {
+  evidence_landscape: 'evidence_landscape',
+  gap_selection: 'research_gap',
+  question_contract: 'research_question',
+  promotion: 'promotion_review',
+} as const satisfies Record<TopicSelectionResearchCheckpointKind, TopicSelectionResearchStageViewStage>;
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly stageProjectionSources: ServiceOptions['stageProjectionSources'];
 
   constructor(
     private readonly repository: TopicSelectionResearchCheckpointRepository,
@@ -194,6 +214,7 @@ export class TopicSelectionResearchCheckpointService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.stageProjectionSources = options.stageProjectionSources;
   }
 
   async materializeCheckpoint(
@@ -1383,6 +1404,256 @@ export class TopicSelectionResearchCheckpointService {
       open_blocking_objection_count: openBlockingObjectionCount,
       legacy_provenance: checkpointChain.length === 0
         || checkpointChain.some((checkpoint) => checkpoint.provenance_class === 'backfilled'),
+    };
+  }
+
+  async getStageManifest(titleCardId: string): Promise<TopicSelectionResearchStageManifest> {
+    const researchStatus = await this.getResearchStatus(titleCardId);
+    const checkpointByKind = new Map(
+      researchStatus.checkpoint_chain.map((checkpoint) => [checkpoint.checkpoint_kind, checkpoint]),
+    );
+    const checkpointEntry = (
+      stage: TopicSelectionResearchStageViewStage,
+      kind: TopicSelectionResearchCheckpointKind,
+    ): TopicSelectionResearchStageManifestEntry => {
+      const checkpoint = checkpointByKind.get(kind);
+      if (!checkpoint) {
+        return this.unavailableStageManifestEntry(stage, 'checkpoint_unique_current_key');
+      }
+      const checkpointRef = this.checkpointRef(checkpoint);
+      const resolvableRefs = this.uniqueRefs([
+        checkpoint.target_ref,
+        ...checkpoint.source_refs,
+      ]);
+      return {
+        stage,
+        state: 'current',
+        current_selection_rule: 'checkpoint_unique_current_key',
+        authority_ref: checkpoint.target_ref,
+        checkpoint_ref: checkpointRef,
+        supersedes_ref: checkpoint.supersedes_checkpoint_id
+          ? this.ref('research_checkpoint', checkpoint.supersedes_checkpoint_id, titleCardId)
+          : null,
+        snapshot_hash: checkpoint.target_snapshot_hash,
+        status: checkpoint.status,
+        source_refs: checkpoint.source_refs,
+        artifact_refs: resolvableRefs.filter((ref) => ref.ref_type === 'artifact_ref'),
+        issue_codes: [],
+      };
+    };
+    const valueStage = await this.currentValueStageManifestEntry(
+      titleCardId,
+      checkpointByKind.get('question_contract')?.target_ref ?? null,
+    );
+    const projectedStages: TopicSelectionResearchStageManifestEntry[] = [
+      checkpointEntry('evidence_landscape', 'evidence_landscape'),
+      checkpointEntry('research_gap', 'gap_selection'),
+      checkpointEntry('research_question', 'question_contract'),
+      valueStage.entry,
+      await this.currentPackageStageManifestEntry(titleCardId, valueStage.currentDispositionDecisionId),
+      checkpointEntry('promotion_review', 'promotion'),
+    ];
+    const currentAuthorityRefs = projectedStages
+      .map((stage) => stage.authority_ref)
+      .filter((ref): ref is TopicSelectionFunctionalRef => ref !== null);
+    const overview: TopicSelectionResearchStageManifestEntry = {
+      stage: 'overview',
+      state: 'current',
+      current_selection_rule: 'derived_from_current_manifest',
+      authority_ref: null,
+      checkpoint_ref: null,
+      supersedes_ref: null,
+      snapshot_hash: this.hash(projectedStages),
+      status: researchStatus.required_checkpoint_kind === null ? 'complete' : 'in_progress',
+      source_refs: this.uniqueRefs(currentAuthorityRefs),
+      artifact_refs: this.uniqueRefs(projectedStages.flatMap((stage) => stage.artifact_refs)),
+      issue_codes: [],
+    };
+    const stages = [overview, ...projectedStages];
+    const currentStage = researchStatus.current_checkpoint
+      ? STAGE_BY_CHECKPOINT_KIND[researchStatus.current_checkpoint.checkpoint_kind]
+      : [...projectedStages].reverse().find((stage) => stage.state === 'current')?.stage ?? null;
+    const body = {
+      schema_version: 'TopicSelectionResearchStageManifest@v1' as const,
+      title_card_id: titleCardId,
+      current_stage: currentStage,
+      next_human_decision_stage: researchStatus.required_checkpoint_kind
+        ? STAGE_BY_CHECKPOINT_KIND[researchStatus.required_checkpoint_kind]
+        : null,
+      stages,
+    };
+    return {
+      ...body,
+      manifest_hash: this.hash(body),
+    };
+  }
+
+  async getArtifact(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord> {
+    const artifact = await this.controlPlane.getArtifactRef(artifactRefId);
+    if (!artifact) {
+      throw new AppError(404, 'NOT_FOUND', `Topic-selection artifact ${artifactRefId} was not found.`);
+    }
+    return artifact;
+  }
+
+  private unavailableStageManifestEntry(
+    stage: TopicSelectionResearchStageViewStage,
+    currentSelectionRule: TopicSelectionResearchStageManifestEntry['current_selection_rule'],
+    issueCode = 'STAGE_NOT_MATERIALIZED',
+  ): TopicSelectionResearchStageManifestEntry {
+    return {
+      stage,
+      state: 'unavailable',
+      current_selection_rule: currentSelectionRule,
+      authority_ref: null,
+      checkpoint_ref: null,
+      supersedes_ref: null,
+      snapshot_hash: null,
+      status: null,
+      source_refs: [],
+      artifact_refs: [],
+      issue_codes: [issueCode],
+    };
+  }
+
+  private async currentValueStageManifestEntry(
+    titleCardId: string,
+    currentQuestionContractRef: TopicSelectionFunctionalRef | null,
+  ): Promise<{
+    currentDispositionDecisionId: string | null;
+    entry: TopicSelectionResearchStageManifestEntry;
+  }> {
+    const repository = this.stageProjectionSources?.valueAssessmentRepository;
+    if (!repository) {
+      return {
+        currentDispositionDecisionId: null,
+        entry: this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current'),
+      };
+    }
+    const [assessments, decisions] = await Promise.all([
+      repository.listAssessmentsByTitleCardId(titleCardId),
+      repository.listDispositionDecisionsByTitleCardId(titleCardId),
+    ]);
+    const currentDecisions = decisions.filter((decision) => decision.is_current);
+    if (currentDecisions.length > 1) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Multiple current value disposition decisions exist for the stage manifest.');
+    }
+    const decision = currentDecisions[0];
+    if (!decision) {
+      return {
+        currentDispositionDecisionId: null,
+        entry: this.unavailableStageManifestEntry('value_feasibility', 'value_disposition_is_current'),
+      };
+    }
+    const assessment = assessments.find(
+      (candidate) => candidate.topic_value_assessment_id === decision.topic_value_assessment_id,
+    );
+    if (!assessment) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Current value disposition points to a missing value assessment.');
+    }
+    if (!currentQuestionContractRef) {
+      return {
+        currentDispositionDecisionId: null,
+        entry: this.unavailableStageManifestEntry(
+          'value_feasibility',
+          'value_disposition_is_current',
+          'CURRENT_QUESTION_CHECKPOINT_MISSING',
+        ),
+      };
+    }
+    if (
+      currentQuestionContractRef.ref_type !== 'topic_question_contract'
+      || currentQuestionContractRef.ref_id !== assessment.topic_question_contract_id
+    ) {
+      return {
+        currentDispositionDecisionId: null,
+        entry: this.unavailableStageManifestEntry(
+          'value_feasibility',
+          'value_disposition_is_current',
+          'CURRENT_VALUE_UPSTREAM_STALE',
+        ),
+      };
+    }
+    if (assessment.freshness_status !== 'current') {
+      return {
+        currentDispositionDecisionId: null,
+        entry: this.unavailableStageManifestEntry(
+          'value_feasibility',
+          'value_disposition_is_current',
+          'CURRENT_VALUE_ASSESSMENT_STALE',
+        ),
+      };
+    }
+    const assessmentRef = this.ref('topic_value_assessment', assessment.topic_value_assessment_id, titleCardId);
+    const decisionRef = this.ref('value_disposition_decision', decision.value_disposition_decision_id, titleCardId);
+    const sourceRefs = this.uniqueRefs([
+      decisionRef,
+      this.ref('topic_question_contract', assessment.topic_question_contract_id, titleCardId),
+      ...assessment.artifact_refs,
+      ...decision.artifact_refs,
+    ]);
+    return {
+      currentDispositionDecisionId: decision.value_disposition_decision_id,
+      entry: {
+        stage: 'value_feasibility',
+        state: 'current',
+        current_selection_rule: 'value_disposition_is_current',
+        authority_ref: assessmentRef,
+        checkpoint_ref: null,
+        supersedes_ref: null,
+        snapshot_hash: this.hash({ assessment, decision }),
+        status: `${assessment.readiness_status}:${decision.decision}`,
+        source_refs: sourceRefs,
+        artifact_refs: sourceRefs.filter((ref) => ref.ref_type === 'artifact_ref'),
+        issue_codes: [],
+      },
+    };
+  }
+
+  private async currentPackageStageManifestEntry(
+    titleCardId: string,
+    currentDispositionDecisionId: string | null,
+  ): Promise<TopicSelectionResearchStageManifestEntry> {
+    const repository = this.stageProjectionSources?.topicPackageRepository;
+    if (!repository || !currentDispositionDecisionId) {
+      return this.unavailableStageManifestEntry('topic_package', 'latest_created_at_then_id');
+    }
+    const packages = (await repository.listPackagesByTitleCardId(titleCardId))
+      .filter((topicPackage) =>
+        topicPackage.value_disposition_decision_id === currentDispositionDecisionId
+      )
+      .sort((left, right) =>
+        left.created_at.localeCompare(right.created_at)
+        || left.topic_package_id.localeCompare(right.topic_package_id)
+      );
+    const topicPackage = packages.at(-1);
+    if (!topicPackage) {
+      return this.unavailableStageManifestEntry('topic_package', 'latest_created_at_then_id');
+    }
+    const sourceRefs = this.uniqueRefs([
+      topicPackage.value_disposition_decision_ref,
+      topicPackage.topic_value_assessment_ref,
+      topicPackage.topic_question_contract_ref,
+      topicPackage.research_slice_ref,
+      ...topicPackage.validated_need_refs,
+      ...topicPackage.selected_evidence_refs,
+      ...topicPackage.accepted_risk_refs,
+      ...topicPackage.blocker_refs,
+      ...topicPackage.recheck_request_refs,
+      ...topicPackage.artifact_refs,
+    ]);
+    return {
+      stage: 'topic_package',
+      state: 'current',
+      current_selection_rule: 'latest_created_at_then_id',
+      authority_ref: topicPackage.topic_package_ref,
+      checkpoint_ref: null,
+      supersedes_ref: null,
+      snapshot_hash: this.hash(topicPackage),
+      status: topicPackage.package_readiness_status,
+      source_refs: sourceRefs,
+      artifact_refs: sourceRefs.filter((ref) => ref.ref_type === 'artifact_ref'),
+      issue_codes: [],
     };
   }
 
