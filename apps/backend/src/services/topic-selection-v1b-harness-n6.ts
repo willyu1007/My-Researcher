@@ -216,6 +216,89 @@ export function extractN6DraftPayload(
     : null;
 }
 
+export function n6NonSelectedPortfolioBlocker(
+  draft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
+  knownEvidenceIds: Set<string>,
+): { code: string; message: string } | null {
+  const portfolio = draft.portfolio_disposition;
+  if (!portfolio || portfolio.outcome === 'selected') {
+    return null;
+  }
+  const candidateKeys = new Set(draft.candidates.map((candidate) => candidate.candidate_key));
+  const dispositionKeys = portfolio.candidate_dispositions.map((candidate) => candidate.candidate_key);
+  const citedRefs = [
+    ...portfolio.evidence_refs,
+    ...portfolio.rejection_reasons.flatMap((reason) => reason.evidence_refs),
+    ...portfolio.candidate_dispositions.flatMap((candidate) => candidate.evidence_refs),
+  ];
+  const valid = draft.recommended_candidate_keys.length === 0
+    && portfolio.confidence >= 0
+    && portfolio.confidence <= 1
+    && portfolio.evidence_refs.length > 0
+    && portfolio.rejection_reasons.length > 0
+    && portfolio.reopening_conditions.length > 0
+    && portfolio.rejection_reasons.every((reason) => reason.evidence_refs.length > 0)
+    && citedRefs.every((ref) => knownEvidenceIds.has(ref.ref_id))
+    && candidateKeys.size === draft.candidates.length
+    && dispositionKeys.length === candidateKeys.size
+    && new Set(dispositionKeys).size === dispositionKeys.length
+    && dispositionKeys.every((candidateKey) => candidateKeys.has(candidateKey))
+    && portfolio.candidate_dispositions.every((candidate) =>
+      candidate.disposition !== 'selected'
+      && candidate.evidence_refs.length > 0
+      && (candidate.disposition === 'dropped') === Boolean(candidate.drop_reason_code)
+      && (candidate.disposition !== 'parked' || candidate.reopening_conditions.length > 0)
+    )
+    && (portfolio.outcome !== 'none_viable' || draft.candidates.length === 0);
+  return valid
+    ? null
+    : {
+        code: 'N6_NON_SELECTED_PORTFOLIO_INVALID',
+        message: 'N6 non-selected portfolios require frozen evidence-backed rejection reasons, bounded confidence, reopening conditions, and no recommended downstream candidate.',
+      };
+}
+
+export function n6SelectedPortfolioBlocker(
+  draft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
+  knownEvidenceIds: Set<string>,
+): { code: string; message: string } | null {
+  const portfolio = draft.portfolio_disposition;
+  if (portfolio?.outcome !== 'selected') {
+    return null;
+  }
+  const candidateKeys = new Set(draft.candidates.map((candidate) => candidate.candidate_key));
+  const dispositionKeys = portfolio.candidate_dispositions.map((candidate) => candidate.candidate_key);
+  const selected = portfolio.candidate_dispositions.filter((candidate) => candidate.disposition === 'selected');
+  const citedRefs = [
+    ...portfolio.evidence_refs,
+    ...portfolio.rejection_reasons.flatMap((reason) => reason.evidence_refs),
+    ...portfolio.candidate_dispositions.flatMap((candidate) => candidate.evidence_refs),
+  ];
+  const valid = portfolio.confidence >= 0
+    && portfolio.confidence <= 1
+    && portfolio.evidence_refs.length > 0
+    && draft.candidates.length > 0
+    && selected.length === 1
+    && draft.recommended_candidate_keys.length === 1
+    && draft.recommended_candidate_keys[0] === selected[0]?.candidate_key
+    && dispositionKeys.length === candidateKeys.size
+    && new Set(dispositionKeys).size === dispositionKeys.length
+    && dispositionKeys.every((candidateKey) => candidateKeys.has(candidateKey))
+    && citedRefs.every((ref) => knownEvidenceIds.has(ref.ref_id))
+    && portfolio.rejection_reasons.every((reason) => reason.evidence_refs.length > 0)
+    && portfolio.candidate_dispositions.every((candidate) =>
+      candidate.evidence_refs.length > 0
+      && (candidate.disposition === 'dropped') === Boolean(candidate.drop_reason_code)
+      && (candidate.disposition !== 'parked' || candidate.reopening_conditions.length > 0)
+    );
+  return valid
+    ? null
+    : {
+        code: 'N6_SELECTED_PORTFOLIO_INVALID',
+        message: 'N6 selected portfolios require exactly one recommended selected candidate, complete grounded dispositions, drop reasons, and parked reopening conditions.',
+      };
+}
+
 export function missingN6TraceabilityEvidenceRoles(candidate: TopicSelectionTopicQuestionCandidateDraft): string[] {
   const refsByRole = {
     baseline: candidate.traceability_check.baseline_evidence_refs,

@@ -773,7 +773,7 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
       return { status: 'admission_blocked', admission: admissionResult };
     }
 
-    // GATE BRIDGE: the arbiter's synthesized_candidate_set is already a bare 5-key candidate-set draft
+    // GATE BRIDGE: the arbiter's synthesized_candidate_set is already a bare candidate-set draft
     // (admission enforced isN6DraftPayload). Funnel it through the EXISTING single-agent draft path so
     // the gate-facing draft carries single-agent identity — threading the debate's REAL execution_mode as
     // codex_response (codex) or mocked_output (mocked), never silently re-recording one as the other.

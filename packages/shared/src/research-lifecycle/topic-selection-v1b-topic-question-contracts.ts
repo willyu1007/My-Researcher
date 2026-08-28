@@ -3,6 +3,10 @@ import {
   type TopicSelectionActorType,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
+import {
+  topicSelectionCandidatePortfolioDispositionSchema,
+  type TopicSelectionCandidatePortfolioDisposition,
+} from './topic-selection-need-validation-contracts.js';
 
 export const TOPIC_SELECTION_FORM_TOPIC_QUESTION_RUN_STATUSES = [
   'queued',
@@ -271,6 +275,7 @@ export interface TopicSelectionFormTopicQuestionLlmOutput {
   generation_notes: string[];
   human_review_triggers: string[];
   candidates: TopicSelectionTopicQuestionCandidateDraft[];
+  portfolio_disposition?: TopicSelectionCandidatePortfolioDisposition | null;
 }
 
 export interface TopicSelectionFormTopicQuestionRunRecord {
@@ -799,9 +804,11 @@ export const topicSelectionFormTopicQuestionLlmOutputSchema = {
     recommended_candidate_keys: stringArray,
     generation_notes: stringArray,
     human_review_triggers: stringArray,
+    portfolio_disposition: {
+      anyOf: [topicSelectionCandidatePortfolioDispositionSchema, { type: 'null' }],
+    },
     candidates: {
       type: 'array',
-      minItems: 1,
       items: topicSelectionTopicQuestionCandidateDraftSchema,
     },
   },

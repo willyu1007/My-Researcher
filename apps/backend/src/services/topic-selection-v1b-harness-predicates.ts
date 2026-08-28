@@ -465,6 +465,7 @@ export function isN6DraftPayload(value: Record<string, unknown>): boolean {
     'candidates',
     'generation_notes',
     'human_review_triggers',
+    'portfolio_disposition',
     'question_frame',
     'recommended_candidate_keys',
   ])
@@ -472,7 +473,13 @@ export function isN6DraftPayload(value: Record<string, unknown>): boolean {
     && isStringArray(value.recommended_candidate_keys)
     && isStringArray(value.generation_notes)
     && isStringArray(value.human_review_triggers)
-    && Array.isArray(value.candidates);
+    && (
+      value.portfolio_disposition === undefined
+      || value.portfolio_disposition === null
+      || isCandidatePortfolioDisposition(value.portfolio_disposition)
+    )
+    && Array.isArray(value.candidates)
+    && (value.candidates.length > 0 || isCandidatePortfolioDisposition(value.portfolio_disposition));
 }
 
 export function isN6QuestionFrameDraft(value: unknown): boolean {

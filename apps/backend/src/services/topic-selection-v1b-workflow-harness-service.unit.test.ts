@@ -3814,6 +3814,317 @@ test('v1b workflow harness N6 creates candidate set from frozen semantic draft a
   );
 });
 
+test('v1b workflow harness N6 successfully stops an evidence-grounded no-viable portfolio without candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, input);
+  const evidenceRef = draft.question_frame.evidence_refs[0]!;
+  const noViableDraft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = {
+    ...draft,
+    recommended_candidate_keys: [],
+    candidates: [],
+    portfolio_disposition: {
+      outcome: 'none_viable',
+      rationale: 'Every visible question framing is defeated by the frozen evidence.',
+      confidence: 0.87,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'unidentifiable_or_unfalsifiable_mechanism',
+          summary: 'The selected slice cannot support a falsifiable research question.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Reopen when evidence supports a falsifiable mechanism.'],
+      candidate_dispositions: [],
+    },
+  };
+  const requestWithDraft = {
+    ...input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, input, noViableDraft)],
+  };
+  const result = await ctx.service.invokeNode(requestWithDraft);
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'stop_v1b_complete');
+  assert.equal(result.failure_class, null);
+  assert.equal(result.error_code, null);
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.topicQuestionRepository.listCandidateSetsByTitleCardId(TITLE_CARD_ID), []);
+  const transitionRecord = await ctx.controlPlaneRepository.findChainTransitionAttemptById(
+    result.transition_attempt_ref!.ref_id,
+  );
+  assert.deepEqual(transitionRecord?.created_authority_refs, []);
+  const replay = await ctx.service.invokeNode(requestWithDraft);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  assert.equal(replay.route_decision, 'stop_v1b_complete');
+  assert.equal(replay.authority_ref, null);
+});
+
+test('v1b workflow harness N6 blocks an evidence-free no-viable portfolio before candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, input);
+  const noViableDraft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = {
+    ...draft,
+    recommended_candidate_keys: [],
+    candidates: [],
+    portfolio_disposition: {
+      outcome: 'none_viable',
+      rationale: 'No visible question should advance.',
+      confidence: 0.87,
+      evidence_refs: [],
+      rejection_reasons: [
+        {
+          reason_code: 'unidentifiable_or_unfalsifiable_mechanism',
+          summary: 'The selected slice cannot support a falsifiable research question.',
+          evidence_refs: [],
+        },
+      ],
+      reopening_conditions: ['Reopen when evidence supports a falsifiable mechanism.'],
+      candidate_dispositions: [],
+    },
+  };
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, input, noViableDraft)],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.route_decision, 'blocked');
+  assert.equal(result.error_code, 'N6_NON_SELECTED_PORTFOLIO_INVALID');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.topicQuestionRepository.listCandidateSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N6 routes evidence expansion without manufacturing candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, input);
+  const evidenceRef = draft.question_frame.evidence_refs[0]!;
+  const expansionDraft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = {
+    ...draft,
+    recommended_candidate_keys: [],
+    candidates: [],
+    portfolio_disposition: {
+      outcome: 'evidence_expansion_required',
+      rationale: 'The visible evidence cannot distinguish viable question framings.',
+      confidence: 0.76,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'evidence_coverage_insufficient',
+          summary: 'Nearest-work coverage is insufficient for a bounded question decision.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Re-enter N6 only after a refreshed v1a evidence bundle is current.'],
+      candidate_dispositions: [],
+    },
+  };
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, input, expansionDraft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'expand_evidence');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.topicQuestionRepository.listCandidateSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N6 routes question-scope reframe to slice selection without candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, input);
+  const evidenceRef = draft.question_frame.evidence_refs[0]!;
+  const reframeDraft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = {
+    ...draft,
+    recommended_candidate_keys: [],
+    candidates: [],
+    portfolio_disposition: {
+      outcome: 'reframe_required',
+      rationale: 'The selected research slice cannot express a falsifiable question.',
+      confidence: 0.83,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'research_scope_misaligned',
+          summary: 'The selected slice conflicts with the bounded mechanism and evaluation constraints.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Select a different N5 research slice before regenerating questions.'],
+      candidate_dispositions: [],
+    },
+  };
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, input, reframeDraft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'reframe_scope');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.topicQuestionRepository.listCandidateSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N6 preserves selected parked and dropped candidate dispositions', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const draft = await n6Draft(ctx, input);
+  const evidenceRef = draft.question_frame.evidence_refs[0]!;
+  const baseCandidate = draft.candidates[0]!;
+  const dispositionDraft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload = {
+    ...draft,
+    candidates: [
+      baseCandidate,
+      {
+        ...baseCandidate,
+        candidate_key: 'parked_data_question',
+        main_question: 'Can a data-dependent question improve replayable v1b topic selection?',
+      },
+      {
+        ...baseCandidate,
+        candidate_key: 'dropped_duplicate_question',
+        main_question: 'Can a dominated question improve replayable v1b topic selection?',
+      },
+    ],
+    portfolio_disposition: {
+      outcome: 'selected',
+      rationale: 'One question dominates while two alternatives remain explicitly classified.',
+      confidence: 0.85,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [],
+      reopening_conditions: [],
+      candidate_dispositions: [
+        {
+          candidate_key: 'harness_candidate',
+          disposition: 'selected',
+          rationale: 'This question best fits the bounded evidence and execution constraints.',
+          evidence_refs: [evidenceRef],
+          reopening_conditions: [],
+        },
+        {
+          candidate_key: 'parked_data_question',
+          disposition: 'parked',
+          rationale: 'This question becomes useful only when the missing dataset is available.',
+          evidence_refs: [evidenceRef],
+          reopening_conditions: ['Reopen after the required dataset is current.'],
+        },
+        {
+          candidate_key: 'dropped_duplicate_question',
+          disposition: 'dropped',
+          rationale: 'This question is strictly dominated by the selected framing.',
+          evidence_refs: [evidenceRef],
+          drop_reason_code: 'strictly_dominated_by_visible_candidate',
+          reopening_conditions: [],
+        },
+      ],
+    },
+  };
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, input, dispositionDraft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'invoke_next');
+  const candidates = await ctx.topicQuestionRepository.listCandidatesByCandidateSetId(result.authority_ref!.ref_id);
+  assert.equal(candidates.find((candidate) => candidate.candidate_key === 'harness_candidate')?.status, 'recommended');
+  assert.equal(candidates.find((candidate) => candidate.candidate_key === 'parked_data_question')?.status, 'parked');
+  assert.equal(candidates.find((candidate) => candidate.candidate_key === 'dropped_duplicate_question')?.status, 'rejected');
+  const candidateSet = await ctx.topicQuestionRepository.findCandidateSetById(result.authority_ref!.ref_id);
+  assert.equal(
+    (candidateSet?.admission_readiness.portfolio_disposition as { outcome?: string } | undefined)?.outcome,
+    'selected',
+  );
+  const handoffArtifact = await ctx.controlPlane.getArtifactRef(result.handoff_ref!.ref_id);
+  const handoff = handoffArtifact?.payload as TopicSelectionV1bWorkflowHarnessHandoff | null;
+  const handoffPayload = handoff?.payload as {
+    admissible_candidate_refs?: TopicSelectionFunctionalRef[];
+  } | null;
+  assert.deepEqual(
+    handoffPayload?.admissible_candidate_refs?.map((candidateRef) => candidateRef.ref_id),
+    [candidates.find((candidate) => candidate.candidate_key === 'harness_candidate')?.topic_question_candidate_id],
+  );
+});
+
+test('v1b workflow harness N6 rejects ambiguous selected and incomplete non-selected portfolios', async () => {
+  const selectedCtx = await seedHarnessV1aBundle();
+  const { n5: selectedN5 } = await runReadyN5(selectedCtx);
+  const selectedInput = await n6Request(selectedCtx, selectedN5);
+  const selectedDraft = await n6Draft(selectedCtx, selectedInput);
+  const selectedEvidenceRef = selectedDraft.question_frame.evidence_refs[0]!;
+  const ambiguousResult = await selectedCtx.service.invokeNode({
+    ...selectedInput,
+    semantic_artifacts: [await recordN6DraftArtifact(selectedCtx, selectedInput, {
+      ...selectedDraft,
+      portfolio_disposition: {
+        outcome: 'selected',
+        rationale: 'The portfolio claims selection but does not classify a selected question.',
+        confidence: 0.81,
+        evidence_refs: [selectedEvidenceRef],
+        rejection_reasons: [],
+        reopening_conditions: [],
+        candidate_dispositions: [
+          {
+            candidate_key: 'harness_candidate',
+            disposition: 'dropped',
+            rationale: 'This deliberately contradicts the set-level selected outcome.',
+            evidence_refs: [selectedEvidenceRef],
+            drop_reason_code: 'strictly_dominated_by_visible_candidate',
+            reopening_conditions: [],
+          },
+        ],
+      },
+    })],
+  });
+  assert.equal(ambiguousResult.gate_status, 'blocked');
+  assert.equal(ambiguousResult.error_code, 'N6_SELECTED_PORTFOLIO_INVALID');
+  assert.equal(ambiguousResult.authority_ref, null);
+
+  const expansionCtx = await seedHarnessV1aBundle();
+  const { n5: expansionN5 } = await runReadyN5(expansionCtx);
+  const expansionInput = await n6Request(expansionCtx, expansionN5);
+  const expansionDraft = await n6Draft(expansionCtx, expansionInput);
+  const expansionEvidenceRef = expansionDraft.question_frame.evidence_refs[0]!;
+  const incompleteResult = await expansionCtx.service.invokeNode({
+    ...expansionInput,
+    semantic_artifacts: [await recordN6DraftArtifact(expansionCtx, expansionInput, {
+      ...expansionDraft,
+      recommended_candidate_keys: [],
+      portfolio_disposition: {
+        outcome: 'evidence_expansion_required',
+        rationale: 'The current evidence cannot distinguish the existing question candidate.',
+        confidence: 0.74,
+        evidence_refs: [expansionEvidenceRef],
+        rejection_reasons: [
+          {
+            reason_code: 'evidence_coverage_insufficient',
+            summary: 'The visible evidence leaves the question candidate unresolved.',
+            evidence_refs: [expansionEvidenceRef],
+          },
+        ],
+        reopening_conditions: ['Refresh evidence before returning to the question portfolio.'],
+        candidate_dispositions: [],
+      },
+    })],
+  });
+  assert.equal(incompleteResult.gate_status, 'blocked');
+  assert.equal(incompleteResult.error_code, 'N6_NON_SELECTED_PORTFOLIO_INVALID');
+  assert.equal(incompleteResult.authority_ref, null);
+});
+
 test('v1b workflow harness N6 requires frozen draft artifact and does not live execute execution_spec alone', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);

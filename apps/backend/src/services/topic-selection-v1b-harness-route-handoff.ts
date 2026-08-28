@@ -175,6 +175,12 @@ export function routeTargetNode(
   if (nodeId === 'topic-selection.v1b.generate-research-slice-options.v1' && routeDecision === 'reframe_scope') {
     return 'topic-selection.v1b.record-research-constraint-profile.v1';
   }
+  if (nodeId === 'topic-selection.v1b.generate-topic-question-candidates.v1' && routeDecision === 'expand_evidence') {
+    return 'topic-selection.v1b.create-intake-snapshot.v1';
+  }
+  if (nodeId === 'topic-selection.v1b.generate-topic-question-candidates.v1' && routeDecision === 'reframe_scope') {
+    return 'topic-selection.v1b.select-research-slice.v1';
+  }
   if (nodeId === 'topic-selection.v1b.select-research-slice.v1' && routeDecision === 'loopback') {
     return 'topic-selection.v1b.generate-research-slice-options.v1';
   }

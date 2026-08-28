@@ -1101,6 +1101,33 @@ test('topic-selection v1b N4 draft schema accepts an evidence-grounded no-viable
   );
 });
 
+test('topic-selection v1b N6 draft schema accepts an evidence-grounded no-viable portfolio', async () => {
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_001');
+  assert.equal(
+    await validatesBody(topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema, {
+      ...canonicalN6DraftPayload(),
+      recommended_candidate_keys: [],
+      candidates: [],
+      portfolio_disposition: {
+        outcome: 'none_viable',
+        rationale: 'Every visible question framing is defeated by the frozen evidence.',
+        confidence: 0.87,
+        evidence_refs: [evidenceRef],
+        rejection_reasons: [
+          {
+            reason_code: 'unidentifiable_or_unfalsifiable_mechanism',
+            summary: 'The selected slice cannot support a falsifiable research question.',
+            evidence_refs: [evidenceRef],
+          },
+        ],
+        reopening_conditions: ['Reopen when evidence supports a falsifiable mechanism.'],
+        candidate_dispositions: [],
+      },
+    }),
+    true,
+  );
+});
+
 test('topic-selection v1b N6/N7 support payload schemas accept canonical fixtures', async () => {
   assert.equal(
     await validatesBody(topicSelectionV1bN6LoopbackTriageSupportPayloadSchema, canonicalN6LoopbackTriageSupportPayload()),

@@ -337,7 +337,9 @@ import {
   n6LoopbackRouteTargetNode,
   n6LoopbackTriagePolicyBlocker,
   n6LoopbackTriageRuntimeAuditDrift,
+  n6NonSelectedPortfolioBlocker,
   n6RuntimeAuditDrift,
+  n6SelectedPortfolioBlocker,
 } from './topic-selection-v1b-harness-n6.js';
 import {
   aligns,
@@ -572,6 +574,8 @@ type N6LoopbackPlan = {
 };
 
 type N6CandidateValidationResult = {
+  admissibleCandidateHashes: string[];
+  admissibleCandidateRefs: TopicSelectionFunctionalRef[];
   blockedCandidateContexts: Record<string, unknown>[];
   candidateHashes: string[];
   candidateRefs: TopicSelectionFunctionalRef[];
@@ -3447,6 +3451,73 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
 
+    const knownEvidenceIds = new Set(
+      loaded.value.evidenceRefs.map((row) => row.evidence_ref.ref_id),
+    );
+    const selectedPortfolioBlocker = n6SelectedPortfolioBlocker(
+      draftResolution.draft,
+      knownEvidenceIds,
+    );
+    if (selectedPortfolioBlocker) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: selectedPortfolioBlocker.code,
+        message: selectedPortfolioBlocker.message,
+      });
+    }
+    const nonSelectedPortfolioBlocker = n6NonSelectedPortfolioBlocker(
+      draftResolution.draft,
+      knownEvidenceIds,
+    );
+    if (nonSelectedPortfolioBlocker) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: nonSelectedPortfolioBlocker.code,
+        message: nonSelectedPortfolioBlocker.message,
+      });
+    }
+    const nonSelectedPortfolio = draftResolution.draft.portfolio_disposition?.outcome !== 'selected'
+      ? draftResolution.draft.portfolio_disposition
+      : null;
+    if (nonSelectedPortfolio) {
+      const expandEvidence = nonSelectedPortfolio.outcome === 'evidence_expansion_required';
+      const reframeScope = nonSelectedPortfolio.outcome === 'reframe_required';
+      return this.persistAdmittedResult(input, hashContext, {
+        acceptedRiskRefs: loaded.value.researchSlice.accepted_risk_refs,
+        authorityHash: null,
+        authorityRef: null,
+        blockers: [],
+        failureClass: null,
+        gateStatus: 'admitted',
+        handoff: null,
+        handoffHash: null,
+        requiredActions: nonSelectedPortfolio.reopening_conditions,
+        routeDecision: expandEvidence
+          ? 'expand_evidence'
+          : reframeScope
+            ? 'reframe_scope'
+            : 'stop_v1b_complete',
+        routeTargetNodeId: expandEvidence
+          ? 'topic-selection.v1b.create-intake-snapshot.v1'
+          : reframeScope
+            ? 'topic-selection.v1b.select-research-slice.v1'
+            : null,
+        sourceRef: payload.value.research_slice_ref,
+        targetRef:
+          draftResolution.semanticArtifact.normalized_output_ref
+          ?? draftResolution.semanticArtifact.support_artifact_ref,
+        tracePhase: 'T-147 N6 honest portfolio disposition',
+        tracePayload: {
+          draft_hash: draftResolution.draftHash,
+          portfolio_disposition_hash: canonicalHash(nonSelectedPortfolio),
+          portfolio_outcome: nonSelectedPortfolio.outcome,
+          reopening_conditions: nonSelectedPortfolio.reopening_conditions,
+        },
+        transitionKey: 'topic-selection.v1b.harness.n6-honest-portfolio-disposition',
+        warnings: [],
+      }, {
+        writeAuthority: async () => {},
+      });
+    }
+
     const runId = this.idFactory('form_topic_question_run');
     const questionFrameId = this.idFactory('topic_question_frame');
     const candidateSetId = this.idFactory('topic_question_candidate_set');
@@ -3569,8 +3640,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const handoffPayload: TopicSelectionV1bWorkflowHarnessHandoffPayload = {
       topic_question_candidate_set_ref: candidateSetRef,
       topic_question_candidate_set_hash: candidateSetHash,
-      admissible_candidate_refs: validation.value.candidateRefs,
-      admissible_candidate_hashes: validation.value.candidateHashes,
+      admissible_candidate_refs: validation.value.admissibleCandidateRefs,
+      admissible_candidate_hashes: validation.value.admissibleCandidateHashes,
       selected_research_slice_ref: payload.value.research_slice_ref,
       selected_research_slice_hash: payload.value.research_slice_hash,
       generation_artifact_ref: draftResolution.semanticArtifact.normalized_output_ref!,
@@ -3584,7 +3655,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       payload: handoffPayload,
       requiredRefs: [
         candidateSetRef,
-        ...validation.value.candidateRefs,
+        ...validation.value.admissibleCandidateRefs,
         payload.value.research_slice_ref,
         payload.value.research_slice_selection_ref,
         draftResolution.semanticArtifact.normalized_output_ref!,
@@ -9212,6 +9283,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const blockedCandidateContexts: Record<string, unknown>[] = [];
     const candidates: TopicSelectionTopicQuestionCandidateRecord[] = [];
     for (const [index, candidate] of draft.candidates.entries()) {
+      const portfolioDisposition = draft.portfolio_disposition?.candidate_dispositions.find(
+        (disposition) => disposition.candidate_key === candidate.candidate_key,
+      );
       const structuralBlocker = this.n6CandidateStructuralBlocker(candidate, context, index);
       if (structuralBlocker) {
         return {
@@ -9230,7 +9304,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
           message: semanticBlocker.message,
           scope: 'candidate_level',
         });
-        continue;
+        if (!portfolioDisposition || portfolioDisposition.disposition === 'selected') {
+          continue;
+        }
       }
       const candidateId = this.idFactory('topic_question_candidate');
       candidates.push({
@@ -9243,7 +9319,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         research_slice_version: loaded.researchSlice.slice_version,
         candidate_ordinal: index + 1,
         candidate_key: candidate.candidate_key,
-        status: draft.recommended_candidate_keys.includes(candidate.candidate_key) ? 'recommended' : 'candidate',
+        status: portfolioDisposition?.disposition === 'dropped'
+          ? 'rejected'
+          : portfolioDisposition?.disposition === 'parked'
+            ? 'parked'
+            : draft.recommended_candidate_keys.includes(candidate.candidate_key)
+              ? 'recommended'
+              : 'candidate',
         main_question: candidate.main_question,
         sub_questions: candidate.sub_questions,
         question_type: candidate.question_type,
@@ -9286,6 +9368,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
       buildRef('topic_question_candidate', candidate.topic_question_candidate_id, candidate.title_card_id),
     );
     const candidateHashes = candidates.map((candidate) => hashN6CandidateAuthority(candidate));
+    const admissibleCandidateIndexes = candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) =>
+        candidate.status !== 'parked'
+        && candidate.status !== 'rejected'
+        && candidate.status !== 'blocked'
+      )
+      .map(({ index }) => index);
+    const admissibleCandidateRefs = admissibleCandidateIndexes.map((index) => candidateRefs[index]!);
+    const admissibleCandidateHashes = admissibleCandidateIndexes.map((index) => candidateHashes[index]!);
     const recommendedCandidateIds = draft.recommended_candidate_keys
       .map((key) => candidates.find((candidate) => candidate.candidate_key === key)?.topic_question_candidate_id)
       .filter((candidateId): candidateId is string => Boolean(candidateId));
@@ -9322,6 +9414,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
         candidate_hashes: candidateHashes,
         draft_hash: input.draftHash,
         n5_handoff_hash: payload.n5_handoff_hash,
+        ...(draft.portfolio_disposition
+          ? { portfolio_disposition: draft.portfolio_disposition }
+          : {}),
         selected_research_slice_hash: payload.research_slice_hash,
       },
       hard_blockers: [],
@@ -9339,6 +9434,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     return {
       ok: true,
       value: {
+        admissibleCandidateHashes,
+        admissibleCandidateRefs,
         blockedCandidateContexts,
         candidateHashes,
         candidateRefs,
