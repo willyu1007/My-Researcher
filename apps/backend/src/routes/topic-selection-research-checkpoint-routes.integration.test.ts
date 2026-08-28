@@ -126,6 +126,25 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
   });
   assert.equal(invalidViewResponse.statusCode, 400);
 
+  const envelopeResponse = await app.inject({
+    method: 'GET',
+    url: '/topic-selection/title-cards/title_route_1/continuation-envelope',
+  });
+  assert.equal(envelopeResponse.statusCode, 200, envelopeResponse.body);
+  const envelope = envelopeResponse.json();
+  const stoppedEvaluationResponse = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/title-cards/title_route_1/continuation-envelope/evaluations',
+    payload: {
+      schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1',
+      envelope_hash: envelope.envelope_hash,
+      manifest_hash: envelope.manifest_hash,
+      proposed_effects: ['provider_or_material_cost'],
+    },
+  });
+  assert.equal(stoppedEvaluationResponse.statusCode, 200, stoppedEvaluationResponse.body);
+  assert.equal(stoppedEvaluationResponse.json().decision, 'stop_for_human');
+
   const artifactResponse = await app.inject({
     method: 'GET',
     url: `/topic-selection/artifacts/${artifact.artifact_ref_id}`,

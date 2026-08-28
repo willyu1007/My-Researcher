@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   TopicSelectionResearchCheckpointDecisionInput,
+  TopicSelectionResearchContinuationEnvelopeEvaluationInput,
   TopicSelectionResearchObjectionInput,
   TopicSelectionResearchObjectionResolutionInput,
   TopicSelectionResearchStageViewAudience,
@@ -124,6 +125,34 @@ export class TopicSelectionResearchCheckpointController {
   ) => {
     try {
       return reply.send(await this.service.getStageManifest(request.params.titleCardId));
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getContinuationEnvelope = async (
+    request: ParamsRequest<{ titleCardId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(await this.service.getContinuationEnvelope(request.params.titleCardId));
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  evaluateContinuationEnvelope = async (
+    request: BodyParamsRequest<
+      { titleCardId: string },
+      TopicSelectionResearchContinuationEnvelopeEvaluationInput
+    >,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(await this.service.evaluateContinuationEnvelope(
+        request.params.titleCardId,
+        request.body,
+      ));
     } catch (error) {
       return handleError(reply, error);
     }

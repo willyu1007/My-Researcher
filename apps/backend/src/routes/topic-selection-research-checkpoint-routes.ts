@@ -3,6 +3,9 @@ import { topicSelectionArtifactRefRecordSchema } from '@paper-engineering-assist
 import {
   TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES,
   topicSelectionResearchCheckpointDecisionInputSchema,
+  topicSelectionResearchContinuationEnvelopeEvaluationInputSchema,
+  topicSelectionResearchContinuationEnvelopeEvaluationSchema,
+  topicSelectionResearchContinuationEnvelopeSchema,
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
   topicSelectionResearchStageManifestSchema,
@@ -77,6 +80,27 @@ export async function registerTopicSelectionResearchCheckpointRoutes(
       },
     },
     controller.getStageManifest,
+  );
+  fastify.get(
+    '/topic-selection/title-cards/:titleCardId/continuation-envelope',
+    {
+      schema: {
+        params: titleCardParams,
+        response: { 200: topicSelectionResearchContinuationEnvelopeSchema },
+      },
+    },
+    controller.getContinuationEnvelope,
+  );
+  fastify.post(
+    '/topic-selection/title-cards/:titleCardId/continuation-envelope/evaluations',
+    {
+      schema: {
+        params: titleCardParams,
+        body: topicSelectionResearchContinuationEnvelopeEvaluationInputSchema,
+        response: { 200: topicSelectionResearchContinuationEnvelopeEvaluationSchema },
+      },
+    },
+    controller.evaluateContinuationEnvelope,
   );
   fastify.get(
     '/topic-selection/title-cards/:titleCardId/stage-views/:stage',

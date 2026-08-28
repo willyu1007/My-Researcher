@@ -10,7 +10,9 @@ This directory contains maintained context, not a generated discovery registry.
 - `paper-implementation/` — maintained paper-implementation runtime manifests.
 - `process/` — current process matrices, scenarios, calibration notes, and operational playbooks;
   `process/codex-assisted-operator.md` defines the current Codex-operated rehearsal boundary and
-  the deferred product integration direction.
+  the deferred product integration direction, while
+  `process/topic-selection-continuation-envelope.md` defines effect-bounded continuation to the
+  next human research decision.
 - `ui/` — current desktop UI alignment and surface-specific notes.
 
 There is no repository-wide checksum registry. When a source contract changes, update the directly

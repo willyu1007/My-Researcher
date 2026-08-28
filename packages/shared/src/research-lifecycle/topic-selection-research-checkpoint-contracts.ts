@@ -90,6 +90,43 @@ export const TOPIC_SELECTION_RESEARCH_STAGE_CURRENT_SELECTION_RULES = [
 export type TopicSelectionResearchStageCurrentSelectionRule =
   (typeof TOPIC_SELECTION_RESEARCH_STAGE_CURRENT_SELECTION_RULES)[number];
 
+export const TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES = [
+  'local_read',
+  'deterministic_local_write',
+  'bounded_non_provider_job',
+  'verification',
+  'recoverable_retry',
+  'selected_local_backend_lifecycle',
+] as const;
+export type TopicSelectionResearchRoutineEffectClass =
+  (typeof TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES = [
+  'research_meaning_change',
+  'human_authority_write',
+  'material_risk_acceptance',
+  'provider_or_material_cost',
+  'external_acquisition',
+  'destructive_or_control_sensitive',
+  'target_environment_change',
+  'material_scope_expansion',
+  'ambiguous_recovery',
+] as const;
+export type TopicSelectionResearchConfirmationEffectClass =
+  (typeof TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES)[number];
+export type TopicSelectionResearchContinuationEffectClass =
+  | TopicSelectionResearchRoutineEffectClass
+  | TopicSelectionResearchConfirmationEffectClass;
+
+export const TOPIC_SELECTION_RESEARCH_CONTINUATION_REASON_CODES = [
+  'WITHIN_ROUTINE_EFFECT_ENVELOPE',
+  'CONFIRMATION_REQUIRED_EFFECT',
+  'HUMAN_DECISION_BOUNDARY_REACHED',
+  'ENVELOPE_STALE',
+] as const;
+export type TopicSelectionResearchContinuationReasonCode =
+  (typeof TOPIC_SELECTION_RESEARCH_CONTINUATION_REASON_CODES)[number];
+
 export interface TopicSelectionResearchCheckpointRecord {
   research_checkpoint_id: string;
   checkpoint_key: string;
@@ -321,6 +358,40 @@ export interface TopicSelectionResearchLlmStageView extends TopicSelectionResear
 export type TopicSelectionResearchStageView =
   | TopicSelectionResearchHumanStageView
   | TopicSelectionResearchLlmStageView;
+
+export interface TopicSelectionResearchContinuationEnvelope {
+  schema_version: 'TopicSelectionResearchContinuationEnvelope@v1';
+  intent: 'advance_to_next_human_decision';
+  title_card_id: string;
+  manifest_hash: string;
+  environment_scope: 'selected_local_backend';
+  target_human_decision_stage: TopicSelectionResearchStageViewStage | null;
+  boundary_reached: boolean;
+  routine_effect_classes: TopicSelectionResearchRoutineEffectClass[];
+  confirmation_required_effect_classes: TopicSelectionResearchConfirmationEffectClass[];
+  reason_codes: TopicSelectionResearchContinuationReasonCode[];
+  envelope_hash: string;
+}
+
+export interface TopicSelectionResearchContinuationEnvelopeEvaluationInput {
+  schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1';
+  envelope_hash: string;
+  manifest_hash: string;
+  proposed_effects: readonly TopicSelectionResearchContinuationEffectClass[];
+}
+
+export interface TopicSelectionResearchContinuationEnvelopeEvaluation {
+  schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluation@v1';
+  title_card_id: string;
+  decision: 'continue' | 'stop_for_human' | 'refresh_envelope';
+  envelope_hash: string;
+  manifest_hash: string;
+  target_human_decision_stage: TopicSelectionResearchStageViewStage | null;
+  routine_effects: TopicSelectionResearchRoutineEffectClass[];
+  blocking_effects: TopicSelectionResearchConfirmationEffectClass[];
+  reason_codes: TopicSelectionResearchContinuationReasonCode[];
+  evaluation_hash: string;
+}
 
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
@@ -633,4 +704,121 @@ export const topicSelectionResearchStageViewSchema = {
     topicSelectionResearchHumanStageViewSchema,
     topicSelectionResearchLlmStageViewSchema,
   ],
+} as const;
+
+const continuationEffectClassSchema = {
+  enum: [
+    ...TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES,
+    ...TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES,
+  ],
+} as const;
+
+export const topicSelectionResearchContinuationEnvelopeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'intent',
+    'title_card_id',
+    'manifest_hash',
+    'environment_scope',
+    'target_human_decision_stage',
+    'boundary_reached',
+    'routine_effect_classes',
+    'confirmation_required_effect_classes',
+    'reason_codes',
+    'envelope_hash',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchContinuationEnvelope@v1' },
+    intent: { const: 'advance_to_next_human_decision' },
+    title_card_id: stringId,
+    manifest_hash: hashString,
+    environment_scope: { const: 'selected_local_backend' },
+    target_human_decision_stage: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] }, { type: 'null' }],
+    },
+    boundary_reached: { type: 'boolean' },
+    routine_effect_classes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES] },
+      minItems: TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES.length,
+      maxItems: TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES.length,
+      uniqueItems: true,
+    },
+    confirmation_required_effect_classes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES] },
+      minItems: TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES.length,
+      maxItems: TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES.length,
+      uniqueItems: true,
+    },
+    reason_codes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_CONTINUATION_REASON_CODES] },
+      uniqueItems: true,
+    },
+    envelope_hash: hashString,
+  },
+} as const;
+
+export const topicSelectionResearchContinuationEnvelopeEvaluationInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['schema_version', 'envelope_hash', 'manifest_hash', 'proposed_effects'],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1' },
+    envelope_hash: hashString,
+    manifest_hash: hashString,
+    proposed_effects: {
+      type: 'array',
+      items: continuationEffectClassSchema,
+      minItems: 1,
+      uniqueItems: true,
+    },
+  },
+} as const;
+
+export const topicSelectionResearchContinuationEnvelopeEvaluationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'title_card_id',
+    'decision',
+    'envelope_hash',
+    'manifest_hash',
+    'target_human_decision_stage',
+    'routine_effects',
+    'blocking_effects',
+    'reason_codes',
+    'evaluation_hash',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchContinuationEnvelopeEvaluation@v1' },
+    title_card_id: stringId,
+    decision: { enum: ['continue', 'stop_for_human', 'refresh_envelope'] },
+    envelope_hash: hashString,
+    manifest_hash: hashString,
+    target_human_decision_stage: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] }, { type: 'null' }],
+    },
+    routine_effects: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES] },
+      uniqueItems: true,
+    },
+    blocking_effects: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES] },
+      uniqueItems: true,
+    },
+    reason_codes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_CONTINUATION_REASON_CODES] },
+      minItems: 1,
+      uniqueItems: true,
+    },
+    evaluation_hash: hashString,
+  },
 } as const;

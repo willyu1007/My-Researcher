@@ -180,6 +180,72 @@ test('human and LLM stage views share one current manifest while keeping differe
   ]);
 });
 
+test('continuation envelope advances routine local work only until the next human boundary', async () => {
+  const { service } = createService();
+  const initialEnvelope = await service.getContinuationEnvelope('title_1');
+  assert.equal(initialEnvelope.boundary_reached, false);
+  assert.equal(initialEnvelope.target_human_decision_stage, 'evidence_landscape');
+  const routineInput = {
+    schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1' as const,
+    envelope_hash: initialEnvelope.envelope_hash,
+    manifest_hash: initialEnvelope.manifest_hash,
+    proposed_effects: [
+      'local_read',
+      'deterministic_local_write',
+      'bounded_non_provider_job',
+      'verification',
+      'recoverable_retry',
+      'selected_local_backend_lifecycle',
+    ] as const,
+  };
+  const routine = await service.evaluateContinuationEnvelope('title_1', routineInput);
+  assert.equal(routine.decision, 'continue');
+  assert.deepEqual(await service.evaluateContinuationEnvelope('title_1', routineInput), routine);
+
+  const confirmationRequired = await service.evaluateContinuationEnvelope('title_1', {
+    ...routineInput,
+    proposed_effects: [
+      'research_meaning_change',
+      'human_authority_write',
+      'material_risk_acceptance',
+      'provider_or_material_cost',
+      'external_acquisition',
+      'destructive_or_control_sensitive',
+      'target_environment_change',
+      'material_scope_expansion',
+      'ambiguous_recovery',
+    ],
+  });
+  assert.equal(confirmationRequired.decision, 'stop_for_human');
+  assert.equal(confirmationRequired.blocking_effects.length, 9);
+  assert.equal((await service.listCheckpoints('title_1')).length, 0);
+
+  const checkpoint = await materialize(service, HASH_A);
+  const stale = await service.evaluateContinuationEnvelope('title_1', routineInput);
+  assert.equal(stale.decision, 'refresh_envelope');
+  assert.deepEqual(stale.reason_codes, ['ENVELOPE_STALE']);
+  const pendingEnvelope = await service.getContinuationEnvelope('title_1');
+  assert.equal(pendingEnvelope.boundary_reached, true);
+  const pending = await service.evaluateContinuationEnvelope('title_1', {
+    ...routineInput,
+    envelope_hash: pendingEnvelope.envelope_hash,
+    manifest_hash: pendingEnvelope.manifest_hash,
+  });
+  assert.equal(pending.decision, 'stop_for_human');
+  assert.deepEqual(pending.reason_codes, ['HUMAN_DECISION_BOUNDARY_REACHED']);
+
+  await service.recordDecision(checkpoint.research_checkpoint_id, advancingDecision());
+  const advancedEnvelope = await service.getContinuationEnvelope('title_1');
+  assert.equal(advancedEnvelope.boundary_reached, false);
+  assert.equal(advancedEnvelope.target_human_decision_stage, 'research_gap');
+  const advanced = await service.evaluateContinuationEnvelope('title_1', {
+    ...routineInput,
+    envelope_hash: advancedEnvelope.envelope_hash,
+    manifest_hash: advancedEnvelope.manifest_hash,
+  });
+  assert.equal(advanced.decision, 'continue');
+});
+
 test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
   const titleCardId = 'title_projection';
   const assessment = {

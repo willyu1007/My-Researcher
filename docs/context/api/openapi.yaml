@@ -3874,6 +3874,52 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /topic-selection/title-cards/{titleCardId}/continuation-envelope:
+    get:
+      operationId: getTopicSelectionResearchContinuationEnvelope
+      summary: Project the current effect-bounded instruction for routine local work up to the next human decision.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+      responses:
+        '200':
+          description: Read-only continuation envelope bound to the current stage manifest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchContinuationEnvelope'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/title-cards/{titleCardId}/continuation-envelope/evaluations:
+    post:
+      operationId: evaluateTopicSelectionResearchContinuationEnvelope
+      summary: Classify proposed operation effects without recording research or human authority.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchContinuationEnvelopeEvaluationInput'
+      responses:
+        '200':
+          description: Deterministic continue, stop-for-human, or refresh-envelope decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchContinuationEnvelopeEvaluation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/title-cards/{titleCardId}/stage-views/{stage}:
     get:
       operationId: getTopicSelectionResearchStageView
@@ -8327,6 +8373,94 @@ components:
           items:
             $ref: '#/components/schemas/TopicSelectionResearchStageManifestEntry'
         manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionResearchContinuationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [schema_version, intent, title_card_id, manifest_hash, environment_scope, target_human_decision_stage, boundary_reached, routine_effect_classes, confirmation_required_effect_classes, reason_codes, envelope_hash]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchContinuationEnvelope@v1' }
+        intent: { type: string, const: advance_to_next_human_decision }
+        title_card_id: { type: string, minLength: 1 }
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        environment_scope: { type: string, const: selected_local_backend }
+        target_human_decision_stage:
+          type: [string, 'null']
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review, null]
+        boundary_reached: { type: boolean }
+        routine_effect_classes:
+          type: array
+          minItems: 6
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+            enum: [local_read, deterministic_local_write, bounded_non_provider_job, verification, recoverable_retry, selected_local_backend_lifecycle]
+        confirmation_required_effect_classes:
+          type: array
+          minItems: 9
+          maxItems: 9
+          uniqueItems: true
+          items:
+            type: string
+            enum: [research_meaning_change, human_authority_write, material_risk_acceptance, provider_or_material_cost, external_acquisition, destructive_or_control_sensitive, target_environment_change, material_scope_expansion, ambiguous_recovery]
+        reason_codes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [WITHIN_ROUTINE_EFFECT_ENVELOPE, CONFIRMATION_REQUIRED_EFFECT, HUMAN_DECISION_BOUNDARY_REACHED, ENVELOPE_STALE]
+        envelope_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionResearchContinuationEnvelopeEvaluationInput:
+      type: object
+      additionalProperties: false
+      required: [schema_version, envelope_hash, manifest_hash, proposed_effects]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1' }
+        envelope_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        proposed_effects:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [local_read, deterministic_local_write, bounded_non_provider_job, verification, recoverable_retry, selected_local_backend_lifecycle, research_meaning_change, human_authority_write, material_risk_acceptance, provider_or_material_cost, external_acquisition, destructive_or_control_sensitive, target_environment_change, material_scope_expansion, ambiguous_recovery]
+
+    TopicSelectionResearchContinuationEnvelopeEvaluation:
+      type: object
+      additionalProperties: false
+      required: [schema_version, title_card_id, decision, envelope_hash, manifest_hash, target_human_decision_stage, routine_effects, blocking_effects, reason_codes, evaluation_hash]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchContinuationEnvelopeEvaluation@v1' }
+        title_card_id: { type: string, minLength: 1 }
+        decision: { type: string, enum: [continue, stop_for_human, refresh_envelope] }
+        envelope_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        target_human_decision_stage:
+          type: [string, 'null']
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review, null]
+        routine_effects:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [local_read, deterministic_local_write, bounded_non_provider_job, verification, recoverable_retry, selected_local_backend_lifecycle]
+        blocking_effects:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [research_meaning_change, human_authority_write, material_risk_acceptance, provider_or_material_cost, external_acquisition, destructive_or_control_sensitive, target_environment_change, material_scope_expansion, ambiguous_recovery]
+        reason_codes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [WITHIN_ROUTINE_EFFECT_ENVELOPE, CONFIRMATION_REQUIRED_EFFECT, HUMAN_DECISION_BOUNDARY_REACHED, ENVELOPE_STALE]
+        evaluation_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
 
     TopicSelectionResearchHumanStageView:
       type: object

@@ -3,6 +3,9 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import {
   topicSelectionResearchCheckpointDecisionInputSchema,
+  topicSelectionResearchContinuationEnvelopeEvaluationInputSchema,
+  topicSelectionResearchContinuationEnvelopeEvaluationSchema,
+  topicSelectionResearchContinuationEnvelopeSchema,
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
   topicSelectionResearchStageManifestSchema,
@@ -99,6 +102,61 @@ test('research stage view schema separates concise human Markdown from the LLM w
     working_set: { forbidden_duplicate_plane: true },
   });
   assert.equal(mixedResponse.statusCode, 500);
+});
+
+test('continuation envelope schemas classify routine and confirmation-required effects without node semantics', async () => {
+  const envelope = {
+    schema_version: 'TopicSelectionResearchContinuationEnvelope@v1',
+    intent: 'advance_to_next_human_decision',
+    title_card_id: 'title_1',
+    manifest_hash: HASH,
+    environment_scope: 'selected_local_backend',
+    target_human_decision_stage: 'evidence_landscape',
+    boundary_reached: false,
+    routine_effect_classes: [
+      'local_read',
+      'deterministic_local_write',
+      'bounded_non_provider_job',
+      'verification',
+      'recoverable_retry',
+      'selected_local_backend_lifecycle',
+    ],
+    confirmation_required_effect_classes: [
+      'research_meaning_change',
+      'human_authority_write',
+      'material_risk_acceptance',
+      'provider_or_material_cost',
+      'external_acquisition',
+      'destructive_or_control_sensitive',
+      'target_environment_change',
+      'material_scope_expansion',
+      'ambiguous_recovery',
+    ],
+    reason_codes: [],
+    envelope_hash: HASH,
+  };
+  assert.equal(
+    (await injectResponse(topicSelectionResearchContinuationEnvelopeSchema, envelope)).statusCode,
+    200,
+  );
+  assert.equal((await inject(topicSelectionResearchContinuationEnvelopeEvaluationInputSchema, {
+    schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1',
+    envelope_hash: HASH,
+    manifest_hash: HASH,
+    proposed_effects: ['local_read', 'verification'],
+  })).statusCode, 200);
+  assert.equal((await injectResponse(topicSelectionResearchContinuationEnvelopeEvaluationSchema, {
+    schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluation@v1',
+    title_card_id: 'title_1',
+    decision: 'continue',
+    envelope_hash: HASH,
+    manifest_hash: HASH,
+    target_human_decision_stage: 'evidence_landscape',
+    routine_effects: ['local_read', 'verification'],
+    blocking_effects: [],
+    reason_codes: ['WITHIN_ROUTINE_EFFECT_ENVELOPE'],
+    evaluation_hash: HASH,
+  })).statusCode, 200);
 });
 
 test('research checkpoint decision schema accepts complete strict-human evidence review', async () => {

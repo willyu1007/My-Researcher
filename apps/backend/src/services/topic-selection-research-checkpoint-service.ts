@@ -31,6 +31,8 @@ import type {
 import {
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS,
+  TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES,
+  TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES,
   TOPIC_SELECTION_RESEARCH_TRANSITIONS_BY_CHECKPOINT,
   type TopicSelectionResearchCheckpointAction,
   type TopicSelectionResearchCheckpointDecisionInput,
@@ -38,12 +40,17 @@ import {
   type TopicSelectionResearchCheckpointKind,
   type TopicSelectionResearchCheckpointPacket,
   type TopicSelectionResearchCheckpointRecord,
+  type TopicSelectionResearchConfirmationEffectClass,
+  type TopicSelectionResearchContinuationEnvelope,
+  type TopicSelectionResearchContinuationEnvelopeEvaluation,
+  type TopicSelectionResearchContinuationEnvelopeEvaluationInput,
   type TopicSelectionResearchHumanStageView,
   type TopicSelectionResearchLlmStageView,
   type TopicSelectionResearchObjectionInput,
   type TopicSelectionResearchObjectionRecord,
   type TopicSelectionResearchObjectionResolutionInput,
   type TopicSelectionResearchObjectionResolutionRecord,
+  type TopicSelectionResearchRoutineEffectClass,
   type TopicSelectionResearchStatusProjection,
   type TopicSelectionResearchStageManifest,
   type TopicSelectionResearchStageManifestEntry,
@@ -237,6 +244,8 @@ const HUMAN_ACTION_LABELS = {
   reject: '拒绝当前结果',
   hold: '暂缓决定',
 } as const satisfies Record<TopicSelectionResearchCheckpointAction, string>;
+const ROUTINE_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES);
+const CONFIRMATION_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES);
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
@@ -1530,6 +1539,82 @@ export class TopicSelectionResearchCheckpointService {
       throw new AppError(404, 'NOT_FOUND', `Topic-selection artifact ${artifactRefId} was not found.`);
     }
     return artifact;
+  }
+
+  async getContinuationEnvelope(
+    titleCardId: string,
+  ): Promise<TopicSelectionResearchContinuationEnvelope> {
+    const manifest = await this.getStageManifest(titleCardId);
+    const boundaryReached = manifest.current_stage !== null
+      && manifest.current_stage === manifest.next_human_decision_stage;
+    const body = {
+      schema_version: 'TopicSelectionResearchContinuationEnvelope@v1' as const,
+      intent: 'advance_to_next_human_decision' as const,
+      title_card_id: titleCardId,
+      manifest_hash: manifest.manifest_hash,
+      environment_scope: 'selected_local_backend' as const,
+      target_human_decision_stage: manifest.next_human_decision_stage,
+      boundary_reached: boundaryReached,
+      routine_effect_classes: [...TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES],
+      confirmation_required_effect_classes: [
+        ...TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES,
+      ],
+      reason_codes: boundaryReached
+        ? ['HUMAN_DECISION_BOUNDARY_REACHED' as const]
+        : [],
+    };
+    return { ...body, envelope_hash: this.hash(body) };
+  }
+
+  async evaluateContinuationEnvelope(
+    titleCardId: string,
+    input: TopicSelectionResearchContinuationEnvelopeEvaluationInput,
+  ): Promise<TopicSelectionResearchContinuationEnvelopeEvaluation> {
+    this.assertHash(input.envelope_hash, 'envelope_hash');
+    this.assertHash(input.manifest_hash, 'manifest_hash');
+    if (input.proposed_effects.length === 0 || new Set(input.proposed_effects).size !== input.proposed_effects.length) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Continuation evaluation requires unique proposed effects.');
+    }
+    if (input.proposed_effects.some((effect) =>
+      !ROUTINE_EFFECT_CLASS_SET.has(effect) && !CONFIRMATION_EFFECT_CLASS_SET.has(effect)
+    )) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Continuation evaluation contains an unknown effect class.');
+    }
+    const envelope = await this.getContinuationEnvelope(titleCardId);
+    const stale = input.envelope_hash !== envelope.envelope_hash
+      || input.manifest_hash !== envelope.manifest_hash;
+    const routineEffects = stale ? [] : input.proposed_effects.filter(
+      (effect): effect is TopicSelectionResearchRoutineEffectClass => ROUTINE_EFFECT_CLASS_SET.has(effect),
+    );
+    const blockingEffects = stale ? [] : input.proposed_effects.filter(
+      (effect): effect is TopicSelectionResearchConfirmationEffectClass =>
+        CONFIRMATION_EFFECT_CLASS_SET.has(effect),
+    );
+    const decision = stale
+      ? 'refresh_envelope' as const
+      : blockingEffects.length > 0 || envelope.boundary_reached
+        ? 'stop_for_human' as const
+        : 'continue' as const;
+    const reasonCodes = stale
+      ? ['ENVELOPE_STALE' as const]
+      : [
+        ...(blockingEffects.length > 0 ? ['CONFIRMATION_REQUIRED_EFFECT' as const] : []),
+        ...(envelope.boundary_reached ? ['HUMAN_DECISION_BOUNDARY_REACHED' as const] : []),
+        ...(blockingEffects.length === 0 && !envelope.boundary_reached
+          ? ['WITHIN_ROUTINE_EFFECT_ENVELOPE' as const] : []),
+      ];
+    const body = {
+      schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluation@v1' as const,
+      title_card_id: titleCardId,
+      decision,
+      envelope_hash: envelope.envelope_hash,
+      manifest_hash: envelope.manifest_hash,
+      target_human_decision_stage: envelope.target_human_decision_stage,
+      routine_effects: routineEffects,
+      blocking_effects: blockingEffects,
+      reason_codes: reasonCodes,
+    };
+    return { ...body, evaluation_hash: this.hash(body) };
   }
 
   async getStageView(
