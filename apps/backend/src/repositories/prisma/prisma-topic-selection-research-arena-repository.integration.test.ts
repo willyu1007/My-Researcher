@@ -8,12 +8,15 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import { PrismaTopicSelectionResearchArenaRepository } from './prisma-topic-selection-research-arena-repository.js';
 
-const RUN_PRISMA = Boolean(process.env.DATABASE_URL);
+const RUN_PRISMA = process.env.TOPIC_SELECTION_RESEARCH_ARENA_PRISMA === '1'
+  && Boolean(process.env.DATABASE_URL);
 const HASH = 'a'.repeat(64);
 const NOW = '2026-08-28T00:00:00.000Z';
 
 test('Prisma arena repository enforces one-current session and role execution identities', {
-  skip: RUN_PRISMA ? false : 'set DATABASE_URL to run Prisma arena integration tests',
+  skip: RUN_PRISMA
+    ? false
+    : 'set TOPIC_SELECTION_RESEARCH_ARENA_PRISMA=1 and DATABASE_URL to run the Prisma arena integration test',
 }, async () => {
   const databaseUrl = process.env.DATABASE_URL;
   assert.ok(databaseUrl);

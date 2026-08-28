@@ -128,7 +128,25 @@ function outputFor(slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, idx: numb
   const base = { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: slot };
   if (slot === 'n6_debate_explorer') return { ...base, candidate_seeds: [{ seed_id: `s-${idx}`, question_framing: `f-${idx}`, evidence_refs: [] }] };
   if (slot === 'n6_debate_critic') return { ...base, critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'thin' }] };
-  return { ...base, synthesized_candidate_set: { candidates: [], generation_notes: [], human_review_triggers: [], question_frame: {}, recommended_candidate_keys: [] } };
+  return {
+    ...base,
+    synthesized_candidate_set: {
+      candidates: [],
+      generation_notes: [],
+      human_review_triggers: [],
+      portfolio_disposition: {
+        outcome: 'none_viable',
+        rationale: 'The fixture intentionally exercises an evidence-bounded empty portfolio.',
+        confidence: 0.8,
+        evidence_refs: [],
+        rejection_reasons: [],
+        reopening_conditions: ['Reopen when new candidate-supporting evidence is available.'],
+        candidate_dispositions: [],
+      },
+      question_frame: {},
+      recommended_candidate_keys: [],
+    },
+  };
 }
 
 const ref = (id: string) => ({ ref_type: 'artifact_ref' as const, ref_id: id, title_card_id: null });
@@ -199,7 +217,7 @@ test('f4 strategy + f3 admission round-trip: a strategy-built fan-out chain ADMI
   if (!result.admitted) return;
   assert.equal(result.final_artifact.slot_id, 'n6_debate_arbiter');
   assert.deepEqual(Object.keys(result.synthesized_candidate_set).sort(), [
-    'candidates', 'generation_notes', 'human_review_triggers', 'question_frame', 'recommended_candidate_keys',
+    'candidates', 'generation_notes', 'human_review_triggers', 'portfolio_disposition', 'question_frame', 'recommended_candidate_keys',
   ]);
 });
 

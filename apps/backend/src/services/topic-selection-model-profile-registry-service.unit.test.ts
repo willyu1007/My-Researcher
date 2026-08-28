@@ -32,6 +32,8 @@ import {
   TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID,
   TOPIC_SELECTION_NEED_DISCOVERY_DEEP_CRITIC_PROFILE_ID,
   TOPIC_SELECTION_NEED_DISCOVERY_EXPLORER_PROFILE_ID,
+  TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID,
+  TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
   TOPIC_SELECTION_RESOURCE_SAMPLING_CLASSIFICATION_PROFILE_ID,
   TOPIC_SELECTION_V1B_CONSTRAINT_PROFILE_SUPPORT_PROFILE_ID,
   TOPIC_SELECTION_V1B_N7_CANDIDATE_GROUPING_SUPPORT_PROFILE_ID,
@@ -86,6 +88,26 @@ test('model profile registry validates default DMP v1 profiles and resolves prov
   });
   assert.equal(singleAgent.profile.output_contract, 'RankedCandidateDraftBatch@v1');
   assert.equal(singleAgent.selected_model_option, null);
+
+  for (const profileId of [
+    TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID,
+    TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
+  ]) {
+    const profile = service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'codex_assisted',
+      run_mode: 'acceptance',
+    });
+    assert.deepEqual(profile.profile.allowed_execution_modes, ['mocked_llm', 'codex_assisted']);
+    assert.equal(profile.profile.output_contract, 'TopicSelectionResearchArenaRoleOutput@v1');
+    assert.equal(profile.profile.model_options.length, 0);
+    assert.equal(profile.selected_model_option, null);
+    assert.throws(() => service.resolveProfile({
+      profile_id: profileId,
+      execution_mode: 'provider_llm',
+      run_mode: 'acceptance',
+    }), AppError);
+  }
 
   const evidenceExtraction = service.resolveProfile({
     profile_id: TOPIC_SELECTION_EVIDENCE_MAP_EXTRACTION_SINGLE_AGENT_PROFILE_ID,

@@ -42,7 +42,20 @@ function outputFor(slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, idx: numb
   return {
     ...base,
     synthesized_candidate_set: {
-      candidates: [], generation_notes: [], human_review_triggers: [], question_frame: {}, recommended_candidate_keys: [],
+      candidates: [],
+      generation_notes: [],
+      human_review_triggers: [],
+      portfolio_disposition: {
+        outcome: 'none_viable',
+        rationale: 'The fixture intentionally exercises an evidence-bounded empty portfolio.',
+        confidence: 0.8,
+        evidence_refs: [],
+        rejection_reasons: [],
+        reopening_conditions: ['Reopen when new candidate-supporting evidence is available.'],
+        candidate_dispositions: [],
+      },
+      question_frame: {},
+      recommended_candidate_keys: [],
     },
   };
 }
@@ -165,9 +178,9 @@ test('N6 divergent debate admission: admits a well-formed fan-out chain and surf
     ['n6_debate_explorer', 2], ['n6_debate_critic', 1], ['n6_debate_arbiter', 1],
   ]);
   assert.equal(result.admission_identity.ordered_role_artifact_hashes.length, 4);
-  // synthesized_candidate_set surfaced (bare 5-key draft for the f5 gate bridge)
+  // synthesized_candidate_set surfaced as a bare empty-portfolio draft for the f5 gate bridge.
   assert.deepEqual(Object.keys(result.synthesized_candidate_set).sort(), [
-    'candidates', 'generation_notes', 'human_review_triggers', 'question_frame', 'recommended_candidate_keys',
+    'candidates', 'generation_notes', 'human_review_triggers', 'portfolio_disposition', 'question_frame', 'recommended_candidate_keys',
   ]);
 });
 

@@ -158,6 +158,10 @@ export const TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID =
   'topic-selection.need-discovery.arbiter-framing.v1' as const;
 export const TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FINAL_PROFILE_ID =
   'topic-selection.need-discovery.arbiter-final.v1' as const;
+export const TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID =
+  'topic-selection.research-arena.opportunity-scout.v1' as const;
+export const TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID =
+  'topic-selection.research-arena.prior-art-topic-killer.v1' as const;
 export const TOPIC_SELECTION_V1B_RESEARCH_SLICE_OPTIONS_SINGLE_AGENT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent;
 export const TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID =
@@ -545,6 +549,36 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       ],
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
       output_contract: 'NeedDiscoveryDeepCriticNotes@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID,
+      profile_function: 'research_arena_independent_opportunity_scout',
+      role_family: 'explorer',
+      stage_family: 'research_arena_first_pass',
+      quality_objectives: [
+        'broaden_candidate_space_without_manufacturing_value',
+        'ground_every_position_in_the_role_evidence_packet',
+        'recommend_stop_reframe_or_evidence_expansion_when_warranted',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
+      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      output_contract: 'TopicSelectionResearchArenaRoleOutput@v1',
+      model_options: [],
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
+      profile_function: 'research_arena_independent_prior_art_topic_killer',
+      role_family: 'deep_critic',
+      stage_family: 'research_arena_first_pass',
+      quality_objectives: [
+        'kill_low_value_candidates_with_coded_evidence_grounded_reasons',
+        'separate_insufficient_evidence_from_supported_rejection',
+        'avoid_candidate_repair_or_proposal_authority',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
+      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      output_contract: 'TopicSelectionResearchArenaRoleOutput@v1',
+      model_options: [],
     }),
     profileBase({
       profile_id: TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID,

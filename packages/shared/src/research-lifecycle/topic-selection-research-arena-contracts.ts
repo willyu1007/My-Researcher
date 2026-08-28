@@ -12,6 +12,14 @@ import {
   type TopicSelectionCoverageIntentType,
   type TopicSelectionEvidenceRole,
 } from './topic-selection-search-resource-contracts.js';
+import {
+  TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES,
+  type TopicSelectionCandidateDropReasonCode,
+  type TopicSelectionCandidatePortfolioDispositionKind,
+  type TopicSelectionCandidatePortfolioOutcome,
+} from './topic-selection-need-validation-contracts.js';
 
 export const TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES = [
   'opportunity_scout',
@@ -227,6 +235,123 @@ export interface TopicSelectionResearchArenaRoleEvidencePreparation {
   unresolved_literature_refs: TopicSelectionFunctionalRef[];
   evidence_packet_artifact_ref: TopicSelectionFunctionalRef | null;
   evidence_packet_hash: string | null;
+}
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES = [
+  'opportunity_scout',
+  'prior_art_topic_killer',
+] as const;
+export type TopicSelectionResearchArenaShadowRole =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_FINDING_SEVERITIES = [
+  'informational',
+  'material',
+  'critical',
+] as const;
+export type TopicSelectionResearchArenaFindingSeverity =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_FINDING_SEVERITIES)[number];
+
+export interface TopicSelectionResearchArenaCandidateReview {
+  candidate_ref: TopicSelectionFunctionalRef;
+  recommended_disposition: TopicSelectionCandidatePortfolioDispositionKind;
+  rationale: string;
+  evidence_unit_refs: TopicSelectionFunctionalRef[];
+  drop_reason_code: TopicSelectionCandidateDropReasonCode | null;
+  reopening_conditions: string[];
+}
+
+export interface TopicSelectionResearchArenaFinding {
+  finding_id: string;
+  kind: string;
+  severity: TopicSelectionResearchArenaFindingSeverity;
+  statement: string;
+  evidence_unit_refs: TopicSelectionFunctionalRef[];
+  literature_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchArenaCandidateProposal {
+  proposal_key: string;
+  semantic_group_key: string;
+  title: string;
+  research_object: string;
+  mechanism: string;
+  expected_contribution: string;
+  falsification_condition: string;
+  evidence_unit_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchArenaMinorityReport {
+  statement: string;
+  evidence_unit_refs: TopicSelectionFunctionalRef[];
+  literature_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchArenaRoleOutput {
+  schema_version: 'TopicSelectionResearchArenaRoleOutput@v1';
+  participant_role: TopicSelectionResearchArenaShadowRole;
+  semantic_position: {
+    recommended_set_outcome: TopicSelectionCandidatePortfolioOutcome;
+    summary: string;
+    confidence: number;
+  };
+  candidate_reviews: TopicSelectionResearchArenaCandidateReview[];
+  findings: TopicSelectionResearchArenaFinding[];
+  new_candidate_proposals: TopicSelectionResearchArenaCandidateProposal[];
+  concessions: string[];
+  unresolved_minority_report: TopicSelectionResearchArenaMinorityReport | null;
+}
+
+export interface TopicSelectionResearchArenaShadowRoleInput {
+  role_slot_id: string;
+  participant_role: TopicSelectionResearchArenaShadowRole;
+  evidence_preparation: TopicSelectionResearchArenaRoleEvidencePreparation;
+  structured_output: TopicSelectionResearchArenaRoleOutput;
+  fixture_id: string | null;
+  operator_label: string | null;
+}
+
+export interface TopicSelectionResearchArenaShadowRunRequest {
+  schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1';
+  arena_session_id: string;
+  workflow_run_id: string;
+  node_attempt_id: string;
+  execution_mode: 'mocked_llm' | 'codex_assisted';
+  candidate_refs: TopicSelectionFunctionalRef[];
+  role_inputs: TopicSelectionResearchArenaShadowRoleInput[];
+}
+
+export interface TopicSelectionResearchArenaAdvisoryCandidateDisposition {
+  candidate_ref: TopicSelectionFunctionalRef;
+  disposition: TopicSelectionCandidatePortfolioDispositionKind;
+  rationale: string;
+  drop_reason_code: TopicSelectionCandidateDropReasonCode | null;
+  reopening_conditions: string[];
+  role_positions: Array<{
+    participant_role: TopicSelectionResearchArenaShadowRole;
+    recommended_disposition: TopicSelectionCandidatePortfolioDispositionKind;
+  }>;
+}
+
+export interface TopicSelectionResearchArenaAdvisorySynthesis {
+  schema_version: 'TopicSelectionResearchArenaAdvisorySynthesis@v1';
+  outcome: TopicSelectionCandidatePortfolioOutcome;
+  summary: string;
+  candidate_dispositions: TopicSelectionResearchArenaAdvisoryCandidateDisposition[];
+  preserved_finding_ids: string[];
+  unresolved_dissent: string[];
+  required_next_delta: TopicSelectionResearchArenaDeltaType | null;
+  support_only: true;
+}
+
+export interface TopicSelectionResearchArenaShadowRunResponse {
+  schema_version: 'TopicSelectionResearchArenaShadowRunResponse@v1';
+  arena_session: TopicSelectionResearchArenaSessionRecord;
+  role_executions: TopicSelectionResearchArenaRoleExecutionRecord[];
+  synthesis_artifact_ref: TopicSelectionFunctionalRef;
+  synthesis_artifact_hash: string;
+  advisory_synthesis: TopicSelectionResearchArenaAdvisorySynthesis;
+  support_only: true;
 }
 
 export interface TopicSelectionResearchArenaRoleExecutionRecord {
@@ -553,6 +678,220 @@ export const topicSelectionResearchArenaRoleEvidencePreparationSchema = {
   },
 } as const;
 
+const topicSelectionResearchArenaSemanticPositionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['recommended_set_outcome', 'summary', 'confidence'],
+  properties: {
+    recommended_set_outcome: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES] },
+    summary: stringId,
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+  },
+} as const;
+
+const topicSelectionResearchArenaCandidateReviewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'candidate_ref', 'recommended_disposition', 'rationale', 'evidence_unit_refs',
+    'drop_reason_code', 'reopening_conditions',
+  ],
+  properties: {
+    candidate_ref: topicSelectionFunctionalRefSchema,
+    recommended_disposition: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS] },
+    rationale: stringId,
+    evidence_unit_refs: {
+      type: 'array',
+      items: topicSelectionFunctionalRefSchema,
+      minItems: 1,
+      maxItems: 12,
+      uniqueItems: true,
+    },
+    drop_reason_code: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES] }, { type: 'null' }],
+    },
+    reopening_conditions: { type: 'array', items: stringId, maxItems: 12 },
+  },
+} as const;
+
+const topicSelectionResearchArenaFindingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'finding_id', 'kind', 'severity', 'statement', 'evidence_unit_refs', 'literature_refs',
+  ],
+  properties: {
+    finding_id: stringId,
+    kind: stringId,
+    severity: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_FINDING_SEVERITIES] },
+    statement: stringId,
+    evidence_unit_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+    literature_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+  },
+} as const;
+
+const topicSelectionResearchArenaCandidateProposalSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'proposal_key', 'semantic_group_key', 'title', 'research_object', 'mechanism',
+    'expected_contribution', 'falsification_condition', 'evidence_unit_refs',
+  ],
+  properties: {
+    proposal_key: stringId,
+    semantic_group_key: stringId,
+    title: stringId,
+    research_object: stringId,
+    mechanism: stringId,
+    expected_contribution: stringId,
+    falsification_condition: stringId,
+    evidence_unit_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+  },
+} as const;
+
+const topicSelectionResearchArenaMinorityReportSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['statement', 'evidence_unit_refs', 'literature_refs'],
+  properties: {
+    statement: stringId,
+    evidence_unit_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+    literature_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+  },
+} as const;
+
+export const topicSelectionResearchArenaRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'participant_role', 'semantic_position', 'candidate_reviews',
+    'findings', 'new_candidate_proposals', 'concessions', 'unresolved_minority_report',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRoleOutput@v1' },
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES] },
+    semantic_position: topicSelectionResearchArenaSemanticPositionSchema,
+    candidate_reviews: {
+      type: 'array', items: topicSelectionResearchArenaCandidateReviewSchema, minItems: 1, maxItems: 12,
+    },
+    findings: {
+      type: 'array', items: topicSelectionResearchArenaFindingSchema, maxItems: 24,
+    },
+    new_candidate_proposals: {
+      type: 'array', items: topicSelectionResearchArenaCandidateProposalSchema, maxItems: 6,
+    },
+    concessions: { type: 'array', items: stringId, maxItems: 12 },
+    unresolved_minority_report: {
+      anyOf: [topicSelectionResearchArenaMinorityReportSchema, { type: 'null' }],
+    },
+  },
+} as const;
+
+const topicSelectionResearchArenaShadowRoleInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'role_slot_id', 'participant_role', 'evidence_preparation', 'structured_output',
+    'fixture_id', 'operator_label',
+  ],
+  properties: {
+    role_slot_id: stringId,
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES] },
+    evidence_preparation: topicSelectionResearchArenaRoleEvidencePreparationSchema,
+    structured_output: topicSelectionResearchArenaRoleOutputSchema,
+    fixture_id: nullableStringId,
+    operator_label: nullableStringId,
+  },
+} as const;
+
+export const topicSelectionResearchArenaShadowRunRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_session_id', 'workflow_run_id', 'node_attempt_id',
+    'execution_mode', 'candidate_refs', 'role_inputs',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaShadowRunRequest@v1' },
+    arena_session_id: stringId,
+    workflow_run_id: stringId,
+    node_attempt_id: stringId,
+    execution_mode: { enum: ['mocked_llm', 'codex_assisted'] },
+    candidate_refs: {
+      type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1, maxItems: 12, uniqueItems: true,
+    },
+    role_inputs: {
+      type: 'array', items: topicSelectionResearchArenaShadowRoleInputSchema, minItems: 2, maxItems: 2,
+    },
+  },
+} as const;
+
+const topicSelectionResearchArenaAdvisorySynthesisSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'outcome', 'summary', 'candidate_dispositions',
+    'preserved_finding_ids', 'unresolved_dissent', 'required_next_delta', 'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaAdvisorySynthesis@v1' },
+    outcome: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES] },
+    summary: stringId,
+    candidate_dispositions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 12,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'candidate_ref', 'disposition', 'rationale', 'drop_reason_code',
+          'reopening_conditions', 'role_positions',
+        ],
+        properties: {
+          candidate_ref: topicSelectionFunctionalRefSchema,
+          disposition: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS] },
+          rationale: stringId,
+          drop_reason_code: {
+            anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES] }, { type: 'null' }],
+          },
+          reopening_conditions: { type: 'array', items: stringId, maxItems: 12 },
+          role_positions: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 2,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['participant_role', 'recommended_disposition'],
+              properties: {
+                participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES] },
+                recommended_disposition: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS] },
+              },
+            },
+          },
+        },
+      },
+    },
+    preserved_finding_ids: { type: 'array', items: stringId, maxItems: 48, uniqueItems: true },
+    unresolved_dissent: { type: 'array', items: stringId, maxItems: 24 },
+    required_next_delta: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES] }, { type: 'null' }],
+    },
+    support_only: { const: true },
+  },
+} as const;
+
 export const topicSelectionResearchArenaRoleExecutionSchema = {
   type: 'object',
   additionalProperties: false,
@@ -589,5 +928,25 @@ export const topicSelectionResearchArenaRoleExecutionSchema = {
     prior_role_hashes: { type: 'array', items: hashString },
     runtime_identity_hash: hashString,
     created_at: timestamp,
+  },
+} as const;
+
+export const topicSelectionResearchArenaShadowRunResponseSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_session', 'role_executions', 'synthesis_artifact_ref',
+    'synthesis_artifact_hash', 'advisory_synthesis', 'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaShadowRunResponse@v1' },
+    arena_session: topicSelectionResearchArenaSessionSchema,
+    role_executions: {
+      type: 'array', items: topicSelectionResearchArenaRoleExecutionSchema, minItems: 2, maxItems: 2,
+    },
+    synthesis_artifact_ref: topicSelectionFunctionalRefSchema,
+    synthesis_artifact_hash: hashString,
+    advisory_synthesis: topicSelectionResearchArenaAdvisorySynthesisSchema,
+    support_only: { const: true },
   },
 } as const;
