@@ -3954,10 +3954,12 @@ paths:
       operationId: prepareTopicSelectionResearchArenaRoleEvidence
       summary: Run one role-specific literature retrieval and prepare a reviewed EvidencePacket when possible.
       description: |
-        Records the role, query intent, SearchRun, and hit-level chunk provenance. Retrieved literature
-        outside the current reviewed EvidenceMap is returned as requires_evidence_materialization and is
-        not exposed as claim-bearing role evidence. This advisory endpoint cannot advance checkpoints,
-        accept risk, write human decisions, or create promotion authority.
+        Records the role, query intent, retrieval execution mode, provider-call count, SearchRun, and
+        hit-level chunk provenance. local_snapshot_lexical ranks only the already indexed contents of
+        the bound LiteratureSnapshot and performs no provider call. Retrieved literature outside the
+        current reviewed EvidenceMap is returned as requires_evidence_materialization and is not exposed
+        as claim-bearing role evidence. This advisory endpoint cannot advance checkpoints, accept risk,
+        write human decisions, or create promotion authority.
       tags: [topic-selection-research]
       requestBody:
         required: true
@@ -3980,6 +3982,61 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/research/arena/sessions:
+    post:
+      operationId: openTopicSelectionResearchArenaSession
+      summary: Open or replay one snapshot-bound support-only research arena session.
+      description: |
+        Persists coordination identity only. The session binds an existing InputSnapshot and execution-plan
+        artifact, remains support-only, and cannot advance checkpoints, write human decisions, accept risk,
+        or create promotion authority. Reusing a session key with unchanged content returns the same session.
+      tags: [topic-selection-research]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchArenaOpenSessionRequest'
+      responses:
+        '201':
+          description: Support-only arena session opened or replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchArenaSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /topic-selection/research/arena/sessions/{arenaSessionId}:
+    get:
+      operationId: getTopicSelectionResearchArenaSession
+      summary: Recover one persisted support-only research arena session.
+      tags: [topic-selection-research]
+      parameters:
+        - name: arenaSessionId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Persisted arena coordination state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchArenaSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -8697,12 +8754,13 @@ components:
     TopicSelectionResearchArenaRoleEvidencePreparationRequest:
       type: object
       additionalProperties: false
-      required: [schema_version, title_card_id, arena_input_snapshot_id, participant_role, query_intent, search_plan_id, literature_snapshot_id, coverage_row_intent_id]
+      required: [schema_version, title_card_id, arena_input_snapshot_id, retrieval_execution_mode, participant_role, query_intent, search_plan_id, literature_snapshot_id, coverage_row_intent_id]
       properties:
         schema_version: { type: string, const: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1' }
         workspace_id: { type: [string, 'null'], minLength: 1 }
         title_card_id: { type: string, minLength: 1 }
         arena_input_snapshot_id: { type: string, minLength: 1 }
+        retrieval_execution_mode: { type: string, enum: [local_snapshot_lexical, provider_hybrid] }
         participant_role:
           type: string
           enum: [opportunity_scout, prior_art_topic_killer, empirical_skeptic, synthesis_arbiter]
@@ -8717,13 +8775,15 @@ components:
     TopicSelectionResearchArenaRoleEvidencePreparation:
       type: object
       additionalProperties: false
-      required: [schema_version, status, title_card_id, participant_role, query_intent, evidence_map_ref, search_run_ref, retrieval_provenance, selected_evidence_unit_refs, unresolved_literature_refs, evidence_packet_artifact_ref, evidence_packet_hash]
+      required: [schema_version, status, title_card_id, retrieval_execution_mode, provider_call_count, participant_role, query_intent, evidence_map_ref, search_run_ref, retrieval_provenance, selected_evidence_unit_refs, unresolved_literature_refs, evidence_packet_artifact_ref, evidence_packet_hash]
       properties:
         schema_version: { type: string, const: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1' }
         status:
           type: string
           enum: [ready, no_retrieval_hits, requires_evidence_materialization]
         title_card_id: { type: string, minLength: 1 }
+        retrieval_execution_mode: { type: string, enum: [local_snapshot_lexical, provider_hybrid] }
+        provider_call_count: { type: integer, minimum: 0 }
         participant_role:
           type: string
           enum: [opportunity_scout, prior_art_topic_killer, empirical_skeptic, synthesis_arbiter]
@@ -8756,6 +8816,39 @@ components:
         evidence_packet_hash:
           type: [string, 'null']
           pattern: '^[a-f0-9]{64}$'
+
+    TopicSelectionResearchArenaOpenSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, session_key, title_card_id, arena_kind, target_ref, input_snapshot_id, participant_roles, execution_plan_ref, loop_delta_refs]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaOpenSessionRequest@v1' }
+        session_key: { type: string, minLength: 1 }
+        workspace_id: { type: [string, 'null'], minLength: 1 }
+        title_card_id: { type: string, minLength: 1 }
+        arena_kind: { type: string, enum: [evidence_landscape, gap_portfolio, question_design, comparative_value] }
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        input_snapshot_id: { type: string, minLength: 1 }
+        participant_roles:
+          type: array
+          minItems: 2
+          maxItems: 4
+          uniqueItems: true
+          items: { type: string, enum: [opportunity_scout, prior_art_topic_killer, empirical_skeptic, synthesis_arbiter] }
+        execution_plan_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        loop_delta_refs:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [delta_type, ref, rationale]
+            properties:
+              delta_type: { type: string, enum: [evidence, candidate, constraint, human_objective] }
+              ref:
+                $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+              rationale: { type: string, minLength: 1 }
 
     TopicSelectionResearchArenaCandidateReview:
       type: object

@@ -154,6 +154,7 @@ import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-s
 import { registerTopicSelectionResearchEvidencePacketRoutes } from './routes/topic-selection-research-evidence-packet-routes.js';
 import { registerTopicSelectionResearchArenaRetrievalRoutes } from './routes/topic-selection-research-arena-retrieval-routes.js';
 import { registerTopicSelectionResearchArenaShadowRoutes } from './routes/topic-selection-research-arena-shadow-routes.js';
+import { registerTopicSelectionResearchArenaRoutes } from './routes/topic-selection-research-arena-routes.js';
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
@@ -251,6 +252,7 @@ import { LiteratureAcquisitionSettingsService } from './services/literature-acqu
 import { LiteratureClusterService } from './services/literature-cluster-service.js';
 import { LiteratureFlowService } from './services/literature-flow-service.js';
 import { LiteratureFulltextAcquisitionService } from './services/literature-fulltext-acquisition-service.js';
+import { LiteratureRetrievalService } from './services/literature-retrieval-service.js';
 import { LiteratureService } from './services/literature-service.js';
 import { LiteratureContentProcessingSettingsService } from './services/literature-content-processing-settings-service.js';
 import { defaultLlmConfig } from './services/llm-config-loader.js';
@@ -320,11 +322,15 @@ import { TopicSelectionResearchCheckpointService } from './services/topic-select
 import { TopicSelectionResearchCheckpointController } from './controllers/topic-selection-research-checkpoint-controller.js';
 import { TopicSelectionResearchEvidencePacketService } from './services/topic-selection-research-evidence-packet-service.js';
 import { TopicSelectionResearchEvidencePacketController } from './controllers/topic-selection-research-evidence-packet-controller.js';
-import { TopicSelectionResearchArenaRetrievalService } from './services/topic-selection-research-arena-retrieval-service.js';
+import {
+  filterLocalSnapshotLexicalMatches,
+  TopicSelectionResearchArenaRetrievalService,
+} from './services/topic-selection-research-arena-retrieval-service.js';
 import { TopicSelectionResearchArenaRetrievalController } from './controllers/topic-selection-research-arena-retrieval-controller.js';
 import { TopicSelectionResearchArenaService } from './services/topic-selection-research-arena-service.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './services/topic-selection-research-arena-shadow-runner-service.js';
 import { TopicSelectionResearchArenaShadowController } from './controllers/topic-selection-research-arena-shadow-controller.js';
+import { TopicSelectionResearchArenaController } from './controllers/topic-selection-research-arena-controller.js';
 import { TopicSelectionEvidenceMapService } from './services/topic-selection-evidence-map-service.js';
 import { TopicSelectionEvidenceMapMaterializationService } from './services/topic-selection-evidence-map-materialization-service.js';
 import { TopicSelectionAgentOrchestratorService } from './services/topic-selection-agent-orchestrator-service.js';
@@ -1057,6 +1063,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     arenaRepository: topicSelectionResearchArenaRepository,
     controlPlaneRepository: topicSelectionControlPlaneRepository,
   });
+  const topicSelectionResearchArenaController = new TopicSelectionResearchArenaController(
+    topicSelectionResearchArenaService,
+  );
   const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
     topicSelectionResearchCheckpointRepository,
@@ -1776,9 +1785,34 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       llmGateway,
     },
   );
+  const localSnapshotLiteratureRetrievalService = new LiteratureRetrievalService(
+    literatureRepository,
+    literatureContentProcessingSettingsService,
+    llmGateway,
+  );
   const topicSelectionResearchArenaRetrievalService = new TopicSelectionResearchArenaRetrievalService({
     retriever: { retrieve: (request) => literatureService.retrieveLiterature(request) },
+    localRetriever: {
+      retrieve: async (request, literatureIds) => {
+        const candidateVersions = await literatureRepository
+          .listActiveEmbeddingVersionsByLiteratureIds(literatureIds);
+        const chunks = await literatureRepository.listEmbeddingChunksByEmbeddingVersionIds(
+          candidateVersions.map((version) => version.id),
+        );
+        const response = await localSnapshotLiteratureRetrievalService.retrieveFromPgvectorCandidates(request, {
+          candidateVersions,
+          candidates: chunks.map((chunk) => ({
+            ...chunk,
+            vectorScore: 0,
+            negativeInnerProduct: 0,
+          })),
+          queryEmbeddingTelemetry: null,
+        });
+        return filterLocalSnapshotLexicalMatches(response);
+      },
+    },
     snapshotReader: topicSelectionControlPlaneService,
+    literatureSnapshotReader: topicSelectionSearchResourceService,
     evidenceMapRepository: topicSelectionEvidenceMapRepository,
     searchRunRecorder: topicSelectionSearchResourceService,
     evidencePacketResolver: topicSelectionResearchEvidencePacketService,
@@ -1944,6 +1978,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionResearchArenaRetrievalRoutes(
       instance,
       topicSelectionResearchArenaRetrievalController,
+    );
+    await registerTopicSelectionResearchArenaRoutes(
+      instance,
+      topicSelectionResearchArenaController,
     );
     await registerTopicSelectionResearchArenaShadowRoutes(
       instance,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import {
+  topicSelectionResearchArenaOpenSessionRequestSchema,
   topicSelectionResearchArenaRoleOutputSchema,
   topicSelectionResearchArenaRoleEvidencePreparationRequestSchema,
   topicSelectionResearchArenaRoleEvidencePreparationSchema,
@@ -100,6 +101,7 @@ test('role evidence preparation schemas expose only advisory retrieval and evide
     workspace_id: null,
     title_card_id: 'title_1',
     arena_input_snapshot_id: 'arena_snapshot_1',
+    retrieval_execution_mode: 'local_snapshot_lexical',
     participant_role: 'opportunity_scout',
     query_intent: queryIntent,
     search_plan_id: 'plan_1',
@@ -124,6 +126,8 @@ test('role evidence preparation schemas expose only advisory retrieval and evide
     schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
     status: 'requires_evidence_materialization',
     title_card_id: 'title_1',
+    retrieval_execution_mode: 'local_snapshot_lexical',
+    provider_call_count: 0,
     participant_role: 'opportunity_scout',
     query_intent: queryIntent,
     evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
@@ -243,6 +247,8 @@ test('shadow run contracts admit exactly two non-provider first-pass roles and e
     schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
     status: 'ready',
     title_card_id: 'title_1',
+    retrieval_execution_mode: 'local_snapshot_lexical',
+    provider_call_count: 0,
     participant_role: participantRole,
     query_intent: queryIntent,
     evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
@@ -525,4 +531,40 @@ test('arena session and role execution schemas preserve replay and independence 
   const missingHits = structuredClone(roleExecution);
   missingHits.retrieval_provenance.hits = [];
   assert.equal((await injectRequest(topicSelectionResearchArenaRoleExecutionSchema, missingHits)).statusCode, 400);
+});
+
+test('arena session-open request binds one support-only session to an existing snapshot and execution plan', async () => {
+  const request = {
+    schema_version: 'TopicSelectionResearchArenaOpenSessionRequest@v1',
+    session_key: 'shadow-af-1-attempt-1',
+    workspace_id: null,
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: {
+      ref_type: 'need_candidate_arena',
+      ref_id: 'candidate_arena_1',
+      title_card_id: 'title_1',
+      version_id: 'v1',
+    },
+    input_snapshot_id: 'snapshot_1',
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: {
+      ref_type: 'artifact_ref',
+      ref_id: 'execution_plan_1',
+      title_card_id: 'title_1',
+    },
+    loop_delta_refs: [],
+  };
+
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaOpenSessionRequestSchema, request)).statusCode,
+    200,
+  );
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaOpenSessionRequestSchema, {
+      ...request,
+      human_decision: 'advance',
+    })).statusCode,
+    400,
+  );
 });

@@ -12,7 +12,10 @@ import type {
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
-import { TopicSelectionResearchArenaRetrievalService } from './topic-selection-research-arena-retrieval-service.js';
+import {
+  filterLocalSnapshotLexicalMatches,
+  TopicSelectionResearchArenaRetrievalService,
+} from './topic-selection-research-arena-retrieval-service.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 
 const NOW = '2026-08-28T00:00:00.000Z';
@@ -85,7 +88,11 @@ function retrieval(literatureId = 'lit_1'): LiteratureRetrieveResponse {
   };
 }
 
-function fixture(response: LiteratureRetrieveResponse, snapshotTitleCardId = 'title_1') {
+function fixture(
+  response: LiteratureRetrieveResponse,
+  snapshotTitleCardId = 'title_1',
+  includeUnrelatedCurrentMap = false,
+) {
   const recordedSearchRuns: Array<Record<string, unknown>> = [];
   const recordedArtifacts: Array<Record<string, unknown>> = [];
   const resolverInputs: Array<Record<string, unknown>> = [];
@@ -103,8 +110,36 @@ function fixture(response: LiteratureRetrieveResponse, snapshotTitleCardId = 'ti
     retriever: {
       retrieve: async (_request: LiteratureRetrieveRequest) => response,
     },
+    localRetriever: {
+      retrieve: async (_request: LiteratureRetrieveRequest, _literatureIds: string[]) => response,
+    },
+    literatureSnapshotReader: {
+      getLiteratureResourcePoolSnapshotById: async () => ({
+        literature_resource_pool_snapshot_id: 'snapshot_1', workspace_id: null,
+        title_card_id: 'title_1', snapshot_version: 'v1', source_scope: 'title_card_evidence_basket',
+        topic_seed_ref: ref('topic_seed', 'seed_1'),
+        literature_refs: [ref('literature_record', 'lit_1')], content_source_refs: [],
+        source_health_summary: {
+          total_literature_count: 1, missing_literature_ids: [], rights_class_counts: {},
+          pipeline_ready_count: 1, abstract_ready_count: 1, key_content_ready_count: 1,
+          fulltext_ready_count: 1, source_count: 1, stale_count: 0, blocked_count: 0,
+          warning_codes: [],
+        },
+        snapshot_hash: 'b'.repeat(64), input_snapshot_id: null, gate_result_id: null,
+        transition_attempt_id: null, created_by: 'system', created_at: NOW,
+      }),
+    },
     evidenceMapRepository: {
-      listEvidenceMapsByTitleCardId: async () => [map],
+      listEvidenceMapsByTitleCardId: async () => [
+        map,
+        ...(includeUnrelatedCurrentMap ? [{
+          ...map,
+          evidence_map_id: 'map_other',
+          evidence_map_version: 'v-other',
+          search_plan_ref: ref('search_plan', 'plan_other'),
+          literature_snapshot_ref: ref('literature_resource_pool_snapshot', 'snapshot_other'),
+        }] : []),
+      ],
       listEvidenceUnitsByEvidenceMapId: async () => [unit],
     },
     searchRunRecorder: {
@@ -170,6 +205,7 @@ const request = {
   schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1' as const,
   title_card_id: 'title_1',
   arena_input_snapshot_id: 'arena_snapshot_1',
+  retrieval_execution_mode: 'local_snapshot_lexical' as const,
   participant_role: 'opportunity_scout' as const,
   query_intent: {
     intent_type: 'context' as const,
@@ -186,6 +222,8 @@ test('role retrieval records chunk-level SearchRun provenance and materializes a
   const { recordedArtifacts, recordedSearchRuns, resolverInputs, service } = fixture(retrieval());
   const result = await service.prepare(request);
   assert.equal(result.status, 'ready');
+  assert.equal(result.retrieval_execution_mode, 'local_snapshot_lexical');
+  assert.equal(result.provider_call_count, 0);
   assert.equal(result.search_run_ref.ref_id, 'arena_search_run_1');
   assert.equal(result.retrieval_provenance?.hits[0]?.chunk_id, 'chunk_1');
   assert.equal(result.evidence_packet_artifact_ref?.ref_id, 'packet_artifact_1');
@@ -205,6 +243,50 @@ test('role retrieval records chunk-level SearchRun provenance and materializes a
     notes: 'Arena role-specific product retrieval.',
   }]);
   assert.equal(recordedArtifacts[0]?.checksum, result.evidence_packet_hash);
+});
+
+test('provider retrieval reports the exact query-embedding request count', async () => {
+  const response = retrieval();
+  response.meta.query_embedding_telemetry = {
+    provider_id: 'openai', model_id: 'text-embedding-3-small', profile_id: null,
+    prompt_template_id: null, prompt_template_version: null, elapsed_ms: 10,
+    request_count: 1, retry_count: 0, timeout_count: 0, rate_limit_count: 0,
+    input_tokens: null, output_tokens: null, embedding_input_tokens: 12,
+    total_tokens: 12, cost_usd: 0.000001,
+  };
+  const { service } = fixture(response);
+  const result = await service.prepare({ ...request, retrieval_execution_mode: 'provider_hybrid' });
+  assert.equal(result.retrieval_execution_mode, 'provider_hybrid');
+  assert.equal(result.provider_call_count, 1);
+});
+
+test('local snapshot retrieval removes zero-score literature and auxiliary chunks', () => {
+  const response = retrieval();
+  const positiveChunk = response.items[0]!.evidence_chunks[0]!;
+  response.items[0]!.evidence_chunks.push({
+    ...positiveChunk,
+    chunk_id: 'chunk_zero',
+    hybrid_score: 0,
+    lexical_score: 0,
+    score_breakdown: { vector: 0, lexical: 0, metadata: 0, profile_boost: 0 },
+  });
+  const filtered = filterLocalSnapshotLexicalMatches(response);
+  assert.deepEqual(filtered.items[0]?.evidence_chunks.map((chunk) => chunk.chunk_id), ['chunk_1']);
+
+  response.items[0]!.evidence_chunks = [{
+    ...positiveChunk,
+    hybrid_score: 0,
+    lexical_score: 0,
+    score_breakdown: { vector: 0, lexical: 0, metadata: 0, profile_boost: 0 },
+  }];
+  assert.deepEqual(filterLocalSnapshotLexicalMatches(response).items, []);
+});
+
+test('role retrieval selects the current EvidenceMap bound to the exact plan and literature snapshot', async () => {
+  const { service } = fixture(retrieval(), 'title_1', true);
+  const result = await service.prepare(request);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.evidence_map_ref.ref_id, 'map_1');
 });
 
 test('role retrieval stops for EvidenceMap materialization when out-of-map hits have no reviewed EvidenceUnits', async () => {

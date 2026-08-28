@@ -90,6 +90,8 @@ function preparation(
     schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
     status: 'ready',
     title_card_id: 'title_1',
+    retrieval_execution_mode: 'local_snapshot_lexical',
+    provider_call_count: 0,
     participant_role: role,
     query_intent: queryIntent,
     evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
@@ -354,6 +356,32 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   assert.equal(proof.case_results[0]?.status, 'inspect');
   assert.equal(proof.metrics.evidence_independent_attempt_count, 1);
   assert.match(proof.human_view_markdown, /证据独立性/u);
+
+  const providerPreparation = preparation('opportunity_scout');
+  providerPreparation.retrieval_execution_mode = 'provider_hybrid';
+  providerPreparation.provider_call_count = 1;
+  await assert.rejects(service.run({
+    schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',
+    arena_session_id: 'arena_1',
+    workflow_run_id: 'workflow_provider',
+    node_attempt_id: 'attempt_provider',
+    execution_mode: 'mocked_llm',
+    candidate_refs: [candidateRef],
+    role_inputs: [
+      {
+        role_slot_id: 'scout', participant_role: 'opportunity_scout',
+        evidence_preparation: providerPreparation,
+        structured_output: roleOutput('opportunity_scout', 'selected'),
+        fixture_id: 'fixture_provider', operator_label: null,
+      },
+      {
+        role_slot_id: 'killer', participant_role: 'prior_art_topic_killer',
+        evidence_preparation: preparation('prior_art_topic_killer'),
+        structured_output: roleOutput('prior_art_topic_killer', 'dropped'),
+        fixture_id: 'fixture_killer', operator_label: null,
+      },
+    ],
+  }), /provider-free local-snapshot/u);
 
   const noneViable = await service.run({
     schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',

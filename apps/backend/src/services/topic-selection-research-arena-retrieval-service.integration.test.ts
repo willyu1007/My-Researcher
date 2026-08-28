@@ -129,7 +129,9 @@ test('role evidence preparation composes with the real SearchRun gate for ready 
   let retrievedLiteratureId = 'lit_1';
   const service = new TopicSelectionResearchArenaRetrievalService({
     retriever: { retrieve: async () => retrievalFor(retrievedLiteratureId) },
+    localRetriever: { retrieve: async () => retrievalFor(retrievedLiteratureId) },
     snapshotReader: controlPlane,
+    literatureSnapshotReader: searchResources,
     evidenceMapRepository: evidenceMaps,
     searchRunRecorder: searchResources,
     evidencePacketResolver: {
@@ -158,6 +160,7 @@ test('role evidence preparation composes with the real SearchRun gate for ready 
   const request = {
     schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1' as const,
     title_card_id: titleCardId, arena_input_snapshot_id: arenaSnapshot.input_snapshot_id,
+    retrieval_execution_mode: 'local_snapshot_lexical' as const,
     participant_role: 'opportunity_scout' as const,
     query_intent: {
       intent_type: 'context' as const, query: 'Find adjacent mechanisms.',

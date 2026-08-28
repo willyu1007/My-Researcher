@@ -300,12 +300,18 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       if (!roleInput.role_slot_id.trim()
         || preparation.status !== 'ready'
         || preparation.title_card_id !== titleCardId
+        || preparation.retrieval_execution_mode !== 'local_snapshot_lexical'
+        || preparation.provider_call_count !== 0
         || preparation.participant_role !== role
         || !preparation.retrieval_provenance
         || !preparation.evidence_packet_artifact_ref
         || !preparation.evidence_packet_hash
         || preparation.unresolved_literature_refs.length > 0) {
-        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `${role} requires a complete ready evidence preparation.`);
+        throw new AppError(
+          422,
+          'GATE_CONSTRAINT_FAILED',
+          `${role} requires a complete, provider-free local-snapshot evidence preparation.`,
+        );
       }
       const sourceIdentityValid = executionMode === 'mocked_llm'
         ? Boolean(roleInput.fixture_id && roleInput.operator_label === null)

@@ -140,6 +140,14 @@ export class TopicSelectionResearchArenaService {
     });
   }
 
+  async getSession(arenaSessionId: string): Promise<TopicSelectionResearchArenaSessionRecord> {
+    const session = await this.dependencies.arenaRepository.findSessionById(arenaSessionId);
+    if (!session) {
+      throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${arenaSessionId} was not found.`);
+    }
+    return session;
+  }
+
   async recordRoleExecution(
     input: RecordRoleExecutionInput,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {

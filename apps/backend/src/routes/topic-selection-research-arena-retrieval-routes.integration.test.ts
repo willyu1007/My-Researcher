@@ -13,6 +13,8 @@ test('arena role-evidence route is strict and returns advisory materialization s
       schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1' as const,
       status: 'requires_evidence_materialization' as const,
       title_card_id: input.title_card_id,
+      retrieval_execution_mode: 'local_snapshot_lexical' as const,
+      provider_call_count: 0,
       participant_role: 'opportunity_scout' as const,
       query_intent: input.query_intent,
       evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: input.title_card_id, version_id: 'v1' },
@@ -46,6 +48,7 @@ test('arena role-evidence route is strict and returns advisory materialization s
     workspace_id: null,
     title_card_id: 'title_1',
     arena_input_snapshot_id: 'arena_snapshot_1',
+    retrieval_execution_mode: 'local_snapshot_lexical',
     participant_role: 'opportunity_scout',
     query_intent: {
       intent_type: 'context',

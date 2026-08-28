@@ -18,10 +18,32 @@ import type {
   TopicSelectionResearchEvidencePacketRequest,
   TopicSelectionResearchRetrievalProvenance,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
-import type { TopicSelectionSearchRunRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import type {
+  TopicSelectionLiteratureResourcePoolSnapshotRecord,
+  TopicSelectionSearchRunRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionEvidenceMapRepository } from '../repositories/topic-selection-evidence-map.repository.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
+
+export function filterLocalSnapshotLexicalMatches(
+  response: LiteratureRetrieveResponse,
+): LiteratureRetrieveResponse {
+  return {
+    ...response,
+    items: response.items.flatMap((item) => {
+      const evidenceChunks = item.evidence_chunks.filter((chunk) => chunk.hybrid_score > 0);
+      const best = evidenceChunks[0];
+      return best ? [{
+        ...item,
+        hybrid_score: best.hybrid_score,
+        vector_score: best.vector_score,
+        lexical_score: best.lexical_score,
+        evidence_chunks: evidenceChunks,
+      }] : [];
+    }),
+  };
+}
 
 type SearchRunInput = {
   workspace_id?: string | null;
@@ -68,8 +90,16 @@ type ArtifactInput = {
 export class TopicSelectionResearchArenaRetrievalService {
   constructor(private readonly dependencies: {
     retriever: { retrieve(request: LiteratureRetrieveRequest): Promise<LiteratureRetrieveResponse> };
+    localRetriever: {
+      retrieve(request: LiteratureRetrieveRequest, literatureIds: string[]): Promise<LiteratureRetrieveResponse>;
+    };
     snapshotReader: {
       getInputSnapshot(inputSnapshotId: string): Promise<TopicSelectionInputSnapshotRecord | null>;
+    };
+    literatureSnapshotReader: {
+      getLiteratureResourcePoolSnapshotById(
+        snapshotId: string,
+      ): Promise<TopicSelectionLiteratureResourcePoolSnapshotRecord | null>;
     };
     evidenceMapRepository: Pick<
       TopicSelectionEvidenceMapRepository,
@@ -91,14 +121,22 @@ export class TopicSelectionResearchArenaRetrievalService {
   ): Promise<TopicSelectionResearchArenaRoleEvidencePreparation> {
     this.assertInput(input);
     await this.assertSnapshotBinding(input);
-    const evidenceMap = await this.requireCurrentEvidenceMap(input.title_card_id);
-    const response = await this.dependencies.retriever.retrieve({
+    const evidenceMap = await this.requireCurrentEvidenceMap(input);
+    const literatureSnapshot = await this.requireLiteratureSnapshot(input);
+    const retrievalRequest = {
       query: input.query_intent.query,
       profile: 'topic_exploration',
       top_k: input.top_k ?? 12,
       evidence_per_literature: input.evidence_per_literature ?? 3,
       include_stale: false,
-    });
+    } satisfies LiteratureRetrieveRequest;
+    const response = input.retrieval_execution_mode === 'local_snapshot_lexical'
+      ? await this.dependencies.localRetriever.retrieve(
+        retrievalRequest,
+        literatureSnapshot.literature_refs.map((ref) => ref.ref_id),
+      )
+      : await this.dependencies.retriever.retrieve(retrievalRequest);
+    const providerCallCount = response.meta.query_embedding_telemetry?.request_count ?? 0;
     if (response.items.some((item) => item.is_stale)) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena retrieval returned stale literature despite a fresh-only request.');
     }
@@ -153,6 +191,7 @@ export class TopicSelectionResearchArenaRetrievalService {
         retrievalDegraded: response.meta.degraded_mode
           || response.meta.skipped_profiles.length > 0
           || response.meta.freshness_warnings.length > 0,
+        providerCallCount,
       },
     );
     const searchRunRef = this.ref('search_run', searchRun.search_run_id, input.title_card_id);
@@ -162,7 +201,14 @@ export class TopicSelectionResearchArenaRetrievalService {
       provenance_hash: sha256Text(stableStringify(retrievalBody)),
     };
     if (response.items.length === 0) {
-      return this.result(input, evidenceMapRef, searchRunRef, retrievalProvenance, 'no_retrieval_hits');
+      return this.result(
+        input,
+        evidenceMapRef,
+        searchRunRef,
+        retrievalProvenance,
+        'no_retrieval_hits',
+        providerCallCount,
+      );
     }
 
     if (unresolvedLiteratureRefs.length > 0) {
@@ -173,6 +219,7 @@ export class TopicSelectionResearchArenaRetrievalService {
           searchRunRef,
           retrievalProvenance,
           'requires_evidence_materialization',
+          providerCallCount,
         ),
         selected_evidence_unit_refs: evidenceUnitRefs,
         unresolved_literature_refs: unresolvedLiteratureRefs,
@@ -198,23 +245,27 @@ export class TopicSelectionResearchArenaRetrievalService {
       created_by: 'system',
     });
     return {
-      ...this.result(input, evidenceMapRef, searchRunRef, retrievalProvenance, 'ready'),
+      ...this.result(input, evidenceMapRef, searchRunRef, retrievalProvenance, 'ready', providerCallCount),
       selected_evidence_unit_refs: evidenceUnitRefs,
       evidence_packet_artifact_ref: this.ref('artifact_ref', artifact.artifact_ref_id, input.title_card_id),
       evidence_packet_hash: packet.packet_hash,
     };
   }
 
-  private async requireCurrentEvidenceMap(titleCardId: string): Promise<TopicSelectionEvidenceMapRecord> {
-    const current = (await this.dependencies.evidenceMapRepository.listEvidenceMapsByTitleCardId(titleCardId))
+  private async requireCurrentEvidenceMap(
+    input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
+  ): Promise<TopicSelectionEvidenceMapRecord> {
+    const current = (await this.dependencies.evidenceMapRepository.listEvidenceMapsByTitleCardId(input.title_card_id))
       .filter((map) => map.status === 'ready'
         && map.freshness_status === 'current'
-        && ['machine_checked', 'human_reviewed'].includes(map.review_status));
+        && ['machine_checked', 'human_reviewed'].includes(map.review_status)
+        && map.search_plan_ref.ref_id === input.search_plan_id
+        && map.literature_snapshot_ref.ref_id === input.literature_snapshot_id);
     if (current.length !== 1) {
       throw new AppError(
         409,
         'VERSION_CONFLICT',
-        `Arena retrieval requires exactly one current reviewed EvidenceMap; found ${current.length}.`,
+        `Arena retrieval requires exactly one current reviewed EvidenceMap bound to the requested plan and literature snapshot; found ${current.length}.`,
       );
     }
     return current[0]!;
@@ -233,6 +284,21 @@ export class TopicSelectionResearchArenaRetrievalService {
     }
   }
 
+  private async requireLiteratureSnapshot(
+    input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
+  ): Promise<TopicSelectionLiteratureResourcePoolSnapshotRecord> {
+    const snapshot = await this.dependencies.literatureSnapshotReader
+      .getLiteratureResourcePoolSnapshotById(input.literature_snapshot_id);
+    if (!snapshot) {
+      throw new AppError(404, 'NOT_FOUND', `Literature snapshot ${input.literature_snapshot_id} not found.`);
+    }
+    if (snapshot.title_card_id !== input.title_card_id
+      || (input.workspace_id !== undefined && snapshot.workspace_id !== input.workspace_id)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Literature snapshot belongs to a different scope.');
+    }
+    return snapshot;
+  }
+
   private async recordSearchRun(
     input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
     response: LiteratureRetrieveResponse,
@@ -241,6 +307,7 @@ export class TopicSelectionResearchArenaRetrievalService {
     partialReasons: {
       requiresEvidenceMaterialization: boolean;
       retrievalDegraded: boolean;
+      providerCallCount: number;
     },
   ): Promise<TopicSelectionSearchRunRecord> {
     const runStatus = partialReasons.requiresEvidenceMaterialization || partialReasons.retrievalDegraded
@@ -257,6 +324,8 @@ export class TopicSelectionResearchArenaRetrievalService {
         schema_version: 'TopicSelectionResearchArenaRetrievalProvenance@v1',
         participant_role: input.participant_role,
         query_intent: input.query_intent,
+        retrieval_execution_mode: input.retrieval_execution_mode,
+        provider_call_count: partialReasons.providerCallCount,
         retrieval_profile: response.meta.profile,
         hits,
       }],
@@ -280,6 +349,8 @@ export class TopicSelectionResearchArenaRetrievalService {
         schema_version: 'TopicSelectionResearchArenaRetrievalLog@v1',
         participant_role: input.participant_role,
         query_intent: input.query_intent,
+        retrieval_execution_mode: input.retrieval_execution_mode,
+        provider_call_count: partialReasons.providerCallCount,
         response,
       },
       coverage_observations: [{
@@ -406,11 +477,14 @@ export class TopicSelectionResearchArenaRetrievalService {
     searchRunRef: TopicSelectionFunctionalRef,
     retrievalProvenance: TopicSelectionResearchRetrievalProvenance,
     status: TopicSelectionResearchArenaRoleEvidencePreparation['status'],
+    providerCallCount: number,
   ): TopicSelectionResearchArenaRoleEvidencePreparation {
     return {
       schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
       status,
       title_card_id: input.title_card_id,
+      retrieval_execution_mode: input.retrieval_execution_mode,
+      provider_call_count: providerCallCount,
       participant_role: input.participant_role,
       query_intent: input.query_intent,
       evidence_map_ref: evidenceMapRef,

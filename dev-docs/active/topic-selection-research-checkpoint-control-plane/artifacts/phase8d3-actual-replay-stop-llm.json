@@ -1,0 +1,86 @@
+{
+  "schema_version": "TopicSelectionResearchArenaActualReplayStop@v1",
+  "status": "blocked_before_role_invocation",
+  "title_card_id": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+  "arena_session_id": "research_arena_497bb532-8cfb-47af-8a5f-b6d79dc0feb4",
+  "input_snapshot_id": "input_snapshot_research_checkpoint_248a284beed40ba81fa0ed57ac425f7449124e460a8a5ce3a64434060f1e2284",
+  "evidence_map_id": "evidence_map_d55feebd-b26c-476b-ad59-cfcf508119ba",
+  "search_plan_id": "search_plan_d3f7c65b-6107-4cf2-9c15-f612f17d659d",
+  "literature_snapshot_id": "literature_snapshot_8a6aa7a3-5417-4aa2-8f65-e7991e455aa2",
+  "execution_plan_artifact_ref_id": "artifact_ref_6a8569ea-6614-4952-b8a8-be869f79a672",
+  "diagnostic_artifact_ref_id": "artifact_ref_42424f21-0019-403d-ba85-27a54d6f717c",
+  "diagnostic_artifact_checksum": "ebe42d5152c92e2629e83cb64cd606950e836687cf92d4b8f6edf03f4e050550",
+  "retrieval_execution_mode": "local_snapshot_lexical",
+  "provider_call_count": 0,
+  "retrieval_search_run_refs": [
+    "search_run_e6367df2-001c-44f9-bf15-60962e82ce23",
+    "search_run_6d343ae0-b132-4050-9294-f52eed192c7e"
+  ],
+  "accounting": {
+    "reviewed_evidence_unit_count": 11,
+    "packet_ready_count": 0,
+    "quality_not_active_count": 6,
+    "quote_integrity_failed_count": 5,
+    "role_invocation_count": 0,
+    "live_authority_write_count": 0
+  },
+  "evidence_unit_results": [
+    {
+      "evidence_unit_id": "evidence_unit_63b9bf00-07a6-410f-958e-f3d73d5e97ab",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_63b9bf00-07a6-410f-958e-f3d73d5e97ab literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_6ae2116f-2987-4bd4-9a2b-06c206cecd52",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_6ae2116f-2987-4bd4-9a2b-06c206cecd52 literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_49fb32d9-fd5f-427a-a24e-47451915c468",
+      "failure_class": "quote_integrity_failed",
+      "message": "EvidenceUnit evidence_unit_49fb32d9-fd5f-427a-a24e-47451915c468 quote integrity failed against resolved source text."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_0bcd64e5-a92e-4038-a9ff-ec1d65741c99",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_0bcd64e5-a92e-4038-a9ff-ec1d65741c99 literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_8e2554bd-3ffe-461e-bb54-801e1b3ef4bf",
+      "failure_class": "quote_integrity_failed",
+      "message": "EvidenceUnit evidence_unit_8e2554bd-3ffe-461e-bb54-801e1b3ef4bf quote integrity failed against resolved source text."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_f0380c15-d6de-49d4-b6e5-73bf74363e23",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_f0380c15-d6de-49d4-b6e5-73bf74363e23 literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_a1bc5f69-23a2-4db1-a821-1a2a7e800acc",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_a1bc5f69-23a2-4db1-a821-1a2a7e800acc literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_e26c94ec-588e-4eb8-b32e-bc5204cde30e",
+      "failure_class": "quote_integrity_failed",
+      "message": "EvidenceUnit evidence_unit_e26c94ec-588e-4eb8-b32e-bc5204cde30e quote integrity failed against resolved source text."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_517e0a27-73d3-4ed8-803b-c3e282de65f7",
+      "failure_class": "quote_integrity_failed",
+      "message": "EvidenceUnit evidence_unit_517e0a27-73d3-4ed8-803b-c3e282de65f7 quote integrity failed against resolved source text."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_aa2c1e99-c96e-4a14-bf28-467db9f949e3",
+      "failure_class": "quality_not_active",
+      "message": "EvidenceUnit evidence_unit_aa2c1e99-c96e-4a14-bf28-467db9f949e3 literature is not retrieval-ready (QUALITY_NOT_ACTIVE)."
+    },
+    {
+      "evidence_unit_id": "evidence_unit_ffed9cbc-8278-45ae-9d42-0681c0c1277e",
+      "failure_class": "quote_integrity_failed",
+      "message": "EvidenceUnit evidence_unit_ffed9cbc-8278-45ae-9d42-0681c0c1277e quote integrity failed against resolved source text."
+    }
+  ],
+  "required_next_action": "Rebuild or reactivate the exact EvidenceUnits, then open a new snapshot-bound arena retry; do not synthesize a debate result from the blocked session.",
+  "support_only": true
+}

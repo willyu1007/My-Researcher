@@ -151,6 +151,19 @@ export interface TopicSelectionResearchArenaLoopDeltaRef {
   rationale: string;
 }
 
+export interface TopicSelectionResearchArenaOpenSessionRequest {
+  schema_version: 'TopicSelectionResearchArenaOpenSessionRequest@v1';
+  session_key: string;
+  workspace_id?: string | null;
+  title_card_id: string;
+  arena_kind: TopicSelectionResearchArenaKind;
+  target_ref: TopicSelectionFunctionalRef;
+  input_snapshot_id: string;
+  participant_roles: TopicSelectionResearchArenaParticipantRole[];
+  execution_plan_ref: TopicSelectionFunctionalRef;
+  loop_delta_refs: TopicSelectionResearchArenaLoopDeltaRef[];
+}
+
 export interface TopicSelectionResearchArenaSessionRecord {
   schema_version: 'TopicSelectionResearchArenaSession@v1';
   arena_session_id: string;
@@ -208,11 +221,19 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES =
 export type TopicSelectionResearchArenaRoleEvidencePreparationStatus =
   (typeof TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES)[number];
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_RETRIEVAL_EXECUTION_MODES = [
+  'local_snapshot_lexical',
+  'provider_hybrid',
+] as const;
+export type TopicSelectionResearchArenaRetrievalExecutionMode =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_RETRIEVAL_EXECUTION_MODES)[number];
+
 export interface TopicSelectionResearchArenaRoleEvidencePreparationRequest {
   schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1';
   workspace_id?: string | null;
   title_card_id: string;
   arena_input_snapshot_id: string;
+  retrieval_execution_mode: TopicSelectionResearchArenaRetrievalExecutionMode;
   participant_role: TopicSelectionResearchArenaParticipantRole;
   query_intent: TopicSelectionResearchEvidenceQueryIntent;
   search_plan_id: string;
@@ -226,6 +247,8 @@ export interface TopicSelectionResearchArenaRoleEvidencePreparation {
   schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1';
   status: TopicSelectionResearchArenaRoleEvidencePreparationStatus;
   title_card_id: string;
+  retrieval_execution_mode: TopicSelectionResearchArenaRetrievalExecutionMode;
+  provider_call_count: number;
   participant_role: TopicSelectionResearchArenaParticipantRole;
   query_intent: TopicSelectionResearchEvidenceQueryIntent;
   evidence_map_ref: TopicSelectionFunctionalRef;
@@ -538,6 +561,33 @@ export const topicSelectionResearchArenaLoopDeltaRefSchema = {
   },
 } as const;
 
+export const topicSelectionResearchArenaOpenSessionRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'session_key', 'title_card_id', 'arena_kind', 'target_ref',
+    'input_snapshot_id', 'participant_roles', 'execution_plan_ref', 'loop_delta_refs',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaOpenSessionRequest@v1' },
+    session_key: stringId,
+    workspace_id: nullableStringId,
+    title_card_id: stringId,
+    arena_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_KINDS] },
+    target_ref: topicSelectionFunctionalRefSchema,
+    input_snapshot_id: stringId,
+    participant_roles: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+      minItems: 2,
+      maxItems: 4,
+      uniqueItems: true,
+    },
+    execution_plan_ref: topicSelectionFunctionalRefSchema,
+    loop_delta_refs: { type: 'array', items: topicSelectionResearchArenaLoopDeltaRefSchema },
+  },
+} as const;
+
 export const topicSelectionResearchArenaSessionSchema = {
   type: 'object',
   additionalProperties: false,
@@ -631,7 +681,7 @@ export const topicSelectionResearchArenaRoleEvidencePreparationRequestSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'schema_version', 'title_card_id', 'arena_input_snapshot_id', 'participant_role',
+    'schema_version', 'title_card_id', 'arena_input_snapshot_id', 'retrieval_execution_mode', 'participant_role',
     'query_intent', 'search_plan_id', 'literature_snapshot_id', 'coverage_row_intent_id',
   ],
   properties: {
@@ -639,6 +689,7 @@ export const topicSelectionResearchArenaRoleEvidencePreparationRequestSchema = {
     workspace_id: nullableStringId,
     title_card_id: stringId,
     arena_input_snapshot_id: stringId,
+    retrieval_execution_mode: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_RETRIEVAL_EXECUTION_MODES] },
     participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
     query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
     search_plan_id: stringId,
@@ -653,7 +704,8 @@ export const topicSelectionResearchArenaRoleEvidencePreparationSchema = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'schema_version', 'status', 'title_card_id', 'participant_role', 'query_intent',
+    'schema_version', 'status', 'title_card_id', 'retrieval_execution_mode', 'provider_call_count',
+    'participant_role', 'query_intent',
     'evidence_map_ref', 'search_run_ref', 'retrieval_provenance',
     'selected_evidence_unit_refs', 'unresolved_literature_refs',
     'evidence_packet_artifact_ref', 'evidence_packet_hash',
@@ -662,6 +714,8 @@ export const topicSelectionResearchArenaRoleEvidencePreparationSchema = {
     schema_version: { const: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1' },
     status: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES] },
     title_card_id: stringId,
+    retrieval_execution_mode: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_RETRIEVAL_EXECUTION_MODES] },
+    provider_call_count: { type: 'integer', minimum: 0 },
     participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
     query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
     evidence_map_ref: topicSelectionFunctionalRefSchema,

@@ -142,6 +142,8 @@ test('research arena shadow route rejects provider execution and returns support
       schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
       status: 'ready',
       title_card_id: 'title_1',
+      retrieval_execution_mode: 'local_snapshot_lexical',
+      provider_call_count: 0,
       participant_role: role,
       query_intent: queryIntent,
       evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1' },
