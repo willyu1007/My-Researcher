@@ -1497,6 +1497,77 @@ model TopicSelectionResearchCheckpointDecision {
   @@index([checkpointKind, decision], map: "tsrcd_kind_decision_idx")
 }
 
+model TopicSelectionResearchArenaSession {
+  id                         String                                     @id
+  schemaVersion              String
+  sessionKey                 String                                     @unique(map: "tsras_session_key")
+  currentArenaKey            String?                                    @unique(map: "tsras_current_key")
+  workspaceId                String?
+  titleCardId                String
+  arenaKind                  String
+  targetRefType              String
+  targetRefId                String
+  targetVersionId            String?
+  inputSnapshotId            String
+  inputSnapshotHash          String
+  participantPlanHash        String
+  participantRoles           String[]                                   @default([])
+  executionPlanRef           Json                                       @default("{}")
+  status                     String
+  terminationReason          String?
+  loopTranscriptRef          Json?
+  loopTranscriptHash         String?
+  loopDeltaRefs              Json                                       @default("[]")
+  supportOnly                Boolean                                    @default(true)
+  supersedesArenaSessionId   String?
+  supersededByArenaSessionId String?
+  createdBy                  String
+  createdAt                  DateTime                                   @db.Timestamptz(6)
+  updatedAt                  DateTime                                   @db.Timestamptz(6)
+  synthesizedAt              DateTime?                                  @db.Timestamptz(6)
+  supersededAt               DateTime?                                  @db.Timestamptz(6)
+  roleExecutions             TopicSelectionResearchArenaRoleExecution[]
+
+  @@index([titleCardId, arenaKind, createdAt(sort: Desc)], map: "tsras_title_kind_created_idx")
+  @@index([status], map: "tsras_status_idx")
+  @@index([inputSnapshotId], map: "tsras_input_snapshot_idx")
+  @@index([supersedesArenaSessionId], map: "tsras_supersedes_idx")
+}
+
+model TopicSelectionResearchArenaRoleExecution {
+  id                        String                             @id
+  schemaVersion             String
+  arenaSessionId            String
+  titleCardId               String
+  roleSlotId                String
+  instanceIndex             Int
+  participantRole           String
+  passKind                  String
+  inputSnapshotId           String
+  inputSnapshotHash         String
+  queryIntent               Json                               @default("{}")
+  evidencePacketArtifactRef Json                               @default("{}")
+  evidencePacketHash        String
+  evidencePartitionRefs     Json                               @default("[]")
+  retrievalProvenance       Json                               @default("{}")
+  exposureArtifactRefs      Json                               @default("[]")
+  exposureSetHash           String
+  outputArtifactRef         Json                               @default("{}")
+  outputArtifactHash        String
+  semanticPositionHash      String
+  priorRoleHashes           String[]                           @default([])
+  runtimeIdentityHash       String                             @unique(map: "tsrare_runtime_identity")
+  createdAt                 DateTime                           @db.Timestamptz(6)
+  arenaSession              TopicSelectionResearchArenaSession @relation(fields: [arenaSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([arenaSessionId, roleSlotId, instanceIndex], map: "tsrare_session_slot_instance")
+  @@unique([arenaSessionId, semanticPositionHash], map: "tsrare_session_semantic")
+  @@index([arenaSessionId, createdAt], map: "tsrare_session_created_idx")
+  @@index([participantRole, passKind], map: "tsrare_role_pass_idx")
+  @@index([inputSnapshotId], map: "tsrare_input_snapshot_idx")
+  @@index([exposureSetHash], map: "tsrare_exposure_set_idx")
+}
+
 model TopicSelectionResearchObjection {
   id                   String   @id
   objectionKey         String   @unique(map: "tsro_objection_key_key")

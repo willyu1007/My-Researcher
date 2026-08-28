@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-25T12:00:00.000Z",
+  "updatedAt": "2026-08-28T16:00:00.000Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -55767,6 +55767,91 @@
           "name": null,
           "map": null
         }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchArenaRoleExecution",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "arenaSessionId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "evidencePacketArtifactRef", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "evidencePacketHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "evidencePartitionRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "exposureArtifactRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "exposureSetHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "inputSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "inputSnapshotId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "instanceIndex", "type": "Int", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "outputArtifactHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "outputArtifactRef", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "participantRole", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "passKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "priorRoleHashes", "type": "String", "nullable": false, "list": true, "dbName": null, "dbType": null, "default": "[]", "primaryKey": false, "unique": false },
+        { "name": "queryIntent", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "retrievalProvenance", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "roleSlotId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "runtimeIdentityHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "schemaVersion", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "semanticPositionHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [
+        { "field": "arenaSession", "to": "TopicSelectionResearchArenaSession", "optional": false, "list": false, "relationName": "TopicSelectionResearchArenaRoleExecutionToTopicSelectionResearchArenaSession", "fields": ["arenaSessionId"], "references": ["id"] }
+      ],
+      "indexes": [
+        { "type": "index", "fields": ["arenaSessionId", "createdAt"], "name": null, "map": "tsrare_session_created_idx" },
+        { "type": "index", "fields": ["exposureSetHash"], "name": null, "map": "tsrare_exposure_set_idx" },
+        { "type": "index", "fields": ["inputSnapshotId"], "name": null, "map": "tsrare_input_snapshot_idx" },
+        { "type": "index", "fields": ["participantRole", "passKind"], "name": null, "map": "tsrare_role_pass_idx" },
+        { "type": "unique", "fields": ["arenaSessionId", "roleSlotId", "instanceIndex"], "name": null, "map": "tsrare_session_slot_instance" },
+        { "type": "unique", "fields": ["arenaSessionId", "semanticPositionHash"], "name": null, "map": "tsrare_session_semantic" }
+      ]
+    },
+    {
+      "name": "TopicSelectionResearchArenaSession",
+      "dbName": null,
+      "schema": null,
+      "columns": [
+        { "name": "arenaKind", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "createdBy", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "currentArenaKey", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "executionPlanRef", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
+        { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
+        { "name": "inputSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "inputSnapshotId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "loopDeltaRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
+        { "name": "loopTranscriptHash", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "loopTranscriptRef", "type": "Json", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "participantPlanHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "participantRoles", "type": "String", "nullable": false, "list": true, "dbName": null, "dbType": null, "default": "[]", "primaryKey": false, "unique": false },
+        { "name": "schemaVersion", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "sessionKey", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": true },
+        { "name": "status", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersededAt", "type": "DateTime", "nullable": true, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersededByArenaSessionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "supersedesArenaSessionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "supportOnly", "type": "Boolean", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": true, "primaryKey": false, "unique": false },
+        { "name": "synthesizedAt", "type": "DateTime", "nullable": true, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetRefType", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "targetVersionId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "terminationReason", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "titleCardId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "updatedAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
+        { "name": "workspaceId", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false }
+      ],
+      "relations": [
+        { "field": "roleExecutions", "to": "TopicSelectionResearchArenaRoleExecution", "optional": false, "list": true, "relationName": "TopicSelectionResearchArenaRoleExecutionToTopicSelectionResearchArenaSession", "fields": [], "references": [] }
+      ],
+      "indexes": [
+        { "type": "index", "fields": ["inputSnapshotId"], "name": null, "map": "tsras_input_snapshot_idx" },
+        { "type": "index", "fields": ["status"], "name": null, "map": "tsras_status_idx" },
+        { "type": "index", "fields": ["supersedesArenaSessionId"], "name": null, "map": "tsras_supersedes_idx" },
+        { "type": "index", "fields": ["titleCardId", "arenaKind", "createdAt"], "name": null, "map": "tsras_title_kind_created_idx" }
       ]
     },
     {

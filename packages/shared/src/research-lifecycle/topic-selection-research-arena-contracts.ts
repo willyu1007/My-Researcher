@@ -92,6 +92,132 @@ export interface TopicSelectionResearchEvidencePacket {
   packet_hash: string;
 }
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_KINDS = [
+  'evidence_landscape',
+  'gap_portfolio',
+  'question_design',
+  'comparative_value',
+] as const;
+export type TopicSelectionResearchArenaKind =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_KINDS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_STATUSES = [
+  'open',
+  'synthesized',
+  'superseded',
+] as const;
+export type TopicSelectionResearchArenaStatus =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_STATUSES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_TERMINATION_REASONS = [
+  'recommendation_ready',
+  'none_viable',
+  'evidence_expansion_required',
+  'reframe_required',
+  'human_hold',
+  'policy_blocked',
+] as const;
+export type TopicSelectionResearchArenaTerminationReason =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_TERMINATION_REASONS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES = [
+  'evidence',
+  'candidate',
+  'constraint',
+  'human_objective',
+] as const;
+export type TopicSelectionResearchArenaDeltaType =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_PASS_KINDS = [
+  'first_pass',
+  'supplemental',
+  'synthesis',
+] as const;
+export type TopicSelectionResearchArenaPassKind =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_PASS_KINDS)[number];
+
+export interface TopicSelectionResearchArenaLoopDeltaRef {
+  delta_type: TopicSelectionResearchArenaDeltaType;
+  ref: TopicSelectionFunctionalRef;
+  rationale: string;
+}
+
+export interface TopicSelectionResearchArenaSessionRecord {
+  schema_version: 'TopicSelectionResearchArenaSession@v1';
+  arena_session_id: string;
+  session_key: string;
+  current_arena_key: string | null;
+  workspace_id: string | null;
+  title_card_id: string;
+  arena_kind: TopicSelectionResearchArenaKind;
+  target_ref: TopicSelectionFunctionalRef;
+  input_snapshot_id: string;
+  input_snapshot_hash: string;
+  participant_plan_hash: string;
+  participant_roles: TopicSelectionResearchArenaParticipantRole[];
+  execution_plan_ref: TopicSelectionFunctionalRef;
+  status: TopicSelectionResearchArenaStatus;
+  termination_reason: TopicSelectionResearchArenaTerminationReason | null;
+  loop_transcript_ref: TopicSelectionFunctionalRef | null;
+  loop_transcript_hash: string | null;
+  loop_delta_refs: TopicSelectionResearchArenaLoopDeltaRef[];
+  support_only: true;
+  supersedes_arena_session_id: string | null;
+  superseded_by_arena_session_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  synthesized_at: string | null;
+  superseded_at: string | null;
+}
+
+export interface TopicSelectionResearchRetrievalHitProvenance {
+  literature_ref: TopicSelectionFunctionalRef;
+  embedding_version_id: string;
+  chunk_id: string;
+  chunk_hash: string;
+  rank: number;
+  hybrid_score: number;
+  vector_score: number;
+  lexical_score: number;
+  is_stale: boolean;
+}
+
+export interface TopicSelectionResearchRetrievalProvenance {
+  participant_role: TopicSelectionResearchArenaParticipantRole;
+  query_intent: TopicSelectionResearchEvidenceQueryIntent;
+  search_run_ref: TopicSelectionFunctionalRef;
+  hits: TopicSelectionResearchRetrievalHitProvenance[];
+  provenance_hash: string;
+}
+
+export interface TopicSelectionResearchArenaRoleExecutionRecord {
+  schema_version: 'TopicSelectionResearchArenaRoleExecution@v1';
+  arena_role_execution_id: string;
+  arena_session_id: string;
+  title_card_id: string;
+  role_slot_id: string;
+  instance_index: number;
+  participant_role: TopicSelectionResearchArenaParticipantRole;
+  pass_kind: TopicSelectionResearchArenaPassKind;
+  input_snapshot_id: string;
+  input_snapshot_hash: string;
+  query_intent: TopicSelectionResearchEvidenceQueryIntent;
+  evidence_packet_artifact_ref: TopicSelectionFunctionalRef;
+  evidence_packet_hash: string;
+  evidence_partition_refs: TopicSelectionFunctionalRef[];
+  retrieval_provenance: TopicSelectionResearchRetrievalProvenance;
+  exposure_artifact_refs: TopicSelectionFunctionalRef[];
+  exposure_set_hash: string;
+  output_artifact_ref: TopicSelectionFunctionalRef;
+  output_artifact_hash: string;
+  semantic_position_hash: string;
+  prior_role_hashes: string[];
+  runtime_identity_hash: string;
+  created_at: string;
+}
+
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const hashString = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
@@ -223,5 +349,147 @@ export const topicSelectionResearchEvidencePacketSchema = {
     source_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
     total_excerpt_chars: { type: 'integer', minimum: 1, maximum: 96000 },
     packet_hash: hashString,
+  },
+} as const;
+
+const timestamp = { type: 'string', format: 'date-time' } as const;
+const nullableHash = { anyOf: [hashString, { type: 'null' }] } as const;
+
+export const topicSelectionResearchArenaLoopDeltaRefSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['delta_type', 'ref', 'rationale'],
+  properties: {
+    delta_type: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES] },
+    ref: topicSelectionFunctionalRefSchema,
+    rationale: stringId,
+  },
+} as const;
+
+export const topicSelectionResearchArenaSessionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_session_id', 'session_key', 'current_arena_key', 'workspace_id',
+    'title_card_id', 'arena_kind', 'target_ref', 'input_snapshot_id', 'input_snapshot_hash',
+    'participant_plan_hash', 'participant_roles', 'execution_plan_ref', 'status',
+    'termination_reason', 'loop_transcript_ref', 'loop_transcript_hash', 'loop_delta_refs', 'support_only',
+    'supersedes_arena_session_id', 'superseded_by_arena_session_id', 'created_by',
+    'created_at', 'updated_at', 'synthesized_at', 'superseded_at',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaSession@v1' },
+    arena_session_id: stringId,
+    session_key: stringId,
+    current_arena_key: nullableStringId,
+    workspace_id: nullableStringId,
+    title_card_id: stringId,
+    arena_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_KINDS] },
+    target_ref: topicSelectionFunctionalRefSchema,
+    input_snapshot_id: stringId,
+    input_snapshot_hash: hashString,
+    participant_plan_hash: hashString,
+    participant_roles: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+      minItems: 2,
+      maxItems: 4,
+      uniqueItems: true,
+    },
+    execution_plan_ref: topicSelectionFunctionalRefSchema,
+    status: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_STATUSES] },
+    termination_reason: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_RESEARCH_ARENA_TERMINATION_REASONS] }, { type: 'null' }],
+    },
+    loop_transcript_ref: {
+      anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }],
+    },
+    loop_transcript_hash: nullableHash,
+    loop_delta_refs: { type: 'array', items: topicSelectionResearchArenaLoopDeltaRefSchema },
+    support_only: { const: true },
+    supersedes_arena_session_id: nullableStringId,
+    superseded_by_arena_session_id: nullableStringId,
+    created_by: stringId,
+    created_at: timestamp,
+    updated_at: timestamp,
+    synthesized_at: { anyOf: [timestamp, { type: 'null' }] },
+    superseded_at: { anyOf: [timestamp, { type: 'null' }] },
+  },
+} as const;
+
+export const topicSelectionResearchRetrievalHitProvenanceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'literature_ref', 'embedding_version_id', 'chunk_id', 'chunk_hash', 'rank',
+    'hybrid_score', 'vector_score', 'lexical_score', 'is_stale',
+  ],
+  properties: {
+    literature_ref: topicSelectionFunctionalRefSchema,
+    embedding_version_id: stringId,
+    chunk_id: stringId,
+    chunk_hash: hashString,
+    rank: { type: 'integer', minimum: 1 },
+    hybrid_score: { type: 'number', minimum: 0, maximum: 1 },
+    vector_score: { type: 'number', minimum: 0, maximum: 1 },
+    lexical_score: { type: 'number', minimum: 0, maximum: 1 },
+    is_stale: { type: 'boolean' },
+  },
+} as const;
+
+export const topicSelectionResearchRetrievalProvenanceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['participant_role', 'query_intent', 'search_run_ref', 'hits', 'provenance_hash'],
+  properties: {
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+    query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
+    search_run_ref: topicSelectionFunctionalRefSchema,
+    hits: {
+      type: 'array',
+      items: topicSelectionResearchRetrievalHitProvenanceSchema,
+      minItems: 1,
+      maxItems: 60,
+    },
+    provenance_hash: hashString,
+  },
+} as const;
+
+export const topicSelectionResearchArenaRoleExecutionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_role_execution_id', 'arena_session_id', 'title_card_id',
+    'role_slot_id', 'instance_index', 'participant_role', 'pass_kind', 'input_snapshot_id',
+    'input_snapshot_hash', 'query_intent', 'evidence_packet_artifact_ref',
+    'evidence_packet_hash', 'evidence_partition_refs', 'retrieval_provenance',
+    'exposure_artifact_refs', 'exposure_set_hash', 'output_artifact_ref',
+    'output_artifact_hash', 'semantic_position_hash', 'prior_role_hashes',
+    'runtime_identity_hash', 'created_at',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v1' },
+    arena_role_execution_id: stringId,
+    arena_session_id: stringId,
+    title_card_id: stringId,
+    role_slot_id: stringId,
+    instance_index: { type: 'integer', minimum: 0 },
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+    pass_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PASS_KINDS] },
+    input_snapshot_id: stringId,
+    input_snapshot_hash: hashString,
+    query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
+    evidence_packet_artifact_ref: topicSelectionFunctionalRefSchema,
+    evidence_packet_hash: hashString,
+    evidence_partition_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
+    retrieval_provenance: topicSelectionResearchRetrievalProvenanceSchema,
+    exposure_artifact_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
+    exposure_set_hash: hashString,
+    output_artifact_ref: topicSelectionFunctionalRefSchema,
+    output_artifact_hash: hashString,
+    semantic_position_hash: hashString,
+    prior_role_hashes: { type: 'array', items: hashString },
+    runtime_identity_hash: hashString,
+    created_at: timestamp,
   },
 } as const;
