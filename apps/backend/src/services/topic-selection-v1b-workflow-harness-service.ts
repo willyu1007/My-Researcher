@@ -346,8 +346,9 @@ import {
   extractN4DraftPayload,
   n4DraftGateBlocker,
   n4LineageBlocker,
-  n4NoViablePortfolioBlocker,
+  n4NonSelectedPortfolioBlocker,
   n4RuntimeAuditDrift,
+  n4SelectedPortfolioBlocker,
 } from './topic-selection-v1b-harness-n4.js';
 import {
   n7CandidateAdmissionBlocker,
@@ -2832,15 +2833,33 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const knownEvidenceIds = new Set(
       flattenEvidenceRoleBundle(planningInput.evidence_role_bundle).map((ref) => ref.ref_id),
     );
-    const noViableBlocker = n4NoViablePortfolioBlocker(resolvedDraft.draft, knownEvidenceIds);
-    if (noViableBlocker) {
+    const selectedPortfolioBlocker = n4SelectedPortfolioBlocker(
+      resolvedDraft.draft,
+      knownEvidenceIds,
+    );
+    if (selectedPortfolioBlocker) {
       return this.persistBlockedResult(input, hashContext, {
-        blockerCode: noViableBlocker.code,
-        message: noViableBlocker.message,
+        blockerCode: selectedPortfolioBlocker.code,
+        message: selectedPortfolioBlocker.message,
       });
     }
-    if (resolvedDraft.draft.portfolio_disposition?.outcome === 'none_viable') {
-      const portfolio = resolvedDraft.draft.portfolio_disposition;
+    const nonSelectedPortfolioBlocker = n4NonSelectedPortfolioBlocker(
+      resolvedDraft.draft,
+      knownEvidenceIds,
+    );
+    if (nonSelectedPortfolioBlocker) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: nonSelectedPortfolioBlocker.code,
+        message: nonSelectedPortfolioBlocker.message,
+      });
+    }
+    const nonSelectedPortfolio = resolvedDraft.draft.portfolio_disposition?.outcome !== 'selected'
+      ? resolvedDraft.draft.portfolio_disposition
+      : null;
+    if (nonSelectedPortfolio) {
+      const portfolio = nonSelectedPortfolio;
+      const expandEvidence = portfolio.outcome === 'evidence_expansion_required';
+      const reframeScope = portfolio.outcome === 'reframe_required';
       return this.persistAdmittedResult(input, hashContext, {
         acceptedRiskRefs: readiness.accepted_risk_refs,
         authorityHash: null,
@@ -2850,19 +2869,34 @@ export class TopicSelectionV1bWorkflowHarnessService {
         gateStatus: 'admitted',
         handoff: null,
         handoffHash: null,
-        routeDecision: 'stop_v1b_complete',
+        loopbackTargetCode: expandEvidence
+          ? 'n4_expand_evidence'
+          : reframeScope
+            ? 'n4_reframe_scope'
+            : null,
+        requiredActions: portfolio.reopening_conditions,
+        routeDecision: expandEvidence
+          ? 'expand_evidence'
+          : reframeScope
+            ? 'reframe_scope'
+            : 'stop_v1b_complete',
+        routeTargetNodeId: expandEvidence
+          ? 'topic-selection.v1b.create-intake-snapshot.v1'
+          : reframeScope
+            ? 'topic-selection.v1b.record-research-constraint-profile.v1'
+            : null,
         sourceRef: buildReadinessRef(readiness),
         targetRef:
           resolvedDraft.semanticArtifact.normalized_output_ref
           ?? resolvedDraft.semanticArtifact.support_artifact_ref,
-        tracePhase: 'T-147 N4 honest portfolio stop',
+        tracePhase: 'T-147 N4 honest portfolio disposition',
         tracePayload: {
           draft_hash: resolvedDraft.draftHash,
           portfolio_disposition_hash: canonicalHash(portfolio),
           portfolio_outcome: portfolio.outcome,
           reopening_conditions: portfolio.reopening_conditions,
         },
-        transitionKey: 'topic-selection.v1b.harness.n4-honest-portfolio-stop',
+        transitionKey: 'topic-selection.v1b.harness.n4-honest-portfolio-disposition',
         warnings: [],
       }, {
         writeAuthority: async () => {},
@@ -3028,7 +3062,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
           missing_option_types: resolvedDraft.draft.missing_option_types,
           unresolved_disagreements: resolvedDraft.draft.unresolved_disagreements,
           human_review_triggers: resolvedDraft.draft.human_review_triggers,
-          options_payload: { options: resolvedDraft.draft.options },
+          options_payload: {
+            options: resolvedDraft.draft.options,
+            ...(resolvedDraft.draft.portfolio_disposition
+              ? { portfolio_disposition: resolvedDraft.draft.portfolio_disposition }
+              : {}),
+          },
           comparison_payload: {
             authority_hash: authorityHash,
             constraint_profile_hash: profileHash,
@@ -3040,6 +3079,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
             // (read by V1bSliceHumanSelectionService). Harness-internal N5 uses
             // the in-memory handoff; this makes it retrievable by option-set id.
             n4_handoff_hash: handoffHash,
+            ...(resolvedDraft.draft.portfolio_disposition
+              ? { portfolio_outcome: resolvedDraft.draft.portfolio_disposition.outcome }
+              : {}),
             recommended_option_key: resolvedDraft.draft.recommended_option_key ?? null,
             semantic_artifact_ref: resolvedDraft.semanticArtifact.normalized_output_ref,
             warning_codes: validation.value.warnings.map((warning) => warning.code),
@@ -8010,6 +8052,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N5 cannot select a hard-blocked ResearchSlice option.',
       };
     }
+    if (selectedOption.status === 'deferred' || selectedOption.status === 'rejected') {
+      return {
+        code: 'N5_SELECTED_OPTION_NON_SELECTABLE',
+        message: 'N5 cannot select an option parked or dropped by the current N4 portfolio disposition.',
+      };
+    }
     if (
       (isHighRiskOption(selectedOption) || selectedOption.requires_human_review)
       && payload.authority_input_provider !== 'human_delegated'
@@ -9723,6 +9771,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
         return blocker;
       }
       const optionId = this.idFactory('research_slice_option');
+      const portfolioDisposition = input.draft.portfolio_disposition?.candidate_dispositions.find(
+        (candidate) => candidate.candidate_key === draft.option_key,
+      ) ?? null;
       const hasHardBlocker = draft.hard_blockers.length > 0;
       const isHighRisk = isHighRiskDraft(draft);
       const uncertainClaimAlignment =
@@ -9757,9 +9808,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         option_key: draft.option_key,
         status: hasHardBlocker
           ? 'blocked'
-          : draft.option_key === input.draft.recommended_option_key
-            ? 'recommended'
-            : 'candidate',
+          : portfolioDisposition?.disposition === 'dropped'
+            ? 'rejected'
+            : portfolioDisposition?.disposition === 'parked'
+              ? 'deferred'
+              : draft.option_key === input.draft.recommended_option_key
+                ? 'recommended'
+                : 'candidate',
         source_validated_need_refs: draft.source_validated_need_refs,
         slice_statement: draft.slice_statement,
         problem_space: draft.problem_space,
@@ -9797,6 +9852,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         ]),
         details_payload: {
           ...draft.details_payload,
+          ...(portfolioDisposition ? { portfolio_disposition: portfolioDisposition } : {}),
           inherited_constraints: {
             available_assets: input.planningInput.available_assets,
             claim_ceiling: input.planningInput.claim_ceiling,
@@ -9810,7 +9866,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
 
-    const selectableOptions = options.filter((option) => option.status !== 'blocked');
+    const selectableOptions = options.filter((option) =>
+      option.status === 'candidate' || option.status === 'recommended'
+    );
     if (selectableOptions.length === 0) {
       return {
         ok: false,

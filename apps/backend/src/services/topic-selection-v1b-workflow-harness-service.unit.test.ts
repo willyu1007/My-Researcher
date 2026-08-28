@@ -2765,6 +2765,7 @@ test('v1b workflow harness N4 creates research slice option set from frozen sema
   assert.equal(options.length, 1);
   assert.equal(options[0]?.option_key, 'traceable_workflow_slice');
   assert.equal(options[0]?.status, 'recommended');
+  assert.equal('portfolio_disposition' in (options[0]?.details_payload ?? {}), false);
   const transitionRecord = await ctx.controlPlaneRepository.findChainTransitionAttemptById(
     result.transition_attempt_ref!.ref_id,
   );
@@ -2848,10 +2849,286 @@ test('v1b workflow harness N4 blocks an evidence-free no-viable portfolio before
 
   assert.equal(result.gate_status, 'blocked');
   assert.equal(result.route_decision, 'blocked');
-  assert.equal(result.error_code, 'N4_NONE_VIABLE_PORTFOLIO_INVALID');
+  assert.equal(result.error_code, 'N4_NON_SELECTED_PORTFOLIO_INVALID');
   assert.equal(result.authority_ref, null);
   assert.equal(result.handoff_ref, null);
   assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N4 routes an evidence-expansion portfolio without manufacturing slice authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const draft = n4Draft({
+    recommended_option_key: null,
+    options: [],
+    portfolio_disposition: {
+      outcome: 'evidence_expansion_required',
+      rationale: 'The visible evidence cannot distinguish the plausible slice directions.',
+      confidence: 0.78,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'evidence_coverage_insufficient',
+          summary: 'Nearest-work coverage is insufficient for a bounded slice decision.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Re-enter N4 only after a new v1a evidence bundle is current.'],
+      candidate_dispositions: [],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'expand_evidence');
+  assert.equal(result.failure_class, null);
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N4 routes a scope-reframe portfolio without manufacturing slice authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const draft = n4Draft({
+    recommended_option_key: null,
+    options: [],
+    portfolio_disposition: {
+      outcome: 'reframe_required',
+      rationale: 'The inherited research scope cannot express a falsifiable contribution.',
+      confidence: 0.81,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'research_scope_misaligned',
+          summary: 'The current scope conflicts with the bounded claim and evaluation constraints.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Revise the N2 research constraint profile before generating slices again.'],
+      candidate_dispositions: [],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'reframe_scope');
+  assert.equal(result.failure_class, null);
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N4 blocks an expansion portfolio that leaves an option undisposed', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const draft = n4Draft({
+    recommended_option_key: null,
+    portfolio_disposition: {
+      outcome: 'evidence_expansion_required',
+      rationale: 'The visible evidence cannot distinguish the existing option.',
+      confidence: 0.78,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'evidence_coverage_insufficient',
+          summary: 'Nearest-work coverage is insufficient for a bounded slice decision.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Re-enter N4 only after a new v1a evidence bundle is current.'],
+      candidate_dispositions: [],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N4_NON_SELECTED_PORTFOLIO_INVALID');
+  assert.equal(result.authority_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N4 rejects a selected portfolio without exactly one selected option disposition', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const draft = n4Draft({
+    portfolio_disposition: {
+      outcome: 'selected',
+      rationale: 'The visible portfolio contains one preferred slice.',
+      confidence: 0.84,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [],
+      reopening_conditions: [],
+      candidate_dispositions: [
+        {
+          candidate_key: 'traceable_workflow_slice',
+          disposition: 'dropped',
+          rationale: 'The only option is incorrectly marked dropped for this negative fixture.',
+          evidence_refs: [evidenceRef],
+          drop_reason_code: 'strictly_dominated_by_visible_candidate',
+          reopening_conditions: [],
+        },
+      ],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.route_decision, 'blocked');
+  assert.equal(result.error_code, 'N4_SELECTED_PORTFOLIO_INVALID');
+  assert.equal(result.authority_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+});
+
+test('v1b workflow harness N4 preserves selected parked and dropped option dispositions', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const baseOption = n4Draft().options[0]!;
+  const draft = n4Draft({
+    options: [
+      baseOption,
+      {
+        ...baseOption,
+        option_key: 'parked_data_slice',
+        slice_statement: 'Park a data-dependent traceability slice.',
+      },
+      {
+        ...baseOption,
+        option_key: 'dropped_duplicate_slice',
+        slice_statement: 'Drop a strictly dominated traceability slice.',
+      },
+    ],
+    portfolio_disposition: {
+      outcome: 'selected',
+      rationale: 'One slice dominates while two alternatives remain explicit.',
+      confidence: 0.84,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [],
+      reopening_conditions: [],
+      candidate_dispositions: [
+        {
+          candidate_key: 'traceable_workflow_slice',
+          disposition: 'selected',
+          rationale: 'This slice best fits the bounded evidence and execution constraints.',
+          evidence_refs: [evidenceRef],
+          reopening_conditions: [],
+        },
+        {
+          candidate_key: 'parked_data_slice',
+          disposition: 'parked',
+          rationale: 'The direction becomes useful only when the missing dataset is available.',
+          evidence_refs: [evidenceRef],
+          reopening_conditions: ['Reopen after the required dataset is current.'],
+        },
+        {
+          candidate_key: 'dropped_duplicate_slice',
+          disposition: 'dropped',
+          rationale: 'The direction is strictly dominated by the selected slice.',
+          evidence_refs: [evidenceRef],
+          drop_reason_code: 'strictly_dominated_by_visible_candidate',
+          reopening_conditions: [],
+        },
+      ],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'invoke_next');
+  const options = await ctx.researchSliceRepository.listOptionsByOptionSetId(result.authority_ref!.ref_id);
+  assert.equal(options.find((option) => option.option_key === 'traceable_workflow_slice')?.status, 'recommended');
+  assert.equal(options.find((option) => option.option_key === 'parked_data_slice')?.status, 'deferred');
+  assert.equal(options.find((option) => option.option_key === 'dropped_duplicate_slice')?.status, 'rejected');
+  assert.equal(
+    (options.find((option) => option.option_key === 'dropped_duplicate_slice')?.details_payload
+      .portfolio_disposition as { drop_reason_code?: string } | undefined)?.drop_reason_code,
+    'strictly_dominated_by_visible_candidate',
+  );
+  const optionSet = await ctx.researchSliceRepository.findOptionSetById(result.authority_ref!.ref_id);
+  assert.equal(
+    (optionSet?.options_payload.portfolio_disposition as { outcome?: string } | undefined)?.outcome,
+    'selected',
+  );
+});
+
+test('v1b workflow harness N5 cannot select an option dropped by the N4 portfolio disposition', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const baseOption = n4Draft().options[0]!;
+  const draft = n4Draft({
+    options: [
+      baseOption,
+      {
+        ...baseOption,
+        option_key: 'dropped_duplicate_slice',
+        slice_statement: 'Drop a strictly dominated traceability slice.',
+      },
+    ],
+    portfolio_disposition: {
+      outcome: 'selected',
+      rationale: 'One slice dominates the alternative.',
+      confidence: 0.84,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [],
+      reopening_conditions: [],
+      candidate_dispositions: [
+        {
+          candidate_key: 'traceable_workflow_slice',
+          disposition: 'selected',
+          rationale: 'This slice best fits the bounded evidence and execution constraints.',
+          evidence_refs: [evidenceRef],
+          reopening_conditions: [],
+        },
+        {
+          candidate_key: 'dropped_duplicate_slice',
+          disposition: 'dropped',
+          rationale: 'The direction is strictly dominated by the selected slice.',
+          evidence_refs: [evidenceRef],
+          drop_reason_code: 'strictly_dominated_by_visible_candidate',
+          reopening_conditions: [],
+        },
+      ],
+    },
+  });
+  const n4 = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+  const droppedOption = (await ctx.researchSliceRepository.listOptionsByOptionSetId(n4.authority_ref!.ref_id))
+    .find((option) => option.option_key === 'dropped_duplicate_slice')!;
+  const result = await ctx.service.invokeNode(n5Request(n4, acceptedSliceSelectionPayload(droppedOption)));
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N5_SELECTED_OPTION_NON_SELECTABLE');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
 });
 
 test('v1b workflow harness N4 admits runtime-verified Codex research-slice draft in product mode', async () => {

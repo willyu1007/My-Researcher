@@ -82,33 +82,85 @@ export function isN4DraftPayload(value: Record<string, unknown>): boolean {
     && value.options.every((option) => isN4DraftOption(option));
 }
 
-export function n4NoViablePortfolioBlocker(
+export function n4NonSelectedPortfolioBlocker(
   draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload,
   knownEvidenceIds: Set<string>,
 ): { code: string; message: string } | null {
   const portfolio = draft.portfolio_disposition;
-  if (portfolio?.outcome !== 'none_viable') {
+  if (!portfolio || portfolio.outcome === 'selected') {
     return null;
   }
   const dispositionEvidenceRefs = [
     ...portfolio.evidence_refs,
     ...portfolio.rejection_reasons.flatMap((reason) => reason.evidence_refs),
+    ...portfolio.candidate_dispositions.flatMap((candidate) => candidate.evidence_refs),
   ];
-  const valid = draft.options.length === 0
-    && !draft.recommended_option_key
+  const optionKeys = new Set(draft.options.map((option) => option.option_key));
+  const dispositionKeys = portfolio.candidate_dispositions.map((candidate) => candidate.candidate_key);
+  const valid = !draft.recommended_option_key
     && portfolio.confidence >= 0
     && portfolio.confidence <= 1
     && portfolio.evidence_refs.length > 0
     && portfolio.rejection_reasons.length > 0
     && portfolio.reopening_conditions.length > 0
-    && portfolio.candidate_dispositions.length === 0
     && portfolio.rejection_reasons.every((reason) => reason.evidence_refs.length > 0)
-    && dispositionEvidenceRefs.every((ref) => knownEvidenceIds.has(ref.ref_id));
+    && dispositionEvidenceRefs.every((ref) => knownEvidenceIds.has(ref.ref_id))
+    && optionKeys.size === draft.options.length
+    && dispositionKeys.length === optionKeys.size
+    && new Set(dispositionKeys).size === dispositionKeys.length
+    && dispositionKeys.every((candidateKey) => optionKeys.has(candidateKey))
+    && portfolio.candidate_dispositions.every((candidate) =>
+      candidate.disposition !== 'selected'
+      && candidate.evidence_refs.length > 0
+      && (candidate.disposition === 'dropped') === Boolean(candidate.drop_reason_code)
+      && (candidate.disposition !== 'parked' || candidate.reopening_conditions.length > 0)
+    )
+    && (portfolio.outcome !== 'none_viable' || draft.options.length === 0);
   return valid
     ? null
     : {
-        code: 'N4_NONE_VIABLE_PORTFOLIO_INVALID',
-        message: 'N4 none_viable requires no downstream options, frozen evidence-backed rejection reasons, bounded confidence, and reopening conditions.',
+        code: 'N4_NON_SELECTED_PORTFOLIO_INVALID',
+        message: 'N4 non-selected portfolios require frozen evidence-backed rejection reasons, bounded confidence, reopening conditions, and no recommended downstream option.',
+      };
+}
+
+export function n4SelectedPortfolioBlocker(
+  draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload,
+  knownEvidenceIds: Set<string>,
+): { code: string; message: string } | null {
+  const portfolio = draft.portfolio_disposition;
+  if (portfolio?.outcome !== 'selected') {
+    return null;
+  }
+  const optionKeys = new Set(draft.options.map((option) => option.option_key));
+  const dispositionKeys = portfolio.candidate_dispositions.map((candidate) => candidate.candidate_key);
+  const selected = portfolio.candidate_dispositions.filter((candidate) => candidate.disposition === 'selected');
+  const citedRefs = [
+    ...portfolio.evidence_refs,
+    ...portfolio.rejection_reasons.flatMap((reason) => reason.evidence_refs),
+    ...portfolio.candidate_dispositions.flatMap((candidate) => candidate.evidence_refs),
+  ];
+  const valid = portfolio.confidence >= 0
+    && portfolio.confidence <= 1
+    && portfolio.evidence_refs.length > 0
+    && draft.options.length > 0
+    && selected.length === 1
+    && draft.recommended_option_key === selected[0]?.candidate_key
+    && dispositionKeys.length === optionKeys.size
+    && new Set(dispositionKeys).size === dispositionKeys.length
+    && dispositionKeys.every((candidateKey) => optionKeys.has(candidateKey))
+    && citedRefs.every((ref) => knownEvidenceIds.has(ref.ref_id))
+    && portfolio.rejection_reasons.every((reason) => reason.evidence_refs.length > 0)
+    && portfolio.candidate_dispositions.every((candidate) =>
+      candidate.evidence_refs.length > 0
+      && (candidate.disposition === 'dropped') === Boolean(candidate.drop_reason_code)
+      && (candidate.disposition !== 'parked' || candidate.reopening_conditions.length > 0)
+    );
+  return valid
+    ? null
+    : {
+        code: 'N4_SELECTED_PORTFOLIO_INVALID',
+        message: 'N4 selected portfolios require exactly one recommended selected option, complete grounded dispositions, drop reasons, and parked reopening conditions.',
       };
 }
 

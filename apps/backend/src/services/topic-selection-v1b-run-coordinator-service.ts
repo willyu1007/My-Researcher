@@ -965,22 +965,24 @@ export class TopicSelectionV1bRunCoordinatorService {
       wait: 'harness_wait',
       retry: 'harness_retryable_failure',
       loopback: 'harness_loopback',
+      expand_evidence: 'harness_loopback',
+      reframe_scope: 'harness_loopback',
     };
     const reason = node.latest!.gate_status === 'requires_human_review'
       ? 'harness_requires_human_review'
       : map[route] ?? 'harness_blocked';
     let message = `latest attempt of ${node.node_id} ended with route_decision=${route}, gate_status=${node.latest!.gate_status}; resolve and advance again.`;
     let loopbackTargetNodeId: string | null = null;
-    if (route === 'loopback') {
+    if (route === 'loopback' || route === 'expand_evidence' || route === 'reframe_scope') {
       const target = POLICY_BY_NODE_ID.get(node.node_id)
-        ?.route_edges.find((edge) => edge.route_decision === 'loopback')?.next_node_id ?? null;
+        ?.route_edges.find((edge) => edge.route_decision === route)?.next_node_id ?? null;
       // The loopback target re-enters in feedback mode only if its recipe declares how to
       // assemble that frozen input from this source's loopback (DP-3.6). Otherwise the only
       // resume is re-invoking the source itself with a fresh draft.
       const feedbackReentry = target != null
         && HANDOFF_BUILDER_TABLE[target]?.feedback_reentry?.loopback_source_node_id === node.node_id;
       loopbackTargetNodeId = feedbackReentry ? target : null;
-      message = `latest attempt of ${node.node_id} ended with route_decision=loopback (harness loopback target: ${target ?? 'unknown'}). `
+      message = `latest attempt of ${node.node_id} ended with route_decision=${route} (research-management target: ${target ?? 'unknown'}). `
         + (feedbackReentry
           ? `advance again with retry_node_id=${target} to re-enter ${target} in feedback mode (the coordinator assembles its feedback_from_* frozen input), or retry_node_id=${node.node_id} to re-invoke the source with a fresh draft.`
           : `retry_node_id=${node.node_id} re-invokes the source with fresh node_inputs; this loopback target has no coordinator feedback recipe — drive upstream re-entry via the harness route.`);
