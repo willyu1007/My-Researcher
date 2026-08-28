@@ -105,6 +105,27 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
     'question_1',
   );
 
+  const humanViewResponse = await app.inject({
+    method: 'GET',
+    url: '/topic-selection/title-cards/title_route_1/stage-views/research_question?audience=human',
+  });
+  assert.equal(humanViewResponse.statusCode, 200, humanViewResponse.body);
+  assert.equal(humanViewResponse.json().audience, 'human');
+  assert.match(humanViewResponse.json().markdown, /研究问题/u);
+
+  const llmViewResponse = await app.inject({
+    method: 'GET',
+    url: '/topic-selection/title-cards/title_route_1/stage-views/research_question?audience=llm',
+  });
+  assert.equal(llmViewResponse.statusCode, 200, llmViewResponse.body);
+  assert.equal(llmViewResponse.json().working_set.current_packet.target_ref.ref_id, 'question_1');
+
+  const invalidViewResponse = await app.inject({
+    method: 'GET',
+    url: '/topic-selection/title-cards/title_route_1/stage-views/research_question?audience=operator',
+  });
+  assert.equal(invalidViewResponse.statusCode, 400);
+
   const artifactResponse = await app.inject({
     method: 'GET',
     url: `/topic-selection/artifacts/${artifact.artifact_ref_id}`,

@@ -38,6 +38,8 @@ import {
   type TopicSelectionResearchCheckpointKind,
   type TopicSelectionResearchCheckpointPacket,
   type TopicSelectionResearchCheckpointRecord,
+  type TopicSelectionResearchHumanStageView,
+  type TopicSelectionResearchLlmStageView,
   type TopicSelectionResearchObjectionInput,
   type TopicSelectionResearchObjectionRecord,
   type TopicSelectionResearchObjectionResolutionInput,
@@ -45,7 +47,11 @@ import {
   type TopicSelectionResearchStatusProjection,
   type TopicSelectionResearchStageManifest,
   type TopicSelectionResearchStageManifestEntry,
+  type TopicSelectionResearchStageHumanSummary,
+  type TopicSelectionResearchStageView,
+  type TopicSelectionResearchStageViewAudience,
   type TopicSelectionResearchStageViewStage,
+  type TopicSelectionResearchStageWorkingSet,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
@@ -66,11 +72,20 @@ type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
   stageProjectionSources?: {
-    topicPackageRepository: Pick<TopicSelectionV1bTopicPackageRepository, 'listPackagesByTitleCardId'>;
+    topicPackageRepository: Pick<TopicSelectionV1bTopicPackageRepository, 'listPackagesByTitleCardId'>
+      & Partial<Pick<
+        TopicSelectionV1bTopicPackageRepository,
+        | 'findReadinessAssessmentById'
+        | 'findTraceBoundaryCheckById'
+        | 'findV1cInputBundleByPackageId'
+      >>;
     valueAssessmentRepository: Pick<
       TopicSelectionV1bValueAssessmentRepository,
       'listAssessmentsByTitleCardId' | 'listDispositionDecisionsByTitleCardId'
-    >;
+    > & Partial<Pick<
+      TopicSelectionV1bValueAssessmentRepository,
+      'findReasoningMemoById' | 'listEvidenceRefsByAssessmentId'
+    >>;
   };
 };
 
@@ -201,6 +216,27 @@ const STAGE_BY_CHECKPOINT_KIND = {
   question_contract: 'research_question',
   promotion: 'promotion_review',
 } as const satisfies Record<TopicSelectionResearchCheckpointKind, TopicSelectionResearchStageViewStage>;
+const CHECKPOINT_KIND_BY_STAGE = {
+  evidence_landscape: 'evidence_landscape',
+  research_gap: 'gap_selection',
+  research_question: 'question_contract',
+  promotion_review: 'promotion',
+} as const satisfies Partial<Record<TopicSelectionResearchStageViewStage, TopicSelectionResearchCheckpointKind>>;
+const HUMAN_STAGE_LABELS = {
+  overview: '选题总览',
+  evidence_landscape: '证据版图',
+  research_gap: '研究空白',
+  research_question: '研究问题',
+  value_feasibility: '价值与可行性',
+  topic_package: '选题包',
+  promotion_review: '晋级审阅',
+} as const satisfies Record<TopicSelectionResearchStageViewStage, string>;
+const HUMAN_ACTION_LABELS = {
+  advance: '接受并推进',
+  loopback: '回环补强',
+  reject: '拒绝当前结果',
+  hold: '暂缓决定',
+} as const satisfies Record<TopicSelectionResearchCheckpointAction, string>;
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
@@ -1494,6 +1530,410 @@ export class TopicSelectionResearchCheckpointService {
       throw new AppError(404, 'NOT_FOUND', `Topic-selection artifact ${artifactRefId} was not found.`);
     }
     return artifact;
+  }
+
+  async getStageView(
+    titleCardId: string,
+    stage: TopicSelectionResearchStageViewStage,
+    audience: 'human',
+  ): Promise<TopicSelectionResearchHumanStageView>;
+  async getStageView(
+    titleCardId: string,
+    stage: TopicSelectionResearchStageViewStage,
+    audience: 'llm',
+  ): Promise<TopicSelectionResearchLlmStageView>;
+  async getStageView(
+    titleCardId: string,
+    stage: TopicSelectionResearchStageViewStage,
+    audience: TopicSelectionResearchStageViewAudience,
+  ): Promise<TopicSelectionResearchStageView>;
+  async getStageView(
+    titleCardId: string,
+    stage: TopicSelectionResearchStageViewStage,
+    audience: TopicSelectionResearchStageViewAudience,
+  ): Promise<TopicSelectionResearchStageView> {
+    const manifest = await this.getStageManifest(titleCardId);
+    const entry = manifest.stages.find((candidate) => candidate.stage === stage);
+    if (!entry) {
+      throw new AppError(404, 'NOT_FOUND', `Research stage ${stage} was not found.`);
+    }
+    const workingSet = await this.buildStageWorkingSet(titleCardId, stage, manifest, entry);
+    const common = {
+      schema_version: 'TopicSelectionResearchStageView@v1' as const,
+      title_card_id: titleCardId,
+      stage,
+      state: entry.state,
+      manifest_hash: manifest.manifest_hash,
+      source_snapshot_hash: entry.snapshot_hash,
+    };
+    if (audience === 'human') {
+      const body = {
+        ...common,
+        audience: 'human' as const,
+        markdown: this.renderHumanStageMarkdown(manifest, workingSet),
+      };
+      return { ...body, view_hash: this.hash(body) };
+    }
+    const body = {
+      ...common,
+      audience: 'llm' as const,
+      working_set: workingSet,
+    };
+    return { ...body, view_hash: this.hash(body) };
+  }
+
+  private async buildStageWorkingSet(
+    titleCardId: string,
+    stage: TopicSelectionResearchStageViewStage,
+    manifest: TopicSelectionResearchStageManifest,
+    entry: TopicSelectionResearchStageManifestEntry,
+  ): Promise<TopicSelectionResearchStageWorkingSet> {
+    const researchStatus = await this.getResearchStatus(titleCardId);
+    const checkpointKind = CHECKPOINT_KIND_BY_STAGE[stage as keyof typeof CHECKPOINT_KIND_BY_STAGE];
+    const checkpointRecords = (await this.repository.listCheckpointsByTitleCardId(titleCardId))
+      .filter((checkpoint) => !checkpointKind || checkpoint.checkpoint_kind === checkpointKind)
+      .sort((left, right) =>
+        left.created_at.localeCompare(right.created_at)
+        || left.research_checkpoint_id.localeCompare(right.research_checkpoint_id)
+      );
+    const checkpointHistory = await Promise.all(
+      checkpointRecords.map((checkpoint) => this.getPacket(checkpoint.research_checkpoint_id)),
+    );
+    const currentPacket = entry.checkpoint_ref
+      ? checkpointHistory.find(
+        (packet) => packet.research_checkpoint_id === entry.checkpoint_ref?.ref_id,
+      ) ?? null
+      : stage === 'overview'
+        ? researchStatus.current_packet ?? null
+        : null;
+    let canonicalOwner: unknown = currentPacket?.packet_payload ?? null;
+    let relatedRecords: Record<string, unknown> = {
+      checkpoint_records: checkpointRecords,
+    };
+
+    if (stage === 'overview') {
+      canonicalOwner = manifest;
+      relatedRecords = { checkpoint_records: checkpointRecords };
+    } else if (stage === 'value_feasibility') {
+      const repository = this.stageProjectionSources?.valueAssessmentRepository;
+      const [assessments, decisions] = repository
+        ? await Promise.all([
+          repository.listAssessmentsByTitleCardId(titleCardId),
+          repository.listDispositionDecisionsByTitleCardId(titleCardId),
+        ])
+        : [[], []];
+      const assessment = assessments.find(
+        (candidate) => candidate.topic_value_assessment_id === entry.authority_ref?.ref_id,
+      ) ?? null;
+      if (entry.state === 'current' && !assessment) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Current value stage owner changed while its view was being projected.');
+      }
+      const decision = decisions.find(
+        (candidate) => candidate.is_current
+          && candidate.topic_value_assessment_id === assessment?.topic_value_assessment_id,
+      ) ?? null;
+      const [memo, evidenceRefs] = assessment
+        ? await Promise.all([
+          repository?.findReasoningMemoById
+            ? repository.findReasoningMemoById(assessment.value_reasoning_memo_id)
+            : null,
+          repository?.listEvidenceRefsByAssessmentId
+            ? repository.listEvidenceRefsByAssessmentId(assessment.topic_value_assessment_id)
+            : [],
+        ])
+        : [null, []];
+      canonicalOwner = assessment;
+      relatedRecords = {
+        current_disposition_decision: decision,
+        evidence_refs: evidenceRefs,
+        reasoning_memo: memo,
+      };
+    } else if (stage === 'topic_package') {
+      const repository = this.stageProjectionSources?.topicPackageRepository;
+      const packages = repository ? await repository.listPackagesByTitleCardId(titleCardId) : [];
+      const topicPackage = packages.find(
+        (candidate) => candidate.topic_package_id === entry.authority_ref?.ref_id,
+      ) ?? null;
+      if (entry.state === 'current' && !topicPackage) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Current topic-package owner changed while its view was being projected.');
+      }
+      const [traceBoundary, readiness, v1cBundle] = topicPackage
+        ? await Promise.all([
+          topicPackage.trace_boundary_check_id && repository?.findTraceBoundaryCheckById
+            ? repository.findTraceBoundaryCheckById(topicPackage.trace_boundary_check_id)
+            : null,
+          topicPackage.readiness_assessment_id && repository?.findReadinessAssessmentById
+            ? repository.findReadinessAssessmentById(topicPackage.readiness_assessment_id)
+            : null,
+          repository?.findV1cInputBundleByPackageId
+            ? repository.findV1cInputBundleByPackageId(topicPackage.topic_package_id)
+            : null,
+        ])
+        : [null, null, null];
+      canonicalOwner = topicPackage;
+      relatedRecords = {
+        package_readiness_assessment: readiness,
+        package_trace_boundary_check: traceBoundary,
+        v1c_input_bundle: v1cBundle,
+      };
+    }
+
+    const workingSetWithoutSummary = {
+      manifest_entry: entry,
+      research_status: researchStatus,
+      current_packet: currentPacket,
+      checkpoint_history: checkpointHistory,
+      canonical_owner: canonicalOwner,
+      related_records: relatedRecords,
+      artifact_route_template: '/topic-selection/artifacts/{artifactRefId}' as const,
+    };
+    return {
+      ...workingSetWithoutSummary,
+      human_summary: this.buildHumanStageSummary(manifest, stage, workingSetWithoutSummary),
+    };
+  }
+
+  private buildHumanStageSummary(
+    manifest: TopicSelectionResearchStageManifest,
+    stage: TopicSelectionResearchStageViewStage,
+    workingSet: Omit<TopicSelectionResearchStageWorkingSet, 'human_summary'>,
+  ): TopicSelectionResearchStageHumanSummary {
+    const { manifest_entry: entry, current_packet: packet } = workingSet;
+    const label = HUMAN_STAGE_LABELS[stage];
+    if (entry.state === 'unavailable') {
+      return {
+        conclusions: [`${label}尚未形成可用的当前版本。`],
+        evidence_and_counterevidence: [],
+        alternatives_and_rejections: [],
+        claim_and_falsification_boundaries: [],
+        open_risks: entry.issue_codes.map((code) => `当前性检查未通过：${code}`),
+        recommendation: '先完成或重建前置阶段，再重新生成本视图。',
+        decision_requested: manifest.next_human_decision_stage
+          ? `下一次人工判断位于“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”。`
+          : '当前没有待确认的人工决定。',
+      };
+    }
+
+    if (stage === 'overview') {
+      const currentStages = manifest.stages.filter((candidate) => candidate.state === 'current');
+      const unavailableStages = manifest.stages.filter((candidate) => candidate.state === 'unavailable');
+      return {
+        conclusions: [
+          `当前已有 ${currentStages.length} 个可读阶段，研究流程停留在“${manifest.current_stage ? HUMAN_STAGE_LABELS[manifest.current_stage] : '尚未开始'}”。`,
+        ],
+        evidence_and_counterevidence: currentStages
+          .filter((candidate) => candidate.stage !== 'overview')
+          .map((candidate) => `${HUMAN_STAGE_LABELS[candidate.stage]}：${candidate.status ?? '已有当前版本'}`),
+        alternatives_and_rejections: [],
+        claim_and_falsification_boundaries: [],
+        open_risks: unavailableStages.map(
+          (candidate) => `${HUMAN_STAGE_LABELS[candidate.stage]}：${candidate.issue_codes.join('、')}`,
+        ),
+        recommendation: manifest.next_human_decision_stage
+          ? `先处理“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”的人工审阅。`
+          : '当前检查点链已完成，可按后续产品门禁继续。',
+        decision_requested: manifest.next_human_decision_stage
+          ? `请在“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”查看完整材料并作出决定。`
+          : '当前没有待确认的人工决定。',
+      };
+    }
+
+    if (stage === 'value_feasibility') {
+      const assessment = this.asRecord(workingSet.canonical_owner);
+      const memo = this.asRecord(workingSet.related_records.reasoning_memo);
+      const decision = this.asRecord(workingSet.related_records.current_disposition_decision);
+      return {
+        conclusions: this.uniqueStrings([
+          this.stringField(assessment, 'value_summary'),
+          this.stringField(memo, 'value_thesis'),
+          entry.status ? `当前评估状态：${entry.status}` : '',
+        ]),
+        evidence_and_counterevidence: this.humanItems(workingSet.related_records.evidence_refs),
+        alternatives_and_rejections: this.humanItems(decision?.blocking_contexts),
+        claim_and_falsification_boundaries: this.uniqueStrings([
+          this.stringField(assessment, 'strongest_claim_if_success'),
+          this.stringField(assessment, 'fallback_claim_if_success'),
+          this.stringField(assessment, 'ceiling_case'),
+          this.stringField(assessment, 'floor_case'),
+        ]),
+        open_risks: this.uniqueStrings([
+          ...this.stringArrayField(assessment, 'reviewer_objections'),
+          ...this.stringArrayField(assessment, 'risk_notes'),
+          ...this.stringArrayField(memo, 'top_objections'),
+        ]),
+        recommendation: this.stringField(decision, 'decision_rationale')
+          || this.stringField(memo, 'disposition_bridge')
+          || '依据当前价值评估决定继续、回环、暂存或停止。',
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+      };
+    }
+
+    if (stage === 'topic_package') {
+      const topicPackage = this.asRecord(workingSet.canonical_owner);
+      const readiness = this.asRecord(workingSet.related_records.package_readiness_assessment);
+      return {
+        conclusions: this.uniqueStrings([
+          this.stringField(topicPackage, 'contribution_summary'),
+          this.stringField(topicPackage, 'research_background'),
+          entry.status ? `当前选题包状态：${entry.status}` : '',
+        ]),
+        evidence_and_counterevidence: this.humanItems(topicPackage?.selected_evidence_refs),
+        alternatives_and_rejections: this.stringArrayField(topicPackage, 'title_candidates'),
+        claim_and_falsification_boundaries: this.uniqueStrings([
+          ...this.stringArrayField(topicPackage, 'candidate_methods'),
+          this.stringField(topicPackage, 'evaluation_plan'),
+          ...this.stringArrayField(topicPackage, 'non_goals'),
+        ]),
+        open_risks: this.uniqueStrings([
+          ...this.stringArrayField(topicPackage, 'key_risks'),
+          ...this.humanItems(readiness?.blockers),
+          ...this.humanItems(readiness?.warnings),
+        ]),
+        recommendation: this.stringArrayField(readiness, 'required_actions').length > 0
+          ? `先完成：${this.stringArrayField(readiness, 'required_actions').join('；')}`
+          : '按当前选题包状态进入晋级审阅。',
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+      };
+    }
+
+    const payload = packet?.packet_payload ?? {};
+    return {
+      conclusions: this.uniqueStrings([
+        ...this.payloadItems(payload, ['summary', 'question', 'gap', 'mechanism', 'recommendation', 'contribution']),
+        `${label}已有当前版本，状态为 ${entry.status ?? 'current'}。`,
+      ]).slice(0, 8),
+      evidence_and_counterevidence: this.payloadItems(
+        payload,
+        ['evidence', 'nearest', 'counter', 'disconfirm', 'conflict', 'source'],
+      ).slice(0, 12),
+      alternatives_and_rejections: this.payloadItems(
+        payload,
+        ['alternative', 'candidate', 'reject', 'disposition', 'option'],
+      ).slice(0, 12),
+      claim_and_falsification_boundaries: this.payloadItems(
+        payload,
+        ['claim', 'falsif', 'confound', 'proxy', 'ceiling', 'boundary', 'mechanism'],
+      ).slice(0, 12),
+      open_risks: this.uniqueStrings([
+        ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
+        ...this.payloadItems(payload, ['risk', 'objection', 'blocker', 'warning', 'issue']),
+        ...(packet && packet.required_action_refs.length > 0
+          ? [`尚有 ${packet.required_action_refs.length} 项必须处理。`] : []),
+      ]).slice(0, 12),
+      recommendation: packet?.decision
+        ? `已记录人工决定：${HUMAN_ACTION_LABELS[packet.decision.decision]}。${packet.decision.rationale}`
+        : packet?.allowed_actions.includes('advance')
+          ? '当前材料允许在审阅后接受并推进，也可选择回环、拒绝或暂缓。'
+          : '先处理当前异议或必做事项，再决定是否推进。',
+      decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+    };
+  }
+
+  private stageDecisionRequest(
+    manifest: TopicSelectionResearchStageManifest,
+    stage: TopicSelectionResearchStageViewStage,
+    packet: TopicSelectionResearchCheckpointPacket | null,
+  ): string {
+    if (manifest.next_human_decision_stage !== stage) {
+      return manifest.next_human_decision_stage
+        ? `下一次人工判断位于“${HUMAN_STAGE_LABELS[manifest.next_human_decision_stage]}”。`
+        : '当前没有待确认的人工决定。';
+    }
+    const actions = packet?.allowed_actions.map((action) => HUMAN_ACTION_LABELS[action]) ?? [];
+    return actions.length > 0
+      ? `请审阅本阶段并选择：${actions.join('、')}。`
+      : '请审阅本阶段的当前材料并作出决定。';
+  }
+
+  private renderHumanStageMarkdown(
+    manifest: TopicSelectionResearchStageManifest,
+    workingSet: TopicSelectionResearchStageWorkingSet,
+  ): string {
+    const { manifest_entry: entry, human_summary: summary } = workingSet;
+    const technicalRefs = [entry.authority_ref, entry.checkpoint_ref, entry.supersedes_ref]
+      .filter((ref): ref is TopicSelectionFunctionalRef => ref !== null)
+      .map((ref) => `${ref.ref_type}/${ref.ref_id}`);
+    const artifactRefs = entry.artifact_refs.map((ref) => ref.ref_id);
+    return [
+      `# ${HUMAN_STAGE_LABELS[entry.stage]}`,
+      '',
+      `> 当前状态：${entry.state === 'current' ? '当前有效' : '尚不可用'}；流程位置：${manifest.current_stage ? HUMAN_STAGE_LABELS[manifest.current_stage] : '尚未开始'}`,
+      '',
+      '## 结论',
+      this.markdownBullets(summary.conclusions),
+      '',
+      '## 证据与反证',
+      this.markdownBullets(summary.evidence_and_counterevidence),
+      '',
+      '## 备选与拒绝理由',
+      this.markdownBullets(summary.alternatives_and_rejections),
+      '',
+      '## 主张与证伪边界',
+      this.markdownBullets(summary.claim_and_falsification_boundaries),
+      '',
+      '## 开放风险',
+      this.markdownBullets(summary.open_risks),
+      '',
+      '## 建议',
+      summary.recommendation,
+      '',
+      '## 下一次人工判断',
+      summary.decision_requested,
+      '',
+      '## 技术追踪',
+      `- Manifest：${manifest.manifest_hash}`,
+      `- 阶段快照：${entry.snapshot_hash ?? '无'}`,
+      `- 当前选择规则：${entry.current_selection_rule}`,
+      `- 权威与检查点引用：${technicalRefs.join('；') || '无'}`,
+      `- 可解析产物：${artifactRefs.join('；') || '无'}`,
+    ].join('\n');
+  }
+
+  private payloadItems(payload: Record<string, unknown>, keyFragments: string[]): string[] {
+    return this.uniqueStrings(
+      Object.entries(payload).flatMap(([key, value]) =>
+        keyFragments.some((fragment) => key.toLowerCase().includes(fragment))
+          ? this.humanItems(value)
+          : []
+      ),
+    );
+  }
+
+  private humanItems(value: unknown): string[] {
+    if (typeof value === 'string') return value.trim() ? [value.trim()] : [];
+    if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+    if (Array.isArray(value)) return value.flatMap((item) => this.humanItems(item));
+    const record = this.asRecord(value);
+    if (!record) return [];
+    for (const key of ['summary', 'title', 'claim', 'rationale', 'description', 'name', 'text', 'reason']) {
+      const candidate = this.stringField(record, key);
+      if (candidate) return [candidate];
+    }
+    return Object.values(record).flatMap((item) =>
+      typeof item === 'string' ? this.humanItems(item) : []
+    ).slice(0, 3);
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
+  }
+
+  private stringField(record: Record<string, unknown> | null, key: string): string {
+    const value = record?.[key];
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  private stringArrayField(record: Record<string, unknown> | null, key: string): string[] {
+    const value = record?.[key];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      : [];
+  }
+
+  private markdownBullets(items: string[]): string {
+    return items.length > 0 ? items.map((item) => `- ${item}`).join('\n') : '- 暂无。';
   }
 
   private unavailableStageManifestEntry(

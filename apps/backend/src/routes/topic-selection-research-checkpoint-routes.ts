@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { topicSelectionArtifactRefRecordSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
+  TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES,
   topicSelectionResearchCheckpointDecisionInputSchema,
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
   topicSelectionResearchStageManifestSchema,
+  topicSelectionResearchStageViewSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import type { TopicSelectionResearchCheckpointController } from '../controllers/topic-selection-research-checkpoint-controller.js';
 
@@ -75,6 +77,30 @@ export async function registerTopicSelectionResearchCheckpointRoutes(
       },
     },
     controller.getStageManifest,
+  );
+  fastify.get(
+    '/topic-selection/title-cards/:titleCardId/stage-views/:stage',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['titleCardId', 'stage'],
+          properties: {
+            titleCardId: stringId,
+            stage: { enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] },
+          },
+        },
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['audience'],
+          properties: { audience: { enum: ['human', 'llm'] } },
+        },
+        response: { 200: topicSelectionResearchStageViewSchema },
+      },
+    },
+    controller.getStageView,
   );
   fastify.get(
     '/topic-selection/artifacts/:artifactRefId',

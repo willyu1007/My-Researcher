@@ -6,10 +6,17 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type { TopicSelectionNeedCandidateRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type { TopicSelectionCoverageRowIntentRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
-import type { TopicSelectionTopicPackageRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
+import type {
+  TopicSelectionPackageTraceBoundaryCheckRecord,
+  TopicSelectionTopicPackageReadinessAssessmentRecord,
+  TopicSelectionTopicPackageRecord,
+  TopicSelectionV1bToV1cInputBundleRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-package-contracts';
 import type {
   TopicSelectionTopicValueAssessmentRecord,
+  TopicSelectionTopicValueEvidenceRefRecord,
   TopicSelectionValueDispositionDecisionRecord,
+  TopicSelectionValueReasoningMemoRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
@@ -142,14 +149,47 @@ test('stage manifest is deterministic and exposes only the current checkpoint he
   );
 });
 
+test('human and LLM stage views share one current manifest while keeping different reading surfaces', async () => {
+  const { service } = createService();
+  await materialize(service, HASH_A);
+  const priorView = await service.getStageView('title_1', 'evidence_landscape', 'llm');
+  await materialize(service, HASH_B);
+
+  const human = await service.getStageView('title_1', 'evidence_landscape', 'human');
+  const llm = await service.getStageView('title_1', 'evidence_landscape', 'llm');
+  const humanReplay = await service.getStageView('title_1', 'evidence_landscape', 'human');
+
+  assert.equal(human.manifest_hash, llm.manifest_hash);
+  assert.notEqual(priorView.manifest_hash, llm.manifest_hash);
+  assert.notEqual(priorView.view_hash, llm.view_hash);
+  assert.equal(priorView.source_snapshot_hash, HASH_A);
+  assert.equal(human.source_snapshot_hash, HASH_B);
+  assert.equal(llm.source_snapshot_hash, HASH_B);
+  assert.deepEqual(humanReplay, human);
+  assert.equal('working_set' in human, false);
+  assert.equal('markdown' in llm, false);
+  assert.match(human.markdown, /证据版图/u);
+  assert.match(human.markdown, /Closest baseline/u);
+  assert.match(human.markdown, /下一次人工判断/u);
+  const currentPacket = llm.working_set.current_packet;
+  assert.ok(currentPacket);
+  assert.equal(currentPacket.target_snapshot_hash, HASH_B);
+  assert.equal(llm.working_set.checkpoint_history.length, 2);
+  assert.deepEqual(currentPacket.packet_payload.nearest_work, [
+    { title: 'Closest baseline' },
+  ]);
+});
+
 test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
   const titleCardId = 'title_projection';
   const assessment = {
     topic_value_assessment_id: 'assessment_current',
     title_card_id: titleCardId,
     topic_question_contract_id: 'question_contract_current',
+    value_reasoning_memo_id: 'memo_current',
     readiness_status: 'ready',
     freshness_status: 'current',
+    value_summary: 'The mechanism is valuable if the discriminating test succeeds.',
     artifact_refs: [],
   } as unknown as TopicSelectionTopicValueAssessmentRecord;
   const currentDecision = {
@@ -159,6 +199,7 @@ test('stage manifest selects the current value disposition and latest package in
     decision: 'advance_to_package',
     status: 'active',
     is_current: true,
+    decision_rationale: 'Advance because the mechanism remains distinguishable and feasible.',
     artifact_refs: [],
   } as unknown as TopicSelectionValueDispositionDecisionRecord;
   const topicPackage = (
@@ -191,6 +232,15 @@ test('stage manifest selects the current value disposition and latest package in
     },
     topic_package_ref: { ref_type: 'topic_package', ref_id: id, title_card_id: titleCardId },
     package_readiness_status: 'ready',
+    contribution_summary: 'A falsifiable mechanism contribution with a bounded claim.',
+    research_background: 'Nearest work leaves one discriminating mechanism unresolved.',
+    title_candidates: ['Primary title', 'Alternative title'],
+    candidate_methods: ['Signed intervention analysis'],
+    evaluation_plan: 'Compare the intervention against the nearest baseline.',
+    key_risks: ['The local pipeline may limit external validity.'],
+    non_goals: ['Universal ranking claims'],
+    trace_boundary_check_id: 'trace_current',
+    readiness_assessment_id: 'readiness_current',
     validated_need_refs: [],
     selected_evidence_refs: [],
     accepted_risk_refs: [],
@@ -204,13 +254,41 @@ test('stage manifest selects the current value disposition and latest package in
     topicPackage('package_current_new', currentDecision.value_disposition_decision_id, '2026-08-25T11:00:00Z'),
     topicPackage('package_stale_newer', 'decision_stale', '2026-08-25T12:00:00Z'),
   ];
+  const memo = {
+    value_reasoning_memo_id: 'memo_current',
+    value_thesis: 'The topic earns continuation only if the signed intervention separates mechanisms.',
+  } as unknown as TopicSelectionValueReasoningMemoRecord;
+  const valueEvidence = [{
+    topic_value_evidence_ref_id: 'value_evidence_current',
+    rationale: 'Nearest-work comparison supports the discriminating test.',
+  }] as unknown as TopicSelectionTopicValueEvidenceRefRecord[];
+  const traceBoundary = {
+    package_trace_boundary_check_id: 'trace_current',
+    check_status: 'passed',
+  } as unknown as TopicSelectionPackageTraceBoundaryCheckRecord;
+  const readiness = {
+    package_readiness_assessment_id: 'readiness_current',
+    package_readiness_status: 'ready_for_promotion_review',
+    blockers: [],
+    warnings: [],
+    required_actions: [],
+  } as unknown as TopicSelectionTopicPackageReadinessAssessmentRecord;
+  const v1cBundle = {
+    v1b_to_v1c_input_bundle_id: 'bundle_current',
+    topic_package_id: 'package_current_new',
+  } as unknown as TopicSelectionV1bToV1cInputBundleRecord;
   const { service } = createService({
     valueAssessmentRepository: {
       listAssessmentsByTitleCardId: async () => [assessment],
       listDispositionDecisionsByTitleCardId: async () => [currentDecision],
+      findReasoningMemoById: async () => memo,
+      listEvidenceRefsByAssessmentId: async () => valueEvidence,
     },
     topicPackageRepository: {
       listPackagesByTitleCardId: async () => packages,
+      findTraceBoundaryCheckById: async () => traceBoundary,
+      findReadinessAssessmentById: async () => readiness,
+      findV1cInputBundleByPackageId: async () => v1cBundle,
     },
   });
   await service.materializeCheckpoint({
@@ -235,6 +313,21 @@ test('stage manifest selects the current value disposition and latest package in
     manifest.stages.some((stage) => stage.authority_ref?.ref_id === 'package_stale_newer'),
     false,
   );
+  const valueLlmView = await service.getStageView(titleCardId, 'value_feasibility', 'llm');
+  const packageLlmView = await service.getStageView(titleCardId, 'topic_package', 'llm');
+  const valueHumanView = await service.getStageView(titleCardId, 'value_feasibility', 'human');
+  const packageHumanView = await service.getStageView(titleCardId, 'topic_package', 'human');
+  assert.deepEqual(valueLlmView.working_set.related_records.reasoning_memo, memo);
+  assert.deepEqual(valueLlmView.working_set.related_records.evidence_refs, valueEvidence);
+  assert.equal(
+    (packageLlmView.working_set.canonical_owner as TopicSelectionTopicPackageRecord).topic_package_id,
+    'package_current_new',
+  );
+  assert.deepEqual(packageLlmView.working_set.related_records.package_trace_boundary_check, traceBoundary);
+  assert.deepEqual(packageLlmView.working_set.related_records.package_readiness_assessment, readiness);
+  assert.deepEqual(packageLlmView.working_set.related_records.v1c_input_bundle, v1cBundle);
+  assert.match(valueHumanView.markdown, /signed intervention separates mechanisms/u);
+  assert.match(packageHumanView.markdown, /falsifiable mechanism contribution/u);
 
   const staleSubject = createService({
     valueAssessmentRepository: {

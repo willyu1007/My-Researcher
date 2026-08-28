@@ -275,6 +275,53 @@ export interface TopicSelectionResearchStageManifest {
   manifest_hash: string;
 }
 
+export type TopicSelectionResearchStageViewAudience = 'human' | 'llm';
+
+interface TopicSelectionResearchStageViewBase {
+  schema_version: 'TopicSelectionResearchStageView@v1';
+  title_card_id: string;
+  stage: TopicSelectionResearchStageViewStage;
+  state: TopicSelectionResearchStageManifestEntry['state'];
+  manifest_hash: string;
+  source_snapshot_hash: string | null;
+  view_hash: string;
+}
+
+export interface TopicSelectionResearchHumanStageView extends TopicSelectionResearchStageViewBase {
+  audience: 'human';
+  markdown: string;
+}
+
+export interface TopicSelectionResearchStageHumanSummary {
+  conclusions: string[];
+  evidence_and_counterevidence: string[];
+  alternatives_and_rejections: string[];
+  claim_and_falsification_boundaries: string[];
+  open_risks: string[];
+  recommendation: string;
+  decision_requested: string;
+}
+
+export interface TopicSelectionResearchStageWorkingSet {
+  manifest_entry: TopicSelectionResearchStageManifestEntry;
+  research_status: TopicSelectionResearchStatusProjection;
+  current_packet: TopicSelectionResearchCheckpointPacket | null;
+  checkpoint_history: TopicSelectionResearchCheckpointPacket[];
+  canonical_owner: unknown;
+  related_records: Record<string, unknown>;
+  human_summary: TopicSelectionResearchStageHumanSummary;
+  artifact_route_template: '/topic-selection/artifacts/{artifactRefId}';
+}
+
+export interface TopicSelectionResearchLlmStageView extends TopicSelectionResearchStageViewBase {
+  audience: 'llm';
+  working_set: TopicSelectionResearchStageWorkingSet;
+}
+
+export type TopicSelectionResearchStageView =
+  | TopicSelectionResearchHumanStageView
+  | TopicSelectionResearchLlmStageView;
+
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const hashString = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
@@ -527,4 +574,63 @@ export const topicSelectionResearchStageManifestSchema = {
     },
     manifest_hash: hashString,
   },
+} as const;
+
+const topicSelectionResearchStageViewBaseProperties = {
+  schema_version: { const: 'TopicSelectionResearchStageView@v1' },
+  title_card_id: stringId,
+  stage: { enum: [...TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES] },
+  state: { enum: ['current', 'unavailable'] },
+  manifest_hash: hashString,
+  source_snapshot_hash: { anyOf: [hashString, { type: 'null' }] },
+  view_hash: hashString,
+} as const;
+
+const topicSelectionResearchHumanStageViewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'title_card_id',
+    'stage',
+    'state',
+    'manifest_hash',
+    'source_snapshot_hash',
+    'view_hash',
+    'audience',
+    'markdown',
+  ],
+  properties: {
+    ...topicSelectionResearchStageViewBaseProperties,
+    audience: { const: 'human' },
+    markdown: stringId,
+  },
+} as const;
+
+const topicSelectionResearchLlmStageViewSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'title_card_id',
+    'stage',
+    'state',
+    'manifest_hash',
+    'source_snapshot_hash',
+    'view_hash',
+    'audience',
+    'working_set',
+  ],
+  properties: {
+    ...topicSelectionResearchStageViewBaseProperties,
+    audience: { const: 'llm' },
+    working_set: { type: 'object', additionalProperties: true },
+  },
+} as const;
+
+export const topicSelectionResearchStageViewSchema = {
+  oneOf: [
+    topicSelectionResearchHumanStageViewSchema,
+    topicSelectionResearchLlmStageViewSchema,
+  ],
 } as const;

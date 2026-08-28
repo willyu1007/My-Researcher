@@ -3874,6 +3874,39 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /topic-selection/title-cards/{titleCardId}/stage-views/{stage}:
+    get:
+      operationId: getTopicSelectionResearchStageView
+      summary: Regenerate either concise human Markdown or a task-scoped LLM working set from the current stage manifest.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/TitleCardId'
+        - name: stage
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review]
+        - name: audience
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [human, llm]
+      responses:
+        '200':
+          description: Deterministic read-time projection bound to the current manifest and source snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchStageView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/artifacts/{artifactRefId}:
     get:
       operationId: getTopicSelectionArtifact
@@ -8294,6 +8327,50 @@ components:
           items:
             $ref: '#/components/schemas/TopicSelectionResearchStageManifestEntry'
         manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    TopicSelectionResearchHumanStageView:
+      type: object
+      additionalProperties: false
+      required: [schema_version, title_card_id, stage, state, manifest_hash, source_snapshot_hash, view_hash, audience, markdown]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchStageView@v1' }
+        title_card_id: { type: string, minLength: 1 }
+        stage:
+          type: string
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review]
+        state: { type: string, enum: [current, unavailable] }
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        source_snapshot_hash:
+          type: [string, 'null']
+          pattern: '^[a-f0-9]{64}$'
+        view_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        audience: { type: string, const: human }
+        markdown: { type: string, minLength: 1 }
+
+    TopicSelectionResearchLlmStageView:
+      type: object
+      additionalProperties: false
+      required: [schema_version, title_card_id, stage, state, manifest_hash, source_snapshot_hash, view_hash, audience, working_set]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchStageView@v1' }
+        title_card_id: { type: string, minLength: 1 }
+        stage:
+          type: string
+          enum: [overview, evidence_landscape, research_gap, research_question, value_feasibility, topic_package, promotion_review]
+        state: { type: string, enum: [current, unavailable] }
+        manifest_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        source_snapshot_hash:
+          type: [string, 'null']
+          pattern: '^[a-f0-9]{64}$'
+        view_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        audience: { type: string, const: llm }
+        working_set:
+          $ref: '#/components/schemas/JsonObject'
+
+    TopicSelectionResearchStageView:
+      oneOf:
+        - $ref: '#/components/schemas/TopicSelectionResearchHumanStageView'
+        - $ref: '#/components/schemas/TopicSelectionResearchLlmStageView'
 
     TopicSelectionArtifactRefRecord:
       type: object

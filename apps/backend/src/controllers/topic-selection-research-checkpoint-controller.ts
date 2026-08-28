@@ -3,12 +3,15 @@ import type {
   TopicSelectionResearchCheckpointDecisionInput,
   TopicSelectionResearchObjectionInput,
   TopicSelectionResearchObjectionResolutionInput,
+  TopicSelectionResearchStageViewAudience,
+  TopicSelectionResearchStageViewStage,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionResearchCheckpointService } from '../services/topic-selection-research-checkpoint-service.js';
 
 type ParamsRequest<T> = FastifyRequest<{ Params: T }>;
 type BodyParamsRequest<TParams, TBody> = FastifyRequest<{ Params: TParams; Body: TBody }>;
+type ParamsQueryRequest<TParams, TQuery> = FastifyRequest<{ Params: TParams; Querystring: TQuery }>;
 
 function handleError(reply: FastifyReply, error: unknown) {
   if (error instanceof AppError) {
@@ -121,6 +124,24 @@ export class TopicSelectionResearchCheckpointController {
   ) => {
     try {
       return reply.send(await this.service.getStageManifest(request.params.titleCardId));
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  getStageView = async (
+    request: ParamsQueryRequest<
+      { titleCardId: string; stage: TopicSelectionResearchStageViewStage },
+      { audience: TopicSelectionResearchStageViewAudience }
+    >,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(await this.service.getStageView(
+        request.params.titleCardId,
+        request.params.stage,
+        request.query.audience,
+      ));
     } catch (error) {
       return handleError(reply, error);
     }

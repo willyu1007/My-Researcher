@@ -6,6 +6,7 @@ import {
   topicSelectionResearchObjectionInputSchema,
   topicSelectionResearchObjectionResolutionInputSchema,
   topicSelectionResearchStageManifestSchema,
+  topicSelectionResearchStageViewSchema,
 } from './topic-selection-research-checkpoint-contracts.js';
 
 const HASH = 'a'.repeat(64);
@@ -67,6 +68,37 @@ test('research stage manifest schema accepts the canonical seven-stage current-p
     manifest_hash: HASH,
   });
   assert.equal(response.statusCode, 200, response.body);
+});
+
+test('research stage view schema separates concise human Markdown from the LLM working set', async () => {
+  const base = {
+    schema_version: 'TopicSelectionResearchStageView@v1',
+    title_card_id: 'title_1',
+    stage: 'evidence_landscape',
+    state: 'current',
+    manifest_hash: HASH,
+    source_snapshot_hash: HASH,
+    view_hash: HASH,
+  };
+  const humanResponse = await injectResponse(topicSelectionResearchStageViewSchema, {
+    ...base,
+    audience: 'human',
+    markdown: '# 证据版图\n\n当前结论清晰。',
+  });
+  assert.equal(humanResponse.statusCode, 200, humanResponse.body);
+  const llmResponse = await injectResponse(topicSelectionResearchStageViewSchema, {
+    ...base,
+    audience: 'llm',
+    working_set: { manifest_entry: { stage: 'evidence_landscape' } },
+  });
+  assert.equal(llmResponse.statusCode, 200, llmResponse.body);
+  const mixedResponse = await injectResponse(topicSelectionResearchStageViewSchema, {
+    ...base,
+    audience: 'human',
+    markdown: '# 证据版图',
+    working_set: { forbidden_duplicate_plane: true },
+  });
+  assert.equal(mixedResponse.statusCode, 500);
 });
 
 test('research checkpoint decision schema accepts complete strict-human evidence review', async () => {
