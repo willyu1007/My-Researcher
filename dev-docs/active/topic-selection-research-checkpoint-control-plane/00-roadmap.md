@@ -11,7 +11,7 @@
 - Resolve persisted evidence refs into bounded, claim-bearing model-visible packets and connect role-specific retrieval to existing literature/SearchRun authority.
 - Preserve candidate alternatives, fatal or minority objections, explicit stop/park/reframe dispositions, and loop deltas through downstream handoffs.
 - Produce concise human stage artifacts and authorize routine local execution by effect boundary rather than by internal node.
-- Validate the new behavior in shadow mode against worthwhile, low-value, and ambiguous historical/current topic cases before production adoption.
+- Validate the new behavior in shadow mode against recorded dominance pairs, evidence-perturbation variants, and the current ambiguous lineage before production adoption.
 
 ### Out of scope
 - GUI surfaces, Codex-specific decision logic, writing-center work, experiment execution, provider activation, calibration release, and any production rehearsal mode.
@@ -38,9 +38,12 @@
 | Positive-lineage novelty repair | Keep calibrated closed-book confidence as the primary graded-budget mechanism / use binary marginal utility / predict signed adjacent-depth utility under fixed retrieval components | Predict signed `0→1` and `1→5` answer-utility changes while fixing reader, retriever, corpus/index, candidate ranking, prompt, and decoding; retain calibrated tri-level confidence and binary budgeted utility as nearest-work comparators rather than novelty claims | decided | User | Researcher advanced the refreshed evidence packet and selected the signed-depthwise option on 2026-08-26 | Evaluation must test incremental value over both nearest-work mechanisms and report benefit, harm, realized retrieval calls, passage tokens, trigger cost, and measured latency separately. |
 | Research-decision rhythm | Converge immediately / debate every node / diverge then converge only at semantic choices | Evidence/search scope, gap portfolio, question design, and comparative value first form independent alternatives with role-specific evidence, then challenge and converge; mechanical nodes remain deterministic | decided | User | Research-process review on 2026-08-27 | Debate becomes a bounded research-quality mechanism rather than workflow ceremony. |
 | Model-visible evidence | Persisted refs and upstream summaries / whole-corpus context / bounded claim-bearing packets | Resolve refs into inspectable excerpts with locator, query intent, role, freshness, and support/challenge relation; load only task-relevant slices | decided | User | Literature/RAG audit on 2026-08-27 | UUID lineage remains traceability evidence but no longer masquerades as content the role actually read. |
-| Arena result and branching | Force one winner / unrestricted multi-branch / zero-to-many portfolio with one active path | Permit `select`, `park`, `drop`, `reframe`, `expand`, or explicitly approved `fork`; default to one active path plus bounded parked alternatives | decided | User | Divergence discussion on 2026-08-27 | “No worthwhile topic” is a successful result, while branch explosion remains bounded. |
+| Arena result and branching | Force one winner / unrestricted multi-branch / zero-to-many portfolio with one active path | Permit `select`, `park`, `drop`, `reframe`, or `expand`; exactly one active path plus snapshot-bound parked alternatives with delta-gated serial return; fork is out of scope and an arena fork recommendation is recorded as `park` plus a surfaced recommendation | decided | User | Divergence discussion on 2026-08-27; fork retired in the product-quality discussion on 2026-08-28 | “No worthwhile topic” is a successful result; no branch-identity, child-TitleCard, or sibling-supersession machinery is built. |
+| Disposition contract precedence | Fix prompts only / fix contracts with the first arena slice / fix contracts first as a precondition | Make `none_viable`, `park`, and `drop` legal successful terminal outputs across N4/N6 output schemas, gates, loopbacks, and terminal semantics before or with the first arena slice; this is contract work independent of any new role | decided | User | Product-quality discussion on 2026-08-28 | Without a legal no-topic exit, any critic role is forced to repair fatal findings into an advancing answer. |
+| First-slice arena roles | Full four-role arena / topic-killer only / scout-killer pair | Pair an opportunity scout (bounded out-of-basket retrieval) with a prior-art/topic-killer (repair prohibited); the arbiter is deterministic or human in the first slice; the empirical skeptic and multi-provider diversity join only after the pair proves value | decided | User | Product-quality discussion on 2026-08-28 | The excavate-then-negate order is preserved — the existing generation path plus the scout excavate, the killer negates — while correlated-role noise and cost stay bounded. |
+| Stage artifacts and authorization delivery | Couple to arena integration / deliver early as an independent slice | Human stage Markdown and the effect-based authorization envelope may land early and independently of arena validation because they are read-only projections and operating protocol over canonical owners; the LLM working plane is preferred as manifest-first read-time projection, with a persisted corpus admitted only if projection cost is proven prohibitive | decided | User | Product-quality discussion on 2026-08-28 | Researcher legibility and cadence improve without waiting for the arena, and no second content authority is created. |
 | Objection and risk survival | Re-summarize at each stage / immutable carry ledger with explicit disposition | Every unresolved material objection or risk remains machine-visible through package and promotion until repaired, accepted, looped back, parked, or dropped | decided | User | Live N8-to-promotion audit on 2026-08-27 | A green final gate cannot silently erase a material earlier critic finding. |
-| Adoption strategy | Replace the live path immediately / shadow first and calibrate | Start before HumanConfirmNeed in shadow mode, compare against known worthwhile, low-value, and ambiguous topics, then activate only after false-continue/false-drop and cost evidence is acceptable | decided | User | Integrated recommendation on 2026-08-27 | The system must prove that justified stopping is useful before it controls production state. |
+| Adoption strategy | Replace the live path immediately / shadow first and calibrate | Start before HumanConfirmNeed in shadow mode and calibrate without absolute value labels — dominance pairs from recorded lineage history, evidence-perturbation counterfactuals, and human overrides accumulated during shadow/advisory operation — then activate only after drop-justification, dominance-consistency, override-convergence, and cost evidence is acceptable | decided | User | Integrated recommendation on 2026-08-27; calibration method revised in the product-quality discussion on 2026-08-28 | The system must prove that justified stopping is useful before it controls production state; “clearly worthwhile” fixtures are not required because no reliable source for that label exists, and the calibration target is decision-process quality rather than outcome accuracy. |
 | Current medium-value lineage | Promote to finish the acceptance / delete it / freeze it as an ambiguous calibration fixture | Freeze the current gate without a HumanPromotionDecision and reuse the lineage as an ambiguous shadow-evaluation case; complete A9 later with a topic the improved process recommends advancing | decided | User | User approved the integrated checkpoint and requested its full commit/push on 2026-08-28 | Prevents process-completion pressure from becoming evidence that the topic deserves promotion. |
 
 ### Assumptions
@@ -155,9 +158,9 @@
 - Planned changes:
   1. Define the bounded EvidencePacket projection and prove that every cited source ref resolves to the exact excerpt a role can inspect.
   2. Define arena input, role/evidence partition, candidate genealogy, objection/minority report, disposition, termination, delta, replay, and supersession contracts.
-  3. Define one-active-plus-parked branch behavior and audit whether an explicit fork requires a child TitleCard or branch identity.
-  4. Define concise human stage Markdown and a manifest-first LLM working-plane projection over canonical owners.
-  5. Define the effect-based authorization envelope and the evaluation fixtures, labels, budgets, and activation thresholds.
+  3. Define one-active-plus-parked behavior with delta-gated serial return, and prove by thought experiment only that parked candidates cannot collide under supersession; no fork, child-TitleCard, or branch-identity design.
+  4. Define concise human stage Markdown and a manifest-first LLM working-plane projection over canonical owners; prefer read-time projection over a persisted corpus, and allow this sub-slice plus the authorization envelope to land early, independent of arena validation.
+  5. Define the effect-based authorization envelope and the evaluation fixtures — dominance pairs, perturbation variants, and override accounting — plus budgets and activation thresholds.
 - Affected boundaries / entry points: Literature retrieval and SearchRun orchestration, topic-selection runtime artifacts, v1a candidate arena/checkpoint packets, process context, and task verification fixtures. No provider route is activated.
 - Dependencies: Confirmation of the integrated plan and disposition of the current medium-value lineage; existing retrieval-ready corpus and canonical checkpoint owners.
 - Exit criteria: The first shadow slice can be implemented without deciding product semantics inside a prompt, duplicating content authority, or reopening branch and risk-survival questions.
@@ -165,8 +168,8 @@
 - Recovery: Keep kickoff pending and perform only read-only discovery if owner mapping, branch currentness, or evidence resolution cannot be made unambiguous.
 
 ### Phase 8 — Prove an early ResearchArena in shadow mode
-- Outcome: Before HumanConfirmNeed, independent opportunity, prior-art/topic-killer, and empirical-skeptic roles receive distinct product-retrieved EvidencePackets; a portfolio arbiter returns a traceable zero-to-many candidate disposition without changing live authority.
-- Approach: Reuse existing Codex-assisted/runtime artifact mechanisms and product-owned retrieval. Persist independent pre-exposure outputs before synthesis; expose one concise human artifact and a technical trace.
+- Outcome: Before HumanConfirmNeed, an independent opportunity scout (bounded out-of-basket retrieval) and a prior-art/topic-killer receive distinct product-retrieved EvidencePackets; a deterministic or human portfolio arbiter returns a traceable zero-to-many candidate disposition without changing live authority. The empirical skeptic joins only after the scout-killer pair proves value.
+- Approach: Land the disposition-contract precondition first — N4/N6 output schemas, gates, loopbacks, and terminal semantics admit `none_viable`, `park`, and `drop` as successful outputs — before or with this slice. Reuse existing Codex-assisted/runtime artifact mechanisms and product-owned retrieval. Persist independent pre-exposure outputs before synthesis; expose one concise human artifact and a technical trace.
 - Planned changes:
   1. Generate role-specific query intents and execute bounded hybrid retrieval through the product, recording SearchRun provenance and claim-bearing hits.
   2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment.
@@ -176,12 +179,12 @@
 - Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
 - Dependencies: Phase 7 contracts. Provider/multi-provider work remains with T-129 and is not required for this phase.
 - Exit criteria: Every role can be replayed from its actual evidence; a no-topic result is successful; correlated shared-summary role play and evidence-free criticism fail admission.
-- Verification: Shadow replay on the current ambiguous lineage plus one clearly worthwhile and one clearly low-value case; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
+- Verification: Shadow replay on the current ambiguous lineage plus recorded dominance pairs (pre- versus post-loopback framing; the parameter-only negative control versus the mechanism-level positive lineage) and evidence-perturbation variants; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
 - Recovery: Disable the shadow projection without changing checkpoint or research authority; retain artifacts as diagnostic evidence.
 
 ### Phase 9 — Integrate disposition, dissent, and bounded human control
 - Outcome: The validated arena can govern the gap checkpoint, carry unresolved material dissent through value/package/promotion, and let the researcher advance routine work to the next semantic decision without repeated operational authorization.
-- Approach: Activate the smallest proven contracts only. Keep one active research lineage, project parked candidates, and require exact human authority for research-meaning choices, material risk acceptance, or explicit fork creation.
+- Approach: Activate the smallest proven contracts only. Keep one active research lineage, project parked candidates, and require exact human authority for research-meaning choices and material risk acceptance.
 - Planned changes:
   1. Make zero-viable, park, drop, reframe, expand, and select outcomes valid workflow dispositions rather than generation failures.
   2. Bind HumanConfirmNeed to the selected arena snapshot and preserve rejected/parked candidates with evidence-backed reasons.
@@ -189,23 +192,23 @@
   4. Block a green gate when a material carried item lacks an explicit repair, accepted-risk, loopback, park, or drop disposition.
   5. Implement stage-level human Markdown plus the bounded “advance to next human decision” effect envelope.
 - Affected boundaries / entry points: v1a disposition/schema and HumanConfirmNeed adapter, v1b N8/N9-N11 handoffs, v1c support/gate packet, research status, operator/process docs, and any minimal confirmed persistence change.
-- Dependencies: Phase 8 behavioral evidence and a confirmed branch representation. Prompt wording changes land only with their schemas, gates, loopbacks, and terminal semantics.
+- Dependencies: Phase 8 behavioral evidence. Prompt wording changes land only with their schemas, gates, loopbacks, and terminal semantics.
 - Exit criteria: A low-value topic can stop cleanly, an accepted topic advances through the exact current arena, no material dissent disappears, and routine deterministic execution reaches the next human boundary without an extra approval.
 - Verification: Positive/negative disposition tests, risk-carry lineage tests, stale/supersession and retry tests, human artifact regeneration, authorization-boundary scenarios, OpenAPI/context alignment, and relevant typecheck/suites.
 - Recovery: Fall back to the existing checkpoint chain with arena authority disabled; never reinterpret a shadow artifact as a human decision.
 
 ### Phase 10 — Calibrate, adopt, and generalize only where valuable
 - Outcome: Production adoption is justified by measured research-decision quality and cost, and later arena placement is limited to semantic stages where it materially improves outcomes.
-- Approach: Evaluate clearly worthwhile, clearly low-value, and ambiguous cases before activation. Count justified `drop`/`park` as success and compare against the current single-path baseline.
+- Approach: Evaluate without absolute value labels — dominance pairs from recorded lineage history, evidence-perturbation counterfactuals, and human overrides accumulated during shadow/advisory operation. Count justified `drop`/`park` as success and compare against the current single-path baseline.
 - Planned changes:
-  1. Measure false continuation, false drop, human override/reopen rate, new semantic-group/direct-neighbor discovery, retrieval/model cost, latency, and downstream work avoided.
+  1. Measure dominance-pair consistency, perturbation sensitivity/specificity, the human override/reopen rate as the accumulating false-drop/false-continue proxy, new semantic-group/direct-neighbor discovery, retrieval/model cost, latency, and downstream work avoided.
   2. Require every loop to demonstrate evidence/candidate/constraint/objective delta and stop when marginal information gain is exhausted.
   3. Activate the early arena only after accepted thresholds and researcher review; otherwise revise or remove it.
   4. Consider question-design and comparative N8 arenas separately, only when the early slice proves value; keep mechanical nodes deterministic.
   5. Complete the fresh dual-track A9 acceptance with a process-selected advancing topic and exactly-once handoff; retain stopped/parked cases as first-class successful controls.
 - Affected boundaries / entry points: Evaluation fixtures, policy versions, phase-specific arena admission, final process documentation, and T-129 coordination only for later provider calibration.
-- Dependencies: Phase 9 integration and researcher-approved evaluation labels/thresholds.
-- Exit criteria: The system demonstrably improves stop/continue decisions at bounded cost, does not systematically kill worthwhile topics, and closes A9-A13 with a recoverable product-path acceptance.
+- Dependencies: Phase 9 integration and researcher-approved dominance pairs, perturbation cases, and thresholds.
+- Exit criteria: The system demonstrably improves stop/continue decisions at bounded cost — every drop is evidence-backed with reopening conditions, dominance-pair order is respected, and the override rate converges — and closes A9-A13 with a recoverable product-path acceptance.
 - Verification: Historical/current shadow matrix, human review, cost and latency accounting, false-continue/false-drop report, full-chain positive and successful-stop cases, exact replay, and no-bypass regressions.
 - Recovery: Keep the arena shadow-only or disable the affected semantic stage when calibration fails; retain the checkpoint control plane and collected evidence.
 
@@ -214,9 +217,9 @@
 - Status: pending
 - Authorized boundary: none
 - [x] Decisions: the current medium-value gate is frozen as an ambiguous calibration fixture instead of being promoted for process completion.
-- [ ] Design: settle exact EvidencePacket resolution, ResearchArena owner reuse, risk-carry projection, and safe explicit-fork representation in Phase 7.
+- [ ] Design: settle exact EvidencePacket resolution, ResearchArena owner reuse, and risk-carry projection in Phase 7; branching is settled — fork is out of scope, and parked-alternative return is serial and delta-gated.
 - [x] Route: contract alignment precedes shadow validation, then bounded authority integration and measured adoption.
-- [x] Verification: worthwhile, low-value, and ambiguous fixtures plus false-continue/false-drop, evidence-delta, cost, risk-survival, replay, and full-chain obligations are identified in `verification.md`.
+- [x] Verification: dominance-pair, perturbation, and ambiguous-lineage fixtures plus drop-justification, override-convergence, evidence-delta, cost, risk-survival, replay, and full-chain obligations are identified in `verification.md`.
 
 ## Risks and recovery
 
@@ -231,8 +234,8 @@
 | Arena roles receive correlated summaries instead of independent evidence. | Different roles repeat the same framing, citations, and conclusions despite distinct names. | Persist pre-exposure outputs and product-owned role-specific retrieval scopes; reject evidence-free or semantic-duplicate participation. | Return the arena to shadow mode and revise role/evidence partitioning. |
 | Evidence refs are traceable but not model-visible. | A role cites UUIDs or inherited summaries without resolvable claim-bearing excerpts. | Require EvidencePacket resolution with locator and support/challenge relation before admission. | Fail the arena input and repair retrieval/index ownership rather than hallucinating content. |
 | Material dissent disappears before promotion. | N8 critic risks exist while the final gate contains no warning, risk ref, action, or accepted disposition. | Carry stable objection/minority-report refs through every handoff and gate on explicit disposition. | Invalidate the affected downstream packet and rematerialize it from current dissent authority. |
-| Branch currentness collides. | Two valid siblings for one TitleCard/stage supersede each other or both appear canonical. | Default to one active path plus parked alternatives; require explicit human fork and a validated branch representation. | Collapse back to one active path without deleting parked evidence. |
-| Calibration rewards continuation. | Ready-gate rate improves while low-value topics keep advancing or worthwhile topics are over-killed. | Treat justified stop as success and measure false continuation, false drop, override, evidence delta, and work avoided. | Keep the arena shadow-only or disable the underperforming stage. |
+| Branch currentness collides. | Two valid siblings for one TitleCard/stage supersede each other or both appear canonical. | Fork is out of scope: exactly one active path plus snapshot-bound parked alternatives with delta-gated serial return; a fork recommendation is recorded as `park`. | Collapse back to one active path without deleting parked evidence. |
+| Calibration rewards continuation. | Ready-gate rate improves while dominated topics keep advancing or accumulated overrides show good topics being killed. | Treat justified stop as success and measure dominance-pair consistency, perturbation sensitivity, override convergence, evidence delta, and work avoided. | Keep the arena shadow-only or disable the underperforming stage. |
 
 ## Phase closeout
 
