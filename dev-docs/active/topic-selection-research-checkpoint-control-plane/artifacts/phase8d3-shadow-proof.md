@@ -45,4 +45,3 @@
 - `apps/backend/src/services/topic-selection-research-arena-shadow-proof-service.unit.test.ts`
 - `apps/backend/src/services/topic-selection-research-arena-shadow-runner-service.unit.test.ts`
 - `apps/backend/src/services/topic-selection-research-arena-service.unit.test.ts`
-
