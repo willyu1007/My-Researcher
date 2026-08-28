@@ -213,17 +213,26 @@
 ### Phase 8D — Prove the scout–killer arena in shadow mode
 - Outcome: Before HumanConfirmNeed, an independent opportunity scout and prior-art/topic-killer produce a traceable zero-to-many recommendation from distinct product-retrieved evidence without changing live authority; the empirical skeptic remains deferred until the pair proves value.
 - Approach: Reuse Codex-assisted/runtime mechanisms over the Phase 8C integrity boundary. Persist both pre-exposure outputs before one bounded deterministic or human synthesis, and evaluate the recommendation only as a shadow projection.
-- Planned changes:
-  1. Run bounded out-of-basket retrieval for the opportunity scout and collision/fatal-flaw retrieval for the topic-killer, recording query and SearchRun provenance.
-  2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment before synthesis.
-  3. Synthesize the Phase 8A set-level outcome plus per-candidate dispositions, with enumerated evidence-backed reason codes for every drop recommendation.
-  4. Admit at most one retry, only when a recorded evidence, candidate, constraint, or human-objective delta exists.
-  5. Render the shadow result through the Phase 8B views and retain a replayable technical trace.
 - Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, arena/runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
 - Dependencies: Phases 8A and 8C; Phase 8B for the maintained human/LLM views. Provider/multi-provider work remains with T-129.
 - Exit criteria: Every role replays from its actual evidence; a no-topic result is successful; correlated shared-summary role play and evidence-free criticism fail admission; no shadow result writes live research authority.
 - Verification: Shadow replay on the current ambiguous lineage, recorded dominance pairs, and evidence-perturbation variants; inspect evidence independence, terminal disposition, retry delta, human legibility, runtime cost, and deterministic recovery.
 - Recovery: Disable the shadow projection without changing checkpoint or research authority; retain artifacts as diagnostic evidence.
+
+#### Phase 8D-1 — Prepare role-specific product evidence
+- Run bounded role/query-specific product retrieval, persist SearchRun plus hit-level chunk provenance, and resolve only current reviewed EvidenceUnits into an arena-snapshot-bound EvidencePacket artifact.
+- Treat an out-of-Map retrieval hit as useful divergence but not yet claim-bearing evidence: return `requires_evidence_materialization` with the unresolved literature refs and do not manufacture EvidenceUnits or bypass EvidenceMap review.
+- Exit when the strict advisory API can produce ready, no-hit, and evidence-materialization outcomes without checkpoint, risk-acceptance, human-decision, or promotion writes.
+
+#### Phase 8D-2 — Persist independent role outputs and synthesize once
+- Run opportunity-scout and prior-art/topic-killer first passes over distinct role inputs, persist both pre-exposure outputs, then record proposals, objections, concessions, unresolved minority reports, semantic groups, and evidence alignment.
+- Produce one bounded synthesis using the Phase 8A set-level and per-candidate disposition vocabulary, including evidence-backed reason codes for every drop recommendation.
+- Exit when peer-contaminated first passes and evidence-free criticism fail admission, while a no-topic result is a successful advisory outcome.
+
+#### Phase 8D-3 — Replay, perturb, and close the shadow proof
+- Replay the frozen ambiguous lineage, recorded dominance pairs, and evidence-perturbation variants; admit at most one retry and only after a typed evidence/candidate/constraint/human-objective delta.
+- Render the result through the Phase 8B human and LLM views, retain a replayable technical trace, and prove deterministic recovery and zero live-authority writes.
+- Exit when the researcher can judge evidence independence, terminal disposition, retry value, legibility, cost, and work avoided before any Phase 9 activation.
 
 ### Phase 9 — Integrate disposition, dissent, and bounded human control
 - Outcome: The validated arena can govern the gap checkpoint, carry unresolved material dissent through value/package/promotion, and let the researcher advance routine work to the next semantic decision without repeated operational authorization.

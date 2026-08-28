@@ -192,6 +192,43 @@ export interface TopicSelectionResearchRetrievalProvenance {
   provenance_hash: string;
 }
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES = [
+  'ready',
+  'no_retrieval_hits',
+  'requires_evidence_materialization',
+] as const;
+export type TopicSelectionResearchArenaRoleEvidencePreparationStatus =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES)[number];
+
+export interface TopicSelectionResearchArenaRoleEvidencePreparationRequest {
+  schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1';
+  workspace_id?: string | null;
+  title_card_id: string;
+  arena_input_snapshot_id: string;
+  participant_role: TopicSelectionResearchArenaParticipantRole;
+  query_intent: TopicSelectionResearchEvidenceQueryIntent;
+  search_plan_id: string;
+  literature_snapshot_id: string;
+  coverage_row_intent_id: string;
+  top_k?: number;
+  evidence_per_literature?: number;
+}
+
+export interface TopicSelectionResearchArenaRoleEvidencePreparation {
+  schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1';
+  status: TopicSelectionResearchArenaRoleEvidencePreparationStatus;
+  title_card_id: string;
+  participant_role: TopicSelectionResearchArenaParticipantRole;
+  query_intent: TopicSelectionResearchEvidenceQueryIntent;
+  evidence_map_ref: TopicSelectionFunctionalRef;
+  search_run_ref: TopicSelectionFunctionalRef;
+  retrieval_provenance: TopicSelectionResearchRetrievalProvenance | null;
+  selected_evidence_unit_refs: TopicSelectionFunctionalRef[];
+  unresolved_literature_refs: TopicSelectionFunctionalRef[];
+  evidence_packet_artifact_ref: TopicSelectionFunctionalRef | null;
+  evidence_packet_hash: string | null;
+}
+
 export interface TopicSelectionResearchArenaRoleExecutionRecord {
   schema_version: 'TopicSelectionResearchArenaRoleExecution@v1';
   arena_role_execution_id: string;
@@ -452,6 +489,67 @@ export const topicSelectionResearchRetrievalProvenanceSchema = {
       maxItems: 60,
     },
     provenance_hash: hashString,
+  },
+} as const;
+
+export const topicSelectionResearchArenaRoleEvidencePreparationRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'title_card_id', 'arena_input_snapshot_id', 'participant_role',
+    'query_intent', 'search_plan_id', 'literature_snapshot_id', 'coverage_row_intent_id',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1' },
+    workspace_id: nullableStringId,
+    title_card_id: stringId,
+    arena_input_snapshot_id: stringId,
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+    query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
+    search_plan_id: stringId,
+    literature_snapshot_id: stringId,
+    coverage_row_intent_id: stringId,
+    top_k: { type: 'integer', minimum: 1, maximum: 12 },
+    evidence_per_literature: { type: 'integer', minimum: 1, maximum: 5 },
+  },
+} as const;
+
+export const topicSelectionResearchArenaRoleEvidencePreparationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'status', 'title_card_id', 'participant_role', 'query_intent',
+    'evidence_map_ref', 'search_run_ref', 'retrieval_provenance',
+    'selected_evidence_unit_refs', 'unresolved_literature_refs',
+    'evidence_packet_artifact_ref', 'evidence_packet_hash',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1' },
+    status: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ROLE_EVIDENCE_PREPARATION_STATUSES] },
+    title_card_id: stringId,
+    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+    query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
+    evidence_map_ref: topicSelectionFunctionalRefSchema,
+    search_run_ref: topicSelectionFunctionalRefSchema,
+    retrieval_provenance: {
+      anyOf: [topicSelectionResearchRetrievalProvenanceSchema, { type: 'null' }],
+    },
+    selected_evidence_unit_refs: {
+      type: 'array',
+      items: topicSelectionFunctionalRefSchema,
+      maxItems: 12,
+      uniqueItems: true,
+    },
+    unresolved_literature_refs: {
+      type: 'array',
+      items: topicSelectionFunctionalRefSchema,
+      maxItems: 12,
+      uniqueItems: true,
+    },
+    evidence_packet_artifact_ref: {
+      anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }],
+    },
+    evidence_packet_hash: nullableHash,
   },
 } as const;
 

@@ -150,6 +150,7 @@ import { registerTopicSelectionV1bRoutes } from './routes/topic-selection-v1b-ro
 import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-routes.js';
 import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-selection-research-checkpoint-routes.js';
 import { registerTopicSelectionResearchEvidencePacketRoutes } from './routes/topic-selection-research-evidence-packet-routes.js';
+import { registerTopicSelectionResearchArenaRetrievalRoutes } from './routes/topic-selection-research-arena-retrieval-routes.js';
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
@@ -315,6 +316,8 @@ import { TopicSelectionResearchCheckpointService } from './services/topic-select
 import { TopicSelectionResearchCheckpointController } from './controllers/topic-selection-research-checkpoint-controller.js';
 import { TopicSelectionResearchEvidencePacketService } from './services/topic-selection-research-evidence-packet-service.js';
 import { TopicSelectionResearchEvidencePacketController } from './controllers/topic-selection-research-evidence-packet-controller.js';
+import { TopicSelectionResearchArenaRetrievalService } from './services/topic-selection-research-arena-retrieval-service.js';
+import { TopicSelectionResearchArenaRetrievalController } from './controllers/topic-selection-research-arena-retrieval-controller.js';
 import { TopicSelectionEvidenceMapService } from './services/topic-selection-evidence-map-service.js';
 import { TopicSelectionEvidenceMapMaterializationService } from './services/topic-selection-evidence-map-materialization-service.js';
 import { TopicSelectionAgentOrchestratorService } from './services/topic-selection-agent-orchestrator-service.js';
@@ -1749,6 +1752,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       llmGateway,
     },
   );
+  const topicSelectionResearchArenaRetrievalService = new TopicSelectionResearchArenaRetrievalService({
+    retriever: { retrieve: (request) => literatureService.retrieveLiterature(request) },
+    snapshotReader: topicSelectionControlPlaneService,
+    evidenceMapRepository: topicSelectionEvidenceMapRepository,
+    searchRunRecorder: topicSelectionSearchResourceService,
+    evidencePacketResolver: topicSelectionResearchEvidencePacketService,
+    artifactRecorder: topicSelectionControlPlaneService,
+  });
+  const topicSelectionResearchArenaRetrievalController =
+    new TopicSelectionResearchArenaRetrievalController(topicSelectionResearchArenaRetrievalService);
   const literatureClusterService = new LiteratureClusterService(literatureRepository);
   const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService, {
     resolvePreferredKeyContentMethod: () => literatureContentProcessingSettingsService.resolvePreferredKeyContentMethod(),
@@ -1903,6 +1916,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionResearchEvidencePacketRoutes(
       instance,
       topicSelectionResearchEvidencePacketController,
+    );
+    await registerTopicSelectionResearchArenaRetrievalRoutes(
+      instance,
+      topicSelectionResearchArenaRetrievalController,
     );
     await registerPaperImplementationRoutes(
       instance,

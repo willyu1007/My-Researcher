@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import {
+  topicSelectionResearchArenaRoleEvidencePreparationRequestSchema,
+  topicSelectionResearchArenaRoleEvidencePreparationSchema,
   topicSelectionResearchArenaRoleExecutionSchema,
   topicSelectionResearchArenaSessionSchema,
   topicSelectionResearchEvidencePacketRequestSchema,
@@ -83,6 +85,76 @@ test('EvidencePacket schemas require role, query intent, resolved excerpt, fresh
   assert.equal((await injectResponse(topicSelectionResearchEvidencePacketSchema, packet)).statusCode, 200);
 });
 
+test('role evidence preparation schemas expose only advisory retrieval and evidence-materialization state', async () => {
+  const queryIntent = {
+    intent_type: 'context',
+    query: 'Which adjacent mechanism is outside the inherited framing?',
+    rationale: 'Search beyond the current EvidenceMap.',
+    target_claim: 'A distinct mechanism is visible.',
+  };
+  const request = {
+    schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparationRequest@v1',
+    workspace_id: null,
+    title_card_id: 'title_1',
+    arena_input_snapshot_id: 'arena_snapshot_1',
+    participant_role: 'opportunity_scout',
+    query_intent: queryIntent,
+    search_plan_id: 'plan_1',
+    literature_snapshot_id: 'snapshot_1',
+    coverage_row_intent_id: 'coverage_1',
+    top_k: 12,
+    evidence_per_literature: 3,
+  };
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaRoleEvidencePreparationRequestSchema, request)).statusCode,
+    200,
+  );
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaRoleEvidencePreparationRequestSchema, {
+      ...request,
+      hidden_authority_write: true,
+    })).statusCode,
+    400,
+  );
+
+  const response = {
+    schema_version: 'TopicSelectionResearchArenaRoleEvidencePreparation@v1',
+    status: 'requires_evidence_materialization',
+    title_card_id: 'title_1',
+    participant_role: 'opportunity_scout',
+    query_intent: queryIntent,
+    evidence_map_ref: { ref_type: 'evidence_map', ref_id: 'map_1', title_card_id: 'title_1', version_id: 'v1' },
+    search_run_ref: { ref_type: 'search_run', ref_id: 'search_run_1', title_card_id: 'title_1' },
+    retrieval_provenance: {
+      participant_role: 'opportunity_scout',
+      query_intent: queryIntent,
+      search_run_ref: { ref_type: 'search_run', ref_id: 'search_run_1', title_card_id: 'title_1' },
+      hits: [{
+        literature_ref: { ref_type: 'literature_record', ref_id: 'lit_outside', title_card_id: 'title_1' },
+        embedding_version_id: 'embedding_v1',
+        chunk_id: 'chunk_1',
+        chunk_hash: HASH,
+        rank: 1,
+        hybrid_score: 0.9,
+        vector_score: 0.8,
+        lexical_score: 0.7,
+        is_stale: false,
+      }],
+      provenance_hash: HASH,
+    },
+    selected_evidence_unit_refs: [],
+    unresolved_literature_refs: [{
+      ref_type: 'literature_record', ref_id: 'lit_outside', title_card_id: 'title_1', version_id: null,
+    }],
+    evidence_packet_artifact_ref: null,
+    evidence_packet_hash: null,
+  };
+  assert.equal(
+    (await injectResponse(topicSelectionResearchArenaRoleEvidencePreparationSchema, response)).statusCode,
+    200,
+  );
+});
+
 test('arena session and role execution schemas preserve replay and independence evidence', async () => {
   const targetRef = {
     ref_type: 'validated_need',
@@ -91,7 +163,7 @@ test('arena session and role execution schemas preserve replay and independence 
     version_id: 'v1',
   };
   const artifactRef = (id: string) => ({
-    ref_type: 'topic_selection_artifact_ref',
+    ref_type: 'artifact_ref',
     ref_id: id,
     title_card_id: 'title_1',
   });

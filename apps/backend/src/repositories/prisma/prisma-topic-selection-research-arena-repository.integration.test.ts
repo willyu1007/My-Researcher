@@ -22,7 +22,7 @@ test('Prisma arena repository enforces one-current session and role execution id
   const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12);
   const titleCardId = `title_arena_${suffix}`;
   const artifactRef = (id: string) => ({
-    ref_type: 'topic_selection_artifact_ref',
+    ref_type: 'artifact_ref',
     ref_id: `${id}_${suffix}`,
     title_card_id: titleCardId,
   });

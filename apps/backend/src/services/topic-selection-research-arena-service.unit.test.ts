@@ -112,7 +112,7 @@ test('arena replaces the current stage only when a recorded loop delta explains 
     target_ref: ref('validated_need', 'need_1'),
     input_snapshot_id: 'snapshot_1',
     participant_roles: ['opportunity_scout', 'prior_art_topic_killer'] as const,
-    execution_plan_ref: ref('topic_selection_artifact_ref', 'plan_1'),
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
   };
   const first = await service.openSession(input);
   assert.equal(first.current_arena_key, 'title_1:gap_portfolio');
@@ -149,7 +149,7 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
     target_ref: ref('validated_need', 'need_1'),
     input_snapshot_id: 'snapshot_1',
     participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
-    execution_plan_ref: ref('topic_selection_artifact_ref', 'plan_1'),
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
   });
   const retrieval = {
     participant_role: 'opportunity_scout' as const,
@@ -173,10 +173,10 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
     instance_index: 0,
     participant_role: 'opportunity_scout',
     pass_kind: 'first_pass',
-    evidence_packet_artifact_ref: ref('topic_selection_artifact_ref', 'packet_1'),
+    evidence_packet_artifact_ref: ref('artifact_ref', 'packet_1'),
     retrieval_provenance: retrieval,
-    exposure_artifact_refs: [ref('topic_selection_artifact_ref', 'packet_1')],
-    output_artifact_ref: ref('topic_selection_artifact_ref', 'scout_output'),
+    exposure_artifact_refs: [ref('artifact_ref', 'packet_1')],
+    output_artifact_ref: ref('artifact_ref', 'scout_output'),
   });
   assert.equal(scout.evidence_partition_refs[0]?.ref_id, 'evidence_1');
   assert.equal(scout.retrieval_provenance.hits[0]?.chunk_id, 'chunk_1');
@@ -188,13 +188,13 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
       instance_index: 0,
       participant_role: 'prior_art_topic_killer',
       pass_kind: 'first_pass',
-      evidence_packet_artifact_ref: ref('topic_selection_artifact_ref', 'packet_2'),
+      evidence_packet_artifact_ref: ref('artifact_ref', 'packet_2'),
       retrieval_provenance: { ...retrieval, participant_role: 'prior_art_topic_killer' },
       exposure_artifact_refs: [
-        ref('topic_selection_artifact_ref', 'packet_2'),
-        ref('topic_selection_artifact_ref', 'scout_output'),
+        ref('artifact_ref', 'packet_2'),
+        ref('artifact_ref', 'scout_output'),
       ],
-      output_artifact_ref: ref('topic_selection_artifact_ref', 'killer_output'),
+      output_artifact_ref: ref('artifact_ref', 'killer_output'),
     }),
     (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
@@ -206,10 +206,10 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
       instance_index: 0,
       participant_role: 'prior_art_topic_killer',
       pass_kind: 'first_pass',
-      evidence_packet_artifact_ref: ref('topic_selection_artifact_ref', 'packet_2'),
+      evidence_packet_artifact_ref: ref('artifact_ref', 'packet_2'),
       retrieval_provenance: { ...retrieval, participant_role: 'prior_art_topic_killer', hits: [] },
-      exposure_artifact_refs: [ref('topic_selection_artifact_ref', 'packet_2')],
-      output_artifact_ref: ref('topic_selection_artifact_ref', 'killer_output'),
+      exposure_artifact_refs: [ref('artifact_ref', 'packet_2')],
+      output_artifact_ref: ref('artifact_ref', 'killer_output'),
     }),
     (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
@@ -220,17 +220,17 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
     instance_index: 0,
     participant_role: 'prior_art_topic_killer',
     pass_kind: 'first_pass',
-    evidence_packet_artifact_ref: ref('topic_selection_artifact_ref', 'packet_2'),
+    evidence_packet_artifact_ref: ref('artifact_ref', 'packet_2'),
     retrieval_provenance: { ...retrieval, participant_role: 'prior_art_topic_killer' },
-    exposure_artifact_refs: [ref('topic_selection_artifact_ref', 'packet_2')],
-    output_artifact_ref: ref('topic_selection_artifact_ref', 'killer_output'),
+    exposure_artifact_refs: [ref('artifact_ref', 'packet_2')],
+    output_artifact_ref: ref('artifact_ref', 'killer_output'),
   });
   assert.equal(killer.prior_role_hashes.length, 0);
 
   const synthesized = await service.synthesizeSession({
     arena_session_id: session.arena_session_id,
     termination_reason: 'none_viable',
-    loop_transcript_artifact_ref: ref('topic_selection_artifact_ref', 'transcript_1'),
+    loop_transcript_artifact_ref: ref('artifact_ref', 'transcript_1'),
   });
   assert.equal(synthesized.status, 'synthesized');
   assert.equal(synthesized.termination_reason, 'none_viable');
@@ -239,7 +239,7 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
     service.synthesizeSession({
       arena_session_id: session.arena_session_id,
       termination_reason: 'recommendation_ready',
-      loop_transcript_artifact_ref: ref('topic_selection_artifact_ref', 'transcript_1'),
+      loop_transcript_artifact_ref: ref('artifact_ref', 'transcript_1'),
     }),
     (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
   );

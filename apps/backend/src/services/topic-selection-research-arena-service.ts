@@ -307,8 +307,8 @@ export class TopicSelectionResearchArenaService {
     titleCardId: string,
     snapshot: TopicSelectionInputSnapshotRecord,
   ): Promise<TopicSelectionArtifactRefRecord> {
-    if (ref.ref_type !== 'topic_selection_artifact_ref') {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena artifacts require topic_selection_artifact_ref refs.');
+    if (ref.ref_type !== 'artifact_ref') {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena artifacts require artifact_ref refs.');
     }
     const artifact = await this.dependencies.controlPlaneRepository.findArtifactRefById(ref.ref_id);
     if (!artifact) throw new AppError(404, 'NOT_FOUND', `ArtifactRef ${ref.ref_id} was not found.`);
