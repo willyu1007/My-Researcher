@@ -1031,6 +1031,15 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
         handoff_kind: 'N4ToN5Handoff',
         allowed_gate_statuses: ['admitted', 'admitted_with_warnings'],
       },
+      {
+        route_id: 'RT_N4_STOP',
+        from_node_id: 'topic-selection.v1b.generate-research-slice-options.v1',
+        route_signal: 'no_viable_research_slice',
+        route_decision: 'stop_v1b_complete',
+        next_node_id: null,
+        handoff_kind: null,
+        allowed_gate_statuses: ['admitted'],
+      },
     ],
     blocker_codes: [
       'malformed_research_slice_option_set',
@@ -1048,6 +1057,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       'N4_INTAKE_READINESS_HASH_MISMATCH',
       'N4_INTAKE_SNAPSHOT_HASH_MISMATCH',
       'N4_MISSING_COMPARISON_AXIS',
+      'N4_NONE_VIABLE_PORTFOLIO_INVALID',
       'N4_NO_SELECTABLE_RESEARCH_SLICE_OPTION',
       'N4_NON_GOAL_NOT_EXCLUDED',
       'N4_RECOMMENDED_OPTION_BLOCKED',

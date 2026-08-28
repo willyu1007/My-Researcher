@@ -1975,7 +1975,7 @@ const topicSelectionRejectedNeedCandidateFramingSchema = {
   },
 } as const;
 
-const topicSelectionCandidatePortfolioDispositionSchema = {
+export const topicSelectionCandidatePortfolioDispositionSchema = {
   type: 'object',
   additionalProperties: false,
   required: [

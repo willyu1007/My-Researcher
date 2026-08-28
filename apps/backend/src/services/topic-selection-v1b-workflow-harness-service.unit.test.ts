@@ -2743,10 +2743,11 @@ test('v1b workflow harness N4 creates research slice option set from frozen sema
   const { n1, n2, n3 } = await runReadyN3(ctx);
   const input = n4Request(n1, n2, n3);
   const draft = n4Draft();
-  const result = await ctx.service.invokeNode({
+  const requestWithDraft = {
     ...input,
     semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
-  });
+  };
+  const result = await ctx.service.invokeNode(requestWithDraft);
 
   assert.equal(result.gate_status, 'admitted');
   assert.equal(result.route_decision, 'invoke_next');
@@ -2768,6 +2769,89 @@ test('v1b workflow harness N4 creates research slice option set from frozen sema
     result.transition_attempt_ref!.ref_id,
   );
   assert.deepEqual(transitionRecord?.created_authority_refs, [result.authority_ref]);
+});
+
+test('v1b workflow harness N4 successfully stops an evidence-grounded no-viable portfolio without candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const evidenceRef = ref('evidence_unit', 'evidence_unit_support_1', TITLE_CARD_ID);
+  const draft = n4Draft({
+    recommended_option_key: null,
+    options: [],
+    portfolio_disposition: {
+      outcome: 'none_viable',
+      rationale: 'Every visible research slice is defeated by the frozen evidence.',
+      confidence: 0.86,
+      evidence_refs: [evidenceRef],
+      rejection_reasons: [
+        {
+          reason_code: 'claim_defeating_data_or_evaluation',
+          summary: 'The available data cannot support the bounded claim.',
+          evidence_refs: [evidenceRef],
+        },
+      ],
+      reopening_conditions: ['Reopen when a claim-supporting dataset becomes available.'],
+      candidate_dispositions: [],
+    },
+  });
+  const requestWithDraft = {
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  };
+  const result = await ctx.service.invokeNode(requestWithDraft);
+
+  assert.equal(result.gate_status, 'admitted');
+  assert.equal(result.route_decision, 'stop_v1b_complete');
+  assert.equal(result.failure_class, null);
+  assert.equal(result.error_code, null);
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
+  const transitionRecord = await ctx.controlPlaneRepository.findChainTransitionAttemptById(
+    result.transition_attempt_ref!.ref_id,
+  );
+  assert.deepEqual(transitionRecord?.created_authority_refs, []);
+  const replay = await ctx.service.invokeNode(requestWithDraft);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  assert.equal(replay.route_decision, 'stop_v1b_complete');
+  assert.equal(replay.authority_ref, null);
+});
+
+test('v1b workflow harness N4 blocks an evidence-free no-viable portfolio before candidate authority', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n1, n2, n3 } = await runReadyN3(ctx);
+  const input = n4Request(n1, n2, n3);
+  const draft = n4Draft({
+    recommended_option_key: null,
+    options: [],
+    portfolio_disposition: {
+      outcome: 'none_viable',
+      rationale: 'No visible slice should advance.',
+      confidence: 0.86,
+      evidence_refs: [],
+      rejection_reasons: [
+        {
+          reason_code: 'claim_defeating_data_or_evaluation',
+          summary: 'The available data cannot support the bounded claim.',
+          evidence_refs: [],
+        },
+      ],
+      reopening_conditions: ['Reopen when a claim-supporting dataset becomes available.'],
+      candidate_dispositions: [],
+    },
+  });
+  const result = await ctx.service.invokeNode({
+    ...input,
+    semantic_artifacts: [await recordN4DraftArtifact(ctx, input, draft)],
+  });
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.route_decision, 'blocked');
+  assert.equal(result.error_code, 'N4_NONE_VIABLE_PORTFOLIO_INVALID');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  assert.deepEqual(await ctx.researchSliceRepository.listOptionSetsByTitleCardId(TITLE_CARD_ID), []);
 });
 
 test('v1b workflow harness N4 admits runtime-verified Codex research-slice draft in product mode', async () => {

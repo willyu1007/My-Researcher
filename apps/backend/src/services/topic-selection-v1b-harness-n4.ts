@@ -18,7 +18,12 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-intake-contracts';
 import type { TopicSelectionResearchSliceOptionDraft } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-research-slice-contracts';
 import { hasOnlyKeys, isRecord } from './topic-selection-v1b-harness-pure-utils.js';
-import { isN4DraftOption, isNullableString, isStringArray } from './topic-selection-v1b-harness-predicates.js';
+import {
+  isCandidatePortfolioDisposition,
+  isN4DraftOption,
+  isNullableString,
+  isStringArray,
+} from './topic-selection-v1b-harness-predicates.js';
 import { normalize, refsEqual } from './topic-selection-v1b-harness-gate-utils.js';
 import {
   draftEvidenceRefs,
@@ -56,6 +61,7 @@ export function isN4DraftPayload(value: Record<string, unknown>): boolean {
     'human_review_triggers',
     'missing_option_types',
     'options',
+    'portfolio_disposition',
     'recommended_option_key',
     'unresolved_disagreements',
   ])
@@ -66,9 +72,44 @@ export function isN4DraftPayload(value: Record<string, unknown>): boolean {
     && isStringArray(value.missing_option_types)
     && isStringArray(value.unresolved_disagreements)
     && isStringArray(value.human_review_triggers)
+    && (
+      value.portfolio_disposition === undefined
+      || value.portfolio_disposition === null
+      || isCandidatePortfolioDisposition(value.portfolio_disposition)
+    )
     && Array.isArray(value.options)
-    && value.options.length > 0
+    && (value.options.length > 0 || isCandidatePortfolioDisposition(value.portfolio_disposition))
     && value.options.every((option) => isN4DraftOption(option));
+}
+
+export function n4NoViablePortfolioBlocker(
+  draft: TopicSelectionV1bResearchSliceOptionSetDraftPayload,
+  knownEvidenceIds: Set<string>,
+): { code: string; message: string } | null {
+  const portfolio = draft.portfolio_disposition;
+  if (portfolio?.outcome !== 'none_viable') {
+    return null;
+  }
+  const dispositionEvidenceRefs = [
+    ...portfolio.evidence_refs,
+    ...portfolio.rejection_reasons.flatMap((reason) => reason.evidence_refs),
+  ];
+  const valid = draft.options.length === 0
+    && !draft.recommended_option_key
+    && portfolio.confidence >= 0
+    && portfolio.confidence <= 1
+    && portfolio.evidence_refs.length > 0
+    && portfolio.rejection_reasons.length > 0
+    && portfolio.reopening_conditions.length > 0
+    && portfolio.candidate_dispositions.length === 0
+    && portfolio.rejection_reasons.every((reason) => reason.evidence_refs.length > 0)
+    && dispositionEvidenceRefs.every((ref) => knownEvidenceIds.has(ref.ref_id));
+  return valid
+    ? null
+    : {
+        code: 'N4_NONE_VIABLE_PORTFOLIO_INVALID',
+        message: 'N4 none_viable requires no downstream options, frozen evidence-backed rejection reasons, bounded confidence, and reopening conditions.',
+      };
 }
 
 export function n4LineageBlocker(

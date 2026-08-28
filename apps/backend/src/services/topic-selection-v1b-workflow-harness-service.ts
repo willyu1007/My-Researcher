@@ -346,6 +346,7 @@ import {
   extractN4DraftPayload,
   n4DraftGateBlocker,
   n4LineageBlocker,
+  n4NoViablePortfolioBlocker,
   n4RuntimeAuditDrift,
 } from './topic-selection-v1b-harness-n4.js';
 import {
@@ -2827,6 +2828,46 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const resolvedDraft = draftResolution.value;
+
+    const knownEvidenceIds = new Set(
+      flattenEvidenceRoleBundle(planningInput.evidence_role_bundle).map((ref) => ref.ref_id),
+    );
+    const noViableBlocker = n4NoViablePortfolioBlocker(resolvedDraft.draft, knownEvidenceIds);
+    if (noViableBlocker) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: noViableBlocker.code,
+        message: noViableBlocker.message,
+      });
+    }
+    if (resolvedDraft.draft.portfolio_disposition?.outcome === 'none_viable') {
+      const portfolio = resolvedDraft.draft.portfolio_disposition;
+      return this.persistAdmittedResult(input, hashContext, {
+        acceptedRiskRefs: readiness.accepted_risk_refs,
+        authorityHash: null,
+        authorityRef: null,
+        blockers: [],
+        failureClass: null,
+        gateStatus: 'admitted',
+        handoff: null,
+        handoffHash: null,
+        routeDecision: 'stop_v1b_complete',
+        sourceRef: buildReadinessRef(readiness),
+        targetRef:
+          resolvedDraft.semanticArtifact.normalized_output_ref
+          ?? resolvedDraft.semanticArtifact.support_artifact_ref,
+        tracePhase: 'T-147 N4 honest portfolio stop',
+        tracePayload: {
+          draft_hash: resolvedDraft.draftHash,
+          portfolio_disposition_hash: canonicalHash(portfolio),
+          portfolio_outcome: portfolio.outcome,
+          reopening_conditions: portfolio.reopening_conditions,
+        },
+        transitionKey: 'topic-selection.v1b.harness.n4-honest-portfolio-stop',
+        warnings: [],
+      }, {
+        writeAuthority: async () => {},
+      });
+    }
 
     const planRunId = this.idFactory('plan_research_slice_run');
     const optionSetId = this.idFactory('research_slice_option_set');

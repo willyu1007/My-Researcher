@@ -3,9 +3,17 @@
  * from the harness. Pure, `this`-free `value is T` guards that the parse-and-resolve cluster depends
  * on. Intra-cluster calls (isFunctionalRefArray -> isFunctionalRefValue, isNullableSliceLoopbackTarget
  * -> isSliceLoopbackTarget, isNullableFunctionalRefValue -> isFunctionalRefValue) resolve within this
- * module; isRecord / isHash / hasOnlyKeys come from the pure-utils module. Behavior is identical.
+ * module; isRecord / isHash / hasOnlyKeys come from the pure-utils module. New cross-node output
+ * vocabulary belongs here when both N4 and N6 must parse the same additive contract.
  */
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES,
+  type TopicSelectionCandidatePortfolioDisposition,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import type {
   TopicSelectionRejectedSliceOptionReason,
   TopicSelectionResearchSliceOptionDraft,
@@ -43,6 +51,68 @@ export function isStringArray(value: unknown): value is string[] {
 
 export function isFunctionalRefArray(value: unknown): value is TopicSelectionFunctionalRef[] {
   return Array.isArray(value) && value.every((item) => isFunctionalRefValue(item));
+}
+
+export function isCandidatePortfolioDisposition(
+  value: unknown,
+): value is TopicSelectionCandidatePortfolioDisposition {
+  if (!isRecord(value) || !hasOnlyKeys(value, [
+    'candidate_dispositions',
+    'confidence',
+    'evidence_refs',
+    'outcome',
+    'rationale',
+    'rejection_reasons',
+    'reopening_conditions',
+  ])) {
+    return false;
+  }
+  const rejectionReasons = value.rejection_reasons;
+  const candidateDispositions = value.candidate_dispositions;
+  return TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES.includes(
+    value.outcome as TopicSelectionCandidatePortfolioDisposition['outcome'],
+  )
+    && typeof value.rationale === 'string'
+    && value.rationale.trim().length > 0
+    && typeof value.confidence === 'number'
+    && Number.isFinite(value.confidence)
+    && isFunctionalRefArray(value.evidence_refs)
+    && isStringArray(value.reopening_conditions)
+    && Array.isArray(rejectionReasons)
+    && rejectionReasons.every((reason) => isRecord(reason)
+      && hasOnlyKeys(reason, ['evidence_refs', 'reason_code', 'summary'])
+      && TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES.includes(
+        reason.reason_code as (typeof TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES)[number],
+      )
+      && typeof reason.summary === 'string'
+      && reason.summary.trim().length > 0
+      && isFunctionalRefArray(reason.evidence_refs))
+    && Array.isArray(candidateDispositions)
+    && candidateDispositions.every((candidate) => isRecord(candidate)
+      && hasOnlyKeys(candidate, [
+        'candidate_key',
+        'disposition',
+        'drop_reason_code',
+        'evidence_refs',
+        'rationale',
+        'reopening_conditions',
+      ])
+      && typeof candidate.candidate_key === 'string'
+      && candidate.candidate_key.trim().length > 0
+      && TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS.includes(
+        candidate.disposition as (typeof TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS)[number],
+      )
+      && typeof candidate.rationale === 'string'
+      && candidate.rationale.trim().length > 0
+      && isFunctionalRefArray(candidate.evidence_refs)
+      && isStringArray(candidate.reopening_conditions)
+      && (
+        candidate.drop_reason_code === undefined
+        || candidate.drop_reason_code === null
+        || TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES.includes(
+          candidate.drop_reason_code as (typeof TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES)[number],
+        )
+      ));
 }
 
 export function isNullableString(value: unknown): value is string | null | undefined {
