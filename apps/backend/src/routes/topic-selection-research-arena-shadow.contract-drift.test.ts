@@ -17,5 +17,6 @@ test('research arena shadow route and OpenAPI preserve non-provider support-only
   assert.match(openapiSource, /TopicSelectionResearchArenaShadowRunRequest:/u);
   assert.match(openapiSource, /TopicSelectionResearchArenaShadowRunResponse:/u);
   assert.match(openapiSource, /TopicSelectionResearchArenaRoleOutput:/u);
+  assert.match(openapiSource, /provider_call_count: \{ type: integer, const: 0 \}/u);
   assert.doesNotMatch(routeSource, /provider_llm/u);
 });

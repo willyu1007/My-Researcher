@@ -108,13 +108,7 @@ export class TopicSelectionResearchArenaService {
       input.title_card_id,
       input.arena_kind,
     );
-    if (current && loopDeltaRefs.length === 0) {
-      throw new AppError(
-        422,
-        'GATE_CONSTRAINT_FAILED',
-        'A repeated arena requires a recorded evidence, candidate, constraint, or human-objective delta.',
-      );
-    }
+    this.assertRetryBoundary(current, snapshot, loopDeltaRefs);
     const now = this.now();
     return this.dependencies.arenaRepository.replaceCurrentSession({
       schema_version: 'TopicSelectionResearchArenaSession@v1',
@@ -290,6 +284,54 @@ export class TopicSelectionResearchArenaService {
     if (!input.session_key.trim() || !input.title_card_id.trim() || roles.length < 2
       || new Set(roles).size !== roles.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Arena requires a key, title card, and at least two distinct roles.');
+    }
+  }
+
+  private assertRetryBoundary(
+    current: TopicSelectionResearchArenaSessionRecord | null,
+    snapshot: TopicSelectionInputSnapshotRecord,
+    loopDeltaRefs: TopicSelectionResearchArenaLoopDeltaRef[],
+  ): void {
+    if (!current) {
+      if (loopDeltaRefs.length > 0) {
+        throw new AppError(
+          422,
+          'GATE_CONSTRAINT_FAILED',
+          'An initial arena cannot claim a retry delta without a superseded session.',
+        );
+      }
+      return;
+    }
+    if (loopDeltaRefs.length === 0) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'A repeated arena requires a recorded evidence, candidate, constraint, or human-objective delta.',
+      );
+    }
+    if (current.supersedes_arena_session_id) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'The shadow arena admits at most one typed-delta retry.',
+      );
+    }
+    if (snapshot.snapshot_hash === current.input_snapshot_hash) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'A retry delta must be bound to a changed InputSnapshot.',
+      );
+    }
+    const boundRefKeys = new Set(
+      [...snapshot.source_refs, snapshot.target_ref].map((candidate) => this.refKey(candidate)),
+    );
+    if (loopDeltaRefs.some((delta) => !boundRefKeys.has(this.refKey(delta.ref)))) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Every retry delta ref must be present in the changed InputSnapshot.',
+      );
     }
   }
 

@@ -9,6 +9,7 @@ import type {
 import {
   topicSelectionResearchArenaRoleOutputSchema,
   type TopicSelectionResearchArenaAdvisorySynthesis,
+  type TopicSelectionResearchArenaExecutionAccounting,
   type TopicSelectionResearchArenaRoleEvidencePreparation,
   type TopicSelectionResearchArenaRoleOutput,
   type TopicSelectionResearchArenaShadowRole,
@@ -57,6 +58,7 @@ type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecutio
 
 export class TopicSelectionResearchArenaShadowRunnerService {
   private readonly llmConfig: Pick<LlmConfigReader, 'getPrompt'>;
+  private readonly now: () => number;
 
   constructor(private readonly dependencies: {
     arenaRepository: Pick<TopicSelectionResearchArenaRepository, 'findSessionById'>;
@@ -65,13 +67,16 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     agentInvoker: AgentInvoker;
     arenaService: ArenaRuntime;
     llmConfig?: Pick<LlmConfigReader, 'getPrompt'>;
+    now?: () => number;
   }) {
     this.llmConfig = dependencies.llmConfig ?? defaultLlmConfig();
+    this.now = dependencies.now ?? (() => Date.now());
   }
 
   async run(
     input: TopicSelectionResearchArenaShadowRunRequest,
   ): Promise<TopicSelectionResearchArenaShadowRunResponse> {
+    const startedAtMs = this.now();
     const session = await this.dependencies.arenaRepository.findSessionById(input.arena_session_id);
     if (!session) {
       throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${input.arena_session_id} was not found.`);
@@ -158,6 +163,20 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     }
 
     const advisorySynthesis = this.synthesize(input.candidate_refs, outputs);
+    const executionAccounting: TopicSelectionResearchArenaExecutionAccounting = {
+      non_provider_role_invocation_count: invocationResults.length,
+      provider_call_count: 0,
+      retrieval_run_count: preparedRoles.length,
+      retrieval_hit_count: preparedRoles.reduce(
+        (total, prepared) => total + prepared.roleInput.evidence_preparation.retrieval_provenance!.hits.length,
+        0,
+      ),
+      evidence_excerpt_chars: preparedRoles.reduce(
+        (total, prepared) => total + prepared.packet.total_excerpt_chars,
+        0,
+      ),
+      duration_ms: Math.max(0, Math.round(this.now() - startedAtMs)),
+    };
     const transcriptPayload = {
       schema_version: 'TopicSelectionResearchArenaLoopTranscript@v1',
       arena_session_id: session.arena_session_id,
@@ -172,6 +191,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         prior_role_hashes: execution.prior_role_hashes,
       })),
       advisory_synthesis: advisorySynthesis,
+      execution_accounting: executionAccounting,
       support_only: true,
     };
     const synthesisArtifactHash = sha256Text(stableStringify(transcriptPayload));
@@ -203,6 +223,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       synthesis_artifact_ref: synthesisArtifactRef,
       synthesis_artifact_hash: synthesisArtifactHash,
       advisory_synthesis: advisorySynthesis,
+      execution_accounting: executionAccounting,
       support_only: true,
     };
   }

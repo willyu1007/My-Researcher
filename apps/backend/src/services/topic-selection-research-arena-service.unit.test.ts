@@ -31,6 +31,13 @@ function fixture() {
     created_by: 'system',
     created_at: NOW,
   };
+  const retrySnapshot: TopicSelectionInputSnapshotRecord = {
+    ...snapshot,
+    input_snapshot_id: 'snapshot_2',
+    snapshot_hash: 'b'.repeat(64),
+    source_refs: [ref('evidence_unit', 'evidence_delta_1')],
+    payload: { delta_refs: [ref('evidence_unit', 'evidence_delta_1')] },
+  };
   const packetBody = {
     schema_version: 'TopicSelectionResearchEvidencePacket@v1',
     title_card_id: 'title_1',
@@ -60,6 +67,12 @@ function fixture() {
       artifact_kind: 'structured_output', storage_kind: 'inline', payload: { plan: 'scout-killer' },
       checksum: sha256Text(stableStringify({ plan: 'scout-killer' })),
       input_snapshot_id: 'snapshot_1', created_by: 'system', created_at: NOW,
+    }],
+    ['plan_2', {
+      artifact_ref_id: 'plan_2', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: { plan: 'scout-killer-retry' },
+      checksum: sha256Text(stableStringify({ plan: 'scout-killer-retry' })),
+      input_snapshot_id: 'snapshot_2', created_by: 'system', created_at: NOW,
     }],
     ['packet_1', {
       artifact_ref_id: 'packet_1', workspace_id: null, title_card_id: 'title_1',
@@ -96,7 +109,9 @@ function fixture() {
   const service = new TopicSelectionResearchArenaService({
     arenaRepository,
     controlPlaneRepository: {
-      findInputSnapshotById: async (snapshotId) => snapshotId === snapshot.input_snapshot_id ? snapshot : null,
+      findInputSnapshotById: async (snapshotId) => (
+        [snapshot, retrySnapshot].find((candidate) => candidate.input_snapshot_id === snapshotId) ?? null
+      ),
       findArtifactRefById: async (artifactId) => artifacts.get(artifactId) ?? null,
     },
   }, { idFactory: (prefix) => `${prefix}_${++id}`, now: () => NOW });
@@ -126,9 +141,23 @@ test('arena replaces the current stage only when a recorded loop delta explains 
     service.openSession({ ...input, session_key: 'arena-key-2' }),
     (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
+  await assert.rejects(
+    service.openSession({
+      ...input,
+      session_key: 'arena-key-2',
+      loop_delta_refs: [{
+        delta_type: 'evidence' as const,
+        ref: ref('evidence_unit', 'evidence_delta_1'),
+        rationale: 'A claimed delta that is absent from a new snapshot must not admit a retry.',
+      }],
+    }),
+    (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
   const second = await service.openSession({
     ...input,
     session_key: 'arena-key-2',
+    input_snapshot_id: 'snapshot_2',
+    execution_plan_ref: ref('artifact_ref', 'plan_2'),
     loop_delta_refs: [{
       delta_type: 'evidence' as const,
       ref: ref('evidence_unit', 'evidence_delta_1'),
@@ -138,6 +167,20 @@ test('arena replaces the current stage only when a recorded loop delta explains 
   const previous = await arenaRepository.findSessionById(first.arena_session_id);
   assert.equal(previous?.status, 'superseded');
   assert.equal(second.supersedes_arena_session_id, first.arena_session_id);
+  await assert.rejects(
+    service.openSession({
+      ...input,
+      session_key: 'arena-key-3',
+      input_snapshot_id: 'snapshot_2',
+      execution_plan_ref: ref('artifact_ref', 'plan_2'),
+      loop_delta_refs: [{
+        delta_type: 'evidence' as const,
+        ref: ref('evidence_unit', 'evidence_delta_1'),
+        rationale: 'A third attempt is outside the one-retry shadow proof budget.',
+      }],
+    }),
+    (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
 });
 
 test('first-pass role execution records chunk provenance and rejects evidence-free or peer-contaminated exposure', async () => {

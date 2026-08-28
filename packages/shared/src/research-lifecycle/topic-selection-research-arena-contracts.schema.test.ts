@@ -411,9 +411,20 @@ test('shadow run contracts admit exactly two non-provider first-pass roles and e
       required_next_delta: 'evidence',
       support_only: true,
     },
+    execution_accounting: {
+      non_provider_role_invocation_count: 2,
+      provider_call_count: 0,
+      retrieval_run_count: 2,
+      retrieval_hit_count: 2,
+      evidence_excerpt_chars: 40,
+      duration_ms: 25,
+    },
     support_only: true,
   };
   assert.equal((await injectResponse(topicSelectionResearchArenaShadowRunResponseSchema, response)).statusCode, 200);
+  const missingAccounting = structuredClone(response) as Record<string, unknown>;
+  delete missingAccounting.execution_accounting;
+  assert.equal((await injectResponse(topicSelectionResearchArenaShadowRunResponseSchema, missingAccounting)).statusCode, 500);
 });
 
 test('arena session and role execution schemas preserve replay and independence evidence', async () => {

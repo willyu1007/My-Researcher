@@ -1,0 +1,120 @@
+{
+  "schema_version": "TopicSelectionResearchArenaShadowProofWorkingSet@v1",
+  "proof_key": "t147-phase8d3-shadow-proof-v1",
+  "authority_boundary": {
+    "support_only": true,
+    "provider_call_count": 0,
+    "live_authority_write_count": 0,
+    "forbidden_writers": [
+      "TopicSelectionResearchCheckpoint",
+      "HumanConfirmedDecision",
+      "TopicSelectionAcceptedRisk",
+      "HumanPromotionDecision",
+      "TopicSelectionToPaperProjectBridge"
+    ]
+  },
+  "fixture_contract": {
+    "labels_are_absolute_value_labels": false,
+    "case_kinds": [
+      "ambiguous_lineage",
+      "dominance_pair",
+      "evidence_perturbation"
+    ],
+    "disposition_order_for_dominance_only": [
+      "dropped",
+      "parked",
+      "selected"
+    ],
+    "retry": {
+      "max_retry_count": 1,
+      "allowed_delta_types": [
+        "evidence",
+        "candidate",
+        "constraint",
+        "human_objective"
+      ],
+      "changed_input_snapshot_required": true,
+      "delta_ref_must_be_in_changed_snapshot": true
+    }
+  },
+  "cases": [
+    {
+      "case_id": "AF-1",
+      "case_kind": "ambiguous_lineage",
+      "source_refs": [
+        "promotion_gate_check_39bfb045-47d2-4e67-b6b4-f9a125aa88be",
+        "64ede7615c3c31ebaa7a5b9dfd558d2f7cbccd7700bd024b2e0b86b428cea36c"
+      ],
+      "expected_status": "inspect",
+      "reason_code": "HUMAN_JUDGMENT_REQUIRED"
+    },
+    {
+      "case_id": "DP-1",
+      "case_kind": "dominance_pair",
+      "dominated_ref": "topic_question_contract_9a1aaa47-6931-4eb6-83e1-08be9e8d6d56",
+      "preferred_ref": "topic_question_contract_fd208913-dde6-466b-a311-808d66c4ad02",
+      "observed_dispositions": [
+        "dropped",
+        "selected"
+      ],
+      "reason_code": "DOMINANCE_ORDER_PRESERVED"
+    },
+    {
+      "case_id": "DP-2",
+      "case_kind": "dominance_pair",
+      "dominated_ref": "title_card_fd55f127-1748-49f4-9340-654c37cc2650",
+      "preferred_ref": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+      "observed_dispositions": [
+        "dropped",
+        "selected"
+      ],
+      "reason_code": "DOMINANCE_ORDER_PRESERVED"
+    },
+    {
+      "case_id": "PV-1",
+      "case_kind": "evidence_perturbation",
+      "without_evidence_ref": null,
+      "with_evidence_ref": "0c948144-88f4-4afa-b116-c0d908ff16d5",
+      "expected_drop_reason_code": "near_isomorphic_prior_art",
+      "observed_killer_dispositions": [
+        "parked",
+        "dropped"
+      ],
+      "reason_code": "PERTURBATION_SIGNAL_PRESENT_ONLY_WITH_EVIDENCE"
+    }
+  ],
+  "integrity_invariants": [
+    "Each attempt contains exactly two independent first-pass role executions.",
+    "Each role output canonical hash matches its output artifact hash.",
+    "The two roles expose distinct EvidencePacket hashes and no peer output.",
+    "Evidence perturbation contains exactly one typed evidence delta and at most one retry.",
+    "Every dropped role review carries a drop reason, evidence refs, and reopening conditions.",
+    "Proof recomputation over identical input produces an identical technical trace hash."
+  ],
+  "metrics": {
+    "dominance_consistency": {
+      "passed": 2,
+      "total": 2
+    },
+    "perturbation_sensitivity": {
+      "passed": 1,
+      "total": 1
+    },
+    "ambiguous_inspection_count": 1,
+    "attempt_count": 7,
+    "non_provider_role_invocation_count": 14,
+    "provider_call_count": 0,
+    "retrieval_run_count": 14,
+    "retrieval_hit_count": 14,
+    "evidence_excerpt_chars": 280,
+    "fixture_duration_ms": 70,
+    "estimated_downstream_stages_avoided": 8
+  },
+  "activation_recommendation": "remain_shadow_only",
+  "open_obligations": [
+    "Researcher review of evidence, drop codes, reopening conditions, and AF-1 remains required.",
+    "Override convergence requires accumulation during shadow or advisory use.",
+    "Token, latency, and work-avoided metrics require production-shaped measurement.",
+    "Provider and multi-provider calibration remain with T-129."
+  ]
+}

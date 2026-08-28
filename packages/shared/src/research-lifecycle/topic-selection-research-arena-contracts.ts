@@ -344,6 +344,15 @@ export interface TopicSelectionResearchArenaAdvisorySynthesis {
   support_only: true;
 }
 
+export interface TopicSelectionResearchArenaExecutionAccounting {
+  non_provider_role_invocation_count: number;
+  provider_call_count: 0;
+  retrieval_run_count: number;
+  retrieval_hit_count: number;
+  evidence_excerpt_chars: number;
+  duration_ms: number;
+}
+
 export interface TopicSelectionResearchArenaShadowRunResponse {
   schema_version: 'TopicSelectionResearchArenaShadowRunResponse@v1';
   arena_session: TopicSelectionResearchArenaSessionRecord;
@@ -351,6 +360,7 @@ export interface TopicSelectionResearchArenaShadowRunResponse {
   synthesis_artifact_ref: TopicSelectionFunctionalRef;
   synthesis_artifact_hash: string;
   advisory_synthesis: TopicSelectionResearchArenaAdvisorySynthesis;
+  execution_accounting: TopicSelectionResearchArenaExecutionAccounting;
   support_only: true;
 }
 
@@ -892,6 +902,23 @@ const topicSelectionResearchArenaAdvisorySynthesisSchema = {
   },
 } as const;
 
+const topicSelectionResearchArenaExecutionAccountingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'non_provider_role_invocation_count', 'provider_call_count', 'retrieval_run_count',
+    'retrieval_hit_count', 'evidence_excerpt_chars', 'duration_ms',
+  ],
+  properties: {
+    non_provider_role_invocation_count: { type: 'integer', minimum: 0 },
+    provider_call_count: { const: 0 },
+    retrieval_run_count: { type: 'integer', minimum: 0 },
+    retrieval_hit_count: { type: 'integer', minimum: 0 },
+    evidence_excerpt_chars: { type: 'integer', minimum: 0 },
+    duration_ms: { type: 'integer', minimum: 0 },
+  },
+} as const;
+
 export const topicSelectionResearchArenaRoleExecutionSchema = {
   type: 'object',
   additionalProperties: false,
@@ -936,7 +963,7 @@ export const topicSelectionResearchArenaShadowRunResponseSchema = {
   additionalProperties: false,
   required: [
     'schema_version', 'arena_session', 'role_executions', 'synthesis_artifact_ref',
-    'synthesis_artifact_hash', 'advisory_synthesis', 'support_only',
+    'synthesis_artifact_hash', 'advisory_synthesis', 'execution_accounting', 'support_only',
   ],
   properties: {
     schema_version: { const: 'TopicSelectionResearchArenaShadowRunResponse@v1' },
@@ -947,6 +974,7 @@ export const topicSelectionResearchArenaShadowRunResponseSchema = {
     synthesis_artifact_ref: topicSelectionFunctionalRefSchema,
     synthesis_artifact_hash: hashString,
     advisory_synthesis: topicSelectionResearchArenaAdvisorySynthesisSchema,
+    execution_accounting: topicSelectionResearchArenaExecutionAccountingSchema,
     support_only: { const: true },
   },
 } as const;

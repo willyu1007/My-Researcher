@@ -15,8 +15,12 @@ import type {
   TopicSelectionAgentInvocationRequest,
 } from './topic-selection-agent-orchestrator-service.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './topic-selection-research-arena-shadow-runner-service.js';
+import { TopicSelectionResearchArenaShadowProofService } from './topic-selection-research-arena-shadow-proof-service.js';
 
 const HASH = 'a'.repeat(64);
+const packetHash = (role: 'opportunity_scout' | 'prior_art_topic_killer') => (
+  role === 'opportunity_scout' ? 'a'.repeat(64) : 'b'.repeat(64)
+);
 const NOW = '2026-08-29T00:00:00.000Z';
 const candidateRef: TopicSelectionFunctionalRef = {
   ref_type: 'topic_question_candidate',
@@ -114,7 +118,7 @@ function preparation(
       ref_id: `packet_${role}`,
       title_card_id: 'title_1',
     },
-    evidence_packet_hash: HASH,
+    evidence_packet_hash: packetHash(role),
   };
 }
 
@@ -175,9 +179,9 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       items: [{ evidence_unit_ref: evidenceUnitRef, literature_ref: literatureRef }],
       source_refs: [evidenceUnitRef],
       total_excerpt_chars: 20,
-      packet_hash: HASH,
+      packet_hash: packetHash(role),
     },
-    checksum: HASH,
+    checksum: packetHash(role),
     input_snapshot_id: 'snapshot_1',
     created_by: 'system',
     created_at: NOW,
@@ -190,6 +194,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   const admittedInputs: Array<Record<string, unknown>> = [];
   const recordedArtifacts: TopicSelectionArtifactRefRecord[] = [];
   let artifactIndex = 0;
+  const clock = [100, 125];
 
   const service = new TopicSelectionResearchArenaShadowRunnerService({
     arenaRepository: {
@@ -251,7 +256,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
           input_snapshot_hash: HASH,
           query_intent: input.retrieval_provenance.query_intent,
           evidence_packet_artifact_ref: input.evidence_packet_artifact_ref,
-          evidence_packet_hash: HASH,
+          evidence_packet_hash: artifacts.get(input.evidence_packet_artifact_ref.ref_id)!.checksum!,
           evidence_partition_refs: [evidenceUnitRef],
           retrieval_provenance: { ...input.retrieval_provenance, provenance_hash: HASH },
           exposure_artifact_refs: input.exposure_artifact_refs,
@@ -274,6 +279,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
         synthesized_at: NOW,
       }),
     },
+    now: () => clock.shift() ?? 125,
   });
 
   const result = await service.run({
@@ -309,6 +315,14 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   assert.equal(result.advisory_synthesis.candidate_dispositions[0]?.disposition, 'parked');
   assert.equal(result.arena_session.termination_reason, 'evidence_expansion_required');
   assert.equal(result.support_only, true);
+  assert.deepEqual(result.execution_accounting, {
+    non_provider_role_invocation_count: 2,
+    provider_call_count: 0,
+    retrieval_run_count: 2,
+    retrieval_hit_count: 2,
+    evidence_excerpt_chars: 40,
+    duration_ms: 25,
+  });
   assert.equal(recordedArtifacts.every((artifact) => artifact.input_snapshot_id === 'snapshot_1'), true);
   for (const call of invocationCalls) {
     const userMessage = call.messages.find((message) => message.role === 'user')?.content ?? '';
@@ -320,6 +334,26 @@ test('shadow runner completes both isolated first-pass invocations before admiss
     assert.deepEqual(admitted.exposure_artifact_refs, [admitted.evidence_packet_artifact_ref]);
     assert.deepEqual(admitted.prior_role_hashes, []);
   }
+
+  const proof = new TopicSelectionResearchArenaShadowProofService().evaluate({
+    proof_key: 'runner-integration-proof',
+    cases: [{
+      case_id: 'runner-AF',
+      case_kind: 'ambiguous_lineage',
+      attempts: [{
+        response: result,
+        role_outputs: [
+          roleOutput('opportunity_scout', 'selected'),
+          roleOutput('prior_art_topic_killer', 'dropped'),
+        ],
+      }],
+      candidate_refs: [candidateRef],
+      expected_drop_reason_code: null,
+    }],
+  });
+  assert.equal(proof.case_results[0]?.status, 'inspect');
+  assert.equal(proof.metrics.evidence_independent_attempt_count, 1);
+  assert.match(proof.human_view_markdown, /证据独立性/u);
 
   const noneViable = await service.run({
     schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',

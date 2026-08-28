@@ -110,6 +110,14 @@ test('research arena shadow route rejects provider execution and returns support
         required_next_delta: 'evidence' as const,
         support_only: true as const,
       },
+      execution_accounting: {
+        non_provider_role_invocation_count: 2,
+        provider_call_count: 0 as const,
+        retrieval_run_count: 2,
+        retrieval_hit_count: 2,
+        evidence_excerpt_chars: 40,
+        duration_ms: 25,
+      },
       support_only: true as const,
     }),
   } as unknown as TopicSelectionResearchArenaShadowRunnerService;
@@ -200,6 +208,7 @@ test('research arena shadow route rejects provider execution and returns support
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().support_only, true);
   assert.equal(response.json().advisory_synthesis.outcome, 'evidence_expansion_required');
+  assert.equal(response.json().execution_accounting.provider_call_count, 0);
 
   const provider = await app.inject({
     method: 'POST',

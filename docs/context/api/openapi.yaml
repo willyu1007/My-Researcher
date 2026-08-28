@@ -9040,7 +9040,7 @@ components:
     TopicSelectionResearchArenaShadowRunResponse:
       type: object
       additionalProperties: false
-      required: [schema_version, arena_session, role_executions, synthesis_artifact_ref, synthesis_artifact_hash, advisory_synthesis, support_only]
+      required: [schema_version, arena_session, role_executions, synthesis_artifact_ref, synthesis_artifact_hash, advisory_synthesis, execution_accounting, support_only]
       properties:
         schema_version: { type: string, const: 'TopicSelectionResearchArenaShadowRunResponse@v1' }
         arena_session:
@@ -9056,6 +9056,17 @@ components:
         synthesis_artifact_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
         advisory_synthesis:
           $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisorySynthesis'
+        execution_accounting:
+          type: object
+          additionalProperties: false
+          required: [non_provider_role_invocation_count, provider_call_count, retrieval_run_count, retrieval_hit_count, evidence_excerpt_chars, duration_ms]
+          properties:
+            non_provider_role_invocation_count: { type: integer, minimum: 0 }
+            provider_call_count: { type: integer, const: 0 }
+            retrieval_run_count: { type: integer, minimum: 0 }
+            retrieval_hit_count: { type: integer, minimum: 0 }
+            evidence_excerpt_chars: { type: integer, minimum: 0 }
+            duration_ms: { type: integer, minimum: 0 }
         support_only: { type: boolean, const: true }
 
     TopicSelectionResearchHumanStageView:
