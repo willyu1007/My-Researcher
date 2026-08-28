@@ -174,7 +174,7 @@
 - Planned changes:
   1. Generate role-specific query intents and execute bounded hybrid retrieval through the product, recording SearchRun provenance and claim-bearing hits.
   2. Record independent proposals, objections, concessions, unresolved minority reports, candidate semantic groups, and evidence alignment.
-  3. Admit one bounded synthesis only after independent outputs are durable; allow `select`, `park`, `drop`, `reframe`, or one evidence-expansion request.
+  3. Admit one bounded synthesis only after independent outputs are durable; it returns a set-level outcome (`selected`/`none_viable`/`evidence_expansion_required`/`reframe_required`) plus per-candidate `selected`/`parked`/`dropped` dispositions, with drop recommendations carrying enumerated reason codes.
   4. Enforce one arena retry only when a recorded evidence, candidate, constraint, or human-objective delta exists.
   5. Render the result for humans without making the Markdown file a writable authority.
 - Affected boundaries / entry points: Candidate generation/adjudication support, literature retrieval, runtime artifacts, SearchRun coverage, derived stage communication, and shadow-evaluation tooling.
