@@ -144,7 +144,7 @@ function createService(overrides: { stale?: boolean; mismatch?: boolean; manual?
       listFulltextParagraphsByDocumentId: async () => paragraphs,
       listFulltextAnchorsByDocumentId: async () => anchors,
     },
-    retrievalReadinessResolver: async () => new Map([[
+    directEvidenceReadinessResolver: async () => new Map([[
       LITERATURE_ID,
       {
         ready: true,

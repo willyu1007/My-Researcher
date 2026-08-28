@@ -4018,6 +4018,39 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /topic-selection/research/arena/retry-snapshots:
+    post:
+      operationId: prepareTopicSelectionResearchArenaRetrySnapshot
+      summary: Bind repaired reviewed evidence and canonical candidates into one support-only arena retry snapshot.
+      description: |
+        Creates only a changed InputSnapshot and a provider-free execution-plan artifact for the single
+        typed-delta retry. It does not invoke roles, advance checkpoints, accept risk, write human decisions,
+        or create promotion authority.
+      tags: [topic-selection-research]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionResearchArenaRetrySnapshotRequest'
+      responses:
+        '201':
+          description: Changed support-only arena retry snapshot and execution plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchArenaRetrySnapshot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/research/arena/sessions/{arenaSessionId}:
     get:
       operationId: getTopicSelectionResearchArenaSession
@@ -8849,6 +8882,50 @@ components:
               ref:
                 $ref: '#/components/schemas/TopicSelectionFunctionalRef'
               rationale: { type: string, minLength: 1 }
+
+    TopicSelectionResearchArenaRetrySnapshotRequest:
+      type: object
+      additionalProperties: false
+      required: [schema_version, arena_session_id, title_card_id, evidence_map_id, candidate_refs]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaRetrySnapshotRequest@v1' }
+        arena_session_id: { type: string, minLength: 1 }
+        title_card_id: { type: string, minLength: 1 }
+        evidence_map_id: { type: string, minLength: 1 }
+        candidate_refs:
+          type: array
+          minItems: 1
+          maxItems: 12
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+
+    TopicSelectionResearchArenaRetrySnapshot:
+      type: object
+      additionalProperties: false
+      required: [schema_version, input_snapshot_id, input_snapshot_hash, target_ref, execution_plan_ref, loop_delta_refs, support_only]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaRetrySnapshot@v1' }
+        input_snapshot_id: { type: string, minLength: 1 }
+        input_snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        target_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        execution_plan_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        loop_delta_refs:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [delta_type, ref, rationale]
+            properties:
+              delta_type: { type: string, enum: [evidence, candidate, constraint, human_objective] }
+              ref:
+                $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+              rationale: { type: string, minLength: 1 }
+        support_only: { type: boolean, const: true }
 
     TopicSelectionResearchArenaCandidateReview:
       type: object

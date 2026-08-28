@@ -1,0 +1,108 @@
+{
+  "schema_version": "TopicSelectionResearchArenaEvidenceRepairReplay@v1",
+  "status": "synthesized_evidence_expansion_required",
+  "title_card_id": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+  "repair_authorization": "researcher_authorized_repair_11_evidence_units_and_one_new_snapshot_replay_2026-08-29",
+  "evidence_repair": {
+    "superseded_evidence_map_id": "evidence_map_d55feebd-b26c-476b-ad59-cfcf508119ba",
+    "evidence_map_id": "evidence_map_de5e35b6-48d9-4513-8aff-fd7e5894e1fc",
+    "evidence_map_version": "v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc",
+    "input_snapshot_id": "input_snapshot_b89e02ad-2631-4410-845f-67ba68996ea9",
+    "trace_snapshot_id": "trace_snapshot_91d413e9-c953-4d2e-95a8-7ec714a0a880",
+    "workflow_run_id": "workflow_run_9347a1b2-727b-4afc-97b9-a9a586c7c509",
+    "evidence_packet_hash": "93691678b8f597c13f3d2addda7f1530b50f879f0520b187a35cf49f974bb4b2",
+    "reviewed_evidence_unit_count": 11,
+    "direct_packet_ready_count": 11,
+    "exact_match_count": 11,
+    "resolved_excerpt_chars": 9328,
+    "material_conflict": {
+      "conflict_id": "evidence_conflict_dcc002c4-ee50-4ef7-af70-fcc05f7dc510",
+      "issue_code": "NEAREST_WORK_INTERSECTION_NARROWS_NOVELTY"
+    },
+    "evidence_units": [
+      {"id":"evidence_unit_0581de52-7395-494c-903c-029d5e4c63b1","literature_id":"LIT-2253","locator":"_uByheNt","relation":"support"},
+      {"id":"evidence_unit_735c630c-c2f2-4dbc-aeed-c2202a0771b0","literature_id":"LIT-2254","locator":"_YkpHKwQ","relation":"support"},
+      {"id":"evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950","literature_id":"LIT-0529","locator":"_sctcc9e","relation":"support"},
+      {"id":"evidence_unit_419bfb61-394b-4528-9f42-e01668ce9bf3","literature_id":"LIT-2254","locator":"_HmHfeQC","relation":"challenge"},
+      {"id":"evidence_unit_5019930b-4192-4aad-922f-c1363b33b847","literature_id":"LIT-0332","locator":"_zzzaUmW","relation":"challenge"},
+      {"id":"evidence_unit_e8c423ba-170e-4bcd-8e67-5b280229d2f1","literature_id":"LIT-2253","locator":"_2ngkFZ9","relation":"baseline"},
+      {"id":"evidence_unit_d83fe8b2-e857-4b2f-a571-b480b032ed08","literature_id":"LIT-2254","locator":"_2xgdq9U","relation":"baseline"},
+      {"id":"evidence_unit_71cbcccd-3ab6-4994-bd41-58aba84d616b","literature_id":"LIT-0181","locator":"_2ze343a","relation":"baseline"},
+      {"id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","literature_id":"LIT-0771","locator":"_em2b9k2","relation":"baseline"},
+      {"id":"evidence_unit_c024b503-d6d0-4a0f-be56-c44b8dcb6c3f","literature_id":"LIT-2254","locator":"_6sgjBhc","relation":"context"},
+      {"id":"evidence_unit_1395e1a3-ec31-499d-b085-25a15c1a51f5","literature_id":"LIT-0190","locator":"_Mvq6znh","relation":"context"}
+    ]
+  },
+  "retry": {
+    "predecessor_arena_session_id": "research_arena_497bb532-8cfb-47af-8a5f-b6d79dc0feb4",
+    "arena_session_id": "research_arena_def21744-92fb-41cb-96f1-20798e76392a",
+    "input_snapshot_id": "input_snapshot_a884f2a3-b5b7-4d76-865c-2c3d66821630",
+    "input_snapshot_hash": "8e7de9ba3499a138357af40a50074e7f542fc4538fd203a9d7d7bb846109d7ef",
+    "execution_plan_artifact_ref_id": "artifact_ref_399414a1-dfa2-45e7-ae60-81cb2f79ce39",
+    "loop_delta_refs": [
+      {"delta_type":"evidence","ref_type":"evidence_map","ref_id":"evidence_map_de5e35b6-48d9-4513-8aff-fd7e5894e1fc","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc"}
+    ],
+    "termination_reason": "evidence_expansion_required",
+    "synthesis_artifact_ref_id": "artifact_ref_848675d7-10d9-40cd-b24c-69c1f298a694",
+    "synthesis_artifact_hash": "3c4d5c6ff9598242cf631eb3b162586039cd8739cfcac8f059a96f6292cf2fd2",
+    "candidate_dispositions": ["parked", "parked"],
+    "required_next_delta": "evidence",
+    "accounting": {
+      "non_provider_role_invocation_count": 2,
+      "provider_call_count": 0,
+      "retrieval_run_count": 2,
+      "retrieval_hit_count": 10,
+      "evidence_excerpt_chars": 1466,
+      "duration_ms": 53
+    },
+    "role_executions": [
+      {
+        "role": "opportunity_scout",
+        "execution_id": "arena_role_execution_eb8a973b-1165-49c3-849d-de60efaca45a",
+        "evidence_packet_artifact_ref_id": "artifact_ref_93b5a0a3-d609-4291-9941-34a2d31255ad",
+        "evidence_packet_hash": "7644ca259bb63e7a37b99818521364012177ec13ff6ee6c60cb9773d50e6b97d",
+        "search_run_id": "search_run_d52bfa0f-277e-4c50-b145-4c577c1f622c",
+        "evidence_unit_ids": ["evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950"],
+        "prior_role_hashes": [],
+        "exposure_set_hash": "17740260c0b265a3af8418dcb3f44ab8552eba0bd10531c6167cde3026e22535",
+        "output_artifact_ref_id": "artifact_ref_cc0fbe4e-335a-49e3-8811-3df757dbecfa",
+        "output_hash": "c79159d8ceeca178ebc8e54f8e8c9dc85f9522d43d70b73053b9698ac682b24f"
+      },
+      {
+        "role": "prior_art_topic_killer",
+        "execution_id": "arena_role_execution_f84e1c94-157e-4fa2-b80d-08d891cd360f",
+        "evidence_packet_artifact_ref_id": "artifact_ref_510616b9-738b-48fa-a64c-dcfcd935be19",
+        "evidence_packet_hash": "fd08a4f0cbd0af61aeefc882d4ed55f53181c05ae4ca64a1279ed9aeae4c68df",
+        "search_run_id": "search_run_c4ed9e54-ef7e-47fd-b5bc-e7fc79b04436",
+        "evidence_unit_ids": ["evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8"],
+        "prior_role_hashes": [],
+        "exposure_set_hash": "57ef71b5c0d4ce6625c5b977c950782697ee0336c21bbdd116cb19560a7c037c",
+        "output_artifact_ref_id": "artifact_ref_516b9b31-33ca-4856-a07c-06160325b973",
+        "output_hash": "aa4883d2da064b9caa200265d8143b998363ec92fa9820c5ed6be6dd5d0d9e37"
+      }
+    ],
+    "preserved_findings": ["t147-retry-scout-uncertainty-proxy", "t147-retry-killer-established-uncertainty-routing"]
+  },
+  "calibration_limits": {
+    "product_first_pass_peer_exposure": false,
+    "cognitively_independent_agents": false,
+    "reason": "Both codex_assisted role outputs were authored by the same Codex main agent; no independent subagents were enabled for this replay.",
+    "diagnostic_provider_call_outside_replay": {
+      "count": 1,
+      "endpoint": "/literature/retrieve",
+      "model": "text-embedding-3-large",
+      "approximate_cost_usd": 0.00000065,
+      "used_in_replay": false
+    }
+  },
+  "authority_effects": {
+    "pending_evidence_checkpoint_id": "research_checkpoint_7925bb9a-9782-43ec-a5ec-86cda8f2573f",
+    "checkpoint_decision_created": false,
+    "accepted_risk_created": false,
+    "promotion_decision_created": false,
+    "bridge_created": false,
+    "paper_project_created": false,
+    "phase_9_activated": false
+  },
+  "required_next_action": "Researcher decides whether to expand direct support/challenge evidence for signed adjacent-depth utility and post-k1 feedback value, or keep both candidates parked."
+}

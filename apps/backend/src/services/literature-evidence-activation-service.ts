@@ -299,6 +299,64 @@ export class LiteratureEvidenceActivationService {
     return readiness;
   }
 
+  // Canonical EvidencePackets resolve their cited abstract/fulltext rows directly. They still
+  // require reviewed source quality and key-content readiness, but an embedding index is a
+  // retrieval concern and must not force provider work for direct, keyed evidence reads.
+  async resolveDirectEvidenceReadiness(
+    literatureIds: string[],
+  ): Promise<Map<string, LiteratureRetrievalReadiness>> {
+    const uniqueIds = [...new Set(literatureIds)];
+    const readiness = new Map<string, LiteratureRetrievalReadiness>();
+    if (uniqueIds.length === 0) return readiness;
+
+    const [qualities, states, stageStates] = await Promise.all([
+      this.repository.listQualityAssessmentsByLiteratureIds(uniqueIds),
+      this.repository.listPipelineStatesByLiteratureIds(uniqueIds),
+      this.repository.listPipelineStageStatesByLiteratureIds(uniqueIds),
+    ]);
+    const qualityByLiterature = new Map(qualities.map((record) => [record.literatureId, record]));
+    const stateByLiterature = new Map(states.map((record) => [record.literatureId, record]));
+    const staleSourceByLiterature = new Map(
+      stageStates
+        .filter((stage) => [
+          'CITATION_NORMALIZED',
+          'ABSTRACT_READY',
+          'FULLTEXT_PREPROCESSED',
+          'KEY_CONTENT_READY',
+        ].includes(stage.stageCode) && stage.status === 'STALE')
+        .map((stage) => [stage.literatureId, stage]),
+    );
+
+    for (const literatureId of uniqueIds) {
+      let ready = true;
+      let reason = 'DIRECT_EVIDENCE_READY';
+      if (!this.isQualityActive(qualityByLiterature.get(literatureId) ?? null)) {
+        ready = false;
+        reason = 'QUALITY_NOT_ACTIVE';
+      } else if (!this.isPipelineReady(stateByLiterature.get(literatureId) ?? null)) {
+        ready = false;
+        reason = 'KEY_CONTENT_NOT_READY';
+      }
+      const staleStage = staleSourceByLiterature.get(literatureId) ?? null;
+      readiness.set(literatureId, {
+        ready,
+        reason,
+        freshness: staleStage ? 'stale' : 'fresh',
+        freshness_detail: staleStage
+          ? {
+            reason_code: typeof staleStage.detail.reason_code === 'string'
+              ? staleStage.detail.reason_code
+              : 'SOURCE_CONTENT_STALE',
+            reason_message: typeof staleStage.detail.reason_message === 'string'
+              ? staleStage.detail.reason_message
+              : 'Canonical source content is stale and must be refreshed.',
+          }
+          : null,
+      });
+    }
+    return readiness;
+  }
+
   async resolveTopicEvidenceActiveLiteratureIds(topicId: string): Promise<Set<string>> {
     const scopes = await this.repository.listTopicScopesByTopicId(topicId);
     return new Set(

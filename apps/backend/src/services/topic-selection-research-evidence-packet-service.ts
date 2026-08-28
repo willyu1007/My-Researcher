@@ -46,7 +46,7 @@ type ServiceOptions = {
     | 'listFulltextParagraphsByDocumentId'
     | 'listFulltextSectionsByDocumentId'
   >;
-  retrievalReadinessResolver: (
+  directEvidenceReadinessResolver: (
     literatureIds: string[],
   ) => Promise<Map<string, LiteratureRetrievalReadiness>>;
 };
@@ -82,7 +82,7 @@ export class TopicSelectionResearchEvidencePacketService {
     }));
     const evidenceMapById = new Map(evidenceMaps.map((evidenceMap) => [evidenceMap.evidence_map_id, evidenceMap]));
     const literatureIds = [...new Set(units.map((unit) => unit.literature_ref.ref_id))];
-    const readiness = await this.options.retrievalReadinessResolver(literatureIds);
+    const readiness = await this.options.directEvidenceReadinessResolver(literatureIds);
 
     const items: TopicSelectionResearchEvidencePacketItem[] = [];
     for (const unit of units) {

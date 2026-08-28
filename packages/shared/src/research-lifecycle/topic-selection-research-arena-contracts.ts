@@ -164,6 +164,24 @@ export interface TopicSelectionResearchArenaOpenSessionRequest {
   loop_delta_refs: TopicSelectionResearchArenaLoopDeltaRef[];
 }
 
+export interface TopicSelectionResearchArenaRetrySnapshotRequest {
+  schema_version: 'TopicSelectionResearchArenaRetrySnapshotRequest@v1';
+  arena_session_id: string;
+  title_card_id: string;
+  evidence_map_id: string;
+  candidate_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionResearchArenaRetrySnapshot {
+  schema_version: 'TopicSelectionResearchArenaRetrySnapshot@v1';
+  input_snapshot_id: string;
+  input_snapshot_hash: string;
+  target_ref: TopicSelectionFunctionalRef;
+  execution_plan_ref: TopicSelectionFunctionalRef;
+  loop_delta_refs: TopicSelectionResearchArenaLoopDeltaRef[];
+  support_only: true;
+}
+
 export interface TopicSelectionResearchArenaSessionRecord {
   schema_version: 'TopicSelectionResearchArenaSession@v1';
   arena_session_id: string;
@@ -585,6 +603,50 @@ export const topicSelectionResearchArenaOpenSessionRequestSchema = {
     },
     execution_plan_ref: topicSelectionFunctionalRefSchema,
     loop_delta_refs: { type: 'array', items: topicSelectionResearchArenaLoopDeltaRefSchema },
+  },
+} as const;
+
+export const topicSelectionResearchArenaRetrySnapshotRequestSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_session_id', 'title_card_id', 'evidence_map_id', 'candidate_refs',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRetrySnapshotRequest@v1' },
+    arena_session_id: stringId,
+    title_card_id: stringId,
+    evidence_map_id: stringId,
+    candidate_refs: {
+      type: 'array',
+      items: topicSelectionFunctionalRefSchema,
+      minItems: 1,
+      maxItems: 12,
+      uniqueItems: true,
+    },
+  },
+} as const;
+
+export const topicSelectionResearchArenaRetrySnapshotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'input_snapshot_id', 'input_snapshot_hash', 'target_ref',
+    'execution_plan_ref', 'loop_delta_refs', 'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaRetrySnapshot@v1' },
+    input_snapshot_id: stringId,
+    input_snapshot_hash: hashString,
+    target_ref: topicSelectionFunctionalRefSchema,
+    execution_plan_ref: topicSelectionFunctionalRefSchema,
+    loop_delta_refs: {
+      type: 'array',
+      items: topicSelectionResearchArenaLoopDeltaRefSchema,
+      minItems: 1,
+      maxItems: 1,
+    },
+    support_only: { const: true },
   },
 } as const;
 

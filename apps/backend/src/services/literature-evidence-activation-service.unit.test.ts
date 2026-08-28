@@ -357,6 +357,48 @@ test('resolveRetrievalReadiness is the single source: reason chain + INDEXED-STA
   assert.deepEqual(await service.isEvidenceReady('LIT-QUALITY-BLOCKED'), { active: false, reason: 'QUALITY_NOT_ACTIVE' });
 });
 
+test('resolveDirectEvidenceReadiness admits canonical source evidence without an embedding index', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  const service = new LiteratureEvidenceActivationService(repository);
+  const now = new Date().toISOString();
+
+  await repository.upsertQualityAssessment({
+    id: 'quality-LIT-DIRECT-SOURCE',
+    literatureId: 'LIT-DIRECT-SOURCE',
+    qualityStatus: 'high_confidence',
+    qualityScore: 90,
+    qualityComponents: { test_fixture: true },
+    blockerCodes: [],
+    source: 'test_fixture',
+    assessedAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await repository.upsertPipelineState({
+    id: 'pipeline-LIT-DIRECT-SOURCE',
+    literatureId: 'LIT-DIRECT-SOURCE',
+    citationComplete: true,
+    abstractReady: true,
+    keyContentReady: true,
+    dedupStatus: 'unique',
+    updatedAt: now,
+  });
+
+  assert.deepEqual(
+    (await service.resolveDirectEvidenceReadiness(['LIT-DIRECT-SOURCE'])).get('LIT-DIRECT-SOURCE'),
+    {
+      ready: true,
+      reason: 'DIRECT_EVIDENCE_READY',
+      freshness: 'fresh',
+      freshness_detail: null,
+    },
+  );
+  assert.equal(
+    (await service.resolveRetrievalReadiness(['LIT-DIRECT-SOURCE'])).get('LIT-DIRECT-SOURCE')?.reason,
+    'INDEX_NOT_ACTIVE',
+  );
+});
+
 test('evidence activation centralizes retrieval and automatic processing workset policies', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = new LiteratureEvidenceActivationService(repository);

@@ -15,3 +15,10 @@ test('research arena session routes and OpenAPI expose support-only open and rec
   assert.match(openapiSource, /TopicSelectionResearchArenaOpenSessionRequest:/u);
   assert.match(openapiSource, /support_only: \{ type: boolean, const: true \}/u);
 });
+
+test('research arena exposes one typed-delta retry snapshot boundary', () => {
+  assert.match(openapiSource, /\/topic-selection\/research\/arena\/retry-snapshots:/u);
+  assert.match(openapiSource, /operationId: prepareTopicSelectionResearchArenaRetrySnapshot/u);
+  assert.match(openapiSource, /TopicSelectionResearchArenaRetrySnapshotRequest:/u);
+  assert.match(openapiSource, /TopicSelectionResearchArenaRetrySnapshot:/u);
+});
