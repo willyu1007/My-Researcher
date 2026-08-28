@@ -125,7 +125,7 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 
 | Question or assumption | Owner | Impact if unresolved or wrong | Validation / due point |
 |---|---|---|---|
-| Can current owners express EvidencePacket resolution, arena/session identity, and manifest/LLM/human projections without a new persisted ResearchArena authority? | Product design audit, then user if the ownership boundary changes | Determines schema/migration scope and whether a new coordination owner is actually necessary. | Phase 7 owner map before implementation kickoff. |
+| Can current owners express EvidencePacket resolution, arena/session identity, and manifest/LLM/human projections without a new persisted ResearchArena authority? | User (the 2026-08-28 audit answered "yes except the arena session root" and the boundary change now needs confirmation) | Determines schema/migration scope and whether a new coordination owner is actually necessary. | Audit complete in `artifacts/phase7-owner-map.md`; confirmation closes the kickoff Design item. |
 | What dominance-pair-consistency, perturbation-sensitivity, override-convergence, evidence-delta, cost, and work-avoided thresholds justify production activation? | User after shadow evidence | Determines whether the arena activates, remains shadow-only, or is removed. | Phase 10 calibration review. |
 
 ## Confirmation
