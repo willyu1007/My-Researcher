@@ -174,3 +174,122 @@ test('ranked candidate draft batch validator allows explained empty blocked batc
   assert.equal(report.draft_count, 0);
   assert.deepEqual(report.blocking_reason_codes, []);
 });
+
+test('ranked candidate draft batch validator accepts an evidence-backed none-viable portfolio', () => {
+  const noneViableBatch = Object.assign(rankedBatch(), {
+    portfolio_disposition: {
+      outcome: 'none_viable',
+      rationale: 'Every inspected framing collides with direct prior art.',
+      confidence: 0.88,
+      evidence_refs: [ref('evidence_unit', 'challenge_001')],
+      rejection_reasons: [
+        {
+          reason_code: 'near_isomorphic_prior_art',
+          summary: 'The remaining contribution differs only in wording.',
+          evidence_refs: [ref('evidence_unit', 'challenge_001')],
+        },
+      ],
+      reopening_conditions: ['A new mechanism-level distinction is supported by claim-bearing evidence.'],
+      candidate_dispositions: [],
+    },
+  }) as TopicSelectionRankedCandidateDraftBatch;
+  noneViableBatch.drafts = [];
+  noneViableBatch.rejected_framings = [
+    {
+      framing_id: 'framing_001',
+      reason_code: 'near_isomorphic_prior_art',
+      summary: 'The inspected framing does not establish a contribution difference.',
+      refs: [ref('evidence_unit', 'challenge_001')],
+    },
+  ];
+
+  const report = validator.validate({
+    node_input: nodeInput(),
+    ranked_candidate_draft_batch: noneViableBatch,
+    max_persisted_candidates: 5,
+  });
+
+  assert.equal(report.valid, true);
+  assert.equal(report.draft_count, 0);
+  assert.deepEqual(report.blocking_reason_codes, []);
+});
+
+test('ranked candidate draft batch validator accepts exactly one selected candidate with complete coverage', () => {
+  const selectedBatch = rankedBatch();
+  selectedBatch.portfolio_disposition = {
+    outcome: 'selected',
+    rationale: 'The selected framing has the strongest evidence-backed mechanism gap.',
+    confidence: 0.82,
+    evidence_refs: [ref('evidence_unit', 'support_001')],
+    rejection_reasons: [],
+    reopening_conditions: [],
+    candidate_dispositions: [
+      {
+        candidate_key: 'draft_001',
+        disposition: 'selected',
+        rationale: 'The draft remains viable under direct challenge evidence.',
+        evidence_refs: [ref('evidence_unit', 'support_001')],
+        drop_reason_code: null,
+        reopening_conditions: [],
+      },
+    ],
+  };
+
+  const report = validator.validate({
+    node_input: nodeInput(),
+    ranked_candidate_draft_batch: selectedBatch,
+    max_persisted_candidates: 5,
+  });
+
+  assert.equal(report.valid, true);
+  assert.equal(report.portfolio_outcome, 'selected');
+});
+
+test('ranked candidate draft batch validator rejects ungrounded drop and park dispositions', () => {
+  const invalidBatch = rankedBatch();
+  invalidBatch.draft_batch.terminal_result = 'blocked';
+  invalidBatch.portfolio_disposition = {
+    outcome: 'evidence_expansion_required',
+    rationale: 'The current evidence does not distinguish the remaining framing.',
+    confidence: 0.61,
+    evidence_refs: [ref('evidence_unit', 'challenge_001')],
+    rejection_reasons: [
+      {
+        reason_code: 'evidence_coverage_insufficient',
+        summary: 'The mechanism is not yet identifiable.',
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+      },
+    ],
+    reopening_conditions: ['Retrieve evidence that makes the mechanism falsifiable.'],
+    candidate_dispositions: [
+      {
+        candidate_key: 'draft_001',
+        disposition: 'dropped',
+        rationale: 'The current framing is not falsifiable.',
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+        drop_reason_code: null,
+        reopening_conditions: [],
+      },
+      {
+        candidate_key: 'draft_001',
+        disposition: 'parked',
+        rationale: 'Wait for discriminating evidence.',
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+        reopening_conditions: [],
+      },
+    ],
+  };
+
+  const report = validator.validate({
+    node_input: nodeInput(),
+    ranked_candidate_draft_batch: invalidBatch,
+    max_persisted_candidates: 5,
+  });
+  const issueCodes = report.issues.map((issue) => issue.issue_code);
+
+  assert.equal(report.valid, false);
+  assert.ok(issueCodes.includes('DROPPED_CANDIDATE_REASON_CODE_REQUIRED'));
+  assert.ok(issueCodes.includes('PARKED_CANDIDATE_REOPENING_CONDITION_REQUIRED'));
+  assert.ok(issueCodes.includes('DUPLICATE_CANDIDATE_DISPOSITION_KEY'));
+  assert.ok(issueCodes.includes('PORTFOLIO_DISPOSITION_REQUIRES_FINALIZE_TERMINAL_RESULT'));
+});

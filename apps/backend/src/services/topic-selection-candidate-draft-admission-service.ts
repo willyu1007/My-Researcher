@@ -121,6 +121,7 @@ export class TopicSelectionCandidateDraftAdmissionService {
       rejected_draft_count: rejectedCount,
       merge_hint_count: mergeHintCount,
       blocking_reason_codes: batchBlockingReasonCodes,
+      portfolio_disposition: input.ranked_candidate_draft_batch.portfolio_disposition ?? null,
     };
   }
 

@@ -1773,6 +1773,15 @@ export class TopicSelectionWorkflowHarnessService {
     if (routingDecision === 'run_supplemental_round') {
       return 'need_candidate_supplemental_round';
     }
+    if (routingDecision === 'stop_without_candidate') {
+      return 'need_candidate_none_viable';
+    }
+    if (routingDecision === 'expand_evidence') {
+      return 'need_candidate_evidence_expansion_required';
+    }
+    if (routingDecision === 'reframe_scope') {
+      return 'need_candidate_reframe_required';
+    }
     if (routingDecision === 'require_human_review' || result.adapter_result.status === 'require_human_review') {
       return 'need_candidate_human_review_required';
     }

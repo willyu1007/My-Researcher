@@ -38,6 +38,7 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
     const batchMaxPersistedCandidates = batch.draft_batch.max_persisted_candidates;
 
     this.validateBatchMetadata(input.node_input, batch, maxPersistedCandidates, issues);
+    this.validatePortfolioDisposition(batch, issues);
     this.validateEmptyBatchSemantics(batch, issues);
     this.validateDrafts(batch.drafts, batchMaxPersistedCandidates, maxPersistedCandidates, issues);
     this.validateUnresolvedPoints(batch, issues);
@@ -62,6 +63,7 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
         : [],
       warning_codes: this.unique(warningIssues.map((issue) => issue.issue_code)),
       issues,
+      portfolio_outcome: batch.portfolio_disposition?.outcome ?? null,
     };
   }
 
@@ -106,7 +108,11 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
     batch: TopicSelectionRankedCandidateDraftBatch,
     issues: TopicSelectionRankedCandidateDraftBatchMinimumValidationIssue[],
   ): void {
-    if (batch.draft_batch.terminal_result === 'finalize' && batch.drafts.length === 0) {
+    if (
+      batch.draft_batch.terminal_result === 'finalize'
+      && batch.drafts.length === 0
+      && !batch.portfolio_disposition
+    ) {
       this.addBlockingIssue(issues, {
         issue_code: 'FINALIZE_WITHOUT_DRAFTS',
         message: 'terminal_result finalize requires at least one grounded candidate draft.',
@@ -122,6 +128,158 @@ export class TopicSelectionRankedCandidateDraftBatchValidatorService {
         issue_code: 'UNEXPLAINED_EMPTY_BATCH',
         message: 'empty candidate draft batches must include rejected_framings or unresolved_points.',
         field_path: 'drafts',
+      });
+    }
+  }
+
+  private validatePortfolioDisposition(
+    batch: TopicSelectionRankedCandidateDraftBatch,
+    issues: TopicSelectionRankedCandidateDraftBatchMinimumValidationIssue[],
+  ): void {
+    const portfolio = batch.portfolio_disposition;
+    if (!portfolio) {
+      return;
+    }
+
+    if (batch.draft_batch.terminal_result !== 'finalize') {
+      this.addBlockingIssue(issues, {
+        issue_code: 'PORTFOLIO_DISPOSITION_REQUIRES_FINALIZE_TERMINAL_RESULT',
+        message: 'an explicit portfolio disposition is a completed research-management result.',
+        field_path: 'draft_batch.terminal_result',
+      });
+    }
+
+    if (!portfolio.rationale.trim()) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'PORTFOLIO_DISPOSITION_RATIONALE_REQUIRED',
+        message: 'portfolio disposition requires a non-empty rationale.',
+        field_path: 'portfolio_disposition.rationale',
+      });
+    }
+    if (!Number.isFinite(portfolio.confidence) || portfolio.confidence < 0 || portfolio.confidence > 1) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'INVALID_PORTFOLIO_DISPOSITION_CONFIDENCE',
+        message: 'portfolio disposition confidence must be between 0 and 1.',
+        field_path: 'portfolio_disposition.confidence',
+      });
+    }
+    if (portfolio.evidence_refs.length === 0) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'PORTFOLIO_DISPOSITION_EVIDENCE_REQUIRED',
+        message: 'portfolio disposition requires at least one evidence ref.',
+        field_path: 'portfolio_disposition.evidence_refs',
+      });
+    }
+
+    const nonSelectedOutcome = portfolio.outcome !== 'selected';
+    if (nonSelectedOutcome && portfolio.rejection_reasons.length === 0) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'PORTFOLIO_REJECTION_REASON_REQUIRED',
+        message: 'a non-selected portfolio outcome requires at least one evidence-backed rejection reason.',
+        field_path: 'portfolio_disposition.rejection_reasons',
+      });
+    }
+    if (nonSelectedOutcome && portfolio.reopening_conditions.length === 0) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'PORTFOLIO_REOPENING_CONDITION_REQUIRED',
+        message: 'a non-selected portfolio outcome requires at least one reopening condition.',
+        field_path: 'portfolio_disposition.reopening_conditions',
+      });
+    }
+
+    portfolio.rejection_reasons.forEach((reason, index) => {
+      if (!reason.summary.trim() || reason.evidence_refs.length === 0) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'PORTFOLIO_REJECTION_REASON_UNGROUNDED',
+          message: 'every portfolio rejection reason requires a summary and evidence refs.',
+          field_path: `portfolio_disposition.rejection_reasons[${index}]`,
+          refs: reason.evidence_refs,
+        });
+      }
+    });
+
+    const draftIds = new Set(batch.drafts.map((draft) => draft.draft_id));
+    const candidateKeys = new Set<string>();
+    let selectedCount = 0;
+    portfolio.candidate_dispositions.forEach((candidate, index) => {
+      const fieldPath = `portfolio_disposition.candidate_dispositions[${index}]`;
+      if (candidateKeys.has(candidate.candidate_key)) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'DUPLICATE_CANDIDATE_DISPOSITION_KEY',
+          message: 'candidate disposition keys must be unique inside a portfolio.',
+          field_path: `${fieldPath}.candidate_key`,
+        });
+      }
+      candidateKeys.add(candidate.candidate_key);
+      if (!draftIds.has(candidate.candidate_key)) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'UNKNOWN_CANDIDATE_DISPOSITION_KEY',
+          message: 'candidate disposition key must identify a draft in the same batch.',
+          field_path: `${fieldPath}.candidate_key`,
+        });
+      }
+      if (!candidate.rationale.trim() || candidate.evidence_refs.length === 0) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'CANDIDATE_DISPOSITION_UNGROUNDED',
+          message: 'every candidate disposition requires a rationale and evidence refs.',
+          field_path: fieldPath,
+          refs: candidate.evidence_refs,
+        });
+      }
+      if (candidate.disposition === 'selected') {
+        selectedCount += 1;
+      }
+      if (candidate.disposition === 'dropped' && !candidate.drop_reason_code) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'DROPPED_CANDIDATE_REASON_CODE_REQUIRED',
+          message: 'a dropped candidate requires an enumerated evidence-backed drop reason code.',
+          field_path: `${fieldPath}.drop_reason_code`,
+        });
+      }
+      if (candidate.disposition !== 'dropped' && candidate.drop_reason_code) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'DROP_REASON_CODE_WITHOUT_DROPPED_DISPOSITION',
+          message: 'drop_reason_code is legal only for a dropped candidate.',
+          field_path: `${fieldPath}.drop_reason_code`,
+        });
+      }
+      if (candidate.disposition === 'parked' && candidate.reopening_conditions.length === 0) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'PARKED_CANDIDATE_REOPENING_CONDITION_REQUIRED',
+          message: 'a parked candidate requires at least one reopening condition.',
+          field_path: `${fieldPath}.reopening_conditions`,
+        });
+      }
+    });
+
+    if (portfolio.outcome === 'selected') {
+      if (batch.drafts.length === 0 || selectedCount !== 1) {
+        this.addBlockingIssue(issues, {
+          issue_code: 'SELECTED_PORTFOLIO_REQUIRES_EXACTLY_ONE_SELECTED_CANDIDATE',
+          message: 'a selected portfolio outcome requires exactly one selected draft disposition.',
+          field_path: 'portfolio_disposition.candidate_dispositions',
+        });
+      }
+    } else if (selectedCount > 0) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'NON_SELECTED_PORTFOLIO_HAS_SELECTED_CANDIDATE',
+        message: 'a non-selected portfolio outcome cannot contain a selected candidate disposition.',
+        field_path: 'portfolio_disposition.candidate_dispositions',
+      });
+    }
+
+    if (portfolio.outcome === 'none_viable' && batch.drafts.length > 0) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'NONE_VIABLE_PORTFOLIO_HAS_DRAFTS',
+        message: 'a none_viable portfolio cannot expose drafts as viable downstream candidates.',
+        field_path: 'drafts',
+      });
+    }
+    if (candidateKeys.size !== batch.drafts.length) {
+      this.addBlockingIssue(issues, {
+        issue_code: 'CANDIDATE_DISPOSITION_COVERAGE_INCOMPLETE',
+        message: 'a portfolio disposition must classify every draft in the same batch exactly once.',
+        field_path: 'portfolio_disposition.candidate_dispositions',
       });
     }
   }

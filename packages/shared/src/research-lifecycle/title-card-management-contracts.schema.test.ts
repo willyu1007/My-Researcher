@@ -418,6 +418,77 @@ test('topic-selection generate-need-candidate contracts validate v1a-only node p
       unresolved_points: [],
     },
   });
+  const noneViableBatchRes = await app.inject({
+    method: 'POST',
+    url: '/batch',
+    payload: {
+      schema_version: 'v1',
+      draft_batch: {
+        batch_id: 'draft_batch_none_viable',
+        node_attempt_id: 'node_attempt_001',
+        terminal_result: 'finalize',
+        ranking_rationale: 'No inspected framing remains viable.',
+        max_persisted_candidates: 5,
+      },
+      drafts: [],
+      rejected_framings: [
+        {
+          framing_id: 'rejected_none_viable_001',
+          reason_code: 'near_isomorphic_prior_art',
+          summary: 'The framing has no mechanism-level difference.',
+          refs: [ref('evidence_unit', 'challenge_001')],
+        },
+      ],
+      unresolved_points: [],
+      portfolio_disposition: {
+        outcome: 'none_viable',
+        rationale: 'All inspected framings collide with direct prior art.',
+        confidence: 0.88,
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+        rejection_reasons: [
+          {
+            reason_code: 'near_isomorphic_prior_art',
+            summary: 'No mechanism-level difference remains.',
+            evidence_refs: [ref('evidence_unit', 'challenge_001')],
+          },
+        ],
+        reopening_conditions: ['New evidence establishes a mechanism-level distinction.'],
+        candidate_dispositions: [],
+      },
+    },
+  });
+  const invalidDropReasonBatchRes = await app.inject({
+    method: 'POST',
+    url: '/batch',
+    payload: {
+      schema_version: 'v1',
+      draft_batch: {
+        batch_id: 'draft_batch_invalid_drop',
+        node_attempt_id: 'node_attempt_001',
+        terminal_result: 'finalize',
+        ranking_rationale: 'Invalid drop reason fixture.',
+        max_persisted_candidates: 5,
+      },
+      drafts: [],
+      rejected_framings: [],
+      unresolved_points: [],
+      portfolio_disposition: {
+        outcome: 'none_viable',
+        rationale: 'Invalid fixture.',
+        confidence: 0.88,
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+        rejection_reasons: [
+          {
+            reason_code: 'low_score',
+            summary: 'Uncontrolled reason code.',
+            evidence_refs: [ref('evidence_unit', 'challenge_001')],
+          },
+        ],
+        reopening_conditions: ['A score changes.'],
+        candidate_dispositions: [],
+      },
+    },
+  });
   const minimumValidationRes = await app.inject({
     method: 'POST',
     url: '/minimum-validation',
@@ -896,6 +967,8 @@ test('topic-selection generate-need-candidate contracts validate v1a-only node p
   await app.close();
   assert.equal(inputRes.statusCode, 200);
   assert.equal(batchRes.statusCode, 200);
+  assert.equal(noneViableBatchRes.statusCode, 200);
+  assert.equal(invalidDropReasonBatchRes.statusCode, 400);
   assert.equal(minimumValidationRes.statusCode, 200);
   assert.equal(invalidMinimumValidationRes.statusCode, 400);
   assert.equal(admissionRes.statusCode, 200);

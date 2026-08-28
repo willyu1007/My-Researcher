@@ -280,6 +280,43 @@ export const TOPIC_SELECTION_NEED_DISCOVERY_TERMINAL_RESULTS = [
 export type TopicSelectionNeedDiscoveryTerminalResult =
   (typeof TOPIC_SELECTION_NEED_DISCOVERY_TERMINAL_RESULTS)[number];
 
+export const TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES = [
+  'selected',
+  'none_viable',
+  'evidence_expansion_required',
+  'reframe_required',
+] as const;
+export type TopicSelectionCandidatePortfolioOutcome =
+  (typeof TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES)[number];
+
+export const TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS = [
+  'selected',
+  'parked',
+  'dropped',
+] as const;
+export type TopicSelectionCandidatePortfolioDispositionKind =
+  (typeof TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS)[number];
+
+export const TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES = [
+  'near_isomorphic_prior_art',
+  'unidentifiable_or_unfalsifiable_mechanism',
+  'claim_defeating_data_or_evaluation',
+  'strictly_dominated_by_visible_candidate',
+  'no_viable_path_after_delta_expansion',
+] as const;
+export type TopicSelectionCandidateDropReasonCode =
+  (typeof TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES)[number];
+
+export const TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES = [
+  ...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES,
+  'evidence_coverage_insufficient',
+  'candidate_space_incomplete',
+  'research_scope_misaligned',
+  'human_objective_misaligned',
+] as const;
+export type TopicSelectionCandidatePortfolioReasonCode =
+  (typeof TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES)[number];
+
 export const TOPIC_SELECTION_CANDIDATE_DRAFT_ADMISSION_DECISIONS = [
   'admit',
   'reject_artifact_only',
@@ -296,6 +333,9 @@ export const TOPIC_SELECTION_SUPPLEMENTAL_ROUND_ROUTING_DECISIONS = [
   'block',
   'require_human_review',
   'finalize_with_admitted_batch',
+  'stop_without_candidate',
+  'expand_evidence',
+  'reframe_scope',
 ] as const;
 export type TopicSelectionSupplementalRoundRoutingDecisionKind =
   (typeof TOPIC_SELECTION_SUPPLEMENTAL_ROUND_ROUTING_DECISIONS)[number];
@@ -436,12 +476,39 @@ export interface TopicSelectionNeedCandidateUnresolvedPoint {
   refs: TopicSelectionFunctionalRef[];
 }
 
+export interface TopicSelectionCandidatePortfolioRejectionReason {
+  reason_code: TopicSelectionCandidatePortfolioReasonCode;
+  summary: string;
+  evidence_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionCandidatePortfolioCandidateDisposition {
+  candidate_key: string;
+  disposition: TopicSelectionCandidatePortfolioDispositionKind;
+  rationale: string;
+  evidence_refs: TopicSelectionFunctionalRef[];
+  drop_reason_code?: TopicSelectionCandidateDropReasonCode | null;
+  reopening_conditions: string[];
+}
+
+/** Advisory generation result. Deterministic workflow routing owns the set-level effect. */
+export interface TopicSelectionCandidatePortfolioDisposition {
+  outcome: TopicSelectionCandidatePortfolioOutcome;
+  rationale: string;
+  confidence: number;
+  evidence_refs: TopicSelectionFunctionalRef[];
+  rejection_reasons: TopicSelectionCandidatePortfolioRejectionReason[];
+  reopening_conditions: string[];
+  candidate_dispositions: TopicSelectionCandidatePortfolioCandidateDisposition[];
+}
+
 export interface TopicSelectionRankedCandidateDraftBatch {
   schema_version: string;
   draft_batch: TopicSelectionRankedCandidateDraftBatchMetadata;
   drafts: TopicSelectionNeedCandidateDraft[];
   rejected_framings?: TopicSelectionRejectedNeedCandidateFraming[];
   unresolved_points: TopicSelectionNeedCandidateUnresolvedPoint[];
+  portfolio_disposition?: TopicSelectionCandidatePortfolioDisposition | null;
 }
 
 export type TopicSelectionMinimumValidationIssueSeverity = 'blocking' | 'warning';
@@ -471,6 +538,7 @@ export interface TopicSelectionRankedCandidateDraftBatchMinimumValidationReport 
   blocking_reason_codes: string[];
   warning_codes: string[];
   issues: TopicSelectionRankedCandidateDraftBatchMinimumValidationIssue[];
+  portfolio_outcome?: TopicSelectionCandidatePortfolioOutcome | null;
 }
 
 export interface TopicSelectionCandidateDraftAdmissionResult {
@@ -503,6 +571,7 @@ export interface TopicSelectionCandidateDraftAdmissionReport {
   rejected_draft_count: number;
   merge_hint_count: number;
   blocking_reason_codes: string[];
+  portfolio_disposition?: TopicSelectionCandidatePortfolioDisposition | null;
 }
 
 export interface TopicSelectionSupplementalRoundQuestion {
@@ -1906,6 +1975,58 @@ const topicSelectionRejectedNeedCandidateFramingSchema = {
   },
 } as const;
 
+const topicSelectionCandidatePortfolioDispositionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'outcome',
+    'rationale',
+    'confidence',
+    'evidence_refs',
+    'rejection_reasons',
+    'reopening_conditions',
+    'candidate_dispositions',
+  ],
+  properties: {
+    outcome: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES] },
+    rationale: stringId,
+    confidence: numberValue,
+    evidence_refs: functionalRefArray,
+    rejection_reasons: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['reason_code', 'summary', 'evidence_refs'],
+        properties: {
+          reason_code: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_REASON_CODES] },
+          summary: stringId,
+          evidence_refs: functionalRefArray,
+        },
+      },
+    },
+    reopening_conditions: stringArray,
+    candidate_dispositions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['candidate_key', 'disposition', 'rationale', 'evidence_refs', 'reopening_conditions'],
+        properties: {
+          candidate_key: stringId,
+          disposition: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS] },
+          rationale: stringId,
+          evidence_refs: functionalRefArray,
+          drop_reason_code: {
+            anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES] }, { type: 'null' }],
+          },
+          reopening_conditions: stringArray,
+        },
+      },
+    },
+  },
+} as const;
+
 export const topicSelectionRankedCandidateDraftBatchSchema = {
   type: 'object',
   additionalProperties: false,
@@ -1943,6 +2064,9 @@ export const topicSelectionRankedCandidateDraftBatchSchema = {
           refs: functionalRefArray,
         },
       },
+    },
+    portfolio_disposition: {
+      anyOf: [topicSelectionCandidatePortfolioDispositionSchema, { type: 'null' }],
     },
   },
 } as const;
@@ -1999,6 +2123,9 @@ export const topicSelectionRankedCandidateDraftBatchMinimumValidationReportSchem
     issues: {
       type: 'array',
       items: topicSelectionRankedCandidateDraftBatchMinimumValidationIssueSchema,
+    },
+    portfolio_outcome: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES] }, { type: 'null' }],
     },
   },
 } as const;
@@ -2069,6 +2196,9 @@ export const topicSelectionCandidateDraftAdmissionReportSchema = {
     rejected_draft_count: numberValue,
     merge_hint_count: numberValue,
     blocking_reason_codes: stringArray,
+    portfolio_disposition: {
+      anyOf: [topicSelectionCandidatePortfolioDispositionSchema, { type: 'null' }],
+    },
   },
 } as const;
 

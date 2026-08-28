@@ -260,6 +260,35 @@ function rankedBatch(): TopicSelectionRankedCandidateDraftBatch {
   };
 }
 
+function noneViableBatch(): TopicSelectionRankedCandidateDraftBatch {
+  const batch = rankedBatch();
+  batch.drafts = [];
+  batch.rejected_framings = [
+    {
+      framing_id: 'framing_001',
+      reason_code: 'near_isomorphic_prior_art',
+      summary: 'The inspected framing does not establish a contribution difference.',
+      refs: [ref('evidence_unit', 'challenge_001')],
+    },
+  ];
+  batch.portfolio_disposition = {
+    outcome: 'none_viable',
+    rationale: 'Every inspected framing collides with direct prior art.',
+    confidence: 0.88,
+    evidence_refs: [ref('evidence_unit', 'challenge_001')],
+    rejection_reasons: [
+      {
+        reason_code: 'near_isomorphic_prior_art',
+        summary: 'No mechanism-level difference remains.',
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+      },
+    ],
+    reopening_conditions: ['New claim-bearing evidence establishes a mechanism-level difference.'],
+    candidate_dispositions: [],
+  };
+  return batch;
+}
+
 function nodeInput(compiledContext: Awaited<ReturnType<typeof makeHarness>>['compiledContext']) {
   return {
     schema_version: 'v1',
@@ -372,6 +401,32 @@ test('generate-need-candidate adapter produces ranked draft batch through mocked
       );
     }
   }
+});
+
+test('generate-need-candidate adapter succeeds without persistence for a none-viable portfolio', async () => {
+  const { adapter, compiledContext, needValidationRepository } = await makeHarness('mocked_llm');
+  const result = await adapter.generateRankedCandidateDraftBatch({
+    title_card_id: 'title_card_001',
+    workspace_id: 'workspace_001',
+    node_input: nodeInput(compiledContext),
+    run_mode: 'acceptance',
+    persist_admitted_candidates: true,
+    persistence_context: persistenceContext(),
+    mocked_output: {
+      fixture_id: 'fixture_generate_need_candidate_none_viable',
+      output: noneViableBatch(),
+    },
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(result.error_code, null);
+  assert.equal(result.minimum_schema_validation_report?.portfolio_outcome, 'none_viable');
+  assert.equal(result.candidate_draft_admission_report?.portfolio_disposition?.outcome, 'none_viable');
+  assert.equal(result.supplemental_round_routing_decision?.routing_decision, 'stop_without_candidate');
+  assert.deepEqual(result.blocker_codes, []);
+  assert.equal(result.persist_need_candidate_batch_command, null);
+  assert.equal(result.persist_need_candidate_batch_result, null);
+  assert.equal((await needValidationRepository.listNeedCandidatesByTitleCardId('title_card_001')).length, 0);
 });
 
 // T-128 W-04 — generate-need-candidate prompt-body byte-identity drift anchors. Pin the rendered

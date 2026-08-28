@@ -176,7 +176,7 @@
   2. Require evidence, rejection rationale, confidence, and reopening conditions for a zero-viable portfolio; require every `dropped` candidate to carry one enumerated evidence-backed drop-reason code.
   3. Route stop, expansion, and reframe through deterministic checkpoint/workflow semantics; do not manufacture a candidate to preserve downstream progress.
   4. Align focused contract, gate, loopback, replay, and compatibility tests before changing prompt incentives.
-- Affected boundaries / entry points: v1b N4/N6 shared contracts and output schemas, deterministic gates, loopback routing, terminal status, fixtures, and maintained API/process documentation.
+- Affected boundaries / entry points: the pre-HumanConfirmNeed v1a NeedCandidate portfolio plus v1b N4/N6 shared contracts and output schemas, deterministic gates, loopback routing, terminal status, fixtures, and maintained API/process documentation.
 - Dependencies: Phase 7 disposition contract. No arena persistence or provider execution is required.
 - Exit criteria: A well-formed `none_viable` result completes the generation decision successfully and chooses an explicit stop/expand/reframe route; an ambiguous layer, evidence-free drop, or missing reopening contract fails admission.
 - Verification: Red/green schema and route tests for selected, successful no-topic, expansion, reframe, park, and every invalid drop/replay case; relevant typecheck and focused suites.

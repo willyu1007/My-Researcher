@@ -39,6 +39,11 @@ export class TopicSelectionSupplementalRoundRoutingService {
     const remainingRoundBudget = this.remainingRoundBudget(input.remaining_round_budget ?? 0);
     const maxQuestions = this.maxQuestions(input.max_questions ?? DEFAULT_MAX_SUPPLEMENTAL_QUESTIONS);
 
+    const portfolioRoute = this.portfolioRoute(input.admission_report, currentRoundIndex, remainingRoundBudget);
+    if (portfolioRoute) {
+      return portfolioRoute;
+    }
+
     const admittedResults = this.resultsByDecision(input.admission_report, 'admit');
     if (admittedResults.length > 0) {
       return this.decision(input.admission_report, {
@@ -128,6 +133,47 @@ export class TopicSelectionSupplementalRoundRoutingService {
       allowedRoles: [],
       forbiddenActions: TERMINAL_FORBIDDEN_ACTIONS,
       stopCondition: 'no_supplementable_drafts',
+    });
+  }
+
+  private portfolioRoute(
+    report: TopicSelectionCandidateDraftAdmissionReport,
+    currentRoundIndex: number,
+    remainingRoundBudget: number,
+  ): TopicSelectionSupplementalRoundRoutingDecision | null {
+    const portfolio = report.portfolio_disposition;
+    if (!portfolio || portfolio.outcome === 'selected') {
+      return null;
+    }
+
+    const routeByOutcome = {
+      none_viable: {
+        routingDecision: 'stop_without_candidate',
+        triggerReasonCode: 'PORTFOLIO_NONE_VIABLE',
+        stopCondition: 'portfolio_none_viable',
+      },
+      evidence_expansion_required: {
+        routingDecision: 'expand_evidence',
+        triggerReasonCode: 'PORTFOLIO_EVIDENCE_EXPANSION_REQUIRED',
+        stopCondition: 'portfolio_evidence_expansion_required',
+      },
+      reframe_required: {
+        routingDecision: 'reframe_scope',
+        triggerReasonCode: 'PORTFOLIO_REFRAME_REQUIRED',
+        stopCondition: 'portfolio_reframe_required',
+      },
+    } as const;
+    const route = routeByOutcome[portfolio.outcome];
+    return this.decision(report, {
+      currentRoundIndex,
+      remainingRoundBudget,
+      routingDecision: route.routingDecision,
+      sourceDraftIds: portfolio.candidate_dispositions.map((candidate) => candidate.candidate_key),
+      triggerReasonCodes: [route.triggerReasonCode],
+      supplementalQuestions: [],
+      allowedRoles: [],
+      forbiddenActions: TERMINAL_FORBIDDEN_ACTIONS,
+      stopCondition: route.stopCondition,
     });
   }
 

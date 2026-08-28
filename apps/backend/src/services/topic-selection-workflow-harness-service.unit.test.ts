@@ -5665,6 +5665,59 @@ test('workflow harness runs generate-need-candidate finalize scenario through pe
   );
 });
 
+test('workflow harness records none-viable generation as a successful terminal route without authority writes', async () => {
+  const { workflowHarness, needValidationRepository } = await makeRuntime();
+  const batch = rankedBatch('node_attempt_n6_none_viable');
+  batch.drafts = [];
+  batch.rejected_framings = [
+    {
+      framing_id: 'framing_none_viable_001',
+      reason_code: 'near_isomorphic_prior_art',
+      summary: 'The framing has no mechanism-level contribution difference.',
+      refs: [ref('evidence_unit', 'challenge_001')],
+    },
+  ];
+  batch.portfolio_disposition = {
+    outcome: 'none_viable',
+    rationale: 'All inspected framings collide with direct prior art.',
+    confidence: 0.88,
+    evidence_refs: [ref('evidence_unit', 'challenge_001')],
+    rejection_reasons: [
+      {
+        reason_code: 'near_isomorphic_prior_art',
+        summary: 'No mechanism-level difference remains.',
+        evidence_refs: [ref('evidence_unit', 'challenge_001')],
+      },
+    ],
+    reopening_conditions: ['New claim-bearing evidence establishes a mechanism-level difference.'],
+    candidate_dispositions: [],
+  };
+
+  const result = await workflowHarness.runGenerateNeedCandidateScenario(scenarioInput({
+    scenario_case_id: 'mocked-none-viable-stop',
+    workflow_run_id: 'workflow_run_n6_none_viable',
+    input_snapshot_id: 'input_snapshot_n6_none_viable',
+    node_attempt_id: 'node_attempt_n6_none_viable',
+    mocked_output: {
+      fixture_id: 'fixture_generate_need_candidate_none_viable',
+      output: batch,
+    },
+    expectations: {
+      status: 'succeeded',
+      routing_decision: 'stop_without_candidate',
+      admitted_draft_count: 0,
+      persisted_candidate_count: 0,
+      persistence: 'forbidden',
+    },
+  }));
+
+  assert.equal(result.scenario_status, 'passed');
+  assert.equal(result.adapter_result.status, 'succeeded');
+  assert.equal(result.adapter_result.error_code, null);
+  assert.equal(result.adapter_result.supplemental_round_routing_decision?.routing_decision, 'stop_without_candidate');
+  assert.equal((await needValidationRepository.listNeedCandidatesByTitleCardId('title_card_001')).length, 0);
+});
+
 test('workflow harness blocks over-budget generate-need-candidate provider scenario before gateway or authority writes', async () => {
   const { workflowHarness, controlPlaneRepository, needValidationRepository, llmGateway } = await makeRuntime();
   const result = await workflowHarness.runGenerateNeedCandidateScenario(scenarioInput({

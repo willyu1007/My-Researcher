@@ -190,6 +190,71 @@ test('supplemental routing rejects pure non-supplementable drafts without anothe
   assert.equal(decision.supplemental_questions.length, 0);
 });
 
+test('supplemental routing treats an evidence-backed none-viable portfolio as a successful stop', () => {
+  const admissionReport = report([]);
+  admissionReport.portfolio_disposition = {
+    outcome: 'none_viable',
+    rationale: 'All inspected framings collide with direct prior art.',
+    confidence: 0.88,
+    evidence_refs: [{ ref_type: 'evidence_unit', ref_id: 'challenge_001', title_card_id: 'title_card_001' }],
+    rejection_reasons: [
+      {
+        reason_code: 'near_isomorphic_prior_art',
+        summary: 'No mechanism-level difference remains.',
+        evidence_refs: [{ ref_type: 'evidence_unit', ref_id: 'challenge_001', title_card_id: 'title_card_001' }],
+      },
+    ],
+    reopening_conditions: ['New claim-bearing evidence establishes a mechanism-level difference.'],
+    candidate_dispositions: [],
+  };
+
+  const decision = routing.createRoutingDecision({
+    admission_report: admissionReport,
+    current_round_index: 1,
+    remaining_round_budget: 2,
+  });
+
+  assert.equal(decision.routing_decision, 'stop_without_candidate');
+  assert.deepEqual(decision.source_draft_ids, []);
+  assert.deepEqual(decision.trigger_reason_codes, ['PORTFOLIO_NONE_VIABLE']);
+  assert.equal(decision.stop_condition, 'portfolio_none_viable');
+});
+
+test('supplemental routing maps expansion and reframe outcomes without treating them as failures', () => {
+  const admissionReport = report([]);
+  const commonDisposition = {
+    rationale: 'The current scope cannot support a selected candidate.',
+    confidence: 0.72,
+    evidence_refs: [{ ref_type: 'evidence_unit', ref_id: 'challenge_001', title_card_id: 'title_card_001' }],
+    rejection_reasons: [
+      {
+        reason_code: 'candidate_space_incomplete' as const,
+        summary: 'The present evidence does not cover a viable candidate space.',
+        evidence_refs: [{ ref_type: 'evidence_unit', ref_id: 'challenge_001', title_card_id: 'title_card_001' }],
+      },
+    ],
+    reopening_conditions: ['Change the evidence or research scope.'],
+    candidate_dispositions: [],
+  };
+
+  admissionReport.portfolio_disposition = {
+    ...commonDisposition,
+    outcome: 'evidence_expansion_required',
+  };
+  const expand = routing.createRoutingDecision({ admission_report: admissionReport });
+
+  admissionReport.portfolio_disposition = {
+    ...commonDisposition,
+    outcome: 'reframe_required',
+  };
+  const reframe = routing.createRoutingDecision({ admission_report: admissionReport });
+
+  assert.equal(expand.routing_decision, 'expand_evidence');
+  assert.equal(expand.stop_condition, 'portfolio_evidence_expansion_required');
+  assert.equal(reframe.routing_decision, 'reframe_scope');
+  assert.equal(reframe.stop_condition, 'portfolio_reframe_required');
+});
+
 test('supplemental routing rejects invalid round metadata', () => {
   assert.throws(
     () => routing.createRoutingDecision({

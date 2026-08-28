@@ -825,6 +825,9 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
     if (
       decision.routing_decision === 'finalize_with_admitted_batch'
       || decision.routing_decision === 'run_supplemental_round'
+      || decision.routing_decision === 'stop_without_candidate'
+      || decision.routing_decision === 'expand_evidence'
+      || decision.routing_decision === 'reframe_scope'
     ) {
       return [];
     }
@@ -842,6 +845,9 @@ export class TopicSelectionGenerateNeedCandidateOrchestratorAdapterService {
       decision.routing_decision === 'finalize_with_admitted_batch'
       || decision.routing_decision === 'run_supplemental_round'
       || decision.routing_decision === 'require_human_review'
+      || decision.routing_decision === 'stop_without_candidate'
+      || decision.routing_decision === 'expand_evidence'
+      || decision.routing_decision === 'reframe_scope'
     ) {
       return null;
     }
