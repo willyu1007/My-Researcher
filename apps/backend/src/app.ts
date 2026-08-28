@@ -149,6 +149,7 @@ import { registerTopicSelectionV1aRoutes } from './routes/topic-selection-v1a-ro
 import { registerTopicSelectionV1bRoutes } from './routes/topic-selection-v1b-routes.js';
 import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-routes.js';
 import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-selection-research-checkpoint-routes.js';
+import { registerTopicSelectionResearchEvidencePacketRoutes } from './routes/topic-selection-research-evidence-packet-routes.js';
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
@@ -312,6 +313,8 @@ import { TitleCardManagementController } from './controllers/title-card-manageme
 import { TopicSelectionControlPlaneService } from './services/topic-selection-control-plane-service.js';
 import { TopicSelectionResearchCheckpointService } from './services/topic-selection-research-checkpoint-service.js';
 import { TopicSelectionResearchCheckpointController } from './controllers/topic-selection-research-checkpoint-controller.js';
+import { TopicSelectionResearchEvidencePacketService } from './services/topic-selection-research-evidence-packet-service.js';
+import { TopicSelectionResearchEvidencePacketController } from './controllers/topic-selection-research-evidence-packet-controller.js';
 import { TopicSelectionEvidenceMapService } from './services/topic-selection-evidence-map-service.js';
 import { TopicSelectionEvidenceMapMaterializationService } from './services/topic-selection-evidence-map-materialization-service.js';
 import { TopicSelectionAgentOrchestratorService } from './services/topic-selection-agent-orchestrator-service.js';
@@ -1037,6 +1040,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     })
     : null;
   const topicSelectionControlPlaneService = new TopicSelectionControlPlaneService(topicSelectionControlPlaneRepository);
+  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
     topicSelectionResearchCheckpointRepository,
     topicSelectionControlPlaneService,
@@ -1050,6 +1054,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionResearchCheckpointController = new TopicSelectionResearchCheckpointController(
     topicSelectionResearchCheckpointService,
   );
+  const topicSelectionResearchEvidencePacketService = new TopicSelectionResearchEvidencePacketService({
+    evidenceMapRepository: topicSelectionEvidenceMapRepository,
+    literatureRepository,
+    retrievalReadinessResolver: (literatureIds) =>
+      literatureEvidenceActivationService.resolveRetrievalReadiness(literatureIds),
+  });
+  const topicSelectionResearchEvidencePacketController =
+    new TopicSelectionResearchEvidencePacketController(topicSelectionResearchEvidencePacketService);
   const topicSelectionSearchResourceService = new TopicSelectionSearchResourceService(
     topicSelectionSearchResourceRepository,
     topicSelectionControlPlaneService,
@@ -1177,7 +1189,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     llmGateway,
     promptPacketCache: topicSelectionPromptPacketCacheService,
   });
-  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResourceSamplingService = new TopicSelectionResourceSamplingService({
     repository: topicSelectionResourceSamplingRepository,
     literatureRepository,
@@ -1889,6 +1900,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionV1bRoutes(instance, topicSelectionV1bController);
     await registerTopicSelectionV1cRoutes(instance, topicSelectionV1cController);
     await registerTopicSelectionResearchCheckpointRoutes(instance, topicSelectionResearchCheckpointController);
+    await registerTopicSelectionResearchEvidencePacketRoutes(
+      instance,
+      topicSelectionResearchEvidencePacketController,
+    );
     await registerPaperImplementationRoutes(
       instance,
       paperImplementationController,

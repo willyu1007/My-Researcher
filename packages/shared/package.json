@@ -36,6 +36,7 @@
     "./research-lifecycle/paper-implementation-experiment-v2-contracts": "./src/research-lifecycle/paper-implementation-experiment-v2-contracts.ts",
     "./research-lifecycle/topic-selection-control-plane-contracts": "./src/research-lifecycle/topic-selection-control-plane-contracts.ts",
     "./research-lifecycle/topic-selection-research-checkpoint-contracts": "./src/research-lifecycle/topic-selection-research-checkpoint-contracts.ts",
+    "./research-lifecycle/topic-selection-research-arena-contracts": "./src/research-lifecycle/topic-selection-research-arena-contracts.ts",
     "./research-lifecycle/topic-selection-agent-profile-contracts": "./src/research-lifecycle/topic-selection-agent-profile-contracts.ts",
     "./research-lifecycle/topic-selection-agent-invocation-contracts": "./src/research-lifecycle/topic-selection-agent-invocation-contracts.ts",
     "./research-lifecycle/topic-selection-llm-runtime-contracts": "./src/research-lifecycle/topic-selection-llm-runtime-contracts.ts",

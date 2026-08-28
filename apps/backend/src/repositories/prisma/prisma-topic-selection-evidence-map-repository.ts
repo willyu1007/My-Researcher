@@ -434,6 +434,11 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
     return rows.map(toEvidenceUnitRecord);
   }
 
+  async findEvidenceUnitById(evidenceUnitId: string): Promise<TopicSelectionEvidenceUnitRecord | null> {
+    const row = await this.prisma.topicSelectionEvidenceUnit.findUnique({ where: { id: evidenceUnitId } });
+    return row ? toEvidenceUnitRecord(row) : null;
+  }
+
   async listTypedLinksByEvidenceMapId(evidenceMapId: string): Promise<TopicSelectionEvidenceTypedLinkRecord[]> {
     const rows = await this.prisma.topicSelectionEvidenceTypedLink.findMany({
       where: { evidenceMapId },

@@ -80,6 +80,10 @@ export class InMemoryTopicSelectionEvidenceMapRepository implements TopicSelecti
       .sort((left, right) => left.created_at.localeCompare(right.created_at));
   }
 
+  async findEvidenceUnitById(evidenceUnitId: string): Promise<TopicSelectionEvidenceUnitRecord | null> {
+    return this.evidenceUnits.get(evidenceUnitId) ?? null;
+  }
+
   async listTypedLinksByEvidenceMapId(evidenceMapId: string): Promise<TopicSelectionEvidenceTypedLinkRecord[]> {
     return this.byEvidenceMap(this.typedLinks, evidenceMapId)
       .sort((left, right) => left.created_at.localeCompare(right.created_at));
