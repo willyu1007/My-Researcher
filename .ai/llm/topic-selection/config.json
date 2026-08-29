@@ -170,11 +170,11 @@
       "system": "prompts/resource-sampling/classification/system.md"
     },
     "topic-selection-research-arena-opportunity-scout": {
-      "version": "v1",
+      "version": "v2",
       "system": "prompts/research-arena/opportunity-scout/system.md"
     },
     "topic-selection-research-arena-prior-art-topic-killer": {
-      "version": "v1",
+      "version": "v2",
       "system": "prompts/research-arena/prior-art-topic-killer/system.md"
     }
   }

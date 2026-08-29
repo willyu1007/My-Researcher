@@ -28,6 +28,12 @@ const candidateRef: TopicSelectionFunctionalRef = {
   title_card_id: 'title_1',
   version_id: 'v1',
 };
+const candidateRef2: TopicSelectionFunctionalRef = {
+  ref_type: 'topic_question_candidate',
+  ref_id: 'candidate_2',
+  title_card_id: 'title_1',
+  version_id: 'v1',
+};
 const evidenceUnitRef: TopicSelectionFunctionalRef = {
   ref_type: 'evidence_unit',
   ref_id: 'unit_1',
@@ -159,7 +165,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
     title_card_id: 'title_1',
     target_ref: session.target_ref,
     snapshot_hash: HASH,
-    source_refs: [candidateRef],
+    source_refs: [candidateRef, candidateRef2],
     permission_refs: [],
     payload: { candidate_refs: [candidateRef] },
     created_by: 'system',
@@ -478,6 +484,90 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       },
     ],
   }), /set-level position contradicts/u);
+
+  const multiSelectedScout = roleOutput('opportunity_scout', 'selected');
+  multiSelectedScout.candidate_reviews.push({
+    ...multiSelectedScout.candidate_reviews[0]!,
+    candidate_ref: candidateRef2,
+  });
+  const twoCandidateKiller = roleOutput('prior_art_topic_killer', 'parked');
+  twoCandidateKiller.candidate_reviews.push({
+    ...twoCandidateKiller.candidate_reviews[0]!,
+    candidate_ref: candidateRef2,
+  });
+  await assert.rejects(service.run({
+    schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',
+    arena_session_id: 'arena_1',
+    workflow_run_id: 'workflow_multi_select',
+    node_attempt_id: 'attempt_multi_select',
+    execution_mode: 'mocked_llm',
+    candidate_refs: [candidateRef, candidateRef2],
+    role_inputs: [
+      {
+        role_slot_id: 'scout',
+        participant_role: 'opportunity_scout',
+        evidence_preparation: preparation('opportunity_scout'),
+        structured_output: multiSelectedScout,
+        fixture_id: 'fixture_scout_multi_select',
+        operator_label: null,
+      },
+      {
+        role_slot_id: 'killer',
+        participant_role: 'prior_art_topic_killer',
+        evidence_preparation: preparation('prior_art_topic_killer'),
+        structured_output: twoCandidateKiller,
+        fixture_id: 'fixture_killer_two_candidates',
+        operator_label: null,
+      },
+    ],
+  }), /at most one canonical candidate/u);
+
+  const scoutWithParkedAlternative = roleOutput('opportunity_scout', 'selected');
+  scoutWithParkedAlternative.candidate_reviews.push({
+    ...scoutWithParkedAlternative.candidate_reviews[0]!,
+    candidate_ref: candidateRef2,
+    recommended_disposition: 'parked',
+    reopening_conditions: ['Reopen after a typed evidence delta.'],
+  });
+  const killerWithParkedAlternative = roleOutput('prior_art_topic_killer', 'selected');
+  killerWithParkedAlternative.candidate_reviews.push({
+    ...killerWithParkedAlternative.candidate_reviews[0]!,
+    candidate_ref: candidateRef2,
+    recommended_disposition: 'parked',
+    reopening_conditions: ['Reopen after a typed evidence delta.'],
+  });
+  const oneActivePath = await service.run({
+    schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',
+    arena_session_id: 'arena_1',
+    workflow_run_id: 'workflow_one_active_path',
+    node_attempt_id: 'attempt_one_active_path',
+    execution_mode: 'mocked_llm',
+    candidate_refs: [candidateRef, candidateRef2],
+    role_inputs: [
+      {
+        role_slot_id: 'scout',
+        participant_role: 'opportunity_scout',
+        evidence_preparation: preparation('opportunity_scout'),
+        structured_output: scoutWithParkedAlternative,
+        fixture_id: 'fixture_scout_one_active_path',
+        operator_label: null,
+      },
+      {
+        role_slot_id: 'killer',
+        participant_role: 'prior_art_topic_killer',
+        evidence_preparation: preparation('prior_art_topic_killer'),
+        structured_output: killerWithParkedAlternative,
+        fixture_id: 'fixture_killer_one_active_path',
+        operator_label: null,
+      },
+    ],
+  });
+  assert.equal(oneActivePath.advisory_synthesis.outcome, 'selected');
+  assert.deepEqual(
+    oneActivePath.advisory_synthesis.candidate_dispositions.map((candidate) => candidate.disposition),
+    ['selected', 'parked'],
+  );
+  assert.equal(oneActivePath.arena_session.termination_reason, 'recommendation_ready');
 
   session.participant_roles = ['opportunity_scout', 'opportunity_scout'];
   await assert.rejects(service.run({

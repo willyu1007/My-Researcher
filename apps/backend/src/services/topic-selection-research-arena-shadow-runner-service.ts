@@ -388,6 +388,13 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'The prior-art topic killer cannot propose or repair candidates.');
     }
     const dispositions = output.candidate_reviews.map((review) => review.recommended_disposition);
+    if (dispositions.filter((disposition) => disposition === 'selected').length > 1) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        `${role} may select at most one canonical candidate; surviving review is not comparative selection.`,
+      );
+    }
     const derivedSetOutcome = output.new_candidate_proposals.length > 0
       ? 'reframe_required'
       : dispositions.every((disposition) => disposition === 'dropped')
@@ -483,13 +490,12 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     });
     const hasNewProposals = outputs.get('opportunity_scout')!.new_candidate_proposals.length > 0;
     const allDropped = candidateDispositions.every((candidate) => candidate.disposition === 'dropped');
-    const hasSelected = candidateDispositions.some((candidate) => candidate.disposition === 'selected');
-    const consensusClosed = candidateDispositions.every((candidate) => candidate.disposition !== 'parked');
+    const selectedCount = candidateDispositions.filter((candidate) => candidate.disposition === 'selected').length;
     const outcome = hasNewProposals
       ? 'reframe_required' as const
       : allDropped
         ? 'none_viable' as const
-        : hasSelected && consensusClosed && unresolvedDissent.length === 0
+        : selectedCount === 1 && unresolvedDissent.length === 0
           ? 'selected' as const
           : 'evidence_expansion_required' as const;
     if (hasNewProposals) {

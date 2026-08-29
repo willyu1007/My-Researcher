@@ -1,0 +1,167 @@
+{
+  "schema_version": "TopicSelectionResearchArenaIndependentAgentCalibration@v1",
+  "calibration_status": "contract_corrected_result_stable_researcher_review",
+  "title_card_id": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+  "source_arena_session_id": "research_arena_def21744-92fb-41cb-96f1-20798e76392a",
+  "source_input_snapshot_id": "input_snapshot_a884f2a3-b5b7-4d76-865c-2c3d66821630",
+  "source_input_snapshot_hash": "8e7de9ba3499a138357af40a50074e7f542fc4538fd203a9d7d7bb846109d7ef",
+  "execution_boundary": {
+    "subagent_fork_turns": "none",
+    "peer_output_exposed": false,
+    "repository_context_exposed": false,
+    "external_retrieval_allowed": false,
+    "provider_call_count": 0,
+    "product_session_replayed": false,
+    "reason_product_session_not_replayed": "The exact source lineage has already used its sole typed-delta retry; preserving at-most-one retry forbids a third arena session."
+  },
+  "output_recording_policy": "Admissible role outputs are normalized to the complete contract fields and claim-bearing content needed for replay review; the initial rejected killer output is retained as an admission-failure summary rather than misrepresented as a product artifact.",
+  "canonical_candidates": [
+    {
+      "ref_type": "need_candidate",
+      "ref_id": "need_candidate_ccdb06f3-aebc-49a3-8371-b3400204fd9e",
+      "version_id": "t147-a9-pos-signed-depthwise-current-gap-v1",
+      "title_card_id": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+      "mechanism": "Open-loop transition-specific signed utility prediction for k=0→1 and k=1→5 under a fixed pipeline and matched realized budgets."
+    },
+    {
+      "ref_type": "need_candidate",
+      "ref_id": "need_candidate_132054e7-48a7-416f-809d-dd71b32ed3bc",
+      "version_id": "t147-a9-pos-feedback-stopping-current-gap-v1",
+      "title_card_id": "title_card_6f4b268d-ba00-450d-a6be-ac083a32623f",
+      "mechanism": "Bounded post-k=1 feedback from the intermediate evidence-and-answer state for signed k=1→5 stop-or-continue decisions with full cost accounting."
+    }
+  ],
+  "evidence_packets": {
+    "opportunity_scout": {
+      "artifact_ref_id": "artifact_ref_93b5a0a3-d609-4291-9941-34a2d31255ad",
+      "packet_hash": "7644ca259bb63e7a37b99818521364012177ec13ff6ee6c60cb9773d50e6b97d",
+      "evidence_unit_id": "evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950",
+      "literature_id": "LIT-0529",
+      "source_statement": "We argue that this selfaware nature of LLMs can be utilized to determine when retrieval is needed and help with knowledge integration.",
+      "resolved_excerpt": "Adaptive retrieval needs to consider when to retrieve knowledge and how to integrate retrieved knowledge. SEAKR uses uncertainty discerned from LLM internal states to determine when retrieval is needed and help integrate retrieved knowledge."
+    },
+    "prior_art_topic_killer": {
+      "artifact_ref_id": "artifact_ref_510616b9-738b-48fa-a64c-dcfcd935be19",
+      "packet_hash": "fd08a4f0cbd0af61aeefc882d4ed55f53181c05ae4ca64a1279ed9aeae4c68df",
+      "evidence_unit_id": "evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8",
+      "literature_id": "LIT-0771",
+      "source_statement": "First, uncertainty-guided triggering (UGT) leverages the LLM's own generation uncertainty to decide whether retrieval is beneficial, allowing confident queries to bypass retrieval and preventing noise from irrelevant evidence.",
+      "resolved_excerpt": "DTR is a conditional adaptive-retrieval framework. Its UGT uses generation uncertainty to decide whether retrieval is beneficial, while DPR-AIS combines original-query and pseudo-context retrieval signals and selects jointly relevant documents."
+    }
+  },
+  "agents": {
+    "opportunity_scout": {
+      "task_path": "/root/independent_scout",
+      "admission_status": "admissible",
+      "normalized_output": {
+        "schema_version": "TopicSelectionResearchArenaRoleOutput@v1",
+        "participant_role": "opportunity_scout",
+        "semantic_position": {
+          "recommended_set_outcome": "evidence_expansion_required",
+          "summary": "The supplied evidence supports adaptive retrieval based on uncertainty discerned from LLM internal states, but it does not establish a comparative opportunity for either signed adjacent-depth allocation or post-k=1 feedback stopping.",
+          "confidence": 0.96
+        },
+        "candidate_reviews": [
+          {
+            "candidate_ref": {"ref_type":"need_candidate","ref_id":"need_candidate_ccdb06f3-aebc-49a3-8371-b3400204fd9e","version_id":"t147-a9-pos-signed-depthwise-current-gap-v1","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"},
+            "recommended_disposition": "parked",
+            "rationale": "The evidence establishes that uncertainty available from LLM internal states can inform when retrieval is needed. It does not address signed utility for the 0→1 and 1→5 depth transitions, a k=0/1/5 allocation policy, matched realized budgets, or comparative value beyond confidence, binary marginal utility, and query-complexity routing.",
+            "evidence_unit_refs": [{"ref_type":"evidence_unit","ref_id":"evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],
+            "drop_reason_code": null,
+            "reopening_conditions": ["Obtain evidence that separately characterizes utility or harm across multiple retrieval depths, including adjacent depth transitions.", "Obtain comparative evidence distinguishing signed depthwise utility from uncertainty-based retrieval triggering or calibrated-confidence routing.", "Establish evidence for evaluation under matched realized retrieval-and-generation budgets."]
+          },
+          {
+            "candidate_ref": {"ref_type":"need_candidate","ref_id":"need_candidate_132054e7-48a7-416f-809d-dd71b32ed3bc","version_id":"t147-a9-pos-feedback-stopping-current-gap-v1","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"},
+            "recommended_disposition": "parked",
+            "rationale": "The evidence supports using self-awareness from internal states to decide when retrieval is needed and aid knowledge integration, but it does not describe a signal computed after an initial retrieval, a stop-versus-continue decision from k=1 to k=5, comparison against an open-loop signed-depthwise policy, or accounting for repeated-generation, harm, latency, and related costs.",
+            "evidence_unit_refs": [{"ref_type":"evidence_unit","ref_id":"evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],
+            "drop_reason_code": null,
+            "reopening_conditions": ["Obtain evidence on feedback signals derived from an intermediate evidence-and-answer state after retrieval.", "Obtain evidence comparing feedback-based stopping with an open-loop depth policy under a fixed pipeline.", "Obtain evidence that measures incremental benefit after all stated costs are counted."]
+          }
+        ],
+        "findings": [
+          {"finding_id":"independent-calibration-scout-adaptive-retrieval-precedent","kind":"supporting_precedent","severity":"informational","statement":"The excerpt directly supports the premise that uncertainty discerned from LLM internal states can be used to determine when retrieval is needed and help integrate retrieved knowledge.","evidence_unit_refs":[{"ref_type":"evidence_unit","ref_id":"evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],"literature_refs":[{"ref_type":"literature_record","ref_id":"LIT-0529","version_id":null,"title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}]},
+          {"finding_id":"independent-calibration-scout-comparative-gap","kind":"evidence_gap","severity":"material","statement":"The excerpt contains no evidence about multiple retrieval-depth choices, signed adjacent-depth utility, post-retrieval feedback stopping, matched budgets, or the candidates' specified comparative baselines and costs.","evidence_unit_refs":[{"ref_type":"evidence_unit","ref_id":"evidence_unit_d80feb2f-eed0-42bf-9e2f-508194561950","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],"literature_refs":[{"ref_type":"literature_record","ref_id":"LIT-0529","version_id":null,"title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}]}
+        ],
+        "new_candidate_proposals": [],
+        "concessions": ["The evidence makes adaptive retrieval timing a credible general research setting.", "The evidence may motivate uncertainty-based routing as a relevant comparator, but it does not demonstrate either candidate's incremental opportunity."],
+        "unresolved_minority_report": null
+      }
+    },
+    "prior_art_topic_killer": {
+      "task_path": "/root/independent_killer",
+      "initial_output_admission_status": "rejected_multiple_selected_candidates",
+      "initial_output_summary": {
+        "recommended_set_outcome": "selected",
+        "confidence": 0.88,
+        "candidate_dispositions": ["selected", "selected"],
+        "valid_research_signal": "DTR creates a material uncertainty-routing collision but does not establish fatal equivalence to either incremental mechanism.",
+        "contract_failure": "Surviving criticism was misclassified as comparative selection, producing two selected candidates."
+      },
+      "retry_received_peer_output": false,
+      "retry_contract_delta": "Selected means exactly one comparative winner; at most one selected; if the packet cannot establish one winner, park surviving candidates.",
+      "admission_status": "admissible_after_contract_retry",
+      "normalized_output": {
+        "schema_version": "TopicSelectionResearchArenaRoleOutput@v1",
+        "participant_role": "prior_art_topic_killer",
+        "semantic_position": {
+          "recommended_set_outcome": "evidence_expansion_required",
+          "summary": "The supplied baseline creates material collisions for both candidates but does not establish a unique comparative preference. Both remain viable only provisionally and require targeted evidence expansion before one can be selected.",
+          "confidence": 0.93
+        },
+        "candidate_reviews": [
+          {
+            "candidate_ref": {"ref_type":"need_candidate","ref_id":"need_candidate_ccdb06f3-aebc-49a3-8371-b3400204fd9e","version_id":"t147-a9-pos-signed-depthwise-current-gap-v1","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"},
+            "recommended_disposition": "parked",
+            "rationale": "The baseline directly occupies uncertainty-guided conditional retrieval but does not establish separate signed utility predictions, a k=0/1/5 harm-aware policy, or matched realized-budget evaluation. It neither supports fatal rejection nor comparative preference over post-k=1 feedback.",
+            "evidence_unit_refs": [{"ref_type":"evidence_unit","ref_id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],
+            "drop_reason_code": null,
+            "reopening_conditions": ["Obtain claim-bearing evidence on whether the closest conditional-retrieval baseline already predicts utility at multiple depths.", "Obtain comparative evidence showing that signed adjacent-depth allocation has a clearer prior-art delta than post-k=1 feedback under the same fixed pipeline and costs."]
+          },
+          {
+            "candidate_ref": {"ref_type":"need_candidate","ref_id":"need_candidate_132054e7-48a7-416f-809d-dd71b32ed3bc","version_id":"t147-a9-pos-feedback-stopping-current-gap-v1","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"},
+            "recommended_disposition": "parked",
+            "rationale": "The baseline describes conditional retrieval and adaptive information selection, but does not establish post-k=1 intermediate-state feedback, a signed 1→5 continuation decision, or fully counted costs. It supports neither fatal rejection nor comparative preference over open-loop signed-depthwise allocation.",
+            "evidence_unit_refs": [{"ref_type":"evidence_unit","ref_id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],
+            "drop_reason_code": null,
+            "reopening_conditions": ["Obtain claim-bearing evidence on whether the closest adaptive-retrieval baseline uses post-retrieval intermediate state for stop-versus-continue.", "Obtain comparative evidence showing that post-k=1 feedback retains an identifiable delta over open-loop signed-depthwise allocation after all costs."]
+          }
+        ],
+        "findings": [
+          {"finding_id":"independent-calibration-killer-ugt-overlap","kind":"baseline_collision","severity":"material","statement":"Uncertainty-guided triggering is a directly visible confidence-based conditional-retrieval baseline.","evidence_unit_refs":[{"ref_type":"evidence_unit","ref_id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],"literature_refs":[{"ref_type":"literature_record","ref_id":"LIT-0771","version_id":null,"title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}]},
+          {"finding_id":"independent-calibration-killer-depth-gap","kind":"unresolved_prior_art_delta","severity":"material","statement":"The excerpt does not state whether DTR predicts signed utility at adjacent retrieval depths or chooses among k=0, k=1, and k=5 under matched realized budgets.","evidence_unit_refs":[{"ref_type":"evidence_unit","ref_id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],"literature_refs":[{"ref_type":"literature_record","ref_id":"LIT-0771","version_id":null,"title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}]},
+          {"finding_id":"independent-calibration-killer-feedback-gap","kind":"unresolved_prior_art_delta","severity":"material","statement":"The excerpt does not establish a post-k=1 intermediate-state feedback signal or a cost-complete stop-versus-continue decision.","evidence_unit_refs":[{"ref_type":"evidence_unit","ref_id":"evidence_unit_9da3bf90-c49f-47f4-8f73-bf16adb83ce8","version_id":"v-de5e35b6-48d9-4513-8aff-fd7e5894e1fc","title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}],"literature_refs":[{"ref_type":"literature_record","ref_id":"LIT-0771","version_id":null,"title_card_id":"title_card_6f4b268d-ba00-450d-a6be-ac083a32623f"}]}
+        ],
+        "new_candidate_proposals": [],
+        "concessions": ["Neither candidate is fatally defeated by the supplied excerpt.", "The first candidate cannot claim retrieval bypass or uncertainty triggering as its distinguishing contribution.", "The second candidate must distinguish post-k=1 feedback timing from the visible baseline.", "The supplied packet does not justify a unique comparative recommendation."],
+        "unresolved_minority_report": null
+      }
+    }
+  },
+  "derived_synthesis": {
+    "schema_version": "TopicSelectionResearchArenaAdvisorySynthesis@v1",
+    "outcome": "evidence_expansion_required",
+    "candidate_dispositions": [
+      {"ref_id":"need_candidate_ccdb06f3-aebc-49a3-8371-b3400204fd9e","disposition":"parked","role_positions":{"opportunity_scout":"parked","prior_art_topic_killer":"parked"}},
+      {"ref_id":"need_candidate_132054e7-48a7-416f-809d-dd71b32ed3bc","disposition":"parked","role_positions":{"opportunity_scout":"parked","prior_art_topic_killer":"parked"}}
+    ],
+    "required_next_delta": "evidence",
+    "unresolved_dissent": [],
+    "matches_previous_single-main-agent_set_outcome": true
+  },
+  "product_corrections": [
+    {"kind":"admission","behavior":"Reject a role output that selects more than one canonical candidate."},
+    {"kind":"synthesis","behavior":"Allow exactly one consensus-selected active candidate to coexist with consensus-parked alternatives."},
+    {"kind":"prompt","behavior":"Scout and killer prompt versions advance to v2 and define selected as one comparative winner, not survival."}
+  ],
+  "authority_effects": {
+    "product_arena_session_changed": false,
+    "checkpoint_decision_created": false,
+    "accepted_risk_created": false,
+    "promotion_decision_created": false,
+    "bridge_created": false,
+    "paper_project_created": false,
+    "phase_9_activated": false
+  },
+  "required_next_action": "Researcher reviews the independent calibration and decides whether Phase 8D-3 shadow validation may close; do not activate Phase 9 automatically."
+}
