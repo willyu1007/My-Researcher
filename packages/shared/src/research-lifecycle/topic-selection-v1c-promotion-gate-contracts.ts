@@ -100,6 +100,7 @@ export interface TopicSelectionPromotionDecisionSupportRecord {
   recheck_notes: string[];
   source_refs: TopicSelectionFunctionalRef[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
@@ -125,6 +126,7 @@ export interface TopicSelectionPromotionDossierRecord {
   reviewer_packet_artifact_ref: TopicSelectionFunctionalRef;
   dossier_payload: Record<string, unknown>;
   source_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   artifact_refs: TopicSelectionFunctionalRef[];
   created_by: TopicSelectionActorType;
   created_at: string;
@@ -172,6 +174,7 @@ export interface TopicSelectionPromotionGateCheckRecord {
   required_actions: TopicSelectionPromotionGateRequiredAction[];
   loopback_hints: TopicSelectionPromotionGateLoopbackHint[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
@@ -203,6 +206,7 @@ export interface TopicSelectionPromotionGateHandoff {
   required_actions: TopicSelectionPromotionGateRequiredAction[];
   loopback_hints: TopicSelectionPromotionGateLoopbackHint[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
@@ -327,6 +331,7 @@ export const topicSelectionPromotionDecisionSupportRecordSchema = {
     recheck_notes: stringArray,
     source_refs: functionalRefArray,
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     blocker_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,
@@ -374,6 +379,7 @@ export const topicSelectionPromotionDossierRecordSchema = {
     reviewer_packet_artifact_ref: topicSelectionFunctionalRefSchema,
     dossier_payload: objectPayload,
     source_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     artifact_refs: functionalRefArray,
     created_by: stringId,
     created_at: stringId,
@@ -506,6 +512,7 @@ export const topicSelectionPromotionGateCheckRecordSchema = {
       items: topicSelectionPromotionGateLoopbackHintSchema,
     },
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     blocker_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,
@@ -594,6 +601,7 @@ export const topicSelectionPromotionGateHandoffSchema = {
       items: topicSelectionPromotionGateLoopbackHintSchema,
     },
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     blocker_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,

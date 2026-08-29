@@ -9,6 +9,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   TOPIC_SELECTION_ACTOR_TYPES,
+  topicSelectionRiskFindingRefs,
   type TopicSelectionActorType,
   type TopicSelectionArtifactRefRecord,
   type TopicSelectionFunctionalRef,
@@ -201,6 +202,7 @@ import {
   type TopicSelectionV1bN8ValueAssessmentAdmissionExpectedIdentity,
 } from './topic-selection-v1b-n8-value-assessment-admission-service.js';
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
+import { TopicSelectionRiskFindingService } from './topic-selection-risk-finding-service.js';
 import {
   canonicalHash,
   hashN5DecisionAuthority,
@@ -5496,7 +5498,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     );
     const assessmentRef = buildRef('topic_value_assessment', assessmentId, titleCardId);
     const memoRef = buildRef('value_reasoning_memo', memoId, titleCardId);
-    const artifactRefs = uniqueRefs([
+    const baseArtifactRefs = uniqueRefs([
       ...draftResolution.value.artifactRefs,
       payload.value.n8_debate_admission_ref,
       payload.value.candidate_grouping_ref,
@@ -5535,6 +5537,28 @@ export class TopicSelectionV1bWorkflowHarnessService {
       control_plane_input_snapshot_id: null,
       created_at: now,
     };
+    const riskFindings = await new TopicSelectionRiskFindingService(this.controlPlane).recordN8Findings({
+      workspace_id: loaded.value.contract.workspace_id ?? null,
+      title_card_id: titleCardId,
+      source_snapshot_ref: buildRef('topic_value_input_snapshot', snapshotId, titleCardId),
+      source_snapshot_hash: snapshot.snapshot_hash,
+      source_ref: contractRef,
+      evidence_refs: loaded.value.evidenceRefs.map((record) => record.evidence_ref),
+      risk_notes: draftResolution.value.draft.risk_notes,
+      reviewer_objections: draftResolution.value.draft.reviewer_objections,
+      reviewer_risks: draftResolution.value.draft.reasoning_memo.reviewer_risks,
+      top_objections: draftResolution.value.draft.reasoning_memo.top_objections,
+      critic_triggers: draftResolution.value.draft.reasoning_memo.critic_triggers,
+      requires_critic_review: draftResolution.value.draft.reasoning_memo.requires_critic_review,
+      hard_gates: draftResolution.value.draft.hard_gates,
+      dimension_scores: draftResolution.value.draft.dimension_scores,
+      risk_penalty_summary: typeof draftResolution.value.draft.risk_penalty.penalty_summary === 'string'
+        ? draftResolution.value.draft.risk_penalty.penalty_summary
+        : null,
+      created_by: 'system',
+    });
+    const riskFindingRefs = riskFindings.map((finding) => finding.ref);
+    const artifactRefs = uniqueRefs([...baseArtifactRefs, ...riskFindingRefs]);
     const memo: TopicSelectionValueReasoningMemoRecord = {
       ...draftResolution.value.draft.reasoning_memo,
       value_reasoning_memo_id: memoId,
@@ -5544,6 +5568,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_contract_id: loaded.value.contract.topic_question_contract_id,
       created_by_workflow_run_id: input.workflow_run_id,
       artifact_refs: artifactRefs,
+      risk_finding_refs: riskFindingRefs,
       created_at: now,
     };
     const assessment: TopicSelectionTopicValueAssessmentRecord = {
@@ -5582,15 +5607,25 @@ export class TopicSelectionV1bWorkflowHarnessService {
       gate_result_id: null,
       transition_attempt_id: null,
       artifact_refs: artifactRefs,
+      risk_finding_refs: riskFindingRefs,
       created_at: now,
       updated_at: now,
     };
     const assessmentHash = hashN8ValueAssessmentAuthority(assessment);
-    const warnings = this.n8Warnings(
-      draftResolution.value.draft,
-      loaded.value,
-      postDebateTriggerWarnings,
-    );
+    const warnings = uniqueIssues([
+      ...this.n8Warnings(
+        draftResolution.value.draft,
+        loaded.value,
+        postDebateTriggerWarnings,
+      ),
+      ...(riskFindingRefs.length > 0
+        ? [warning(
+            'N8_MATERIAL_RISK_FINDINGS_RECORDED',
+            'N8 recorded advancement-relevant risks as stable findings.',
+            riskFindingRefs,
+          )]
+        : []),
+    ]);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
       warnings.length > 0
         ? 'admitted_with_warnings'
@@ -5615,7 +5650,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoffKind: 'N8ToN9Handoff',
       payload: handoffPayload,
       requiredRefs: [assessmentRef, contractRef],
-      residualRiskRefs: assessment.accepted_risk_refs,
+      residualRiskRefs: uniqueRefs([...assessment.accepted_risk_refs, ...riskFindingRefs]),
       sourceAuthorityHash: assessmentHash,
       sourceAuthorityRef: assessmentRef,
       sourceGateResultHash: gateResultHash,
@@ -5800,7 +5835,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: uniqueRefs([input.frozen_input.source_refs.find((ref) => ref.ref_type === 'artifact_ref')]),
+      artifact_refs: uniqueRefs([
+        input.frozen_input.source_refs.find((ref) => ref.ref_type === 'artifact_ref'),
+        ...topicSelectionRiskFindingRefs(loaded.value.assessment.artifact_refs),
+      ]),
+      risk_finding_refs: topicSelectionRiskFindingRefs(loaded.value.assessment.artifact_refs),
       created_at: now,
     };
     const packageDraftInput = advanceBlocker ? null : this.buildN9PackageDraftInput({
@@ -5875,7 +5914,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoffKind: 'N9ToN10Handoff',
       payload: handoffPayload,
       requiredRefs: [decisionRef, assessmentRef],
-      residualRiskRefs: decision.accepted_risk_refs,
+      residualRiskRefs: uniqueRefs([
+        ...decision.accepted_risk_refs,
+        ...topicSelectionRiskFindingRefs(decision.artifact_refs),
+      ]),
       sourceAuthorityHash: decisionHash,
       sourceAuthorityRef: decisionRef,
       sourceGateResultHash: gateResultHash,
@@ -5994,7 +6036,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
         handoffKind: 'N10ToN11Handoff',
         payload: handoffPayload,
         requiredRefs: [packageRef, payload.value.value_disposition_ref],
-        residualRiskRefs: existing.accepted_risk_refs,
+        residualRiskRefs: uniqueRefs([
+          ...existing.accepted_risk_refs,
+          ...topicSelectionRiskFindingRefs(existing.artifact_refs),
+        ]),
         sourceAuthorityHash: packageHash,
         sourceAuthorityRef: packageRef,
         sourceGateResultHash: gateResultHash,
@@ -6033,7 +6078,17 @@ export class TopicSelectionV1bWorkflowHarnessService {
       });
     }
     const packageHash = hashN10PackageAuthority(built.value.topicPackage);
-    const warnings = n10Warnings(built.value.topicPackage);
+    const n10RiskFindingRefs = topicSelectionRiskFindingRefs(built.value.topicPackage.artifact_refs);
+    const warnings = uniqueIssues([
+      ...n10Warnings(built.value.topicPackage),
+      ...(n10RiskFindingRefs.length > 0
+        ? [warning(
+            'N10_MATERIAL_RISK_FINDINGS_CARRIED_FORWARD',
+            'N10 draft package carries material risk findings forward.',
+            n10RiskFindingRefs,
+          )]
+        : []),
+    ]);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
       warnings.length > 0 ? 'admitted_with_warnings' : 'admitted';
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
@@ -6062,7 +6117,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoffKind: 'N10ToN11Handoff',
       payload: handoffPayload,
       requiredRefs: [packageRef, payload.value.value_disposition_ref],
-      residualRiskRefs: built.value.topicPackage.accepted_risk_refs,
+      residualRiskRefs: uniqueRefs([
+        ...built.value.topicPackage.accepted_risk_refs,
+        ...topicSelectionRiskFindingRefs(built.value.topicPackage.artifact_refs),
+      ]),
       sourceAuthorityHash: packageHash,
       sourceAuthorityRef: packageRef,
       sourceGateResultHash: gateResultHash,
@@ -6102,7 +6160,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings,
     }, {
       writeAuthority: async (prepared) => {
-        const artifactRefs = uniqueRefs([prepared.handoffRef]);
+        const artifactRefs = uniqueRefs([
+          ...built.value.topicPackage.artifact_refs,
+          prepared.handoffRef,
+        ]);
         const topicPackage = {
           ...built.value.topicPackage,
           input_snapshot_id: prepared.inputSnapshot.input_snapshot_id,
@@ -6180,12 +6241,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const packageRef = loaded.value.packageRecord.topic_package_ref;
     const bundleHash = hashN10V1cInputBundleAuthority(loaded.value.bundle);
     const packageHash = hashN10PackageAuthority(loaded.value.packageRecord);
+    const riskFindingRefs = topicSelectionRiskFindingRefs(loaded.value.bundle.artifact_refs);
     const warnings = uniqueIssues([
       ...(loaded.value.bundle.accepted_risk_refs.length > 0
         ? [warning('N11_RESIDUAL_RISK_CARRIED_FORWARD', 'N11 v1c input bundle carries residual risk refs.', loaded.value.bundle.accepted_risk_refs)]
         : []),
       ...(loaded.value.bundle.package_snapshot.key_risks.length > 0
         ? [warning('N11_PACKAGE_RISKS_CARRIED_FORWARD', 'N11 v1c input bundle carries package key risks forward.', [loaded.value.bundle.topic_value_assessment_ref])]
+        : []),
+      ...(riskFindingRefs.length > 0
+        ? [warning('N11_MATERIAL_RISK_FINDINGS_CARRIED_FORWARD', 'N11 v1c input bundle carries material risk findings forward.', riskFindingRefs)]
         : []),
     ]);
     const gateStatus: TopicSelectionV1bWorkflowHarnessGateStatus =
@@ -6207,7 +6272,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       handoffKind: 'V1cInputBundle',
       payload: handoffPayload,
       requiredRefs: [bundleRef, packageRef],
-      residualRiskRefs: loaded.value.bundle.accepted_risk_refs,
+      residualRiskRefs: uniqueRefs([...loaded.value.bundle.accepted_risk_refs, ...riskFindingRefs]),
       sourceAuthorityHash: bundleHash,
       sourceAuthorityRef: bundleRef,
       sourceGateResultHash: gateResultHash,
@@ -6906,6 +6971,42 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N9 value assessment is missing its frozen input snapshot.',
       };
     }
+    const riskFindingRefs = topicSelectionRiskFindingRefs(assessment.artifact_refs);
+    const hasMaterialNarrative = assessment.risk_notes.length > 0
+      || assessment.reviewer_objections.length > 0
+      || memo.reviewer_risks.length > 0
+      || memo.top_objections.length > 0
+      || memo.requires_critic_review
+      || memo.critic_triggers.length > 0
+      || assessment.hard_gates.some((gate) => gate.verdict === 'pass_with_risk')
+      || assessment.dimension_scores.some((dimension) => dimension.score < 70)
+      || (typeof assessment.risk_penalty.penalty_summary === 'string'
+        && assessment.risk_penalty.penalty_summary.trim().length > 0);
+    if (hasMaterialNarrative && riskFindingRefs.length === 0) {
+      return {
+        ok: false,
+        code: 'N9_MATERIAL_RISK_FINDINGS_MISSING',
+        message: 'N9 cannot advance an assessment whose material N8 dissent has no stable risk-finding refs.',
+      };
+    }
+    try {
+      await new TopicSelectionRiskFindingService(this.controlPlane).resolveCurrentFindings({
+        refs: riskFindingRefs,
+        source_snapshot_ref: buildRef(
+          'topic_value_input_snapshot',
+          inputSnapshot.topic_value_input_snapshot_id,
+          inputSnapshot.title_card_id,
+        ),
+        source_snapshot_hash: inputSnapshot.snapshot_hash,
+      });
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      return {
+        ok: false,
+        code: 'N9_RISK_FINDING_STALE',
+        message: error.message,
+      };
+    }
     return {
       ok: true,
       value: {
@@ -7027,6 +7128,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       assumption_refs: loaded.inputSnapshot.assumption_refs,
       falsification_conditions: loaded.inputSnapshot.falsification_conditions,
       accepted_risk_refs: loaded.assessment.accepted_risk_refs,
+      risk_finding_refs: topicSelectionRiskFindingRefs(loaded.assessment.artifact_refs),
       memory_suggestion_refs: loaded.inputSnapshot.memory_suggestion_refs,
       recheck_request_refs: loaded.inputSnapshot.recheck_request_refs,
       topic_value_assessment: loaded.assessment,
@@ -7050,7 +7152,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
       warnings.push(warning('N9_ADVANCE_WITH_VALUE_GATE_RISK', 'N9 disposition advances with pass_with_risk value gates.'));
     }
     if (loaded.assessment.risk_notes.length > 0 || loaded.memo.reviewer_risks.length > 0) {
-      warnings.push(warning('N9_VALUE_RISK_NOTES_CARRIED_FORWARD', 'N9 disposition carries value risk notes forward.', decision.accepted_risk_refs));
+      warnings.push(warning(
+        'N9_VALUE_RISK_NOTES_CARRIED_FORWARD',
+        'N9 disposition carries value risk notes forward.',
+        topicSelectionRiskFindingRefs(decision.artifact_refs),
+      ));
     }
     return warnings;
   }
@@ -7190,7 +7296,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: [],
+      artifact_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
+      risk_finding_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
       created_by: input.created_by ?? 'system',
       created_at: now,
       updated_at: now,
@@ -7234,7 +7341,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: [],
+      artifact_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
+      risk_finding_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
       created_at: now,
     };
     const readiness: TopicSelectionTopicPackageReadinessAssessmentRecord = {
@@ -7256,7 +7364,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: [],
+      artifact_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
+      risk_finding_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
       assessed_by: input.created_by ?? 'system',
       created_at: now,
     };
@@ -7300,7 +7409,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       workflow_run_id: input.workflow_run_id,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: [],
+      artifact_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
+      risk_finding_refs: topicSelectionRiskFindingRefs(packageInput.risk_finding_refs ?? []),
       created_at: now,
     };
     return {

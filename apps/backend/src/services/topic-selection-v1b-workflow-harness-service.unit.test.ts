@@ -43,9 +43,10 @@ import {
   TOPIC_SELECTION_VALUE_DIMENSIONS,
   TOPIC_SELECTION_VALUE_GATE_KEYS,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
-import type {
-  TopicSelectionActorRef,
-  TopicSelectionFunctionalRef,
+import {
+  TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  type TopicSelectionActorRef,
+  type TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionEvidenceMapRecord,
@@ -7107,6 +7108,15 @@ test('v1b workflow harness N9 creates advance disposition and N10 creates draft 
   assert.equal(decision?.decision, 'advance_to_package');
   assert.ok(decision?.package_draft_input);
   assert.equal(n9.handoff_ref?.ref_type, 'artifact_ref');
+  const assessment = await ctx.valueAssessmentRepository.findAssessmentById(n8.authority_ref!.ref_id);
+  const findingRefs = assessment?.artifact_refs.filter(
+    (candidate) => candidate.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  ) ?? [];
+  assert.ok(findingRefs.length >= 4);
+  assert.deepEqual(
+    decision?.artifact_refs.filter((candidate) => candidate.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION),
+    findingRefs,
+  );
 
   const n10Input = await n10Request(ctx, n9);
   const n10 = await ctx.service.invokeNode(n10Input);
@@ -7118,6 +7128,14 @@ test('v1b workflow harness N9 creates advance disposition and N10 creates draft 
   assert.equal(pkg ? hashPackageForHarness(pkg) : null, n10.hashes.authority_hash);
   const bundle = pkg ? await ctx.topicPackageRepository.findV1cInputBundleByPackageId(pkg.topic_package_id) : null;
   assert.equal(bundle?.bundle_status, 'ready_for_promotion_review');
+  assert.deepEqual(
+    pkg?.artifact_refs.filter((candidate) => candidate.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION),
+    findingRefs,
+  );
+  assert.deepEqual(
+    bundle?.artifact_refs.filter((candidate) => candidate.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION),
+    findingRefs,
+  );
   assert.equal(decision ? (await ctx.valueAssessmentRepository.findDispositionDecisionById(decision.value_disposition_decision_id))?.output_topic_package_id : null, pkg?.topic_package_id);
   const handoffArtifact = await ctx.controlPlane.getArtifactRef(n10.handoff_ref!.ref_id);
   const handoff = handoffArtifact?.payload as TopicSelectionV1bWorkflowHarnessHandoff | null;
@@ -7132,6 +7150,42 @@ test('v1b workflow harness N9 creates advance disposition and N10 creates draft 
   assert.equal(duplicate.authority_ref?.ref_id, n10.authority_ref?.ref_id);
   assert.equal(duplicate.warnings.some((warning) => warning.code === 'N10_PACKAGE_EXISTING_RETURNED'), true);
   assert.equal((await ctx.topicPackageRepository.listPackagesByTitleCardId(TITLE_CARD_ID)).length, 1);
+});
+
+test('v1b workflow harness N9 rejects a risk finding from a stale N8 source snapshot', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n8 } = await runReadyN8(ctx);
+  const assessment = await ctx.valueAssessmentRepository.findAssessmentById(n8.authority_ref!.ref_id);
+  const findingRef = assessment?.artifact_refs.find(
+    (candidate) => candidate.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
+  assert.ok(findingRef);
+  const artifact = await ctx.controlPlane.getArtifactRef(findingRef.ref_id);
+  assert.ok(artifact?.payload);
+  artifact.payload.source_snapshot_hash = 'f'.repeat(64);
+
+  const result = await ctx.service.invokeNode(await n9Request(ctx, n8));
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N9_RISK_FINDING_STALE');
+  assert.equal(result.authority_ref, null);
+});
+
+test('v1b workflow harness N9 rejects material N8 narrative when stable findings are missing', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n8 } = await runReadyN8(ctx);
+  const assessment = await ctx.valueAssessmentRepository.findAssessmentById(n8.authority_ref!.ref_id);
+  assert.ok(assessment);
+  assessment.artifact_refs = assessment.artifact_refs.filter(
+    (candidate) => candidate.version_id !== TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
+  assessment.risk_finding_refs = [];
+
+  const result = await ctx.service.invokeNode(await n9Request(ctx, n8));
+
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N9_MATERIAL_RISK_FINDINGS_MISSING');
+  assert.equal(result.authority_ref, null);
 });
 
 test('v1b workflow harness N9 terminal non-advance prevents package creation handoff', async () => {

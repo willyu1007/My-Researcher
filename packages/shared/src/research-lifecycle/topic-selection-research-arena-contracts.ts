@@ -400,6 +400,7 @@ export interface TopicSelectionResearchArenaShadowRunResponse {
   role_executions: TopicSelectionResearchArenaRoleExecutionRecord[];
   synthesis_artifact_ref: TopicSelectionFunctionalRef;
   synthesis_artifact_hash: string;
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   advisory_synthesis: TopicSelectionResearchArenaAdvisorySynthesis;
   execution_accounting: TopicSelectionResearchArenaExecutionAccounting;
   support_only: true;
@@ -1089,6 +1090,7 @@ export const topicSelectionResearchArenaShadowRunResponseSchema = {
     },
     synthesis_artifact_ref: topicSelectionFunctionalRefSchema,
     synthesis_artifact_hash: hashString,
+    risk_finding_refs: { type: 'array', items: topicSelectionFunctionalRefSchema },
     advisory_synthesis: topicSelectionResearchArenaAdvisorySynthesisSchema,
     execution_accounting: topicSelectionResearchArenaExecutionAccountingSchema,
     support_only: { const: true },

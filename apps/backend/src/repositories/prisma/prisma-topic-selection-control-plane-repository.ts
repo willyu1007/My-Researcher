@@ -156,6 +156,7 @@ function toInputSnapshotRecord(row: {
 
 function toArtifactRefRecord(row: {
   id: string;
+  stableKey: string | null;
   workspaceId: string | null;
   titleCardId: string | null;
   artifactKind: string;
@@ -172,6 +173,7 @@ function toArtifactRefRecord(row: {
 }): TopicSelectionArtifactRefRecord {
   return {
     artifact_ref_id: row.id,
+    stable_key: row.stableKey,
     workspace_id: row.workspaceId,
     title_card_id: row.titleCardId,
     artifact_kind: row.artifactKind as TopicSelectionArtifactRefRecord['artifact_kind'],
@@ -628,30 +630,46 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
   }
 
   async createArtifactRef(record: TopicSelectionArtifactRefRecord): Promise<TopicSelectionArtifactRefRecord> {
-    const row = await this.prisma.topicSelectionArtifactRef.create({
-      data: {
-        id: record.artifact_ref_id,
-        workspaceId: record.workspace_id ?? null,
-        titleCardId: record.title_card_id ?? null,
-        artifactKind: record.artifact_kind,
-        storageKind: record.storage_kind,
-        uri: record.uri ?? null,
-        payload: record.payload === null || record.payload === undefined ? undefined : toJsonValue(record.payload),
-        checksum: record.checksum ?? null,
-        byteSize: record.byte_size ?? null,
-        mimeType: record.mime_type ?? null,
-        workflowRunId: record.workflow_run_id ?? null,
-        inputSnapshotId: record.input_snapshot_id ?? null,
-        createdBy: record.created_by,
-        createdAt: new Date(record.created_at),
-      },
-    });
-    return toArtifactRefRecord(row);
+    try {
+      const row = await this.prisma.topicSelectionArtifactRef.create({
+        data: {
+          id: record.artifact_ref_id,
+          stableKey: record.stable_key ?? null,
+          workspaceId: record.workspace_id ?? null,
+          titleCardId: record.title_card_id ?? null,
+          artifactKind: record.artifact_kind,
+          storageKind: record.storage_kind,
+          uri: record.uri ?? null,
+          payload: record.payload === null || record.payload === undefined ? undefined : toJsonValue(record.payload),
+          checksum: record.checksum ?? null,
+          byteSize: record.byte_size ?? null,
+          mimeType: record.mime_type ?? null,
+          workflowRunId: record.workflow_run_id ?? null,
+          inputSnapshotId: record.input_snapshot_id ?? null,
+          createdBy: record.created_by,
+          createdAt: new Date(record.created_at),
+        },
+      });
+      return toArtifactRefRecord(row);
+    } catch (error) {
+      if (record.stable_key && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const replay = await this.findArtifactRefByStableKey(record.stable_key);
+        if (replay) return replay;
+      }
+      throw error;
+    }
   }
 
   async findArtifactRefById(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null> {
     const row = await this.prisma.topicSelectionArtifactRef.findUnique({
       where: { id: artifactRefId },
+    });
+    return row ? toArtifactRefRecord(row) : null;
+  }
+
+  async findArtifactRefByStableKey(stableKey: string): Promise<TopicSelectionArtifactRefRecord | null> {
+    const row = await this.prisma.topicSelectionArtifactRef.findUnique({
+      where: { stableKey },
     });
     return row ? toArtifactRefRecord(row) : null;
   }
@@ -733,6 +751,7 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
         artifactRows.push(await tx.topicSelectionArtifactRef.create({
           data: {
             id: artifactRef.artifact_ref_id,
+            stableKey: artifactRef.stable_key ?? null,
             workspaceId: artifactRef.workspace_id ?? null,
             titleCardId: artifactRef.title_card_id ?? null,
             artifactKind: artifactRef.artifact_kind,

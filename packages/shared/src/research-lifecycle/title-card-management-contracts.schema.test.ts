@@ -92,6 +92,7 @@ test('topic-selection control-plane schemas load through direct and aggregate ex
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionTransitionPolicyVersionRecordSchema);
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionInputSnapshotRecordSchema);
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionArtifactRefRecordSchema);
+  assert.ok(topicSelectionControlPlaneContracts.topicSelectionRiskFindingPayloadSchema);
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionLlmWorkflowRunRecordSchema);
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionQualitySignalRecordSchema);
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionReadinessGateResultRecordSchema);
@@ -101,6 +102,7 @@ test('topic-selection control-plane schemas load through direct and aggregate ex
   assert.ok(topicSelectionControlPlaneContracts.topicSelectionHumanConfirmedDecisionRecordSchema);
   assert.ok(researchLifecycleContracts.topicSelectionInputSnapshotRecordSchema);
   assert.ok(researchLifecycleContracts.topicSelectionHumanConfirmedDecisionRecordSchema);
+  assert.ok(researchLifecycleContracts.topicSelectionRiskFindingPayloadSchema);
 });
 
 test('topic-selection search/resource schemas load through direct and aggregate exports', () => {

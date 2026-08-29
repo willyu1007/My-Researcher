@@ -15,6 +15,8 @@ import type {
   TopicSelectionTraceSnapshotRecord,
   TopicSelectionTransitionResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { topicSelectionRiskFindingRefs } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionAcceptedRiskRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 import type {
   TopicSelectionAllowedPromotionRefinement,
   TopicSelectionHumanPromotionDecisionKind,
@@ -125,6 +127,9 @@ export type TopicSelectionV1cHumanPromotionDecisionServiceOptions = {
     TopicSelectionResearchCheckpointService,
     'adaptExistingStageDecision' | 'getPacket' | 'materializePromotionCheckpoint'
   >;
+  acceptedRiskProvider?: {
+    findAcceptedRiskById(acceptedRiskId: string): Promise<TopicSelectionAcceptedRiskRecord | null>;
+  };
   idFactory?: IdFactory;
   now?: () => string;
 };
@@ -146,6 +151,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
   private readonly repository: TopicSelectionV1cHumanPromotionDecisionRepository;
   private readonly promotionGateService: TopicSelectionPromotionGateHandoffProvider;
   private readonly checkpointControl: TopicSelectionV1cHumanPromotionDecisionServiceOptions['checkpointControl'];
+  private readonly acceptedRiskProvider: TopicSelectionV1cHumanPromotionDecisionServiceOptions['acceptedRiskProvider'];
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
 
@@ -153,6 +159,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
     this.repository = options.repository;
     this.promotionGateService = options.promotionGateService;
     this.checkpointControl = options.checkpointControl;
+    this.acceptedRiskProvider = options.acceptedRiskProvider;
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
   }
@@ -380,7 +387,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
     gateHandoff: TopicSelectionPromotionGateHandoff,
     normalized: NormalizedDecisionInput,
   ) {
-    const checkpointInput = this.toPromotionCheckpointInput(gateHandoff, normalized);
+    const checkpointInput = await this.toPromotionCheckpointInput(gateHandoff, normalized);
     const checkpoint = await this.checkpointControl.materializePromotionCheckpoint(checkpointInput);
     if (!normalized.bridgeEligible) return checkpoint;
     const packet = await this.checkpointControl.getPacket(checkpoint.research_checkpoint_id);
@@ -415,10 +422,10 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
     });
   }
 
-  private toPromotionCheckpointInput(
+  private async toPromotionCheckpointInput(
     gateHandoff: TopicSelectionPromotionGateHandoff,
     normalized: NormalizedDecisionInput,
-  ): MaterializePromotionCheckpointInput {
+  ): Promise<MaterializePromotionCheckpointInput> {
     const canonicalPromotionInputSnapshotRef = {
       ...gateHandoff.promotion_input_snapshot_ref,
       version_id: gateHandoff.promotion_input_snapshot_hash,
@@ -443,19 +450,37 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
       );
     }
     const acceptedRiskKeys = new Set(gateHandoff.accepted_risk_refs.map((ref) => this.refKey(ref)));
+    const riskFindingRefs = topicSelectionRiskFindingRefs([
+      ...(gateHandoff.risk_finding_refs ?? []),
+      ...sourceRefs,
+    ]);
+    const acceptedRiskRefsByFinding = await this.acceptedRiskRefsByFinding(
+      gateHandoff.accepted_risk_refs,
+      riskFindingRefs,
+    );
     const warnings = this.uniqueGateIssues([
       ...gateHandoff.support.warnings,
       ...gateHandoff.argument_readiness_mini_check.warnings,
       ...gateHandoff.gate_check.warnings,
     ]);
-    const passWithRiskFindings = warnings.map((warning) => ({
-      finding_id: warning.code,
-      summary: warning.message,
-      refs: this.uniqueRefs(warning.refs ?? []),
-      mapped_accepted_risk_refs: this.uniqueRefs(
-        (warning.refs ?? []).filter((ref) => acceptedRiskKeys.has(this.refKey(ref))),
-      ),
-    }));
+    const passWithRiskFindings = [
+      ...riskFindingRefs.map((findingRef) => ({
+        finding_id: findingRef.ref_id,
+        summary: `Material risk finding ${findingRef.ref_id} requires explicit disposition.`,
+        refs: [findingRef],
+        mapped_accepted_risk_refs: acceptedRiskRefsByFinding.get(this.refKey(findingRef)) ?? [],
+      })),
+      ...warnings
+        .filter((warning) => warning.code !== 'material_risk_findings_carried_forward')
+        .map((warning) => ({
+          finding_id: warning.code,
+          summary: warning.message,
+          refs: this.uniqueRefs(warning.refs ?? []),
+          mapped_accepted_risk_refs: this.uniqueRefs(
+            (warning.refs ?? []).filter((ref) => acceptedRiskKeys.has(this.refKey(ref))),
+          ),
+        })),
+    ];
     const dossierPayload = this.asRecord(gateHandoff.dossier.dossier_payload);
     const semanticLayer = this.asRecord(dossierPayload.n3_semantic_layer);
     const criticFindings = this.asArray(semanticLayer.critic_finding_resolution_map).map((item, index) => {
@@ -500,6 +525,33 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
         refs: this.uniqueRefs([...condition.refs, ...condition.required_action.refs]),
       })),
     };
+  }
+
+  private async acceptedRiskRefsByFinding(
+    acceptedRiskRefs: TopicSelectionFunctionalRef[],
+    findingRefs: TopicSelectionFunctionalRef[],
+  ): Promise<Map<string, TopicSelectionFunctionalRef[]>> {
+    const result = new Map<string, TopicSelectionFunctionalRef[]>();
+    const provider = this.acceptedRiskProvider;
+    if (!provider || acceptedRiskRefs.length === 0 || findingRefs.length === 0) {
+      return result;
+    }
+    const findingKeys = new Set(findingRefs.map((ref) => this.refKey(ref)));
+    const records = await Promise.all(acceptedRiskRefs.map(async (ref) => ({
+      ref,
+      record: ref.ref_type === 'accepted_risk'
+        ? await provider.findAcceptedRiskById(ref.ref_id)
+        : null,
+    })));
+    for (const { ref, record } of records) {
+      if (!record || record.status !== 'active' || record.accepted_risk_id !== ref.ref_id || !record.source_ref) {
+        continue;
+      }
+      const findingKey = this.refKey(record.source_ref);
+      if (!findingKeys.has(findingKey)) continue;
+      result.set(findingKey, this.uniqueRefs([...(result.get(findingKey) ?? []), ref]));
+    }
+    return result;
   }
 
   async getHumanPromotionDecision(

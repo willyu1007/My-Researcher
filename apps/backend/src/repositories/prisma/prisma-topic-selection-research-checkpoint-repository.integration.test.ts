@@ -6,6 +6,7 @@ import { PrismaTopicSelectionControlPlaneRepository } from './prisma-topic-selec
 import { PrismaTopicSelectionResearchCheckpointRepository } from './prisma-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionControlPlaneService } from '../../services/topic-selection-control-plane-service.js';
 import { TopicSelectionResearchCheckpointService } from '../../services/topic-selection-research-checkpoint-service.js';
+import { TopicSelectionRiskFindingService } from '../../services/topic-selection-risk-finding-service.js';
 
 const RUN_PRISMA = Boolean(process.env.DATABASE_URL);
 const HASH = 'a'.repeat(64);
@@ -23,8 +24,41 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     new PrismaTopicSelectionControlPlaneRepository(prisma),
   );
   const service = new TopicSelectionResearchCheckpointService(checkpointRepository, controlPlane);
+  const riskFindingService = new TopicSelectionRiskFindingService(controlPlane);
 
   try {
+    const materialRiskInput = {
+      title_card_id: titleCardId,
+      source_snapshot_ref: {
+        ref_type: 'topic_value_input_snapshot',
+        ref_id: `value_input_${suffix}`,
+        title_card_id: titleCardId,
+      },
+      source_snapshot_hash: HASH,
+      source_ref: {
+        ref_type: 'topic_question_contract',
+        ref_id: `question_contract_risk_${suffix}`,
+        title_card_id: titleCardId,
+      },
+      evidence_refs: [],
+      risk_notes: ['The frozen local benchmark limits external validity.'],
+      reviewer_objections: [],
+      reviewer_risks: [],
+      top_objections: [],
+      critic_triggers: [],
+      requires_critic_review: false,
+      hard_gates: [],
+      dimension_scores: [],
+      risk_penalty_summary: null,
+    };
+    const concurrentFindings = await Promise.all(
+      Array.from({ length: 8 }, () => riskFindingService.recordN8Findings(materialRiskInput)),
+    );
+    assert.equal(new Set(concurrentFindings.flat().map((entry) => entry.ref.ref_id)).size, 1);
+    assert.equal(await prisma.topicSelectionArtifactRef.count({
+      where: { titleCardId, stableKey: { startsWith: 'topic-selection-risk-finding:' } },
+    }), 1);
+
     const materialize = () => service.materializeCheckpoint({
       title_card_id: titleCardId,
       checkpoint_kind: 'evidence_landscape',
@@ -291,6 +325,7 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     await prisma.topicSelectionResearchCheckpoint.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionHumanConfirmedDecision.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionInputSnapshot.deleteMany({ where: { titleCardId } });
+    await prisma.topicSelectionArtifactRef.deleteMany({ where: { titleCardId } });
     await prisma.$disconnect();
   }
 });

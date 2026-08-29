@@ -29,6 +29,7 @@ import {
   TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID,
 } from './topic-selection-model-profile-registry-service.js';
 import type { TopicSelectionResearchArenaService } from './topic-selection-research-arena-service.js';
+import type { TopicSelectionRiskFindingService } from './topic-selection-risk-finding-service.js';
 import { defaultLlmConfig, type LlmConfigReader } from './llm-config-loader.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 
@@ -55,6 +56,7 @@ type AgentInvoker = {
 type SnapshotReader = Pick<TopicSelectionControlPlaneService, 'getInputSnapshot'>;
 type ArtifactStore = Pick<TopicSelectionControlPlaneService, 'getArtifactRef' | 'recordArtifactRef'>;
 type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecution' | 'synthesizeSession'>;
+type RiskFindingRecorder = Pick<TopicSelectionRiskFindingService, 'recordArenaFindings'>;
 
 export class TopicSelectionResearchArenaShadowRunnerService {
   private readonly llmConfig: Pick<LlmConfigReader, 'getPrompt'>;
@@ -66,6 +68,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     artifactStore: ArtifactStore;
     agentInvoker: AgentInvoker;
     arenaService: ArenaRuntime;
+    riskFindingRecorder: RiskFindingRecorder;
     llmConfig?: Pick<LlmConfigReader, 'getPrompt'>;
     now?: () => number;
   }) {
@@ -162,6 +165,51 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       }));
     }
 
+    const riskFindings = await this.dependencies.riskFindingRecorder.recordArenaFindings({
+      workspace_id: session.workspace_id,
+      title_card_id: session.title_card_id,
+      source_snapshot_ref: {
+        ref_type: 'input_snapshot',
+        ref_id: session.input_snapshot_id,
+        version_id: session.input_snapshot_hash,
+        title_card_id: session.title_card_id,
+      },
+      source_snapshot_hash: session.input_snapshot_hash,
+      source_ref: {
+        ref_type: 'research_arena_session',
+        ref_id: session.arena_session_id,
+        version_id: session.input_snapshot_hash,
+        title_card_id: session.title_card_id,
+      },
+      findings: REQUIRED_ROLES.flatMap((role) => {
+        const output = outputs.get(role)!;
+        const materialFindings = output.findings
+          .filter((finding) => finding.severity === 'material' || finding.severity === 'critical')
+          .map((finding) => ({
+            source_finding_id: finding.finding_id,
+            participant_role: role,
+            severity: finding.severity as 'material' | 'critical',
+            statement: finding.statement,
+            evidence_refs: [...finding.evidence_unit_refs, ...finding.literature_refs],
+          }));
+        const minorityReport = output.unresolved_minority_report
+          ? [{
+              source_finding_id: 'unresolved_minority_report',
+              participant_role: role,
+              severity: 'material' as const,
+              statement: output.unresolved_minority_report.statement,
+              evidence_refs: [
+                ...output.unresolved_minority_report.evidence_unit_refs,
+                ...output.unresolved_minority_report.literature_refs,
+              ],
+            }]
+          : [];
+        return [...materialFindings, ...minorityReport];
+      }),
+      created_by: 'system',
+    });
+    const riskFindingRefs = riskFindings.map((finding) => finding.ref);
+
     const advisorySynthesis = this.synthesize(input.candidate_refs, outputs);
     const executionAccounting: TopicSelectionResearchArenaExecutionAccounting = {
       non_provider_role_invocation_count: invocationResults.length,
@@ -191,6 +239,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         prior_role_hashes: execution.prior_role_hashes,
       })),
       advisory_synthesis: advisorySynthesis,
+      risk_finding_refs: riskFindingRefs,
       execution_accounting: executionAccounting,
       support_only: true,
     };
@@ -222,6 +271,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       role_executions: roleExecutions,
       synthesis_artifact_ref: synthesisArtifactRef,
       synthesis_artifact_hash: synthesisArtifactHash,
+      risk_finding_refs: riskFindingRefs,
       advisory_synthesis: advisorySynthesis,
       execution_accounting: executionAccounting,
       support_only: true,

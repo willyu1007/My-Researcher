@@ -13,6 +13,8 @@ import type {
   TopicSelectionReadinessGateResultRecord,
   TopicSelectionTraceSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionAcceptedRiskRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 import type {
   TopicSelectionPromotionCondition,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-human-promotion-decision-contracts';
@@ -309,6 +311,7 @@ function makeSubject(
     TopicSelectionResearchCheckpointService,
     'adaptExistingStageDecision' | 'getPacket' | 'materializePromotionCheckpoint'
   > = createAdvancingTopicSelectionCheckpointControlFixture(),
+  acceptedRisks: TopicSelectionAcceptedRiskRecord[] = [],
 ) {
   const repository = new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository();
   const promotionGateService = new StubPromotionGateService(handoff);
@@ -316,6 +319,10 @@ function makeSubject(
     repository,
     promotionGateService,
     checkpointControl,
+    acceptedRiskProvider: {
+      findAcceptedRiskById: async (acceptedRiskId) =>
+        acceptedRisks.find((risk) => risk.accepted_risk_id === acceptedRiskId) ?? null,
+    },
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
@@ -429,18 +436,23 @@ test('ready gate and human promote decision create commitment profile and T-064 
   assert.equal(stored?.human_promotion_decision.human_confirmed_decision_id, 'human_confirmed_decision_001');
 });
 
-test('human promotion authority cannot advance an unmapped pass-with-risk finding and adapts the exact promotion checkpoint', async () => {
+test('human promotion authority cannot advance an unmapped stable material-risk finding and adapts the exact promotion checkpoint', async () => {
   const checkpointControl = await createAdvancingCheckpointControl();
   const hash = 'd'.repeat(64);
-  const findingRef = ref('topic_value_assessment', 'topic_value_assessment_001');
+  const findingRef = ref(
+    'artifact_ref',
+    'risk_finding_001',
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
   const warning = {
-    code: 'originality_pass_with_risk',
+    code: 'material_risk_findings_carried_forward',
     message: 'Originality remains exposed to a direct-neighbor result.',
     severity: 'warning' as const,
     refs: [findingRef],
   };
   const handoff = makeGateHandoff({
     promotion_input_snapshot_hash: hash,
+    risk_finding_refs: [findingRef],
     snapshot_hashes: {
       bundle_hash: 'bundle_hash_001',
       package_snapshot_hash: 'package_snapshot_hash_001',
@@ -449,10 +461,20 @@ test('human promotion authority cannot advance an unmapped pass-with-risk findin
     },
     support: {
       promotion_input_snapshot_hash: hash,
+      risk_finding_refs: [findingRef],
+      source_refs: [
+        ...makeGateHandoff().support.source_refs,
+        findingRef,
+      ],
       warnings: [warning],
     } as never,
     gate_check: {
       promotion_input_snapshot_hash: hash,
+      risk_finding_refs: [findingRef],
+      source_refs: [
+        ...makeGateHandoff().gate_check.source_refs,
+        findingRef,
+      ],
       warnings: [warning],
       snapshot_hashes: {
         bundle_hash: 'bundle_hash_001',
@@ -476,7 +498,7 @@ test('human promotion authority cannot advance an unmapped pass-with-risk findin
   );
   assert.equal(await repository.findCurrentBundleByPromotionInputSnapshotId(handoff.promotion_input_snapshot_id), null);
 
-  const action = requiredAction('originality_pass_with_risk', 'question');
+  const action = requiredAction(findingRef.ref_id, 'question');
   action.refs = [findingRef];
   const condition: TopicSelectionPromotionCondition = {
     ...makeCondition(),
@@ -498,6 +520,79 @@ test('human promotion authority cannot advance an unmapped pass-with-risk findin
   assert.equal(result.promotion_decision.bridge_eligible, true);
   assert.equal(status.required_checkpoint_kind, null);
   assert.equal(status.next_authorized_transition, 'topic-selection.research.create-paper-project-bridge');
+});
+
+test('human promotion authority maps a stable material-risk finding through a named active AcceptedRisk source ref', async () => {
+  const checkpointControl = await createAdvancingCheckpointControl();
+  const hash = 'f'.repeat(64);
+  const findingRef = ref(
+    'artifact_ref',
+    'risk_finding_accepted_001',
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
+  const acceptedRiskRef = ref('accepted_risk', 'accepted_risk_001');
+  const handoff = makeGateHandoff({
+    promotion_input_snapshot_hash: hash,
+    accepted_risk_refs: [acceptedRiskRef],
+    risk_finding_refs: [findingRef],
+    snapshot_hashes: {
+      bundle_hash: 'bundle_hash_001',
+      package_snapshot_hash: 'package_snapshot_hash_001',
+      package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+      promotion_input_snapshot_hash: hash,
+    },
+    support: {
+      ...makeGateHandoff().support,
+      promotion_input_snapshot_hash: hash,
+      accepted_risk_refs: [acceptedRiskRef],
+      risk_finding_refs: [findingRef],
+      source_refs: [...makeGateHandoff().support.source_refs, findingRef, acceptedRiskRef],
+    },
+    gate_check: {
+      ...makeGateHandoff().gate_check,
+      promotion_input_snapshot_hash: hash,
+      accepted_risk_refs: [acceptedRiskRef],
+      risk_finding_refs: [findingRef],
+      source_refs: [...makeGateHandoff().gate_check.source_refs, findingRef, acceptedRiskRef],
+      snapshot_hashes: {
+        bundle_hash: 'bundle_hash_001',
+        package_snapshot_hash: 'package_snapshot_hash_001',
+        package_draft_input_snapshot_hash: 'package_draft_input_snapshot_hash_001',
+        promotion_input_snapshot_hash: hash,
+      },
+    },
+  });
+  const acceptedRisk: TopicSelectionAcceptedRiskRecord = {
+    accepted_risk_id: acceptedRiskRef.ref_id,
+    workspace_id: 'workspace_001',
+    title_card_id: 'title_card_001',
+    risk_type: 'originality_neighbor',
+    source_type: 'manual',
+    source_ref: findingRef,
+    target_ref: ref('topic_question_contract', 'topic_question_contract_001', 'v1'),
+    scope_refs: [findingRef],
+    affected_object_refs: [ref('topic_question_contract', 'topic_question_contract_001', 'v1')],
+    severity: 'warning',
+    status: 'active',
+    rationale: 'Human accepts this bounded originality risk until the named recheck.',
+    accepted_by: { actor_type: 'human', actor_id: 'reviewer_001' },
+    recheck_condition: 'Recheck before outline lock.',
+    created_at: NOW,
+    updated_at: NOW,
+  };
+  const { service } = makeSubject(handoff, checkpointControl, [acceptedRisk]);
+
+  const result = await service.recordHumanPromotionDecision({
+    promotion_gate_check_id: handoff.promotion_gate_check_id,
+    decision: 'promote_to_paper_project',
+    human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    rationale: 'Promote with the named human-accepted risk.',
+    confirmed_snapshot_hash: hash,
+  });
+
+  assert.equal(result.promotion_decision.bridge_eligible, true);
+  const status = await checkpointControl.getResearchStatus('title_card_001');
+  assert.equal(status.required_checkpoint_kind, null);
 });
 
 test('non-promote human authority decides the promotion checkpoint without making the chain bridge-eligible', async () => {

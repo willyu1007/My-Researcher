@@ -50,6 +50,7 @@ type CompileInputSnapshotInput = {
 };
 
 type ArtifactInput = {
+  stable_key?: string | null;
   workspace_id?: string | null;
   title_card_id?: string | null;
   artifact_kind: TopicSelectionArtifactKind;
@@ -229,7 +230,17 @@ export class TopicSelectionControlPlaneService {
   }
 
   async recordArtifactRef(input: ArtifactInput): Promise<TopicSelectionArtifactRefRecord> {
-    return this.repository.createArtifactRef(this.buildArtifactRefRecord(input));
+    const requested = this.buildArtifactRefRecord(input);
+    const persisted = await this.repository.createArtifactRef(requested);
+    if (requested.stable_key && (
+      persisted.stable_key !== requested.stable_key
+      || persisted.checksum !== requested.checksum
+      || persisted.title_card_id !== requested.title_card_id
+      || persisted.input_snapshot_id !== requested.input_snapshot_id
+    )) {
+      throw new Error(`ArtifactRef stable key ${requested.stable_key} already identifies different content.`);
+    }
+    return persisted;
   }
 
   async getArtifactRef(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null> {
@@ -314,6 +325,7 @@ export class TopicSelectionControlPlaneService {
     const payloadText = input.payload === null || input.payload === undefined ? null : stableStringify(input.payload);
     return {
       artifact_ref_id: this.idFactory('artifact_ref'),
+      stable_key: input.stable_key ?? null,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? null,
       artifact_kind: input.artifact_kind,

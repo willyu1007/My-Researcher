@@ -82,12 +82,21 @@ export class InMemoryTopicSelectionControlPlaneRepository implements TopicSelect
   }
 
   async createArtifactRef(record: TopicSelectionArtifactRefRecord): Promise<TopicSelectionArtifactRefRecord> {
+    if (record.stable_key) {
+      const replay = [...this.artifactRefs.values()]
+        .find((candidate) => candidate.stable_key === record.stable_key);
+      if (replay) return replay;
+    }
     this.artifactRefs.set(record.artifact_ref_id, record);
     return record;
   }
 
   async findArtifactRefById(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null> {
     return this.artifactRefs.get(artifactRefId) ?? null;
+  }
+
+  async findArtifactRefByStableKey(stableKey: string): Promise<TopicSelectionArtifactRefRecord | null> {
+    return [...this.artifactRefs.values()].find((record) => record.stable_key === stableKey) ?? null;
   }
 
   async listArtifactRefsByWorkflowRunId(workflowRunId: string): Promise<TopicSelectionArtifactRefRecord[]> {

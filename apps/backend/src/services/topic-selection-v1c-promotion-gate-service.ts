@@ -1,16 +1,17 @@
 import crypto from 'node:crypto';
 
-import type {
-  TopicSelectionActorType,
-  TopicSelectionChainTransitionAttemptRecord,
-  TopicSelectionFunctionalRef,
-  TopicSelectionGateIssue,
-  TopicSelectionGateVerdict,
-  TopicSelectionInputSnapshotRecord,
-  TopicSelectionLlmWorkflowRunRecord,
-  TopicSelectionReadinessGateResultRecord,
-  TopicSelectionTraceSnapshotRecord,
-  TopicSelectionTransitionResult,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionActorType,
+  type TopicSelectionChainTransitionAttemptRecord,
+  type TopicSelectionFunctionalRef,
+  type TopicSelectionGateIssue,
+  type TopicSelectionGateVerdict,
+  type TopicSelectionInputSnapshotRecord,
+  type TopicSelectionLlmWorkflowRunRecord,
+  type TopicSelectionReadinessGateResultRecord,
+  type TopicSelectionTraceSnapshotRecord,
+  type TopicSelectionTransitionResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import { TOPIC_SELECTION_V1C_NODE_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-node-ids';
 import type {
@@ -286,6 +287,7 @@ export class TopicSelectionV1cPromotionGateService {
 	          fallbackWarning: null,
 	        });
     const sourceRefs = this.compileSourceRefs(handoff);
+    const riskFindingRefs = this.riskFindingRefs(handoff);
     const supportArtifactRef = this.ref('artifact_ref', supportArtifactId, handoff.snapshot.title_card_id, null);
     const dossierArtifactRef = this.ref('artifact_ref', dossierArtifactId, handoff.snapshot.title_card_id, null);
     const supportWarnings = this.compileSupportWarnings(handoff, llmDraft.fallbackWarning);
@@ -307,6 +309,7 @@ export class TopicSelectionV1cPromotionGateService {
       recheck_notes: llmDraft.draft?.recheck_notes ?? this.deterministicRecheckNotes(handoff),
       source_refs: sourceRefs,
       accepted_risk_refs: handoff.accepted_risk_refs,
+      risk_finding_refs: riskFindingRefs,
       blocker_refs: handoff.blocker_refs,
       recheck_request_refs: handoff.recheck_request_refs,
       memory_suggestion_refs: handoff.memory_suggestion_refs,
@@ -331,6 +334,7 @@ export class TopicSelectionV1cPromotionGateService {
       reviewer_packet_artifact_ref: dossierArtifactRef,
       dossier_payload: this.buildDossierPayload(handoff, support, llmDraft.draft),
       source_refs: sourceRefs,
+      risk_finding_refs: riskFindingRefs,
       artifact_refs: [dossierArtifactRef],
       created_by: createdBy,
       created_at: now,
@@ -449,6 +453,7 @@ export class TopicSelectionV1cPromotionGateService {
       required_actions: gateEvaluation.requiredActions,
       loopback_hints: gateEvaluation.loopbackHints,
       accepted_risk_refs: handoff.accepted_risk_refs,
+      risk_finding_refs: this.riskFindingRefs(handoff),
       blocker_refs: handoff.blocker_refs,
       recheck_request_refs: handoff.recheck_request_refs,
       memory_suggestion_refs: handoff.memory_suggestion_refs,
@@ -1415,6 +1420,7 @@ export class TopicSelectionV1cPromotionGateService {
       required_actions: gateCheck.required_actions,
       loopback_hints: gateCheck.loopback_hints,
       accepted_risk_refs: gateCheck.accepted_risk_refs,
+      risk_finding_refs: gateCheck.risk_finding_refs ?? topicSelectionRiskFindingRefs(gateCheck.source_refs),
       blocker_refs: gateCheck.blocker_refs,
       recheck_request_refs: gateCheck.recheck_request_refs,
       memory_suggestion_refs: gateCheck.memory_suggestion_refs,
@@ -1522,6 +1528,7 @@ export class TopicSelectionV1cPromotionGateService {
       handoff.research_slice_ref,
       ...handoff.validated_need_refs,
       ...handoff.accepted_risk_refs,
+      ...this.riskFindingRefs(handoff),
       ...handoff.blocker_refs,
       ...handoff.memory_suggestion_refs,
       ...handoff.recheck_request_refs,
@@ -1540,6 +1547,15 @@ export class TopicSelectionV1cPromotionGateService {
         'Accepted upstream risks are carried forward for human review.',
         'warning',
         handoff.accepted_risk_refs,
+      ));
+    }
+    const riskFindingRefs = this.riskFindingRefs(handoff);
+    if (riskFindingRefs.length > 0) {
+      warnings.push(this.issue(
+        'material_risk_findings_carried_forward',
+        'Material N8 risk findings remain unresolved and require explicit promotion disposition.',
+        'warning',
+        riskFindingRefs,
       ));
     }
     if (handoff.memory_suggestion_refs.length > 0) {
@@ -1564,9 +1580,14 @@ export class TopicSelectionV1cPromotionGateService {
   }
 
   private deterministicRiskNotes(handoff: TopicSelectionPromotionInputSnapshotHandoff): string[] {
-    return handoff.accepted_risk_refs.length > 0
-      ? handoff.accepted_risk_refs.map((ref) => `Accepted risk carried forward: ${ref.ref_type}:${ref.ref_id}.`)
-      : [];
+    const packageRisks = this.readStringArrayAtAnyPath(this.asRecord(handoff.snapshot.package_snapshot), [
+      ['key_risks'],
+    ]);
+    return this.uniqueStrings([
+      ...packageRisks,
+      ...handoff.accepted_risk_refs.map((ref) => `Accepted risk carried forward: ${ref.ref_type}:${ref.ref_id}.`),
+      ...this.riskFindingRefs(handoff).map((ref) => `Unresolved material risk finding: ${ref.ref_id}.`),
+    ]);
   }
 
   private deterministicRecheckNotes(handoff: TopicSelectionPromotionInputSnapshotHandoff): string[] {
@@ -1675,6 +1696,7 @@ export class TopicSelectionV1cPromotionGateService {
       },
       carried_forward: {
         accepted_risk_refs: handoff.accepted_risk_refs,
+        risk_finding_refs: this.riskFindingRefs(handoff),
         blocker_refs: handoff.blocker_refs,
         memory_suggestion_refs: handoff.memory_suggestion_refs,
         recheck_request_refs: handoff.recheck_request_refs,
@@ -1937,6 +1959,21 @@ export class TopicSelectionV1cPromotionGateService {
       }
     }
     return unique;
+  }
+
+  private riskFindingRefs(
+    handoff: TopicSelectionPromotionInputSnapshotHandoff,
+  ): TopicSelectionFunctionalRef[] {
+    return topicSelectionRiskFindingRefs([
+      ...(handoff.risk_finding_refs ?? []),
+      ...(handoff.snapshot.risk_finding_refs ?? []),
+      ...(handoff.snapshot.source_bundle_snapshot.risk_finding_refs ?? []),
+      ...(handoff.snapshot.source_bundle_snapshot.artifact_refs ?? []),
+    ]);
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values.filter((value) => this.hasText(value)))];
   }
 
   private toGateVerdict(disposition: TopicSelectionPromotionGateDisposition): TopicSelectionGateVerdict {

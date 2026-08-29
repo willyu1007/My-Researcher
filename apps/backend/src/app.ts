@@ -331,6 +331,7 @@ import { TopicSelectionResearchArenaRetrievalController } from './controllers/to
 import { TopicSelectionResearchArenaService } from './services/topic-selection-research-arena-service.js';
 import { TopicSelectionResearchArenaRetrySnapshotService } from './services/topic-selection-research-arena-retry-snapshot-service.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './services/topic-selection-research-arena-shadow-runner-service.js';
+import { TopicSelectionRiskFindingService } from './services/topic-selection-risk-finding-service.js';
 import { TopicSelectionResearchArenaShadowController } from './controllers/topic-selection-research-arena-shadow-controller.js';
 import { TopicSelectionResearchArenaController } from './controllers/topic-selection-research-arena-controller.js';
 import { TopicSelectionResearchArenaRetrySnapshotController } from './controllers/topic-selection-research-arena-retry-snapshot-controller.js';
@@ -1191,6 +1192,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       artifactStore: topicSelectionControlPlaneService,
       agentInvoker: topicSelectionV1aAgentOrchestratorService,
       arenaService: topicSelectionResearchArenaService,
+      riskFindingRecorder: new TopicSelectionRiskFindingService(topicSelectionControlPlaneService),
     });
   const topicSelectionResearchArenaShadowController =
     new TopicSelectionResearchArenaShadowController(topicSelectionResearchArenaShadowRunnerService);
@@ -1321,6 +1323,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     repository: topicSelectionV1cHumanPromotionDecisionRepository,
     promotionGateService: topicSelectionV1cPromotionGateService,
     checkpointControl: topicSelectionResearchCheckpointService,
+    acceptedRiskProvider: topicSelectionRecheckRiskMemoryRepository,
   });
   // T-128 W-13: v1c-N4 delegated promotion-decision production caller (distinct delegated endpoint; human still
   // authorizes; not RBAC-gated today — a tracked follow-up).

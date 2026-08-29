@@ -1,17 +1,18 @@
 import crypto from 'node:crypto';
 
-import type {
-  TopicSelectionActorType,
-  TopicSelectionArtifactRefRecord,
-  TopicSelectionChainTransitionAttemptRecord,
-  TopicSelectionFunctionalRef,
-  TopicSelectionGateIssue,
-  TopicSelectionGateVerdict,
-  TopicSelectionInputSnapshotRecord,
-  TopicSelectionLlmWorkflowRunRecord,
-  TopicSelectionReadinessGateResultRecord,
-  TopicSelectionTraceSnapshotRecord,
-  TopicSelectionTransitionResult,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionActorType,
+  type TopicSelectionArtifactRefRecord,
+  type TopicSelectionChainTransitionAttemptRecord,
+  type TopicSelectionFunctionalRef,
+  type TopicSelectionGateIssue,
+  type TopicSelectionGateVerdict,
+  type TopicSelectionInputSnapshotRecord,
+  type TopicSelectionLlmWorkflowRunRecord,
+  type TopicSelectionReadinessGateResultRecord,
+  type TopicSelectionTraceSnapshotRecord,
+  type TopicSelectionTransitionResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionValueDispositionDecisionRecord,
@@ -170,7 +171,13 @@ export class TopicSelectionV1bTopicPackageService {
     packageRecord.workflow_run_id = controlPlane.workflow_run.workflow_run_id;
     packageRecord.gate_result_id = controlPlane.readiness_gate_result.readiness_gate_result_id;
     packageRecord.transition_attempt_id = controlPlane.transition_attempt.chain_transition_attempt_id;
-    packageRecord.artifact_refs = this.artifactRefs(controlPlane.artifact_refs, titleCardId);
+    packageRecord.artifact_refs = this.uniqueRefs([
+      ...topicSelectionRiskFindingRefs([
+        ...(packageInput.risk_finding_refs ?? []),
+        ...packageInput.topic_value_assessment.artifact_refs,
+      ]),
+      ...this.artifactRefs(controlPlane.artifact_refs, titleCardId),
+    ]);
 
     const check = this.buildTraceBoundaryCheck({
       id: traceBoundaryCheckId,
@@ -769,7 +776,18 @@ export class TopicSelectionV1bTopicPackageService {
       workflow_run_id: null,
       gate_result_id: null,
       transition_attempt_id: null,
-      artifact_refs: [],
+      artifact_refs: topicSelectionRiskFindingRefs(
+        [
+          ...(input.packageInput.risk_finding_refs ?? []),
+          ...input.packageInput.topic_value_assessment.artifact_refs,
+        ],
+      ),
+      risk_finding_refs: topicSelectionRiskFindingRefs(
+        [
+          ...(input.packageInput.risk_finding_refs ?? []),
+          ...input.packageInput.topic_value_assessment.artifact_refs,
+        ],
+      ),
       created_by: input.createdBy,
       created_at: input.now,
       updated_at: input.now,
@@ -861,6 +879,7 @@ export class TopicSelectionV1bTopicPackageService {
       pkg.accepted_risk_refs.length > 0 ? 'accepted_risks_carried_forward' : '',
       pkg.blocker_refs.length > 0 ? 'blockers_carried_forward' : '',
       pkg.recheck_request_refs.length > 0 ? 'recheck_requests_carried_forward' : '',
+      topicSelectionRiskFindingRefs(pkg.artifact_refs).length > 0 ? 'material_risk_findings_carried_forward' : '',
     ].filter(Boolean);
     const traceIssues = [
       ...missingRefCodes.map((code) => this.issue(code, `Missing required package trace ref: ${code}.`, 'blocking')),
@@ -953,6 +972,7 @@ export class TopicSelectionV1bTopicPackageService {
       gate_result_id: input.gateResultId,
       transition_attempt_id: input.transitionAttemptId,
       artifact_refs: input.artifactRefs,
+      risk_finding_refs: topicSelectionRiskFindingRefs(input.artifactRefs),
       created_at: input.now,
     };
   }
@@ -992,6 +1012,7 @@ export class TopicSelectionV1bTopicPackageService {
       gate_result_id: input.gateResultId,
       transition_attempt_id: input.transitionAttemptId,
       artifact_refs: input.artifactRefs,
+      risk_finding_refs: topicSelectionRiskFindingRefs(input.artifactRefs),
       assessed_by: input.assessedBy,
       created_at: input.now,
     };
@@ -1064,6 +1085,7 @@ export class TopicSelectionV1bTopicPackageService {
       gate_result_id: input.gateResultId,
       transition_attempt_id: input.transitionAttemptId,
       artifact_refs: input.artifactRefs,
+      risk_finding_refs: topicSelectionRiskFindingRefs(input.artifactRefs),
       created_at: input.now,
     };
   }
@@ -1124,6 +1146,10 @@ export class TopicSelectionV1bTopicPackageService {
       ...input.validated_need_refs,
       ...input.evidence_refs.map((record) => record.evidence_ref),
       ...input.accepted_risk_refs,
+      ...topicSelectionRiskFindingRefs([
+        ...(input.risk_finding_refs ?? []),
+        ...input.topic_value_assessment.artifact_refs,
+      ]),
       ...input.memory_suggestion_refs,
       ...input.recheck_request_refs,
       ...input.boundary_refs.map((record) =>

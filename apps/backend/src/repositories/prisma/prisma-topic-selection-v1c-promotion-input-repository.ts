@@ -3,9 +3,10 @@ import type {
   TopicSelectionPromotionInputSnapshot,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type {
-  TopicSelectionFunctionalRef,
-  TopicSelectionGateIssue,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionFunctionalRef,
+  type TopicSelectionGateIssue,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPromotionInputSnapshotCheckDetail,
@@ -47,6 +48,13 @@ function asNullableFunctionalRef(value: unknown): TopicSelectionFunctionalRef | 
 function toSnapshotRecord(
   row: TopicSelectionPromotionInputSnapshot,
 ): TopicSelectionPromotionInputSnapshotRecord {
+  const sourceBundleSnapshot = asRecord(row.sourceBundleSnapshot) as unknown as TopicSelectionPromotionInputSnapshotRecord['source_bundle_snapshot'];
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
+  const riskFindingRefs = topicSelectionRiskFindingRefs([
+    ...(sourceBundleSnapshot.risk_finding_refs ?? []),
+    ...(sourceBundleSnapshot.artifact_refs ?? []),
+    ...artifactRefs,
+  ]);
   return {
     promotion_input_snapshot_id: row.id,
     workspace_id: row.workspaceId,
@@ -79,12 +87,13 @@ function toSnapshotRecord(
     validated_need_refs: asArray<TopicSelectionFunctionalRef>(row.validatedNeedRefs),
     evidence_refs: asArray(row.evidenceRefs),
     accepted_risk_refs: asArray<TopicSelectionFunctionalRef>(row.acceptedRiskRefs),
+    risk_finding_refs: riskFindingRefs,
     blocker_refs: asArray<TopicSelectionFunctionalRef>(row.blockerRefs),
     memory_suggestion_refs: asArray<TopicSelectionFunctionalRef>(row.memorySuggestionRefs),
     recheck_request_refs: asArray<TopicSelectionFunctionalRef>(row.recheckRequestRefs),
     readiness_check_refs: asArray<TopicSelectionFunctionalRef>(row.readinessCheckRefs),
     replacement_bundle_ref: asNullableFunctionalRef(row.replacementBundleRef),
-    source_bundle_snapshot: asRecord(row.sourceBundleSnapshot) as unknown as TopicSelectionPromotionInputSnapshotRecord['source_bundle_snapshot'],
+    source_bundle_snapshot: sourceBundleSnapshot,
     package_snapshot: asRecord(row.packageSnapshot) as unknown as TopicSelectionPromotionInputSnapshotRecord['package_snapshot'],
     package_draft_input_snapshot: asRecord(row.packageDraftInputSnapshot) as unknown as TopicSelectionPromotionInputSnapshotRecord['package_draft_input_snapshot'],
     input_snapshot_id: row.inputSnapshotId,
@@ -92,7 +101,7 @@ function toSnapshotRecord(
     gate_result_id: row.gateResultId,
     transition_attempt_id: row.transitionAttemptId,
     trace_snapshot_id: row.traceSnapshotId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
     created_by: row.createdBy as TopicSelectionPromotionInputSnapshotRecord['created_by'],
     created_at: row.createdAt.toISOString(),
   };

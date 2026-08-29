@@ -6,9 +6,10 @@ import type {
   TopicSelectionV1bToV1cInputBundle,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type {
-  TopicSelectionFunctionalRef,
-  TopicSelectionGateIssue,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionFunctionalRef,
+  type TopicSelectionGateIssue,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPackageTraceBoundaryCheckRecord,
@@ -46,6 +47,7 @@ function asFunctionalRef(value: unknown): TopicSelectionFunctionalRef {
 
 function toPackageRecord(row: TitleCardPackage): TopicSelectionTopicPackageRecord {
   const payload = asRecord(row.v1bAuthorityPayload) as Partial<TopicSelectionTopicPackageRecord>;
+  const artifactRefs = payload.artifact_refs ?? [];
   return {
     ...payload,
     topic_package_id: row.id,
@@ -82,6 +84,8 @@ function toPackageRecord(row: TitleCardPackage): TopicSelectionTopicPackageRecor
     gate_result_id: row.v1bGateResultId ?? payload.gate_result_id ?? null,
     transition_attempt_id: row.v1bTransitionAttemptId ?? payload.transition_attempt_id ?? null,
     package_payload: asRecord(payload.package_payload),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     updated_at: row.updatedAt.toISOString(),
     created_at: row.createdAt.toISOString(),
   } as TopicSelectionTopicPackageRecord;
@@ -90,6 +94,7 @@ function toPackageRecord(row: TitleCardPackage): TopicSelectionTopicPackageRecor
 function toTraceBoundaryCheckRecord(
   row: TopicSelectionPackageTraceBoundaryCheck,
 ): TopicSelectionPackageTraceBoundaryCheckRecord {
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
   return {
     package_trace_boundary_check_id: row.id,
     workspace_id: row.workspaceId,
@@ -124,7 +129,8 @@ function toTraceBoundaryCheckRecord(
     workflow_run_id: row.workflowRunId,
     gate_result_id: row.gateResultId,
     transition_attempt_id: row.transitionAttemptId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -132,6 +138,7 @@ function toTraceBoundaryCheckRecord(
 function toReadinessAssessmentRecord(
   row: TopicSelectionTopicPackageReadinessAssessment,
 ): TopicSelectionTopicPackageReadinessAssessmentRecord {
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
   return {
     package_readiness_assessment_id: row.id,
     workspace_id: row.workspaceId,
@@ -151,7 +158,8 @@ function toReadinessAssessmentRecord(
     workflow_run_id: row.workflowRunId,
     gate_result_id: row.gateResultId,
     transition_attempt_id: row.transitionAttemptId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     assessed_by: row.assessedBy as TopicSelectionTopicPackageReadinessAssessmentRecord['assessed_by'],
     created_at: row.createdAt.toISOString(),
   };
@@ -160,6 +168,7 @@ function toReadinessAssessmentRecord(
 function toV1cInputBundleRecord(
   row: TopicSelectionV1bToV1cInputBundle,
 ): TopicSelectionV1bToV1cInputBundleRecord {
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
   return {
     v1b_to_v1c_input_bundle_id: row.id,
     workspace_id: row.workspaceId,
@@ -192,7 +201,8 @@ function toV1cInputBundleRecord(
     workflow_run_id: row.workflowRunId,
     gate_result_id: row.gateResultId,
     transition_attempt_id: row.transitionAttemptId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     created_at: row.createdAt.toISOString(),
   };
 }

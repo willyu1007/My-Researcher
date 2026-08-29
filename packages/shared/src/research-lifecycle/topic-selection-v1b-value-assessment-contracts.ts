@@ -212,6 +212,7 @@ export interface TopicSelectionTopicValueAssessmentRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_at: string;
   updated_at: string;
 }
@@ -240,6 +241,7 @@ export interface TopicSelectionValueReasoningMemoRecord {
   cited_refs: TopicSelectionFunctionalRef[];
   created_by_workflow_run_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_at: string;
 }
 
@@ -270,6 +272,7 @@ export interface TopicSelectionV1bPackageDraftInput {
   assumption_refs: TopicSelectionTopicQuestionAssumptionRefRecord[];
   falsification_conditions: TopicSelectionTopicQuestionFalsificationConditionRecord[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
   topic_value_assessment: TopicSelectionTopicValueAssessmentRecord;
@@ -304,6 +307,7 @@ export interface TopicSelectionValueDispositionDecisionRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_at: string;
 }
 
@@ -597,6 +601,7 @@ export const topicSelectionTopicValueAssessmentRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_at: stringId,
     updated_at: stringId,
   },
@@ -653,6 +658,7 @@ export const topicSelectionValueReasoningMemoRecordSchema = {
     cited_refs: functionalRefArray,
     created_by_workflow_run_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_at: stringId,
   },
 } as const;
@@ -725,6 +731,7 @@ export const topicSelectionV1bPackageDraftInputSchema = {
     assumption_refs: { type: 'array', items: objectPayload },
     falsification_conditions: { type: 'array', items: objectPayload },
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,
     topic_value_assessment: topicSelectionTopicValueAssessmentRecordSchema,
@@ -781,6 +788,7 @@ export const topicSelectionValueDispositionDecisionRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_at: stringId,
   },
 } as const;

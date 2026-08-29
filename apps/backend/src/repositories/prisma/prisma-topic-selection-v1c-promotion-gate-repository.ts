@@ -10,6 +10,7 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionGateIssue,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { topicSelectionRiskFindingRefs } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionArgumentReadinessMiniCheckRecord,
   TopicSelectionPromotionDecisionSupportLlmDraft,
@@ -76,6 +77,7 @@ function toDecisionSupportRecord(
     recheck_notes: row.recheckNotes,
     source_refs: asArray<TopicSelectionFunctionalRef>(row.sourceRefs),
     accepted_risk_refs: asArray<TopicSelectionFunctionalRef>(row.acceptedRiskRefs),
+    risk_finding_refs: topicSelectionRiskFindingRefs(asArray<TopicSelectionFunctionalRef>(row.sourceRefs)),
     blocker_refs: asArray<TopicSelectionFunctionalRef>(row.blockerRefs),
     recheck_request_refs: asArray<TopicSelectionFunctionalRef>(row.recheckRequestRefs),
     memory_suggestion_refs: asArray<TopicSelectionFunctionalRef>(row.memorySuggestionRefs),
@@ -107,6 +109,7 @@ function toDossierRecord(
     reviewer_packet_artifact_ref: asFunctionalRef(row.reviewerPacketArtifactRef),
     dossier_payload: asRecord(row.dossierPayload),
     source_refs: asArray<TopicSelectionFunctionalRef>(row.sourceRefs),
+    risk_finding_refs: topicSelectionRiskFindingRefs(asArray<TopicSelectionFunctionalRef>(row.sourceRefs)),
     artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
     created_by: row.createdBy as TopicSelectionPromotionDossierRecord['created_by'],
     created_at: row.createdAt.toISOString(),
@@ -157,6 +160,7 @@ function toGateCheckRecord(
     required_actions: asArray<TopicSelectionPromotionGateRequiredAction>(row.requiredActions),
     loopback_hints: asArray<TopicSelectionPromotionGateLoopbackHint>(row.loopbackHints),
     accepted_risk_refs: asArray<TopicSelectionFunctionalRef>(row.acceptedRiskRefs),
+    risk_finding_refs: topicSelectionRiskFindingRefs(asArray<TopicSelectionFunctionalRef>(row.sourceRefs)),
     blocker_refs: asArray<TopicSelectionFunctionalRef>(row.blockerRefs),
     recheck_request_refs: asArray<TopicSelectionFunctionalRef>(row.recheckRequestRefs),
     memory_suggestion_refs: asArray<TopicSelectionFunctionalRef>(row.memorySuggestionRefs),

@@ -40021,6 +40021,17 @@
           "unique": false
         },
         {
+          "name": "stableKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
           "name": "titleCardId",
           "type": "String",
           "nullable": true,

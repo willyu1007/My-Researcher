@@ -1201,6 +1201,7 @@ model TopicSelectionInputSnapshot {
 
 model TopicSelectionArtifactRef {
   id              String   @id
+  stableKey       String?  @unique(map: "tsar_stable_key_key")
   workspaceId     String?
   titleCardId     String?
   artifactKind    String

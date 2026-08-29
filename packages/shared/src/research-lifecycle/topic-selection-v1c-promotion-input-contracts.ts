@@ -76,6 +76,7 @@ export interface TopicSelectionPromotionInputSnapshotRecord {
   validated_need_refs: TopicSelectionFunctionalRef[];
   evidence_refs: TopicSelectionTopicQuestionEvidenceRefRecord[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
@@ -114,6 +115,7 @@ export interface TopicSelectionPromotionInputSnapshotHandoff {
   validated_need_refs: TopicSelectionFunctionalRef[];
   evidence_refs: TopicSelectionTopicQuestionEvidenceRefRecord[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
@@ -240,6 +242,7 @@ export const topicSelectionPromotionInputSnapshotRecordSchema = {
     validated_need_refs: functionalRefArray,
     evidence_refs: topicQuestionEvidenceRefArray,
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     blocker_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,
@@ -309,6 +312,7 @@ export const topicSelectionPromotionInputSnapshotHandoffSchema = {
     validated_need_refs: functionalRefArray,
     evidence_refs: topicQuestionEvidenceRefArray,
     accepted_risk_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     blocker_refs: functionalRefArray,
     memory_suggestion_refs: functionalRefArray,
     recheck_request_refs: functionalRefArray,

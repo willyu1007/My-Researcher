@@ -17,6 +17,7 @@ import type {
   TopicSelectionReadinessGateResultRecord,
   TopicSelectionTraceSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPromotionDecisionSupportLlmDraft,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
@@ -407,6 +408,42 @@ test('accepted risks are warnings and do not block promote handoff', async () =>
   assert.equal(result.promotion_gate_check.warnings.some((warning) => warning.code === 'accepted_risks_carried_forward'), true);
 });
 
+test('material risk findings remain exact warnings through deterministic gate and handoff', async () => {
+  const riskFindingRef = ref(
+    'artifact_ref',
+    'risk_finding_001',
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
+  const handoff = makeHandoff({
+    risk_finding_refs: [riskFindingRef],
+    snapshot: {
+      risk_finding_refs: [riskFindingRef],
+      source_bundle_snapshot: {
+        artifact_refs: [riskFindingRef],
+        risk_finding_refs: [riskFindingRef],
+      },
+    } as never,
+  });
+  const { service } = makeSubject({ handoff });
+
+  const result = await service.createPromotionGateSupport({
+    promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+  });
+
+  assert.equal(result.promotion_gate_check.disposition, 'ready_for_human_decision');
+  assert.equal(result.promotion_gate_check.promote_allowed, true);
+  assert.deepEqual(result.promotion_decision_support.risk_finding_refs, [riskFindingRef]);
+  assert.deepEqual(result.promotion_dossier.risk_finding_refs, [riskFindingRef]);
+  assert.deepEqual(result.promotion_gate_check.risk_finding_refs, [riskFindingRef]);
+  assert.deepEqual(result.handoff.risk_finding_refs, [riskFindingRef]);
+  assert.deepEqual(
+    result.promotion_gate_check.warnings.find(
+      (warning) => warning.code === 'material_risk_findings_carried_forward',
+    )?.refs,
+    [riskFindingRef],
+  );
+});
+
 test('blocker refs create blocked gate with typed required action', async () => {
   const blockerRef = ref('blocker', 'blocker_001');
   const handoff = makeHandoff({
@@ -546,6 +583,18 @@ test('same support run key returns existing gate support idempotently', async ()
 });
 
 test('LLM draft success stores draft prose while deterministic gate remains authoritative', async () => {
+  const riskFindingRef = ref(
+    'artifact_ref',
+    'risk_finding_model_path_001',
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
+  const handoff = makeHandoff({
+    risk_finding_refs: [riskFindingRef],
+    snapshot: {
+      risk_finding_refs: [riskFindingRef],
+      source_bundle_snapshot: { artifact_refs: [riskFindingRef] },
+    } as never,
+  });
   const draft: TopicSelectionPromotionDecisionSupportLlmDraft = {
     summary: 'LLM drafted reviewer summary.',
     reviewer_questions: ['What is the strongest evidence ref?'],
@@ -575,6 +624,7 @@ test('LLM draft success stores draft prose while deterministic gate remains auth
   };
   const gatewayCalls: LlmStructuredOutputRequest[] = [];
   const { service } = makeSubject({
+    handoff,
     llmGateway: {
       createStructuredOutput: async (request: LlmStructuredOutputRequest) => {
         gatewayCalls.push(request);
@@ -595,6 +645,7 @@ test('LLM draft success stores draft prose while deterministic gate remains auth
   assert.equal(result.promotion_decision_support.summary, draft.summary);
   assert.deepEqual(result.promotion_decision_support.llm_draft_payload, draft);
   assert.equal(result.promotion_gate_check.disposition, 'ready_for_human_decision');
+  assert.deepEqual(result.promotion_gate_check.risk_finding_refs, [riskFindingRef]);
   assert.equal(gatewayCalls.length, 1);
   assert.equal(gatewayCalls[0]?.model.profileId, 'topic-selection-promotion-decision-support');
   assert.equal(gatewayCalls[0]?.prompt.promptTemplateId, 'topic-selection-promotion-decision-support');

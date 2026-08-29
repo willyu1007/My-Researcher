@@ -12,6 +12,7 @@ import type {
   TopicSelectionTraceSnapshotRecord,
   TopicSelectionArtifactRefRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPackageTraceBoundaryCheckRecord,
   TopicSelectionTopicPackageReadinessAssessmentRecord,
@@ -89,6 +90,11 @@ TopicSelectionV1bToV1cInputBundleRecord,
 }
 
 function makePackage(overrides: Partial<TopicSelectionTopicPackageRecord> = {}): TopicSelectionTopicPackageRecord {
+  const riskFindingRef = ref(
+    'artifact_ref',
+    'risk_finding_001',
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  );
   return {
     topic_package_id: 'topic_package_001',
     workspace_id: 'workspace_001',
@@ -135,7 +141,8 @@ function makePackage(overrides: Partial<TopicSelectionTopicPackageRecord> = {}):
     workflow_run_id: 'workflow_run_001',
     gate_result_id: 'gate_result_001',
     transition_attempt_id: 'transition_attempt_001',
-    artifact_refs: [ref('artifact_ref', 'artifact_ref_001')],
+    artifact_refs: [riskFindingRef, ref('artifact_ref', 'artifact_ref_001')],
+    risk_finding_refs: [riskFindingRef],
     created_by: 'system',
     created_at: NOW,
     updated_at: NOW,
@@ -391,6 +398,14 @@ test('ready current v1b bundle creates ready promotion input snapshot and handof
   assert.equal(stored?.promotion_input_snapshot_id, snapshot.promotion_input_snapshot_id);
   assert.equal(handoff.closure_status, 'ready_for_gate');
   assert.deepEqual(snapshot.accepted_risk_refs, [ref('accepted_risk', 'accepted_risk_001')]);
+  assert.deepEqual(snapshot.risk_finding_refs, [
+    ref('artifact_ref', 'risk_finding_001', TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION),
+  ]);
+  assert.deepEqual(handoff.risk_finding_refs, snapshot.risk_finding_refs);
+  assert.equal(
+    snapshot.warnings.some((warning) => warning.code === 'material_risk_findings_carried_forward'),
+    true,
+  );
   assert.deepEqual(snapshot.memory_suggestion_refs, [ref('memory_suggestion', 'memory_suggestion_001')]);
   assert.deepEqual(snapshot.recheck_request_refs, [ref('recheck_request', 'recheck_request_001')]);
   assert.equal(snapshot.workflow_run_id, 'workflow_run_001');

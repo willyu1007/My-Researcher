@@ -1,17 +1,18 @@
 import crypto from 'node:crypto';
 
-import type {
-  TopicSelectionActorType,
-  TopicSelectionArtifactRefRecord,
-  TopicSelectionChainTransitionAttemptRecord,
-  TopicSelectionFunctionalRef,
-  TopicSelectionGateIssue,
-  TopicSelectionGateVerdict,
-  TopicSelectionInputSnapshotRecord,
-  TopicSelectionLlmWorkflowRunRecord,
-  TopicSelectionReadinessGateResultRecord,
-  TopicSelectionTraceSnapshotRecord,
-  TopicSelectionTransitionResult,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionActorType,
+  type TopicSelectionArtifactRefRecord,
+  type TopicSelectionChainTransitionAttemptRecord,
+  type TopicSelectionFunctionalRef,
+  type TopicSelectionGateIssue,
+  type TopicSelectionGateVerdict,
+  type TopicSelectionInputSnapshotRecord,
+  type TopicSelectionLlmWorkflowRunRecord,
+  type TopicSelectionReadinessGateResultRecord,
+  type TopicSelectionTraceSnapshotRecord,
+  type TopicSelectionTransitionResult,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPackageTraceBoundaryCheckRecord,
@@ -128,12 +129,14 @@ export class TopicSelectionV1cPromotionInputService {
     const evaluation = this.evaluateContext(context);
     const packageSnapshotHash = sha256Text(stableStringify(bundle.package_snapshot));
     const packageDraftInputSnapshotHash = sha256Text(stableStringify(bundle.package_draft_input_snapshot));
+    const riskFindingRefs = this.bundleRiskFindingRefs(bundle);
     const promotionInputSnapshotHash = sha256Text(stableStringify({
       bundle_hash: bundle.bundle_hash,
       closure_status: evaluation.closureStatus,
       package_draft_input_snapshot_hash: packageDraftInputSnapshotHash,
       package_snapshot_hash: packageSnapshotHash,
       readiness_check_refs: bundle.readiness_check_refs,
+      risk_finding_refs: riskFindingRefs,
       source_bundle_ref: sourceBundleRef,
       topic_package_ref: bundle.topic_package_ref,
     }));
@@ -170,6 +173,7 @@ export class TopicSelectionV1cPromotionInputService {
       validated_need_refs: bundle.validated_need_refs,
       evidence_refs: bundle.evidence_refs,
       accepted_risk_refs: bundle.accepted_risk_refs,
+      risk_finding_refs: riskFindingRefs,
       blocker_refs: bundle.blocker_refs,
       memory_suggestion_refs: bundle.memory_suggestion_refs,
       recheck_request_refs: bundle.recheck_request_refs,
@@ -261,6 +265,7 @@ export class TopicSelectionV1cPromotionInputService {
     const warnings: TopicSelectionGateIssue[] = [];
     const checkDetails: TopicSelectionPromotionInputSnapshotCheckDetail[] = [];
     const bundle = context.bundle;
+    const bundleRiskFindingRefs = this.bundleRiskFindingRefs(bundle);
     const requiredRefChecks: Array<[string, TopicSelectionFunctionalRef]> = [
       ['topic_package_ref', bundle.topic_package_ref],
       ['package_trace_boundary_check_ref', bundle.package_trace_boundary_check_ref],
@@ -415,6 +420,22 @@ export class TopicSelectionV1cPromotionInputService {
           [context.currentPackage.topic_package_ref],
         ));
       }
+      if (!this.refsEqual(
+        topicSelectionRiskFindingRefs(
+          [
+            ...(context.currentPackage.risk_finding_refs ?? []),
+            ...context.currentPackage.artifact_refs,
+          ],
+        ),
+        bundleRiskFindingRefs,
+      )) {
+        refreshIssues.push(this.issue(
+          'topic_package_risk_finding_drift',
+          'Current TopicPackage material risk findings drift from the source bundle.',
+          'blocking',
+          [context.currentPackage.topic_package_ref, bundle.topic_package_ref],
+        ));
+      }
       if (this.hashValue(context.currentPackage) !== this.hashValue(bundle.package_snapshot)) {
         refreshIssues.push(this.issue(
           'package_snapshot_hash_drift',
@@ -512,6 +533,15 @@ export class TopicSelectionV1cPromotionInputService {
         !this.refsEqual(context.readinessAssessment.accepted_risk_refs, bundle.accepted_risk_refs)
         || !this.refsEqual(context.readinessAssessment.blocker_refs, bundle.blocker_refs)
         || !this.refsEqual(context.readinessAssessment.recheck_request_refs, bundle.recheck_request_refs)
+        || !this.refsEqual(
+          topicSelectionRiskFindingRefs(
+            [
+              ...(context.readinessAssessment.risk_finding_refs ?? []),
+              ...context.readinessAssessment.artifact_refs,
+            ],
+          ),
+          bundleRiskFindingRefs,
+        )
       ) {
         refreshIssues.push(this.issue(
           'package_readiness_assessment_carry_forward_drift',
@@ -554,6 +584,14 @@ export class TopicSelectionV1cPromotionInputService {
         bundle.accepted_risk_refs,
       ));
     }
+    if (bundleRiskFindingRefs.length > 0) {
+      warnings.push(this.issue(
+        'material_risk_findings_carried_forward',
+        'Promotion input snapshot carries unresolved material risk findings into gate support.',
+        'warning',
+        bundleRiskFindingRefs,
+      ));
+    }
     if (bundle.blocker_refs.length > 0) {
       warnings.push(this.issue(
         'blocker_refs_carried_forward',
@@ -576,7 +614,7 @@ export class TopicSelectionV1cPromotionInputService {
       warnings.length > 0
         ? 'Risk, blocker, or recheck refs were carried forward for T-062 review.'
         : 'No risk, blocker, or recheck carry-forward refs require special handling.',
-      [...bundle.accepted_risk_refs, ...bundle.blocker_refs, ...bundle.recheck_request_refs],
+      [...bundle.accepted_risk_refs, ...bundleRiskFindingRefs, ...bundle.blocker_refs, ...bundle.recheck_request_refs],
       [],
     ));
 
@@ -802,6 +840,7 @@ export class TopicSelectionV1cPromotionInputService {
       validated_need_refs: snapshot.validated_need_refs,
       evidence_refs: snapshot.evidence_refs,
       accepted_risk_refs: snapshot.accepted_risk_refs,
+      risk_finding_refs: snapshot.risk_finding_refs ?? [],
       blocker_refs: snapshot.blocker_refs,
       memory_suggestion_refs: snapshot.memory_suggestion_refs,
       recheck_request_refs: snapshot.recheck_request_refs,
@@ -834,6 +873,7 @@ export class TopicSelectionV1cPromotionInputService {
       ...snapshot.validated_need_refs,
       ...snapshot.evidence_refs.map((record) => record.evidence_ref),
       ...snapshot.accepted_risk_refs,
+      ...(snapshot.risk_finding_refs ?? []),
       ...snapshot.blocker_refs,
       ...snapshot.memory_suggestion_refs,
       ...snapshot.recheck_request_refs,
@@ -962,6 +1002,13 @@ export class TopicSelectionV1cPromotionInputService {
       && this.refsEqual(check.validated_need_refs, bundle.validated_need_refs)
       && this.refsEqual(check.evidence_refs, this.evidenceFunctionalRefs(bundle))
       && this.refsEqual(check.accepted_risk_refs, bundle.accepted_risk_refs)
+      && this.refsEqual(
+        topicSelectionRiskFindingRefs([
+          ...(check.risk_finding_refs ?? []),
+          ...check.artifact_refs,
+        ]),
+        this.bundleRiskFindingRefs(bundle),
+      )
       && this.refsEqual(check.blocker_refs, bundle.blocker_refs)
       && this.refsEqual(check.recheck_request_refs, bundle.recheck_request_refs);
   }
@@ -970,6 +1017,15 @@ export class TopicSelectionV1cPromotionInputService {
     return bundle.evidence_refs
       .map((record) => record.evidence_ref)
       .filter((record) => this.hasRef(record));
+  }
+
+  private bundleRiskFindingRefs(
+    bundle: TopicSelectionV1bToV1cInputBundleRecord,
+  ): TopicSelectionFunctionalRef[] {
+    return topicSelectionRiskFindingRefs([
+      ...(bundle.risk_finding_refs ?? []),
+      ...bundle.artifact_refs,
+    ]);
   }
 
   private sameRef(left: TopicSelectionFunctionalRef | null | undefined, right: TopicSelectionFunctionalRef | null | undefined): boolean {

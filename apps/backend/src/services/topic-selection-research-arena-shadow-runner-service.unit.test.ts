@@ -16,6 +16,9 @@ import type {
 } from './topic-selection-agent-orchestrator-service.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './topic-selection-research-arena-shadow-runner-service.js';
 import { TopicSelectionResearchArenaShadowProofService } from './topic-selection-research-arena-shadow-proof-service.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { TopicSelectionRiskFindingService } from './topic-selection-risk-finding-service.js';
 
 const HASH = 'a'.repeat(64);
 const packetHash = (role: 'opportunity_scout' | 'prior_art_topic_killer') => (
@@ -203,6 +206,16 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   const recordedArtifacts: TopicSelectionArtifactRefRecord[] = [];
   let artifactIndex = 0;
   const clock = [100, 125];
+  let riskArtifactIndex = 0;
+  const riskFindingRecorder = new TopicSelectionRiskFindingService(
+    new TopicSelectionControlPlaneService(
+      new InMemoryTopicSelectionControlPlaneRepository(),
+      {
+        idFactory: (prefix) => `${prefix}_risk_${++riskArtifactIndex}`,
+        now: () => NOW,
+      },
+    ),
+  );
 
   const service = new TopicSelectionResearchArenaShadowRunnerService({
     arenaRepository: {
@@ -287,6 +300,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
         synthesized_at: NOW,
       }),
     },
+    riskFindingRecorder,
     now: () => clock.shift() ?? 125,
   });
 
@@ -323,6 +337,11 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   assert.equal(result.advisory_synthesis.candidate_dispositions[0]?.disposition, 'parked');
   assert.equal(result.arena_session.termination_reason, 'evidence_expansion_required');
   assert.equal(result.support_only, true);
+  assert.equal(result.risk_finding_refs?.length, 2);
+  assert.equal(
+    result.risk_finding_refs?.every((ref) => ref.version_id === 'TopicSelectionRiskFinding@v1'),
+    true,
+  );
   assert.deepEqual(result.execution_accounting, {
     non_provider_role_invocation_count: 2,
     provider_call_count: 0,

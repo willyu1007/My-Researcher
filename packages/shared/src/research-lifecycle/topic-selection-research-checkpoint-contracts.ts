@@ -286,6 +286,7 @@ export interface TopicSelectionResearchStatusProjection {
   required_checkpoint_kind: TopicSelectionResearchCheckpointKind | null;
   next_authorized_transition?: string | null;
   open_blocking_objection_count: number;
+  material_risk_finding_refs: TopicSelectionFunctionalRef[];
   legacy_provenance: boolean;
 }
 

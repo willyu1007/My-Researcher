@@ -8,8 +8,9 @@ import type {
   TopicSelectionValueReasoningMemo,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type {
-  TopicSelectionFunctionalRef,
+import {
+  topicSelectionRiskFindingRefs,
+  type TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionAssessTopicValueRunRecord,
@@ -136,6 +137,7 @@ function toInputSnapshotRecord(
 
 function toAssessmentRecord(row: ValueAssessmentRow): TopicSelectionTopicValueAssessmentRecord {
   const payload = asRecord(row.researchRecord?.payload) as unknown as Partial<TopicSelectionTopicValueAssessmentRecord>;
+  const artifactRefs = payload.artifact_refs ?? [];
   return {
     ...payload,
     topic_value_assessment_id: row.id,
@@ -172,7 +174,8 @@ function toAssessmentRecord(row: ValueAssessmentRow): TopicSelectionTopicValueAs
     workflow_run_id: payload.workflow_run_id ?? null,
     gate_result_id: payload.gate_result_id ?? null,
     transition_attempt_id: payload.transition_attempt_id ?? null,
-    artifact_refs: payload.artifact_refs ?? [],
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
@@ -236,6 +239,7 @@ function toLegacyRiskPenalty(record: TopicSelectionTopicValueAssessmentRecord) {
 }
 
 function toMemoRecord(row: TopicSelectionValueReasoningMemo): TopicSelectionValueReasoningMemoRecord {
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
   return {
     value_reasoning_memo_id: row.id,
     workspace_id: row.workspaceId,
@@ -259,7 +263,8 @@ function toMemoRecord(row: TopicSelectionValueReasoningMemo): TopicSelectionValu
     critic_triggers: row.criticTriggers,
     cited_refs: asArray<TopicSelectionFunctionalRef>(row.citedRefs),
     created_by_workflow_run_id: row.createdByWorkflowRunId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -280,6 +285,7 @@ function toEvidenceRefRecord(row: TopicSelectionTopicValueEvidenceRef): TopicSel
 }
 
 function toDecisionRecord(row: TopicSelectionValueDispositionDecision): TopicSelectionValueDispositionDecisionRecord {
+  const artifactRefs = asArray<TopicSelectionFunctionalRef>(row.artifactRefs);
   return {
     value_disposition_decision_id: row.id,
     workspace_id: row.workspaceId,
@@ -303,7 +309,8 @@ function toDecisionRecord(row: TopicSelectionValueDispositionDecision): TopicSel
     workflow_run_id: row.workflowRunId,
     gate_result_id: row.gateResultId,
     transition_attempt_id: row.transitionAttemptId,
-    artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    artifact_refs: artifactRefs,
+    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
     created_at: row.createdAt.toISOString(),
   };
 }

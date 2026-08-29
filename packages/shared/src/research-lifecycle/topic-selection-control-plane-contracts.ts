@@ -18,6 +18,16 @@ export type TopicSelectionArtifactKind = (typeof TOPIC_SELECTION_ARTIFACT_KINDS)
 export const TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS = ['inline', 'file', 'uri'] as const;
 export type TopicSelectionArtifactStorageKind = (typeof TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS)[number];
 
+export const TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION = 'TopicSelectionRiskFinding@v1' as const;
+export const TOPIC_SELECTION_RISK_FINDING_KINDS = [
+  'value_risk',
+  'critic_trigger',
+  'pass_with_risk_gate',
+  'capped_dimension',
+  'arena_minority_finding',
+] as const;
+export type TopicSelectionRiskFindingKind = (typeof TOPIC_SELECTION_RISK_FINDING_KINDS)[number];
+
 export const TOPIC_SELECTION_WORKFLOW_RUN_STATUSES = [
   'queued',
   'running',
@@ -84,6 +94,39 @@ export interface TopicSelectionFunctionalRef {
   version_id?: string | null;
   title_card_id?: string | null;
   legacy_ref?: Record<string, unknown> | null;
+}
+
+export interface TopicSelectionRiskFindingPayload {
+  schema_version: typeof TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION;
+  finding_id: string;
+  finding_kind: TopicSelectionRiskFindingKind;
+  materiality: 'advancement_relevant';
+  severity: 'warning' | 'blocking';
+  title_card_id: string;
+  source_snapshot_ref: TopicSelectionFunctionalRef;
+  source_snapshot_hash: string;
+  source_ref: TopicSelectionFunctionalRef;
+  summary: string;
+  evidence_refs: TopicSelectionFunctionalRef[];
+  source_fields: string[];
+  materiality_policy_version: string;
+}
+
+export function isTopicSelectionRiskFindingRef(
+  ref: TopicSelectionFunctionalRef,
+): boolean {
+  return ref.ref_type === 'artifact_ref'
+    && ref.version_id === TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION;
+}
+
+export function topicSelectionRiskFindingRefs(
+  refs: TopicSelectionFunctionalRef[],
+): TopicSelectionFunctionalRef[] {
+  const findings = refs.filter(isTopicSelectionRiskFindingRef);
+  return [...new Map(findings.map((ref) => [
+    `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`,
+    ref,
+  ])).values()];
 }
 
 export interface TopicSelectionActorRef {
@@ -157,6 +200,7 @@ export interface TopicSelectionInputSnapshotRecord {
 
 export interface TopicSelectionArtifactRefRecord {
   artifact_ref_id: string;
+  stable_key?: string | null;
   workspace_id?: string | null;
   title_card_id?: string | null;
   artifact_kind: TopicSelectionArtifactKind;
@@ -316,6 +360,41 @@ export const topicSelectionFunctionalRefSchema = {
   },
 } as const;
 
+export const topicSelectionRiskFindingPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'finding_id',
+    'finding_kind',
+    'materiality',
+    'severity',
+    'title_card_id',
+    'source_snapshot_ref',
+    'source_snapshot_hash',
+    'source_ref',
+    'summary',
+    'evidence_refs',
+    'source_fields',
+    'materiality_policy_version',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION },
+    finding_id: stringId,
+    finding_kind: { enum: [...TOPIC_SELECTION_RISK_FINDING_KINDS] },
+    materiality: { const: 'advancement_relevant' },
+    severity: { enum: ['warning', 'blocking'] },
+    title_card_id: stringId,
+    source_snapshot_ref: topicSelectionFunctionalRefSchema,
+    source_snapshot_hash: stringId,
+    source_ref: topicSelectionFunctionalRefSchema,
+    summary: stringId,
+    evidence_refs: { type: 'array', items: topicSelectionFunctionalRefSchema },
+    source_fields: stringArray,
+    materiality_policy_version: stringId,
+  },
+} as const;
+
 export const topicSelectionActorRefSchema = {
   type: 'object',
   additionalProperties: false,
@@ -465,6 +544,7 @@ export const topicSelectionArtifactRefRecordSchema = {
   ],
   properties: {
     artifact_ref_id: stringId,
+    stable_key: nullableStringId,
     workspace_id: nullableStringId,
     title_card_id: nullableStringId,
     artifact_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_KINDS] },

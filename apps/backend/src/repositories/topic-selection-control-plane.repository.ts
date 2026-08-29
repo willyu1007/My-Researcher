@@ -45,6 +45,7 @@ export interface TopicSelectionControlPlaneRepository {
 
   createArtifactRef(record: TopicSelectionArtifactRefRecord): Promise<TopicSelectionArtifactRefRecord>;
   findArtifactRefById(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null>;
+  findArtifactRefByStableKey(stableKey: string): Promise<TopicSelectionArtifactRefRecord | null>;
   listArtifactRefsByWorkflowRunId(workflowRunId: string): Promise<TopicSelectionArtifactRefRecord[]>;
   listArtifactRefsByInputSnapshotId(inputSnapshotId: string): Promise<TopicSelectionArtifactRefRecord[]>;
 

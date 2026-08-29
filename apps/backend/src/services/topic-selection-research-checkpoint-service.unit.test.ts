@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionEvidenceMapRecord,
   TopicSelectionEvidenceUnitRecord,
@@ -248,6 +249,12 @@ test('continuation envelope advances routine local work only until the next huma
 
 test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
   const titleCardId = 'title_projection';
+  const riskFindingRef = {
+    ref_type: 'artifact_ref',
+    ref_id: 'risk_finding_projection_001',
+    title_card_id: titleCardId,
+    version_id: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  };
   const assessment = {
     topic_value_assessment_id: 'assessment_current',
     title_card_id: titleCardId,
@@ -256,7 +263,8 @@ test('stage manifest selects the current value disposition and latest package in
     readiness_status: 'ready',
     freshness_status: 'current',
     value_summary: 'The mechanism is valuable if the discriminating test succeeds.',
-    artifact_refs: [],
+    artifact_refs: [riskFindingRef],
+    risk_finding_refs: [riskFindingRef],
   } as unknown as TopicSelectionTopicValueAssessmentRecord;
   const currentDecision = {
     value_disposition_decision_id: 'decision_current',
@@ -266,7 +274,8 @@ test('stage manifest selects the current value disposition and latest package in
     status: 'active',
     is_current: true,
     decision_rationale: 'Advance because the mechanism remains distinguishable and feasible.',
-    artifact_refs: [],
+    artifact_refs: [riskFindingRef],
+    risk_finding_refs: [riskFindingRef],
   } as unknown as TopicSelectionValueDispositionDecisionRecord;
   const topicPackage = (
     id: string,
@@ -312,7 +321,8 @@ test('stage manifest selects the current value disposition and latest package in
     accepted_risk_refs: [],
     blocker_refs: [],
     recheck_request_refs: [],
-    artifact_refs: [],
+    artifact_refs: [riskFindingRef],
+    risk_finding_refs: [riskFindingRef],
     created_at: createdAt,
   }) as unknown as TopicSelectionTopicPackageRecord;
   const packages = [
@@ -375,6 +385,8 @@ test('stage manifest selects the current value disposition and latest package in
 
   assert.equal(valueStage?.authority_ref?.ref_id, assessment.topic_value_assessment_id);
   assert.equal(packageStage?.authority_ref?.ref_id, 'package_current_new');
+  assert.deepEqual(valueStage?.artifact_refs, [riskFindingRef]);
+  assert.deepEqual(packageStage?.artifact_refs, [riskFindingRef]);
   assert.equal(
     manifest.stages.some((stage) => stage.authority_ref?.ref_id === 'package_stale_newer'),
     false,
@@ -394,6 +406,12 @@ test('stage manifest selects the current value disposition and latest package in
   assert.deepEqual(packageLlmView.working_set.related_records.v1c_input_bundle, v1cBundle);
   assert.match(valueHumanView.markdown, /signed intervention separates mechanisms/u);
   assert.match(packageHumanView.markdown, /falsifiable mechanism contribution/u);
+  assert.match(valueHumanView.markdown, /risk_finding_projection_001/u);
+  assert.match(packageHumanView.markdown, /risk_finding_projection_001/u);
+  assert.deepEqual(
+    (await service.getResearchStatus(titleCardId)).material_risk_finding_refs,
+    [riskFindingRef],
+  );
 
   const staleSubject = createService({
     valueAssessmentRepository: {

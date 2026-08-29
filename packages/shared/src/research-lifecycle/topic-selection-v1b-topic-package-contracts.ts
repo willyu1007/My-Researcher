@@ -84,6 +84,7 @@ export interface TopicSelectionTopicPackageRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_by: TopicSelectionActorType;
   created_at: string;
   updated_at: string;
@@ -124,6 +125,7 @@ export interface TopicSelectionPackageTraceBoundaryCheckRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_at: string;
 }
 
@@ -147,6 +149,7 @@ export interface TopicSelectionTopicPackageReadinessAssessmentRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   assessed_by: TopicSelectionActorType;
   created_at: string;
 }
@@ -184,6 +187,7 @@ export interface TopicSelectionV1bToV1cInputBundleRecord {
   gate_result_id?: string | null;
   transition_attempt_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs?: TopicSelectionFunctionalRef[];
   created_at: string;
 }
 
@@ -300,6 +304,7 @@ export const topicSelectionTopicPackageRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_by: stringValue,
     created_at: stringId,
     updated_at: stringId,
@@ -376,6 +381,7 @@ export const topicSelectionPackageTraceBoundaryCheckRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_at: stringId,
   },
 } as const;
@@ -421,6 +427,7 @@ export const topicSelectionTopicPackageReadinessAssessmentRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     assessed_by: stringValue,
     created_at: stringId,
   },
@@ -492,6 +499,7 @@ export const topicSelectionV1bToV1cInputBundleRecordSchema = {
     gate_result_id: nullableStringId,
     transition_attempt_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    risk_finding_refs: functionalRefArray,
     created_at: stringId,
   },
 } as const;

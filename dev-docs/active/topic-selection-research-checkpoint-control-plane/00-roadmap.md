@@ -252,6 +252,7 @@
 - Require every advancement-relevant finding to end in an evidence-backed repair, named accepted risk, owned action, loopback, park, or drop disposition. A green gate with an unmapped material finding fails closed.
 - Exit when the frozen ambiguous fixture deterministically surfaces its existing material risks instead of producing a zero-warning gate, exact replay returns the same finding identities, and no machine path creates a human AcceptedRisk.
 - Verification: Red-green N8→promotion lineage tests for deterministic and model-assisted paths, replay/concurrency identity, stale-source invalidation, unmapped/mapped disposition cases, human packet and stage-view regeneration, migration/context checks, and relevant typechecks.
+- Implementation checkpoint (2026-08-29): complete. Material N8 risks, capped value dimensions, critic triggers, pass-with-risk gates, and admitted arena material/minority findings now mint immutable `TopicSelectionRiskFinding@v1` artifact refs. One nullable unique `stableKey` on the existing artifact owner supplies exact replay; no risk table or machine `AcceptedRisk` writer was added. N8 finding refs survive N9, N10, N11, TopicPackage, v1c input, deterministic/model-assisted support, gate, promotion checkpoint, stage views, and research status; arena finding refs remain attached to the support-only response/transcript until Phase 9C projects arena advice into human review. Stale source snapshots fail closed, the frozen ambiguous risk shape (`originality=68`, `reviewer_risk=64`, nearest-work and fixed-pipeline limits) no longer becomes a zero-warning path, and unmapped promotion findings cannot advance. A pre-existing active human `AcceptedRisk` maps only when its canonical `source_ref` names the exact finding; an owned condition/action maps by the existing exact ref contract. Exact replay, in-memory and real-Postgres concurrency, migration drift/context, schema, focused regression, and repository typechecks pass. Phase 9B/9C remain unimplemented and unauthorized.
 
 #### Phase 9B — Complete arena audit identity and candidate persistence
 - Preserve each role invocation's existing agent-orchestrator audit artifact ref and execution-provenance hash on `TopicSelectionResearchArenaRoleExecution`; bind the transcript to those identities without adding a generic agent-management platform.
@@ -285,7 +286,7 @@
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: none
+- Authorized boundary: through Phase 9A (complete); Phase 9B/9C require separate review and authorization
 - [x] Decisions: the current medium-value gate is frozen as an ambiguous calibration fixture instead of being promoted for process completion.
 - [x] Design: EvidencePacket resolution, arena owner boundary, and risk-carry projection are settled by the Phase 7 audit (`artifacts/phase7-owner-map.md`) and the researcher-confirmed `TopicSelectionResearchArenaSession` coordination root; branching is settled — fork is out of scope, and parked-alternative return is serial and delta-gated.
 - [x] Route: contract alignment and shadow validation precede stable dissent carry, product-auditable advisory integration, live override collection, and only then measured production adoption.

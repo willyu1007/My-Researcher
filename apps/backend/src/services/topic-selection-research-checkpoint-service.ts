@@ -4,6 +4,7 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionHumanConfirmedDecisionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { topicSelectionRiskFindingRefs } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionEvidenceConflictSetRecord,
   TopicSelectionEvidenceMapRecord,
@@ -1418,6 +1419,7 @@ export class TopicSelectionResearchCheckpointService {
     let nextAuthorizedTransition: string | null = null;
     const openBlockingObjectionCount = (await this.listOpenObjectionsForTitleCard(titleCardId))
       .filter((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)).length;
+    const materialRiskFindingRefs = await this.currentMaterialRiskFindingRefs(titleCardId);
     for (const kind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
       requiredCheckpointKind = kind;
       const checkpoint = currentByKind.get(kind);
@@ -1447,6 +1449,7 @@ export class TopicSelectionResearchCheckpointService {
       required_checkpoint_kind: requiredCheckpointKind,
       next_authorized_transition: nextAuthorizedTransition,
       open_blocking_objection_count: openBlockingObjectionCount,
+      material_risk_finding_refs: materialRiskFindingRefs,
       legacy_provenance: checkpointChain.length === 0
         || checkpointChain.some((checkpoint) => checkpoint.provenance_class === 'backfilled'),
     };
@@ -1845,6 +1848,8 @@ export class TopicSelectionResearchCheckpointService {
           ...this.stringArrayField(assessment, 'reviewer_objections'),
           ...this.stringArrayField(assessment, 'risk_notes'),
           ...this.stringArrayField(memo, 'top_objections'),
+          ...topicSelectionRiskFindingRefs(this.functionalRefArrayField(assessment, 'artifact_refs'))
+            .map((ref) => `可追踪风险记录：${ref.ref_id}`),
         ]),
         recommendation: this.stringField(decision, 'decision_rationale')
           || this.stringField(memo, 'disposition_bridge')
@@ -1873,6 +1878,8 @@ export class TopicSelectionResearchCheckpointService {
           ...this.stringArrayField(topicPackage, 'key_risks'),
           ...this.humanItems(readiness?.blockers),
           ...this.humanItems(readiness?.warnings),
+          ...topicSelectionRiskFindingRefs(this.functionalRefArrayField(topicPackage, 'artifact_refs'))
+            .map((ref) => `可追踪风险记录：${ref.ref_id}`),
         ]),
         recommendation: this.stringArrayField(readiness, 'required_actions').length > 0
           ? `先完成：${this.stringArrayField(readiness, 'required_actions').join('；')}`
@@ -2015,6 +2022,18 @@ export class TopicSelectionResearchCheckpointService {
     return Array.isArray(value)
       ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
       : [];
+  }
+
+  private functionalRefArrayField(
+    record: Record<string, unknown> | null,
+    key: string,
+  ): TopicSelectionFunctionalRef[] {
+    const value = record?.[key];
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is TopicSelectionFunctionalRef => {
+      const candidate = this.asRecord(item);
+      return Boolean(this.stringField(candidate, 'ref_type') && this.stringField(candidate, 'ref_id'));
+    });
   }
 
   private markdownBullets(items: string[]): string {
@@ -2192,6 +2211,44 @@ export class TopicSelectionResearchCheckpointService {
       if (!resolution) open.push(objection);
     }
     return open;
+  }
+
+  private async currentMaterialRiskFindingRefs(
+    titleCardId: string,
+  ): Promise<TopicSelectionFunctionalRef[]> {
+    const valueRepository = this.stageProjectionSources?.valueAssessmentRepository;
+    if (!valueRepository) return [];
+    const [assessments, decisions] = await Promise.all([
+      valueRepository.listAssessmentsByTitleCardId(titleCardId),
+      valueRepository.listDispositionDecisionsByTitleCardId(titleCardId),
+    ]);
+    const currentDecisions = decisions.filter((decision) => decision.is_current);
+    if (currentDecisions.length > 1) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Multiple current value disposition decisions exist for risk projection.');
+    }
+    const decision = currentDecisions[0];
+    if (!decision) return [];
+    const assessment = assessments.find(
+      (candidate) => candidate.topic_value_assessment_id === decision.topic_value_assessment_id,
+    );
+    if (!assessment) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Current value disposition points to a missing assessment for risk projection.');
+    }
+    const packages = this.stageProjectionSources?.topicPackageRepository
+      ? (await this.stageProjectionSources.topicPackageRepository.listPackagesByTitleCardId(titleCardId))
+          .filter((topicPackage) => topicPackage.value_disposition_decision_id === decision.value_disposition_decision_id)
+          .sort((left, right) => left.created_at.localeCompare(right.created_at)
+            || left.topic_package_id.localeCompare(right.topic_package_id))
+      : [];
+    const currentPackage = packages.at(-1);
+    return topicSelectionRiskFindingRefs(this.uniqueRefs([
+      ...(assessment.risk_finding_refs ?? []),
+      ...assessment.artifact_refs,
+      ...(decision.risk_finding_refs ?? []),
+      ...decision.artifact_refs,
+      ...(currentPackage?.risk_finding_refs ?? []),
+      ...(currentPackage?.artifact_refs ?? []),
+    ]));
   }
 
   private async inspectPrePromotionChain(
