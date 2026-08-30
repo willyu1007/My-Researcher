@@ -155,6 +155,7 @@ export type TopicSelectionAgentInvocationRequest<T> = {
   node_id: string;
   workflow_run_id: string;
   node_attempt_id: string;
+  input_snapshot_id?: string | null;
   invocation_attempt_id?: string | null;
   execution_mode: TopicSelectionAgentExecutionMode;
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
@@ -932,6 +933,7 @@ export class TopicSelectionAgentOrchestratorService {
       storage_kind: 'inline',
       payload: auditSnapshot as unknown as Record<string, unknown>,
       workflow_run_id: input.workflow_run_id,
+      input_snapshot_id: input.input_snapshot_id ?? null,
       created_by: input.created_by ?? 'system',
     });
   }

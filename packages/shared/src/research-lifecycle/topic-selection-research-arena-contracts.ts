@@ -19,6 +19,7 @@ import {
   type TopicSelectionCandidateDropReasonCode,
   type TopicSelectionCandidatePortfolioDispositionKind,
   type TopicSelectionCandidatePortfolioOutcome,
+  type TopicSelectionNeedCandidateArenaAdvisory,
 } from './topic-selection-need-validation-contracts.js';
 
 export const TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES = [
@@ -368,10 +369,17 @@ export interface TopicSelectionResearchArenaAdvisoryCandidateDisposition {
   rationale: string;
   drop_reason_code: TopicSelectionCandidateDropReasonCode | null;
   reopening_conditions: string[];
+  selected_against_candidate_ref: TopicSelectionFunctionalRef | null;
   role_positions: Array<{
     participant_role: TopicSelectionResearchArenaShadowRole;
     recommended_disposition: TopicSelectionCandidatePortfolioDispositionKind;
   }>;
+}
+
+export interface TopicSelectionResearchArenaCandidateProjection {
+  candidate_ref: TopicSelectionFunctionalRef;
+  semantic_group_key: string;
+  advisory: TopicSelectionNeedCandidateArenaAdvisory;
 }
 
 export interface TopicSelectionResearchArenaAdvisorySynthesis {
@@ -406,8 +414,7 @@ export interface TopicSelectionResearchArenaShadowRunResponse {
   support_only: true;
 }
 
-export interface TopicSelectionResearchArenaRoleExecutionRecord {
-  schema_version: 'TopicSelectionResearchArenaRoleExecution@v1';
+interface TopicSelectionResearchArenaRoleExecutionBase {
   arena_role_execution_id: string;
   arena_session_id: string;
   title_card_id: string;
@@ -431,6 +438,24 @@ export interface TopicSelectionResearchArenaRoleExecutionRecord {
   runtime_identity_hash: string;
   created_at: string;
 }
+
+export type TopicSelectionResearchArenaRoleExecutionRecord =
+  TopicSelectionResearchArenaRoleExecutionBase & (
+    | {
+        schema_version: 'TopicSelectionResearchArenaRoleExecution@v1';
+        execution_identity_status: 'legacy_unverified';
+        agent_invocation_audit_artifact_ref: null;
+        agent_invocation_audit_artifact_hash: null;
+        execution_provenance_hash: null;
+      }
+    | {
+        schema_version: 'TopicSelectionResearchArenaRoleExecution@v2';
+        execution_identity_status: 'product_invocation_verified';
+        agent_invocation_audit_artifact_ref: TopicSelectionFunctionalRef;
+        agent_invocation_audit_artifact_hash: string;
+        execution_provenance_hash: string;
+      }
+  );
 
 const stringId = { type: 'string', minLength: 1 } as const;
 const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
@@ -983,7 +1008,7 @@ const topicSelectionResearchArenaAdvisorySynthesisSchema = {
         additionalProperties: false,
         required: [
           'candidate_ref', 'disposition', 'rationale', 'drop_reason_code',
-          'reopening_conditions', 'role_positions',
+          'reopening_conditions', 'selected_against_candidate_ref', 'role_positions',
         ],
         properties: {
           candidate_ref: topicSelectionFunctionalRefSchema,
@@ -993,6 +1018,9 @@ const topicSelectionResearchArenaAdvisorySynthesisSchema = {
             anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES] }, { type: 'null' }],
           },
           reopening_conditions: { type: 'array', items: stringId, maxItems: 12 },
+          selected_against_candidate_ref: {
+            anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }],
+          },
           role_positions: {
             type: 'array',
             minItems: 2,
@@ -1036,43 +1064,68 @@ const topicSelectionResearchArenaExecutionAccountingSchema = {
   },
 } as const;
 
+const topicSelectionResearchArenaRoleExecutionBaseProperties = {
+  arena_role_execution_id: stringId,
+  arena_session_id: stringId,
+  title_card_id: stringId,
+  role_slot_id: stringId,
+  instance_index: { type: 'integer', minimum: 0 },
+  participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
+  pass_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PASS_KINDS] },
+  input_snapshot_id: stringId,
+  input_snapshot_hash: hashString,
+  query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
+  evidence_packet_artifact_ref: topicSelectionFunctionalRefSchema,
+  evidence_packet_hash: hashString,
+  evidence_partition_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
+  retrieval_provenance: topicSelectionResearchRetrievalProvenanceSchema,
+  exposure_artifact_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
+  exposure_set_hash: hashString,
+  output_artifact_ref: topicSelectionFunctionalRefSchema,
+  output_artifact_hash: hashString,
+  semantic_position_hash: hashString,
+  prior_role_hashes: { type: 'array', items: hashString },
+  runtime_identity_hash: hashString,
+  created_at: timestamp,
+} as const;
+
+const topicSelectionResearchArenaRoleExecutionBaseRequired = [
+  'schema_version', 'execution_identity_status', 'arena_role_execution_id', 'arena_session_id', 'title_card_id',
+  'role_slot_id', 'instance_index', 'participant_role', 'pass_kind', 'input_snapshot_id',
+  'input_snapshot_hash', 'query_intent', 'evidence_packet_artifact_ref',
+  'evidence_packet_hash', 'evidence_partition_refs', 'retrieval_provenance',
+  'exposure_artifact_refs', 'exposure_set_hash', 'output_artifact_ref',
+  'output_artifact_hash', 'semantic_position_hash', 'prior_role_hashes',
+  'runtime_identity_hash', 'created_at', 'agent_invocation_audit_artifact_ref',
+  'agent_invocation_audit_artifact_hash', 'execution_provenance_hash',
+] as const;
+
 export const topicSelectionResearchArenaRoleExecutionSchema = {
+  oneOf: [{
+    type: 'object',
+    additionalProperties: false,
+    required: [...topicSelectionResearchArenaRoleExecutionBaseRequired],
+    properties: {
+      ...topicSelectionResearchArenaRoleExecutionBaseProperties,
+      schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v1' },
+      execution_identity_status: { const: 'legacy_unverified' },
+      agent_invocation_audit_artifact_ref: { type: 'null' },
+      agent_invocation_audit_artifact_hash: { type: 'null' },
+      execution_provenance_hash: { type: 'null' },
+    },
+  }, {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'schema_version', 'arena_role_execution_id', 'arena_session_id', 'title_card_id',
-    'role_slot_id', 'instance_index', 'participant_role', 'pass_kind', 'input_snapshot_id',
-    'input_snapshot_hash', 'query_intent', 'evidence_packet_artifact_ref',
-    'evidence_packet_hash', 'evidence_partition_refs', 'retrieval_provenance',
-    'exposure_artifact_refs', 'exposure_set_hash', 'output_artifact_ref',
-    'output_artifact_hash', 'semantic_position_hash', 'prior_role_hashes',
-    'runtime_identity_hash', 'created_at',
-  ],
+  required: [...topicSelectionResearchArenaRoleExecutionBaseRequired],
   properties: {
-    schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v1' },
-    arena_role_execution_id: stringId,
-    arena_session_id: stringId,
-    title_card_id: stringId,
-    role_slot_id: stringId,
-    instance_index: { type: 'integer', minimum: 0 },
-    participant_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES] },
-    pass_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_PASS_KINDS] },
-    input_snapshot_id: stringId,
-    input_snapshot_hash: hashString,
-    query_intent: topicSelectionResearchEvidenceQueryIntentSchema,
-    evidence_packet_artifact_ref: topicSelectionFunctionalRefSchema,
-    evidence_packet_hash: hashString,
-    evidence_partition_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
-    retrieval_provenance: topicSelectionResearchRetrievalProvenanceSchema,
-    exposure_artifact_refs: { type: 'array', items: topicSelectionFunctionalRefSchema, minItems: 1 },
-    exposure_set_hash: hashString,
-    output_artifact_ref: topicSelectionFunctionalRefSchema,
-    output_artifact_hash: hashString,
-    semantic_position_hash: hashString,
-    prior_role_hashes: { type: 'array', items: hashString },
-    runtime_identity_hash: hashString,
-    created_at: timestamp,
+    ...topicSelectionResearchArenaRoleExecutionBaseProperties,
+    schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v2' },
+    execution_identity_status: { const: 'product_invocation_verified' },
+    agent_invocation_audit_artifact_ref: topicSelectionFunctionalRefSchema,
+    agent_invocation_audit_artifact_hash: hashString,
+    execution_provenance_hash: hashString,
   },
+  }],
 } as const;
 
 export const topicSelectionResearchArenaShadowRunResponseSchema = {

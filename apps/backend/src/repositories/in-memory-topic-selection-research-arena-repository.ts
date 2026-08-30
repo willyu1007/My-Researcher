@@ -1,4 +1,5 @@
 import type {
+  TopicSelectionResearchArenaCandidateProjection,
   TopicSelectionResearchArenaKind,
   TopicSelectionResearchArenaRoleExecutionRecord,
   TopicSelectionResearchArenaSessionRecord,
@@ -17,6 +18,7 @@ implements TopicSelectionResearchArenaRepository {
   private readonly executionIdsByRuntimeHash = new Map<string, string>();
   private readonly executionIdsBySlot = new Map<string, string>();
   private readonly executionIdsBySemanticPosition = new Map<string, string>();
+  private readonly candidateProjections = new Map<string, TopicSelectionResearchArenaCandidateProjection>();
 
   async replaceCurrentSession(
     record: TopicSelectionResearchArenaSessionRecord,
@@ -70,6 +72,29 @@ implements TopicSelectionResearchArenaRepository {
     return record;
   }
 
+  async synthesizeSessionWithCandidateProjections(
+    record: TopicSelectionResearchArenaSessionRecord,
+    candidateProjections: TopicSelectionResearchArenaCandidateProjection[],
+  ): Promise<TopicSelectionResearchArenaSessionRecord> {
+    for (const projection of candidateProjections) {
+      const current = this.candidateProjections.get(projection.candidate_ref.ref_id);
+      if (current && current.semantic_group_key !== projection.semantic_group_key) {
+        throw new TopicSelectionResearchArenaConflictError('NeedCandidate semantic identity changed.');
+      }
+    }
+    const updated = await this.updateSession(record);
+    for (const projection of candidateProjections) {
+      this.candidateProjections.set(projection.candidate_ref.ref_id, projection);
+    }
+    return updated;
+  }
+
+  async findCandidateProjectionById(
+    candidateId: string,
+  ): Promise<TopicSelectionResearchArenaCandidateProjection | null> {
+    return this.candidateProjections.get(candidateId) ?? null;
+  }
+
   async createRoleExecution(
     record: TopicSelectionResearchArenaRoleExecutionRecord,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {
@@ -96,6 +121,15 @@ implements TopicSelectionResearchArenaRepository {
     runtimeIdentityHash: string,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null> {
     const id = this.executionIdsByRuntimeHash.get(runtimeIdentityHash);
+    return id ? this.executions.get(id) ?? null : null;
+  }
+
+  async findRoleExecutionBySlot(
+    sessionId: string,
+    roleSlotId: string,
+    instanceIndex: number,
+  ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null> {
+    const id = this.executionIdsBySlot.get(`${sessionId}:${roleSlotId}:${instanceIndex}`);
     return id ? this.executions.get(id) ?? null : null;
   }
 

@@ -85,7 +85,9 @@ function toPackageRecord(row: TitleCardPackage): TopicSelectionTopicPackageRecor
     transition_attempt_id: row.v1bTransitionAttemptId ?? payload.transition_attempt_id ?? null,
     package_payload: asRecord(payload.package_payload),
     artifact_refs: artifactRefs,
-    risk_finding_refs: topicSelectionRiskFindingRefs(artifactRefs),
+    ...(Object.hasOwn(payload, 'risk_finding_refs')
+      ? { risk_finding_refs: payload.risk_finding_refs }
+      : {}),
     updated_at: row.updatedAt.toISOString(),
     created_at: row.createdAt.toISOString(),
   } as TopicSelectionTopicPackageRecord;

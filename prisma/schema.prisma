@@ -1556,6 +1556,10 @@ model TopicSelectionResearchArenaRoleExecution {
   outputArtifactRef         Json                               @default("{}")
   outputArtifactHash        String
   semanticPositionHash      String
+  executionIdentityStatus   String                             @default("legacy_unverified")
+  agentInvocationAuditRef   Json?
+  agentInvocationAuditHash  String?
+  executionProvenanceHash   String?
   priorRoleHashes           String[]                           @default([])
   runtimeIdentityHash       String                             @unique(map: "tsrare_runtime_identity")
   createdAt                 DateTime                           @db.Timestamptz(6)
@@ -1567,6 +1571,7 @@ model TopicSelectionResearchArenaRoleExecution {
   @@index([participantRole, passKind], map: "tsrare_role_pass_idx")
   @@index([inputSnapshotId], map: "tsrare_input_snapshot_idx")
   @@index([exposureSetHash], map: "tsrare_exposure_set_idx")
+  @@index([agentInvocationAuditHash], map: "tsrare_invocation_audit_idx")
 }
 
 model TopicSelectionResearchObjection {
@@ -2200,6 +2205,8 @@ model TopicSelectionNeedCandidate {
   mechanismType              String
   mechanismSummary           String?
   mechanismPayload           Json     @default("{}")
+  semanticGroupKey           String?
+  currentArenaAdvisory       Json?
   scopeNotes                 String?
   nonGoalNotes               String?
   priorArtStatus             String
@@ -2247,6 +2254,7 @@ model TopicSelectionNeedCandidate {
   @@index([mergedIntoNeedCandidateId])
   @@index([inputSnapshotId])
   @@index([workflowRunId])
+  @@index([semanticGroupKey], map: "tsnc_semantic_group_idx")
 }
 
 model TopicSelectionNeedCandidateReadinessAssessment {

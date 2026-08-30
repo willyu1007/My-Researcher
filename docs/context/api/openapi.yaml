@@ -4499,7 +4499,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopicSelectionV1aRecord'
+                $ref: '#/components/schemas/TopicSelectionV1aNeedCandidateRecord'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -4824,7 +4824,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TopicSelectionV1aListResponse'
+                $ref: '#/components/schemas/TopicSelectionV1aNeedCandidateListResponse'
 
   /topic-selection/v1a/title-cards/{titleCardId}/validated-needs:
     get:
@@ -9140,9 +9140,10 @@ components:
     TopicSelectionResearchArenaRoleExecution:
       type: object
       additionalProperties: false
-      required: [schema_version, arena_role_execution_id, arena_session_id, title_card_id, role_slot_id, instance_index, participant_role, pass_kind, input_snapshot_id, input_snapshot_hash, query_intent, evidence_packet_artifact_ref, evidence_packet_hash, evidence_partition_refs, retrieval_provenance, exposure_artifact_refs, exposure_set_hash, output_artifact_ref, output_artifact_hash, semantic_position_hash, prior_role_hashes, runtime_identity_hash, created_at]
+      required: [schema_version, execution_identity_status, arena_role_execution_id, arena_session_id, title_card_id, role_slot_id, instance_index, participant_role, pass_kind, input_snapshot_id, input_snapshot_hash, query_intent, evidence_packet_artifact_ref, evidence_packet_hash, evidence_partition_refs, retrieval_provenance, exposure_artifact_refs, exposure_set_hash, output_artifact_ref, output_artifact_hash, semantic_position_hash, agent_invocation_audit_artifact_ref, agent_invocation_audit_artifact_hash, execution_provenance_hash, prior_role_hashes, runtime_identity_hash, created_at]
       properties:
-        schema_version: { type: string, const: 'TopicSelectionResearchArenaRoleExecution@v1' }
+        schema_version: { type: string, enum: ['TopicSelectionResearchArenaRoleExecution@v1', 'TopicSelectionResearchArenaRoleExecution@v2'] }
+        execution_identity_status: { type: string, enum: [legacy_unverified, product_invocation_verified] }
         arena_role_execution_id: { type: string, minLength: 1 }
         arena_session_id: { type: string, minLength: 1 }
         title_card_id: { type: string, minLength: 1 }
@@ -9166,9 +9167,29 @@ components:
           $ref: '#/components/schemas/TopicSelectionFunctionalRef'
         output_artifact_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
         semantic_position_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        agent_invocation_audit_artifact_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        agent_invocation_audit_artifact_hash: { type: [string, 'null'], pattern: '^[a-f0-9]{64}$' }
+        execution_provenance_hash: { type: [string, 'null'], pattern: '^[a-f0-9]{64}$' }
         prior_role_hashes: { type: array, items: { type: string, pattern: '^[a-f0-9]{64}$' } }
         runtime_identity_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
         created_at: { type: string, format: date-time }
+      oneOf:
+        - properties:
+            schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v1' }
+            execution_identity_status: { const: legacy_unverified }
+            agent_invocation_audit_artifact_ref: { type: 'null' }
+            agent_invocation_audit_artifact_hash: { type: 'null' }
+            execution_provenance_hash: { type: 'null' }
+        - properties:
+            schema_version: { const: 'TopicSelectionResearchArenaRoleExecution@v2' }
+            execution_identity_status: { const: product_invocation_verified }
+            agent_invocation_audit_artifact_ref:
+              $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            agent_invocation_audit_artifact_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+            execution_provenance_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
 
     TopicSelectionResearchArenaAdvisorySynthesis:
       type: object
@@ -9185,7 +9206,7 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [candidate_ref, disposition, rationale, drop_reason_code, reopening_conditions, role_positions]
+            required: [candidate_ref, disposition, rationale, drop_reason_code, reopening_conditions, selected_against_candidate_ref, role_positions]
             properties:
               candidate_ref:
                 $ref: '#/components/schemas/TopicSelectionFunctionalRef'
@@ -9195,6 +9216,10 @@ components:
                 type: [string, 'null']
                 enum: [near_isomorphic_prior_art, unidentifiable_or_unfalsifiable_mechanism, claim_defeating_data_or_evaluation, strictly_dominated_by_visible_candidate, no_viable_path_after_delta_expansion, null]
               reopening_conditions: { type: array, maxItems: 12, items: { type: string, minLength: 1 } }
+              selected_against_candidate_ref:
+                anyOf:
+                  - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+                  - type: 'null'
               role_positions:
                 type: array
                 minItems: 2
@@ -9348,6 +9373,58 @@ components:
     TopicSelectionV1aRecord:
       type: object
       additionalProperties: true
+
+    TopicSelectionNeedCandidateArenaAdvisory:
+      type: object
+      additionalProperties: false
+      required: [schema_version, arena_session_id, arena_synthesis_ref, arena_synthesis_hash, disposition, rationale, drop_reason_code, reopening_conditions, selected_against_candidate_ref, support_only]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionNeedCandidateArenaAdvisory@v1' }
+        arena_session_id: { type: string, minLength: 1 }
+        arena_synthesis_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        arena_synthesis_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        disposition: { type: string, enum: [selected, parked, dropped] }
+        rationale: { type: string, minLength: 1 }
+        drop_reason_code:
+          type: [string, 'null']
+          enum: [near_isomorphic_prior_art, unidentifiable_or_unfalsifiable_mechanism, claim_defeating_data_or_evaluation, strictly_dominated_by_visible_candidate, no_viable_path_after_delta_expansion, null]
+        reopening_conditions: { type: array, maxItems: 12, items: { type: string, minLength: 1 } }
+        selected_against_candidate_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        support_only: { type: boolean, const: true }
+
+    TopicSelectionV1aNeedCandidateRecord:
+      type: object
+      additionalProperties: true
+      required: [need_candidate_id, title_card_id, candidate_version, lifecycle_status, decision_status, review_status, freshness_status, candidate_need, mechanism_type, semantic_group_key, current_arena_advisory]
+      properties:
+        need_candidate_id: { type: string, minLength: 1 }
+        title_card_id: { type: string, minLength: 1 }
+        candidate_version: { type: string, minLength: 1 }
+        lifecycle_status: { type: string }
+        decision_status: { type: string }
+        review_status: { type: string }
+        freshness_status: { type: string }
+        candidate_need: { type: string, minLength: 1 }
+        mechanism_type: { type: string }
+        semantic_group_key: { type: string, pattern: '^[a-f0-9]{64}$' }
+        current_arena_advisory:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionNeedCandidateArenaAdvisory'
+            - type: 'null'
+
+    TopicSelectionV1aNeedCandidateListResponse:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionV1aNeedCandidateRecord'
 
     TopicSelectionV1aListResponse:
       type: object

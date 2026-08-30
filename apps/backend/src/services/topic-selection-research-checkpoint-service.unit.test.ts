@@ -780,6 +780,8 @@ function candidate(
     mechanism_type: mechanismType,
     mechanism_summary: null,
     mechanism_payload: mechanismPayload,
+    semantic_group_key: 'a'.repeat(64),
+    current_arena_advisory: null,
     scope_notes: 'Bounded scope',
     non_goal_notes: null,
     prior_art_status: 'no_strong_solution_found',

@@ -1,14 +1,19 @@
 import type {
+  TopicSelectionAgentInvocationProvenance,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
+import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
   TopicSelectionInputSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionArtifactFunctionalRef,
+  TopicSelectionNeedCandidateRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   topicSelectionResearchArenaRoleOutputSchema,
   type TopicSelectionResearchArenaAdvisorySynthesis,
+  type TopicSelectionResearchArenaCandidateProjection,
   type TopicSelectionResearchArenaExecutionAccounting,
   type TopicSelectionResearchArenaRoleEvidencePreparation,
   type TopicSelectionResearchArenaRoleOutput,
@@ -50,10 +55,24 @@ const REQUIRED_ROLES: readonly TopicSelectionResearchArenaShadowRole[] = [
 type AgentInvoker = {
   invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
-  ): Promise<{ status: string; structured_output: T | null }>;
+  ): Promise<{
+    status: string;
+    structured_output: T | null;
+    provenance: TopicSelectionAgentInvocationProvenance;
+    audit_artifact_ref?: TopicSelectionFunctionalRef | null;
+  }>;
 };
 
 type SnapshotReader = Pick<TopicSelectionControlPlaneService, 'getInputSnapshot'>;
+type CandidateReader = {
+  findNeedCandidateById(
+    needCandidateId: string,
+  ): Promise<Pick<
+    TopicSelectionNeedCandidateRecord,
+    'need_candidate_id' | 'title_card_id' | 'candidate_version' | 'semantic_group_key'
+  > | null>;
+};
+type CandidateProjectionSource = NonNullable<Awaited<ReturnType<CandidateReader['findNeedCandidateById']>>>;
 type ArtifactStore = Pick<TopicSelectionControlPlaneService, 'getArtifactRef' | 'recordArtifactRef'>;
 type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecution' | 'synthesizeSession'>;
 type RiskFindingRecorder = Pick<TopicSelectionRiskFindingService, 'recordArenaFindings'>;
@@ -65,6 +84,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
   constructor(private readonly dependencies: {
     arenaRepository: Pick<TopicSelectionResearchArenaRepository, 'findSessionById'>;
     snapshotReader: SnapshotReader;
+    candidateReader: CandidateReader;
     artifactStore: ArtifactStore;
     agentInvoker: AgentInvoker;
     arenaService: ArenaRuntime;
@@ -99,6 +119,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena InputSnapshot hash no longer matches its bound identity.');
     }
     this.assertCandidatesBoundToSnapshot(input.candidate_refs, snapshot);
+    const candidates = await this.requireCandidates(input.candidate_refs, session.title_card_id);
     const roleInputs = this.indexRoleInputs(input.role_inputs, session.title_card_id, input.execution_mode);
     const preparedRoles = await Promise.all(REQUIRED_ROLES.map(async (role) => {
       const roleInput = roleInputs.get(role)!;
@@ -109,12 +130,12 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     // Both independent source invocations are started and completed before any role output is
     // persisted or admitted. This is the core first-pass non-exposure guarantee.
     const invocationResults = await Promise.all(preparedRoles.map(({ role, roleInput, packet }) => (
-      this.invokeRole(input, role, roleInput, packet)
+      this.invokeRole(input, role, roleInput, packet, session.input_snapshot_id)
     )));
     const outputs = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionResearchArenaRoleOutput>();
     invocationResults.forEach((result, index) => {
       const prepared = preparedRoles[index]!;
-      if (result.status !== 'succeeded' || !result.structured_output) {
+      if (result.status !== 'succeeded' || !result.structured_output || !result.audit_artifact_ref) {
         throw new AppError(
           422,
           'GATE_CONSTRAINT_FAILED',
@@ -150,6 +171,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       const preparation = prepared.roleInput.evidence_preparation;
       const packetRef = preparation.evidence_packet_artifact_ref!;
       const outputRef = this.artifactRef(outputArtifacts.get(prepared.role)!);
+      const invocation = invocationResults[index]!;
       const { provenance_hash: _provenanceHash, ...retrievalProvenance } = preparation.retrieval_provenance!;
       roleExecutions.push(await this.dependencies.arenaService.recordRoleExecution({
         arena_session_id: session.arena_session_id,
@@ -161,6 +183,8 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         retrieval_provenance: retrievalProvenance,
         exposure_artifact_refs: [packetRef],
         output_artifact_ref: outputRef,
+        agent_invocation_audit_artifact_ref: invocation.audit_artifact_ref!,
+        execution_provenance: invocation.provenance,
         prior_role_hashes: [],
       }));
     }
@@ -226,16 +250,26 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       duration_ms: Math.max(0, Math.round(this.now() - startedAtMs)),
     };
     const transcriptPayload = {
-      schema_version: 'TopicSelectionResearchArenaLoopTranscript@v1',
+      schema_version: 'TopicSelectionResearchArenaLoopTranscript@v2',
       arena_session_id: session.arena_session_id,
       input_snapshot_id: session.input_snapshot_id,
       independent_first_pass: roleExecutions.map((execution) => ({
+        arena_role_execution_id: execution.arena_role_execution_id,
         participant_role: execution.participant_role,
         evidence_packet_artifact_ref: execution.evidence_packet_artifact_ref,
         evidence_packet_hash: execution.evidence_packet_hash,
         exposure_set_hash: execution.exposure_set_hash,
         output_artifact_ref: execution.output_artifact_ref,
         output_artifact_hash: execution.output_artifact_hash,
+        agent_invocation_audit_artifact_ref: execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+          ? execution.agent_invocation_audit_artifact_ref
+          : null,
+        agent_invocation_audit_artifact_hash: execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+          ? execution.agent_invocation_audit_artifact_hash
+          : null,
+        execution_provenance_hash: execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+          ? execution.execution_provenance_hash
+          : null,
         prior_role_hashes: execution.prior_role_hashes,
       })),
       advisory_synthesis: advisorySynthesis,
@@ -263,6 +297,14 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         ? 'recommendation_ready'
         : advisorySynthesis.outcome,
       loop_transcript_artifact_ref: synthesisArtifactRef,
+      candidate_projections: this.candidateProjections(
+        input.candidate_refs,
+        candidates,
+        advisorySynthesis,
+        session.arena_session_id,
+        synthesisArtifactRef,
+        synthesisArtifactHash,
+      ),
     });
 
     return {
@@ -283,6 +325,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     role: TopicSelectionResearchArenaShadowRole,
     roleInput: TopicSelectionResearchArenaShadowRoleInput,
     packet: TopicSelectionResearchEvidencePacket,
+    inputSnapshotId: string,
   ) {
     const prompt = this.llmConfig.getPrompt('topic-selection', ROLE_PROMPT_IDS[role]);
     const packetRef = roleInput.evidence_preparation.evidence_packet_artifact_ref!;
@@ -297,6 +340,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       node_id: `topic_selection_research_arena_${role}`,
       workflow_run_id: input.workflow_run_id,
       node_attempt_id: `${input.node_attempt_id}:${role}`,
+      input_snapshot_id: inputSnapshotId,
       execution_mode: input.execution_mode,
       executor_kind: 'multi_agent_debate',
       run_mode: 'acceptance',
@@ -399,6 +443,26 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     }
   }
 
+  private async requireCandidates(
+    candidateRefs: TopicSelectionFunctionalRef[],
+    titleCardId: string,
+  ): Promise<Map<string, CandidateProjectionSource>> {
+    const entries = await Promise.all(candidateRefs.map(async (candidateRef) => {
+      if (candidateRef.ref_type !== 'need_candidate') {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Research Arena persistence requires need_candidate refs.');
+      }
+      const candidate = await this.dependencies.candidateReader.findNeedCandidateById(candidateRef.ref_id);
+      if (!candidate
+        || candidate.title_card_id !== titleCardId
+        || candidate.candidate_version !== candidateRef.version_id
+        || !/^[a-f0-9]{64}$/u.test(candidate.semantic_group_key)) {
+        throw new AppError(409, 'VERSION_CONFLICT', `NeedCandidate ${candidateRef.ref_id} is outside the arena snapshot.`);
+      }
+      return [this.refKey(candidateRef), candidate] as const;
+    }));
+    return new Map(entries);
+  }
+
   private async requireEvidencePacket(
     preparation: TopicSelectionResearchArenaRoleEvidencePreparation,
     inputSnapshotId: string,
@@ -471,6 +535,9 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       if ((review.recommended_disposition === 'dropped') !== (review.drop_reason_code !== null)) {
         throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `${role} drop reason must appear if and only if the candidate is dropped.`);
       }
+      if (review.recommended_disposition !== 'selected' && review.reopening_conditions.length === 0) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `${role} parked or dropped candidates require reopening conditions.`);
+      }
     }
     for (const finding of output.findings) {
       assertGrounded(finding.evidence_unit_refs, evidenceKeys, 'finding');
@@ -532,6 +599,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
           ...scout.reopening_conditions,
           ...killer.reopening_conditions,
         ])],
+        selected_against_candidate_ref: null as TopicSelectionFunctionalRef | null,
         role_positions: [
           { participant_role: 'opportunity_scout' as const, recommended_disposition: scout.recommended_disposition },
           { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: killer.recommended_disposition },
@@ -552,6 +620,14 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       for (const candidate of candidateDispositions) {
         if (candidate.disposition === 'selected') candidate.disposition = 'parked';
       }
+    }
+    const selectedCandidateRef = outcome === 'selected'
+      ? candidateDispositions.find((candidate) => candidate.disposition === 'selected')?.candidate_ref ?? null
+      : null;
+    for (const candidate of candidateDispositions) {
+      candidate.selected_against_candidate_ref = candidate.disposition === 'parked'
+        ? selectedCandidateRef
+        : null;
     }
     return {
       schema_version: 'TopicSelectionResearchArenaAdvisorySynthesis@v1',
@@ -575,6 +651,39 @@ export class TopicSelectionResearchArenaShadowRunnerService {
           : null,
       support_only: true,
     };
+  }
+
+  private candidateProjections(
+    candidateRefs: TopicSelectionFunctionalRef[],
+    candidates: Map<string, CandidateProjectionSource>,
+    synthesis: TopicSelectionResearchArenaAdvisorySynthesis,
+    arenaSessionId: string,
+    synthesisRef: TopicSelectionFunctionalRef,
+    synthesisHash: string,
+  ): TopicSelectionResearchArenaCandidateProjection[] {
+    const dispositions = new Map(
+      synthesis.candidate_dispositions.map((candidate) => [this.refKey(candidate.candidate_ref), candidate]),
+    );
+    return candidateRefs.map((candidateRef) => {
+      const candidate = candidates.get(this.refKey(candidateRef))!;
+      const disposition = dispositions.get(this.refKey(candidateRef))!;
+      return {
+        candidate_ref: candidateRef,
+        semantic_group_key: candidate.semantic_group_key,
+        advisory: {
+          schema_version: 'TopicSelectionNeedCandidateArenaAdvisory@v1',
+          arena_session_id: arenaSessionId,
+          arena_synthesis_ref: synthesisRef,
+          arena_synthesis_hash: synthesisHash,
+          disposition: disposition.disposition,
+          rationale: disposition.rationale,
+          drop_reason_code: disposition.drop_reason_code,
+          reopening_conditions: disposition.reopening_conditions,
+          selected_against_candidate_ref: disposition.selected_against_candidate_ref,
+          support_only: true,
+        },
+      };
+    });
   }
 
   private artifactRef(artifact: TopicSelectionArtifactRefRecord): TopicSelectionFunctionalRef {

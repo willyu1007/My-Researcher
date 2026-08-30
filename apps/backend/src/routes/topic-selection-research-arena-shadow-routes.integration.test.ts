@@ -17,6 +17,10 @@ function roleExecution(role: 'opportunity_scout' | 'prior_art_topic_killer', ind
   const packetRef = { ref_type: 'artifact_ref', ref_id: `packet_${role}`, title_card_id: 'title_1' };
   return {
     schema_version: 'TopicSelectionResearchArenaRoleExecution@v1' as const,
+    execution_identity_status: 'legacy_unverified' as const,
+    agent_invocation_audit_artifact_ref: null,
+    agent_invocation_audit_artifact_hash: null,
+    execution_provenance_hash: null,
     arena_role_execution_id: `execution_${role}`,
     arena_session_id: 'arena_1',
     title_card_id: 'title_1',
@@ -95,11 +99,12 @@ test('research arena shadow route rejects provider execution and returns support
         outcome: 'evidence_expansion_required' as const,
         summary: 'Conflict prevents advisory selection.',
         candidate_dispositions: [{
-          candidate_ref: { ref_type: 'topic_question_candidate', ref_id: 'candidate_1', title_card_id: 'title_1' },
+          candidate_ref: { ref_type: 'need_candidate', ref_id: 'candidate_1', title_card_id: 'title_1', version_id: 'v1' },
           disposition: 'parked' as const,
           rationale: 'The roles disagree.',
           drop_reason_code: null,
           reopening_conditions: ['Add direct comparison evidence.'],
+          selected_against_candidate_ref: null,
           role_positions: [
             { participant_role: 'opportunity_scout' as const, recommended_disposition: 'selected' as const },
             { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'dropped' as const },

@@ -868,6 +868,19 @@ export interface TopicSelectionGenerateNeedCandidateArtifactRefBundle {
   artifact_refs: TopicSelectionGenerateNeedCandidateArtifactRefEntry[];
 }
 
+export interface TopicSelectionNeedCandidateArenaAdvisory {
+  schema_version: 'TopicSelectionNeedCandidateArenaAdvisory@v1';
+  arena_session_id: string;
+  arena_synthesis_ref: TopicSelectionFunctionalRef;
+  arena_synthesis_hash: string;
+  disposition: TopicSelectionCandidatePortfolioDispositionKind;
+  rationale: string;
+  drop_reason_code: TopicSelectionCandidateDropReasonCode | null;
+  reopening_conditions: string[];
+  selected_against_candidate_ref: TopicSelectionFunctionalRef | null;
+  support_only: true;
+}
+
 export interface TopicSelectionNeedCandidateRecord {
   need_candidate_id: string;
   workspace_id?: string | null;
@@ -883,6 +896,8 @@ export interface TopicSelectionNeedCandidateRecord {
   mechanism_type: TopicSelectionNeedMechanismType;
   mechanism_summary?: string | null;
   mechanism_payload: Record<string, unknown>;
+  semantic_group_key: string;
+  current_arena_advisory: TopicSelectionNeedCandidateArenaAdvisory | null;
   scope_notes?: string | null;
   non_goal_notes?: string | null;
   prior_art_status: TopicSelectionNeedPriorArtStatus;
@@ -1368,6 +1383,31 @@ const artifactFunctionalRefSchema = {
 } as const;
 const artifactRefArray = { type: 'array', items: artifactFunctionalRefSchema } as const;
 const nullableArtifactRef = { anyOf: [artifactFunctionalRefSchema, { type: 'null' }] } as const;
+const hashString = { type: 'string', pattern: '^[a-f0-9]{64}$' } as const;
+
+export const topicSelectionNeedCandidateArenaAdvisorySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'arena_session_id', 'arena_synthesis_ref', 'arena_synthesis_hash',
+    'disposition', 'rationale', 'drop_reason_code', 'reopening_conditions',
+    'selected_against_candidate_ref', 'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionNeedCandidateArenaAdvisory@v1' },
+    arena_session_id: stringId,
+    arena_synthesis_ref: topicSelectionFunctionalRefSchema,
+    arena_synthesis_hash: hashString,
+    disposition: { enum: [...TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS] },
+    rationale: stringId,
+    drop_reason_code: {
+      anyOf: [{ enum: [...TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES] }, { type: 'null' }],
+    },
+    reopening_conditions: stringArray,
+    selected_against_candidate_ref: nullableFunctionalRef,
+    support_only: { const: true },
+  },
+} as const;
 const nullableString = { anyOf: [stringId, { type: 'null' }] } as const;
 
 export const topicSelectionNeedAdjudicationRecommendationPacketSchema = {
@@ -2820,6 +2860,10 @@ export const topicSelectionNeedCandidateRecordSchema = {
     mechanism_type: { enum: [...TOPIC_SELECTION_NEED_MECHANISM_TYPES] },
     mechanism_summary: nullableStringId,
     mechanism_payload: objectPayload,
+    semantic_group_key: hashString,
+    current_arena_advisory: {
+      anyOf: [topicSelectionNeedCandidateArenaAdvisorySchema, { type: 'null' }],
+    },
     scope_notes: nullableStringId,
     non_goal_notes: nullableStringId,
     prior_art_status: { enum: [...TOPIC_SELECTION_NEED_PRIOR_ART_STATUSES] },

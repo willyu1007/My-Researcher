@@ -23,6 +23,7 @@ import type {
   TopicSelectionNeedValidationHumanConfirmationWriteResult,
   TopicSelectionNeedValidationRepository,
 } from '../topic-selection-need-validation.repository.js';
+import { topicSelectionNeedCandidateSemanticGroupKey } from '../../topic-selection-need-candidate-identity.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
@@ -66,6 +67,8 @@ type NeedCandidateRow = {
   mechanismType: string;
   mechanismSummary: string | null;
   mechanismPayload: Prisma.JsonValue;
+  semanticGroupKey: string | null;
+  currentArenaAdvisory: Prisma.JsonValue | null;
   scopeNotes: string | null;
   nonGoalNotes: string | null;
   priorArtStatus: string;
@@ -274,6 +277,8 @@ type V1bBundleRow = {
 };
 
 function toNeedCandidateRecord(row: NeedCandidateRow): TopicSelectionNeedCandidateRecord {
+  const mechanismType = row.mechanismType as TopicSelectionNeedCandidateRecord['mechanism_type'];
+  const mechanismPayload = asRecord(row.mechanismPayload);
   return {
     need_candidate_id: row.id,
     workspace_id: row.workspaceId,
@@ -286,9 +291,16 @@ function toNeedCandidateRecord(row: NeedCandidateRow): TopicSelectionNeedCandida
     freshness_status: row.freshnessStatus as TopicSelectionNeedCandidateRecord['freshness_status'],
     candidate_need: row.candidateNeed,
     unmet_need_statement: row.unmetNeedStatement,
-    mechanism_type: row.mechanismType as TopicSelectionNeedCandidateRecord['mechanism_type'],
+    mechanism_type: mechanismType,
     mechanism_summary: row.mechanismSummary,
-    mechanism_payload: asRecord(row.mechanismPayload),
+    mechanism_payload: mechanismPayload,
+    semantic_group_key: row.semanticGroupKey ?? topicSelectionNeedCandidateSemanticGroupKey({
+      mechanism_type: mechanismType,
+      mechanism_payload: mechanismPayload,
+    }),
+    current_arena_advisory: row.currentArenaAdvisory === null
+      ? null
+      : asRecord(row.currentArenaAdvisory) as unknown as TopicSelectionNeedCandidateRecord['current_arena_advisory'],
     scope_notes: row.scopeNotes,
     non_goal_notes: row.nonGoalNotes,
     prior_art_status: row.priorArtStatus as TopicSelectionNeedCandidateRecord['prior_art_status'],
@@ -785,6 +797,10 @@ export class PrismaTopicSelectionNeedValidationRepository implements TopicSelect
       mechanismType: record.mechanism_type,
       mechanismSummary: record.mechanism_summary ?? null,
       mechanismPayload: toJsonValue(record.mechanism_payload),
+      semanticGroupKey: record.semantic_group_key,
+      currentArenaAdvisory: record.current_arena_advisory
+        ? toJsonValue(record.current_arena_advisory)
+        : Prisma.DbNull,
       scopeNotes: record.scope_notes ?? null,
       nonGoalNotes: record.non_goal_notes ?? null,
       priorArtStatus: record.prior_art_status,

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-28T16:00:00.000Z",
+  "updatedAt": "2026-08-30T12:00:00.000Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -47872,6 +47872,17 @@
           "unique": false
         },
         {
+          "name": "currentArenaAdvisory",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "confidence",
           "type": "Float",
           "nullable": true,
@@ -48180,6 +48191,17 @@
           "unique": false
         },
         {
+          "name": "semanticGroupKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "searchPlanId",
           "type": "String",
           "nullable": false,
@@ -48423,6 +48445,14 @@
           ],
           "name": null,
           "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "semanticGroupKey"
+          ],
+          "name": null,
+          "map": "tsnc_semantic_group_idx"
         },
         {
           "type": "index",
@@ -55785,6 +55815,8 @@
       "dbName": null,
       "schema": null,
       "columns": [
+        { "name": "agentInvocationAuditHash", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "agentInvocationAuditRef", "type": "Json", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
         { "name": "arenaSessionId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
         { "name": "createdAt", "type": "DateTime", "nullable": false, "list": false, "dbName": null, "dbType": "Timestamptz", "default": null, "primaryKey": false, "unique": false },
         { "name": "evidencePacketArtifactRef", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"{}\"", "primaryKey": false, "unique": false },
@@ -55792,6 +55824,8 @@
         { "name": "evidencePartitionRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
         { "name": "exposureArtifactRefs", "type": "Json", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"[]\"", "primaryKey": false, "unique": false },
         { "name": "exposureSetHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
+        { "name": "executionIdentityStatus", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": "\"legacy_unverified\"", "primaryKey": false, "unique": false },
+        { "name": "executionProvenanceHash", "type": "String", "nullable": true, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
         { "name": "id", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": true, "unique": false },
         { "name": "inputSnapshotHash", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
         { "name": "inputSnapshotId", "type": "String", "nullable": false, "list": false, "dbName": null, "dbType": null, "default": null, "primaryKey": false, "unique": false },
@@ -55813,6 +55847,7 @@
         { "field": "arenaSession", "to": "TopicSelectionResearchArenaSession", "optional": false, "list": false, "relationName": "TopicSelectionResearchArenaRoleExecutionToTopicSelectionResearchArenaSession", "fields": ["arenaSessionId"], "references": ["id"] }
       ],
       "indexes": [
+        { "type": "index", "fields": ["agentInvocationAuditHash"], "name": null, "map": "tsrare_invocation_audit_idx" },
         { "type": "index", "fields": ["arenaSessionId", "createdAt"], "name": null, "map": "tsrare_session_created_idx" },
         { "type": "index", "fields": ["exposureSetHash"], "name": null, "map": "tsrare_exposure_set_idx" },
         { "type": "index", "fields": ["inputSnapshotId"], "name": null, "map": "tsrare_input_snapshot_idx" },

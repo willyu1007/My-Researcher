@@ -89,6 +89,10 @@ function attempt(input: {
     const packetRef = titleRef(input.titleCardId, 'artifact_ref', `packet_${input.arenaSessionId}_${index}`);
     return {
       schema_version: 'TopicSelectionResearchArenaRoleExecution@v1' as const,
+      execution_identity_status: 'legacy_unverified' as const,
+      agent_invocation_audit_artifact_ref: null,
+      agent_invocation_audit_artifact_hash: null,
+      execution_provenance_hash: null,
       arena_role_execution_id: `execution_${input.arenaSessionId}_${index}`,
       arena_session_id: input.arenaSessionId,
       title_card_id: input.titleCardId,
@@ -182,7 +186,8 @@ function attempt(input: {
           disposition,
           rationale: 'Deterministic fixture synthesis.',
           drop_reason_code: disposition === 'dropped' ? 'near_isomorphic_prior_art' : null,
-          reopening_conditions: disposition === 'dropped' ? ['Show a mechanism-level distinction.'] : [],
+        reopening_conditions: disposition === 'dropped' ? ['Show a mechanism-level distinction.'] : [],
+        selected_against_candidate_ref: null,
           role_positions: [
             { participant_role: 'opportunity_scout', recommended_disposition: input.scout },
             { participant_role: 'prior_art_topic_killer', recommended_disposition: input.killer },

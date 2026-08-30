@@ -1189,6 +1189,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     new TopicSelectionResearchArenaShadowRunnerService({
       arenaRepository: topicSelectionResearchArenaRepository,
       snapshotReader: topicSelectionControlPlaneService,
+      candidateReader: topicSelectionNeedValidationRepository,
       artifactStore: topicSelectionControlPlaneService,
       agentInvoker: topicSelectionV1aAgentOrchestratorService,
       arenaService: topicSelectionResearchArenaService,

@@ -61,6 +61,7 @@ import {
   type TopicSelectionResearchStageViewStage,
   type TopicSelectionResearchStageWorkingSet,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
+import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-need-candidate-identity.js';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
 import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories/topic-selection-v1b-value-assessment.repository.js';
@@ -2563,9 +2564,7 @@ export class TopicSelectionResearchCheckpointService {
   }
 
   private gapSemanticGroupKey(candidate: TopicSelectionNeedCandidateRecord): string {
-    const semanticAxes = ['research_object', 'mechanism', 'intervention', 'comparison', 'outcome']
-      .map((key) => [key, candidate.mechanism_payload[key] ?? null]);
-    return this.hash({ mechanism_type: candidate.mechanism_type, semantic_axes: semanticAxes });
+    return topicSelectionNeedCandidateSemanticGroupKey(candidate);
   }
 
   private gapCandidateEntries(packetPayload: Record<string, unknown>): GapCandidatePacketEntry[] {

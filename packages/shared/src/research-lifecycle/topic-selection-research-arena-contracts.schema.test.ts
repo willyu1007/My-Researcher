@@ -393,6 +393,10 @@ test('shadow run contracts admit exactly two non-provider first-pass roles and e
       semantic_position_hash: HASH,
       prior_role_hashes: [],
       runtime_identity_hash: HASH,
+      execution_identity_status: 'legacy_unverified',
+      agent_invocation_audit_artifact_ref: null,
+      agent_invocation_audit_artifact_hash: null,
+      execution_provenance_hash: null,
       created_at: '2026-08-28T00:00:00.000Z',
     })),
     synthesis_artifact_ref: { ref_type: 'artifact_ref', ref_id: 'transcript_1', title_card_id: 'title_1' },
@@ -407,6 +411,7 @@ test('shadow run contracts admit exactly two non-provider first-pass roles and e
         rationale: 'Do not select while the direct comparison is missing.',
         drop_reason_code: null,
         reopening_conditions: ['Materialize and review direct-comparison evidence.'],
+        selected_against_candidate_ref: null,
         role_positions: [
           { participant_role: 'opportunity_scout', recommended_disposition: 'parked' },
           { participant_role: 'prior_art_topic_killer', recommended_disposition: 'parked' },
@@ -524,6 +529,10 @@ test('arena session and role execution schemas preserve replay and independence 
     semantic_position_hash: HASH,
     prior_role_hashes: [],
     runtime_identity_hash: HASH,
+    execution_identity_status: 'legacy_unverified',
+    agent_invocation_audit_artifact_ref: null,
+    agent_invocation_audit_artifact_hash: null,
+    execution_provenance_hash: null,
     created_at: '2026-08-28T00:01:00.000Z',
   };
   assert.equal((await injectResponse(topicSelectionResearchArenaRoleExecutionSchema, roleExecution)).statusCode, 200);

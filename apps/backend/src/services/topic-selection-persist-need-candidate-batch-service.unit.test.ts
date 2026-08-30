@@ -338,6 +338,8 @@ function candidateRecord(id: string, candidateVersion: string): TopicSelectionNe
     mechanism_type: 'evaluation_gap',
     mechanism_summary: null,
     mechanism_payload: {},
+    semantic_group_key: 'a'.repeat(64),
+    current_arena_advisory: null,
     scope_notes: null,
     non_goal_notes: null,
     prior_art_status: 'unknown',

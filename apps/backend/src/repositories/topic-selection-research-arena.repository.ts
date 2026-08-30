@@ -1,4 +1,5 @@
 import type {
+  TopicSelectionResearchArenaCandidateProjection,
   TopicSelectionResearchArenaKind,
   TopicSelectionResearchArenaRoleExecutionRecord,
   TopicSelectionResearchArenaSessionRecord,
@@ -17,11 +18,20 @@ export interface TopicSelectionResearchArenaRepository {
     arenaKind: TopicSelectionResearchArenaKind,
   ): Promise<TopicSelectionResearchArenaSessionRecord | null>;
   updateSession(record: TopicSelectionResearchArenaSessionRecord): Promise<TopicSelectionResearchArenaSessionRecord>;
+  synthesizeSessionWithCandidateProjections(
+    record: TopicSelectionResearchArenaSessionRecord,
+    candidateProjections: TopicSelectionResearchArenaCandidateProjection[],
+  ): Promise<TopicSelectionResearchArenaSessionRecord>;
   createRoleExecution(
     record: TopicSelectionResearchArenaRoleExecutionRecord,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord>;
   findRoleExecutionByRuntimeIdentityHash(
     runtimeIdentityHash: string,
+  ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null>;
+  findRoleExecutionBySlot(
+    sessionId: string,
+    roleSlotId: string,
+    instanceIndex: number,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null>;
   listRoleExecutionsBySessionId(
     sessionId: string,

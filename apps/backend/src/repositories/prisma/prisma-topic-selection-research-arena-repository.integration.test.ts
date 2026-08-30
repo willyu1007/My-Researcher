@@ -73,6 +73,10 @@ test('Prisma arena repository enforces one-current session and role execution id
 
     const role: TopicSelectionResearchArenaRoleExecutionRecord = {
       schema_version: 'TopicSelectionResearchArenaRoleExecution@v1',
+      execution_identity_status: 'legacy_unverified',
+      agent_invocation_audit_artifact_ref: null,
+      agent_invocation_audit_artifact_hash: null,
+      execution_provenance_hash: null,
       arena_role_execution_id: `role_1_${suffix}`,
       arena_session_id: second.arena_session_id,
       title_card_id: titleCardId,
@@ -132,18 +136,98 @@ test('Prisma arena repository enforces one-current session and role execution id
       }),
       /identity already exists/u,
     );
-    assert.equal((await repository.listRoleExecutionsBySessionId(second.arena_session_id)).length, 1);
+    const verifiedRole: TopicSelectionResearchArenaRoleExecutionRecord = {
+      ...role,
+      schema_version: 'TopicSelectionResearchArenaRoleExecution@v2',
+      execution_identity_status: 'product_invocation_verified',
+      arena_role_execution_id: `role_verified_${suffix}`,
+      role_slot_id: 'killer',
+      participant_role: 'prior_art_topic_killer',
+      agent_invocation_audit_artifact_ref: artifactRef('invocation_audit'),
+      agent_invocation_audit_artifact_hash: '3'.repeat(64),
+      execution_provenance_hash: '4'.repeat(64),
+      semantic_position_hash: '5'.repeat(64),
+      runtime_identity_hash: '6'.repeat(64),
+    };
+    await repository.createRoleExecution(verifiedRole);
+    const durableVerifiedRole = await repository.findRoleExecutionBySlot(
+      second.arena_session_id,
+      'killer',
+      0,
+    );
+    assert.equal(durableVerifiedRole?.schema_version, 'TopicSelectionResearchArenaRoleExecution@v2');
+    assert.equal(durableVerifiedRole?.execution_identity_status, 'product_invocation_verified');
+    assert.equal(durableVerifiedRole?.agent_invocation_audit_artifact_hash, '3'.repeat(64));
+    assert.equal((await repository.listRoleExecutionsBySessionId(second.arena_session_id)).length, 2);
+
+    const candidateId = `candidate_${suffix}`;
+    await prisma.topicSelectionNeedCandidate.create({ data: {
+      id: candidateId,
+      titleCardId,
+      evidenceMapId: `evidence_map_${suffix}`,
+      candidateVersion: 'v1',
+      lifecycleStatus: 'hypothesis',
+      decisionStatus: 'hypothesis',
+      reviewStatus: 'unreviewed',
+      freshnessStatus: 'current',
+      candidateNeed: 'A durable candidate projection is required.',
+      unmetNeedStatement: 'The arena advisory is not yet recoverable from the candidate.',
+      mechanismType: 'comparison_gap',
+      priorArtStatus: 'unresolved',
+      evidenceMapRef: {},
+      searchRunId: `search_run_${suffix}`,
+      searchPlanId: `search_plan_${suffix}`,
+      literatureSnapshotId: `literature_snapshot_${suffix}`,
+      searchRunRef: {},
+      searchPlanRef: {},
+      literatureSnapshotRef: {},
+      createdBy: 'system',
+      createdAt: new Date(NOW),
+      updatedAt: new Date(NOW),
+    } });
 
     const synthesized: TopicSelectionResearchArenaSessionRecord = {
       ...second,
       status: 'synthesized',
       termination_reason: 'none_viable',
       loop_transcript_ref: artifactRef('transcript'),
-      loop_transcript_hash: '5'.repeat(64),
+      loop_transcript_hash: '7'.repeat(64),
       updated_at: new Date(Date.parse(NOW) + 3_000).toISOString(),
       synthesized_at: new Date(Date.parse(NOW) + 3_000).toISOString(),
     };
-    await repository.updateSession(synthesized);
+    await repository.synthesizeSessionWithCandidateProjections(synthesized, [{
+      candidate_ref: {
+        ref_type: 'need_candidate',
+        ref_id: candidateId,
+        title_card_id: titleCardId,
+        version_id: 'v1',
+      },
+      semantic_group_key: '8'.repeat(64),
+      advisory: {
+        schema_version: 'TopicSelectionNeedCandidateArenaAdvisory@v1',
+        arena_session_id: synthesized.arena_session_id,
+        arena_synthesis_ref: artifactRef('transcript'),
+        arena_synthesis_hash: '7'.repeat(64),
+        disposition: 'dropped',
+        rationale: 'The exact audited synthesis found a coded stop.',
+        drop_reason_code: 'near_isomorphic_prior_art',
+        reopening_conditions: ['A materially distinct mechanism is documented.'],
+        selected_against_candidate_ref: null,
+        support_only: true,
+      },
+    }]);
+    const projectedCandidate = await prisma.topicSelectionNeedCandidate.findUniqueOrThrow({
+      where: { id: candidateId },
+    });
+    assert.equal(projectedCandidate.semanticGroupKey, '8'.repeat(64));
+    assert.ok(projectedCandidate.currentArenaAdvisory
+      && typeof projectedCandidate.currentArenaAdvisory === 'object'
+      && !Array.isArray(projectedCandidate.currentArenaAdvisory));
+    assert.equal(Reflect.get(projectedCandidate.currentArenaAdvisory, 'disposition'), 'dropped');
+    assert.equal(projectedCandidate.decisionStatus, 'hypothesis');
+    assert.equal(projectedCandidate.lifecycleStatus, 'hypothesis');
+    assert.equal(projectedCandidate.reviewStatus, 'unreviewed');
+    assert.equal(projectedCandidate.freshnessStatus, 'current');
     await assert.rejects(repository.updateSession({
       ...synthesized,
       termination_reason: 'recommendation_ready',
@@ -153,10 +237,11 @@ test('Prisma arena repository enforces one-current session and role execution id
       arena_role_execution_id: `role_after_synthesis_${suffix}`,
       role_slot_id: 'killer',
       participant_role: 'prior_art_topic_killer',
-      runtime_identity_hash: '6'.repeat(64),
-      semantic_position_hash: '7'.repeat(64),
+      runtime_identity_hash: '9'.repeat(64),
+      semantic_position_hash: 'a'.repeat(64),
     }), /not current and open/u);
   } finally {
+    await prisma.topicSelectionNeedCandidate.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchArenaRoleExecution.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchArenaSession.deleteMany({ where: { titleCardId } });
     await prisma.$disconnect();

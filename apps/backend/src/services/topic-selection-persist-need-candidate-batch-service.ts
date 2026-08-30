@@ -18,6 +18,7 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
+import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-need-candidate-identity.js';
 
 export type TopicSelectionPersistNeedCandidateBatchCommandBuildInput = {
   node_input: TopicSelectionGenerateNeedCandidateNodeInput;
@@ -262,6 +263,11 @@ export class TopicSelectionPersistNeedCandidateBatchService {
         mechanism_type: input.draft.mechanism_type,
         mechanism_summary: input.draft.mechanism_summary ?? null,
         mechanism_payload: input.draft.mechanism_payload,
+        semantic_group_key: topicSelectionNeedCandidateSemanticGroupKey({
+          mechanism_type: input.draft.mechanism_type,
+          mechanism_payload: input.draft.mechanism_payload,
+        }),
+        current_arena_advisory: null,
         scope_notes: input.draft.scope_notes ?? null,
         non_goal_notes: input.draft.non_goal_notes ?? null,
         prior_art_status: input.draft.prior_art_status,

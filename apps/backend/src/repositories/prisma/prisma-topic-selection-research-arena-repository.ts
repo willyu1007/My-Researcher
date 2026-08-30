@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionResearchArenaCandidateProjection,
   TopicSelectionResearchArenaKind,
   TopicSelectionResearchArenaLoopDeltaRef,
   TopicSelectionResearchArenaRoleExecutionRecord,
@@ -69,8 +70,7 @@ function toSession(row: SessionRow): TopicSelectionResearchArenaSessionRecord {
 }
 
 function toExecution(row: ExecutionRow): TopicSelectionResearchArenaRoleExecutionRecord {
-  return {
-    schema_version: row.schemaVersion as 'TopicSelectionResearchArenaRoleExecution@v1',
+  const base = {
     arena_role_execution_id: row.id,
     arena_session_id: row.arenaSessionId,
     title_card_id: row.titleCardId,
@@ -93,6 +93,28 @@ function toExecution(row: ExecutionRow): TopicSelectionResearchArenaRoleExecutio
     prior_role_hashes: row.priorRoleHashes,
     runtime_identity_hash: row.runtimeIdentityHash,
     created_at: row.createdAt.toISOString(),
+  };
+  if (row.schemaVersion === 'TopicSelectionResearchArenaRoleExecution@v2'
+    && row.executionIdentityStatus === 'product_invocation_verified'
+    && row.agentInvocationAuditRef
+    && row.agentInvocationAuditHash
+    && row.executionProvenanceHash) {
+    return {
+      ...base,
+      schema_version: 'TopicSelectionResearchArenaRoleExecution@v2',
+      execution_identity_status: 'product_invocation_verified',
+      agent_invocation_audit_artifact_ref: asRef(row.agentInvocationAuditRef),
+      agent_invocation_audit_artifact_hash: row.agentInvocationAuditHash,
+      execution_provenance_hash: row.executionProvenanceHash,
+    };
+  }
+  return {
+    ...base,
+    schema_version: 'TopicSelectionResearchArenaRoleExecution@v1',
+    execution_identity_status: 'legacy_unverified',
+    agent_invocation_audit_artifact_ref: null,
+    agent_invocation_audit_artifact_hash: null,
+    execution_provenance_hash: null,
   };
 }
 
@@ -215,6 +237,63 @@ implements TopicSelectionResearchArenaRepository {
     return toSession(row);
   }
 
+  async synthesizeSessionWithCandidateProjections(
+    record: TopicSelectionResearchArenaSessionRecord,
+    candidateProjections: TopicSelectionResearchArenaCandidateProjection[],
+  ): Promise<TopicSelectionResearchArenaSessionRecord> {
+    try {
+      const row = await this.prisma.$transaction(async (transaction) => {
+        const claimed = await transaction.topicSelectionResearchArenaSession.updateMany({
+          where: { id: record.arena_session_id, currentArenaKey: record.current_arena_key, status: 'open' },
+          data: {
+            status: record.status,
+            terminationReason: record.termination_reason,
+            loopTranscriptRef: record.loop_transcript_ref ? toJson(record.loop_transcript_ref) : Prisma.DbNull,
+            loopTranscriptHash: record.loop_transcript_hash,
+            updatedAt: new Date(record.updated_at),
+            synthesizedAt: record.synthesized_at ? new Date(record.synthesized_at) : null,
+          },
+        });
+        if (claimed.count !== 1) {
+          throw new TopicSelectionResearchArenaConflictError('Arena changed concurrently.');
+        }
+        for (const projection of candidateProjections) {
+          const projected = await transaction.topicSelectionNeedCandidate.updateMany({
+            where: {
+              id: projection.candidate_ref.ref_id,
+              titleCardId: record.title_card_id,
+              candidateVersion: projection.candidate_ref.version_id ?? '',
+              OR: [
+                { semanticGroupKey: null },
+                { semanticGroupKey: projection.semantic_group_key },
+              ],
+            },
+            data: {
+              semanticGroupKey: projection.semantic_group_key,
+              currentArenaAdvisory: toJson(projection.advisory),
+              updatedAt: new Date(record.updated_at),
+            },
+          });
+          if (projected.count !== 1) {
+            throw new TopicSelectionResearchArenaConflictError(
+              `NeedCandidate ${projection.candidate_ref.ref_id} changed before arena synthesis.`,
+            );
+          }
+        }
+        return transaction.topicSelectionResearchArenaSession.findUniqueOrThrow({
+          where: { id: record.arena_session_id },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      return toSession(row);
+    } catch (error) {
+      if (error instanceof TopicSelectionResearchArenaConflictError) throw error;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new TopicSelectionResearchArenaConflictError('Arena synthesis changed concurrently.');
+      }
+      throw error;
+    }
+  }
+
   async createRoleExecution(
     record: TopicSelectionResearchArenaRoleExecutionRecord,
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {
@@ -252,6 +331,12 @@ implements TopicSelectionResearchArenaRepository {
           outputArtifactRef: toJson(record.output_artifact_ref),
           outputArtifactHash: record.output_artifact_hash,
           semanticPositionHash: record.semantic_position_hash,
+          executionIdentityStatus: record.execution_identity_status,
+          agentInvocationAuditRef: record.agent_invocation_audit_artifact_ref
+            ? toJson(record.agent_invocation_audit_artifact_ref)
+            : Prisma.DbNull,
+          agentInvocationAuditHash: record.agent_invocation_audit_artifact_hash,
+          executionProvenanceHash: record.execution_provenance_hash,
           priorRoleHashes: record.prior_role_hashes,
           runtimeIdentityHash: record.runtime_identity_hash,
           createdAt: new Date(record.created_at),
@@ -277,6 +362,23 @@ implements TopicSelectionResearchArenaRepository {
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null> {
     const row = await this.prisma.topicSelectionResearchArenaRoleExecution.findUnique({
       where: { runtimeIdentityHash },
+    });
+    return row ? toExecution(row) : null;
+  }
+
+  async findRoleExecutionBySlot(
+    sessionId: string,
+    roleSlotId: string,
+    instanceIndex: number,
+  ): Promise<TopicSelectionResearchArenaRoleExecutionRecord | null> {
+    const row = await this.prisma.topicSelectionResearchArenaRoleExecution.findUnique({
+      where: {
+        arenaSessionId_roleSlotId_instanceIndex: {
+          arenaSessionId: sessionId,
+          roleSlotId,
+          instanceIndex,
+        },
+      },
     });
     return row ? toExecution(row) : null;
   }

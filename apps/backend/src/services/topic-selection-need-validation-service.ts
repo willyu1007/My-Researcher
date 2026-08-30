@@ -33,6 +33,7 @@ import type {
 import {
   TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-need-candidate-identity.js';
 import { AppError } from '../errors/app-error.js';
 import type {
   TopicSelectionNeedValidationAdjudicationWriteResult,
@@ -289,6 +290,8 @@ export class TopicSelectionNeedValidationService {
       created_by: input.created_by ?? 'system',
     });
     const now = this.now();
+    const mechanismType = input.mechanism_type ?? 'workflow_gap';
+    const mechanismPayload = input.mechanism_payload ?? {};
     const persisted = await this.repository.createNeedCandidate({
       need_candidate_id: candidateId,
       workspace_id: input.workspace_id ?? null,
@@ -301,9 +304,14 @@ export class TopicSelectionNeedValidationService {
       freshness_status: this.freshnessFromEvidenceBundle(bundle),
       candidate_need: input.candidate_need,
       unmet_need_statement: input.unmet_need_statement ?? input.candidate_need,
-      mechanism_type: input.mechanism_type ?? 'workflow_gap',
+      mechanism_type: mechanismType,
       mechanism_summary: input.mechanism_summary ?? null,
-      mechanism_payload: input.mechanism_payload ?? {},
+      mechanism_payload: mechanismPayload,
+      semantic_group_key: topicSelectionNeedCandidateSemanticGroupKey({
+        mechanism_type: mechanismType,
+        mechanism_payload: mechanismPayload,
+      }),
+      current_arena_advisory: null,
       scope_notes: input.scope_notes ?? null,
       non_goal_notes: input.non_goal_notes ?? null,
       prior_art_status: input.prior_art_status ?? 'unknown',

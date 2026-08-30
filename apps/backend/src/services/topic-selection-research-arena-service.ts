@@ -1,10 +1,15 @@
 import crypto from 'node:crypto';
 import type {
+  TopicSelectionAgentInvocationAuditSnapshot,
+  TopicSelectionAgentInvocationProvenance,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
+import type {
   TopicSelectionArtifactRefRecord,
   TopicSelectionFunctionalRef,
   TopicSelectionInputSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionResearchArenaCandidateProjection,
   TopicSelectionResearchArenaKind,
   TopicSelectionResearchArenaLoopDeltaRef,
   TopicSelectionResearchArenaParticipantRole,
@@ -15,8 +20,12 @@ import type {
   TopicSelectionResearchEvidencePacket,
   TopicSelectionResearchRetrievalProvenance,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
+import { TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import { AppError } from '../errors/app-error.js';
-import type { TopicSelectionResearchArenaRepository } from '../repositories/topic-selection-research-arena.repository.js';
+import {
+  TopicSelectionResearchArenaConflictError,
+  type TopicSelectionResearchArenaRepository,
+} from '../repositories/topic-selection-research-arena.repository.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 
 type ControlPlaneReads = {
@@ -47,6 +56,8 @@ type RecordRoleExecutionInput = {
   retrieval_provenance: Omit<TopicSelectionResearchRetrievalProvenance, 'provenance_hash'>;
   exposure_artifact_refs: TopicSelectionFunctionalRef[];
   output_artifact_ref: TopicSelectionFunctionalRef;
+  agent_invocation_audit_artifact_ref: TopicSelectionFunctionalRef;
+  execution_provenance: TopicSelectionAgentInvocationProvenance;
   prior_role_hashes?: string[];
 };
 
@@ -54,6 +65,7 @@ type SynthesizeSessionInput = {
   arena_session_id: string;
   termination_reason: TopicSelectionResearchArenaTerminationReason;
   loop_transcript_artifact_ref: TopicSelectionFunctionalRef;
+  candidate_projections: TopicSelectionResearchArenaCandidateProjection[];
 };
 
 type ServiceOptions = {
@@ -180,6 +192,23 @@ export class TopicSelectionResearchArenaService {
     if (evidencePacketHash !== packet.packet_hash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'EvidencePacket artifact checksum does not match packet_hash.');
     }
+    const invocationAuditArtifact = await this.requireArtifact(
+      input.agent_invocation_audit_artifact_ref,
+      session.title_card_id,
+      snapshot,
+    );
+    const invocationAuditArtifactHash = this.requireArtifactHash(invocationAuditArtifact, 'Agent invocation audit');
+    const invocationAudit = this.readInvocationAudit(invocationAuditArtifact);
+    if (invocationAuditArtifact.workflow_run_id !== invocationAudit.workflow_run_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Agent invocation audit artifact has a different workflow identity.');
+    }
+    this.assertInvocationAudit(
+      invocationAudit,
+      input.execution_provenance,
+      input.participant_role,
+      outputArtifactHash,
+    );
+    const executionProvenanceHash = sha256Text(stableStringify(input.execution_provenance));
 
     this.assertRetrieval(input, packet);
     const priorExecutions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(session.arena_session_id);
@@ -212,18 +241,24 @@ export class TopicSelectionResearchArenaService {
     const semanticPositionHash = sha256Text(stableStringify(semanticPosition));
     const runtimeIdentityHash = sha256Text(stableStringify({
       arena_session_id: session.arena_session_id,
+      agent_invocation_audit_artifact_hash: invocationAuditArtifactHash,
+      agent_invocation_audit_artifact_ref: input.agent_invocation_audit_artifact_ref,
       evidence_packet_hash: evidencePacketHash,
+      evidence_packet_artifact_ref: input.evidence_packet_artifact_ref,
+      execution_provenance_hash: executionProvenanceHash,
       exposure_set_hash: exposureSetHash,
       input_snapshot_hash: session.input_snapshot_hash,
       instance_index: input.instance_index,
+      output_artifact_hash: outputArtifactHash,
+      output_artifact_ref: input.output_artifact_ref,
       participant_role: input.participant_role,
       prior_role_hashes: priorRoleHashes,
       role_slot_id: input.role_slot_id,
+      semantic_position_hash: semanticPositionHash,
     }));
-    const replay = await this.dependencies.arenaRepository.findRoleExecutionByRuntimeIdentityHash(runtimeIdentityHash);
-    if (replay) return replay;
-    return this.dependencies.arenaRepository.createRoleExecution({
-      schema_version: 'TopicSelectionResearchArenaRoleExecution@v1',
+    const record: TopicSelectionResearchArenaRoleExecutionRecord = {
+      schema_version: 'TopicSelectionResearchArenaRoleExecution@v2',
+      execution_identity_status: 'product_invocation_verified',
       arena_role_execution_id: this.idFactory('arena_role_execution'),
       arena_session_id: session.arena_session_id,
       title_card_id: session.title_card_id,
@@ -243,10 +278,31 @@ export class TopicSelectionResearchArenaService {
       output_artifact_ref: input.output_artifact_ref,
       output_artifact_hash: outputArtifactHash,
       semantic_position_hash: semanticPositionHash,
+      agent_invocation_audit_artifact_ref: input.agent_invocation_audit_artifact_ref,
+      agent_invocation_audit_artifact_hash: invocationAuditArtifactHash,
+      execution_provenance_hash: executionProvenanceHash,
       prior_role_hashes: priorRoleHashes,
       runtime_identity_hash: runtimeIdentityHash,
       created_at: this.now(),
-    });
+    };
+    const replay = await this.dependencies.arenaRepository.findRoleExecutionBySlot(
+      session.arena_session_id,
+      input.role_slot_id,
+      input.instance_index,
+    );
+    if (replay) return this.assertExactRoleExecutionReplay(replay, record);
+    try {
+      return await this.dependencies.arenaRepository.createRoleExecution(record);
+    } catch (error) {
+      if (!(error instanceof TopicSelectionResearchArenaConflictError)) throw error;
+      const concurrent = await this.dependencies.arenaRepository.findRoleExecutionBySlot(
+        session.arena_session_id,
+        input.role_slot_id,
+        input.instance_index,
+      );
+      if (concurrent) return this.assertExactRoleExecutionReplay(concurrent, record);
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena role execution changed concurrently.');
+    }
   }
 
   async synthesizeSession(input: SynthesizeSessionInput): Promise<TopicSelectionResearchArenaSessionRecord> {
@@ -256,12 +312,17 @@ export class TopicSelectionResearchArenaService {
       throw new AppError(409, 'VERSION_CONFLICT', 'Only the current open arena can be synthesized.');
     }
     const executions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(session.arena_session_id);
-    const firstPassRoles = new Set(
-      executions.filter((execution) => execution.pass_kind === 'first_pass')
-        .map((execution) => execution.participant_role),
-    );
+    const firstPassExecutions = executions.filter((execution) => (
+      execution.pass_kind === 'first_pass'
+      && execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+    ));
+    const allFirstPassExecutions = executions.filter((execution) => execution.pass_kind === 'first_pass');
+    const firstPassRoles = new Set(firstPassExecutions.map((execution) => execution.participant_role));
     const requiredRoles = session.participant_roles.filter((role) => role !== 'synthesis_arbiter');
-    if (requiredRoles.length < 2 || requiredRoles.some((role) => !firstPassRoles.has(role))) {
+    if (requiredRoles.length < 2
+      || allFirstPassExecutions.length !== firstPassExecutions.length
+      || firstPassExecutions.length !== requiredRoles.length
+      || requiredRoles.some((role) => !firstPassRoles.has(role))) {
       throw new AppError(
         422,
         'GATE_CONSTRAINT_FAILED',
@@ -275,8 +336,17 @@ export class TopicSelectionResearchArenaService {
       snapshot,
     );
     const transcriptHash = this.requireArtifactHash(transcriptArtifact, 'Arena transcript');
+    this.assertTranscriptExecutions(transcriptArtifact, firstPassExecutions);
+    this.assertCandidateProjections(
+      input.candidate_projections,
+      transcriptArtifact,
+      transcriptHash,
+      session,
+      snapshot,
+      input.termination_reason,
+    );
     const now = this.now();
-    return this.dependencies.arenaRepository.updateSession({
+    return this.dependencies.arenaRepository.synthesizeSessionWithCandidateProjections({
       ...session,
       status: 'synthesized',
       termination_reason: input.termination_reason,
@@ -284,7 +354,162 @@ export class TopicSelectionResearchArenaService {
       loop_transcript_hash: transcriptHash,
       updated_at: now,
       synthesized_at: now,
+    }, input.candidate_projections);
+  }
+
+  private assertTranscriptExecutions(
+    transcriptArtifact: TopicSelectionArtifactRefRecord,
+    executions: TopicSelectionResearchArenaRoleExecutionRecord[],
+  ): void {
+    const recorded = transcriptArtifact.payload?.independent_first_pass;
+    if (!Array.isArray(recorded)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript omits independent first-pass identity.');
+    }
+    const expected = executions.map((execution) => ({
+      arena_role_execution_id: execution.arena_role_execution_id,
+      participant_role: execution.participant_role,
+      evidence_packet_artifact_ref: execution.evidence_packet_artifact_ref,
+      evidence_packet_hash: execution.evidence_packet_hash,
+      exposure_set_hash: execution.exposure_set_hash,
+      output_artifact_ref: execution.output_artifact_ref,
+      output_artifact_hash: execution.output_artifact_hash,
+      agent_invocation_audit_artifact_ref: execution.agent_invocation_audit_artifact_ref,
+      agent_invocation_audit_artifact_hash: execution.agent_invocation_audit_artifact_hash,
+      execution_provenance_hash: execution.execution_provenance_hash,
+      prior_role_hashes: execution.prior_role_hashes,
+    }));
+    const byExecutionId = (left: unknown, right: unknown) => {
+      const id = (value: unknown) => (
+        value && typeof value === 'object' && !Array.isArray(value)
+          && 'arena_role_execution_id' in value && typeof value.arena_role_execution_id === 'string'
+          ? value.arena_role_execution_id
+          : ''
+      );
+      return id(left).localeCompare(id(right));
+    };
+    if (recorded.length !== expected.length
+      || stableStringify([...recorded].sort(byExecutionId))
+        !== stableStringify(expected.sort(byExecutionId))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena transcript does not identify the exact audited first passes.');
+    }
+  }
+
+  private assertCandidateProjections(
+    projections: TopicSelectionResearchArenaCandidateProjection[],
+    transcriptArtifact: TopicSelectionArtifactRefRecord,
+    transcriptHash: string,
+    session: TopicSelectionResearchArenaSessionRecord,
+    snapshot: TopicSelectionInputSnapshotRecord,
+    terminationReason: TopicSelectionResearchArenaTerminationReason,
+  ): void {
+    const transcript = transcriptArtifact.payload;
+    const synthesis = transcript?.advisory_synthesis;
+    if (transcript?.schema_version !== 'TopicSelectionResearchArenaLoopTranscript@v2'
+      || transcript.arena_session_id !== session.arena_session_id
+      || transcript.input_snapshot_id !== session.input_snapshot_id
+      || transcript.support_only !== true
+      || !synthesis
+      || typeof synthesis !== 'object'
+      || Array.isArray(synthesis)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript cannot authorize candidate advisory projection.');
+    }
+    const synthesisRecord = synthesis as Record<string, unknown>;
+    if (synthesisRecord.support_only !== true || !Array.isArray(synthesisRecord.candidate_dispositions)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript cannot authorize candidate advisory projection.');
+    }
+    const terminationByOutcome = {
+      selected: 'recommendation_ready',
+      none_viable: 'none_viable',
+      evidence_expansion_required: 'evidence_expansion_required',
+      reframe_required: 'reframe_required',
+    } as const;
+    const outcome = typeof synthesisRecord.outcome === 'string'
+      ? synthesisRecord.outcome as keyof typeof terminationByOutcome
+      : null;
+    const expectedTerminationReason = outcome ? terminationByOutcome[outcome] : undefined;
+    if (!expectedTerminationReason || expectedTerminationReason !== terminationReason) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena termination reason contradicts its support-only synthesis.');
+    }
+    const dispositions = new Map<string, Record<string, unknown>>();
+    for (const value of synthesisRecord.candidate_dispositions) {
+      if (!value || typeof value !== 'object' || Array.isArray(value) || !this.isRef(value.candidate_ref, 'need_candidate')) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript candidate disposition is malformed.');
+      }
+      const disposition = value as Record<string, unknown>;
+      const dispositionKind = disposition.disposition;
+      const dropReason = disposition.drop_reason_code;
+      const reopeningConditions = disposition.reopening_conditions;
+      const selectedAgainst = disposition.selected_against_candidate_ref;
+      const hasValidDropReason = typeof dropReason === 'string'
+        && TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES.includes(
+          dropReason as (typeof TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES)[number],
+        );
+      if (!['selected', 'parked', 'dropped'].includes(String(dispositionKind))
+        || !Array.isArray(reopeningConditions)
+        || reopeningConditions.some((condition) => typeof condition !== 'string' || !condition.trim())
+        || (dispositionKind !== 'selected' && reopeningConditions.length === 0)
+        || ((dispositionKind === 'dropped') !== hasValidDropReason)
+        || (selectedAgainst !== null && !this.isRef(selectedAgainst, 'need_candidate'))
+        || (dispositionKind !== 'parked' && selectedAgainst !== null)) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript candidate disposition is inconsistent.');
+      }
+      const key = this.refKey(disposition.candidate_ref as TopicSelectionFunctionalRef);
+      if (dispositions.has(key)) {
+        throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena transcript repeats a candidate disposition.');
+      }
+      dispositions.set(key, disposition);
+    }
+    const selected = [...dispositions.values()].filter((value) => value.disposition === 'selected');
+    const selectedRef = selected.length === 1
+      ? selected[0]?.candidate_ref as TopicSelectionFunctionalRef
+      : null;
+    const selectedRefKey = selectedRef ? this.refKey(selectedRef) : null;
+    const selectedAgainstIsConsistent = [...dispositions.values()].every((value) => {
+      const selectedAgainst = value.selected_against_candidate_ref;
+      if (outcome !== 'selected') return selectedAgainst === null;
+      if (value.disposition !== 'parked') return selectedAgainst === null;
+      return this.isRef(selectedAgainst, 'need_candidate')
+        && this.refKey(selectedAgainst) === selectedRefKey;
     });
+    if ((outcome === 'selected' && selected.length !== 1)
+      || (outcome === 'none_viable' && [...dispositions.values()].some((value) => value.disposition !== 'dropped'))
+      || (outcome === 'reframe_required' && selected.length > 0)
+      || !selectedAgainstIsConsistent) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena portfolio outcome contradicts its candidate dispositions.');
+    }
+    const snapshotRefs = new Set([...snapshot.source_refs, snapshot.target_ref].map((ref) => this.refKey(ref)));
+    if (projections.length === 0 || projections.length !== dispositions.size) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena candidate projections must cover the exact synthesized portfolio.');
+    }
+    const projectionKeys = new Set<string>();
+    for (const projection of projections) {
+      const key = this.refKey(projection.candidate_ref);
+      const disposition = dispositions.get(key);
+      const advisory = projection.advisory;
+      if (projection.candidate_ref.ref_type !== 'need_candidate'
+        || projection.candidate_ref.title_card_id !== session.title_card_id
+        || typeof projection.candidate_ref.version_id !== 'string'
+        || !projection.candidate_ref.version_id
+        || !snapshotRefs.has(key)
+        || projectionKeys.has(key)
+        || !/^[a-f0-9]{64}$/u.test(projection.semantic_group_key)
+        || !disposition
+        || advisory.support_only !== true
+        || advisory.arena_session_id !== session.arena_session_id
+        || advisory.arena_synthesis_ref.ref_type !== 'artifact_ref'
+        || advisory.arena_synthesis_ref.ref_id !== transcriptArtifact.artifact_ref_id
+        || advisory.arena_synthesis_hash !== transcriptHash
+        || advisory.disposition !== disposition.disposition
+        || advisory.rationale !== disposition.rationale
+        || advisory.drop_reason_code !== disposition.drop_reason_code
+        || stableStringify(advisory.reopening_conditions) !== stableStringify(disposition.reopening_conditions)
+        || stableStringify(advisory.selected_against_candidate_ref) !== stableStringify(
+          disposition.selected_against_candidate_ref,
+        )) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena candidate projection does not match the exact support-only synthesis.');
+      }
+      projectionKeys.add(key);
+    }
   }
 
   private assertSessionInput(input: OpenSessionInput): void {
@@ -382,6 +607,56 @@ export class TopicSelectionResearchArenaService {
       }
     }
     return artifact.checksum;
+  }
+
+  private readInvocationAudit(
+    artifact: TopicSelectionArtifactRefRecord,
+  ): TopicSelectionAgentInvocationAuditSnapshot {
+    const value = artifact.payload;
+    if (artifact.artifact_kind !== 'diagnostic'
+      || !value
+      || value.schema_version !== 'topic-selection-agent-invocation-audit-v1'
+      || value.status !== 'succeeded'
+      || !value.provenance
+      || typeof value.provenance !== 'object'
+      || Array.isArray(value.provenance)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Agent invocation audit is not a succeeded product audit snapshot.');
+    }
+    return value as unknown as TopicSelectionAgentInvocationAuditSnapshot;
+  }
+
+  private assertInvocationAudit(
+    audit: TopicSelectionAgentInvocationAuditSnapshot,
+    provenance: TopicSelectionAgentInvocationProvenance,
+    participantRole: TopicSelectionResearchArenaParticipantRole,
+    outputArtifactHash: string,
+  ): void {
+    const expectedNodeId = `topic_selection_research_arena_${participantRole}`;
+    if (audit.node_id !== expectedNodeId
+      || audit.provenance.node_id !== expectedNodeId
+      || audit.workflow_run_id !== provenance.workflow_run_id
+      || audit.node_attempt_id !== provenance.node_attempt_id
+      || audit.provenance.executor_kind !== 'multi_agent_debate'
+      || audit.provenance.run_mode !== 'acceptance'
+      || audit.provenance.structured_output_hash !== outputArtifactHash
+      || stableStringify(audit.provenance) !== stableStringify(provenance)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Agent invocation audit does not identify the admitted role output.');
+    }
+  }
+
+  private assertExactRoleExecutionReplay(
+    existing: TopicSelectionResearchArenaRoleExecutionRecord,
+    requested: TopicSelectionResearchArenaRoleExecutionRecord,
+  ): TopicSelectionResearchArenaRoleExecutionRecord {
+    const replayIdentity = (record: TopicSelectionResearchArenaRoleExecutionRecord) => ({
+      ...record,
+      arena_role_execution_id: null,
+      created_at: null,
+    });
+    if (stableStringify(replayIdentity(existing)) !== stableStringify(replayIdentity(requested))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena role slot already identifies a different audited execution.');
+    }
+    return existing;
   }
 
   private readEvidencePacket(artifact: TopicSelectionArtifactRefRecord): TopicSelectionResearchEvidencePacket {

@@ -2307,6 +2307,8 @@ async function seedHarnessV1aBundle(options: {
     mechanism_type: 'workflow_gap',
     mechanism_summary: 'Traceability is brittle.',
     mechanism_payload: {},
+    semantic_group_key: 'a'.repeat(64),
+    current_arena_advisory: null,
     scope_notes: 'CS paper engineering assistants.',
     non_goal_notes: 'Do not solve final paper planning.',
     prior_art_status: 'no_strong_solution_found',
