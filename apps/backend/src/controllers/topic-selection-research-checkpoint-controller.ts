@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
   TopicSelectionResearchCheckpointDecisionInput,
+  TopicSelectionResearchArenaAdvisoryReviewInput,
   TopicSelectionResearchContinuationEnvelopeEvaluationInput,
   TopicSelectionResearchObjectionInput,
   TopicSelectionResearchObjectionResolutionInput,
@@ -76,6 +77,19 @@ export class TopicSelectionResearchCheckpointController {
     try {
       return reply.status(201).send(
         await this.service.recordDecision(request.params.checkpointId, request.body),
+      );
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
+  recordArenaAdvisoryReview = async (
+    request: BodyParamsRequest<{ checkpointId: string }, TopicSelectionResearchArenaAdvisoryReviewInput>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.status(201).send(
+        await this.service.recordArenaAdvisoryReview(request.params.checkpointId, request.body),
       );
     } catch (error) {
       return handleError(reply, error);

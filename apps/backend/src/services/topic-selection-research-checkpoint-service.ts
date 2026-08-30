@@ -44,9 +44,16 @@ import {
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS,
   TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES,
+  TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES,
+  TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
   TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES,
   TOPIC_SELECTION_RESEARCH_TRANSITIONS_BY_CHECKPOINT,
   type TopicSelectionResearchCheckpointAction,
+  type TopicSelectionResearchArenaAdvisoryReviewInput,
+  type TopicSelectionResearchArenaAdvisoryReviewReasonCode,
+  type TopicSelectionResearchArenaAdvisoryReviewPayload,
+  type TopicSelectionResearchArenaAdvisoryReviewRecord,
+  type TopicSelectionResearchArenaAdvisoryReviewResult,
   type TopicSelectionResearchCheckpointDecisionInput,
   type TopicSelectionResearchCheckpointDecisionRecord,
   type TopicSelectionResearchCheckpointKind,
@@ -273,6 +280,8 @@ const ARENA_DISPOSITION_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_PORTFOLI
 const ARENA_DROP_REASON_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES);
 const ARENA_DELTA_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES);
 const ARENA_ROLE_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES);
+const ARENA_REVIEW_REASON_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES);
+const ARENA_REVIEW_STABLE_KEY_PREFIX = 'topic-selection-arena-advisory-review:';
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
@@ -995,6 +1004,145 @@ export class TopicSelectionResearchCheckpointService {
       decision,
       packet_hash: checkpoint.packet_hash,
     };
+  }
+
+  async recordArenaAdvisoryReview(
+    checkpointId: string,
+    input: TopicSelectionResearchArenaAdvisoryReviewInput,
+  ): Promise<TopicSelectionResearchArenaAdvisoryReviewResult> {
+    const checkpoint = await this.getCheckpoint(checkpointId);
+    this.assertCurrent(checkpoint);
+    if (checkpoint.checkpoint_kind !== 'gap_selection') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Arena advisory review requires a gap-selection checkpoint.');
+    }
+    this.assertArenaReviewInput(checkpoint, input);
+    const packet = await this.getPacket(checkpointId);
+    const advisory = this.requireGapArenaAdvisory(packet);
+    const advisorySnapshotHash = this.hash(advisory);
+    if (input.advisory_snapshot_hash !== advisorySnapshotHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review identifies a stale advisory snapshot.');
+    }
+    const humanReview = input.human_gap_selection_review
+      ? this.normalizeGapSelectionReview(input.human_gap_selection_review)
+      : null;
+    if (humanReview) this.assertArenaHumanReviewScope(checkpoint, advisory, humanReview);
+    const classification = this.classifyArenaAdvisoryReview(advisory, humanReview, input.response);
+    if (classification.response !== input.response) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Arena advisory response does not match the human candidate review.', {
+        expected_response: classification.response,
+        reason_codes: classification.reasonCodes,
+      });
+    }
+    const stableKey = `${ARENA_REVIEW_STABLE_KEY_PREFIX}${this.hash({
+      actor: input.actor,
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      idempotency_key: input.idempotency_key,
+      input_snapshot_id: checkpoint.input_snapshot_id,
+    })}`;
+    const reviewIdentityHash = this.hash({ stable_key: stableKey });
+    const review: TopicSelectionResearchArenaAdvisoryReviewPayload = {
+      schema_version: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+      review_id: `topic_selection_research_arena_advisory_review_${reviewIdentityHash}`,
+      title_card_id: checkpoint.title_card_id,
+      research_checkpoint_id: checkpoint.research_checkpoint_id,
+      gap_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: advisorySnapshotHash,
+      response: classification.response,
+      rationale: input.rationale.trim(),
+      reason_codes: classification.reasonCodes,
+      actor: input.actor,
+      human_gap_selection_review: humanReview,
+      human_gap_selection_review_hash: humanReview ? this.hash(humanReview) : null,
+      selected_candidate_ref: humanReview?.selected_candidate_ref ?? null,
+      support_only: true,
+    };
+    const existing = await this.controlPlane.getArtifactRefByStableKey(stableKey);
+    if (existing) return this.arenaReviewResult(existing, review);
+    if (checkpoint.status !== 'pending') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'A decided gap checkpoint cannot accept a new Arena advisory review.');
+    }
+    let artifact: TopicSelectionArtifactRefRecord;
+    try {
+      artifact = await this.controlPlane.recordArtifactRef({
+        stable_key: stableKey,
+        workspace_id: checkpoint.workspace_id ?? null,
+        title_card_id: checkpoint.title_card_id,
+        artifact_kind: 'structured_output',
+        payload: { ...review },
+        input_snapshot_id: checkpoint.input_snapshot_id,
+        created_by: 'human',
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes(`ArtifactRef stable key ${stableKey}`)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review idempotency key identifies different content.');
+      }
+      throw error;
+    }
+    return this.arenaReviewResult(artifact, review);
+  }
+
+  async assertGapArenaAdvisoryReviewBinding(input: {
+    checkpoint_id: string;
+    title_card_id: string;
+    review_ref: TopicSelectionFunctionalRef | null;
+    human_gap_selection_review: TopicSelectionGapSelectionReview;
+    accountable_human_ref: { actor_type: string; actor_id?: string | null };
+  }): Promise<TopicSelectionResearchArenaAdvisoryReviewRecord | null> {
+    const checkpoint = await this.getCheckpoint(input.checkpoint_id);
+    this.assertCurrent(checkpoint);
+    if (checkpoint.checkpoint_kind !== 'gap_selection' || checkpoint.title_card_id !== input.title_card_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review binding identifies another gap checkpoint.');
+    }
+    const packet = await this.getPacket(checkpoint.research_checkpoint_id);
+    const rawAdvisory = packet.packet_payload.arena_advisory;
+    if (rawAdvisory === null || rawAdvisory === undefined) {
+      if (input.review_ref) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Gap checkpoint did not expose current Arena advice.');
+      }
+      return null;
+    }
+    const advisory = this.requireGapArenaAdvisory(packet);
+    if (!input.review_ref) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'HumanConfirmNeed requires an explicit Arena advisory review ref.');
+    }
+    if (input.accountable_human_ref.actor_type !== 'human' || !input.accountable_human_ref.actor_id?.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory advancement requires the same accountable human actor.');
+    }
+    if (input.review_ref.ref_type !== 'artifact_ref'
+      || input.review_ref.version_id !== TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION
+      || input.review_ref.title_card_id !== checkpoint.title_card_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review ref has the wrong type, version, or title card.');
+    }
+    const artifact = await this.controlPlane.getArtifactRef(input.review_ref.ref_id);
+    if (!artifact) throw new AppError(404, 'NOT_FOUND', `Arena advisory review ${input.review_ref.ref_id} not found.`);
+    const normalizedHumanReview = this.normalizeGapSelectionReview(input.human_gap_selection_review);
+    this.assertArenaHumanReviewScope(checkpoint, advisory, normalizedHumanReview);
+    const expectedClassification = this.classifyArenaAdvisoryReview(advisory, normalizedHumanReview);
+    const expected: Omit<TopicSelectionResearchArenaAdvisoryReviewRecord, 'review_id' | 'created_at'> = {
+      schema_version: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+      title_card_id: checkpoint.title_card_id,
+      research_checkpoint_id: checkpoint.research_checkpoint_id,
+      gap_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: this.hash(advisory),
+      response: expectedClassification.response,
+      rationale: this.arenaReviewPayload(artifact).rationale as string,
+      reason_codes: expectedClassification.reasonCodes,
+      actor: {
+        actor_type: 'human',
+        actor_id: input.accountable_human_ref.actor_id ?? '',
+      },
+      human_gap_selection_review: normalizedHumanReview,
+      human_gap_selection_review_hash: this.hash(normalizedHumanReview),
+      selected_candidate_ref: normalizedHumanReview.selected_candidate_ref,
+      support_only: true,
+    };
+    const review = this.assertArenaReviewArtifactMatches(artifact, expected);
+    if (review.response === 'defer') {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'A deferred Arena advisory review cannot advance HumanConfirmNeed.');
+    }
+    return review;
   }
 
   async recordDecision(
@@ -2855,6 +3003,263 @@ export class TopicSelectionResearchCheckpointService {
         session.loop_transcript_ref,
         ...riskFindingRefs,
       ]),
+    };
+  }
+
+  private assertArenaReviewInput(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+    input: TopicSelectionResearchArenaAdvisoryReviewInput,
+  ): void {
+    if (!input.idempotency_key.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review idempotency_key is required.');
+    }
+    if (input.actor.actor_type !== 'human' || !input.actor.actor_id.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review requires an accountable human actor.');
+    }
+    if (!input.rationale.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review rationale is required.');
+    }
+    this.assertHash(input.confirmed_candidate_pool_hash, 'confirmed_candidate_pool_hash');
+    this.assertHash(input.advisory_snapshot_hash, 'advisory_snapshot_hash');
+    if (input.confirmed_input_snapshot_id !== checkpoint.input_snapshot_id
+      || input.confirmed_candidate_pool_hash !== checkpoint.target_snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review identifies a stale gap checkpoint snapshot.');
+    }
+  }
+
+  private requireGapArenaAdvisory(
+    packet: TopicSelectionResearchCheckpointPacket,
+  ): TopicSelectionResearchGapArenaAdvisory {
+    const issueCodes = packet.packet_payload.arena_advisory_issue_codes;
+    if (!Array.isArray(issueCodes) || issueCodes.some((code) => typeof code !== 'string')) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap checkpoint Arena advisory issue state is invalid.');
+    }
+    if (issueCodes.length > 0) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap checkpoint Arena advice is not reviewable.', {
+        issue_codes: issueCodes,
+      });
+    }
+    const advisory = this.asRecord(packet.packet_payload.arena_advisory);
+    const candidateDispositions = advisory?.candidate_dispositions;
+    const riskFindingRefs = this.functionalRefs(advisory?.risk_finding_refs);
+    const arenaRefs = this.functionalRefs([
+      advisory?.arena_session_ref,
+      advisory?.arena_input_snapshot_ref,
+      advisory?.arena_synthesis_ref,
+    ]);
+    const synthesisLike = advisory ? {
+      schema_version: 'TopicSelectionResearchArenaAdvisorySynthesis@v1',
+      outcome: advisory.outcome,
+      summary: advisory.summary,
+      candidate_dispositions: advisory.candidate_dispositions,
+      preserved_finding_ids: advisory.preserved_finding_ids,
+      unresolved_dissent: advisory.unresolved_dissent,
+      required_next_delta: advisory.required_next_delta,
+      support_only: advisory.support_only,
+    } : null;
+    if (!advisory
+      || advisory.schema_version !== 'TopicSelectionResearchGapArenaAdvisory@v1'
+      || advisory.support_only !== true
+      || typeof advisory.arena_synthesis_hash !== 'string'
+      || !/^[a-f0-9]{64}$/u.test(advisory.arena_synthesis_hash)
+      || !arenaRefs
+      || arenaRefs.length !== 3
+      || !riskFindingRefs
+      || !Array.isArray(candidateDispositions)
+      || !this.isArenaAdvisorySynthesis(synthesisLike)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Gap checkpoint Arena advisory payload is invalid.');
+    }
+    return advisory as unknown as TopicSelectionResearchGapArenaAdvisory;
+  }
+
+  private normalizeGapSelectionReview(
+    review: TopicSelectionGapSelectionReview,
+  ): TopicSelectionGapSelectionReview {
+    if (!review.research_checkpoint_id?.trim()
+      || !/^[a-f0-9]{64}$/u.test(review.confirmed_candidate_pool_hash)
+      || !review.selected_candidate_ref
+      || !Array.isArray(review.candidate_reviews)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review has an invalid human gap-selection review.');
+    }
+    const candidateReviews = review.candidate_reviews.map((candidateReview) => {
+      if (!candidateReview.need_candidate_ref
+        || !['selected', 'viable_alternative', 'rejected'].includes(candidateReview.disposition)
+        || !Array.isArray(candidateReview.distinct_from_selected_axes)
+        || !candidateReview.rationale?.trim()) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review has an invalid candidate disposition.');
+      }
+      return {
+        ...candidateReview,
+        distinct_from_selected_axes: [...new Set(candidateReview.distinct_from_selected_axes)].sort(),
+        rationale: candidateReview.rationale.trim(),
+        rejection_reason: candidateReview.rejection_reason?.trim() || null,
+      };
+    }).sort((left, right) => this.refKey(left.need_candidate_ref).localeCompare(this.refKey(right.need_candidate_ref)));
+    return {
+      ...review,
+      candidate_reviews: candidateReviews,
+    };
+  }
+
+  private assertArenaHumanReviewScope(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+    advisory: TopicSelectionResearchGapArenaAdvisory,
+    review: TopicSelectionGapSelectionReview,
+  ): void {
+    if (review.research_checkpoint_id !== checkpoint.research_checkpoint_id
+      || review.confirmed_candidate_pool_hash !== checkpoint.target_snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Human candidate review is bound to another gap snapshot.');
+    }
+    const advisoryByRef = new Map(
+      advisory.candidate_dispositions.map((disposition) => [this.refKey(disposition.candidate_ref), disposition]),
+    );
+    const humanByRef = new Map<string, TopicSelectionGapSelectionReview['candidate_reviews'][number]>();
+    for (const candidateReview of review.candidate_reviews) {
+      const key = this.refKey(candidateReview.need_candidate_ref);
+      if (!advisoryByRef.has(key)) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Human candidate review contains a stale or foreign candidate ref.');
+      }
+      if (humanByRef.has(key)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Human candidate review contains duplicate candidate refs.');
+      }
+      humanByRef.set(key, candidateReview);
+    }
+    if (humanByRef.size !== advisoryByRef.size) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Human candidate review must cover the complete exposed Arena portfolio.');
+    }
+    const selected = [...humanByRef.values()].filter((candidateReview) => candidateReview.disposition === 'selected');
+    if (selected.length !== 1
+      || this.refKey(selected[0]!.need_candidate_ref) !== this.refKey(review.selected_candidate_ref)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Human candidate review requires one exact selected candidate.');
+    }
+  }
+
+  private classifyArenaAdvisoryReview(
+    advisory: TopicSelectionResearchGapArenaAdvisory,
+    humanReview: TopicSelectionGapSelectionReview | null,
+    requestedResponse?: TopicSelectionResearchArenaAdvisoryReviewInput['response'],
+  ): {
+    response: 'accept' | 'override' | 'defer';
+    reasonCodes: TopicSelectionResearchArenaAdvisoryReviewReasonCode[];
+  } {
+    if (!humanReview) {
+      if (requestedResponse === 'defer') return { response: 'defer', reasonCodes: ['REVIEW_DEFERRED'] };
+      if (requestedResponse === 'accept' && advisory.outcome !== 'selected') {
+        return { response: 'accept', reasonCodes: ['AGREES_WITH_ARENA'] };
+      }
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Accepting a selected path or overriding Arena advice requires the exact proposed human candidate review.',
+      );
+    }
+    const reasons = new Set<TopicSelectionResearchArenaAdvisoryReviewReasonCode>();
+    const humanByRef = new Map(
+      humanReview.candidate_reviews.map((candidateReview) => [this.refKey(candidateReview.need_candidate_ref), candidateReview]),
+    );
+    if (advisory.outcome === 'none_viable') reasons.add('ADVANCE_AGAINST_NONE_VIABLE');
+    if (advisory.outcome === 'evidence_expansion_required') reasons.add('ADVANCE_BEFORE_EVIDENCE_EXPANSION');
+    if (advisory.outcome === 'reframe_required') reasons.add('ADVANCE_WITHOUT_REFRAME');
+    const selectedAdvice = advisory.candidate_dispositions.find(
+      (disposition) => this.refKey(disposition.candidate_ref) === this.refKey(humanReview.selected_candidate_ref),
+    );
+    if (selectedAdvice?.disposition === 'parked') reasons.add('SELECTED_PARKED_CANDIDATE');
+    if (selectedAdvice?.disposition === 'dropped') reasons.add('SELECTED_DROPPED_CANDIDATE');
+    for (const disposition of advisory.candidate_dispositions) {
+      const humanDisposition = humanByRef.get(this.refKey(disposition.candidate_ref))?.disposition;
+      const expectedHumanDisposition = disposition.disposition === 'selected'
+        ? 'selected'
+        : disposition.disposition === 'parked'
+          ? 'viable_alternative'
+          : 'rejected';
+      if (humanDisposition !== expectedHumanDisposition
+        && this.refKey(disposition.candidate_ref) !== this.refKey(humanReview.selected_candidate_ref)) {
+        reasons.add('NON_SELECTED_DISPOSITION_CHANGED');
+      }
+    }
+    if (reasons.size === 0 && advisory.outcome === 'selected') {
+      return { response: 'accept', reasonCodes: ['AGREES_WITH_ARENA'] };
+    }
+    const ordered = TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES
+      .filter((code): code is TopicSelectionResearchArenaAdvisoryReviewReasonCode => reasons.has(code));
+    return { response: 'override', reasonCodes: ordered };
+  }
+
+  private arenaReviewPayload(artifact: TopicSelectionArtifactRefRecord): Record<string, unknown> {
+    const payload = this.asRecord(artifact.payload);
+    if (!payload
+      || artifact.artifact_kind !== 'structured_output'
+      || artifact.storage_kind !== 'inline'
+      || artifact.checksum !== this.hash(payload)
+      || payload.schema_version !== TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION
+      || typeof payload.review_id !== 'string'
+      || typeof payload.rationale !== 'string') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review artifact is invalid or checksum-drifted.');
+    }
+    return payload;
+  }
+
+  private assertArenaReviewArtifactMatches(
+    artifact: TopicSelectionArtifactRefRecord,
+    expected: Omit<TopicSelectionResearchArenaAdvisoryReviewPayload, 'review_id'>,
+  ): TopicSelectionResearchArenaAdvisoryReviewRecord {
+    const payload = this.arenaReviewPayload(artifact);
+    const reasonCodes = payload.reason_codes;
+    const stableKey = artifact.stable_key;
+    const expectedReviewId = stableKey
+      ? `topic_selection_research_arena_advisory_review_${this.hash({ stable_key: stableKey })}`
+      : null;
+    if (!stableKey?.startsWith(ARENA_REVIEW_STABLE_KEY_PREFIX)
+      || artifact.created_by !== 'human'
+      || payload.review_id !== expectedReviewId
+      || artifact.title_card_id !== expected.title_card_id
+      || artifact.input_snapshot_id !== expected.gap_input_snapshot_id
+      || !Array.isArray(reasonCodes)
+      || reasonCodes.some((code) => typeof code !== 'string' || !ARENA_REVIEW_REASON_SET.has(code))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Artifact ref is not a dedicated human Arena advisory review.');
+    }
+    const comparable = {
+      schema_version: payload.schema_version,
+      title_card_id: payload.title_card_id,
+      research_checkpoint_id: payload.research_checkpoint_id,
+      gap_input_snapshot_id: payload.gap_input_snapshot_id,
+      confirmed_candidate_pool_hash: payload.confirmed_candidate_pool_hash,
+      advisory_snapshot_hash: payload.advisory_snapshot_hash,
+      response: payload.response,
+      rationale: payload.rationale,
+      reason_codes: payload.reason_codes,
+      actor: payload.actor,
+      human_gap_selection_review: payload.human_gap_selection_review,
+      human_gap_selection_review_hash: payload.human_gap_selection_review_hash,
+      selected_candidate_ref: payload.selected_candidate_ref,
+      support_only: payload.support_only,
+    };
+    if (stableStringify(comparable) !== stableStringify(expected)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review idempotency or binding content changed.');
+    }
+    return {
+      ...(payload as unknown as TopicSelectionResearchArenaAdvisoryReviewPayload),
+      created_at: artifact.created_at,
+    };
+  }
+
+  private arenaReviewResult(
+    artifact: TopicSelectionArtifactRefRecord,
+    expected: TopicSelectionResearchArenaAdvisoryReviewPayload,
+  ): TopicSelectionResearchArenaAdvisoryReviewResult {
+    const { review_id: expectedReviewId, ...expectedComparable } = expected;
+    const review = this.assertArenaReviewArtifactMatches(artifact, expectedComparable);
+    if (review.review_id !== expectedReviewId) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review stable identity changed.');
+    }
+    return {
+      review_ref: this.ref(
+        'artifact_ref',
+        artifact.artifact_ref_id,
+        expected.title_card_id,
+        TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+      ),
+      review,
     };
   }
 

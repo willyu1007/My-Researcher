@@ -5,6 +5,7 @@ import { TopicSelectionResearchCheckpointController } from '../controllers/topic
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionControlPlaneService } from '../services/topic-selection-control-plane-service.js';
+import { sha256Text, stableStringify } from '../services/literature-content-processing-utils.js';
 import { TopicSelectionResearchCheckpointService } from '../services/topic-selection-research-checkpoint-service.js';
 import { registerTopicSelectionResearchCheckpointRoutes } from './topic-selection-research-checkpoint-routes.js';
 
@@ -158,6 +159,95 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
   });
   assert.equal(listResponse.statusCode, 200, listResponse.body);
   assert.equal(listResponse.json()[0].status, 'decided');
+  await app.close();
+});
+
+test('Arena advisory review HTTP API records defer without advancing the checkpoint', async () => {
+  let sequence = 0;
+  const controlPlane = new TopicSelectionControlPlaneService(
+    new InMemoryTopicSelectionControlPlaneRepository(),
+    { idFactory: (prefix) => `${prefix}_arena_${++sequence}` },
+  );
+  const service = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    controlPlane,
+    { idFactory: (prefix) => `${prefix}_arena_${++sequence}` },
+  );
+  const candidateRef = {
+    ref_type: 'need_candidate',
+    ref_id: 'candidate_route_1',
+    version_id: 'v1',
+    title_card_id: 'title_route_arena',
+  };
+  const rolePositions = [
+    { participant_role: 'opportunity_scout' as const, recommended_disposition: 'parked' as const },
+    { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'parked' as const },
+  ];
+  const advisory = {
+    schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1' as const,
+    arena_session_ref: { ref_type: 'research_arena_session', ref_id: 'arena_route_1', title_card_id: 'title_route_arena' },
+    arena_input_snapshot_ref: { ref_type: 'input_snapshot', ref_id: 'arena_input_route_1', title_card_id: 'title_route_arena' },
+    arena_synthesis_ref: { ref_type: 'artifact_ref', ref_id: 'arena_synthesis_route_1', title_card_id: 'title_route_arena' },
+    arena_synthesis_hash: 'b'.repeat(64),
+    outcome: 'evidence_expansion_required' as const,
+    summary: 'More direct evidence is required.',
+    candidate_dispositions: [{
+      candidate_ref: candidateRef,
+      disposition: 'parked' as const,
+      rationale: 'Evidence is not yet decisive.',
+      drop_reason_code: null,
+      reopening_conditions: ['Add a direct comparison.'],
+      selected_against_candidate_ref: null,
+      role_positions: rolePositions,
+    }],
+    risk_finding_refs: [],
+    preserved_finding_ids: [],
+    unresolved_dissent: [],
+    required_next_delta: 'evidence' as const,
+    support_only: true as const,
+  };
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_route_arena',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_route_1', title_card_id: 'title_route_arena' },
+    target_snapshot_hash: 'c'.repeat(64),
+    source_refs: [candidateRef],
+    allowed_actions: ['advance', 'hold'],
+    packet_payload: {
+      candidate_entries: [{ need_candidate_ref: candidateRef, semantic_group_key: 'group_1', machine_viable: true }],
+      arena_advisory: advisory,
+      arena_advisory_issue_codes: [],
+    },
+  });
+  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
+  await registerTopicSelectionResearchCheckpointRoutes(
+    app,
+    new TopicSelectionResearchCheckpointController(service),
+  );
+  const payload = {
+    idempotency_key: 'route_defer_once',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'defer',
+    rationale: 'I need to inspect the evidence first.',
+    human_gap_selection_review: null,
+  };
+  const response = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+    payload,
+  });
+  assert.equal(response.statusCode, 201, response.body);
+  assert.equal(response.json().review.response, 'defer');
+  assert.equal((await service.getCheckpoint(checkpoint.research_checkpoint_id)).status, 'pending');
+  const invalidActor = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+    payload: { ...payload, idempotency_key: 'agent_attempt', actor: { actor_type: 'agent', actor_id: 'agent_1' } },
+  });
+  assert.equal(invalidActor.statusCode, 400);
   await app.close();
 });
 

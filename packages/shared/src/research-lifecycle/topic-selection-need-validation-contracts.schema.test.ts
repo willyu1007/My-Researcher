@@ -394,6 +394,11 @@ test('topic-selection HumanConfirmationInput schema accepts a snapshot-bound com
       },
     ],
   };
+  input.arena_advisory_review_ref = ref(
+    'artifact_ref',
+    'arena_advisory_review_001',
+    'TopicSelectionResearchArenaAdvisoryReview@v1',
+  );
   assert.equal(await validatesBody(humanConfirmationInputSchema, input), true);
 
   input.gap_selection_review.candidate_reviews = [input.gap_selection_review.candidate_reviews[0]!];

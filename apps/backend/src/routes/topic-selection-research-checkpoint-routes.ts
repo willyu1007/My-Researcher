@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { topicSelectionArtifactRefRecordSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES,
+  topicSelectionResearchArenaAdvisoryReviewInputSchema,
+  topicSelectionResearchArenaAdvisoryReviewResultSchema,
   topicSelectionResearchCheckpointDecisionInputSchema,
   topicSelectionResearchContinuationEnvelopeEvaluationInputSchema,
   topicSelectionResearchContinuationEnvelopeEvaluationSchema,
@@ -50,6 +52,17 @@ export async function registerTopicSelectionResearchCheckpointRoutes(
     '/topic-selection/checkpoints/:checkpointId/decisions',
     { schema: { params: checkpointParams, body: topicSelectionResearchCheckpointDecisionInputSchema } },
     controller.recordDecision,
+  );
+  fastify.post(
+    '/topic-selection/checkpoints/:checkpointId/arena-advisory-reviews',
+    {
+      schema: {
+        params: checkpointParams,
+        body: topicSelectionResearchArenaAdvisoryReviewInputSchema,
+        response: { 201: topicSelectionResearchArenaAdvisoryReviewResultSchema },
+      },
+    },
+    controller.recordArenaAdvisoryReview,
   );
   fastify.post(
     '/topic-selection/checkpoints/:checkpointId/objections',

@@ -247,6 +247,10 @@ export class TopicSelectionControlPlaneService {
     return this.repository.findArtifactRefById(artifactRefId);
   }
 
+  async getArtifactRefByStableKey(stableKey: string): Promise<TopicSelectionArtifactRefRecord | null> {
+    return this.repository.findArtifactRefByStableKey(stableKey);
+  }
+
   async listArtifactRefsByWorkflowRunId(workflowRunId: string): Promise<TopicSelectionArtifactRefRecord[]> {
     return this.repository.listArtifactRefsByWorkflowRunId(workflowRunId);
   }

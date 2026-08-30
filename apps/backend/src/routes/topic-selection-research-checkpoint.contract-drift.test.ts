@@ -15,16 +15,19 @@ test('research stage manifest and artifact resolver routes stay aligned with Ope
   assert.match(routeSource, /\/topic-selection\/artifacts\/:artifactRefId/);
   assert.match(routeSource, /\/topic-selection\/title-cards\/:titleCardId\/stage-views\/:stage/);
   assert.match(routeSource, /\/topic-selection\/title-cards\/:titleCardId\/continuation-envelope/);
+  assert.match(routeSource, /\/topic-selection\/checkpoints\/:checkpointId\/arena-advisory-reviews/);
   assert.match(openapiSource, /\/topic-selection\/title-cards\/\{titleCardId\}\/stage-manifest:/);
   assert.match(openapiSource, /\/topic-selection\/artifacts\/\{artifactRefId\}:/);
   assert.match(openapiSource, /\/topic-selection\/title-cards\/\{titleCardId\}\/stage-views\/\{stage\}:/);
   assert.match(openapiSource, /\/topic-selection\/title-cards\/\{titleCardId\}\/continuation-envelope:/);
   assert.match(openapiSource, /\/topic-selection\/title-cards\/\{titleCardId\}\/continuation-envelope\/evaluations:/);
+  assert.match(openapiSource, /\/topic-selection\/checkpoints\/\{checkpointId\}\/arena-advisory-reviews:/);
   assert.match(openapiSource, /operationId: getTopicSelectionResearchStageManifest/);
   assert.match(openapiSource, /operationId: getTopicSelectionArtifact/);
   assert.match(openapiSource, /operationId: getTopicSelectionResearchStageView/);
   assert.match(openapiSource, /operationId: getTopicSelectionResearchContinuationEnvelope/);
   assert.match(openapiSource, /operationId: evaluateTopicSelectionResearchContinuationEnvelope/);
+  assert.match(openapiSource, /operationId: recordTopicSelectionResearchArenaAdvisoryReview/);
   assert.match(openapiSource, /TopicSelectionResearchStageManifest:/);
   assert.match(openapiSource, /TopicSelectionResearchStageManifestEntry:/);
   assert.match(openapiSource, /TopicSelectionArtifactRefRecord:/);
@@ -32,6 +35,8 @@ test('research stage manifest and artifact resolver routes stay aligned with Ope
   assert.match(openapiSource, /TopicSelectionResearchContinuationEnvelope:/);
   assert.match(openapiSource, /TopicSelectionResearchContinuationEnvelopeEvaluationInput:/);
   assert.match(openapiSource, /TopicSelectionResearchContinuationEnvelopeEvaluation:/);
+  assert.match(openapiSource, /TopicSelectionResearchArenaAdvisoryReviewInput:/);
+  assert.match(openapiSource, /TopicSelectionResearchArenaAdvisoryReviewResult:/);
   assert.match(openapiSource, /minItems: 7/);
   assert.match(openapiSource, /maxItems: 7/);
 });

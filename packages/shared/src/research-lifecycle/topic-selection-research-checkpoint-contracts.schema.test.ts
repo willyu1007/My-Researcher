@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
 import {
+  topicSelectionResearchArenaAdvisoryReviewInputSchema,
+  topicSelectionResearchArenaAdvisoryReviewPayloadSchema,
+  topicSelectionResearchArenaAdvisoryReviewResultSchema,
   topicSelectionResearchCheckpointDecisionInputSchema,
   topicSelectionResearchContinuationEnvelopeEvaluationInputSchema,
   topicSelectionResearchContinuationEnvelopeEvaluationSchema,
@@ -175,6 +178,98 @@ test('research checkpoint decision schema accepts complete strict-human evidence
     },
   });
   assert.equal(response.statusCode, 200, response.body);
+});
+
+test('Arena advisory review schemas bind one strict-human label to the exact gap review', async () => {
+  const candidateRef = {
+    ref_type: 'need_candidate',
+    ref_id: 'candidate_1',
+    version_id: 'v1',
+    title_card_id: 'title_1',
+  };
+  const alternativeRef = {
+    ...candidateRef,
+    ref_id: 'candidate_2',
+  };
+  const humanGapReview = {
+    research_checkpoint_id: 'checkpoint_gap_1',
+    confirmed_candidate_pool_hash: HASH,
+    selected_candidate_ref: candidateRef,
+    direct_prior_art_pressure_reviewed: true,
+    disconfirming_evidence_reviewed: true,
+    candidate_reviews: [
+      {
+        need_candidate_ref: candidateRef,
+        disposition: 'selected',
+        distinct_from_selected_axes: [],
+        rationale: 'Preferred active path.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'viable_alternative',
+        distinct_from_selected_axes: ['mechanism'],
+        rationale: 'Distinct fallback mechanism.',
+      },
+    ],
+  };
+  const input = {
+    idempotency_key: 'review_once',
+    actor,
+    confirmed_input_snapshot_id: 'input_snapshot_gap_1',
+    confirmed_candidate_pool_hash: HASH,
+    advisory_snapshot_hash: HASH,
+    response: 'accept',
+    rationale: 'I agree with the recommendation.',
+    human_gap_selection_review: humanGapReview,
+  };
+  assert.equal((await inject(topicSelectionResearchArenaAdvisoryReviewInputSchema, input)).statusCode, 200);
+  assert.equal((await inject(topicSelectionResearchArenaAdvisoryReviewInputSchema, {
+    ...input,
+    actor: { actor_type: 'agent', actor_id: 'agent_1' },
+  })).statusCode, 400);
+  assert.equal((await injectResponse(topicSelectionResearchArenaAdvisoryReviewResultSchema, {
+    review_ref: {
+      ref_type: 'artifact_ref',
+      ref_id: 'arena_review_1',
+      version_id: 'TopicSelectionResearchArenaAdvisoryReview@v1',
+      title_card_id: 'title_1',
+    },
+    review: {
+      schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1',
+      review_id: 'arena_review_payload_1',
+      title_card_id: 'title_1',
+      research_checkpoint_id: 'checkpoint_gap_1',
+      gap_input_snapshot_id: 'input_snapshot_gap_1',
+      confirmed_candidate_pool_hash: HASH,
+      advisory_snapshot_hash: HASH,
+      response: 'accept',
+      rationale: 'I agree with the recommendation.',
+      reason_codes: ['AGREES_WITH_ARENA'],
+      actor,
+      human_gap_selection_review: humanGapReview,
+      human_gap_selection_review_hash: HASH,
+      selected_candidate_ref: candidateRef,
+      support_only: true,
+      created_at: '2026-08-30T00:00:00.000Z',
+    },
+  })).statusCode, 200);
+  assert.equal((await inject(topicSelectionResearchArenaAdvisoryReviewPayloadSchema, {
+    schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1',
+    review_id: 'arena_review_payload_1',
+    title_card_id: 'title_1',
+    research_checkpoint_id: 'checkpoint_gap_1',
+    gap_input_snapshot_id: 'input_snapshot_gap_1',
+    confirmed_candidate_pool_hash: HASH,
+    advisory_snapshot_hash: HASH,
+    response: 'defer',
+    rationale: 'I need more time.',
+    reason_codes: ['REVIEW_DEFERRED'],
+    actor,
+    human_gap_selection_review: null,
+    human_gap_selection_review_hash: null,
+    selected_candidate_ref: null,
+    support_only: true,
+  })).statusCode, 200);
 });
 
 test('research checkpoint decision schema rejects non-human authority and hidden fields', async () => {

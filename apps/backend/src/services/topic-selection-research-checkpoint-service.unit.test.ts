@@ -19,6 +19,7 @@ import type {
   TopicSelectionValueDispositionDecisionRecord,
   TopicSelectionValueReasoningMemoRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
+import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
@@ -94,6 +95,97 @@ function advancingDecision(snapshotHash = HASH_A) {
       limitations: [],
     },
   };
+}
+
+async function materializeSelectedArenaGap(service: TopicSelectionResearchCheckpointService) {
+  const firstRef = {
+    ref_type: 'need_candidate',
+    ref_id: 'candidate_selected',
+    title_card_id: 'title_1',
+    version_id: 'v1',
+  };
+  const alternativeRef = {
+    ref_type: 'need_candidate',
+    ref_id: 'candidate_parked',
+    title_card_id: 'title_1',
+    version_id: 'v1',
+  };
+  const rolePositions = (disposition: 'selected' | 'parked') => [
+    { participant_role: 'opportunity_scout' as const, recommended_disposition: disposition },
+    { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: disposition },
+  ];
+  const advisory = {
+    schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1' as const,
+    arena_session_ref: { ref_type: 'research_arena_session', ref_id: 'arena_1', title_card_id: 'title_1' },
+    arena_input_snapshot_ref: { ref_type: 'input_snapshot', ref_id: 'arena_input_1', title_card_id: 'title_1' },
+    arena_synthesis_ref: { ref_type: 'artifact_ref', ref_id: 'arena_synthesis_1', title_card_id: 'title_1' },
+    arena_synthesis_hash: HASH_B,
+    outcome: 'selected' as const,
+    summary: 'Select the stronger candidate while keeping one viable alternative parked.',
+    candidate_dispositions: [
+      {
+        candidate_ref: firstRef,
+        disposition: 'selected' as const,
+        rationale: 'Best current evidence-grounded path.',
+        drop_reason_code: null,
+        reopening_conditions: [],
+        selected_against_candidate_ref: null,
+        role_positions: rolePositions('selected'),
+      },
+      {
+        candidate_ref: alternativeRef,
+        disposition: 'parked' as const,
+        rationale: 'Keep available if the selected mechanism fails.',
+        drop_reason_code: null,
+        reopening_conditions: ['Selected mechanism becomes infeasible.'],
+        selected_against_candidate_ref: firstRef,
+        role_positions: rolePositions('parked'),
+      },
+    ],
+    risk_finding_refs: [],
+    preserved_finding_ids: [],
+    unresolved_dissent: [],
+    required_next_delta: null,
+    support_only: true as const,
+  };
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_1', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_C,
+    source_refs: [firstRef, alternativeRef],
+    allowed_actions: ['advance', 'hold', 'loopback', 'reject'],
+    packet_payload: {
+      candidate_entries: [
+        { need_candidate_ref: firstRef, semantic_group_key: 'group_selected', machine_viable: true },
+        { need_candidate_ref: alternativeRef, semantic_group_key: 'group_parked', machine_viable: true },
+      ],
+      arena_advisory: advisory,
+      arena_advisory_issue_codes: [],
+    },
+  });
+  const humanReview = {
+    research_checkpoint_id: checkpoint.research_checkpoint_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    selected_candidate_ref: firstRef,
+    direct_prior_art_pressure_reviewed: true,
+    disconfirming_evidence_reviewed: true,
+    candidate_reviews: [
+      {
+        need_candidate_ref: firstRef,
+        disposition: 'selected' as const,
+        distinct_from_selected_axes: [],
+        rationale: 'Best current path.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'viable_alternative' as const,
+        distinct_from_selected_axes: ['mechanism' as const],
+        rationale: 'Substantively distinct fallback.',
+      },
+    ],
+  };
+  return { advisory, alternativeRef, checkpoint, firstRef, humanReview };
 }
 
 async function materializeQuestion(
@@ -1195,6 +1287,320 @@ test('gap projection admits only the checksum-valid current arena synthesis', as
   assert.equal(stalePacket.packet_payload.arena_advisory, null);
   assert.deepEqual(stalePacket.packet_payload.arena_advisory_issue_codes, ['ARENA_ADVISORY_NOT_CURRENT']);
   assert.deepEqual(staleCheckpoint.allowed_actions, checkpoint.allowed_actions);
+});
+
+test('Arena advisory defer is an idempotent non-advancing human label', async () => {
+  const { service } = createService();
+  const { advisory, checkpoint } = await materializeSelectedArenaGap(service);
+  const input = {
+    idempotency_key: 'defer_once',
+    actor: { actor_type: 'human' as const, actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'defer' as const,
+    rationale: 'I need to inspect the nearest-work evidence before deciding.',
+    human_gap_selection_review: null,
+  };
+
+  const first = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, input);
+  const replay = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, input);
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+
+  assert.equal(first.review.response, 'defer');
+  assert.deepEqual(first.review.reason_codes, ['REVIEW_DEFERRED']);
+  assert.equal(first.review.human_gap_selection_review_hash, null);
+  assert.equal(replay.review_ref.ref_id, first.review_ref.ref_id);
+  assert.equal(packet.decision, null);
+  assert.equal((await service.getCheckpoint(checkpoint.research_checkpoint_id)).status, 'pending');
+  await assert.rejects(
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+      ...input,
+      idempotency_key: 'accept_selected_without_human_review',
+      response: 'accept',
+    }),
+    /requires the exact proposed human candidate review/u,
+  );
+  await assert.rejects(
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+      ...input,
+      rationale: 'Changed content cannot reuse the same idempotency key.',
+    }),
+    (error: unknown) => error instanceof Error && error.message.includes('idempotency or binding content changed'),
+  );
+});
+
+test('Arena advisory review derives override from the exact human candidate choice', async () => {
+  const { service } = createService();
+  const { advisory, alternativeRef, checkpoint, firstRef, humanReview } =
+    await materializeSelectedArenaGap(service);
+  const overrideReview = {
+    ...humanReview,
+    selected_candidate_ref: alternativeRef,
+    candidate_reviews: [
+      {
+        need_candidate_ref: firstRef,
+        disposition: 'viable_alternative' as const,
+        distinct_from_selected_axes: ['mechanism' as const],
+        rationale: 'Keep the original recommendation as the fallback.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'selected' as const,
+        distinct_from_selected_axes: [],
+        rationale: 'New feasibility evidence favors the parked candidate.',
+      },
+    ],
+  };
+  const base = {
+    idempotency_key: 'override_parked_candidate',
+    actor: { actor_type: 'human' as const, actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    rationale: 'New feasibility evidence changes the preferred active path.',
+    human_gap_selection_review: overrideReview,
+  };
+
+  await assert.rejects(
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+      ...base,
+      response: 'accept',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 422
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    ...base,
+    response: 'override',
+  });
+  assert.deepEqual(recorded.review.reason_codes, [
+    'SELECTED_PARKED_CANDIDATE',
+    'NON_SELECTED_DISPOSITION_CHANGED',
+  ]);
+  assert.equal(recorded.review.selected_candidate_ref?.ref_id, alternativeRef.ref_id);
+  assert.match(recorded.review.human_gap_selection_review_hash ?? '', /^[a-f0-9]{64}$/u);
+});
+
+test('advancing against a no-topic Arena recommendation is an explicit override', async () => {
+  const { service } = createService();
+  const { advisory, alternativeRef, firstRef, humanReview } = await materializeSelectedArenaGap(service);
+  const noTopicAdvisory = {
+    ...advisory,
+    outcome: 'none_viable' as const,
+    summary: 'Neither candidate currently clears the evidence bar.',
+    candidate_dispositions: advisory.candidate_dispositions.map((disposition) => ({
+      ...disposition,
+      disposition: 'dropped' as const,
+      drop_reason_code: 'no_viable_path_after_delta_expansion' as const,
+      selected_against_candidate_ref: null,
+      role_positions: disposition.role_positions.map((position) => ({
+        ...position,
+        recommended_disposition: 'dropped' as const,
+      })),
+    })),
+  };
+  const checkpoint = await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_none', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_D,
+    source_refs: [firstRef, alternativeRef],
+    allowed_actions: ['advance', 'hold', 'loopback', 'reject'],
+    packet_payload: {
+      candidate_entries: [
+        { need_candidate_ref: firstRef, semantic_group_key: 'group_selected', machine_viable: true },
+        { need_candidate_ref: alternativeRef, semantic_group_key: 'group_parked', machine_viable: true },
+      ],
+      arena_advisory: noTopicAdvisory,
+      arena_advisory_issue_codes: [],
+    },
+  });
+  const advancingReview = {
+    ...humanReview,
+    research_checkpoint_id: checkpoint.research_checkpoint_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+  };
+  const acceptedStop = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'accept_none_viable',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(noTopicAdvisory)),
+    response: 'accept',
+    rationale: 'I agree that this portfolio should not advance.',
+    human_gap_selection_review: null,
+  });
+  assert.deepEqual(acceptedStop.review.reason_codes, ['AGREES_WITH_ARENA']);
+  assert.equal(acceptedStop.review.selected_candidate_ref, null);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'advance_against_none_viable',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(noTopicAdvisory)),
+    response: 'override',
+    rationale: 'New feasibility evidence justifies one bounded human-selected attempt.',
+    human_gap_selection_review: advancingReview,
+  });
+  assert.deepEqual(recorded.review.reason_codes, [
+    'ADVANCE_AGAINST_NONE_VIABLE',
+    'SELECTED_DROPPED_CANDIDATE',
+    'NON_SELECTED_DISPOSITION_CHANGED',
+  ]);
+});
+
+test('Arena advisory review binding rejects changed, cross-title, and superseded content', async () => {
+  const { controlPlane, service } = createService();
+  const { advisory, alternativeRef, checkpoint, firstRef, humanReview } =
+    await materializeSelectedArenaGap(service);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'accept_current_review',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'accept',
+    rationale: 'The recommendation matches my candidate review.',
+    human_gap_selection_review: humanReview,
+  });
+  const bound = await service.assertGapArenaAdvisoryReviewBinding({
+    checkpoint_id: checkpoint.research_checkpoint_id,
+    title_card_id: 'title_1',
+    review_ref: recorded.review_ref,
+    human_gap_selection_review: humanReview,
+    accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+  });
+  assert.equal(bound?.review_id, recorded.review.review_id);
+
+  const { created_at: _createdAt, ...copiedReviewPayload } = recorded.review;
+  const genericArtifact = await controlPlane.recordArtifactRef({
+    stable_key: 'generic-caller-artifact',
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    payload: copiedReviewPayload,
+    input_snapshot_id: checkpoint.input_snapshot_id,
+    created_by: 'human',
+  });
+  await assert.rejects(
+    service.assertGapArenaAdvisoryReviewBinding({
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: 'title_1',
+      review_ref: { ...recorded.review_ref, ref_id: genericArtifact.artifact_ref_id },
+      human_gap_selection_review: humanReview,
+      accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+    }),
+    /not a dedicated human Arena advisory review/u,
+  );
+
+  await assert.rejects(
+    service.assertGapArenaAdvisoryReviewBinding({
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: 'title_1',
+      review_ref: { ...recorded.review_ref, title_card_id: 'title_other' },
+      human_gap_selection_review: humanReview,
+      accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+    }),
+    /wrong type, version, or title card/u,
+  );
+  await assert.rejects(
+    service.assertGapArenaAdvisoryReviewBinding({
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: 'title_1',
+      review_ref: recorded.review_ref,
+      human_gap_selection_review: humanReview,
+      accountable_human_ref: { actor_type: 'hybrid', actor_id: 'researcher_1' },
+    }),
+    /same accountable human actor/u,
+  );
+  await assert.rejects(
+    service.assertGapArenaAdvisoryReviewBinding({
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: 'title_1',
+      review_ref: recorded.review_ref,
+      human_gap_selection_review: {
+        ...humanReview,
+        selected_candidate_ref: alternativeRef,
+        candidate_reviews: [
+          {
+            need_candidate_ref: firstRef,
+            disposition: 'viable_alternative',
+            distinct_from_selected_axes: ['mechanism'],
+            rationale: 'Changed after the label was written.',
+          },
+          {
+            need_candidate_ref: alternativeRef,
+            disposition: 'selected',
+            distinct_from_selected_axes: [],
+            rationale: 'Changed after the label was written.',
+          },
+        ],
+      },
+      accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+    }),
+    /binding content changed/u,
+  );
+
+  await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_2', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_D,
+    source_refs: [firstRef, alternativeRef],
+    allowed_actions: ['hold', 'loopback'],
+    packet_payload: {
+      candidate_entries: [],
+      arena_advisory: null,
+      arena_advisory_issue_codes: ['ARENA_ADVISORY_NOT_CURRENT'],
+    },
+  });
+  await assert.rejects(
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+      idempotency_key: 'stale_review_attempt',
+      actor: { actor_type: 'human', actor_id: 'researcher_1' },
+      confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+      response: 'accept',
+      rationale: 'A superseded checkpoint cannot receive a new label.',
+      human_gap_selection_review: humanReview,
+    }),
+    /not current/u,
+  );
+});
+
+test('concurrent exact Arena advisory review submissions converge on one artifact', async () => {
+  let sequence = 0;
+  let tick = 0;
+  const now = () => new Date(Date.UTC(2026, 7, 30, 0, 0, 0, tick++)).toISOString();
+  const controlPlane = new TopicSelectionControlPlaneService(
+    new InMemoryTopicSelectionControlPlaneRepository(),
+    { idFactory: (prefix) => `${prefix}_${++sequence}`, now },
+  );
+  const service = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    controlPlane,
+    { idFactory: (prefix) => `${prefix}_${++sequence}`, now },
+  );
+  const { advisory, checkpoint, humanReview } = await materializeSelectedArenaGap(service);
+  const input = {
+    idempotency_key: 'concurrent_exact_review',
+    actor: { actor_type: 'human' as const, actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'accept' as const,
+    rationale: 'Exact concurrent retries must converge.',
+    human_gap_selection_review: humanReview,
+  };
+  const [left, right] = await Promise.all([
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, input),
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, input),
+  ]);
+  assert.equal(left.review_ref.ref_id, right.review_ref.ref_id);
+  assert.equal(left.review.review_id, right.review.review_id);
+  assert.equal(left.review.created_at, right.review.created_at);
 });
 
 test('promotion checkpoint requires the complete chain and maps every advancement risk before bridge eligibility', async () => {

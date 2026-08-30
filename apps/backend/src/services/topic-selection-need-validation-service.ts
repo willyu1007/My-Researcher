@@ -33,6 +33,9 @@ import type {
 import {
   TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import {
+  TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-need-candidate-identity.js';
 import { AppError } from '../errors/app-error.js';
 import type {
@@ -54,7 +57,10 @@ type ServiceOptions = {
   checkpointGuard?: Pick<TopicSelectionResearchCheckpointService, 'assertTransitionAllowed'>
     & Partial<Pick<
       TopicSelectionResearchCheckpointService,
-      'materializeGapSelectionCheckpoint' | 'assertGapSelectionConfirmation' | 'adaptExistingStageDecision'
+      | 'materializeGapSelectionCheckpoint'
+      | 'assertGapSelectionConfirmation'
+      | 'assertGapArenaAdvisoryReviewBinding'
+      | 'adaptExistingStageDecision'
     >>;
 };
 
@@ -920,11 +926,27 @@ export class TopicSelectionNeedValidationService {
     if (gapReviewRequired && !gapCheckpoint) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Current gap selection checkpoint is required.');
     }
+    if (confirmationInput.arena_advisory_review_ref && !confirmationInput.gap_selection_review) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review ref requires a gap_selection_review.');
+    }
+    if (gapCheckpoint && confirmationInput.gap_selection_review) {
+      if (!this.checkpointGuard?.assertGapArenaAdvisoryReviewBinding) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Gap confirmation requires the Arena advisory review binding guard.');
+      }
+      await this.checkpointGuard.assertGapArenaAdvisoryReviewBinding({
+        checkpoint_id: gapCheckpoint.research_checkpoint_id,
+        title_card_id: candidate.title_card_id,
+        review_ref: confirmationInput.arena_advisory_review_ref ?? null,
+        human_gap_selection_review: confirmationInput.gap_selection_review,
+        accountable_human_ref: confirmationInput.accountable_human_ref,
+      });
+    }
     const validatedNeedRef = this.ref('validated_need', adjudication.output_validated_need_id, candidate.title_card_id);
     const confirmationArtifactRefs = this.uniqueRefs([
       ...(input.artifact_refs ?? []),
       input.semantic_review_context_packet_ref ?? null,
       input.semantic_review_ref ?? null,
+      confirmationInput.arena_advisory_review_ref ?? null,
     ]);
     if (existing) {
       const existingHumanDecision = await this.controlPlane.getHumanDecision(existing.human_decision_id);
@@ -1189,6 +1211,13 @@ export class TopicSelectionNeedValidationService {
       }
     } else if (confirmationInput.delegated_executor) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'delegated_executor is only allowed for human_delegated confirmation.');
+    }
+    const arenaReviewRef = confirmationInput.arena_advisory_review_ref;
+    if (arenaReviewRef && (
+      arenaReviewRef.ref_type !== 'artifact_ref'
+      || arenaReviewRef.version_id !== TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION
+    )) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'arena_advisory_review_ref has the wrong type or contract version.');
     }
   }
 

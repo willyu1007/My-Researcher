@@ -1226,6 +1226,7 @@ export interface HumanConfirmationInput {
   required_check_results: HumanConfirmationRequiredCheckResult[];
   delegated_executor?: HumanConfirmationDelegatedExecutor | null;
   gap_selection_review?: TopicSelectionGapSelectionReview | null;
+  arena_advisory_review_ref?: TopicSelectionFunctionalRef | null;
 }
 
 export interface HumanConfirmationSemanticReviewContextPacket {
@@ -1626,6 +1627,9 @@ export const humanConfirmationInputSchema = {
     },
     gap_selection_review: {
       anyOf: [topicSelectionGapSelectionReviewSchema, { type: 'null' }],
+    },
+    arena_advisory_review_ref: {
+      anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }],
     },
   },
   allOf: [

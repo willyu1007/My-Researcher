@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaTopicSelectionControlPlaneRepository } from './prisma-topic-selection-control-plane-repository.js';
 import { PrismaTopicSelectionResearchCheckpointRepository } from './prisma-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionControlPlaneService } from '../../services/topic-selection-control-plane-service.js';
+import { sha256Text, stableStringify } from '../../services/literature-content-processing-utils.js';
 import { TopicSelectionResearchCheckpointService } from '../../services/topic-selection-research-checkpoint-service.js';
 import { TopicSelectionRiskFindingService } from '../../services/topic-selection-risk-finding-service.js';
 
@@ -114,6 +115,38 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     assert.equal(replay.research_checkpoint_decision_id, stored[0]!.id);
 
     const gapHash = 'b'.repeat(64);
+    const arenaCandidateRef = {
+      ref_type: 'need_candidate',
+      ref_id: `arena_candidate_${suffix}`,
+      version_id: 'v1',
+      title_card_id: titleCardId,
+    };
+    const arenaAdvisory = {
+      schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1' as const,
+      arena_session_ref: { ref_type: 'research_arena_session', ref_id: `arena_session_${suffix}`, title_card_id: titleCardId },
+      arena_input_snapshot_ref: { ref_type: 'input_snapshot', ref_id: `arena_input_${suffix}`, title_card_id: titleCardId },
+      arena_synthesis_ref: { ref_type: 'artifact_ref', ref_id: `arena_synthesis_${suffix}`, title_card_id: titleCardId },
+      arena_synthesis_hash: '9'.repeat(64),
+      outcome: 'evidence_expansion_required' as const,
+      summary: 'The current candidate requires more direct evidence.',
+      candidate_dispositions: [{
+        candidate_ref: arenaCandidateRef,
+        disposition: 'parked' as const,
+        rationale: 'Direct evidence is still missing.',
+        drop_reason_code: null,
+        reopening_conditions: ['Add a direct comparison.'],
+        selected_against_candidate_ref: null,
+        role_positions: [
+          { participant_role: 'opportunity_scout' as const, recommended_disposition: 'parked' as const },
+          { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'parked' as const },
+        ],
+      }],
+      risk_finding_refs: [],
+      preserved_finding_ids: [],
+      unresolved_dissent: [],
+      required_next_delta: 'evidence' as const,
+      support_only: true as const,
+    };
     const gapCheckpoint = await service.materializeCheckpoint({
       title_card_id: titleCardId,
       checkpoint_kind: 'gap_selection',
@@ -124,8 +157,32 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
       },
       target_snapshot_hash: gapHash,
       allowed_actions: ['advance', 'loopback'],
-      packet_payload: { candidate_entries: [] },
+      packet_payload: {
+        candidate_entries: [{ need_candidate_ref: arenaCandidateRef, semantic_group_key: 'arena_group', machine_viable: true }],
+        arena_advisory: arenaAdvisory,
+        arena_advisory_issue_codes: [],
+      },
     });
+    const arenaReviewInput = {
+      idempotency_key: `arena_review_${suffix}`,
+      actor: { actor_type: 'human' as const, actor_id: 'researcher_t147' },
+      confirmed_input_snapshot_id: gapCheckpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
+      advisory_snapshot_hash: sha256Text(stableStringify(arenaAdvisory)),
+      response: 'defer' as const,
+      rationale: 'Inspect the current evidence before selecting a candidate.',
+      human_gap_selection_review: null,
+    };
+    const concurrentArenaReviews = await Promise.all(
+      Array.from({ length: 8 }, () => service.recordArenaAdvisoryReview(
+        gapCheckpoint.research_checkpoint_id,
+        arenaReviewInput,
+      )),
+    );
+    assert.equal(new Set(concurrentArenaReviews.map((entry) => entry.review_ref.ref_id)).size, 1);
+    assert.equal(await prisma.topicSelectionArtifactRef.count({
+      where: { titleCardId, stableKey: { startsWith: 'topic-selection-arena-advisory-review:' } },
+    }), 1);
     const existingAuthority = await controlPlane.recordHumanDecision({
       title_card_id: titleCardId,
       target_ref: { ref_type: 'validated_need', ref_id: `validated_need_${suffix}`, title_card_id: titleCardId },

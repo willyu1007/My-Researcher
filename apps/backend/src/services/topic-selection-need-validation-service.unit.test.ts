@@ -14,6 +14,7 @@ import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionNeedValidationService } from './topic-selection-need-validation-service.js';
 import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
@@ -710,25 +711,119 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
     unmet_need_statement: 'Adaptive routing remains untested under reviewer-facing constraints.',
     mechanism_type: 'system_gap' as const,
     mechanism_payload: { intervention: 'adaptive evidence routing' },
+    semantic_group_key: 'alternative-semantic-group',
   };
   await ctx.needValidationRepository.createNeedCandidate(alternative);
-  const checkpoint = await checkpointService.materializeGapSelectionCheckpoint({
+  const candidateRef = ref('need_candidate', selectedCandidate.need_candidate_id, ctx.titleCard.title_card_id);
+  candidateRef.version_id = selectedCandidate.candidate_version;
+  const alternativeRef = ref('need_candidate', alternative.need_candidate_id, ctx.titleCard.title_card_id);
+  alternativeRef.version_id = alternative.candidate_version;
+  const arenaAdvisory = {
+    schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1' as const,
+    arena_session_ref: ref('research_arena_session', 'arena_1', ctx.titleCard.title_card_id),
+    arena_input_snapshot_ref: ref('input_snapshot', 'arena_input_1', ctx.titleCard.title_card_id),
+    arena_synthesis_ref: ref('artifact_ref', 'arena_synthesis_1', ctx.titleCard.title_card_id),
+    arena_synthesis_hash: 'b'.repeat(64),
+    outcome: 'selected' as const,
+    summary: 'The first candidate currently has the strongest evidence-grounded path.',
+    candidate_dispositions: [
+      {
+        candidate_ref: candidateRef,
+        disposition: 'selected' as const,
+        rationale: 'Best identifiable evaluation object.',
+        drop_reason_code: null,
+        reopening_conditions: [],
+        selected_against_candidate_ref: null,
+        role_positions: [
+          { participant_role: 'opportunity_scout' as const, recommended_disposition: 'selected' as const },
+          { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'selected' as const },
+        ],
+      },
+      {
+        candidate_ref: alternativeRef,
+        disposition: 'parked' as const,
+        rationale: 'Retain as the viable alternative.',
+        drop_reason_code: null,
+        reopening_conditions: ['Reopen if the selected intervention becomes infeasible.'],
+        selected_against_candidate_ref: candidateRef,
+        role_positions: [
+          { participant_role: 'opportunity_scout' as const, recommended_disposition: 'parked' as const },
+          { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'parked' as const },
+        ],
+      },
+    ],
+    risk_finding_refs: [],
+    preserved_finding_ids: [],
+    unresolved_dissent: [],
+    required_next_delta: null,
+    support_only: true as const,
+  };
+  const checkpoint = await checkpointService.materializeCheckpoint({
     title_card_id: ctx.titleCard.title_card_id,
-    evidence_map_ref: selectedCandidate.evidence_map_ref,
-    candidates: [selectedCandidate, alternative],
+    checkpoint_kind: 'gap_selection',
+    target_ref: ref('need_candidate_arena', 'arena_target_1', ctx.titleCard.title_card_id),
+    target_snapshot_hash: 'a'.repeat(64),
+    source_refs: [selectedCandidate.evidence_map_ref, candidateRef, alternativeRef],
+    allowed_actions: ['advance', 'hold', 'loopback', 'reject'],
+    packet_payload: {
+      candidate_entries: [
+        { need_candidate_ref: candidateRef, semantic_group_key: selectedCandidate.semantic_group_key, machine_viable: true },
+        { need_candidate_ref: alternativeRef, semantic_group_key: alternative.semantic_group_key, machine_viable: true },
+      ],
+      arena_advisory: arenaAdvisory,
+      arena_advisory_issue_codes: [],
+    },
   });
+  const gapSelectionReview = {
+    research_checkpoint_id: checkpoint.research_checkpoint_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    selected_candidate_ref: candidateRef,
+    direct_prior_art_pressure_reviewed: true,
+    disconfirming_evidence_reviewed: true,
+    candidate_reviews: [
+      {
+        need_candidate_ref: candidateRef,
+        disposition: 'selected' as const,
+        distinct_from_selected_axes: [],
+        rationale: 'Best identifiable evaluation object.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'viable_alternative' as const,
+        distinct_from_selected_axes: ['intervention' as const],
+        rationale: 'Changes the intervention and remains academically viable.',
+      },
+    ],
+  };
+  const arenaReview = await checkpointService.recordArenaAdvisoryReview(
+    checkpoint.research_checkpoint_id,
+    {
+      idempotency_key: 'review_selected_candidate_once',
+      actor: { actor_type: 'human', actor_id: 'reviewer_1' },
+      confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: sha256Text(stableStringify(arenaAdvisory)),
+      response: 'accept',
+      rationale: 'I agree with the recommended active path and parked alternative.',
+      human_gap_selection_review: gapSelectionReview,
+    },
+  );
   const guardedNeedService = new TopicSelectionNeedValidationService(
     ctx.needValidationRepository,
     ctx.controlPlane,
     ctx.evidenceService,
     ctx.searchService,
-    { checkpointGuard: checkpointService },
+    {
+      checkpointGuard: {
+        assertTransitionAllowed: (input) => checkpointService.assertTransitionAllowed(input),
+        assertGapSelectionConfirmation: (input) => checkpointService.assertGapSelectionConfirmation(input),
+        assertGapArenaAdvisoryReviewBinding: (input) =>
+          checkpointService.assertGapArenaAdvisoryReviewBinding(input),
+        adaptExistingStageDecision: (checkpointId, input) =>
+          checkpointService.adaptExistingStageDecision(checkpointId, input),
+      },
+    },
   );
-  const candidateRef = ref('need_candidate', selectedCandidate.need_candidate_id, ctx.titleCard.title_card_id);
-  candidateRef.version_id = selectedCandidate.candidate_version;
-  const alternativeRef = ref('need_candidate', alternative.need_candidate_id, ctx.titleCard.title_card_id);
-  alternativeRef.version_id = alternative.candidate_version;
-
   const confirmationInput: HumanConfirmationInput = {
     schema_version: 'HumanConfirmationInput@v1',
       actor_mode: 'human',
@@ -737,28 +832,54 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
       accepted_risk_refs: ctx.packet.residual_risk_refs,
       required_check_results: ctx.packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
       delegated_executor: null,
-      gap_selection_review: {
-        research_checkpoint_id: checkpoint.research_checkpoint_id,
-        confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
-        selected_candidate_ref: candidateRef,
-        direct_prior_art_pressure_reviewed: true,
-        disconfirming_evidence_reviewed: true,
-        candidate_reviews: [
-          {
-            need_candidate_ref: candidateRef,
-            disposition: 'selected',
-            distinct_from_selected_axes: [],
-            rationale: 'Best identifiable evaluation object.',
-          },
-          {
-            need_candidate_ref: alternativeRef,
-            disposition: 'viable_alternative',
-            distinct_from_selected_axes: ['intervention'],
-            rationale: 'Changes the intervention and remains academically viable.',
-          },
-        ],
-      },
+      gap_selection_review: gapSelectionReview,
+      arena_advisory_review_ref: arenaReview.review_ref,
   };
+  const confirmationWithoutArenaReview = {
+    ...confirmationInput,
+    arena_advisory_review_ref: null,
+  };
+  await assert.rejects(
+    guardedNeedService.confirmValidatedNeed({
+      adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+      confirmation_input: confirmationWithoutArenaReview,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+  const incompleteGuardNeedService = new TopicSelectionNeedValidationService(
+    ctx.needValidationRepository,
+    ctx.controlPlane,
+    ctx.evidenceService,
+    ctx.searchService,
+    {
+      checkpointGuard: {
+        assertTransitionAllowed: (input) => checkpointService.assertTransitionAllowed(input),
+        assertGapSelectionConfirmation: (input) => checkpointService.assertGapSelectionConfirmation(input),
+        adaptExistingStageDecision: (checkpointId, input) =>
+          checkpointService.adaptExistingStageDecision(checkpointId, input),
+      },
+    },
+  );
+  await assert.rejects(
+    incompleteGuardNeedService.confirmValidatedNeed({
+      adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+      confirmation_input: confirmationInput,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  const reservedValidatedNeedId = adjudication.adjudication_result.output_validated_need_id;
+  assert.ok(reservedValidatedNeedId);
+  assert.equal(
+    (await ctx.controlPlaneRepository.listHumanConfirmedDecisionsByTargetRef(
+      ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
+    )).length,
+    0,
+  );
+  assert.equal(await ctx.needValidationRepository.findValidatedNeedById(reservedValidatedNeedId), null);
   const confirmation = await guardedNeedService.confirmValidatedNeed({
     adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
     confirmation_input: confirmationInput,
@@ -768,6 +889,13 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
     checkpoint_kind: 'gap_selection',
   });
   assert.equal(advanced.decision_authority_ref?.ref_id, confirmation.validated_need.human_decision_id);
+  const humanDecision = await ctx.controlPlaneRepository.findHumanConfirmedDecisionById(
+    confirmation.validated_need.human_decision_id,
+  );
+  assert.equal(
+    humanDecision?.artifact_refs.some((artifactRef) => artifactRef.ref_id === arenaReview.review_ref.ref_id),
+    true,
+  );
   const replay = await guardedNeedService.confirmValidatedNeed({
     adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
     confirmation_input: confirmationInput,

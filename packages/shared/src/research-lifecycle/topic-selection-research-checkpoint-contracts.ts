@@ -2,7 +2,9 @@ import {
   topicSelectionFunctionalRefSchema,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
-import type {
+import {
+  topicSelectionGapSelectionReviewSchema,
+  type TopicSelectionGapSelectionReview,
   TopicSelectionCandidatePortfolioOutcome,
 } from './topic-selection-need-validation-contracts.js';
 import type {
@@ -268,6 +270,69 @@ export interface TopicSelectionResearchGapArenaAdvisory {
   support_only: true;
 }
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION =
+  'TopicSelectionResearchArenaAdvisoryReview@v1' as const;
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_RESPONSES = [
+  'accept',
+  'override',
+  'defer',
+] as const;
+export type TopicSelectionResearchArenaAdvisoryReviewResponse =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_RESPONSES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES = [
+  'AGREES_WITH_ARENA',
+  'REVIEW_DEFERRED',
+  'ADVANCE_AGAINST_NONE_VIABLE',
+  'ADVANCE_BEFORE_EVIDENCE_EXPANSION',
+  'ADVANCE_WITHOUT_REFRAME',
+  'SELECTED_PARKED_CANDIDATE',
+  'SELECTED_DROPPED_CANDIDATE',
+  'NON_SELECTED_DISPOSITION_CHANGED',
+] as const;
+export type TopicSelectionResearchArenaAdvisoryReviewReasonCode =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES)[number];
+
+export interface TopicSelectionResearchArenaAdvisoryReviewInput {
+  idempotency_key: string;
+  actor: { actor_type: 'human'; actor_id: string };
+  confirmed_input_snapshot_id: string;
+  confirmed_candidate_pool_hash: string;
+  advisory_snapshot_hash: string;
+  response: TopicSelectionResearchArenaAdvisoryReviewResponse;
+  rationale: string;
+  human_gap_selection_review?: TopicSelectionGapSelectionReview | null;
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReviewPayload {
+  schema_version: typeof TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION;
+  review_id: string;
+  title_card_id: string;
+  research_checkpoint_id: string;
+  gap_input_snapshot_id: string;
+  confirmed_candidate_pool_hash: string;
+  advisory_snapshot_hash: string;
+  response: TopicSelectionResearchArenaAdvisoryReviewResponse;
+  rationale: string;
+  reason_codes: TopicSelectionResearchArenaAdvisoryReviewReasonCode[];
+  actor: { actor_type: 'human'; actor_id: string };
+  human_gap_selection_review: TopicSelectionGapSelectionReview | null;
+  human_gap_selection_review_hash: string | null;
+  selected_candidate_ref: TopicSelectionFunctionalRef | null;
+  support_only: true;
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReviewRecord
+  extends TopicSelectionResearchArenaAdvisoryReviewPayload {
+  created_at: string;
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReviewResult {
+  review_ref: TopicSelectionFunctionalRef;
+  review: TopicSelectionResearchArenaAdvisoryReviewRecord;
+}
+
 export interface TopicSelectionResearchCheckpointDecisionInput {
   decision_key: string;
   decision: TopicSelectionResearchCheckpointAction;
@@ -429,6 +494,100 @@ const strictHumanActorSchema = {
   properties: {
     actor_type: { const: 'human' },
     actor_id: stringId,
+  },
+} as const;
+
+export const topicSelectionResearchArenaAdvisoryReviewInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'idempotency_key',
+    'actor',
+    'confirmed_input_snapshot_id',
+    'confirmed_candidate_pool_hash',
+    'advisory_snapshot_hash',
+    'response',
+    'rationale',
+  ],
+  properties: {
+    idempotency_key: stringId,
+    actor: strictHumanActorSchema,
+    confirmed_input_snapshot_id: stringId,
+    confirmed_candidate_pool_hash: hashString,
+    advisory_snapshot_hash: hashString,
+    response: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_RESPONSES] },
+    rationale: stringId,
+    human_gap_selection_review: {
+      anyOf: [topicSelectionGapSelectionReviewSchema, { type: 'null' }],
+    },
+  },
+} as const;
+
+export const topicSelectionResearchArenaAdvisoryReviewPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'review_id',
+    'title_card_id',
+    'research_checkpoint_id',
+    'gap_input_snapshot_id',
+    'confirmed_candidate_pool_hash',
+    'advisory_snapshot_hash',
+    'response',
+    'rationale',
+    'reason_codes',
+    'actor',
+    'human_gap_selection_review',
+    'human_gap_selection_review_hash',
+    'selected_candidate_ref',
+    'support_only',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION },
+    review_id: stringId,
+    title_card_id: stringId,
+    research_checkpoint_id: stringId,
+    gap_input_snapshot_id: stringId,
+    confirmed_candidate_pool_hash: hashString,
+    advisory_snapshot_hash: hashString,
+    response: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_RESPONSES] },
+    rationale: stringId,
+    reason_codes: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES] },
+      minItems: 1,
+      uniqueItems: true,
+    },
+    actor: strictHumanActorSchema,
+    human_gap_selection_review: {
+      anyOf: [topicSelectionGapSelectionReviewSchema, { type: 'null' }],
+    },
+    human_gap_selection_review_hash: { anyOf: [hashString, { type: 'null' }] },
+    selected_candidate_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    support_only: { const: true },
+  },
+} as const;
+
+export const topicSelectionResearchArenaAdvisoryReviewRecordSchema = {
+  ...topicSelectionResearchArenaAdvisoryReviewPayloadSchema,
+  required: [
+    ...topicSelectionResearchArenaAdvisoryReviewPayloadSchema.required,
+    'created_at',
+  ],
+  properties: {
+    ...topicSelectionResearchArenaAdvisoryReviewPayloadSchema.properties,
+    created_at: stringId,
+  },
+} as const;
+
+export const topicSelectionResearchArenaAdvisoryReviewResultSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['review_ref', 'review'],
+  properties: {
+    review_ref: topicSelectionFunctionalRefSchema,
+    review: topicSelectionResearchArenaAdvisoryReviewRecordSchema,
   },
 } as const;
 
