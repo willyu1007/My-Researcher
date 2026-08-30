@@ -15,6 +15,7 @@ import {
   type HumanConfirmationSemanticReview,
   type HumanConfirmationSemanticReviewContextPacket,
   type PublishV1bInputBundleNodeInput,
+  type TopicSelectionNeedCandidateRecord,
   type TopicSelectionNeedAdjudicationRecommendationPacket,
   type TopicSelectionHumanConfirmNeedNodeResult,
   type TopicSelectionPublishV1bInputBundleNodeResult,
@@ -23,6 +24,7 @@ import {
   humanConfirmationSemanticReviewContextPacketSchema,
   humanConfirmationSemanticReviewSchema,
   publishV1bInputBundleNodeInputSchema,
+  topicSelectionNeedCandidateRecordSchema,
   topicSelectionNeedAdjudicationRecommendationPacketSchema,
   topicSelectionHumanConfirmNeedNodeResultSchema,
   topicSelectionPublishV1bInputBundleNodeResultSchema,
@@ -231,6 +233,50 @@ function evidenceRoleBundle() {
   };
 }
 
+function needCandidateRecord(): TopicSelectionNeedCandidateRecord {
+  return {
+    need_candidate_id: 'need_candidate_001',
+    workspace_id: 'workspace_001',
+    title_card_id: 'title_card_001',
+    evidence_map_id: 'evidence_map_001',
+    candidate_version: 'v1',
+    lifecycle_status: 'hypothesis',
+    decision_status: 'hypothesis',
+    review_status: 'machine_checked',
+    freshness_status: 'current',
+    candidate_need: 'Need a traceable candidate contract.',
+    unmet_need_statement: 'Candidate identity and current advice must remain recoverable.',
+    mechanism_type: 'evaluation_gap',
+    mechanism_summary: null,
+    mechanism_payload: {},
+    semantic_group_key: 'a'.repeat(64),
+    current_arena_advisory: null,
+    scope_notes: null,
+    non_goal_notes: null,
+    prior_art_status: 'unknown',
+    evidence_map_ref: ref('evidence_map', 'evidence_map_001'),
+    search_run_ref: ref('search_run', 'search_run_001'),
+    search_plan_ref: ref('search_plan', 'search_plan_001'),
+    literature_snapshot_ref: ref('literature_snapshot', 'literature_snapshot_001'),
+    evidence_role_bundle: evidenceRoleBundle(),
+    conflict_refs: [],
+    strength_assessment_refs: [],
+    open_recheck_request_refs: [],
+    unresolved_challenge_refs: [],
+    accepted_risk_refs: [],
+    gap_codes: [],
+    speculative: false,
+    confidence: 0.8,
+    artifact_refs: [],
+    result_adjudication_id: null,
+    result_validated_need_id: null,
+    merged_into_need_candidate_ref: null,
+    created_by: 'system',
+    created_at: '2026-05-23T00:00:00.000Z',
+    updated_at: '2026-05-23T00:00:00.000Z',
+  };
+}
+
 function publishV1bInputBundleNodeInput(): PublishV1bInputBundleNodeInput {
   return {
     schema_version: TOPIC_SELECTION_PUBLISH_V1B_INPUT_BUNDLE_NODE_INPUT_SCHEMA_VERSION,
@@ -288,6 +334,18 @@ function publishV1bInputBundleNodeResult(): TopicSelectionPublishV1bInputBundleN
 
 test('topic-selection NeedAdjudication recommendation packet schema accepts whitelist packet', async () => {
   assert.equal(await validatesBody(topicSelectionNeedAdjudicationRecommendationPacketSchema, recommendationPacket()), true);
+});
+
+test('topic-selection NeedCandidate schema requires semantic identity and the current advisory slot', async () => {
+  assert.equal(await validatesBody(topicSelectionNeedCandidateRecordSchema, needCandidateRecord()), true);
+
+  const withoutSemanticGroup = needCandidateRecord() as unknown as Record<string, unknown>;
+  delete withoutSemanticGroup.semantic_group_key;
+  assert.equal(await validatesBody(topicSelectionNeedCandidateRecordSchema, withoutSemanticGroup), false);
+
+  const withoutArenaAdvisory = needCandidateRecord() as unknown as Record<string, unknown>;
+  delete withoutArenaAdvisory.current_arena_advisory;
+  assert.equal(await validatesBody(topicSelectionNeedCandidateRecordSchema, withoutArenaAdvisory), false);
 });
 
 test('topic-selection NeedAdjudication recommendation packet rejects orchestration drift', async () => {

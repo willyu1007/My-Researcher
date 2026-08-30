@@ -252,7 +252,9 @@ export class TopicSelectionResearchArenaService {
       output_artifact_hash: outputArtifactHash,
       output_artifact_ref: input.output_artifact_ref,
       participant_role: input.participant_role,
+      pass_kind: input.pass_kind,
       prior_role_hashes: priorRoleHashes,
+      retrieval_provenance_hash: retrievalProvenance.provenance_hash,
       role_slot_id: input.role_slot_id,
       semantic_position_hash: semanticPositionHash,
     }));
@@ -292,7 +294,8 @@ export class TopicSelectionResearchArenaService {
     );
     if (replay) return this.assertExactRoleExecutionReplay(replay, record);
     try {
-      return await this.dependencies.arenaRepository.createRoleExecution(record);
+      const persisted = await this.dependencies.arenaRepository.createRoleExecution(record);
+      return this.assertExactRoleExecutionReplay(persisted, record);
     } catch (error) {
       if (!(error instanceof TopicSelectionResearchArenaConflictError)) throw error;
       const concurrent = await this.dependencies.arenaRepository.findRoleExecutionBySlot(
@@ -346,15 +349,22 @@ export class TopicSelectionResearchArenaService {
       input.termination_reason,
     );
     const now = this.now();
-    return this.dependencies.arenaRepository.synthesizeSessionWithCandidateProjections({
-      ...session,
-      status: 'synthesized',
-      termination_reason: input.termination_reason,
-      loop_transcript_ref: input.loop_transcript_artifact_ref,
-      loop_transcript_hash: transcriptHash,
-      updated_at: now,
-      synthesized_at: now,
-    }, input.candidate_projections);
+    try {
+      return await this.dependencies.arenaRepository.synthesizeSessionWithCandidateProjections({
+        ...session,
+        status: 'synthesized',
+        termination_reason: input.termination_reason,
+        loop_transcript_ref: input.loop_transcript_artifact_ref,
+        loop_transcript_hash: transcriptHash,
+        updated_at: now,
+        synthesized_at: now,
+      }, input.candidate_projections);
+    } catch (error) {
+      if (error instanceof TopicSelectionResearchArenaConflictError) {
+        throw new AppError(409, 'VERSION_CONFLICT', error.message);
+      }
+      throw error;
+    }
   }
 
   private assertTranscriptExecutions(
@@ -652,6 +662,8 @@ export class TopicSelectionResearchArenaService {
       ...record,
       arena_role_execution_id: null,
       created_at: null,
+      // The hash profile was tightened after v2 shipped; source identity fields remain authoritative.
+      runtime_identity_hash: null,
     });
     if (stableStringify(replayIdentity(existing)) !== stableStringify(replayIdentity(requested))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena role slot already identifies a different audited execution.');

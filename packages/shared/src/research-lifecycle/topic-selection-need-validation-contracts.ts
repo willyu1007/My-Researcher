@@ -2827,6 +2827,8 @@ export const topicSelectionNeedCandidateRecordSchema = {
     'unmet_need_statement',
     'mechanism_type',
     'mechanism_payload',
+    'semantic_group_key',
+    'current_arena_advisory',
     'prior_art_status',
     'evidence_map_ref',
     'search_run_ref',

@@ -9,6 +9,7 @@ import type {
   TopicSelectionAgentInvocationProvenance,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
+import { TopicSelectionResearchArenaConflictError } from '../repositories/topic-selection-research-arena.repository.js';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionResearchArenaService } from './topic-selection-research-arena-service.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
@@ -278,6 +279,43 @@ function fixture() {
   return { arenaCandidateRef, arenaRepository, bindTranscriptExecutions, packet, service };
 }
 
+function auditedScoutInput(
+  packet: ReturnType<typeof fixture>['packet'],
+  arenaSessionId: string,
+): Parameters<TopicSelectionResearchArenaService['recordRoleExecution']>[0] {
+  return {
+    arena_session_id: arenaSessionId,
+    role_slot_id: 'scout',
+    instance_index: 0,
+    participant_role: 'opportunity_scout',
+    pass_kind: 'first_pass',
+    evidence_packet_artifact_ref: ref('artifact_ref', 'packet_1'),
+    retrieval_provenance: {
+      participant_role: 'opportunity_scout',
+      query_intent: packet.query_intent,
+      search_run_ref: ref('search_run', 'search_run_1'),
+      hits: [{
+        literature_ref: ref('literature_record', 'lit_1'),
+        embedding_version_id: 'embedding_v1',
+        chunk_id: 'chunk_1',
+        chunk_hash: 'd'.repeat(64),
+        rank: 1,
+        hybrid_score: 0.92,
+        vector_score: 0.9,
+        lexical_score: 0.7,
+        is_stale: false,
+      }],
+    },
+    exposure_artifact_refs: [ref('artifact_ref', 'packet_1')],
+    output_artifact_ref: ref('artifact_ref', 'scout_output'),
+    agent_invocation_audit_artifact_ref: ref('artifact_ref', 'scout_audit'),
+    execution_provenance: invocationProvenance(
+      'opportunity_scout',
+      sha256Text(stableStringify({ semantic_position: { recommendation: 'candidate-a' } })),
+    ),
+  };
+}
+
 test('role execution binds the product invocation audit and rejects a conflicting output replay', async () => {
   const { packet, service } = fixture();
   const session = await service.openSession({
@@ -289,38 +327,7 @@ test('role execution binds the product invocation audit and rejects a conflictin
     participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
     execution_plan_ref: ref('artifact_ref', 'plan_1'),
   });
-  const retrieval = {
-    participant_role: 'opportunity_scout' as const,
-    query_intent: packet.query_intent,
-    search_run_ref: ref('search_run', 'search_run_1'),
-    hits: [{
-      literature_ref: ref('literature_record', 'lit_1'),
-      embedding_version_id: 'embedding_v1',
-      chunk_id: 'chunk_1',
-      chunk_hash: 'd'.repeat(64),
-      rank: 1,
-      hybrid_score: 0.92,
-      vector_score: 0.9,
-      lexical_score: 0.7,
-      is_stale: false,
-    }],
-  };
-  const auditedInput = {
-    arena_session_id: session.arena_session_id,
-    role_slot_id: 'scout',
-    instance_index: 0,
-    participant_role: 'opportunity_scout' as const,
-    pass_kind: 'first_pass' as const,
-    evidence_packet_artifact_ref: ref('artifact_ref', 'packet_1'),
-    retrieval_provenance: retrieval,
-    exposure_artifact_refs: [ref('artifact_ref', 'packet_1')],
-    output_artifact_ref: ref('artifact_ref', 'scout_output'),
-    agent_invocation_audit_artifact_ref: ref('artifact_ref', 'scout_audit'),
-    execution_provenance: invocationProvenance(
-      'opportunity_scout',
-      sha256Text(stableStringify({ semantic_position: { recommendation: 'candidate-a' } })),
-    ),
-  } as unknown as Parameters<typeof service.recordRoleExecution>[0];
+  const auditedInput = auditedScoutInput(packet, session.arena_session_id);
   const first = await service.recordRoleExecution(auditedInput);
   assert.equal(first.schema_version, 'TopicSelectionResearchArenaRoleExecution@v2');
   assert.equal(
@@ -344,6 +351,83 @@ test('role execution binds the product invocation audit and rejects a conflictin
     } as unknown as Parameters<typeof service.recordRoleExecution>[0]),
     (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
   );
+});
+
+test('role execution rejects a conflicting record returned by a concurrent repository replay', async () => {
+  const { arenaRepository, packet, service } = fixture();
+  const session = await service.openSession({
+    session_key: 'arena-key-concurrent-replay',
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: ref('validated_need', 'need_1'),
+    input_snapshot_id: 'snapshot_1',
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
+  });
+  const createRoleExecution = arenaRepository.createRoleExecution.bind(arenaRepository);
+  arenaRepository.createRoleExecution = async (record) => ({
+    ...await createRoleExecution(record),
+    pass_kind: 'supplemental',
+  });
+
+  await assert.rejects(
+    service.recordRoleExecution(auditedScoutInput(packet, session.arena_session_id)),
+    (error) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('role execution replays an exact v2 record minted with the previous runtime hash profile', async () => {
+  const { arenaRepository, packet, service } = fixture();
+  const session = await service.openSession({
+    session_key: 'arena-key-previous-runtime-hash',
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: ref('validated_need', 'need_1'),
+    input_snapshot_id: 'snapshot_1',
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
+  });
+  const input = auditedScoutInput(packet, session.arena_session_id);
+  const first = await service.recordRoleExecution(input);
+  const previousRuntimeHash = '0'.repeat(64);
+  const findRoleExecutionBySlot = arenaRepository.findRoleExecutionBySlot.bind(arenaRepository);
+  arenaRepository.findRoleExecutionBySlot = async (...args) => {
+    const existing = await findRoleExecutionBySlot(...args);
+    return existing ? { ...existing, runtime_identity_hash: previousRuntimeHash } : null;
+  };
+
+  const replay = await service.recordRoleExecution(input);
+
+  assert.equal(replay.arena_role_execution_id, first.arena_role_execution_id);
+  assert.equal(replay.runtime_identity_hash, previousRuntimeHash);
+});
+
+test('role runtime identity changes with pass kind and exact retrieval provenance', async () => {
+  const { arenaRepository, packet, service } = fixture();
+  const session = await service.openSession({
+    session_key: 'arena-key-runtime-identity',
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: ref('validated_need', 'need_1'),
+    input_snapshot_id: 'snapshot_1',
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: ref('artifact_ref', 'plan_1'),
+  });
+  arenaRepository.createRoleExecution = async (record) => record;
+  const input = auditedScoutInput(packet, session.arena_session_id);
+
+  const firstPass = await service.recordRoleExecution(input);
+  const supplemental = await service.recordRoleExecution({ ...input, pass_kind: 'supplemental' });
+  const changedRetrieval = await service.recordRoleExecution({
+    ...input,
+    retrieval_provenance: {
+      ...input.retrieval_provenance,
+      search_run_ref: ref('search_run', 'search_run_2'),
+    },
+  });
+
+  assert.notEqual(firstPass.runtime_identity_hash, supplemental.runtime_identity_hash);
+  assert.notEqual(firstPass.runtime_identity_hash, changedRetrieval.runtime_identity_hash);
 });
 
 test('arena replaces the current stage only when a recorded loop delta explains the retry', async () => {
@@ -546,6 +630,24 @@ test('first-pass role execution records chunk provenance and rejects evidence-fr
   );
 
   const transcriptHash = bindTranscriptExecutions([scout, killer]);
+
+  const synthesizeSessionWithCandidateProjections = arenaRepository
+    .synthesizeSessionWithCandidateProjections.bind(arenaRepository);
+  arenaRepository.synthesizeSessionWithCandidateProjections = async () => {
+    throw new TopicSelectionResearchArenaConflictError('Arena synthesis changed concurrently.');
+  };
+  await assert.rejects(
+    service.synthesizeSession({
+      arena_session_id: session.arena_session_id,
+      termination_reason: 'evidence_expansion_required',
+      loop_transcript_artifact_ref: ref('artifact_ref', 'transcript_1'),
+      candidate_projections: [projectionFor(transcriptHash)],
+    }),
+    (error) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  arenaRepository.synthesizeSessionWithCandidateProjections = synthesizeSessionWithCandidateProjections;
 
   const synthesized = await service.synthesizeSession({
     arena_session_id: session.arena_session_id,
