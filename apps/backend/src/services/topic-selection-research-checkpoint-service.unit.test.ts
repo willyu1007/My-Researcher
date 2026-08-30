@@ -20,7 +20,10 @@ import type {
   TopicSelectionValueReasoningMemoRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-value-assessment-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
+import type { TopicSelectionResearchArenaRepository } from '../repositories/topic-selection-research-arena.repository.js';
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 
@@ -34,19 +37,24 @@ type StageProjectionSources = NonNullable<
   ConstructorParameters<typeof TopicSelectionResearchCheckpointService>[2]
 >['stageProjectionSources'];
 
-function createService(stageProjectionSources?: StageProjectionSources) {
+function createService(
+  stageProjectionSources?: StageProjectionSources,
+  arenaRepository?: Pick<TopicSelectionResearchArenaRepository, 'findCurrentSession'>,
+) {
   let sequence = 0;
   const controlPlane = new TopicSelectionControlPlaneService(
     new InMemoryTopicSelectionControlPlaneRepository(),
     { idFactory: (prefix) => `${prefix}_${++sequence}`, now: () => NOW },
   );
   const repository = new InMemoryTopicSelectionResearchCheckpointRepository();
-  const service = new TopicSelectionResearchCheckpointService(repository, controlPlane, {
-    idFactory: (prefix) => `${prefix}_${++sequence}`,
+  const options = {
+    idFactory: (prefix: string) => `${prefix}_${++sequence}`,
     now: () => NOW,
     stageProjectionSources,
-  });
-  return { repository, service };
+    arenaRepository,
+  };
+  const service = new TopicSelectionResearchCheckpointService(repository, controlPlane, options);
+  return { controlPlane, repository, service };
 }
 
 async function materialize(
@@ -951,6 +959,242 @@ test('qualified evidence and a genuinely distinct candidate arena advance throug
     confirmed_snapshot_hash: qualifiedCheckpoint.target_snapshot_hash,
   });
   await service.assertTransitionAllowed({ title_card_id: 'title_1', checkpoint_kind: 'gap_selection' });
+});
+
+test('gap projection omits mixed arena advice without changing human actions', async () => {
+  const { service } = createService();
+  const first = candidate('candidate_1', 'evaluation_gap', { outcome: 'calibration error' });
+  const alternative = candidate('candidate_3', 'system_gap', { intervention: 'adaptive evidence routing' });
+  first.current_arena_advisory = {
+    schema_version: 'TopicSelectionNeedCandidateArenaAdvisory@v1',
+    arena_session_id: 'arena_1',
+    arena_synthesis_ref: {
+      ref_type: 'artifact_ref',
+      ref_id: 'arena_synthesis_1',
+      title_card_id: 'title_1',
+    },
+    arena_synthesis_hash: HASH_D,
+    disposition: 'parked',
+    rationale: 'More evidence is required before selection.',
+    drop_reason_code: null,
+    reopening_conditions: ['Add a direct signed-utility comparison.'],
+    selected_against_candidate_ref: null,
+    support_only: true,
+  };
+
+  const checkpoint = await service.materializeGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    evidence_map_ref: first.evidence_map_ref,
+    candidates: [first, alternative],
+  });
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+
+  assert.deepEqual(checkpoint.allowed_actions, ['advance', 'hold', 'loopback', 'reject']);
+  assert.equal(packet.packet_payload.arena_advisory, null);
+  assert.deepEqual(packet.packet_payload.arena_advisory_issue_codes, ['ARENA_ADVISORY_MIXED']);
+});
+
+test('gap projection admits only the checksum-valid current arena synthesis', async () => {
+  const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+  const { controlPlane, service } = createService(undefined, arenaRepository);
+  const first = candidate('candidate_1', 'evaluation_gap', { outcome: 'calibration error' });
+  const alternative = candidate('candidate_3', 'system_gap', { intervention: 'adaptive evidence routing' });
+  first.candidate_need = 'Uncertainty-conditioned signed-depth utility';
+  alternative.candidate_need = 'Adaptive evidence routing after shallow retrieval';
+  const candidateRefs = [first, alternative].map((item) => ({
+    ref_type: 'need_candidate',
+    ref_id: item.need_candidate_id,
+    title_card_id: item.title_card_id,
+    version_id: item.candidate_version,
+  }));
+  const candidateDispositions = candidateRefs.map((candidateRef, index) => ({
+    candidate_ref: candidateRef,
+    disposition: 'parked' as const,
+    rationale: index === 0
+      ? 'Direct signed-utility evidence is still missing.'
+      : 'The alternative remains viable but does not yet dominate.',
+    drop_reason_code: null,
+    reopening_conditions: ['Add a direct signed-utility comparison.'],
+    selected_against_candidate_ref: null,
+    role_positions: [
+      { participant_role: 'opportunity_scout' as const, recommended_disposition: 'parked' as const },
+      { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'parked' as const },
+    ],
+  }));
+  const riskFindingPayload = {
+    schema_version: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+    summary: 'No direct evidence yet measures signed adjacent-depth utility.',
+    evidence_refs: [{ ref_type: 'evidence_unit', ref_id: 'evidence_1', title_card_id: 'title_1' }],
+  };
+  const riskFinding = await controlPlane.recordArtifactRef({
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    storage_kind: 'inline',
+    payload: riskFindingPayload,
+    checksum: sha256Text(stableStringify(riskFindingPayload)),
+    mime_type: 'application/json',
+    input_snapshot_id: 'arena_input_1',
+    created_by: 'system',
+  });
+  const riskFindingRef = {
+    ref_type: 'artifact_ref',
+    ref_id: riskFinding.artifact_ref_id,
+    title_card_id: 'title_1',
+    version_id: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  };
+  const advisorySynthesis = {
+    schema_version: 'TopicSelectionResearchArenaAdvisorySynthesis@v1' as const,
+    outcome: 'evidence_expansion_required' as const,
+    summary: 'Current evidence cannot safely select either candidate.',
+    candidate_dispositions: candidateDispositions,
+    preserved_finding_ids: ['finding_1'],
+    unresolved_dissent: ['The scout sees upside while the killer sees missing direct evidence.'],
+    required_next_delta: 'evidence' as const,
+    support_only: true as const,
+  };
+  const transcriptPayload = {
+    schema_version: 'TopicSelectionResearchArenaLoopTranscript@v2',
+    arena_session_id: 'arena_1',
+    input_snapshot_id: 'arena_input_1',
+    independent_first_pass: [],
+    advisory_synthesis: advisorySynthesis,
+    risk_finding_refs: [riskFindingRef],
+    execution_accounting: {},
+    support_only: true,
+  };
+  const transcriptHash = sha256Text(stableStringify(transcriptPayload));
+  const transcript = await controlPlane.recordArtifactRef({
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    storage_kind: 'inline',
+    payload: transcriptPayload,
+    checksum: transcriptHash,
+    mime_type: 'application/json',
+    input_snapshot_id: 'arena_input_1',
+    created_by: 'system',
+  });
+  const transcriptRef = {
+    ref_type: 'artifact_ref',
+    ref_id: transcript.artifact_ref_id,
+    title_card_id: 'title_1',
+  };
+  await arenaRepository.replaceCurrentSession({
+    schema_version: 'TopicSelectionResearchArenaSession@v1',
+    arena_session_id: 'arena_1',
+    session_key: 'arena-key-1',
+    current_arena_key: 'title_1:gap_portfolio',
+    workspace_id: null,
+    title_card_id: 'title_1',
+    arena_kind: 'gap_portfolio',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_1', title_card_id: 'title_1' },
+    input_snapshot_id: 'arena_input_1',
+    input_snapshot_hash: HASH_C,
+    participant_plan_hash: HASH_B,
+    participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+    execution_plan_ref: { ref_type: 'artifact_ref', ref_id: 'execution_plan_1', title_card_id: 'title_1' },
+    status: 'synthesized',
+    termination_reason: 'evidence_expansion_required',
+    loop_transcript_ref: transcriptRef,
+    loop_transcript_hash: transcriptHash,
+    loop_delta_refs: [],
+    support_only: true,
+    supersedes_arena_session_id: null,
+    superseded_by_arena_session_id: null,
+    created_by: 'system',
+    created_at: NOW,
+    updated_at: NOW,
+    synthesized_at: NOW,
+    superseded_at: null,
+  });
+  for (const [index, item] of [first, alternative].entries()) {
+    const disposition = candidateDispositions[index]!;
+    item.current_arena_advisory = {
+      schema_version: 'TopicSelectionNeedCandidateArenaAdvisory@v1',
+      arena_session_id: 'arena_1',
+      arena_synthesis_ref: transcriptRef,
+      arena_synthesis_hash: transcriptHash,
+      disposition: disposition.disposition,
+      rationale: disposition.rationale,
+      drop_reason_code: disposition.drop_reason_code,
+      reopening_conditions: disposition.reopening_conditions,
+      selected_against_candidate_ref: disposition.selected_against_candidate_ref,
+      support_only: true,
+    };
+  }
+
+  const checkpoint = await service.materializeGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    evidence_map_ref: first.evidence_map_ref,
+    candidates: [first, alternative],
+  });
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+
+  assert.deepEqual(packet.packet_payload.arena_advisory_issue_codes, []);
+  assert.deepEqual(packet.packet_payload.arena_advisory, {
+    schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1',
+    arena_session_ref: {
+      ref_type: 'research_arena_session',
+      ref_id: 'arena_1',
+      title_card_id: 'title_1',
+      version_id: HASH_C,
+    },
+    arena_input_snapshot_ref: {
+      ref_type: 'input_snapshot',
+      ref_id: 'arena_input_1',
+      title_card_id: 'title_1',
+      version_id: HASH_C,
+    },
+    arena_synthesis_ref: transcriptRef,
+    arena_synthesis_hash: transcriptHash,
+    outcome: 'evidence_expansion_required',
+    summary: advisorySynthesis.summary,
+    candidate_dispositions: candidateDispositions,
+    risk_finding_refs: [riskFindingRef],
+    preserved_finding_ids: ['finding_1'],
+    unresolved_dissent: advisorySynthesis.unresolved_dissent,
+    required_next_delta: 'evidence',
+    support_only: true,
+  });
+  assert.equal(
+    checkpoint.source_refs.some((ref) => ref.ref_id === transcript.artifact_ref_id),
+    true,
+  );
+  assert.equal(checkpoint.source_refs.some((ref) => ref.ref_id === riskFindingRef.ref_id), true);
+
+  const human = await service.getStageView('title_1', 'research_gap', 'human');
+  const llm = await service.getStageView('title_1', 'research_gap', 'llm');
+  assert.match(human.markdown, /多视角评议建议：证据不足，补充证据后再判断/u);
+  assert.match(human.markdown, /Uncertainty-conditioned signed-depth utility/u);
+  assert.doesNotMatch(human.markdown, /candidate_1/u);
+  assert.match(human.markdown, /Add a direct signed-utility comparison/u);
+  assert.match(human.markdown, /No direct evidence yet measures signed adjacent-depth utility/u);
+  assert.match(human.markdown, /The scout sees upside while the killer sees missing direct evidence/u);
+  assert.deepEqual(llm.working_set.related_records.arena_advisory, packet.packet_payload.arena_advisory);
+  assert.deepEqual(llm.working_set.related_records.arena_risk_findings, [riskFinding]);
+
+  const currentSession = await arenaRepository.findCurrentSession('title_1', 'gap_portfolio');
+  assert.ok(currentSession);
+  await arenaRepository.replaceCurrentSession({
+    ...currentSession,
+    arena_session_id: 'arena_2',
+    session_key: 'arena-key-2',
+    input_snapshot_id: 'arena_input_2',
+    input_snapshot_hash: HASH_D,
+    status: 'open',
+    termination_reason: null,
+    loop_transcript_ref: null,
+    loop_transcript_hash: null,
+    synthesized_at: null,
+  });
+  const staleCheckpoint = await service.materializeGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    evidence_map_ref: first.evidence_map_ref,
+    candidates: [first, alternative],
+  });
+  const stalePacket = await service.getPacket(staleCheckpoint.research_checkpoint_id);
+  assert.equal(stalePacket.packet_payload.arena_advisory, null);
+  assert.deepEqual(stalePacket.packet_payload.arena_advisory_issue_codes, ['ARENA_ADVISORY_NOT_CURRENT']);
+  assert.deepEqual(staleCheckpoint.allowed_actions, checkpoint.allowed_actions);
 });
 
 test('promotion checkpoint requires the complete chain and maps every advancement risk before bridge eligibility', async () => {

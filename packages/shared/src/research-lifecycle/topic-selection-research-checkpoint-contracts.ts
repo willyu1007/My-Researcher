@@ -2,6 +2,13 @@ import {
   topicSelectionFunctionalRefSchema,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
+import type {
+  TopicSelectionCandidatePortfolioOutcome,
+} from './topic-selection-need-validation-contracts.js';
+import type {
+  TopicSelectionResearchArenaAdvisoryCandidateDisposition,
+  TopicSelectionResearchArenaDeltaType,
+} from './topic-selection-research-arena-contracts.js';
 
 export const TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION = 'v1' as const;
 
@@ -243,6 +250,22 @@ export interface TopicSelectionResearchCheckpointPacket {
   open_objections: TopicSelectionResearchObjectionRecord[];
   decision?: TopicSelectionResearchCheckpointDecisionRecord | null;
   packet_hash: string;
+}
+
+export interface TopicSelectionResearchGapArenaAdvisory {
+  schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1';
+  arena_session_ref: TopicSelectionFunctionalRef;
+  arena_input_snapshot_ref: TopicSelectionFunctionalRef;
+  arena_synthesis_ref: TopicSelectionFunctionalRef;
+  arena_synthesis_hash: string;
+  outcome: TopicSelectionCandidatePortfolioOutcome;
+  summary: string;
+  candidate_dispositions: TopicSelectionResearchArenaAdvisoryCandidateDisposition[];
+  risk_finding_refs: TopicSelectionFunctionalRef[];
+  preserved_finding_ids: string[];
+  unresolved_dissent: string[];
+  required_next_delta: TopicSelectionResearchArenaDeltaType | null;
+  support_only: true;
 }
 
 export interface TopicSelectionResearchCheckpointDecisionInput {

@@ -15,6 +15,17 @@ import type {
   TopicSelectionNeedCandidateRecord,
   TopicSelectionRejectedNeedCandidateFraming,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import {
+  TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS,
+  TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import {
+  TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES,
+  TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES,
+  type TopicSelectionResearchArenaAdvisoryCandidateDisposition,
+  type TopicSelectionResearchArenaAdvisorySynthesis,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type {
   TopicSelectionCoverageRowIntentRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
@@ -45,6 +56,7 @@ import {
   type TopicSelectionResearchContinuationEnvelope,
   type TopicSelectionResearchContinuationEnvelopeEvaluation,
   type TopicSelectionResearchContinuationEnvelopeEvaluationInput,
+  type TopicSelectionResearchGapArenaAdvisory,
   type TopicSelectionResearchHumanStageView,
   type TopicSelectionResearchLlmStageView,
   type TopicSelectionResearchObjectionInput,
@@ -65,6 +77,7 @@ import { topicSelectionNeedCandidateSemanticGroupKey } from '../topic-selection-
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionV1bTopicPackageRepository } from '../repositories/topic-selection-v1b-topic-package.repository.js';
 import type { TopicSelectionV1bValueAssessmentRepository } from '../repositories/topic-selection-v1b-value-assessment.repository.js';
+import type { TopicSelectionResearchArenaRepository } from '../repositories/topic-selection-research-arena.repository.js';
 import {
   TopicSelectionResearchCheckpointCurrentConflictError,
   type TopicSelectionResearchCheckpointRepository,
@@ -80,6 +93,7 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  arenaRepository?: Pick<TopicSelectionResearchArenaRepository, 'findCurrentSession'>;
   stageProjectionSources?: {
     topicPackageRepository: Pick<TopicSelectionV1bTopicPackageRepository, 'listPackagesByTitleCardId'>
       & Partial<Pick<
@@ -102,6 +116,12 @@ type GapCandidatePacketEntry = {
   need_candidate_ref: TopicSelectionFunctionalRef;
   semantic_group_key: string;
   machine_viable: boolean;
+};
+
+type GapArenaAdvisoryProjection = {
+  advisory: TopicSelectionResearchGapArenaAdvisory | null;
+  issueCodes: string[];
+  sourceRefs: TopicSelectionFunctionalRef[];
 };
 
 export type MaterializeResearchCheckpointInput = {
@@ -248,10 +268,16 @@ const HUMAN_ACTION_LABELS = {
 } as const satisfies Record<TopicSelectionResearchCheckpointAction, string>;
 const ROUTINE_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES);
 const CONFIRMATION_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES);
+const ARENA_OUTCOME_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES);
+const ARENA_DISPOSITION_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS);
+const ARENA_DROP_REASON_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES);
+const ARENA_DELTA_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ARENA_DELTA_TYPES);
+const ARENA_ROLE_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ARENA_SHADOW_ROLES);
 
 export class TopicSelectionResearchCheckpointService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly arenaRepository: ServiceOptions['arenaRepository'];
   private readonly stageProjectionSources: ServiceOptions['stageProjectionSources'];
 
   constructor(
@@ -261,6 +287,7 @@ export class TopicSelectionResearchCheckpointService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.arenaRepository = options.arenaRepository;
     this.stageProjectionSources = options.stageProjectionSources;
   }
 
@@ -540,6 +567,7 @@ export class TopicSelectionResearchCheckpointService {
         : 'Return to candidate discovery; wording or parameter changes do not count as a distinct alternative.',
       recommended_loopback: 'generate_need_candidate',
     }));
+    const arenaProjection = await this.projectGapArenaAdvisory(input.title_card_id, candidates);
     const snapshotPayload = {
       evidence_map_ref: input.evidence_map_ref,
       candidate_entries: entries,
@@ -553,6 +581,8 @@ export class TopicSelectionResearchCheckpointService {
       policy_result: issueCodes.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
       policy_issue_codes: issueCodes,
       policy_issues: policyIssues,
+      arena_advisory: arenaProjection.advisory,
+      arena_advisory_issue_codes: arenaProjection.issueCodes,
       distinctness_axes: ['research_object', 'mechanism', 'intervention', 'comparison', 'outcome'],
       policy_note: 'Candidate counts and semantic groups are tripwires only; human review must identify an academically viable alternative and its substantive distinctness axes.',
     };
@@ -574,6 +604,7 @@ export class TopicSelectionResearchCheckpointService {
         input.evidence_map_ref,
         ...candidates.map((candidate) => this.needCandidateRef(candidate)),
         ...rejectedFramings.flatMap((framing) => framing.refs),
+        ...arenaProjection.sourceRefs,
       ]),
       allowed_actions: issueCodes.length === 0
         ? ['advance', 'loopback', 'reject', 'hold']
@@ -1703,6 +1734,22 @@ export class TopicSelectionResearchCheckpointService {
     if (stage === 'overview') {
       canonicalOwner = manifest;
       relatedRecords = { checkpoint_records: checkpointRecords };
+    } else if (stage === 'research_gap') {
+      const arenaAdvisory = this.asRecord(currentPacket?.packet_payload.arena_advisory);
+      const riskFindingRefs = this.functionalRefs(arenaAdvisory?.risk_finding_refs) ?? [];
+      const arenaRiskFindings = (await Promise.all(
+        riskFindingRefs.map((ref) => this.controlPlane.getArtifactRef(ref.ref_id)),
+      )).filter((artifact): artifact is TopicSelectionArtifactRefRecord => Boolean(
+        artifact
+        && artifact.title_card_id === titleCardId
+        && artifact.payload
+        && artifact.checksum === this.hash(artifact.payload),
+      ));
+      relatedRecords = {
+        checkpoint_records: checkpointRecords,
+        arena_advisory: arenaAdvisory,
+        arena_risk_findings: arenaRiskFindings,
+      };
     } else if (stage === 'value_feasibility') {
       const repository = this.stageProjectionSources?.valueAssessmentRepository;
       const [assessments, decisions] = repository
@@ -1855,6 +1902,73 @@ export class TopicSelectionResearchCheckpointService {
         recommendation: this.stringField(decision, 'decision_rationale')
           || this.stringField(memo, 'disposition_bridge')
           || '依据当前价值评估决定继续、回环、暂存或停止。',
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+      };
+    }
+
+    if (stage === 'research_gap') {
+      const advisory = this.asRecord(workingSet.related_records.arena_advisory);
+      const candidateDispositions = Array.isArray(advisory?.candidate_dispositions)
+        ? advisory.candidate_dispositions.map((value) => this.asRecord(value)).filter(
+          (value): value is Record<string, unknown> => value !== null,
+        )
+        : [];
+      const riskFindings = Array.isArray(workingSet.related_records.arena_risk_findings)
+        ? workingSet.related_records.arena_risk_findings.map((value) => this.asRecord(value)).filter(
+          (value): value is Record<string, unknown> => value !== null,
+        )
+        : [];
+      const candidateEntries = Array.isArray(packet?.packet_payload.candidate_entries)
+        ? packet.packet_payload.candidate_entries.map((value) => this.asRecord(value)).filter(
+          (value): value is Record<string, unknown> => value !== null,
+        )
+        : [];
+      const candidateEntryById = new Map(candidateEntries.flatMap((candidateEntry) => {
+        const candidateRef = this.asRecord(candidateEntry.need_candidate_ref);
+        const candidateId = this.stringField(candidateRef, 'ref_id');
+        return candidateId ? [[candidateId, candidateEntry] as const] : [];
+      }));
+      const outcome = this.stringField(advisory, 'outcome');
+      const issueCodes = this.stringArrayField(this.asRecord(packet?.packet_payload), 'arena_advisory_issue_codes');
+      const candidateItems = candidateDispositions.map((disposition) => {
+        const candidateRef = this.asRecord(disposition.candidate_ref);
+        const candidateId = this.stringField(candidateRef, 'ref_id') || '未知候选';
+        const candidateEntry = candidateEntryById.get(candidateId) ?? null;
+        const candidateLabel = this.stringField(candidateEntry, 'candidate_need')
+          || this.stringField(candidateEntry, 'unmet_need_statement')
+          || candidateId;
+        const dispositionLabel = this.arenaDispositionLabel(this.stringField(disposition, 'disposition'));
+        const rationale = this.stringField(disposition, 'rationale');
+        const reopeningConditions = this.stringArrayField(disposition, 'reopening_conditions');
+        return [
+          `候选“${candidateLabel}”：${dispositionLabel}。${rationale}`,
+          reopeningConditions.length > 0 ? `重新开放条件：${reopeningConditions.join('；')}` : '',
+        ].filter(Boolean).join(' ');
+      });
+      const unresolvedDissent = this.stringArrayField(advisory, 'unresolved_dissent');
+      return {
+        conclusions: this.uniqueStrings([
+          outcome ? `多视角评议建议：${this.arenaOutcomeLabel(outcome)}` : '',
+          this.stringField(advisory, 'summary'),
+          `${label}已有当前版本，状态为 ${entry.status ?? 'current'}。`,
+        ]),
+        evidence_and_counterevidence: this.uniqueStrings(riskFindings.flatMap((artifact) => {
+          const payload = this.asRecord(artifact.payload);
+          const summary = this.stringField(payload, 'summary');
+          return summary ? [summary] : [];
+        })),
+        alternatives_and_rejections: candidateItems.length > 0
+          ? candidateItems
+          : this.payloadItems(packet?.packet_payload ?? {}, ['candidate', 'alternative', 'reject']),
+        claim_and_falsification_boundaries: [],
+        open_risks: this.uniqueStrings([
+          ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
+          ...unresolvedDissent.map((dissent) => `未解决分歧：${dissent}`),
+          ...issueCodes.map((code) => `多视角评议未纳入审阅：${this.arenaIssueLabel(code)}`),
+        ]),
+        recommendation: outcome
+          ? this.arenaOutcomeRecommendation(outcome)
+          : '当前没有可验证的多视角评议建议；按现有候选与证据完成严格人工审阅。',
         decision_requested: this.stageDecisionRequest(manifest, stage, packet),
       };
     }
@@ -2039,6 +2153,46 @@ export class TopicSelectionResearchCheckpointService {
 
   private markdownBullets(items: string[]): string {
     return items.length > 0 ? items.map((item) => `- ${item}`).join('\n') : '- 暂无。';
+  }
+
+  private arenaDispositionLabel(disposition: string): string {
+    const labels: Record<string, string> = {
+      selected: '建议选择',
+      parked: '暂存',
+      dropped: '停止',
+    };
+    return labels[disposition] ?? disposition;
+  }
+
+  private arenaOutcomeLabel(outcome: string): string {
+    const labels: Record<string, string> = {
+      selected: '建议选择一个候选方向',
+      none_viable: '当前没有值得继续的候选',
+      evidence_expansion_required: '证据不足，补充证据后再判断',
+      reframe_required: '当前范围需要重新界定',
+    };
+    return labels[outcome] ?? outcome;
+  }
+
+  private arenaOutcomeRecommendation(outcome: string): string {
+    const recommendations: Record<string, string> = {
+      selected: '多视角评议仅提供建议；请核对证据、反方意见和替代候选后，由研究者决定是否接受。',
+      none_viable: '优先考虑结束当前候选集合；若仍要推进，需要明确说明不同意停止建议的证据依据。',
+      evidence_expansion_required: '先按重新开放条件补充证据，再比较候选；也可以由研究者明确决定暂缓或覆盖该建议。',
+      reframe_required: '先重新界定研究对象或候选范围，再生成并比较新的候选集合。',
+    };
+    return recommendations[outcome] ?? '审阅多视角评议建议及其证据后，由研究者决定下一步。';
+  }
+
+  private arenaIssueLabel(issueCode: string): string {
+    const labels: Record<string, string> = {
+      ARENA_ADVISORY_MIXED: '候选携带的评议版本不一致',
+      ARENA_ADVISORY_UNVERIFIED: '当前环境无法核验评议记录',
+      ARENA_ADVISORY_NOT_CURRENT: '评议已经过期',
+      ARENA_ADVISORY_INCOMPLETE: '评议材料不完整',
+      ARENA_ADVISORY_INVALID: '评议材料校验失败',
+    };
+    return labels[issueCode] ?? '评议材料暂不可用';
   }
 
   private unavailableStageManifestEntry(
@@ -2565,6 +2719,216 @@ export class TopicSelectionResearchCheckpointService {
 
   private gapSemanticGroupKey(candidate: TopicSelectionNeedCandidateRecord): string {
     return topicSelectionNeedCandidateSemanticGroupKey(candidate);
+  }
+
+  private async projectGapArenaAdvisory(
+    titleCardId: string,
+    candidates: TopicSelectionNeedCandidateRecord[],
+  ): Promise<GapArenaAdvisoryProjection> {
+    const projected = candidates.filter((candidate) => candidate.current_arena_advisory !== null);
+    if (projected.length === 0) return { advisory: null, issueCodes: [], sourceRefs: [] };
+    if (projected.length !== candidates.length) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_MIXED'], sourceRefs: [] };
+    }
+    const firstAdvice = projected[0]!.current_arena_advisory!;
+    const sameProjectionIdentity = projected.every((candidate) => {
+      const advice = candidate.current_arena_advisory!;
+      return advice.support_only
+        && advice.arena_session_id === firstAdvice.arena_session_id
+        && advice.arena_synthesis_hash === firstAdvice.arena_synthesis_hash
+        && this.refKey(advice.arena_synthesis_ref) === this.refKey(firstAdvice.arena_synthesis_ref);
+    });
+    if (!sameProjectionIdentity) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_MIXED'], sourceRefs: [] };
+    }
+    if (!this.arenaRepository) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_UNVERIFIED'], sourceRefs: [] };
+    }
+    const session = await this.arenaRepository.findCurrentSession(titleCardId, 'gap_portfolio');
+    if (!session
+      || session.arena_session_id !== firstAdvice.arena_session_id
+      || session.title_card_id !== titleCardId
+      || session.status !== 'synthesized'
+      || !session.current_arena_key
+      || !session.support_only) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_NOT_CURRENT'], sourceRefs: [] };
+    }
+    if (!session.loop_transcript_ref
+      || !session.loop_transcript_hash
+      || this.refKey(session.loop_transcript_ref) !== this.refKey(firstAdvice.arena_synthesis_ref)
+      || session.loop_transcript_hash !== firstAdvice.arena_synthesis_hash) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INCOMPLETE'], sourceRefs: [] };
+    }
+    const transcript = await this.controlPlane.getArtifactRef(session.loop_transcript_ref.ref_id);
+    if (!transcript
+      || transcript.title_card_id !== titleCardId
+      || transcript.input_snapshot_id !== session.input_snapshot_id
+      || transcript.checksum !== session.loop_transcript_hash
+      || !transcript.payload
+      || this.hash(transcript.payload) !== session.loop_transcript_hash) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INVALID'], sourceRefs: [] };
+    }
+    const transcriptPayload = this.asRecord(transcript.payload);
+    const synthesis = transcriptPayload?.schema_version === 'TopicSelectionResearchArenaLoopTranscript@v2'
+      && transcriptPayload.arena_session_id === session.arena_session_id
+      && transcriptPayload.input_snapshot_id === session.input_snapshot_id
+      && transcriptPayload.support_only === true
+      && this.isArenaAdvisorySynthesis(transcriptPayload.advisory_synthesis)
+      ? transcriptPayload.advisory_synthesis
+      : null;
+    const rawRiskFindingRefs = this.functionalRefs(transcriptPayload?.risk_finding_refs);
+    const riskFindingRefs = rawRiskFindingRefs
+      && topicSelectionRiskFindingRefs(rawRiskFindingRefs).length === rawRiskFindingRefs.length
+      && rawRiskFindingRefs.every((ref) => !ref.title_card_id || ref.title_card_id === titleCardId)
+      ? rawRiskFindingRefs
+      : null;
+    if (!synthesis || riskFindingRefs === null) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INVALID'], sourceRefs: [] };
+    }
+    const expectedTermination = synthesis.outcome === 'selected' ? 'recommendation_ready' : synthesis.outcome;
+    if (session.termination_reason !== expectedTermination) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INVALID'], sourceRefs: [] };
+    }
+    const candidateRefs = candidates.map((candidate) => this.needCandidateRef(candidate));
+    const dispositionByCandidate = new Map(
+      synthesis.candidate_dispositions.map((disposition) => [this.refKey(disposition.candidate_ref), disposition]),
+    );
+    if (dispositionByCandidate.size !== candidateRefs.length
+      || candidateRefs.some((ref) => !dispositionByCandidate.has(this.refKey(ref)))) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INCOMPLETE'], sourceRefs: [] };
+    }
+    const projectionMatches = candidates.every((candidate) => {
+      const advice = candidate.current_arena_advisory!;
+      const disposition = dispositionByCandidate.get(this.refKey(this.needCandidateRef(candidate)));
+      if (!disposition) return false;
+      return stableStringify({
+        disposition: advice.disposition,
+        drop_reason_code: advice.drop_reason_code,
+        rationale: advice.rationale,
+        reopening_conditions: advice.reopening_conditions,
+        selected_against_candidate_ref: advice.selected_against_candidate_ref,
+      }) === stableStringify({
+        disposition: disposition.disposition,
+        drop_reason_code: disposition.drop_reason_code,
+        rationale: disposition.rationale,
+        reopening_conditions: disposition.reopening_conditions,
+        selected_against_candidate_ref: disposition.selected_against_candidate_ref,
+      });
+    });
+    if (!projectionMatches) {
+      return { advisory: null, issueCodes: ['ARENA_ADVISORY_INCOMPLETE'], sourceRefs: [] };
+    }
+    const sessionRef = this.ref(
+      'research_arena_session',
+      session.arena_session_id,
+      titleCardId,
+      session.input_snapshot_hash,
+    );
+    const inputSnapshotRef = this.ref(
+      'input_snapshot',
+      session.input_snapshot_id,
+      titleCardId,
+      session.input_snapshot_hash,
+    );
+    const advisory: TopicSelectionResearchGapArenaAdvisory = {
+      schema_version: 'TopicSelectionResearchGapArenaAdvisory@v1',
+      arena_session_ref: sessionRef,
+      arena_input_snapshot_ref: inputSnapshotRef,
+      arena_synthesis_ref: session.loop_transcript_ref,
+      arena_synthesis_hash: session.loop_transcript_hash,
+      outcome: synthesis.outcome,
+      summary: synthesis.summary,
+      candidate_dispositions: [...synthesis.candidate_dispositions]
+        .sort((left, right) => this.refKey(left.candidate_ref).localeCompare(this.refKey(right.candidate_ref))),
+      risk_finding_refs: this.uniqueRefs(riskFindingRefs),
+      preserved_finding_ids: [...synthesis.preserved_finding_ids].sort(),
+      unresolved_dissent: [...synthesis.unresolved_dissent],
+      required_next_delta: synthesis.required_next_delta,
+      support_only: true,
+    };
+    return {
+      advisory,
+      issueCodes: [],
+      sourceRefs: this.uniqueRefs([
+        sessionRef,
+        inputSnapshotRef,
+        session.loop_transcript_ref,
+        ...riskFindingRefs,
+      ]),
+    };
+  }
+
+  private isArenaAdvisorySynthesis(value: unknown): value is TopicSelectionResearchArenaAdvisorySynthesis {
+    const synthesis = this.asRecord(value);
+    if (!synthesis
+      || synthesis.schema_version !== 'TopicSelectionResearchArenaAdvisorySynthesis@v1'
+      || typeof synthesis.outcome !== 'string'
+      || !ARENA_OUTCOME_SET.has(synthesis.outcome)
+      || typeof synthesis.summary !== 'string'
+      || !synthesis.summary.trim()
+      || synthesis.support_only !== true
+      || !Array.isArray(synthesis.candidate_dispositions)
+      || synthesis.candidate_dispositions.length === 0
+      || !synthesis.candidate_dispositions.every((item) => this.isArenaCandidateDisposition(item))
+      || !this.isStringArray(synthesis.preserved_finding_ids)
+      || !this.isStringArray(synthesis.unresolved_dissent)
+      || !(synthesis.required_next_delta === null
+        || (typeof synthesis.required_next_delta === 'string'
+          && ARENA_DELTA_SET.has(synthesis.required_next_delta)))) {
+      return false;
+    }
+    return true;
+  }
+
+  private isArenaCandidateDisposition(
+    value: unknown,
+  ): value is TopicSelectionResearchArenaAdvisoryCandidateDisposition {
+    const disposition = this.asRecord(value);
+    if (!disposition
+      || !this.isFunctionalRef(disposition.candidate_ref)
+      || typeof disposition.disposition !== 'string'
+      || !ARENA_DISPOSITION_SET.has(disposition.disposition)
+      || typeof disposition.rationale !== 'string'
+      || !disposition.rationale.trim()
+      || !(disposition.drop_reason_code === null
+        || (typeof disposition.drop_reason_code === 'string'
+          && ARENA_DROP_REASON_SET.has(disposition.drop_reason_code)))
+      || !this.isStringArray(disposition.reopening_conditions)
+      || !(disposition.selected_against_candidate_ref === null
+        || this.isFunctionalRef(disposition.selected_against_candidate_ref))
+      || !Array.isArray(disposition.role_positions)
+      || disposition.role_positions.length !== 2) {
+      return false;
+    }
+    return disposition.role_positions.every((value) => {
+      const position = this.asRecord(value);
+      return Boolean(position
+        && typeof position.participant_role === 'string'
+        && ARENA_ROLE_SET.has(position.participant_role)
+        && typeof position.recommended_disposition === 'string'
+        && ARENA_DISPOSITION_SET.has(position.recommended_disposition));
+    });
+  }
+
+  private functionalRefs(value: unknown): TopicSelectionFunctionalRef[] | null {
+    return Array.isArray(value) && value.every((item) => this.isFunctionalRef(item))
+      ? value
+      : null;
+  }
+
+  private isFunctionalRef(value: unknown): value is TopicSelectionFunctionalRef {
+    const ref = this.asRecord(value);
+    return Boolean(ref
+      && typeof ref.ref_type === 'string'
+      && ref.ref_type.trim()
+      && typeof ref.ref_id === 'string'
+      && ref.ref_id.trim()
+      && (ref.version_id === undefined || ref.version_id === null || typeof ref.version_id === 'string')
+      && (ref.title_card_id === undefined || ref.title_card_id === null || typeof ref.title_card_id === 'string'));
+  }
+
+  private isStringArray(value: unknown): value is string[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'string' && Boolean(item.trim()));
   }
 
   private gapCandidateEntries(packetPayload: Record<string, unknown>): GapCandidatePacketEntry[] {

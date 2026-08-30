@@ -208,6 +208,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   const invocationCalls: Array<TopicSelectionAgentInvocationRequest<unknown>> = [];
   const admittedInputs: Array<Record<string, unknown>> = [];
   const synthesizedInputs: Array<Record<string, unknown>> = [];
+  const gapProjectionInputs: Array<Record<string, unknown>> = [];
   const recordedArtifacts: TopicSelectionArtifactRefRecord[] = [];
   const candidateRows = new Map([
     ['candidate_1', {
@@ -371,6 +372,18 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       },
     },
     riskFindingRecorder,
+    ...{
+      gapCheckpointProjector: {
+        projectCurrentGapSelectionCheckpoint: async (input: Record<string, unknown>) => {
+          assert.equal(
+            synthesizedInputs.length,
+            gapProjectionInputs.length + 1,
+            'each gap projection must run after its arena synthesis',
+          );
+          gapProjectionInputs.push(input);
+        },
+      },
+    },
     now: () => clock.shift() ?? 125,
   });
 
@@ -403,6 +416,10 @@ test('shadow runner completes both isolated first-pass invocations before admiss
 
   assert.equal(invocationCalls.length, 2);
   assert.equal(admittedInputs.length, 2);
+  assert.deepEqual(gapProjectionInputs, [{
+    title_card_id: 'title_1',
+    candidate_refs: [candidateRef],
+  }]);
   assert.equal(result.advisory_synthesis.outcome, 'evidence_expansion_required');
   assert.equal(result.advisory_synthesis.candidate_dispositions[0]?.disposition, 'parked');
   assert.equal(result.arena_session.termination_reason, 'evidence_expansion_required');

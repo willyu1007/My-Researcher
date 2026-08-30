@@ -76,6 +76,12 @@ type CandidateProjectionSource = NonNullable<Awaited<ReturnType<CandidateReader[
 type ArtifactStore = Pick<TopicSelectionControlPlaneService, 'getArtifactRef' | 'recordArtifactRef'>;
 type ArenaRuntime = Pick<TopicSelectionResearchArenaService, 'recordRoleExecution' | 'synthesizeSession'>;
 type RiskFindingRecorder = Pick<TopicSelectionRiskFindingService, 'recordArenaFindings'>;
+type GapCheckpointProjector = {
+  projectCurrentGapSelectionCheckpoint(input: {
+    title_card_id: string;
+    candidate_refs: TopicSelectionFunctionalRef[];
+  }): Promise<void>;
+};
 
 export class TopicSelectionResearchArenaShadowRunnerService {
   private readonly llmConfig: Pick<LlmConfigReader, 'getPrompt'>;
@@ -89,6 +95,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     agentInvoker: AgentInvoker;
     arenaService: ArenaRuntime;
     riskFindingRecorder: RiskFindingRecorder;
+    gapCheckpointProjector: GapCheckpointProjector;
     llmConfig?: Pick<LlmConfigReader, 'getPrompt'>;
     now?: () => number;
   }) {
@@ -305,6 +312,10 @@ export class TopicSelectionResearchArenaShadowRunnerService {
         synthesisArtifactRef,
         synthesisArtifactHash,
       ),
+    });
+    await this.dependencies.gapCheckpointProjector.projectCurrentGapSelectionCheckpoint({
+      title_card_id: session.title_card_id,
+      candidate_refs: input.candidate_refs,
     });
 
     return {
