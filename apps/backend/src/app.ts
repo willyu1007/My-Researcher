@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { AppError } from './errors/app-error.js';
 import { AutoPullController } from './controllers/auto-pull-controller.js';
 import { ExperimentFoundationExecutionController } from './controllers/experiment-foundation-execution-controller.js';
 import { ExperimentFoundationExecutionV2Controller } from './controllers/experiment-foundation-execution-v2-controller.js';
@@ -330,6 +329,7 @@ import {
 } from './services/topic-selection-research-arena-retrieval-service.js';
 import { TopicSelectionResearchArenaRetrievalController } from './controllers/topic-selection-research-arena-retrieval-controller.js';
 import { TopicSelectionResearchArenaService } from './services/topic-selection-research-arena-service.js';
+import { TopicSelectionResearchGapProjectionService } from './services/topic-selection-research-gap-projection-service.js';
 import { TopicSelectionResearchArenaRetrySnapshotService } from './services/topic-selection-research-arena-retry-snapshot-service.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './services/topic-selection-research-arena-shadow-runner-service.js';
 import { TopicSelectionRiskFindingService } from './services/topic-selection-risk-finding-service.js';
@@ -1068,9 +1068,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     arenaRepository: topicSelectionResearchArenaRepository,
     controlPlaneRepository: topicSelectionControlPlaneRepository,
   });
-  const topicSelectionResearchArenaController = new TopicSelectionResearchArenaController(
-    topicSelectionResearchArenaService,
-  );
   const topicSelectionResearchArenaRetrySnapshotController =
     new TopicSelectionResearchArenaRetrySnapshotController(
       new TopicSelectionResearchArenaRetrySnapshotService({
@@ -1090,6 +1087,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         valueAssessmentRepository: topicSelectionV1bValueAssessmentRepository,
       },
     },
+  );
+  const topicSelectionResearchGapProjectionService = new TopicSelectionResearchGapProjectionService({
+    arenaRepository: topicSelectionResearchArenaRepository,
+    candidateRepository: topicSelectionNeedValidationRepository,
+    checkpointService: topicSelectionResearchCheckpointService,
+    controlPlane: topicSelectionControlPlaneService,
+  });
+  const topicSelectionResearchArenaController = new TopicSelectionResearchArenaController(
+    topicSelectionResearchArenaService,
+    topicSelectionResearchGapProjectionService,
   );
   const topicSelectionResearchCheckpointController = new TopicSelectionResearchCheckpointController(
     topicSelectionResearchCheckpointService,
@@ -1120,7 +1127,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionControlPlaneService,
     topicSelectionEvidenceMapService,
     topicSelectionSearchResourceService,
-    { checkpointGuard: topicSelectionResearchCheckpointService },
+    {
+      checkpointGuard: topicSelectionResearchCheckpointService,
+      gapCheckpointProjector: topicSelectionResearchGapProjectionService,
+    },
   );
   const topicSelectionRecheckRiskMemoryService = new TopicSelectionRecheckRiskMemoryService(
     topicSelectionRecheckRiskMemoryRepository,
@@ -1196,38 +1206,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       agentInvoker: topicSelectionV1aAgentOrchestratorService,
       arenaService: topicSelectionResearchArenaService,
       riskFindingRecorder: new TopicSelectionRiskFindingService(topicSelectionControlPlaneService),
-      gapCheckpointProjector: {
-        projectCurrentGapSelectionCheckpoint: async ({ title_card_id, candidate_refs }) => {
-          const candidates = await Promise.all(
-            candidate_refs.map((ref) => topicSelectionNeedValidationRepository.findNeedCandidateById(ref.ref_id)),
-          );
-          if (candidates.some((candidate) => candidate === null)) {
-            throw new AppError(409, 'VERSION_CONFLICT', 'Arena synthesis projected a missing NeedCandidate.');
-          }
-          const currentCandidates = candidates.filter(
-            (candidate): candidate is NonNullable<typeof candidate> => candidate !== null,
-          );
-          const firstCandidate = currentCandidates[0];
-          if (!firstCandidate
-            || firstCandidate.title_card_id !== title_card_id
-            || currentCandidates.some((candidate, index) => {
-              const ref = candidate_refs[index]!;
-              return candidate.title_card_id !== title_card_id
-                || candidate.evidence_map_id !== firstCandidate.evidence_map_id
-                || ref.ref_type !== 'need_candidate'
-                || ref.title_card_id !== title_card_id
-                || ref.version_id !== candidate.candidate_version;
-            })) {
-            throw new AppError(409, 'VERSION_CONFLICT', 'Arena synthesis candidate pool changed before gap projection.');
-          }
-          await topicSelectionResearchCheckpointService.materializeGapSelectionCheckpoint({
-            workspace_id: firstCandidate.workspace_id ?? null,
-            title_card_id,
-            evidence_map_ref: firstCandidate.evidence_map_ref,
-            candidates: currentCandidates,
-          });
-        },
-      },
+      gapCheckpointProjector: topicSelectionResearchGapProjectionService,
     });
   const topicSelectionResearchArenaShadowController =
     new TopicSelectionResearchArenaShadowController(topicSelectionResearchArenaShadowRunnerService);

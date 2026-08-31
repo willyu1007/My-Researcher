@@ -4,9 +4,18 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionResearchArenaService } from '../services/topic-selection-research-arena-service.js';
+import type {
+  TopicSelectionResearchGapProjectionService,
+} from '../services/topic-selection-research-gap-projection-service.js';
 
 export class TopicSelectionResearchArenaController {
-  constructor(private readonly service: TopicSelectionResearchArenaService) {}
+  constructor(
+    private readonly service: TopicSelectionResearchArenaService,
+    private readonly gapProjectionService: Pick<
+      TopicSelectionResearchGapProjectionService,
+      'recoverSynthesizedSession'
+    >,
+  ) {}
 
   openSession = async (
     request: FastifyRequest<{ Body: TopicSelectionResearchArenaOpenSessionRequest }>,
@@ -55,6 +64,27 @@ export class TopicSelectionResearchArenaController {
       reply.request.log.error(error, 'topic-selection research arena session-read error');
       return reply.status(500).send({
         error: { code: 'INTERNAL_ERROR', message: 'Unexpected research arena session-read failure.' },
+      });
+    }
+  };
+
+  recoverGapProjection = async (
+    request: FastifyRequest<{ Params: { arenaSessionId: string } }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(
+        await this.gapProjectionService.recoverSynthesizedSession(request.params.arenaSessionId),
+      );
+    } catch (error) {
+      if (error instanceof AppError) {
+        return reply.status(error.statusCode).send({
+          error: { code: error.errorCode, message: error.message, details: error.details },
+        });
+      }
+      reply.request.log.error(error, 'topic-selection research arena gap-projection recovery error');
+      return reply.status(500).send({
+        error: { code: 'INTERNAL_ERROR', message: 'Unexpected gap-projection recovery failure.' },
       });
     }
   };

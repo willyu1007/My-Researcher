@@ -46,6 +46,9 @@ import type {
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
+import type {
+  TopicSelectionResearchGapProjectionService,
+} from './topic-selection-research-gap-projection-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
@@ -62,6 +65,10 @@ type ServiceOptions = {
       | 'assertGapArenaAdvisoryReviewBinding'
       | 'adaptExistingStageDecision'
     >>;
+  gapCheckpointProjector?: Pick<
+    TopicSelectionResearchGapProjectionService,
+    'projectCurrentGapSelectionCheckpoint'
+  >;
 };
 
 type CreateNeedCandidateInput = {
@@ -173,6 +180,7 @@ export class TopicSelectionNeedValidationService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
   private readonly checkpointGuard?: ServiceOptions['checkpointGuard'];
+  private readonly gapCheckpointProjector?: ServiceOptions['gapCheckpointProjector'];
 
   constructor(
     private readonly repository: TopicSelectionNeedValidationRepository,
@@ -184,6 +192,7 @@ export class TopicSelectionNeedValidationService {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
     this.checkpointGuard = options.checkpointGuard;
+    this.gapCheckpointProjector = options.gapCheckpointProjector;
   }
 
   async createNeedCandidateFromEvidenceMap(input: CreateNeedCandidateInput): Promise<TopicSelectionNeedCandidateRecord> {
@@ -1584,9 +1593,17 @@ export class TopicSelectionNeedValidationService {
     candidate: TopicSelectionNeedCandidateRecord,
     policyVersionId: string | null,
   ): Promise<void> {
-    if (!this.checkpointGuard?.materializeGapSelectionCheckpoint) return;
     const candidates = (await this.repository.listNeedCandidatesByTitleCardId(candidate.title_card_id))
       .filter((item) => item.evidence_map_id === candidate.evidence_map_id);
+    if (this.gapCheckpointProjector) {
+      await this.gapCheckpointProjector.projectCurrentGapSelectionCheckpoint({
+        title_card_id: candidate.title_card_id,
+        candidate_refs: candidates.map((item) => this.candidateRef(item)),
+        policy_version_id: policyVersionId,
+      });
+      return;
+    }
+    if (!this.checkpointGuard?.materializeGapSelectionCheckpoint) return;
     await this.checkpointGuard.materializeGapSelectionCheckpoint({
       workspace_id: candidate.workspace_id ?? null,
       title_card_id: candidate.title_card_id,

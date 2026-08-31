@@ -8,10 +8,18 @@ import type {
 import { TopicSelectionResearchArenaController } from '../controllers/topic-selection-research-arena-controller.js';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { TopicSelectionResearchArenaService } from '../services/topic-selection-research-arena-service.js';
+import type {
+  TopicSelectionResearchGapProjectionService,
+} from '../services/topic-selection-research-gap-projection-service.js';
 import { sha256Text, stableStringify } from '../services/literature-content-processing-utils.js';
 import { registerTopicSelectionResearchArenaRoutes } from './topic-selection-research-arena-routes.js';
 
 const NOW = '2026-08-29T00:00:00.000Z';
+const unusedGapRecoveryService = {
+  recoverSynthesizedSession: async () => {
+    throw new Error('not used');
+  },
+} satisfies Pick<TopicSelectionResearchGapProjectionService, 'recoverSynthesizedSession'>;
 
 test('research arena session route opens one replayable support-only session', async () => {
   const targetRef = {
@@ -67,7 +75,7 @@ test('research arena session route opens one replayable support-only session', a
   const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
   await registerTopicSelectionResearchArenaRoutes(
     app,
-    new TopicSelectionResearchArenaController(service),
+    new TopicSelectionResearchArenaController(service, unusedGapRecoveryService),
   );
   const request = {
     schema_version: 'TopicSelectionResearchArenaOpenSessionRequest@v1',
@@ -110,5 +118,62 @@ test('research arena session route opens one replayable support-only session', a
   assert.equal(recovered.statusCode, 200, recovered.body);
   assert.equal(recovered.json().session_key, request.session_key);
 
+  await app.close();
+});
+
+test('research arena route exposes deterministic gap projection recovery by session id', async () => {
+  const checkpoint = {
+    research_checkpoint_id: 'research_checkpoint_1',
+    checkpoint_key: 'a'.repeat(64),
+    current_checkpoint_key: 'title_1:gap_selection',
+    workspace_id: null,
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection' as const,
+    contract_version: 'v1' as const,
+    provenance_class: 'native' as const,
+    policy_version_id: null,
+    target_ref: {
+      ref_type: 'need_candidate_arena',
+      ref_id: 'candidate_arena_1',
+      title_card_id: 'title_1',
+    },
+    target_snapshot_hash: 'b'.repeat(64),
+    packet_hash: 'c'.repeat(64),
+    input_snapshot_id: 'input_snapshot_1',
+    source_refs: [],
+    allowed_actions: ['advance' as const],
+    required_action_refs: [],
+    decision_authority_ref: null,
+    status: 'pending' as const,
+    supersedes_checkpoint_id: null,
+    superseded_by_checkpoint_id: null,
+    created_at: NOW,
+    updated_at: NOW,
+    decided_at: null,
+    superseded_at: null,
+  };
+  const recoveryService = {
+    recoverSynthesizedSession: async (arenaSessionId: string) => {
+      assert.equal(arenaSessionId, 'arena_1');
+      return checkpoint;
+    },
+  } satisfies Pick<TopicSelectionResearchGapProjectionService, 'recoverSynthesizedSession'>;
+  const arenaService = {
+    openSession: async () => { throw new Error('not used'); },
+    getSession: async () => { throw new Error('not used'); },
+  } as unknown as TopicSelectionResearchArenaService;
+  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
+  await registerTopicSelectionResearchArenaRoutes(
+    app,
+    new TopicSelectionResearchArenaController(arenaService, recoveryService),
+  );
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/research/arena/sessions/arena_1/gap-projection/recover',
+  });
+
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().research_checkpoint_id, checkpoint.research_checkpoint_id);
   await app.close();
 });

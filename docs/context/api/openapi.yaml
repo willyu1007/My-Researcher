@@ -4104,6 +4104,40 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /topic-selection/research/arena/sessions/{arenaSessionId}/gap-projection/recover:
+    post:
+      operationId: recoverTopicSelectionResearchArenaGapProjection
+      summary: Recover the current gap checkpoint from one persisted synthesized Arena session.
+      description: |
+        Deterministically reprojects the exact current support-only gap Arena after a post-synthesis
+        projection failure. The server derives the candidate pool from the checksum-valid persisted
+        transcript and verifies the bound InputSnapshot, session currentness, candidate versions, and
+        candidate advisory identities. The operation cannot invoke roles, retrieval, synthesis, or a
+        provider, and exact replay returns the same gap checkpoint.
+      tags: [topic-selection-research]
+      parameters:
+        - name: arenaSessionId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Current gap checkpoint recovered or replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchCheckpoint'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /topic-selection/research/arena/shadow/run:
     post:
       operationId: runTopicSelectionResearchArenaShadow

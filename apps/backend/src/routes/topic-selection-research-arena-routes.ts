@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  topicSelectionResearchCheckpointRecordSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
+import {
   topicSelectionResearchArenaOpenSessionRequestSchema,
   topicSelectionResearchArenaSessionSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
@@ -11,6 +14,12 @@ export async function registerTopicSelectionResearchArenaRoutes(
   fastify: FastifyInstance,
   controller: TopicSelectionResearchArenaController,
 ): Promise<void> {
+  const sessionParams = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['arenaSessionId'],
+    properties: { arenaSessionId: { type: 'string', minLength: 1 } },
+  } as const;
   fastify.post(
     '/topic-selection/research/arena/sessions',
     {
@@ -25,15 +34,20 @@ export async function registerTopicSelectionResearchArenaRoutes(
     '/topic-selection/research/arena/sessions/:arenaSessionId',
     {
       schema: {
-        params: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['arenaSessionId'],
-          properties: { arenaSessionId: { type: 'string', minLength: 1 } },
-        },
+        params: sessionParams,
         response: { 200: topicSelectionResearchArenaSessionSchema },
       },
     },
     controller.getSession,
+  );
+  fastify.post(
+    '/topic-selection/research/arena/sessions/:arenaSessionId/gap-projection/recover',
+    {
+      schema: {
+        params: sessionParams,
+        response: { 200: topicSelectionResearchCheckpointRecordSchema },
+      },
+    },
+    controller.recoverGapProjection,
   );
 }

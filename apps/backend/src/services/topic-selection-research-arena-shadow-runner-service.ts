@@ -80,7 +80,8 @@ type GapCheckpointProjector = {
   projectCurrentGapSelectionCheckpoint(input: {
     title_card_id: string;
     candidate_refs: TopicSelectionFunctionalRef[];
-  }): Promise<void>;
+    policy_version_id?: string | null;
+  }): Promise<unknown>;
 };
 
 export class TopicSelectionResearchArenaShadowRunnerService {
