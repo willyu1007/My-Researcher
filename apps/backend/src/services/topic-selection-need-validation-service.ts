@@ -14,6 +14,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type {
   HumanConfirmationInput,
+  TopicSelectionHumanConfirmNeedIntentRecord,
   TopicSelectionCandidateDecisionMemorySuggestionRecord,
   TopicSelectionCandidateMemorySuggestionType,
   TopicSelectionNeedAdjudicationDecision,
@@ -32,6 +33,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
@@ -44,6 +46,10 @@ import type {
   TopicSelectionNeedValidationRepository,
 } from '../repositories/topic-selection-need-validation.repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import {
+  buildTopicSelectionHumanConfirmNeedIntent,
+  topicSelectionHumanConfirmNeedIntentStableKey,
+} from './topic-selection-human-confirm-need-intent.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import type {
@@ -920,6 +926,18 @@ export class TopicSelectionNeedValidationService {
     }
     const confirmationInput = this.normalizeHumanConfirmationInput(input, adjudication, supportPacket);
     this.assertHumanConfirmationInput(confirmationInput, adjudication, supportPacket);
+    const adjudicationResultRef = this.ref(
+      'validate_need_adjudication_result',
+      adjudication.adjudication_result_id,
+      candidate.title_card_id,
+    );
+    const validatedNeedRef = this.ref('validated_need', adjudication.output_validated_need_id, candidate.title_card_id);
+    const humanConfirmNeedIntent = buildTopicSelectionHumanConfirmNeedIntent({
+      schema_version: TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION,
+      adjudication_result_ref: adjudicationResultRef,
+      output_validated_need_ref: validatedNeedRef,
+      confirmation_input: confirmationInput,
+    });
     await this.refreshGapSelectionCheckpoint(candidate, input.policy_version_id ?? null);
     const gapReviewRequired = Boolean(this.checkpointGuard?.assertGapSelectionConfirmation);
     if (gapReviewRequired && !confirmationInput.gap_selection_review) {
@@ -948,10 +966,23 @@ export class TopicSelectionNeedValidationService {
         review_ref: confirmationInput.arena_advisory_review_ref ?? null,
         human_gap_selection_review: confirmationInput.gap_selection_review,
         accountable_human_ref: confirmationInput.accountable_human_ref,
+        human_confirm_need_intent: humanConfirmNeedIntent,
       });
     }
-    const validatedNeedRef = this.ref('validated_need', adjudication.output_validated_need_id, candidate.title_card_id);
+    const intentArtifact = await this.materializeHumanConfirmNeedIntent(
+      input,
+      candidate,
+      gapCheckpoint?.input_snapshot_id ?? null,
+      humanConfirmNeedIntent,
+    );
+    const intentArtifactRef = this.ref(
+      'artifact_ref',
+      intentArtifact.artifact_ref_id,
+      candidate.title_card_id,
+      TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION,
+    );
     const confirmationArtifactRefs = this.uniqueRefs([
+      intentArtifactRef,
       ...(input.artifact_refs ?? []),
       input.semantic_review_context_packet_ref ?? null,
       input.semantic_review_ref ?? null,
@@ -1009,7 +1040,7 @@ export class TopicSelectionNeedValidationService {
       source_refs: this.uniqueRefs([
         this.candidateRef(candidate),
         this.supportPacketRef(supportPacket),
-        this.ref('validate_need_adjudication_result', adjudication.adjudication_result_id, candidate.title_card_id),
+        adjudicationResultRef,
         candidate.evidence_map_ref,
         candidate.search_run_ref,
         candidate.search_plan_ref,
@@ -1062,7 +1093,7 @@ export class TopicSelectionNeedValidationService {
       workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
       title_card_id: candidate.title_card_id,
       transition_key: 'need-adjudication-to-validated-need',
-      source_ref: this.ref('validate_need_adjudication_result', adjudication.adjudication_result_id, candidate.title_card_id),
+      source_ref: adjudicationResultRef,
       target_ref: validatedNeedRef,
       gate_result_id: gate.readiness_gate_result_id,
       workflow_run_id: workflow.workflow_run.workflow_run_id,
@@ -1087,7 +1118,7 @@ export class TopicSelectionNeedValidationService {
         validatedNeedRef,
         this.candidateRef(candidate),
         this.supportPacketRef(supportPacket),
-        this.ref('validate_need_adjudication_result', adjudication.adjudication_result_id, candidate.title_card_id),
+        adjudicationResultRef,
         candidate.evidence_map_ref,
         candidate.search_run_ref,
         candidate.search_plan_ref,
@@ -1391,6 +1422,35 @@ export class TopicSelectionNeedValidationService {
     };
     if (sha256Text(stableStringify(actual)) !== sha256Text(stableStringify(expected))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'HumanConfirmNeed replay content does not match the existing human decision.');
+    }
+  }
+
+  private async materializeHumanConfirmNeedIntent(
+    input: ConfirmValidatedNeedInput,
+    candidate: TopicSelectionNeedCandidateRecord,
+    inputSnapshotId: string | null,
+    intent: TopicSelectionHumanConfirmNeedIntentRecord,
+  ) {
+    const stableKey = topicSelectionHumanConfirmNeedIntentStableKey(intent);
+    try {
+      return await this.controlPlane.recordArtifactRef({
+        stable_key: stableKey,
+        workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
+        title_card_id: candidate.title_card_id,
+        artifact_kind: 'structured_output',
+        payload: { ...intent },
+        input_snapshot_id: inputSnapshotId,
+        created_by: intent.confirmation_input.accountable_human_ref.actor_type,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes(`ArtifactRef stable key ${stableKey}`)) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          'HumanConfirmNeed intent changed after this adjudication lineage was reserved.',
+        );
+      }
+      throw error;
     }
   }
 

@@ -213,6 +213,30 @@ test('Arena advisory review schemas bind one strict-human label to the exact gap
       },
     ],
   };
+  const humanConfirmNeedIntent = {
+    schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+    adjudication_result_ref: {
+      ref_type: 'validate_need_adjudication_result',
+      ref_id: 'adjudication_1',
+      title_card_id: 'title_1',
+    },
+    output_validated_need_ref: {
+      ref_type: 'validated_need',
+      ref_id: 'validated_need_1',
+      title_card_id: 'title_1',
+    },
+    confirmation_input: {
+      schema_version: 'HumanConfirmationInput@v1',
+      actor_mode: 'human',
+      accountable_human_ref: actor,
+      rationale: 'Advance the selected candidate after reviewing the frozen portfolio.',
+      accepted_risk_refs: [],
+      required_check_results: [],
+      delegated_executor: null,
+      gap_selection_review: humanGapReview,
+      arena_advisory_review_ref: null,
+    },
+  };
   const input = {
     idempotency_key: 'review_once',
     actor,
@@ -222,6 +246,7 @@ test('Arena advisory review schemas bind one strict-human label to the exact gap
     response: 'accept',
     rationale: 'I agree with the recommendation.',
     human_gap_selection_review: humanGapReview,
+    human_confirm_need_intent: humanConfirmNeedIntent,
   };
   assert.equal((await inject(topicSelectionResearchArenaAdvisoryReviewInputSchema, input)).statusCode, 200);
   assert.equal((await inject(topicSelectionResearchArenaAdvisoryReviewInputSchema, {
@@ -250,6 +275,7 @@ test('Arena advisory review schemas bind one strict-human label to the exact gap
       human_gap_selection_review: humanGapReview,
       human_gap_selection_review_hash: HASH,
       selected_candidate_ref: candidateRef,
+      human_confirm_need_intent: { ...humanConfirmNeedIntent, intent_hash: HASH },
       support_only: true,
       created_at: '2026-08-30T00:00:00.000Z',
     },
@@ -269,6 +295,7 @@ test('Arena advisory review schemas bind one strict-human label to the exact gap
     human_gap_selection_review: null,
     human_gap_selection_review_hash: null,
     selected_candidate_ref: null,
+    human_confirm_need_intent: null,
     support_only: true,
   })).statusCode, 200);
 });

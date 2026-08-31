@@ -11,11 +11,16 @@ import type {
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type {
+  HumanConfirmationInput,
   TopicSelectionGapSelectionReview,
+  TopicSelectionHumanConfirmNeedIntentInput,
+  TopicSelectionHumanConfirmNeedIntentRecord,
   TopicSelectionNeedCandidateRecord,
   TopicSelectionRejectedNeedCandidateFraming,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
+  TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
+  TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION,
   TOPIC_SELECTION_CANDIDATE_DROP_REASON_CODES,
   TOPIC_SELECTION_CANDIDATE_PORTFOLIO_DISPOSITIONS,
   TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES,
@@ -97,6 +102,10 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import {
+  buildTopicSelectionHumanConfirmNeedIntent,
+  normalizeTopicSelectionGapSelectionReview,
+} from './topic-selection-human-confirm-need-intent.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -1036,6 +1045,12 @@ export class TopicSelectionResearchCheckpointService {
         reason_codes: classification.reasonCodes,
       });
     }
+    const humanConfirmNeedIntent = this.buildArenaHumanConfirmNeedIntent(
+      checkpoint,
+      input.human_confirm_need_intent,
+      humanReview,
+      input.actor,
+    );
     const stableKey = `${ARENA_REVIEW_STABLE_KEY_PREFIX}${this.hash({
       actor: input.actor,
       checkpoint_id: checkpoint.research_checkpoint_id,
@@ -1058,6 +1073,7 @@ export class TopicSelectionResearchCheckpointService {
       human_gap_selection_review: humanReview,
       human_gap_selection_review_hash: humanReview ? this.hash(humanReview) : null,
       selected_candidate_ref: humanReview?.selected_candidate_ref ?? null,
+      human_confirm_need_intent: humanConfirmNeedIntent,
       support_only: true,
     };
     const existing = await this.controlPlane.getArtifactRefByStableKey(stableKey);
@@ -1199,6 +1215,7 @@ export class TopicSelectionResearchCheckpointService {
     review_ref: TopicSelectionFunctionalRef | null;
     human_gap_selection_review: TopicSelectionGapSelectionReview;
     accountable_human_ref: { actor_type: string; actor_id?: string | null };
+    human_confirm_need_intent: TopicSelectionHumanConfirmNeedIntentRecord;
   }): Promise<TopicSelectionResearchArenaAdvisoryReviewRecord | null> {
     const checkpoint = await this.getCheckpoint(input.checkpoint_id);
     this.assertCurrent(checkpoint);
@@ -1235,6 +1252,18 @@ export class TopicSelectionResearchCheckpointService {
       actor_id: input.accountable_human_ref.actor_id ?? '',
     }) || stableStringify(review.human_gap_selection_review) !== stableStringify(normalizedHumanReview)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review idempotency or binding content changed.');
+    }
+    if (review.human_confirm_need_intent
+      && stableStringify(review.human_confirm_need_intent) !== stableStringify(input.human_confirm_need_intent)) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'HumanConfirmNeed intent changed after the Arena label was recorded.',
+        {
+          recorded_intent_hash: review.human_confirm_need_intent.intent_hash,
+          submitted_intent_hash: input.human_confirm_need_intent.intent_hash,
+        },
+      );
     }
     if (review.response === 'defer') {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'A deferred Arena advisory review cannot advance HumanConfirmNeed.');
@@ -3282,24 +3311,81 @@ export class TopicSelectionResearchCheckpointService {
       || !Array.isArray(review.candidate_reviews)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review has an invalid human gap-selection review.');
     }
-    const candidateReviews = review.candidate_reviews.map((candidateReview) => {
+    review.candidate_reviews.forEach((candidateReview) => {
       if (!candidateReview.need_candidate_ref
         || !['selected', 'viable_alternative', 'rejected'].includes(candidateReview.disposition)
         || !Array.isArray(candidateReview.distinct_from_selected_axes)
         || !candidateReview.rationale?.trim()) {
         throw new AppError(400, 'INVALID_PAYLOAD', 'Arena advisory review has an invalid candidate disposition.');
       }
-      return {
-        ...candidateReview,
-        distinct_from_selected_axes: [...new Set(candidateReview.distinct_from_selected_axes)].sort(),
-        rationale: candidateReview.rationale.trim(),
-        rejection_reason: candidateReview.rejection_reason?.trim() || null,
-      };
-    }).sort((left, right) => this.refKey(left.need_candidate_ref).localeCompare(this.refKey(right.need_candidate_ref)));
-    return {
-      ...review,
-      candidate_reviews: candidateReviews,
-    };
+    });
+    return normalizeTopicSelectionGapSelectionReview(review);
+  }
+
+  private buildArenaHumanConfirmNeedIntent(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+    rawIntent: TopicSelectionHumanConfirmNeedIntentInput | TopicSelectionHumanConfirmNeedIntentRecord | null | undefined,
+    humanReview: TopicSelectionGapSelectionReview | null,
+    actor: { actor_type: 'human'; actor_id: string },
+    allowLegacyMissing = false,
+  ): TopicSelectionHumanConfirmNeedIntentRecord | null | undefined {
+    if (!humanReview) {
+      if (rawIntent !== null && rawIntent !== undefined) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'A non-advancing Arena label cannot carry HumanConfirmNeed intent.');
+      }
+      return rawIntent === undefined && allowLegacyMissing ? undefined : null;
+    }
+    if (rawIntent === null || rawIntent === undefined) {
+      if (allowLegacyMissing && rawIntent === undefined) return undefined;
+      throw new AppError(400, 'INVALID_PAYLOAD', 'An advancing Arena label requires the complete HumanConfirmNeed intent.');
+    }
+    const intent = this.asRecord(rawIntent);
+    const confirmationInput = this.asRecord(intent?.confirmation_input);
+    const gapReview = this.asRecord(confirmationInput?.gap_selection_review);
+    if (!intent
+      || intent.schema_version !== TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION
+      || !this.isFunctionalRef(intent.adjudication_result_ref)
+      || intent.adjudication_result_ref.ref_type !== 'validate_need_adjudication_result'
+      || intent.adjudication_result_ref.title_card_id !== checkpoint.title_card_id
+      || !this.isFunctionalRef(intent.output_validated_need_ref)
+      || intent.output_validated_need_ref.ref_type !== 'validated_need'
+      || intent.output_validated_need_ref.title_card_id !== checkpoint.title_card_id
+      || !confirmationInput
+      || confirmationInput.schema_version !== TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION
+      || typeof confirmationInput.rationale !== 'string'
+      || !confirmationInput.rationale.trim()
+      || !Array.isArray(confirmationInput.accepted_risk_refs)
+      || !Array.isArray(confirmationInput.required_check_results)
+      || !this.asRecord(confirmationInput.accountable_human_ref)
+      || confirmationInput.arena_advisory_review_ref !== null
+      || !gapReview) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena label HumanConfirmNeed intent is invalid or has stale lineage.');
+    }
+    const accountableHuman = confirmationInput.accountable_human_ref as Record<string, unknown>;
+    if (accountableHuman.actor_type !== 'human'
+      || accountableHuman.actor_id !== actor.actor_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena label HumanConfirmNeed intent requires the same accountable human actor.');
+    }
+    const normalizedIntentReview = this.normalizeGapSelectionReview(
+      gapReview as unknown as TopicSelectionGapSelectionReview,
+    );
+    if (stableStringify(normalizedIntentReview) !== stableStringify(humanReview)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena label HumanConfirmNeed intent changed the gap-selection review.');
+    }
+    const built = buildTopicSelectionHumanConfirmNeedIntent({
+      schema_version: TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION,
+      adjudication_result_ref: intent.adjudication_result_ref,
+      output_validated_need_ref: intent.output_validated_need_ref,
+      confirmation_input: {
+        ...(confirmationInput as unknown as HumanConfirmationInput),
+        gap_selection_review: normalizedIntentReview,
+        arena_advisory_review_ref: null,
+      },
+    });
+    if (typeof intent.intent_hash === 'string' && intent.intent_hash !== built.intent_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena label HumanConfirmNeed intent hash changed.');
+    }
+    return built;
   }
 
   private assertArenaHumanReviewScope(
@@ -3441,6 +3527,19 @@ export class TopicSelectionResearchCheckpointService {
         { projection_issue_code: 'INVALID_REVIEW_CLASSIFICATION' },
       );
     }
+    const hasHumanConfirmNeedIntent = Object.prototype.hasOwnProperty.call(
+      payload,
+      'human_confirm_need_intent',
+    );
+    const humanConfirmNeedIntent = this.buildArenaHumanConfirmNeedIntent(
+      checkpoint,
+      hasHumanConfirmNeedIntent
+        ? payload.human_confirm_need_intent as TopicSelectionHumanConfirmNeedIntentRecord | null
+        : undefined,
+      humanReview,
+      { actor_type: 'human', actor_id: actor.actor_id },
+      true,
+    );
     let classification: ReturnType<TopicSelectionResearchCheckpointService['classifyArenaAdvisoryReview']>;
     try {
       classification = this.classifyArenaAdvisoryReview(advisory, humanReview, requestedResponse);
@@ -3466,6 +3565,9 @@ export class TopicSelectionResearchCheckpointService {
       human_gap_selection_review: humanReview,
       human_gap_selection_review_hash: humanReview ? this.hash(humanReview) : null,
       selected_candidate_ref: humanReview?.selected_candidate_ref ?? null,
+      ...(hasHumanConfirmNeedIntent
+        ? { human_confirm_need_intent: humanConfirmNeedIntent ?? null }
+        : {}),
       support_only: true as const,
     };
     try {
@@ -3576,6 +3678,10 @@ export class TopicSelectionResearchCheckpointService {
       human_gap_selection_review: payload.human_gap_selection_review,
       human_gap_selection_review_hash: payload.human_gap_selection_review_hash,
       selected_candidate_ref: payload.selected_candidate_ref,
+      ...(Object.prototype.hasOwnProperty.call(payload, 'human_confirm_need_intent')
+        || Object.prototype.hasOwnProperty.call(expected, 'human_confirm_need_intent')
+        ? { human_confirm_need_intent: payload.human_confirm_need_intent }
+        : {}),
       support_only: payload.support_only,
     };
     if (stableStringify(comparable) !== stableStringify(expected)) {

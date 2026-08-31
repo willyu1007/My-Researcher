@@ -188,6 +188,36 @@ async function materializeSelectedArenaGap(service: TopicSelectionResearchCheckp
   return { advisory, alternativeRef, checkpoint, firstRef, humanReview };
 }
 
+function humanConfirmNeedIntent(
+  humanReview: Awaited<ReturnType<typeof materializeSelectedArenaGap>>['humanReview'],
+  actorId = 'researcher_1',
+) {
+  return {
+    schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1' as const,
+    adjudication_result_ref: {
+      ref_type: 'validate_need_adjudication_result',
+      ref_id: 'adjudication_1',
+      title_card_id: 'title_1',
+    },
+    output_validated_need_ref: {
+      ref_type: 'validated_need',
+      ref_id: 'validated_need_1',
+      title_card_id: 'title_1',
+    },
+    confirmation_input: {
+      schema_version: 'HumanConfirmationInput@v1' as const,
+      actor_mode: 'human' as const,
+      accountable_human_ref: { actor_type: 'human' as const, actor_id: actorId },
+      rationale: 'Advance after reviewing the complete frozen candidate portfolio.',
+      accepted_risk_refs: [],
+      required_check_results: [],
+      delegated_executor: null,
+      gap_selection_review: humanReview,
+      arena_advisory_review_ref: null,
+    },
+  };
+}
+
 async function materializeQuestion(
   service: TopicSelectionResearchCheckpointService,
   input: { snapshotHash: string; contractId: string; sliceVersion: string },
@@ -1415,6 +1445,7 @@ test('Arena advisory review history distinguishes proposed and confirmed candida
     response: 'override',
     rationale: 'New evidence favors the parked candidate.',
     human_gap_selection_review: overrideReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(overrideReview),
   });
 
   const proposed = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
@@ -1526,6 +1557,7 @@ test('Arena advisory review history rejects historical binding and classificatio
     response: 'accept',
     rationale: 'Keep one valid accepted review.',
     human_gap_selection_review: humanReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(humanReview),
   });
   const { created_at: _createdAt, ...basePayload } = recorded.review;
   const addDrifted = async (suffix: string, patch: Record<string, unknown>, createdBy: 'human' | 'llm' = 'human') => {
@@ -1627,6 +1659,7 @@ test('Arena advisory review derives override from the exact human candidate choi
     advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
     rationale: 'New feasibility evidence changes the preferred active path.',
     human_gap_selection_review: overrideReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(overrideReview),
   };
 
   await assert.rejects(
@@ -1648,6 +1681,60 @@ test('Arena advisory review derives override from the exact human candidate choi
   ]);
   assert.equal(recorded.review.selected_candidate_ref?.ref_id, alternativeRef.ref_id);
   assert.match(recorded.review.human_gap_selection_review_hash ?? '', /^[a-f0-9]{64}$/u);
+});
+
+test('advancing Arena advisory labels require and persist the complete HumanConfirmNeed intent', async () => {
+  const { service } = createService();
+  const { advisory, checkpoint, humanReview } = await materializeSelectedArenaGap(service);
+  const base = {
+    idempotency_key: 'intent_bound_accept',
+    actor: { actor_type: 'human' as const, actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'accept' as const,
+    rationale: 'The recommendation matches the reviewed candidate portfolio.',
+    human_gap_selection_review: humanReview,
+  };
+
+  await assert.rejects(
+    service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, base),
+    /complete HumanConfirmNeed intent/u,
+  );
+
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    ...base,
+    human_confirm_need_intent: {
+      schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+      adjudication_result_ref: {
+        ref_type: 'validate_need_adjudication_result',
+        ref_id: 'adjudication_1',
+        title_card_id: 'title_1',
+      },
+      output_validated_need_ref: {
+        ref_type: 'validated_need',
+        ref_id: 'validated_need_1',
+        title_card_id: 'title_1',
+      },
+      confirmation_input: {
+        schema_version: 'HumanConfirmationInput@v1',
+        actor_mode: 'human',
+        accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+        rationale: 'Advance the selected candidate after reviewing the complete frozen portfolio.',
+        accepted_risk_refs: [],
+        required_check_results: [],
+        delegated_executor: null,
+        gap_selection_review: humanReview,
+        arena_advisory_review_ref: null,
+      },
+    },
+  });
+  const persistedIntent = (recorded.review as unknown as {
+    human_confirm_need_intent: { intent_hash: string; confirmation_input: { arena_advisory_review_ref: null } };
+  }).human_confirm_need_intent;
+
+  assert.match(persistedIntent.intent_hash, /^[a-f0-9]{64}$/u);
+  assert.equal(persistedIntent.confirmation_input.arena_advisory_review_ref, null);
 });
 
 test('advancing against a no-topic Arena recommendation is an explicit override', async () => {
@@ -1710,6 +1797,7 @@ test('advancing against a no-topic Arena recommendation is an explicit override'
     response: 'override',
     rationale: 'New feasibility evidence justifies one bounded human-selected attempt.',
     human_gap_selection_review: advancingReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(advancingReview),
   });
   assert.deepEqual(recorded.review.reason_codes, [
     'ADVANCE_AGAINST_NONE_VIABLE',
@@ -1737,6 +1825,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
     response: 'accept',
     rationale: 'The recommendation matches my candidate review.',
     human_gap_selection_review: humanReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(humanReview),
   });
   const bound = await service.assertGapArenaAdvisoryReviewBinding({
     checkpoint_id: checkpoint.research_checkpoint_id,
@@ -1744,6 +1833,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
     review_ref: recorded.review_ref,
     human_gap_selection_review: humanReview,
     accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+    human_confirm_need_intent: recorded.review.human_confirm_need_intent!,
   });
   assert.equal(bound?.review_id, recorded.review.review_id);
 
@@ -1763,6 +1853,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
       review_ref: { ...recorded.review_ref, ref_id: genericArtifact.artifact_ref_id },
       human_gap_selection_review: humanReview,
       accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+      human_confirm_need_intent: recorded.review.human_confirm_need_intent!,
     }),
     /not a dedicated human Arena advisory review/u,
   );
@@ -1774,6 +1865,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
       review_ref: { ...recorded.review_ref, title_card_id: 'title_other' },
       human_gap_selection_review: humanReview,
       accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+      human_confirm_need_intent: recorded.review.human_confirm_need_intent!,
     }),
     /wrong type, version, or title card/u,
   );
@@ -1784,6 +1876,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
       review_ref: recorded.review_ref,
       human_gap_selection_review: humanReview,
       accountable_human_ref: { actor_type: 'hybrid', actor_id: 'researcher_1' },
+      human_confirm_need_intent: recorded.review.human_confirm_need_intent!,
     }),
     /same accountable human actor/u,
   );
@@ -1811,6 +1904,7 @@ test('Arena advisory review binding rejects changed, cross-title, and superseded
         ],
       },
       accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+      human_confirm_need_intent: recorded.review.human_confirm_need_intent!,
     }),
     /binding content changed/u,
   );
@@ -1866,6 +1960,7 @@ test('concurrent exact Arena advisory review submissions converge on one artifac
     response: 'accept' as const,
     rationale: 'Exact concurrent retries must converge.',
     human_gap_selection_review: humanReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(humanReview),
   };
   const [left, right] = await Promise.all([
     service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, input),

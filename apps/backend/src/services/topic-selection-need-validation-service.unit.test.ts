@@ -14,6 +14,7 @@ import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
+import { buildTopicSelectionHumanConfirmNeedIntent } from './topic-selection-human-confirm-need-intent.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionNeedValidationService } from './topic-selection-need-validation-service.js';
 import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
@@ -795,6 +796,19 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
       },
     ],
   };
+  const confirmationIntentInput: HumanConfirmationInput = {
+    schema_version: 'HumanConfirmationInput@v1',
+    actor_mode: 'human',
+    accountable_human_ref: { actor_type: 'human', actor_id: 'reviewer_1' },
+    rationale: 'Selected after comparing a substantively different intervention path.',
+    accepted_risk_refs: ctx.packet.residual_risk_refs,
+    required_check_results: ctx.packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
+    delegated_executor: null,
+    gap_selection_review: gapSelectionReview,
+    arena_advisory_review_ref: null,
+  };
+  const reservedValidatedNeedId = adjudication.adjudication_result.output_validated_need_id;
+  assert.ok(reservedValidatedNeedId);
   const arenaReview = await checkpointService.recordArenaAdvisoryReview(
     checkpoint.research_checkpoint_id,
     {
@@ -806,6 +820,16 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
       response: 'accept',
       rationale: 'I agree with the recommended active path and parked alternative.',
       human_gap_selection_review: gapSelectionReview,
+      human_confirm_need_intent: {
+        schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+        adjudication_result_ref: ref(
+          'validate_need_adjudication_result',
+          adjudication.adjudication_result.adjudication_result_id,
+          ctx.titleCard.title_card_id,
+        ),
+        output_validated_need_ref: ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
+        confirmation_input: confirmationIntentInput,
+      },
     },
   );
   const guardedNeedService = new TopicSelectionNeedValidationService(
@@ -825,16 +849,22 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
     },
   );
   const confirmationInput: HumanConfirmationInput = {
-    schema_version: 'HumanConfirmationInput@v1',
-      actor_mode: 'human',
-      accountable_human_ref: { actor_type: 'human', actor_id: 'reviewer_1' },
-      rationale: 'Selected after comparing a substantively different intervention path.',
-      accepted_risk_refs: ctx.packet.residual_risk_refs,
-      required_check_results: ctx.packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
-      delegated_executor: null,
-      gap_selection_review: gapSelectionReview,
-      arena_advisory_review_ref: arenaReview.review_ref,
+    ...confirmationIntentInput,
+    arena_advisory_review_ref: arenaReview.review_ref,
   };
+  assert.deepEqual(
+    arenaReview.review.human_confirm_need_intent,
+    buildTopicSelectionHumanConfirmNeedIntent({
+      schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+      adjudication_result_ref: ref(
+        'validate_need_adjudication_result',
+        adjudication.adjudication_result.adjudication_result_id,
+        ctx.titleCard.title_card_id,
+      ),
+      output_validated_need_ref: ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
+      confirmation_input: confirmationInput,
+    }),
+  );
   const confirmationWithoutArenaReview = {
     ...confirmationInput,
     arena_advisory_review_ref: null,
@@ -871,8 +901,29 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
       && error.statusCode === 409
       && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
-  const reservedValidatedNeedId = adjudication.adjudication_result.output_validated_need_id;
-  assert.ok(reservedValidatedNeedId);
+  assert.equal(
+    (await ctx.controlPlaneRepository.listHumanConfirmedDecisionsByTargetRef(
+      ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
+    )).length,
+    0,
+  );
+  assert.equal(await ctx.needValidationRepository.findValidatedNeedById(reservedValidatedNeedId), null);
+  await assert.rejects(
+    guardedNeedService.confirmValidatedNeed({
+      adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+      confirmation_input: {
+        ...confirmationInput,
+        required_check_results: [
+          ...confirmationInput.required_check_results,
+          { check_id: 'unreviewed_extra_check', result: 'accepted' },
+        ],
+      },
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && error.message.includes('intent'),
+  );
   assert.equal(
     (await ctx.controlPlaneRepository.listHumanConfirmedDecisionsByTargetRef(
       ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
@@ -896,6 +947,12 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
     humanDecision?.artifact_refs.some((artifactRef) => artifactRef.ref_id === arenaReview.review_ref.ref_id),
     true,
   );
+  const intentRef = humanDecision?.artifact_refs.find(
+    (artifactRef) => artifactRef.version_id === 'TopicSelectionHumanConfirmNeedIntent@v1',
+  );
+  assert.ok(intentRef);
+  const intentArtifact = await ctx.controlPlane.getArtifactRef(intentRef.ref_id);
+  assert.equal(intentArtifact?.payload?.schema_version, 'TopicSelectionHumanConfirmNeedIntent@v1');
   const replay = await guardedNeedService.confirmValidatedNeed({
     adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
     confirmation_input: confirmationInput,

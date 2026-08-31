@@ -3,7 +3,11 @@ import {
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
 import {
+  topicSelectionHumanConfirmNeedIntentInputSchema,
+  topicSelectionHumanConfirmNeedIntentRecordSchema,
   topicSelectionGapSelectionReviewSchema,
+  type TopicSelectionHumanConfirmNeedIntentInput,
+  type TopicSelectionHumanConfirmNeedIntentRecord,
   type TopicSelectionGapSelectionReview,
   TopicSelectionCandidatePortfolioOutcome,
 } from './topic-selection-need-validation-contracts.js';
@@ -303,6 +307,7 @@ export interface TopicSelectionResearchArenaAdvisoryReviewInput {
   response: TopicSelectionResearchArenaAdvisoryReviewResponse;
   rationale: string;
   human_gap_selection_review?: TopicSelectionGapSelectionReview | null;
+  human_confirm_need_intent?: TopicSelectionHumanConfirmNeedIntentInput | null;
 }
 
 export interface TopicSelectionResearchArenaAdvisoryReviewPayload {
@@ -320,6 +325,7 @@ export interface TopicSelectionResearchArenaAdvisoryReviewPayload {
   human_gap_selection_review: TopicSelectionGapSelectionReview | null;
   human_gap_selection_review_hash: string | null;
   selected_candidate_ref: TopicSelectionFunctionalRef | null;
+  human_confirm_need_intent?: TopicSelectionHumanConfirmNeedIntentRecord | null;
   support_only: true;
 }
 
@@ -569,6 +575,9 @@ export const topicSelectionResearchArenaAdvisoryReviewInputSchema = {
     human_gap_selection_review: {
       anyOf: [topicSelectionGapSelectionReviewSchema, { type: 'null' }],
     },
+    human_confirm_need_intent: {
+      anyOf: [topicSelectionHumanConfirmNeedIntentInputSchema, { type: 'null' }],
+    },
   },
 } as const;
 
@@ -614,6 +623,9 @@ export const topicSelectionResearchArenaAdvisoryReviewPayloadSchema = {
     },
     human_gap_selection_review_hash: { anyOf: [hashString, { type: 'null' }] },
     selected_candidate_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    human_confirm_need_intent: {
+      anyOf: [topicSelectionHumanConfirmNeedIntentRecordSchema, { type: 'null' }],
+    },
     support_only: { const: true },
   },
 } as const;

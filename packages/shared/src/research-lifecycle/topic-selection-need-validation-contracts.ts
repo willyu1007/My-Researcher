@@ -18,6 +18,8 @@ export const TOPIC_SELECTION_VALIDATE_NEED_ADJUDICATION_NODE_RESULT_SCHEMA_VERSI
   'TopicSelectionValidateNeedAdjudicationNodeResult@v1' as const;
 export const TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION =
   'HumanConfirmationInput@v1' as const;
+export const TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION =
+  'TopicSelectionHumanConfirmNeedIntent@v1' as const;
 export const TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_CONTEXT_PACKET_SCHEMA_VERSION =
   'HumanConfirmationSemanticReviewContextPacket@v1' as const;
 export const TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_SCHEMA_VERSION =
@@ -1229,6 +1231,18 @@ export interface HumanConfirmationInput {
   arena_advisory_review_ref?: TopicSelectionFunctionalRef | null;
 }
 
+export interface TopicSelectionHumanConfirmNeedIntentInput {
+  schema_version: typeof TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION;
+  adjudication_result_ref: TopicSelectionFunctionalRef;
+  output_validated_need_ref: TopicSelectionFunctionalRef;
+  confirmation_input: HumanConfirmationInput;
+}
+
+export interface TopicSelectionHumanConfirmNeedIntentRecord
+  extends TopicSelectionHumanConfirmNeedIntentInput {
+  intent_hash: string;
+}
+
 export interface HumanConfirmationSemanticReviewContextPacket {
   schema_version: typeof TOPIC_SELECTION_HUMAN_CONFIRMATION_SEMANTIC_REVIEW_CONTEXT_PACKET_SCHEMA_VERSION;
   workflow_run_id: string;
@@ -1652,6 +1666,38 @@ export const humanConfirmationInputSchema = {
       },
     },
   ],
+} as const;
+
+export const topicSelectionHumanConfirmNeedIntentInputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'adjudication_result_ref',
+    'output_validated_need_ref',
+    'confirmation_input',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_HUMAN_CONFIRM_NEED_INTENT_SCHEMA_VERSION },
+    adjudication_result_ref: topicSelectionFunctionalRefSchema,
+    output_validated_need_ref: topicSelectionFunctionalRefSchema,
+    confirmation_input: humanConfirmationInputSchema,
+  },
+} as const;
+
+export const topicSelectionHumanConfirmNeedIntentRecordSchema = {
+  ...topicSelectionHumanConfirmNeedIntentInputSchema,
+  required: [...topicSelectionHumanConfirmNeedIntentInputSchema.required, 'intent_hash'],
+  properties: {
+    ...topicSelectionHumanConfirmNeedIntentInputSchema.properties,
+    confirmation_input: {
+      type: 'object',
+      additionalProperties: false,
+      required: humanConfirmationInputSchema.required,
+      properties: humanConfirmationInputSchema.properties,
+    },
+    intent_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  },
 } as const;
 
 export const humanConfirmationSemanticReviewContextPacketSchema = {
