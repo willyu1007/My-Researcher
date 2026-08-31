@@ -16,6 +16,7 @@ import {
   type TopicSelectionResearchArenaCandidateProjection,
   type TopicSelectionResearchArenaExecutionAccounting,
   type TopicSelectionResearchArenaRoleEvidencePreparation,
+  type TopicSelectionResearchArenaRoleExecutionRecord,
   type TopicSelectionResearchArenaRoleOutput,
   type TopicSelectionResearchArenaShadowRole,
   type TopicSelectionResearchArenaShadowRoleInput,
@@ -62,6 +63,12 @@ type AgentInvoker = {
     audit_artifact_ref?: TopicSelectionFunctionalRef | null;
   }>;
 };
+type RoleInvocationResult = {
+  status: string;
+  structured_output: TopicSelectionResearchArenaRoleOutput | null;
+  provenance: TopicSelectionAgentInvocationProvenance;
+  audit_artifact_ref?: TopicSelectionFunctionalRef | null;
+};
 
 type SnapshotReader = Pick<TopicSelectionControlPlaneService, 'getInputSnapshot'>;
 type CandidateReader = {
@@ -81,6 +88,7 @@ type GapCheckpointProjector = {
     title_card_id: string;
     candidate_refs: TopicSelectionFunctionalRef[];
     policy_version_id?: string | null;
+    preserve_decided_current?: boolean;
   }): Promise<unknown>;
 };
 
@@ -89,7 +97,10 @@ export class TopicSelectionResearchArenaShadowRunnerService {
   private readonly now: () => number;
 
   constructor(private readonly dependencies: {
-    arenaRepository: Pick<TopicSelectionResearchArenaRepository, 'findSessionById'>;
+    arenaRepository: Pick<
+      TopicSelectionResearchArenaRepository,
+      'findSessionById' | 'findRoleExecutionBySlot'
+    >;
     snapshotReader: SnapshotReader;
     candidateReader: CandidateReader;
     artifactStore: ArtifactStore;
@@ -135,14 +146,39 @@ export class TopicSelectionResearchArenaShadowRunnerService {
       return { role, roleInput, packet };
     }));
 
-    // Both independent source invocations are started and completed before any role output is
-    // persisted or admitted. This is the core first-pass non-exposure guarantee.
-    const invocationResults = await Promise.all(preparedRoles.map(({ role, roleInput, packet }) => (
+    const recoveredRoles = new Map<TopicSelectionResearchArenaShadowRole, {
+      execution: TopicSelectionResearchArenaRoleExecutionRecord;
+      outputArtifact: TopicSelectionArtifactRefRecord;
+    }>();
+    await Promise.all(preparedRoles.map(async (prepared, index) => {
+      const recovered = await this.recoverRoleExecution(input, session, prepared, index);
+      if (recovered) recoveredRoles.set(prepared.role, recovered);
+    }));
+
+    // Every role that still needs execution starts before any new output is persisted. Durable
+    // exact role slots from a partial attempt are reused and never exposed to the remaining role.
+    const invocationResults = new Map<TopicSelectionResearchArenaShadowRole, RoleInvocationResult>();
+    const pendingRoles = preparedRoles.filter(({ role }) => !recoveredRoles.has(role));
+    const pendingResults = await Promise.all(pendingRoles.map(({ role, roleInput, packet }) => (
       this.invokeRole(input, role, roleInput, packet, session.input_snapshot_id)
     )));
+    pendingResults.forEach((result, index) => {
+      invocationResults.set(pendingRoles[index]!.role, result);
+    });
     const outputs = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionResearchArenaRoleOutput>();
-    invocationResults.forEach((result, index) => {
-      const prepared = preparedRoles[index]!;
+    preparedRoles.forEach((prepared) => {
+      const recovered = recoveredRoles.get(prepared.role);
+      if (recovered) {
+        this.assertRoleOutput(
+          prepared.roleInput.structured_output,
+          prepared.role,
+          input.candidate_refs,
+          prepared.packet,
+        );
+        outputs.set(prepared.role, prepared.roleInput.structured_output);
+        return;
+      }
+      const result = invocationResults.get(prepared.role)!;
       if (result.status !== 'succeeded' || !result.structured_output || !result.audit_artifact_ref) {
         throw new AppError(
           422,
@@ -155,8 +191,10 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     });
     this.assertFindingIdsUnique(outputs);
 
-    const outputArtifacts = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionArtifactRefRecord>();
-    for (const role of REQUIRED_ROLES) {
+    const outputArtifacts = new Map<TopicSelectionResearchArenaShadowRole, TopicSelectionArtifactRefRecord>(
+      [...recoveredRoles.entries()].map(([role, recovered]) => [role, recovered.outputArtifact]),
+    );
+    for (const role of pendingRoles.map((prepared) => prepared.role)) {
       const output = outputs.get(role)!;
       const payload = output as unknown as Record<string, unknown>;
       outputArtifacts.set(role, await this.dependencies.artifactStore.recordArtifactRef({
@@ -176,10 +214,15 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     const roleExecutions = [];
     for (let index = 0; index < preparedRoles.length; index += 1) {
       const prepared = preparedRoles[index]!;
+      const recovered = recoveredRoles.get(prepared.role);
+      if (recovered) {
+        roleExecutions.push(recovered.execution);
+        continue;
+      }
       const preparation = prepared.roleInput.evidence_preparation;
       const packetRef = preparation.evidence_packet_artifact_ref!;
       const outputRef = this.artifactRef(outputArtifacts.get(prepared.role)!);
-      const invocation = invocationResults[index]!;
+      const invocation = invocationResults.get(prepared.role)!;
       const { provenance_hash: _provenanceHash, ...retrievalProvenance } = preparation.retrieval_provenance!;
       roleExecutions.push(await this.dependencies.arenaService.recordRoleExecution({
         arena_session_id: session.arena_session_id,
@@ -244,7 +287,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
 
     const advisorySynthesis = this.synthesize(input.candidate_refs, outputs);
     const executionAccounting: TopicSelectionResearchArenaExecutionAccounting = {
-      non_provider_role_invocation_count: invocationResults.length,
+      non_provider_role_invocation_count: roleExecutions.length,
       provider_call_count: 0,
       retrieval_run_count: preparedRoles.length,
       retrieval_hit_count: preparedRoles.reduce(
@@ -317,6 +360,7 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     await this.dependencies.gapCheckpointProjector.projectCurrentGapSelectionCheckpoint({
       title_card_id: session.title_card_id,
       candidate_refs: input.candidate_refs,
+      preserve_decided_current: true,
     });
 
     return {
@@ -388,6 +432,78 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     });
   }
 
+  private async recoverRoleExecution(
+    input: TopicSelectionResearchArenaShadowRunRequest,
+    session: NonNullable<Awaited<ReturnType<TopicSelectionResearchArenaRepository['findSessionById']>>>,
+    prepared: {
+      role: TopicSelectionResearchArenaShadowRole;
+      roleInput: TopicSelectionResearchArenaShadowRoleInput;
+      packet: TopicSelectionResearchEvidencePacket;
+    },
+    instanceIndex: number,
+  ): Promise<{
+    execution: TopicSelectionResearchArenaRoleExecutionRecord;
+    outputArtifact: TopicSelectionArtifactRefRecord;
+  } | null> {
+    const execution = await this.dependencies.arenaRepository.findRoleExecutionBySlot(
+      session.arena_session_id,
+      prepared.roleInput.role_slot_id,
+      instanceIndex,
+    );
+    if (!execution) return null;
+    const preparation = prepared.roleInput.evidence_preparation;
+    const packetRef = preparation.evidence_packet_artifact_ref!;
+    const requestedRetrieval = preparation.retrieval_provenance!;
+    const { provenance_hash: _requestedHash, ...requestedRetrievalBody } = requestedRetrieval;
+    const { provenance_hash: _recordedHash, ...recordedRetrievalBody } = execution.retrieval_provenance;
+    const outputArtifact = await this.dependencies.artifactStore.getArtifactRef(
+      execution.output_artifact_ref.ref_id,
+    );
+    const auditRef = execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+      ? execution.agent_invocation_audit_artifact_ref
+      : null;
+    const auditArtifact = auditRef
+      ? await this.dependencies.artifactStore.getArtifactRef(auditRef.ref_id)
+      : null;
+    const outputPayloadHash = outputArtifact?.payload
+      ? sha256Text(stableStringify(outputArtifact.payload))
+      : null;
+    const expectedOutputHash = sha256Text(stableStringify(prepared.roleInput.structured_output));
+    const compatible = execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2'
+      && execution.execution_identity_status === 'product_invocation_verified'
+      && execution.arena_session_id === session.arena_session_id
+      && execution.title_card_id === session.title_card_id
+      && execution.role_slot_id === prepared.roleInput.role_slot_id
+      && execution.instance_index === instanceIndex
+      && execution.participant_role === prepared.role
+      && execution.pass_kind === 'first_pass'
+      && execution.input_snapshot_id === session.input_snapshot_id
+      && execution.input_snapshot_hash === session.input_snapshot_hash
+      && this.refKey(execution.evidence_packet_artifact_ref) === this.refKey(packetRef)
+      && execution.evidence_packet_hash === prepared.packet.packet_hash
+      && stableStringify(recordedRetrievalBody) === stableStringify(requestedRetrievalBody)
+      && outputArtifact !== null
+      && outputArtifact.title_card_id === session.title_card_id
+      && outputArtifact.input_snapshot_id === session.input_snapshot_id
+      && outputArtifact.workflow_run_id === input.workflow_run_id
+      && outputArtifact.checksum === execution.output_artifact_hash
+      && outputPayloadHash === execution.output_artifact_hash
+      && expectedOutputHash === execution.output_artifact_hash
+      && auditArtifact !== null
+      && auditArtifact.title_card_id === session.title_card_id
+      && auditArtifact.input_snapshot_id === session.input_snapshot_id
+      && auditArtifact.workflow_run_id === input.workflow_run_id
+      && auditArtifact.checksum === execution.agent_invocation_audit_artifact_hash;
+    if (!compatible) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        `${prepared.role} durable role slot does not match the exact shadow retry.`,
+      );
+    }
+    return { execution, outputArtifact };
+  }
+
   private indexRoleInputs(
     roleInputs: TopicSelectionResearchArenaShadowRoleInput[],
     titleCardId: string,
@@ -453,6 +569,28 @@ export class TopicSelectionResearchArenaShadowRunnerService {
     if (candidateKeys.some((key) => !boundKeys.has(key))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Every shadow candidate must be bound to the exact arena InputSnapshot.');
     }
+    const declaredCandidateRefs = Reflect.get(snapshot.payload, 'candidate_refs');
+    const frozenCandidateRefs = Array.isArray(declaredCandidateRefs)
+      ? declaredCandidateRefs
+      : snapshot.source_refs.filter((ref) => ref.ref_type === 'need_candidate');
+    if (frozenCandidateRefs.some((ref) => !this.isCandidateRef(ref, snapshot.title_card_id ?? ''))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena InputSnapshot has an invalid frozen candidate pool.');
+    }
+    const frozenCandidateKeys = (frozenCandidateRefs as TopicSelectionFunctionalRef[])
+      .map((ref) => this.refKey(ref));
+    if (!this.sameStringSet(candidateKeys, frozenCandidateKeys)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Shadow execution must cover the complete frozen candidate pool.');
+    }
+  }
+
+  private isCandidateRef(value: unknown, titleCardId: string): value is TopicSelectionFunctionalRef {
+    return Boolean(value
+      && typeof value === 'object'
+      && !Array.isArray(value)
+      && Reflect.get(value, 'ref_type') === 'need_candidate'
+      && typeof Reflect.get(value, 'ref_id') === 'string'
+      && Reflect.get(value, 'title_card_id') === titleCardId
+      && typeof Reflect.get(value, 'version_id') === 'string');
   }
 
   private async requireCandidates(

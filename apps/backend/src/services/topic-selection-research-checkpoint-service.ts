@@ -155,6 +155,7 @@ export type MaterializeResearchCheckpointInput = {
   allowed_actions: TopicSelectionResearchCheckpointAction[];
   required_action_refs?: TopicSelectionFunctionalRef[];
   packet_payload?: Record<string, unknown>;
+  preserve_decided_current?: boolean;
 };
 
 export type AssertResearchTransitionInput = {
@@ -179,6 +180,7 @@ export type MaterializeGapSelectionCheckpointInput = {
   candidates: TopicSelectionNeedCandidateRecord[];
   rejected_framings?: TopicSelectionRejectedNeedCandidateFraming[];
   policy_version_id?: string | null;
+  preserve_decided_current?: boolean;
 };
 
 export type MaterializeQuestionContractCheckpointInput = {
@@ -389,7 +391,9 @@ export class TopicSelectionResearchCheckpointService {
       superseded_at: null,
     };
     try {
-      return await this.repository.replaceCurrentCheckpoint(record);
+      return await this.repository.replaceCurrentCheckpoint(record, {
+        preserve_decided_current: input.preserve_decided_current,
+      });
     } catch (error) {
       if (error instanceof TopicSelectionResearchCheckpointCurrentConflictError) {
         throw new AppError(409, 'VERSION_CONFLICT', error.message);
@@ -632,6 +636,7 @@ export class TopicSelectionResearchCheckpointService {
         : ['loopback', 'reject', 'hold'],
       required_action_refs: issueCodes.map((code) => this.requiredActionRef(input.title_card_id, targetRef, code)),
       packet_payload: snapshotPayload,
+      preserve_decided_current: input.preserve_decided_current,
     });
   }
 
@@ -1253,8 +1258,14 @@ export class TopicSelectionResearchCheckpointService {
     }) || stableStringify(review.human_gap_selection_review) !== stableStringify(normalizedHumanReview)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review idempotency or binding content changed.');
     }
-    if (review.human_confirm_need_intent
-      && stableStringify(review.human_confirm_need_intent) !== stableStringify(input.human_confirm_need_intent)) {
+    if (!review.human_confirm_need_intent) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'An advancing Arena advisory review requires the complete HumanConfirmNeed intent.',
+      );
+    }
+    if (stableStringify(review.human_confirm_need_intent) !== stableStringify(input.human_confirm_need_intent)) {
       throw new AppError(
         409,
         'VERSION_CONFLICT',

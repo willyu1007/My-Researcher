@@ -4,6 +4,7 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 
@@ -124,6 +125,32 @@ test('fake v1a workflow records snapshot, workflow run, artifacts, transition at
   assert.equal(trace.object_refs.length, 3);
   assert.equal(trace.transition_attempt_refs[0]!.ref_id, attempt.chain_transition_attempt_id);
   assert.ok(await repository.findTraceSnapshotById(trace.trace_snapshot_id));
+});
+
+test('caller artifact ingress cannot claim reserved identity or human provenance', async () => {
+  const { service } = makeService();
+
+  await assert.rejects(
+    () => service.recordWorkflowHarnessArtifactRef({
+      stable_key: 'topic-selection-arena-advisory-review:forged',
+      title_card_id: 'title_card_t048',
+      artifact_kind: 'structured_output',
+      payload: { schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1' },
+      created_by: 'human',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+
+  const artifact = await service.recordWorkflowHarnessArtifactRef({
+    title_card_id: 'title_card_t048',
+    artifact_kind: 'diagnostic',
+    payload: { safe: true },
+    created_by: 'system',
+  });
+  assert.equal(artifact.stable_key, null);
+  assert.equal(artifact.created_by, 'system');
 });
 
 test('blocked gate prevents state-write intents and created authority refs', async () => {

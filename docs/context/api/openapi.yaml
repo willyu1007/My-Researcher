@@ -4202,9 +4202,10 @@ paths:
       operationId: createTopicSelectionResearchArenaCalibrationDataset
       summary: Create one support-only Research Arena calibration dataset over frozen canonical owners.
       description: >-
-        A v1 request creates the backward-readable historical corpus shape. A v2 request freezes the
-        complete six-slot, two-tranche protocol and exact planned member recipes before any bound role
-        output exists; neither form can run roles, providers, or write research authority.
+        Freezes the v2 complete six-slot, two-tranche protocol and exact planned member recipes before
+        any bound role output exists. Historical v1 datasets are report-readable only and cannot be
+        created, extended, started, or evaluated; this operation cannot run roles, providers, or write
+        research authority.
       tags: [topic-selection-research]
       requestBody:
         required: true
@@ -4231,11 +4232,11 @@ paths:
       operationId: createTopicSelectionResearchArenaCalibrationCase
       summary: Freeze or pre-register one relation-based Research Arena calibration case.
       description: |
-        For a v1 historical dataset, the server reloads the exact persisted Arena members and their
-        canonical sources. For a v2 protocol dataset, the case pre-registers one unused exact slot and
-        planned session/InputSnapshot/candidate/evidence/label identities before member output exists;
-        later evaluation resolves those stable keys and canonical owners. The caller cannot provide
-        observed outputs, execute roles or providers, or write research authority.
+        For a v2 protocol dataset, the case pre-registers one unused exact slot and planned
+        session/InputSnapshot/candidate/evidence/label identities before member output exists; later
+        evaluation resolves those stable keys and canonical owners. Historical v1 cases are read-only.
+        The caller cannot provide observed outputs, execute roles or providers, or write research
+        authority.
       tags: [topic-selection-research]
       requestBody:
         required: true
@@ -9273,20 +9274,7 @@ components:
           pattern: '^[a-f0-9]{64}$'
 
     TopicSelectionResearchArenaCalibrationDatasetCreateRequest:
-      oneOf:
-        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1'
-        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2'
-
-    TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1:
-      type: object
-      additionalProperties: false
-      required: [schema_version, workspace_id, dataset_key, dataset_version, description]
-      properties:
-        schema_version: { type: string, const: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1' }
-        workspace_id: { type: [string, 'null'], minLength: 1 }
-        dataset_key: { type: string, minLength: 1 }
-        dataset_version: { type: string, minLength: 1 }
-        description: { type: [string, 'null'], minLength: 1 }
+      $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2'
 
     TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2:
       type: object
@@ -9443,41 +9431,8 @@ components:
             - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
             - type: 'null'
 
-    TopicSelectionResearchArenaCalibrationMember:
-      type: object
-      additionalProperties: false
-      required: [member_role, arena_session_id, research_checkpoint_id]
-      properties:
-        member_role: { type: string, enum: [baseline, preferred, control, variant, subject] }
-        arena_session_id: { type: string, minLength: 1 }
-        research_checkpoint_id: { type: [string, 'null'], minLength: 1 }
-
     TopicSelectionResearchArenaCalibrationCaseCreateRequest:
-      oneOf:
-        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationCaseCreateRequestV1'
-        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationCaseCreateRequestV2'
-
-    TopicSelectionResearchArenaCalibrationCaseCreateRequestV1:
-      type: object
-      additionalProperties: false
-      required: [schema_version, dataset_id, case_key, case_type, members, tags]
-      properties:
-        schema_version: { type: string, const: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1' }
-        dataset_id: { type: string, minLength: 1 }
-        case_key: { type: string, minLength: 1 }
-        case_type:
-          type: string
-          enum: [arena_dominance_pair, arena_causal_perturbation, arena_irrelevant_perturbation, arena_successful_non_advance, arena_advancing_case]
-        members:
-          type: array
-          minItems: 1
-          maxItems: 2
-          items:
-            $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationMember'
-        tags:
-          type: array
-          uniqueItems: true
-          items: { type: string, minLength: 1 }
+      $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationCaseCreateRequestV2'
 
     TopicSelectionResearchArenaCalibrationCaseCreateRequestV2:
       type: object
@@ -9734,7 +9689,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [MISSING_FIRST_DOMINANCE_PAIR, MISSING_SECOND_DOMINANCE_PAIR, MISSING_CAUSAL_PERTURBATION, MISSING_IRRELEVANT_PERTURBATION, MISSING_SUCCESSFUL_NON_ADVANCE, MISSING_ADVANCING_CASE, MISSING_PRODUCT_V2_EXECUTION, MISSING_EVIDENCE_GROUNDING, MISSING_EXECUTION_INDEPENDENCE, MISSING_REPLAY_INTEGRITY, MISSING_ACCEPT_LABEL, MISSING_OVERRIDE_LABEL, MISSING_NON_ADVANCE_LABEL, MISSING_MEMBER_LABEL_COVERAGE, MISSING_COST_LATENCY_ACCOUNTING, MISSING_MEASURED_WORK_AVOIDED]
+            enum: [MISSING_FIRST_DOMINANCE_PAIR, MISSING_SECOND_DOMINANCE_PAIR, MISSING_CAUSAL_PERTURBATION, MISSING_IRRELEVANT_PERTURBATION, MISSING_SUCCESSFUL_NON_ADVANCE, MISSING_ADVANCING_CASE, MISSING_PRE_REGISTERED_PROTOCOL, MISSING_PRODUCT_V2_EXECUTION, MISSING_EVIDENCE_GROUNDING, MISSING_EXECUTION_INDEPENDENCE, MISSING_REPLAY_INTEGRITY, MISSING_ACCEPT_LABEL, MISSING_OVERRIDE_LABEL, MISSING_NON_ADVANCE_LABEL, MISSING_MEMBER_LABEL_COVERAGE, MISSING_COST_LATENCY_ACCOUNTING, MISSING_MEASURED_WORK_AVOIDED]
         hard_blockers:
           type: array
           items:

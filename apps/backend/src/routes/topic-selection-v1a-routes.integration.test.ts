@@ -1781,3 +1781,70 @@ test('topic-selection v1a routes accept omitted bodies for optional requestBody 
     await app.close();
   }
 });
+
+test('topic-selection v1a offline evaluation rejects research-arena ownership and case types', async () => {
+  const app = buildApp();
+  try {
+    const dataset = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/offline-evaluation/datasets',
+      payload: {
+        dataset_key: 'forged-arena-through-v1a',
+        stage: 'research_arena',
+      },
+    });
+    assert.equal(dataset.statusCode, 400, dataset.body);
+
+    const evaluationCase = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/offline-evaluation/cases',
+      payload: {
+        dataset_id: 'forged-arena-dataset',
+        case_key: 'arena-case-through-v1a',
+        case_type: 'arena_advancing_case',
+        frozen_input_bundle: {
+          stage: 'research_arena',
+          frozen_at: '2026-09-01T00:00:00.000Z',
+          source_refs: [],
+          artifact_refs: [],
+          stage_snapshots: {},
+          payload: {},
+        },
+        gold_expectation: {
+          expected_unmet_need: false,
+          expected_key_evidence_refs: [],
+          expected_counter_evidence_refs: [],
+          expected_blocker_codes: [],
+          required_trace_refs: [],
+          expected_recheck_action_refs: [],
+          expected_negative_memory_refs: [],
+          expected_downstream_rework_causes: [],
+          notes: [],
+        },
+      },
+    });
+    assert.equal(evaluationCase.statusCode, 400, evaluationCase.body);
+  } finally {
+    await app.close();
+  }
+});
+
+test('topic-selection v1a workflow-harness artifact ingress cannot claim reserved human provenance', async () => {
+  const app = buildApp();
+  try {
+    const forged = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/workflow-harness/artifacts',
+      payload: {
+        stable_key: 'topic-selection-arena-advisory-review:forged-v1a',
+        title_card_id: 'title-card-forged-v1a-review',
+        artifact_kind: 'structured_output',
+        payload: { schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1' },
+        created_by: 'human',
+      },
+    });
+    assert.equal(forged.statusCode, 400, forged.body);
+  } finally {
+    await app.close();
+  }
+});

@@ -17,6 +17,7 @@ import type {
 import type {
   TopicSelectionAgentInvocationRequest,
 } from './topic-selection-agent-orchestrator-service.js';
+import { AppError } from '../errors/app-error.js';
 import { TopicSelectionResearchArenaShadowRunnerService } from './topic-selection-research-arena-shadow-runner-service.js';
 import { TopicSelectionResearchArenaShadowProofService } from './topic-selection-research-arena-shadow-proof-service.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
@@ -226,6 +227,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
       decision_status: 'ready_for_validation' as const,
     }],
   ]);
+  const recoverableRoleExecutions = new Map<string, TopicSelectionResearchArenaRoleExecutionRecord>();
   let artifactIndex = 0;
   const clock = [100, 125];
   let riskArtifactIndex = 0;
@@ -242,6 +244,8 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   const service = new TopicSelectionResearchArenaShadowRunnerService({
     arenaRepository: {
       findSessionById: async () => session,
+      findRoleExecutionBySlot: async (_sessionId, roleSlotId, instanceIndex) =>
+        recoverableRoleExecutions.get(`${roleSlotId}:${instanceIndex}`) ?? null,
     },
     snapshotReader: {
       getInputSnapshot: async () => snapshot,
@@ -419,6 +423,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   assert.deepEqual(gapProjectionInputs, [{
     title_card_id: 'title_1',
     candidate_refs: [candidateRef],
+    preserve_decided_current: true,
   }]);
   assert.equal(result.advisory_synthesis.outcome, 'evidence_expansion_required');
   assert.equal(result.advisory_synthesis.candidate_dispositions[0]?.disposition, 'parked');
@@ -428,6 +433,40 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   const initialProjection = Reflect.get(synthesizedInputs[0] ?? {}, 'candidate_projections');
   assert.ok(Array.isArray(initialProjection));
   assert.equal(initialProjection.length, 1);
+
+  snapshot.payload = { candidate_refs: [candidateRef, candidateRef2] };
+  await assert.rejects(
+    service.run({
+      schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',
+      arena_session_id: 'arena_1',
+      workflow_run_id: 'workflow_subset',
+      node_attempt_id: 'attempt_subset',
+      execution_mode: 'mocked_llm',
+      candidate_refs: [candidateRef],
+      role_inputs: [
+        {
+          role_slot_id: 'scout',
+          participant_role: 'opportunity_scout',
+          evidence_preparation: preparation('opportunity_scout'),
+          structured_output: roleOutput('opportunity_scout', 'selected'),
+          fixture_id: 'fixture_scout_subset',
+          operator_label: null,
+        },
+        {
+          role_slot_id: 'killer',
+          participant_role: 'prior_art_topic_killer',
+          evidence_preparation: preparation('prior_art_topic_killer'),
+          structured_output: roleOutput('prior_art_topic_killer', 'dropped'),
+          fixture_id: 'fixture_killer_subset',
+          operator_label: null,
+        },
+      ],
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /complete frozen candidate pool/u.test(error.message),
+  );
+  snapshot.payload = { candidate_refs: [candidateRef] };
   assert.equal(Reflect.get(initialProjection[0] ?? {}, 'semantic_group_key'), '1'.repeat(64));
   const initialAdvisory = Reflect.get(initialProjection[0] ?? {}, 'advisory');
   assert.equal(Reflect.get(initialAdvisory ?? {}, 'disposition'), 'parked');
@@ -649,6 +688,7 @@ test('shadow runner completes both isolated first-pass invocations before admiss
   }), /set-level position contradicts/u);
 
   const multiSelectedScout = roleOutput('opportunity_scout', 'selected');
+  snapshot.payload = { candidate_refs: [candidateRef, candidateRef2] };
   multiSelectedScout.candidate_reviews.push({
     ...multiSelectedScout.candidate_reviews[0]!,
     candidate_ref: candidateRef2,
@@ -743,6 +783,60 @@ test('shadow runner completes both isolated first-pass invocations before admiss
     'candidate_1',
   );
 
+  const recoveredScout = oneActivePath.role_executions.find(
+    (execution) => execution.participant_role === 'opportunity_scout',
+  );
+  assert.ok(recoveredScout);
+  recoverableRoleExecutions.set(`${recoveredScout.role_slot_id}:${recoveredScout.instance_index}`, recoveredScout);
+  artifacts.set(recoveredScout.agent_invocation_audit_artifact_ref!.ref_id, {
+    artifact_ref_id: recoveredScout.agent_invocation_audit_artifact_ref!.ref_id,
+    workspace_id: null,
+    title_card_id: 'title_1',
+    artifact_kind: 'diagnostic',
+    storage_kind: 'inline',
+    uri: null,
+    payload: { schema_version: 'TopicSelectionAgentInvocationAuditSnapshot@v1' },
+    checksum: recoveredScout.agent_invocation_audit_artifact_hash,
+    byte_size: null,
+    mime_type: 'application/json',
+    workflow_run_id: 'workflow_one_active_path',
+    input_snapshot_id: 'snapshot_1',
+    created_by: 'system',
+    created_at: NOW,
+  });
+  const invocationCountBeforeRecovery = invocationCalls.length;
+  const recovered = await service.run({
+    schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',
+    arena_session_id: 'arena_1',
+    workflow_run_id: 'workflow_one_active_path',
+    node_attempt_id: 'attempt_one_active_path',
+    execution_mode: 'mocked_llm',
+    candidate_refs: [candidateRef, candidateRef2],
+    role_inputs: [
+      {
+        role_slot_id: 'scout',
+        participant_role: 'opportunity_scout',
+        evidence_preparation: preparation('opportunity_scout'),
+        structured_output: scoutWithParkedAlternative,
+        fixture_id: 'fixture_scout_one_active_path',
+        operator_label: null,
+      },
+      {
+        role_slot_id: 'killer',
+        participant_role: 'prior_art_topic_killer',
+        evidence_preparation: preparation('prior_art_topic_killer'),
+        structured_output: killerWithParkedAlternative,
+        fixture_id: 'fixture_killer_one_active_path',
+        operator_label: null,
+      },
+    ],
+  });
+  assert.equal(invocationCalls.length - invocationCountBeforeRecovery, 1);
+  assert.equal(recovered.role_executions[0]?.arena_role_execution_id, recoveredScout.arena_role_execution_id);
+  assert.equal(recovered.execution_accounting.non_provider_role_invocation_count, 2);
+  recoverableRoleExecutions.clear();
+
+  snapshot.payload = { candidate_refs: [candidateRef] };
   session.participant_roles = ['opportunity_scout', 'opportunity_scout'];
   await assert.rejects(service.run({
     schema_version: 'TopicSelectionResearchArenaShadowRunRequest@v1',

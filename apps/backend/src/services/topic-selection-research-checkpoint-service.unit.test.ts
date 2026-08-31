@@ -1748,6 +1748,44 @@ test('advancing Arena advisory labels require and persist the complete HumanConf
   assert.equal(persistedIntent.confirmation_input.arena_advisory_review_ref, null);
 });
 
+test('legacy advancing Arena review remains readable but cannot authorize without its intent', async () => {
+  const { controlPlane, service } = createService();
+  const { advisory, checkpoint, humanReview } = await materializeSelectedArenaGap(service);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'legacy_missing_intent',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'accept',
+    rationale: 'The historical label predates mandatory intent binding.',
+    human_gap_selection_review: humanReview,
+    human_confirm_need_intent: humanConfirmNeedIntent(humanReview),
+  });
+  const submittedIntent = recorded.review.human_confirm_need_intent!;
+  const artifact = await controlPlane.getArtifactRef(recorded.review_ref.ref_id);
+  assert.ok(artifact?.payload);
+  delete artifact.payload.human_confirm_need_intent;
+  artifact.checksum = sha256Text(stableStringify(artifact.payload));
+
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  assert.equal(history.reviews.length, 1);
+  assert.equal(history.reviews[0]?.review.human_confirm_need_intent, undefined);
+  await assert.rejects(
+    () => service.assertGapArenaAdvisoryReviewBinding({
+      checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: checkpoint.title_card_id,
+      review_ref: recorded.review_ref,
+      human_gap_selection_review: humanReview,
+      accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+      human_confirm_need_intent: submittedIntent,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /requires the complete HumanConfirmNeed intent/u.test(error.message),
+  );
+});
+
 test('advancing against a no-topic Arena recommendation is an explicit override', async () => {
   const { service } = createService();
   const { advisory, alternativeRef, firstRef, humanReview } = await materializeSelectedArenaGap(service);

@@ -27,6 +27,7 @@ import type {
   TopicSelectionTransitionResult,
   TopicSelectionWorkflowRunStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionControlPlaneRepository } from '../repositories/topic-selection-control-plane.repository.js';
 
 type IdFactory = (prefix: string) => string;
@@ -242,6 +243,23 @@ export class TopicSelectionControlPlaneService {
       throw new Error(`ArtifactRef stable key ${requested.stable_key} already identifies different content.`);
     }
     return persisted;
+  }
+
+  /** Public workflow-harness ingress cannot mint server-owned identities or human provenance. */
+  async recordWorkflowHarnessArtifactRef(input: ArtifactInput): Promise<TopicSelectionArtifactRefRecord> {
+    if ((input.stable_key !== undefined && input.stable_key !== null)
+      || (input.created_by !== undefined && input.created_by !== 'system')) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Workflow-harness artifacts cannot claim a stable key or non-system provenance.',
+      );
+    }
+    return this.recordArtifactRef({
+      ...input,
+      stable_key: null,
+      created_by: 'system',
+    });
   }
 
   async getArtifactRef(artifactRefId: string): Promise<TopicSelectionArtifactRefRecord | null> {

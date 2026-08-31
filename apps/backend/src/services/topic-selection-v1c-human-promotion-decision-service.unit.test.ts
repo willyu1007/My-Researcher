@@ -580,6 +580,23 @@ test('human promotion authority maps a stable material-risk finding through a na
     created_at: NOW,
     updated_at: NOW,
   };
+  const expiredSubject = makeSubject(handoff, checkpointControl, [{
+    ...acceptedRisk,
+    expires_at: '2026-05-14T23:59:59.999Z',
+  }]);
+  await assert.rejects(
+    () => expiredSubject.service.recordHumanPromotionDecision({
+      promotion_gate_check_id: handoff.promotion_gate_check_id,
+      decision: 'promote_to_paper_project',
+      human_actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+      rationale: 'An expired risk acceptance must not map the material finding.',
+      confirmed_snapshot_hash: hash,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 422
+      && error.details?.policy_issue_codes instanceof Array
+      && error.details.policy_issue_codes.includes('UNMAPPED_PASS_WITH_RISK_FINDING'),
+  );
   const { service } = makeSubject(handoff, checkpointControl, [acceptedRisk]);
 
   const result = await service.recordHumanPromotionDecision({

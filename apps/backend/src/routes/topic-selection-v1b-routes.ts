@@ -340,20 +340,28 @@ const workflowRunAdvanceSchema = {
 };
 const workflowHarnessArtifactParams = paramsSchema({ artifactRefId: stringId });
 const workflowHarnessTraceSnapshotParams = paramsSchema({ traceSnapshotId: stringId });
-const workflowHarnessArtifactBody = bodySchema(['artifact_kind'], {
-  workspace_id: nullableStringId,
-  title_card_id: nullableStringId,
-  artifact_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_KINDS] },
-  storage_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS] },
-  uri: nullableStringId,
-  payload: { anyOf: [recordPayload, { type: 'null' }] },
-  checksum: nullableStringId,
-  byte_size: nullableNumber,
-  mime_type: nullableStringId,
-  workflow_run_id: nullableStringId,
-  input_snapshot_id: nullableStringId,
-  created_by: actorType,
-});
+const workflowHarnessArtifactBody = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['artifact_kind'],
+    properties: {
+      stable_key: false,
+      workspace_id: nullableStringId,
+      title_card_id: nullableStringId,
+      artifact_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_KINDS] },
+      storage_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS] },
+      uri: nullableStringId,
+      payload: { anyOf: [recordPayload, { type: 'null' }] },
+      checksum: nullableStringId,
+      byte_size: nullableNumber,
+      mime_type: nullableStringId,
+      workflow_run_id: nullableStringId,
+      input_snapshot_id: nullableStringId,
+      created_by: { enum: ['system'] },
+    },
+  },
+};
 
 export async function registerTopicSelectionV1bRoutes(
   fastify: FastifyInstance,

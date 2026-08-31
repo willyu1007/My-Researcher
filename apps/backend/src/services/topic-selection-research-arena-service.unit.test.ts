@@ -8,6 +8,9 @@ import type {
   TopicSelectionAgentInvocationAuditSnapshot,
   TopicSelectionAgentInvocationProvenance,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
+import type {
+  TopicSelectionResearchArenaSessionRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { TopicSelectionResearchArenaConflictError } from '../repositories/topic-selection-research-arena.repository.js';
 import { AppError } from '../errors/app-error.js';
@@ -76,8 +79,9 @@ function invocationAudit(
   };
 }
 
-function fixture() {
-  const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+function fixture(
+  arenaRepository = new InMemoryTopicSelectionResearchArenaRepository(),
+) {
   const arenaCandidateRef = {
     ...ref('need_candidate', 'candidate_1'),
     version_id: 'v1',
@@ -315,6 +319,56 @@ function auditedScoutInput(
     ),
   };
 }
+
+test('open session maps repository current-session races to a structured conflict', async () => {
+  class ConflictingOpenRepository extends InMemoryTopicSelectionResearchArenaRepository {
+    override async replaceCurrentSession(): Promise<never> {
+      throw new TopicSelectionResearchArenaConflictError('Current Arena session changed concurrently.');
+    }
+  }
+  const { service } = fixture(new ConflictingOpenRepository());
+
+  await assert.rejects(
+    () => service.openSession({
+      session_key: 'arena-key-open-conflict',
+      title_card_id: 'title_1',
+      arena_kind: 'gap_portfolio',
+      target_ref: ref('validated_need', 'need_1'),
+      input_snapshot_id: 'snapshot_1',
+      participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+      execution_plan_ref: ref('artifact_ref', 'plan_1'),
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('open session rejects a conflicting same-key row returned by repository race recovery', async () => {
+  class ConflictingReplayRepository extends InMemoryTopicSelectionResearchArenaRepository {
+    override async replaceCurrentSession(
+      record: TopicSelectionResearchArenaSessionRecord,
+    ): Promise<TopicSelectionResearchArenaSessionRecord> {
+      return { ...record, participant_plan_hash: 'f'.repeat(64) };
+    }
+  }
+  const { service } = fixture(new ConflictingReplayRepository());
+
+  await assert.rejects(
+    () => service.openSession({
+      session_key: 'arena-key-conflicting-replay',
+      title_card_id: 'title_1',
+      arena_kind: 'gap_portfolio',
+      target_ref: ref('validated_need', 'need_1'),
+      input_snapshot_id: 'snapshot_1',
+      participant_roles: ['opportunity_scout', 'prior_art_topic_killer'],
+      execution_plan_ref: ref('artifact_ref', 'plan_1'),
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
 
 test('role execution binds the product invocation audit and rejects a conflicting output replay', async () => {
   const { packet, service } = fixture();

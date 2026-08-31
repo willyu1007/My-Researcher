@@ -5,6 +5,7 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionInputSnapshotRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-offline-evaluation-replay-contracts';
 import type {
   TopicSelectionAgentInvocationAuditSnapshot,
   TopicSelectionAgentInvocationProvenance,
@@ -282,6 +283,9 @@ async function seedPhase10bArenaMember(input: {
   controlPlaneRepository: InMemoryTopicSelectionControlPlaneRepository;
   recipe: TopicSelectionResearchArenaCalibrationMemberRecipe;
   outcome: 'selected' | 'evidence_expansion_required';
+  productV2?: boolean;
+  mismatchedAuditOutput?: boolean;
+  invalidDropJustification?: boolean;
 }) {
   await seedPhase10bRecipeSnapshot(input.controlPlaneRepository, input.recipe);
   return seedArena({
@@ -299,7 +303,9 @@ async function seedPhase10bArenaMember(input: {
       rationale: input.recipe.loop_delta.rationale,
     }] : [],
     outcome: input.outcome,
-    productV2: true,
+    productV2: input.productV2 ?? true,
+    mismatchedAuditOutput: input.mismatchedAuditOutput,
+    invalidDropJustification: input.invalidDropJustification,
   });
 }
 
@@ -749,6 +755,110 @@ function phase10bStageManifest(
   };
   return { ...body, manifest_hash: sha256Text(stableStringify(body)) };
 }
+
+async function preRegisterPhase10bCase(
+  harness: ReturnType<typeof createCalibrationHarness>,
+  slotIndex: number,
+  datasetKey: string,
+) {
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[slotIndex]!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, member)));
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: datasetKey,
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  const evaluationCase = await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: slot.slot_key,
+    slot_key: slot.slot_key,
+    tags: [],
+  });
+  return { protocol, slot, dataset, evaluationCase };
+}
+
+test('legacy v1 calibration records are read-only at every write boundary', async () => {
+  const { offlineRepository, service } = createCalibrationHarness();
+  const legacyDatasetId = 'dataset_legacy_read_only';
+  const legacyRunId = 'run_legacy_read_only';
+  const assertLegacyWriteRejected = (operation: Promise<unknown>) => assert.rejects(
+    operation,
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT'
+      && /historical read-only/u.test(error.message),
+  );
+
+  await assertLegacyWriteRejected(Reflect.apply(service.createDataset, service, [{
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
+    workspace_id: null,
+    dataset_key: 'legacy-write',
+    dataset_version: 'v1',
+    description: null,
+  }]));
+  await offlineRepository.createDataset({
+    offline_evaluation_dataset_id: legacyDatasetId,
+    workspace_id: null,
+    dataset_key: 'legacy-read-only',
+    dataset_version: 'v1',
+    stage: 'research_arena',
+    source: 'frozen_snapshot',
+    status: 'active',
+    description: null,
+    case_count: 0,
+    case_type_coverage: [],
+    payload: {
+      schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v1',
+      evaluation_mode: 'canonical_owner_reload',
+      support_only: true,
+    },
+    created_by: 'system',
+    created_at: NOW,
+    updated_at: NOW,
+  });
+  await assertLegacyWriteRejected(Reflect.apply(service.addCase, service, [{
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
+    dataset_id: legacyDatasetId,
+    case_key: 'legacy-case',
+    case_type: 'arena_successful_non_advance',
+    members: [{ member_role: 'subject', arena_session_id: 'arena_legacy', research_checkpoint_id: null }],
+    tags: [],
+  }]));
+  await assertLegacyWriteRejected(service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: legacyDatasetId,
+    run_key: 'legacy-run',
+  }));
+
+  await offlineRepository.createRun({
+    offline_evaluation_run_id: legacyRunId,
+    workspace_id: null,
+    dataset_id: legacyDatasetId,
+    run_key: 'legacy-running',
+    status: 'running',
+    workflow_profile_key: 'topic-selection-research-arena-calibration',
+    workflow_profile_version: 'v1',
+    model_profile_key: null,
+    search_profile_key: null,
+    policy_version_id: null,
+    metric_keys: [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS],
+    case_count: 0,
+    run_payload: {
+      schema_version: 'TopicSelectionResearchArenaCalibrationRun@v1',
+      support_only: true,
+    },
+    created_by: 'system',
+    started_at: NOW,
+    finished_at: null,
+  });
+  await assertLegacyWriteRejected(service.evaluateRun(legacyRunId));
+});
 
 test('phase 10B freezes the six-slot protocol and pre-registers a case before role execution', async () => {
   const {
@@ -1256,86 +1366,75 @@ test('phase 10B derives work avoided from an accepted stop and absent canonical 
   assert.equal(report.coverage_gaps.includes('MISSING_MEASURED_WORK_AVOIDED'), false);
 });
 
-test('current legacy Arena corpus is evaluated from canonical owners as insufficient evidence', async () => {
-  let clockTick = 0;
-  const {
-    controlPlaneRepository,
-    arenaRepository,
-    offlineRepository,
-    service,
-  } = createCalibrationHarness({
-    now: () => new Date(Date.parse(NOW) + clockTick++ * 1_000).toISOString(),
+test('completed historical v1 calibration reports remain readable without reopening writes', async () => {
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels by Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
   });
-
-  const baselineSessionId = await seedArena({
-    arenaRepository,
-    controlPlaneRepository,
-    suffix: 'baseline',
-    outcome: 'evidence_expansion_required',
-  });
-  const preferredSessionId = await seedArena({
-    arenaRepository,
-    controlPlaneRepository,
-    suffix: 'preferred',
-    outcome: 'selected',
-  });
-
-  const dataset = await service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-current-corpus',
-    dataset_version: 'v1',
-    description: 'Current legacy Arena evidence.',
-  });
-  await service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'dominance-pair-1',
-    case_type: 'arena_dominance_pair',
-    members: [
-      { member_role: 'baseline', arena_session_id: baselineSessionId, research_checkpoint_id: null },
-      { member_role: 'preferred', arena_session_id: preferredSessionId, research_checkpoint_id: null },
-    ],
-    tags: ['phase10a'],
-  });
-  const run = await service.startRun({
+  const { slot, dataset } = await preRegisterPhase10bCase(
+    harness,
+    0,
+    'historical-v1-read-compatibility',
+  );
+  const outcomes = ['evidence_expansion_required', 'selected'] as const;
+  for (const [index, recipe] of slot.members.entries()) {
+    const sessionId = await seedPhase10bArenaMember({
+      arenaRepository: harness.arenaRepository,
+      controlPlaneRepository: harness.controlPlaneRepository,
+      recipe,
+      outcome: outcomes[index]!,
+    });
+    histories.set(sessionId, phase10bReviewHistory(recipe));
+  }
+  const run = await harness.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
     dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-current-corpus-v1',
+    run_key: 'historical-v1-read-compatibility',
   });
-  const [report, concurrentReport] = await Promise.all([
-    service.evaluateRun(run.offline_evaluation_run_id),
-    service.evaluateRun(run.offline_evaluation_run_id),
-  ]);
+  await harness.service.evaluateRun(run.offline_evaluation_run_id);
 
-  assert.deepEqual(concurrentReport, report);
-  assert.equal(report.recommendation, 'insufficient_evidence');
+  await harness.offlineRepository.updateDataset(dataset.offline_evaluation_dataset_id, {
+    dataset_version: 'v1',
+    payload: {
+      schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v1',
+      evaluation_mode: 'canonical_owner_reload',
+      support_only: true,
+    },
+    updated_at: NOW,
+  });
+  await harness.offlineRepository.updateRun(run.offline_evaluation_run_id, {
+    workflow_profile_version: 'v1',
+    run_payload: {
+      schema_version: 'TopicSelectionResearchArenaCalibrationRun@v1',
+      evaluation_mode: 'canonical_owner_reload',
+      provider_execution_allowed: false,
+      authority_writes_allowed: false,
+      support_only: true,
+      evaluated_from_canonical_owners: true,
+    },
+  });
+
+  const report = await harness.service.getReport(run.offline_evaluation_run_id);
   assert.equal(report.support_only, true);
-  assert.equal(report.product_v2_member_count, 0);
+  assert.equal(report.recommendation, 'insufficient_evidence');
+  assert.ok(report.coverage_gaps.includes('MISSING_PRE_REGISTERED_PROTOCOL'));
   assert.equal(report.case_type_counts.arena_dominance_pair, 1);
-  assert.ok(report.coverage_gaps.includes('MISSING_SECOND_DOMINANCE_PAIR'));
-  assert.ok(report.coverage_gaps.includes('MISSING_PRODUCT_V2_EXECUTION'));
-  assert.ok(report.coverage_gaps.includes('MISSING_ACCEPT_LABEL'));
-  assert.equal(report.hard_blockers.length, 0);
-  assert.match(report.human_markdown, /证据不足/u);
-  assert.doesNotMatch(report.human_markdown, /MISSING_|CALIBRATION_/u);
-  assert.ok(JSON.stringify(report.llm_working_set).length > report.human_markdown.length);
-
-  const persistedRun = await offlineRepository.findRunById(run.offline_evaluation_run_id);
-  assert.equal(persistedRun?.status, 'completed');
-  assert.equal((await offlineRepository.listCaseResultsByRunId(run.offline_evaluation_run_id)).length, 1);
-  assert.equal((await offlineRepository.listMetricResultsByRunId(run.offline_evaluation_run_id)).length, 6);
-  assert.deepEqual(await service.getReport(run.offline_evaluation_run_id), report);
+  assert.deepEqual(
+    await harness.service.evaluateRun(run.offline_evaluation_run_id),
+    report,
+  );
 });
 
 test('changed canonical snapshot identity fails before any evaluation result is written', async () => {
   let tamperSnapshot = false;
-  const {
-    controlPlaneRepository,
-    arenaRepository,
-    offlineRepository,
-    service,
-  } = createCalibrationHarness({
+  const harness = createCalibrationHarness({
     controlPlaneReads: (repository) => ({
       findInputSnapshotById: async (inputSnapshotId) => {
         const snapshot = await repository.findInputSnapshotById(inputSnapshotId);
@@ -1352,76 +1451,62 @@ test('changed canonical snapshot identity fails before any evaluation result is 
       findHumanConfirmedDecisionById: (decisionId) =>
         repository.findHumanConfirmedDecisionById(decisionId),
     }),
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('The source-drift fixture has no checkpoint label.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async () => null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
   });
-  const sessionId = await seedArena({
-    arenaRepository,
-    controlPlaneRepository,
-    suffix: 'drift',
+  const { slot, dataset } = await preRegisterPhase10bCase(
+    harness,
+    2,
+    'phase10b-source-drift',
+  );
+  await seedPhase10bArenaMember({
+    arenaRepository: harness.arenaRepository,
+    controlPlaneRepository: harness.controlPlaneRepository,
+    recipe: slot.members[0]!,
     outcome: 'evidence_expansion_required',
   });
-  const dataset = await service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-drift',
-    dataset_version: 'v1',
-    description: 'Source drift guard.',
-  });
-  await service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'non-advance-drift',
-    case_type: 'arena_successful_non_advance',
-    members: [{ member_role: 'subject', arena_session_id: sessionId, research_checkpoint_id: null }],
-    tags: ['phase10a'],
-  });
-  const run = await service.startRun({
+  const run = await harness.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
     dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-drift-v1',
+    run_key: 'phase10b-source-drift',
   });
 
   tamperSnapshot = true;
   await assert.rejects(
-    service.evaluateRun(run.offline_evaluation_run_id),
+    harness.service.evaluateRun(run.offline_evaluation_run_id),
     (error: unknown) => error instanceof AppError
       && error.statusCode === 409
       && error.errorCode === 'VERSION_CONFLICT'
-      && /source identity drifted/u.test(error.message),
+      && /does not match its pre-registered member recipe/u.test(error.message),
   );
-  assert.equal((await offlineRepository.findRunById(run.offline_evaluation_run_id))?.status, 'running');
-  assert.equal((await offlineRepository.listCaseResultsByRunId(run.offline_evaluation_run_id)).length, 0);
-  assert.equal((await offlineRepository.listMetricResultsByRunId(run.offline_evaluation_run_id)).length, 0);
-  assert.equal((await offlineRepository.listReplayDiffsByRunId(run.offline_evaluation_run_id)).length, 0);
+  assert.equal((await harness.offlineRepository.findRunById(run.offline_evaluation_run_id))?.status, 'running');
+  assert.equal((await harness.offlineRepository.listCaseResultsByRunId(run.offline_evaluation_run_id)).length, 0);
+  assert.equal((await harness.offlineRepository.listMetricResultsByRunId(run.offline_evaluation_run_id)).length, 0);
+  assert.equal((await harness.offlineRepository.listReplayDiffsByRunId(run.offline_evaluation_run_id)).length, 0);
 });
 
 test('product-v2 coverage requires an exact non-provider audit identity', async () => {
   const valid = createCalibrationHarness();
-  const validSessionId = await seedArena({
+  const validRegistration = await preRegisterPhase10bCase(
+    valid,
+    5,
+    'phase10b-product-v2',
+  );
+  await seedPhase10bArenaMember({
     arenaRepository: valid.arenaRepository,
     controlPlaneRepository: valid.controlPlaneRepository,
-    suffix: 'product_v2',
+    recipe: validRegistration.slot.members[0]!,
     outcome: 'selected',
-    productV2: true,
-  });
-  const dataset = await valid.service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-product-v2',
-    dataset_version: 'v1',
-    description: 'Product-v2 provenance fixture.',
-  });
-  await valid.service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'advancing-product-v2',
-    case_type: 'arena_advancing_case',
-    members: [{ member_role: 'subject', arena_session_id: validSessionId, research_checkpoint_id: null }],
-    tags: ['phase10a'],
   });
   const run = await valid.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-product-v2-v1',
+    dataset_id: validRegistration.dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-product-v2',
   });
   const report = await valid.service.evaluateRun(run.offline_evaluation_run_id);
   assert.equal(report.product_v2_member_count, 1);
@@ -1429,74 +1514,63 @@ test('product-v2 coverage requires an exact non-provider audit identity', async 
   assert.equal(report.case_results[0]?.members[0]?.execution_independence_passed, true);
 
   const mismatched = createCalibrationHarness();
-  const mismatchedSessionId = await seedArena({
+  const mismatchedRegistration = await preRegisterPhase10bCase(
+    mismatched,
+    5,
+    'phase10b-mismatched-audit',
+  );
+  await seedPhase10bArenaMember({
     arenaRepository: mismatched.arenaRepository,
     controlPlaneRepository: mismatched.controlPlaneRepository,
-    suffix: 'mismatched_audit',
+    recipe: mismatchedRegistration.slot.members[0]!,
     outcome: 'selected',
-    productV2: true,
     mismatchedAuditOutput: true,
   });
-  const mismatchedDataset = await mismatched.service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-mismatched-audit',
-    dataset_version: 'v1',
-    description: 'Mismatched product audit fixture.',
+  const mismatchedRun = await mismatched.service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: mismatchedRegistration.dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-mismatched-audit',
   });
   await assert.rejects(
-    mismatched.service.addCase({
-      schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-      dataset_id: mismatchedDataset.offline_evaluation_dataset_id,
-      case_key: 'mismatched-product-audit',
-      case_type: 'arena_advancing_case',
-      members: [{
-        member_role: 'subject',
-        arena_session_id: mismatchedSessionId,
-        research_checkpoint_id: null,
-      }],
-      tags: ['phase10a'],
-    }),
+    mismatched.service.evaluateRun(mismatchedRun.offline_evaluation_run_id),
     (error: unknown) => error instanceof AppError
       && error.statusCode === 409
       && /audit identity does not match/u.test(error.message),
   );
   assert.equal(
-    (await mismatched.offlineRepository.listCasesByDatasetId(
-      mismatchedDataset.offline_evaluation_dataset_id,
+    (await mismatched.offlineRepository.listCaseResultsByRunId(
+      mismatchedRun.offline_evaluation_run_id,
     )).length,
     0,
   );
 });
 
 test('an uncoded or non-reopenable drop is a hard blocker rather than an activation signal', async () => {
-  const harness = createCalibrationHarness();
-  const sessionId = await seedArena({
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('The invalid-drop fixture has no checkpoint label.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async () => null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
+  });
+  const { slot, dataset } = await preRegisterPhase10bCase(
+    harness,
+    2,
+    'phase10b-invalid-drop',
+  );
+  await seedPhase10bArenaMember({
     arenaRepository: harness.arenaRepository,
     controlPlaneRepository: harness.controlPlaneRepository,
-    suffix: 'invalid_drop',
+    recipe: slot.members[0]!,
     outcome: 'evidence_expansion_required',
     invalidDropJustification: true,
-  });
-  const dataset = await harness.service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-invalid-drop',
-    dataset_version: 'v1',
-    description: 'Invalid drop blocker fixture.',
-  });
-  await harness.service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'invalid-drop-control',
-    case_type: 'arena_successful_non_advance',
-    members: [{ member_role: 'subject', arena_session_id: sessionId, research_checkpoint_id: null }],
-    tags: ['phase10a'],
   });
   const run = await harness.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
     dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-invalid-drop-v1',
+    run_key: 'phase10b-invalid-drop',
   });
 
   const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
@@ -1505,104 +1579,34 @@ test('an uncoded or non-reopenable drop is a hard blocker rather than an activat
 });
 
 test('an override of a non-advance recommendation does not satisfy non-advance label coverage', async () => {
-  const suffix = 'override_label';
-  const titleCardId = `title_${suffix}`;
-  const checkpointId = `checkpoint_${suffix}`;
-  const candidateRef = ref('need_candidate', `candidate_${suffix}`, titleCardId, 'v1');
-  const gapSelectionReview = {
-    research_checkpoint_id: checkpointId,
-    confirmed_candidate_pool_hash: sha256Text(`pool:${suffix}`),
-    selected_candidate_ref: candidateRef,
-    direct_prior_art_pressure_reviewed: true,
-    disconfirming_evidence_reviewed: true,
-    candidate_reviews: [{
-      need_candidate_ref: candidateRef,
-      disposition: 'selected' as const,
-      distinct_from_selected_axes: ['mechanism' as const],
-      rationale: 'The researcher intentionally advances against the Arena stop.',
-      rejection_reason: null,
-    }],
-  };
-  const reviewRef = ref('artifact_ref', `review_${suffix}`, titleCardId);
-  const history: TopicSelectionResearchArenaAdvisoryReviewHistory = {
-    schema_version: 'TopicSelectionResearchArenaAdvisoryReviewHistory@v1',
-    research_checkpoint_id: checkpointId,
-    title_card_id: titleCardId,
-    gap_input_snapshot_id: `snapshot_${suffix}`,
-    checkpoint_currentness: 'current',
-    reviews: [{
-      review_ref: reviewRef,
-      review: {
-        schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1',
-        review_id: `review_${suffix}`,
-        title_card_id: titleCardId,
-        research_checkpoint_id: checkpointId,
-        gap_input_snapshot_id: `snapshot_${suffix}`,
-        confirmed_candidate_pool_hash: gapSelectionReview.confirmed_candidate_pool_hash,
-        advisory_snapshot_hash: sha256Text(`advisory:${suffix}`),
-        response: 'override',
-        rationale: 'Advance despite the evidence-expansion recommendation.',
-        reason_codes: ['ADVANCE_BEFORE_EVIDENCE_EXPANSION'],
-        actor: { actor_type: 'human', actor_id: 'researcher_1' },
-        human_gap_selection_review: gapSelectionReview,
-        human_gap_selection_review_hash: sha256Text(stableStringify(gapSelectionReview)),
-        selected_candidate_ref: candidateRef,
-        human_confirm_need_intent: null,
-        support_only: true,
-        created_at: NOW,
-      },
-      advancement_binding: { status: 'proposed', human_confirmed_decision_ref: null },
-    }],
-    projection_issues: [],
-    reopen_signals: [{
-      signal_type: 'advanced_against_stop',
-      status: 'proposed',
-      review_ref: reviewRef,
-      selected_candidate_ref: candidateRef,
-      reason_codes: ['ADVANCE_BEFORE_EVIDENCE_EXPANSION'],
-      human_confirmed_decision_ref: null,
-    }],
-    history_hash: sha256Text(`history:${suffix}`),
-  };
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
   const harness = createCalibrationHarness({
     advisoryReviewHistoryReader: {
-      getArenaAdvisoryReviewHistory: async () => history,
-      getArenaAdvisoryReviewHistoryForSession: async () => history,
-      getStageManifest: async (requestedTitleCardId) => ({
-        schema_version: 'TopicSelectionResearchStageManifest@v1',
-        title_card_id: requestedTitleCardId,
-        current_stage: null,
-        next_human_decision_stage: null,
-        stages: [],
-        manifest_hash: sha256Text(`manifest:${requestedTitleCardId}`),
-      }),
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels by Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
     },
   });
-  const sessionId = await seedArena({
+  const { slot, dataset } = await preRegisterPhase10bCase(
+    harness,
+    2,
+    'phase10b-override-label',
+  );
+  const recipe = slot.members[0]!;
+  const sessionId = await seedPhase10bArenaMember({
     arenaRepository: harness.arenaRepository,
     controlPlaneRepository: harness.controlPlaneRepository,
-    suffix,
+    recipe,
     outcome: 'evidence_expansion_required',
   });
-  const dataset = await harness.service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-override-label',
-    dataset_version: 'v1',
-    description: 'Non-advance label semantics fixture.',
-  });
-  await harness.service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'overridden-non-advance',
-    case_type: 'arena_successful_non_advance',
-    members: [{ member_role: 'subject', arena_session_id: sessionId, research_checkpoint_id: checkpointId }],
-    tags: ['phase10a'],
-  });
+  histories.set(sessionId, phase10bReviewHistory(recipe, 'override'));
   const run = await harness.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
     dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-override-label-v1',
+    run_key: 'phase10b-override-label',
   });
 
   const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
@@ -1613,31 +1617,21 @@ test('an override of a non-advance recommendation does not satisfy non-advance l
 
 test('report reads fail closed on malformed persisted Arena observations', async () => {
   const harness = createCalibrationHarness();
-  const sessionId = await seedArena({
+  const { slot, dataset } = await preRegisterPhase10bCase(
+    harness,
+    5,
+    'phase10b-persisted-observation-drift',
+  );
+  await seedPhase10bArenaMember({
     arenaRepository: harness.arenaRepository,
     controlPlaneRepository: harness.controlPlaneRepository,
-    suffix: 'persisted_observation_drift',
-    outcome: 'evidence_expansion_required',
-  });
-  const dataset = await harness.service.createDataset({
-    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
-    workspace_id: null,
-    dataset_key: 'phase10a-persisted-observation-drift',
-    dataset_version: 'v1',
-    description: 'Persisted result integrity fixture.',
-  });
-  await harness.service.addCase({
-    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1',
-    dataset_id: dataset.offline_evaluation_dataset_id,
-    case_key: 'persisted-observation-drift',
-    case_type: 'arena_successful_non_advance',
-    members: [{ member_role: 'subject', arena_session_id: sessionId, research_checkpoint_id: null }],
-    tags: ['phase10a'],
+    recipe: slot.members[0]!,
+    outcome: 'selected',
   });
   const run = await harness.service.startRun({
     schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
     dataset_id: dataset.offline_evaluation_dataset_id,
-    run_key: 'phase10a-persisted-observation-drift-v1',
+    run_key: 'phase10b-persisted-observation-drift',
   });
   await harness.service.evaluateRun(run.offline_evaluation_run_id);
 

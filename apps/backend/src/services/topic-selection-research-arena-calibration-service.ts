@@ -26,7 +26,6 @@ import {
   topicSelectionResearchArenaCalibrationProtocolSlotSchema,
   topicSelectionResearchArenaCalibrationCaseResultSchema,
   type TopicSelectionResearchArenaCalibrationCaseCreateRequest,
-  type TopicSelectionResearchArenaCalibrationCaseCreateRequestV1,
   type TopicSelectionResearchArenaCalibrationCaseMemberInput,
   type TopicSelectionResearchArenaCalibrationCaseResult,
   type TopicSelectionResearchArenaCalibrationCoverageGap,
@@ -267,6 +266,7 @@ const COVERAGE_GAP_LABELS = {
   MISSING_IRRELEVANT_PERTURBATION: '缺少不应改变结论的无关证据扰动',
   MISSING_SUCCESSFUL_NON_ADVANCE: '缺少经确认的成功停止或暂缓案例',
   MISSING_ADVANCING_CASE: '缺少经确认的继续推进案例',
+  MISSING_PRE_REGISTERED_PROTOCOL: '历史案例未经过 v2 预注册协议',
   MISSING_PRODUCT_V2_EXECUTION: '缺少可由产品审计验证的双角色执行',
   MISSING_EVIDENCE_GROUNDING: '部分判断尚不能回溯到可解析文献证据',
   MISSING_EXECUTION_INDEPENDENCE: '尚未证明两个角色在首轮彼此独立',
@@ -310,29 +310,23 @@ export class TopicSelectionResearchArenaCalibrationService {
   }
 
   async createDataset(input: TopicSelectionResearchArenaCalibrationDatasetCreateRequest) {
-    if (input.schema_version === 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2') {
-      this.assertProtocol(input.protocol_manifest);
-      await this.assertProtocolBeforeExecution(input.protocol_manifest);
-      const protocolManifest = this.cloneProtocol(input.protocol_manifest);
-      const payload: ProtocolDatasetPayload = {
-        schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v2',
-        evaluation_mode: 'canonical_owner_reload',
-        protocol_manifest: protocolManifest,
-        support_only: true,
-      };
-      return this.dependencies.offlineService.createDataset({
-        workspace_id: input.workspace_id,
-        dataset_key: input.dataset_key,
-        dataset_version: input.dataset_version,
-        stage: 'research_arena',
-        source: 'frozen_snapshot',
-        status: 'active',
-        description: input.description,
-        payload,
-        created_by: 'system',
-      });
+    if (input.schema_version !== 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena calibration v1 is historical read-only; create a v2 pre-registered dataset.',
+      );
     }
-    return this.dependencies.offlineService.createDataset({
+    this.assertProtocol(input.protocol_manifest);
+    await this.assertProtocolBeforeExecution(input.protocol_manifest);
+    const protocolManifest = this.cloneProtocol(input.protocol_manifest);
+    const payload: ProtocolDatasetPayload = {
+      schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v2',
+      evaluation_mode: 'canonical_owner_reload',
+      protocol_manifest: protocolManifest,
+      support_only: true,
+    };
+    return this.dependencies.offlineService.createDatasetForStage({
       workspace_id: input.workspace_id,
       dataset_key: input.dataset_key,
       dataset_version: input.dataset_version,
@@ -340,127 +334,74 @@ export class TopicSelectionResearchArenaCalibrationService {
       source: 'frozen_snapshot',
       status: 'active',
       description: input.description,
-      payload: {
-        schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v1',
-        evaluation_mode: 'canonical_owner_reload',
-        support_only: true,
-      },
+      payload,
       created_by: 'system',
-    });
+    }, 'research_arena');
   }
 
   async addCase(
     input: TopicSelectionResearchArenaCalibrationCaseCreateRequest,
   ): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
+    if (input.schema_version !== 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena calibration v1 is historical read-only; register a v2 protocol slot.',
+      );
+    }
     const dataset = await this.requireDataset(input.dataset_id);
     this.assertResearchArenaDataset(dataset.stage, input.dataset_id);
-    if (input.schema_version === 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2') {
-      const payload = this.readProtocolDatasetPayload(dataset.payload, input.dataset_id);
-      const slot = payload.protocol_manifest.slots.find((candidate) =>
-        candidate.slot_key === input.slot_key);
-      if (!slot) {
-        throw new AppError(400, 'INVALID_PAYLOAD', `Protocol slot ${input.slot_key} is not declared by the dataset.`);
-      }
-      if (input.case_key !== slot.slot_key) {
-        throw new AppError(400, 'INVALID_PAYLOAD', 'A Phase 10B case key must equal its frozen protocol slot key.');
-      }
-      const tags = [...input.tags].sort();
-      const existingCases = await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id);
-      const existingForSlot = existingCases.find((candidate) =>
-        this.readPreRegisteredSlotKey(candidate.frozen_input_bundle.payload) === input.slot_key);
-      if (existingForSlot) {
-        const existingPayload = this.readPreRegisteredPayload(existingForSlot);
-        if (existingForSlot.case_key === input.case_key
-          && existingPayload.protocol_hash === sha256Text(stableStringify(payload.protocol_manifest))
-          && stableStringify(existingPayload.protocol_slot) === stableStringify(slot)
-          && stableStringify(existingForSlot.tags) === stableStringify(tags)) {
-          return existingForSlot;
-        }
-        throw new AppError(409, 'VERSION_CONFLICT', `Protocol slot ${input.slot_key} is already registered.`);
-      }
-      await Promise.all(slot.members.map((member) => this.assertMemberPreRegistration(member)));
-      const protocolSlot = this.cloneProtocolSlot(slot);
-      const workAvoidedBaseline = await this.captureWorkAvoidedBaseline(slot);
-      const frozenPayload: PreRegisteredCasePayload = {
-        schema_version: 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2',
-        protocol_hash: sha256Text(stableStringify(payload.protocol_manifest)),
-        protocol_slot: protocolSlot,
-        work_avoided_baseline: workAvoidedBaseline,
-      };
-      const sourceRefs = this.uniqueRefs(slot.members.flatMap((member) => [
-        member.input_snapshot_ref,
-        ...member.candidate_refs,
-        ...member.evidence_refs,
-        ...(member.loop_delta ? [member.loop_delta.ref] : []),
-      ]));
-      const titleCardIds = new Set(slot.members.map((member) => member.title_card_id));
-      const addCaseInput: Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0] = {
-        workspace_id: dataset.workspace_id ?? null,
-        dataset_id: dataset.offline_evaluation_dataset_id,
-        title_card_id: titleCardIds.size === 1 ? [...titleCardIds][0] ?? null : null,
-        case_key: input.case_key,
-        case_type: slot.case_type,
-        frozen_input_bundle: createTopicSelectionOfflineFrozenInputBundle({
-          stage: 'research_arena',
-          frozen_at: dataset.created_at,
-          source_refs: sourceRefs,
-          artifact_refs: sourceRefs.filter((candidate) => candidate.ref_type === 'artifact_ref'),
-          payload: frozenPayload,
-        }),
-        gold_expectation: {
-          expected_unmet_need: false,
-          expected_key_evidence_refs: [],
-          expected_counter_evidence_refs: [],
-          expected_blocker_codes: [],
-          required_trace_refs: sourceRefs,
-          expected_recheck_action_refs: [],
-          expected_negative_memory_refs: [],
-          expected_downstream_rework_causes: [],
-          notes: [`Expected relation ${slot.expected_relation.relation_kind} was frozen before execution.`],
-        },
-        tags,
-      };
-      try {
-        return await this.dependencies.offlineService.addCase(addCaseInput);
-      } catch (error) {
-        const replay = (await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id))
-          .find((candidate) => candidate.case_key === input.case_key);
-        if (replay
-          && replay.case_type === addCaseInput.case_type
-          && replay.title_card_id === addCaseInput.title_card_id
-          && stableStringify(replay.frozen_input_bundle)
-            === stableStringify(addCaseInput.frozen_input_bundle)
-          && stableStringify(replay.gold_expectation)
-            === stableStringify(addCaseInput.gold_expectation)
-          && stableStringify(replay.tags) === stableStringify(tags)) {
-          return replay;
-        }
-        throw error;
-      }
+    const payload = this.readProtocolDatasetPayload(dataset.payload, input.dataset_id);
+    const slot = payload.protocol_manifest.slots.find((candidate) =>
+      candidate.slot_key === input.slot_key);
+    if (!slot) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `Protocol slot ${input.slot_key} is not declared by the dataset.`);
     }
-    if (dataset.payload.schema_version === 'TopicSelectionResearchArenaCalibrationDataset@v2') {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'A Phase 10B dataset requires a v2 pre-registered case request.');
+    if (input.case_key !== slot.slot_key) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'A Phase 10B case key must equal its frozen protocol slot key.');
     }
-    this.assertMemberShape(input);
-    const loadedMembers = await Promise.all(input.members.map((member) => this.loadMember(member)));
-    const sourceRefs = this.uniqueRefs(loadedMembers.flatMap((member) => member.sourceRefs));
-    const titleCardIds = new Set(loadedMembers.map((member) => member.observation.arena_session_ref.title_card_id));
-    const frozenPayload: FrozenCasePayload = {
-      schema_version: 'TopicSelectionResearchArenaCalibrationFrozenCase@v1',
-      members: loadedMembers.map((member) => member.frozen),
+    const tags = [...input.tags].sort();
+    const existingCases = await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id);
+    const existingForSlot = existingCases.find((candidate) =>
+      this.readPreRegisteredSlotKey(candidate.frozen_input_bundle.payload) === input.slot_key);
+    if (existingForSlot) {
+      const existingPayload = this.readPreRegisteredPayload(existingForSlot);
+      if (existingForSlot.case_key === input.case_key
+        && existingPayload.protocol_hash === sha256Text(stableStringify(payload.protocol_manifest))
+        && stableStringify(existingPayload.protocol_slot) === stableStringify(slot)
+        && stableStringify(existingForSlot.tags) === stableStringify(tags)) {
+        return existingForSlot;
+      }
+      throw new AppError(409, 'VERSION_CONFLICT', `Protocol slot ${input.slot_key} is already registered.`);
+    }
+    await Promise.all(slot.members.map((member) => this.assertMemberPreRegistration(member)));
+    const protocolSlot = this.cloneProtocolSlot(slot);
+    const workAvoidedBaseline = await this.captureWorkAvoidedBaseline(slot);
+    const frozenPayload: PreRegisteredCasePayload = {
+      schema_version: 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2',
+      protocol_hash: sha256Text(stableStringify(payload.protocol_manifest)),
+      protocol_slot: protocolSlot,
+      work_avoided_baseline: workAvoidedBaseline,
     };
-    return this.dependencies.offlineService.addCase({
+    const sourceRefs = this.uniqueRefs(slot.members.flatMap((member) => [
+      member.input_snapshot_ref,
+      ...member.candidate_refs,
+      ...member.evidence_refs,
+      ...(member.loop_delta ? [member.loop_delta.ref] : []),
+    ]));
+    const titleCardIds = new Set(slot.members.map((member) => member.title_card_id));
+    const addCaseInput: Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0] = {
       workspace_id: dataset.workspace_id ?? null,
       dataset_id: dataset.offline_evaluation_dataset_id,
       title_card_id: titleCardIds.size === 1 ? [...titleCardIds][0] ?? null : null,
       case_key: input.case_key,
-      case_type: input.case_type,
+      case_type: slot.case_type,
       frozen_input_bundle: createTopicSelectionOfflineFrozenInputBundle({
         stage: 'research_arena',
-        frozen_at: this.now(),
+        frozen_at: dataset.created_at,
         source_refs: sourceRefs,
         artifact_refs: sourceRefs.filter((candidate) => candidate.ref_type === 'artifact_ref'),
-        payload: { ...frozenPayload },
+        payload: frozenPayload,
       }),
       gold_expectation: {
         expected_unmet_need: false,
@@ -471,10 +412,27 @@ export class TopicSelectionResearchArenaCalibrationService {
         expected_recheck_action_refs: [],
         expected_negative_memory_refs: [],
         expected_downstream_rework_causes: [],
-        notes: [`Relation is derived from ${input.case_type}; no absolute worthwhile label is stored.`],
+        notes: [`Expected relation ${slot.expected_relation.relation_kind} was frozen before execution.`],
       },
-      tags: input.tags,
-    });
+      tags,
+    };
+    try {
+      return await this.dependencies.offlineService.addCaseForStage(addCaseInput, 'research_arena');
+    } catch (error) {
+      const replay = (await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id))
+        .find((candidate) => candidate.case_key === input.case_key);
+      if (replay
+        && replay.case_type === addCaseInput.case_type
+        && replay.title_card_id === addCaseInput.title_card_id
+        && stableStringify(replay.frozen_input_bundle)
+          === stableStringify(addCaseInput.frozen_input_bundle)
+        && stableStringify(replay.gold_expectation)
+          === stableStringify(addCaseInput.gold_expectation)
+        && stableStringify(replay.tags) === stableStringify(tags)) {
+        return replay;
+      }
+      throw error;
+    }
   }
 
   async startRun(
@@ -482,58 +440,52 @@ export class TopicSelectionResearchArenaCalibrationService {
   ): Promise<TopicSelectionOfflineEvaluationRunRecord> {
     const dataset = await this.requireDataset(input.dataset_id);
     this.assertResearchArenaDataset(dataset.stage, input.dataset_id);
-    const protocol = dataset.payload.schema_version === 'TopicSelectionResearchArenaCalibrationDataset@v2'
-      ? this.readProtocolDatasetPayload(dataset.payload, input.dataset_id)
-      : null;
+    if (dataset.payload.schema_version !== 'TopicSelectionResearchArenaCalibrationDataset@v2') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena calibration v1 is historical read-only; a new run requires a v2 dataset.',
+      );
+    }
+    const protocol = this.readProtocolDatasetPayload(dataset.payload, input.dataset_id);
     let activeCases = (await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id))
       .filter((candidate) => candidate.status === 'active');
-    let runPayload: ProtocolRunPayload | Record<string, unknown>;
-    if (protocol) {
-      if (activeCases.length === 0) {
-        throw new AppError(409, 'VERSION_CONFLICT', 'Phase 10B calibration cannot start without a pre-registered case.');
-      }
-      const protocolHash = sha256Text(stableStringify(protocol.protocol_manifest));
-      const slotIndex = new Map(protocol.protocol_manifest.slots.map((slot, index) => [slot.slot_key, index]));
-      for (const evaluationCase of activeCases) {
-        const frozen = this.readPreRegisteredPayload(evaluationCase);
-        const protocolSlot = protocol.protocol_manifest.slots.find((slot) =>
-          slot.slot_key === evaluationCase.case_key);
-        if (frozen.protocol_hash !== protocolHash
-          || !protocolSlot
-          || stableStringify(frozen.protocol_slot) !== stableStringify(protocolSlot)) {
-          throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} belongs to another protocol revision.`);
-        }
-      }
-      activeCases = [...activeCases].sort((left, right) =>
-        slotIndex.get(left.case_key)! - slotIndex.get(right.case_key)!);
-      runPayload = {
-        schema_version: 'TopicSelectionResearchArenaCalibrationRun@v2',
-        evaluation_mode: 'canonical_owner_reload',
-        protocol_hash: protocolHash,
-        cases: activeCases.map((evaluationCase) => ({
-          case_id: evaluationCase.offline_evaluation_case_id,
-          case_key: evaluationCase.case_key,
-          case_hash: sha256Text(stableStringify(evaluationCase)),
-        })),
-        provider_execution_allowed: false,
-        authority_writes_allowed: false,
-        support_only: true,
-      };
-    } else {
-      runPayload = {
-        schema_version: 'TopicSelectionResearchArenaCalibrationRun@v1',
-        evaluation_mode: 'canonical_owner_reload',
-        provider_execution_allowed: false,
-        authority_writes_allowed: false,
-        support_only: true,
-      };
+    if (activeCases.length === 0) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Phase 10B calibration cannot start without a pre-registered case.');
     }
+    const protocolHash = sha256Text(stableStringify(protocol.protocol_manifest));
+    const slotIndex = new Map(protocol.protocol_manifest.slots.map((slot, index) => [slot.slot_key, index]));
+    for (const evaluationCase of activeCases) {
+      const frozen = this.readPreRegisteredPayload(evaluationCase);
+      const protocolSlot = protocol.protocol_manifest.slots.find((slot) =>
+        slot.slot_key === evaluationCase.case_key);
+      if (frozen.protocol_hash !== protocolHash
+        || !protocolSlot
+        || stableStringify(frozen.protocol_slot) !== stableStringify(protocolSlot)) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} belongs to another protocol revision.`);
+      }
+    }
+    activeCases = [...activeCases].sort((left, right) =>
+      slotIndex.get(left.case_key)! - slotIndex.get(right.case_key)!);
+    const runPayload: ProtocolRunPayload = {
+      schema_version: 'TopicSelectionResearchArenaCalibrationRun@v2',
+      evaluation_mode: 'canonical_owner_reload',
+      protocol_hash: protocolHash,
+      cases: activeCases.map((evaluationCase) => ({
+        case_id: evaluationCase.offline_evaluation_case_id,
+        case_key: evaluationCase.case_key,
+        case_hash: sha256Text(stableStringify(evaluationCase)),
+      })),
+      provider_execution_allowed: false,
+      authority_writes_allowed: false,
+      support_only: true,
+    };
     return this.dependencies.offlineService.startRunForStage({
       workspace_id: dataset.workspace_id ?? null,
       dataset_id: dataset.offline_evaluation_dataset_id,
       run_key: input.run_key,
       workflow_profile_key: 'topic-selection-research-arena-calibration',
-      workflow_profile_version: protocol ? 'v2' : 'v1',
+      workflow_profile_version: 'v2',
       model_profile_key: null,
       search_profile_key: null,
       policy_version_id: null,
@@ -548,6 +500,13 @@ export class TopicSelectionResearchArenaCalibrationService {
     const dataset = await this.requireDataset(run.dataset_id);
     this.assertResearchArenaDataset(dataset.stage, dataset.offline_evaluation_dataset_id);
     if (run.status === 'completed') return this.getReport(runId);
+    if (dataset.payload.schema_version !== 'TopicSelectionResearchArenaCalibrationDataset@v2') {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena calibration v1 is historical read-only; running legacy evaluations cannot create results.',
+      );
+    }
     if (run.status !== 'running') {
       throw new AppError(409, 'VERSION_CONFLICT', 'Only running or completed Arena calibration runs can be evaluated.');
     }
@@ -1180,6 +1139,7 @@ export class TopicSelectionResearchArenaCalibrationService {
     requiresExactMemberLabels: boolean,
   ): TopicSelectionResearchArenaCalibrationCoverageGap[] {
     const gaps: TopicSelectionResearchArenaCalibrationCoverageGap[] = [];
+    if (!requiresExactMemberLabels) gaps.push('MISSING_PRE_REGISTERED_PROTOCOL');
     const dominanceCount = caseTypeCounts.arena_dominance_pair ?? 0;
     if (dominanceCount < 1) gaps.push('MISSING_FIRST_DOMINANCE_PAIR');
     if (dominanceCount < 2) gaps.push('MISSING_SECOND_DOMINANCE_PAIR');
@@ -1516,23 +1476,6 @@ export class TopicSelectionResearchArenaCalibrationService {
     slot: TopicSelectionResearchArenaCalibrationProtocolSlot,
   ): TopicSelectionResearchArenaCalibrationProtocolSlot {
     return JSON.parse(stableStringify(slot)) as TopicSelectionResearchArenaCalibrationProtocolSlot;
-  }
-
-  private assertMemberShape(input: TopicSelectionResearchArenaCalibrationCaseCreateRequestV1): void {
-    const roles = input.members.map((member) => member.member_role);
-    if (new Set(roles).size !== roles.length || new Set(input.members.map((member) => member.arena_session_id)).size !== input.members.length) {
-      throw new AppError(400, 'INVALID_PAYLOAD', 'Arena calibration case members must have unique roles and sessions.');
-    }
-    const exact = (expected: TopicSelectionResearchArenaCalibrationMemberRole[]) =>
-      roles.length === expected.length && expected.every((role) => roles.includes(role));
-    const valid = input.case_type === 'arena_dominance_pair'
-      ? exact(['baseline', 'preferred'])
-      : input.case_type === 'arena_causal_perturbation' || input.case_type === 'arena_irrelevant_perturbation'
-        ? exact(['control', 'variant'])
-        : exact(['subject']);
-    if (!valid) {
-      throw new AppError(400, 'INVALID_PAYLOAD', `${input.case_type} has an invalid calibration member shape.`);
-    }
   }
 
   private assertExecutionIdentity(

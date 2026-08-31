@@ -104,17 +104,7 @@ export class TopicSelectionResearchArenaService {
     }));
     const loopDeltaRefs = input.loop_delta_refs ?? [];
     if (replay) {
-      if (replay.title_card_id !== input.title_card_id
-        || replay.arena_kind !== input.arena_kind
-        || replay.input_snapshot_id !== snapshot.input_snapshot_id
-        || replay.input_snapshot_hash !== snapshot.snapshot_hash
-        || replay.participant_plan_hash !== participantPlanHash
-        || !this.sameRef(replay.target_ref, input.target_ref)
-        || !this.sameRef(replay.execution_plan_ref, input.execution_plan_ref)
-        || stableStringify(replay.loop_delta_refs) !== stableStringify(loopDeltaRefs)) {
-        throw new AppError(409, 'VERSION_CONFLICT', `Arena session key ${input.session_key} identifies different content.`);
-      }
-      return replay;
+      return this.assertExactSessionReplay(replay, input, snapshot, participantPlanHash, loopDeltaRefs);
     }
     const current = await this.dependencies.arenaRepository.findCurrentSession(
       input.title_card_id,
@@ -122,7 +112,7 @@ export class TopicSelectionResearchArenaService {
     );
     this.assertRetryBoundary(current, snapshot, loopDeltaRefs);
     const now = this.now();
-    return this.dependencies.arenaRepository.replaceCurrentSession({
+    const record: TopicSelectionResearchArenaSessionRecord = {
       schema_version: 'TopicSelectionResearchArenaSession@v1',
       arena_session_id: this.idFactory('research_arena'),
       session_key: input.session_key,
@@ -149,7 +139,50 @@ export class TopicSelectionResearchArenaService {
       updated_at: now,
       synthesized_at: null,
       superseded_at: null,
-    });
+    };
+    try {
+      const persisted = await this.dependencies.arenaRepository.replaceCurrentSession(record);
+      return this.assertExactSessionReplay(
+        persisted,
+        input,
+        snapshot,
+        participantPlanHash,
+        loopDeltaRefs,
+      );
+    } catch (error) {
+      if (!(error instanceof TopicSelectionResearchArenaConflictError)) throw error;
+      const concurrent = await this.dependencies.arenaRepository.findSessionByKey(input.session_key);
+      if (concurrent) {
+        return this.assertExactSessionReplay(
+          concurrent,
+          input,
+          snapshot,
+          participantPlanHash,
+          loopDeltaRefs,
+        );
+      }
+      throw new AppError(409, 'VERSION_CONFLICT', error.message);
+    }
+  }
+
+  private assertExactSessionReplay(
+    replay: TopicSelectionResearchArenaSessionRecord,
+    input: OpenSessionInput,
+    snapshot: TopicSelectionInputSnapshotRecord,
+    participantPlanHash: string,
+    loopDeltaRefs: TopicSelectionResearchArenaLoopDeltaRef[],
+  ): TopicSelectionResearchArenaSessionRecord {
+    if (replay.title_card_id !== input.title_card_id
+      || replay.arena_kind !== input.arena_kind
+      || replay.input_snapshot_id !== snapshot.input_snapshot_id
+      || replay.input_snapshot_hash !== snapshot.snapshot_hash
+      || replay.participant_plan_hash !== participantPlanHash
+      || !this.sameRef(replay.target_ref, input.target_ref)
+      || !this.sameRef(replay.execution_plan_ref, input.execution_plan_ref)
+      || stableStringify(replay.loop_delta_refs) !== stableStringify(loopDeltaRefs)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Arena session key ${input.session_key} identifies different content.`);
+    }
+    return replay;
   }
 
   async getSession(arenaSessionId: string): Promise<TopicSelectionResearchArenaSessionRecord> {

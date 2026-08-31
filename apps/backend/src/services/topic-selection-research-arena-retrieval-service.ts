@@ -120,8 +120,9 @@ export class TopicSelectionResearchArenaRetrievalService {
     input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
   ): Promise<TopicSelectionResearchArenaRoleEvidencePreparation> {
     this.assertInput(input);
-    await this.assertSnapshotBinding(input);
+    const arenaSnapshot = await this.assertSnapshotBinding(input);
     const evidenceMap = await this.requireCurrentEvidenceMap(input);
+    this.assertFrozenEvidenceLineage(input, arenaSnapshot, evidenceMap);
     const literatureSnapshot = await this.requireLiteratureSnapshot(input);
     const retrievalRequest = {
       query: input.query_intent.query,
@@ -273,7 +274,7 @@ export class TopicSelectionResearchArenaRetrievalService {
 
   private async assertSnapshotBinding(
     input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
-  ): Promise<void> {
+  ): Promise<TopicSelectionInputSnapshotRecord> {
     const snapshot = await this.dependencies.snapshotReader.getInputSnapshot(input.arena_input_snapshot_id);
     if (!snapshot) {
       throw new AppError(404, 'NOT_FOUND', `Arena input snapshot ${input.arena_input_snapshot_id} not found.`);
@@ -281,6 +282,35 @@ export class TopicSelectionResearchArenaRetrievalService {
     if (snapshot.title_card_id !== input.title_card_id
       || (input.workspace_id !== undefined && snapshot.workspace_id !== input.workspace_id)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena input snapshot belongs to a different scope.');
+    }
+    return snapshot;
+  }
+
+  private assertFrozenEvidenceLineage(
+    input: TopicSelectionResearchArenaRoleEvidencePreparationRequest,
+    snapshot: TopicSelectionInputSnapshotRecord,
+    evidenceMap: TopicSelectionEvidenceMapRecord,
+  ): void {
+    const evidenceMapRef = this.ref(
+      'evidence_map',
+      evidenceMap.evidence_map_id,
+      input.title_card_id,
+      evidenceMap.evidence_map_version,
+    );
+    const exactEvidenceMapBound = snapshot.source_refs.some((ref) =>
+      ref.ref_type === evidenceMapRef.ref_type
+      && ref.ref_id === evidenceMapRef.ref_id
+      && (ref.version_id ?? null) === (evidenceMapRef.version_id ?? null)
+      && (ref.title_card_id ?? null) === (evidenceMapRef.title_card_id ?? null)
+    );
+    if (!exactEvidenceMapBound
+      || evidenceMap.search_plan_ref.ref_id !== input.search_plan_id
+      || evidenceMap.literature_snapshot_ref.ref_id !== input.literature_snapshot_id) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena retrieval evidence is outside the frozen Arena snapshot lineage.',
+      );
     }
   }
 

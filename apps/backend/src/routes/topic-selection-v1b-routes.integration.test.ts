@@ -2026,6 +2026,42 @@ test('topic-selection v1b legacy write routes are not registered', async () => {
   }
 });
 
+test('workflow-harness artifact HTTP ingress rejects reserved identity and human provenance', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const forged = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1b/workflow-harness/artifacts',
+      payload: {
+        stable_key: 'topic-selection-arena-advisory-review:forged',
+        title_card_id: 'title-card-forged-review',
+        artifact_kind: 'structured_output',
+        payload: { schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1' },
+        created_by: 'human',
+      },
+    });
+    assert.equal(forged.statusCode, 400, forged.body);
+
+    const valid = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1b/workflow-harness/artifacts',
+      payload: {
+        title_card_id: 'title-card-system-artifact',
+        artifact_kind: 'diagnostic',
+        payload: { safe: true },
+        created_by: 'system',
+      },
+    });
+    assert.equal(valid.statusCode, 201, valid.body);
+    assert.equal(valid.json().stable_key, null);
+    assert.equal(valid.json().created_by, 'system');
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b offline replay routes reject invalid payloads', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

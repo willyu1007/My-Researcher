@@ -44,10 +44,10 @@ import {
   TOPIC_SELECTION_ACCEPTED_RISK_SOURCE_TYPES,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 import {
-  TOPIC_SELECTION_OFFLINE_EVALUATION_CASE_TYPES,
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_SOURCES,
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_STATUSES,
-  TOPIC_SELECTION_OFFLINE_EVALUATION_METRIC_KEYS,
+  TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_CASE_TYPES,
+  TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_METRIC_KEYS,
   topicSelectionOfflineEvaluationGoldExpectationSchema,
   topicSelectionOfflineEvaluationObservedOutputSchema,
   topicSelectionOfflineFrozenInputBundleSchema,
@@ -707,12 +707,21 @@ const offlineDatasetBody = bodySchema([], {
   workspace_id: nullableStringId,
   dataset_key: stringId,
   dataset_version: stringId,
+  stage: { const: 'v1a' },
   source: { enum: [...TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_SOURCES] },
   status: { enum: [...TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_STATUSES] },
   description: nullableStringId,
   payload: recordPayload,
   created_by: actorType,
 });
+
+const v1aFrozenInputBundleSchema = {
+  ...topicSelectionOfflineFrozenInputBundleSchema,
+  properties: {
+    ...(topicSelectionOfflineFrozenInputBundleSchema.properties as Record<string, unknown>),
+    stage: { const: 'v1a' },
+  },
+} as const;
 
 const offlineCaseBody = bodySchema([
   'dataset_id',
@@ -725,8 +734,8 @@ const offlineCaseBody = bodySchema([
   dataset_id: stringId,
   title_card_id: nullableStringId,
   case_key: stringId,
-  case_type: { enum: [...TOPIC_SELECTION_OFFLINE_EVALUATION_CASE_TYPES] },
-  frozen_input_bundle: topicSelectionOfflineFrozenInputBundleSchema,
+  case_type: { enum: [...TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_CASE_TYPES] },
+  frozen_input_bundle: v1aFrozenInputBundleSchema,
   gold_expectation: topicSelectionOfflineEvaluationGoldExpectationSchema,
   tags: stringArray,
 });
@@ -742,7 +751,7 @@ const offlineRunBody = bodySchema(['dataset_id', 'workflow_profile_key'], {
   policy_version_id: nullableStringId,
   metric_keys: {
     type: 'array',
-    items: { enum: [...TOPIC_SELECTION_OFFLINE_EVALUATION_METRIC_KEYS] },
+    items: { enum: [...TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_METRIC_KEYS] },
   },
   run_payload: recordPayload,
   created_by: actorType,
@@ -764,20 +773,28 @@ const workflowHarnessRunBody = {
   body: topicSelectionV1aWorkflowHarnessRunRequestSchema,
 };
 const workflowHarnessArtifactParams = paramsSchema({ artifactRefId: stringId });
-const workflowHarnessArtifactBody = bodySchema(['artifact_kind'], {
-  workspace_id: nullableStringId,
-  title_card_id: nullableStringId,
-  artifact_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_KINDS] },
-  storage_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS] },
-  uri: nullableStringId,
-  payload: { anyOf: [recordPayload, { type: 'null' }] },
-  checksum: nullableStringId,
-  byte_size: nullableNumber,
-  mime_type: nullableStringId,
-  workflow_run_id: nullableStringId,
-  input_snapshot_id: nullableStringId,
-  created_by: actorType,
-});
+const workflowHarnessArtifactBody = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['artifact_kind'],
+    properties: {
+      stable_key: false,
+      workspace_id: nullableStringId,
+      title_card_id: nullableStringId,
+      artifact_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_KINDS] },
+      storage_kind: { enum: [...TOPIC_SELECTION_ARTIFACT_STORAGE_KINDS] },
+      uri: nullableStringId,
+      payload: { anyOf: [recordPayload, { type: 'null' }] },
+      checksum: nullableStringId,
+      byte_size: nullableNumber,
+      mime_type: nullableStringId,
+      workflow_run_id: nullableStringId,
+      input_snapshot_id: nullableStringId,
+      created_by: { enum: ['system'] },
+    },
+  },
+};
 
 export async function registerTopicSelectionV1aRoutes(
   fastify: FastifyInstance,

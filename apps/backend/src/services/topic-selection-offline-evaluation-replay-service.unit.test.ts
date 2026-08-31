@@ -141,6 +141,67 @@ function minimalFrozenBundle(stage: 'v1a' | 'v1b' | 'v1c'): TopicSelectionOfflin
   };
 }
 
+test('generic offline-evaluation owner refuses research-arena dataset creation', async () => {
+  const { service } = makeContext();
+  await assert.rejects(
+    () => service.createDataset({
+      dataset_key: 'forged-arena-dataset',
+      stage: 'research_arena',
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && /dedicated Arena calibration owner/u.test(error.message),
+  );
+
+  const arenaDataset = await service.createDatasetForStage({
+    dataset_key: 'owner-bound-arena-dataset',
+    stage: 'research_arena',
+  }, 'research_arena');
+  const ownerError = (error: unknown) => error instanceof AppError
+    && error.statusCode === 400
+    && /dedicated Arena calibration owner/u.test(error.message);
+  await assert.rejects(
+    () => service.addCase({
+      dataset_id: arenaDataset.offline_evaluation_dataset_id,
+      case_key: 'forged-generic-case',
+      case_type: 'arena_advancing_case',
+      frozen_input_bundle: {
+        stage: 'research_arena',
+        frozen_at: '2026-05-13T00:00:00.000Z',
+        source_refs: [],
+        artifact_refs: [],
+        stage_snapshots: {},
+        payload: {},
+      },
+      gold_expectation: minimalGoldExpectation(),
+    }),
+    ownerError,
+  );
+  await assert.rejects(
+    () => service.startRun({
+      dataset_id: arenaDataset.offline_evaluation_dataset_id,
+      workflow_profile_key: 'forged-generic-arena-run',
+    }),
+    ownerError,
+  );
+  const arenaRun = await service.startRunForStage({
+    dataset_id: arenaDataset.offline_evaluation_dataset_id,
+    workflow_profile_key: 'owner-bound-arena-run',
+  }, 'research_arena');
+  await assert.rejects(
+    () => service.recordFrozenCaseResult({
+      run_id: arenaRun.offline_evaluation_run_id,
+      case_id: 'forged-case',
+      observed_output: {} as TopicSelectionOfflineEvaluationObservedOutput,
+    }),
+    ownerError,
+  );
+  await assert.rejects(
+    () => service.completeRunAndCalculateMetrics({ run_id: arenaRun.offline_evaluation_run_id }),
+    ownerError,
+  );
+});
+
 test('synthetic baseline covers every required v1a offline evaluation case type', async () => {
   const ctx = makeContext();
   const { dataset, cases } = await ctx.service.createSyntheticV1aBaselineDataset({ stage: 'v1b' });

@@ -52,6 +52,7 @@ import type {
   MaterializePromotionCheckpointInput,
   TopicSelectionResearchCheckpointService,
 } from './topic-selection-research-checkpoint-service.js';
+import { assertTopicSelectionAcceptedRiskUsableForTarget } from './topic-selection-recheck-risk-memory-service.js';
 
 const WORKFLOW_KEY = 'topic-selection.v1c-human-promotion-decision-profile';
 const GATE_KEY = 'topic-selection.v1c-human-promotion-authorization-check';
@@ -449,14 +450,18 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
         'Promotion checkpoint requires the frozen TopicQuestionContract ref.',
       );
     }
-    const acceptedRiskKeys = new Set(gateHandoff.accepted_risk_refs.map((ref) => this.refKey(ref)));
     const riskFindingRefs = topicSelectionRiskFindingRefs([
       ...(gateHandoff.risk_finding_refs ?? []),
       ...sourceRefs,
     ]);
-    const acceptedRiskRefsByFinding = await this.acceptedRiskRefsByFinding(
+    const acceptedRiskMappings = await this.acceptedRiskMappings(
       gateHandoff.accepted_risk_refs,
       riskFindingRefs,
+      topicQuestionContractRef,
+      {
+        workspace_id: gateHandoff.gate_check.workspace_id ?? null,
+        title_card_id: gateHandoff.gate_check.title_card_id,
+      },
     );
     const warnings = this.uniqueGateIssues([
       ...gateHandoff.support.warnings,
@@ -468,7 +473,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
         finding_id: findingRef.ref_id,
         summary: `Material risk finding ${findingRef.ref_id} requires explicit disposition.`,
         refs: [findingRef],
-        mapped_accepted_risk_refs: acceptedRiskRefsByFinding.get(this.refKey(findingRef)) ?? [],
+        mapped_accepted_risk_refs: acceptedRiskMappings.byFinding.get(this.refKey(findingRef)) ?? [],
       })),
       ...warnings
         .filter((warning) => warning.code !== 'material_risk_findings_carried_forward')
@@ -477,7 +482,7 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
           summary: warning.message,
           refs: this.uniqueRefs(warning.refs ?? []),
           mapped_accepted_risk_refs: this.uniqueRefs(
-            (warning.refs ?? []).filter((ref) => acceptedRiskKeys.has(this.refKey(ref))),
+            (warning.refs ?? []).filter((ref) => acceptedRiskMappings.usableRefKeys.has(this.refKey(ref))),
           ),
         })),
     ];
@@ -527,14 +532,20 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
     };
   }
 
-  private async acceptedRiskRefsByFinding(
+  private async acceptedRiskMappings(
     acceptedRiskRefs: TopicSelectionFunctionalRef[],
     findingRefs: TopicSelectionFunctionalRef[],
-  ): Promise<Map<string, TopicSelectionFunctionalRef[]>> {
-    const result = new Map<string, TopicSelectionFunctionalRef[]>();
+    protectedTargetRef: TopicSelectionFunctionalRef,
+    context: { workspace_id: string | null; title_card_id: string },
+  ): Promise<{
+    byFinding: Map<string, TopicSelectionFunctionalRef[]>;
+    usableRefKeys: Set<string>;
+  }> {
+    const byFinding = new Map<string, TopicSelectionFunctionalRef[]>();
+    const usableRefKeys = new Set<string>();
     const provider = this.acceptedRiskProvider;
-    if (!provider || acceptedRiskRefs.length === 0 || findingRefs.length === 0) {
-      return result;
+    if (!provider || acceptedRiskRefs.length === 0) {
+      return { byFinding, usableRefKeys };
     }
     const findingKeys = new Set(findingRefs.map((ref) => this.refKey(ref)));
     const records = await Promise.all(acceptedRiskRefs.map(async (ref) => ({
@@ -544,14 +555,24 @@ export class TopicSelectionV1cHumanPromotionDecisionService {
         : null,
     })));
     for (const { ref, record } of records) {
-      if (!record || record.status !== 'active' || record.accepted_risk_id !== ref.ref_id || !record.source_ref) {
+      if (!record || record.accepted_risk_id !== ref.ref_id || !record.source_ref) {
         continue;
       }
+      try {
+        assertTopicSelectionAcceptedRiskUsableForTarget(record, protectedTargetRef, {
+          now: this.now(),
+          ...context,
+        });
+      } catch (error) {
+        if (error instanceof AppError) continue;
+        throw error;
+      }
+      usableRefKeys.add(this.refKey(ref));
       const findingKey = this.refKey(record.source_ref);
       if (!findingKeys.has(findingKey)) continue;
-      result.set(findingKey, this.uniqueRefs([...(result.get(findingKey) ?? []), ref]));
+      byFinding.set(findingKey, this.uniqueRefs([...(byFinding.get(findingKey) ?? []), ref]));
     }
-    return result;
+    return { byFinding, usableRefKeys };
   }
 
   async getHumanPromotionDecision(

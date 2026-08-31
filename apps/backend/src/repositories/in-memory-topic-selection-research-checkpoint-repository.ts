@@ -26,16 +26,21 @@ implements TopicSelectionResearchCheckpointRepository {
 
   async replaceCurrentCheckpoint(
     record: TopicSelectionResearchCheckpointRecord,
+    options: { preserve_decided_current?: boolean } = {},
   ): Promise<TopicSelectionResearchCheckpointRecord> {
-    const existingId = this.checkpointIdsByKey.get(record.checkpoint_key);
-    if (existingId) {
-      return this.requireCheckpoint(existingId);
-    }
     const currentKey = record.current_checkpoint_key;
     if (!currentKey) {
       throw new Error('A new ResearchCheckpoint requires current_checkpoint_key.');
     }
     const previousId = this.currentCheckpointIds.get(currentKey);
+    if (previousId && options.preserve_decided_current) {
+      const current = this.requireCheckpoint(previousId);
+      if (current.status === 'decided') return current;
+    }
+    const existingId = this.checkpointIdsByKey.get(record.checkpoint_key);
+    if (existingId) {
+      return this.requireCheckpoint(existingId);
+    }
     const now = record.created_at;
     if (previousId) {
       const previous = this.requireCheckpoint(previousId);

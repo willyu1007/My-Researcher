@@ -1433,7 +1433,7 @@ export class TopicSelectionNeedValidationService {
     inputSnapshotId: string | null,
     intent: TopicSelectionHumanConfirmNeedIntentRecord,
   ) {
-    const stableKey = topicSelectionHumanConfirmNeedIntentStableKey(intent);
+    const stableKey = topicSelectionHumanConfirmNeedIntentStableKey(intent, inputSnapshotId);
     try {
       return await this.controlPlane.recordArtifactRef({
         stable_key: stableKey,

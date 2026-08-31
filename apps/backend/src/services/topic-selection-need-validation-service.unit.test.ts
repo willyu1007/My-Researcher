@@ -17,6 +17,7 @@ import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map
 import {
   buildTopicSelectionHumanConfirmNeedIntent,
   topicSelectionHumanConfirmedDecisionId,
+  topicSelectionHumanConfirmNeedIntentStableKey,
 } from './topic-selection-human-confirm-need-intent.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionNeedValidationService } from './topic-selection-need-validation-service.js';
@@ -168,6 +169,35 @@ function makeContext() {
     titleCards,
   };
 }
+
+test('HumanConfirmNeed intent identity binds both semantic submission and live checkpoint snapshot', () => {
+  const confirmationInput: HumanConfirmationInput = {
+    schema_version: 'HumanConfirmationInput@v1',
+    actor_mode: 'human',
+    accountable_human_ref: { actor_type: 'human', actor_id: 'reviewer_1' },
+    rationale: 'Confirm the current evidence-bound submission.',
+    accepted_risk_refs: [],
+    required_check_results: [],
+    delegated_executor: null,
+    gap_selection_review: null,
+    arena_advisory_review_ref: null,
+  };
+  const build = (rationale: string) => buildTopicSelectionHumanConfirmNeedIntent({
+    schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+    adjudication_result_ref: ref('validate_need_adjudication_result', 'adjudication_1'),
+    output_validated_need_ref: ref('validated_need', 'validated_need_1'),
+    confirmation_input: { ...confirmationInput, rationale },
+  });
+
+  assert.notEqual(
+    topicSelectionHumanConfirmNeedIntentStableKey(build('First current submission.'), 'gap_snapshot_1'),
+    topicSelectionHumanConfirmNeedIntentStableKey(build('Refreshed current submission.'), 'gap_snapshot_1'),
+  );
+  assert.notEqual(
+    topicSelectionHumanConfirmNeedIntentStableKey(build('First current submission.'), 'gap_snapshot_1'),
+    topicSelectionHumanConfirmNeedIntentStableKey(build('First current submission.'), 'gap_snapshot_2'),
+  );
+});
 
 async function createSearchRunFixture() {
   const ctx = makeContext();

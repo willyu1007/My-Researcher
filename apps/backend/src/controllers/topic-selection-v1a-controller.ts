@@ -57,7 +57,7 @@ export type OfflineCaseBody = Parameters<TopicSelectionOfflineEvaluationReplaySe
 export type OfflineRunBody = Parameters<TopicSelectionOfflineEvaluationReplayService['startRun']>[0];
 export type OfflineCaseResultBody = Parameters<TopicSelectionOfflineEvaluationReplayService['recordFrozenCaseResult']>[0];
 export type WorkflowHarnessRunBody = TopicSelectionV1aWorkflowHarnessRunRequest;
-export type WorkflowHarnessArtifactBody = Parameters<TopicSelectionControlPlaneService['recordArtifactRef']>[0];
+export type WorkflowHarnessArtifactBody = Parameters<TopicSelectionControlPlaneService['recordWorkflowHarnessArtifactRef']>[0];
 
 function handleError(reply: FastifyReply, error: unknown) {
   if (error instanceof AppError) {
@@ -115,7 +115,7 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.controlPlane.recordArtifactRef(request.body);
+      const result = await this.controlPlane.recordWorkflowHarnessArtifactRef(request.body);
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -563,7 +563,7 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.createDataset(request.body ?? {});
+      const result = await this.offlineReplay.createDatasetForStage(request.body ?? {}, 'v1a');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -584,7 +584,7 @@ export class TopicSelectionV1aController {
 
   addOfflineEvaluationCase = async (request: BodyRequest<OfflineCaseBody>, reply: FastifyReply) => {
     try {
-      const result = await this.offlineReplay.addCase(request.body);
+      const result = await this.offlineReplay.addCaseForStage(request.body, 'v1a');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -593,7 +593,7 @@ export class TopicSelectionV1aController {
 
   startOfflineEvaluationRun = async (request: BodyRequest<OfflineRunBody>, reply: FastifyReply) => {
     try {
-      const result = await this.offlineReplay.startRun(request.body);
+      const result = await this.offlineReplay.startRunForStage(request.body, 'v1a');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -605,7 +605,7 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.recordFrozenCaseResult(request.body);
+      const result = await this.offlineReplay.recordFrozenCaseResultForStage(request.body, 'v1a');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -617,7 +617,10 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.completeRunAndCalculateMetrics({ run_id: request.params.runId });
+      const result = await this.offlineReplay.completeRunAndCalculateMetricsForStage({
+        run_id: request.params.runId,
+        stage: 'v1a',
+      });
       return reply.send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -629,7 +632,7 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.listMetricResults(request.params.runId);
+      const result = await this.offlineReplay.listMetricResultsForStage(request.params.runId, 'v1a');
       return reply.send({ items: result });
     } catch (error) {
       return handleError(reply, error);
@@ -641,7 +644,7 @@ export class TopicSelectionV1aController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.listReplayDiffs(request.params.runId);
+      const result = await this.offlineReplay.listReplayDiffsForStage(request.params.runId, 'v1a');
       return reply.send({ items: result });
     } catch (error) {
       return handleError(reply, error);

@@ -21,6 +21,7 @@ export class TopicSelectionResearchCheckpointCurrentConflictError extends Error 
 export interface TopicSelectionResearchCheckpointRepository {
   replaceCurrentCheckpoint(
     record: TopicSelectionResearchCheckpointRecord,
+    options?: { preserve_decided_current?: boolean },
   ): Promise<TopicSelectionResearchCheckpointRecord>;
   findCheckpointById(checkpointId: string): Promise<TopicSelectionResearchCheckpointRecord | null>;
   findCheckpointByKey(checkpointKey: string): Promise<TopicSelectionResearchCheckpointRecord | null>;

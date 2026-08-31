@@ -103,6 +103,27 @@ export class TopicSelectionOfflineEvaluationReplayService {
   }
 
   async createDataset(input: CreateDatasetInput = {}): Promise<TopicSelectionOfflineEvaluationDatasetRecord> {
+    if ((input.stage ?? 'v1a') === 'research_arena') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Research-arena datasets must be created by the dedicated Arena calibration owner.',
+      );
+    }
+    return this.createDatasetOwned(input);
+  }
+
+  async createDatasetForStage(
+    input: CreateDatasetInput,
+    stage: TopicSelectionOfflineEvaluationStage,
+  ): Promise<TopicSelectionOfflineEvaluationDatasetRecord> {
+    if (input.stage !== undefined && input.stage !== stage) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `Offline evaluation dataset stage must be ${stage}.`);
+    }
+    return this.createDatasetOwned({ ...input, stage });
+  }
+
+  private async createDatasetOwned(input: CreateDatasetInput): Promise<TopicSelectionOfflineEvaluationDatasetRecord> {
     const now = this.now();
     const record: TopicSelectionOfflineEvaluationDatasetRecord = {
       offline_evaluation_dataset_id: this.idFactory('offline_eval_dataset'),
@@ -302,6 +323,22 @@ export class TopicSelectionOfflineEvaluationReplayService {
 
   async addCase(input: AddCaseInput): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
     const dataset = await this.requireDataset(input.dataset_id);
+    this.assertGenericDatasetOwner(dataset);
+    return this.addCaseOwned(input, dataset);
+  }
+
+  async addCaseForStage(
+    input: AddCaseInput,
+    stage: TopicSelectionOfflineEvaluationStage,
+  ): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
+    const dataset = await this.requireDatasetForStage(input.dataset_id, stage);
+    return this.addCaseOwned(input, dataset);
+  }
+
+  private async addCaseOwned(
+    input: AddCaseInput,
+    dataset: TopicSelectionOfflineEvaluationDatasetRecord,
+  ): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
     this.assertCaseCompatibleWithDataset(dataset, input);
     const now = this.now();
     const record: TopicSelectionOfflineEvaluationCaseRecord = {
@@ -330,6 +367,14 @@ export class TopicSelectionOfflineEvaluationReplayService {
 
   async startRun(input: StartRunInput): Promise<TopicSelectionOfflineEvaluationRunRecord> {
     const dataset = await this.requireDataset(input.dataset_id);
+    this.assertGenericDatasetOwner(dataset);
+    return this.startRunOwned(input, dataset);
+  }
+
+  private async startRunOwned(
+    input: StartRunInput,
+    dataset: TopicSelectionOfflineEvaluationDatasetRecord,
+  ): Promise<TopicSelectionOfflineEvaluationRunRecord> {
     const cases = await this.repository.listCasesByDatasetId(dataset.offline_evaluation_dataset_id);
     const now = this.now();
     const metricKeys = this.uniqueMetricKeys(input.metric_keys ?? this.defaultMetricKeysForStage(dataset.stage));
@@ -366,15 +411,8 @@ export class TopicSelectionOfflineEvaluationReplayService {
     input: StartRunInput,
     stage: TopicSelectionOfflineEvaluationStage,
   ): Promise<TopicSelectionOfflineEvaluationRunRecord> {
-    const dataset = await this.requireDataset(input.dataset_id);
-    if (dataset.stage !== stage) {
-      throw new AppError(
-        404,
-        'NOT_FOUND',
-        `OfflineEvaluationDataset ${input.dataset_id} not found for stage ${stage}.`,
-      );
-    }
-    return this.startRun(input);
+    const dataset = await this.requireDatasetForStage(input.dataset_id, stage);
+    return this.startRunOwned(input, dataset);
   }
 
   async recordFrozenCaseResult(input: {
@@ -387,6 +425,23 @@ export class TopicSelectionOfflineEvaluationReplayService {
     replay_diff: TopicSelectionReplayDiffRecord;
   }> {
     const run = await this.requireRun(input.run_id);
+    const dataset = await this.requireDataset(run.dataset_id);
+    this.assertGenericDatasetOwner(dataset);
+    return this.recordFrozenCaseResultOwned(input, run);
+  }
+
+  private async recordFrozenCaseResultOwned(
+    input: {
+      workspace_id?: string | null;
+      run_id: string;
+      case_id: string;
+      observed_output: TopicSelectionOfflineEvaluationObservedOutput;
+    },
+    run: TopicSelectionOfflineEvaluationRunRecord,
+  ): Promise<{
+    case_result: TopicSelectionOfflineEvaluationCaseResultRecord;
+    replay_diff: TopicSelectionReplayDiffRecord;
+  }> {
     if (run.status !== 'running') {
       throw new AppError(409, 'VERSION_CONFLICT', 'Frozen case results can only be recorded for running offline evaluation runs.');
     }
@@ -440,8 +495,8 @@ export class TopicSelectionOfflineEvaluationReplayService {
     case_result: TopicSelectionOfflineEvaluationCaseResultRecord;
     replay_diff: TopicSelectionReplayDiffRecord;
   }> {
-    await this.requireRunForStage(input.run_id, stage);
-    return this.recordFrozenCaseResult(input);
+    const run = await this.requireRunForStage(input.run_id, stage);
+    return this.recordFrozenCaseResultOwned(input, run);
   }
 
   async completeRunAndCalculateMetrics(input: { run_id: string }): Promise<{
@@ -449,6 +504,17 @@ export class TopicSelectionOfflineEvaluationReplayService {
     metric_results: TopicSelectionOfflineEvaluationMetricResultRecord[];
   }> {
     const run = await this.requireRun(input.run_id);
+    const dataset = await this.requireDataset(run.dataset_id);
+    this.assertGenericDatasetOwner(dataset);
+    return this.completeRunAndCalculateMetricsOwned(run);
+  }
+
+  private async completeRunAndCalculateMetricsOwned(
+    run: TopicSelectionOfflineEvaluationRunRecord,
+  ): Promise<{
+    run: TopicSelectionOfflineEvaluationRunRecord;
+    metric_results: TopicSelectionOfflineEvaluationMetricResultRecord[];
+  }> {
     const existing = await this.repository.listMetricResultsByRunId(run.offline_evaluation_run_id);
     if (existing.length > 0) {
       const expectedMetricKeys = new Set(run.metric_keys);
@@ -530,7 +596,7 @@ export class TopicSelectionOfflineEvaluationReplayService {
     metric_results: TopicSelectionOfflineEvaluationMetricResultRecord[];
   }> {
     const run = await this.requireRunForStage(input.run_id, input.stage);
-    return this.completeRunAndCalculateMetrics({ run_id: run.offline_evaluation_run_id });
+    return this.completeRunAndCalculateMetricsOwned(run);
   }
 
   async listMetricResults(runId: string): Promise<TopicSelectionOfflineEvaluationMetricResultRecord[]> {
@@ -565,6 +631,31 @@ export class TopicSelectionOfflineEvaluationReplayService {
     return dataset;
   }
 
+  private async requireDatasetForStage(
+    datasetId: string,
+    stage: TopicSelectionOfflineEvaluationStage,
+  ): Promise<TopicSelectionOfflineEvaluationDatasetRecord> {
+    const dataset = await this.requireDataset(datasetId);
+    if (dataset.stage !== stage) {
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        `OfflineEvaluationDataset ${datasetId} not found for stage ${stage}.`,
+      );
+    }
+    return dataset;
+  }
+
+  private assertGenericDatasetOwner(dataset: TopicSelectionOfflineEvaluationDatasetRecord): void {
+    if (dataset.stage === 'research_arena') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Research-arena evaluation writes belong to the dedicated Arena calibration owner.',
+      );
+    }
+  }
+
   private async requireCase(caseId: string): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
     const evaluationCase = await this.repository.findCaseById(caseId);
     if (!evaluationCase) {
@@ -588,11 +679,7 @@ export class TopicSelectionOfflineEvaluationReplayService {
     const run = await this.requireRun(runId);
     const dataset = await this.requireDataset(run.dataset_id);
     if (dataset.stage !== expectedStage) {
-      throw new AppError(
-        404,
-        'NOT_FOUND',
-        `OfflineEvaluationRun ${runId} not found for stage ${expectedStage}.`,
-      );
+      throw new AppError(404, 'NOT_FOUND', `OfflineEvaluationRun ${runId} not found for stage ${expectedStage}.`);
     }
     return run;
   }

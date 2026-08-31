@@ -195,15 +195,28 @@ implements TopicSelectionResearchCheckpointRepository {
 
   async replaceCurrentCheckpoint(
     record: TopicSelectionResearchCheckpointRecord,
+    options: { preserve_decided_current?: boolean } = {},
   ): Promise<TopicSelectionResearchCheckpointRecord> {
+    const currentKey = record.current_checkpoint_key;
+    if (!currentKey) throw new Error('A new ResearchCheckpoint requires current_checkpoint_key.');
+    if (options.preserve_decided_current) {
+      const current = await this.prisma.topicSelectionResearchCheckpoint.findUnique({
+        where: { currentCheckpointKey: currentKey },
+      });
+      if (current?.status === 'decided') return toCheckpoint(current);
+    }
     const byKey = await this.prisma.topicSelectionResearchCheckpoint.findUnique({
       where: { checkpointKey: record.checkpoint_key },
     });
     if (byKey) return toCheckpoint(byKey);
-    const currentKey = record.current_checkpoint_key;
-    if (!currentKey) throw new Error('A new ResearchCheckpoint requires current_checkpoint_key.');
     try {
       return await this.prisma.$transaction(async (transaction) => {
+        if (options.preserve_decided_current) {
+          const current = await transaction.topicSelectionResearchCheckpoint.findUnique({
+            where: { currentCheckpointKey: currentKey },
+          });
+          if (current?.status === 'decided') return toCheckpoint(current);
+        }
         const replay = await transaction.topicSelectionResearchCheckpoint.findUnique({
           where: { checkpointKey: record.checkpoint_key },
         });
@@ -212,6 +225,9 @@ implements TopicSelectionResearchCheckpointRepository {
           where: { currentCheckpointKey: currentKey },
         });
         if (previous) {
+          if (options.preserve_decided_current && previous.status === 'decided') {
+            return toCheckpoint(previous);
+          }
           await transaction.topicSelectionResearchCheckpoint.update({
             where: { id: previous.id },
             data: {
@@ -233,6 +249,12 @@ implements TopicSelectionResearchCheckpointRepository {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2034'].includes(error.code)) {
+        if (options.preserve_decided_current) {
+          const current = await this.prisma.topicSelectionResearchCheckpoint.findUnique({
+            where: { currentCheckpointKey: currentKey },
+          });
+          if (current?.status === 'decided') return toCheckpoint(current);
+        }
         const replay = await this.prisma.topicSelectionResearchCheckpoint.findUnique({
           where: { checkpointKey: record.checkpoint_key },
         });

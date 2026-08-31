@@ -393,10 +393,7 @@ export class TopicSelectionV1cController {
     reply: FastifyReply,
   ) => {
     try {
-      const result = await this.offlineReplay.createDataset({
-        ...(request.body ?? {}),
-        stage: 'v1c',
-      });
+      const result = await this.offlineReplay.createDatasetForStage(request.body ?? {}, 'v1c');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);
@@ -417,7 +414,7 @@ export class TopicSelectionV1cController {
 
   addOfflineEvaluationCase = async (request: BodyRequest<OfflineCaseBody>, reply: FastifyReply) => {
     try {
-      const result = await this.offlineReplay.addCase(request.body);
+      const result = await this.offlineReplay.addCaseForStage(request.body, 'v1c');
       return reply.status(201).send(result);
     } catch (error) {
       return handleError(reply, error);

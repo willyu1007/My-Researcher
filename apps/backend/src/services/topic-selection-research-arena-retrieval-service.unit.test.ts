@@ -92,6 +92,7 @@ function fixture(
   response: LiteratureRetrieveResponse,
   snapshotTitleCardId = 'title_1',
   includeUnrelatedCurrentMap = false,
+  frozenEvidenceMapRef = ref('evidence_map', 'map_1', 'v1'),
 ) {
   const recordedSearchRuns: Array<Record<string, unknown>> = [];
   const recordedArtifacts: Array<Record<string, unknown>> = [];
@@ -104,7 +105,8 @@ function fixture(
         input_snapshot_id: 'arena_snapshot_1', workspace_id: null,
         title_card_id: snapshotTitleCardId, target_ref: ref('validated_need', 'need_1'),
         context_policy_version_id: null, policy_version: null, snapshot_hash: 'a'.repeat(64),
-        source_refs: [], permission_refs: [], payload: {}, created_by: 'system', created_at: NOW,
+        source_refs: [frozenEvidenceMapRef], permission_refs: [],
+        payload: { evidence_map_ref: frozenEvidenceMapRef }, created_by: 'system', created_at: NOW,
       }),
     },
     retriever: {
@@ -287,6 +289,19 @@ test('role retrieval selects the current EvidenceMap bound to the exact plan and
   const result = await service.prepare(request);
   assert.equal(result.status, 'ready');
   assert.equal(result.evidence_map_ref.ref_id, 'map_1');
+});
+
+test('role retrieval rejects a current EvidenceMap outside the frozen Arena snapshot lineage', async () => {
+  const { service } = fixture(
+    retrieval(),
+    'title_1',
+    false,
+    ref('evidence_map', 'map_superseded', 'v0'),
+  );
+  await assert.rejects(
+    () => service.prepare(request),
+    (error: unknown) => error instanceof Error && /frozen Arena snapshot lineage/u.test(error.message),
+  );
 });
 
 test('role retrieval stops for EvidenceMap materialization when out-of-map hits have no reviewed EvidenceUnits', async () => {

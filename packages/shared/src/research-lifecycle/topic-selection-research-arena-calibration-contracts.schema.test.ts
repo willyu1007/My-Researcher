@@ -56,7 +56,7 @@ test('offline evaluation admits the research arena stage with its bounded case a
   ]);
 });
 
-test('calibration create contracts freeze arena members without accepting observed outputs or authority writes', async () => {
+test('calibration create contracts reject historical v1 writes and authority fields', async () => {
   const dataset = {
     schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1',
     workspace_id: null,
@@ -66,7 +66,7 @@ test('calibration create contracts freeze arena members without accepting observ
   };
   assert.equal(
     (await injectRequest(topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema, dataset)).statusCode,
-    200,
+    400,
   );
 
   const calibrationCase = {
@@ -90,7 +90,7 @@ test('calibration create contracts freeze arena members without accepting observ
   };
   assert.equal(
     (await injectRequest(topicSelectionResearchArenaCalibrationCaseCreateRequestSchema, calibrationCase)).statusCode,
-    200,
+    400,
   );
   assert.equal(
     (await injectRequest(topicSelectionResearchArenaCalibrationCaseCreateRequestSchema, {

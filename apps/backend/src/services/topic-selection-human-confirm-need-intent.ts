@@ -79,9 +79,10 @@ export const buildTopicSelectionHumanConfirmNeedIntent = (
 
 export const topicSelectionHumanConfirmNeedIntentStableKey = (
   intent: TopicSelectionHumanConfirmNeedIntentRecord,
+  inputSnapshotId: string | null,
 ): string => `topic-selection-human-confirm-need-intent:${sha256Text(stableStringify({
-  adjudication_result_ref: intent.adjudication_result_ref,
-  output_validated_need_ref: intent.output_validated_need_ref,
+  intent_hash: intent.intent_hash,
+  input_snapshot_id: inputSnapshotId,
 }))}`;
 
 export const topicSelectionHumanConfirmedDecisionId = (

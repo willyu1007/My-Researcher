@@ -259,7 +259,7 @@ test('research Arena calibration routes expose strict create, evaluate, and repo
     new TopicSelectionResearchArenaCalibrationController(service),
   );
 
-  const datasetResponse = await app.inject({
+  const legacyDatasetResponse = await app.inject({
     method: 'POST',
     url: '/topic-selection/research/arena/calibration/datasets',
     payload: {
@@ -270,10 +270,9 @@ test('research Arena calibration routes expose strict create, evaluate, and repo
       description: dataset.description,
     },
   });
-  assert.equal(datasetResponse.statusCode, 201);
-  assert.equal(datasetResponse.json().stage, 'research_arena');
+  assert.equal(legacyDatasetResponse.statusCode, 400);
 
-  const caseResponse = await app.inject({
+  const legacyCaseResponse = await app.inject({
     method: 'POST',
     url: '/topic-selection/research/arena/calibration/cases',
     payload: {
@@ -289,8 +288,7 @@ test('research Arena calibration routes expose strict create, evaluate, and repo
       tags: ['phase10a'],
     },
   });
-  assert.equal(caseResponse.statusCode, 201);
-  assert.equal(caseResponse.json().case_type, 'arena_successful_non_advance');
+  assert.equal(legacyCaseResponse.statusCode, 400);
 
   const protocol = phase10bHttpProtocol();
   const phase10bDatasetResponse = await app.inject({
@@ -306,6 +304,7 @@ test('research Arena calibration routes expose strict create, evaluate, and repo
     },
   });
   assert.equal(phase10bDatasetResponse.statusCode, 201);
+  assert.equal(phase10bDatasetResponse.json().stage, 'research_arena');
 
   const phase10bCase = {
     schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
@@ -320,6 +319,7 @@ test('research Arena calibration routes expose strict create, evaluate, and repo
     payload: phase10bCase,
   });
   assert.equal(phase10bCaseResponse.statusCode, 201);
+  assert.equal(phase10bCaseResponse.json().case_type, 'arena_successful_non_advance');
   const postHocMembers = await app.inject({
     method: 'POST',
     url: '/topic-selection/research/arena/calibration/cases',

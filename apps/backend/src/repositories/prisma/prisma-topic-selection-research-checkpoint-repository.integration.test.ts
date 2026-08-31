@@ -233,6 +233,24 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     assert.equal(adapted.status, 'decided');
     assert.equal(adapted.decision_authority_ref?.ref_id, existingAuthority.human_confirmed_decision_id);
     await service.assertTransitionAllowed({ title_card_id: titleCardId, checkpoint_kind: 'gap_selection' });
+    const preserved = await service.materializeCheckpoint({
+      title_card_id: titleCardId,
+      checkpoint_kind: 'gap_selection',
+      target_ref: {
+        ref_type: 'need_candidate_arena',
+        ref_id: `support_only_reprojection_${suffix}`,
+        title_card_id: titleCardId,
+      },
+      target_snapshot_hash: 'c'.repeat(64),
+      allowed_actions: ['loopback', 'reject', 'hold'],
+      packet_payload: { support_only: true },
+      preserve_decided_current: true,
+    });
+    assert.equal(preserved.research_checkpoint_id, adapted.research_checkpoint_id);
+    assert.equal(preserved.status, 'decided');
+    assert.equal(await prisma.topicSelectionResearchCheckpoint.count({
+      where: { titleCardId, checkpointKind: 'gap_selection' },
+    }), 1);
 
     const needCandidateId = `need_candidate_${suffix}`;
     const evidenceMapId = `evidence_map_need_${suffix}`;

@@ -45,6 +45,7 @@ export type TopicSelectionResearchGapProjectionInput = {
   title_card_id: string;
   candidate_refs: TopicSelectionFunctionalRef[];
   policy_version_id?: string | null;
+  preserve_decided_current?: boolean;
 };
 
 /**
@@ -87,6 +88,7 @@ export class TopicSelectionResearchGapProjectionService {
       evidence_map_ref: firstCandidate.evidence_map_ref,
       candidates,
       policy_version_id: input.policy_version_id ?? null,
+      preserve_decided_current: input.preserve_decided_current,
     });
   }
 
@@ -120,6 +122,7 @@ export class TopicSelectionResearchGapProjectionService {
     const checkpoint = await this.projectCurrentGapSelectionCheckpoint({
       title_card_id: session.title_card_id,
       candidate_refs: candidateRefs,
+      preserve_decided_current: true,
     });
     const packet = await this.dependencies.checkpointService.getPacket(checkpoint.research_checkpoint_id);
     const issueCodes = packet.packet_payload.arena_advisory_issue_codes;
@@ -240,6 +243,30 @@ export class TopicSelectionResearchGapProjectionService {
     if (candidateRefs.some((candidateRef) => !boundRefs.has(this.refKey(candidateRef)))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena synthesis candidate is outside the bound InputSnapshot.');
     }
+    const payloadCandidateRefs = this.asRecord(snapshot.payload)?.candidate_refs;
+    if (Array.isArray(payloadCandidateRefs)
+      && payloadCandidateRefs.some((candidate) => !this.isCandidateRef(candidate, snapshot.title_card_id ?? ''))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena InputSnapshot has an invalid frozen candidate pool.');
+    }
+    const sourceCandidateRefs = snapshot.source_refs.filter((candidate) => candidate.ref_type === 'need_candidate');
+    if (!Array.isArray(payloadCandidateRefs)
+      && sourceCandidateRefs.some((candidate) => !this.isCandidateRef(candidate, snapshot.title_card_id ?? ''))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena InputSnapshot has an invalid frozen candidate pool.');
+    }
+    const frozenCandidateRefs = Array.isArray(payloadCandidateRefs)
+      ? payloadCandidateRefs as TopicSelectionFunctionalRef[]
+      : sourceCandidateRefs;
+    if (frozenCandidateRefs.length === 0 || !this.sameRefSet(candidateRefs, frozenCandidateRefs)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena synthesis must cover the complete frozen candidate pool.');
+    }
+  }
+
+  private sameRefSet(left: TopicSelectionFunctionalRef[], right: TopicSelectionFunctionalRef[]): boolean {
+    const leftKeys = left.map((candidate) => this.refKey(candidate)).sort();
+    const rightKeys = right.map((candidate) => this.refKey(candidate)).sort();
+    return new Set(leftKeys).size === leftKeys.length
+      && new Set(rightKeys).size === rightKeys.length
+      && stableStringify(leftKeys) === stableStringify(rightKeys);
   }
 
   private assertCandidateAdvisories(

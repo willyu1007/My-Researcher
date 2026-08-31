@@ -114,8 +114,9 @@ async function fixture() {
   );
   const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
   const candidateRepository = new InMemoryTopicSelectionNeedValidationRepository();
+  const checkpointRepository = new InMemoryTopicSelectionResearchCheckpointRepository();
   const checkpointService = new TopicSelectionResearchCheckpointService(
-    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    checkpointRepository,
     controlPlane,
     {
       arenaRepository,
@@ -240,6 +241,7 @@ async function fixture() {
   return {
     arenaRepository,
     candidateRepository,
+    checkpointRepository,
     checkpointService,
     controlPlane,
     candidateRefs,
@@ -274,6 +276,65 @@ test('exact and concurrent gap projection recovery converges on one checkpoint',
   assert.equal(new Set(recovered.map((checkpoint) => checkpoint.research_checkpoint_id)).size, 1);
   const replay = await service.recoverSynthesizedSession('arena_1');
   assert.equal(replay.research_checkpoint_id, recovered[0]!.research_checkpoint_id);
+});
+
+test('support-only recovery preserves an already decided current gap checkpoint', async () => {
+  const { checkpointRepository, checkpointService, service } = await fixture();
+  const decided = await service.recoverSynthesizedSession('arena_1');
+  await checkpointRepository.advanceWithExistingAuthority({
+    ...decided,
+    decision_authority_ref: ref('human_confirmed_decision', 'human_decision_1'),
+    status: 'decided',
+    decided_at: NOW,
+    updated_at: NOW,
+  });
+
+  const replay = await service.projectCurrentGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    candidate_refs: [ref('need_candidate', 'candidate_1', 'title_1', 'v1')],
+    preserve_decided_current: true,
+  });
+  const current = (await checkpointService.listCheckpoints('title_1'))
+    .find((checkpoint) => checkpoint.current_checkpoint_key !== null);
+
+  assert.equal(replay.research_checkpoint_id, decided.research_checkpoint_id);
+  assert.equal(current?.research_checkpoint_id, decided.research_checkpoint_id);
+  assert.equal(current?.status, 'decided');
+  assert.equal((await checkpointService.listCheckpoints('title_1')).length, 1);
+});
+
+test('support-only recovery returns the decided current checkpoint before an older exact-key replay', async () => {
+  const { checkpointRepository, checkpointService, service } = await fixture();
+  const original = await service.recoverSynthesizedSession('arena_1');
+  const replacement = await checkpointService.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: ref('need_candidate_arena', 'replacement_arena', 'title_1', 'v2'),
+    target_snapshot_hash: 'd'.repeat(64),
+    allowed_actions: ['advance', 'loopback', 'reject', 'hold'],
+    packet_payload: { replacement: true },
+  });
+  await checkpointRepository.advanceWithExistingAuthority({
+    ...replacement,
+    decision_authority_ref: ref('human_confirmed_decision', 'human_decision_2'),
+    status: 'decided',
+    decided_at: NOW,
+    updated_at: NOW,
+  });
+
+  const replay = await service.projectCurrentGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    candidate_refs: [ref('need_candidate', 'candidate_1', 'title_1', 'v1')],
+    preserve_decided_current: true,
+  });
+  const history = await checkpointService.listCheckpoints('title_1');
+  const current = history.find((checkpoint) => checkpoint.current_checkpoint_key !== null);
+
+  assert.equal(original.status, 'pending');
+  assert.equal(replay.research_checkpoint_id, replacement.research_checkpoint_id);
+  assert.equal(replay.status, 'decided');
+  assert.equal(current?.research_checkpoint_id, replacement.research_checkpoint_id);
+  assert.equal(history.length, 2);
 });
 
 test('shared projection preserves policy identity and rejects a repeated candidate ref', async () => {

@@ -85,6 +85,7 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_COVERAGE_GAPS = [
   'MISSING_IRRELEVANT_PERTURBATION',
   'MISSING_SUCCESSFUL_NON_ADVANCE',
   'MISSING_ADVANCING_CASE',
+  'MISSING_PRE_REGISTERED_PROTOCOL',
   'MISSING_PRODUCT_V2_EXECUTION',
   'MISSING_EVIDENCE_GROUNDING',
   'MISSING_EXECUTION_INDEPENDENCE',
@@ -115,6 +116,7 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES = [
 export type TopicSelectionResearchArenaCalibrationHardBlockerCode =
   (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES)[number];
 
+/** Historical persisted request shape retained for decoding fixtures; no write schema accepts it. */
 export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1 {
   schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1';
   workspace_id: string | null;
@@ -199,8 +201,7 @@ export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2 {
 }
 
 export type TopicSelectionResearchArenaCalibrationDatasetCreateRequest =
-  | TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1
-  | TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2;
+  TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2;
 
 export interface TopicSelectionResearchArenaCalibrationCaseMemberInput {
   member_role: TopicSelectionResearchArenaCalibrationMemberRole;
@@ -208,6 +209,7 @@ export interface TopicSelectionResearchArenaCalibrationCaseMemberInput {
   research_checkpoint_id: string | null;
 }
 
+/** Historical persisted request shape retained for decoding fixtures; no write schema accepts it. */
 export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV1 {
   schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1';
   dataset_id: string;
@@ -229,8 +231,7 @@ export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV2 {
 }
 
 export type TopicSelectionResearchArenaCalibrationCaseCreateRequest =
-  | TopicSelectionResearchArenaCalibrationCaseCreateRequestV1
-  | TopicSelectionResearchArenaCalibrationCaseCreateRequestV2;
+  TopicSelectionResearchArenaCalibrationCaseCreateRequestV2;
 
 export interface TopicSelectionResearchArenaCalibrationRunCreateRequest {
   schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1';
@@ -322,19 +323,6 @@ const nullableStringId = { anyOf: [stringId, { type: 'null' }] } as const;
 const nonNegativeInteger = { type: 'integer', minimum: 0 } as const;
 const nullableNonNegativeNumber = {
   anyOf: [{ type: 'number', minimum: 0 }, { type: 'null' }],
-} as const;
-
-const topicSelectionResearchArenaCalibrationDatasetCreateRequestV1Schema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['schema_version', 'workspace_id', 'dataset_key', 'dataset_version', 'description'],
-  properties: {
-    schema_version: { const: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1' },
-    workspace_id: nullableStringId,
-    dataset_key: stringId,
-    dataset_version: stringId,
-    description: nullableStringId,
-  },
 } as const;
 
 export const topicSelectionResearchArenaCalibrationLoopDeltaRecipeSchema = {
@@ -543,12 +531,8 @@ const topicSelectionResearchArenaCalibrationDatasetCreateRequestV2Schema = {
   },
 } as const;
 
-export const topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema = {
-  oneOf: [
-    topicSelectionResearchArenaCalibrationDatasetCreateRequestV1Schema,
-    topicSelectionResearchArenaCalibrationDatasetCreateRequestV2Schema,
-  ],
-} as const;
+export const topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema =
+  topicSelectionResearchArenaCalibrationDatasetCreateRequestV2Schema;
 
 export const topicSelectionResearchArenaCalibrationCaseMemberInputSchema = {
   type: 'object',
@@ -558,25 +542,6 @@ export const topicSelectionResearchArenaCalibrationCaseMemberInputSchema = {
     member_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_MEMBER_ROLES] },
     arena_session_id: stringId,
     research_checkpoint_id: nullableStringId,
-  },
-} as const;
-
-const topicSelectionResearchArenaCalibrationCaseCreateRequestV1Schema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['schema_version', 'dataset_id', 'case_key', 'case_type', 'members', 'tags'],
-  properties: {
-    schema_version: { const: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1' },
-    dataset_id: stringId,
-    case_key: stringId,
-    case_type: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES] },
-    members: {
-      type: 'array',
-      items: topicSelectionResearchArenaCalibrationCaseMemberInputSchema,
-      minItems: 1,
-      maxItems: 2,
-    },
-    tags: { type: 'array', items: stringId, uniqueItems: true },
   },
 } as const;
 
@@ -593,12 +558,8 @@ const topicSelectionResearchArenaCalibrationCaseCreateRequestV2Schema = {
   },
 } as const;
 
-export const topicSelectionResearchArenaCalibrationCaseCreateRequestSchema = {
-  oneOf: [
-    topicSelectionResearchArenaCalibrationCaseCreateRequestV1Schema,
-    topicSelectionResearchArenaCalibrationCaseCreateRequestV2Schema,
-  ],
-} as const;
+export const topicSelectionResearchArenaCalibrationCaseCreateRequestSchema =
+  topicSelectionResearchArenaCalibrationCaseCreateRequestV2Schema;
 
 export const topicSelectionResearchArenaCalibrationRunCreateRequestSchema = {
   type: 'object',
