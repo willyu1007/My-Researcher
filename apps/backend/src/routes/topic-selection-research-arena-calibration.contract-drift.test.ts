@@ -26,6 +26,10 @@ test('research Arena calibration routes and OpenAPI expose the same five support
   assert.match(routeSource, /topicSelectionResearchArenaCalibrationCaseCreateRequestSchema/u);
   assert.match(routeSource, /topicSelectionResearchArenaCalibrationRunCreateRequestSchema/u);
   assert.match(routeSource, /topicSelectionResearchArenaCalibrationReportSchema/u);
+  assert.match(openapiSource, /TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2:/u);
+  assert.match(openapiSource, /TopicSelectionResearchArenaCalibrationProtocolV2:/u);
+  assert.match(openapiSource, /TopicSelectionResearchArenaCalibrationCaseCreateRequestV2:/u);
+  assert.match(openapiSource, /MISSING_MEMBER_LABEL_COVERAGE/u);
 });
 
 test('calibration API has no execution, provider, or policy-activation surface', () => {

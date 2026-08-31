@@ -9267,6 +9267,11 @@ components:
           pattern: '^[a-f0-9]{64}$'
 
     TopicSelectionResearchArenaCalibrationDatasetCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1'
+        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2'
+
+    TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1:
       type: object
       additionalProperties: false
       required: [schema_version, workspace_id, dataset_key, dataset_version, description]
@@ -9276,6 +9281,161 @@ components:
         dataset_key: { type: string, minLength: 1 }
         dataset_version: { type: string, minLength: 1 }
         description: { type: [string, 'null'], minLength: 1 }
+
+    TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2:
+      type: object
+      additionalProperties: false
+      required: [schema_version, workspace_id, dataset_key, dataset_version, description, protocol_manifest]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2' }
+        workspace_id: { type: [string, 'null'], minLength: 1 }
+        dataset_key: { type: string, minLength: 1 }
+        dataset_version: { type: string, minLength: 1 }
+        description: { type: [string, 'null'], minLength: 1 }
+        protocol_manifest:
+          $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationProtocolV2'
+
+    TopicSelectionResearchArenaCalibrationProtocolV2:
+      type: object
+      additionalProperties: false
+      required: [schema_version, slots, selection_rule, measurement_window, accounting_sources, decision_difference_rule, override_categories, stop_rules, budgets, support_only]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaCalibrationProtocol@v2' }
+        slots:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationProtocolSlot'
+        selection_rule: { type: string, const: ordered_exact_member_recipes }
+        measurement_window:
+          type: object
+          additionalProperties: false
+          required: [start_event, end_event]
+          properties:
+            start_event: { type: string, const: case_registration_before_role_output }
+            end_event: { type: string, const: calibration_run_evaluation }
+        accounting_sources:
+          type: object
+          additionalProperties: false
+          required: [runtime, authorization_pause, work_avoided]
+          properties:
+            runtime: { type: string, const: arena_transcript }
+            authorization_pause: { type: string, const: designated_advisory_review_operation_group }
+            work_avoided: { type: string, const: research_stage_manifest }
+        decision_difference_rule: { type: string, const: advisory_outcome_changed }
+        override_categories:
+          type: array
+          minItems: 4
+          maxItems: 4
+          uniqueItems: true
+          items:
+            type: string
+            enum: [explained_repair, human_objective_difference, possible_false_drop, possible_false_continue]
+        stop_rules:
+          type: object
+          additionalProperties: false
+          required: [hard_blocker, first_tranche_redundancy]
+          properties:
+            hard_blocker: { type: string, const: stop_immediately }
+            first_tranche_redundancy: { type: string, const: stop_when_no_decision_difference_and_no_work_avoided }
+        budgets:
+          type: object
+          additionalProperties: false
+          required: [max_case_count, max_session_count, max_role_invocation_count, max_review_points_per_tranche]
+          properties:
+            max_case_count: { type: integer, const: 6 }
+            max_session_count: { type: integer, const: 10 }
+            max_role_invocation_count: { type: integer, const: 20 }
+            max_review_points_per_tranche: { type: integer, const: 2 }
+        support_only: { type: boolean, const: true }
+
+    TopicSelectionResearchArenaCalibrationProtocolSlot:
+      type: object
+      additionalProperties: false
+      required: [slot_key, case_type, tranche, members, expected_relation, work_avoided_stage_keys]
+      properties:
+        slot_key: { type: string, minLength: 1 }
+        case_type:
+          type: string
+          enum: [arena_dominance_pair, arena_causal_perturbation, arena_irrelevant_perturbation, arena_successful_non_advance, arena_advancing_case]
+        tranche: { type: string, enum: [first, second] }
+        members:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationMemberRecipe'
+        expected_relation:
+          $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationExpectedRelation'
+        work_avoided_stage_keys:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [research_question, value_feasibility, topic_package, promotion_review]
+
+    TopicSelectionResearchArenaCalibrationMemberRecipe:
+      type: object
+      additionalProperties: false
+      required: [member_role, session_key, title_card_id, input_snapshot_ref, candidate_refs, evidence_refs, label_slot_key, label_actor, loop_delta]
+      properties:
+        member_role: { type: string, enum: [baseline, preferred, control, variant, subject] }
+        session_key: { type: string, minLength: 1 }
+        title_card_id: { type: string, minLength: 1 }
+        input_snapshot_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        candidate_refs:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        evidence_refs:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        label_slot_key: { type: string, minLength: 1 }
+        label_actor:
+          type: object
+          additionalProperties: false
+          required: [actor_type, actor_id]
+          properties:
+            actor_type: { type: string, const: human }
+            actor_id: { type: string, minLength: 1 }
+        loop_delta:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationLoopDeltaRecipe'
+            - type: 'null'
+
+    TopicSelectionResearchArenaCalibrationLoopDeltaRecipe:
+      type: object
+      additionalProperties: false
+      required: [delta_type, ref, classification, rationale]
+      properties:
+        delta_type: { type: string, const: evidence }
+        ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        classification: { type: string, enum: [causal, irrelevant] }
+        rationale: { type: string, minLength: 1 }
+
+    TopicSelectionResearchArenaCalibrationExpectedRelation:
+      type: object
+      additionalProperties: false
+      required: [relation_kind, rationale, dominance_axes, sole_delta_ref]
+      properties:
+        relation_kind: { type: string, enum: [dominance, causal_perturbation, irrelevant_perturbation, successful_non_advance, advancing] }
+        rationale: { type: string, minLength: 1 }
+        dominance_axes:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+        sole_delta_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
 
     TopicSelectionResearchArenaCalibrationMember:
       type: object
@@ -9287,6 +9447,11 @@ components:
         research_checkpoint_id: { type: [string, 'null'], minLength: 1 }
 
     TopicSelectionResearchArenaCalibrationCaseCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationCaseCreateRequestV1'
+        - $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationCaseCreateRequestV2'
+
+    TopicSelectionResearchArenaCalibrationCaseCreateRequestV1:
       type: object
       additionalProperties: false
       required: [schema_version, dataset_id, case_key, case_type, members, tags]
@@ -9303,6 +9468,20 @@ components:
           maxItems: 2
           items:
             $ref: '#/components/schemas/TopicSelectionResearchArenaCalibrationMember'
+        tags:
+          type: array
+          uniqueItems: true
+          items: { type: string, minLength: 1 }
+
+    TopicSelectionResearchArenaCalibrationCaseCreateRequestV2:
+      type: object
+      additionalProperties: false
+      required: [schema_version, dataset_id, case_key, slot_key, tags]
+      properties:
+        schema_version: { type: string, const: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2' }
+        dataset_id: { type: string, minLength: 1 }
+        case_key: { type: string, minLength: 1 }
+        slot_key: { type: string, minLength: 1 }
         tags:
           type: array
           uniqueItems: true
@@ -9549,7 +9728,7 @@ components:
           uniqueItems: true
           items:
             type: string
-            enum: [MISSING_FIRST_DOMINANCE_PAIR, MISSING_SECOND_DOMINANCE_PAIR, MISSING_CAUSAL_PERTURBATION, MISSING_IRRELEVANT_PERTURBATION, MISSING_SUCCESSFUL_NON_ADVANCE, MISSING_ADVANCING_CASE, MISSING_PRODUCT_V2_EXECUTION, MISSING_EVIDENCE_GROUNDING, MISSING_EXECUTION_INDEPENDENCE, MISSING_REPLAY_INTEGRITY, MISSING_ACCEPT_LABEL, MISSING_OVERRIDE_LABEL, MISSING_NON_ADVANCE_LABEL, MISSING_COST_LATENCY_ACCOUNTING, MISSING_MEASURED_WORK_AVOIDED]
+            enum: [MISSING_FIRST_DOMINANCE_PAIR, MISSING_SECOND_DOMINANCE_PAIR, MISSING_CAUSAL_PERTURBATION, MISSING_IRRELEVANT_PERTURBATION, MISSING_SUCCESSFUL_NON_ADVANCE, MISSING_ADVANCING_CASE, MISSING_PRODUCT_V2_EXECUTION, MISSING_EVIDENCE_GROUNDING, MISSING_EXECUTION_INDEPENDENCE, MISSING_REPLAY_INTEGRITY, MISSING_ACCEPT_LABEL, MISSING_OVERRIDE_LABEL, MISSING_NON_ADVANCE_LABEL, MISSING_MEMBER_LABEL_COVERAGE, MISSING_COST_LATENCY_ACCOUNTING, MISSING_MEASURED_WORK_AVOIDED]
         hard_blockers:
           type: array
           items:

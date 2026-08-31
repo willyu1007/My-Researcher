@@ -1779,6 +1779,36 @@ export class TopicSelectionResearchCheckpointService {
     return histories;
   }
 
+  async getArenaAdvisoryReviewHistoryForSession(
+    titleCardId: string,
+    arenaSessionId: string,
+  ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory | null> {
+    const checkpoints = (await this.repository.listCheckpointsByTitleCardId(titleCardId))
+      .filter((checkpoint) => checkpoint.checkpoint_kind === 'gap_selection')
+      .sort((left, right) =>
+        left.created_at.localeCompare(right.created_at)
+        || left.research_checkpoint_id.localeCompare(right.research_checkpoint_id)
+      );
+    const matchingCheckpointIds: string[] = [];
+    for (const checkpoint of checkpoints) {
+      const packet = await this.getPacket(checkpoint.research_checkpoint_id);
+      const advisory = this.asRecord(packet.packet_payload.arena_advisory);
+      if (!advisory) continue;
+      const sessionRef = this.asRecord(advisory.arena_session_ref);
+      if (!sessionRef || typeof sessionRef.ref_id !== 'string') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Gap checkpoint Arena advice has a malformed session ref.');
+      }
+      if (sessionRef.ref_id === arenaSessionId) {
+        matchingCheckpointIds.push(checkpoint.research_checkpoint_id);
+      }
+    }
+    if (matchingCheckpointIds.length > 1) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Arena session ${arenaSessionId} is bound to multiple gap checkpoints.`);
+    }
+    const checkpointId = matchingCheckpointIds[0];
+    return checkpointId ? this.getArenaAdvisoryReviewHistory(checkpointId) : null;
+  }
+
   async getStageManifest(titleCardId: string): Promise<TopicSelectionResearchStageManifest> {
     const researchStatus = await this.getResearchStatus(titleCardId);
     const arenaReviewHistories = await this.listArenaAdvisoryReviewHistories(titleCardId);

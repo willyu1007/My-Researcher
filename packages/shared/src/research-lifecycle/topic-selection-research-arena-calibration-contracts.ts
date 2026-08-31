@@ -14,6 +14,7 @@ import {
 } from './topic-selection-need-validation-contracts.js';
 import {
   TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_RESPONSES,
+  type TopicSelectionResearchStageViewStage,
   type TopicSelectionResearchArenaAdvisoryReviewResponse,
 } from './topic-selection-research-checkpoint-contracts.js';
 
@@ -26,6 +27,48 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_MEMBER_ROLES = [
 ] as const;
 export type TopicSelectionResearchArenaCalibrationMemberRole =
   (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_MEMBER_ROLES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_TRANCHES = [
+  'first',
+  'second',
+] as const;
+export type TopicSelectionResearchArenaCalibrationTranche =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_TRANCHES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_RELATION_KINDS = [
+  'dominance',
+  'causal_perturbation',
+  'irrelevant_perturbation',
+  'successful_non_advance',
+  'advancing',
+] as const;
+export type TopicSelectionResearchArenaCalibrationRelationKind =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_RELATION_KINDS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DELTA_CLASSIFICATIONS = [
+  'causal',
+  'irrelevant',
+] as const;
+export type TopicSelectionResearchArenaCalibrationDeltaClassification =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DELTA_CLASSIFICATIONS)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_OVERRIDE_CATEGORIES = [
+  'explained_repair',
+  'human_objective_difference',
+  'possible_false_drop',
+  'possible_false_continue',
+] as const;
+export type TopicSelectionResearchArenaCalibrationOverrideCategory =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_OVERRIDE_CATEGORIES)[number];
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DOWNSTREAM_STAGE_KEYS = [
+  'research_question',
+  'value_feasibility',
+  'topic_package',
+  'promotion_review',
+] as const satisfies readonly TopicSelectionResearchStageViewStage[];
+export type TopicSelectionResearchArenaCalibrationDownstreamStageKey =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DOWNSTREAM_STAGE_KEYS)[number];
 
 export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_RECOMMENDATIONS = [
   'insufficient_evidence',
@@ -49,6 +92,7 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_COVERAGE_GAPS = [
   'MISSING_ACCEPT_LABEL',
   'MISSING_OVERRIDE_LABEL',
   'MISSING_NON_ADVANCE_LABEL',
+  'MISSING_MEMBER_LABEL_COVERAGE',
   'MISSING_COST_LATENCY_ACCOUNTING',
   'MISSING_MEASURED_WORK_AVOIDED',
 ] as const;
@@ -71,7 +115,7 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES = [
 export type TopicSelectionResearchArenaCalibrationHardBlockerCode =
   (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES)[number];
 
-export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequest {
+export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1 {
   schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1';
   workspace_id: string | null;
   dataset_key: string;
@@ -79,13 +123,92 @@ export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequest {
   description: string | null;
 }
 
+export interface TopicSelectionResearchArenaCalibrationLoopDeltaRecipe {
+  delta_type: 'evidence';
+  ref: TopicSelectionFunctionalRef;
+  classification: TopicSelectionResearchArenaCalibrationDeltaClassification;
+  rationale: string;
+}
+
+export interface TopicSelectionResearchArenaCalibrationMemberRecipe {
+  member_role: TopicSelectionResearchArenaCalibrationMemberRole;
+  session_key: string;
+  title_card_id: string;
+  input_snapshot_ref: TopicSelectionFunctionalRef;
+  candidate_refs: TopicSelectionFunctionalRef[];
+  evidence_refs: TopicSelectionFunctionalRef[];
+  label_slot_key: string;
+  label_actor: { actor_type: 'human'; actor_id: string };
+  loop_delta: TopicSelectionResearchArenaCalibrationLoopDeltaRecipe | null;
+}
+
+export interface TopicSelectionResearchArenaCalibrationExpectedRelation {
+  relation_kind: TopicSelectionResearchArenaCalibrationRelationKind;
+  rationale: string;
+  dominance_axes: string[];
+  sole_delta_ref: TopicSelectionFunctionalRef | null;
+}
+
+export interface TopicSelectionResearchArenaCalibrationProtocolSlot {
+  slot_key: string;
+  case_type: Extract<
+    TopicSelectionOfflineEvaluationCaseType,
+    (typeof TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES)[number]
+  >;
+  tranche: TopicSelectionResearchArenaCalibrationTranche;
+  members: TopicSelectionResearchArenaCalibrationMemberRecipe[];
+  expected_relation: TopicSelectionResearchArenaCalibrationExpectedRelation;
+  work_avoided_stage_keys: TopicSelectionResearchArenaCalibrationDownstreamStageKey[];
+}
+
+export interface TopicSelectionResearchArenaCalibrationProtocolV2 {
+  schema_version: 'TopicSelectionResearchArenaCalibrationProtocol@v2';
+  slots: TopicSelectionResearchArenaCalibrationProtocolSlot[];
+  selection_rule: 'ordered_exact_member_recipes';
+  measurement_window: {
+    start_event: 'case_registration_before_role_output';
+    end_event: 'calibration_run_evaluation';
+  };
+  accounting_sources: {
+    runtime: 'arena_transcript';
+    authorization_pause: 'designated_advisory_review_operation_group';
+    work_avoided: 'research_stage_manifest';
+  };
+  decision_difference_rule: 'advisory_outcome_changed';
+  override_categories: TopicSelectionResearchArenaCalibrationOverrideCategory[];
+  stop_rules: {
+    hard_blocker: 'stop_immediately';
+    first_tranche_redundancy: 'stop_when_no_decision_difference_and_no_work_avoided';
+  };
+  budgets: {
+    max_case_count: 6;
+    max_session_count: 10;
+    max_role_invocation_count: 20;
+    max_review_points_per_tranche: 2;
+  };
+  support_only: true;
+}
+
+export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2 {
+  schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2';
+  workspace_id: string | null;
+  dataset_key: string;
+  dataset_version: string;
+  description: string | null;
+  protocol_manifest: TopicSelectionResearchArenaCalibrationProtocolV2;
+}
+
+export type TopicSelectionResearchArenaCalibrationDatasetCreateRequest =
+  | TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1
+  | TopicSelectionResearchArenaCalibrationDatasetCreateRequestV2;
+
 export interface TopicSelectionResearchArenaCalibrationCaseMemberInput {
   member_role: TopicSelectionResearchArenaCalibrationMemberRole;
   arena_session_id: string;
   research_checkpoint_id: string | null;
 }
 
-export interface TopicSelectionResearchArenaCalibrationCaseCreateRequest {
+export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV1 {
   schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1';
   dataset_id: string;
   case_key: string;
@@ -96,6 +219,18 @@ export interface TopicSelectionResearchArenaCalibrationCaseCreateRequest {
   members: TopicSelectionResearchArenaCalibrationCaseMemberInput[];
   tags: string[];
 }
+
+export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV2 {
+  schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2';
+  dataset_id: string;
+  case_key: string;
+  slot_key: string;
+  tags: string[];
+}
+
+export type TopicSelectionResearchArenaCalibrationCaseCreateRequest =
+  | TopicSelectionResearchArenaCalibrationCaseCreateRequestV1
+  | TopicSelectionResearchArenaCalibrationCaseCreateRequestV2;
 
 export interface TopicSelectionResearchArenaCalibrationRunCreateRequest {
   schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1';
@@ -189,7 +324,7 @@ const nullableNonNegativeNumber = {
   anyOf: [{ type: 'number', minimum: 0 }, { type: 'null' }],
 } as const;
 
-export const topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema = {
+const topicSelectionResearchArenaCalibrationDatasetCreateRequestV1Schema = {
   type: 'object',
   additionalProperties: false,
   required: ['schema_version', 'workspace_id', 'dataset_key', 'dataset_version', 'description'],
@@ -200,6 +335,219 @@ export const topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema = 
     dataset_version: stringId,
     description: nullableStringId,
   },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationLoopDeltaRecipeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['delta_type', 'ref', 'classification', 'rationale'],
+  properties: {
+    delta_type: { const: 'evidence' },
+    ref: topicSelectionFunctionalRefSchema,
+    classification: {
+      enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DELTA_CLASSIFICATIONS],
+    },
+    rationale: stringId,
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationMemberRecipeSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'member_role',
+    'session_key',
+    'title_card_id',
+    'input_snapshot_ref',
+    'candidate_refs',
+    'evidence_refs',
+    'label_slot_key',
+    'label_actor',
+    'loop_delta',
+  ],
+  properties: {
+    member_role: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_MEMBER_ROLES] },
+    session_key: stringId,
+    title_card_id: stringId,
+    input_snapshot_ref: topicSelectionFunctionalRefSchema,
+    candidate_refs: {
+      type: 'array',
+      minItems: 1,
+      items: topicSelectionFunctionalRefSchema,
+      uniqueItems: true,
+    },
+    evidence_refs: {
+      type: 'array',
+      minItems: 1,
+      items: topicSelectionFunctionalRefSchema,
+      uniqueItems: true,
+    },
+    label_slot_key: stringId,
+    label_actor: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['actor_type', 'actor_id'],
+      properties: {
+        actor_type: { const: 'human' },
+        actor_id: stringId,
+      },
+    },
+    loop_delta: {
+      anyOf: [topicSelectionResearchArenaCalibrationLoopDeltaRecipeSchema, { type: 'null' }],
+    },
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationExpectedRelationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['relation_kind', 'rationale', 'dominance_axes', 'sole_delta_ref'],
+  properties: {
+    relation_kind: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_RELATION_KINDS] },
+    rationale: stringId,
+    dominance_axes: { type: 'array', items: stringId, uniqueItems: true },
+    sole_delta_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationProtocolSlotSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'slot_key',
+    'case_type',
+    'tranche',
+    'members',
+    'expected_relation',
+    'work_avoided_stage_keys',
+  ],
+  properties: {
+    slot_key: stringId,
+    case_type: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES] },
+    tranche: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_TRANCHES] },
+    members: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 2,
+      items: topicSelectionResearchArenaCalibrationMemberRecipeSchema,
+    },
+    expected_relation: topicSelectionResearchArenaCalibrationExpectedRelationSchema,
+    work_avoided_stage_keys: {
+      type: 'array',
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_DOWNSTREAM_STAGE_KEYS] },
+      uniqueItems: true,
+    },
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationProtocolV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'slots',
+    'selection_rule',
+    'measurement_window',
+    'accounting_sources',
+    'decision_difference_rule',
+    'override_categories',
+    'stop_rules',
+    'budgets',
+    'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaCalibrationProtocol@v2' },
+    slots: {
+      type: 'array',
+      minItems: 6,
+      maxItems: 6,
+      items: topicSelectionResearchArenaCalibrationProtocolSlotSchema,
+    },
+    selection_rule: { const: 'ordered_exact_member_recipes' },
+    measurement_window: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['start_event', 'end_event'],
+      properties: {
+        start_event: { const: 'case_registration_before_role_output' },
+        end_event: { const: 'calibration_run_evaluation' },
+      },
+    },
+    accounting_sources: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['runtime', 'authorization_pause', 'work_avoided'],
+      properties: {
+        runtime: { const: 'arena_transcript' },
+        authorization_pause: { const: 'designated_advisory_review_operation_group' },
+        work_avoided: { const: 'research_stage_manifest' },
+      },
+    },
+    decision_difference_rule: { const: 'advisory_outcome_changed' },
+    override_categories: {
+      type: 'array',
+      minItems: 4,
+      maxItems: 4,
+      items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_OVERRIDE_CATEGORIES] },
+      uniqueItems: true,
+    },
+    stop_rules: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['hard_blocker', 'first_tranche_redundancy'],
+      properties: {
+        hard_blocker: { const: 'stop_immediately' },
+        first_tranche_redundancy: {
+          const: 'stop_when_no_decision_difference_and_no_work_avoided',
+        },
+      },
+    },
+    budgets: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'max_case_count',
+        'max_session_count',
+        'max_role_invocation_count',
+        'max_review_points_per_tranche',
+      ],
+      properties: {
+        max_case_count: { const: 6 },
+        max_session_count: { const: 10 },
+        max_role_invocation_count: { const: 20 },
+        max_review_points_per_tranche: { const: 2 },
+      },
+    },
+    support_only: { const: true },
+  },
+} as const;
+
+const topicSelectionResearchArenaCalibrationDatasetCreateRequestV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'workspace_id',
+    'dataset_key',
+    'dataset_version',
+    'description',
+    'protocol_manifest',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2' },
+    workspace_id: nullableStringId,
+    dataset_key: stringId,
+    dataset_version: stringId,
+    description: nullableStringId,
+    protocol_manifest: topicSelectionResearchArenaCalibrationProtocolV2Schema,
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema = {
+  oneOf: [
+    topicSelectionResearchArenaCalibrationDatasetCreateRequestV1Schema,
+    topicSelectionResearchArenaCalibrationDatasetCreateRequestV2Schema,
+  ],
 } as const;
 
 export const topicSelectionResearchArenaCalibrationCaseMemberInputSchema = {
@@ -213,7 +561,7 @@ export const topicSelectionResearchArenaCalibrationCaseMemberInputSchema = {
   },
 } as const;
 
-export const topicSelectionResearchArenaCalibrationCaseCreateRequestSchema = {
+const topicSelectionResearchArenaCalibrationCaseCreateRequestV1Schema = {
   type: 'object',
   additionalProperties: false,
   required: ['schema_version', 'dataset_id', 'case_key', 'case_type', 'members', 'tags'],
@@ -230,6 +578,26 @@ export const topicSelectionResearchArenaCalibrationCaseCreateRequestSchema = {
     },
     tags: { type: 'array', items: stringId, uniqueItems: true },
   },
+} as const;
+
+const topicSelectionResearchArenaCalibrationCaseCreateRequestV2Schema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['schema_version', 'dataset_id', 'case_key', 'slot_key', 'tags'],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2' },
+    dataset_id: stringId,
+    case_key: stringId,
+    slot_key: stringId,
+    tags: { type: 'array', items: stringId, uniqueItems: true },
+  },
+} as const;
+
+export const topicSelectionResearchArenaCalibrationCaseCreateRequestSchema = {
+  oneOf: [
+    topicSelectionResearchArenaCalibrationCaseCreateRequestV1Schema,
+    topicSelectionResearchArenaCalibrationCaseCreateRequestV2Schema,
+  ],
 } as const;
 
 export const topicSelectionResearchArenaCalibrationRunCreateRequestSchema = {

@@ -118,6 +118,188 @@ test('calibration create contracts freeze arena members without accepting observ
   );
 });
 
+test('phase 10B contracts pre-register a closed six-slot protocol and exact member recipes before execution', async () => {
+  const functionalRef = (refType: string, refId: string, titleCardId: string, versionId = HASH) => ({
+    ref_type: refType,
+    ref_id: refId,
+    version_id: versionId,
+    title_card_id: titleCardId,
+  });
+  const member = (
+    memberRole: 'baseline' | 'preferred' | 'control' | 'variant' | 'subject',
+    suffix: string,
+    loopDelta: null | { classification: 'causal' | 'irrelevant'; ref: ReturnType<typeof functionalRef> } = null,
+  ) => {
+    const titleCardId = `title_${suffix}`;
+    return {
+      member_role: memberRole,
+      session_key: `arena-session-${suffix}`,
+      title_card_id: titleCardId,
+      input_snapshot_ref: functionalRef('input_snapshot', `snapshot_${suffix}`, titleCardId),
+      candidate_refs: [functionalRef('need_candidate', `candidate_${suffix}`, titleCardId, 'v1')],
+      evidence_refs: [functionalRef('evidence_map', `evidence_${suffix}`, titleCardId, 'v1')],
+      label_slot_key: `label-${suffix}`,
+      label_actor: { actor_type: 'human', actor_id: 'researcher_1' },
+      loop_delta: loopDelta ? {
+        delta_type: 'evidence',
+        ref: loopDelta.ref,
+        classification: loopDelta.classification,
+        rationale: `Apply the declared ${loopDelta.classification} evidence delta only.`,
+      } : null,
+    };
+  };
+  const causalDelta = functionalRef('evidence_map', 'evidence_causal_delta', 'title_causal', 'v2');
+  const irrelevantDelta = functionalRef('evidence_map', 'evidence_irrelevant_delta', 'title_irrelevant', 'v2');
+  const protocol = {
+    schema_version: 'TopicSelectionResearchArenaCalibrationProtocol@v2',
+    slots: [
+      {
+        slot_key: 'dominance-1',
+        case_type: 'arena_dominance_pair',
+        tranche: 'first',
+        members: [member('baseline', 'dominance_1_baseline'), member('preferred', 'dominance_1_preferred')],
+        expected_relation: {
+          relation_kind: 'dominance',
+          rationale: 'The preferred framing has the declared mechanism advantage.',
+          dominance_axes: ['mechanism_identifiability'],
+          sole_delta_ref: null,
+        },
+        work_avoided_stage_keys: [],
+      },
+      {
+        slot_key: 'causal-perturbation',
+        case_type: 'arena_causal_perturbation',
+        tranche: 'first',
+        members: [
+          member('control', 'causal_control'),
+          member('variant', 'causal_variant', { classification: 'causal', ref: causalDelta }),
+        ],
+        expected_relation: {
+          relation_kind: 'causal_perturbation',
+          rationale: 'The added mechanism evidence should change the disposition.',
+          dominance_axes: [],
+          sole_delta_ref: causalDelta,
+        },
+        work_avoided_stage_keys: [],
+      },
+      {
+        slot_key: 'non-advance',
+        case_type: 'arena_successful_non_advance',
+        tranche: 'first',
+        members: [member('subject', 'non_advance')],
+        expected_relation: {
+          relation_kind: 'successful_non_advance',
+          rationale: 'A justified stop avoids downstream topic construction.',
+          dominance_axes: [],
+          sole_delta_ref: null,
+        },
+        work_avoided_stage_keys: ['research_question', 'value_feasibility', 'topic_package', 'promotion_review'],
+      },
+      {
+        slot_key: 'dominance-2',
+        case_type: 'arena_dominance_pair',
+        tranche: 'second',
+        members: [member('baseline', 'dominance_2_baseline'), member('preferred', 'dominance_2_preferred')],
+        expected_relation: {
+          relation_kind: 'dominance',
+          rationale: 'The second preferred framing has the declared evidence advantage.',
+          dominance_axes: ['evidence_resolution'],
+          sole_delta_ref: null,
+        },
+        work_avoided_stage_keys: [],
+      },
+      {
+        slot_key: 'irrelevant-perturbation',
+        case_type: 'arena_irrelevant_perturbation',
+        tranche: 'second',
+        members: [
+          member('control', 'irrelevant_control'),
+          member('variant', 'irrelevant_variant', { classification: 'irrelevant', ref: irrelevantDelta }),
+        ],
+        expected_relation: {
+          relation_kind: 'irrelevant_perturbation',
+          rationale: 'The unrelated evidence should not change the disposition.',
+          dominance_axes: [],
+          sole_delta_ref: irrelevantDelta,
+        },
+        work_avoided_stage_keys: [],
+      },
+      {
+        slot_key: 'advancing',
+        case_type: 'arena_advancing_case',
+        tranche: 'second',
+        members: [member('subject', 'advancing')],
+        expected_relation: {
+          relation_kind: 'advancing',
+          rationale: 'The new process-selected lineage should produce one advancing disposition.',
+          dominance_axes: [],
+          sole_delta_ref: null,
+        },
+        work_avoided_stage_keys: [],
+      },
+    ],
+    selection_rule: 'ordered_exact_member_recipes',
+    measurement_window: {
+      start_event: 'case_registration_before_role_output',
+      end_event: 'calibration_run_evaluation',
+    },
+    accounting_sources: {
+      runtime: 'arena_transcript',
+      authorization_pause: 'designated_advisory_review_operation_group',
+      work_avoided: 'research_stage_manifest',
+    },
+    decision_difference_rule: 'advisory_outcome_changed',
+    override_categories: [
+      'explained_repair',
+      'human_objective_difference',
+      'possible_false_drop',
+      'possible_false_continue',
+    ],
+    stop_rules: {
+      hard_blocker: 'stop_immediately',
+      first_tranche_redundancy: 'stop_when_no_decision_difference_and_no_work_avoided',
+    },
+    budgets: {
+      max_case_count: 6,
+      max_session_count: 10,
+      max_role_invocation_count: 20,
+      max_review_points_per_tranche: 2,
+    },
+    support_only: true,
+  };
+  const dataset = {
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 't147-phase10b-product-v2',
+    dataset_version: 'v2',
+    description: 'Pre-registered Phase 10B protocol.',
+    protocol_manifest: protocol,
+  };
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaCalibrationDatasetCreateRequestSchema, dataset)).statusCode,
+    200,
+  );
+
+  const calibrationCase = {
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: 'dataset_1',
+    case_key: 'phase10b-dominance-1',
+    slot_key: 'dominance-1',
+    tags: ['phase10b', 'tranche-1'],
+  };
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaCalibrationCaseCreateRequestSchema, calibrationCase)).statusCode,
+    200,
+  );
+  assert.equal(
+    (await injectRequest(topicSelectionResearchArenaCalibrationCaseCreateRequestSchema, {
+      ...calibrationCase,
+      observed_output: { preferred: 'selected' },
+    })).statusCode,
+    400,
+  );
+});
+
 test('calibration report keeps concise human Markdown and a larger support-only LLM working set', async () => {
   const report = {
     schema_version: 'TopicSelectionResearchArenaCalibrationReport@v1',

@@ -1388,6 +1388,17 @@ test('Arena advisory review history recovers a deferred label without advancing 
   assert.match(history.history_hash, /^[a-f0-9]{64}$/u);
 });
 
+test('Arena advisory review history resolves the exact historical session binding for calibration', async () => {
+  const { service } = createService();
+  const { checkpoint } = await materializeSelectedArenaGap(service);
+
+  const byCheckpoint = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  const bySession = await service.getArenaAdvisoryReviewHistoryForSession('title_1', 'arena_1');
+
+  assert.deepEqual(bySession, byCheckpoint);
+  assert.equal(await service.getArenaAdvisoryReviewHistoryForSession('title_1', 'arena_absent'), null);
+});
+
 test('Arena advisory review history orders multiple immutable labels deterministically', async () => {
   const { service } = createService();
   const { advisory, checkpoint } = await materializeSelectedArenaGap(service);

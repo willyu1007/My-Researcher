@@ -21,8 +21,12 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-offline-evaluation-replay-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_MEMBER_ROLES,
+  TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_OVERRIDE_CATEGORIES,
+  topicSelectionResearchArenaCalibrationProtocolV2Schema,
+  topicSelectionResearchArenaCalibrationProtocolSlotSchema,
   topicSelectionResearchArenaCalibrationCaseResultSchema,
   type TopicSelectionResearchArenaCalibrationCaseCreateRequest,
+  type TopicSelectionResearchArenaCalibrationCaseCreateRequestV1,
   type TopicSelectionResearchArenaCalibrationCaseMemberInput,
   type TopicSelectionResearchArenaCalibrationCaseResult,
   type TopicSelectionResearchArenaCalibrationCoverageGap,
@@ -30,13 +34,17 @@ import {
   type TopicSelectionResearchArenaCalibrationExecutionAccounting,
   type TopicSelectionResearchArenaCalibrationHardBlocker,
   type TopicSelectionResearchArenaCalibrationHumanLabelCounts,
+  type TopicSelectionResearchArenaCalibrationMemberRecipe,
   type TopicSelectionResearchArenaCalibrationMemberResult,
   type TopicSelectionResearchArenaCalibrationMemberRole,
+  type TopicSelectionResearchArenaCalibrationProtocolSlot,
+  type TopicSelectionResearchArenaCalibrationProtocolV2,
   type TopicSelectionResearchArenaCalibrationReport,
   type TopicSelectionResearchArenaCalibrationRunCreateRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-calibration-contracts';
 import type {
   TopicSelectionResearchArenaAdvisoryReviewHistory,
+  TopicSelectionResearchStageManifest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import type {
   TopicSelectionResearchArenaRoleExecutionRecord,
@@ -58,6 +66,11 @@ type AdvisoryReviewHistoryReader = {
   getArenaAdvisoryReviewHistory(
     checkpointId: string,
   ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory>;
+  getArenaAdvisoryReviewHistoryForSession(
+    titleCardId: string,
+    arenaSessionId: string,
+  ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory | null>;
+  getStageManifest(titleCardId: string): Promise<TopicSelectionResearchStageManifest>;
 };
 
 type ServiceOptions = {
@@ -76,11 +89,55 @@ type FrozenCasePayload = {
   members: FrozenMember[];
 };
 
+type ProtocolDatasetPayload = {
+  schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v2';
+  evaluation_mode: 'canonical_owner_reload';
+  protocol_manifest: TopicSelectionResearchArenaCalibrationProtocolV2;
+  support_only: true;
+};
+
+type PreRegisteredCasePayload = {
+  schema_version: 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2';
+  protocol_hash: string;
+  protocol_slot: TopicSelectionResearchArenaCalibrationProtocolSlot;
+  work_avoided_baseline: {
+    title_card_id: string;
+    manifest_hash: string;
+    unavailable_stage_keys: string[];
+  } | null;
+};
+
+type ProtocolRunPayload = {
+  schema_version: 'TopicSelectionResearchArenaCalibrationRun@v2';
+  replay_mode?: 'frozen_snapshot_evaluation';
+  stage?: 'research_arena';
+  evaluation_mode: 'canonical_owner_reload';
+  protocol_hash: string;
+  cases: Array<{
+    case_id: string;
+    case_key: string;
+    case_hash: string;
+  }>;
+  provider_execution_allowed: false;
+  authority_writes_allowed: false;
+  support_only: true;
+  evaluated_from_canonical_owners?: true;
+};
+
+type MemberMeasurementContext = {
+  recipe: TopicSelectionResearchArenaCalibrationMemberRecipe;
+  workAvoidedStageKeys: TopicSelectionResearchArenaCalibrationProtocolSlot['work_avoided_stage_keys'];
+  workAvoidedBaseline: PreRegisteredCasePayload['work_avoided_baseline'];
+  history: TopicSelectionResearchArenaAdvisoryReviewHistory | null;
+};
+
 type ExecutionAccounting = TopicSelectionResearchArenaCalibrationExecutionAccounting;
 type MemberObservation = TopicSelectionResearchArenaCalibrationMemberResult;
 type CaseObservation = TopicSelectionResearchArenaCalibrationCaseResult;
 
 type LoadedMember = {
+  session: TopicSelectionResearchArenaSessionRecord;
+  history: TopicSelectionResearchArenaAdvisoryReviewHistory | null;
   frozen: FrozenMember;
   sourceRefs: TopicSelectionFunctionalRef[];
   observation: MemberObservation;
@@ -90,6 +147,82 @@ const schemaValidator = new Ajv({ allErrors: true, strict: false, removeAddition
 const caseObservationValidator = schemaValidator.compile<CaseObservation>(
   topicSelectionResearchArenaCalibrationCaseResultSchema,
 );
+const protocolV2Validator = schemaValidator.compile<TopicSelectionResearchArenaCalibrationProtocolV2>(
+  topicSelectionResearchArenaCalibrationProtocolV2Schema,
+);
+const preRegisteredCasePayloadValidator = schemaValidator.compile<PreRegisteredCasePayload>({
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'protocol_hash',
+    'protocol_slot',
+    'work_avoided_baseline',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2' },
+    protocol_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    protocol_slot: topicSelectionResearchArenaCalibrationProtocolSlotSchema,
+    work_avoided_baseline: {
+      anyOf: [{
+        type: 'object',
+        additionalProperties: false,
+        required: ['title_card_id', 'manifest_hash', 'unavailable_stage_keys'],
+        properties: {
+          title_card_id: { type: 'string', minLength: 1 },
+          manifest_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          unavailable_stage_keys: {
+            type: 'array',
+            items: { type: 'string', minLength: 1 },
+            uniqueItems: true,
+          },
+        },
+      }, { type: 'null' }],
+    },
+  },
+});
+const protocolRunPayloadValidator = schemaValidator.compile<ProtocolRunPayload>({
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'replay_mode',
+    'stage',
+    'evaluation_mode',
+    'protocol_hash',
+    'cases',
+    'provider_execution_allowed',
+    'authority_writes_allowed',
+    'support_only',
+  ],
+  properties: {
+    schema_version: { const: 'TopicSelectionResearchArenaCalibrationRun@v2' },
+    replay_mode: { const: 'frozen_snapshot_evaluation' },
+    stage: { const: 'research_arena' },
+    evaluation_mode: { const: 'canonical_owner_reload' },
+    protocol_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    cases: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 6,
+      uniqueItems: true,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['case_id', 'case_key', 'case_hash'],
+        properties: {
+          case_id: { type: 'string', minLength: 1 },
+          case_key: { type: 'string', minLength: 1 },
+          case_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+        },
+      },
+    },
+    provider_execution_allowed: { const: false },
+    authority_writes_allowed: { const: false },
+    support_only: { const: true },
+    evaluated_from_canonical_owners: { const: true },
+  },
+});
 const functionalRefValidator = schemaValidator.compile<TopicSelectionFunctionalRef>(
   topicSelectionFunctionalRefSchema,
 );
@@ -141,6 +274,7 @@ const COVERAGE_GAP_LABELS = {
   MISSING_ACCEPT_LABEL: '缺少人工接受建议的样本',
   MISSING_OVERRIDE_LABEL: '缺少人工推翻建议的样本',
   MISSING_NON_ADVANCE_LABEL: '缺少人工确认停止或暂缓合理的样本',
+  MISSING_MEMBER_LABEL_COVERAGE: '部分案例成员缺少唯一且指定的人工作答',
   MISSING_COST_LATENCY_ACCOUNTING: '成本、耗时或人工暂停次数记录不完整',
   MISSING_MEASURED_WORK_AVOIDED: '尚未测得实际减少的后续工作',
 } satisfies Record<TopicSelectionResearchArenaCalibrationCoverageGap, string>;
@@ -176,6 +310,28 @@ export class TopicSelectionResearchArenaCalibrationService {
   }
 
   async createDataset(input: TopicSelectionResearchArenaCalibrationDatasetCreateRequest) {
+    if (input.schema_version === 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2') {
+      this.assertProtocol(input.protocol_manifest);
+      await this.assertProtocolBeforeExecution(input.protocol_manifest);
+      const protocolManifest = this.cloneProtocol(input.protocol_manifest);
+      const payload: ProtocolDatasetPayload = {
+        schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v2',
+        evaluation_mode: 'canonical_owner_reload',
+        protocol_manifest: protocolManifest,
+        support_only: true,
+      };
+      return this.dependencies.offlineService.createDataset({
+        workspace_id: input.workspace_id,
+        dataset_key: input.dataset_key,
+        dataset_version: input.dataset_version,
+        stage: 'research_arena',
+        source: 'frozen_snapshot',
+        status: 'active',
+        description: input.description,
+        payload,
+        created_by: 'system',
+      });
+    }
     return this.dependencies.offlineService.createDataset({
       workspace_id: input.workspace_id,
       dataset_key: input.dataset_key,
@@ -198,6 +354,93 @@ export class TopicSelectionResearchArenaCalibrationService {
   ): Promise<TopicSelectionOfflineEvaluationCaseRecord> {
     const dataset = await this.requireDataset(input.dataset_id);
     this.assertResearchArenaDataset(dataset.stage, input.dataset_id);
+    if (input.schema_version === 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2') {
+      const payload = this.readProtocolDatasetPayload(dataset.payload, input.dataset_id);
+      const slot = payload.protocol_manifest.slots.find((candidate) =>
+        candidate.slot_key === input.slot_key);
+      if (!slot) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `Protocol slot ${input.slot_key} is not declared by the dataset.`);
+      }
+      if (input.case_key !== slot.slot_key) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'A Phase 10B case key must equal its frozen protocol slot key.');
+      }
+      const tags = [...input.tags].sort();
+      const existingCases = await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id);
+      const existingForSlot = existingCases.find((candidate) =>
+        this.readPreRegisteredSlotKey(candidate.frozen_input_bundle.payload) === input.slot_key);
+      if (existingForSlot) {
+        const existingPayload = this.readPreRegisteredPayload(existingForSlot);
+        if (existingForSlot.case_key === input.case_key
+          && existingPayload.protocol_hash === sha256Text(stableStringify(payload.protocol_manifest))
+          && stableStringify(existingPayload.protocol_slot) === stableStringify(slot)
+          && stableStringify(existingForSlot.tags) === stableStringify(tags)) {
+          return existingForSlot;
+        }
+        throw new AppError(409, 'VERSION_CONFLICT', `Protocol slot ${input.slot_key} is already registered.`);
+      }
+      await Promise.all(slot.members.map((member) => this.assertMemberPreRegistration(member)));
+      const protocolSlot = this.cloneProtocolSlot(slot);
+      const workAvoidedBaseline = await this.captureWorkAvoidedBaseline(slot);
+      const frozenPayload: PreRegisteredCasePayload = {
+        schema_version: 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2',
+        protocol_hash: sha256Text(stableStringify(payload.protocol_manifest)),
+        protocol_slot: protocolSlot,
+        work_avoided_baseline: workAvoidedBaseline,
+      };
+      const sourceRefs = this.uniqueRefs(slot.members.flatMap((member) => [
+        member.input_snapshot_ref,
+        ...member.candidate_refs,
+        ...member.evidence_refs,
+        ...(member.loop_delta ? [member.loop_delta.ref] : []),
+      ]));
+      const titleCardIds = new Set(slot.members.map((member) => member.title_card_id));
+      const addCaseInput: Parameters<TopicSelectionOfflineEvaluationReplayService['addCase']>[0] = {
+        workspace_id: dataset.workspace_id ?? null,
+        dataset_id: dataset.offline_evaluation_dataset_id,
+        title_card_id: titleCardIds.size === 1 ? [...titleCardIds][0] ?? null : null,
+        case_key: input.case_key,
+        case_type: slot.case_type,
+        frozen_input_bundle: createTopicSelectionOfflineFrozenInputBundle({
+          stage: 'research_arena',
+          frozen_at: dataset.created_at,
+          source_refs: sourceRefs,
+          artifact_refs: sourceRefs.filter((candidate) => candidate.ref_type === 'artifact_ref'),
+          payload: frozenPayload,
+        }),
+        gold_expectation: {
+          expected_unmet_need: false,
+          expected_key_evidence_refs: [],
+          expected_counter_evidence_refs: [],
+          expected_blocker_codes: [],
+          required_trace_refs: sourceRefs,
+          expected_recheck_action_refs: [],
+          expected_negative_memory_refs: [],
+          expected_downstream_rework_causes: [],
+          notes: [`Expected relation ${slot.expected_relation.relation_kind} was frozen before execution.`],
+        },
+        tags,
+      };
+      try {
+        return await this.dependencies.offlineService.addCase(addCaseInput);
+      } catch (error) {
+        const replay = (await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id))
+          .find((candidate) => candidate.case_key === input.case_key);
+        if (replay
+          && replay.case_type === addCaseInput.case_type
+          && replay.title_card_id === addCaseInput.title_card_id
+          && stableStringify(replay.frozen_input_bundle)
+            === stableStringify(addCaseInput.frozen_input_bundle)
+          && stableStringify(replay.gold_expectation)
+            === stableStringify(addCaseInput.gold_expectation)
+          && stableStringify(replay.tags) === stableStringify(tags)) {
+          return replay;
+        }
+        throw error;
+      }
+    }
+    if (dataset.payload.schema_version === 'TopicSelectionResearchArenaCalibrationDataset@v2') {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'A Phase 10B dataset requires a v2 pre-registered case request.');
+    }
     this.assertMemberShape(input);
     const loadedMembers = await Promise.all(input.members.map((member) => this.loadMember(member)));
     const sourceRefs = this.uniqueRefs(loadedMembers.flatMap((member) => member.sourceRefs));
@@ -239,23 +482,63 @@ export class TopicSelectionResearchArenaCalibrationService {
   ): Promise<TopicSelectionOfflineEvaluationRunRecord> {
     const dataset = await this.requireDataset(input.dataset_id);
     this.assertResearchArenaDataset(dataset.stage, input.dataset_id);
-    return this.dependencies.offlineService.startRunForStage({
-      workspace_id: dataset.workspace_id ?? null,
-      dataset_id: dataset.offline_evaluation_dataset_id,
-      run_key: input.run_key,
-      workflow_profile_key: 'topic-selection-research-arena-calibration',
-      workflow_profile_version: 'v1',
-      model_profile_key: null,
-      search_profile_key: null,
-      policy_version_id: null,
-      metric_keys: [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS],
-      run_payload: {
+    const protocol = dataset.payload.schema_version === 'TopicSelectionResearchArenaCalibrationDataset@v2'
+      ? this.readProtocolDatasetPayload(dataset.payload, input.dataset_id)
+      : null;
+    let activeCases = (await this.dependencies.offlineRepository.listCasesByDatasetId(input.dataset_id))
+      .filter((candidate) => candidate.status === 'active');
+    let runPayload: ProtocolRunPayload | Record<string, unknown>;
+    if (protocol) {
+      if (activeCases.length === 0) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Phase 10B calibration cannot start without a pre-registered case.');
+      }
+      const protocolHash = sha256Text(stableStringify(protocol.protocol_manifest));
+      const slotIndex = new Map(protocol.protocol_manifest.slots.map((slot, index) => [slot.slot_key, index]));
+      for (const evaluationCase of activeCases) {
+        const frozen = this.readPreRegisteredPayload(evaluationCase);
+        const protocolSlot = protocol.protocol_manifest.slots.find((slot) =>
+          slot.slot_key === evaluationCase.case_key);
+        if (frozen.protocol_hash !== protocolHash
+          || !protocolSlot
+          || stableStringify(frozen.protocol_slot) !== stableStringify(protocolSlot)) {
+          throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} belongs to another protocol revision.`);
+        }
+      }
+      activeCases = [...activeCases].sort((left, right) =>
+        slotIndex.get(left.case_key)! - slotIndex.get(right.case_key)!);
+      runPayload = {
+        schema_version: 'TopicSelectionResearchArenaCalibrationRun@v2',
+        evaluation_mode: 'canonical_owner_reload',
+        protocol_hash: protocolHash,
+        cases: activeCases.map((evaluationCase) => ({
+          case_id: evaluationCase.offline_evaluation_case_id,
+          case_key: evaluationCase.case_key,
+          case_hash: sha256Text(stableStringify(evaluationCase)),
+        })),
+        provider_execution_allowed: false,
+        authority_writes_allowed: false,
+        support_only: true,
+      };
+    } else {
+      runPayload = {
         schema_version: 'TopicSelectionResearchArenaCalibrationRun@v1',
         evaluation_mode: 'canonical_owner_reload',
         provider_execution_allowed: false,
         authority_writes_allowed: false,
         support_only: true,
-      },
+      };
+    }
+    return this.dependencies.offlineService.startRunForStage({
+      workspace_id: dataset.workspace_id ?? null,
+      dataset_id: dataset.offline_evaluation_dataset_id,
+      run_key: input.run_key,
+      workflow_profile_key: 'topic-selection-research-arena-calibration',
+      workflow_profile_version: protocol ? 'v2' : 'v1',
+      model_profile_key: null,
+      search_profile_key: null,
+      policy_version_id: null,
+      metric_keys: [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS],
+      run_payload: runPayload,
       created_by: 'system',
     }, 'research_arena');
   }
@@ -268,15 +551,15 @@ export class TopicSelectionResearchArenaCalibrationService {
     if (run.status !== 'running') {
       throw new AppError(409, 'VERSION_CONFLICT', 'Only running or completed Arena calibration runs can be evaluated.');
     }
-    const cases = (await this.dependencies.offlineRepository.listCasesByDatasetId(run.dataset_id))
-      .filter((candidate) => candidate.status === 'active');
+    const cases = await this.casesForRun(run, dataset.payload);
     if (cases.length === 0) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration requires at least one active frozen case.');
     }
 
     // Reload and validate the full corpus before the first evaluation write so source drift cannot
     // leave a partially evaluated run.
-    const observations = await Promise.all(cases.map((evaluationCase) => this.evaluateCase(evaluationCase)));
+    const observations = await Promise.all(cases.map((evaluationCase) =>
+      this.evaluateCase(evaluationCase, dataset.payload)));
     for (let index = 0; index < cases.length; index += 1) {
       await this.persistCaseEvaluation(run, cases[index]!, observations[index]!);
     }
@@ -302,21 +585,70 @@ export class TopicSelectionResearchArenaCalibrationService {
     if (run.status !== 'completed') {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration report is available only after evaluation completes.');
     }
-    const cases = (await this.dependencies.offlineRepository.listCasesByDatasetId(run.dataset_id))
-      .filter((candidate) => candidate.status === 'active');
+    const cases = await this.casesForRun(run, dataset.payload);
     const caseResultRecords = await this.dependencies.offlineRepository.listCaseResultsByRunId(runId);
     const metricResults = await this.dependencies.offlineRepository.listMetricResultsByRunId(runId);
     if (caseResultRecords.length !== cases.length
       || metricResults.length !== TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS.length) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration run has incomplete persisted results.');
     }
-    const observations = caseResultRecords
-      .sort((left, right) => left.case_id.localeCompare(right.case_id))
-      .map((record) => this.readObservation(record));
+    const caseResultsByCaseId = new Map(caseResultRecords.map((record) => [record.case_id, record]));
+    const metricKeys = metricResults.map((record) => record.metric_key);
+    if (caseResultsByCaseId.size !== cases.length
+      || new Set(metricKeys).size !== metricKeys.length
+      || TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS.some((metricKey) =>
+        !metricKeys.includes(metricKey))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration run has duplicated or unexpected persisted result identities.');
+    }
+    const observations = cases.map((evaluationCase) => {
+      const record = caseResultsByCaseId.get(evaluationCase.offline_evaluation_case_id);
+      if (!record
+        || record.run_id !== runId
+        || record.dataset_id !== run.dataset_id
+        || record.case_type !== evaluationCase.case_type) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration case result identity does not match its frozen run case.');
+      }
+      const observation = this.readObservation(record);
+      if (this.refKey(observation.case_ref) !== this.refKey(this.caseRef(evaluationCase))) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration observation identifies another frozen case.');
+      }
+      return observation;
+    });
+    if (metricResults.some((record) =>
+      record.run_id !== runId
+      || record.dataset_id !== run.dataset_id
+      || record.denominator !== cases.length)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena calibration metric identity does not match its frozen run.');
+    }
+    const requiresExactMemberLabels = dataset.payload.schema_version
+      === 'TopicSelectionResearchArenaCalibrationDataset@v2';
+    for (const record of metricResults) {
+      const metricKey = record.metric_key as TopicSelectionOfflineEvaluationMetricKey;
+      const passed = observations.filter((observation) =>
+        this.metricPassed(metricKey, observation, requiresExactMemberLabels));
+      const failed = observations.filter((observation) =>
+        !this.metricPassed(metricKey, observation, requiresExactMemberLabels));
+      const expectedValue = observations.length === 0 ? null : passed.length / observations.length;
+      if (record.numerator !== passed.length
+        || record.value !== expectedValue
+        || stableStringify(record.contributing_case_refs)
+          !== stableStringify(passed.map((observation) => observation.case_ref))
+        || stableStringify(record.failure_case_refs)
+          !== stableStringify(failed.map((observation) => observation.case_ref))) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Arena calibration metric ${record.metric_key} drifted from its persisted cases.`);
+      }
+    }
     return this.buildReport(dataset, run, cases, observations, metricResults);
   }
 
-  private async evaluateCase(evaluationCase: TopicSelectionOfflineEvaluationCaseRecord): Promise<CaseObservation> {
+  private async evaluateCase(
+    evaluationCase: TopicSelectionOfflineEvaluationCaseRecord,
+    datasetPayload: Record<string, unknown>,
+  ): Promise<CaseObservation> {
+    if (evaluationCase.frozen_input_bundle.payload.schema_version
+      === 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2') {
+      return this.evaluatePreRegisteredCase(evaluationCase, datasetPayload);
+    }
     const caseType = this.requireArenaCaseType(evaluationCase.case_type);
     const frozenPayload = this.readFrozenPayload(evaluationCase);
     const loadedMembers = await Promise.all(frozenPayload.members.map((member) => this.loadMember(member)));
@@ -352,10 +684,112 @@ export class TopicSelectionResearchArenaCalibrationService {
     };
   }
 
-  private async loadMember(input: TopicSelectionResearchArenaCalibrationCaseMemberInput | FrozenMember): Promise<LoadedMember> {
+  private async evaluatePreRegisteredCase(
+    evaluationCase: TopicSelectionOfflineEvaluationCaseRecord,
+    datasetPayload: Record<string, unknown>,
+  ): Promise<CaseObservation> {
+    const dataset = this.readProtocolDatasetPayload(datasetPayload, evaluationCase.dataset_id);
+    const frozenPayload = this.readPreRegisteredPayload(evaluationCase);
+    const datasetSlot = dataset.protocol_manifest.slots.find((candidate) =>
+      candidate.slot_key === frozenPayload.protocol_slot.slot_key);
+    if (!datasetSlot
+      || frozenPayload.protocol_hash !== sha256Text(stableStringify(dataset.protocol_manifest))
+      || stableStringify(frozenPayload.protocol_slot) !== stableStringify(datasetSlot)
+      || evaluationCase.case_type !== datasetSlot.case_type) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} drifted from its pre-registered protocol slot.`);
+    }
+    const loadedMembers = await Promise.all(datasetSlot.members.map((recipe) =>
+      this.loadPreRegisteredMember(recipe, datasetSlot, frozenPayload.work_avoided_baseline)));
+    const members = loadedMembers.map((member) => member.observation);
+    const relationPassed = this.relationPassed(datasetSlot.case_type, members)
+      && this.registeredRelationIdentityPassed(datasetSlot, loadedMembers);
+    const caseRef = this.caseRef(evaluationCase);
+    const relationBlockers: TopicSelectionResearchArenaCalibrationHardBlocker[] = relationPassed ? [] : [{
+      code: 'CALIBRATION_RELATION_MISS',
+      message: `${datasetSlot.expected_relation.relation_kind} did not satisfy its pre-registered identity and outcome relation.`,
+      case_ref: caseRef,
+      member_role: null,
+    }];
+    return {
+      schema_version: 'TopicSelectionResearchArenaCalibrationCaseObservation@v1',
+      case_ref: caseRef,
+      case_type: datasetSlot.case_type,
+      relation_passed: relationPassed,
+      members,
+      hard_blockers: this.uniqueBlockers([
+        ...members.flatMap((member) => member.hard_blockers.map((blocker) => ({
+          ...blocker,
+          case_ref: caseRef,
+        }))),
+        ...relationBlockers,
+      ]),
+    };
+  }
+
+  private async loadPreRegisteredMember(
+    recipe: TopicSelectionResearchArenaCalibrationMemberRecipe,
+    slot: TopicSelectionResearchArenaCalibrationProtocolSlot,
+    workAvoidedBaseline: PreRegisteredCasePayload['work_avoided_baseline'],
+  ): Promise<LoadedMember> {
+    const session = await this.dependencies.arenaRepository.findSessionByKey(recipe.session_key);
+    if (!session) {
+      throw new AppError(404, 'NOT_FOUND', `Pre-registered Arena session ${recipe.session_key} was not found.`);
+    }
+    await this.requireRecipeSnapshot(recipe);
+    const expectedLoopDeltaRefs = recipe.loop_delta ? [{
+      delta_type: recipe.loop_delta.delta_type,
+      ref: recipe.loop_delta.ref,
+      rationale: recipe.loop_delta.rationale,
+    }] : [];
+    if (session.title_card_id !== recipe.title_card_id
+      || session.input_snapshot_id !== recipe.input_snapshot_ref.ref_id
+      || session.input_snapshot_hash !== recipe.input_snapshot_ref.version_id
+      || !recipe.candidate_refs.some((candidate) =>
+        this.refKey(candidate) === this.refKey(session.target_ref))
+      || stableStringify(session.loop_delta_refs) !== stableStringify(expectedLoopDeltaRefs)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Arena session ${recipe.session_key} drifted from its pre-registered recipe.`);
+    }
+    const history = await this.dependencies.advisoryReviewHistoryReader
+      .getArenaAdvisoryReviewHistoryForSession(recipe.title_card_id, session.arena_session_id);
+    return this.loadMember({
+      member_role: recipe.member_role,
+      arena_session_id: session.arena_session_id,
+      research_checkpoint_id: history?.research_checkpoint_id ?? null,
+    }, {
+      recipe,
+      workAvoidedStageKeys: slot.work_avoided_stage_keys,
+      workAvoidedBaseline,
+      history,
+    });
+  }
+
+  private registeredRelationIdentityPassed(
+    slot: TopicSelectionResearchArenaCalibrationProtocolSlot,
+    members: LoadedMember[],
+  ): boolean {
+    if (slot.case_type !== 'arena_causal_perturbation'
+      && slot.case_type !== 'arena_irrelevant_perturbation') return true;
+    const control = members.find((member) => member.frozen.member_role === 'control');
+    const variant = members.find((member) => member.frozen.member_role === 'variant');
+    const controlReview = control?.history?.reviews.length === 1
+      ? control.history.reviews[0]
+      : null;
+    return Boolean(control && variant
+      && controlReview
+      && Date.parse(controlReview.review.created_at) <= Date.parse(variant.session.created_at)
+      && variant.session.supersedes_arena_session_id === control.session.arena_session_id);
+  }
+
+  private async loadMember(
+    input: TopicSelectionResearchArenaCalibrationCaseMemberInput | FrozenMember,
+    measurementContext: MemberMeasurementContext | null = null,
+  ): Promise<LoadedMember> {
     const session = await this.dependencies.arenaRepository.findSessionById(input.arena_session_id);
     if (!session) throw new AppError(404, 'NOT_FOUND', `ResearchArenaSession ${input.arena_session_id} was not found.`);
-    if (session.status !== 'synthesized' || !session.loop_transcript_ref || !session.loop_transcript_hash) {
+    if ((session.status !== 'synthesized' && session.status !== 'superseded')
+      || !session.loop_transcript_ref
+      || !session.loop_transcript_hash
+      || !session.synthesized_at) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `ResearchArenaSession ${input.arena_session_id} is not synthesized.`);
     }
     const snapshot = await this.requireSnapshot(session);
@@ -422,15 +856,38 @@ export class TopicSelectionResearchArenaCalibrationService {
       }
     }
 
-    const history = input.research_checkpoint_id
-      ? await this.dependencies.advisoryReviewHistoryReader.getArenaAdvisoryReviewHistory(input.research_checkpoint_id)
-      : null;
+    const history = measurementContext
+      ? measurementContext.history
+      : input.research_checkpoint_id
+        ? await this.dependencies.advisoryReviewHistoryReader.getArenaAdvisoryReviewHistory(input.research_checkpoint_id)
+        : null;
     if (history && history.title_card_id !== session.title_card_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review history belongs to another title card.');
     }
     const humanDecisions = history ? await this.loadHumanDecisions(history) : [];
-    const accounting = this.readAccounting(transcriptPayload.execution_accounting);
     const advisoryOutcome = this.readAdvisoryOutcome(transcriptPayload);
+    const humanLabelReviews = measurementContext
+      ? history?.reviews.filter((review) =>
+        review.review.actor.actor_type === measurementContext.recipe.label_actor.actor_type
+        && review.review.actor.actor_id === measurementContext.recipe.label_actor.actor_id) ?? []
+      : history?.reviews ?? [];
+    const exactDesignatedLabel = humanLabelReviews.length === 1 && history?.reviews.length === 1;
+    const derivedMeasurement = measurementContext
+      ? await this.deriveMemberMeasurement(
+        measurementContext,
+        advisoryOutcome,
+        exactDesignatedLabel ? humanLabelReviews[0]! : null,
+      )
+      : null;
+    const transcriptAccounting = this.readAccounting(transcriptPayload.execution_accounting);
+    const accounting: ExecutionAccounting = measurementContext ? {
+      ...transcriptAccounting,
+      work_avoided_stage_count: derivedMeasurement?.workAvoidedStageCount ?? null,
+      authorization_pause_count: exactDesignatedLabel ? 1 : null,
+    } : transcriptAccounting;
+    const accountingPassed = this.accountingComplete(accounting)
+      && accounting.non_provider_role_invocation_count === executions.length
+      && accounting.retrieval_run_count === executions.length;
     const structuralIndependence = this.structuralIndependence(executions);
     const productV2Verified = executions.length === REQUIRED_ROLES.size
       && executions.every((execution) => execution.schema_version === 'TopicSelectionResearchArenaRoleExecution@v2')
@@ -439,8 +896,16 @@ export class TopicSelectionResearchArenaCalibrationService {
       && executions.every((execution) => REQUIRED_ROLES.has(execution.participant_role));
     const evidenceGroundingPassed = evidencePackets.length === executions.length;
     const replayIntegrityPassed = transcriptExecutions.length === executions.length;
-    const hardBlockers = this.memberHardBlockers(session, transcriptPayload, executions, history, accounting, input.member_role);
-    const humanLabelResponses = history?.reviews.map((review) => review.review.response) ?? [];
+    const hardBlockers = this.memberHardBlockers(
+      session,
+      transcriptPayload,
+      executions,
+      history,
+      accounting,
+      input.member_role,
+      measurementContext?.recipe.label_actor ?? null,
+    );
+    const humanLabelResponses = humanLabelReviews.map((review) => review.review.response);
     const workAvoidedStageCount = accounting.work_avoided_stage_count ?? 0;
     const sourceManifest = {
       member_role: input.member_role,
@@ -461,6 +926,11 @@ export class TopicSelectionResearchArenaCalibrationService {
       human_confirmed_decisions: humanDecisions.map((decision) => this.humanDecisionIdentity(decision)),
       advisory_outcome: advisoryOutcome,
       execution_accounting: accounting,
+      measurement_context: measurementContext ? {
+        recipe: measurementContext.recipe,
+        work_avoided_baseline: measurementContext.workAvoidedBaseline,
+        current_stage_manifest: derivedMeasurement?.stageManifest ?? null,
+      } : null,
     };
     const sourceHash = sha256Text(stableStringify(sourceManifest));
     const frozen: FrozenMember = {
@@ -501,6 +971,8 @@ export class TopicSelectionResearchArenaCalibrationService {
       )),
     ]);
     return {
+      session,
+      history,
       frozen,
       sourceRefs,
       observation: {
@@ -528,7 +1000,7 @@ export class TopicSelectionResearchArenaCalibrationService {
         execution_independence_passed: productV2Verified && structuralIndependence,
         replay_integrity_passed: replayIntegrityPassed,
         human_label_responses: humanLabelResponses,
-        cost_latency_accounting_passed: this.accountingComplete(accounting),
+        cost_latency_accounting_passed: accountingPassed,
         work_avoided_stage_count: workAvoidedStageCount,
         execution_accounting: accounting,
         source_hash: sourceHash,
@@ -537,8 +1009,10 @@ export class TopicSelectionResearchArenaCalibrationService {
           ...(!evidenceGroundingPassed ? ['MISSING_EVIDENCE_GROUNDING'] : []),
           ...(!(productV2Verified && structuralIndependence) ? ['MISSING_EXECUTION_INDEPENDENCE'] : []),
           ...(!replayIntegrityPassed ? ['MISSING_REPLAY_INTEGRITY'] : []),
-          ...(humanLabelResponses.length === 0 ? ['MISSING_HUMAN_LABEL'] : []),
-          ...(!this.accountingComplete(accounting) ? ['MISSING_COST_LATENCY_ACCOUNTING'] : []),
+          ...(measurementContext
+            ? humanLabelResponses.length !== 1 ? ['MISSING_MEMBER_LABEL_COVERAGE'] : []
+            : humanLabelResponses.length === 0 ? ['MISSING_HUMAN_LABEL'] : []),
+          ...(!accountingPassed ? ['MISSING_COST_LATENCY_ACCOUNTING'] : []),
           ...(workAvoidedStageCount === 0 ? ['MISSING_MEASURED_WORK_AVOIDED'] : []),
         ],
         hard_blockers: hardBlockers,
@@ -551,6 +1025,8 @@ export class TopicSelectionResearchArenaCalibrationService {
     evaluationCase: TopicSelectionOfflineEvaluationCaseRecord,
     observation: CaseObservation,
   ): Promise<void> {
+    const requiresExactMemberLabels = evaluationCase.frozen_input_bundle.payload.schema_version
+      === 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2';
     const createdAt = run.started_at;
     const replayDiffId = `offline_eval_replay_diff_${sha256Text(`${run.offline_evaluation_run_id}:${evaluationCase.offline_evaluation_case_id}`)}`;
     const replayDiff: TopicSelectionReplayDiffRecord = {
@@ -589,7 +1065,7 @@ export class TopicSelectionResearchArenaCalibrationService {
       status: 'evaluated',
       observed_output: this.observedOutput(observation),
       replay_diff_ref: this.ref('offline_evaluation_replay_diff', replayDiffId, evaluationCase.title_card_id),
-      metric_contribution_payload: this.metricContribution(observation),
+      metric_contribution_payload: this.metricContribution(observation, requiresExactMemberLabels),
       failure_examples: observation.hard_blockers.map((blocker) => `${blocker.code}: ${blocker.message}`),
       created_at: createdAt,
     };
@@ -602,8 +1078,13 @@ export class TopicSelectionResearchArenaCalibrationService {
     cases: TopicSelectionOfflineEvaluationCaseRecord[],
     observations: CaseObservation[],
   ): Promise<void> {
-    const passed = observations.filter((observation) => this.metricPassed(metricKey, observation));
-    const failed = observations.filter((observation) => !this.metricPassed(metricKey, observation));
+    const requiresExactMemberLabels = cases.some((evaluationCase) =>
+      evaluationCase.frozen_input_bundle.payload.schema_version
+        === 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2');
+    const passed = observations.filter((observation) =>
+      this.metricPassed(metricKey, observation, requiresExactMemberLabels));
+    const failed = observations.filter((observation) =>
+      !this.metricPassed(metricKey, observation, requiresExactMemberLabels));
     const record: TopicSelectionOfflineEvaluationMetricResultRecord = {
       offline_evaluation_metric_result_id: `offline_eval_metric_result_${sha256Text(`${run.offline_evaluation_run_id}:${metricKey}`)}`,
       workspace_id: run.workspace_id ?? null,
@@ -645,7 +1126,12 @@ export class TopicSelectionResearchArenaCalibrationService {
       non_advance: members.filter((member) => member.advisory_outcome !== 'selected'
         && member.human_label_responses.includes('accept')).length,
     };
-    const coverageGaps = this.coverageGaps(caseTypeCounts, members, labelCounts);
+    const coverageGaps = this.coverageGaps(
+      caseTypeCounts,
+      members,
+      labelCounts,
+      dataset.payload.schema_version === 'TopicSelectionResearchArenaCalibrationDataset@v2',
+    );
     const hardBlockers = this.uniqueBlockers(observations.flatMap((observation) => observation.hard_blockers));
     const structuralGaps = coverageGaps.filter((gap) => gap !== 'MISSING_MEASURED_WORK_AVOIDED');
     const recommendation = hardBlockers.length > 0
@@ -672,7 +1158,7 @@ export class TopicSelectionResearchArenaCalibrationService {
     const humanMarkdown = this.humanMarkdown(core.recommendation, cases.length, coverageGaps, hardBlockers);
     const llmWorkingSet = {
       schema_version: 'TopicSelectionResearchArenaCalibrationWorkingSet@v1',
-      dataset,
+      dataset: this.reportDatasetIdentity(dataset),
       run_identity: this.runIdentity(run),
       frozen_cases: cases,
       ...core,
@@ -691,6 +1177,7 @@ export class TopicSelectionResearchArenaCalibrationService {
     caseTypeCounts: Record<string, number>,
     members: MemberObservation[],
     labelCounts: TopicSelectionResearchArenaCalibrationHumanLabelCounts,
+    requiresExactMemberLabels: boolean,
   ): TopicSelectionResearchArenaCalibrationCoverageGap[] {
     const gaps: TopicSelectionResearchArenaCalibrationCoverageGap[] = [];
     const dominanceCount = caseTypeCounts.arena_dominance_pair ?? 0;
@@ -707,6 +1194,10 @@ export class TopicSelectionResearchArenaCalibrationService {
     if (labelCounts.accept === 0) gaps.push('MISSING_ACCEPT_LABEL');
     if (labelCounts.override === 0) gaps.push('MISSING_OVERRIDE_LABEL');
     if (labelCounts.non_advance === 0) gaps.push('MISSING_NON_ADVANCE_LABEL');
+    if (requiresExactMemberLabels
+      && members.some((member) => member.human_label_responses.length !== 1)) {
+      gaps.push('MISSING_MEMBER_LABEL_COVERAGE');
+    }
     if (members.some((member) => !member.cost_latency_accounting_passed)) gaps.push('MISSING_COST_LATENCY_ACCOUNTING');
     if (members.every((member) => member.work_avoided_stage_count === 0)) gaps.push('MISSING_MEASURED_WORK_AVOIDED');
     return gaps;
@@ -756,7 +1247,278 @@ export class TopicSelectionResearchArenaCalibrationService {
     }
   }
 
-  private assertMemberShape(input: TopicSelectionResearchArenaCalibrationCaseCreateRequest): void {
+  private assertProtocol(protocol: TopicSelectionResearchArenaCalibrationProtocolV2): void {
+    if (!protocolV2Validator(protocol)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Phase 10B protocol manifest is malformed.');
+    }
+    if (stableStringify(protocol.override_categories)
+      !== stableStringify(TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_OVERRIDE_CATEGORIES)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Phase 10B override categories must keep their canonical order.');
+    }
+    const expectedSlots = [
+      ['first', 'arena_dominance_pair', 'dominance'],
+      ['first', 'arena_causal_perturbation', 'causal_perturbation'],
+      ['first', 'arena_successful_non_advance', 'successful_non_advance'],
+      ['second', 'arena_dominance_pair', 'dominance'],
+      ['second', 'arena_irrelevant_perturbation', 'irrelevant_perturbation'],
+      ['second', 'arena_advancing_case', 'advancing'],
+    ] as const;
+    const slotKeys = new Set<string>();
+    const sessionKeys = new Set<string>();
+    const labelSlotKeys = new Set<string>();
+    let memberCount = 0;
+    for (const [index, slot] of protocol.slots.entries()) {
+      const [tranche, caseType, relationKind] = expectedSlots[index]!;
+      if (slot.tranche !== tranche
+        || slot.case_type !== caseType
+        || slot.expected_relation.relation_kind !== relationKind) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Phase 10B protocol slots must keep the fixed two-tranche matrix order.');
+      }
+      if (slotKeys.has(slot.slot_key)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `Protocol slot key ${slot.slot_key} is duplicated.`);
+      }
+      slotKeys.add(slot.slot_key);
+      this.assertProtocolSlot(slot);
+      memberCount += slot.members.length;
+      for (const member of slot.members) {
+        if (sessionKeys.has(member.session_key)) {
+          throw new AppError(400, 'INVALID_PAYLOAD', `Protocol member session key ${member.session_key} is reused across slots.`);
+        }
+        if (labelSlotKeys.has(member.label_slot_key)) {
+          throw new AppError(400, 'INVALID_PAYLOAD', `Protocol label slot ${member.label_slot_key} is reused across members.`);
+        }
+        sessionKeys.add(member.session_key);
+        labelSlotKeys.add(member.label_slot_key);
+      }
+    }
+    if (memberCount !== protocol.budgets.max_session_count || sessionKeys.size !== memberCount) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Phase 10B protocol must bind exactly ten unique member sessions.');
+    }
+  }
+
+  private async assertProtocolBeforeExecution(
+    protocol: TopicSelectionResearchArenaCalibrationProtocolV2,
+  ): Promise<void> {
+    for (const recipe of protocol.slots.flatMap((slot) => slot.members)) {
+      const session = await this.dependencies.arenaRepository.findSessionByKey(recipe.session_key);
+      if (!session) continue;
+      const roleExecutions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(
+        session.arena_session_id,
+      );
+      const expectedLoopDeltaRefs = recipe.loop_delta ? [{
+        delta_type: recipe.loop_delta.delta_type,
+        ref: recipe.loop_delta.ref,
+        rationale: recipe.loop_delta.rationale,
+      }] : [];
+      if (session.status !== 'open'
+        || session.title_card_id !== recipe.title_card_id
+        || session.input_snapshot_id !== recipe.input_snapshot_ref.ref_id
+        || session.input_snapshot_hash !== recipe.input_snapshot_ref.version_id
+        || !recipe.candidate_refs.some((candidate) =>
+          this.refKey(candidate) === this.refKey(session.target_ref))
+        || stableStringify(session.loop_delta_refs) !== stableStringify(expectedLoopDeltaRefs)
+        || session.loop_transcript_ref !== null
+        || session.loop_transcript_hash !== null
+        || roleExecutions.length > 0) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Phase 10B protocol member ${recipe.session_key} already has output or identity drift.`);
+      }
+    }
+  }
+
+  private assertProtocolSlot(slot: TopicSelectionResearchArenaCalibrationProtocolSlot): void {
+    const roles = slot.members.map((member) => member.member_role);
+    const expectedRoles: TopicSelectionResearchArenaCalibrationMemberRole[] =
+      slot.case_type === 'arena_dominance_pair'
+        ? ['baseline', 'preferred']
+        : slot.case_type === 'arena_causal_perturbation'
+          || slot.case_type === 'arena_irrelevant_perturbation'
+          ? ['control', 'variant']
+          : ['subject'];
+    if (stableStringify(roles) !== stableStringify(expectedRoles)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} has an invalid ordered member shape.`);
+    }
+    for (const member of slot.members) this.assertMemberRecipeRefs(member, slot.slot_key);
+
+    const isDominance = slot.case_type === 'arena_dominance_pair';
+    const isPerturbation = slot.case_type === 'arena_causal_perturbation'
+      || slot.case_type === 'arena_irrelevant_perturbation';
+    const isNonAdvance = slot.case_type === 'arena_successful_non_advance';
+    if (isDominance ? slot.expected_relation.dominance_axes.length === 0
+      : slot.expected_relation.dominance_axes.length > 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} has invalid dominance axes.`);
+    }
+    if (isPerturbation) {
+      const [control, variant] = slot.members;
+      const expectedClassification = slot.case_type === 'arena_causal_perturbation'
+        ? 'causal'
+        : 'irrelevant';
+      if (!control || !variant
+        || control.title_card_id !== variant.title_card_id
+        || stableStringify(control.candidate_refs) !== stableStringify(variant.candidate_refs)
+        || this.refKey(control.input_snapshot_ref) === this.refKey(variant.input_snapshot_ref)
+        || control.loop_delta !== null
+        || variant.loop_delta?.classification !== expectedClassification
+        || !slot.expected_relation.sole_delta_ref
+        || this.refKey(variant.loop_delta.ref) !== this.refKey(slot.expected_relation.sole_delta_ref)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} must declare one exact typed evidence delta on a shared candidate lineage.`);
+      }
+      const expectedVariantEvidence = [...control.evidence_refs, variant.loop_delta.ref];
+      if (stableStringify(variant.evidence_refs) !== stableStringify(expectedVariantEvidence)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} must change only its declared evidence delta.`);
+      }
+    } else if (slot.expected_relation.sole_delta_ref !== null
+      || slot.members.some((member) => member.loop_delta !== null)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} cannot declare a loop delta.`);
+    }
+
+    const requiredWorkAvoidedStages = [
+      'research_question',
+      'value_feasibility',
+      'topic_package',
+      'promotion_review',
+    ];
+    if (isNonAdvance
+      ? stableStringify(slot.work_avoided_stage_keys) !== stableStringify(requiredWorkAvoidedStages)
+      : slot.work_avoided_stage_keys.length !== 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${slot.slot_key} has an invalid work-avoided measurement window.`);
+    }
+  }
+
+  private assertMemberRecipeRefs(
+    member: TopicSelectionResearchArenaCalibrationMemberRecipe,
+    slotKey: string,
+  ): void {
+    const candidateKeys = new Set(member.candidate_refs.map((candidate) => this.refKey(candidate)));
+    const evidenceKeys = new Set(member.evidence_refs.map((candidate) => this.refKey(candidate)));
+    const refs = [
+      member.input_snapshot_ref,
+      ...member.candidate_refs,
+      ...member.evidence_refs,
+      ...(member.loop_delta ? [member.loop_delta.ref] : []),
+    ];
+    if (member.input_snapshot_ref.ref_type !== 'input_snapshot'
+      || !member.input_snapshot_ref.version_id
+      || member.candidate_refs.some((candidate) => candidate.ref_type !== 'need_candidate')
+      || refs.some((candidate) => candidate.title_card_id !== member.title_card_id)
+      || candidateKeys.size !== member.candidate_refs.length
+      || evidenceKeys.size !== member.evidence_refs.length
+      || [...candidateKeys].some((key) => evidenceKeys.has(key))) {
+      throw new AppError(400, 'INVALID_PAYLOAD', `${slotKey} has a malformed or cross-title member recipe.`);
+    }
+  }
+
+  private async assertMemberPreRegistration(
+    member: TopicSelectionResearchArenaCalibrationMemberRecipe,
+  ): Promise<void> {
+    const snapshot = await this.requireRecipeSnapshot(member);
+
+    const session = await this.dependencies.arenaRepository.findSessionByKey(member.session_key);
+    if (!session) return;
+    const roleExecutions = await this.dependencies.arenaRepository.listRoleExecutionsBySessionId(
+      session.arena_session_id,
+    );
+    const expectedLoopDeltaRefs = member.loop_delta ? [{
+      delta_type: member.loop_delta.delta_type,
+      ref: member.loop_delta.ref,
+      rationale: member.loop_delta.rationale,
+    }] : [];
+    if (session.status !== 'open'
+      || session.title_card_id !== member.title_card_id
+      || session.input_snapshot_id !== snapshot.input_snapshot_id
+      || session.input_snapshot_hash !== snapshot.snapshot_hash
+      || !member.candidate_refs.some((candidate) =>
+        this.refKey(candidate) === this.refKey(session.target_ref))
+      || stableStringify(session.loop_delta_refs) !== stableStringify(expectedLoopDeltaRefs)
+      || session.loop_transcript_ref !== null
+      || session.loop_transcript_hash !== null
+      || roleExecutions.length > 0) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Arena session ${member.session_key} already has output or drifted from its pre-registered recipe.`);
+    }
+  }
+
+  private async requireRecipeSnapshot(
+    member: TopicSelectionResearchArenaCalibrationMemberRecipe,
+  ): Promise<TopicSelectionInputSnapshotRecord> {
+    const snapshot = await this.dependencies.controlPlaneRepository.findInputSnapshotById(
+      member.input_snapshot_ref.ref_id,
+    );
+    if (!snapshot) {
+      throw new AppError(404, 'NOT_FOUND', `InputSnapshot ${member.input_snapshot_ref.ref_id} was not found.`);
+    }
+    const sourceKeys = new Set(snapshot.source_refs.map((candidate) => this.refKey(candidate)));
+    const expectedSourceKeys = new Set([...member.candidate_refs, ...member.evidence_refs]
+      .map((candidate) => this.refKey(candidate)));
+    if (snapshot.title_card_id !== member.title_card_id
+      || snapshot.snapshot_hash !== member.input_snapshot_ref.version_id
+      || !member.candidate_refs.some((candidate) =>
+        this.refKey(candidate) === this.refKey(snapshot.target_ref))
+      || snapshot.source_refs.length !== sourceKeys.size
+      || sourceKeys.size !== expectedSourceKeys.size
+      || [...expectedSourceKeys].some((key) => !sourceKeys.has(key))) {
+      throw new AppError(409, 'VERSION_CONFLICT', `InputSnapshot ${snapshot.input_snapshot_id} does not match its pre-registered member recipe.`);
+    }
+    return snapshot;
+  }
+
+  private async captureWorkAvoidedBaseline(
+    slot: TopicSelectionResearchArenaCalibrationProtocolSlot,
+  ): Promise<PreRegisteredCasePayload['work_avoided_baseline']> {
+    if (slot.work_avoided_stage_keys.length === 0) return null;
+    const member = slot.members[0]!;
+    const manifest = await this.dependencies.advisoryReviewHistoryReader.getStageManifest(
+      member.title_card_id,
+    );
+    const entryByStage = new Map(manifest.stages.map((entry) => [entry.stage, entry]));
+    const unavailableStageKeys = slot.work_avoided_stage_keys.filter((stage) =>
+      entryByStage.get(stage)?.state === 'unavailable');
+    if (manifest.title_card_id !== member.title_card_id
+      || unavailableStageKeys.length !== slot.work_avoided_stage_keys.length) {
+      throw new AppError(409, 'VERSION_CONFLICT', `${slot.slot_key} work-avoided stages were already entered before registration.`);
+    }
+    return {
+      title_card_id: manifest.title_card_id,
+      manifest_hash: manifest.manifest_hash,
+      unavailable_stage_keys: unavailableStageKeys,
+    };
+  }
+
+  private readProtocolDatasetPayload(
+    value: Record<string, unknown>,
+    datasetId: string,
+  ): ProtocolDatasetPayload {
+    if (value.schema_version !== 'TopicSelectionResearchArenaCalibrationDataset@v2'
+      || value.evaluation_mode !== 'canonical_owner_reload'
+      || value.support_only !== true
+      || !protocolV2Validator(value.protocol_manifest)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `OfflineEvaluationDataset ${datasetId} has no valid Phase 10B protocol.`);
+    }
+    this.assertProtocol(value.protocol_manifest);
+    return value as ProtocolDatasetPayload;
+  }
+
+  private readPreRegisteredSlotKey(value: Record<string, unknown>): string | null {
+    if (value.schema_version !== 'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2') return null;
+    if (!this.isRecord(value.protocol_slot)
+      || typeof value.protocol_slot.slot_key !== 'string'
+      || value.protocol_slot.slot_key.length === 0) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'A Phase 10B case has a malformed pre-registration payload.');
+    }
+    return value.protocol_slot.slot_key;
+  }
+
+  private cloneProtocol(
+    protocol: TopicSelectionResearchArenaCalibrationProtocolV2,
+  ): TopicSelectionResearchArenaCalibrationProtocolV2 {
+    return JSON.parse(stableStringify(protocol)) as TopicSelectionResearchArenaCalibrationProtocolV2;
+  }
+
+  private cloneProtocolSlot(
+    slot: TopicSelectionResearchArenaCalibrationProtocolSlot,
+  ): TopicSelectionResearchArenaCalibrationProtocolSlot {
+    return JSON.parse(stableStringify(slot)) as TopicSelectionResearchArenaCalibrationProtocolSlot;
+  }
+
+  private assertMemberShape(input: TopicSelectionResearchArenaCalibrationCaseCreateRequestV1): void {
     const roles = input.members.map((member) => member.member_role);
     if (new Set(roles).size !== roles.length || new Set(input.members.map((member) => member.arena_session_id)).size !== input.members.length) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Arena calibration case members must have unique roles and sessions.');
@@ -888,6 +1650,44 @@ export class TopicSelectionResearchArenaCalibrationService {
       && new Set(executions.map((execution) => this.refKey(execution.evidence_packet_artifact_ref))).size === executions.length;
   }
 
+  private async deriveMemberMeasurement(
+    context: MemberMeasurementContext,
+    advisoryOutcome: MemberObservation['advisory_outcome'],
+    designatedReview: TopicSelectionResearchArenaAdvisoryReviewHistory['reviews'][number] | null,
+  ): Promise<{
+    workAvoidedStageCount: number | null;
+    stageManifest: TopicSelectionResearchStageManifest | null;
+  }> {
+    if (context.workAvoidedStageKeys.length === 0) {
+      return { workAvoidedStageCount: 0, stageManifest: null };
+    }
+    const baseline = context.workAvoidedBaseline;
+    if (!baseline
+      || baseline.title_card_id !== context.recipe.title_card_id
+      || stableStringify(baseline.unavailable_stage_keys)
+        !== stableStringify(context.workAvoidedStageKeys)) {
+      return { workAvoidedStageCount: null, stageManifest: null };
+    }
+    if (!designatedReview
+      || designatedReview.review.response !== 'accept'
+      || advisoryOutcome === 'selected') {
+      return { workAvoidedStageCount: 0, stageManifest: null };
+    }
+    const manifest = await this.dependencies.advisoryReviewHistoryReader.getStageManifest(
+      context.recipe.title_card_id,
+    );
+    const entryByStage = new Map(manifest.stages.map((entry) => [entry.stage, entry]));
+    if (manifest.title_card_id !== context.recipe.title_card_id
+      || context.workAvoidedStageKeys.some((stage) => !entryByStage.has(stage))) {
+      return { workAvoidedStageCount: null, stageManifest: manifest };
+    }
+    return {
+      workAvoidedStageCount: context.workAvoidedStageKeys.filter((stage) =>
+        entryByStage.get(stage)?.state === 'unavailable').length,
+      stageManifest: manifest,
+    };
+  }
+
   private memberHardBlockers(
     session: TopicSelectionResearchArenaSessionRecord,
     transcriptPayload: Record<string, unknown>,
@@ -895,6 +1695,7 @@ export class TopicSelectionResearchArenaCalibrationService {
     history: TopicSelectionResearchArenaAdvisoryReviewHistory | null,
     accounting: ExecutionAccounting,
     memberRole: TopicSelectionResearchArenaCalibrationMemberRole,
+    designatedLabelActor: TopicSelectionResearchArenaCalibrationMemberRecipe['label_actor'] | null,
   ): TopicSelectionResearchArenaCalibrationHardBlocker[] {
     const blockers: TopicSelectionResearchArenaCalibrationHardBlocker[] = [];
     const add = (code: TopicSelectionResearchArenaCalibrationHardBlocker['code'], message: string) => {
@@ -910,10 +1711,13 @@ export class TopicSelectionResearchArenaCalibrationService {
       add('MISSING_LOOP_DELTA', 'Retry Arena session has no typed loop delta.');
     }
     if (accounting.provider_call_count !== null && accounting.provider_call_count > 0) {
-      add('PROVIDER_CALL', 'Provider activity is outside the authorized Phase 10A calibration boundary.');
+      add('PROVIDER_CALL', 'Provider activity is outside the authorized Phase 10 calibration boundary.');
     }
     if ((accounting.authorization_pause_count ?? 0) > 1) {
       add('EXTRA_HUMAN_STOP', 'Calibration source records more than one human pause for the semantic decision.');
+    }
+    if (designatedLabelActor && history && history.reviews.length > 1) {
+      add('EXTRA_HUMAN_STOP', 'The pre-registered member has more than one advisory review for one semantic decision.');
     }
     const synthesis = this.requireRecord(transcriptPayload.advisory_synthesis, 'Arena advisory synthesis');
     const dispositions = this.recordArray(synthesis.candidate_dispositions, 'Arena candidate dispositions');
@@ -966,6 +1770,7 @@ export class TopicSelectionResearchArenaCalibrationService {
       && accounting.evidence_excerpt_chars !== null
       && accounting.evidence_excerpt_chars > 0
       && accounting.duration_ms !== null
+      && accounting.work_avoided_stage_count !== null
       && accounting.authorization_pause_count !== null
       && accounting.authorization_pause_count <= 1;
   }
@@ -1039,7 +1844,11 @@ export class TopicSelectionResearchArenaCalibrationService {
     }
   }
 
-  private metricPassed(metricKey: TopicSelectionOfflineEvaluationMetricKey, observation: CaseObservation): boolean {
+  private metricPassed(
+    metricKey: TopicSelectionOfflineEvaluationMetricKey,
+    observation: CaseObservation,
+    requiresExactMemberLabels: boolean,
+  ): boolean {
     switch (metricKey) {
       case 'arena_evidence_grounding_rate':
         return observation.members.every((member) => member.evidence_grounding_passed);
@@ -1048,7 +1857,9 @@ export class TopicSelectionResearchArenaCalibrationService {
       case 'arena_replay_integrity_rate':
         return observation.members.every((member) => member.replay_integrity_passed);
       case 'arena_human_label_coverage_rate':
-        return observation.members.every((member) => member.human_label_responses.length > 0);
+        return observation.members.every((member) => requiresExactMemberLabels
+          ? member.human_label_responses.length === 1
+          : member.human_label_responses.length > 0);
       case 'arena_cost_latency_accounting_rate':
         return observation.members.every((member) => member.cost_latency_accounting_passed);
       case 'arena_work_avoided_rate':
@@ -1058,10 +1869,13 @@ export class TopicSelectionResearchArenaCalibrationService {
     }
   }
 
-  private metricContribution(observation: CaseObservation): Record<string, unknown> {
+  private metricContribution(
+    observation: CaseObservation,
+    requiresExactMemberLabels: boolean,
+  ): Record<string, unknown> {
     return Object.fromEntries(TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS.map((metricKey) => [
       metricKey,
-      this.metricPassed(metricKey, observation),
+      this.metricPassed(metricKey, observation, requiresExactMemberLabels),
     ]));
   }
 
@@ -1095,6 +1909,21 @@ export class TopicSelectionResearchArenaCalibrationService {
     const payload = evaluationCase.frozen_input_bundle.payload;
     if (!frozenCasePayloadValidator(payload)) {
       throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} has a malformed frozen source manifest.`);
+    }
+    return payload;
+  }
+
+  private readPreRegisteredPayload(
+    evaluationCase: TopicSelectionOfflineEvaluationCaseRecord,
+  ): PreRegisteredCasePayload {
+    const payload = evaluationCase.frozen_input_bundle.payload;
+    if (!preRegisteredCasePayloadValidator(payload)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} has a malformed pre-registration payload.`);
+    }
+    this.assertProtocolSlot(payload.protocol_slot);
+    if ((payload.protocol_slot.work_avoided_stage_keys.length === 0)
+      !== (payload.work_avoided_baseline === null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration case ${evaluationCase.case_key} has an inconsistent work-avoided baseline.`);
     }
     return payload;
   }
@@ -1147,6 +1976,10 @@ export class TopicSelectionResearchArenaCalibrationService {
       support_only: session.support_only,
       supersedes_arena_session_id: session.supersedes_arena_session_id,
       superseded_by_arena_session_id: session.superseded_by_arena_session_id,
+      created_at: session.created_at,
+      updated_at: session.updated_at,
+      synthesized_at: session.synthesized_at,
+      superseded_at: session.superseded_at,
     };
   }
 
@@ -1218,6 +2051,25 @@ export class TopicSelectionResearchArenaCalibrationService {
       metric_keys: run.metric_keys,
       run_payload: run.run_payload,
       started_at: run.started_at,
+    };
+  }
+
+  private reportDatasetIdentity(
+    dataset: Awaited<ReturnType<TopicSelectionResearchArenaCalibrationService['requireDataset']>>,
+  ): Record<string, unknown> {
+    if (dataset.payload.schema_version !== 'TopicSelectionResearchArenaCalibrationDataset@v2') {
+      return { ...dataset };
+    }
+    return {
+      offline_evaluation_dataset_id: dataset.offline_evaluation_dataset_id,
+      workspace_id: dataset.workspace_id,
+      dataset_key: dataset.dataset_key,
+      dataset_version: dataset.dataset_version,
+      stage: dataset.stage,
+      source: dataset.source,
+      payload: dataset.payload,
+      created_by: dataset.created_by,
+      created_at: dataset.created_at,
     };
   }
 
@@ -1308,6 +2160,47 @@ export class TopicSelectionResearchArenaCalibrationService {
     const run = await this.dependencies.offlineRepository.findRunById(runId);
     if (!run) throw new AppError(404, 'NOT_FOUND', `OfflineEvaluationRun ${runId} was not found.`);
     return run;
+  }
+
+  private async casesForRun(
+    run: TopicSelectionOfflineEvaluationRunRecord,
+    datasetPayload: Record<string, unknown>,
+  ): Promise<TopicSelectionOfflineEvaluationCaseRecord[]> {
+    const allCases = await this.dependencies.offlineRepository.listCasesByDatasetId(run.dataset_id);
+    if (datasetPayload.schema_version !== 'TopicSelectionResearchArenaCalibrationDataset@v2') {
+      return allCases.filter((candidate) => candidate.status === 'active');
+    }
+    const protocol = this.readProtocolDatasetPayload(datasetPayload, run.dataset_id);
+    if (!protocolRunPayloadValidator(run.run_payload)
+      || run.run_payload.protocol_hash !== sha256Text(stableStringify(protocol.protocol_manifest))
+      || run.workflow_profile_key !== 'topic-selection-research-arena-calibration'
+      || run.workflow_profile_version !== 'v2'
+      || run.model_profile_key !== null
+      || run.search_profile_key !== null
+      || run.policy_version_id !== null
+      || stableStringify(run.metric_keys)
+        !== stableStringify(TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration run ${run.offline_evaluation_run_id} has no valid frozen Phase 10B case manifest.`);
+    }
+    const caseIds = run.run_payload.cases.map((candidate) => candidate.case_id);
+    const caseKeys = run.run_payload.cases.map((candidate) => candidate.case_key);
+    if (new Set(caseIds).size !== caseIds.length || new Set(caseKeys).size !== caseKeys.length) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration run ${run.offline_evaluation_run_id} repeats a frozen case identity.`);
+    }
+    const byId = new Map(allCases.map((candidate) => [candidate.offline_evaluation_case_id, candidate]));
+    if (run.case_count !== run.run_payload.cases.length) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Calibration run ${run.offline_evaluation_run_id} case count drifted.`);
+    }
+    return run.run_payload.cases.map((frozen) => {
+      const evaluationCase = byId.get(frozen.case_id);
+      if (!evaluationCase
+        || evaluationCase.status !== 'active'
+        || evaluationCase.case_key !== frozen.case_key
+        || sha256Text(stableStringify(evaluationCase)) !== frozen.case_hash) {
+        throw new AppError(409, 'VERSION_CONFLICT', `Calibration run ${run.offline_evaluation_run_id} case identity drifted.`);
+      }
+      return evaluationCase;
+    });
   }
 
   private assertResearchArenaDataset(stage: string, datasetId: string): void {

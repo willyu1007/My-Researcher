@@ -10,11 +10,16 @@ import type {
   TopicSelectionAgentInvocationProvenance,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import type {
+  TopicSelectionResearchArenaCalibrationMemberRecipe,
+  TopicSelectionResearchArenaCalibrationProtocolV2,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-calibration-contracts';
+import type {
   TopicSelectionResearchArenaRoleExecutionRecord,
   TopicSelectionResearchArenaSessionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type {
   TopicSelectionResearchArenaAdvisoryReviewHistory,
+  TopicSelectionResearchStageManifest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
@@ -40,13 +45,23 @@ function createCalibrationHarness(options: {
     getArenaAdvisoryReviewHistory(
       checkpointId: string,
     ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory>;
+    getArenaAdvisoryReviewHistoryForSession(
+      titleCardId: string,
+      arenaSessionId: string,
+    ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory | null>;
+    getStageManifest(titleCardId: string): Promise<TopicSelectionResearchStageManifest>;
   };
 } = {}) {
   const controlPlaneRepository = new InMemoryTopicSelectionControlPlaneRepository();
   const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
   const offlineRepository = new InMemoryTopicSelectionOfflineEvaluationReplayRepository();
+  const idCounts = new Map<string, number>();
   const offlineService = new TopicSelectionOfflineEvaluationReplayService(offlineRepository, {
-    idFactory: (prefix) => `${prefix}_1`,
+    idFactory: (prefix) => {
+      const count = (idCounts.get(prefix) ?? 0) + 1;
+      idCounts.set(prefix, count);
+      return `${prefix}_${count}`;
+    },
     now: () => NOW,
   });
   const service = new TopicSelectionResearchArenaCalibrationService({
@@ -59,6 +74,15 @@ function createCalibrationHarness(options: {
       getArenaAdvisoryReviewHistory: async () => {
         throw new Error('No checkpoint review should be read for an unlabeled calibration member.');
       },
+      getArenaAdvisoryReviewHistoryForSession: async () => null,
+      getStageManifest: async (titleCardId) => ({
+        schema_version: 'TopicSelectionResearchStageManifest@v1',
+        title_card_id: titleCardId,
+        current_stage: null,
+        next_human_decision_stage: null,
+        stages: [],
+        manifest_hash: sha256Text(`manifest:${titleCardId}`),
+      }),
     },
   }, { now: options.now ?? (() => NOW) });
   return { controlPlaneRepository, arenaRepository, offlineRepository, service };
@@ -75,6 +99,209 @@ const ref = (
   version_id: versionId,
   title_card_id: titleCardId,
 });
+
+function phase10bMemberRecipe(
+  memberRole: TopicSelectionResearchArenaCalibrationMemberRecipe['member_role'],
+  suffix: string,
+  titleSuffix = suffix,
+  loopDelta: TopicSelectionResearchArenaCalibrationMemberRecipe['loop_delta'] = null,
+): TopicSelectionResearchArenaCalibrationMemberRecipe {
+  const titleCardId = `title_${titleSuffix}`;
+  return {
+    member_role: memberRole,
+    session_key: `session-key-${suffix}`,
+    title_card_id: titleCardId,
+    input_snapshot_ref: ref('input_snapshot', `snapshot_${suffix}`, titleCardId, sha256Text(`snapshot:${suffix}`)),
+    candidate_refs: [ref('need_candidate', `candidate_${titleSuffix}`, titleCardId, 'v1')],
+    evidence_refs: [ref('evidence_map', `evidence_${suffix}`, titleCardId, 'v1')],
+    label_slot_key: `label-${suffix}`,
+    label_actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    loop_delta: loopDelta,
+  };
+}
+
+function phase10bProtocol(): TopicSelectionResearchArenaCalibrationProtocolV2 {
+  const causalDelta = ref('evidence_map', 'evidence_causal_variant', 'title_causal', 'v2');
+  const irrelevantDelta = ref('evidence_map', 'evidence_irrelevant_variant', 'title_irrelevant', 'v2');
+  const causalControl = phase10bMemberRecipe('control', 'causal_control', 'causal');
+  const causalVariant = phase10bMemberRecipe('variant', 'causal_variant', 'causal', {
+    delta_type: 'evidence',
+    ref: causalDelta,
+    classification: 'causal',
+    rationale: 'Add the predeclared mechanism evidence only.',
+  });
+  causalVariant.evidence_refs = [...causalControl.evidence_refs, causalDelta];
+  const irrelevantControl = phase10bMemberRecipe('control', 'irrelevant_control', 'irrelevant');
+  const irrelevantVariant = phase10bMemberRecipe('variant', 'irrelevant_variant', 'irrelevant', {
+    delta_type: 'evidence',
+    ref: irrelevantDelta,
+    classification: 'irrelevant',
+    rationale: 'Add the predeclared unrelated evidence only.',
+  });
+  irrelevantVariant.evidence_refs = [...irrelevantControl.evidence_refs, irrelevantDelta];
+  return {
+    schema_version: 'TopicSelectionResearchArenaCalibrationProtocol@v2',
+    slots: [{
+      slot_key: 'dominance-1',
+      case_type: 'arena_dominance_pair',
+      tranche: 'first',
+      members: [
+        phase10bMemberRecipe('baseline', 'dominance_1_baseline'),
+        phase10bMemberRecipe('preferred', 'dominance_1_preferred'),
+      ],
+      expected_relation: {
+        relation_kind: 'dominance',
+        rationale: 'The preferred framing has the declared mechanism advantage.',
+        dominance_axes: ['mechanism_identifiability'],
+        sole_delta_ref: null,
+      },
+      work_avoided_stage_keys: [],
+    }, {
+      slot_key: 'causal-perturbation',
+      case_type: 'arena_causal_perturbation',
+      tranche: 'first',
+      members: [
+        causalControl,
+        causalVariant,
+      ],
+      expected_relation: {
+        relation_kind: 'causal_perturbation',
+        rationale: 'The mechanism evidence should change the disposition.',
+        dominance_axes: [],
+        sole_delta_ref: causalDelta,
+      },
+      work_avoided_stage_keys: [],
+    }, {
+      slot_key: 'non-advance',
+      case_type: 'arena_successful_non_advance',
+      tranche: 'first',
+      members: [phase10bMemberRecipe('subject', 'non_advance')],
+      expected_relation: {
+        relation_kind: 'successful_non_advance',
+        rationale: 'The justified stop avoids downstream work.',
+        dominance_axes: [],
+        sole_delta_ref: null,
+      },
+      work_avoided_stage_keys: ['research_question', 'value_feasibility', 'topic_package', 'promotion_review'],
+    }, {
+      slot_key: 'dominance-2',
+      case_type: 'arena_dominance_pair',
+      tranche: 'second',
+      members: [
+        phase10bMemberRecipe('baseline', 'dominance_2_baseline'),
+        phase10bMemberRecipe('preferred', 'dominance_2_preferred'),
+      ],
+      expected_relation: {
+        relation_kind: 'dominance',
+        rationale: 'The preferred framing has the declared evidence advantage.',
+        dominance_axes: ['evidence_resolution'],
+        sole_delta_ref: null,
+      },
+      work_avoided_stage_keys: [],
+    }, {
+      slot_key: 'irrelevant-perturbation',
+      case_type: 'arena_irrelevant_perturbation',
+      tranche: 'second',
+      members: [
+        irrelevantControl,
+        irrelevantVariant,
+      ],
+      expected_relation: {
+        relation_kind: 'irrelevant_perturbation',
+        rationale: 'The unrelated evidence should not change the disposition.',
+        dominance_axes: [],
+        sole_delta_ref: irrelevantDelta,
+      },
+      work_avoided_stage_keys: [],
+    }, {
+      slot_key: 'advancing',
+      case_type: 'arena_advancing_case',
+      tranche: 'second',
+      members: [phase10bMemberRecipe('subject', 'advancing')],
+      expected_relation: {
+        relation_kind: 'advancing',
+        rationale: 'The new process-selected lineage should advance.',
+        dominance_axes: [],
+        sole_delta_ref: null,
+      },
+      work_avoided_stage_keys: [],
+    }],
+    selection_rule: 'ordered_exact_member_recipes',
+    measurement_window: {
+      start_event: 'case_registration_before_role_output',
+      end_event: 'calibration_run_evaluation',
+    },
+    accounting_sources: {
+      runtime: 'arena_transcript',
+      authorization_pause: 'designated_advisory_review_operation_group',
+      work_avoided: 'research_stage_manifest',
+    },
+    decision_difference_rule: 'advisory_outcome_changed',
+    override_categories: [
+      'explained_repair',
+      'human_objective_difference',
+      'possible_false_drop',
+      'possible_false_continue',
+    ],
+    stop_rules: {
+      hard_blocker: 'stop_immediately',
+      first_tranche_redundancy: 'stop_when_no_decision_difference_and_no_work_avoided',
+    },
+    budgets: {
+      max_case_count: 6,
+      max_session_count: 10,
+      max_role_invocation_count: 20,
+      max_review_points_per_tranche: 2,
+    },
+    support_only: true,
+  };
+}
+
+async function seedPhase10bRecipeSnapshot(
+  repository: InMemoryTopicSelectionControlPlaneRepository,
+  recipe: TopicSelectionResearchArenaCalibrationMemberRecipe,
+): Promise<void> {
+  await repository.createInputSnapshot({
+    input_snapshot_id: recipe.input_snapshot_ref.ref_id,
+    workspace_id: null,
+    title_card_id: recipe.title_card_id,
+    target_ref: recipe.candidate_refs[0]!,
+    context_policy_version_id: null,
+    policy_version: 'topic-selection-research-arena@v1',
+    snapshot_hash: recipe.input_snapshot_ref.version_id!,
+    source_refs: [...recipe.candidate_refs, ...recipe.evidence_refs],
+    permission_refs: [],
+    payload: {},
+    created_by: 'system',
+    created_at: NOW,
+  });
+}
+
+async function seedPhase10bArenaMember(input: {
+  arenaRepository: InMemoryTopicSelectionResearchArenaRepository;
+  controlPlaneRepository: InMemoryTopicSelectionControlPlaneRepository;
+  recipe: TopicSelectionResearchArenaCalibrationMemberRecipe;
+  outcome: 'selected' | 'evidence_expansion_required';
+}) {
+  await seedPhase10bRecipeSnapshot(input.controlPlaneRepository, input.recipe);
+  return seedArena({
+    arenaRepository: input.arenaRepository,
+    controlPlaneRepository: input.controlPlaneRepository,
+    suffix: input.recipe.session_key.replace('session-key-', ''),
+    titleCardId: input.recipe.title_card_id,
+    inputSnapshotId: input.recipe.input_snapshot_ref.ref_id,
+    inputSnapshotHash: input.recipe.input_snapshot_ref.version_id!,
+    targetRef: input.recipe.candidate_refs[0]!,
+    sessionKey: input.recipe.session_key,
+    loopDeltaRefs: input.recipe.loop_delta ? [{
+      delta_type: input.recipe.loop_delta.delta_type,
+      ref: input.recipe.loop_delta.ref,
+      rationale: input.recipe.loop_delta.rationale,
+    }] : [],
+    outcome: input.outcome,
+    productV2: true,
+  });
+}
 
 function invocationProvenance(
   role: 'opportunity_scout' | 'prior_art_topic_killer',
@@ -138,14 +365,21 @@ async function seedArena(input: {
   controlPlaneRepository: InMemoryTopicSelectionControlPlaneRepository;
   suffix: string;
   outcome: 'selected' | 'evidence_expansion_required';
+  titleCardId?: string;
+  inputSnapshotId?: string;
+  inputSnapshotHash?: string;
+  targetRef?: TopicSelectionFunctionalRef;
+  sessionKey?: string;
+  loopDeltaRefs?: TopicSelectionResearchArenaSessionRecord['loop_delta_refs'];
   productV2?: boolean;
   mismatchedAuditOutput?: boolean;
   invalidDropJustification?: boolean;
 }) {
-  const titleCardId = `title_${input.suffix}`;
-  const snapshotId = `snapshot_${input.suffix}`;
-  const snapshotHash = sha256Text(`snapshot:${input.suffix}`);
-  const targetRef = ref('need_candidate', `candidate_${input.suffix}`, titleCardId, 'v1');
+  const titleCardId = input.titleCardId ?? `title_${input.suffix}`;
+  const snapshotId = input.inputSnapshotId ?? `snapshot_${input.suffix}`;
+  const snapshotHash = input.inputSnapshotHash ?? sha256Text(`snapshot:${input.suffix}`);
+  const targetRef = input.targetRef
+    ?? ref('need_candidate', `candidate_${input.suffix}`, titleCardId, 'v1');
   const snapshot: TopicSelectionInputSnapshotRecord = {
     input_snapshot_id: snapshotId,
     workspace_id: null,
@@ -170,10 +404,10 @@ async function seedArena(input: {
     payload: executionPlanPayload,
   });
   const sessionId = `arena_${input.suffix}`;
-  const openSession: TopicSelectionResearchArenaSessionRecord = {
+  const openSessionInput: TopicSelectionResearchArenaSessionRecord = {
     schema_version: 'TopicSelectionResearchArenaSession@v1',
     arena_session_id: sessionId,
-    session_key: `session-key-${input.suffix}`,
+    session_key: input.sessionKey ?? `session-key-${input.suffix}`,
     current_arena_key: `${titleCardId}:gap_portfolio`,
     workspace_id: null,
     title_card_id: titleCardId,
@@ -188,7 +422,7 @@ async function seedArena(input: {
     termination_reason: null,
     loop_transcript_ref: null,
     loop_transcript_hash: null,
-    loop_delta_refs: [],
+    loop_delta_refs: input.loopDeltaRefs ?? [],
     support_only: true,
     supersedes_arena_session_id: null,
     superseded_by_arena_session_id: null,
@@ -198,7 +432,7 @@ async function seedArena(input: {
     synthesized_at: null,
     superseded_at: null,
   };
-  await input.arenaRepository.replaceCurrentSession(openSession);
+  const openSession = await input.arenaRepository.replaceCurrentSession(openSessionInput);
 
   const executions: TopicSelectionResearchArenaRoleExecutionRecord[] = [];
   for (const [index, role] of ['opportunity_scout', 'prior_art_topic_killer'].entries()) {
@@ -426,6 +660,601 @@ async function recordArtifact(
     created_at: NOW,
   });
 }
+
+function phase10bReviewHistory(
+  recipe: TopicSelectionResearchArenaCalibrationMemberRecipe,
+  response: 'accept' | 'override' | 'defer' = 'accept',
+  reviewCount = 1,
+): TopicSelectionResearchArenaAdvisoryReviewHistory {
+  const checkpointId = `checkpoint_${recipe.session_key}`;
+  const reviews = Array.from({ length: reviewCount }, (_, index) => {
+    const reviewId = `review_${recipe.session_key}_${index}`;
+    return {
+      review_ref: ref(
+        'artifact_ref',
+        reviewId,
+        recipe.title_card_id,
+        'TopicSelectionResearchArenaAdvisoryReview@v1',
+      ),
+      review: {
+        schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1' as const,
+        review_id: reviewId,
+        title_card_id: recipe.title_card_id,
+        research_checkpoint_id: checkpointId,
+        gap_input_snapshot_id: recipe.input_snapshot_ref.ref_id,
+        confirmed_candidate_pool_hash: sha256Text(`pool:${recipe.session_key}`),
+        advisory_snapshot_hash: sha256Text(`advisory:${recipe.session_key}`),
+        response,
+        rationale: `Human ${response} label for ${recipe.session_key}.`,
+        reason_codes: response === 'accept'
+          ? ['AGREES_WITH_ARENA' as const]
+          : response === 'defer'
+            ? ['REVIEW_DEFERRED' as const]
+            : ['NON_SELECTED_DISPOSITION_CHANGED' as const],
+        actor: recipe.label_actor,
+        human_gap_selection_review: null,
+        human_gap_selection_review_hash: null,
+        selected_candidate_ref: null,
+        human_confirm_need_intent: null,
+        support_only: true as const,
+        created_at: new Date(Date.parse(NOW) + index * 1_000).toISOString(),
+      },
+      advancement_binding: {
+        status: 'proposed' as const,
+        human_confirmed_decision_ref: null,
+      },
+    };
+  });
+  const body = {
+    schema_version: 'TopicSelectionResearchArenaAdvisoryReviewHistory@v1' as const,
+    research_checkpoint_id: checkpointId,
+    title_card_id: recipe.title_card_id,
+    gap_input_snapshot_id: recipe.input_snapshot_ref.ref_id,
+    checkpoint_currentness: 'current' as const,
+    reviews,
+    projection_issues: [],
+    reopen_signals: [],
+  };
+  return { ...body, history_hash: sha256Text(stableStringify(body)) };
+}
+
+function phase10bStageManifest(
+  titleCardId: string,
+  currentStage: 'research_question' | 'value_feasibility' | 'topic_package' | 'promotion_review' | null = null,
+): TopicSelectionResearchStageManifest {
+  const stages = [
+    'research_question',
+    'value_feasibility',
+    'topic_package',
+    'promotion_review',
+  ] as const;
+  const body = {
+    schema_version: 'TopicSelectionResearchStageManifest@v1' as const,
+    title_card_id: titleCardId,
+    current_stage: currentStage,
+    next_human_decision_stage: null,
+    stages: stages.map((stage) => ({
+      stage,
+      state: stage === currentStage ? 'current' as const : 'unavailable' as const,
+      current_selection_rule: 'derived_from_current_manifest' as const,
+      authority_ref: null,
+      checkpoint_ref: null,
+      supersedes_ref: null,
+      snapshot_hash: null,
+      status: null,
+      source_refs: [],
+      artifact_refs: [],
+      issue_codes: [],
+    })),
+  };
+  return { ...body, manifest_hash: sha256Text(stableStringify(body)) };
+}
+
+test('phase 10B freezes the six-slot protocol and pre-registers a case before role execution', async () => {
+  const {
+    controlPlaneRepository,
+    arenaRepository,
+    offlineRepository,
+    service,
+  } = createCalibrationHarness();
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots.find((candidate) => candidate.slot_key === 'dominance-1')!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(controlPlaneRepository, member)));
+
+  const dataset = await service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-preregistered-corpus',
+    dataset_version: 'v2',
+    description: 'Pre-registered Phase 10B calibration protocol.',
+    protocol_manifest: protocol,
+  });
+  assert.deepEqual(dataset.payload, {
+    schema_version: 'TopicSelectionResearchArenaCalibrationDataset@v2',
+    evaluation_mode: 'canonical_owner_reload',
+    protocol_manifest: protocol,
+    support_only: true,
+  });
+
+  const evaluationCase = await service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: slot.slot_key,
+    slot_key: slot.slot_key,
+    tags: ['phase10b', 'first-tranche'],
+  });
+
+  assert.equal(evaluationCase.case_type, slot.case_type);
+  assert.equal(evaluationCase.title_card_id, null);
+  assert.equal(evaluationCase.frozen_input_bundle.payload.schema_version,
+    'TopicSelectionResearchArenaCalibrationPreRegisteredCase@v2');
+  assert.deepEqual(evaluationCase.frozen_input_bundle.payload.protocol_slot, slot);
+  assert.equal((await offlineRepository.listCasesByDatasetId(dataset.offline_evaluation_dataset_id)).length, 1);
+  for (const member of slot.members) {
+    assert.equal(await arenaRepository.findSessionByKey(member.session_key), null);
+  }
+});
+
+test('phase 10B rejects reused members and undeclared extra perturbation deltas', async () => {
+  const { service } = createCalibrationHarness();
+  const reusedMemberProtocol = structuredClone(phase10bProtocol());
+  reusedMemberProtocol.slots[3]!.members[0]!.session_key =
+    reusedMemberProtocol.slots[0]!.members[0]!.session_key;
+  await assert.rejects(
+    service.createDataset({
+      schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+      workspace_id: null,
+      dataset_key: 'phase10b-reused-member',
+      dataset_version: 'v2',
+      description: null,
+      protocol_manifest: reusedMemberProtocol,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && /reused across slots/u.test(error.message),
+  );
+
+  const reusedLabelSlotProtocol = structuredClone(phase10bProtocol());
+  reusedLabelSlotProtocol.slots[3]!.members[0]!.label_slot_key =
+    reusedLabelSlotProtocol.slots[0]!.members[0]!.label_slot_key;
+  await assert.rejects(
+    service.createDataset({
+      schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+      workspace_id: null,
+      dataset_key: 'phase10b-reused-label-slot',
+      dataset_version: 'v2',
+      description: null,
+      protocol_manifest: reusedLabelSlotProtocol,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && /label slot .* reused/u.test(error.message),
+  );
+
+  const multiDeltaProtocol = structuredClone(phase10bProtocol());
+  const variant = multiDeltaProtocol.slots[1]!.members[1]!;
+  variant.evidence_refs.push(ref('evidence_map', 'evidence_extra', variant.title_card_id, 'v1'));
+  await assert.rejects(
+    service.createDataset({
+      schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+      workspace_id: null,
+      dataset_key: 'phase10b-multi-delta',
+      dataset_version: 'v2',
+      description: null,
+      protocol_manifest: multiDeltaProtocol,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 400
+      && /only its declared evidence delta/u.test(error.message),
+  );
+});
+
+test('phase 10B rejects a registered snapshot with undeclared source evidence', async () => {
+  const harness = createCalibrationHarness();
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[0]!;
+  const [drifted, exact] = slot.members;
+  await harness.controlPlaneRepository.createInputSnapshot({
+    input_snapshot_id: drifted!.input_snapshot_ref.ref_id,
+    workspace_id: null,
+    title_card_id: drifted!.title_card_id,
+    target_ref: drifted!.candidate_refs[0]!,
+    context_policy_version_id: null,
+    policy_version: 'topic-selection-research-arena@v1',
+    snapshot_hash: drifted!.input_snapshot_ref.version_id!,
+    source_refs: [
+      ...drifted!.candidate_refs,
+      ...drifted!.evidence_refs,
+      ref('evidence_unit', 'undeclared-source', drifted!.title_card_id, 'v1'),
+    ],
+    permission_refs: [],
+    payload: {},
+    created_by: 'system',
+    created_at: NOW,
+  });
+  await seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, exact!);
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-undeclared-snapshot-source',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+
+  await assert.rejects(
+    harness.service.addCase({
+      schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+      dataset_id: dataset.offline_evaluation_dataset_id,
+      case_key: slot.slot_key,
+      slot_key: slot.slot_key,
+      tags: [],
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /does not match its pre-registered member recipe/u.test(error.message),
+  );
+});
+
+test('phase 10B rejects a protocol manifest frozen after a bound member produced output', async () => {
+  const harness = createCalibrationHarness();
+  const protocol = phase10bProtocol();
+  const recipe = protocol.slots[0]!.members[0]!;
+  await seedPhase10bArenaMember({
+    arenaRepository: harness.arenaRepository,
+    controlPlaneRepository: harness.controlPlaneRepository,
+    recipe,
+    outcome: 'evidence_expansion_required',
+  });
+
+  await assert.rejects(
+    harness.service.createDataset({
+      schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+      workspace_id: null,
+      dataset_key: 'phase10b-post-hoc-protocol',
+      dataset_version: 'v2',
+      description: null,
+      protocol_manifest: protocol,
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /already has output/u.test(error.message),
+  );
+});
+
+test('phase 10B rejects post-execution case registration and duplicate slot use', async () => {
+  const {
+    controlPlaneRepository,
+    arenaRepository,
+    offlineRepository,
+    service,
+  } = createCalibrationHarness();
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[0]!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(controlPlaneRepository, member)));
+  const dataset = await service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-post-execution',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  await seedArena({
+    arenaRepository,
+    controlPlaneRepository,
+    suffix: 'dominance_1_baseline',
+    outcome: 'evidence_expansion_required',
+    productV2: true,
+  });
+
+  await assert.rejects(
+    service.addCase({
+      schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+      dataset_id: dataset.offline_evaluation_dataset_id,
+      case_key: slot.slot_key,
+      slot_key: slot.slot_key,
+      tags: [],
+    }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /already has output/u.test(error.message),
+  );
+  assert.equal((await offlineRepository.listCasesByDatasetId(dataset.offline_evaluation_dataset_id)).length, 0);
+
+  const freshHarness = createCalibrationHarness();
+  const freshProtocol = phase10bProtocol();
+  const freshSlot = freshProtocol.slots[0]!;
+  await Promise.all(freshSlot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(freshHarness.controlPlaneRepository, member)));
+  const freshDataset = await freshHarness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-duplicate-slot',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: freshProtocol,
+  });
+  const request = {
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2' as const,
+    dataset_id: freshDataset.offline_evaluation_dataset_id,
+    case_key: 'dominance-1',
+    slot_key: freshSlot.slot_key,
+    tags: [] as string[],
+  };
+  const firstRegistration = await freshHarness.service.addCase(request);
+  assert.deepEqual(await freshHarness.service.addCase(request), firstRegistration);
+  await assert.rejects(
+    freshHarness.service.addCase({ ...request, tags: ['replacement'] }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && /already registered/u.test(error.message),
+  );
+});
+
+test('phase 10B evaluates registered stable sessions with one designated label per member', async () => {
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels from the registered Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => ({
+        schema_version: 'TopicSelectionResearchStageManifest@v1',
+        title_card_id: titleCardId,
+        current_stage: null,
+        next_human_decision_stage: null,
+        stages: [],
+        manifest_hash: sha256Text(`manifest:${titleCardId}`),
+      }),
+    },
+  });
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[0]!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, member)));
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-evaluation',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: 'dominance-1',
+    slot_key: slot.slot_key,
+    tags: ['phase10b'],
+  });
+  const outcomes = ['evidence_expansion_required', 'selected'] as const;
+  for (const [index, recipe] of slot.members.entries()) {
+    const sessionId = await seedPhase10bArenaMember({
+      arenaRepository: harness.arenaRepository,
+      controlPlaneRepository: harness.controlPlaneRepository,
+      recipe,
+      outcome: outcomes[index]!,
+    });
+    histories.set(sessionId, phase10bReviewHistory(recipe));
+  }
+  const run = await harness.service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-dominance-1',
+  });
+
+  const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
+
+  assert.equal(
+    report.case_results[0]?.relation_passed,
+    true,
+    JSON.stringify(report.case_results[0]),
+  );
+  assert.equal(report.product_v2_member_count, 2);
+  assert.equal(report.coverage_gaps.includes('MISSING_MEMBER_LABEL_COVERAGE'), false);
+  for (const member of report.case_results[0]!.members) {
+    assert.deepEqual(member.human_label_responses, ['accept']);
+    assert.equal(member.execution_accounting.authorization_pause_count, 1);
+    assert.equal(member.execution_accounting.work_avoided_stage_count, 0);
+    assert.equal(member.cost_latency_accounting_passed, true);
+  }
+
+  const laterSlot = protocol.slots[3]!;
+  await Promise.all(laterSlot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, member)));
+  await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: laterSlot.slot_key,
+    slot_key: laterSlot.slot_key,
+    tags: ['phase10b', 'second-tranche'],
+  });
+  assert.deepEqual(await harness.service.getReport(run.offline_evaluation_run_id), report);
+});
+
+test('phase 10B exposes missing member labels and blocks repeated semantic reviews', async () => {
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels by Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
+  });
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[0]!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, member)));
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-label-cardinality',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: slot.slot_key,
+    slot_key: slot.slot_key,
+    tags: [],
+  });
+  const outcomes = ['evidence_expansion_required', 'selected'] as const;
+  for (const [index, recipe] of slot.members.entries()) {
+    const sessionId = await seedPhase10bArenaMember({
+      arenaRepository: harness.arenaRepository,
+      controlPlaneRepository: harness.controlPlaneRepository,
+      recipe,
+      outcome: outcomes[index]!,
+    });
+    if (index === 1) histories.set(sessionId, phase10bReviewHistory(recipe, 'accept', 2));
+  }
+  const run = await harness.service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-label-cardinality',
+  });
+
+  const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
+
+  assert.ok(report.coverage_gaps.includes('MISSING_MEMBER_LABEL_COVERAGE'));
+  assert.ok(report.coverage_gaps.includes('MISSING_COST_LATENCY_ACCOUNTING'));
+  assert.ok(report.hard_blockers.some((blocker) => blocker.code === 'EXTRA_HUMAN_STOP'));
+  assert.equal(report.case_results[0]!.members[0]!.execution_accounting.authorization_pause_count, null);
+  assert.equal(report.case_results[0]!.members[1]!.execution_accounting.authorization_pause_count, null);
+});
+
+test('phase 10B verifies a causal retry from the declared sole evidence delta', async () => {
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels by Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
+  });
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[1]!;
+  await Promise.all(slot.members.map((member) =>
+    seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, member)));
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-causal-retry',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: slot.slot_key,
+    slot_key: slot.slot_key,
+    tags: [],
+  });
+  const [controlRecipe, variantRecipe] = slot.members;
+  const controlSessionId = await seedPhase10bArenaMember({
+    arenaRepository: harness.arenaRepository,
+    controlPlaneRepository: harness.controlPlaneRepository,
+    recipe: controlRecipe!,
+    outcome: 'evidence_expansion_required',
+  });
+  histories.set(controlSessionId, phase10bReviewHistory(controlRecipe!));
+  const variantSessionId = await seedPhase10bArenaMember({
+    arenaRepository: harness.arenaRepository,
+    controlPlaneRepository: harness.controlPlaneRepository,
+    recipe: variantRecipe!,
+    outcome: 'selected',
+  });
+  histories.set(variantSessionId, phase10bReviewHistory(variantRecipe!));
+  const run = await harness.service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-causal-retry',
+  });
+
+  const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
+
+  assert.equal(
+    report.case_results[0]?.relation_passed,
+    true,
+    JSON.stringify(report.case_results[0]),
+  );
+  assert.equal(report.case_results[0]?.hard_blockers.length, 0);
+  assert.equal(report.case_results[0]?.members[0]?.arena_session_ref.ref_id, controlSessionId);
+  assert.equal(report.case_results[0]?.members[1]?.arena_session_ref.ref_id, variantSessionId);
+});
+
+test('phase 10B derives work avoided from an accepted stop and absent canonical stages', async () => {
+  const histories = new Map<string, TopicSelectionResearchArenaAdvisoryReviewHistory>();
+  const harness = createCalibrationHarness({
+    advisoryReviewHistoryReader: {
+      getArenaAdvisoryReviewHistory: async () => {
+        throw new Error('Phase 10B resolves labels by Arena session.');
+      },
+      getArenaAdvisoryReviewHistoryForSession: async (_titleCardId, arenaSessionId) =>
+        histories.get(arenaSessionId) ?? null,
+      getStageManifest: async (titleCardId) => phase10bStageManifest(titleCardId),
+    },
+  });
+  const protocol = phase10bProtocol();
+  const slot = protocol.slots[2]!;
+  const recipe = slot.members[0]!;
+  await seedPhase10bRecipeSnapshot(harness.controlPlaneRepository, recipe);
+  const dataset = await harness.service.createDataset({
+    schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v2',
+    workspace_id: null,
+    dataset_key: 'phase10b-work-avoided',
+    dataset_version: 'v2',
+    description: null,
+    protocol_manifest: protocol,
+  });
+  const evaluationCase = await harness.service.addCase({
+    schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v2',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    case_key: slot.slot_key,
+    slot_key: slot.slot_key,
+    tags: [],
+  });
+  assert.deepEqual(
+    evaluationCase.frozen_input_bundle.payload.work_avoided_baseline,
+    {
+      title_card_id: recipe.title_card_id,
+      manifest_hash: phase10bStageManifest(recipe.title_card_id).manifest_hash,
+      unavailable_stage_keys: slot.work_avoided_stage_keys,
+    },
+  );
+  const sessionId = await seedPhase10bArenaMember({
+    arenaRepository: harness.arenaRepository,
+    controlPlaneRepository: harness.controlPlaneRepository,
+    recipe,
+    outcome: 'evidence_expansion_required',
+  });
+  histories.set(sessionId, phase10bReviewHistory(recipe));
+  const run = await harness.service.startRun({
+    schema_version: 'TopicSelectionResearchArenaCalibrationRunCreateRequest@v1',
+    dataset_id: dataset.offline_evaluation_dataset_id,
+    run_key: 'phase10b-work-avoided',
+  });
+
+  const report = await harness.service.evaluateRun(run.offline_evaluation_run_id);
+
+  assert.equal(report.case_results[0]?.members[0]?.work_avoided_stage_count, 4);
+  assert.equal(report.case_results[0]?.members[0]?.execution_accounting.work_avoided_stage_count, 4);
+  assert.equal(report.coverage_gaps.includes('MISSING_MEASURED_WORK_AVOIDED'), false);
+});
 
 test('current legacy Arena corpus is evaluated from canonical owners as insufficient evidence', async () => {
   let clockTick = 0;
@@ -738,6 +1567,15 @@ test('an override of a non-advance recommendation does not satisfy non-advance l
   const harness = createCalibrationHarness({
     advisoryReviewHistoryReader: {
       getArenaAdvisoryReviewHistory: async () => history,
+      getArenaAdvisoryReviewHistoryForSession: async () => history,
+      getStageManifest: async (requestedTitleCardId) => ({
+        schema_version: 'TopicSelectionResearchStageManifest@v1',
+        title_card_id: requestedTitleCardId,
+        current_stage: null,
+        next_human_decision_stage: null,
+        stages: [],
+        manifest_hash: sha256Text(`manifest:${requestedTitleCardId}`),
+      }),
     },
   });
   const sessionId = await seedArena({
