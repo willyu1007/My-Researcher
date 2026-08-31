@@ -14,7 +14,10 @@ import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
-import { buildTopicSelectionHumanConfirmNeedIntent } from './topic-selection-human-confirm-need-intent.js';
+import {
+  buildTopicSelectionHumanConfirmNeedIntent,
+  topicSelectionHumanConfirmedDecisionId,
+} from './topic-selection-human-confirm-need-intent.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 import { TopicSelectionNeedValidationService } from './topic-selection-need-validation-service.js';
 import { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
@@ -931,10 +934,24 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
     0,
   );
   assert.equal(await ctx.needValidationRepository.findValidatedNeedById(reservedValidatedNeedId), null);
-  const confirmation = await guardedNeedService.confirmValidatedNeed({
-    adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
-    confirmation_input: confirmationInput,
-  });
+  const [confirmation, concurrentReplay] = await Promise.all([
+    guardedNeedService.confirmValidatedNeed({
+      adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+      confirmation_input: confirmationInput,
+    }),
+    guardedNeedService.confirmValidatedNeed({
+      adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
+      confirmation_input: confirmationInput,
+    }),
+  ]);
+  assert.equal(concurrentReplay.validated_need.validated_need_id, confirmation.validated_need.validated_need_id);
+  assert.equal(concurrentReplay.validated_need.human_decision_id, confirmation.validated_need.human_decision_id);
+  assert.equal(
+    (await ctx.controlPlaneRepository.listHumanConfirmedDecisionsByTargetRef(
+      ref('validated_need', reservedValidatedNeedId, ctx.titleCard.title_card_id),
+    )).length,
+    1,
+  );
   const advanced = await checkpointService.assertTransitionAllowed({
     title_card_id: ctx.titleCard.title_card_id,
     checkpoint_kind: 'gap_selection',
@@ -942,6 +959,10 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
   assert.equal(advanced.decision_authority_ref?.ref_id, confirmation.validated_need.human_decision_id);
   const humanDecision = await ctx.controlPlaneRepository.findHumanConfirmedDecisionById(
     confirmation.validated_need.human_decision_id,
+  );
+  assert.equal(
+    humanDecision?.human_confirmed_decision_id,
+    topicSelectionHumanConfirmedDecisionId(arenaReview.review.human_confirm_need_intent!),
   );
   assert.equal(
     humanDecision?.artifact_refs.some((artifactRef) => artifactRef.ref_id === arenaReview.review_ref.ref_id),
@@ -953,6 +974,9 @@ test('HumanConfirmNeed advances only the reviewed current candidate-pool checkpo
   assert.ok(intentRef);
   const intentArtifact = await ctx.controlPlane.getArtifactRef(intentRef.ref_id);
   assert.equal(intentArtifact?.payload?.schema_version, 'TopicSelectionHumanConfirmNeedIntent@v1');
+  const intentArtifacts = (await ctx.controlPlane.listArtifactRefsByInputSnapshotId(checkpoint.input_snapshot_id))
+    .filter((artifact) => artifact.payload?.schema_version === 'TopicSelectionHumanConfirmNeedIntent@v1');
+  assert.equal(intentArtifacts.length, 1);
   const replay = await guardedNeedService.confirmValidatedNeed({
     adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
     confirmation_input: confirmationInput,

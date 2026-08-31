@@ -48,6 +48,7 @@ import type {
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import {
   buildTopicSelectionHumanConfirmNeedIntent,
+  topicSelectionHumanConfirmedDecisionId,
   topicSelectionHumanConfirmNeedIntentStableKey,
 } from './topic-selection-human-confirm-need-intent.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
@@ -1022,6 +1023,7 @@ export class TopicSelectionNeedValidationService {
     }
     const humanDecision = existingHumanDecisions[0]
       ?? await this.controlPlane.recordHumanDecision({
+        human_confirmed_decision_id: topicSelectionHumanConfirmedDecisionId(humanConfirmNeedIntent),
         workspace_id: input.workspace_id ?? candidate.workspace_id ?? null,
         title_card_id: candidate.title_card_id,
         target_ref: validatedNeedRef,

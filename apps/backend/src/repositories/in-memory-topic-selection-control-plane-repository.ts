@@ -210,6 +210,8 @@ export class InMemoryTopicSelectionControlPlaneRepository implements TopicSelect
   async createHumanConfirmedDecision(
     record: TopicSelectionHumanConfirmedDecisionRecord,
   ): Promise<TopicSelectionHumanConfirmedDecisionRecord> {
+    const existing = this.humanDecisions.get(record.human_confirmed_decision_id);
+    if (existing) return existing;
     this.humanDecisions.set(record.human_confirmed_decision_id, record);
     return record;
   }

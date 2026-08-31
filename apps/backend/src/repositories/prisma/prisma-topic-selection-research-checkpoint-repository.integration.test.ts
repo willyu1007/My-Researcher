@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import test from 'node:test';
 import { PrismaClient } from '@prisma/client';
+import type {
+  TopicSelectionValidatedNeedRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import { PrismaTopicSelectionControlPlaneRepository } from './prisma-topic-selection-control-plane-repository.js';
+import { PrismaTopicSelectionNeedValidationRepository } from './prisma-topic-selection-need-validation-repository.js';
 import { PrismaTopicSelectionResearchCheckpointRepository } from './prisma-topic-selection-research-checkpoint-repository.js';
 import { TopicSelectionControlPlaneService } from '../../services/topic-selection-control-plane-service.js';
 import { sha256Text, stableStringify } from '../../services/literature-content-processing-utils.js';
@@ -11,6 +15,7 @@ import { TopicSelectionRiskFindingService } from '../../services/topic-selection
 
 const RUN_PRISMA = Boolean(process.env.DATABASE_URL);
 const HASH = 'a'.repeat(64);
+const NOW = '2026-08-31T00:00:00.000Z';
 
 test('Prisma checkpoint decisions are atomic under concurrent human submissions', {
   skip: RUN_PRISMA ? false : 'set DATABASE_URL to run Prisma checkpoint integration tests',
@@ -194,15 +199,27 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     assert.equal(recoveredHistory.reviews[0]?.review.response, 'defer');
     assert.equal(recoveredHistory.reviews[0]?.advancement_binding.status, 'proposed');
     assert.deepEqual(recoveredHistory.reopen_signals, []);
-    const existingAuthority = await controlPlane.recordHumanDecision({
+    const validatedNeedId = `validated_need_${suffix}`;
+    const existingAuthorityInput = {
+      human_confirmed_decision_id: `human_decision_human_confirm_need_${suffix}`,
       title_card_id: titleCardId,
-      target_ref: { ref_type: 'validated_need', ref_id: `validated_need_${suffix}`, title_card_id: titleCardId },
-      decision_type: 'confirm',
-      actor: { actor_type: 'human', actor_id: 'researcher_t147' },
+      target_ref: { ref_type: 'validated_need', ref_id: validatedNeedId, title_card_id: titleCardId },
+      decision_type: 'confirm' as const,
+      actor: { actor_type: 'human' as const, actor_id: 'researcher_t147' },
       rationale: 'HumanConfirmNeed authority for the frozen candidate pool.',
-      resulting_authority_refs: [],
-    });
-    const adapted = await service.adaptExistingStageDecision(gapCheckpoint.research_checkpoint_id, {
+      resulting_authority_refs: [{
+        ref_type: 'validated_need', ref_id: validatedNeedId, title_card_id: titleCardId,
+      }],
+    };
+    const concurrentAuthorities = await Promise.all(
+      Array.from({ length: 8 }, () => controlPlane.recordHumanDecision(existingAuthorityInput)),
+    );
+    const existingAuthority = concurrentAuthorities[0]!;
+    assert.equal(new Set(concurrentAuthorities.map((entry) => entry.human_confirmed_decision_id)).size, 1);
+    assert.equal(await prisma.topicSelectionHumanConfirmedDecision.count({
+      where: { titleCardId, targetRefType: 'validated_need', targetRefId: validatedNeedId },
+    }), 1);
+    const adapt = () => service.adaptExistingStageDecision(gapCheckpoint.research_checkpoint_id, {
       decision_authority_ref: {
         ref_type: 'human_confirmed_decision',
         ref_id: existingAuthority.human_confirmed_decision_id,
@@ -210,9 +227,103 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
       },
       confirmed_snapshot_hash: gapHash,
     });
+    const concurrentAdaptations = await Promise.all(Array.from({ length: 8 }, adapt));
+    const adapted = concurrentAdaptations[0]!;
+    assert.equal(new Set(concurrentAdaptations.map((entry) => entry.decision_authority_ref?.ref_id)).size, 1);
     assert.equal(adapted.status, 'decided');
     assert.equal(adapted.decision_authority_ref?.ref_id, existingAuthority.human_confirmed_decision_id);
     await service.assertTransitionAllowed({ title_card_id: titleCardId, checkpoint_kind: 'gap_selection' });
+
+    const needCandidateId = `need_candidate_${suffix}`;
+    const evidenceMapId = `evidence_map_need_${suffix}`;
+    await prisma.topicSelectionNeedCandidate.create({ data: {
+      id: needCandidateId,
+      titleCardId,
+      evidenceMapId,
+      candidateVersion: 'v1',
+      lifecycleStatus: 'hypothesis',
+      decisionStatus: 'ready_for_validation',
+      reviewStatus: 'needs_human_review',
+      freshnessStatus: 'current',
+      candidateNeed: 'Concurrent HumanConfirmNeed authority must converge.',
+      unmetNeedStatement: 'Concurrent exact confirmation previously duplicated authority writes.',
+      mechanismType: 'workflow_gap',
+      mechanismPayload: {},
+      priorArtStatus: 'no_strong_solution_found',
+      evidenceMapRef: { ref_type: 'evidence_map', ref_id: evidenceMapId, title_card_id: titleCardId },
+      searchRunId: `search_run_${suffix}`,
+      searchPlanId: `search_plan_${suffix}`,
+      literatureSnapshotId: `literature_snapshot_${suffix}`,
+      searchRunRef: { ref_type: 'search_run', ref_id: `search_run_${suffix}`, title_card_id: titleCardId },
+      searchPlanRef: { ref_type: 'search_plan', ref_id: `search_plan_${suffix}`, title_card_id: titleCardId },
+      literatureSnapshotRef: {
+        ref_type: 'literature_snapshot', ref_id: `literature_snapshot_${suffix}`, title_card_id: titleCardId,
+      },
+      evidenceRoleBundle: {
+        support_unit_refs: [], challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [],
+      },
+      createdBy: 'system',
+      createdAt: new Date(NOW),
+      updatedAt: new Date(NOW),
+    } });
+    const validatedNeed: TopicSelectionValidatedNeedRecord = {
+      validated_need_id: validatedNeedId,
+      workspace_id: null,
+      title_card_id: titleCardId,
+      source_need_candidate_id: needCandidateId,
+      adjudication_result_id: `adjudication_${suffix}`,
+      support_packet_id: `support_packet_${suffix}`,
+      human_decision_id: existingAuthority.human_confirmed_decision_id,
+      validated_need_statement: 'Exact concurrent confirmation converges on one validated need.',
+      mechanism_type: 'workflow_gap',
+      mechanism_summary: null,
+      mechanism_payload: {},
+      scope_notes: null,
+      non_goal_notes: null,
+      prior_art_status: 'no_strong_solution_found',
+      evidence_map_ref: { ref_type: 'evidence_map', ref_id: evidenceMapId, title_card_id: titleCardId },
+      search_run_ref: { ref_type: 'search_run', ref_id: `search_run_${suffix}`, title_card_id: titleCardId },
+      search_plan_ref: { ref_type: 'search_plan', ref_id: `search_plan_${suffix}`, title_card_id: titleCardId },
+      literature_snapshot_ref: {
+        ref_type: 'literature_snapshot', ref_id: `literature_snapshot_${suffix}`, title_card_id: titleCardId,
+      },
+      support_packet_ref: {
+        ref_type: 'validation_decision_support_packet', ref_id: `support_packet_${suffix}`, title_card_id: titleCardId,
+      },
+      adjudication_result_ref: {
+        ref_type: 'validate_need_adjudication_result', ref_id: `adjudication_${suffix}`, title_card_id: titleCardId,
+      },
+      human_decision_ref: {
+        ref_type: 'human_confirmed_decision',
+        ref_id: existingAuthority.human_confirmed_decision_id,
+        title_card_id: titleCardId,
+      },
+      evidence_role_bundle: {
+        support_unit_refs: [], challenge_unit_refs: [], baseline_unit_refs: [], context_unit_refs: [],
+      },
+      strength_assessment_refs: [],
+      conflict_refs: [],
+      residual_risk_refs: [],
+      accepted_risk_refs: [],
+      trace_refs: [],
+      created_by: 'human',
+      created_at: NOW,
+    };
+    const needRepository = new PrismaTopicSelectionNeedValidationRepository(prisma);
+    const confirm = () => needRepository.confirmValidatedNeed({
+      validated_need: validatedNeed,
+      candidate_patch: {
+        lifecycle_status: 'closed',
+        decision_status: 'resulted_in_validated_need',
+        review_status: 'human_confirmed',
+        result_adjudication_id: validatedNeed.adjudication_result_id,
+        result_validated_need_id: validatedNeed.validated_need_id,
+        updated_at: NOW,
+      },
+    });
+    const concurrentValidatedNeeds = await Promise.all(Array.from({ length: 8 }, confirm));
+    assert.equal(new Set(concurrentValidatedNeeds.map((entry) => entry.validated_need.validated_need_id)).size, 1);
+    assert.equal(await prisma.topicSelectionValidatedNeed.count({ where: { id: validatedNeedId } }), 1);
 
     const questionCheckpoint = async (input: {
       contractId: string;
@@ -387,6 +498,8 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     );
     assert.equal(await prisma.topicSelectionResearchObjectionResolution.count({ where: { titleCardId } }), 1);
   } finally {
+    await prisma.topicSelectionValidatedNeed.deleteMany({ where: { titleCardId } });
+    await prisma.topicSelectionNeedCandidate.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchObjectionResolution.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchObjection.deleteMany({ where: { titleCardId } });
     await prisma.topicSelectionResearchCheckpointDecision.deleteMany({ where: { titleCardId } });

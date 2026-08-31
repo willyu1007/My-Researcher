@@ -702,19 +702,32 @@ export class PrismaTopicSelectionNeedValidationRepository implements TopicSelect
   async confirmValidatedNeed(
     input: TopicSelectionNeedValidationHumanConfirmationWriteInput,
   ): Promise<TopicSelectionNeedValidationHumanConfirmationWriteResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const validatedNeed = await tx.topicSelectionValidatedNeed.create({
-        data: this.toValidatedNeedCreateInput(input.validated_need),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const validatedNeed = await tx.topicSelectionValidatedNeed.create({
+          data: this.toValidatedNeedCreateInput(input.validated_need),
+        });
+        const candidate = await tx.topicSelectionNeedCandidate.update({
+          where: { id: input.validated_need.source_need_candidate_id },
+          data: this.toCandidatePatchInput(input.candidate_patch),
+        });
+        return {
+          validated_need: toValidatedNeedRecord(validatedNeed),
+          need_candidate: toNeedCandidateRecord(candidate),
+        };
       });
-      const candidate = await tx.topicSelectionNeedCandidate.update({
-        where: { id: input.validated_need.source_need_candidate_id },
-        data: this.toCandidatePatchInput(input.candidate_patch),
-      });
-      return {
-        validated_need: toValidatedNeedRecord(validatedNeed),
-        need_candidate: toNeedCandidateRecord(candidate),
-      };
-    });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const [validatedNeed, candidate] = await Promise.all([
+          this.findValidatedNeedById(input.validated_need.validated_need_id),
+          this.findNeedCandidateById(input.validated_need.source_need_candidate_id),
+        ]);
+        if (validatedNeed && candidate) {
+          return { validated_need: validatedNeed, need_candidate: candidate };
+        }
+      }
+      throw error;
+    }
   }
 
   async listValidatedNeedsByTitleCardId(

@@ -192,8 +192,11 @@ export class InMemoryTopicSelectionNeedValidationRepository implements TopicSele
   async confirmValidatedNeed(
     input: TopicSelectionNeedValidationHumanConfirmationWriteInput,
   ): Promise<TopicSelectionNeedValidationHumanConfirmationWriteResult> {
-    if (this.validatedNeeds.has(input.validated_need.validated_need_id)) {
-      throw new Error(`ValidatedNeed ${input.validated_need.validated_need_id} already exists.`);
+    const existing = this.validatedNeeds.get(input.validated_need.validated_need_id);
+    if (existing) {
+      const candidate = this.needCandidates.get(existing.source_need_candidate_id);
+      if (!candidate) throw new Error(`NeedCandidate ${existing.source_need_candidate_id} not found.`);
+      return { validated_need: existing, need_candidate: candidate };
     }
     const candidate = this.applyCandidatePatch(input.validated_need.source_need_candidate_id, input.candidate_patch);
     this.needCandidates.set(candidate.need_candidate_id, candidate);

@@ -455,11 +455,16 @@ test('v1a Prisma E2E smoke creates a traced human-confirmed ValidatedNeed and re
     assert.ok(adjudication.adjudication_result.output_validated_need_id);
     assert.equal(adjudication.adjudication_result.human_decision_id, null);
 
-    const confirmation = await needService.confirmValidatedNeed({
+    const confirm = () => needService.confirmValidatedNeed({
       adjudication_result_id: adjudication.adjudication_result.adjudication_result_id,
-      human_actor: { actor_type: 'human', actor_id: 'reviewer_prisma_e2e' },
+      human_actor: { actor_type: 'human' as const, actor_id: 'reviewer_prisma_e2e' },
       human_rationale: 'Validated after checking support, baseline, context, and handoff refs.',
     });
+    const [confirmation, concurrentReplay] = await Promise.all([confirm(), confirm()]);
+    assert.equal(
+      concurrentReplay.validated_need.human_decision_id,
+      confirmation.validated_need.human_decision_id,
+    );
     const validatedNeed = confirmation.validated_need;
     const v1bInputBundle = await needService.publishV1bInputBundle({
       validated_need_id: validatedNeed.validated_need_id,
@@ -472,6 +477,15 @@ test('v1a Prisma E2E smoke creates a traced human-confirmed ValidatedNeed and re
       validatedNeed.human_decision_id,
     );
     assert.equal(humanDecision?.decision_type, 'confirm');
+    assert.equal(await prisma.topicSelectionHumanConfirmedDecision.count({
+      where: {
+        targetRefType: 'validated_need',
+        targetRefId: validatedNeed.validated_need_id,
+      },
+    }), 1);
+    assert.equal(await prisma.topicSelectionValidatedNeed.count({
+      where: { id: validatedNeed.validated_need_id },
+    }), 1);
 
     const qualitySignal = await controlPlane.emitQualitySignal({
       title_card_id: titleCardId,

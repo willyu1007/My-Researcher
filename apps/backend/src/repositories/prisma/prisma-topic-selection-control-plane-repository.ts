@@ -992,25 +992,33 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
   async createHumanConfirmedDecision(
     record: TopicSelectionHumanConfirmedDecisionRecord,
   ): Promise<TopicSelectionHumanConfirmedDecisionRecord> {
-    const row = await this.prisma.topicSelectionHumanConfirmedDecision.create({
-      data: {
-        id: record.human_confirmed_decision_id,
-        workspaceId: record.workspace_id ?? null,
-        titleCardId: record.title_card_id ?? null,
-        targetRefType: record.target_ref.ref_type,
-        targetRefId: record.target_ref.ref_id,
-        targetVersionId: record.target_ref.version_id ?? null,
-        decisionType: record.decision_type,
-        actorType: record.actor.actor_type,
-        actorId: record.actor.actor_id ?? null,
-        rationale: record.rationale ?? null,
-        artifactRefs: toJsonValue(record.artifact_refs),
-        policyVersionId: record.policy_version_id ?? null,
-        resultingAuthorityRefs: toJsonValue(record.resulting_authority_refs),
-        createdAt: new Date(record.created_at),
-      },
-    });
-    return toHumanDecisionRecord(row);
+    try {
+      const row = await this.prisma.topicSelectionHumanConfirmedDecision.create({
+        data: {
+          id: record.human_confirmed_decision_id,
+          workspaceId: record.workspace_id ?? null,
+          titleCardId: record.title_card_id ?? null,
+          targetRefType: record.target_ref.ref_type,
+          targetRefId: record.target_ref.ref_id,
+          targetVersionId: record.target_ref.version_id ?? null,
+          decisionType: record.decision_type,
+          actorType: record.actor.actor_type,
+          actorId: record.actor.actor_id ?? null,
+          rationale: record.rationale ?? null,
+          artifactRefs: toJsonValue(record.artifact_refs),
+          policyVersionId: record.policy_version_id ?? null,
+          resultingAuthorityRefs: toJsonValue(record.resulting_authority_refs),
+          createdAt: new Date(record.created_at),
+        },
+      });
+      return toHumanDecisionRecord(row);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const replay = await this.findHumanConfirmedDecisionById(record.human_confirmed_decision_id);
+        if (replay) return replay;
+      }
+      throw error;
+    }
   }
 
   async findHumanConfirmedDecisionById(

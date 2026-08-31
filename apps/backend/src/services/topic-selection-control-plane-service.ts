@@ -128,6 +128,7 @@ type EmitQualitySignalInput = {
 };
 
 type HumanDecisionInput = {
+  human_confirmed_decision_id?: string;
   workspace_id?: string | null;
   title_card_id?: string | null;
   target_ref: TopicSelectionFunctionalRef;
@@ -412,7 +413,7 @@ export class TopicSelectionControlPlaneService {
 
   async recordHumanDecision(input: HumanDecisionInput): Promise<TopicSelectionHumanConfirmedDecisionRecord> {
     return this.repository.createHumanConfirmedDecision({
-      human_confirmed_decision_id: this.idFactory('human_decision'),
+      human_confirmed_decision_id: input.human_confirmed_decision_id ?? this.idFactory('human_decision'),
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id ?? input.target_ref.title_card_id ?? null,
       target_ref: input.target_ref,
