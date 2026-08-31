@@ -28,6 +28,7 @@ test('research stage manifest and artifact resolver routes stay aligned with Ope
   assert.match(openapiSource, /operationId: getTopicSelectionResearchContinuationEnvelope/);
   assert.match(openapiSource, /operationId: evaluateTopicSelectionResearchContinuationEnvelope/);
   assert.match(openapiSource, /operationId: recordTopicSelectionResearchArenaAdvisoryReview/);
+  assert.match(openapiSource, /operationId: getTopicSelectionResearchArenaAdvisoryReviewHistory/);
   assert.match(openapiSource, /TopicSelectionResearchStageManifest:/);
   assert.match(openapiSource, /TopicSelectionResearchStageManifestEntry:/);
   assert.match(openapiSource, /TopicSelectionArtifactRefRecord:/);
@@ -37,6 +38,7 @@ test('research stage manifest and artifact resolver routes stay aligned with Ope
   assert.match(openapiSource, /TopicSelectionResearchContinuationEnvelopeEvaluation:/);
   assert.match(openapiSource, /TopicSelectionResearchArenaAdvisoryReviewInput:/);
   assert.match(openapiSource, /TopicSelectionResearchArenaAdvisoryReviewResult:/);
+  assert.match(openapiSource, /TopicSelectionResearchArenaAdvisoryReviewHistory:/);
   assert.match(openapiSource, /minItems: 7/);
   assert.match(openapiSource, /maxItems: 7/);
 });

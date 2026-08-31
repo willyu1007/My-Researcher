@@ -230,4 +230,15 @@ export class InMemoryTopicSelectionControlPlaneRepository implements TopicSelect
       )
       .sort((left, right) => right.created_at.localeCompare(left.created_at));
   }
+
+  async listHumanConfirmedDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionHumanConfirmedDecisionRecord[]> {
+    return [...this.humanDecisions.values()]
+      .filter((record) => record.title_card_id === titleCardId)
+      .sort((left, right) =>
+        left.created_at.localeCompare(right.created_at)
+        || left.human_confirmed_decision_id.localeCompare(right.human_confirmed_decision_id)
+      );
+  }
 }

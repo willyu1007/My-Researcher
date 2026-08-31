@@ -45,11 +45,14 @@ import {
   TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS,
   TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES,
   TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES,
+  TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_HISTORY_SCHEMA_VERSION,
   TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
   TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES,
   TOPIC_SELECTION_RESEARCH_TRANSITIONS_BY_CHECKPOINT,
   type TopicSelectionResearchCheckpointAction,
   type TopicSelectionResearchArenaAdvisoryReviewInput,
+  type TopicSelectionResearchArenaAdvisoryReviewHistory,
+  type TopicSelectionResearchArenaAdvisoryReviewProjectionIssueCode,
   type TopicSelectionResearchArenaAdvisoryReviewReasonCode,
   type TopicSelectionResearchArenaAdvisoryReviewPayload,
   type TopicSelectionResearchArenaAdvisoryReviewRecord,
@@ -1082,6 +1085,114 @@ export class TopicSelectionResearchCheckpointService {
     return this.arenaReviewResult(artifact, review);
   }
 
+  async getArenaAdvisoryReviewHistory(
+    checkpointId: string,
+  ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory> {
+    const checkpoint = await this.getCheckpoint(checkpointId);
+    if (checkpoint.checkpoint_kind !== 'gap_selection') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Arena advisory review history requires a gap-selection checkpoint.');
+    }
+    const packet = await this.getPacket(checkpointId);
+    const advisory = this.requireGapArenaAdvisory(packet);
+    const [artifacts, humanDecisions] = await Promise.all([
+      this.controlPlane.listArtifactRefsByInputSnapshotId(checkpoint.input_snapshot_id),
+      this.controlPlane.listHumanDecisionsByTitleCardId(checkpoint.title_card_id),
+    ]);
+    const reviews: TopicSelectionResearchArenaAdvisoryReviewHistory['reviews'] = [];
+    const projectionIssues: TopicSelectionResearchArenaAdvisoryReviewHistory['projection_issues'] = [];
+    const sortedArtifacts = [...artifacts].sort((left, right) =>
+      left.created_at.localeCompare(right.created_at)
+      || left.artifact_ref_id.localeCompare(right.artifact_ref_id)
+    );
+    for (const artifact of sortedArtifacts) {
+      const payload = this.asRecord(artifact.payload);
+      const claimsReviewSchema = payload?.schema_version === TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION;
+      const hasDedicatedKey = artifact.stable_key?.startsWith(ARENA_REVIEW_STABLE_KEY_PREFIX) ?? false;
+      if (!claimsReviewSchema && !hasDedicatedKey) continue;
+      const artifactRef = this.ref(
+        'artifact_ref',
+        artifact.artifact_ref_id,
+        artifact.title_card_id ?? checkpoint.title_card_id,
+        TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+      );
+      if (claimsReviewSchema && !hasDedicatedKey) {
+        projectionIssues.push({
+          artifact_ref: artifactRef,
+          issue_code: 'LOOKALIKE_REVIEW_ARTIFACT',
+          message: 'Artifact claims the Arena advisory review schema without dedicated provenance.',
+        });
+        continue;
+      }
+      try {
+        const review = this.decodeArenaReviewArtifact(checkpoint, advisory, artifact);
+        const humanDecision = review.response !== 'defer' && review.selected_candidate_ref
+          ? humanDecisions.find((decision) => this.humanDecisionBindsArenaReview(
+            decision,
+            artifactRef,
+            review,
+          )) ?? null
+          : null;
+        reviews.push({
+          review_ref: artifactRef,
+          review,
+          advancement_binding: {
+            status: humanDecision ? 'confirmed' : 'proposed',
+            human_confirmed_decision_ref: humanDecision
+              ? this.ref(
+                'human_confirmed_decision',
+                humanDecision.human_confirmed_decision_id,
+                checkpoint.title_card_id,
+              )
+              : null,
+          },
+        });
+      } catch (error) {
+        projectionIssues.push({
+          artifact_ref: artifactRef,
+          issue_code: this.arenaReviewProjectionIssueCode(error),
+          message: error instanceof Error ? error.message : 'Arena advisory review artifact is invalid.',
+        });
+      }
+    }
+    const reopenSignals: TopicSelectionResearchArenaAdvisoryReviewHistory['reopen_signals'] = [];
+    for (const item of reviews) {
+      const selectedCandidateRef = item.review.selected_candidate_ref;
+      if (!selectedCandidateRef) continue;
+      const common = {
+        status: item.advancement_binding.status,
+        review_ref: item.review_ref,
+        selected_candidate_ref: selectedCandidateRef,
+        reason_codes: item.review.reason_codes,
+        human_confirmed_decision_ref: item.advancement_binding.human_confirmed_decision_ref,
+      };
+      if (item.review.reason_codes.some((code) =>
+        code === 'SELECTED_PARKED_CANDIDATE' || code === 'SELECTED_DROPPED_CANDIDATE'
+      )) {
+        reopenSignals.push({ signal_type: 'candidate_reopened', ...common });
+      }
+      if (item.review.reason_codes.some((code) =>
+        code === 'ADVANCE_AGAINST_NONE_VIABLE'
+        || code === 'ADVANCE_BEFORE_EVIDENCE_EXPANSION'
+        || code === 'ADVANCE_WITHOUT_REFRAME'
+      )) {
+        reopenSignals.push({ signal_type: 'advanced_against_stop', ...common });
+      }
+    }
+    const body = {
+      schema_version: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_HISTORY_SCHEMA_VERSION,
+      research_checkpoint_id: checkpoint.research_checkpoint_id,
+      title_card_id: checkpoint.title_card_id,
+      gap_input_snapshot_id: checkpoint.input_snapshot_id,
+      checkpoint_currentness: checkpoint.current_checkpoint_key && checkpoint.status !== 'superseded'
+        ? 'current' as const
+        : 'superseded' as const,
+      reviews,
+      projection_issues: projectionIssues,
+      reopen_signals: reopenSignals,
+    };
+    return { ...body, history_hash: this.hash(body) };
+  }
+
   async assertGapArenaAdvisoryReviewBinding(input: {
     checkpoint_id: string;
     title_card_id: string;
@@ -1118,27 +1229,13 @@ export class TopicSelectionResearchCheckpointService {
     if (!artifact) throw new AppError(404, 'NOT_FOUND', `Arena advisory review ${input.review_ref.ref_id} not found.`);
     const normalizedHumanReview = this.normalizeGapSelectionReview(input.human_gap_selection_review);
     this.assertArenaHumanReviewScope(checkpoint, advisory, normalizedHumanReview);
-    const expectedClassification = this.classifyArenaAdvisoryReview(advisory, normalizedHumanReview);
-    const expected: Omit<TopicSelectionResearchArenaAdvisoryReviewRecord, 'review_id' | 'created_at'> = {
-      schema_version: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
-      title_card_id: checkpoint.title_card_id,
-      research_checkpoint_id: checkpoint.research_checkpoint_id,
-      gap_input_snapshot_id: checkpoint.input_snapshot_id,
-      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
-      advisory_snapshot_hash: this.hash(advisory),
-      response: expectedClassification.response,
-      rationale: this.arenaReviewPayload(artifact).rationale as string,
-      reason_codes: expectedClassification.reasonCodes,
-      actor: {
-        actor_type: 'human',
-        actor_id: input.accountable_human_ref.actor_id ?? '',
-      },
-      human_gap_selection_review: normalizedHumanReview,
-      human_gap_selection_review_hash: this.hash(normalizedHumanReview),
-      selected_candidate_ref: normalizedHumanReview.selected_candidate_ref,
-      support_only: true,
-    };
-    const review = this.assertArenaReviewArtifactMatches(artifact, expected);
+    const review = this.decodeArenaReviewArtifact(checkpoint, advisory, artifact);
+    if (stableStringify(review.actor) !== stableStringify({
+      actor_type: 'human',
+      actor_id: input.accountable_human_ref.actor_id ?? '',
+    }) || stableStringify(review.human_gap_selection_review) !== stableStringify(normalizedHumanReview)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review idempotency or binding content changed.');
+    }
     if (review.response === 'defer') {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'A deferred Arena advisory review cannot advance HumanConfirmNeed.');
     }
@@ -1635,8 +1732,27 @@ export class TopicSelectionResearchCheckpointService {
     };
   }
 
+  private async listArenaAdvisoryReviewHistories(
+    titleCardId: string,
+  ): Promise<TopicSelectionResearchArenaAdvisoryReviewHistory[]> {
+    const checkpoints = (await this.repository.listCheckpointsByTitleCardId(titleCardId))
+      .filter((checkpoint) => checkpoint.checkpoint_kind === 'gap_selection')
+      .sort((left, right) =>
+        left.created_at.localeCompare(right.created_at)
+        || left.research_checkpoint_id.localeCompare(right.research_checkpoint_id)
+      );
+    const histories: TopicSelectionResearchArenaAdvisoryReviewHistory[] = [];
+    for (const checkpoint of checkpoints) {
+      const packet = await this.getPacket(checkpoint.research_checkpoint_id);
+      if (!this.asRecord(packet.packet_payload.arena_advisory)) continue;
+      histories.push(await this.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id));
+    }
+    return histories;
+  }
+
   async getStageManifest(titleCardId: string): Promise<TopicSelectionResearchStageManifest> {
     const researchStatus = await this.getResearchStatus(titleCardId);
+    const arenaReviewHistories = await this.listArenaAdvisoryReviewHistories(titleCardId);
     const checkpointByKind = new Map(
       researchStatus.checkpoint_chain.map((checkpoint) => [checkpoint.checkpoint_kind, checkpoint]),
     );
@@ -1673,9 +1789,34 @@ export class TopicSelectionResearchCheckpointService {
       titleCardId,
       checkpointByKind.get('question_contract')?.target_ref ?? null,
     );
+    const gapEntry = checkpointEntry('research_gap', 'gap_selection');
+    const gapHistoryArtifactRefs = arenaReviewHistories.flatMap((history) => [
+      ...history.reviews.map((item) => item.review_ref),
+      ...history.projection_issues.map((issue) => issue.artifact_ref),
+    ]);
+    const gapHistoryDecisionRefs = arenaReviewHistories.flatMap((history) =>
+      history.reviews.flatMap((item) =>
+        item.advancement_binding.human_confirmed_decision_ref
+          ? [item.advancement_binding.human_confirmed_decision_ref]
+          : []
+      )
+    );
+    const researchGapEntry: TopicSelectionResearchStageManifestEntry = gapEntry.state === 'current'
+      ? {
+        ...gapEntry,
+        source_refs: this.uniqueRefs([...gapEntry.source_refs, ...gapHistoryDecisionRefs]),
+        artifact_refs: this.uniqueRefs([...gapEntry.artifact_refs, ...gapHistoryArtifactRefs]),
+        issue_codes: this.uniqueStrings([
+          ...gapEntry.issue_codes,
+          ...arenaReviewHistories.flatMap((history) =>
+            history.projection_issues.map((issue) => issue.issue_code)
+          ),
+        ]),
+      }
+      : gapEntry;
     const projectedStages: TopicSelectionResearchStageManifestEntry[] = [
       checkpointEntry('evidence_landscape', 'evidence_landscape'),
-      checkpointEntry('research_gap', 'gap_selection'),
+      researchGapEntry,
       checkpointEntry('research_question', 'question_contract'),
       valueStage.entry,
       await this.currentPackageStageManifestEntry(titleCardId, valueStage.currentDispositionDecisionId),
@@ -1883,6 +2024,7 @@ export class TopicSelectionResearchCheckpointService {
       canonicalOwner = manifest;
       relatedRecords = { checkpoint_records: checkpointRecords };
     } else if (stage === 'research_gap') {
+      const arenaReviewHistories = await this.listArenaAdvisoryReviewHistories(titleCardId);
       const arenaAdvisory = this.asRecord(currentPacket?.packet_payload.arena_advisory);
       const riskFindingRefs = this.functionalRefs(arenaAdvisory?.risk_finding_refs) ?? [];
       const arenaRiskFindings = (await Promise.all(
@@ -1897,6 +2039,13 @@ export class TopicSelectionResearchCheckpointService {
         checkpoint_records: checkpointRecords,
         arena_advisory: arenaAdvisory,
         arena_risk_findings: arenaRiskFindings,
+        arena_advisory_review_histories: arenaReviewHistories,
+        arena_advisory_review_projection_issues: arenaReviewHistories.flatMap(
+          (history) => history.projection_issues,
+        ),
+        arena_advisory_reopen_signals: arenaReviewHistories.flatMap(
+          (history) => history.reopen_signals,
+        ),
       };
     } else if (stage === 'value_feasibility') {
       const repository = this.stageProjectionSources?.valueAssessmentRepository;
@@ -2055,6 +2204,31 @@ export class TopicSelectionResearchCheckpointService {
     }
 
     if (stage === 'research_gap') {
+      const rawReviewHistories = workingSet.related_records.arena_advisory_review_histories;
+      const reviewHistories: TopicSelectionResearchArenaAdvisoryReviewHistory[] = Array.isArray(rawReviewHistories)
+        ? (rawReviewHistories as TopicSelectionResearchArenaAdvisoryReviewHistory[])
+        : [];
+      const currentReviewHistory = reviewHistories.find(
+        (history) => history.checkpoint_currentness === 'current',
+      ) ?? null;
+      const supersededReviewCount = reviewHistories
+        .filter((history) => history.checkpoint_currentness === 'superseded')
+        .reduce((count, history) => count + history.reviews.length, 0);
+      const currentReviewSummaries = currentReviewHistory?.reviews.map((item) => {
+        const response = this.arenaReviewResponseLabel(item.review.response);
+        const binding = item.advancement_binding.status === 'confirmed'
+          ? '已由正式人工推进决定确认'
+          : '尚未形成正式推进决定';
+        return `人工评议：${response}；${binding}。`;
+      }) ?? [];
+      const reopenSummaries = (currentReviewHistory?.reopen_signals ?? []).map((signal) => {
+        const action = signal.signal_type === 'candidate_reopened'
+          ? '重新开放了先前暂存或停止的候选'
+          : '在停止、补证或重构建议下仍提出推进';
+        return signal.status === 'confirmed'
+          ? `人工决定已确认：${action}。`
+          : `人工评议提出但尚未确认：${action}。`;
+      });
       const advisory = this.asRecord(workingSet.related_records.arena_advisory);
       const candidateDispositions = Array.isArray(advisory?.candidate_dispositions)
         ? advisory.candidate_dispositions.map((value) => this.asRecord(value)).filter(
@@ -2098,6 +2272,8 @@ export class TopicSelectionResearchCheckpointService {
         conclusions: this.uniqueStrings([
           outcome ? `多视角评议建议：${this.arenaOutcomeLabel(outcome)}` : '',
           this.stringField(advisory, 'summary'),
+          ...currentReviewSummaries,
+          supersededReviewCount > 0 ? `另有 ${supersededReviewCount} 条历史评议来自已被替代的检查点。` : '',
           `${label}已有当前版本，状态为 ${entry.status ?? 'current'}。`,
         ]),
         evidence_and_counterevidence: this.uniqueStrings(riskFindings.flatMap((artifact) => {
@@ -2106,13 +2282,18 @@ export class TopicSelectionResearchCheckpointService {
           return summary ? [summary] : [];
         })),
         alternatives_and_rejections: candidateItems.length > 0
-          ? candidateItems
-          : this.payloadItems(packet?.packet_payload ?? {}, ['candidate', 'alternative', 'reject']),
+          ? [...candidateItems, ...reopenSummaries]
+          : [
+            ...this.payloadItems(packet?.packet_payload ?? {}, ['candidate', 'alternative', 'reject']),
+            ...reopenSummaries,
+          ],
         claim_and_falsification_boundaries: [],
         open_risks: this.uniqueStrings([
           ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
           ...unresolvedDissent.map((dissent) => `未解决分歧：${dissent}`),
           ...issueCodes.map((code) => `多视角评议未纳入审阅：${this.arenaIssueLabel(code)}`),
+          ...reviewHistories.flatMap((history) => history.projection_issues)
+            .map((issue) => `人工评议历史有一条记录未通过校验：${this.arenaReviewIssueLabel(issue.issue_code)}`),
         ]),
         recommendation: outcome
           ? this.arenaOutcomeRecommendation(outcome)
@@ -2310,6 +2491,26 @@ export class TopicSelectionResearchCheckpointService {
       dropped: '停止',
     };
     return labels[disposition] ?? disposition;
+  }
+
+  private arenaReviewResponseLabel(response: string): string {
+    const labels: Record<string, string> = {
+      accept: '接受评议建议',
+      override: '覆盖评议建议',
+      defer: '暂缓决定',
+    };
+    return labels[response] ?? response;
+  }
+
+  private arenaReviewIssueLabel(issueCode: string): string {
+    const labels: Record<string, string> = {
+      LOOKALIKE_REVIEW_ARTIFACT: '记录缺少专用来源标识',
+      INVALID_REVIEW_PROVENANCE: '记录来源或人工身份不可信',
+      INVALID_REVIEW_CHECKSUM: '记录内容校验失败',
+      INVALID_REVIEW_BINDING: '记录绑定的检查点或证据版本不一致',
+      INVALID_REVIEW_CLASSIFICATION: '记录中的接受或覆盖分类不一致',
+    };
+    return labels[issueCode] ?? '记录校验失败';
   }
 
   private arenaOutcomeLabel(outcome: string): string {
@@ -3185,6 +3386,144 @@ export class TopicSelectionResearchCheckpointService {
     return { response: 'override', reasonCodes: ordered };
   }
 
+  private decodeArenaReviewArtifact(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+    advisory: TopicSelectionResearchGapArenaAdvisory,
+    artifact: TopicSelectionArtifactRefRecord,
+  ): TopicSelectionResearchArenaAdvisoryReviewRecord {
+    const payload = this.arenaReviewPayload(artifact);
+    const stableKey = artifact.stable_key;
+    const expectedReviewId = stableKey
+      ? `topic_selection_research_arena_advisory_review_${this.hash({ stable_key: stableKey })}`
+      : null;
+    const actor = this.asRecord(payload.actor);
+    const actorKeys = actor ? Object.keys(actor).sort() : [];
+    if (!stableKey?.startsWith(ARENA_REVIEW_STABLE_KEY_PREFIX)
+      || artifact.created_by !== 'human'
+      || !actor
+      || payload.review_id !== expectedReviewId
+      || actor.actor_type !== 'human'
+      || typeof actor.actor_id !== 'string'
+      || !actor.actor_id.trim()
+      || stableStringify(actorKeys) !== stableStringify(['actor_id', 'actor_type'])) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Artifact ref is not a dedicated human Arena advisory review.',
+        { projection_issue_code: 'INVALID_REVIEW_PROVENANCE' },
+      );
+    }
+    let humanReview: TopicSelectionGapSelectionReview | null = null;
+    if (payload.human_gap_selection_review !== null) {
+      const humanReviewRecord = this.asRecord(payload.human_gap_selection_review);
+      if (!humanReviewRecord) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          'Arena advisory review human review binding is invalid.',
+          { projection_issue_code: 'INVALID_REVIEW_BINDING' },
+        );
+      }
+      humanReview = this.normalizeGapSelectionReview(
+        humanReviewRecord as unknown as TopicSelectionGapSelectionReview,
+      );
+      this.assertArenaHumanReviewScope(checkpoint, advisory, humanReview);
+    }
+    const requestedResponse = typeof payload.response === 'string'
+      && ['accept', 'override', 'defer'].includes(payload.response)
+      ? payload.response as TopicSelectionResearchArenaAdvisoryReviewInput['response']
+      : undefined;
+    if (!requestedResponse || typeof payload.rationale !== 'string' || !payload.rationale.trim()) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena advisory review response or rationale is invalid.',
+        { projection_issue_code: 'INVALID_REVIEW_CLASSIFICATION' },
+      );
+    }
+    let classification: ReturnType<TopicSelectionResearchCheckpointService['classifyArenaAdvisoryReview']>;
+    try {
+      classification = this.classifyArenaAdvisoryReview(advisory, humanReview, requestedResponse);
+    } catch (error) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        error instanceof Error ? error.message : 'Arena advisory review classification is invalid.',
+        { projection_issue_code: 'INVALID_REVIEW_CLASSIFICATION' },
+      );
+    }
+    const expected = {
+      schema_version: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION,
+      title_card_id: checkpoint.title_card_id,
+      research_checkpoint_id: checkpoint.research_checkpoint_id,
+      gap_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: this.hash(advisory),
+      response: classification.response,
+      rationale: payload.rationale.trim(),
+      reason_codes: classification.reasonCodes,
+      actor: { actor_type: 'human' as const, actor_id: actor.actor_id },
+      human_gap_selection_review: humanReview,
+      human_gap_selection_review_hash: humanReview ? this.hash(humanReview) : null,
+      selected_candidate_ref: humanReview?.selected_candidate_ref ?? null,
+      support_only: true as const,
+    };
+    try {
+      return this.assertArenaReviewArtifactMatches(artifact, expected);
+    } catch (error) {
+      if (error instanceof AppError && error.details?.projection_issue_code) throw error;
+      const classificationChanged = payload.response !== expected.response
+        || stableStringify(payload.reason_codes) !== stableStringify(expected.reason_codes);
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        error instanceof Error ? error.message : 'Arena advisory review binding content changed.',
+        {
+          projection_issue_code: classificationChanged
+            ? 'INVALID_REVIEW_CLASSIFICATION'
+            : 'INVALID_REVIEW_BINDING',
+        },
+      );
+    }
+  }
+
+  private humanDecisionBindsArenaReview(
+    decision: TopicSelectionHumanConfirmedDecisionRecord,
+    reviewRef: TopicSelectionFunctionalRef,
+    review: TopicSelectionResearchArenaAdvisoryReviewRecord,
+  ): boolean {
+    const exactReviewRef = decision.artifact_refs.some((ref) =>
+      ref.ref_type === reviewRef.ref_type
+      && ref.ref_id === reviewRef.ref_id
+      && (ref.version_id ?? null) === (reviewRef.version_id ?? null)
+      && (ref.title_card_id ?? null) === (reviewRef.title_card_id ?? null)
+    );
+    return decision.title_card_id === review.title_card_id
+      && decision.decision_type === 'confirm'
+      && decision.actor.actor_type === 'human'
+      && decision.actor.actor_id === review.actor.actor_id
+      && decision.target_ref.ref_type === 'validated_need'
+      && decision.target_ref.title_card_id === review.title_card_id
+      && decision.resulting_authority_refs.some((ref) => this.refsEqual(ref, decision.target_ref))
+      && exactReviewRef;
+  }
+
+  private arenaReviewProjectionIssueCode(
+    error: unknown,
+  ): TopicSelectionResearchArenaAdvisoryReviewProjectionIssueCode {
+    if (error instanceof AppError) {
+      const issueCode = error.details?.projection_issue_code;
+      if (issueCode === 'LOOKALIKE_REVIEW_ARTIFACT'
+        || issueCode === 'INVALID_REVIEW_PROVENANCE'
+        || issueCode === 'INVALID_REVIEW_CHECKSUM'
+        || issueCode === 'INVALID_REVIEW_BINDING'
+        || issueCode === 'INVALID_REVIEW_CLASSIFICATION') {
+        return issueCode;
+      }
+    }
+    return 'INVALID_REVIEW_BINDING';
+  }
+
   private arenaReviewPayload(artifact: TopicSelectionArtifactRefRecord): Record<string, unknown> {
     const payload = this.asRecord(artifact.payload);
     if (!payload
@@ -3194,7 +3533,12 @@ export class TopicSelectionResearchCheckpointService {
       || payload.schema_version !== TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_SCHEMA_VERSION
       || typeof payload.review_id !== 'string'
       || typeof payload.rationale !== 'string') {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Arena advisory review artifact is invalid or checksum-drifted.');
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Arena advisory review artifact is invalid or checksum-drifted.',
+        { projection_issue_code: 'INVALID_REVIEW_CHECKSUM' },
+      );
     }
     return payload;
   }

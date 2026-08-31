@@ -96,4 +96,7 @@ export interface TopicSelectionControlPlaneRepository {
   listHumanConfirmedDecisionsByTargetRef(
     targetRef: { ref_type: string; ref_id: string },
   ): Promise<TopicSelectionHumanConfirmedDecisionRecord[]>;
+  listHumanConfirmedDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionHumanConfirmedDecisionRecord[]>;
 }

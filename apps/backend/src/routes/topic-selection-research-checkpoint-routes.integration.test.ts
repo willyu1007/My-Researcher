@@ -241,6 +241,15 @@ test('Arena advisory review HTTP API records defer without advancing the checkpo
   });
   assert.equal(response.statusCode, 201, response.body);
   assert.equal(response.json().review.response, 'defer');
+  const historyResponse = await app.inject({
+    method: 'GET',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+  });
+  assert.equal(historyResponse.statusCode, 200, historyResponse.body);
+  assert.equal(historyResponse.json().schema_version, 'TopicSelectionResearchArenaAdvisoryReviewHistory@v1');
+  assert.deepEqual(historyResponse.json().reviews.map((item: { review: { response: string } }) => item.review.response), [
+    'defer',
+  ]);
   assert.equal((await service.getCheckpoint(checkpoint.research_checkpoint_id)).status, 'pending');
   const invalidActor = await app.inject({
     method: 'POST',

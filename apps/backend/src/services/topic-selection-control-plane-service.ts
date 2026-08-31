@@ -255,6 +255,10 @@ export class TopicSelectionControlPlaneService {
     return this.repository.listArtifactRefsByWorkflowRunId(workflowRunId);
   }
 
+  async listArtifactRefsByInputSnapshotId(inputSnapshotId: string): Promise<TopicSelectionArtifactRefRecord[]> {
+    return this.repository.listArtifactRefsByInputSnapshotId(inputSnapshotId);
+  }
+
   async recordWorkflowRun(input: RecordWorkflowRunInput): Promise<RecordWorkflowRunResult> {
     const now = this.now();
     const status = input.status ?? 'succeeded';
@@ -398,6 +402,12 @@ export class TopicSelectionControlPlaneService {
       ref_type: targetRef.ref_type,
       ref_id: targetRef.ref_id,
     });
+  }
+
+  async listHumanDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionHumanConfirmedDecisionRecord[]> {
+    return this.repository.listHumanConfirmedDecisionsByTitleCardId(titleCardId);
   }
 
   async recordHumanDecision(input: HumanDecisionInput): Promise<TopicSelectionHumanConfirmedDecisionRecord> {

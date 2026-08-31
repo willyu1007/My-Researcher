@@ -3,6 +3,7 @@ import test from 'node:test';
 import Fastify from 'fastify';
 import {
   topicSelectionResearchArenaAdvisoryReviewInputSchema,
+  topicSelectionResearchArenaAdvisoryReviewHistorySchema,
   topicSelectionResearchArenaAdvisoryReviewPayloadSchema,
   topicSelectionResearchArenaAdvisoryReviewResultSchema,
   topicSelectionResearchCheckpointDecisionInputSchema,
@@ -270,6 +271,74 @@ test('Arena advisory review schemas bind one strict-human label to the exact gap
     selected_candidate_ref: null,
     support_only: true,
   })).statusCode, 200);
+});
+
+test('Arena advisory review history schema distinguishes proposed and confirmed reopen signals', async () => {
+  const reviewRef = {
+    ref_type: 'artifact_ref',
+    ref_id: 'arena_review_1',
+    version_id: 'TopicSelectionResearchArenaAdvisoryReview@v1',
+    title_card_id: 'title_1',
+  };
+  const humanDecisionRef = {
+    ref_type: 'human_confirmed_decision',
+    ref_id: 'human_decision_1',
+    title_card_id: 'title_1',
+  };
+  const history = {
+    schema_version: 'TopicSelectionResearchArenaAdvisoryReviewHistory@v1',
+    research_checkpoint_id: 'checkpoint_gap_1',
+    title_card_id: 'title_1',
+    gap_input_snapshot_id: 'input_snapshot_gap_1',
+    checkpoint_currentness: 'superseded',
+    reviews: [{
+      review_ref: reviewRef,
+      review: {
+        schema_version: 'TopicSelectionResearchArenaAdvisoryReview@v1',
+        review_id: 'arena_review_payload_1',
+        title_card_id: 'title_1',
+        research_checkpoint_id: 'checkpoint_gap_1',
+        gap_input_snapshot_id: 'input_snapshot_gap_1',
+        confirmed_candidate_pool_hash: HASH,
+        advisory_snapshot_hash: HASH,
+        response: 'override',
+        rationale: 'The parked candidate is now preferable.',
+        reason_codes: ['SELECTED_PARKED_CANDIDATE'],
+        actor,
+        human_gap_selection_review: null,
+        human_gap_selection_review_hash: null,
+        selected_candidate_ref: ref,
+        support_only: true,
+        created_at: '2026-08-31T00:00:00.000Z',
+      },
+      advancement_binding: {
+        status: 'confirmed',
+        human_confirmed_decision_ref: humanDecisionRef,
+      },
+    }],
+    projection_issues: [{
+      artifact_ref: { ref_type: 'artifact_ref', ref_id: 'lookalike_1', title_card_id: 'title_1' },
+      issue_code: 'LOOKALIKE_REVIEW_ARTIFACT',
+      message: 'Artifact claims the review schema without dedicated provenance.',
+    }],
+    reopen_signals: [{
+      signal_type: 'candidate_reopened',
+      status: 'confirmed',
+      review_ref: reviewRef,
+      selected_candidate_ref: ref,
+      reason_codes: ['SELECTED_PARKED_CANDIDATE'],
+      human_confirmed_decision_ref: humanDecisionRef,
+    }],
+    history_hash: HASH,
+  };
+  assert.equal((await injectResponse(topicSelectionResearchArenaAdvisoryReviewHistorySchema, history)).statusCode, 200);
+  assert.equal((await injectResponse(topicSelectionResearchArenaAdvisoryReviewHistorySchema, {
+    ...history,
+    reviews: [{
+      ...history.reviews[0],
+      advancement_binding: { status: 'confirmed' },
+    }],
+  })).statusCode, 500);
 });
 
 test('research checkpoint decision schema rejects non-human authority and hidden fields', async () => {

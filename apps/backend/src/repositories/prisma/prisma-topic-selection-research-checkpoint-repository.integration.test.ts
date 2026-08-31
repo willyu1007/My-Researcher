@@ -183,6 +183,17 @@ test('Prisma checkpoint decisions are atomic under concurrent human submissions'
     assert.equal(await prisma.topicSelectionArtifactRef.count({
       where: { titleCardId, stableKey: { startsWith: 'topic-selection-arena-advisory-review:' } },
     }), 1);
+    const restartedService = new TopicSelectionResearchCheckpointService(
+      new PrismaTopicSelectionResearchCheckpointRepository(prisma),
+      new TopicSelectionControlPlaneService(new PrismaTopicSelectionControlPlaneRepository(prisma)),
+    );
+    const recoveredHistory = await restartedService.getArenaAdvisoryReviewHistory(
+      gapCheckpoint.research_checkpoint_id,
+    );
+    assert.equal(recoveredHistory.reviews.length, 1);
+    assert.equal(recoveredHistory.reviews[0]?.review.response, 'defer');
+    assert.equal(recoveredHistory.reviews[0]?.advancement_binding.status, 'proposed');
+    assert.deepEqual(recoveredHistory.reopen_signals, []);
     const existingAuthority = await controlPlane.recordHumanDecision({
       title_card_id: titleCardId,
       target_ref: { ref_type: 'validated_need', ref_id: `validated_need_${suffix}`, title_card_id: titleCardId },

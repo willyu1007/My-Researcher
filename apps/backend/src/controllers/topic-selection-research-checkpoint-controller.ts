@@ -96,6 +96,19 @@ export class TopicSelectionResearchCheckpointController {
     }
   };
 
+  getArenaAdvisoryReviewHistory = async (
+    request: ParamsRequest<{ checkpointId: string }>,
+    reply: FastifyReply,
+  ) => {
+    try {
+      return reply.send(
+        await this.service.getArenaAdvisoryReviewHistory(request.params.checkpointId),
+      );
+    } catch (error) {
+      return handleError(reply, error);
+    }
+  };
+
   recordObjection = async (
     request: BodyParamsRequest<{ checkpointId: string }, TopicSelectionResearchObjectionInput>,
     reply: FastifyReply,

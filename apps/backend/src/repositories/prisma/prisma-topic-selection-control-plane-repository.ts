@@ -1034,4 +1034,14 @@ export class PrismaTopicSelectionControlPlaneRepository implements TopicSelectio
     });
     return rows.map(toHumanDecisionRecord);
   }
+
+  async listHumanConfirmedDecisionsByTitleCardId(
+    titleCardId: string,
+  ): Promise<TopicSelectionHumanConfirmedDecisionRecord[]> {
+    const rows = await this.prisma.topicSelectionHumanConfirmedDecision.findMany({
+      where: { titleCardId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toHumanDecisionRecord);
+  }
 }

@@ -333,6 +333,55 @@ export interface TopicSelectionResearchArenaAdvisoryReviewResult {
   review: TopicSelectionResearchArenaAdvisoryReviewRecord;
 }
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_HISTORY_SCHEMA_VERSION =
+  'TopicSelectionResearchArenaAdvisoryReviewHistory@v1' as const;
+
+export const TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_PROJECTION_ISSUE_CODES = [
+  'LOOKALIKE_REVIEW_ARTIFACT',
+  'INVALID_REVIEW_PROVENANCE',
+  'INVALID_REVIEW_CHECKSUM',
+  'INVALID_REVIEW_BINDING',
+  'INVALID_REVIEW_CLASSIFICATION',
+] as const;
+export type TopicSelectionResearchArenaAdvisoryReviewProjectionIssueCode =
+  (typeof TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_PROJECTION_ISSUE_CODES)[number];
+
+export interface TopicSelectionResearchArenaAdvisoryReviewHistoryItem {
+  review_ref: TopicSelectionFunctionalRef;
+  review: TopicSelectionResearchArenaAdvisoryReviewRecord;
+  advancement_binding: {
+    status: 'proposed' | 'confirmed';
+    human_confirmed_decision_ref: TopicSelectionFunctionalRef | null;
+  };
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReviewProjectionIssue {
+  artifact_ref: TopicSelectionFunctionalRef;
+  issue_code: TopicSelectionResearchArenaAdvisoryReviewProjectionIssueCode;
+  message: string;
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReopenSignal {
+  signal_type: 'candidate_reopened' | 'advanced_against_stop';
+  status: 'proposed' | 'confirmed';
+  review_ref: TopicSelectionFunctionalRef;
+  selected_candidate_ref: TopicSelectionFunctionalRef;
+  reason_codes: TopicSelectionResearchArenaAdvisoryReviewReasonCode[];
+  human_confirmed_decision_ref: TopicSelectionFunctionalRef | null;
+}
+
+export interface TopicSelectionResearchArenaAdvisoryReviewHistory {
+  schema_version: typeof TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_HISTORY_SCHEMA_VERSION;
+  research_checkpoint_id: string;
+  title_card_id: string;
+  gap_input_snapshot_id: string;
+  checkpoint_currentness: 'current' | 'superseded';
+  reviews: TopicSelectionResearchArenaAdvisoryReviewHistoryItem[];
+  projection_issues: TopicSelectionResearchArenaAdvisoryReviewProjectionIssue[];
+  reopen_signals: TopicSelectionResearchArenaAdvisoryReopenSignal[];
+  history_hash: string;
+}
+
 export interface TopicSelectionResearchCheckpointDecisionInput {
   decision_key: string;
   decision: TopicSelectionResearchCheckpointAction;
@@ -588,6 +637,94 @@ export const topicSelectionResearchArenaAdvisoryReviewResultSchema = {
   properties: {
     review_ref: topicSelectionFunctionalRefSchema,
     review: topicSelectionResearchArenaAdvisoryReviewRecordSchema,
+  },
+} as const;
+
+const arenaAdvisoryReviewBindingSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['status', 'human_confirmed_decision_ref'],
+  properties: {
+    status: { enum: ['proposed', 'confirmed'] },
+    human_confirmed_decision_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+  },
+} as const;
+
+export const topicSelectionResearchArenaAdvisoryReviewHistorySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version',
+    'research_checkpoint_id',
+    'title_card_id',
+    'gap_input_snapshot_id',
+    'checkpoint_currentness',
+    'reviews',
+    'projection_issues',
+    'reopen_signals',
+    'history_hash',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_HISTORY_SCHEMA_VERSION },
+    research_checkpoint_id: stringId,
+    title_card_id: stringId,
+    gap_input_snapshot_id: stringId,
+    checkpoint_currentness: { enum: ['current', 'superseded'] },
+    reviews: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['review_ref', 'review', 'advancement_binding'],
+        properties: {
+          review_ref: topicSelectionFunctionalRefSchema,
+          review: topicSelectionResearchArenaAdvisoryReviewRecordSchema,
+          advancement_binding: arenaAdvisoryReviewBindingSchema,
+        },
+      },
+    },
+    projection_issues: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['artifact_ref', 'issue_code', 'message'],
+        properties: {
+          artifact_ref: topicSelectionFunctionalRefSchema,
+          issue_code: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_PROJECTION_ISSUE_CODES] },
+          message: stringId,
+        },
+      },
+    },
+    reopen_signals: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'signal_type',
+          'status',
+          'review_ref',
+          'selected_candidate_ref',
+          'reason_codes',
+          'human_confirmed_decision_ref',
+        ],
+        properties: {
+          signal_type: { enum: ['candidate_reopened', 'advanced_against_stop'] },
+          status: { enum: ['proposed', 'confirmed'] },
+          review_ref: topicSelectionFunctionalRefSchema,
+          selected_candidate_ref: topicSelectionFunctionalRefSchema,
+          reason_codes: {
+            type: 'array',
+            items: { enum: [...TOPIC_SELECTION_RESEARCH_ARENA_ADVISORY_REVIEW_REASON_CODES] },
+            minItems: 1,
+            uniqueItems: true,
+          },
+          human_confirmed_decision_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+        },
+      },
+    },
+    history_hash: hashString,
   },
 } as const;
 

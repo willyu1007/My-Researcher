@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { topicSelectionArtifactRefRecordSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_STAGE_VIEW_STAGES,
+  topicSelectionResearchArenaAdvisoryReviewHistorySchema,
   topicSelectionResearchArenaAdvisoryReviewInputSchema,
   topicSelectionResearchArenaAdvisoryReviewResultSchema,
   topicSelectionResearchCheckpointDecisionInputSchema,
@@ -63,6 +64,16 @@ export async function registerTopicSelectionResearchCheckpointRoutes(
       },
     },
     controller.recordArenaAdvisoryReview,
+  );
+  fastify.get(
+    '/topic-selection/checkpoints/:checkpointId/arena-advisory-reviews',
+    {
+      schema: {
+        params: checkpointParams,
+        response: { 200: topicSelectionResearchArenaAdvisoryReviewHistorySchema },
+      },
+    },
+    controller.getArenaAdvisoryReviewHistory,
   );
   fastify.post(
     '/topic-selection/checkpoints/:checkpointId/objections',

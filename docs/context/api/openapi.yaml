@@ -3781,6 +3781,25 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /topic-selection/checkpoints/{checkpointId}/arena-advisory-reviews:
+    get:
+      operationId: getTopicSelectionResearchArenaAdvisoryReviewHistory
+      summary: Recover checksum-validated current or superseded Arena advisory review history.
+      tags: [topic-selection-research]
+      parameters:
+        - $ref: '#/components/parameters/ResearchCheckpointId'
+      responses:
+        '200':
+          description: Valid immutable labels, isolated projection issues, exact advancement bindings, and read-only reopen signals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReviewHistory'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       operationId: recordTopicSelectionResearchArenaAdvisoryReview
       summary: Record one exact strict-human accept, override, or defer label for current support-only Arena advice.
@@ -8478,6 +8497,98 @@ components:
           $ref: '#/components/schemas/TopicSelectionFunctionalRef'
         review:
           $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReview'
+
+    TopicSelectionResearchArenaAdvisoryReviewAdvancementBinding:
+      type: object
+      additionalProperties: false
+      required: [status, human_confirmed_decision_ref]
+      properties:
+        status:
+          type: string
+          enum: [proposed, confirmed]
+        human_confirmed_decision_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+
+    TopicSelectionResearchArenaAdvisoryReviewHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [review_ref, review, advancement_binding]
+      properties:
+        review_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        review:
+          $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReview'
+        advancement_binding:
+          $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReviewAdvancementBinding'
+
+    TopicSelectionResearchArenaAdvisoryReviewProjectionIssue:
+      type: object
+      additionalProperties: false
+      required: [artifact_ref, issue_code, message]
+      properties:
+        artifact_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        issue_code:
+          type: string
+          enum: [LOOKALIKE_REVIEW_ARTIFACT, INVALID_REVIEW_PROVENANCE, INVALID_REVIEW_CHECKSUM, INVALID_REVIEW_BINDING, INVALID_REVIEW_CLASSIFICATION]
+        message: { type: string, minLength: 1 }
+
+    TopicSelectionResearchArenaAdvisoryReopenSignal:
+      type: object
+      additionalProperties: false
+      required: [signal_type, status, review_ref, selected_candidate_ref, reason_codes, human_confirmed_decision_ref]
+      properties:
+        signal_type:
+          type: string
+          enum: [candidate_reopened, advanced_against_stop]
+        status:
+          type: string
+          enum: [proposed, confirmed]
+        review_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        selected_candidate_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        reason_codes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            enum: [AGREES_WITH_ARENA, REVIEW_DEFERRED, ADVANCE_AGAINST_NONE_VIABLE, ADVANCE_BEFORE_EVIDENCE_EXPANSION, ADVANCE_WITHOUT_REFRAME, SELECTED_PARKED_CANDIDATE, SELECTED_DROPPED_CANDIDATE, NON_SELECTED_DISPOSITION_CHANGED]
+        human_confirmed_decision_ref:
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+
+    TopicSelectionResearchArenaAdvisoryReviewHistory:
+      type: object
+      additionalProperties: false
+      required: [schema_version, research_checkpoint_id, title_card_id, gap_input_snapshot_id, checkpoint_currentness, reviews, projection_issues, reopen_signals, history_hash]
+      properties:
+        schema_version:
+          type: string
+          enum: [TopicSelectionResearchArenaAdvisoryReviewHistory@v1]
+        research_checkpoint_id: { type: string, minLength: 1 }
+        title_card_id: { type: string, minLength: 1 }
+        gap_input_snapshot_id: { type: string, minLength: 1 }
+        checkpoint_currentness:
+          type: string
+          enum: [current, superseded]
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReviewHistoryItem'
+        projection_issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReviewProjectionIssue'
+        reopen_signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSelectionResearchArenaAdvisoryReopenSignal'
+        history_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
 
     TopicSelectionResearchObjectionInput:
       type: object

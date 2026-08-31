@@ -1330,6 +1330,273 @@ test('Arena advisory defer is an idempotent non-advancing human label', async ()
   );
 });
 
+test('Arena advisory review history recovers a deferred label without advancing authority', async () => {
+  const { service } = createService();
+  const { advisory, checkpoint } = await materializeSelectedArenaGap(service);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'recover_defer_once',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'defer',
+    rationale: 'I need to inspect the evidence first.',
+    human_gap_selection_review: null,
+  });
+
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+
+  assert.equal(history.checkpoint_currentness, 'current');
+  assert.equal(history.gap_input_snapshot_id, checkpoint.input_snapshot_id);
+  assert.deepEqual(history.reviews.map((item) => item.review_ref), [recorded.review_ref]);
+  assert.deepEqual(history.reviews[0]?.advancement_binding, {
+    status: 'proposed',
+    human_confirmed_decision_ref: null,
+  });
+  assert.deepEqual(history.projection_issues, []);
+  assert.deepEqual(history.reopen_signals, []);
+  assert.match(history.history_hash, /^[a-f0-9]{64}$/u);
+});
+
+test('Arena advisory review history orders multiple immutable labels deterministically', async () => {
+  const { service } = createService();
+  const { advisory, checkpoint } = await materializeSelectedArenaGap(service);
+  const recordDefer = (idempotencyKey: string, rationale: string) => service.recordArenaAdvisoryReview(
+    checkpoint.research_checkpoint_id,
+    {
+      idempotency_key: idempotencyKey,
+      actor: { actor_type: 'human', actor_id: 'researcher_1' },
+      confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+      confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+      advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+      response: 'defer',
+      rationale,
+      human_gap_selection_review: null,
+    },
+  );
+  const first = await recordDefer('multi_label_1', 'First pause for evidence review.');
+  const second = await recordDefer('multi_label_2', 'Second pause after another reading pass.');
+
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  const expectedIds = [first.review_ref.ref_id, second.review_ref.ref_id].sort();
+
+  assert.deepEqual(history.reviews.map((item) => item.review_ref.ref_id), expectedIds);
+  assert.deepEqual(await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id), history);
+});
+
+test('Arena advisory review history distinguishes proposed and confirmed candidate reopening after supersession', async () => {
+  const { controlPlane, service } = createService();
+  const { advisory, alternativeRef, checkpoint, firstRef, humanReview } =
+    await materializeSelectedArenaGap(service);
+  const overrideReview = {
+    ...humanReview,
+    selected_candidate_ref: alternativeRef,
+    candidate_reviews: [
+      {
+        need_candidate_ref: firstRef,
+        disposition: 'viable_alternative' as const,
+        distinct_from_selected_axes: ['mechanism' as const],
+        rationale: 'Keep the original recommendation as a fallback.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'selected' as const,
+        distinct_from_selected_axes: [],
+        rationale: 'The parked mechanism is now preferred.',
+      },
+    ],
+  };
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'recover_override_once',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'override',
+    rationale: 'New evidence favors the parked candidate.',
+    human_gap_selection_review: overrideReview,
+  });
+
+  const proposed = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  const proposedManifest = await service.getStageManifest('title_1');
+  assert.deepEqual(proposed.reopen_signals.map((signal) => [signal.signal_type, signal.status]), [
+    ['candidate_reopened', 'proposed'],
+  ]);
+
+  const validatedNeedRef = {
+    ref_type: 'validated_need',
+    ref_id: 'validated_need_1',
+    title_card_id: 'title_1',
+  };
+  const humanDecision = await controlPlane.recordHumanDecision({
+    title_card_id: 'title_1',
+    target_ref: validatedNeedRef,
+    decision_type: 'confirm',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    artifact_refs: [recorded.review_ref],
+    resulting_authority_refs: [validatedNeedRef],
+  });
+  const confirmed = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  const confirmedManifest = await service.getStageManifest('title_1');
+  assert.equal(confirmed.reviews[0]?.advancement_binding.status, 'confirmed');
+  assert.equal(
+    confirmed.reviews[0]?.advancement_binding.human_confirmed_decision_ref?.ref_id,
+    humanDecision.human_confirmed_decision_id,
+  );
+  assert.equal(confirmed.reopen_signals[0]?.status, 'confirmed');
+  assert.notEqual(confirmedManifest.manifest_hash, proposedManifest.manifest_hash);
+  assert.equal(
+    confirmedManifest.stages.find((stage) => stage.stage === 'research_gap')?.snapshot_hash,
+    proposedManifest.stages.find((stage) => stage.stage === 'research_gap')?.snapshot_hash,
+  );
+
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+  await service.materializeCheckpoint({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_2', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_D,
+    source_refs: checkpoint.source_refs,
+    allowed_actions: checkpoint.allowed_actions,
+    packet_payload: packet.packet_payload,
+  });
+  const superseded = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  assert.equal(superseded.checkpoint_currentness, 'superseded');
+  assert.deepEqual(await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id), superseded);
+});
+
+test('Arena advisory review history isolates corrupt and lookalike artifacts from valid labels', async () => {
+  const { controlPlane, service } = createService();
+  const { advisory, checkpoint } = await materializeSelectedArenaGap(service);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'valid_defer_for_issue_isolation',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'defer',
+    rationale: 'Keep one valid review readable.',
+    human_gap_selection_review: null,
+  });
+  const { created_at: _createdAt, ...payload } = recorded.review;
+  await controlPlane.recordArtifactRef({
+    stable_key: 'generic-lookalike',
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    payload,
+    input_snapshot_id: checkpoint.input_snapshot_id,
+    created_by: 'human',
+  });
+  await controlPlane.recordArtifactRef({
+    stable_key: 'topic-selection-arena-advisory-review:corrupt',
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    payload,
+    checksum: HASH_A,
+    input_snapshot_id: checkpoint.input_snapshot_id,
+    created_by: 'human',
+  });
+  await controlPlane.recordArtifactRef({
+    stable_key: 'unrelated-generic-artifact',
+    title_card_id: 'title_1',
+    artifact_kind: 'structured_output',
+    payload: { schema_version: 'UnrelatedArtifact@v1' },
+    input_snapshot_id: checkpoint.input_snapshot_id,
+  });
+
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+
+  assert.deepEqual(history.reviews.map((item) => item.review_ref.ref_id), [recorded.review_ref.ref_id]);
+  assert.deepEqual(history.projection_issues.map((issue) => issue.issue_code), [
+    'LOOKALIKE_REVIEW_ARTIFACT',
+    'INVALID_REVIEW_CHECKSUM',
+  ]);
+  assert.equal(history.reopen_signals.length, 0);
+});
+
+test('Arena advisory review history rejects historical binding and classification drift', async () => {
+  const { controlPlane, service } = createService();
+  const { advisory, checkpoint, humanReview } = await materializeSelectedArenaGap(service);
+  const recorded = await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'valid_accept_for_drift_checks',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'accept',
+    rationale: 'Keep one valid accepted review.',
+    human_gap_selection_review: humanReview,
+  });
+  const { created_at: _createdAt, ...basePayload } = recorded.review;
+  const addDrifted = async (suffix: string, patch: Record<string, unknown>, createdBy: 'human' | 'llm' = 'human') => {
+    const stableKey = `topic-selection-arena-advisory-review:drift-${suffix}`;
+    await controlPlane.recordArtifactRef({
+      stable_key: stableKey,
+      title_card_id: 'title_1',
+      artifact_kind: 'structured_output',
+      payload: {
+        ...basePayload,
+        review_id: `topic_selection_research_arena_advisory_review_${sha256Text(stableStringify({ stable_key: stableKey }))}`,
+        ...patch,
+      },
+      input_snapshot_id: checkpoint.input_snapshot_id,
+      created_by: createdBy,
+    });
+  };
+  await addDrifted('checkpoint', { research_checkpoint_id: 'checkpoint_other' });
+  await addDrifted('title', { title_card_id: 'title_other' });
+  await addDrifted('snapshot', { gap_input_snapshot_id: 'input_snapshot_other' });
+  await addDrifted('candidate-pool', { confirmed_candidate_pool_hash: HASH_D });
+  await addDrifted('advisory', { advisory_snapshot_hash: HASH_D });
+  await addDrifted('review-hash', { human_gap_selection_review_hash: HASH_D });
+  await addDrifted('classification', { reason_codes: ['REVIEW_DEFERRED'] });
+  await addDrifted('identity', { review_id: 'review_identity_drifted' });
+  await addDrifted('provenance', {}, 'llm');
+
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+
+  assert.equal(history.reviews.length, 1);
+  const issueCounts = history.projection_issues.reduce<Record<string, number>>((counts, issue) => ({
+    ...counts,
+    [issue.issue_code]: (counts[issue.issue_code] ?? 0) + 1,
+  }), {});
+  assert.deepEqual(issueCounts, {
+    INVALID_REVIEW_BINDING: 6,
+    INVALID_REVIEW_CLASSIFICATION: 1,
+    INVALID_REVIEW_PROVENANCE: 2,
+  });
+});
+
+test('Arena review labels invalidate the research-gap manifest and appear in both stage views', async () => {
+  const { service } = createService();
+  const { advisory, checkpoint } = await materializeSelectedArenaGap(service);
+  const before = await service.getStageManifest('title_1');
+  const beforeGap = before.stages.find((stage) => stage.stage === 'research_gap');
+  await service.recordArenaAdvisoryReview(checkpoint.research_checkpoint_id, {
+    idempotency_key: 'manifest_visible_defer',
+    actor: { actor_type: 'human', actor_id: 'researcher_1' },
+    confirmed_input_snapshot_id: checkpoint.input_snapshot_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    advisory_snapshot_hash: sha256Text(stableStringify(advisory)),
+    response: 'defer',
+    rationale: 'Read more before choosing.',
+    human_gap_selection_review: null,
+  });
+
+  const after = await service.getStageManifest('title_1');
+  const afterGap = after.stages.find((stage) => stage.stage === 'research_gap');
+  assert.notEqual(after.manifest_hash, before.manifest_hash);
+  assert.equal(afterGap?.snapshot_hash, beforeGap?.snapshot_hash);
+  assert.equal(afterGap?.artifact_refs.length, (beforeGap?.artifact_refs.length ?? 0) + 1);
+
+  const human = await service.getStageView('title_1', 'research_gap', 'human');
+  const llm = await service.getStageView('title_1', 'research_gap', 'llm');
+  assert.match(human.markdown, /暂缓决定/u);
+  assert.match(human.markdown, /尚未形成正式推进决定/u);
+  const histories = llm.working_set.related_records.arena_advisory_review_histories;
+  assert.equal(Array.isArray(histories) ? histories.length : 0, 1);
+});
+
 test('Arena advisory review derives override from the exact human candidate choice', async () => {
   const { service } = createService();
   const { advisory, alternativeRef, checkpoint, firstRef, humanReview } =
@@ -1449,6 +1716,12 @@ test('advancing against a no-topic Arena recommendation is an explicit override'
     'SELECTED_DROPPED_CANDIDATE',
     'NON_SELECTED_DISPOSITION_CHANGED',
   ]);
+  const history = await service.getArenaAdvisoryReviewHistory(checkpoint.research_checkpoint_id);
+  assert.deepEqual(history.reopen_signals.map((signal) => signal.signal_type), [
+    'candidate_reopened',
+    'advanced_against_stop',
+  ]);
+  assert.equal(history.reopen_signals.every((signal) => signal.status === 'proposed'), true);
 });
 
 test('Arena advisory review binding rejects changed, cross-title, and superseded content', async () => {
