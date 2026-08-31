@@ -164,8 +164,9 @@ test('checkpoint HTTP APIs expose packet, history, decision, and research status
 
 test('Arena advisory review HTTP API records defer without advancing the checkpoint', async () => {
   let sequence = 0;
+  const controlPlaneRepository = new InMemoryTopicSelectionControlPlaneRepository();
   const controlPlane = new TopicSelectionControlPlaneService(
-    new InMemoryTopicSelectionControlPlaneRepository(),
+    controlPlaneRepository,
     { idFactory: (prefix) => `${prefix}_arena_${++sequence}` },
   );
   const service = new TopicSelectionResearchCheckpointService(
@@ -179,6 +180,10 @@ test('Arena advisory review HTTP API records defer without advancing the checkpo
     version_id: 'v1',
     title_card_id: 'title_route_arena',
   };
+  const alternativeRef = {
+    ...candidateRef,
+    ref_id: 'candidate_route_2',
+  };
   const rolePositions = [
     { participant_role: 'opportunity_scout' as const, recommended_disposition: 'parked' as const },
     { participant_role: 'prior_art_topic_killer' as const, recommended_disposition: 'parked' as const },
@@ -191,15 +196,15 @@ test('Arena advisory review HTTP API records defer without advancing the checkpo
     arena_synthesis_hash: 'b'.repeat(64),
     outcome: 'evidence_expansion_required' as const,
     summary: 'More direct evidence is required.',
-    candidate_dispositions: [{
-      candidate_ref: candidateRef,
+    candidate_dispositions: [candidateRef, alternativeRef].map((candidate) => ({
+      candidate_ref: candidate,
       disposition: 'parked' as const,
       rationale: 'Evidence is not yet decisive.',
       drop_reason_code: null,
       reopening_conditions: ['Add a direct comparison.'],
       selected_against_candidate_ref: null,
       role_positions: rolePositions,
-    }],
+    })),
     risk_finding_refs: [],
     preserved_finding_ids: [],
     unresolved_dissent: [],
@@ -211,10 +216,13 @@ test('Arena advisory review HTTP API records defer without advancing the checkpo
     checkpoint_kind: 'gap_selection',
     target_ref: { ref_type: 'need_candidate_arena', ref_id: 'arena_target_route_1', title_card_id: 'title_route_arena' },
     target_snapshot_hash: 'c'.repeat(64),
-    source_refs: [candidateRef],
+    source_refs: [candidateRef, alternativeRef],
     allowed_actions: ['advance', 'hold'],
     packet_payload: {
-      candidate_entries: [{ need_candidate_ref: candidateRef, semantic_group_key: 'group_1', machine_viable: true }],
+      candidate_entries: [
+        { need_candidate_ref: candidateRef, semantic_group_key: 'group_1', machine_viable: true },
+        { need_candidate_ref: alternativeRef, semantic_group_key: 'group_2', machine_viable: true },
+      ],
       arena_advisory: advisory,
       arena_advisory_issue_codes: [],
     },
@@ -250,7 +258,92 @@ test('Arena advisory review HTTP API records defer without advancing the checkpo
   assert.deepEqual(historyResponse.json().reviews.map((item: { review: { response: string } }) => item.review.response), [
     'defer',
   ]);
+  const acceptedStopResponse = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+    payload: {
+      ...payload,
+      idempotency_key: 'route_accept_stop_once',
+      response: 'accept',
+      rationale: 'I agree that the portfolio should stop until direct evidence is added.',
+    },
+  });
+  assert.equal(acceptedStopResponse.statusCode, 201, acceptedStopResponse.body);
+  assert.equal(acceptedStopResponse.json().review.human_confirm_need_intent, null);
+
+  const humanGapReview = {
+    research_checkpoint_id: checkpoint.research_checkpoint_id,
+    confirmed_candidate_pool_hash: checkpoint.target_snapshot_hash,
+    selected_candidate_ref: candidateRef,
+    direct_prior_art_pressure_reviewed: true,
+    disconfirming_evidence_reviewed: true,
+    candidate_reviews: [
+      {
+        need_candidate_ref: candidateRef,
+        disposition: 'selected',
+        distinct_from_selected_axes: [],
+        rationale: 'A bounded attempt is justified by the latest feasibility evidence.',
+      },
+      {
+        need_candidate_ref: alternativeRef,
+        disposition: 'viable_alternative',
+        distinct_from_selected_axes: ['mechanism'],
+        rationale: 'The second candidate remains a distinct fallback mechanism.',
+      },
+    ],
+  };
+  const advancingResponse = await app.inject({
+    method: 'POST',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+    payload: {
+      ...payload,
+      idempotency_key: 'route_advance_with_intent_once',
+      response: 'override',
+      rationale: 'The complete frozen review supports one bounded advancing attempt.',
+      human_gap_selection_review: humanGapReview,
+      human_confirm_need_intent: {
+        schema_version: 'TopicSelectionHumanConfirmNeedIntent@v1',
+        adjudication_result_ref: {
+          ref_type: 'validate_need_adjudication_result',
+          ref_id: 'adjudication_route_1',
+          title_card_id: 'title_route_arena',
+        },
+        output_validated_need_ref: {
+          ref_type: 'validated_need',
+          ref_id: 'validated_need_route_1',
+          title_card_id: 'title_route_arena',
+        },
+        confirmation_input: {
+          schema_version: 'HumanConfirmationInput@v1',
+          actor_mode: 'human',
+          accountable_human_ref: { actor_type: 'human', actor_id: 'researcher_1' },
+          rationale: 'Advance after reviewing the complete current candidate portfolio.',
+          accepted_risk_refs: [],
+          required_check_results: [],
+          delegated_executor: null,
+          gap_selection_review: humanGapReview,
+          arena_advisory_review_ref: null,
+        },
+      },
+    },
+  });
+  assert.equal(advancingResponse.statusCode, 201, advancingResponse.body);
+  assert.match(advancingResponse.json().review.human_confirm_need_intent.intent_hash, /^[a-f0-9]{64}$/u);
+  const finalHistoryResponse = await app.inject({
+    method: 'GET',
+    url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,
+  });
+  assert.equal(finalHistoryResponse.statusCode, 200, finalHistoryResponse.body);
+  assert.equal(finalHistoryResponse.json().reviews.length, 3);
+  assert.equal(
+    finalHistoryResponse.json().reviews.find(
+      (item: { review: { review_id: string } }) =>
+        item.review.review_id === advancingResponse.json().review.review_id,
+    )?.advancement_binding.status,
+    'proposed',
+  );
   assert.equal((await service.getCheckpoint(checkpoint.research_checkpoint_id)).status, 'pending');
+  assert.equal((await controlPlaneRepository.listHumanConfirmedDecisionsByTitleCardId('title_route_arena')).length, 0);
   const invalidActor = await app.inject({
     method: 'POST',
     url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/arena-advisory-reviews`,

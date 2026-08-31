@@ -864,49 +864,72 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     assert.equal(adjudication.v1b_input_bundle, null);
     const gapCheckpoint = await researchCheckpoint(app, titleCardId, 'gap_selection');
     assert.ok(gapCheckpoint.allowed_actions.includes('advance'));
+    const gapPacketRes = await app.inject({
+      method: 'GET',
+      url: `/topic-selection/checkpoints/${encodeURIComponent(gapCheckpoint.research_checkpoint_id)}/packet`,
+    });
+    assertStatus(gapPacketRes, 200);
+    assert.equal(gapPacketRes.json().packet_payload.arena_advisory, null);
 
-    const confirmationRes = await app.inject({
+    const confirmationUrl = `/topic-selection/v1a/adjudications/${encodeURIComponent(
+      adjudication.adjudication_result.adjudication_result_id,
+    )}/human-confirmations`;
+    const legacyShortcutRes = await app.inject({
       method: 'POST',
-      url: `/topic-selection/v1a/adjudications/${encodeURIComponent(
-        adjudication.adjudication_result.adjudication_result_id,
-      )}/human-confirmations`,
+      url: confirmationUrl,
       payload: {
-        confirmation_input: {
-          schema_version: TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
-          actor_mode: 'human',
-          accountable_human_ref: { actor_type: 'human', actor_id: 'route-test-reviewer' },
-          rationale: 'Support, baseline, challenge, candidate competition, and handoff refs are sufficient for v1b input.',
-          accepted_risk_refs: packet.residual_risk_refs,
-          required_check_results: packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
-          delegated_executor: null,
-          gap_selection_review: {
-            research_checkpoint_id: gapCheckpoint.research_checkpoint_id,
-            confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
-            selected_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
-            direct_prior_art_pressure_reviewed: true,
-            disconfirming_evidence_reviewed: true,
-            candidate_reviews: [
-              {
-                need_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
-                disposition: 'selected',
-                distinct_from_selected_axes: [],
-                rationale: 'Most identifiable gap for this research scope.',
-              },
-              {
-                need_candidate_ref: ref('need_candidate', alternativeCandidate.need_candidate_id, titleCardId, alternativeCandidate.candidate_version),
-                disposition: 'viable_alternative',
-                distinct_from_selected_axes: ['intervention'],
-                rationale: 'Changes the intervention rather than rewording the selected gap.',
-              },
-            ],
-          },
-        },
+        human_actor: { actor_type: 'human', actor_id: 'route-test-reviewer' },
+        human_rationale: 'The legacy shortcut must not bypass current candidate-pool review.',
       },
     });
-    assertStatus(confirmationRes, 201);
-    const confirmation = confirmationRes.json() as {
-      validated_need: { validated_need_id: string };
+    assertStatus(legacyShortcutRes, 400);
+    assert.match(legacyShortcutRes.body, /gap_selection_review/u);
+    const confirmationPayload = {
+      confirmation_input: {
+        schema_version: TOPIC_SELECTION_HUMAN_CONFIRMATION_INPUT_SCHEMA_VERSION,
+        actor_mode: 'human',
+        accountable_human_ref: { actor_type: 'human', actor_id: 'route-test-reviewer' },
+        rationale: 'Support, baseline, challenge, candidate competition, and handoff refs are sufficient for v1b input.',
+        accepted_risk_refs: packet.residual_risk_refs,
+        required_check_results: packet.required_human_checks.map((checkId) => ({ check_id: checkId, result: 'accepted' })),
+        delegated_executor: null,
+        gap_selection_review: {
+          research_checkpoint_id: gapCheckpoint.research_checkpoint_id,
+          confirmed_candidate_pool_hash: gapCheckpoint.target_snapshot_hash,
+          selected_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
+          direct_prior_art_pressure_reviewed: true,
+          disconfirming_evidence_reviewed: true,
+          candidate_reviews: [
+            {
+              need_candidate_ref: ref('need_candidate', candidate.need_candidate_id, titleCardId, candidate.candidate_version),
+              disposition: 'selected',
+              distinct_from_selected_axes: [],
+              rationale: 'Most identifiable gap for this research scope.',
+            },
+            {
+              need_candidate_ref: ref('need_candidate', alternativeCandidate.need_candidate_id, titleCardId, alternativeCandidate.candidate_version),
+              disposition: 'viable_alternative',
+              distinct_from_selected_axes: ['intervention'],
+              rationale: 'Changes the intervention rather than rewording the selected gap.',
+            },
+          ],
+        },
+      },
     };
+    const [confirmationRes, concurrentReplayRes] = await Promise.all([
+      app.inject({ method: 'POST', url: confirmationUrl, payload: confirmationPayload }),
+      app.inject({ method: 'POST', url: confirmationUrl, payload: confirmationPayload }),
+    ]);
+    assertStatus(confirmationRes, 201);
+    assertStatus(concurrentReplayRes, 201);
+    const confirmation = confirmationRes.json() as {
+      validated_need: { validated_need_id: string; human_decision_id: string };
+    };
+    const concurrentReplay = concurrentReplayRes.json() as {
+      validated_need: { validated_need_id: string; human_decision_id: string };
+    };
+    assert.equal(concurrentReplay.validated_need.validated_need_id, confirmation.validated_need.validated_need_id);
+    assert.equal(concurrentReplay.validated_need.human_decision_id, confirmation.validated_need.human_decision_id);
     assert.equal(adjudication.adjudication_result.output_validated_need_id, confirmation.validated_need.validated_need_id);
 
     const v1bBundleRes = await app.inject({
