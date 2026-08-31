@@ -1,0 +1,121 @@
+{
+  "schema_version": "TopicSelectionResearchArenaPhase10CAdoptionDecision@v1",
+  "captured_at": "2026-08-31T12:51:35Z",
+  "task_id": "T-147",
+  "phase": "10C",
+  "adoption_disposition": "remain_advisory",
+  "decision_authority": {
+    "actor_role": "researcher",
+    "source_message": "批准10c",
+    "context": "The researcher approved Phase 10C immediately after the explicit recommendation to accept the Phase 10B decisive stop and choose remain_advisory.",
+    "interpretation_limit": "The approval does not authorize activate, provider execution, a product authority write, or Phase 10D."
+  },
+  "source_evidence": {
+    "phase_10a": {
+      "report_endpoint": "/topic-selection/research/arena/calibration/runs/offline_eval_run_d64bd0c4-8074-4474-bf41-d9c6ef51bfe1/report",
+      "run_id": "offline_eval_run_d64bd0c4-8074-4474-bf41-d9c6ef51bfe1",
+      "technical_trace_hash": "143a4639c8b8c0ba964d109226a5f3b9715ba3620e72ad9a54e5afc26cf8847f",
+      "canonical_json_stream_sha256": "27b85487031668572a723167eb336d0044d3021a2b6921444acb2b4d1cec9b9d",
+      "recommendation": "insufficient_evidence",
+      "support_only": true,
+      "product_v2_member_count": 0,
+      "strict_human_label_count": 0,
+      "coverage_gap_count": 12,
+      "hard_blocker_count": 0,
+      "human_artifact": {
+        "path": "artifacts/phase10a-current-corpus-calibration.md",
+        "sha256": "b0dc761511f6b61ab2bb8f39038c12fa9920eba822ca9cb8c78d005b197dae1e"
+      },
+      "llm_artifact": {
+        "path": "artifacts/phase10a-current-corpus-calibration-llm.json",
+        "sha256": "fdd048774de1a0552121e82709bbb14fd1874c49315004ba008ef11463bdf69c"
+      }
+    },
+    "phase_10b": {
+      "decision": "stop_before_protocol_freeze",
+      "title_card_record_count": 1183,
+      "structural_prefilter_count": 703,
+      "current_non_manual_evidence_map_count": 5,
+      "owning_title_card_count": 3,
+      "eligible_fresh_product_v2_member_source_count": 0,
+      "resolvable_current_map_count": 1,
+      "failed_units_in_other_non_manual_maps": 17,
+      "registered_case_count": 0,
+      "new_session_count": 0,
+      "role_invocation_count": 0,
+      "strict_human_label_count": 0,
+      "provider_call_count": 0,
+      "human_artifact": {
+        "path": "artifacts/phase10b2-corpus-eligibility-stop.md",
+        "sha256": "8844c9cf88016bd647b27f7deff86a68392b8187162237fc72725d93397e1e3c"
+      },
+      "llm_artifact": {
+        "path": "artifacts/phase10b2-corpus-eligibility-stop-llm.json",
+        "sha256": "a18fcfe78b9fd1eea9e87defacc43c3ad5aef9a598fb4bebe98cbc8bfb01cce9"
+      }
+    }
+  },
+  "predeclared_adoption_rule": {
+    "requires_complete_first_dominance_pair": true,
+    "requires_complete_second_dominance_pair": true,
+    "requires_causal_perturbation_without_known_miss": true,
+    "requires_irrelevant_perturbation_without_known_miss": true,
+    "requires_evidence_backed_reopenable_drops": true,
+    "requires_explained_human_overrides": true,
+    "allows_confirmed_false_drop_or_false_continue": false,
+    "allows_provenance_replay_authority_or_provider_failure": false,
+    "requires_real_decision_improvement_or_measured_work_avoided": true,
+    "post_result_threshold_change_allowed": false
+  },
+  "observed_adoption_inputs": {
+    "first_dominance_pair_complete": false,
+    "second_dominance_pair_complete": false,
+    "causal_perturbation_complete": false,
+    "irrelevant_perturbation_complete": false,
+    "product_v2_execution_covered": false,
+    "strict_human_override_coverage_present": false,
+    "real_decision_improvement_observed": false,
+    "measured_work_avoided_observed": false,
+    "technical_support_only_contract_proven": true,
+    "historical_grounding_and_replay_proven": true
+  },
+  "disposition_analysis": {
+    "activate": {
+      "selected": false,
+      "reason": "Predeclared semantic coverage and positive-value requirements are not met."
+    },
+    "retire": {
+      "selected": false,
+      "reason": "Insufficient calibration evidence does not establish that the existing support-only mechanism is harmful or useless."
+    },
+    "remain_advisory": {
+      "selected": true,
+      "reason": "Preserves the proven support-only advisory capability without converting missing decision-quality evidence into mandatory policy."
+    }
+  },
+  "effects": {
+    "research_arena_support_only": true,
+    "arena_advice_required_for_gap_advancement": false,
+    "human_confirm_need_remains_sole_research_authority": true,
+    "active_policy_changed": false,
+    "phase_10d_skipped": true,
+    "checkpoint_write_performed": false,
+    "candidate_write_performed": false,
+    "human_decision_product_write_performed": false,
+    "promotion_write_performed": false,
+    "bridge_write_performed": false,
+    "paper_project_write_performed": false,
+    "provider_call_performed": false
+  },
+  "next_route": {
+    "phase_10e": "separate_researcher_review_for_bounded_negative_closeout",
+    "phase_10d_authorized": false,
+    "future_activation_requires": [
+      "One explicit new evidence or protocol delta.",
+      "At most one separately reviewed delta-bearing collection batch.",
+      "A new source-hash-bound calibration report.",
+      "A new explicit researcher adoption decision."
+    ],
+    "silent_future_activation_allowed": false
+  }
+}
