@@ -29,7 +29,12 @@ import {
   type TopicSelectionPromotionInputSnapshotClosureStatus,
 } from './topic-selection-v1c-promotion-input-contracts.js';
 
-export const TOPIC_SELECTION_OFFLINE_EVALUATION_STAGES = ['v1a', 'v1b', 'v1c'] as const;
+export const TOPIC_SELECTION_OFFLINE_EVALUATION_STAGES = [
+  'v1a',
+  'v1b',
+  'v1c',
+  'research_arena',
+] as const;
 export type TopicSelectionOfflineEvaluationStage =
   (typeof TOPIC_SELECTION_OFFLINE_EVALUATION_STAGES)[number];
 
@@ -65,10 +70,19 @@ export const TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_CASE_TYPES = [
   'downstream_mutation_attempt',
 ] as const;
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES = [
+  'arena_dominance_pair',
+  'arena_causal_perturbation',
+  'arena_irrelevant_perturbation',
+  'arena_successful_non_advance',
+  'arena_advancing_case',
+] as const;
+
 export const TOPIC_SELECTION_OFFLINE_EVALUATION_CASE_TYPES = [
   ...TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_CASE_TYPES,
   ...TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_CASE_TYPES,
   ...TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_CASE_TYPES,
+  ...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES,
 ] as const;
 export type TopicSelectionOfflineEvaluationCaseType =
   (typeof TOPIC_SELECTION_OFFLINE_EVALUATION_CASE_TYPES)[number];
@@ -146,10 +160,20 @@ export const TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_METRIC_KEYS = [
   'downstream_mutation_guard_rate',
 ] as const;
 
+export const TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS = [
+  'arena_evidence_grounding_rate',
+  'arena_execution_independence_rate',
+  'arena_replay_integrity_rate',
+  'arena_human_label_coverage_rate',
+  'arena_cost_latency_accounting_rate',
+  'arena_work_avoided_rate',
+] as const;
+
 export const TOPIC_SELECTION_OFFLINE_EVALUATION_METRIC_KEYS = [
   ...TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_METRIC_KEYS,
   ...TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_METRIC_KEYS,
   ...TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_METRIC_KEYS,
+  ...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS,
 ] as const;
 export type TopicSelectionOfflineEvaluationMetricKey =
   (typeof TOPIC_SELECTION_OFFLINE_EVALUATION_METRIC_KEYS)[number];

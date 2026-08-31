@@ -3,6 +3,8 @@ import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/s
 import {
   TOPIC_SELECTION_OFFLINE_EVALUATION_CASE_TYPES,
   TOPIC_SELECTION_OFFLINE_EVALUATION_METRIC_KEYS,
+  TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES,
+  TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS,
   TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_CASE_TYPES,
   TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_METRIC_KEYS,
   TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_METRIC_KEYS,
@@ -882,6 +884,17 @@ export class TopicSelectionOfflineEvaluationReplayService {
           'v1c downstream mutation attempts blocked by replay guard expectations.',
           { predicate_indicates_failure: false },
         );
+      case 'arena_evidence_grounding_rate':
+      case 'arena_execution_independence_rate':
+      case 'arena_replay_integrity_rate':
+      case 'arena_human_label_coverage_rate':
+      case 'arena_cost_latency_accounting_rate':
+      case 'arena_work_avoided_rate':
+        throw new AppError(
+          409,
+          'GATE_CONSTRAINT_FAILED',
+          'Research Arena metrics must be calculated by the canonical-owner calibration service.',
+        );
     }
   }
 
@@ -1448,6 +1461,8 @@ export class TopicSelectionOfflineEvaluationReplayService {
         return [...TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_METRIC_KEYS];
       case 'v1c':
         return [...TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_METRIC_KEYS];
+      case 'research_arena':
+        return [...TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS];
     }
   }
 
@@ -1461,6 +1476,8 @@ export class TopicSelectionOfflineEvaluationReplayService {
         return TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_CASE_TYPES;
       case 'v1c':
         return TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_CASE_TYPES;
+      case 'research_arena':
+        return TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES;
     }
   }
 
@@ -1474,6 +1491,8 @@ export class TopicSelectionOfflineEvaluationReplayService {
         return TOPIC_SELECTION_V1B_OFFLINE_EVALUATION_METRIC_KEYS;
       case 'v1c':
         return TOPIC_SELECTION_V1C_OFFLINE_EVALUATION_METRIC_KEYS;
+      case 'research_arena':
+        return TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_METRIC_KEYS;
     }
   }
 

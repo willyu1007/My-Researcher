@@ -156,6 +156,7 @@ import { registerTopicSelectionResearchArenaRetrievalRoutes } from './routes/top
 import { registerTopicSelectionResearchArenaRetrySnapshotRoutes } from './routes/topic-selection-research-arena-retry-snapshot-routes.js';
 import { registerTopicSelectionResearchArenaShadowRoutes } from './routes/topic-selection-research-arena-shadow-routes.js';
 import { registerTopicSelectionResearchArenaRoutes } from './routes/topic-selection-research-arena-routes.js';
+import { registerTopicSelectionResearchArenaCalibrationRoutes } from './routes/topic-selection-research-arena-calibration-routes.js';
 import type { ApplicationSettingsRepository } from './repositories/application-settings-repository.js';
 import type { AutoPullRepository } from './repositories/auto-pull-repository.js';
 import type { ExperimentFoundationExecutionRepository } from './repositories/experiment-foundation-execution.repository.js';
@@ -335,6 +336,7 @@ import { TopicSelectionResearchArenaShadowRunnerService } from './services/topic
 import { TopicSelectionRiskFindingService } from './services/topic-selection-risk-finding-service.js';
 import { TopicSelectionResearchArenaShadowController } from './controllers/topic-selection-research-arena-shadow-controller.js';
 import { TopicSelectionResearchArenaController } from './controllers/topic-selection-research-arena-controller.js';
+import { TopicSelectionResearchArenaCalibrationController } from './controllers/topic-selection-research-arena-calibration-controller.js';
 import { TopicSelectionResearchArenaRetrySnapshotController } from './controllers/topic-selection-research-arena-retry-snapshot-controller.js';
 import { TopicSelectionEvidenceMapService } from './services/topic-selection-evidence-map-service.js';
 import { TopicSelectionEvidenceMapMaterializationService } from './services/topic-selection-evidence-map-materialization-service.js';
@@ -344,6 +346,7 @@ import { TopicSelectionNeedValidationService } from './services/topic-selection-
 import { TopicSelectionNeedDiscoveryArtifactBoundaryService } from './services/topic-selection-need-discovery-artifact-boundary-service.js';
 import { TopicSelectionNeedDiscoveryContextCompilerService } from './services/topic-selection-need-discovery-context-compiler-service.js';
 import { TopicSelectionOfflineEvaluationReplayService } from './services/topic-selection-offline-evaluation-replay-service.js';
+import { TopicSelectionResearchArenaCalibrationService } from './services/topic-selection-research-arena-calibration-service.js';
 import { TopicSelectionPersistNeedCandidateBatchService } from './services/topic-selection-persist-need-candidate-batch-service.js';
 import {
   InMemoryTopicSelectionPromptPacketCacheStore,
@@ -1141,6 +1144,16 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionOfflineEvaluationReplayService = new TopicSelectionOfflineEvaluationReplayService(
     topicSelectionOfflineEvaluationReplayRepository,
   );
+  const topicSelectionResearchArenaCalibrationController =
+    new TopicSelectionResearchArenaCalibrationController(
+      new TopicSelectionResearchArenaCalibrationService({
+        offlineRepository: topicSelectionOfflineEvaluationReplayRepository,
+        offlineService: topicSelectionOfflineEvaluationReplayService,
+        arenaRepository: topicSelectionResearchArenaRepository,
+        controlPlaneRepository: topicSelectionControlPlaneRepository,
+        advisoryReviewHistoryReader: topicSelectionResearchCheckpointService,
+      }),
+    );
   const llmConfig = defaultLlmConfig();
   const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
     applicationSettingsRepository,
@@ -2010,6 +2023,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionResearchArenaRoutes(
       instance,
       topicSelectionResearchArenaController,
+    );
+    await registerTopicSelectionResearchArenaCalibrationRoutes(
+      instance,
+      topicSelectionResearchArenaCalibrationController,
     );
     await registerTopicSelectionResearchArenaRetrySnapshotRoutes(
       instance,
