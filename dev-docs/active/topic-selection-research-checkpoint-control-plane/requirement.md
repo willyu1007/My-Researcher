@@ -126,7 +126,7 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 
 | Question or assumption | Owner | Impact if unresolved or wrong | Validation / due point |
 |---|---|---|---|
-| What dominance-pair-consistency, perturbation-sensitivity, override-convergence, evidence-delta, cost, and work-avoided thresholds justify production activation? | User after shadow evidence | Determines whether the arena activates, remains shadow-only, or is removed. | Phase 10 calibration review. |
+| After the bounded product-v2 report, should the early gap Arena activate, remain advisory for one explicit delta-bearing batch, or retire? | User after Phase 10B evidence | Determines whether Phase 10D performs a server-owned gap-policy v2 cutover, is skipped, or is replaced by a separately reviewed compatibility-preserving removal slice. | Phase 10C researcher decision. |
 
 ## Confirmation
 
