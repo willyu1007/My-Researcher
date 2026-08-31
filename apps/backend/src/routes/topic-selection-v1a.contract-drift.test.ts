@@ -60,6 +60,9 @@ test('v1a HumanConfirmNeed runtime route is fully documented in OpenAPI', () => 
 
   const requestBlock = extractSchemaBlock(openapiSource, 'TopicSelectionV1aHumanConfirmationRequest');
   assert.match(requestBlock, /TopicSelectionHumanConfirmationInput/);
+  assert.match(requestBlock, /legacy request compatibility/);
+  assert.match(requestBlock, /cannot satisfy/);
+  assert.match(requestBlock, /candidate-pool review guard/);
 
   const responseBlock = extractSchemaBlock(openapiSource, 'TopicSelectionV1aHumanConfirmationResponse');
   assert.match(responseBlock, /required: \[adjudication_result, need_candidate, validated_need\]/);
@@ -75,4 +78,17 @@ test('v1a HumanConfirmNeed runtime route is fully documented in OpenAPI', () => 
   assert.match(gapReviewBlock, /direct_prior_art_pressure_reviewed/);
   assert.match(gapReviewBlock, /disconfirming_evidence_reviewed/);
   assert.match(gapReviewBlock, /candidate_reviews/);
+
+  const intentInputBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionHumanConfirmNeedIntentInput',
+  );
+  assert.match(intentInputBlock, /TopicSelectionHumanConfirmNeedIntent@v1/);
+  assert.match(intentInputBlock, /adjudication_result_ref/);
+  assert.match(intentInputBlock, /output_validated_need_ref/);
+  assert.match(intentInputBlock, /TopicSelectionHumanConfirmationInput/);
+
+  const intentBlock = extractSchemaBlock(openapiSource, 'TopicSelectionHumanConfirmNeedIntent');
+  assert.match(intentBlock, /intent_hash/);
+  assert.match(intentBlock, /pattern: '\^\[a-f0-9\]\{64\}\$'/);
 });

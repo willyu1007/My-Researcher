@@ -3803,6 +3803,11 @@ paths:
     post:
       operationId: recordTopicSelectionResearchArenaAdvisoryReview
       summary: Record one exact strict-human accept, override, or defer label for current support-only Arena advice.
+      description: >-
+        This is the first write in an advised HumanConfirmNeed operation group. A new advancing
+        accept or override binds the complete future HumanConfirmNeed intent and returns the
+        dedicated review ref that fills its Arena-review slot. Defer and accepted stop outcomes
+        end after this write. The label alone remains support-only and creates no research authority.
       tags: [topic-selection-research]
       parameters:
         - $ref: '#/components/parameters/ResearchCheckpointId'
@@ -4682,6 +4687,14 @@ paths:
     post:
       operationId: confirmTopicSelectionV1aValidatedNeed
       summary: Record the exact human confirmation for a validated NeedCandidate adjudication.
+      description: >-
+        This is the authority write and, after an advancing Arena label, the second write in the
+        same researcher-authorized operation group. The client injects the returned dedicated
+        Arena review ref into the otherwise unchanged confirmation input without reevaluating the
+        continuation envelope between writes. When no Arena advice exists, one full confirmation
+        input with a current gap-selection review and no Arena review ref is sufficient. Exact and
+        concurrent replay converges on the same HumanConfirmedDecision and ValidatedNeed. The
+        legacy actor/rationale shortcut cannot satisfy the current candidate-pool review guard.
       tags: [topic-selection-v1a]
       parameters:
         - name: adjudicationResultId
@@ -8444,6 +8457,14 @@ components:
           anyOf:
             - $ref: '#/components/schemas/TopicSelectionGapSelectionReview'
             - type: 'null'
+        human_confirm_need_intent:
+          description: >-
+            Required for every new advancing accept or override and absent or null for defer and
+            accepted stop outcomes. The Arena review ref inside confirmation_input must be null;
+            the server-returned dedicated review ref fills that slot in the authority write.
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionHumanConfirmNeedIntentInput'
+            - type: 'null'
 
     TopicSelectionResearchArenaAdvisoryReview:
       type: object
@@ -8484,6 +8505,13 @@ components:
         selected_candidate_ref:
           anyOf:
             - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: 'null'
+        human_confirm_need_intent:
+          description: >-
+            Server-normalized and hashed intent for a new advancing label, null for a new
+            non-advancing label, or absent on readable pre-9C-3C history.
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionHumanConfirmNeedIntent'
             - type: 'null'
         support_only: { type: boolean, const: true }
         created_at: { type: string, format: date-time }
@@ -11443,6 +11471,10 @@ components:
     TopicSelectionV1aHumanConfirmationRequest:
       type: object
       additionalProperties: true
+      description: >-
+        Current gap-selection confirmation requires confirmation_input. The human_actor and
+        human_rationale pair is retained only for legacy request compatibility and cannot satisfy
+        the current candidate-pool review guard.
       anyOf:
         - required: [human_actor, human_rationale]
         - required: [confirmation_input]
@@ -11588,6 +11620,51 @@ components:
             properties:
               delegated_executor:
                 type: 'null'
+
+    TopicSelectionHumanConfirmNeedIntentInput:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - adjudication_result_ref
+        - output_validated_need_ref
+        - confirmation_input
+      properties:
+        schema_version:
+          type: string
+          enum: [TopicSelectionHumanConfirmNeedIntent@v1]
+        adjudication_result_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        output_validated_need_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        confirmation_input:
+          allOf:
+            - $ref: '#/components/schemas/TopicSelectionHumanConfirmationInput'
+          description: >-
+            Complete confirmation input normalized with arena_advisory_review_ref set to null.
+
+    TopicSelectionHumanConfirmNeedIntent:
+      type: object
+      additionalProperties: false
+      required:
+        - schema_version
+        - adjudication_result_ref
+        - output_validated_need_ref
+        - confirmation_input
+        - intent_hash
+      properties:
+        schema_version:
+          type: string
+          enum: [TopicSelectionHumanConfirmNeedIntent@v1]
+        adjudication_result_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        output_validated_need_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        confirmation_input:
+          $ref: '#/components/schemas/TopicSelectionHumanConfirmationInput'
+        intent_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
 
     TopicSelectionV1aV1bInputBundleRequest:
       type: object

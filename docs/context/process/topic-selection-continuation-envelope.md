@@ -38,6 +38,31 @@ Mixed operation groups stop when any proposed effect requires confirmation. A pe
 non-advancing current research checkpoint is also a hard human boundary. After an exact human
 advance, routine work may resume toward the next checkpoint under a newly projected envelope.
 
+## HumanConfirmNeed operation group
+
+At the research-gap human boundary, the researcher confirms the complete decision once. The client
+evaluates effects before that decision and does not reevaluate the continuation envelope between
+the writes that implement it:
+
+- With no Arena advice, call HumanConfirmNeed once with the full `confirmation_input`, the current
+  complete gap-selection review, and no Arena review ref. The legacy actor/rationale shortcut is
+  readable for compatibility but cannot satisfy the current candidate-pool guard.
+- With Arena advice, first record the strict-human advisory label. `defer` and agreement with a
+  no-topic, reframe, or expand stop finish after that label and create no advancing authority.
+- For an advancing accept or override, the label request includes the complete normalized
+  `TopicSelectionHumanConfirmNeedIntent@v1`, with its Arena review-ref slot null. The server hashes
+  that intent and returns the dedicated review ref. The client immediately calls HumanConfirmNeed
+  with the same confirmation input plus that returned ref, then refreshes the manifest and
+  continuation envelope after the second write.
+
+A successful label followed by a failed HumanConfirmNeed is a recoverable partial result, not a new
+human-decision boundary. Resume by replaying the exact label idempotency key and exact confirmation
+payload, or recover the label from checkpoint history and finish the second write. A changed intent
+conflicts and requires a new explicit researcher decision. Exact and concurrent replay converges on
+one review label, intent artifact, HumanConfirmedDecision, ValidatedNeed, and advancing checkpoint
+adaptation. The two existing endpoints remain separate durable writes; neither a composite
+transaction nor the support-only label becomes a second authority.
+
 ## Currentness and recovery
 
 - The envelope and each evaluation are hash-stable and are never persisted as a second authority.
