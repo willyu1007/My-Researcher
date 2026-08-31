@@ -4201,6 +4201,10 @@ paths:
     post:
       operationId: createTopicSelectionResearchArenaCalibrationDataset
       summary: Create one support-only Research Arena calibration dataset over frozen canonical owners.
+      description: >-
+        A v1 request creates the backward-readable historical corpus shape. A v2 request freezes the
+        complete six-slot, two-tranche protocol and exact planned member recipes before any bound role
+        output exists; neither form can run roles, providers, or write research authority.
       tags: [topic-selection-research]
       requestBody:
         required: true
@@ -4225,11 +4229,13 @@ paths:
   /topic-selection/research/arena/calibration/cases:
     post:
       operationId: createTopicSelectionResearchArenaCalibrationCase
-      summary: Freeze one relation-based calibration case from exact persisted Arena members.
+      summary: Freeze or pre-register one relation-based Research Arena calibration case.
       description: |
-        The server reloads the Arena session, InputSnapshot, EvidencePackets, role executions,
-        transcript, optional strict-human advisory history, HumanConfirmedDecision bindings, and
-        execution accounting. The caller cannot provide observed outputs or research authority.
+        For a v1 historical dataset, the server reloads the exact persisted Arena members and their
+        canonical sources. For a v2 protocol dataset, the case pre-registers one unused exact slot and
+        planned session/InputSnapshot/candidate/evidence/label identities before member output exists;
+        later evaluation resolves those stable keys and canonical owners. The caller cannot provide
+        observed outputs, execute roles or providers, or write research authority.
       tags: [topic-selection-research]
       requestBody:
         required: true
