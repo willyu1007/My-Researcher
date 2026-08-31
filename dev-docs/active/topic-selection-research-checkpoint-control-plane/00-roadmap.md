@@ -381,18 +381,24 @@
 - Recovery: Revert the server-owned active policy to the advisory version. Preserve all Arena, review, human-decision, and checkpoint history; do not downgrade or rewrite records.
 - Disposition checkpoint (2026-08-31): skipped because Phase 10C selected `remain_advisory`. No cutover implementation or policy-write authorization exists, and the current optional support-only path remains authoritative.
 
-#### Phase 10E — Prove a fresh outcome and close or explicitly narrow the task
-- Outcome: The chosen adoption disposition is demonstrated end to end, and A9-A13 close without promoting the frozen moderate topic or manufacturing a success.
-- Approach: For activation, run one genuinely process-selected advancing topic plus one successful stopped/parked control through canonical local APIs. Complete the positive branch through post-bridge blocking objection, wording-only rejection, substantive ResearchSlice/evidence repair, and exactly-once topic handoff. For remain-advisory or retire, record the bounded negative conclusion and reconcile the task outcome/acceptance rather than pretending production divergence activated.
-- Dependencies: Phase 10C disposition and, when activated, Phase 10D cutover. Provider and prompt calibration remain T-129.
-- Exit criteria: Fresh positive and successful-stop evidence prove the selected policy behavior, risk/dissent survival, stage-level human control, and recoverable handoff; or the task explicitly narrows/retires the Arena with no competing live path. Later-stage arena generalization is either rejected or opened as a separate tracked outcome.
-- Verification: Fresh local dual-track acceptance, exact replay, post-bridge objection invalidation, substantive repair, handoff exactly once, stop/non-advance control, no paid provider, no legacy bypass, final OpenAPI/context/task/hub alignment, and researcher closeout.
-- Recovery: Stop at the last canonical owner, preserve all evidence, and leave the task in progress rather than forcing a positive closeout.
+#### Phase 10E — Close honestly on the accepted remain-advisory outcome
+- Outcome: T-147 closes with A1–A8 as the delivered control-plane outcome and the early-gap Arena retained only as optional support-only advice. A9–A13 receive explicit limitation dispositions rather than false positive acceptance; the frozen moderate topic is not promoted.
+- Approach: Perform a documentation-and-read-only closeout only. Re-read the canonical Arena session and Phase 10A report, verify the Phase 10A/B/C artifact hashes and unchanged `support_only=true` boundary, create one human and one LLM negative-closeout artifact, and reconcile requirements, status, architecture, verification, improvements, and project projections. Do not run a new topic chain, rerun roles, invoke a provider, write research authority, change policy, or rerun the full implementation suite.
+- Planned changes:
+  1. Freeze the accepted task boundary: product-owned checkpoint control plus one support-only early-gap Arena, with no production activation or later-stage generalization claim.
+  2. Record A9 as intentionally not forced; A10 as contract-proven/live-v2-unproven; A11 as support-only-contract-proven/adoption-unproven; A12 as carry/projection-proven/activation-effect-unproven; and A13 as unproven and the direct reason for `remain_advisory`.
+  3. Preserve the current gate and database authorities, keep HumanConfirmNeed sole research authority, and record TS-I18/TS-I19 as future activation reopen prerequisites rather than creating an unapproved task.
+  4. Mark T-147 `done` after researcher acceptance and scoped governance convergence, but keep the bundle under `dev-docs/active/` until separately authorized archival.
+- Dependencies: Completed Phase 10C `remain_advisory` decision, skipped Phase 10D, and the researcher's explicit approval of this revised negative-closeout route. Provider and prompt calibration remain T-129 and are not unblocked by this task.
+- Exit criteria: Human and LLM closeout artifacts agree with canonical source hashes and readback; no policy or authority changed; A9–A13 are explicit limitations outside the accepted completion boundary; status, roadmap, architecture, verification, requirement, improvement register, and project hub converge on `done`; governance checks pass.
+- Verification: Read-only health/Arena/report retrieval, normalized report and source-artifact hashes, JSON parsing, path attribution, scoped sync dry-run/apply, scoped and global governance lint, diff review, and exact `Task: T-147` commit trailer. Existing implementation-suite evidence remains authoritative because this phase changes no runtime code.
+- Recovery: Before commit, revert only the Phase 10E documentation/projection delta and leave T-147 at the Phase 10C `remain_advisory` checkpoint. After commit, revert the isolated Phase 10E commit. Never recover by activating policy or fabricating calibration evidence.
+- Completion checkpoint (2026-08-31): the researcher authorized “按此修订并执行 Phase 10E”. Canonical readback reconfirmed current Arena session `research_arena_def21744-92fb-41cb-96f1-20798e76392a` as `synthesized`, `support_only=true`, and `evidence_expansion_required`; Phase 10A remains `insufficient_evidence` with zero product-v2 members, zero strict-human labels, 12 coverage gaps, trace hash `143a4639c8b8c0ba964d109226a5f3b9715ba3620e72ad9a54e5afc26cf8847f`, and normalized report hash `27b85487031668572a723167eb336d0044d3021a2b6921444acb2b4d1cec9b9d`. The negative-closeout evidence is frozen in `artifacts/phase10e-negative-closeout.md` and `artifacts/phase10e-negative-closeout-llm.json`. No runtime, topic-chain, provider, policy, or research-authority action was performed.
 
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through Phase 10C
+- Authorized boundary: through Phase 10E
 - [x] Decisions: the current medium-value gate is frozen as an ambiguous calibration fixture instead of being promoted for process completion.
 - [x] Design: EvidencePacket resolution, arena owner boundary, and risk-carry projection are settled by the Phase 7 audit (`artifacts/phase7-owner-map.md`) and the researcher-confirmed `TopicSelectionResearchArenaSession` coordination root; branching is settled — fork is out of scope, and parked-alternative return is serial and delta-gated.
 - [x] Route: contract alignment and shadow validation precede stable dissent carry, product-auditable advisory integration, live override collection, and only then measured production adoption.
@@ -419,4 +425,4 @@
 - Review: At each phase, review authority boundaries, human decision semantics, bypass analysis, and whether new rules improve informed control rather than only adding records.
 - Record update: Keep status, architecture, verification evidence, workflow matrix, OpenAPI, and project mapping aligned with confirmed product reality.
 - Checkpoint: Land only verified, recoverable phase units with the task trailer after scoped sync and governance lint.
-- Post-completion audit: Re-run lineage, concurrency, contract-completeness, matrix-drift, fixture-realism, and supported-Node verification before archive readiness; any discovered gap remains owned by T-147 until repaired and decisively reverified.
+- Post-completion audit: Archive readiness may reuse the decisive implementation and negative-closeout evidence. A material defect inside the accepted control-plane/support-only boundary reopens T-147; activation, new calibration, or later-stage generalization requires separately tracked work and fresh researcher authority.

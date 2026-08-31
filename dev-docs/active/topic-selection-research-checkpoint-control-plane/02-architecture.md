@@ -4,9 +4,9 @@
 
 Topic selection already has durable v1a/v1b/v1c domain authorities, snapshot/hash lineage, WorkflowHarness execution, human-confirmed need and promotion decisions, a human-compatible slice-selection path, recheck/risk memory, promotion dossier support, and PaperProject bridge/intake contracts.
 
-The current product does not expose a complete product-owned research review chain. EvidenceMap completion has no hard human checkpoint; gap confirmation does not require a genuinely competitive candidate arena; TopicQuestionContract materialization is mechanical by default; explicit researcher objections are not guaranteed to remain blocking downstream; and promotion can treat operational completeness as sufficient while advancement-relevant risks remain unowned. API clients can therefore complete a traceable chain without giving the researcher a legible or enforceable opportunity to redirect the research object.
+Before T-147, the product did not expose a complete product-owned research review chain. EvidenceMap completion had no hard human checkpoint; gap confirmation did not require a genuinely competitive candidate arena; TopicQuestionContract materialization was mechanical by default; explicit researcher objections were not guaranteed to remain blocking downstream; and promotion could treat operational completeness as sufficient while advancement-relevant risks remained unowned. API clients could therefore complete a traceable chain without giving the researcher a legible or enforceable opportunity to redirect the research object.
 
-Phase 1 discovery confirms that this is an authority and cutover problem rather than a missing-client problem:
+Phase 1 discovery confirmed that this was an authority and cutover problem rather than a missing-client problem:
 
 - `TopicSelectionControlPlaneService` can bind input snapshots, gates, transitions, lineage, traces, and generic human confirmations, but it has no checkpoint chain, packet-currentness, objection lifecycle, or required-action closure semantics.
 - NeedCandidate has two write paths. The direct service path uses the generic control plane, while the production orchestrator batch path writes through `TopicSelectionPersistNeedCandidateBatchService`; 644 of 661 local NeedCandidate records have no input snapshot, gate result, or transition attempt.
@@ -29,6 +29,7 @@ The local record population is large enough that blanket invalidation is not cre
 - Every downstream transition covered by this task fails closed when a required checkpoint is missing, stale, non-advancing, or has incomplete required actions.
 - Checkpoint packets and research status are product projections derived from current authority and checkpoint state. They expose alternatives, eliminated paths, evidence limitations, objections, risks, allowed decisions, and next transition without becoming a second content authority.
 - Provider debate/calibration remains outside this task. Existing deterministic, Codex-assisted, mocked, or provider execution may supply support artifacts only where current policies permit; none may cross human authority.
+- T-147's accepted completion boundary is the product-owned evidence/gap/question/promotion control plane plus one optional support-only early-gap Arena. Phase 10C selected `remain_advisory`, Phase 10D was skipped, and Phase 10E closed without a live product-v2 decision-quality, production-activation, or later-stage-generalization claim. Those outcomes require a separate evidence/protocol delta, tracked change, source-bound report, and researcher decision.
 
 ## Evidence-grounded divergence and convergence
 
@@ -193,7 +194,7 @@ Academic sufficiency is governed by semantic completeness; numeric thresholds on
 ## Migration and operation
 
 - Existing records remain readable throughout the cutover, but no pre-cutover record is automatically labeled checkpoint-complete.
-- Introduce a versioned checkpoint contract and perform an idempotent backfill before activating enforcement. Backfill creates checkpoint anchors and packet identities from current immutable authorities; it does not fabricate human decisions.
+- The versioned checkpoint contract and idempotent backfill create checkpoint anchors and packet identities from current immutable authorities; they do not fabricate human decisions.
 - In-flight and packaged chains resume at their earliest unsatisfied current checkpoint. Existing HumanConfirmNeed and promotion decisions may be referenced, but they do not satisfy a missing evidence/question review or a gap decision that was not bound to a competitive arena.
 - Existing promotion decisions and active bridges that have not completed intake remain readable but cannot create/complete intake until the current chain and obligations satisfy the new contract. The current local population includes 30 such bridges.
 - Already intake-created PaperProjects remain historical and usable; they are projected as pre-checkpoint provenance rather than retroactively deleted or falsely certified. Any later loopback into topic selection re-enters under the new contract.
@@ -201,3 +202,4 @@ Academic sufficiency is governed by semantic completeness; numeric thresholds on
 - Schema/backfill and enforcement activation are separate operational steps, not product runtime modes. Activation occurs only after backfill counts and representative projections verify; rollback changes the active policy version rather than adding a permanent bypass.
 - Current API-first operation remains supported. GUI work is neither required nor authorized by this task.
 - OpenAPI and maintained topic-selection process documentation change in the same verified units as runtime contracts.
+- The Arena policy remains the advisory version: `support_only=true`, optional advice, and strict-human HumanConfirmNeed as sole gap-selection authority. No active policy owner requires Arena advice. TS-I18 corpus eligibility and TS-I19 initial-v2 snapshot preparation are reopen prerequisites, not hidden runtime paths.

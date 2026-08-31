@@ -8,7 +8,7 @@
 
 ## Required outcome
 
-Upgrade topic selection so evidence-grounded divergence precedes convergence at research-semantic decisions and product-owned, snapshot-bound checkpoints, academic-quality gates, durable dissent, and honest stopping govern every production transition from evidence review through promotion, while API clients remain executors rather than semantic authorities.
+Deliver a product-owned, snapshot-bound checkpoint control plane from evidence review through promotion, with academic-quality gates, durable dissent, honest stopping, and human authority enforced independently of the API client. Add one early-gap divergence seam as an optional support-only Research Arena, and require new decision-quality evidence before any production activation or later-stage generalization.
 
 ## Scenarios and detailed acceptance
 
@@ -49,17 +49,22 @@ Upgrade topic selection so evidence-grounded divergence precedes convergence at 
 
 ### Evidence-grounded divergence and convergence
 - Actor / caller: Product orchestration using bounded retrieval and advisory Codex/model participants, with the researcher retaining semantic authority.
-- Trigger: Work reaches an evidence/search-scope, gap/need-portfolio, question-design, or comparative-value decision where the current framing could exclude a better topic or conceal a reason to stop.
-- Expected flow: Independent roles receive claim-bearing role-specific EvidencePackets, record pre-exposure positions, challenge candidates against actual evidence, and converge to a traceable zero-to-many portfolio disposition before downstream topic defense.
-- [ ] Persisted refs resolve to the exact excerpts each role can inspect; inherited UUIDs or summaries alone do not satisfy evidence grounding.
-- [ ] Opportunity-scout and prior-art/topic-killer outputs — and empirical-skeptic outputs once that role is admitted — are durable before portfolio synthesis and preserve unresolved minority reports.
-- [ ] Dispositions are two-layered: a set-level outcome (`selected`, `none_viable`, `evidence_expansion_required`, `reframe_required`) and per-candidate dispositions (`selected`, `parked`, `dropped`). The checkpoint, not the generating agent, routes each set-level outcome to its next step — with stop a first-class route alongside expansion and reframe — so a bare `drop` cannot terminate the wrong level of research object. Zero viable candidates is a successful set-level outcome when evidence and reopening conditions are recorded; a fork recommendation is recorded as `parked` plus a surfaced recommendation.
-- [ ] Every material objection or risk survives downstream by stable ref until it is repaired, accepted, looped back, parked, or dropped.
-- [ ] Another arena version is admitted only for a recorded evidence, candidate, constraint, or human-objective delta.
-- [ ] Exactly one research path is active; alternatives persist as snapshot-bound parked candidates with evidence refs, semantic group, parking reason, and reopening conditions, and return to a parked candidate is serial and delta-gated. A second active lineage (fork) is out of scope for this task.
-- [ ] Mechanical snapshot, package, publication, and gate-wiring work does not manufacture alternatives or invoke full debate.
-- [ ] Shadow calibration precedes production activation without requiring absolute value labels: dominance pairs from recorded lineage history, evidence-perturbation counterfactuals, and accumulated human overrides validate stop/continue quality, and justified stopping is a success.
-- [ ] A `drop`/`dropped` recommendation carries one of the enumerated evidence-backed drop-reason codes — near-isomorphic prior art without discernible contribution difference, unidentifiable or unfalsifiable core mechanism, data/evaluation conditions that defeat the claim, strict dominance by a visible portfolio candidate, or no viable path after one delta-bearing expansion. Shadow mode may only recommend; human confirmation accumulates per-reason-code decision labels that annotate the research action under current evidence, not objective topic value, and overrides are accounted per reason code.
+- Trigger: Work reaches the pre-HumanConfirmNeed gap/need portfolio and the current framing could exclude a better topic or conceal a reason to stop.
+- Expected flow at the accepted T-147 boundary: independent scout and killer roles may receive claim-bearing role-specific EvidencePackets, preserve pre-exposure positions, challenge the portfolio, and converge to traceable advice without changing checkpoint or human authority.
+- [x] New product-v2 role records require exact inspectable EvidencePacket excerpts, retrieval provenance, exposure identity, invocation audit, and replay identity; inherited UUIDs or summaries alone fail admission.
+- [x] Opportunity-scout and prior-art/topic-killer outputs are durable before synthesis, and unresolved minority reports remain visible.
+- [x] The two-layer disposition contract supports set-level `selected`, `none_viable`, `evidence_expansion_required`, or `reframe_required` and candidate-level `selected`, `parked`, or `dropped`; zero viable candidates is a valid research outcome.
+- [x] Material objections and advancement risks retain stable refs through downstream packets and promotion until explicitly disposed.
+- [x] Another arena version requires a recorded evidence, candidate, constraint, or human-objective delta; no-delta retry and a third attempt fail closed.
+- [x] Exactly one path remains active; parked alternatives retain evidence, reason, and reopening conditions for serial delta-gated return.
+- [x] Mechanical snapshot, package, publication, and gate-wiring work remains deterministic and does not manufacture alternatives or invoke full debate.
+- [x] Enumerated evidence-backed drop reasons and exact accept/override/defer/non-advance human labels are supported while Arena advice remains optional and support-only.
+
+#### Explicit limitations of the accepted outcome
+
+- Current history does not contain a qualifying live product-v2 lineage replay; the implemented product-v2 admission/replay contract is proven by focused and real-Postgres verification, not by retroactively relabeling legacy evidence.
+- Decision-quality calibration did not cover dominance pairs, either perturbation direction, explained override distributions, a real decision improvement, or measured work avoided. The Arena therefore remains `support_only=true` and optional.
+- Empirical-skeptic admission, question-design or comparative-value arenas, production activation, provider/multi-provider execution, and prompt calibration are not claimed by T-147.
 
 ### Acceptance-derived stage communication and authorization cadence
 - Actor / caller: Researcher operating topic selection through Codex or another client
@@ -72,21 +77,14 @@ Upgrade topic selection so evidence-grounded divergence precedes convergence at 
 - [x] Stop for exact confirmation when an action changes research meaning or human authority, invokes a provider or material cost/external acquisition, is destructive or control-sensitive, materially expands scope, changes the target environment, or encounters an ambiguous recovery branch.
 - [x] Authorization decisions are based on effect and authority boundaries, not elapsed time, HTTP method, internal node count, or implementation vocabulary.
 - [x] Use three derived views over canonical product owners: a manifest/current-pointer surface, a substantially larger LLM working plane, and concise human-facing stage files. Prefer manifest-first read-time projection; a persisted working-plane corpus is admitted only if projection cost is proven prohibitive. Define exact storage, retention, and regeneration contracts before implementation planning.
-- [ ] The LLM working plane preserves evidence locators and roles, alternatives and rejections, nearest-work conflicts, assumptions/confounds/falsifiers, loopback and failure history, open risks/objections/rechecks, exact versions, supersession, and debate artifacts; consumers load a manifest first and retrieve only task-relevant slices.
-- [ ] Separate topic search from topic defense. Before expensive value/package work, the product must be able to continue, reframe, expand scope, or abandon the current topic; “no worthwhile topic in the current scope” is a valid successful outcome.
-- [ ] A loopback that questions topic value must reopen a genuinely divergent candidate arena rather than only repair wording, constraints, or evidence inside the selected scope.
-- [ ] Prompt and consumer contracts are disposition-neutral: their objective is to select the best-supported action rather than preserve the current topic, and a `none_viable` set-level outcome, candidate-level `parked`/`dropped`, or a checkpoint-routed scope switch are successful research-management outputs rather than generation failures or blockers.
-- [ ] N4/N6 generation no longer forces at least one candidate or instructs every candidate to pass its deterministic gate. A bounded “none viable” result must carry evidence, rejection reasons, confidence, and reopening conditions into an explicit stop, scope-expansion, or upstream-divergence route.
-- [ ] N8 continuation bears an explicit evidence burden across significance, nearest-work novelty, discriminating falsifiability, feasibility, claim ceiling, and opportunity cost against the best visible alternative. Numeric score and narrative defensibility alone cannot establish comparative research value.
-- [ ] Debate prompts define distinct role objectives and prohibitions, independent pre-exposure positions, evidence scopes, allowable terminal dispositions, preservation of unresolved fatal criticism and minority reports, and one bounded termination rule; they must not require every criticism to be repaired into an advancing answer.
-- [ ] Prompt calibration evaluates dominance pairs and perturbation variants drawn from recorded lineage history against expected continue/reframe/expand/park/drop behavior before provider debate activation; absolute worthwhile labels are not required. Real multi-provider execution remains a separately gated concern rather than a substitute for role and contract quality.
-- [ ] If multi-agent debate is used as evidence of divergence, preserve independent pre-exposure positions, role/evidence-scope identity, claims and evidence refs, challenges/rebuttals/concessions, unresolved disagreements, candidate eliminations, synthesis, termination reason, runtime provenance, and replay/supersession links.
-- [ ] Agent management defines role/profile registration, participant selection, independence rules, context/evidence partitioning, concurrency and budget limits, failure replacement, semantic-duplicate detection, and deterministic admission. Agent output remains advisory and cannot create human research authority.
-- [ ] Apply full divergence and convergence only at research-semantic choices—evidence/search scope, gap/need portfolio, slice/question design, and comparative value disposition. Deterministic snapshot, packaging, publication, and gate-wiring steps validate or project the selected meaning without manufacturing new alternatives.
-- [ ] Each semantic arena follows independent proposal, role-specific retrieval, claim/evidence alignment, bounded evidence-focused challenge, and an explicit two-layer disposition (set-level outcome plus per-candidate dispositions). A loop creates a new arena version only when evidence, candidate scope, constraints, or a human research objective changed.
-- [ ] Product orchestration connects role-specific query intents to the existing literature retrieval service, records query provenance and bounded hits through SearchRun/coverage bindings, and resolves cited evidence into inspectable excerpts for the receiving role. Persisted refs or UUIDs alone do not count as model-visible evidence.
-- [ ] Codex subagents may execute independent Codex-assisted arena roles, but their prompts, evidence scopes, outputs, provenance, disagreement, and termination remain product-recorded. Conversation history and subagent completion alone cannot establish that a product debate occurred.
-- [ ] Arena outputs allow zero, one, or multiple viable candidates without a diversity quota. Exactly one research path stays active with a bounded parked portfolio; a second active lineage (fork) is out of scope for this task.
+
+#### Accepted divergence boundary and deferred ambitions
+
+- T-147 delivers the manifest, LLM, and human projections plus the support-only early-gap Arena contracts. It does not claim a complete LLM working plane or active arena at every semantic stage.
+- Search-versus-defense separation, honest no-topic outcomes, two-layer dispositions, delta-gated loopback, and one-active-path semantics are implemented at the early-gap contract boundary; effectiveness across question design and comparative value remains unproven.
+- Product-v2 evidence and agent-audit contracts require role-specific evidence, independent exposure, durable provenance, and bounded termination. A conversation or Codex subagent completion alone is not product debate evidence.
+- Prompt neutrality, N8 comparative-value burden, provider calibration, empirical-skeptic admission, and generic agent management remain outside the accepted T-147 completion boundary and are not silently treated as finished.
+- Any production activation or later-stage Arena requires TS-I18/TS-I19 repair, a separately reviewed calibration batch, a new source-bound report, and a new researcher decision.
 
 Detailed live evidence and design candidates are preserved in `artifacts/phase6-interaction-artifact-and-divergence-findings.md`. This section records Phase 6 acceptance findings and follow-up input. It does not add GUI composition or client-specific semantic authority to the current implementation scope; implementation ownership and roadmap placement remain to be decided after the artifact and divergence discussion.
 
@@ -101,9 +99,9 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Durable user objections, required loopbacks, academic-quality gates, and risk-to-action consistency.
 - OpenAPI, shared contracts, backend services/repositories/routes, context documentation, migrations when required, and focused/full-chain verification.
 - Compatibility and cutover behavior for existing topic-selection records.
-- Claim-bearing EvidencePacket resolution, role-specific product retrieval, and a lightweight snapshot-bound ResearchArena coordination contract.
-- Zero-to-many candidate portfolios, successful stop/park/reframe outcomes, loop-delta admission, durable minority reports, and risk carry to promotion.
-- Derived manifest/LLM/human stage views, effect-based authorization, and shadow calibration of stop/continue quality.
+- Claim-bearing EvidencePacket resolution, product-v2 role/provenance admission, and a lightweight snapshot-bound early-gap ResearchArena coordination contract that remains optional and support-only.
+- Zero-to-many candidate portfolios, successful stop/park/reframe outcomes, loop-delta admission, durable minority reports, and risk carry to promotion at the implemented early-gap boundary.
+- Derived manifest/LLM/human stage views, effect-based authorization, calibration-report infrastructure, and an honest negative adoption decision.
 
 ### Out of scope
 - GUI or reviewer-workbench composition.
@@ -111,6 +109,7 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Writing-center or paper-writing workflows.
 - Experiment execution beyond guarding PaperProject intake eligibility.
 - Provider-debate activation, prompt calibration, or external-corpus work owned by T-129.
+- Production activation, live product-v2 decision-quality claims, or Arena generalization beyond the early-gap boundary without a separate evidence-gated task.
 - A rehearsal or reduced-quality production mode.
 - A generic agent platform, unrestricted agent browsing, debate at deterministic mechanical nodes, automatic parallel execution of every branch, or provider/multi-provider activation owned by T-129.
 
@@ -122,11 +121,11 @@ Detailed live evidence and design candidates are preserved in `artifacts/phase6-
 - Current topic-selection workflow IDs, traceability, replay, and hash semantics must remain recoverable or receive an explicit versioned cutover.
 - Tests use scenario fixtures and the same guarded APIs; test needs do not create a product runtime mode.
 
-## Open decisions for the integrated route
+## Resolved adoption decision
 
 | Question or assumption | Owner | Impact if unresolved or wrong | Validation / due point |
 |---|---|---|---|
-| After the bounded product-v2 report, should the early gap Arena activate, remain advisory for one explicit delta-bearing batch, or retire? | User after Phase 10B evidence | Determines whether Phase 10D performs a server-owned gap-policy v2 cutover, is skipped, or is replaced by a separately reviewed compatibility-preserving removal slice. | Phase 10C researcher decision. |
+| Should the early-gap Arena activate, remain advisory, or retire? | User | Resolved as `remain_advisory`: Arena remains optional and support-only, Phase 10D is skipped, and future activation requires a separate evidence/protocol delta, report, and researcher decision. | Resolved in Phase 10C and accepted for task closeout in Phase 10E on 2026-08-31. |
 
 ## Confirmation
 
