@@ -377,6 +377,72 @@ test('continuation envelope advances routine local work only until the next huma
   assert.equal(advanced.decision, 'continue');
 });
 
+test('multi-run current dispositions resolve by the current question contract instead of failing', async () => {
+  const titleCardId = 'title_multi_run';
+  const riskRef = (id: string) => ({
+    ref_type: 'artifact_ref',
+    ref_id: id,
+    title_card_id: titleCardId,
+    version_id: TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  });
+  const assessmentFor = (suffix: string, contractId: string) => ({
+    topic_value_assessment_id: `assessment_${suffix}`,
+    title_card_id: titleCardId,
+    topic_question_contract_id: contractId,
+    value_reasoning_memo_id: `memo_${suffix}`,
+    readiness_status: 'ready',
+    freshness_status: 'current',
+    value_summary: 'The mechanism stays testable in this run lineage.',
+    artifact_refs: [riskRef(`risk_${suffix}`)],
+    risk_finding_refs: [riskRef(`risk_${suffix}`)],
+  }) as unknown as TopicSelectionTopicValueAssessmentRecord;
+  const decisionFor = (suffix: string, createdAt: string) => ({
+    value_disposition_decision_id: `decision_${suffix}`,
+    title_card_id: titleCardId,
+    topic_value_assessment_id: `assessment_${suffix}`,
+    decision: 'advance_to_package',
+    status: 'active',
+    is_current: true,
+    decision_rationale: 'Advance inside this run lineage.',
+    artifact_refs: [riskRef(`risk_${suffix}`)],
+    risk_finding_refs: [riskRef(`risk_${suffix}`)],
+    created_at: createdAt,
+  }) as unknown as TopicSelectionValueDispositionDecisionRecord;
+  const { service } = createService({
+    valueAssessmentRepository: {
+      listAssessmentsByTitleCardId: async () => [
+        assessmentFor('superseded_run', 'question_contract_old'),
+        assessmentFor('current_run', 'question_contract_live'),
+      ],
+      listDispositionDecisionsByTitleCardId: async () => [
+        // The superseded run's decision is deliberately NEWER: contract scoping must beat recency.
+        decisionFor('superseded_run', '2026-08-30T10:00:00Z'),
+        decisionFor('current_run', '2026-08-28T10:00:00Z'),
+      ],
+      findReasoningMemoById: async () => null,
+      listEvidenceRefsByAssessmentId: async () => [],
+    },
+  });
+  await service.materializeCheckpoint({
+    title_card_id: titleCardId,
+    checkpoint_kind: 'question_contract',
+    target_ref: {
+      ref_type: 'topic_question_contract',
+      ref_id: 'question_contract_live',
+      title_card_id: titleCardId,
+    },
+    target_snapshot_hash: HASH_A,
+    allowed_actions: ['advance', 'loopback'],
+  });
+
+  const status = await service.getResearchStatus(titleCardId);
+  assert.deepEqual(status.material_risk_finding_refs, [riskRef('risk_current_run')]);
+  const manifest = await service.getStageManifest(titleCardId);
+  const valueStage = manifest.stages.find((stage) => stage.stage === 'value_feasibility');
+  assert.equal(valueStage?.authority_ref?.ref_id, 'assessment_current_run');
+  assert.deepEqual(valueStage?.issue_codes, []);
+});
+
 test('stage manifest selects the current value disposition and latest package inside that lineage', async () => {
   const titleCardId = 'title_projection';
   const riskFindingRef = {

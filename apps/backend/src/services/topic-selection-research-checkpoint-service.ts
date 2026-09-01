@@ -1736,7 +1736,10 @@ export class TopicSelectionResearchCheckpointService {
     let nextAuthorizedTransition: string | null = null;
     const openBlockingObjectionCount = (await this.listOpenObjectionsForTitleCard(titleCardId))
       .filter((objection) => BLOCKING_OBJECTION_SEVERITIES.has(objection.severity)).length;
-    const materialRiskFindingRefs = await this.currentMaterialRiskFindingRefs(titleCardId);
+    const materialRiskFindingRefs = await this.currentMaterialRiskFindingRefs(
+      titleCardId,
+      currentByKind.get('question_contract')?.target_ref ?? null,
+    );
     for (const kind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
       requiredCheckpointKind = kind;
       const checkpoint = currentByKind.get(kind);
@@ -2652,11 +2655,11 @@ export class TopicSelectionResearchCheckpointService {
       repository.listAssessmentsByTitleCardId(titleCardId),
       repository.listDispositionDecisionsByTitleCardId(titleCardId),
     ]);
-    const currentDecisions = decisions.filter((decision) => decision.is_current);
-    if (currentDecisions.length > 1) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Multiple current value disposition decisions exist for the stage manifest.');
-    }
-    const decision = currentDecisions[0];
+    const { decision, ambiguous } = this.resolveCurrentValueDisposition(
+      assessments,
+      decisions,
+      currentQuestionContractRef,
+    );
     if (!decision) {
       return {
         currentDispositionDecisionId: null,
@@ -2723,9 +2726,44 @@ export class TopicSelectionResearchCheckpointService {
         status: `${assessment.readiness_status}:${decision.decision}`,
         source_refs: sourceRefs,
         artifact_refs: sourceRefs.filter((ref) => ref.ref_type === 'artifact_ref'),
-        issue_codes: [],
+        issue_codes: ambiguous ? ['MULTIPLE_CURRENT_VALUE_DISPOSITIONS'] : [],
       },
     };
+  }
+
+  /**
+   * Multi-run history legitimately keeps one `is_current` disposition per run lineage, so the
+   * title-card-level current disposition is resolved against the current question contract and
+   * falls back newest-first instead of failing the whole projection surface.
+   */
+  private resolveCurrentValueDisposition<
+    TAssessment extends { topic_value_assessment_id: string; topic_question_contract_id: string },
+    TDecision extends {
+      is_current: boolean;
+      topic_value_assessment_id: string;
+      value_disposition_decision_id: string;
+      created_at: string;
+    },
+  >(
+    assessments: TAssessment[],
+    decisions: TDecision[],
+    currentQuestionContractRef: TopicSelectionFunctionalRef | null,
+  ): { decision: TDecision | null; ambiguous: boolean } {
+    const current = decisions.filter((decision) => decision.is_current);
+    if (current.length <= 1) return { decision: current[0] ?? null, ambiguous: false };
+    const assessmentById = new Map(
+      assessments.map((assessment) => [assessment.topic_value_assessment_id, assessment]),
+    );
+    const scoped = currentQuestionContractRef?.ref_type === 'topic_question_contract'
+      ? current.filter((decision) =>
+        assessmentById.get(decision.topic_value_assessment_id)?.topic_question_contract_id
+          === currentQuestionContractRef.ref_id)
+      : [];
+    const pool = scoped.length > 0 ? scoped : current;
+    const [selected] = [...pool].sort((left, right) =>
+      right.created_at.localeCompare(left.created_at)
+      || right.value_disposition_decision_id.localeCompare(left.value_disposition_decision_id));
+    return { decision: selected ?? null, ambiguous: scoped.length !== 1 };
   }
 
   private async currentPackageStageManifestEntry(
@@ -2789,6 +2827,7 @@ export class TopicSelectionResearchCheckpointService {
 
   private async currentMaterialRiskFindingRefs(
     titleCardId: string,
+    currentQuestionContractRef: TopicSelectionFunctionalRef | null,
   ): Promise<TopicSelectionFunctionalRef[]> {
     const valueRepository = this.stageProjectionSources?.valueAssessmentRepository;
     if (!valueRepository) return [];
@@ -2796,11 +2835,11 @@ export class TopicSelectionResearchCheckpointService {
       valueRepository.listAssessmentsByTitleCardId(titleCardId),
       valueRepository.listDispositionDecisionsByTitleCardId(titleCardId),
     ]);
-    const currentDecisions = decisions.filter((decision) => decision.is_current);
-    if (currentDecisions.length > 1) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Multiple current value disposition decisions exist for risk projection.');
-    }
-    const decision = currentDecisions[0];
+    const { decision } = this.resolveCurrentValueDisposition(
+      assessments,
+      decisions,
+      currentQuestionContractRef,
+    );
     if (!decision) return [];
     const assessment = assessments.find(
       (candidate) => candidate.topic_value_assessment_id === decision.topic_value_assessment_id,
