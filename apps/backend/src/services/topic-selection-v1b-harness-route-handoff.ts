@@ -110,6 +110,12 @@ export function handoffEdge(
         route_signal: 'topic_value_assessed',
         payload_schema_version: 'N8ToN9Handoff@v1',
       };
+    case 'N9ToN7RefinementHandoff':
+      return {
+        target_node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+        route_signal: 'question_refinement_required',
+        payload_schema_version: 'N9ToN7RefinementHandoff@v1',
+      };
     case 'N9ToN10Handoff':
       return {
         target_node_id: 'topic-selection.v1b.create-draft-topic-package.v1',
@@ -191,6 +197,9 @@ export function routeTargetNode(
     return 'topic-selection.v1b.generate-topic-question-candidates.v1';
   }
   if (nodeId === 'topic-selection.v1b.assess-topic-value.v1' && routeDecision === 'loopback') {
+    return 'topic-selection.v1b.materialize-topic-question-contract.v1';
+  }
+  if (nodeId === 'topic-selection.v1b.decide-value-disposition.v1' && routeDecision === 'loopback') {
     return 'topic-selection.v1b.materialize-topic-question-contract.v1';
   }
   return null;

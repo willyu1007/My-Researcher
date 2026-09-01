@@ -18,6 +18,12 @@ import type {
   TopicSelectionV1bN10HarnessFrozenInputPayload,
   TopicSelectionV1bN11HarnessFrozenInputPayload,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import {
+  TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import {
+  TOPIC_SELECTION_TOPIC_QUESTION_TYPES,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 import { hasOnlyKeys, isHash, isRecord } from './topic-selection-v1b-harness-pure-utils.js';
 import {
   isFunctionalRefArray,
@@ -184,10 +190,25 @@ export function parseN7Payload(
     'n8_feedback_hash',
     'n8_feedback_payload_hash',
   ];
+  const refinementKeys = [
+    ...baseKeys,
+    'n9_handoff_hash',
+    'value_disposition_ref',
+    'value_disposition_hash',
+    'topic_value_assessment_ref',
+    'topic_value_assessment_hash',
+    'previous_topic_question_contract_ref',
+    'previous_topic_question_contract_hash',
+    'question_refinement',
+  ];
   const mode = payload.input_mode;
-  const allowedKeys = mode === 'feedback_from_n8' ? feedbackKeys : baseKeys;
+  const allowedKeys = mode === 'feedback_from_n8'
+    ? feedbackKeys
+    : mode === 'refinement_from_n9'
+      ? refinementKeys
+      : baseKeys;
   if (!hasOnlyKeys(payload, allowedKeys)
-    || (mode !== 'initial_from_n6' && mode !== 'feedback_from_n8')
+    || (mode !== 'initial_from_n6' && mode !== 'feedback_from_n8' && mode !== 'refinement_from_n9')
     || !isHash(payload.n6_handoff_hash)
     || !isFunctionalRefValue(payload.topic_question_candidate_set_ref)
     || !isHash(payload.topic_question_candidate_set_hash)
@@ -219,10 +240,84 @@ export function parseN7Payload(
       message: 'N7 feedback mode requires frozen N8 feedback refs and hashes.',
     };
   }
+  if (mode === 'refinement_from_n9'
+    && (!isHash(payload.n9_handoff_hash)
+      || !isFunctionalRefValue(payload.value_disposition_ref)
+      || !isHash(payload.value_disposition_hash)
+      || !isFunctionalRefValue(payload.topic_value_assessment_ref)
+      || !isHash(payload.topic_value_assessment_hash)
+      || !isFunctionalRefValue(payload.previous_topic_question_contract_ref)
+      || !isHash(payload.previous_topic_question_contract_hash)
+      || !isN9QuestionRefinementPayload(payload.question_refinement))) {
+    return {
+      ok: false,
+      code: 'N7_REFINEMENT_PAYLOAD_INVALID',
+      message: 'N7 refinement mode requires the persisted N9 handoff lineage and an exact human-approved question refinement.',
+    };
+  }
   return {
     ok: true,
     value: payload as unknown as TopicSelectionV1bN7HarnessFrozenInputPayload,
   };
+}
+
+const N9_REFINEMENT_UPDATE_KEYS = [
+  'main_question',
+  'contribution_hypothesis',
+  'expected_claim',
+  'fallback_claim',
+  'evaluation_setting',
+  'metrics',
+  'baselines',
+  'ablations_or_comparisons',
+  'dependency_risks',
+  'open_dependencies',
+  'known_gaps',
+  'risk_notes',
+] as const;
+
+function isN9QuestionRefinementPayload(value: unknown): boolean {
+  if (!isRecord(value)
+    || !hasOnlyKeys(value, ['schema_version', 'refinement_id', 'actor', 'rationale', 'updates'])
+    || value.schema_version !== TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION
+    || typeof value.refinement_id !== 'string'
+    || !value.refinement_id.trim()
+    || typeof value.rationale !== 'string'
+    || !value.rationale.trim()
+    || !isRecord(value.actor)
+    || !hasOnlyKeys(value.actor, ['actor_type', 'actor_id'])
+    || value.actor.actor_type !== 'human'
+    || (value.actor.actor_id !== null
+      && (typeof value.actor.actor_id !== 'string' || !value.actor.actor_id.trim()))
+    || !isRecord(value.updates)
+    || !hasOnlyKeys(value.updates, [...N9_REFINEMENT_UPDATE_KEYS])
+    || Object.keys(value.updates).length === 0) {
+    return false;
+  }
+  for (const [key, update] of Object.entries(value.updates)) {
+    const isArrayField = [
+      'metrics',
+      'baselines',
+      'ablations_or_comparisons',
+      'dependency_risks',
+      'open_dependencies',
+      'known_gaps',
+      'risk_notes',
+    ].includes(key);
+    if (isArrayField) {
+      if (!isStringArray(update) || update.length === 0 || update.some((item) => !item.trim())) {
+        return false;
+      }
+    } else if (typeof update !== 'string'
+      || !update.trim()
+      || (key === 'contribution_hypothesis'
+        && !TOPIC_SELECTION_TOPIC_QUESTION_TYPES.includes(
+          update as (typeof TOPIC_SELECTION_TOPIC_QUESTION_TYPES)[number],
+        ))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function parseN8Payload(

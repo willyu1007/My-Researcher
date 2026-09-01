@@ -7190,9 +7190,11 @@ test('v1b workflow harness N9 rejects material N8 narrative when stable findings
   assert.equal(result.authority_ref, null);
 });
 
-test('v1b workflow harness N9 terminal non-advance prevents package creation handoff', async () => {
+test('v1b workflow harness N9 refine_question prevents package creation and emits N7 recovery handoff', async () => {
   const ctx = await seedHarnessV1aBundle();
-  const { n7 } = await runReadyN7(ctx);
+  const { n6 } = await runReadyN6(ctx);
+  const initialN7Input = await n7Request(ctx, n6);
+  const n7 = await ctx.service.invokeNode(initialN7Input);
   const n8Input = await n8Request(ctx, n7);
   const draft = n8ValueDraft(n8Input, {
     readiness_status: 'needs_refinement',
@@ -7214,12 +7216,175 @@ test('v1b workflow harness N9 terminal non-advance prevents package creation han
   const n9 = await ctx.service.invokeNode(n9Input);
   assert.equal(n9.gate_status, 'terminal_no_advance');
   assert.equal(n9.failure_class, 'terminal_no_advance');
-  assert.equal(n9.route_decision, 'blocked');
-  assert.equal(n9.handoff_ref, null);
+  assert.equal(n9.route_decision, 'loopback');
+  assert.equal(n9.handoff_ref?.ref_type, 'artifact_ref');
+  const handoffArtifact = await ctx.controlPlane.getArtifactRef(n9.handoff_ref!.ref_id);
+  const handoff = handoffArtifact?.payload as unknown as {
+    envelope: { handoff_kind: string };
+    target_node_id: string;
+    required_refs: TopicSelectionFunctionalRef[];
+    payload: {
+      value_disposition_ref: TopicSelectionFunctionalRef;
+      value_disposition_hash: string;
+      topic_value_assessment_ref: TopicSelectionFunctionalRef;
+      topic_value_assessment_hash: string;
+      previous_topic_question_contract_ref: TopicSelectionFunctionalRef;
+      previous_topic_question_contract_hash: string;
+    };
+  };
+  assert.equal(handoff.envelope.handoff_kind, 'N9ToN7RefinementHandoff');
+  assert.equal(handoff.target_node_id, 'topic-selection.v1b.materialize-topic-question-contract.v1');
   const decision = await ctx.valueAssessmentRepository.findDispositionDecisionById(n9.authority_ref!.ref_id);
   assert.equal(decision?.decision, 'refine_question');
   assert.equal(decision?.package_draft_input, null);
+  assert.equal(handoff.payload.value_disposition_ref.ref_id, decision?.value_disposition_decision_id);
+  assert.equal(handoff.payload.previous_topic_question_contract_ref.ref_id, decision?.topic_question_contract_id);
+  assert.equal(handoff.payload.previous_topic_question_contract_hash, n9Input.frozen_input.payload.topic_question_contract_hash);
   assert.deepEqual(await ctx.topicPackageRepository.listPackagesByTitleCardId(TITLE_CARD_ID), []);
+
+  const previousContract = await ctx.topicQuestionRepository.findTopicQuestionContractById(
+    handoff.payload.previous_topic_question_contract_ref.ref_id,
+  );
+  assert.ok(previousContract);
+  const refinementPayload = {
+    schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+    refinement_id: 'refinement_fixed_coverage_calibration',
+    actor: {
+      actor_type: 'human',
+      actor_id: 'researcher_phase_5',
+    },
+    rationale: 'Freeze the accepted calibration and harmful-routing constraints before reassessment.',
+    updates: {
+      main_question: 'How can low-label recalibration with abstention preserve calibration while limiting harmful routing under replacement shifts?',
+      contribution_hypothesis: 'method',
+      expected_claim: 'At 90% frozen-router coverage, the method improves Brier Score and does not materially degrade harmful-routing rate.',
+      fallback_claim: 'The study identifies the shift conditions under which recalibration should abstain.',
+      evaluation_setting: 'Two real replacement environments with paired same-query evaluation and disjoint calibration/test splits.',
+      metrics: ['Brier Score', 'ECE', 'NLL', 'harmful-routing rate at fixed coverage', 'AURC'],
+      baselines: ['matched-budget strong recalibration baselines', 'no-shift control'],
+      ablations_or_comparisons: ['without abstention', 'without shift descriptors'],
+      dependency_risks: ['replacement environments may not expose enough harmful-routing events'],
+      known_gaps: ['external validity beyond the two replacement environments'],
+      risk_notes: ['Task-quality degradation must remain within one percentage point.'],
+    },
+  };
+  const initialPayload = initialN7Input.frozen_input.payload as unknown as TopicSelectionV1bN7HarnessFrozenInputPayload;
+  const refinementRequest = request({
+    workflow_run_id: 'workflow_run_v1b_n7_refinement',
+    node_attempt_id: 'node_attempt_v1b_n7_refinement',
+    node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+    title_card_id: TITLE_CARD_ID,
+    created_by: 'human',
+    frozen_input: {
+      input_contract: 'N9ToN7RefinementHandoff@v1',
+      snapshot_kind: 'topic_question_candidate_set',
+      source_refs: [
+        ...initialN7Input.frozen_input.source_refs,
+        n9.handoff_ref!,
+        ...handoff.required_refs,
+      ],
+      payload: {
+        ...initialPayload,
+        input_mode: 'refinement_from_n9',
+        n9_handoff_hash: n9.hashes.handoff_hash,
+        value_disposition_ref: handoff.payload.value_disposition_ref,
+        value_disposition_hash: handoff.payload.value_disposition_hash,
+        topic_value_assessment_ref: handoff.payload.topic_value_assessment_ref,
+        topic_value_assessment_hash: handoff.payload.topic_value_assessment_hash,
+        previous_topic_question_contract_ref: handoff.payload.previous_topic_question_contract_ref,
+        previous_topic_question_contract_hash: handoff.payload.previous_topic_question_contract_hash,
+        question_refinement: refinementPayload,
+      },
+    },
+  });
+  const invalidHandoffHash = await ctx.service.invokeNode(request({
+    ...refinementRequest,
+    workflow_run_id: 'workflow_run_v1b_n7_refinement_bad_handoff',
+    node_attempt_id: 'node_attempt_v1b_n7_refinement_bad_handoff',
+    frozen_input: {
+      ...refinementRequest.frozen_input,
+      frozen_input_hash: undefined,
+      payload: {
+        ...refinementRequest.frozen_input.payload,
+        n9_handoff_hash: '0'.repeat(64),
+      },
+    },
+  }));
+  assert.equal(invalidHandoffHash.gate_status, 'blocked');
+  assert.match(invalidHandoffHash.error_code ?? '', /HASH_MISMATCH/);
+
+  const wrongTarget = await ctx.service.invokeNode(request({
+    ...refinementRequest,
+    workflow_run_id: 'workflow_run_v1b_n7_refinement_wrong_target',
+    node_attempt_id: 'node_attempt_v1b_n7_refinement_wrong_target',
+    frozen_input: {
+      ...refinementRequest.frozen_input,
+      frozen_input_hash: undefined,
+      payload: {
+        ...refinementRequest.frozen_input.payload,
+        previous_topic_question_contract_ref: ref(
+          'topic_question_contract',
+          'topic_question_contract_wrong_target',
+          TITLE_CARD_ID,
+        ),
+      },
+    },
+  }));
+  assert.equal(wrongTarget.gate_status, 'blocked');
+  assert.equal(wrongTarget.error_code, 'N7_REFINEMENT_N9_HANDOFF_PAYLOAD_MISMATCH');
+
+  const unauthorized = await ctx.service.invokeNode({
+    ...refinementRequest,
+    workflow_run_id: 'workflow_run_v1b_n7_refinement_nonhuman',
+    node_attempt_id: 'node_attempt_v1b_n7_refinement_nonhuman',
+    created_by: 'system',
+  });
+  assert.equal(unauthorized.gate_status, 'blocked');
+  assert.equal(unauthorized.error_code, 'N7_REFINEMENT_HUMAN_ACTOR_REQUIRED');
+  assert.equal(
+    (await ctx.topicQuestionRepository.findTopicQuestionContractById(previousContract.topic_question_contract_id))?.status,
+    'active',
+  );
+
+  const refinedN7 = await ctx.service.invokeNode(refinementRequest);
+
+  assert.equal(refinedN7.error_code, null, refinedN7.error_message ?? undefined);
+  assert.equal(refinedN7.gate_status, 'admitted_with_warnings');
+  assert.equal(refinedN7.route_decision, 'invoke_next');
+  assert.notEqual(refinedN7.authority_ref?.ref_id, previousContract.topic_question_contract_id);
+  const refinedContract = await ctx.topicQuestionRepository.findTopicQuestionContractById(refinedN7.authority_ref!.ref_id);
+  assert.equal(refinedContract?.main_question, refinementPayload.updates.main_question);
+  assert.equal(refinedContract?.expected_claim, refinementPayload.updates.expected_claim);
+  assert.equal(refinedContract?.evaluation_route, refinementPayload.updates.evaluation_setting);
+  assert.deepEqual(refinedContract?.risk_notes, refinementPayload.updates.risk_notes);
+  const refinedAnswerability = await ctx.topicQuestionRepository.findAnswerabilityPlanByContractId(
+    refinedN7.authority_ref!.ref_id,
+  );
+  assert.deepEqual(refinedAnswerability?.metrics, refinementPayload.updates.metrics);
+  assert.deepEqual(refinedAnswerability?.baselines, refinementPayload.updates.baselines);
+  assert.equal(
+    (await ctx.topicQuestionRepository.findTopicQuestionContractById(previousContract.topic_question_contract_id))?.status,
+    'superseded',
+  );
+  assert.equal(
+    (await ctx.topicQuestionRepository.findTopicQuestionById(previousContract.topic_question_id))?.status,
+    'superseded',
+  );
+
+  const replay = await ctx.service.invokeNode(refinementRequest);
+  assert.equal(replay.authority_ref?.ref_id, refinedN7.authority_ref?.ref_id);
+  assert.equal(replay.replay_provenance?.replayed, true);
+  const staleRetry = await ctx.service.invokeNode(request({
+    ...refinementRequest,
+    workflow_run_id: 'workflow_run_v1b_n7_refinement_stale_retry',
+    node_attempt_id: 'node_attempt_v1b_n7_refinement_stale_retry',
+    frozen_input: {
+      ...refinementRequest.frozen_input,
+      frozen_input_hash: undefined,
+    },
+  }));
+  assert.equal(staleRetry.gate_status, 'blocked');
+  assert.equal(staleRetry.error_code, 'N7_REFINEMENT_PREVIOUS_CONTRACT_STALE');
 });
 
 test('v1b workflow harness N11 publishes v1c input bundle and closes N1-N11 service-level E2E', async () => {

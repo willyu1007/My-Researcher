@@ -24,6 +24,7 @@ import {
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   topicSelectionV1bResearchSliceOptionSetDraftPayloadSchema,
+  topicSelectionV1bN9QuestionRefinementPayloadSchema,
   topicSelectionV1bTopicValueAssessmentDraftPayloadSchema,
   topicSelectionV1bTopicQuestionCandidateSetDraftPayloadSchema,
   topicSelectionV1bWorkflowHarnessRunRequestSchema,
@@ -299,6 +300,9 @@ const workflowRunAdvanceSchema = {
             properties: {
               execution_spec: { anyOf: [coordinatorExecutionSpecSchema, { type: 'null' }] },
               draft_payload: { anyOf: [recordPayload, { type: 'null' }] },
+              refinement_payload: {
+                anyOf: [topicSelectionV1bN9QuestionRefinementPayloadSchema, { type: 'null' }],
+              },
               // Per-role debate fixtures for an N6 divergent / N8 bounded debate frontier (W-07 item a).
               // The per-kind execution_plan's enum/type constraints are checked here (debateNodeInputSchema,
               // W-09 pre-provider_llm hardening) — a non-named plan or a bad role execution_mode 400s; foreign

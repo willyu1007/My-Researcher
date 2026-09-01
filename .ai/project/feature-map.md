@@ -52,6 +52,7 @@
 | T-133 paper-implementation-debate-disposition-closure | archived | dev-docs/archive/paper-implementation-debate-disposition-closure |
 | T-145 repository-governance-convergence | archived | dev-docs/archive/repository-governance-convergence |
 | T-146 llm-config-ui-style-conformance | archived | dev-docs/archive/llm-config-ui-style-conformance |
+| T-148 topic-selection-real-flow-findings | in-progress | dev-docs/active/topic-selection-real-flow-findings |
 
 ## M-001 LLM Research Lifecycle v1
 

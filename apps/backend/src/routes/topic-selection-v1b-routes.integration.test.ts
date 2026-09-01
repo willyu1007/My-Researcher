@@ -2150,6 +2150,45 @@ test('topic-selection v1b advance route validates a debate execution_plan per ki
   }
 });
 
+test('topic-selection v1b advance route validates N9-to-N7 human refinement payloads', async () => {
+  const app = buildApp({
+    topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
+  });
+  try {
+    const url = `/topic-selection/v1b/workflow-runs/${encodeURIComponent('run-refinement-schema-noop')}/advance`;
+    const refinement = {
+      schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+      refinement_id: 'refinement_route_001',
+      actor: { actor_type: 'human', actor_id: 'researcher_route_001' },
+      rationale: 'Apply the approved fixed-coverage evaluation constraint.',
+      updates: {
+        main_question: 'How does abstaining recalibration behave under replacement shift?',
+        metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
+      },
+    };
+    const advance = (refinementPayload: unknown) => app.inject({
+      method: 'POST',
+      url,
+      payload: {
+        node_inputs: {
+          'topic-selection.v1b.materialize-topic-question-contract.v1': {
+            refinement_payload: refinementPayload,
+          },
+        },
+      },
+    });
+
+    assert.equal((await advance({
+      ...refinement,
+      actor: { actor_type: 'system', actor_id: 'runtime' },
+    })).statusCode, 400);
+    assert.equal((await advance({ ...refinement, updates: {} })).statusCode, 400);
+    assert.notEqual((await advance(refinement)).statusCode, 400);
+  } finally {
+    await app.close();
+  }
+});
+
 test('topic-selection v1b workflow harness HTTP route invokes N1 without legacy write headers', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),

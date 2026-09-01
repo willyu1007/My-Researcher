@@ -84,6 +84,8 @@ type ScriptedResult = Partial<TopicSelectionV1bWorkflowHarnessRunResult> & {
   gate_status: string;
   route_decision: string;
   handoff_kind_for_test?: string;
+  handoff_payload_for_test?: Record<string, unknown>;
+  handoff_required_refs_for_test?: TopicSelectionFunctionalRef[];
 };
 
 class StubHarness {
@@ -181,20 +183,22 @@ class StubHarness {
     } as TopicSelectionV1bWorkflowHarnessRunResult;
 
     // mimic the harness: persist a handoff artifact + the trace artifact
-    if (result.route_decision === 'invoke_next' || result.route_decision === 'stop_v1b_complete') {
-      const handoffKind = scripted.handoff_kind_for_test as string | undefined;
-      if (handoffKind) {
+    const handoffKind = scripted.handoff_kind_for_test as string | undefined;
+    if (handoffKind) {
+        const handoffPayload = {
+          envelope: { handoff_kind: handoffKind },
+          payload: scripted.handoff_payload_for_test ?? { from_node: request.node_id },
+          required_refs: scripted.handoff_required_refs_for_test ?? [ref('upstream_required', `req_${request.node_id}`)],
+        };
         const handoffArtifact = await this.controlPlane.recordArtifactRef({
           artifact_kind: 'structured_output',
           workflow_run_id: request.workflow_run_id,
-          payload: {
-            envelope: { handoff_kind: handoffKind },
-            payload: { from_node: request.node_id },
-            required_refs: [ref('upstream_required', `req_${request.node_id}`)],
-          },
+          payload: handoffPayload,
         });
         result.handoff_ref = ref('artifact_ref', handoffArtifact.artifact_ref_id);
-      }
+        if (scripted.handoff_payload_for_test) {
+          result.hashes.handoff_hash = canonicalHash(handoffPayload);
+        }
     }
     await this.controlPlane.recordArtifactRef({
       artifact_kind: 'trace',
@@ -213,6 +217,157 @@ class StubHarness {
     return result;
   }
 }
+
+test('coordinator exposes terminal N9 refine_question as an N7 refinement frontier', async () => {
+  const { harness, coordinator } = makeSubject();
+  harness.on(N9, {
+    gate_status: 'terminal_no_advance',
+    route_decision: 'loopback',
+    handoff_kind_for_test: 'N9ToN7RefinementHandoff',
+  });
+  await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N9,
+    node_attempt_id: 'node_attempt_n9_refine_question',
+  });
+
+  const blocked = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN });
+  assert.equal(blocked.halt.reason, 'harness_loopback');
+  assert.match(blocked.halt.message, new RegExp(`retry_node_id=${N7}`));
+
+  const frontier = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N7,
+  });
+  assert.equal(frontier.halt.reason, 'model_input_required');
+  assert.equal(frontier.halt.node_id, N7);
+  assert.match(frontier.halt.message, /refinement_payload/);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N7).length, 0);
+});
+
+test('coordinator consumes N9 refinement into a new N7 pass and rewinds the frontier to N8', async () => {
+  const { harness, coordinator } = makeSubject();
+  const candidateSetRef = ref('topic_question_candidate_set', 'candidate_set_refinement');
+  const candidateRef = ref('topic_question_candidate', 'candidate_refinement');
+  const n6Payload = {
+    topic_question_candidate_set_ref: candidateSetRef,
+    topic_question_candidate_set_hash: 'a'.repeat(64),
+    admissible_candidate_refs: [candidateRef],
+    admissible_candidate_hashes: ['b'.repeat(64)],
+    selected_research_slice_ref: ref('research_slice', 'slice_refinement'),
+    selected_research_slice_hash: 'c'.repeat(64),
+    generation_artifact_ref: ref('artifact_ref', 'generation_refinement'),
+    generation_artifact_hash: 'd'.repeat(64),
+    candidate_gate_hash: 'e'.repeat(64),
+    candidate_grouping_ref: null,
+    candidate_grouping_hash: null,
+  };
+  harness.on(N6, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N6ToN7Handoff',
+    handoff_payload_for_test: n6Payload,
+    authority_ref: candidateSetRef,
+  });
+  const n6 = await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N6,
+    node_attempt_id: 'node_attempt_n6_before_refinement',
+  });
+  const oldContractRef = ref('topic_question_contract', 'contract_before_refinement');
+  harness.on(N7, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N7ToN8Handoff',
+    authority_ref: oldContractRef,
+  });
+  await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N7,
+    node_attempt_id: 'node_attempt_n7_before_refinement',
+  });
+  harness.on(N8, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N8ToN9Handoff',
+  });
+  await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N8,
+    node_attempt_id: 'node_attempt_n8_before_refinement',
+  });
+  const dispositionRef = ref('value_disposition_decision', 'disposition_refinement');
+  const assessmentRef = ref('topic_value_assessment', 'assessment_refinement');
+  const n9Payload = {
+    value_disposition_ref: dispositionRef,
+    value_disposition_hash: '1'.repeat(64),
+    topic_value_assessment_ref: assessmentRef,
+    topic_value_assessment_hash: '2'.repeat(64),
+    previous_topic_question_contract_ref: oldContractRef,
+    previous_topic_question_contract_hash: '3'.repeat(64),
+  };
+  harness.on(N9, {
+    gate_status: 'terminal_no_advance',
+    route_decision: 'loopback',
+    handoff_kind_for_test: 'N9ToN7RefinementHandoff',
+    handoff_payload_for_test: n9Payload,
+    handoff_required_refs_for_test: [dispositionRef, assessmentRef, oldContractRef],
+    authority_ref: dispositionRef,
+    hashes: {
+      frozen_input_hash: 'fih',
+      execution_spec_hash: 'esh',
+      semantic_artifact_hash: null,
+      runtime_admission_hash: null,
+      gate_result_hash: 'grh',
+      authority_hash: n9Payload.value_disposition_hash,
+      handoff_hash: null,
+      route_hash: 'rh',
+    },
+  });
+  await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N9,
+    node_attempt_id: 'node_attempt_n9_refinement_loopback',
+  });
+  harness.on(N7, {
+    gate_status: 'admitted_with_warnings',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N7ToN8Handoff',
+  });
+  const refinement = {
+    schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+    refinement_id: 'refinement_coord_test',
+    actor: { actor_type: 'human', actor_id: 'researcher_coord_test' },
+    rationale: 'Apply the approved fixed-coverage evaluation constraints.',
+    updates: {
+      main_question: 'How does abstaining recalibration behave at fixed coverage under replacement shift?',
+      metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
+    },
+  };
+  const report = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    retry_node_id: N7,
+    max_steps: 1,
+    node_inputs: { [N7]: { refinement_payload: refinement } },
+  });
+
+  assert.deepEqual(report.steps.map((step) => step.node_id), [N7]);
+  assert.equal(report.run_state.next_node_id, N8);
+  const refinedRequest = harness.invocations.filter((request) => request.node_id === N7).at(-1)!;
+  const frozenPayload = refinedRequest.frozen_input.payload as Record<string, unknown>;
+  assert.equal(refinedRequest.frozen_input.input_contract, 'N9ToN7RefinementHandoff@v1');
+  assert.equal(frozenPayload.input_mode, 'refinement_from_n9');
+  assert.equal(frozenPayload.n6_handoff_hash, n6.hashes.handoff_hash);
+  assert.deepEqual(frozenPayload.question_refinement, refinement);
+  assert.deepEqual(frozenPayload.value_disposition_ref, dispositionRef);
+  assert.equal(frozenPayload.value_disposition_hash, n9Payload.value_disposition_hash);
+  assert.equal(refinedRequest.created_by, 'human');
+  assert.ok(
+    refinedRequest.frozen_input.source_refs.some((sourceRef) => sourceRef.ref_type === 'artifact_ref'
+      && sourceRef.ref_id !== n6.handoff_ref?.ref_id),
+    'N7 refinement source_refs include the N9 handoff artifact',
+  );
+});
 
 /** Minimal gate-draft semantic-artifact descriptor the debate stubs return — the coordinator only
  *  ATTACHES it to the node request (the stub harness does not validate its content). */

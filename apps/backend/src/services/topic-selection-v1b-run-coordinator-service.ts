@@ -13,6 +13,7 @@ import {
   TOPIC_SELECTION_LOOPBACK_BUDGET_RAISE_SCHEMA_VERSION,
   TOPIC_SELECTION_STAKEHOLDER_SIGN_OFF_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
+  TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_ROLE_ORDER,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
@@ -151,6 +152,11 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
      */
     support_slot_id?: string;
   };
+  /** A downstream deterministic disposition that re-enters this node with an exact
+   *  human-supplied refinement payload rather than a model support artifact. */
+  refinement_reentry?: {
+    loopback_source_node_id: string;
+  };
 }> = {
   'topic-selection.v1b.assess-intake-readiness.v1': {
     handoff_hash_key: 'n2_handoff_hash',
@@ -186,6 +192,9 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
       feedback_record_hash_key: 'n8_feedback_hash',
       feedback_payload_hash_key: 'n8_feedback_payload_hash',
       support_slot_id: 'n7_n8_debate_admission_review',
+    },
+    refinement_reentry: {
+      loopback_source_node_id: 'topic-selection.v1b.decide-value-disposition.v1',
     },
   },
   'topic-selection.v1b.assess-topic-value.v1': {
@@ -420,6 +429,8 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    * fixtures); supplying/duplicating the projection artifact itself is NOT a caller responsibility.
    */
   support_payloads?: Record<string, Record<string, unknown>> | null;
+  /** Exact researcher-approved question-contract changes for an N9 refine_question re-entry. */
+  refinement_payload?: Record<string, unknown> | null;
   /**
    * D-30 (2026-07-07): N8-only operator request for a bounded-debate re-assessment, forwarded
    * verbatim to the harness run request. On a first-pass N8 it arms the same n8_feedback_to_n7
@@ -738,6 +749,23 @@ export class TopicSelectionV1bRunCoordinatorService {
       }
 
       const nodeInput = input.node_inputs?.[nextNodeId] ?? null;
+      const refinementFrontier = this.pendingRefinementLoopback(projection, nextNodeId) != null;
+      if (nodeInput?.refinement_payload && !refinementFrontier) {
+        throw new AppError(
+          400,
+          'INVALID_PAYLOAD',
+          `${nextNodeId}: refinement_payload is only accepted on an N9 refine_question re-entry.`,
+        );
+      }
+      if (refinementFrontier && !nodeInput?.refinement_payload) {
+        return halt(
+          'model_input_required',
+          nextNodeId,
+          `${nextNodeId} is re-entering from N9 refine_question; supply node_inputs[...].refinement_payload with the exact researcher-approved contract changes.`,
+          [],
+          projection,
+        );
+      }
       if ([nodeInput?.draft_payload, nodeInput?.execution_spec, nodeInput?.debate].filter(Boolean).length > 1) {
         throw new AppError(
           400,
@@ -981,10 +1009,12 @@ export class TopicSelectionV1bRunCoordinatorService {
       // resume is re-invoking the source itself with a fresh draft.
       const feedbackReentry = target != null
         && HANDOFF_BUILDER_TABLE[target]?.feedback_reentry?.loopback_source_node_id === node.node_id;
-      loopbackTargetNodeId = feedbackReentry ? target : null;
+      const refinementReentry = target != null
+        && HANDOFF_BUILDER_TABLE[target]?.refinement_reentry?.loopback_source_node_id === node.node_id;
+      loopbackTargetNodeId = feedbackReentry || refinementReentry ? target : null;
       message = `latest attempt of ${node.node_id} ended with route_decision=${route} (research-management target: ${target ?? 'unknown'}). `
-        + (feedbackReentry
-          ? `advance again with retry_node_id=${target} to re-enter ${target} in feedback mode (the coordinator assembles its feedback_from_* frozen input), or retry_node_id=${node.node_id} to re-invoke the source with a fresh draft.`
+        + (feedbackReentry || refinementReentry
+          ? `advance again with retry_node_id=${target} to re-enter ${target} in ${feedbackReentry ? 'feedback' : 'refinement'} mode, or retry_node_id=${node.node_id} to re-invoke the source.`
           : `retry_node_id=${node.node_id} re-invokes the source with fresh node_inputs; this loopback target has no coordinator feedback recipe — drive upstream re-entry via the harness route.`);
     }
     return {
@@ -1090,24 +1120,22 @@ export class TopicSelectionV1bRunCoordinatorService {
       }
     }
 
-    // Completion/lineage scan reads latest_admitted: a later blocked/drifted re-attempt
-    // on a completed node must not erase its admitted lineage.
+    // The newest admitted transition owns the frontier. A loopback can re-admit an earlier node
+    // after later-node authorities already exist; node-index ordering would incorrectly keep the
+    // stale downstream node as the frontier and skip the required reassessment.
     let lastCompleted: TopicSelectionV1bRunNodeState | null = null;
-    let runComplete = false;
     for (const node of nodes) {
       const admitted = node.latest_admitted;
       if (!admitted) {
         continue;
       }
-      if (admitted.route_decision === 'stop_v1b_complete') {
+      if ((admitted.route_decision === 'invoke_next' || admitted.route_decision === 'stop_v1b_complete')
+        && (!lastCompleted?.latest_admitted
+          || admitted.seq > lastCompleted.latest_admitted.seq)) {
         lastCompleted = node;
-        runComplete = true;
-      } else if (admitted.route_decision === 'invoke_next') {
-        if (!lastCompleted || node.node_index > lastCompleted.node_index) {
-          lastCompleted = node;
-        }
       }
     }
+    const runComplete = lastCompleted?.latest_admitted?.route_decision === 'stop_v1b_complete';
 
     let nextNodeId: string | null = null;
     if (!runComplete && lastCompleted) {
@@ -1569,6 +1597,22 @@ export class TopicSelectionV1bRunCoordinatorService {
     return { cfg, loopback };
   }
 
+  private pendingRefinementLoopback(
+    projection: TopicSelectionV1bRunStateProjection,
+    targetNodeId: string,
+  ): TopicSelectionV1bRunNodeAttemptSnapshot | null {
+    const cfg = HANDOFF_BUILDER_TABLE[targetNodeId]?.refinement_reentry;
+    if (!cfg) {
+      return null;
+    }
+    const loopback = projection.nodes.find((node) => node.node_id === cfg.loopback_source_node_id)?.latest;
+    if (!loopback || loopback.route_decision !== 'loopback') {
+      return null;
+    }
+    const lastAdmittedSeq = projection.nodes.find((node) => node.node_id === targetNodeId)?.latest_admitted?.seq ?? -1;
+    return loopback.seq > lastAdmittedSeq ? loopback : null;
+  }
+
   /** The support_only slot a feedback re-entry of targetNodeId requires from the caller (or null). */
   private feedbackReentrySupportSlotId(
     projection: TopicSelectionV1bRunStateProjection,
@@ -1615,6 +1659,64 @@ export class TopicSelectionV1bRunCoordinatorService {
       // (which IS hash(feedback payload)) for the second.
       recordHash: canonicalHash(artifact),
       payloadHash: loopback.authority_hash,
+    };
+  }
+
+  private async resolveRefinementReentry(
+    input: AdvanceTopicSelectionV1bRunInput,
+    projection: TopicSelectionV1bRunStateProjection,
+    targetNodeId: string,
+  ): Promise<{
+    handoffPayload: Record<string, unknown>;
+    handoffRef: TopicSelectionFunctionalRef;
+    handoffHash: string;
+    requiredRefs: TopicSelectionFunctionalRef[];
+    refinementPayload: Record<string, unknown>;
+  } | null> {
+    const loopback = this.pendingRefinementLoopback(projection, targetNodeId);
+    if (!loopback) {
+      return null;
+    }
+    const refinementPayload = input.node_inputs?.[targetNodeId]?.refinement_payload;
+    const actor = refinementPayload?.actor;
+    if (!refinementPayload
+      || refinementPayload.schema_version !== TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION
+      || typeof actor !== 'object'
+      || actor === null
+      || Array.isArray(actor)
+      || (actor as Record<string, unknown>).actor_type !== 'human') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        `${targetNodeId}: refinement_payload must be a ${TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION} payload approved by a human actor.`,
+      );
+    }
+    if (!loopback.handoff_ref || !loopback.handoff_hash) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        `cannot assemble ${targetNodeId}: the N9 refine_question loopback has no persisted handoff ref/hash.`,
+      );
+    }
+    const artifact = await this.deps.controlPlane.getArtifactRef(loopback.handoff_ref.ref_id);
+    const handoff = artifact?.payload as {
+      envelope?: { handoff_kind?: string };
+      payload?: Record<string, unknown>;
+      required_refs?: TopicSelectionFunctionalRef[];
+    } | null | undefined;
+    if (!handoff?.payload
+      || handoff.envelope?.handoff_kind !== 'N9ToN7RefinementHandoff'
+      || canonicalHash(handoff) !== loopback.handoff_hash) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        `cannot assemble ${targetNodeId}: persisted N9ToN7RefinementHandoff is missing or hash-mismatched.`,
+      );
+    }
+    return {
+      handoffPayload: handoff.payload,
+      handoffRef: loopback.handoff_ref,
+      handoffHash: loopback.handoff_hash,
+      requiredRefs: handoff.required_refs ?? [],
+      refinementPayload,
     };
   }
 
@@ -1688,6 +1790,20 @@ export class TopicSelectionV1bRunCoordinatorService {
       payload[feedbackReentry.recordHashKey] = feedbackReentry.recordHash;
       payload[feedbackReentry.payloadHashKey] = feedbackReentry.payloadHash;
     }
+    const refinementReentry = await this.resolveRefinementReentry(input, projection, nextNodeId);
+    if (feedbackReentry && refinementReentry) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        `${nextNodeId} has conflicting unconsumed feedback and refinement loopbacks.`,
+      );
+    }
+    if (refinementReentry) {
+      Object.assign(payload, refinementReentry.handoffPayload, {
+        input_mode: 'refinement_from_n9',
+        n9_handoff_hash: refinementReentry.handoffHash,
+        question_refinement: refinementReentry.refinementPayload,
+      });
+    }
     for (const extra of recipe.extra_payload_authorities ?? []) {
       const upstream = projection.nodes.find((node) => node.node_id === extra.node_id)?.latest_admitted;
       if (!upstream?.authority_ref || !upstream.authority_hash) {
@@ -1714,6 +1830,9 @@ export class TopicSelectionV1bRunCoordinatorService {
       ...extraAuthorityRefs,
       ...(handoff.required_refs ?? []),
       ...(feedbackReentry ? [feedbackReentry.feedbackRef] : []),
+      ...(refinementReentry
+        ? [refinementReentry.handoffRef, ...refinementReentry.requiredRefs]
+        : []),
     ]);
     // The forward recipe's projection (e.g. N8's n7_to_n8 context) OR a request-specific extra
     // projection (the N6 debate re-entry's gate-failure retry context) — at most one applies per node.
@@ -1767,7 +1886,9 @@ export class TopicSelectionV1bRunCoordinatorService {
       });
     }
     const frozenInput = {
-      input_contract: targetPolicy.input_contract,
+      input_contract: refinementReentry
+        ? 'N9ToN7RefinementHandoff@v1'
+        : targetPolicy.input_contract,
       snapshot_kind: snapshotKind,
       source_refs: sourceRefs,
       payload,
@@ -1783,7 +1904,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         ...frozenInput,
         frozen_input_hash: canonicalHash(frozenInput),
       },
-      created_by: input.created_by ?? 'system',
+      created_by: refinementReentry ? 'human' : input.created_by ?? 'system',
     };
   }
 

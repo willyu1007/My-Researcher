@@ -600,6 +600,31 @@ implements TopicSelectionV1bTopicQuestionRepository {
           });
         }
       }
+      if (persistence.superseded_materialization) {
+        const superseded = persistence.superseded_materialization;
+        await tx.titleCardResearchRecord.update({
+          where: { id: superseded.research_record_id },
+          data: {
+            recordStatus: 'superseded',
+            supersededByRecordId: superseded.superseded_by_research_record_id,
+            updatedAt: new Date(superseded.updated_at),
+          },
+        });
+        await tx.titleCardResearchQuestion.update({
+          where: { id: superseded.topic_question_id },
+          data: {
+            v1bQuestionStatus: 'superseded',
+            updatedAt: new Date(superseded.updated_at),
+          },
+        });
+        await tx.topicSelectionTopicQuestionContract.update({
+          where: { id: superseded.topic_question_contract_id },
+          data: {
+            status: 'superseded',
+            updatedAt: new Date(superseded.updated_at),
+          },
+        });
+      }
     });
     return persistence;
   }

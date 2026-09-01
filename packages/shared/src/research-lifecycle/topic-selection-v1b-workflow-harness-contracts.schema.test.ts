@@ -18,6 +18,7 @@ import {
   topicSelectionV1bN6HarnessFrozenInputPayloadSchema,
   topicSelectionV1bN6LoopbackTriageSupportPayloadSchema,
   topicSelectionV1bN7HarnessFrozenInputPayloadSchema,
+  topicSelectionV1bN9QuestionRefinementPayloadSchema,
   topicSelectionV1bN8HarnessFrozenInputPayloadSchema,
   topicSelectionV1bN9HarnessFrozenInputPayloadSchema,
   topicSelectionV1bN10HarnessFrozenInputPayloadSchema,
@@ -333,6 +334,23 @@ function canonicalN7Payload(
     candidate_grouping_hash: null,
     ...overrides,
   } as TopicSelectionV1bN7HarnessFrozenInputPayload;
+}
+
+function canonicalN9QuestionRefinementPayload() {
+  return {
+    schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+    refinement_id: 'refinement_001',
+    actor: {
+      actor_type: 'human',
+      actor_id: 'researcher_001',
+    },
+    rationale: 'Apply the researcher-approved fixed-coverage evaluation constraints.',
+    updates: {
+      main_question: 'How does low-label recalibration with abstention behave under replacement shift?',
+      contribution_hypothesis: 'method',
+      metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
+    },
+  } as const;
 }
 
 function canonicalN8ToN7FeedbackPayload(
@@ -835,6 +853,15 @@ function payloadForHandoff(kind: TopicSelectionV1bWorkflowHarnessHandoffKind): T
         value_reasoning_memo_hash: HASH_C,
         recommended_disposition: 'advance_to_package',
       };
+    case 'N9ToN7RefinementHandoff':
+      return {
+        value_disposition_ref: ref('value_disposition_decision', 'value_disposition_refine_001'),
+        value_disposition_hash: HASH_A,
+        topic_value_assessment_ref: ref('topic_value_assessment', 'value_assessment_refine_001'),
+        topic_value_assessment_hash: HASH_B,
+        previous_topic_question_contract_ref: ref('topic_question_contract', 'question_contract_refine_001'),
+        previous_topic_question_contract_hash: HASH_C,
+      };
     case 'N9ToN10Handoff':
       return {
         value_disposition_ref: ref('value_disposition_decision', 'value_disposition_001'),
@@ -1055,6 +1082,20 @@ test('topic-selection v1b N1-N11 frozen payload schemas accept canonical fixture
   assert.equal(await validatesBody(topicSelectionV1bN5HarnessFrozenInputPayloadSchema, canonicalN5Payload()), true);
   assert.equal(await validatesBody(topicSelectionV1bN6HarnessFrozenInputPayloadSchema, canonicalN6Payload()), true);
   assert.equal(await validatesBody(topicSelectionV1bN7HarnessFrozenInputPayloadSchema, canonicalN7Payload()), true);
+  const refinement = canonicalN9QuestionRefinementPayload();
+  assert.equal(await validatesBody(topicSelectionV1bN9QuestionRefinementPayloadSchema, refinement), true);
+  assert.equal(await validatesBody(topicSelectionV1bN7HarnessFrozenInputPayloadSchema, {
+    ...canonicalN7Payload(),
+    input_mode: 'refinement_from_n9',
+    n9_handoff_hash: HASH_A,
+    value_disposition_ref: ref('value_disposition_decision', 'disposition_refinement_001'),
+    value_disposition_hash: HASH_B,
+    topic_value_assessment_ref: ref('topic_value_assessment', 'assessment_refinement_001'),
+    topic_value_assessment_hash: HASH_C,
+    previous_topic_question_contract_ref: ref('topic_question_contract', 'contract_refinement_001'),
+    previous_topic_question_contract_hash: HASH_D,
+    question_refinement: refinement,
+  }), true);
   assert.equal(await validatesBody(topicSelectionV1bN8HarnessFrozenInputPayloadSchema, canonicalN8Payload()), true);
   assert.equal(await validatesBody(topicSelectionV1bN9HarnessFrozenInputPayloadSchema, canonicalN9Payload()), true);
   assert.equal(await validatesBody(topicSelectionV1bN10HarnessFrozenInputPayloadSchema, canonicalN10Payload()), true);
@@ -1263,6 +1304,15 @@ test('topic-selection v1b N7 payload and support schemas reject drift and side e
   delete malformedFeedback.previous_trial_ledger_hash;
   assert.equal(await validatesBody(topicSelectionV1bN8ToN7FeedbackPayloadSchema, malformedFeedback), false);
 
+  assert.equal(await validatesBody(topicSelectionV1bN9QuestionRefinementPayloadSchema, {
+    ...canonicalN9QuestionRefinementPayload(),
+    actor: { actor_type: 'system', actor_id: 'runtime' },
+  }), false);
+  assert.equal(await validatesBody(topicSelectionV1bN9QuestionRefinementPayloadSchema, {
+    ...canonicalN9QuestionRefinementPayload(),
+    updates: {},
+  }), false);
+
   assert.equal(
     await validatesBody(topicSelectionV1bCandidateGroupingSupportPayloadSchema, {
       ...canonicalCandidateGroupingSupportPayload(),
@@ -1465,7 +1515,11 @@ test('topic-selection v1b node policy registry validates full N1-N11 policy meta
   assert.equal(n7FailedTrialSlot?.required_for_progress, false);
   const n7Policy = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES
     .find((policy) => policy.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1');
-  assert.deepEqual(n7Policy?.allowed_input_contracts, ['N6ToN7Handoff@v1', 'N8ToN7Feedback@v1']);
+  assert.deepEqual(n7Policy?.allowed_input_contracts, [
+    'N6ToN7Handoff@v1',
+    'N8ToN7Feedback@v1',
+    'N9ToN7RefinementHandoff@v1',
+  ]);
   const n6Policy = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES
     .find((policy) => policy.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1');
   assert.deepEqual(n6Policy?.loopback_target_codes, [

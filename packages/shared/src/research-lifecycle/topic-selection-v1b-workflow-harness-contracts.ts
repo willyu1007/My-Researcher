@@ -25,8 +25,10 @@ import {
   type TopicSelectionSliceSelectionDecision,
 } from './topic-selection-v1b-research-slice-contracts.js';
 import {
+  TOPIC_SELECTION_TOPIC_QUESTION_TYPES,
   topicSelectionFormTopicQuestionLlmOutputSchema,
   type TopicSelectionFormTopicQuestionLlmOutput,
+  type TopicSelectionTopicQuestionType,
 } from './topic-selection-v1b-topic-question-contracts.js';
 import {
   topicSelectionAssessTopicValueLlmOutputSchema,
@@ -40,6 +42,8 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_RUN_RESULT_SCHEMA_VERSION =
   'TopicSelectionV1bWorkflowHarnessRunResult@v1' as const;
 export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION =
   'TopicSelectionV1bWorkflowHarnessTracePayload@v1' as const;
+export const TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION =
+  'TopicSelectionV1bN9QuestionRefinement@v1' as const;
 /** Single source for the v1b node-policy version — referenced by the node-policy slot specs below
  *  and imported by the coordinator + the N2/N5/N8-debate services (was duplicated as 4 local consts). */
 export const TOPIC_SELECTION_V1B_NODE_POLICY_VERSION = 'topic-selection-v1b-node-policy-v1' as const;
@@ -227,6 +231,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_HANDOFF_KINDS = [
   'N6ToN7Handoff',
   'N7ToN8Handoff',
   'N8ToN9Handoff',
+  'N9ToN7RefinementHandoff',
   'N9ToN10Handoff',
   'N10ToN11Handoff',
   'V1cInputBundle',
@@ -298,6 +303,13 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_HANDOFF_EDGE_SPECS = [
     target_node_id: 'topic-selection.v1b.decide-value-disposition.v1',
     route_signal: 'topic_value_assessed',
     payload_schema_version: 'N8ToN9Handoff@v1',
+  },
+  {
+    handoff_kind: 'N9ToN7RefinementHandoff',
+    source_node_id: 'topic-selection.v1b.decide-value-disposition.v1',
+    target_node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+    route_signal: 'question_refinement_required',
+    payload_schema_version: 'N9ToN7RefinementHandoff@v1',
   },
   {
     handoff_kind: 'N9ToN10Handoff',
@@ -1258,14 +1270,18 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
     // T-127 W-10: NOT a required human-review surface, despite execution_kind 'delegated'. The INITIAL
     // contract materialization is MECHANICAL — the runtime chooseN7Candidate picks the active candidate
-    // algorithmically (the frozen N6->N7 input carries no human content). The 'human_delegated' / codex
-    // support modes below are for OPTIONAL support artifacts on the N8-failure loopback
-    // (n7_synthesize_n8_failures), NOT a needed human gate: allowance != needs-review, so the reviewer
-    // workbench correctly ships no dedicated human-N7 write card. Do not "promote" N7 to a human node here.
+    // algorithmically (the frozen N6->N7 input carries no human content). N9 refine_question recovery is
+    // the bounded exception: N7 deterministically applies an exact human-approved refinement payload; it
+    // does not ask a model to invent revisions. The 'human_delegated' / codex support modes below otherwise
+    // remain OPTIONAL support on N8-failure loopback, not a new general-purpose human N7 gate.
     execution_kind: 'delegated',
     deterministic_gate_required: true,
     input_contract: 'N6ToN7Handoff@v1',
-    allowed_input_contracts: ['N6ToN7Handoff@v1', 'N8ToN7Feedback@v1'],
+    allowed_input_contracts: [
+      'N6ToN7Handoff@v1',
+      'N8ToN7Feedback@v1',
+      'N9ToN7RefinementHandoff@v1',
+    ],
     required_frozen_snapshot_kind: 'topic_question_candidate_set',
     authority_kind: 'TopicQuestionContract',
     output_handoff_kind: 'N7ToN8Handoff',
@@ -1414,6 +1430,15 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
         next_node_id: 'topic-selection.v1b.create-draft-topic-package.v1',
         handoff_kind: 'N9ToN10Handoff',
         allowed_gate_statuses: ['admitted', 'admitted_with_warnings'],
+      },
+      {
+        route_id: 'RB_N9_N7_REFINE_QUESTION',
+        from_node_id: 'topic-selection.v1b.decide-value-disposition.v1',
+        route_signal: 'question_refinement_required',
+        route_decision: 'loopback',
+        next_node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+        handoff_kind: 'N9ToN7RefinementHandoff',
+        allowed_gate_statuses: ['terminal_no_advance'],
       },
       {
         route_id: 'RT_N9_STOP',
@@ -1761,6 +1786,15 @@ export interface TopicSelectionV1bN9ToN10HandoffPayload {
   topic_value_assessment_hash: string;
 }
 
+export interface TopicSelectionV1bN9ToN7RefinementHandoffPayload {
+  value_disposition_ref: TopicSelectionFunctionalRef;
+  value_disposition_hash: string;
+  topic_value_assessment_ref: TopicSelectionFunctionalRef;
+  topic_value_assessment_hash: string;
+  previous_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  previous_topic_question_contract_hash: string;
+}
+
 export interface TopicSelectionV1bN10ToN11HandoffPayload {
   draft_topic_package_ref: TopicSelectionFunctionalRef;
   draft_topic_package_hash: string;
@@ -1786,6 +1820,7 @@ export type TopicSelectionV1bWorkflowHarnessHandoffPayload =
   | TopicSelectionV1bN6ToN7HandoffPayload
   | TopicSelectionV1bN7ToN8HandoffPayload
   | TopicSelectionV1bN8ToN9HandoffPayload
+  | TopicSelectionV1bN9ToN7RefinementHandoffPayload
   | TopicSelectionV1bN9ToN10HandoffPayload
   | TopicSelectionV1bN10ToN11HandoffPayload
   | TopicSelectionV1bV1cInputBundlePayload;
@@ -1921,7 +1956,10 @@ export interface TopicSelectionV1bN6LoopbackTriageSupportPayload {
   rationale: string;
 }
 
-export type TopicSelectionV1bN7InputMode = 'initial_from_n6' | 'feedback_from_n8';
+export type TopicSelectionV1bN7InputMode =
+  | 'initial_from_n6'
+  | 'feedback_from_n8'
+  | 'refinement_from_n9';
 
 export interface TopicSelectionV1bN7HarnessInitialFrozenInputPayload
 extends TopicSelectionV1bN6ToN7HandoffPayload {
@@ -1958,9 +1996,45 @@ extends TopicSelectionV1bN6ToN7HandoffPayload {
   n8_feedback_payload_hash: string;
 }
 
+export interface TopicSelectionV1bN9QuestionRefinementUpdates {
+  main_question?: string;
+  contribution_hypothesis?: TopicSelectionTopicQuestionType;
+  expected_claim?: string;
+  fallback_claim?: string;
+  evaluation_setting?: string;
+  metrics?: string[];
+  baselines?: string[];
+  ablations_or_comparisons?: string[];
+  dependency_risks?: string[];
+  open_dependencies?: string[];
+  known_gaps?: string[];
+  risk_notes?: string[];
+}
+
+/** Exact researcher-approved changes consumed by deterministic N9 -> N7 recovery. */
+export interface TopicSelectionV1bN9QuestionRefinementPayload {
+  schema_version: typeof TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION;
+  refinement_id: string;
+  actor: {
+    actor_type: 'human';
+    actor_id: string | null;
+  };
+  rationale: string;
+  updates: TopicSelectionV1bN9QuestionRefinementUpdates;
+}
+
+export interface TopicSelectionV1bN7HarnessRefinementFrozenInputPayload
+extends TopicSelectionV1bN6ToN7HandoffPayload, TopicSelectionV1bN9ToN7RefinementHandoffPayload {
+  input_mode: 'refinement_from_n9';
+  n6_handoff_hash: string;
+  n9_handoff_hash: string;
+  question_refinement: TopicSelectionV1bN9QuestionRefinementPayload;
+}
+
 export type TopicSelectionV1bN7HarnessFrozenInputPayload =
   | TopicSelectionV1bN7HarnessInitialFrozenInputPayload
-  | TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload;
+  | TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload
+  | TopicSelectionV1bN7HarnessRefinementFrozenInputPayload;
 
 export type TopicSelectionV1bTopicValueAssessmentDraftPayload =
   TopicSelectionAssessTopicValueLlmOutput;
@@ -2889,6 +2963,51 @@ export const topicSelectionV1bN8ToN7FeedbackPayloadSchema = {
   ],
 } as const;
 
+const nonEmptyStringArray = {
+  type: 'array',
+  items: stringId,
+  minItems: 1,
+} as const;
+
+export const topicSelectionV1bN9QuestionRefinementPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['schema_version', 'refinement_id', 'actor', 'rationale', 'updates'],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION },
+    refinement_id: stringId,
+    actor: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['actor_type', 'actor_id'],
+      properties: {
+        actor_type: { const: 'human' },
+        actor_id: { anyOf: [stringId, { type: 'null' }] },
+      },
+    },
+    rationale: stringId,
+    updates: {
+      type: 'object',
+      additionalProperties: false,
+      minProperties: 1,
+      properties: {
+        main_question: stringId,
+        contribution_hypothesis: { enum: [...TOPIC_SELECTION_TOPIC_QUESTION_TYPES] },
+        expected_claim: stringId,
+        fallback_claim: stringId,
+        evaluation_setting: stringId,
+        metrics: nonEmptyStringArray,
+        baselines: nonEmptyStringArray,
+        ablations_or_comparisons: nonEmptyStringArray,
+        dependency_risks: nonEmptyStringArray,
+        open_dependencies: nonEmptyStringArray,
+        known_gaps: nonEmptyStringArray,
+        risk_notes: nonEmptyStringArray,
+      },
+    },
+  },
+} as const;
+
 export const topicSelectionV1bN7HarnessFrozenInputPayloadSchema = {
   anyOf: [
     {
@@ -2923,6 +3042,36 @@ export const topicSelectionV1bN7HarnessFrozenInputPayloadSchema = {
         n8_feedback_ref: strictFunctionalRefSchema,
         n8_feedback_hash: hashString,
         n8_feedback_payload_hash: hashString,
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'input_mode',
+        'n6_handoff_hash',
+        ...n6ToN7LineagePayloadRequired,
+        'n9_handoff_hash',
+        'value_disposition_ref',
+        'value_disposition_hash',
+        'topic_value_assessment_ref',
+        'topic_value_assessment_hash',
+        'previous_topic_question_contract_ref',
+        'previous_topic_question_contract_hash',
+        'question_refinement',
+      ],
+      properties: {
+        input_mode: { const: 'refinement_from_n9' },
+        n6_handoff_hash: hashString,
+        ...n6ToN7LineagePayloadProperties,
+        n9_handoff_hash: hashString,
+        value_disposition_ref: strictFunctionalRefSchema,
+        value_disposition_hash: hashString,
+        topic_value_assessment_ref: strictFunctionalRefSchema,
+        topic_value_assessment_hash: hashString,
+        previous_topic_question_contract_ref: strictFunctionalRefSchema,
+        previous_topic_question_contract_hash: hashString,
+        question_refinement: topicSelectionV1bN9QuestionRefinementPayloadSchema,
       },
     },
   ],
@@ -3934,6 +4083,26 @@ const handoffPayloadSchemas = {
           'drop',
         ],
       },
+    },
+  },
+  N9ToN7RefinementHandoff: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'value_disposition_ref',
+      'value_disposition_hash',
+      'topic_value_assessment_ref',
+      'topic_value_assessment_hash',
+      'previous_topic_question_contract_ref',
+      'previous_topic_question_contract_hash',
+    ],
+    properties: {
+      value_disposition_ref: strictFunctionalRefSchema,
+      value_disposition_hash: hashString,
+      topic_value_assessment_ref: strictFunctionalRefSchema,
+      topic_value_assessment_hash: hashString,
+      previous_topic_question_contract_ref: strictFunctionalRefSchema,
+      previous_topic_question_contract_hash: hashString,
     },
   },
   N9ToN10Handoff: {

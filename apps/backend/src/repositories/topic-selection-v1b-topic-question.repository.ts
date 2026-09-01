@@ -33,6 +33,13 @@ export type TopicSelectionTopicQuestionSelectionPersistence = {
     status: TopicSelectionTopicQuestionCandidateRecord['status'];
   }>;
   materializations: TopicSelectionV1bTopicQuestionMaterialization[];
+  superseded_materialization?: {
+    topic_question_id: string;
+    topic_question_contract_id: string;
+    research_record_id: string;
+    superseded_by_research_record_id: string;
+    updated_at: string;
+  };
 };
 
 export interface TopicSelectionV1bTopicQuestionRepository {

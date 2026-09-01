@@ -126,6 +126,25 @@ implements TopicSelectionV1bTopicQuestionRepository {
         const current = this.require(this.candidates, patch.candidate_id, 'TopicQuestionCandidate');
         this.candidates.set(patch.candidate_id, { ...current, status: patch.status });
       }
+      if (persistence.superseded_materialization) {
+        const superseded = persistence.superseded_materialization;
+        const previousQuestion = this.require(this.topicQuestions, superseded.topic_question_id, 'TopicQuestion');
+        const previousContract = this.require(
+          this.contracts,
+          superseded.topic_question_contract_id,
+          'TopicQuestionContract',
+        );
+        this.topicQuestions.set(superseded.topic_question_id, {
+          ...previousQuestion,
+          status: 'superseded',
+          updated_at: superseded.updated_at,
+        });
+        this.contracts.set(superseded.topic_question_contract_id, {
+          ...previousContract,
+          status: 'superseded',
+          updated_at: superseded.updated_at,
+        });
+      }
       for (const materialization of persistence.materializations) {
         this.topicQuestions.set(materialization.topic_question.topic_question_id, materialization.topic_question);
         this.contracts.set(

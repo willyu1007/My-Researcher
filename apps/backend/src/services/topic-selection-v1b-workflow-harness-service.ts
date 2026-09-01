@@ -107,6 +107,8 @@ import {
   type TopicSelectionV1bN6ToN7HandoffPayload,
   type TopicSelectionV1bN7HarnessFrozenInputPayload,
   type TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload,
+  type TopicSelectionV1bN7HarnessRefinementFrozenInputPayload,
+  type TopicSelectionV1bN9QuestionRefinementPayload,
   type TopicSelectionV1bN7RuntimeContextProjection,
   type TopicSelectionV1bN7ToN8HandoffPayload,
   type TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection,
@@ -119,6 +121,7 @@ import {
   type TopicSelectionV1bN8ToN7FeedbackPayload,
   type TopicSelectionV1bN8ToN9HandoffPayload,
   type TopicSelectionV1bN9HarnessFrozenInputPayload,
+  type TopicSelectionV1bN9ToN7RefinementHandoffPayload,
   type TopicSelectionV1bN9ToN10HandoffPayload,
   type TopicSelectionV1bN10HarnessFrozenInputPayload,
   type TopicSelectionV1bN10ToN11HandoffPayload,
@@ -596,6 +599,11 @@ type N7LoadedContext = {
   run: TopicSelectionFormTopicQuestionRunRecord;
   n6Handoff: TopicSelectionV1bWorkflowHarnessHandoff;
   feedback: TopicSelectionV1bN8ToN7FeedbackPayload | null;
+  refinement: {
+    disposition: TopicSelectionValueDispositionDecisionRecord;
+    previousContract: TopicSelectionTopicQuestionContractRecord;
+    previousQuestion: TopicSelectionTopicQuestionRecord;
+  } | null;
 };
 
 type N7SupportContext = {
@@ -3839,6 +3847,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       }
       return this.runN7CandidateTrialsExhausted(input, hashContext, payload.value, loaded.value, support.value, choice);
     }
+    if (loaded.value.refinement
+      && choice.value.candidate.topic_question_candidate_id
+        !== loaded.value.refinement.previousContract.source_candidate_id) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REFINEMENT_CANDIDATE_MISMATCH',
+        message: 'N9 question refinement must preserve the candidate selected by the previous N7 contract.',
+      });
+    }
     const admissionBlocker = n7CandidateAdmissionBlocker(choice.value.candidate, loaded.value.frame);
     if (admissionBlocker) {
       return this.persistBlockedResult(input, hashContext, {
@@ -3856,6 +3872,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
       decisionId,
       frame: loaded.value.frame,
       run: loaded.value.run,
+      refinement: payload.value.input_mode === 'refinement_from_n9'
+        ? payload.value.question_refinement
+        : null,
       workflowRunId: input.workflow_run_id,
     });
     const questionRef = buildRef(
@@ -3886,6 +3905,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       input_mode: payload.value.input_mode,
       n6_handoff_hash: payload.value.n6_handoff_hash,
       n8_debate_admission_hash: debateAdmission.hash,
+      n9_handoff_hash: payload.value.input_mode === 'refinement_from_n9' ? payload.value.n9_handoff_hash : null,
       priority_order: choice.value.priorityOrder,
       topic_question_contract_hash: contractHash,
     });
@@ -3894,9 +3914,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
         || choice.value.candidate.human_review_triggers.length > 0
         || support.value.grouping
         || support.value.debateAdmission
+        || loaded.value.refinement
         ? 'admitted_with_warnings'
         : 'admitted';
-    const warnings = this.n7Warnings(choice.value, support.value);
+    const warnings = this.n7Warnings(choice.value, support.value, loaded.value.refinement);
     const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
       authorityHash: contractHash,
       blockerCodes: [],
@@ -3955,6 +3976,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         candidate_set_hash: payload.value.topic_question_candidate_set_hash,
         n6_handoff_hash: payload.value.n6_handoff_hash,
         n8_feedback_hash: payload.value.input_mode === 'feedback_from_n8' ? payload.value.n8_feedback_hash : null,
+        n9_handoff_hash: payload.value.input_mode === 'refinement_from_n9' ? payload.value.n9_handoff_hash : null,
         selected_research_slice_hash: payload.value.selected_research_slice_hash,
       }),
       warningCodes: warnings.map((warning) => warning.code),
@@ -3983,6 +4005,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
         active_candidate_id: choice.value.candidate.topic_question_candidate_id,
         debate_admission_hash: debateAdmission.hash,
         input_mode: payload.value.input_mode,
+        refinement_id: payload.value.input_mode === 'refinement_from_n9'
+          ? payload.value.question_refinement.refinement_id
+          : null,
         priority_order: choice.value.priorityOrder,
         trial_ledger_hash: trialLedgerHash,
       },
@@ -4030,6 +4055,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
             debate_admission_hash: debateAdmission.hash,
             input_mode: payload.value.input_mode,
             previous_feedback_hash: payload.value.input_mode === 'feedback_from_n8' ? payload.value.n8_feedback_hash : null,
+            previous_value_disposition_hash: payload.value.input_mode === 'refinement_from_n9'
+              ? payload.value.value_disposition_hash
+              : null,
             route_note: choice.value.routeNote,
           },
           candidate_relationships: support.value.grouping?.payload.candidate_relationships ?? {},
@@ -4039,8 +4067,17 @@ export class TopicSelectionV1bWorkflowHarnessService {
             feedback_class: loaded.value.feedback.feedback_class,
             failure_reason_code: loaded.value.feedback.failure_reason_code,
             failed_candidate_ref: loaded.value.feedback.failed_candidate_ref,
+          }] : loaded.value.refinement ? [{
+            refinement_id: payload.value.input_mode === 'refinement_from_n9'
+              ? payload.value.question_refinement.refinement_id
+              : null,
+            value_disposition_ref: payload.value.input_mode === 'refinement_from_n9'
+              ? payload.value.value_disposition_ref
+              : null,
           }] : [],
-          decision_rationale: `N7 selected ${choice.value.candidate.candidate_key} for deterministic contract materialization.`,
+          decision_rationale: loaded.value.refinement && payload.value.input_mode === 'refinement_from_n9'
+            ? `N7 applied researcher-approved refinement ${payload.value.question_refinement.refinement_id}: ${payload.value.question_refinement.rationale}`
+            : `N7 selected ${choice.value.candidate.candidate_key} for deterministic contract materialization.`,
           requires_human_review: choice.value.candidate.human_review_triggers.length > 0,
           human_review_triggers: choice.value.candidate.human_review_triggers,
           accepted_risk_refs: loaded.value.run.accepted_risk_refs,
@@ -4095,6 +4132,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
             },
           ],
           materializations: [materialization],
+          ...(loaded.value.refinement ? {
+            superseded_materialization: {
+              topic_question_id: loaded.value.refinement.previousQuestion.topic_question_id,
+              topic_question_contract_id: loaded.value.refinement.previousContract.topic_question_contract_id,
+              research_record_id: loaded.value.refinement.previousQuestion.research_record_id,
+              superseded_by_research_record_id: materialization.topic_question.research_record_id,
+              updated_at: now,
+            },
+          } : {}),
         });
       },
     });
@@ -4463,17 +4509,30 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 frozen candidate-set ref does not resolve.',
       };
     }
-    const [run, frame, candidates, feedback] = await Promise.all([
+    const [run, frame, candidates, feedback, refinement] = await Promise.all([
       repository.findFormationRunById(candidateSet.form_topic_question_run_id),
       repository.findQuestionFrameById(candidateSet.question_frame_id),
       repository.listCandidatesByCandidateSetId(candidateSet.topic_question_candidate_set_id),
       payload.input_mode === 'feedback_from_n8' ? this.resolveN7FeedbackPayload(payload) : Promise.resolve(null),
+      payload.input_mode === 'refinement_from_n9'
+        ? this.resolveN7RefinementContext(input, payload)
+        : Promise.resolve({ ok: true as const, value: null }),
     ]);
     if (!run || !frame) {
       return {
         ok: false,
         code: 'N7_CANDIDATE_SET_CONTEXT_MISSING',
         message: 'N7 candidate set is missing its formation run or question frame.',
+      };
+    }
+    if (!refinement.ok) {
+      return refinement;
+    }
+    if (payload.input_mode === 'refinement_from_n9' && input.created_by !== 'human') {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_HUMAN_ACTOR_REQUIRED',
+        message: 'N7 refinement mode only accepts a harness request attributed to a human actor.',
       };
     }
     if (payload.input_mode === 'initial_from_n6' && candidateSet.status !== 'ready_for_selection') {
@@ -4488,6 +4547,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         ok: false,
         code: 'N7_FEEDBACK_CANDIDATE_SET_NOT_SELECTED',
         message: 'N7 feedback mode requires the candidate set selected by a previous N7 trial.',
+      };
+    }
+    if (payload.input_mode === 'refinement_from_n9' && candidateSet.status !== 'selected') {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_CANDIDATE_SET_NOT_SELECTED',
+        message: 'N7 refinement mode requires the candidate set selected by the previous N7 contract.',
       };
     }
     if (payload.input_mode === 'feedback_from_n8' && !feedback) {
@@ -4505,6 +4571,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         feedback,
         frame,
         n6Handoff: n6Handoff.value,
+        refinement: refinement.value,
         run,
       },
     };
@@ -4553,6 +4620,94 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return null;
     }
     return feedback;
+  }
+
+  private async resolveN7RefinementContext(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    payload: TopicSelectionV1bN7HarnessRefinementFrozenInputPayload,
+  ): Promise<{
+    ok: true;
+    value: NonNullable<N7LoadedContext['refinement']>;
+  } | { ok: false; code: string; message: string }> {
+    const n9Handoff = await this.resolveSourceHandoff(
+      input,
+      'N9ToN7RefinementHandoff',
+      payload.n9_handoff_hash,
+      'N7_REFINEMENT',
+    );
+    if (!n9Handoff.ok) {
+      return n9Handoff;
+    }
+    const handoffPayload = n9Handoff.value.payload as TopicSelectionV1bN9ToN7RefinementHandoffPayload;
+    if (!refsEqual(handoffPayload.value_disposition_ref, payload.value_disposition_ref)
+      || handoffPayload.value_disposition_hash !== payload.value_disposition_hash
+      || !refsEqual(handoffPayload.topic_value_assessment_ref, payload.topic_value_assessment_ref)
+      || handoffPayload.topic_value_assessment_hash !== payload.topic_value_assessment_hash
+      || !refsEqual(
+        handoffPayload.previous_topic_question_contract_ref,
+        payload.previous_topic_question_contract_ref,
+      )
+      || handoffPayload.previous_topic_question_contract_hash !== payload.previous_topic_question_contract_hash) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_N9_HANDOFF_PAYLOAD_MISMATCH',
+        message: 'N7 refinement lineage does not match the persisted N9-to-N7 handoff payload.',
+      };
+    }
+    const repository = this.runnerDependencies.topicQuestionRepository!;
+    const [disposition, previousContract] = await Promise.all([
+      this.runnerDependencies.valueAssessmentRepository!.findDispositionDecisionById(
+        payload.value_disposition_ref.ref_id,
+      ),
+      repository.findTopicQuestionContractById(payload.previous_topic_question_contract_ref.ref_id),
+    ]);
+    if (!disposition || !previousContract) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_AUTHORITY_NOT_FOUND',
+        message: 'N7 refinement requires persisted N9 disposition and previous question-contract authorities.',
+      };
+    }
+    const previousQuestion = await repository.findTopicQuestionById(previousContract.topic_question_id);
+    if (!previousQuestion) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_PREVIOUS_QUESTION_NOT_FOUND',
+        message: 'N7 refinement previous contract does not resolve to its topic question.',
+      };
+    }
+    if (hashN9DispositionAuthority(disposition) !== payload.value_disposition_hash
+      || disposition.decision !== 'refine_question'
+      || disposition.is_current !== true
+      || disposition.topic_question_contract_id !== previousContract.topic_question_contract_id
+      || disposition.topic_value_assessment_id !== payload.topic_value_assessment_ref.ref_id
+      || !disposition.loopback_target_ref
+      || !refsEqual(disposition.loopback_target_ref, payload.previous_topic_question_contract_ref)) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_DISPOSITION_MISMATCH',
+        message: 'N7 refinement requires the current N9 refine_question disposition targeting the previous contract.',
+      };
+    }
+    if (hashN7ContractAuthority(previousContract) !== payload.previous_topic_question_contract_hash
+      || previousContract.status !== 'active'
+      || previousQuestion.status !== 'active'
+      || previousQuestion.source_candidate_set_id !== payload.topic_question_candidate_set_ref.ref_id
+      || previousContract.source_candidate_id !== previousQuestion.source_candidate_id) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_PREVIOUS_CONTRACT_STALE',
+        message: 'N7 refinement previous question contract is stale, superseded, or hash-mismatched.',
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        disposition,
+        previousContract,
+        previousQuestion,
+      },
+    };
   }
 
   private async resolveEarlySemanticSupportPayload<T extends TopicSelectionV1bEarlySemanticSupportPayload>(
@@ -5026,7 +5181,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
           candidateHash: frozen.hash,
           failedCandidateIds,
           priorityOrder,
-          routeNote: loaded.feedback ? 'feedback_selected_next_candidate' : 'initial_candidate_selected',
+          routeNote: loaded.feedback
+            ? 'feedback_selected_next_candidate'
+            : loaded.refinement
+              ? 'n9_refinement_same_candidate'
+              : 'initial_candidate_selected',
         },
       };
     }
@@ -5854,6 +6013,84 @@ export class TopicSelectionV1bWorkflowHarnessService {
     };
     const decisionHash = hashN9DispositionAuthority(decision);
     const warnings = this.n9Warnings(decision, loaded.value);
+    if (advanceBlocker && disposition === 'refine_question') {
+      const gateBlocker = blocker(advanceBlocker.code, advanceBlocker.message, [assessmentRef, memoRef]);
+      const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
+        authorityHash: decisionHash,
+        blockerCodes: [gateBlocker.code],
+        gateStatus: 'terminal_no_advance',
+        routeDecision: 'loopback',
+        warningCodes: warnings.map((warning) => warning.code),
+      });
+      const handoffPayload: TopicSelectionV1bWorkflowHarnessHandoffPayload = {
+        value_disposition_ref: decisionRef,
+        value_disposition_hash: decisionHash,
+        topic_value_assessment_ref: assessmentRef,
+        topic_value_assessment_hash: payload.value.topic_value_assessment_hash,
+        previous_topic_question_contract_ref: payload.value.topic_question_contract_ref,
+        previous_topic_question_contract_hash: payload.value.topic_question_contract_hash,
+      };
+      const handoff = buildHandoff(input, {
+        handoffKind: 'N9ToN7RefinementHandoff',
+        payload: handoffPayload,
+        requiredRefs: [
+          decisionRef,
+          assessmentRef,
+          payload.value.topic_question_contract_ref,
+        ],
+        residualRiskRefs: uniqueRefs([
+          ...decision.accepted_risk_refs,
+          ...topicSelectionRiskFindingRefs(decision.artifact_refs),
+        ]),
+        sourceAuthorityHash: decisionHash,
+        sourceAuthorityRef: decisionRef,
+        sourceGateResultHash: gateResultHash,
+        upstreamLineageHash: canonicalHash({
+          n8_handoff_hash: payload.value.n8_handoff_hash,
+          topic_question_contract_hash: payload.value.topic_question_contract_hash,
+          topic_value_assessment_hash: payload.value.topic_value_assessment_hash,
+          value_reasoning_memo_hash: payload.value.value_reasoning_memo_hash,
+        }),
+        warningCodes: warnings.map((warning) => warning.code),
+      });
+      return this.persistAdmittedResult(input, hashContext, {
+        acceptedRiskRefs: decision.accepted_risk_refs,
+        authorityHash: decisionHash,
+        authorityRef: decisionRef,
+        blockers: [gateBlocker],
+        errorCode: advanceBlocker.code,
+        errorMessage: advanceBlocker.message,
+        failureClass: 'terminal_no_advance',
+        gateStatus: 'terminal_no_advance',
+        handoff,
+        handoffHash: canonicalHash(handoff),
+        routeDecision: 'loopback',
+        sourceRef: assessmentRef,
+        targetRef: decisionRef,
+        tracePhase: 'T-148 v1b N9 refine-question recovery decision',
+        tracePayload: {
+          disposition,
+          disposition_hash: decisionHash,
+          n8_handoff_hash: payload.value.n8_handoff_hash,
+        },
+        transitionKey: 'topic-selection.v1b.harness.n9-refine-question-recovery',
+        warnings,
+      }, {
+        writeAuthority: async (prepared) => {
+          await this.runnerDependencies.valueAssessmentRepository!.createDispositionDecision({
+            decision: {
+              ...decision,
+              input_snapshot_id: prepared.inputSnapshot.input_snapshot_id,
+              gate_result_id: prepared.gate.readiness_gate_result_id,
+            },
+            topic_value_assessment_patch: {
+              active_disposition_decision_id: decisionId,
+              updated_at: now,
+            },
+          });
+        },
+      });
+    }
     if (advanceBlocker) {
       const gateBlocker = blocker(advanceBlocker.code, advanceBlocker.message, [assessmentRef, memoRef]);
       return this.persistAdmittedResult(input, hashContext, {
@@ -7534,10 +7771,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
     candidateSet: TopicSelectionTopicQuestionCandidateSetRecord;
     decisionId: string;
     frame: TopicSelectionQuestionFrameRecord;
+    refinement: TopicSelectionV1bN9QuestionRefinementPayload | null;
     run: TopicSelectionFormTopicQuestionRunRecord;
     workflowRunId: string | null;
   }): TopicSelectionV1bTopicQuestionMaterialization {
-    const { acceptedRiskRefs, candidate, candidateSet, decisionId, frame, run } = input;
+    const { acceptedRiskRefs, candidate, candidateSet, decisionId, frame, refinement, run } = input;
+    const updates = refinement?.updates;
+    const mainQuestion = updates?.main_question ?? candidate.main_question;
+    const contributionHypothesis = updates?.contribution_hypothesis ?? candidate.contribution_hypothesis;
+    const evaluationSetting = updates?.evaluation_setting ?? candidate.answerability_plan_payload.evaluation_setting;
     const now = this.now();
     const questionId = this.idFactory('topic_question');
     const researchRecordId = this.idFactory('topic_record');
@@ -7556,10 +7798,10 @@ export class TopicSelectionV1bWorkflowHarnessService {
       source_candidate_id: candidate.topic_question_candidate_id,
       selection_decision_id: decisionId,
       active_question_contract_id: contractId,
-      main_question: candidate.main_question,
+      main_question: mainQuestion,
       sub_questions: candidate.sub_questions,
       question_type: candidate.question_type,
-      contribution_hypothesis: candidate.contribution_hypothesis,
+      contribution_hypothesis: contributionHypothesis,
       status: 'active',
       created_at: now,
       updated_at: now,
@@ -7567,6 +7809,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const evidenceRefs = this.n7BuildEvidenceRefs({
       candidate,
       contractId,
+      mappedQuestion: mainQuestion,
       questionId,
       titleCardId: candidate.title_card_id,
       workspaceId: candidate.workspace_id ?? null,
@@ -7577,6 +7820,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       candidate_hash: hashN6CandidateAuthority(candidate),
       contract_id: contractId,
       frame_hash: canonicalHash(frame),
+      refinement_hash: refinement ? canonicalHash(refinement) : null,
       selection_decision_id: decisionId,
     };
     const contract: TopicSelectionTopicQuestionContractRecord = {
@@ -7592,15 +7836,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       selection_decision_id: decisionId,
       input_snapshot_ref: buildRef('input_snapshot', run.input_snapshot_id ?? run.form_topic_question_run_id, candidate.title_card_id),
       contract_hash: canonicalHash(contractPayload),
-      main_question: candidate.main_question,
+      main_question: mainQuestion,
       question_type: candidate.question_type,
-      contribution_hypothesis: candidate.contribution_hypothesis,
+      contribution_hypothesis: contributionHypothesis,
       target_setting: frame.target_setting,
       target_community: frame.target_community,
-      expected_claim: candidate.expected_claim,
-      fallback_claim: candidate.fallback_claim,
+      expected_claim: updates?.expected_claim ?? candidate.expected_claim,
+      fallback_claim: updates?.fallback_claim ?? candidate.fallback_claim,
       max_claim_strength: candidate.max_claim_strength,
-      evaluation_route: candidate.answerability_plan_payload.evaluation_setting,
+      evaluation_route: evaluationSetting,
       claim_ceiling: n7FrameClaimCeiling(frame),
       prohibited_claims: uniqueStrings([
         ...candidate.boundary_check_payload.prohibited_claims,
@@ -7610,7 +7854,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       allowed_refinements: candidate.boundary_check_payload.allowed_refinements,
       stop_reopen_conditions: candidate.falsification_conditions_payload.map((condition) => condition.statement),
       accepted_risk_refs: acceptedRiskRefs,
-      risk_notes: candidate.risk_notes,
+      risk_notes: updates?.risk_notes ?? candidate.risk_notes,
       status: 'active',
       created_by_workflow_run_id: input.workflowRunId,
       artifact_refs: run.artifact_refs,
@@ -7625,13 +7869,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_contract_id: contractId,
       answerability_verdict: candidate.answerability_verdict,
       datasets_or_resources: candidate.answerability_plan_payload.datasets_or_resources,
-      metrics: candidate.answerability_plan_payload.metrics,
-      baselines: candidate.answerability_plan_payload.baselines,
-      ablations_or_comparisons: candidate.answerability_plan_payload.ablations_or_comparisons,
-      evaluation_setting: candidate.answerability_plan_payload.evaluation_setting,
-      dependency_risks: candidate.answerability_plan_payload.dependency_risks,
-      open_dependencies: candidate.answerability_plan_payload.open_dependencies,
-      known_gaps: candidate.answerability_plan_payload.known_gaps,
+      metrics: updates?.metrics ?? candidate.answerability_plan_payload.metrics,
+      baselines: updates?.baselines ?? candidate.answerability_plan_payload.baselines,
+      ablations_or_comparisons: updates?.ablations_or_comparisons
+        ?? candidate.answerability_plan_payload.ablations_or_comparisons,
+      evaluation_setting: evaluationSetting,
+      dependency_risks: updates?.dependency_risks ?? candidate.answerability_plan_payload.dependency_risks,
+      open_dependencies: updates?.open_dependencies ?? candidate.answerability_plan_payload.open_dependencies,
+      known_gaps: updates?.known_gaps ?? candidate.answerability_plan_payload.known_gaps,
       required_evidence_refs: candidate.answerability_plan_payload.required_evidence_refs,
       created_at: now,
     };
@@ -7648,6 +7893,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       boundary_refs: this.n7BuildBoundaryRefs({
         candidate,
         contractId,
+        mappedQuestion: mainQuestion,
         questionId,
         titleCardId: candidate.title_card_id,
         workspaceId: candidate.workspace_id ?? null,
@@ -7690,6 +7936,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
   private n7BuildEvidenceRefs(input: {
     candidate: TopicSelectionTopicQuestionCandidateRecord;
+    mappedQuestion: string;
     questionId: string;
     contractId: string;
     titleCardId: string;
@@ -7714,7 +7961,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_contract_id: input.contractId,
       evidence_ref: evidenceRef,
       evidence_role: role,
-      mapped_question_part: input.candidate.main_question,
+      mapped_question_part: input.mappedQuestion,
       rationale: `Mapped as ${role} evidence for the N7 materialized TopicQuestionContract.`,
       source_locator_snapshot: {},
       created_at: now,
@@ -7723,6 +7970,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
 
   private n7BuildBoundaryRefs(input: {
     candidate: TopicSelectionTopicQuestionCandidateRecord;
+    mappedQuestion: string;
     questionId: string;
     contractId: string;
     titleCardId: string;
@@ -7745,7 +7993,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       topic_question_contract_id: input.contractId,
       research_slice_boundary_id: ref.ref_id,
       boundary_kind: kind,
-      question_part: input.candidate.main_question,
+      question_part: input.mappedQuestion,
       note: kind === 'excluded'
         ? 'Excluded boundary preserved by the TopicQuestionContract.'
         : 'Included boundary preserved by the TopicQuestionContract.',
@@ -7883,6 +8131,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         active_candidate_hash: input.handoffPayload.active_candidate_hash,
         selected_research_slice_hash: input.handoffPayload.selected_research_slice_hash,
         n8_debate_admission_hash: input.handoffPayload.n8_debate_admission_hash,
+        ...(input.frozenPayload.input_mode === 'refinement_from_n9' ? {
+          n9_handoff_hash: input.frozenPayload.n9_handoff_hash,
+          previous_topic_question_contract_hash:
+            input.frozenPayload.previous_topic_question_contract_hash,
+          question_refinement_hash: canonicalHash(input.frozenPayload.question_refinement),
+          value_disposition_hash: input.frozenPayload.value_disposition_hash,
+        } : {}),
         ...(input.handoffPayload.candidate_grouping_hash
           ? { candidate_grouping_hash: input.handoffPayload.candidate_grouping_hash }
           : {}),
@@ -7899,6 +8154,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
         'candidate_grouping',
         'accepted_risk_refs',
         'risk_gap_recheck_hints',
+        ...(input.frozenPayload.input_mode === 'refinement_from_n9'
+          ? ['n9_question_refinement_lineage']
+          : []),
       ],
       n7_handoff_ref: input.handoffRef,
       n7_handoff_hash: input.handoffHash,
@@ -8120,8 +8378,28 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private n7Warnings(
     choice: N7CandidateChoice,
     support: N7SupportContext,
+    refinement: N7LoadedContext['refinement'] = null,
   ): TopicSelectionGateIssue[] {
     const warnings: TopicSelectionGateIssue[] = [];
+    if (refinement) {
+      warnings.push(warning(
+        'N7_N9_REFINEMENT_APPLIED',
+        'N7 materialized a new question contract from a current N9 refine_question disposition.',
+        [
+          buildRef(
+            'value_disposition_decision',
+            refinement.disposition.value_disposition_decision_id,
+            refinement.disposition.title_card_id,
+          ),
+          buildRef(
+            'topic_question_contract',
+            refinement.previousContract.topic_question_contract_id,
+            refinement.previousContract.title_card_id,
+            refinement.previousContract.version,
+          ),
+        ],
+      ));
+    }
     if (support.grouping) {
       warnings.push(warning(
         'candidate_grouping_preserved',
