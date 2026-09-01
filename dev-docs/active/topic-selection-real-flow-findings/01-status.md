@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Authorized Phase 5 N9→N7 slice implemented and verified locally
-- Next step: Review/checkpoint this isolated implementation. A later, separately authorized rehearsal must retry the historical N9 decision to create the new handoff, then submit the accepted refinement through the supported N7 re-entry.
-- Blocker: No implementation blocker in the approved slice. The real-run write and all other phases remain unauthorized; unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Authorized Phase 5 N9→N7 slice implemented and verified on the historical rehearsal run
+- Next step: On a separate exact instruction, submit the already accepted refinement payload through the supported N7 re-entry, then verify replacement-contract supersession and the resumed N8 frontier.
+- Blocker: The N9 recovery handoff is ready. The current request authorized only one N9 replay, not the N7 Human-authority write; all other phases also remain outside this operation. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
