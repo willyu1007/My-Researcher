@@ -116,15 +116,6 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES = [
 export type TopicSelectionResearchArenaCalibrationHardBlockerCode =
   (typeof TOPIC_SELECTION_RESEARCH_ARENA_CALIBRATION_HARD_BLOCKER_CODES)[number];
 
-/** Historical persisted request shape retained for decoding fixtures; no write schema accepts it. */
-export interface TopicSelectionResearchArenaCalibrationDatasetCreateRequestV1 {
-  schema_version: 'TopicSelectionResearchArenaCalibrationDatasetCreateRequest@v1';
-  workspace_id: string | null;
-  dataset_key: string;
-  dataset_version: string;
-  description: string | null;
-}
-
 export interface TopicSelectionResearchArenaCalibrationLoopDeltaRecipe {
   delta_type: 'evidence';
   ref: TopicSelectionFunctionalRef;
@@ -207,19 +198,6 @@ export interface TopicSelectionResearchArenaCalibrationCaseMemberInput {
   member_role: TopicSelectionResearchArenaCalibrationMemberRole;
   arena_session_id: string;
   research_checkpoint_id: string | null;
-}
-
-/** Historical persisted request shape retained for decoding fixtures; no write schema accepts it. */
-export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV1 {
-  schema_version: 'TopicSelectionResearchArenaCalibrationCaseCreateRequest@v1';
-  dataset_id: string;
-  case_key: string;
-  case_type: Extract<
-    TopicSelectionOfflineEvaluationCaseType,
-    (typeof TOPIC_SELECTION_RESEARCH_ARENA_OFFLINE_EVALUATION_CASE_TYPES)[number]
-  >;
-  members: TopicSelectionResearchArenaCalibrationCaseMemberInput[];
-  tags: string[];
 }
 
 export interface TopicSelectionResearchArenaCalibrationCaseCreateRequestV2 {
