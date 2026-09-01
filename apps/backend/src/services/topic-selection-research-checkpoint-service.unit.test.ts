@@ -409,6 +409,7 @@ test('multi-run current dispositions resolve by the current question contract in
     created_at: createdAt,
   }) as unknown as TopicSelectionValueDispositionDecisionRecord;
   const { service } = createService({
+    topicPackageRepository: { listPackagesByTitleCardId: async () => [] },
     valueAssessmentRepository: {
       listAssessmentsByTitleCardId: async () => [
         assessmentFor('superseded_run', 'question_contract_old'),
