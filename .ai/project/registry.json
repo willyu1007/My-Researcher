@@ -1230,9 +1230,9 @@
     {
       "id": "T-149",
       "slug": "literature-embedding-vector-persistence",
-      "status": "done",
-      "updated": "2026-09-01",
-      "dev_docs_path": "dev-docs/active/literature-embedding-vector-persistence",
+      "status": "archived",
+      "updated": "2026-09-03",
+      "dev_docs_path": "dev-docs/archive/literature-embedding-vector-persistence",
       "feature_id": "F-000"
     },
     {
