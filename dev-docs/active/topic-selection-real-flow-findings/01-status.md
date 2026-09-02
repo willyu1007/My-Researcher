@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 6 FIND-026 repair is authorized before N11
-- Next step: Implement narrative normalization and readiness guards, supersede the malformed N10 package through a bounded N9→N10 recovery replay, then execute N11 once.
+- Current phase: Phase 6 FIND-026 repair is implemented across both N10 entry paths; real recovery verification remains before N11
+- Next step: Restart on the shared narrative builder, replay the bounded N9→N10 recovery once more, verify every malformed package/bundle is superseded, then execute N11 once.
 - Blocker: None inside the authorized FIND-026→N11 boundary. Provider execution, strict-human v1c promotion, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
@@ -23,4 +23,4 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [x] TSRF-11: A non-advance N9 disposition such as `refine_question` exposes a supported, replay-safe recovery route to the owning upstream boundary instead of leaving the workflow stranded at a terminal decision with only an internal loopback ref.
 - [ ] TSRF-12: N8 value assessments, material risk findings, and N9 dispositions are reflected in research status and the human stage view; a terminal `refine_question` with 25 material risk findings cannot still appear as “开放风险：暂无” with promotion as the next review.
 - [x] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.
-- [ ] TSRF-14: An N10 package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; a recovery replay atomically supersedes the prior package and v1c bundle before N11 publication.
+- [ ] TSRF-14: An N10 package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; a recovery replay atomically supersedes the prior package and v1c bundle before N11 publication. Code verification passes; corrected real replay is pending.

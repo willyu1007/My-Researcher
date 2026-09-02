@@ -41,6 +41,11 @@ import {
   stableStringify,
 } from './literature-content-processing-utils.js';
 import { hashV1bToV1cBundle } from './topic-selection-v1b-harness-authority-hash.js';
+import {
+  n10Narrative,
+  n10NarrativeQualityCodes,
+  type TopicSelectionV1bN10Narrative as NarrativeDraft,
+} from './topic-selection-v1b-harness-node-misc.js';
 
 type IdFactory = (prefix: string) => string;
 
@@ -60,16 +65,6 @@ export type TopicSelectionV1bTopicPackageServiceOptions = {
   valueAssessmentRepository: TopicSelectionV1bValueAssessmentRepository;
   idFactory?: IdFactory;
   now?: () => string;
-};
-
-type NarrativeDraft = {
-  titleCandidates: string[];
-  researchBackground: string;
-  contributionSummary: string;
-  candidateMethods: string[];
-  evaluationPlan: string;
-  keyRisks: string[];
-  nonGoals: string[];
 };
 
 type TraceBoundaryEvaluation = {
@@ -795,66 +790,7 @@ export class TopicSelectionV1bTopicPackageService {
   }
 
   private buildNarrative(input: TopicSelectionV1bPackageDraftInput): NarrativeDraft {
-    const contract = input.question_contract;
-    const answerability = input.answerability_plan;
-    const assessment = input.topic_value_assessment;
-    const memo = input.value_reasoning_memo;
-    const slice = input.research_slice_snapshot;
-    const evaluationPath = this.stringFromRecord(slice, 'evaluation_path');
-    const nonGoals = this.uniqueStrings(
-      contract.prohibited_claims.length > 0
-        ? contract.prohibited_claims
-        : this.stringArrayFromRecord(slice, 'non_goals'),
-    );
-    const candidateMethods = this.uniqueStrings([
-      ...answerability.datasets_or_resources.map((item) => `Resource: ${item}`),
-      ...answerability.baselines.map((item) => `Baseline: ${item}`),
-      ...answerability.metrics.map((item) => `Metric: ${item}`),
-      ...answerability.ablations_or_comparisons.map((item) => `Comparison: ${item}`),
-      answerability.evaluation_setting ? `Evaluation setting: ${answerability.evaluation_setting}` : '',
-      evaluationPath ? `Execution path: ${evaluationPath}` : '',
-    ]);
-    const falsificationRisks = input.falsification_conditions.map((condition) =>
-      `${condition.condition_type}: ${condition.statement}`,
-    );
-    return {
-      titleCandidates: this.titleCandidatesFromSlice(slice),
-      researchBackground: this.joinSentences([
-        `Target setting: ${contract.target_setting}`,
-        `Target community: ${contract.target_community}`,
-        memo.significance,
-        memo.originality,
-      ]),
-      contributionSummary: this.joinSentences([
-        memo.value_thesis,
-        `Strongest claim: ${assessment.strongest_claim_if_success}`,
-        assessment.fallback_claim_if_success ? `Fallback claim: ${assessment.fallback_claim_if_success}` : '',
-        `Claim ceiling: ${contract.claim_ceiling}`,
-      ]),
-      candidateMethods,
-      evaluationPlan: this.joinSentences([
-        answerability.evaluation_setting,
-        answerability.datasets_or_resources.length > 0
-          ? `Datasets/resources: ${answerability.datasets_or_resources.join('; ')}`
-          : '',
-        answerability.metrics.length > 0 ? `Metrics: ${answerability.metrics.join('; ')}` : '',
-        answerability.baselines.length > 0 ? `Baselines: ${answerability.baselines.join('; ')}` : '',
-        answerability.ablations_or_comparisons.length > 0
-          ? `Ablations/comparisons: ${answerability.ablations_or_comparisons.join('; ')}`
-          : '',
-        evaluationPath ? `ResearchSlice path: ${evaluationPath}` : '',
-      ]),
-      keyRisks: this.uniqueStrings([
-        ...assessment.risk_notes,
-        ...memo.reviewer_risks,
-        ...memo.top_objections,
-        ...answerability.dependency_risks,
-        ...answerability.open_dependencies,
-        ...answerability.known_gaps,
-        ...falsificationRisks,
-      ]),
-      nonGoals,
-    };
+    return n10Narrative(input);
   }
 
   private evaluateTraceBoundary(
@@ -1130,38 +1066,8 @@ export class TopicSelectionV1bTopicPackageService {
     }
     return this.uniqueStrings([
       ...conflicts,
-      ...this.narrativeQualityCodes(input, narrative),
+      ...n10NarrativeQualityCodes(input, narrative),
     ]);
-  }
-
-  private narrativeQualityCodes(
-    input: TopicSelectionV1bPackageDraftInput,
-    narrative: NarrativeDraft,
-  ): string[] {
-    const codes: string[] = [];
-    if (narrative.titleCandidates.length === 0) {
-      codes.push('narrative:missing_title_candidates');
-    }
-    const normalizedQuestion = this.normalizeFragment(input.question_contract.main_question).toLowerCase();
-    narrative.titleCandidates.forEach((title, index) => {
-      const normalizedTitle = this.normalizeFragment(title);
-      if (normalizedTitle.length > 180) codes.push(`narrative:title_candidate_${index + 1}_too_long`);
-      if (/[?？]$/.test(title.trim()) || normalizedTitle.toLowerCase() === normalizedQuestion) {
-        codes.push(`narrative:title_candidate_${index + 1}_question_shaped`);
-      }
-      if (/^(?:method|system|empirical|benchmark|theory)\s*:/i.test(title.trim())) {
-        codes.push(`narrative:title_candidate_${index + 1}_raw_type_prefix`);
-      }
-    });
-    const proseFields = [
-      ['research_background', narrative.researchBackground],
-      ['contribution_summary', narrative.contributionSummary],
-      ['evaluation_plan', narrative.evaluationPlan],
-    ] as const;
-    for (const [field, value] of proseFields) {
-      if (/[.!?。！？]{2,}/.test(value)) codes.push(`narrative:${field}_repeated_terminal_punctuation`);
-    }
-    return codes;
   }
 
   private compileSourceRefs(input: TopicSelectionV1bPackageDraftInput): TopicSelectionFunctionalRef[] {
@@ -1423,43 +1329,6 @@ export class TopicSelectionV1bTopicPackageService {
     return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
   }
 
-  private titleCandidatesFromSlice(slice: Record<string, unknown>): string[] {
-    const statement = this.normalizeFragment(this.stringFromRecord(slice, 'slice_statement'));
-    if (!statement) return [];
-    const title = this.capitalizeFirst(
-      statement.replace(
-        /^(?:develop and evaluate|design and evaluate|evaluate|develop|design|study|investigate)\s+/i,
-        '',
-      ),
-    );
-    if (!title) return [];
-    return this.uniqueStrings([
-      title,
-      `Evaluating ${this.lowercaseFirst(title)}`,
-    ]);
-  }
-
-  private joinSentences(values: string[]): string {
-    return values.map((value) => this.sentence(value)).filter(Boolean).join(' ');
-  }
-
-  private sentence(value: string): string {
-    const normalized = this.normalizeFragment(value);
-    return normalized ? `${normalized}.` : '';
-  }
-
-  private normalizeFragment(value: string): string {
-    return value.trim().replace(/\s+/g, ' ').replace(/[.!?。！？]+$/g, '').trim();
-  }
-
-  private capitalizeFirst(value: string): string {
-    return value.length > 0 ? `${value[0]?.toUpperCase()}${value.slice(1)}` : value;
-  }
-
-  private lowercaseFirst(value: string): string {
-    return value.length > 0 ? `${value[0]?.toLowerCase()}${value.slice(1)}` : value;
-  }
-
   private optionalString(value: string | null | undefined): string {
     return typeof value === 'string' ? value : '';
   }
@@ -1467,11 +1336,6 @@ export class TopicSelectionV1bTopicPackageService {
   private stringFromRecord(record: Record<string, unknown>, key: string): string {
     const value = record[key];
     return typeof value === 'string' ? value : '';
-  }
-
-  private stringArrayFromRecord(record: Record<string, unknown>, key: string): string[] {
-    const value = record[key];
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
   }
 
   private containsOverstrongLanguage(claim: string): boolean {

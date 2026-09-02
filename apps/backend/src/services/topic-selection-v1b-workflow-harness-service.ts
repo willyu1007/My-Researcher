@@ -385,6 +385,7 @@ import {
   legacyValueVerdict,
   n10CarryForwardCodes,
   n10Narrative,
+  n10NarrativeQualityCodes,
   n10Warnings,
   n1MetadataBlocker,
   n2CodexDelegationBlocker,
@@ -7995,6 +7996,14 @@ export class TopicSelectionV1bWorkflowHarnessService {
     const packageRef = buildRef('topic_package', topicPackageId, titleCardId, packageVersion);
     const selectedEvidenceRefs = uniqueRefs(packageInput.evidence_refs.map((record) => record.evidence_ref));
     const narrative = n10Narrative(packageInput);
+    const narrativeQualityCodes = n10NarrativeQualityCodes(packageInput, narrative);
+    if (narrativeQualityCodes.length > 0) {
+      return {
+        ok: false,
+        code: 'N10_NARRATIVE_QUALITY_FAILED',
+        message: `N10 package narrative failed quality checks: ${narrativeQualityCodes.join(', ')}.`,
+      };
+    }
     const topicPackage: TopicSelectionTopicPackageRecord = {
       topic_package_id: topicPackageId,
       workspace_id: workspaceId,

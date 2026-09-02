@@ -41,7 +41,7 @@ export function earlyRuntimeAuditDrift(message: string): { ok: false; code: stri
   };
 }
 
-export function n10Narrative(input: TopicSelectionV1bPackageDraftInput): {
+export type TopicSelectionV1bN10Narrative = {
   candidateMethods: string[];
   contributionSummary: string;
   evaluationPlan: string;
@@ -49,44 +49,64 @@ export function n10Narrative(input: TopicSelectionV1bPackageDraftInput): {
   nonGoals: string[];
   researchBackground: string;
   titleCandidates: string[];
-} {
+};
+
+export function n10Narrative(
+  input: TopicSelectionV1bPackageDraftInput,
+): TopicSelectionV1bN10Narrative {
+  const slice = input.research_slice_snapshot;
+  const evaluationPath = stringFromRecord(slice, 'evaluation_path');
+  const sliceStatement = normalizeFragment(stringFromRecord(slice, 'slice_statement'));
+  const title = capitalizeFirst(
+    sliceStatement.replace(
+      /^(?:develop and evaluate|design and evaluate|evaluate|develop|design|study|investigate)\s+/i,
+      '',
+    ),
+  );
   return {
-    titleCandidates: uniqueStrings([
-      input.question_contract.main_question.replace(/\?$/u, ''),
-      `${input.question_contract.contribution_hypothesis}: ${input.question_contract.expected_claim}`,
-    ]).slice(0, 3),
-    researchBackground: [
-      `Target setting: ${input.question_contract.target_setting}.`,
-      `Target community: ${input.question_contract.target_community}.`,
+    titleCandidates: title
+      ? uniqueStrings([title, `Evaluating ${lowercaseFirst(title)}`])
+      : [],
+    researchBackground: joinSentences([
+      `Target setting: ${input.question_contract.target_setting}`,
+      `Target community: ${input.question_contract.target_community}`,
       input.value_reasoning_memo.significance,
       input.value_reasoning_memo.originality,
-    ].join(' '),
-    contributionSummary: [
+    ]),
+    contributionSummary: joinSentences([
       input.value_reasoning_memo.value_thesis,
-      `Strongest claim: ${input.topic_value_assessment.strongest_claim_if_success}.`,
+      `Strongest claim: ${input.topic_value_assessment.strongest_claim_if_success}`,
       input.topic_value_assessment.fallback_claim_if_success
-        ? `Fallback claim: ${input.topic_value_assessment.fallback_claim_if_success}.`
+        ? `Fallback claim: ${input.topic_value_assessment.fallback_claim_if_success}`
         : '',
-    ].filter(Boolean).join(' '),
+      `Claim ceiling: ${input.question_contract.claim_ceiling}`,
+    ]),
     candidateMethods: uniqueStrings([
       ...input.answerability_plan.datasets_or_resources.map((item) => `Resource: ${item}`),
       ...input.answerability_plan.metrics.map((item) => `Metric: ${item}`),
       ...input.answerability_plan.baselines.map((item) => `Baseline: ${item}`),
       ...input.answerability_plan.ablations_or_comparisons.map((item) => `Comparison: ${item}`),
-      input.answerability_plan.evaluation_setting,
+      input.answerability_plan.evaluation_setting
+        ? `Evaluation setting: ${input.answerability_plan.evaluation_setting}`
+        : '',
+      evaluationPath ? `Execution path: ${evaluationPath}` : '',
     ].filter(Boolean)),
-    evaluationPlan: [
+    evaluationPlan: joinSentences([
       input.answerability_plan.evaluation_setting,
       input.answerability_plan.datasets_or_resources.length > 0
-        ? `Datasets/resources: ${input.answerability_plan.datasets_or_resources.join('; ')}.`
+        ? `Datasets/resources: ${input.answerability_plan.datasets_or_resources.join('; ')}`
         : '',
       input.answerability_plan.metrics.length > 0
-        ? `Metrics: ${input.answerability_plan.metrics.join('; ')}.`
+        ? `Metrics: ${input.answerability_plan.metrics.join('; ')}`
         : '',
       input.answerability_plan.baselines.length > 0
-        ? `Baselines: ${input.answerability_plan.baselines.join('; ')}.`
+        ? `Baselines: ${input.answerability_plan.baselines.join('; ')}`
         : '',
-    ].filter(Boolean).join(' '),
+      input.answerability_plan.ablations_or_comparisons.length > 0
+        ? `Ablations/comparisons: ${input.answerability_plan.ablations_or_comparisons.join('; ')}`
+        : '',
+      evaluationPath ? `ResearchSlice path: ${evaluationPath}` : '',
+    ]),
     keyRisks: uniqueStrings([
       ...input.topic_value_assessment.risk_notes,
       ...input.value_reasoning_memo.reviewer_risks,
@@ -98,6 +118,67 @@ export function n10Narrative(input: TopicSelectionV1bPackageDraftInput): {
     ]),
     nonGoals: uniqueStrings(input.question_contract.prohibited_claims),
   };
+}
+
+export function n10NarrativeQualityCodes(
+  input: TopicSelectionV1bPackageDraftInput,
+  narrative: TopicSelectionV1bN10Narrative,
+): string[] {
+  const codes: string[] = [];
+  if (narrative.titleCandidates.length === 0) {
+    codes.push('narrative:missing_title_candidates');
+  }
+  const normalizedQuestion = normalizeFragment(input.question_contract.main_question).toLowerCase();
+  narrative.titleCandidates.forEach((candidate, index) => {
+    const title = candidate.trim();
+    const normalizedTitle = normalizeFragment(title);
+    if (normalizedTitle.length > 180) codes.push(`narrative:title_candidate_${index + 1}_too_long`);
+    if (
+      /[?？]$/u.test(title)
+      || normalizedTitle.toLowerCase() === normalizedQuestion
+      || /^(?:whether|can|does|do|is|are|will|should|how|what|why)\b/i.test(normalizedTitle)
+    ) {
+      codes.push(`narrative:title_candidate_${index + 1}_question_shaped`);
+    }
+    if (/^(?:method|system|empirical|benchmark|theory)\s*:/i.test(title)) {
+      codes.push(`narrative:title_candidate_${index + 1}_raw_type_prefix`);
+    }
+  });
+  const proseFields = [
+    ['research_background', narrative.researchBackground],
+    ['contribution_summary', narrative.contributionSummary],
+    ['evaluation_plan', narrative.evaluationPlan],
+  ] as const;
+  for (const [field, value] of proseFields) {
+    if (/[.!?。！？]{2,}/u.test(value)) codes.push(`narrative:${field}_repeated_terminal_punctuation`);
+  }
+  return uniqueStrings(codes);
+}
+
+function joinSentences(values: string[]): string {
+  return values.map((value) => sentence(value)).filter(Boolean).join(' ');
+}
+
+function sentence(value: string): string {
+  const normalized = normalizeFragment(value);
+  return normalized ? `${normalized}.` : '';
+}
+
+function normalizeFragment(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').replace(/[.!?。！？]+$/gu, '').trim();
+}
+
+function stringFromRecord(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function capitalizeFirst(value: string): string {
+  return value.length > 0 ? `${value[0]?.toUpperCase()}${value.slice(1)}` : value;
+}
+
+function lowercaseFirst(value: string): string {
+  return value.length > 0 ? `${value[0]?.toLowerCase()}${value.slice(1)}` : value;
 }
 
 export function n10CarryForwardCodes(pkg: TopicSelectionTopicPackageRecord): string[] {

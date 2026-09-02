@@ -7133,6 +7133,16 @@ test('v1b workflow harness N9 creates advance disposition and N10 creates draft 
   assert.equal(n10.authority_ref?.ref_type, 'topic_package');
   const pkg = await ctx.topicPackageRepository.findPackageById(n10.authority_ref!.ref_id);
   assert.equal(pkg?.package_readiness_status, 'ready_for_promotion_review');
+  assert.ok(pkg?.title_candidates.every((title) => title.length <= 180 && !/[?？]$/.test(title)));
+  assert.ok(pkg?.title_candidates.every((title) => !/^(?:method|system)\s*:/i.test(title)));
+  assert.notEqual(
+    pkg?.title_candidates[0]?.toLowerCase(),
+    decision?.package_draft_input?.question_contract.main_question.replace(/[?？]$/u, '').toLowerCase(),
+  );
+  assert.deepEqual(pkg?.non_goals, decision?.package_draft_input?.question_contract.prohibited_claims);
+  assert.doesNotMatch(pkg?.research_background ?? '', /[.!?。！？]{2,}/);
+  assert.doesNotMatch(pkg?.contribution_summary ?? '', /[.!?。！？]{2,}/);
+  assert.doesNotMatch(pkg?.evaluation_plan ?? '', /[.!?。！？]{2,}/);
   assert.equal(pkg ? hashPackageForHarness(pkg) : null, n10.hashes.authority_hash);
   const bundle = pkg ? await ctx.topicPackageRepository.findV1cInputBundleByPackageId(pkg.topic_package_id) : null;
   assert.equal(bundle?.bundle_status, 'ready_for_promotion_review');
