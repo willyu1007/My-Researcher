@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Replacement-contract loopback recorded; Phase 5 route requires replanning around a bounded N6 delta Debate
-- Next step: Design and obtain implementation authorization for the smallest replay-safe route from substantive N9 refinement through one bounded delta Debate to N7 rematerialization, then recover decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` through that route.
-- Blocker: The strict-human loopback is decided, but the product emitted no actionable handoff and the run coordinator still exposes N8. The revised route is not implemented or authorized, so N8 must not execute. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Phase 5 FIND-024 executable delta-Debate route planned and approved for implementation
+- Next step: Begin the authorized TDD slice with a failing coordinator test proving that decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` exposes a delta-Debate recovery frontier and never N8, then implement the typed support route through N7 current-contract reuse.
+- Blocker: None for the approved local implementation slice. N8 remains intentionally blocked until the new route passes focused checks and the real decision is recovered. Provider execution, a new strict-human decision, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain outside authorization. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
