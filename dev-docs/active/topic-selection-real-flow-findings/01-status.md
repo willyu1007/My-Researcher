@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Post-v1c review; the real workflow completed conditional promotion and created an active PaperProjectBridge
-- Next step: Discuss and approve the smallest repair slice for the remaining findings, including v1c Debate policy and decision-ready risk-to-condition mapping; do not implement either new finding before that decision.
-- Blocker: No technical blocker. Provider execution, Phase 4 regular-N6 routing, and FIND-027/FIND-028 implementation remain outside the completed checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Replanning the evidence-convergence architecture after the completed real-flow review
+- Next step: Confirm the external-discovery fallback and the exact convergence/invalidations contract, then approve the first full-library RetrievalRequest implementation slice.
+- Blocker: The new route is intentionally not implementation-ready until those top-level choices and the first slice are approved. Existing provider activation remains separate. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
@@ -24,5 +24,11 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-12: N8 value assessments, material risk findings, and N9 dispositions are reflected in research status and the human stage view; a terminal `refine_question` with 25 material risk findings cannot still appear as “开放风险：暂无” with promotion as the next review.
 - [x] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.
 - [x] TSRF-14: An N10 package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; a recovery replay atomically supersedes the prior package and v1c bundle before N11 publication.
-- [ ] TSRF-15: The regular v1c N2 promotion-support path has an explicit bounded-Debate policy, and the runtime route, OpenAPI, operator runbook, support provenance, and deterministic gate agree with it.
-- [ ] TSRF-16: `promote_with_conditions` support presents a decision-ready grouped mapping that covers every pass-with-risk finding and its early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
+- [ ] TSRF-15: The regular promotion-review support path has an explicit bounded-Debate policy, and the runtime route, OpenAPI, operator runbook, support provenance, and deterministic gate agree with it.
+- [ ] TSRF-16: Conditional-promotion support presents a decision-ready grouped mapping that covers every pass-with-risk finding and its early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
+- [ ] TSRF-17: Every accessible indexed literature record is eligible for topic retrieval by default; topic snapshots and ranking signals preserve reproducibility and priority without silently becoming hard corpus whitelists.
+- [ ] TSRF-18: Debate roles may issue typed `RetrievalRequest`s without a fixed count limit; equivalent requests are deduplicated or replayed from durable results, and every executed request records evidence delta and decision effect.
+- [ ] TSRF-19: EvidenceMap is an immutable result snapshot that references the SearchRuns, Debate resolutions, included evidence, exclusions, conflicts, coverage state, and unresolved obligations that produced it; new convergence creates a successor rather than mutating history.
+- [ ] TSRF-20: Every material gate failure exposes a supported loopback to the owning evidence or semantic boundary with an explicit target delta and recheck condition; a gate cannot strand the workflow with only a blocker or indefinitely carried warning.
+- [ ] TSRF-21: Literature coverage, research-gap, research-question, value, and promotion Debates can request and consume shared retriever evidence, while purely mechanical changes explicitly reuse the frozen evidence state rather than inflating retrieval counts.
+- [ ] TSRF-22: User-facing workflow surfaces and operating guidance use human-readable research-stage names instead of internal version labels, while technical diagnostics retain exact node and API identities.

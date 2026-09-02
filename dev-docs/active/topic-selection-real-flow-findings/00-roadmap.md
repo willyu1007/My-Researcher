@@ -8,13 +8,18 @@
 - Keep risk/conflict language consistent across the checkpoint packet and human stage view.
 - Align the public EvidenceMap request contract with the accepted runtime payload.
 - Diagnose why directly overlapping 2026 adaptive-budget and retrieval-utility papers were absent from the evidence landscape, and make unresolved coverage risk visible at the human checkpoint.
-- Observe whether every literature-dependent convergence loop actually invokes a retriever, separates local retrieval from provider work, and changes the evidence state rather than merely repeating reads.
+- Make the entire accessible indexed literature library the default retrieval universe for topic work; topic snapshots preserve reproducibility and priority, not a hard whitelist of eligible papers.
+- Separate the evidence process from its result: RetrievalRequests, SearchRuns, candidate evidence, and Debate drive convergence, while each EvidenceMap is an immutable result snapshot created after that convergence.
+- Observe whether every literature-dependent convergence loop actually invokes or explicitly reuses a retriever-backed result, separates retrieval from provider work, and changes the evidence state rather than merely repeating reads.
+- Let Debate roles issue structured `RetrievalRequest`s without a fixed request-count limit; coordinate, deduplicate, cache, and stop by evidence convergence rather than an arbitrary numeric cap.
 - Make bounded N6 Debate a regular part of topic-question candidate convergence rather than a failure-only recovery path.
 - Decide whether v1c promotion support should use its implemented bounded Debate on the regular N2 path, then align the runtime route, public contract, operator runbook, and provenance with that policy.
 - Make `promote_with_conditions` decision support propose a complete, typed risk-to-condition mapping for human review without weakening the strict unmapped-risk gate.
 - Route substantive post-N9 question refinements through one bounded N6 delta Debate before N7 rematerialization while allowing mechanical-only edits to remain direct.
 - Make non-advance N9 dispositions recoverable through one explicit upstream route, and keep post-N8/N9 human/status projections aligned with the current value authority.
 - Ensure evidence-landscape eligibility consumes required coverage outcomes, so a retriever-backed `missing` row cannot silently look satisfied merely because adjacent EvidenceUnits exist.
+- Compose gates, Debate, and loopback as one resolution system: every material failure names its owning upstream route, required evidence or semantic delta, and recheck condition.
+- Use human-readable research-stage names in user-facing copy and operating guidance; keep versioned node and API identifiers as internal technical references only.
 - Add focused verification for the successful controls and failure/recovery paths observed in the run.
 - Record and disposition adjacent operational or experiment-asset limitations without silently expanding this task.
 
@@ -22,7 +27,7 @@
 - Advancing, rejecting, or otherwise deciding the active research topic on the user's behalf.
 - Building the per-query marginal-utility experiment or extending the SciFact workload.
 - Designing a repository-wide backup system unless discovery proves that topic-selection durability owns that requirement.
-- Broad redesign of the topic-selection UI, workflow DAG, or research methodology.
+- Wholesale renumbering or replacement of existing internal workflow nodes when the agreed behavior can be composed over their current authority boundaries.
 
 ### Constraints and dependencies
 - Canonical product APIs remain the authority; verification must not use direct database writes or reads.
@@ -39,8 +44,14 @@
 | Should N6 Debate remain conditional on candidate failure? | Failure-only escalation is cheaper, but lets a consequential single-agent recommendation reach N7 without routine adversarial review; a bounded regular Debate adds convergence cost but tests framing, overlap, and value axes before contract materialization. | Make Debate a regular N6 component; keep deterministic gate admission and reserve deeper escalation for exceptional cases. | confirmed | User | User direction after reviewing the N6/N7 path | FIND-018 enters the product-fix route and the implementation must preserve bounded cost and replayability. |
 | What exact refinement contract should resolve N9 `refine_question`? | Primary metrics, safety/quality thresholds, coverage, and benchmark-validity checks must be fixed by the researcher rather than inferred by the operator. | Brier Score primary with ECE/NLL secondary; harmful-routing rate at fixed coverage primary with AURC secondary; task-quality degradation capped at 1 percentage point; coverage at least 90% of the frozen router; two real replacement environments with paired same-query evaluation, disjoint calibration/test splits, matched-budget strong baselines, and a no-shift control. | confirmed | User | Exact acceptance of the complete refinement proposal | The Human-authority content is settled. It must be materialized only through the supported Phase 5 N9 recovery route; the task record is not a substitute for TopicQuestionContract authority. |
 | Should a materially refined question bypass the regular N6 Debate because its original candidate already passed N6? | Direct N9→N7 is cheaper, but lets changed claims, metrics, thresholds, baselines, and evaluation design avoid adversarial convergence; a full N6 restart would unnecessarily reopen candidate and slice selection. | Classify the refinement delta fail-closed. Every content-bearing field in the current refinement schema is substantive and receives exactly one bounded delta Debate; only canonicalization-neutral/no-op edits bypass Debate and do not mint a replacement contract. Freeze the selected candidate, slice, evidence ceiling, and Human authority. | implemented | User | Focused green checks plus real replay of decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` | FIND-024 is closed for the approved Phase 5 slice: the substantive replay ran exactly one three-role delta Debate, reused the exact current N7 contract, opened a fresh checkpoint, and never executed N8. |
-| Should v1c N2 bounded Debate be part of the regular promotion-support path? | The default deterministic path is cheaper, but it bypasses the already implemented four-role review; always-on Debate raises cost even for clean packages, while a material-risk trigger makes the behavior conditional but explicit. | Discuss whether to require one bounded pass whenever the input carries material risk findings, while allowing a documented deterministic fast path only for risk-free inputs. The gate remains the sole decision authority. | proposed | User | Explicit policy choice followed by route/OpenAPI/runbook alignment | Closes FIND-027 without creating a second promotion gate or assuming that v1c must copy N6's policy verbatim. |
-| How should conditional promotion cover pass-with-risk findings? | Manual raw-ref enumeration is exact but operator-heavy; weakening the gate is simpler but unsafe; typed condition candidates can preserve exact coverage while leaving wording and acceptance to the researcher. | Have N2/N3 propose grouped condition candidates with complete risk-finding refs and early-check obligations; the human may edit or reject them, and N4 still fails closed if any finding is unmapped. | proposed | User | Approval of the decision-support contract | Closes FIND-028 while preserving explicit Human authority and the successful zero-partial-write guard. |
+| Should bounded Debate be part of the regular promotion-review support path? | The default deterministic path is cheaper, but it bypasses the already implemented four-role review; always-on Debate raises cost even for clean packages, while a material-risk trigger makes the behavior conditional but explicit. | Discuss whether to require one bounded pass whenever the input carries material risk findings, while allowing a documented deterministic fast path only for risk-free inputs. The gate remains the sole decision authority. | proposed | User | Explicit policy choice followed by route/OpenAPI/runbook alignment | Closes FIND-027 without creating a second promotion gate or assuming that promotion review must copy the research-question trigger policy verbatim. |
+| How should conditional promotion cover pass-with-risk findings? | Manual raw-ref enumeration is exact but operator-heavy; weakening the gate is simpler but unsafe; typed condition candidates can preserve exact coverage while leaving wording and acceptance to the researcher. | Have promotion support and argument-readiness checks propose grouped condition candidates with complete risk-finding refs and early-check obligations; the human may edit or reject them, and the final promotion decision still fails closed if any finding is unmapped. | proposed | User | Approval of the decision-support contract | Closes FIND-028 while preserving explicit Human authority and the successful zero-partial-write guard. |
+| What is the default literature universe for topic convergence? | A frozen topic whitelist is reproducible but suppresses recall; copying the full library into every topic duplicates state; a full-library retrieval view preserves recall while SearchRuns freeze what was actually consulted. | Search the entire accessible indexed library by default. Topic, recency, and collection signals may boost ranking but do not exclude otherwise eligible literature unless the researcher explicitly narrows scope. | confirmed | User | Explicit statement that the whole library is process fuel and should support RAG comprehensively | FIND-029 enters the current route; resource snapshots become reproducibility/provenance inputs rather than hard retrieval boundaries. |
+| Is EvidenceMap process state or result authority? | Mutating one map as retrieval proceeds is convenient but destroys checkpoint meaning; freezing every transient candidate creates noise. | EvidenceMap is an immutable convergence result used for recording and replay. RetrievalRequest, SearchRun, candidate evidence, and Debate artifacts own the implementation process; new evidence produces a successor map. | confirmed | User | Explicit EvidenceMap/result and literature-library/process distinction | The map stays result-focused and auditable without constraining the searchable corpus. |
+| How many retrieval requests may a Debate issue? | A fixed cap is predictable but can terminate before evidence converges; unlimited uncoordinated calls can repeat work. | No fixed request-count limit. All roles may request retrieval; a shared coordinator deduplicates and reuses equivalent work, and the loop stops on semantic convergence, no material evidence delta, an explicit Human decision, or an external execution boundary. | confirmed | User | Explicit rejection of a request-count limit | FIND-030 must be implemented with convergence controls rather than a mechanical quota. |
+| How do gates, Debate, and loopback relate? | Independent gates detect failure but cannot repair it; standalone Debate produces commentary without authority routing; unconstrained loopback can repeat forever. | Treat them as one system: the gate identifies an unresolved condition, Debate diagnoses and requests evidence or semantic repair, loopback routes to the owning stage, and the same gate rechecks the declared delta. | confirmed | User | Explicit agreement that the three mechanisms must be composed | FIND-031 becomes the central orchestration correction; no material blocker may be emitted without a supported resolution route. |
+| What terminology should users see? | Internal version/node names are precise for code but opaque to researchers. | Use literature and evidence convergence, research-gap selection, research-question convergence, research-value assessment, and promotion review in user-facing surfaces; retain version labels only in internal contracts and diagnostics. | confirmed | User | Explicit request not to expose v1a/v1b-style language | FIND-032 enters the presentation and operator-contract route. |
+| What happens when the managed library cannot resolve a required evidence gap? | Stopping at the local library is predictable but may miss decisive work; automatic external discovery improves recall but adds acquisition, provenance, and cost policy. | Default to full managed-library retrieval first; settle the automatic external-discovery fallback before implementation. | proposed | User | Explicit fallback policy | Kickoff remains pending because this choice changes the retrieval coordinator's boundary. |
 
 ### Assumptions
 
@@ -58,112 +69,92 @@
 
 ## Implementation plan
 
-### Phase 1 — Reproduce and classify the rehearsal findings
-- Outcome: Each recorded finding has decisive reproduction evidence, severity, an owning boundary, and a disposition.
-- Approach: Replay only read projections and bounded replaceable topic-selection fixtures; compare human views, packets, API schemas, and runtime behavior.
-- Planned changes:
-  1. Reproduce FIND-001 through FIND-004 and FIND-008 through FIND-013, diagnose FIND-007, and confirm which are product defects.
-  2. Validate PASS-001 through PASS-007 so fixes preserve controls that already worked.
-  3. Classify FIND-005 and FIND-006 as in-scope defects, dependencies, or follow-up candidates.
-- Affected boundaries / entry points: Evidence-landscape stage view, research checkpoint packet/status, EvidenceMap request contract, real-flow verification harness.
-- Dependencies: Local backend, replaceable test data, canonical API documentation.
-- Exit criteria: Every finding has an evidence-backed disposition; no implementation route depends on an unverified premise.
-- Verification: API projection comparison, contract inspection, and focused reproduction records in `verification.md`.
-- Recovery: Read-only discovery is reversible; remove only task-owned replaceable fixtures if later authorized and clearly identified.
+### Completed rehearsal foundation
+- The real run produced a traceable reject-and-replace lineage, exercised strict Human authority, closed the missing question-refinement recovery route, repaired the refinement audit-hash and package-narrative defects, published the corrected package, and created an active conditional-promotion bridge.
+- Those completed repairs remain current and verified. The next route changes how evidence is gathered and challenged before later gates; it does not rewrite historical decisions or EvidenceMaps.
 
-### Phase 2 — Repair decision presentation and risk semantics
-- Outcome: A human can understand the evidence landscape, active research question, and their material risks directly from stage views without consulting raw IDs.
-- Approach: Keep the checkpoint packet canonical and improve its deterministic human projection; avoid introducing a parallel summary authority.
+### Phase 1 — Make the full literature library the retrieval substrate
+- Outcome: Topic convergence searches every accessible indexed paper by default, while explicit researcher scopes remain enforceable and every consulted result is replayable.
+- Approach: Replace implicit topic-snapshot whitelisting with a full-library retrieval view. Preserve corpus/index identity and actual hits in SearchRuns rather than copying the entire library into each topic.
 - Planned changes:
-  1. Present substantive evidence and decision implications in the human view.
-  2. Make conflict and risk language follow settled checkpoint semantics.
-  3. Make required `missing` coverage outcomes visible and prevent them from becoming implicitly eligible without an explicit accepted-risk or obligation path.
-  4. Present the actual main question and its answerability warnings, gaps, dependencies, and falsifiers at the question checkpoint.
-  5. Project current N8 value readiness, N9 disposition, and material risk findings instead of leaving checkpoint-era status and “no open risks” text current.
-  6. Add focused projection and gate tests for eligible, conflicted, required-missing, answerable-with-risk, and terminal-refinement states.
-- Affected boundaries / entry points: Human evidence-landscape projection and its UI/API consumers.
-- Dependencies: Phase 1 semantic decisions.
-- Exit criteria: TSRF-01, TSRF-02, TSRF-09, and TSRF-12 pass without weakening strict-human gating.
-- Verification: Deterministic projection tests plus a real-flow human review.
-- Recovery: Revert the projection change while retaining canonical packet records.
+  1. Locate every resource-pool and topic-scope guard that currently excludes otherwise eligible library records.
+  2. Make topic, collection, recency, and prior-selection signals ranking inputs unless an explicit Human scope makes them filters.
+  3. Define the typed RetrievalRequest lifecycle and bind each request to its originating claim, Debate issue, evidence snapshot, search intent, freshness/source requirements, and expected decision effect.
+  4. Persist request equivalence, merge/reuse decisions, SearchRun execution telemetry, evidence delta, and decision effect before interpretation.
+  5. Apply no fixed request-count limit; equivalent requests reuse durable results and termination follows semantic convergence or an explicit external boundary.
+- Affected boundaries / entry points: literature retrieval service, resource-pool snapshot semantics, SearchPlan/SearchRun owners, retrieval telemetry.
+- Dependencies: T-149's durable vector persistence remains a retrieval-readiness dependency; automatic external discovery remains a pending decision.
+- Exit criteria: TSRF-17 and the retrieval-lifecycle portion of TSRF-18 pass.
+- Verification: A paper outside the historical 14-paper topic snapshot is retrievable from the managed library; explicit scopes still constrain correctly; duplicate requests reuse one durable execution; every actual request has recoverable delta/provenance.
+- Recovery: Restore the old topic-scoped selection adapter while retaining new request and SearchRun records; never mutate historical EvidenceMaps.
 
-### Phase 3 — Align the EvidenceMap API contract
-- Outcome: An API client can construct the accepted runtime payload from the public contract alone.
-- Approach: Reconcile the authoritative OpenAPI request schema with the existing validated route and service contract.
+### Phase 2 — Make Debate retrieval-native
+- Outcome: Every semantic Debate can gather evidence until its material issues are resolved, explicitly left unresolved, or routed to Human authority.
+- Approach: Let all roles raise RetrievalRequests and use one shared coordinator to normalize, merge, execute, and redistribute results before final role judgments.
 - Planned changes:
-  1. Document supported evidence-unit provenance and review fields.
-  2. Document structural links, clusters, patterns, conflict sets, digest payload, and enums.
-  3. Add a drift check that fails when the documented and runtime request contracts diverge materially.
-- Affected boundaries / entry points: `POST /topic-selection/v1a/evidence-maps` and API contract checks.
-- Dependencies: Phase 1 confirms the intended public surface.
-- Exit criteria: TSRF-03 passes and focused request examples validate against both schemas.
-- Verification: OpenAPI validation, route-schema tests, and a paragraph-locator request.
-- Recovery: Revert documentation/schema changes without changing persisted evidence records.
+  1. Add request-capable role output to literature-coverage, research-gap, research-question, research-value, and promotion-review Debate scenarios.
+  2. Resume the same Debate after each evidence delta, preserving role/issue identity and making every final claim cite the evidence it consumed.
+  3. Require each material issue to finish as supported, refuted, retrieval-required, semantic-revision-required, unresolved-for-Human-authority, or a stage-bounded obligation.
+  4. Treat mechanical-only changes as explicit frozen-evidence reuse; do not inflate retrieval counts.
+  5. Invalidate affected downstream support when new evidence changes novelty, coverage, claim ceiling, feasibility, or a decision premise.
+- Affected boundaries / entry points: shared Debate core, scenario role contracts, retrieval coordinator, Debate provenance and replay.
+- Dependencies: Phase 1 request lifecycle and durable SearchRuns.
+- Exit criteria: TSRF-10, TSRF-18, TSRF-21, and the Debate portion of TSRF-15 pass.
+- Verification: Focused role-request, merge/reuse, multi-round evidence-delta, no-new-evidence, Human-escalation, mechanical-reuse, and downstream-invalidation tests.
+- Recovery: Disable request execution while retaining Debate transcripts and request artifacts; the deterministic gates remain the only admission authorities.
 
-### Phase 4 — Make N6 Debate a regular convergence component
-- Outcome: Every normal N6 candidate-generation path receives bounded Explorer/Critic/Arbiter review before a recommendation can be materialized by N7.
-- Approach: Reuse the implemented divergent-loop runtime and existing N6 gate; choose the smallest bounded default that preserves deterministic admission, replay identity, and a distinct deeper-escalation path.
+### Phase 3 — Publish EvidenceMaps only from a resolvable convergence loop
+- Outcome: EvidenceMap is an immutable result of literature and Debate convergence, and every failed gate has an executable route that can change the state it checks.
+- Approach: Compose gate issue, Debate diagnosis, loopback target, required delta, and gate recheck as one typed resolution chain.
 - Planned changes:
-  1. Route initial N6 candidate generation through a bounded regular Debate rather than waiting for failure-only `n6_debate_escalation`.
-  2. Preserve the existing single N6 authority gate and make role outputs support-only until the arbiter draft passes it.
-  3. Keep cost, role arity, trigger/escalation semantics, and non-provider/provider provenance visible and testable.
-- Affected boundaries / entry points: N6 coordinator, divergent-debate runtime, Codex-assisted invocation path, N6 trace and handoff.
-- Dependencies: Phase 1 confirms current happy-path behavior and the smallest safe default Debate profile.
-- Exit criteria: TSRF-10 passes without duplicating the N6 gate or weakening N7 and strict-human checkpoints.
-- Verification: Initial-path Debate integration tests plus the real-flow N6-to-N7 trace.
-- Recovery: Restore conditional routing while retaining the existing divergent-loop runtime and recorded evidence.
+  1. Publish an EvidenceMap only from resolved SearchRuns and Debate issues, recording included/excluded evidence, conflicts, coverage, claim ceiling, and unresolved obligations.
+  2. Create a successor EvidenceMap after material evidence change; keep prior maps and checkpoint decisions immutable.
+  3. Make evidence gates consume required coverage outcomes and current Debate resolutions rather than inferring sufficiency from adjacent EvidenceUnits.
+  4. Replace unowned blockers and indefinitely carried warnings with stage-bounded obligations or typed resolution routes to retrieval, EvidenceMap reconstruction, research-gap selection, research-question convergence, value assessment, or promotion review.
+  5. Reject a loopback replay that supplies no declared evidence or semantic delta, while reusing an identical completed result.
+- Affected boundaries / entry points: EvidenceMap builder/admission, checkpoint packet, gate outputs, coordinator frontier, loopback handoffs.
+- Dependencies: Phases 1 and 2.
+- Exit criteria: TSRF-06, TSRF-08, TSRF-19, and TSRF-20 pass without creating a second decision authority.
+- Verification: Required-missing, conflict, near-duplicate, no-delta replay, successor-map, stale-downstream, accepted-risk, and research-obligation scenarios.
+- Recovery: Preserve the last admitted map and halt at its Human checkpoint; never treat an incomplete working evidence state as a replacement result.
 
-### Phase 5 — Make non-advance N9 dispositions recoverable and convergence-complete
-- Outcome: `refine_question`, `refine_slice`, and evidence-recheck decisions stop packaging while exposing one supported route to the owning upstream boundary; a substantive question refinement completes one bounded delta Debate before N7 rematerialization.
-- Approach: Treat the deterministic N9 decision and an exact strict-human question-checkpoint loopback as route authorities. Insert a support-only delta-review frontier before N7 without re-running the candidate-set authority gate, reopening N5/N6 selection, or allowing a model to edit Human content.
+### Phase 4 — Close decision presentation and contract drift
+- Outcome: Researchers see substantive evidence, risks, current obligations, and available recovery choices in ordinary research language, while public contracts describe the implemented paths.
+- Approach: Project only canonical packet/map/decision authorities and expose internal version identities as diagnostics rather than primary workflow names.
 - Planned changes:
-  1. Keep the existing `N9ToN7RefinementHandoff@v1` readable and authoritative; add an additive reviewed-refinement input mode and a typed `N6RefinementDeltaDebateAdmission@v1` support contract instead of rewriting persisted N9 decisions.
-  2. Classify against the previous contract with a fixed field map. All currently accepted update fields (`main_question`, claims, evaluation setting, metrics, baselines/comparisons, dependencies, gaps, and risks) are substantive. Only changes erased by canonical normalization are mechanical/no-op; they reuse the current authority and never rely on punctuation or model judgment to bypass review.
-  3. Add one bounded delta scenario over the shared Debate core: one Explorer, one Critic, and one Arbiter. Roles may inspect or challenge the frozen delta, but the arbiter can only `admit_unchanged` or `block_with_findings`; it cannot rewrite the Human payload or create candidate/contract authority.
-  4. Bind admission to the workflow run, source N9 or checkpoint decision, previous and proposed contract hashes, refinement id and payload hash, selected candidate, ResearchSlice, evidence ceiling, role transcript, and policy version. Cache/reuse the exact admission by route-source plus delta hash; a blocked unchanged delta cannot spend another Debate pass and requires a new Human refinement hash.
-  5. Require the admitted support on substantive N7 re-entry. N7 validates all bindings and materializes the exact Human payload. For the already-materialized rehearsal contract, N7 uses an idempotent reviewed-existing mode: verify that the active contract is exactly the persisted refinement result, reuse it rather than minting a duplicate contract, then reopen the strict-human checkpoint.
-  6. Make the question checkpoint a coordinator barrier. `pending`/`hold`/`reject` suppress N8; `advance` releases N8; `loopback` on the exact active contract exposes the delta-Debate recovery frontier. Recover the rehearsal's original Human payload from the persisted N7 trace rather than asking the researcher to resubmit it.
-  7. Reuse the existing topic-selection provider calls, model options, and role-family policies. Add only delta-specific prompt/output contracts needed for the different semantic task; keep `provider_llm` dormant and use Codex-assisted or mocked role outputs until the separate provider release gate is approved.
-  8. Preserve terminal behavior for `park` and `drop`, preserve N10 only for `advance_to_package`, and leave `refine_slice`/evidence-recheck owner routes outside this approved slice.
-  9. Implement test-first at stable seams: coordinator checkpoint barrier and current-decision recovery; delta classification; role admission and forbidden-authority checks; exact-once/replay behavior; N7 binding/current-contract reuse; stale/wrong-target rejection; unchanged terminal/advance dispositions; and no N8 leakage.
-- Affected boundaries / entry points: N9 disposition gate, route policy, run coordinator, N7/N5/evidence-search re-entry contracts.
-- Dependencies: Phase 1 classifies the intended owner for each non-advance disposition.
-- Exit criteria: TSRF-11 and TSRF-13 pass without weakening deterministic N9, reopening candidate selection, or creating a second authority gate.
-- Verification: Real `refine_question` round-trip plus focused coordinator/harness integration tests for substantive delta Debate, mechanical bypass, and strict-human loopback recovery.
-- Recovery: Restore terminal stop behavior while preserving recorded N9 decisions; never delete disposition authority.
-- Approved implementation checkpoint (2026-09-02): The earlier N9 `refine_question`→N7 slice remains backward-compatible input lineage, but direct materialization is no longer the complete substantive route. The user approved the executable delta-Debate design above and authorized its narrow implementation plus focused verification. The first red seam is the current failure: exact loopback decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` must project a delta-Debate frontier and must not expose N8. No provider activation, new Human decision, Phase 4 regular-N6 routing, other Phase 5 owner route, or N8 execution is included in this authorization.
-- Implemented checkpoint (2026-09-02): The coordinator now enforces the exact-contract checkpoint barrier, recovers and fail-closed classifies the persisted refinement, runs one support-only Explorer/Critic/Arbiter delta Debate for substantive changes, and validates its hash-bound admission before N7 exact current-contract reuse. The real loopback replay opened fresh pending checkpoint `research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee` without adding an N8 attempt; retriever/provider counts were 0/0 because the bounded disagreement concerned the frozen experiment contract rather than missing literature.
-- N8 recovery checkpoint (2026-09-02): After the researcher advanced the fresh checkpoint, the first refined-contract N8 attempt exposed FIND-025: its N7 projection carried legal refinement audit hashes, but the N8 runtime enforced an initial-path-only exact key set. The authorized correction keeps the core source hashes and refs mandatory and byte-matched, validates every additional value as a hash, and allows additive audit keys. A focused red/green runtime test plus the exact real-run retry admitted assessment `topic_value_assessment_257ba79c-a281-4c22-b327-96c6bedb98ed` and exposed N9 without retriever or provider work.
-- N9 disposition checkpoint (2026-09-02): One deterministic `max_steps=1` advance consumed the current 73-point N8 assessment, admitted decision `value_disposition_decision_22e9b282-5609-42a8-bf93-c6be2360cb69` as `advance_to_package` with the value-gate risks carried forward, and emitted handoff `artifact_ref_7f7c19f9-5d11-495d-bb65-1dca1c0fbd1d`. The run stopped at N10 with zero topic packages and zero retriever/provider calls.
-- N10 packaging checkpoint (2026-09-02): One deterministic `max_steps=1` advance created TopicPackage `topic_package_ab6a7f4f-18b1-4aa0-9cb6-addba7c0c5c1` at readiness `ready_for_promotion_review`, preserved 25 material risk findings and 20 key risks with zero blockers, and emitted handoff `artifact_ref_aef8236e-80eb-42b2-b733-47934e8dc553`. The transaction prepared v1c bundle `v1b_to_v1c_input_bundle_9d685a2e-76ea-4263-ad6b-a0ba7a0931ce`, but N11 publication remains unexecuted; retriever/provider counts were 0/0.
-- N10 content-review checkpoint (2026-09-02): The package passes trace/readiness checks but is not yet decision-ready prose. Its two title candidates are a full research question and a `method:`-prefixed full claim, five non-goals are repeated as ten semantically duplicate strings, and deterministic sentence assembly produces `..`. FIND-026 records the missing narrative-quality boundary; do not publish N11 until the researcher dispositions that finding.
-- FIND-026 implementation decision (2026-09-02): The researcher authorized repair before N11. N10 title candidates derive from the ResearchSlice statement rather than question/claim prose, the current TopicQuestionContract is the non-goal display authority, sentence assembly normalizes terminal punctuation, and the readiness boundary rejects malformed narrative. Recovery uses fresh N9 and N10 attempts for the same assessment and atomically marks the prior package, research record, and v1c bundle superseded before one deterministic N11 publication.
-- FIND-026 closeout and N11 checkpoint (2026-09-02): Real recovery exposed and closed both hidden duplication sources—the harness-local builder and semantically duplicated prohibited-claim phrasings. Final package `topic_package_2fa1c548-1d86-4145-a137-580bfa9d8c9f` has two bounded titles, five canonical non-goals, normalized prose, 25 carried material-risk refs, 20 key risks, and zero blockers. Its three malformed predecessors are superseded. N11 attempt `node_attempt_workflow_run_t148_v1b_ff2e4c3a_retry1_publish_v1c_input_bundle_v1_1` published bundle `v1b_to_v1c_input_bundle_00456606-7864-4246-ab49-c8de1d83307e` and stopped v1b complete; v1c Human promotion remains a separate authority boundary.
+  1. Repair evidence and research-question views, current research status, resolved-warning reconciliation, and rejected-topic disposition.
+  2. Use literature and evidence convergence, research-gap selection, research-question convergence, research-value assessment, and promotion review in user-facing surfaces and operating guidance.
+  3. Align EvidenceMap, coordinator, Debate, RetrievalRequest, and promotion routes with OpenAPI and runtime schemas; normalize equivalent functional refs and node-specific invocation fields.
+  4. Make normal question-candidate and promotion-review Debate behavior use the shared retrieval-native policy.
+  5. Produce typed risk-to-condition candidates for conditional promotion while preserving strict Human confirmation and the unmapped-risk gate.
+- Affected boundaries / entry points: human stage views, research status, OpenAPI, operator runbook, normal Debate routes, conditional-promotion support.
+- Dependencies: Settled authority and resolution contracts from Phase 3.
+- Exit criteria: TSRF-01 through TSRF-03, TSRF-09, TSRF-12, TSRF-15, TSRF-16, and TSRF-22 pass; remaining FIND-010, FIND-011, FIND-014 through FIND-017, FIND-022, FIND-023, FIND-027, FIND-028, and FIND-032 have verified dispositions.
+- Verification: Projection truth tables, runtime/OpenAPI drift checks, human-language snapshots, exact-ref composition, normal Debate provenance, and complete condition-mapping tests.
+- Recovery: Revert projection/contract adapters without changing persisted scientific or Human authority.
 
-### Phase 6 — Re-run the real workflow and disposition adjacent gaps
-- Outcome: The fixed module completes the same reject-and-replace path with decision-ready output, while adjacent gaps have explicit owners.
-- Approach: Repeat the bounded real flow through the evidence-landscape checkpoint and review all acceptance references.
+### Phase 5 — Re-run topic selection as an evidence-resolving system
+- Outcome: A fresh topic either reaches conditional promotion through traceable evidence convergence or stops at a meaningful unresolved decision; it cannot advance merely because payloads are structurally complete.
+- Approach: Run a new bounded real flow that deliberately exercises full-library recall, Debate-issued retrieval, an evidence-changing loopback, an immutable successor EvidenceMap, a downstream invalidation, and a later-stage recovery.
 - Planned changes:
-  1. Verify rejection, replacement, lineage isolation, locators, strict-human blocking, and decision recovery.
-  2. Review the human stage view against the packet, N8 assessment, N9 disposition, and evidence source statements.
-  3. Evaluate retriever use by query intent, retrieval/provider call count, evidence delta, and decision effect at each literature-dependent step.
-  4. Verify that `refine_question` has an executable, replay-safe route back to its owning contract boundary before any package path resumes.
-  5. Propose separate tracked work for any still-material backup or workload capability gap.
-  6. Repair FIND-026 at the N10 narrative/readiness boundary, replay only the required N9→N10 recovery path, verify stale package/bundle supersession, and publish the corrected bundle through N11 once.
-- Affected boundaries / entry points: End-to-end topic-selection path through the evidence-landscape checkpoint.
-- Dependencies: Phases 2 through 5; exact human decisions remain user-owned.
-- Exit criteria: TSRF-04 through TSRF-06, TSRF-12, and TSRF-14 pass; no material in-scope finding remains open.
-- Verification: Rehearsal evidence packet and clean focused checks.
-- Recovery: Preserve immutable decision lineage and use only new replaceable rehearsal records.
-
+  1. Verify that relevant literature outside the initial topic context can enter the working evidence set.
+  2. Observe any number of justified RetrievalRequests while confirming deduplication, durable SearchRuns, evidence deltas, and convergence reasons.
+  3. Require a Debate-discovered gap to route through retrieval or semantic repair and pass the same gate only after the declared delta.
+  4. Review every Human checkpoint in ordinary research language with current evidence, conflicts, obligations, and exact choices.
+  5. Reconcile retriever/provider accounting and disposition any remaining adjacent operational or experiment-asset gaps.
+- Affected boundaries / entry points: End-to-end topic selection from literature convergence through promotion review.
+- Dependencies: Phases 1 through 4 and exact Human decisions during rehearsal.
+- Exit criteria: All current TSRF acceptance references pass, no material in-scope finding remains unresolved, and no temporary dual route survives.
+- Verification: Focused checks plus one recoverable real-flow evidence bundle.
+- Recovery: Preserve every immutable map and Human decision; stop at the last trustworthy gate and use only supported successor/loopback routes.
 ## Kickoff gate
 
-- Status: ready
-- Authorized boundary: Phase 5 FIND-024, the directly encountered FIND-025 N8 refinement-projection correction, one refined-contract N8 re-assessment, its deterministic N9 disposition and N10 draft packaging, FIND-026 repair, bounded same-assessment N9→N10 recovery, one deterministic N11 publication, and the researcher's exact v1c `promote_with_conditions` decision plus bridge creation. Provider execution, Phase 4 regular-N6 routing, and implementation of the newly recorded FIND-027/FIND-028 remain unauthorized.
-- [x] Decisions: The deterministic N9 disposition remains route authority; substantive refinements require one bounded delta Debate, mechanical-only edits may bypass it, and candidate/slice selection stays frozen.
-- [x] Design: Use a fail-closed typed field classifier, a distinct support-only one-pass delta scenario on the shared Debate core, an admitted-support N7 precondition, exact persisted-trace recovery, and a coordinator checkpoint barrier.
-- [x] Route: The user explicitly approved the executable loopback route, then authorized and continued through FIND-025, N8 re-assessment, N9/N10, the directly encountered FIND-026 repair, bounded N9→N10 recovery, one N11 publication, and the exact v1c `promote_with_conditions` Human decision and PaperProjectBridge.
-- [x] Verification: Focused red/green seams cover substantive delta classification, authority immutability, exact replay, current-contract reuse, additive N8 audit hashes, N10 narrative quality, and stale-bundle supersession. The real route produced one delta Debate, one N7 reuse, exact checkpoint advance, a current 73-point N8 assessment, a risk-carrying N9 decision, the corrected N10 package, exactly one N11 publication, a human-attributed conditional promotion covering all 25 material risk findings, and one active PaperProjectBridge.
+- Status: pending
+- Authorized boundary: none
+- [ ] Decisions: The whole accessible indexed library is confirmed as retrieval fuel, EvidenceMap is confirmed as an immutable result, Debate may raise unlimited structured retrieval requests, and gates/Debate/loopback form one resolution system; still settle automatic external discovery when managed-library retrieval cannot close a required gap and define the exact semantic convergence/no-material-delta boundary.
+- [ ] Design: Confirm current runtime owners for corpus scope, request equivalence, Debate resumption, successor EvidenceMap publication, downstream invalidation, and resolution-route admission.
+- [ ] Route: Review and approve the cumulative Phase 1–5 implementation route and first stopping boundary; planning synchronization does not authorize code changes.
+- [ ] Verification: Freeze focused fixtures for outside-snapshot recall, unlimited-request deduplication, evidence-changing Debate, no-delta termination, typed loopback repair, successor-map immutability, and human-readable projections.
 
 ## Risks and recovery
 
@@ -176,9 +167,13 @@
 | Delta Debate mutates or reselects Human-owned content. | Arbiter output contains revised refinement fields, candidate refs, contract refs, or authority ids. | Use a delta-specific output schema with `admit_unchanged` / `block_with_findings` only and recursively reject authority-bearing keys. | Reject admission; preserve the current contract and wait for a new Human refinement hash. |
 | Retry spends multiple Debate passes for the same delta. | More than one admitted/blocked transcript exists for the same route-source and delta hash. | Stable route identity plus persisted exact-replay marker; an unchanged blocked delta is terminal until Human content changes. | Reuse the first result and suppress subsequent role execution. |
 | Checkpoint state leaks N8 during recovery. | Run state or advance reports N8 while the current exact-contract checkpoint is pending, held, rejected, or looped back. | Apply a checkpoint barrier before frontier selection and bind decisions to the latest N7 contract ref. | Halt before N8; retain immutable decision and trace lineage while repairing the projection. |
+| Full-library retrieval increases noise and weak semantic neighbors. | Recall grows while reranked evidence quality or claim coverage falls. | Keep the corpus broad, but use intent-aware ranking, source readiness, evidence thresholds, clustering, and Debate review before map publication. | Revert ranking changes without restoring a hard topic whitelist; retain SearchRuns for comparison. |
+| Unlimited RetrievalRequests repeat work or fail to converge. | Equivalent requests recur, result sets saturate, or repeated SearchRuns produce no material evidence delta. | Canonicalize and merge requests, reuse corpus/index-bound results, expose the delta, and require a changed strategy, narrowed claim, Human disposition, or external route after saturation. | Halt the Debate with an explicit unresolved issue; never convert exhaustion into a pass. |
+| EvidenceMap is published from transient process state. | A map omits unresolved Debate issues or changes after a checkpoint binds it. | Admit maps only from a closed convergence projection and create immutable successors after material change. | Keep the last trustworthy map current and return to the retrieval/Debate loop. |
+| Loopbacks create motion without resolution. | The same gate is re-entered without the declared evidence or semantic delta. | Bind every loopback to issue, owner, target delta, and recheck condition; reject no-delta replay or reuse the prior result. | Stop at the owning gate and ask for a new strategy or Human decision. |
 
 ## Phase closeout
 
-- Review: User reviews finding dispositions, project placement, and any proposed follow-up split before implementation.
+- Review: User confirms the external-discovery and convergence boundaries, then approves the cumulative route and first implementation stopping point.
 - Record update: Keep `01-status.md`, `findings.md`, architecture, and verification synchronized with confirmed scope and evidence.
 - Checkpoint: After approval, create a task-linked commit containing only this task bundle and its governance projection.
