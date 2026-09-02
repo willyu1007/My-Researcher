@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 6 FIND-026 is fixed and the real workflow completed N11
-- Next step: Review the published v1c input bundle before any separately authorized v1c Human promotion decision; continue the remaining T-148 findings only through a new approved implementation slice.
-- Blocker: None for the completed FIND-026→N11 slice. Provider execution, strict-human v1c promotion, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Post-v1c review; the real workflow completed conditional promotion and created an active PaperProjectBridge
+- Next step: Discuss and approve the smallest repair slice for the remaining findings, including v1c Debate policy and decision-ready risk-to-condition mapping; do not implement either new finding before that decision.
+- Blocker: No technical blocker. Provider execution, Phase 4 regular-N6 routing, and FIND-027/FIND-028 implementation remain outside the completed checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
@@ -24,3 +24,5 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-12: N8 value assessments, material risk findings, and N9 dispositions are reflected in research status and the human stage view; a terminal `refine_question` with 25 material risk findings cannot still appear as “开放风险：暂无” with promotion as the next review.
 - [x] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.
 - [x] TSRF-14: An N10 package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; a recovery replay atomically supersedes the prior package and v1c bundle before N11 publication.
+- [ ] TSRF-15: The regular v1c N2 promotion-support path has an explicit bounded-Debate policy, and the runtime route, OpenAPI, operator runbook, support provenance, and deterministic gate agree with it.
+- [ ] TSRF-16: `promote_with_conditions` support presents a decision-ready grouped mapping that covers every pass-with-risk finding and its early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
