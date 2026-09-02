@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 6 real workflow has created the refined-contract N10 draft package and is stopped before N11 publication
-- Next step: Review TopicPackage `topic_package_ab6a7f4f-18b1-4aa0-9cb6-addba7c0c5c1` and its carried risks, then enter deterministic N11 only if the researcher authorizes v1b completion and v1c handoff publication.
-- Blocker: No implementation blocker prevents N11. Provider execution, N11 publication, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Phase 6 real workflow has created the refined-contract N10 draft package; FIND-026 records its narrative-quality failure before N11
+- Next step: Disposition FIND-026. Recommended: repair and verify N10 title/non-goal/sentence normalization before publishing the current package through N11.
+- Blocker: N11 is technically executable, but publication would carry a package labeled `ready_for_promotion_review` whose title candidates, non-goals, and punctuation are not decision-ready. Provider execution, N11 publication, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
