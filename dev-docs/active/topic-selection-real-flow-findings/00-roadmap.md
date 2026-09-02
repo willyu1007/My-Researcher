@@ -28,7 +28,7 @@
 - Canonical product APIs remain authority; real-flow verification does not use direct database writes or reads.
 - Strict-human checkpoints remain decision authority. Views, Debate artifacts, and condition candidates are support only.
 - Historical decisions, rejected lineages, and superseded packages remain immutable.
-- T-150 may reuse findings and interfaces discovered here, but neither task duplicates the other's implementation outcome.
+- T-150 may reuse findings and interfaces discovered here, but its retrieval-native pilot starts at evidence-landscape convergence and neither task duplicates the other's implementation outcome.
 
 ## Decision alignment
 
@@ -41,6 +41,8 @@
 | When should promotion support use Debate? | Always-on review increases cost; deterministic-only support missed material-risk scrutiny. | Require one bounded Debate when promotion input carries material risk; preserve a documented deterministic fast path for risk-free input. | decided | User | Planning checkpoint approved on 2026-09-03 | Runtime, OpenAPI, guidance, cost, and provenance must agree before implementation. |
 | How should conditional-promotion risks become conditions? | Raw ref entry is exact but operator-heavy; weakening coverage is unsafe. | Support proposes complete typed risk groups and early checks; the Human edits or confirms exact conditions and the final gate remains fail-closed. | decided | User | Planning checkpoint approved on 2026-09-03 | Decision support improves without creating an automatic promotion authority. |
 | What should checkpoint rejection do to TitleCard management state? | Automatically parking the TitleCard couples research and management authority; leaving it active without a terminal projection is misleading. | Prefer a derived terminal research disposition in title-card views; change management state only if an existing contract establishes that ownership. | decided | User | Planning checkpoint approved on 2026-09-03; implementation still requires owner inspection | Avoids an undocumented cross-authority state transition. |
+| How may a required missing coverage row advance? | Pretending adjacent EvidenceUnits satisfy the row is unsafe; a new generic obligation store is unnecessary for this local gate. | Add a typed evidence-checkpoint issue and let an `advance` decision carry the exact accepted coverage-row refs plus rationale. The gate verifies them against the current snapshot, persists the acceptance in the decision record, and propagates it downstream. | decided | User | Independent review accepted on 2026-09-03 | Human acceptance becomes explicit authority without creating a second decision store. |
+| What portion of recent-work coverage does T-148 own? | Making T-148 perform full-library onboarding duplicates T-150; making it depend on T-150 blocks the rehearsal repair. | T-148 must make unresolved freshness and near-duplicate risk visible and non-silent at the gate. T-150 owns systematic retrieval and evidence onboarding. | decided | User | Independent review accepted on 2026-09-03 | T-148 can close independently while preserving an explicit relationship to T-150. |
 
 ### Assumptions
 
@@ -55,7 +57,7 @@
 | Task | Relationship from this task | Owned boundary / exchanged contract | Coordination condition |
 |---|---|---|---|
 | T-149 | depends-on follow-up | T-149 owns durable native-vector persistence and returned the recovered retrieval-ready literature owner. | This task consumes the verified outcome and never stages or commits T-149 changes. |
-| T-150 | spawned follow-up / sibling | T-150 owns RetrievalRequest, full-library evidence onboarding, linked Debate rounds, successor EvidenceMaps, and the pilot ResolutionRoute. | FIND-029 through FIND-031 provide discovery evidence; this task retains only local gate fixes, policy, presentation, and contract alignment. |
+| T-150 | spawned follow-up / sibling | T-150 owns RetrievalRequest, full-library evidence onboarding, linked Debate rounds, successor EvidenceMaps, and the evidence-landscape pilot ResolutionRoute. | FIND-029 through FIND-031 provide discovery evidence. This task owns the concrete coverage gate and Human acceptance contract but does not wait for T-150 to make unresolved literature risk visible. |
 
 ## Implementation plan
 
@@ -68,11 +70,11 @@
 - Approach: Improve deterministic projections and consume existing coverage authority; do not introduce retrieval orchestration or a new decision store.
 - Planned changes:
   1. Project substantive evidence statements, the actual research question, material conflicts, dependencies, falsifiers, claim ceiling, and current risks from canonical owners.
-  2. Bind the evidence-landscape checkpoint to latest required coverage assessments and prevent `missing` from appearing advancement-ready without accepted-risk or obligation authority.
+  2. Bind the evidence-landscape checkpoint to latest required coverage assessments. Emit a deterministic required-coverage-missing issue with exact row refs; allow `advance` only when its typed payload accepts those current refs with rationale, then persist and propagate that acceptance.
   3. Reconcile current value assessments, dispositions, replacement-contract fields, and resolved warnings in research status and Human views.
   4. Decide and expose rejected-topic disposition without inventing a cross-authority TitleCard mutation.
 - Affected boundaries / entry points: Evidence and question stage views, research status, evidence-landscape checkpoint materialization and packet.
-- Dependencies: Confirm material-conflict presentation and rejection disposition.
+- Dependencies: Current coverage-assessment, checkpoint-decision, and downstream lineage owners; no T-150 implementation dependency.
 - Exit criteria: TSRF-01, TSRF-02, TSRF-06, TSRF-08, TSRF-09, and TSRF-12 pass.
 - Verification: Projection truth tables plus focused required-missing, material-conflict, answerable-with-risk, resolved-warning, and rejection scenarios.
 - Recovery: Revert projections or assessment binding while preserving canonical packets, coverage records, and decisions.
@@ -84,7 +86,7 @@
   1. Align the public EvidenceMap request schema with runtime-supported fields and enums.
   2. Document run-state/advance routes and apply node-specific request constraints where the generic schema currently admits invalid runtime fields.
   3. Resolve selection-decision ref-kind drift and equivalent scoped/unscoped ref identity without weakening source provenance.
-  4. Classify and, where owned here, repair impossible acquisition preflight defaults and the local backend response-loss behavior.
+  4. Distinguish persisted downloader overrides from repository defaults and make preflight reject an effective byte/time/redirect policy that cannot admit the planned asset when that impossibility is knowable. Do not redesign acquisition or downloader orchestration here.
 - Affected boundaries / entry points: OpenAPI, route schemas, functional-ref normalization, acquisition preflight, local runtime diagnostics.
 - Dependencies: Phase 1 owner inspection where projections and routes share contracts.
 - Exit criteria: TSRF-03 and the in-scope dispositions under TSRF-04/05/07 pass without a second API path.
@@ -121,7 +123,7 @@
 
 - Status: ready
 - Authorized boundary: the retained T-148 defect and policy scope; T-150 convergence architecture remains excluded.
-- [x] Decisions: project placement, material-conflict presentation, rejection disposition, promotion Debate trigger, and condition-support policy were confirmed on 2026-09-03.
+- [x] Decisions: project placement, material-conflict presentation, explicit coverage-gap acceptance, recent-work ownership, rejection disposition, promotion Debate trigger, and condition-support policy were confirmed on 2026-09-03.
 - [x] Design: the narrowed local repair boundaries are reflected in `02-architecture.md` without T-150 implementation detail.
 - [x] Route: the four phases close the retained findings and acceptance references without broad workflow redesign.
 - [x] Verification: focused truth, contract, Debate, decision-support, and bounded replay checks are identified.
@@ -131,7 +133,7 @@
 | Risk | Detection | Mitigation | Recovery / rollback |
 |---|---|---|---|
 | A projection becomes a second authority. | Human-visible content cannot be traced to a packet or current referenced owner. | Derive every field deterministically and retain exact refs. | Revert the projection and preserve canonical records. |
-| Coverage repair blocks legitimate accepted risk. | A required `missing` row cannot proceed even after explicit accepted-risk or obligation authority. | Model the existing accepted-risk/obligation path in the gate truth table. | Halt for Human review; never silently pass or discard the missing verdict. |
+| Coverage repair blocks legitimate accepted risk or loses it downstream. | A required `missing` row cannot proceed after explicit acceptance, or the acceptance disappears after the checkpoint decision. | Add the minimal typed acceptance fields to the persisted decision, verify exact current row refs, and propagate the decision authority downstream. | Halt for Human review; never silently pass, discard the missing verdict, or invent a generic obligation record. |
 | Regular Debate duplicates T-150 architecture. | Changes introduce RetrievalRequest, linked-round, successor-map, or generic resolution contracts. | Keep this task on existing frozen-evidence runtimes and route policy only. | Revert the new abstraction and defer it to T-150. |
 | Contract normalization weakens provenance. | A ref from a different source, version, or title is admitted as equivalent. | Normalize only optional representational fields after concrete owner/version checks. | Restore exact-shape comparison and expose a precise caller error. |
 | The task grows back into platform redesign. | Planned changes touch full-library orchestration, multiple Debate migrations, or broad DAG replacement. | Enforce the T-150 boundary and open separate outcomes only after explicit approval. | Stop at finding disposition and return out-of-scope work to its owner. |

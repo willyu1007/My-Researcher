@@ -14,15 +14,16 @@ The remaining defects are local and observable:
 - Promotion support has an implemented bounded Debate outside the documented regular path, and conditional-promotion support exposes flat risk refs rather than decision-ready condition groups.
 - User-facing operation still relies on opaque internal version/node labels.
 
-T-150 now owns the independent evidence-convergence capability: full-library evidence onboarding, typed RetrievalRequests, linked Debate rounds, successor EvidenceMaps, and reusable ResolutionRoutes. Those contracts are no longer part of this task's implementation plan.
+T-150 now owns the independent evidence-convergence capability: full-library evidence onboarding, typed RetrievalRequests, linked Debate rounds, successor EvidenceMaps, and one evidence-landscape ResolutionRoute pilot. Those contracts are no longer part of this task's implementation plan. T-148 still owns the concrete evidence-checkpoint truth and Human acceptance contract on which that later convergence path relies.
 
 ## Settled design and boundaries
 
 - Checkpoint packets and their referenced current authorities remain the canonical Human decision input. Human/LLM views are deterministic projections and cannot become a second authority.
 - A material conflict is Human-visible risk even when its severity does not independently block advancement. Existing `blocking` versus `material` gate semantics remain distinct.
-- Required coverage assessment is explicit authority. A required `missing` verdict must remain visible and non-advancing unless an existing accepted-risk or research-obligation path covers it.
+- Required coverage assessment is explicit authority. A required `missing` verdict emits a deterministic checkpoint issue and remains non-advancing unless the Human's `advance` decision accepts the exact current coverage-row refs with rationale. The acceptance is part of the persisted checkpoint authority and downstream lineage; there is no pre-existing evidence-checkpoint accepted-risk path to reuse.
 - The existing deterministic candidate and promotion gates remain the sole admission authorities. Debate produces support artifacts only.
 - Research-question candidate generation uses one bounded regular Debate over the current frozen evidence. Retrieval-native continuation belongs to T-150 and is not required for this local policy repair.
+- T-148 closes recent-work coverage honesty by making unresolved literature-freshness and near-duplicate risk visible at the evidence gate. T-150 owns systematic full-library retrieval and admission, so T-148 completion does not depend on T-150 having filled the gap.
 - Conditional-promotion support may propose typed condition groups and early checks, but only an exact Human decision can accept or edit them. The unmapped-risk gate remains fail-closed.
 - Current value assessment, disposition, replacement-contract content, and still-live risks supersede stale display text; resolved obligations are suppressed only when a current authority proves their resolution.
 - Public contract repair describes existing behavior and routes. It does not create parallel endpoints or broaden runtime acceptance.
@@ -36,7 +37,8 @@ T-150 now owns the independent evidence-convergence capability: full-library evi
 - `GET /topic-selection/title-cards/{titleCardId}/stage-views/evidence_landscape?audience=human`: derives substantive evidence, conflict, claim-boundary, and action language from the current checkpoint packet and referenced EvidenceMap records.
 - `GET /topic-selection/title-cards/{titleCardId}/stage-views/research_question?audience=human`: presents the actual question plus current gaps, dependencies, falsifiers, warnings, value findings, and disposition.
 - `GET /topic-selection/title-cards/{titleCardId}/research-status`: reports the current executable/Human frontier rather than a stale static checkpoint transition.
-- Evidence-landscape checkpoint materialization: consumes required coverage row intents and their latest bound assessments. `missing` is not inferred away by adjacent role-compatible EvidenceUnits.
+- Evidence-landscape checkpoint materialization: consumes required coverage row intents and their latest bound assessments. `missing` is not inferred away by adjacent role-compatible EvidenceUnits and produces a typed issue containing exact current coverage-row refs.
+- Evidence-landscape checkpoint decision: `advance` may carry accepted coverage-row refs plus Human rationale. The service verifies exact membership and current snapshot identity, persists the accepted refs in the decision record, and propagates that authority downstream. Unaccepted or stale refs fail closed; `loopback` and `hold` retain the gap as required work.
 - `POST /topic-selection/evidence-maps` public schema: describes the fields and enums already accepted and validated by the runtime route.
 - Run-state and advance OpenAPI paths: document the existing registered coordinator routes and their current request/response contracts, including supported recovery inputs.
 - Existing functional-ref admission: retains concrete lineage checks while normalizing only proven-equivalent optional representation or converging the selection-decision ref kind at its source.
@@ -46,7 +48,7 @@ T-150 now owns the independent evidence-convergence capability: full-library evi
 
 ## Migration and operation
 
-Projection and OpenAPI changes are backward compatible with existing records. Gate changes consume already persisted coverage assessments and do not reinterpret historical Human decisions. Route-policy changes preserve current Debate artifacts and deterministic gates; rollback restores the former routing without deleting support or authority records.
+Projection and OpenAPI changes are backward compatible with existing records. Gate changes consume already persisted coverage assessments and add an explicit decision field rather than reinterpreting historical Human decisions or creating a generic obligation store. Route-policy changes preserve current Debate artifacts and deterministic gates; rollback restores the former routing without deleting support or authority records.
 
 The real-flow verification uses supported APIs and replaceable test state. Safe starts or restarts of the same local backend are covered by an already authorized operation and do not require repeated prompts. A different environment, external provider/cost, destructive effect, or new Human decision remains a separate authorization boundary.
 
