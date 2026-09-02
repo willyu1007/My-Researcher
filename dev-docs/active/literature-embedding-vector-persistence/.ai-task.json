@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "task_id": "T-149",
+  "slug": "literature-embedding-vector-persistence",
+  "keywords": [
+    "embedding-artifact-reuse",
+    "literature-pgvector",
+    "native-vector-materialization",
+    "prisma-transaction-timeout"
+  ]
+}

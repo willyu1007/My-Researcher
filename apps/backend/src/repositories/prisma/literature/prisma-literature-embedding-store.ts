@@ -253,20 +253,19 @@ export class PrismaLiteratureEmbeddingStore {
     if (records.length === 0) {
       return 0;
     }
-    let writtenCount = 0;
-    await this.prisma.$transaction(async (tx) => {
-      for (const record of records) {
-        const vectorLiteral = toPgvectorLiteral(record.normalizedVector);
-        writtenCount += await tx.$executeRawUnsafe(`
-          UPDATE "LiteratureEmbeddingChunk"
-          SET
-            "retrievalVector" = ${sqlString(vectorLiteral)}::vector,
-            "updatedAt" = ${sqlString(new Date(record.updatedAt).toISOString())}::timestamptz
-          WHERE "id" = ${sqlString(record.embeddingChunkId)}
-        `);
-      }
-    });
-    return writtenCount;
+    const values = records.map((record) => `(
+      ${sqlString(record.embeddingChunkId)}::text,
+      ${sqlString(toPgvectorLiteral(record.normalizedVector))}::vector,
+      ${sqlString(new Date(record.updatedAt).toISOString())}::timestamptz
+    )`).join(', ');
+    return this.prisma.$executeRawUnsafe(`
+      UPDATE "LiteratureEmbeddingChunk" AS target
+      SET
+        "retrievalVector" = source."retrievalVector",
+        "updatedAt" = source."updatedAt"
+      FROM (VALUES ${values}) AS source("id", "retrievalVector", "updatedAt")
+      WHERE target."id" = source."id"
+    `);
   }
 
   async summarizeEmbeddingRetrievalVectorCoverage(

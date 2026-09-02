@@ -39,6 +39,7 @@ function makeFakePrismaClient(options: {
   embeddingChunkFindMany?: (args: unknown) => unknown[];
 } = {}): PrismaClient {
   return {
+    $executeRawUnsafe: async (sql: string) => options.onExecute?.(sql) ?? 1,
     $queryRawUnsafe: async (sql: string) => {
       options.onQuery?.(sql);
       return options.queryRows ?? [];
@@ -197,11 +198,41 @@ test('Prisma literature embedding store writes retrieval vectors to pgvector col
 
   assert.equal(written, 1);
   assert.equal(capturedExecuteSqls.length, 1);
-  assert.match(capturedExecuteSqls[0] ?? '', /UPDATE "LiteratureEmbeddingChunk"/);
+  assert.match(capturedExecuteSqls[0] ?? '', /UPDATE "LiteratureEmbeddingChunk" AS target/);
   assert.match(capturedExecuteSqls[0] ?? '', /"retrievalVector"\s*=/);
   assert.match(capturedExecuteSqls[0] ?? '', /::vector/);
-  assert.match(capturedExecuteSqls[0] ?? '', /WHERE "id" = 'chunk-row-1'/);
+  assert.match(capturedExecuteSqls[0] ?? '', /'chunk-row-1'::text/);
+  assert.match(capturedExecuteSqls[0] ?? '', /FROM \(VALUES/);
+  assert.match(capturedExecuteSqls[0] ?? '', /WHERE target\."id" = source\."id"/);
   assert.equal((capturedExecuteSqls[0] ?? '').includes('"vector" ='), false);
+});
+
+test('Prisma literature embedding store persists a 205-vector batch despite the serial transaction deadline', async () => {
+  let transactionWriteCount = 0;
+  const prisma = {
+    $executeRawUnsafe: async () => 205,
+    $transaction: async (
+      callback: (tx: { $executeRawUnsafe: () => Promise<number> }) => Promise<unknown>,
+    ) => callback({
+      $executeRawUnsafe: async () => {
+        transactionWriteCount += 1;
+        if (transactionWriteCount > 64) {
+          throw new Error('Transaction already closed: interactive transaction timeout');
+        }
+        return 1;
+      },
+    }),
+  } as unknown as PrismaClient;
+  const store = new PrismaLiteratureEmbeddingStore(prisma);
+  const records = Array.from({ length: 205 }, (_, index) => ({
+    embeddingChunkId: `chunk-row-${index + 1}`,
+    normalizedVector: makeVector(index % VECTOR_DIMENSION),
+    updatedAt: NOW,
+  }));
+
+  const written = await store.writeEmbeddingRetrievalVectors(records);
+
+  assert.equal(written, 205);
 });
 
 test('Prisma literature embedding store summarizes retrieval vector coverage without reading vector payloads', async () => {
