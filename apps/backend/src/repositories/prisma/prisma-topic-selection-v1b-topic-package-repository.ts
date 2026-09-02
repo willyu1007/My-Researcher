@@ -294,6 +294,39 @@ implements TopicSelectionV1bTopicPackageRepository {
         deletedAt: null,
       },
     });
+    const priorPackages = await tx.titleCardPackage.findMany({
+      where: {
+        valueAssessmentId: persistence.topic_package.topic_value_assessment_id,
+        id: { not: persistence.topic_package.topic_package_id },
+        v1bReadinessStatus: { not: 'superseded' },
+      },
+      select: {
+        id: true,
+        researchRecordId: true,
+      },
+    });
+    if (priorPackages.length > 0) {
+      const priorPackageIds = priorPackages.map((pkg) => pkg.id);
+      await tx.titleCardPackage.updateMany({
+        where: { id: { in: priorPackageIds } },
+        data: {
+          v1bReadinessStatus: 'superseded',
+          updatedAt: new Date(persistence.topic_package.created_at),
+        },
+      });
+      await tx.topicSelectionV1bToV1cInputBundle.updateMany({
+        where: { topicPackageId: { in: priorPackageIds } },
+        data: { bundleStatus: 'superseded' },
+      });
+      await tx.titleCardResearchRecord.updateMany({
+        where: { id: { in: priorPackages.map((pkg) => pkg.researchRecordId) } },
+        data: {
+          recordStatus: 'superseded',
+          supersededByRecordId: persistence.topic_package.research_record_id,
+          updatedAt: new Date(persistence.topic_package.created_at),
+        },
+      });
+    }
     await tx.titleCardPackage.create({
       data: this.toPackageCreateInput(persistence.topic_package),
     });

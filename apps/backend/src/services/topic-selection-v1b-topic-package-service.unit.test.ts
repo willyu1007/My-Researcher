@@ -420,6 +420,7 @@ function makePackageDraftInput(
     answerability_plan: answerabilityPlan,
     research_slice_snapshot: {
       research_slice_id: 'research_slice_1',
+      slice_statement: 'Develop and evaluate a local-first assistant for reviewer-aligned evidence planning.',
       evaluation_path: 'Offline replay plus reviewer rubric scoring.',
       non_goals: ['production deployment'],
     },
@@ -447,7 +448,7 @@ function makeSubject(decision: TopicSelectionValueDispositionDecisionRecord) {
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
-  return { service, valueRepository };
+  return { service, valueRepository, packageRepository };
 }
 
 class RaceGuardedTopicPackageRepository extends InMemoryTopicSelectionV1bTopicPackageRepository {
@@ -495,6 +496,8 @@ function makeRaceSubject(decision: TopicSelectionValueDispositionDecisionRecord)
 type FakeRow = Record<string, unknown>;
 type FakeCreateArgs = { data: FakeRow };
 type FakeFindArgs = { where: Record<string, unknown> };
+type FakeFindManyArgs = { where: Record<string, unknown> };
+type FakeUpdateManyArgs = { where: Record<string, unknown>; data: FakeRow };
 type FakeTopicPackagePrismaShape = {
   $transaction: <T>(callback: (tx: FakeTopicPackagePrismaShape) => Promise<T>) => Promise<T>;
   topicSelectionInputSnapshot: { create: (args: FakeCreateArgs) => Promise<FakeRow> };
@@ -503,10 +506,15 @@ type FakeTopicPackagePrismaShape = {
   topicSelectionReadinessGateResult: { create: (args: FakeCreateArgs) => Promise<FakeRow> };
   topicSelectionChainTransitionAttempt: { create: (args: FakeCreateArgs) => Promise<FakeRow> };
   topicSelectionTraceSnapshot: { create: (args: FakeCreateArgs) => Promise<FakeRow> };
-  titleCardResearchRecord: { create: (args: FakeCreateArgs) => Promise<FakeRow> };
+  titleCardResearchRecord: {
+    create: (args: FakeCreateArgs) => Promise<FakeRow>;
+    updateMany: (args: FakeUpdateManyArgs) => Promise<{ count: number }>;
+  };
   titleCardPackage: {
     create: (args: FakeCreateArgs) => Promise<FakeRow>;
     findUnique: (args: FakeFindArgs) => Promise<FakeRow | null>;
+    findMany: (args: FakeFindManyArgs) => Promise<FakeRow[]>;
+    updateMany: (args: FakeUpdateManyArgs) => Promise<{ count: number }>;
   };
   topicSelectionPackageTraceBoundaryCheck: {
     create: (args: FakeCreateArgs) => Promise<FakeRow>;
@@ -519,6 +527,7 @@ type FakeTopicPackagePrismaShape = {
   topicSelectionV1bToV1cInputBundle: {
     create: (args: FakeCreateArgs) => Promise<FakeRow>;
     findFirst: (args: FakeFindArgs) => Promise<FakeRow | null>;
+    updateMany: (args: FakeUpdateManyArgs) => Promise<{ count: number }>;
   };
   topicSelectionValueDispositionDecision: {
     update: (args: { where: Record<string, unknown>; data: FakeRow }) => Promise<FakeRow>;
@@ -594,6 +603,8 @@ class FakeTopicPackagePrismaClient {
           this.titleCardResearchRecords.set(String(data.id), data);
           return data;
         },
+        updateMany: async ({ where, data }: FakeUpdateManyArgs): Promise<{ count: number }> =>
+          this.updateRows(this.titleCardResearchRecords, where, data),
       },
       titleCardPackage: {
         create: async ({ data }: FakeCreateArgs): Promise<FakeRow> => {
@@ -624,6 +635,10 @@ class FakeTopicPackagePrismaClient {
           }
           return null;
         },
+        findMany: async ({ where }: FakeFindManyArgs): Promise<FakeRow[]> =>
+          [...this.titleCardPackages.values()].filter((row) => this.matchesWhere(row, where)),
+        updateMany: async ({ where, data }: FakeUpdateManyArgs): Promise<{ count: number }> =>
+          this.updateRows(this.titleCardPackages, where, data),
       },
       topicSelectionPackageTraceBoundaryCheck: {
         create: async ({ data }: FakeCreateArgs): Promise<FakeRow> => {
@@ -650,6 +665,8 @@ class FakeTopicPackagePrismaClient {
           [...this.v1cBundles.values()]
             .find((row) => row.topicPackageId === where.topicPackageId)
           ?? null,
+        updateMany: async ({ where, data }: FakeUpdateManyArgs): Promise<{ count: number }> =>
+          this.updateRows(this.v1cBundles, where, data),
       },
       topicSelectionValueDispositionDecision: {
         update: async ({ where, data }: { where: Record<string, unknown>; data: FakeRow }): Promise<FakeRow> => {
@@ -658,6 +675,31 @@ class FakeTopicPackagePrismaClient {
         },
       },
     };
+  }
+
+  private matchesWhere(row: FakeRow, where: Record<string, unknown>): boolean {
+    return Object.entries(where).every(([key, expected]) => {
+      if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+        const condition = expected as Record<string, unknown>;
+        if (Object.hasOwn(condition, 'not')) return row[key] !== condition.not;
+        if (Array.isArray(condition.in)) return condition.in.includes(row[key]);
+      }
+      return row[key] === expected;
+    });
+  }
+
+  private updateRows(
+    rows: Map<string, FakeRow>,
+    where: Record<string, unknown>,
+    data: FakeRow,
+  ): { count: number } {
+    let count = 0;
+    for (const [id, row] of rows) {
+      if (!this.matchesWhere(row, where)) continue;
+      rows.set(id, { ...row, ...data });
+      count += 1;
+    }
+    return { count };
   }
 
   private snapshot() {
@@ -717,7 +759,7 @@ function makePrismaSubject(decision: TopicSelectionValueDispositionDecisionRecor
     idFactory: makeIdFactory(),
     now: () => NOW,
   });
-  return { service, packageRepository, fakePrisma };
+  return { service, packageRepository, fakePrisma, valueRepository };
 }
 
 test('advance_to_package decision creates trace-ready draft package and v1c bundle', async () => {
@@ -744,6 +786,52 @@ test('advance_to_package decision creates trace-ready draft package and v1c bund
   assert.deepEqual(result.topic_package.accepted_risk_refs, [ref('accepted_risk', 'risk_1')]);
   assert.deepEqual(result.topic_package.memory_suggestion_refs, [ref('memory_suggestion', 'memory_1')]);
   assert.deepEqual(result.topic_package.recheck_request_refs, [ref('recheck_request', 'recheck_1')]);
+});
+
+test('draft narrative uses the research slice for bounded titles and the current contract for non-goals', async () => {
+  const packageInput = makePackageDraftInput();
+  const decision = makeDecision(packageInput);
+  const { service } = makeSubject(decision);
+
+  const result = await service.createDraftPackage({
+    value_disposition_decision_id: decision.value_disposition_decision_id,
+  });
+
+  assert.deepEqual(result.topic_package.title_candidates, [
+    'A local-first assistant for reviewer-aligned evidence planning',
+    'Evaluating a local-first assistant for reviewer-aligned evidence planning',
+  ]);
+  assert.ok(result.topic_package.title_candidates.every((title) => title.length <= 180));
+  assert.ok(result.topic_package.title_candidates.every((title) => !title.endsWith('?')));
+  assert.deepEqual(result.topic_package.non_goals, ['production superiority']);
+  assert.doesNotMatch(result.topic_package.research_background, /[.!?。！？]{2,}/);
+  assert.doesNotMatch(result.topic_package.contribution_summary, /[.!?。！？]{2,}/);
+  assert.doesNotMatch(result.topic_package.evaluation_plan, /[.!?。！？]{2,}/);
+});
+
+test('missing slice statement fails narrative readiness and withholds the v1c bundle', async () => {
+  const packageInput = makePackageDraftInput({
+    research_slice_snapshot: {
+      research_slice_id: 'research_slice_1',
+      evaluation_path: 'Offline replay plus reviewer rubric scoring.',
+      non_goals: ['production deployment'],
+    },
+  });
+  const decision = makeDecision(packageInput);
+  const { service } = makeSubject(decision);
+
+  const result = await service.createDraftPackage({
+    value_disposition_decision_id: decision.value_disposition_decision_id,
+  });
+
+  assert.equal(result.topic_package.package_readiness_status, 'needs_revision');
+  assert.equal(result.package_trace_boundary_check.check_status, 'needs_revision');
+  assert.ok(
+    result.package_trace_boundary_check.boundary_conflict_codes.includes(
+      'narrative:missing_title_candidates',
+    ),
+  );
+  assert.equal(result.v1c_input_bundle, null);
 });
 
 test('non-advance and already-output decisions cannot create packages', async () => {
@@ -787,6 +875,43 @@ test('duplicate package creation for one value disposition is rejected', async (
       value_disposition_decision_id: decision.value_disposition_decision_id,
     }),
     (error) => error instanceof AppError && /already exists/.test(error.message),
+  );
+});
+
+test('a replacement package for the same assessment supersedes the prior package and bundle', async () => {
+  const firstInput = makePackageDraftInput();
+  const firstDecision = makeDecision(firstInput);
+  const { service, valueRepository, packageRepository } = makeSubject(firstDecision);
+  const first = await service.createDraftPackage({
+    value_disposition_decision_id: firstDecision.value_disposition_decision_id,
+  });
+
+  const secondDecisionId = 'value_disposition_decision_2';
+  const secondInput = makePackageDraftInput();
+  secondInput.value_disposition_decision_ref = ref('value_disposition_decision', secondDecisionId);
+  secondInput.value_disposition_decision = {
+    ...secondInput.value_disposition_decision,
+    value_disposition_decision_id: secondDecisionId,
+  };
+  const secondDecision = makeDecision(secondInput);
+  valueRepository.decisions.set(secondDecisionId, secondDecision);
+
+  const second = await service.createDraftPackage({
+    value_disposition_decision_id: secondDecisionId,
+  });
+  const priorPackage = await service.getDraftPackage(first.topic_package.topic_package_id);
+  const priorBundle = await packageRepository.findV1cInputBundleByPackageId(
+    first.topic_package.topic_package_id,
+  );
+
+  assert.equal(priorPackage.package_readiness_status, 'superseded');
+  assert.equal(priorBundle?.bundle_status, 'superseded');
+  assert.equal(second.topic_package.package_readiness_status, 'ready_for_promotion_review');
+  await assert.rejects(
+    () => service.publishV1cInputBundle({
+      topic_package_id: first.topic_package.topic_package_id,
+    }),
+    (error) => error instanceof AppError && /Only ready package drafts/.test(error.message),
   );
 });
 
@@ -917,6 +1042,39 @@ test('Prisma repository round-trips package sidecars bundle and decision output 
   assert.equal(storedReadiness?.package_readiness_status, 'ready_for_promotion_review');
   assert.equal(storedBundle?.topic_package_id, result.topic_package.topic_package_id);
   assert.equal(storedBundle?.package_readiness_status, 'ready_for_promotion_review');
+});
+
+test('Prisma replacement package supersedes prior package, research record, and bundle atomically', async () => {
+  const firstInput = makePackageDraftInput();
+  const firstDecision = makeDecision(firstInput);
+  const { service, fakePrisma, valueRepository } = makePrismaSubject(firstDecision);
+  const first = await service.createDraftPackage({
+    value_disposition_decision_id: firstDecision.value_disposition_decision_id,
+  });
+
+  const secondDecisionId = 'value_disposition_decision_2';
+  const secondInput = makePackageDraftInput();
+  secondInput.value_disposition_decision_ref = ref('value_disposition_decision', secondDecisionId);
+  secondInput.value_disposition_decision = {
+    ...secondInput.value_disposition_decision,
+    value_disposition_decision_id: secondDecisionId,
+  };
+  const secondDecision = makeDecision(secondInput);
+  valueRepository.decisions.set(secondDecisionId, secondDecision);
+
+  const second = await service.createDraftPackage({
+    value_disposition_decision_id: secondDecisionId,
+  });
+  const priorPackage = fakePrisma.titleCardPackages.get(first.topic_package.topic_package_id);
+  const priorRecord = fakePrisma.titleCardResearchRecords.get(first.topic_package.research_record_id);
+  const priorBundle = [...fakePrisma.v1cBundles.values()].find(
+    (row) => row.topicPackageId === first.topic_package.topic_package_id,
+  );
+
+  assert.equal(priorPackage?.v1bReadinessStatus, 'superseded');
+  assert.equal(priorRecord?.recordStatus, 'superseded');
+  assert.equal(priorRecord?.supersededByRecordId, second.topic_package.research_record_id);
+  assert.equal(priorBundle?.bundleStatus, 'superseded');
 });
 
 test('Prisma package creation rolls back control-plane records on persistence failure', async () => {

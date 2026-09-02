@@ -70,6 +70,7 @@ implements TopicSelectionV1bTopicPackageRepository {
         persistence.control_plane.trace_snapshot.trace_snapshot_id,
         persistence.control_plane.trace_snapshot,
       );
+      this.supersedePriorAssessmentPackages(persistence.topic_package);
       this.packages.set(persistence.topic_package.topic_package_id, persistence.topic_package);
       this.checks.set(
         persistence.package_trace_boundary_check.package_trace_boundary_check_id,
@@ -104,6 +105,7 @@ implements TopicSelectionV1bTopicPackageRepository {
     }
     const snapshot = this.snapshot();
     try {
+      this.supersedePriorAssessmentPackages(persistence.topic_package);
       this.packages.set(persistence.topic_package.topic_package_id, persistence.topic_package);
       this.checks.set(
         persistence.package_trace_boundary_check.package_trace_boundary_check_id,
@@ -177,6 +179,30 @@ implements TopicSelectionV1bTopicPackageRepository {
   private findPackageByDecision(valueDispositionDecisionId: string): TopicSelectionTopicPackageRecord | null {
     return [...this.packages.values()]
       .find((record) => record.value_disposition_decision_id === valueDispositionDecisionId) ?? null;
+  }
+
+  private supersedePriorAssessmentPackages(nextPackage: TopicSelectionTopicPackageRecord): void {
+    const priorPackageIds = new Set<string>();
+    for (const [packageId, record] of this.packages) {
+      if (
+        record.topic_value_assessment_id !== nextPackage.topic_value_assessment_id
+        || record.value_disposition_decision_id === nextPackage.value_disposition_decision_id
+        || record.package_readiness_status === 'superseded'
+      ) {
+        continue;
+      }
+      priorPackageIds.add(packageId);
+      this.packages.set(packageId, {
+        ...record,
+        package_readiness_status: 'superseded',
+        updated_at: nextPackage.created_at,
+      });
+    }
+    for (const [bundleId, bundle] of this.bundles) {
+      if (priorPackageIds.has(bundle.topic_package_id)) {
+        this.bundles.set(bundleId, { ...bundle, bundle_status: 'superseded' });
+      }
+    }
   }
 
   private snapshot() {

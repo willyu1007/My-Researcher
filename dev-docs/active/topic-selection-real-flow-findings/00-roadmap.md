@@ -133,6 +133,7 @@
 - N9 disposition checkpoint (2026-09-02): One deterministic `max_steps=1` advance consumed the current 73-point N8 assessment, admitted decision `value_disposition_decision_22e9b282-5609-42a8-bf93-c6be2360cb69` as `advance_to_package` with the value-gate risks carried forward, and emitted handoff `artifact_ref_7f7c19f9-5d11-495d-bb65-1dca1c0fbd1d`. The run stopped at N10 with zero topic packages and zero retriever/provider calls.
 - N10 packaging checkpoint (2026-09-02): One deterministic `max_steps=1` advance created TopicPackage `topic_package_ab6a7f4f-18b1-4aa0-9cb6-addba7c0c5c1` at readiness `ready_for_promotion_review`, preserved 25 material risk findings and 20 key risks with zero blockers, and emitted handoff `artifact_ref_aef8236e-80eb-42b2-b733-47934e8dc553`. The transaction prepared v1c bundle `v1b_to_v1c_input_bundle_9d685a2e-76ea-4263-ad6b-a0ba7a0931ce`, but N11 publication remains unexecuted; retriever/provider counts were 0/0.
 - N10 content-review checkpoint (2026-09-02): The package passes trace/readiness checks but is not yet decision-ready prose. Its two title candidates are a full research question and a `method:`-prefixed full claim, five non-goals are repeated as ten semantically duplicate strings, and deterministic sentence assembly produces `..`. FIND-026 records the missing narrative-quality boundary; do not publish N11 until the researcher dispositions that finding.
+- FIND-026 implementation decision (2026-09-02): The researcher authorized repair before N11. N10 title candidates derive from the ResearchSlice statement rather than question/claim prose, the current TopicQuestionContract is the non-goal display authority, sentence assembly normalizes terminal punctuation, and the readiness boundary rejects malformed narrative. Recovery uses fresh N9 and N10 attempts for the same assessment and atomically marks the prior package, research record, and v1c bundle superseded before one deterministic N11 publication.
 
 ### Phase 6 — Re-run the real workflow and disposition adjacent gaps
 - Outcome: The fixed module completes the same reject-and-replace path with decision-ready output, while adjacent gaps have explicit owners.
@@ -143,19 +144,20 @@
   3. Evaluate retriever use by query intent, retrieval/provider call count, evidence delta, and decision effect at each literature-dependent step.
   4. Verify that `refine_question` has an executable, replay-safe route back to its owning contract boundary before any package path resumes.
   5. Propose separate tracked work for any still-material backup or workload capability gap.
+  6. Repair FIND-026 at the N10 narrative/readiness boundary, replay only the required N9→N10 recovery path, verify stale package/bundle supersession, and publish the corrected bundle through N11 once.
 - Affected boundaries / entry points: End-to-end topic-selection path through the evidence-landscape checkpoint.
 - Dependencies: Phases 2 through 5; exact human decisions remain user-owned.
-- Exit criteria: TSRF-04 through TSRF-06 and TSRF-12 pass; no material in-scope finding remains open.
+- Exit criteria: TSRF-04 through TSRF-06, TSRF-12, and TSRF-14 pass; no material in-scope finding remains open.
 - Verification: Rehearsal evidence packet and clean focused checks.
 - Recovery: Preserve immutable decision lineage and use only new replaceable rehearsal records.
 
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: Phase 5 FIND-024, the directly encountered FIND-025 N8 refinement-projection correction, one refined-contract N8 re-assessment, its deterministic N9 disposition, and deterministic N10 draft packaging. Provider execution, N11 publication, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain unauthorized.
+- Authorized boundary: Phase 5 FIND-024, the directly encountered FIND-025 N8 refinement-projection correction, one refined-contract N8 re-assessment, its deterministic N9 disposition and N10 draft packaging, plus FIND-026 repair, bounded same-assessment N9→N10 recovery, and one deterministic N11 publication. Provider execution, strict-human v1c promotion, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain unauthorized.
 - [x] Decisions: The deterministic N9 disposition remains route authority; substantive refinements require one bounded delta Debate, mechanical-only edits may bypass it, and candidate/slice selection stays frozen.
 - [x] Design: Use a fail-closed typed field classifier, a distinct support-only one-pass delta scenario on the shared Debate core, an admitted-support N7 precondition, exact persisted-trace recovery, and a coordinator checkpoint barrier.
-- [x] Route: The user explicitly approved the executable loopback route, then authorized and continued through the directly encountered FIND-025 N8 correction, re-assessment, deterministic N9 disposition, and N10 packaging boundary stated above.
+- [x] Route: The user explicitly approved the executable loopback route, then authorized and continued through FIND-025, N8 re-assessment, N9/N10, and the directly encountered FIND-026 repair plus bounded N9→N10 recovery and one N11 publication.
 - [x] Verification: Focused red/green seams cover substantive delta classification, authority immutability, exact replay, current-contract reuse, and additive N8 audit hashes; the real route produced one delta Debate, one N7 reuse, exact checkpoint advance, a current 73-point N8 assessment, a risk-carrying `advance_to_package` N9 decision, and one ready-for-promotion-review N10 package that stops before N11.
 
 ## Risks and recovery
