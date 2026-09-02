@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 5 FIND-024 executable delta-Debate route implemented, verified, and replayed to a fresh strict-human checkpoint
-- Next step: Await the researcher's decision on fresh checkpoint `research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee`; an exact `advance` may release N8, while another exact `loopback` must recover through the same bounded-delta policy.
-- Blocker: No implementation blocker remains for FIND-024. The workflow is intentionally stopped at strict Human authority; provider execution, N8 execution, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain outside this completed slice. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Phase 6 real workflow resumed through the refined-contract N8 value re-assessment; FIND-025 is fixed and verified
+- Next step: Run deterministic N9 disposition against current assessment `topic_value_assessment_257ba79c-a281-4c22-b327-96c6bedb98ed`; N8 recommends `advance_to_package` at 73/0.78 but N9 remains the disposition authority.
+- Blocker: No implementation blocker prevents N9. Provider execution, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.

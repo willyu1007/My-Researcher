@@ -129,6 +129,7 @@
 - Recovery: Restore terminal stop behavior while preserving recorded N9 decisions; never delete disposition authority.
 - Approved implementation checkpoint (2026-09-02): The earlier N9 `refine_question`→N7 slice remains backward-compatible input lineage, but direct materialization is no longer the complete substantive route. The user approved the executable delta-Debate design above and authorized its narrow implementation plus focused verification. The first red seam is the current failure: exact loopback decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` must project a delta-Debate frontier and must not expose N8. No provider activation, new Human decision, Phase 4 regular-N6 routing, other Phase 5 owner route, or N8 execution is included in this authorization.
 - Implemented checkpoint (2026-09-02): The coordinator now enforces the exact-contract checkpoint barrier, recovers and fail-closed classifies the persisted refinement, runs one support-only Explorer/Critic/Arbiter delta Debate for substantive changes, and validates its hash-bound admission before N7 exact current-contract reuse. The real loopback replay opened fresh pending checkpoint `research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee` without adding an N8 attempt; retriever/provider counts were 0/0 because the bounded disagreement concerned the frozen experiment contract rather than missing literature.
+- N8 recovery checkpoint (2026-09-02): After the researcher advanced the fresh checkpoint, the first refined-contract N8 attempt exposed FIND-025: its N7 projection carried legal refinement audit hashes, but the N8 runtime enforced an initial-path-only exact key set. The authorized correction keeps the core source hashes and refs mandatory and byte-matched, validates every additional value as a hash, and allows additive audit keys. A focused red/green runtime test plus the exact real-run retry admitted assessment `topic_value_assessment_257ba79c-a281-4c22-b327-96c6bedb98ed` and exposed N9 without retriever or provider work.
 
 ### Phase 6 — Re-run the real workflow and disposition adjacent gaps
 - Outcome: The fixed module completes the same reject-and-replace path with decision-ready output, while adjacent gaps have explicit owners.
@@ -147,13 +148,12 @@
 
 ## Kickoff gate
 
-- Status: implemented and verified for the authorized FIND-024 slice
-- Authorized boundary: Phase 5 FIND-024 only — implement the substantive refinement / exact question-checkpoint loopback → one bounded support-only delta Debate → N7 exact rematerialization or current-contract reuse → fresh strict-human checkpoint route, with focused tests and rehearsal recovery. Provider execution, N8 execution, Phase 4, and other Phase 5 dispositions remain unauthorized.
+- Status: ready
+- Authorized boundary: Phase 5 FIND-024 plus the directly encountered FIND-025 N8 refinement-projection correction and one refined-contract N8 re-assessment. Provider execution, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain unauthorized.
 - [x] Decisions: The deterministic N9 disposition remains route authority; substantive refinements require one bounded delta Debate, mechanical-only edits may bypass it, and candidate/slice selection stays frozen.
 - [x] Design: Use a fail-closed typed field classifier, a distinct support-only one-pass delta scenario on the shared Debate core, an admitted-support N7 precondition, exact persisted-trace recovery, and a coordinator checkpoint barrier.
-- [x] Route: The user explicitly approved implementation of this executable loopback route; the authorized boundary is limited to the FIND-024 slice stated above.
-- [x] Verification: Start with a failing no-N8/current-loopback coordinator test, then cover substantive classification, authority immutability, exact replay, stale/wrong-target rejection, current-contract reuse, and unchanged terminal/advance behavior before the real replay.
-- [x] Replay: Decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` produced exactly three role outputs, one admission, one N7 current-contract reuse, and one fresh strict-human checkpoint; N8 remained at two historical attempts.
+- [x] Route: The user explicitly approved the executable loopback route, then authorized and continued through the directly encountered FIND-025 N8 correction and re-assessment boundary stated above.
+- [x] Verification: Focused red/green seams cover substantive delta classification, authority immutability, exact replay, current-contract reuse, and additive N8 audit hashes; the real route produced one delta Debate, one N7 reuse, exact checkpoint advance, and a current 73-point N8 assessment at the N9 frontier.
 
 ## Risks and recovery
 

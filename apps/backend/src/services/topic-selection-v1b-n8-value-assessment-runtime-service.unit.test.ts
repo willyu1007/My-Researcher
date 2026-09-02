@@ -128,10 +128,11 @@ function frozenPayload(): TopicSelectionV1bN8HarnessFrozenInputPayload {
 
 // Mirrors TopicSelectionV1bWorkflowHarnessService.buildN7ToN8TopicQuestionContractContextProjection
 // closely enough to pass the runtime's assertN7ToN8ProjectionPolicy: non-authority invoke-next,
-// every frozen hash/ref preserved, an exact source-hash key set, every required ref present in
-// source_refs, and the required preserved_fact_kinds retained.
+// every frozen hash/ref preserved, the required core source-hash keys (plus optional audit
+// extensions), every required ref present in source_refs, and the required preserved_fact_kinds.
 function projectionPayload(
   request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  extraSourceHashes: Record<string, string> = {},
 ): TopicSelectionV1bN7ToN8TopicQuestionContractContextProjection {
   const payload = frozenPayload();
   return {
@@ -167,6 +168,7 @@ function projectionPayload(
       active_candidate_hash: payload.active_candidate_hash,
       selected_research_slice_hash: payload.selected_research_slice_hash,
       n8_debate_admission_hash: payload.n8_debate_admission_hash,
+      ...extraSourceHashes,
     },
     support_refs: [],
     support_hashes: {},
@@ -302,6 +304,7 @@ function makeRequest(
 async function recordProjectionRef(
   controlPlane: TopicSelectionControlPlaneService,
   request: TopicSelectionV1bWorkflowHarnessRunRequest,
+  extraSourceHashes: Record<string, string> = {},
 ): Promise<TopicSelectionFunctionalRef> {
   // No explicit checksum: the control plane auto-computes sha256(stableStringify(payload)),
   // which is exactly the hash the runtime re-derives and byte-matches against.
@@ -311,7 +314,7 @@ async function recordProjectionRef(
     artifact_kind: 'diagnostic',
     storage_kind: 'inline',
     workflow_run_id: request.workflow_run_id,
-    payload: projectionPayload(request) as unknown as Record<string, unknown>,
+    payload: projectionPayload(request, extraSourceHashes) as unknown as Record<string, unknown>,
     created_by: 'system',
   });
   return { ref_type: 'artifact_ref', ref_id: artifact.artifact_ref_id, title_card_id: TITLE_CARD_ID, version_id: null };
@@ -385,6 +388,30 @@ test('v1b N8 value runtime generates a non-authority model_draft_for_gate from a
   assert.equal(result.context_packet_ref.ref_type, 'artifact_ref');
   assert.match(result.context_packet_hash, /^[a-f0-9]{64}$/);
   assert.equal(result.invocation_result.status, 'succeeded');
+});
+
+test('v1b N8 value runtime accepts refinement audit hashes in the N7-to-N8 projection', async () => {
+  const controlPlane = makeControlPlane();
+  const runtime = new TopicSelectionV1bN8ValueAssessmentRuntimeService(controlPlane);
+  const baseRequest = makeRequest();
+  const projectionRef = await recordProjectionRef(controlPlane, baseRequest, {
+    n9_handoff_hash: hex('n9_handoff'),
+    previous_n7_handoff_hash: hex('previous_n7_handoff'),
+    previous_topic_question_contract_hash: hex('previous_topic_question_contract'),
+    question_refinement_hash: hex('question_refinement'),
+    source_checkpoint_decision_ref_hash: hex('source_checkpoint_decision_ref'),
+  });
+  const request = makeRequest({ projectionRef });
+
+  const result = await runtime.generateDraftArtifact({
+    request,
+    execution_mode: 'codex_assisted',
+    run_mode: 'acceptance',
+    codex_response: { output: valueDraft(), operator_label: 'unit-test-runtime' },
+    created_by: 'system',
+  });
+
+  assert.equal(result.status, 'succeeded');
 });
 
 test('v1b N8 value runtime rejects a malformed frozen N8 payload', async () => {

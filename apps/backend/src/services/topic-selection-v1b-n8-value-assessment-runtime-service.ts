@@ -988,7 +988,7 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'N7-to-N8 projection source hashes drift from frozen N8 lineage.');
     }
     if (
-      !this.hasExactHashKeys(projection.source_hashes, [
+      !this.hasRequiredHashKeys(projection.source_hashes, [
         'frozen_input_hash',
         'n6_handoff_hash',
         'n7_handoff_hash',
@@ -1000,7 +1000,8 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
         'active_candidate_hash',
         'selected_research_slice_hash',
         'n8_debate_admission_hash',
-      ], projection.candidate_grouping_hash ? ['candidate_grouping_hash'] : [])
+        ...(projection.candidate_grouping_hash ? ['candidate_grouping_hash'] : []),
+      ])
       || projection.source_hashes.n7_handoff_hash !== frozenPayload.n7_handoff_hash
       || projection.source_hashes.topic_question_hash !== frozenPayload.topic_question_hash
       || projection.source_hashes.topic_question_contract_hash !== frozenPayload.topic_question_contract_hash
@@ -1233,18 +1234,15 @@ export class TopicSelectionV1bN8ValueAssessmentRuntimeService {
       : Boolean(left && right && this.sameRefObject(left, right));
   }
 
-  private hasExactHashKeys(
+  private hasRequiredHashKeys(
     value: Record<string, unknown>,
     requiredKeys: string[],
-    optionalKeys: string[] = [],
   ): value is Record<string, string> {
-    const allowedKeys = new Set([...requiredKeys, ...optionalKeys]);
     const actualKeys = Object.keys(value);
-    if (actualKeys.some((key) => !allowedKeys.has(key) || !this.isHash(value[key]))) {
+    if (actualKeys.some((key) => !this.isHash(value[key]))) {
       return false;
     }
-    return requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
-      && optionalKeys.every((key) => !Object.prototype.hasOwnProperty.call(value, key) || this.isHash(value[key]));
+    return requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
   }
 
   private hasPath(value: unknown, path: string): boolean {
