@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Authorized Phase 5 N9→N7 recovery completed on the historical rehearsal run; the replacement question contract is pending strict-human review
-- Next step: Present the new question checkpoint for an exact `advance`, `hold`, `loopback`, or `reject` decision. An `advance` would authorize the resumed N8 value assessment.
-- Blocker: Checkpoint `research_checkpoint_30a2ec52-2ba4-458e-b1a9-055ab6c216ff` is strict-human and pending. All other phases remain outside this operation. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Replacement-contract loopback recorded; Phase 5 route requires replanning around a bounded N6 delta Debate
+- Next step: Design and obtain implementation authorization for the smallest replay-safe route from substantive N9 refinement through one bounded delta Debate to N7 rematerialization, then recover decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` through that route.
+- Blocker: The strict-human loopback is decided, but the product emitted no actionable handoff and the run coordinator still exposes N8. The revised route is not implemented or authorized, so N8 must not execute. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
@@ -22,3 +22,4 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-10: N6 uses a bounded Debate as a regular candidate-convergence component rather than reserving Explorer/Critic/Arbiter review only for failure-triggered escalation, while preserving deterministic admission and replayable provenance.
 - [x] TSRF-11: A non-advance N9 disposition such as `refine_question` exposes a supported, replay-safe recovery route to the owning upstream boundary instead of leaving the workflow stranded at a terminal decision with only an internal loopback ref.
 - [ ] TSRF-12: N8 value assessments, material risk findings, and N9 dispositions are reflected in research status and the human stage view; a terminal `refine_question` with 25 material risk findings cannot still appear as “开放风险：暂无” with promotion as the next review.
+- [ ] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.

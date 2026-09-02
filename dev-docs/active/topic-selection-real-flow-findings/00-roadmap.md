@@ -10,6 +10,7 @@
 - Diagnose why directly overlapping 2026 adaptive-budget and retrieval-utility papers were absent from the evidence landscape, and make unresolved coverage risk visible at the human checkpoint.
 - Observe whether every literature-dependent convergence loop actually invokes a retriever, separates local retrieval from provider work, and changes the evidence state rather than merely repeating reads.
 - Make bounded N6 Debate a regular part of topic-question candidate convergence rather than a failure-only recovery path.
+- Route substantive post-N9 question refinements through one bounded N6 delta Debate before N7 rematerialization while allowing mechanical-only edits to remain direct.
 - Make non-advance N9 dispositions recoverable through one explicit upstream route, and keep post-N8/N9 human/status projections aligned with the current value authority.
 - Ensure evidence-landscape eligibility consumes required coverage outcomes, so a retriever-backed `missing` row cannot silently look satisfied merely because adjacent EvidenceUnits exist.
 - Add focused verification for the successful controls and failure/recovery paths observed in the run.
@@ -35,6 +36,7 @@
 | Should adjacent backup and workload limitations be implemented here? | Including them broadens the task across operational durability and experiment assets; separate follow-ups preserve ownership. | Classify here, implement only topic-selection-owned defects, propose follow-ups for the rest. | proposed | User after Phase 1 evidence | Finding disposition review | Prevents one rehearsal task from becoming an unbounded platform project. |
 | Should N6 Debate remain conditional on candidate failure? | Failure-only escalation is cheaper, but lets a consequential single-agent recommendation reach N7 without routine adversarial review; a bounded regular Debate adds convergence cost but tests framing, overlap, and value axes before contract materialization. | Make Debate a regular N6 component; keep deterministic gate admission and reserve deeper escalation for exceptional cases. | confirmed | User | User direction after reviewing the N6/N7 path | FIND-018 enters the product-fix route and the implementation must preserve bounded cost and replayability. |
 | What exact refinement contract should resolve N9 `refine_question`? | Primary metrics, safety/quality thresholds, coverage, and benchmark-validity checks must be fixed by the researcher rather than inferred by the operator. | Brier Score primary with ECE/NLL secondary; harmful-routing rate at fixed coverage primary with AURC secondary; task-quality degradation capped at 1 percentage point; coverage at least 90% of the frozen router; two real replacement environments with paired same-query evaluation, disjoint calibration/test splits, matched-budget strong baselines, and a no-shift control. | confirmed | User | Exact acceptance of the complete refinement proposal | The Human-authority content is settled. It must be materialized only through the supported Phase 5 N9 recovery route; the task record is not a substitute for TopicQuestionContract authority. |
+| Should a materially refined question bypass the regular N6 Debate because its original candidate already passed N6? | Direct N9→N7 is cheaper, but lets changed claims, metrics, thresholds, baselines, and evaluation design avoid adversarial convergence; a full N6 restart would unnecessarily reopen candidate and slice selection. | Classify the refinement delta deterministically. Route substantive changes through exactly one bounded N6 delta Debate over changed fields, then N7; allow mechanical-only changes to proceed directly to N7. Freeze the selected candidate, slice, evidence ceiling, and Human authority. | confirmed | User | User direction after inspecting the real N9→N7 recovery result | FIND-024 revises the Phase 5 target and requires replanning before further implementation or N8 execution. |
 
 ### Assumptions
 
@@ -107,20 +109,22 @@
 - Verification: Initial-path Debate integration tests plus the real-flow N6-to-N7 trace.
 - Recovery: Restore conditional routing while retaining the existing divergent-loop runtime and recorded evidence.
 
-### Phase 5 — Make non-advance N9 dispositions recoverable
-- Outcome: `refine_question`, `refine_slice`, and evidence-recheck decisions stop packaging while still exposing one supported route to the owning upstream boundary.
+### Phase 5 — Make non-advance N9 dispositions recoverable and convergence-complete
+- Outcome: `refine_question`, `refine_slice`, and evidence-recheck decisions stop packaging while exposing one supported route to the owning upstream boundary; a substantive question refinement completes one bounded delta Debate before N7 rematerialization.
 - Approach: Treat the deterministic N9 decision and its frozen `loopback_target_ref` as the route authority; do not add a second human/model judgment or infer a different disposition.
 - Planned changes:
   1. Emit a typed handoff and registered route for each recoverable non-advance disposition.
-  2. Make coordinator retry/resume consume the exact N9 decision, target ref, and hashes idempotently.
-  3. Preserve terminal behavior for `park` and `drop`, and preserve the existing N10 path only for `advance_to_package`.
-  4. Add focused recovery, replay, stale-target, and wrong-target tests.
+  2. Classify the human refinement delta against the previous contract: changes to question, claim, metrics, thresholds, baselines, or evaluation design route through one bounded N6 delta Debate; mechanical-only changes may proceed directly to N7.
+  3. Keep the selected candidate, slice, evidence ceiling, and human payload frozen across Debate; make coordinator retry/resume consume the exact N9 decision, delta hash, support artifacts, target ref, and hashes idempotently.
+  4. Make a strict-human question checkpoint `loopback` emit the same actionable recovery route rather than leaving N8 exposed.
+  5. Preserve terminal behavior for `park` and `drop`, and preserve the existing N10 path only for `advance_to_package`.
+  6. Add focused recovery, single-pass Debate, mechanical-bypass, replay, stale-target, wrong-target, and no-N8-leak tests.
 - Affected boundaries / entry points: N9 disposition gate, route policy, run coordinator, N7/N5/evidence-search re-entry contracts.
 - Dependencies: Phase 1 classifies the intended owner for each non-advance disposition.
-- Exit criteria: TSRF-11 passes without weakening deterministic N9 or creating a second authority gate.
-- Verification: Real `refine_question` round-trip plus focused coordinator/harness integration tests.
+- Exit criteria: TSRF-11 and TSRF-13 pass without weakening deterministic N9, reopening candidate selection, or creating a second authority gate.
+- Verification: Real `refine_question` round-trip plus focused coordinator/harness integration tests for substantive delta Debate, mechanical bypass, and strict-human loopback recovery.
 - Recovery: Restore terminal stop behavior while preserving recorded N9 decisions; never delete disposition authority.
-- Implementation checkpoint (2026-09-02): The authorized N9 `refine_question`→N7 slice is implemented, locally verified, and exercised end to end on the historical rehearsal run. N9 emitted `N9ToN7RefinementHandoff@v1`; one exact human refinement payload created replacement contract `topic_question_contract_97c59cf9-5aa2-4826-bd97-56d0a730b0cd`, atomically superseded the prior question/contract/checkpoint lineage, and resumed the chronological frontier at N8. New checkpoint `research_checkpoint_30a2ec52-2ba4-458e-b1a9-055ab6c216ff` remains pending and must receive a separate exact human decision before N8 executes. Other non-advance owners (`refine_slice`, evidence recheck) were not part of this approved N9→N7 slice and remain unchanged.
+- Implementation checkpoint (2026-09-02): The earlier authorized N9 `refine_question`→N7 slice is implemented and exercised, but it is now only a partial recovery path. It created replacement contract `topic_question_contract_97c59cf9-5aa2-4826-bd97-56d0a730b0cd` without re-reviewing its substantive delta at N6. Exact loopback decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` then closed the new checkpoint, but emitted no Debate handoff and left the coordinator pointing at N8. FIND-024 invalidates direct N9→N7 as the complete target for substantive refinements; no further route-dependent implementation or N8 execution is authorized until the revised design is planned and approved. Other non-advance owners (`refine_slice`, evidence recheck) remain unchanged.
 
 ### Phase 6 — Re-run the real workflow and disposition adjacent gaps
 - Outcome: The fixed module completes the same reject-and-replace path with decision-ready output, while adjacent gaps have explicit owners.
@@ -139,12 +143,12 @@
 
 ## Kickoff gate
 
-- Status: ready
-- Authorized boundary: Phase 5 only
-- [x] Decisions: The deterministic N9 disposition remains route authority, the exact `refine_question` contract is confirmed, and unresolved project placement or adjacent-gap ownership does not affect the isolated Phase 5 boundary.
-- [x] Design: Phase 5 uses one typed, hash-bound N9 recovery handoff and the existing N7 authority gate; it adds no second human/model judgment and leaves `park`, `drop`, and N10 behavior unchanged.
-- [x] Route: The user explicitly approved and authorized implementation of Phase 5 on 2026-09-02; all other phases remain unauthorized.
-- [x] Verification: Focused red-green coverage will prove the N9→N7 route, exact replay, stale/wrong-target rejection, and unchanged terminal/advance dispositions before the real run resumes.
+- Status: pending
+- Authorized boundary: none
+- [x] Decisions: The deterministic N9 disposition remains route authority; substantive refinements require one bounded delta Debate, mechanical-only edits may bypass it, and candidate/slice selection stays frozen.
+- [ ] Design: Settle the deterministic delta classifier, one-pass Debate support contract, N6/N7 handoff, strict-human loopback recovery, and no-N8-leak behavior without adding another authority gate.
+- [ ] Route: Obtain explicit implementation authorization for the revised Phase 5 route; the previous direct N9→N7 authorization is exhausted and no other phase is authorized.
+- [ ] Verification: Add focused red-green coverage for substantive delta Debate, mechanical bypass, exact replay, stale/wrong-target rejection, strict-human loopback recovery, and unchanged terminal/advance dispositions.
 
 ## Risks and recovery
 
