@@ -46,6 +46,7 @@ export const TOPIC_SELECTION_PROMPT_TEMPLATE_IDS = new Set<string>([
   'topic-selection-v1b-n6-debate-explorer',
   'topic-selection-v1b-n6-debate-critic',
   'topic-selection-v1b-n6-debate-arbiter',
+  'topic-selection.v1b.n6.refinement-delta-debate.runtime-role',
   // v1c
   'topic-selection-promotion-decision-support',
   'topic-selection-v1c-promotion-support-bounded-micro-debate',

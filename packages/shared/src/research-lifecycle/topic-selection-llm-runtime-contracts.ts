@@ -66,6 +66,7 @@ export const TOPIC_SELECTION_CONTEXT_FAMILIES = [
   'v1b_n4_research_slice_option_generation',
   'v1b_slice_selection_context',
   'v1b_n6_topic_question_generation',
+  'v1b_n6_refinement_delta_review',
   'v1b_n6_loopback_triage_context',
   'v1b_n7_topic_question_hardening',
   'v1b_n8_topic_value_assessment',

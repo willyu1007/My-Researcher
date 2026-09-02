@@ -10,6 +10,9 @@ import {
   TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID,
   TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import {
@@ -182,6 +185,8 @@ export const TOPIC_SELECTION_V1B_N7_FAILED_TRIAL_SYNTHESIS_SUPPORT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_failed_trial_synthesis_support;
 export const TOPIC_SELECTION_V1B_N7_N8_DEBATE_ADMISSION_SUPPORT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support;
+export const TOPIC_SELECTION_V1B_N7_N6_REFINEMENT_DELTA_ADMISSION_PROFILE_ID =
+  TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission;
 export const TOPIC_SELECTION_V1B_N8_BOUNDED_DEBATE_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n8_bounded_debate;
 
@@ -785,6 +790,21 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       model_options: [],
     }),
     profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N7_N6_REFINEMENT_DELTA_ADMISSION_PROFILE_ID,
+      profile_function: 'v1b_n6_refinement_delta_debate_admission_support',
+      role_family: 'arbiter',
+      stage_family: 'v1b_topic_question_contract',
+      quality_objectives: [
+        'bind_the_complete_delta_debate_transcript',
+        'preserve_human_refinement_payload_immutability',
+        'admit_current_contract_reuse_without_authority_write',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
+      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      output_contract: 'N6RefinementDeltaDebateAdmission@v1',
+      model_options: [],
+    }),
+    profileBase({
       // T-123 Phase 3 (DP-3.5) — shared by all 4 N8 bounded-debate role slots
       // (n8_debate_assessor_draft/value_critic/assessor_repair/synthesizer_final). Per-role
       // provider diversity (provider_diverse_deep_debate) is expressed as model_option overrides
@@ -868,6 +888,45 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       // run_mode_eligibility applies (codex_assisted in acceptance + product).
       allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
       output_contract: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID,
+      profile_function: 'v1b_n6_refinement_delta_exploration',
+      role_family: 'explorer',
+      stage_family: 'refinement_delta_review',
+      quality_objectives: [
+        'inspect_each_changed_human_field_without_rewriting_it',
+        'test_coherence_against_frozen_candidate_slice_and_evidence',
+        'preserve_support_only_authority_boundary',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID,
+      profile_function: 'v1b_n6_refinement_delta_critique',
+      role_family: 'deep_critic',
+      stage_family: 'refinement_delta_review',
+      quality_objectives: [
+        'surface_unsupported_or_infeasible_delta_findings',
+        'challenge_evaluation_validity_within_frozen_evidence',
+        'preserve_human_payload_immutability',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
+    }),
+    profileBase({
+      profile_id: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID,
+      profile_function: 'v1b_n6_refinement_delta_arbitration',
+      role_family: 'arbiter',
+      stage_family: 'refinement_delta_review',
+      quality_objectives: [
+        'admit_unchanged_or_block_with_findings_only',
+        'bind_the_terminal_decision_to_the_complete_role_chain',
+        'prevent_candidate_slice_contract_or_human_content_mutation',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'provider_llm', 'codex_assisted'],
+      output_contract: 'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1',
     }),
     profileBase({
       profile_id: TOPIC_SELECTION_V1C_PROMOTION_DECISION_SUPPORT_PROFILE_ID,

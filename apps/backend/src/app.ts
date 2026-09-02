@@ -366,6 +366,7 @@ import { TopicSelectionV1bValueAssessmentService } from './services/topic-select
 import { TopicSelectionV1bWorkflowHarnessService } from './services/topic-selection-v1b-workflow-harness-service.js';
 import { TopicSelectionV1bRunCoordinatorService } from './services/topic-selection-v1b-run-coordinator-service.js';
 import { TopicSelectionV1bN6DivergentDebateRuntimeService } from './services/topic-selection-v1b-n6-divergent-debate-runtime-service.js';
+import { TopicSelectionV1bN6RefinementDeltaDebateRuntimeService } from './services/topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
 import { TopicSelectionV1bN8BoundedDebateRuntimeService } from './services/topic-selection-v1b-n8-bounded-debate-runtime-service.js';
 import {
   TopicSelectionV1cDownstreamFeedbackRecheckService,
@@ -1311,10 +1312,15 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const topicSelectionV1bRunCoordinatorService = new TopicSelectionV1bRunCoordinatorService({
     harness: topicSelectionV1bWorkflowHarnessService,
     controlPlane: topicSelectionControlPlaneService,
+    researchCheckpointStatus: topicSelectionResearchCheckpointService,
+    topicQuestionRepository: topicSelectionV1bTopicQuestionRepository,
     // Caller-side debate runtimes the coordinator drives on an N6 escalation / N8 bounded-debate
     // frontier (T-127 W-07 item a). They default-construct their own orchestrator/registries from
     // the full control plane; the harness only detects + routes the escalation.
     n6DivergentDebateRuntime: new TopicSelectionV1bN6DivergentDebateRuntimeService(topicSelectionControlPlaneService),
+    n6RefinementDeltaDebateRuntime: new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(
+      topicSelectionControlPlaneService,
+    ),
     n8BoundedDebateRuntime: new TopicSelectionV1bN8BoundedDebateRuntimeService(topicSelectionControlPlaneService),
   });
   const topicSelectionV1bController = new TopicSelectionV1bController(

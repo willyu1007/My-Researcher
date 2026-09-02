@@ -3,6 +3,9 @@ import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionResearchStatusProjection,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
+import type {
   TopicSelectionAgentExecutionSpec,
   TopicSelectionAgentRunMode,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-profile-contracts';
@@ -24,6 +27,10 @@ import {
   type TopicSelectionLoopbackBudgetRaise,
   type TopicSelectionProvisionalRunOverrideSignOff,
   type TopicSelectionV1bWorkflowHarnessNodeId,
+  type TopicSelectionV1bN6RefinementDeltaDebateContext,
+  type TopicSelectionV1bN7HarnessRefinementFrozenInputPayload,
+  type TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload,
+  type TopicSelectionV1bN7ToN8HandoffPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
   type TopicSelectionV1bWorkflowHarnessRunResult,
   type TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
@@ -31,8 +38,13 @@ import {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
 import { AppError } from '../errors/app-error.js';
-import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import type { TopicSelectionV1bTopicQuestionRepository } from '../repositories/topic-selection-v1b-topic-question.repository.js';
+import {
+  canonicalHash,
+  hashN7ContractAuthority,
+} from './topic-selection-v1b-harness-authority-hash.js';
 import type { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import type {
   GenerateTopicSelectionV1bN6DivergentDebateInput,
   TopicSelectionV1bN6DivergentDebateRuntimeService,
@@ -41,6 +53,14 @@ import type {
   GenerateTopicSelectionV1bN8DebateInput,
   TopicSelectionV1bN8BoundedDebateRuntimeService,
 } from './topic-selection-v1b-n8-bounded-debate-runtime-service.js';
+import type {
+  GenerateTopicSelectionV1bN6RefinementDeltaDebateInput,
+  TopicSelectionV1bN6RefinementDeltaDebateRuntimeService,
+} from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
+import {
+  classifyTopicSelectionV1bRefinementDelta,
+  type TopicSelectionV1bRefinementDeltaClassification,
+} from './topic-selection-v1b-refinement-delta-service.js';
 
 // T-123 Phase 2 — thin Run Coordinator above the v1b WorkflowHarness (decision D1).
 //
@@ -247,6 +267,7 @@ export type TopicSelectionV1bRunCoordinatorHaltReason =
   // T-127 W-07 item (a): the caller-side debate runtime did not reach `completed`
   // (a role turn or the deterministic admission blocked) — surfaced so the operator can fix fixtures.
   | 'debate_blocked'
+  | 'delta_debate_required'
   // T-128 W-15 D1(c): a PRODUCT advance is about to move past an admitted N6/N8 attempt that
   // carries the provisional-thresholds tripwire warning, and no matching stakeholder sign-off
   // (W-16 run-override scope) is recorded — the coordinator enforces the product-level contract
@@ -303,6 +324,16 @@ export type TopicSelectionV1bRunStateProjection = {
   last_completed_node_id: string | null;
   next_node_id: string | null;
   run_complete: boolean;
+  recovery_frontier: TopicSelectionV1bRunRecoveryFrontier | null;
+};
+
+export type TopicSelectionV1bRunRecoveryFrontier = {
+  kind: 'n6_refinement_delta_debate';
+  target_node_id: typeof N7_NODE_ID;
+  source: 'question_checkpoint_loopback';
+  source_decision_ref: TopicSelectionFunctionalRef;
+  checkpoint_ref: TopicSelectionFunctionalRef;
+  target_contract_ref: TopicSelectionFunctionalRef;
 };
 
 /**
@@ -311,8 +342,8 @@ export type TopicSelectionV1bRunStateProjection = {
  * debate-fixture slot (the role outputs are non-authority support, resolved before the gate), so the
  * fixtures arrive here. A per-node discriminated union: N6 carries the fan-out role_outputs (arrays
  * per slot) + the re-entry generation_mode (caller contract — the escalation-source mode), N8 carries
- * the 4-role role_outputs. execution_mode/run_mode mirror the runtime inputs; there is no live path —
- * both runtimes require pre-supplied codex_response/mocked_output per role.
+ * the 4-role role_outputs, and the refinement recovery carries its support-only Explorer/Critic/Arbiter
+ * outputs. execution_mode/run_mode mirror the runtime inputs; the refinement provider path is dormant.
  */
 export type TopicSelectionV1bRunCoordinatorDebateInput =
   | ({ kind: 'n6_divergent' } & Pick<
@@ -325,6 +356,10 @@ export type TopicSelectionV1bRunCoordinatorDebateInput =
   | ({ kind: 'n8_bounded' } & Pick<
       GenerateTopicSelectionV1bN8DebateInput,
       'execution_mode' | 'run_mode' | 'role_outputs' | 'execution_plan'
+    >)
+  | ({ kind: 'n6_refinement_delta' } & Pick<
+      GenerateTopicSelectionV1bN6RefinementDeltaDebateInput,
+      'execution_mode' | 'run_mode' | 'role_outputs'
     >);
 
 /**
@@ -355,7 +390,10 @@ const PROVISIONAL_GATE_WARNING_BY_NODE = new Map<string, string>([
   [N6_NODE_ID, N6_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
   [N8_NODE_ID, N8_DEBATE_THRESHOLDS_PROVISIONAL_PRODUCT_GATE.warning_code],
 ]);
-const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<TopicSelectionV1bRunCoordinatorDebateInput['kind'], ValidateFunction> = {
+const DEBATE_EXECUTION_PLAN_VALIDATORS: Record<
+  Exclude<TopicSelectionV1bRunCoordinatorDebateInput['kind'], 'n6_refinement_delta'>,
+  ValidateFunction
+> = {
   n6_divergent: debateExecutionPlanAjv.compile(
     topicSelectionNamedDebateExecutionPlanSchema(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER),
   ),
@@ -382,7 +420,7 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    */
   draft_payload?: Record<string, unknown> | null;
   /**
-   * Per-role debate fixtures for an N6 divergent / N8 bounded debate frontier. Mutually exclusive
+   * Per-role debate fixtures for an N6 divergent / N8 bounded / refinement-delta debate frontier. Mutually exclusive
    * with draft_payload/execution_spec: on a debate frontier the coordinator runs the debate runtime
    * (which mints the gate-facing draft itself) instead of recording a caller draft.
    */
@@ -497,6 +535,7 @@ type TraceEntry = {
   created_at: string;
   /** Position in the run's artifact list — authoritative event order (created_at ties at ms). */
   seq: number;
+  request: TopicSelectionV1bWorkflowHarnessRunRequest;
   result: TopicSelectionV1bWorkflowHarnessRunResult;
 };
 
@@ -511,6 +550,12 @@ type ControlPlanePort = Pick<
   'listArtifactRefsByWorkflowRunId' | 'getArtifactRef' | 'recordArtifactRef'
 >;
 
+type ResearchCheckpointStatusPort = Pick<TopicSelectionResearchCheckpointService, 'getResearchStatus'>;
+type TopicQuestionRecoveryPort = Pick<
+  TopicSelectionV1bTopicQuestionRepository,
+  'findTopicQuestionContractById' | 'findAnswerabilityPlanByContractId'
+>;
+
 /**
  * T-127 W-07 item (a): the caller-side debate runtimes the coordinator drives. Narrow Pick ports
  * (like HarnessPort) so the unit test can stub them and the full heavy runtimes are only constructed
@@ -519,6 +564,13 @@ type ControlPlanePort = Pick<
  */
 type DebateRuntimeN6Port = Pick<TopicSelectionV1bN6DivergentDebateRuntimeService, 'runDivergentDebate'>;
 type DebateRuntimeN8Port = Pick<TopicSelectionV1bN8BoundedDebateRuntimeService, 'runDebate'>;
+type RefinementDeltaDebateRuntimePort = Pick<TopicSelectionV1bN6RefinementDeltaDebateRuntimeService, 'runDebate'>;
+
+type RefinementDeltaRecovery = {
+  request: TopicSelectionV1bWorkflowHarnessRunRequest;
+  context: TopicSelectionV1bN6RefinementDeltaDebateContext;
+  classification: TopicSelectionV1bRefinementDeltaClassification;
+};
 
 /** Outcome of driving a caller-side debate runtime: the gate-facing draft to attach, or a structured block. */
 type DebateOutcome =
@@ -556,14 +608,17 @@ export class TopicSelectionV1bRunCoordinatorService {
     private readonly deps: {
       harness: HarnessPort;
       controlPlane: ControlPlanePort;
+      researchCheckpointStatus: ResearchCheckpointStatusPort;
+      topicQuestionRepository: TopicQuestionRecoveryPort;
       n6DivergentDebateRuntime: DebateRuntimeN6Port;
       n8BoundedDebateRuntime: DebateRuntimeN8Port;
+      n6RefinementDeltaDebateRuntime: RefinementDeltaDebateRuntimePort;
     },
   ) {}
 
   async getRunState(workflowRunId: string): Promise<TopicSelectionV1bRunStateProjection> {
     const traces = await this.loadTraces(workflowRunId);
-    return this.project(workflowRunId, traces);
+    return this.applyQuestionCheckpointBarrier(this.project(workflowRunId, traces));
   }
 
   async advanceUntilBlocked(
@@ -666,6 +721,107 @@ export class TopicSelectionV1bRunCoordinatorService {
       }
       if (Date.now() - startedAt > runTimeoutMs) {
         return halt('run_timeout', null, `advance exceeded run timeout of ${runTimeoutMs}ms.`, [], projection);
+      }
+
+      if (projection.recovery_frontier?.kind === 'n6_refinement_delta_debate') {
+        const frontier = projection.recovery_frontier;
+        const nodeInput = input.node_inputs?.[frontier.target_node_id] ?? null;
+        if (nodeInput?.draft_payload
+          || nodeInput?.execution_spec
+          || nodeInput?.support_payloads
+          || nodeInput?.refinement_payload
+          || nodeInput?.operator_debate_request) {
+          throw new AppError(
+            400,
+            'INVALID_PAYLOAD',
+            `${frontier.target_node_id}: refinement-delta recovery accepts only the debate input; the exact Human refinement is recovered from the persisted N7 trace.`,
+          );
+        }
+
+        let recovery: RefinementDeltaRecovery;
+        try {
+          recovery = await this.buildRefinementDeltaRecovery(input, projection, frontier);
+        } catch (error) {
+          if (error instanceof CoordinatorPreconditionHalt) {
+            return halt(error.haltReason, frontier.target_node_id, error.message, [], projection);
+          }
+          throw error;
+        }
+        if (recovery.classification.kind === 'substantive' && !nodeInput?.debate) {
+          return halt(
+            'delta_debate_required',
+            frontier.target_node_id,
+            'The current question-contract loopback contains a substantive refinement and requires one bounded delta Debate before N7 can be re-admitted; supply node_inputs[N7].debate.kind=n6_refinement_delta. N8 is not executable.',
+            [],
+            projection,
+          );
+        }
+        if (nodeInput?.debate && nodeInput.debate.kind !== 'n6_refinement_delta') {
+          throw new AppError(
+            400,
+            'INVALID_PAYLOAD',
+            `${frontier.target_node_id}: recovery requires debate.kind=n6_refinement_delta, received ${nodeInput.debate.kind}.`,
+          );
+        }
+        if (recovery.classification.kind === 'canonical_no_op' && nodeInput?.debate) {
+          return halt(
+            'debate_not_applicable',
+            frontier.target_node_id,
+            'The recovered Human refinement is canonicalization-neutral; N7 reuses current authority directly and does not admit a Debate.',
+            [],
+            projection,
+          );
+        }
+        const runMode: TopicSelectionAgentRunMode = nodeInput?.debate?.run_mode
+          ?? input.run_mode
+          ?? (nodeInput?.debate?.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+        recovery.request.run_mode = runMode;
+
+        if (recovery.classification.kind === 'substantive') {
+          const debate = nodeInput?.debate;
+          if (!debate || debate.kind !== 'n6_refinement_delta') {
+            throw new AppError(500, 'INTERNAL_ERROR', 'Refinement delta Debate narrowing failed.');
+          }
+          let debateResult;
+          try {
+            debateResult = await this.deps.n6RefinementDeltaDebateRuntime.runDebate({
+              request: recovery.request,
+              context: recovery.context,
+              execution_mode: debate.execution_mode,
+              run_mode: runMode,
+              role_outputs: debate.role_outputs,
+              created_by: recovery.request.created_by,
+            });
+          } catch (error) {
+            if (error instanceof AppError) {
+              return halt(
+                'debate_blocked',
+                frontier.target_node_id,
+                `${frontier.target_node_id} refinement delta Debate could not run: ${error.message}`,
+                [{ code: error.errorCode, message: error.message }],
+                projection,
+              );
+            }
+            throw error;
+          }
+          if (debateResult.status !== 'completed') {
+            return halt(
+              'debate_blocked',
+              frontier.target_node_id,
+              `${frontier.target_node_id} refinement delta Debate ended with status=${debateResult.status}; a blocked unchanged delta requires a new Human refinement hash.`,
+              this.extractDebateBlockers(debateResult),
+              projection,
+            );
+          }
+          recovery.request.semantic_artifacts = [debateResult.semantic_artifact];
+        }
+
+        const result = await this.invokeWithTimeout(recovery.request, nodeTimeoutMs);
+        if (result.kind === 'timeout') {
+          return halt('node_timeout', frontier.target_node_id, result.message);
+        }
+        steps.push(this.step(result.value));
+        continue;
       }
 
       // Latest trace of the would-be frontier may be a non-advancing state — surface it,
@@ -1040,7 +1196,8 @@ export class TopicSelectionV1bRunCoordinatorService {
         continue;
       }
       const result = payload.result as TopicSelectionV1bWorkflowHarnessRunResult | undefined;
-      if (!result) {
+      const request = payload.request as TopicSelectionV1bWorkflowHarnessRunRequest | undefined;
+      if (!result || !request) {
         continue;
       }
       traces.push({
@@ -1051,6 +1208,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         // ms ties keep insertion order in-memory — prisma exact ties are unordered but
         // adjacent, which strict created_at comparison would mishandle either way).
         seq: traces.length,
+        request,
         result,
       });
     }
@@ -1151,6 +1309,239 @@ export class TopicSelectionV1bRunCoordinatorService {
       last_completed_node_id: lastCompleted?.node_id ?? null,
       next_node_id: nextNodeId,
       run_complete: runComplete,
+      recovery_frontier: null,
+    };
+  }
+
+  private async applyQuestionCheckpointBarrier(
+    projection: TopicSelectionV1bRunStateProjection,
+  ): Promise<TopicSelectionV1bRunStateProjection> {
+    const n7 = projection.nodes.find((node) => node.node_id === N7_NODE_ID)?.latest_admitted;
+    const targetContractRef = n7?.authority_ref ?? null;
+    const titleCardId = targetContractRef?.title_card_id ?? null;
+    if (!n7 || !targetContractRef || !titleCardId || projection.run_complete) {
+      return projection;
+    }
+
+    const status: TopicSelectionResearchStatusProjection = await this.deps.researchCheckpointStatus
+      .getResearchStatus(titleCardId);
+    const checkpoint = status.current_checkpoint ?? null;
+    if (!checkpoint || checkpoint.checkpoint_kind !== 'question_contract') {
+      return projection;
+    }
+
+    if (!this.sameRef(checkpoint.target_ref, targetContractRef)) {
+      return { ...projection, next_node_id: null };
+    }
+
+    const decision = status.current_packet?.decision ?? null;
+    if (checkpoint.status === 'decided'
+      && decision?.decision === 'advance'
+      && checkpoint.required_action_refs.length === 0) {
+      return projection;
+    }
+
+    if (checkpoint.status === 'decided'
+      && decision?.decision === 'loopback'
+      && decision.loopback_target === 'question_contract'
+      && checkpoint.decision_authority_ref) {
+      return {
+        ...projection,
+        next_node_id: N7_NODE_ID,
+        run_complete: false,
+        recovery_frontier: {
+          kind: 'n6_refinement_delta_debate',
+          target_node_id: N7_NODE_ID,
+          source: 'question_checkpoint_loopback',
+          source_decision_ref: checkpoint.decision_authority_ref,
+          checkpoint_ref: {
+            ref_type: 'research_checkpoint',
+            ref_id: checkpoint.research_checkpoint_id,
+            title_card_id: checkpoint.title_card_id,
+          },
+          target_contract_ref: targetContractRef,
+        },
+      };
+    }
+
+    return { ...projection, next_node_id: null };
+  }
+
+  private sameRef(left: TopicSelectionFunctionalRef, right: TopicSelectionFunctionalRef): boolean {
+    return left.ref_type === right.ref_type
+      && left.ref_id === right.ref_id
+      && (left.version_id ?? null) === (right.version_id ?? null)
+      && (left.title_card_id ?? null) === (right.title_card_id ?? null);
+  }
+
+  /**
+   * Recover the exact Human refinement and frozen candidate lineage from the admitted historical
+   * N9→N7 pass. The checkpoint loopback supplies only route authority; it must never ask the Human
+   * to restate or silently repair the already-persisted refinement.
+   */
+  private async buildRefinementDeltaRecovery(
+    input: AdvanceTopicSelectionV1bRunInput,
+    projection: TopicSelectionV1bRunStateProjection,
+    frontier: TopicSelectionV1bRunRecoveryFrontier,
+  ): Promise<RefinementDeltaRecovery> {
+    const traces = await this.loadTraces(input.workflow_run_id);
+    const sourceTrace = [...traces].reverse().find((trace) => {
+      const payload = trace.request.frozen_input.payload as { input_mode?: unknown };
+      return trace.node_id === N7_NODE_ID
+        && (trace.result.gate_status === 'admitted' || trace.result.gate_status === 'admitted_with_warnings')
+        && trace.result.route_decision === 'invoke_next'
+        && trace.result.authority_ref != null
+        && this.sameRef(trace.result.authority_ref, frontier.target_contract_ref)
+        && payload.input_mode === 'refinement_from_n9';
+    });
+    if (!sourceTrace) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The question-checkpoint loopback target has no admitted historical N9→N7 refinement trace to recover.',
+      );
+    }
+
+    const sourcePayload = sourceTrace.request.frozen_input.payload as unknown as TopicSelectionV1bN7HarnessRefinementFrozenInputPayload;
+    if (sourcePayload.question_refinement.actor.actor_type !== 'human') {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The persisted refinement trace is not attributed to Human authority.',
+      );
+    }
+    const currentContractHash = sourceTrace.result.hashes.authority_hash;
+    const currentHandoffRef = sourceTrace.result.handoff_ref;
+    const currentHandoffHash = sourceTrace.result.hashes.handoff_hash;
+    if (!currentContractHash || !currentHandoffRef || !currentHandoffHash) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The persisted refinement trace is missing its current contract or N7 handoff hash lineage.',
+      );
+    }
+    const currentHandoffArtifact = await this.deps.controlPlane.getArtifactRef(currentHandoffRef.ref_id);
+    const currentHandoff = currentHandoffArtifact?.payload as {
+      envelope?: { handoff_kind?: unknown };
+      payload?: TopicSelectionV1bN7ToN8HandoffPayload;
+      required_refs?: TopicSelectionFunctionalRef[];
+    } | null | undefined;
+    if (!currentHandoff?.payload
+      || currentHandoff.envelope?.handoff_kind !== 'N7ToN8Handoff'
+      || canonicalHash(currentHandoff) !== currentHandoffHash
+      || !this.sameRef(currentHandoff.payload.topic_question_contract_ref, frontier.target_contract_ref)
+      || currentHandoff.payload.topic_question_contract_hash !== currentContractHash) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The persisted current N7 handoff does not bind the exact looped-back question contract.',
+      );
+    }
+
+    const [currentContract, previousContract, previousPlan] = await Promise.all([
+      this.deps.topicQuestionRepository.findTopicQuestionContractById(frontier.target_contract_ref.ref_id),
+      this.deps.topicQuestionRepository.findTopicQuestionContractById(
+        sourcePayload.previous_topic_question_contract_ref.ref_id,
+      ),
+      this.deps.topicQuestionRepository.findAnswerabilityPlanByContractId(
+        sourcePayload.previous_topic_question_contract_ref.ref_id,
+      ),
+    ]);
+    if (!currentContract || !previousContract || !previousPlan) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The refinement delta baseline or current question-contract authority no longer resolves.',
+      );
+    }
+    // The predecessor was atomically superseded by the historical N7 pass, so its current authority
+    // hash is expected to differ from the frozen pre-supersession hash. The immutable trace carries
+    // that old hash; only the active replacement can be re-verified against current repository state.
+    if (currentContract.status !== 'active'
+      || previousContract.status !== 'superseded'
+      || hashN7ContractAuthority(currentContract) !== currentContractHash) {
+      throw new CoordinatorPreconditionHalt(
+        'upstream_blocked',
+        'The refinement recovery contract lineage is stale or hash-mismatched.',
+      );
+    }
+
+    const classification = classifyTopicSelectionV1bRefinementDelta({
+      main_question: previousContract.main_question,
+      contribution_hypothesis: previousContract.contribution_hypothesis,
+      expected_claim: previousContract.expected_claim,
+      fallback_claim: previousContract.fallback_claim,
+      evaluation_setting: previousPlan.evaluation_setting,
+      metrics: previousPlan.metrics,
+      baselines: previousPlan.baselines,
+      ablations_or_comparisons: previousPlan.ablations_or_comparisons,
+      dependency_risks: previousPlan.dependency_risks,
+      open_dependencies: previousPlan.open_dependencies,
+      known_gaps: previousPlan.known_gaps,
+      risk_notes: previousContract.risk_notes,
+    }, sourcePayload.question_refinement);
+    const evidenceCeilingRefs = this.uniqueRefs(
+      currentHandoff.required_refs?.length
+        ? currentHandoff.required_refs
+        : sourceTrace.request.frozen_input.source_refs,
+    );
+    const sourceRefs = this.uniqueRefs([
+      ...sourceTrace.request.frozen_input.source_refs,
+      ...evidenceCeilingRefs,
+      currentHandoffRef,
+      frontier.target_contract_ref,
+      frontier.checkpoint_ref,
+      frontier.source_decision_ref,
+    ]);
+    const reviewedPayload: TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload = {
+      ...sourcePayload,
+      input_mode: 'reviewed_refinement',
+      current_n7_handoff_ref: currentHandoffRef,
+      current_n7_handoff_hash: currentHandoffHash,
+      current_topic_question_contract_ref: frontier.target_contract_ref,
+      current_topic_question_contract_hash: currentContractHash,
+      source_checkpoint_ref: frontier.checkpoint_ref,
+      source_checkpoint_decision_ref: frontier.source_decision_ref,
+      evidence_ceiling_refs: evidenceCeilingRefs,
+      evidence_ceiling_hash: canonicalHash(evidenceCeilingRefs),
+    };
+    const frozenInput = {
+      input_contract: 'N7ReviewedRefinement@v1' as const,
+      snapshot_kind: sourceTrace.request.frozen_input.snapshot_kind,
+      source_refs: sourceRefs,
+      payload: reviewedPayload as unknown as Record<string, unknown>,
+    };
+    const request: TopicSelectionV1bWorkflowHarnessRunRequest = {
+      ...sourceTrace.request,
+      node_attempt_id: this.nextAttemptId(projection, N7_NODE_ID),
+      frozen_input: {
+        ...frozenInput,
+        frozen_input_hash: canonicalHash(frozenInput),
+      },
+      semantic_artifacts: undefined,
+      execution_spec: undefined,
+      created_by: 'human',
+      run_mode: input.run_mode ?? sourceTrace.request.run_mode ?? 'acceptance',
+    };
+    return {
+      request,
+      classification,
+      context: {
+        source_kind: 'question_checkpoint_loopback',
+        source_decision_ref: frontier.source_decision_ref,
+        checkpoint_ref: frontier.checkpoint_ref,
+        previous_topic_question_contract_ref: sourcePayload.previous_topic_question_contract_ref,
+        previous_topic_question_contract_hash: sourcePayload.previous_topic_question_contract_hash,
+        current_topic_question_contract_ref: frontier.target_contract_ref,
+        current_topic_question_contract_hash: currentContractHash,
+        proposed_contract_semantic_hash: currentContractHash,
+        refinement: sourcePayload.question_refinement,
+        refinement_hash: canonicalHash(sourcePayload.question_refinement),
+        delta_hash: classification.delta_hash,
+        changed_fields: classification.changed_fields,
+        selected_candidate_ref: currentHandoff.payload.active_candidate_ref,
+        selected_candidate_hash: currentHandoff.payload.active_candidate_hash,
+        selected_research_slice_ref: currentHandoff.payload.selected_research_slice_ref,
+        selected_research_slice_hash: currentHandoff.payload.selected_research_slice_hash,
+        evidence_ceiling_refs: evidenceCeilingRefs,
+        evidence_ceiling_hash: reviewedPayload.evidence_ceiling_hash,
+        source_refs: sourceRefs,
+      },
     };
   }
 
@@ -1202,6 +1593,9 @@ export class TopicSelectionV1bRunCoordinatorService {
     nodeId: string,
     debate: TopicSelectionV1bRunCoordinatorDebateInput,
   ): void {
+    if (debate.kind === 'n6_refinement_delta') {
+      return;
+    }
     if (debate.execution_plan == null) {
       return;
     }
@@ -1286,7 +1680,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         return { kind: 'blocked', message: this.debateBlockedMessage(N6_NODE_ID, result.status), blockers: this.extractDebateBlockers(result) };
       }
       gateDraftArtifact = result.gate_draft.semantic_artifact;
-    } else {
+    } else if (debate.kind === 'n8_bounded') {
       const result = await this.deps.n8BoundedDebateRuntime.runDebate({
         request,
         execution_mode: debate.execution_mode,
@@ -1300,6 +1694,12 @@ export class TopicSelectionV1bRunCoordinatorService {
         return { kind: 'blocked', message: this.debateBlockedMessage(N8_NODE_ID, result.status), blockers: this.extractDebateBlockers(result) };
       }
       gateDraftArtifact = result.gate_draft.semantic_artifact;
+    } else {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'The refinement delta Debate is only executable through the question-checkpoint recovery frontier.',
+      );
     }
 
     // One inert diagnostic marker so a re-advance after a harness rejection reuses this descriptor.

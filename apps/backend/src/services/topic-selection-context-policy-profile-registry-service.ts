@@ -183,6 +183,18 @@ export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_INVOCATION_SLOT_IDS = {
   arbiter: 'n6_debate_arbiter',
 } as const;
 
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS = {
+  explorer: 'topic-selection.v1b.n6.refinement-delta-debate.explorer.context-runtime@v1',
+  critic: 'topic-selection.v1b.n6.refinement-delta-debate.critic.context-runtime@v1',
+  arbiter: 'topic-selection.v1b.n6.refinement-delta-debate.arbiter.context-runtime@v1',
+} as const;
+
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_INVOCATION_SLOT_IDS = {
+  explorer: 'n6_refinement_delta_explorer',
+  critic: 'n6_refinement_delta_critic',
+  arbiter: 'n6_refinement_delta_arbiter',
+} as const;
+
 export const TOPIC_SELECTION_V1C_N2_CONTEXT_RUNTIME_PROFILE_IDS = {
   promotion_support_llm_draft:
     'topic-selection.v1c.n2.promotion-support-llm-draft.context-runtime@v1',
@@ -440,6 +452,28 @@ const V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES = [
   'dynamic_material_boundary',
   'draft_admission',
   'deterministic_gate',
+  'authority_boundary',
+] as const;
+
+const V1B_N6_REFINEMENT_DELTA_DEBATE_PRESERVED_FACT_KINDS = [
+  ...COMMON_PRESERVED_FACT_KINDS,
+  'human_refinement_delta',
+  'changed_field',
+  'previous_contract_identity',
+  'current_contract_identity',
+  'selected_candidate_identity',
+  'selected_slice_identity',
+  'evidence_ceiling',
+  'critic_finding',
+  'terminal_delta_verdict',
+] as const;
+
+const V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES = [
+  'schema_validation',
+  'role_artifact_admission',
+  'dynamic_material_boundary',
+  'human_authority_immutability',
+  'support_artifact_admission',
   'authority_boundary',
 ] as const;
 
@@ -1154,6 +1188,45 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
         preserved_fact_kinds: [...V1B_N6_DIVERGENT_DEBATE_PRESERVED_FACT_KINDS],
         post_reuse_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
         post_cache_gates: [...V1B_N6_DIVERGENT_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.explorer,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_INVOCATION_SLOT_IDS.explorer,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_refinement_delta_review',
+        estimated_input_token_target: 14000,
+        estimated_output_token_budget: 1200,
+        preserved_fact_kinds: [...V1B_N6_REFINEMENT_DELTA_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.critic,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_INVOCATION_SLOT_IDS.critic,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_refinement_delta_review',
+        estimated_input_token_target: 16000,
+        estimated_output_token_budget: 1600,
+        preserved_fact_kinds: [...V1B_N6_REFINEMENT_DELTA_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
+      }),
+      contextPolicyProfile({
+        context_policy_profile_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CONTEXT_RUNTIME_PROFILE_IDS.arbiter,
+        invocation_slot_id:
+          TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_INVOCATION_SLOT_IDS.arbiter,
+        functional_template: 'support_only_semantic',
+        context_family: 'v1b_n6_refinement_delta_review',
+        estimated_input_token_target: 18000,
+        estimated_output_token_budget: 1800,
+        preserved_fact_kinds: [...V1B_N6_REFINEMENT_DELTA_DEBATE_PRESERVED_FACT_KINDS],
+        post_reuse_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
+        post_cache_gates: [...V1B_N6_REFINEMENT_DELTA_DEBATE_POST_RUNTIME_GATES],
       }),
       contextPolicyProfile({
         context_policy_profile_id:

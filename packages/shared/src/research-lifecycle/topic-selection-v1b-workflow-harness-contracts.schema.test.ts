@@ -1519,6 +1519,7 @@ test('topic-selection v1b node policy registry validates full N1-N11 policy meta
     'N6ToN7Handoff@v1',
     'N8ToN7Feedback@v1',
     'N9ToN7RefinementHandoff@v1',
+    'N7ReviewedRefinement@v1',
   ]);
   const n6Policy = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES
     .find((policy) => policy.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1');

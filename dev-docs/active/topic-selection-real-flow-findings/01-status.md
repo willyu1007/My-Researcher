@@ -5,9 +5,9 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 5 FIND-024 executable delta-Debate route planned and approved for implementation
-- Next step: Begin the authorized TDD slice with a failing coordinator test proving that decision `research_checkpoint_decision_c7c82712-8b2e-4d91-a123-37de25ea84e2` exposes a delta-Debate recovery frontier and never N8, then implement the typed support route through N7 current-contract reuse.
-- Blocker: None for the approved local implementation slice. N8 remains intentionally blocked until the new route passes focused checks and the real decision is recovered. Provider execution, a new strict-human decision, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain outside authorization. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
+- Current phase: Phase 5 FIND-024 executable delta-Debate route implemented, verified, and replayed to a fresh strict-human checkpoint
+- Next step: Await the researcher's decision on fresh checkpoint `research_checkpoint_40ddf095-4d28-4844-bdfc-11aaff0ba6ee`; an exact `advance` may release N8, while another exact `loopback` must recover through the same bounded-delta policy.
+- Blocker: No implementation blocker remains for FIND-024. The workflow is intentionally stopped at strict Human authority; provider execution, N8 execution, Phase 4 regular-N6 routing, and other Phase 5 owner routes remain outside this completed slice. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
 - [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
@@ -22,4 +22,4 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-10: N6 uses a bounded Debate as a regular candidate-convergence component rather than reserving Explorer/Critic/Arbiter review only for failure-triggered escalation, while preserving deterministic admission and replayable provenance.
 - [x] TSRF-11: A non-advance N9 disposition such as `refine_question` exposes a supported, replay-safe recovery route to the owning upstream boundary instead of leaving the workflow stranded at a terminal decision with only an internal loopback ref.
 - [ ] TSRF-12: N8 value assessments, material risk findings, and N9 dispositions are reflected in research status and the human stage view; a terminal `refine_question` with 25 material risk findings cannot still appear as “开放风险：暂无” with promotion as the next review.
-- [ ] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.
+- [x] TSRF-13: A substantive N9 question refinement receives exactly one bounded delta Debate over the changed question/claim/metric/evaluation fields before N7 rematerialization; mechanical edits may bypass it, and a strict-human question loopback exposes this route instead of leaving N8 executable.

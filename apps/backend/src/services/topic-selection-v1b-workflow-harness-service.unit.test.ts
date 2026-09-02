@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_IDS,
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES,
@@ -16,6 +18,7 @@ import {
   type TopicSelectionV1bN6DivergentDebateRoleSlotId,
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
   type TopicSelectionV1bN6LoopbackTriageSupportPayload,
+  type TopicSelectionV1bN9QuestionRefinementPayload,
   type TopicSelectionV1bN7HarnessFrozenInputPayload,
   type TopicSelectionV1bN7ToN6FailedTrialLoopbackContextProjection,
   type TopicSelectionV1bCandidateGroupingSupportPayload,
@@ -109,6 +112,9 @@ import type {
   TopicSelectionV1bN7SupportSlotId,
 } from './topic-selection-v1b-n7-support-admission-service.js';
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
+import { TopicSelectionV1bN6RefinementDeltaDebateRuntimeService } from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import { classifyTopicSelectionV1bRefinementDelta } from './topic-selection-v1b-refinement-delta-service.js';
 import {
   sha256Text,
   stableStringify,
@@ -7246,7 +7252,7 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
     handoff.payload.previous_topic_question_contract_ref.ref_id,
   );
   assert.ok(previousContract);
-  const refinementPayload = {
+  const refinementPayload: TopicSelectionV1bN9QuestionRefinementPayload = {
     schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
     refinement_id: 'refinement_fixed_coverage_calibration',
     actor: {
@@ -7385,6 +7391,183 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   }));
   assert.equal(staleRetry.gate_status, 'blocked');
   assert.equal(staleRetry.error_code, 'N7_REFINEMENT_PREVIOUS_CONTRACT_STALE');
+
+  const currentCheckpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(
+    TITLE_CARD_ID,
+    'question_contract',
+  );
+  assert.ok(currentCheckpoint);
+  const checkpointDecision = await ctx.researchCheckpointService.recordDecision(
+    currentCheckpoint.research_checkpoint_id,
+    {
+      decision_key: 'reviewed_refinement_loopback_001',
+      decision: 'loopback',
+      actor: { actor_type: 'human', actor_id: 'researcher_phase_5' },
+      confirmed_snapshot_hash: currentCheckpoint.target_snapshot_hash,
+      rationale: 'Run the bounded delta Debate before reopening this exact contract checkpoint.',
+      review_payload: {
+        review_kind: 'question_contract',
+        mechanism_identifiable: true,
+        proxy_operationalized: true,
+        confounds_reviewed: true,
+        falsification_reviewed: true,
+        claim_ceiling_reviewed: true,
+        objections_reviewed: true,
+        review_notes: ['The accepted Human refinement must be adversarially reviewed without mutation.'],
+      },
+      loopback_target: 'question_contract',
+      loopback_refs: [refinedN7.authority_ref!],
+    },
+  );
+  const currentHandoffArtifact = await ctx.controlPlane.getArtifactRef(refinedN7.handoff_ref!.ref_id);
+  const currentHandoff = currentHandoffArtifact!.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff;
+  const currentHandoffPayload = currentHandoff.payload as {
+    active_candidate_ref: TopicSelectionFunctionalRef;
+    active_candidate_hash: string;
+    selected_research_slice_ref: TopicSelectionFunctionalRef;
+    selected_research_slice_hash: string;
+  };
+  const previousAnswerability = await ctx.topicQuestionRepository.findAnswerabilityPlanByContractId(
+    previousContract.topic_question_contract_id,
+  );
+  assert.ok(previousAnswerability);
+  const deltaClassification = classifyTopicSelectionV1bRefinementDelta({
+    main_question: previousContract.main_question,
+    contribution_hypothesis: previousContract.contribution_hypothesis,
+    expected_claim: previousContract.expected_claim,
+    fallback_claim: previousContract.fallback_claim,
+    evaluation_setting: previousAnswerability.evaluation_setting,
+    metrics: previousAnswerability.metrics,
+    baselines: previousAnswerability.baselines,
+    ablations_or_comparisons: previousAnswerability.ablations_or_comparisons,
+    dependency_risks: previousAnswerability.dependency_risks,
+    open_dependencies: previousAnswerability.open_dependencies,
+    known_gaps: previousAnswerability.known_gaps,
+    risk_notes: previousContract.risk_notes,
+  }, refinementPayload);
+  const reviewedPayload = {
+    ...refinementRequest.frozen_input.payload,
+    input_mode: 'reviewed_refinement',
+    current_n7_handoff_ref: refinedN7.handoff_ref!,
+    current_n7_handoff_hash: refinedN7.hashes.handoff_hash!,
+    current_topic_question_contract_ref: refinedN7.authority_ref!,
+    current_topic_question_contract_hash: refinedN7.hashes.authority_hash!,
+    source_checkpoint_ref: ref('research_checkpoint', currentCheckpoint.research_checkpoint_id, TITLE_CARD_ID),
+    source_checkpoint_decision_ref: ref(
+      'research_checkpoint_decision',
+      checkpointDecision.research_checkpoint_decision_id,
+      TITLE_CARD_ID,
+    ),
+    evidence_ceiling_refs: currentHandoff.required_refs,
+    evidence_ceiling_hash: canonicalHash(currentHandoff.required_refs),
+  };
+  const reviewedRequest = request({
+    ...refinementRequest,
+    node_attempt_id: 'node_attempt_v1b_n7_reviewed_refinement',
+    frozen_input: {
+      input_contract: 'N7ReviewedRefinement@v1',
+      snapshot_kind: 'topic_question_candidate_set',
+      source_refs: uniqueRefs([
+        ...refinementRequest.frozen_input.source_refs,
+        ...reviewedPayload.evidence_ceiling_refs,
+        refinedN7.handoff_ref!,
+        refinedN7.authority_ref!,
+        reviewedPayload.source_checkpoint_ref,
+        reviewedPayload.source_checkpoint_decision_ref,
+      ]),
+      payload: reviewedPayload,
+    },
+  });
+  const deltaRuntime = new TopicSelectionV1bN6RefinementDeltaDebateRuntimeService(ctx.controlPlane);
+  const deltaContext = {
+    source_kind: 'question_checkpoint_loopback' as const,
+    source_decision_ref: reviewedPayload.source_checkpoint_decision_ref,
+    checkpoint_ref: reviewedPayload.source_checkpoint_ref,
+    previous_topic_question_contract_ref: handoff.payload.previous_topic_question_contract_ref,
+    previous_topic_question_contract_hash: handoff.payload.previous_topic_question_contract_hash,
+    current_topic_question_contract_ref: refinedN7.authority_ref!,
+    current_topic_question_contract_hash: refinedN7.hashes.authority_hash!,
+    proposed_contract_semantic_hash: refinedN7.hashes.authority_hash!,
+    refinement: refinementPayload,
+    refinement_hash: canonicalHash(refinementPayload),
+    delta_hash: deltaClassification.delta_hash,
+    changed_fields: deltaClassification.changed_fields,
+    selected_candidate_ref: currentHandoffPayload.active_candidate_ref,
+    selected_candidate_hash: currentHandoffPayload.active_candidate_hash,
+    selected_research_slice_ref: currentHandoffPayload.selected_research_slice_ref,
+    selected_research_slice_hash: currentHandoffPayload.selected_research_slice_hash,
+    evidence_ceiling_refs: reviewedPayload.evidence_ceiling_refs,
+    evidence_ceiling_hash: reviewedPayload.evidence_ceiling_hash,
+    source_refs: reviewedRequest.frozen_input.source_refs,
+  };
+  const role_outputs = Object.fromEntries(
+    TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER.map((slot) => {
+      const output = slot === 'n6_refinement_delta_explorer'
+        ? {
+          schema_version: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+          role_slot: slot,
+          review_points: deltaClassification.changed_fields.map((field) => ({
+            field,
+            statement: `${field} is explicit and remains frozen.`,
+          })),
+        }
+        : slot === 'n6_refinement_delta_critic'
+          ? {
+            schema_version: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+            role_slot: slot,
+            critic_findings: [{ finding_code: 'C1', severity: 'note', field: 'evaluation_setting', statement: 'The paired design stays within the frozen evidence ceiling.' }],
+          }
+          : {
+            schema_version: TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
+            role_slot: slot,
+            decision: 'admit_unchanged',
+            findings: [],
+            summary: 'The exact Human-authored refinement is coherent and remains unchanged.',
+          };
+      return [slot, { mocked_output: { fixture_id: `reviewed_${slot}`, output }, codex_response: null }];
+    }),
+  );
+  const debate = await deltaRuntime.runDebate({
+    request: reviewedRequest,
+    context: deltaContext,
+    execution_mode: 'mocked_llm',
+    role_outputs,
+  });
+  assert.equal(debate.status, 'completed');
+  if (debate.status !== 'completed') throw new Error('Expected refinement delta Debate admission.');
+
+  const evidenceCeilingDrift = await ctx.service.invokeNode(request({
+    ...reviewedRequest,
+    node_attempt_id: 'node_attempt_v1b_n7_reviewed_refinement_evidence_drift',
+    semantic_artifacts: undefined,
+    frozen_input: {
+      ...reviewedRequest.frozen_input,
+      frozen_input_hash: undefined,
+      payload: {
+        ...reviewedPayload,
+        evidence_ceiling_hash: '0'.repeat(64),
+      },
+    },
+  }));
+  assert.equal(evidenceCeilingDrift.gate_status, 'blocked');
+  assert.equal(evidenceCeilingDrift.error_code, 'N7_REFINEMENT_DELTA_EVIDENCE_CEILING_MISMATCH');
+
+  const reviewedN7 = await ctx.service.invokeNode({
+    ...reviewedRequest,
+    semantic_artifacts: [debate.semantic_artifact],
+  });
+
+  assert.equal(reviewedN7.error_code, null, reviewedN7.error_message ?? undefined);
+  assert.equal(reviewedN7.gate_status, 'admitted_with_warnings');
+  assert.equal(reviewedN7.authority_ref?.ref_id, refinedN7.authority_ref?.ref_id);
+  assert.equal(reviewedN7.hashes.authority_hash, refinedN7.hashes.authority_hash);
+  const reopenedCheckpoint = await ctx.researchCheckpointRepository.findCurrentCheckpoint(
+    TITLE_CARD_ID,
+    'question_contract',
+  );
+  assert.ok(reopenedCheckpoint);
+  assert.notEqual(reopenedCheckpoint.research_checkpoint_id, currentCheckpoint.research_checkpoint_id);
+  assert.equal(reopenedCheckpoint.status, 'pending');
 });
 
 test('v1b workflow harness N11 publishes v1c input bundle and closes N1-N11 service-level E2E', async () => {

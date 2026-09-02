@@ -187,6 +187,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SLOT_IDS = [
   'n7_candidate_grouping',
   'n7_failed_trial_synthesis',
   'n7_n8_debate_admission_review',
+  'n7_n6_refinement_delta_admission',
   'n8_value_assessment_draft',
   'n8_debate_assessor_draft',
   'n8_debate_value_critic',
@@ -206,6 +207,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS = {
   n7_candidate_grouping_support: 'topic-selection.v1b.candidate-grouping-support.codex.v1',
   n7_failed_trial_synthesis_support: 'topic-selection.v1b.failed-trial-synthesis-support.codex.v1',
   n7_n8_debate_admission_support: 'topic-selection.v1b.n8-debate-admission-support.codex.v1',
+  n7_n6_refinement_delta_admission: 'topic-selection.v1b.n6-refinement-delta-admission.v1',
   topic_value_assessment_single_agent: 'topic-selection.v1b.topic-value-assessment.single-agent.v1',
   /** Shared by all four N8 bounded-debate role slots (DP-3.5): per-role diversity is
    * expressed as model_option overrides on this ONE profile, not separate profiles. */
@@ -505,6 +507,20 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_SEMANTIC_SUPPORT_SLOTS = [
     slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
   },
   {
+    slot_id: 'n7_n6_refinement_delta_admission',
+    node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1',
+    allowed_effect: 'support_only',
+    output_contract: 'N6RefinementDeltaDebateAdmission@v1',
+    target_gate_id: 'N7TopicQuestionContractGate',
+    required_for_progress: false,
+    fallback_policy: 'technical_retry_or_block',
+    allowed_execution_modes: ['codex_assisted', 'mocked_llm'],
+    default_profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission,
+    allowed_profile_ids: [TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission],
+    allowed_run_modes: ['test', 'acceptance', 'product'],
+    slot_policy_version: TOPIC_SELECTION_V1B_NODE_POLICY_VERSION,
+  },
+  {
     slot_id: 'n8_value_assessment_draft',
     node_id: 'topic-selection.v1b.assess-topic-value.v1',
     allowed_effect: 'model_draft_for_gate',
@@ -629,6 +645,24 @@ export const TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_LOOP_ID = 'v1b_n6_divergent
 export const TOPIC_SELECTION_V1B_N6_DEBATE_EXPLORER_PROFILE_ID = 'topic-selection.v1b.n6-debate.explorer.v1' as const;
 export const TOPIC_SELECTION_V1B_N6_DEBATE_CRITIC_PROFILE_ID = 'topic-selection.v1b.n6-debate.critic.v1' as const;
 export const TOPIC_SELECTION_V1B_N6_DEBATE_ARBITER_PROFILE_ID = 'topic-selection.v1b.n6-debate.arbiter.v1' as const;
+
+/** One support-only pass over a Human-authored refinement delta. It never reopens candidate selection. */
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER = [
+  'n6_refinement_delta_explorer',
+  'n6_refinement_delta_critic',
+  'n6_refinement_delta_arbiter',
+] as const;
+export type TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId =
+  (typeof TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_ORDER)[number];
+
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_LOOP_ID =
+  'v1b_n6_refinement_delta_debate' as const;
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_EXPLORER_PROFILE_ID =
+  'topic-selection.v1b.n6-refinement-delta-debate.explorer.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_CRITIC_PROFILE_ID =
+  'topic-selection.v1b.n6-refinement-delta-debate.critic.v1' as const;
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ARBITER_PROFILE_ID =
+  'topic-selection.v1b.n6-refinement-delta-debate.arbiter.v1' as const;
 
 /**
  * Deterministic debate-trigger thresholds for the N8 gate (D2: T1 borderline / T3
@@ -1281,6 +1315,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       'N6ToN7Handoff@v1',
       'N8ToN7Feedback@v1',
       'N9ToN7RefinementHandoff@v1',
+      'N7ReviewedRefinement@v1',
     ],
     required_frozen_snapshot_kind: 'topic_question_candidate_set',
     authority_kind: 'TopicQuestionContract',
@@ -1313,7 +1348,12 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
       },
     ],
     blocker_codes: ['no_active_candidate', 'semantically_invalid_topic_question_contract', 'candidate_trial_exhausted'],
-    warning_codes: ['candidate_grouping_preserved', 'n8_debate_level_selected'],
+    warning_codes: [
+      'candidate_grouping_preserved',
+      'n8_debate_level_selected',
+      'refinement_delta_debate_admitted',
+      'refinement_canonical_no_op_reused',
+    ],
     loopback_target_codes: ['n7_select_next_candidate', 'n7_synthesize_n8_failures', 'n7_loopback_to_n6'],
     replay_hash_components: [
       ...DEFAULT_REPLAY_HASH_COMPONENTS,
@@ -1959,7 +1999,8 @@ export interface TopicSelectionV1bN6LoopbackTriageSupportPayload {
 export type TopicSelectionV1bN7InputMode =
   | 'initial_from_n6'
   | 'feedback_from_n8'
-  | 'refinement_from_n9';
+  | 'refinement_from_n9'
+  | 'reviewed_refinement';
 
 export interface TopicSelectionV1bN7HarnessInitialFrozenInputPayload
 extends TopicSelectionV1bN6ToN7HandoffPayload {
@@ -2031,10 +2072,25 @@ extends TopicSelectionV1bN6ToN7HandoffPayload, TopicSelectionV1bN9ToN7Refinement
   question_refinement: TopicSelectionV1bN9QuestionRefinementPayload;
 }
 
+/** A refinement already materialized by historical direct N9→N7 is reviewed or no-op-reused in place. */
+export interface TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload
+extends Omit<TopicSelectionV1bN7HarnessRefinementFrozenInputPayload, 'input_mode'> {
+  input_mode: 'reviewed_refinement';
+  current_n7_handoff_ref: TopicSelectionFunctionalRef;
+  current_n7_handoff_hash: string;
+  current_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  current_topic_question_contract_hash: string;
+  source_checkpoint_ref: TopicSelectionFunctionalRef;
+  source_checkpoint_decision_ref: TopicSelectionFunctionalRef;
+  evidence_ceiling_refs: TopicSelectionFunctionalRef[];
+  evidence_ceiling_hash: string;
+}
+
 export type TopicSelectionV1bN7HarnessFrozenInputPayload =
   | TopicSelectionV1bN7HarnessInitialFrozenInputPayload
   | TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload
-  | TopicSelectionV1bN7HarnessRefinementFrozenInputPayload;
+  | TopicSelectionV1bN7HarnessRefinementFrozenInputPayload
+  | TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload;
 
 export type TopicSelectionV1bTopicValueAssessmentDraftPayload =
   TopicSelectionAssessTopicValueLlmOutput;
@@ -2173,6 +2229,87 @@ export type TopicSelectionV1bN6DivergentDebateBlockerCode =
   // arbiter output + whole-loop transcript
   | 'N6_DIVERGENT_DEBATE_ARBITER_OUTPUT_NOT_N6_DRAFT'
   | 'N6_DIVERGENT_DEBATE_TRANSCRIPT_DRIFT';
+
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION =
+  'TopicSelectionV1bN6RefinementDeltaDebateRoleOutput@v1' as const;
+export const TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION =
+  'N6RefinementDeltaDebateAdmission@v1' as const;
+
+export interface TopicSelectionV1bN6RefinementDeltaDebateFinding {
+  finding_code: string;
+  severity: 'note' | 'material' | 'blocking';
+  field?: keyof TopicSelectionV1bN9QuestionRefinementUpdates | null;
+  statement: string;
+}
+
+/**
+ * Role output deliberately carries observations and a binary terminal decision only. The Human
+ * refinement fields themselves are not writable from this contract.
+ */
+export interface TopicSelectionV1bN6RefinementDeltaDebateRolePayload {
+  schema_version: typeof TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION;
+  role_slot: TopicSelectionV1bN6RefinementDeltaDebateRoleSlotId;
+  review_points?: Array<{
+    field: keyof TopicSelectionV1bN9QuestionRefinementUpdates;
+    statement: string;
+  }> | null;
+  critic_findings?: TopicSelectionV1bN6RefinementDeltaDebateFinding[] | null;
+  decision?: 'admit_unchanged' | 'block_with_findings' | null;
+  findings?: TopicSelectionV1bN6RefinementDeltaDebateFinding[] | null;
+  summary?: string | null;
+}
+
+export interface TopicSelectionV1bN6RefinementDeltaDebateContext {
+  source_kind: 'n9_refinement' | 'question_checkpoint_loopback';
+  source_decision_ref: TopicSelectionFunctionalRef;
+  checkpoint_ref: TopicSelectionFunctionalRef | null;
+  previous_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  previous_topic_question_contract_hash: string;
+  current_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  current_topic_question_contract_hash: string;
+  proposed_contract_semantic_hash: string;
+  refinement: TopicSelectionV1bN9QuestionRefinementPayload;
+  refinement_hash: string;
+  delta_hash: string;
+  changed_fields: Array<keyof TopicSelectionV1bN9QuestionRefinementUpdates>;
+  selected_candidate_ref: TopicSelectionFunctionalRef;
+  selected_candidate_hash: string;
+  selected_research_slice_ref: TopicSelectionFunctionalRef;
+  selected_research_slice_hash: string;
+  evidence_ceiling_refs: TopicSelectionFunctionalRef[];
+  evidence_ceiling_hash: string;
+  source_refs: TopicSelectionFunctionalRef[];
+}
+
+export interface TopicSelectionV1bN6RefinementDeltaDebateAdmissionPayload {
+  schema_version: typeof TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION;
+  workflow_run_id: string;
+  node_id: 'topic-selection.v1b.materialize-topic-question-contract.v1';
+  policy_version: string;
+  allowed_effect: 'support_only';
+  source_kind: TopicSelectionV1bN6RefinementDeltaDebateContext['source_kind'];
+  source_decision_ref: TopicSelectionFunctionalRef;
+  checkpoint_ref: TopicSelectionFunctionalRef | null;
+  previous_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  previous_topic_question_contract_hash: string;
+  current_topic_question_contract_ref: TopicSelectionFunctionalRef;
+  current_topic_question_contract_hash: string;
+  proposed_contract_semantic_hash: string;
+  refinement_id: string;
+  refinement_hash: string;
+  delta_hash: string;
+  changed_fields: Array<keyof TopicSelectionV1bN9QuestionRefinementUpdates>;
+  selected_candidate_ref: TopicSelectionFunctionalRef;
+  selected_candidate_hash: string;
+  selected_research_slice_ref: TopicSelectionFunctionalRef;
+  selected_research_slice_hash: string;
+  evidence_ceiling_hash: string;
+  verdict: 'admit_unchanged' | 'block_with_findings';
+  role_artifact_hashes: string[];
+  loop_transcript_hash: string;
+  findings: TopicSelectionV1bN6RefinementDeltaDebateFinding[];
+  summary: string;
+}
 
 export interface TopicSelectionV1bN8FailedTrialSynthesisSupportPayload {
   exhausted_candidate_refs: TopicSelectionFunctionalRef[];
@@ -3072,6 +3209,56 @@ export const topicSelectionV1bN7HarnessFrozenInputPayloadSchema = {
         previous_topic_question_contract_ref: strictFunctionalRefSchema,
         previous_topic_question_contract_hash: hashString,
         question_refinement: topicSelectionV1bN9QuestionRefinementPayloadSchema,
+      },
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'input_mode',
+        'n6_handoff_hash',
+        ...n6ToN7LineagePayloadRequired,
+        'n9_handoff_hash',
+        'value_disposition_ref',
+        'value_disposition_hash',
+        'topic_value_assessment_ref',
+        'topic_value_assessment_hash',
+        'previous_topic_question_contract_ref',
+        'previous_topic_question_contract_hash',
+        'question_refinement',
+        'current_n7_handoff_ref',
+        'current_n7_handoff_hash',
+        'current_topic_question_contract_ref',
+        'current_topic_question_contract_hash',
+        'source_checkpoint_ref',
+        'source_checkpoint_decision_ref',
+        'evidence_ceiling_refs',
+        'evidence_ceiling_hash',
+      ],
+      properties: {
+        input_mode: { const: 'reviewed_refinement' },
+        n6_handoff_hash: hashString,
+        ...n6ToN7LineagePayloadProperties,
+        n9_handoff_hash: hashString,
+        value_disposition_ref: strictFunctionalRefSchema,
+        value_disposition_hash: hashString,
+        topic_value_assessment_ref: strictFunctionalRefSchema,
+        topic_value_assessment_hash: hashString,
+        previous_topic_question_contract_ref: strictFunctionalRefSchema,
+        previous_topic_question_contract_hash: hashString,
+        question_refinement: topicSelectionV1bN9QuestionRefinementPayloadSchema,
+        current_n7_handoff_ref: strictFunctionalRefSchema,
+        current_n7_handoff_hash: hashString,
+        current_topic_question_contract_ref: strictFunctionalRefSchema,
+        current_topic_question_contract_hash: hashString,
+        source_checkpoint_ref: strictFunctionalRefSchema,
+        source_checkpoint_decision_ref: strictFunctionalRefSchema,
+        evidence_ceiling_refs: {
+          type: 'array',
+          items: strictFunctionalRefSchema,
+          minItems: 1,
+        },
+        evidence_ceiling_hash: hashString,
       },
     },
   ],

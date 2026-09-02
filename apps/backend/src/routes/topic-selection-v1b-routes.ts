@@ -303,7 +303,7 @@ const workflowRunAdvanceSchema = {
               refinement_payload: {
                 anyOf: [topicSelectionV1bN9QuestionRefinementPayloadSchema, { type: 'null' }],
               },
-              // Per-role debate fixtures for an N6 divergent / N8 bounded debate frontier (W-07 item a).
+              // Per-role debate fixtures for an N6 divergent, N8 bounded, or N7 refinement-delta frontier.
               // The per-kind execution_plan's enum/type constraints are checked here (debateNodeInputSchema,
               // W-09 pre-provider_llm hardening) — a non-named plan or a bad role execution_mode 400s; foreign
               // role keys / unknown keys are STRIPPED by Fastify, not rejected (see debateNodeInputSchema note).

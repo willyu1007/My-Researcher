@@ -14,7 +14,7 @@ import {
 
 import { AppError } from '../errors/app-error.js';
 import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
-import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import { canonicalHash, hashN7ContractAuthority } from './topic-selection-v1b-harness-authority-hash.js';
 import { TopicSelectionV1bRunCoordinatorService } from './topic-selection-v1b-run-coordinator-service.js';
 import type {
   GenerateTopicSelectionV1bN6DivergentDebateInput,
@@ -24,6 +24,10 @@ import type {
   GenerateTopicSelectionV1bN8DebateInput,
   TopicSelectionV1bN8DebateRunResult,
 } from './topic-selection-v1b-n8-bounded-debate-runtime-service.js';
+import type {
+  GenerateTopicSelectionV1bN6RefinementDeltaDebateInput,
+  TopicSelectionV1bN6RefinementDeltaDebateRunResult,
+} from './topic-selection-v1b-n6-refinement-delta-debate-runtime-service.js';
 import { selectN6DebateExecutionPlan } from './topic-selection-debate-execution-plan-registry-service.js';
 
 const RUN = 'workflow_run_coord_test';
@@ -77,6 +81,19 @@ class StubControlPlane {
     } as unknown as TopicSelectionArtifactRefRecord;
     this.artifacts.set(record.artifact_ref_id, record);
     return record;
+  }
+}
+
+class StubResearchCheckpointStatus {
+  current: Record<string, unknown> | null = null;
+
+  async getResearchStatus(titleCardId: string): Promise<Record<string, unknown>> {
+    return this.current ?? {
+      title_card_id: titleCardId,
+      checkpoint_chain: [],
+      current_checkpoint: null,
+      current_packet: null,
+    };
   }
 }
 
@@ -369,6 +386,258 @@ test('coordinator consumes N9 refinement into a new N7 pass and rewinds the fron
   );
 });
 
+test('question-contract loopback replaces the N8 frontier with an actionable delta-Debate recovery', async () => {
+  const {
+    harness,
+    coordinator,
+    researchCheckpointStatus,
+    topicQuestionRepository,
+    n6RefinementDeltaDebateRuntime,
+  } = makeSubject();
+  const contractRef = ref('topic_question_contract', 'contract_reviewed_after_refinement');
+  const previousContractRef = ref('topic_question_contract', 'contract_before_reviewed_refinement');
+  const baseContract = {
+    accepted_risk_refs: [],
+    answerability_plan_id: 'plan_reviewed_refinement',
+    contract_hash: 'contract_semantic_hash',
+    expected_claim: 'Recalibration improves calibration.',
+    fallback_claim: 'The study identifies unsafe replacement shifts.',
+    main_question: 'Does recalibration improve Brier Score?',
+    max_claim_strength: 'bounded association',
+    required_evidence_categories: ['paired replacement evaluation'],
+    source_candidate_id: 'candidate_reviewed_refinement',
+    source_research_slice_id: 'slice_reviewed_refinement',
+    source_research_slice_version: 'v1',
+    topic_question_contract_id: contractRef.ref_id,
+    version: 'v2',
+    status: 'active',
+    contribution_hypothesis: 'method',
+    risk_notes: ['Benchmark realism remains bounded.'],
+  };
+  const currentContractHash = hashN7ContractAuthority(baseContract as never);
+  topicQuestionRepository.contracts.set(contractRef.ref_id, baseContract);
+  topicQuestionRepository.contracts.set(previousContractRef.ref_id, {
+    ...baseContract,
+    answerability_plan_id: 'plan_before_reviewed_refinement',
+    topic_question_contract_id: previousContractRef.ref_id,
+    version: 'v1',
+    status: 'superseded',
+  });
+  topicQuestionRepository.plans.set(previousContractRef.ref_id, {
+    evaluation_setting: 'Two replacement environments.',
+    metrics: ['Brier Score'],
+    baselines: ['Frozen router'],
+    ablations_or_comparisons: ['No abstention'],
+    dependency_risks: ['Replacement benchmark availability'],
+    open_dependencies: ['Frozen router outputs'],
+    known_gaps: ['No direct transfer study'],
+  });
+  const candidateRef = ref('topic_question_candidate', 'candidate_reviewed_refinement');
+  const sliceRef = ref('research_slice', 'slice_reviewed_refinement');
+  harness.on(N7, {
+    gate_status: 'admitted',
+    route_decision: 'invoke_next',
+    handoff_kind_for_test: 'N7ToN8Handoff',
+    handoff_payload_for_test: {
+      topic_question_contract_ref: contractRef,
+      topic_question_contract_hash: currentContractHash,
+      active_candidate_ref: candidateRef,
+      active_candidate_hash: 'a'.repeat(64),
+      selected_research_slice_ref: sliceRef,
+      selected_research_slice_hash: 'b'.repeat(64),
+    },
+    authority_ref: contractRef,
+    hashes: {
+      frozen_input_hash: 'fih',
+      execution_spec_hash: 'esh',
+      semantic_artifact_hash: null,
+      runtime_admission_hash: null,
+      gate_result_hash: 'grh',
+      authority_hash: currentContractHash,
+      handoff_hash: null,
+      route_hash: 'rh',
+    },
+  });
+  await harness.invokeNode({
+    ...bootstrapRequest(),
+    node_id: N7,
+    node_attempt_id: 'node_attempt_n7_reviewed_after_refinement',
+    created_by: 'human',
+    frozen_input: {
+      input_contract: 'N9ToN7RefinementHandoff@v1',
+      snapshot_kind: 'topic_question_candidate_set',
+      source_refs: [ref('topic_question_candidate_set', 'candidate_set_reviewed_refinement')],
+      payload: {
+        input_mode: 'refinement_from_n9',
+        previous_topic_question_contract_ref: previousContractRef,
+        previous_topic_question_contract_hash: 'c'.repeat(64),
+        question_refinement: {
+          schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+          refinement_id: 'refinement_reviewed_coord',
+          actor: { actor_type: 'human', actor_id: 'researcher_coord' },
+          rationale: 'Freeze fixed-coverage evaluation.',
+          updates: { metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'] },
+        },
+      },
+    },
+  });
+  const decisionRef = ref('research_checkpoint_decision', 'question_loopback_decision');
+  const checkpointRef = ref('research_checkpoint', 'question_loopback_checkpoint');
+  researchCheckpointStatus.current = {
+    title_card_id: CARD,
+    checkpoint_chain: [],
+    current_checkpoint: {
+      research_checkpoint_id: checkpointRef.ref_id,
+      title_card_id: CARD,
+      checkpoint_kind: 'question_contract',
+      target_ref: contractRef,
+      target_snapshot_hash: '8'.repeat(64),
+      decision_authority_ref: decisionRef,
+      required_action_refs: [],
+      status: 'decided',
+    },
+    current_packet: {
+      research_checkpoint_id: checkpointRef.ref_id,
+      checkpoint_kind: 'question_contract',
+      target_ref: contractRef,
+      target_snapshot_hash: '8'.repeat(64),
+      decision: {
+        research_checkpoint_decision_id: decisionRef.ref_id,
+        decision: 'loopback',
+        loopback_target: 'question_contract',
+        loopback_refs: [contractRef],
+      },
+    },
+  };
+
+  const state = await coordinator.getRunState(RUN);
+  assert.equal(state.next_node_id, N7);
+  assert.deepEqual(state.recovery_frontier, {
+    kind: 'n6_refinement_delta_debate',
+    target_node_id: N7,
+    source: 'question_checkpoint_loopback',
+    source_decision_ref: decisionRef,
+    checkpoint_ref: checkpointRef,
+    target_contract_ref: contractRef,
+  });
+
+  const report = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN });
+  assert.equal(report.halt.reason, 'delta_debate_required');
+  assert.equal(report.halt.node_id, N7);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 0);
+
+  harness.route(N7, (request) => {
+    if ((request.frozen_input.payload as { input_mode?: string }).input_mode !== 'reviewed_refinement') {
+      return null;
+    }
+    researchCheckpointStatus.current = {
+      title_card_id: CARD,
+      checkpoint_chain: [],
+      current_checkpoint: {
+        research_checkpoint_id: 'fresh_question_checkpoint',
+        title_card_id: CARD,
+        checkpoint_kind: 'question_contract',
+        target_ref: contractRef,
+        target_snapshot_hash: '9'.repeat(64),
+        decision_authority_ref: null,
+        required_action_refs: [],
+        status: 'pending',
+      },
+      current_packet: null,
+    };
+    return {
+      gate_status: 'admitted_with_warnings',
+      route_decision: 'invoke_next',
+      handoff_kind_for_test: 'N7ToN8Handoff',
+      handoff_payload_for_test: {
+        topic_question_contract_ref: contractRef,
+        topic_question_contract_hash: currentContractHash,
+        active_candidate_ref: candidateRef,
+        active_candidate_hash: 'a'.repeat(64),
+        selected_research_slice_ref: sliceRef,
+        selected_research_slice_hash: 'b'.repeat(64),
+      },
+      authority_ref: contractRef,
+      hashes: {
+        frozen_input_hash: request.frozen_input.frozen_input_hash ?? 'fih',
+        execution_spec_hash: 'esh',
+        semantic_artifact_hash: 'delta_support_hash',
+        runtime_admission_hash: 'delta_runtime_hash',
+        gate_result_hash: 'grh',
+        authority_hash: currentContractHash,
+        handoff_hash: null,
+        route_hash: 'rh',
+      },
+    };
+  });
+  const recovered = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    max_steps: 1,
+    node_inputs: {
+      [N7]: {
+        debate: {
+          kind: 'n6_refinement_delta',
+          execution_mode: 'mocked_llm',
+          run_mode: 'test',
+          role_outputs: {},
+        },
+      },
+    },
+  });
+  assert.deepEqual(recovered.steps.map((step) => step.node_id), [N7]);
+  assert.equal(n6RefinementDeltaDebateRuntime.calls.length, 1);
+  assert.deepEqual(n6RefinementDeltaDebateRuntime.calls[0]!.context.changed_fields, ['metrics']);
+  const reviewedRequest = harness.invocations.at(-1)!;
+  assert.equal(reviewedRequest.frozen_input.input_contract, 'N7ReviewedRefinement@v1');
+  assert.equal((reviewedRequest.frozen_input.payload as { input_mode?: string }).input_mode, 'reviewed_refinement');
+  assert.equal(reviewedRequest.semantic_artifacts?.[0]?.slot_id, 'n7_n6_refinement_delta_admission');
+  assert.equal(reviewedRequest.created_by, 'human');
+  assert.equal(recovered.run_state.next_node_id, null);
+  assert.equal(recovered.run_state.recovery_frontier, null);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 0);
+
+  // Canonical no-op recovery takes the same reviewed-refinement path but must not run Debate.
+  topicQuestionRepository.plans.set(previousContractRef.ref_id, {
+    ...topicQuestionRepository.plans.get(previousContractRef.ref_id),
+    metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
+  });
+  const noOpDecisionRef = ref('research_checkpoint_decision', 'question_loopback_no_op_decision');
+  researchCheckpointStatus.current = {
+    title_card_id: CARD,
+    checkpoint_chain: [],
+    current_checkpoint: {
+      research_checkpoint_id: 'question_loopback_no_op_checkpoint',
+      title_card_id: CARD,
+      checkpoint_kind: 'question_contract',
+      target_ref: contractRef,
+      target_snapshot_hash: '4'.repeat(64),
+      decision_authority_ref: noOpDecisionRef,
+      required_action_refs: [],
+      status: 'decided',
+    },
+    current_packet: {
+      research_checkpoint_id: 'question_loopback_no_op_checkpoint',
+      checkpoint_kind: 'question_contract',
+      target_ref: contractRef,
+      target_snapshot_hash: '4'.repeat(64),
+      decision: {
+        research_checkpoint_decision_id: noOpDecisionRef.ref_id,
+        decision: 'loopback',
+        loopback_target: 'question_contract',
+        loopback_refs: [contractRef],
+      },
+    },
+  };
+  const noOpRecovered = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    max_steps: 1,
+  });
+  assert.deepEqual(noOpRecovered.steps.map((step) => step.node_id), [N7]);
+  assert.equal(n6RefinementDeltaDebateRuntime.calls.length, 1, 'canonical no-op does not run Debate');
+  assert.equal(harness.invocations.at(-1)!.semantic_artifacts, undefined);
+  assert.equal(harness.invocations.filter((request) => request.node_id === N8).length, 0);
+});
+
 /** Minimal gate-draft semantic-artifact descriptor the debate stubs return — the coordinator only
  *  ATTACHES it to the node request (the stub harness does not validate its content). */
 function stubGateDraft(slotId: string): TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef {
@@ -424,18 +693,67 @@ class StubN8DebateRuntime {
   }
 }
 
+class StubN6RefinementDeltaDebateRuntime {
+  readonly calls: GenerateTopicSelectionV1bN6RefinementDeltaDebateInput[] = [];
+  next: TopicSelectionV1bN6RefinementDeltaDebateRunResult | null = null;
+
+  async runDebate(
+    input: GenerateTopicSelectionV1bN6RefinementDeltaDebateInput,
+  ): Promise<TopicSelectionV1bN6RefinementDeltaDebateRunResult> {
+    this.calls.push(input);
+    return this.next ?? ({
+      status: 'completed',
+      admission: { verdict: 'admit_unchanged' },
+      admission_hash: 'delta_admission_hash',
+      semantic_artifact: {
+        ...stubGateDraft('n7_n6_refinement_delta_admission'),
+        allowed_effect: 'support_only',
+      },
+      replayed: false,
+    } as unknown as TopicSelectionV1bN6RefinementDeltaDebateRunResult);
+  }
+}
+
+class StubTopicQuestionRecoveryRepository {
+  readonly contracts = new Map<string, Record<string, unknown>>();
+  readonly plans = new Map<string, Record<string, unknown>>();
+
+  async findTopicQuestionContractById(id: string): Promise<Record<string, unknown> | null> {
+    return this.contracts.get(id) ?? null;
+  }
+
+  async findAnswerabilityPlanByContractId(id: string): Promise<Record<string, unknown> | null> {
+    return this.plans.get(id) ?? null;
+  }
+}
+
 function makeSubject() {
   const controlPlane = new StubControlPlane();
   const harness = new StubHarness(controlPlane);
+  const researchCheckpointStatus = new StubResearchCheckpointStatus();
   const n6DivergentDebateRuntime = new StubN6DebateRuntime();
   const n8BoundedDebateRuntime = new StubN8DebateRuntime();
+  const n6RefinementDeltaDebateRuntime = new StubN6RefinementDeltaDebateRuntime();
+  const topicQuestionRepository = new StubTopicQuestionRecoveryRepository();
   const coordinator = new TopicSelectionV1bRunCoordinatorService({
     harness,
     controlPlane: controlPlane as never,
+    researchCheckpointStatus: researchCheckpointStatus as never,
+    topicQuestionRepository: topicQuestionRepository as never,
     n6DivergentDebateRuntime: n6DivergentDebateRuntime as never,
     n8BoundedDebateRuntime: n8BoundedDebateRuntime as never,
+    n6RefinementDeltaDebateRuntime: n6RefinementDeltaDebateRuntime as never,
   });
-  return { controlPlane, harness, coordinator, n6DivergentDebateRuntime, n8BoundedDebateRuntime };
+  return {
+    controlPlane,
+    harness,
+    coordinator,
+    researchCheckpointStatus,
+    n6DivergentDebateRuntime,
+    n8BoundedDebateRuntime,
+    n6RefinementDeltaDebateRuntime,
+    topicQuestionRepository,
+  };
 }
 
 function bootstrapRequest(): TopicSelectionV1bWorkflowHarnessRunRequest {

@@ -201,14 +201,30 @@ export function parseN7Payload(
     'previous_topic_question_contract_hash',
     'question_refinement',
   ];
+  const reviewedRefinementKeys = [
+    ...refinementKeys,
+    'current_n7_handoff_ref',
+    'current_n7_handoff_hash',
+    'current_topic_question_contract_ref',
+    'current_topic_question_contract_hash',
+    'source_checkpoint_ref',
+    'source_checkpoint_decision_ref',
+    'evidence_ceiling_refs',
+    'evidence_ceiling_hash',
+  ];
   const mode = payload.input_mode;
   const allowedKeys = mode === 'feedback_from_n8'
     ? feedbackKeys
     : mode === 'refinement_from_n9'
       ? refinementKeys
-      : baseKeys;
+      : mode === 'reviewed_refinement'
+        ? reviewedRefinementKeys
+        : baseKeys;
   if (!hasOnlyKeys(payload, allowedKeys)
-    || (mode !== 'initial_from_n6' && mode !== 'feedback_from_n8' && mode !== 'refinement_from_n9')
+    || (mode !== 'initial_from_n6'
+      && mode !== 'feedback_from_n8'
+      && mode !== 'refinement_from_n9'
+      && mode !== 'reviewed_refinement')
     || !isHash(payload.n6_handoff_hash)
     || !isFunctionalRefValue(payload.topic_question_candidate_set_ref)
     || !isHash(payload.topic_question_candidate_set_hash)
@@ -240,7 +256,7 @@ export function parseN7Payload(
       message: 'N7 feedback mode requires frozen N8 feedback refs and hashes.',
     };
   }
-  if (mode === 'refinement_from_n9'
+  if ((mode === 'refinement_from_n9' || mode === 'reviewed_refinement')
     && (!isHash(payload.n9_handoff_hash)
       || !isFunctionalRefValue(payload.value_disposition_ref)
       || !isHash(payload.value_disposition_hash)
@@ -253,6 +269,22 @@ export function parseN7Payload(
       ok: false,
       code: 'N7_REFINEMENT_PAYLOAD_INVALID',
       message: 'N7 refinement mode requires the persisted N9 handoff lineage and an exact human-approved question refinement.',
+    };
+  }
+  if (mode === 'reviewed_refinement'
+    && (!isFunctionalRefValue(payload.current_n7_handoff_ref)
+      || !isHash(payload.current_n7_handoff_hash)
+      || !isFunctionalRefValue(payload.current_topic_question_contract_ref)
+      || !isHash(payload.current_topic_question_contract_hash)
+      || !isFunctionalRefValue(payload.source_checkpoint_ref)
+      || !isFunctionalRefValue(payload.source_checkpoint_decision_ref)
+      || !isFunctionalRefArray(payload.evidence_ceiling_refs)
+      || (payload.evidence_ceiling_refs as unknown[]).length === 0
+      || !isHash(payload.evidence_ceiling_hash))) {
+    return {
+      ok: false,
+      code: 'N7_REVIEWED_REFINEMENT_PAYLOAD_INVALID',
+      message: 'N7 reviewed refinement requires exact current-contract, checkpoint, and evidence-ceiling bindings.',
     };
   }
   return {

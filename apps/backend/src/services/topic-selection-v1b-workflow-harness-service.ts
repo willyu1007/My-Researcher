@@ -97,6 +97,7 @@ import {
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_TRACE_PAYLOAD_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_N6_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
   TOPIC_SELECTION_V1B_N7_RUNTIME_CONTEXT_PROJECTION_SCHEMA_VERSION,
+  TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION,
   type TopicSelectionV1bN6GateFailureRetryContextProjection,
   type TopicSelectionV1bN4HarnessFrozenInputPayload,
   type TopicSelectionV1bN5HarnessFrozenInputPayload,
@@ -108,6 +109,8 @@ import {
   type TopicSelectionV1bN7HarnessFrozenInputPayload,
   type TopicSelectionV1bN7HarnessFeedbackFrozenInputPayload,
   type TopicSelectionV1bN7HarnessRefinementFrozenInputPayload,
+  type TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload,
+  type TopicSelectionV1bN6RefinementDeltaDebateAdmissionPayload,
   type TopicSelectionV1bN9QuestionRefinementPayload,
   type TopicSelectionV1bN7RuntimeContextProjection,
   type TopicSelectionV1bN7ToN8HandoffPayload,
@@ -205,6 +208,7 @@ import {
   type TopicSelectionV1bN8ValueAssessmentAdmissionExpectedIdentity,
 } from './topic-selection-v1b-n8-value-assessment-admission-service.js';
 import { TopicSelectionV1bN8ValueAssessmentRuntimeService } from './topic-selection-v1b-n8-value-assessment-runtime-service.js';
+import { classifyTopicSelectionV1bRefinementDelta } from './topic-selection-v1b-refinement-delta-service.js';
 import { TopicSelectionRiskFindingService } from './topic-selection-risk-finding-service.js';
 import {
   canonicalHash,
@@ -604,6 +608,14 @@ type N7LoadedContext = {
     previousContract: TopicSelectionTopicQuestionContractRecord;
     previousQuestion: TopicSelectionTopicQuestionRecord;
   } | null;
+  reviewedRefinement: {
+    currentContract: TopicSelectionTopicQuestionContractRecord;
+    currentQuestion: TopicSelectionTopicQuestionRecord;
+    currentAnswerabilityPlan: TopicSelectionTopicQuestionAnswerabilityPlanRecord;
+    previousContract: TopicSelectionTopicQuestionContractRecord;
+    previousAnswerabilityPlan: TopicSelectionTopicQuestionAnswerabilityPlanRecord;
+    currentHandoff: TopicSelectionV1bWorkflowHarnessHandoff;
+  } | null;
 };
 
 type N7SupportContext = {
@@ -620,6 +632,11 @@ type N7SupportContext = {
   failedTrialSynthesis: {
     artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
     payload: TopicSelectionV1bN8FailedTrialSynthesisSupportPayload;
+    payloadHash: string;
+  } | null;
+  deltaAdmission: {
+    artifact: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef;
+    payload: TopicSelectionV1bN6RefinementDeltaDebateAdmissionPayload;
     payloadHash: string;
   } | null;
 };
@@ -3821,6 +3838,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: lineageBlocker.message,
       });
     }
+    if (payload.value.input_mode === 'reviewed_refinement') {
+      return this.runN7ReviewedRefinementReuse(
+        input,
+        hashContext,
+        payload.value,
+        loaded.value,
+        support.value,
+      );
+    }
     if (loaded.value.feedback?.feedback_class === 'technical_failure') {
       return this.persistBlockedResult(input, hashContext, {
         blockerCode: 'N7_TECHNICAL_FEEDBACK_WRONG_TARGET',
@@ -4144,6 +4170,290 @@ export class TopicSelectionV1bWorkflowHarnessService {
         });
       },
     });
+  }
+
+  private async runN7ReviewedRefinementReuse(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+    hashContext: HashContext,
+    payload: TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload,
+    loaded: N7LoadedContext,
+    support: N7SupportContext,
+  ): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
+    const reviewed = loaded.reviewedRefinement;
+    const deltaAdmission = support.deltaAdmission;
+    if (!reviewed) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REVIEWED_REFINEMENT_CONTEXT_MISSING',
+        message: 'N7 reviewed refinement requires resolved current authority.',
+      });
+    }
+    const candidate = loaded.candidates.find((item) =>
+      item.topic_question_candidate_id === reviewed.currentContract.source_candidate_id);
+    if (!candidate) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REVIEWED_REFINEMENT_CANDIDATE_MISMATCH',
+        message: 'The current reviewed contract source candidate is absent from the frozen N6 set.',
+      });
+    }
+    const candidateRef = buildRef(
+      'topic_question_candidate',
+      candidate.topic_question_candidate_id,
+      candidate.title_card_id,
+    );
+    const currentHandoffPayload = reviewed.currentHandoff.payload as TopicSelectionV1bN7ToN8HandoffPayload;
+    const candidateHash = currentHandoffPayload.active_candidate_hash;
+    const refinementHash = canonicalHash(payload.question_refinement);
+    if (canonicalHash(payload.evidence_ceiling_refs) !== payload.evidence_ceiling_hash
+      || payload.evidence_ceiling_refs.some((ref) =>
+        !input.frozen_input.source_refs.some((sourceRef) => refsEqual(sourceRef, ref)))) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REFINEMENT_DELTA_EVIDENCE_CEILING_MISMATCH',
+        message: 'N7 reviewed refinement evidence ceiling must be hash-bound and contained in frozen source_refs.',
+      });
+    }
+    const delta = classifyTopicSelectionV1bRefinementDelta({
+      main_question: reviewed.previousContract.main_question,
+      contribution_hypothesis: reviewed.previousContract.contribution_hypothesis,
+      expected_claim: reviewed.previousContract.expected_claim,
+      fallback_claim: reviewed.previousContract.fallback_claim,
+      evaluation_setting: reviewed.previousAnswerabilityPlan.evaluation_setting,
+      metrics: reviewed.previousAnswerabilityPlan.metrics,
+      baselines: reviewed.previousAnswerabilityPlan.baselines,
+      ablations_or_comparisons: reviewed.previousAnswerabilityPlan.ablations_or_comparisons,
+      dependency_risks: reviewed.previousAnswerabilityPlan.dependency_risks,
+      open_dependencies: reviewed.previousAnswerabilityPlan.open_dependencies,
+      known_gaps: reviewed.previousAnswerabilityPlan.known_gaps,
+      risk_notes: reviewed.previousContract.risk_notes,
+    }, payload.question_refinement);
+    if (delta.kind === 'substantive' && !deltaAdmission) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_REQUIRED',
+        message: 'A substantive N7 reviewed refinement requires one runtime-verified delta-Debate admission.',
+      });
+    }
+    if (delta.kind === 'canonical_no_op' && deltaAdmission) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_NOT_APPLICABLE',
+        message: 'A canonicalization-neutral refinement reuses current authority without a Debate admission.',
+      });
+    }
+    const admission = deltaAdmission?.payload ?? null;
+    if (delta.kind === 'substantive' && !admission) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'Substantive refinement admission narrowing failed.');
+    }
+    const bindingChecks = {
+      workflow_run: admission?.workflow_run_id === input.workflow_run_id,
+      policy: admission?.policy_version === input.policy_version,
+      source_kind: admission?.source_kind === 'question_checkpoint_loopback',
+      source_decision: Boolean(admission)
+        && refsEqual(admission!.source_decision_ref, payload.source_checkpoint_decision_ref),
+      checkpoint: Boolean(admission?.checkpoint_ref)
+        && refsEqual(admission!.checkpoint_ref!, payload.source_checkpoint_ref),
+      previous_contract_ref: refsEqual(
+        admission?.previous_topic_question_contract_ref ?? payload.previous_topic_question_contract_ref,
+        payload.previous_topic_question_contract_ref,
+      ),
+      previous_contract_hash:
+        admission?.previous_topic_question_contract_hash === payload.previous_topic_question_contract_hash,
+      current_contract_ref: refsEqual(
+        admission?.current_topic_question_contract_ref ?? payload.current_topic_question_contract_ref,
+        payload.current_topic_question_contract_ref,
+      ),
+      current_contract_hash:
+        admission?.current_topic_question_contract_hash === payload.current_topic_question_contract_hash,
+      proposed_contract_hash:
+        admission?.proposed_contract_semantic_hash === payload.current_topic_question_contract_hash,
+      refinement_id: admission?.refinement_id === payload.question_refinement.refinement_id,
+      refinement_hash: admission?.refinement_hash === refinementHash,
+      delta_hash: admission?.delta_hash === delta.delta_hash,
+      changed_fields: this.sameStrings(admission?.changed_fields ?? [], delta.changed_fields),
+      selected_candidate_ref: Boolean(admission)
+        && refsEqual(admission!.selected_candidate_ref, candidateRef),
+      selected_candidate_hash: admission?.selected_candidate_hash === candidateHash,
+      selected_slice_ref: Boolean(admission)
+        && refsEqual(admission!.selected_research_slice_ref, payload.selected_research_slice_ref),
+      selected_slice_hash: admission?.selected_research_slice_hash === payload.selected_research_slice_hash,
+      evidence_ceiling_hash: admission?.evidence_ceiling_hash === payload.evidence_ceiling_hash,
+    };
+    const failedBindings = Object.entries(bindingChecks)
+      .filter(([, matches]) => !matches)
+      .map(([key]) => key);
+    const bindingMatches = failedBindings.length === 0;
+    if (delta.kind === 'substantive' && (!bindingMatches || admission?.verdict !== 'admit_unchanged')) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REFINEMENT_DELTA_DEBATE_BINDING_MISMATCH',
+        message: admission?.verdict === 'block_with_findings'
+          ? 'The exact refinement delta is blocked by its one-pass Debate; a new Human refinement hash is required.'
+          : `The refinement delta-Debate admission does not bind the exact frozen N7 recovery context (${failedBindings.join(', ')}).`,
+      });
+    }
+    if (!this.n7CurrentContractMatchesRefinement(reviewed, candidate, payload.question_refinement)) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REVIEWED_REFINEMENT_MATERIALIZATION_DRIFT',
+        message: 'The current contract is not the deterministic materialization of the exact Human refinement.',
+      });
+    }
+    if (!refsEqual(currentHandoffPayload.active_candidate_ref, candidateRef)
+      || currentHandoffPayload.active_candidate_hash !== candidateHash
+      || !refsEqual(currentHandoffPayload.selected_research_slice_ref, payload.selected_research_slice_ref)
+      || currentHandoffPayload.selected_research_slice_hash !== payload.selected_research_slice_hash) {
+      return this.persistBlockedResult(input, hashContext, {
+        blockerCode: 'N7_REVIEWED_REFINEMENT_HANDOFF_MISMATCH',
+        message: 'The current N7 handoff does not preserve the frozen candidate and ResearchSlice.',
+      });
+    }
+
+    const contractRef = payload.current_topic_question_contract_ref;
+    const questionRef = currentHandoffPayload.topic_question_ref;
+    const answerabilityPlanRef = currentHandoffPayload.answerability_plan_ref;
+    const warnings = deltaAdmission
+      ? [warning(
+        'refinement_delta_debate_admitted',
+        'N7 reused the exact current contract after one bounded support-only refinement delta Debate.',
+        [deltaAdmission.artifact.normalized_output_ref!, payload.source_checkpoint_decision_ref],
+      )]
+      : [warning(
+        'refinement_canonical_no_op_reused',
+        'N7 reused the exact current contract because the recovered Human refinement is canonicalization-neutral.',
+        [payload.source_checkpoint_decision_ref],
+      )];
+    const gateResultHash = this.outcomeGateResultHash(input, hashContext, {
+      authorityHash: payload.current_topic_question_contract_hash,
+      blockerCodes: [],
+      gateStatus: 'admitted_with_warnings',
+      routeDecision: 'invoke_next',
+      warningCodes: warnings.map((item) => item.code),
+    });
+    const handoff = buildHandoff(input, {
+      handoffKind: 'N7ToN8Handoff',
+      payload: currentHandoffPayload,
+      requiredRefs: uniqueRefs([
+        ...reviewed.currentHandoff.required_refs,
+        deltaAdmission?.artifact.normalized_output_ref,
+        payload.source_checkpoint_ref,
+        payload.source_checkpoint_decision_ref,
+      ]),
+      residualRiskRefs: loaded.run.accepted_risk_refs,
+      sourceAuthorityHash: payload.current_topic_question_contract_hash,
+      sourceAuthorityRef: contractRef,
+      sourceGateResultHash: gateResultHash,
+      upstreamLineageHash: canonicalHash({
+        current_n7_handoff_hash: payload.current_n7_handoff_hash,
+        delta_debate_admission_hash: deltaAdmission?.payloadHash ?? null,
+        n6_handoff_hash: payload.n6_handoff_hash,
+        n9_handoff_hash: payload.n9_handoff_hash,
+        source_checkpoint_decision_ref: payload.source_checkpoint_decision_ref,
+      }),
+      warningCodes: warnings.map((item) => item.code),
+    });
+    const handoffHash = canonicalHash(handoff);
+    const contractId = reviewed.currentContract.topic_question_contract_id;
+    const [evidenceRefs, boundaryRefs, assumptionRefs, falsificationConditions] = await Promise.all([
+      this.runnerDependencies.topicQuestionRepository!.listEvidenceRefsByContractId(contractId),
+      this.runnerDependencies.topicQuestionRepository!.listBoundaryRefsByContractId(contractId),
+      this.runnerDependencies.topicQuestionRepository!.listAssumptionRefsByContractId(contractId),
+      this.runnerDependencies.topicQuestionRepository!.listFalsificationConditionsByContractId(contractId),
+    ]);
+    return this.persistAdmittedResult(input, hashContext, {
+      acceptedRiskRefs: loaded.run.accepted_risk_refs,
+      additionalAuthorityRefs: [questionRef, answerabilityPlanRef, currentHandoffPayload.trial_ledger_ref],
+      authorityHash: payload.current_topic_question_contract_hash,
+      authorityRef: contractRef,
+      blockers: [],
+      failureClass: null,
+      gateStatus: 'admitted_with_warnings',
+      handoff,
+      handoffHash,
+      routeDecision: 'invoke_next',
+      sourceRef: payload.topic_question_candidate_set_ref,
+      targetRef: contractRef,
+      tracePhase: 'T-148 N7 reviewed refinement current-contract reuse',
+      tracePayload: {
+        current_contract_reused: true,
+        delta_debate_admission_hash: deltaAdmission?.payloadHash ?? null,
+        delta_hash: delta.delta_hash,
+        refinement_id: payload.question_refinement.refinement_id,
+      },
+      runtimeContextProjection: {
+        build: ({ handoffRef }) => {
+          if (!handoffRef) {
+            throw new AppError(500, 'INTERNAL_ERROR', 'N7 reviewed refinement projection requires its persisted handoff.');
+          }
+          return this.buildN7ToN8TopicQuestionContractContextProjection({
+            request: input,
+            frozenPayload: payload,
+            handoffPayload: currentHandoffPayload,
+            handoffRef,
+            handoffHash,
+            support,
+          });
+        },
+      },
+      transitionKey: 'topic-selection.v1b.harness.n7-reviewed-refinement-reuse',
+      warnings,
+    }, {
+      writeAuthority: async () => {
+        await this.runnerDependencies.researchCheckpointService!.materializeQuestionContractCheckpoint({
+          contract: reviewed.currentContract,
+          question: reviewed.currentQuestion,
+          candidate,
+          question_frame: loaded.frame,
+          answerability_plan: reviewed.currentAnswerabilityPlan,
+          evidence_refs: evidenceRefs,
+          boundary_refs: boundaryRefs,
+          assumption_refs: assumptionRefs,
+          falsification_conditions: falsificationConditions,
+          upstream_refs: uniqueRefs([
+            loaded.run.research_slice_ref,
+            loaded.run.validated_need_ref,
+            loaded.run.evidence_map_ref,
+            loaded.run.search_run_ref,
+            loaded.run.search_plan_ref,
+            loaded.run.literature_snapshot_ref,
+            deltaAdmission?.artifact.normalized_output_ref,
+            payload.source_checkpoint_ref,
+            payload.source_checkpoint_decision_ref,
+          ]),
+          policy_version_id: input.policy_version,
+        });
+      },
+    });
+  }
+
+  private n7CurrentContractMatchesRefinement(
+    reviewed: NonNullable<N7LoadedContext['reviewedRefinement']>,
+    candidate: TopicSelectionTopicQuestionCandidateRecord,
+    refinement: TopicSelectionV1bN9QuestionRefinementPayload,
+  ): boolean {
+    const updates = refinement.updates;
+    const contract = reviewed.currentContract;
+    const question = reviewed.currentQuestion;
+    const plan = reviewed.currentAnswerabilityPlan;
+    return contract.source_candidate_id === candidate.topic_question_candidate_id
+      && contract.source_research_slice_id === candidate.research_slice_id
+      && contract.source_research_slice_version === candidate.research_slice_version
+      && contract.main_question === (updates.main_question ?? candidate.main_question)
+      && question.main_question === contract.main_question
+      && contract.contribution_hypothesis === (updates.contribution_hypothesis ?? candidate.contribution_hypothesis)
+      && question.contribution_hypothesis === contract.contribution_hypothesis
+      && contract.expected_claim === (updates.expected_claim ?? candidate.expected_claim)
+      && contract.fallback_claim === (updates.fallback_claim ?? candidate.fallback_claim)
+      && contract.evaluation_route === (updates.evaluation_setting ?? candidate.answerability_plan_payload.evaluation_setting)
+      && this.sameStrings(plan.metrics, updates.metrics ?? candidate.answerability_plan_payload.metrics)
+      && this.sameStrings(plan.baselines, updates.baselines ?? candidate.answerability_plan_payload.baselines)
+      && this.sameStrings(
+        plan.ablations_or_comparisons,
+        updates.ablations_or_comparisons ?? candidate.answerability_plan_payload.ablations_or_comparisons,
+      )
+      && plan.evaluation_setting === contract.evaluation_route
+      && this.sameStrings(plan.dependency_risks, updates.dependency_risks ?? candidate.answerability_plan_payload.dependency_risks)
+      && this.sameStrings(plan.open_dependencies, updates.open_dependencies ?? candidate.answerability_plan_payload.open_dependencies)
+      && this.sameStrings(plan.known_gaps, updates.known_gaps ?? candidate.answerability_plan_payload.known_gaps)
+      && this.sameStrings(contract.risk_notes, updates.risk_notes ?? candidate.risk_notes);
+  }
+
+  private sameStrings(left: readonly string[], right: readonly string[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
   private async persistAdmittedResult(
@@ -4509,13 +4819,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 frozen candidate-set ref does not resolve.',
       };
     }
-    const [run, frame, candidates, feedback, refinement] = await Promise.all([
+    const [run, frame, candidates, feedback, refinement, reviewedRefinement] = await Promise.all([
       repository.findFormationRunById(candidateSet.form_topic_question_run_id),
       repository.findQuestionFrameById(candidateSet.question_frame_id),
       repository.listCandidatesByCandidateSetId(candidateSet.topic_question_candidate_set_id),
       payload.input_mode === 'feedback_from_n8' ? this.resolveN7FeedbackPayload(payload) : Promise.resolve(null),
       payload.input_mode === 'refinement_from_n9'
         ? this.resolveN7RefinementContext(input, payload)
+        : Promise.resolve({ ok: true as const, value: null }),
+      payload.input_mode === 'reviewed_refinement'
+        ? this.resolveN7ReviewedRefinementContext(payload)
         : Promise.resolve({ ok: true as const, value: null }),
     ]);
     if (!run || !frame) {
@@ -4528,7 +4841,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
     if (!refinement.ok) {
       return refinement;
     }
-    if (payload.input_mode === 'refinement_from_n9' && input.created_by !== 'human') {
+    if (!reviewedRefinement.ok) {
+      return reviewedRefinement;
+    }
+    if ((payload.input_mode === 'refinement_from_n9' || payload.input_mode === 'reviewed_refinement')
+      && input.created_by !== 'human') {
       return {
         ok: false,
         code: 'N7_REFINEMENT_HUMAN_ACTOR_REQUIRED',
@@ -4556,6 +4873,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'N7 refinement mode requires the candidate set selected by the previous N7 contract.',
       };
     }
+    if (payload.input_mode === 'reviewed_refinement' && candidateSet.status !== 'selected') {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_CANDIDATE_SET_NOT_SELECTED',
+        message: 'N7 reviewed refinement requires the candidate set selected by the current contract.',
+      };
+    }
     if (payload.input_mode === 'feedback_from_n8' && !feedback) {
       return {
         ok: false,
@@ -4572,6 +4896,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
         frame,
         n6Handoff: n6Handoff.value,
         refinement: refinement.value,
+        reviewedRefinement: reviewedRefinement.value,
         run,
       },
     };
@@ -4706,6 +5031,107 @@ export class TopicSelectionV1bWorkflowHarnessService {
         disposition,
         previousContract,
         previousQuestion,
+      },
+    };
+  }
+
+  private async resolveN7ReviewedRefinementContext(
+    payload: TopicSelectionV1bN7HarnessReviewedRefinementFrozenInputPayload,
+  ): Promise<{
+    ok: true;
+    value: NonNullable<N7LoadedContext['reviewedRefinement']>;
+  } | { ok: false; code: string; message: string }> {
+    const repository = this.runnerDependencies.topicQuestionRepository!;
+    const currentHandoffArtifact = await this.controlPlane.getArtifactRef(payload.current_n7_handoff_ref.ref_id);
+    if (!currentHandoffArtifact
+      || !isHandoffArtifactPayload(currentHandoffArtifact.payload, 'N7ToN8Handoff')
+      || canonicalHash(currentHandoffArtifact.payload) !== payload.current_n7_handoff_hash) {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_HANDOFF_MISMATCH',
+        message: 'N7 reviewed refinement requires the exact persisted current N7 handoff.',
+      };
+    }
+    const currentHandoff = currentHandoffArtifact.payload as unknown as TopicSelectionV1bWorkflowHarnessHandoff;
+    const handoffPayload = currentHandoff.payload as TopicSelectionV1bN7ToN8HandoffPayload;
+    if (!refsEqual(handoffPayload.topic_question_contract_ref, payload.current_topic_question_contract_ref)
+      || handoffPayload.topic_question_contract_hash !== payload.current_topic_question_contract_hash) {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_HANDOFF_MISMATCH',
+        message: 'Current N7 handoff does not bind the reviewed contract ref and hash.',
+      };
+    }
+    const [currentContract, previousContract] = await Promise.all([
+      repository.findTopicQuestionContractById(payload.current_topic_question_contract_ref.ref_id),
+      repository.findTopicQuestionContractById(payload.previous_topic_question_contract_ref.ref_id),
+    ]);
+    if (!currentContract || !previousContract) {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_AUTHORITY_NOT_FOUND',
+        message: 'N7 reviewed refinement contract authorities do not resolve.',
+      };
+    }
+    const [currentQuestion, currentAnswerabilityPlan, previousAnswerabilityPlan] = await Promise.all([
+      repository.findTopicQuestionById(currentContract.topic_question_id),
+      repository.findAnswerabilityPlanByContractId(currentContract.topic_question_contract_id),
+      repository.findAnswerabilityPlanByContractId(previousContract.topic_question_contract_id),
+    ]);
+    if (!currentQuestion || !currentAnswerabilityPlan || !previousAnswerabilityPlan) {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_MATERIALIZATION_INCOMPLETE',
+        message: 'N7 reviewed refinement requires current question and current/previous answerability plans.',
+      };
+    }
+    if (hashN7ContractAuthority(currentContract) !== payload.current_topic_question_contract_hash
+      || currentContract.status !== 'active'
+      || currentQuestion.status !== 'active'
+      || previousContract.status !== 'superseded') {
+      return {
+        ok: false,
+        code: 'N7_REVIEWED_REFINEMENT_CONTRACT_STALE',
+        message: 'N7 reviewed refinement requires the exact active replacement and its superseded predecessor.',
+      };
+    }
+    try {
+      const [checkpoint, packet] = await Promise.all([
+        this.runnerDependencies.researchCheckpointService!.getCheckpoint(payload.source_checkpoint_ref.ref_id),
+        this.runnerDependencies.researchCheckpointService!.getPacket(payload.source_checkpoint_ref.ref_id),
+      ]);
+      if (checkpoint.status !== 'decided'
+        || checkpoint.checkpoint_kind !== 'question_contract'
+        || !refsEqual(checkpoint.target_ref, payload.current_topic_question_contract_ref)
+        || !checkpoint.decision_authority_ref
+        || !refsEqual(checkpoint.decision_authority_ref, payload.source_checkpoint_decision_ref)
+        || packet.decision?.decision !== 'loopback'
+        || packet.decision.loopback_target !== 'question_contract') {
+        return {
+          ok: false,
+          code: 'N7_REVIEWED_REFINEMENT_CHECKPOINT_MISMATCH',
+          message: 'N7 reviewed refinement requires an exact decided question-contract loopback.',
+        };
+      }
+    } catch (error) {
+      if (error instanceof AppError) {
+        return {
+          ok: false,
+          code: 'N7_REVIEWED_REFINEMENT_CHECKPOINT_MISMATCH',
+          message: error.message,
+        };
+      }
+      throw error;
+    }
+    return {
+      ok: true,
+      value: {
+        currentContract,
+        currentQuestion,
+        currentAnswerabilityPlan,
+        previousContract,
+        previousAnswerabilityPlan,
+        currentHandoff,
       },
     };
   }
@@ -4882,6 +5308,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
       isN7FailedTrialSynthesisSupportPayload,
     );
     if (!failedTrialSynthesis.ok) return failedTrialSynthesis;
+    const deltaAdmission = await this.resolveN7RefinementDeltaAdmission(input);
+    if (!deltaAdmission.ok) return deltaAdmission;
     if (payload.input_mode === 'initial_from_n6' && failedTrialSynthesis.value) {
       return {
         ok: false,
@@ -4889,14 +5317,98 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'Failed-trial synthesis support is only valid after N8 feedback.',
       };
     }
+    if (payload.input_mode !== 'reviewed_refinement' && deltaAdmission.value) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_NOT_APPLICABLE',
+        message: 'Refinement delta-Debate admission is valid only for reviewed_refinement input.',
+      };
+    }
     return {
       ok: true,
       value: {
         debateAdmission: debateAdmission.value,
+        deltaAdmission: deltaAdmission.value,
         failedTrialSynthesis: failedTrialSynthesis.value,
         grouping: grouping.value,
       },
     };
+  }
+
+  private async resolveN7RefinementDeltaAdmission(
+    input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  ): Promise<{
+    ok: true;
+    value: N7SupportContext['deltaAdmission'];
+  } | { ok: false; code: string; message: string }> {
+    const artifact = (input.semantic_artifacts ?? []).find((candidate) =>
+      candidate.slot_id === 'n7_n6_refinement_delta_admission');
+    if (!artifact) return { ok: true, value: null };
+    if (!artifact.normalized_output_ref
+      || artifact.output_contract !== TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION
+      || artifact.profile_id !== TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n6_refinement_delta_admission
+      || artifact.runtime_provenance_class !== 'runtime_verified'
+      || !artifact.runtime_audit_ref
+      || !refsEqual(artifact.normalized_output_ref, artifact.runtime_audit_ref)
+      || !refsEqual(artifact.provenance_ref, artifact.runtime_audit_ref)) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_DELTA_DEBATE_PROVENANCE_INVALID',
+        message: 'N7 refinement delta-Debate admission provenance is incomplete or uses the wrong slot identity.',
+      };
+    }
+    const normalized = await this.controlPlane.getArtifactRef(artifact.normalized_output_ref.ref_id);
+    if (!normalized
+      || normalized.artifact_kind !== 'structured_output'
+      || normalized.workflow_run_id !== input.workflow_run_id
+      || !this.isN7RefinementDeltaAdmissionPayload(normalized.payload)) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_INVALID',
+        message: 'N7 refinement delta-Debate admission artifact is missing or malformed.',
+      };
+    }
+    const payloadHash = canonicalHash(normalized.payload);
+    if (normalized.checksum !== payloadHash
+      || artifact.normalized_output_hash !== payloadHash
+      || artifact.structured_output_hash !== payloadHash
+      || artifact.support_artifact_hash !== payloadHash
+      || artifact.runtime_audit_hash !== payloadHash) {
+      return {
+        ok: false,
+        code: 'N7_REFINEMENT_DELTA_DEBATE_ADMISSION_HASH_MISMATCH',
+        message: 'N7 refinement delta-Debate admission hash does not match its persisted support artifact.',
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        artifact,
+        payload: normalized.payload as unknown as TopicSelectionV1bN6RefinementDeltaDebateAdmissionPayload,
+        payloadHash,
+      },
+    };
+  }
+
+  private isN7RefinementDeltaAdmissionPayload(
+    value: unknown,
+  ): value is TopicSelectionV1bN6RefinementDeltaDebateAdmissionPayload {
+    if (!isRecord(value)) return false;
+    return value.schema_version === TOPIC_SELECTION_V1B_N6_REFINEMENT_DELTA_DEBATE_ADMISSION_SCHEMA_VERSION
+      && value.node_id === 'topic-selection.v1b.materialize-topic-question-contract.v1'
+      && value.allowed_effect === 'support_only'
+      && (value.verdict === 'admit_unchanged' || value.verdict === 'block_with_findings')
+      && typeof value.workflow_run_id === 'string'
+      && typeof value.policy_version === 'string'
+      && typeof value.refinement_id === 'string'
+      && typeof value.refinement_hash === 'string'
+      && typeof value.delta_hash === 'string'
+      && Array.isArray(value.changed_fields)
+      && Array.isArray(value.role_artifact_hashes)
+      && value.role_artifact_hashes.length === 3
+      && typeof value.loop_transcript_hash === 'string'
+      && Array.isArray(value.findings)
+      && typeof value.summary === 'string';
   }
 
   private async resolveN7SemanticPayload<T>(
@@ -8131,12 +8643,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
         active_candidate_hash: input.handoffPayload.active_candidate_hash,
         selected_research_slice_hash: input.handoffPayload.selected_research_slice_hash,
         n8_debate_admission_hash: input.handoffPayload.n8_debate_admission_hash,
-        ...(input.frozenPayload.input_mode === 'refinement_from_n9' ? {
+        ...((input.frozenPayload.input_mode === 'refinement_from_n9'
+          || input.frozenPayload.input_mode === 'reviewed_refinement') ? {
           n9_handoff_hash: input.frozenPayload.n9_handoff_hash,
           previous_topic_question_contract_hash:
             input.frozenPayload.previous_topic_question_contract_hash,
           question_refinement_hash: canonicalHash(input.frozenPayload.question_refinement),
           value_disposition_hash: input.frozenPayload.value_disposition_hash,
+        } : {}),
+        ...(input.frozenPayload.input_mode === 'reviewed_refinement' ? {
+          previous_n7_handoff_hash: input.frozenPayload.current_n7_handoff_hash,
+          refinement_evidence_ceiling_hash: input.frozenPayload.evidence_ceiling_hash,
+          source_checkpoint_decision_ref_hash:
+            canonicalHash(input.frozenPayload.source_checkpoint_decision_ref),
         } : {}),
         ...(input.handoffPayload.candidate_grouping_hash
           ? { candidate_grouping_hash: input.handoffPayload.candidate_grouping_hash }
@@ -8154,8 +8673,12 @@ export class TopicSelectionV1bWorkflowHarnessService {
         'candidate_grouping',
         'accepted_risk_refs',
         'risk_gap_recheck_hints',
-        ...(input.frozenPayload.input_mode === 'refinement_from_n9'
+        ...((input.frozenPayload.input_mode === 'refinement_from_n9'
+          || input.frozenPayload.input_mode === 'reviewed_refinement')
           ? ['n9_question_refinement_lineage']
+          : []),
+        ...(input.frozenPayload.input_mode === 'reviewed_refinement'
+          ? ['refinement_delta_debate_admission', 'question_checkpoint_loopback']
           : []),
       ],
       n7_handoff_ref: input.handoffRef,
@@ -8364,6 +8887,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       support.grouping?.artifact.normalized_output_ref,
       support.debateAdmission?.artifact.normalized_output_ref,
       support.failedTrialSynthesis?.artifact.normalized_output_ref,
+      support.deltaAdmission?.artifact.normalized_output_ref,
     ]);
   }
 
@@ -8372,6 +8896,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
       ...(support.grouping ? { n7_candidate_grouping: support.grouping.payloadHash } : {}),
       ...(support.debateAdmission ? { n7_n8_debate_admission_review: support.debateAdmission.payloadHash } : {}),
       ...(support.failedTrialSynthesis ? { n7_failed_trial_synthesis: support.failedTrialSynthesis.payloadHash } : {}),
+      ...(support.deltaAdmission ? { n7_n6_refinement_delta_admission: support.deltaAdmission.payloadHash } : {}),
     };
   }
 
