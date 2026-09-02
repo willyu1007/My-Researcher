@@ -809,6 +809,32 @@ test('draft narrative uses the research slice for bounded titles and the current
   assert.doesNotMatch(result.topic_package.evaluation_plan, /[.!?。！？]{2,}/);
 });
 
+test('draft narrative collapses semantically equivalent non-goal phrasings', async () => {
+  const questionContract = makeQuestionContract({
+    prohibited_claims: [
+      'general adaptive-RAG effectiveness',
+      'general retriever selection',
+      'arbitrary distribution-shift robustness',
+      'production robustness or deployment',
+      'universal RAG benchmarking',
+      'A general adaptive-RAG claim.',
+      'A general retriever-selection contribution.',
+      'Coverage of arbitrary distribution shifts.',
+      'Production robustness or deployment claims.',
+      'A universal RAG benchmark.',
+    ],
+  });
+  const packageInput = makePackageDraftInput({ question_contract: questionContract });
+  const decision = makeDecision(packageInput);
+  const { service } = makeSubject(decision);
+
+  const result = await service.createDraftPackage({
+    value_disposition_decision_id: decision.value_disposition_decision_id,
+  });
+
+  assert.deepEqual(result.topic_package.non_goals, questionContract.prohibited_claims.slice(0, 5));
+});
+
 test('missing slice statement fails narrative readiness and withholds the v1c bundle', async () => {
   const packageInput = makePackageDraftInput({
     research_slice_snapshot: {

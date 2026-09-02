@@ -116,7 +116,7 @@ export function n10Narrative(
       ...input.answerability_plan.known_gaps,
       ...input.falsification_conditions.map((condition) => `${condition.condition_type}: ${condition.statement}`),
     ]),
-    nonGoals: uniqueStrings(input.question_contract.prohibited_claims),
+    nonGoals: uniqueNonGoals(input.question_contract.prohibited_claims),
   };
 }
 
@@ -171,6 +171,46 @@ function normalizeFragment(value: string): string {
 function stringFromRecord(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   return typeof value === 'string' ? value : '';
+}
+
+function uniqueNonGoals(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const value of uniqueStrings(values)) {
+    const key = nonGoalSemanticKey(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(value);
+  }
+  return output;
+}
+
+function nonGoalSemanticKey(value: string): string {
+  const ignored = new Set([
+    'a',
+    'an',
+    'the',
+    'general',
+    'claim',
+    'contribution',
+    'effectiveness',
+    'coverage',
+    'of',
+    'robustness',
+  ]);
+  const tokens = normalizeFragment(value)
+    .toLowerCase()
+    .replace(/[-_/]+/g, ' ')
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .map((token) => {
+      if (token === 'benchmarking') return 'benchmark';
+      if (token === 'shifts') return 'shift';
+      if (token === 'claims') return 'claim';
+      return token;
+    })
+    .filter((token) => token && !ignored.has(token));
+  return tokens.join(' ') || normalizeFragment(value).toLowerCase();
 }
 
 function capitalizeFirst(value: string): string {

@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 6 FIND-026 repair is implemented across both N10 entry paths; real recovery verification remains before N11
-- Next step: Restart on the shared narrative builder, replay the bounded N9→N10 recovery once more, verify every malformed package/bundle is superseded, then execute N11 once.
+- Current phase: Phase 6 FIND-026 semantic non-goal normalization is implemented; final real recovery remains before N11
+- Next step: Restart on the semantic non-goal normalizer, replay the bounded N9→N10 recovery once more, verify all three narrative conditions and stale-package supersession, then execute N11 once.
 - Blocker: None inside the authorized FIND-026→N11 boundary. Provider execution, strict-human v1c promotion, Phase 4 regular-N6 routing, and other unresolved task findings remain outside this checkpoint. Unrelated T-149 implementation and shared governance changes remain foreign work and must not be modified or committed with T-148.
 
 ## Done when
