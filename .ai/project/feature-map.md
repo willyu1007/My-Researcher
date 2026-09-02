@@ -52,7 +52,7 @@
 | T-133 paper-implementation-debate-disposition-closure | archived | dev-docs/archive/paper-implementation-debate-disposition-closure |
 | T-145 repository-governance-convergence | archived | dev-docs/archive/repository-governance-convergence |
 | T-146 llm-config-ui-style-conformance | archived | dev-docs/archive/llm-config-ui-style-conformance |
-| T-148 topic-selection-real-flow-findings | in-progress | dev-docs/active/topic-selection-real-flow-findings |
+| T-149 literature-embedding-vector-persistence | done | dev-docs/active/literature-embedding-vector-persistence |
 
 ## M-001 LLM Research Lifecycle v1
 
@@ -171,6 +171,8 @@
 | T-143 validation-cycle-handoff-authority-recovery-hardening | archived | dev-docs/archive/validation-cycle-handoff-authority-recovery-hardening |
 | T-144 validation-cycle-handoff-deep-cleanup | archived | dev-docs/archive/validation-cycle-handoff-deep-cleanup |
 | T-147 topic-selection-research-checkpoint-control-plane | archived | dev-docs/archive/topic-selection-research-checkpoint-control-plane |
+| T-148 topic-selection-real-flow-findings | in-progress | dev-docs/active/topic-selection-real-flow-findings |
+| T-150 topic-selection-evidence-convergence-core | in-progress | dev-docs/active/topic-selection-evidence-convergence-core |
 
 ### F-002 Desktop Frontend Foundation
 

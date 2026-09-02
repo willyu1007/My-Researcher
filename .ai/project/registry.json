@@ -1223,9 +1223,25 @@
       "id": "T-148",
       "slug": "topic-selection-real-flow-findings",
       "status": "in-progress",
-      "updated": "2026-09-01",
+      "updated": "2026-09-03",
       "dev_docs_path": "dev-docs/active/topic-selection-real-flow-findings",
+      "feature_id": "F-001"
+    },
+    {
+      "id": "T-149",
+      "slug": "literature-embedding-vector-persistence",
+      "status": "done",
+      "updated": "2026-09-01",
+      "dev_docs_path": "dev-docs/active/literature-embedding-vector-persistence",
       "feature_id": "F-000"
+    },
+    {
+      "id": "T-150",
+      "slug": "topic-selection-evidence-convergence-core",
+      "status": "in-progress",
+      "updated": "2026-09-03",
+      "dev_docs_path": "dev-docs/active/topic-selection-evidence-convergence-core",
+      "feature_id": "F-001"
     }
   ]
 }
