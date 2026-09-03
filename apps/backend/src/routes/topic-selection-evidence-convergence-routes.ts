@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  topicSelectionEvidenceConvergenceClaimAdmissionSchema,
   topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
+import { topicSelectionFunctionalRefSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_RESEARCH_ARENA_PARTICIPANT_ROLES,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
@@ -61,6 +63,35 @@ const executeRetrievalBody = {
   },
 } as const;
 
+const publishSuccessorBody = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'title_card_id',
+    'predecessor_evidence_map_id',
+    'search_run_id',
+    'issue_ref',
+    'decision_relevance',
+    'claim_admissions',
+  ],
+  properties: {
+    workspace_id: { anyOf: [stringId, { type: 'null' }] },
+    title_card_id: stringId,
+    predecessor_evidence_map_id: stringId,
+    search_run_id: stringId,
+    issue_ref: topicSelectionFunctionalRefSchema,
+    decision_relevance: stringId,
+    claim_admissions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 24,
+      items: topicSelectionEvidenceConvergenceClaimAdmissionSchema,
+    },
+    created_by: { enum: ['human', 'llm', 'system', 'hybrid'] },
+    policy_version_id: { anyOf: [stringId, { type: 'null' }] },
+  },
+} as const;
+
 export async function registerTopicSelectionEvidenceConvergenceRoutes(
   fastify: FastifyInstance,
   controller: TopicSelectionEvidenceConvergenceController,
@@ -69,5 +100,10 @@ export async function registerTopicSelectionEvidenceConvergenceRoutes(
     '/topic-selection/evidence-convergence/retrieval-executions',
     { schema: { body: executeRetrievalBody } },
     controller.executeRoleRetrievalRequests,
+  );
+  fastify.post(
+    '/topic-selection/evidence-convergence/evidence-map-successors',
+    { schema: { body: publishSuccessorBody } },
+    controller.publishEvidenceMapSuccessor,
   );
 }

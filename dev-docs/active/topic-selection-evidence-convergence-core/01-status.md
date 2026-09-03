@@ -5,8 +5,8 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 in progress; the role-request through durable retrieval/distribution slice is implemented and focused-verified on 2026-09-03
-- Next step: Consume the persisted retrieval hits through explicit claim-level admission, then publish the material successor map, linked round, and fresh same-gate checkpoint.
+- Current phase: Phase 2 in progress; durable retrieval plus claim admission/successor/checkpoint publication are implemented and focused-verified on 2026-09-03
+- Next step: Run the successor evidence through a new frozen Arena round linked to the prior transcript and material EvidenceDelta, then exercise the bounded local pilot.
 - Blocker: none. Phase 2 is authorized through its defined exit; Phase 3 remains outside the current authorization.
 
 ## Phase 1 checkpoint
@@ -26,7 +26,8 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] Full managed-library execution uses the unscoped retriever, strict Human subsets use the bounded snapshot retriever, and every returned hit is filtered back through exact manifest membership.
 - [x] The coordinator creates a child SearchPlan that preserves the parent coverage matrix, records query results and raw provenance before distribution, carries predecessor EvidenceMap locator authorities forward, and closes only exact request/plan/run lineage.
 - [x] Zero-hit executions remain durable succeeded SearchRuns and halt unresolved; standing-policy exhaustion occurs before new durable work and cannot become gate success.
-- [ ] Claim-level admission, EvidenceDelta materialization, successor publication, linked round execution, and fresh same-gate checkpoint recheck remain the next Phase 2 slice.
+- [x] Exact quote-bearing persisted hits can be admitted at claim level; duplicate claims produce a durable non-material delta without a successor, while material claims publish the EvidenceMap head by compare-and-swap and materialize a fresh same-gate checkpoint.
+- [ ] Linked frozen Arena-round execution and the bounded local end-to-end pilot remain the next Phase 2 slice.
 
 ## Done when
 - [ ] ECK-01: Every accessible indexed, evidence-ready literature record is eligible for retrieval by default unless an explicit Human scope narrows the corpus.

@@ -5,6 +5,14 @@ import type {
   TopicSelectionGateIssue,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION,
+  TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+  TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
+  type TopicSelectionEvidenceConvergenceClaimAdmission,
+  type TopicSelectionEvidenceDeltaArtifact,
+  type TopicSelectionResolutionRouteArtifact,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import type {
   TopicSelectionCoverageEvidenceBindingRecord,
   TopicSelectionCoverageRowIntentRecord,
@@ -123,6 +131,40 @@ export type TopicSelectionCreateEvidenceMapFromSearchRunInput = {
   digest_payload?: Record<string, unknown>;
   created_by?: TopicSelectionActorType;
   policy_version_id?: string | null;
+};
+
+export type TopicSelectionPublishEvidenceConvergenceSuccessorInput = {
+  workspace_id?: string | null;
+  title_card_id: string;
+  predecessor_evidence_map_id: string;
+  search_run_id: string;
+  issue_ref: TopicSelectionFunctionalRef;
+  decision_relevance: string;
+  claim_admissions: TopicSelectionEvidenceConvergenceClaimAdmission[];
+  created_by?: TopicSelectionActorType;
+  policy_version_id?: string | null;
+};
+
+export type TopicSelectionPublishEvidenceConvergenceSuccessorResult = {
+  status: 'no_material_delta' | 'successor_published';
+  evidence_delta: TopicSelectionEvidenceDeltaArtifact;
+  evidence_delta_ref: TopicSelectionFunctionalRef;
+  resolution_route: TopicSelectionResolutionRouteArtifact;
+  resolution_route_ref: TopicSelectionFunctionalRef;
+  successor: TopicSelectionEvidenceMapCreateRecords | null;
+  checkpoint: Awaited<ReturnType<
+    TopicSelectionResearchCheckpointService['materializeEvidenceLandscapeCheckpoint']
+  >> | null;
+};
+
+type PersistedEvidenceConvergenceHit = {
+  query: string;
+  literature_ref: TopicSelectionFunctionalRef;
+  embedding_version_id: string;
+  chunk_ref: TopicSelectionFunctionalRef;
+  chunk_hash: string;
+  source_text: string;
+  rank: number;
 };
 
 type RoleBundleInput = {
@@ -408,6 +450,492 @@ export class TopicSelectionEvidenceMapService {
     return persisted;
   }
 
+  async publishEvidenceConvergenceSuccessor(
+    input: TopicSelectionPublishEvidenceConvergenceSuccessorInput,
+  ): Promise<TopicSelectionPublishEvidenceConvergenceSuccessorResult> {
+    if (!input.title_card_id.trim() || !input.predecessor_evidence_map_id.trim()
+      || !input.search_run_id.trim() || !input.decision_relevance.trim()
+      || input.claim_admissions.length === 0) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Evidence convergence successor requires a predecessor, SearchRun, decision relevance, and claim admission.',
+      );
+    }
+    const predecessor = await this.requireEvidenceMap(input.predecessor_evidence_map_id);
+    this.assertSameTitleCard(input.title_card_id, predecessor.title_card_id, 'predecessor EvidenceMap');
+    if (predecessor.status !== 'ready' || predecessor.freshness_status !== 'current'
+      || predecessor.successor_evidence_map_ref) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence requires the current predecessor EvidenceMap head.');
+    }
+    if (input.issue_ref.ref_type !== 'coverage_row_intent'
+      || input.issue_ref.title_card_id !== input.title_card_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence issue is outside the title card.');
+    }
+
+    const searchRun = await this.requireSearchRun(input.search_run_id);
+    this.assertSameTitleCard(input.title_card_id, searchRun.title_card_id, 'SearchRun');
+    if (!CONSUMABLE_SEARCH_RUN_STATUSES.has(searchRun.run_status)) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Evidence convergence requires a consumable SearchRun.');
+    }
+    const searchPlan = await this.requireSearchPlan(searchRun.search_plan_ref.ref_id);
+    if (searchPlan.parent_search_plan_ref?.ref_id !== predecessor.search_plan_ref.ref_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Successor SearchRun does not extend the predecessor SearchPlan.');
+    }
+    const [predecessorRows, coverageRows, coverageAssessments, coverageBindings] = await Promise.all([
+      this.searchResources.listCoverageRowIntentsBySearchPlanId(predecessor.search_plan_ref.ref_id),
+      this.searchResources.listCoverageRowIntentsBySearchPlanId(searchPlan.search_plan_id),
+      this.searchResources.listCoverageAssessmentsBySearchPlanId(searchPlan.search_plan_id),
+      this.searchResources.listCoverageEvidenceBindingsBySearchPlanId(searchPlan.search_plan_id),
+    ]);
+    const predecessorIssueRow = predecessorRows.find((row) => (
+      row.coverage_row_intent_id === input.issue_ref.ref_id
+    ));
+    const issueRow = predecessorIssueRow
+      ? coverageRows.find((row) => row.coverage_key === predecessorIssueRow.coverage_key)
+      : null;
+    if (!predecessorIssueRow || !issueRow) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence issue did not survive into the child SearchPlan.');
+    }
+
+    const persistedHits = this.persistedEvidenceConvergenceHits(searchRun);
+    const admittedInputs = input.claim_admissions.map((admission, index) => {
+      this.assertEvidenceConvergenceAdmission(
+        admission,
+        input,
+        searchPlan.recheck_request_ref,
+        searchRun,
+        issueRow,
+        persistedHits,
+      );
+      return this.evidenceConvergenceAdmissionUnitInput(admission, issueRow, `admission:${index}`);
+    });
+    const [predecessorUnits, predecessorLinks, predecessorClusters, predecessorPatterns, predecessorConflicts] =
+      await Promise.all([
+        this.repository.listEvidenceUnitsByEvidenceMapId(predecessor.evidence_map_id),
+        this.repository.listTypedLinksByEvidenceMapId(predecessor.evidence_map_id),
+        this.repository.listClustersByEvidenceMapId(predecessor.evidence_map_id),
+        this.repository.listPatternsByEvidenceMapId(predecessor.evidence_map_id),
+        this.repository.listConflictSetsByEvidenceMapId(predecessor.evidence_map_id),
+      ]);
+    const existingClaimKeys = new Set(predecessorUnits.map((unit) => this.evidenceClaimKey({
+      evidence_role: unit.evidence_role,
+      literature_ref: unit.literature_ref,
+      locator: unit.locator,
+      source_statement: unit.source_statement,
+      normalized_statement: unit.normalized_statement ?? null,
+    })));
+    const materialAdmissions = admittedInputs.filter((unit) => {
+      const key = this.evidenceClaimKey(unit);
+      if (existingClaimKeys.has(key)) return false;
+      existingClaimKeys.add(key);
+      return true;
+    });
+    const predecessorRef = this.ref(
+      'evidence_map',
+      predecessor.evidence_map_id,
+      predecessor.title_card_id,
+      predecessor.evidence_map_version,
+    );
+    const resolutionRoute: TopicSelectionResolutionRouteArtifact = {
+      schema_version: TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
+      issue_ref: input.issue_ref,
+      owning_stage: 'evidence_landscape',
+      route_kind: 'retrieve_and_recheck',
+      target_ref: this.ref('search_plan', searchPlan.search_plan_id, input.title_card_id, searchPlan.plan_version),
+      required_delta: input.decision_relevance.trim(),
+      recheck_gate_key: 'topic-selection.evidence-landscape-ready',
+      authority_boundary: 'deterministic_gate_then_strict_human',
+    };
+    const routeArtifact = await this.controlPlane.recordEvidenceConvergenceArtifact({
+      workspace_id: input.workspace_id ?? predecessor.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      workflow_run_id: searchRun.workflow_run_id ?? null,
+      input_snapshot_id: searchRun.input_snapshot_id ?? null,
+      artifact_type: 'resolution_route',
+      payload: resolutionRoute,
+    });
+    const routeRef = this.ref(
+      'artifact_ref',
+      routeArtifact.artifact_ref_id,
+      input.title_card_id,
+      routeArtifact.checksum,
+    );
+
+    if (materialAdmissions.length === 0) {
+      const evidenceDelta: TopicSelectionEvidenceDeltaArtifact = {
+        schema_version: TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+        issue_refs: [input.issue_ref],
+        predecessor_evidence_map_ref: predecessorRef,
+        admitted_evidence_unit_refs: [],
+        changed_claim_refs: [],
+        negative_coverage_changes: [],
+        source_health_changes: [],
+        conflict_changes: [],
+        decision_relevance: input.decision_relevance.trim(),
+        material: false,
+      };
+      const deltaArtifact = await this.recordEvidenceDelta(input, predecessor, searchRun, evidenceDelta);
+      return {
+        status: 'no_material_delta',
+        evidence_delta: evidenceDelta,
+        evidence_delta_ref: this.artifactRef(deltaArtifact, input.title_card_id),
+        resolution_route: resolutionRoute,
+        resolution_route_ref: routeRef,
+        successor: null,
+        checkpoint: null,
+      };
+    }
+
+    const childRowByParentRowId = new Map(predecessorRows.map((row) => [
+      row.coverage_row_intent_id,
+      coverageRows.find((candidate) => candidate.coverage_key === row.coverage_key)?.coverage_row_intent_id ?? null,
+    ]));
+    const predecessorUnitKeyById = new Map(predecessorUnits.map((unit) => [
+      unit.evidence_unit_id,
+      `predecessor:${unit.evidence_unit_id}`,
+    ]));
+    const preservedInputs: TopicSelectionEvidenceMapEvidenceUnitInput[] = predecessorUnits.map((unit) => {
+      const mappedCoverageRowId = unit.coverage_row_intent_ref
+        ? childRowByParentRowId.get(unit.coverage_row_intent_ref.ref_id)
+        : null;
+      if (unit.coverage_row_intent_ref && !mappedCoverageRowId) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'The child SearchPlan dropped predecessor coverage lineage.');
+      }
+      return {
+        client_unit_key: predecessorUnitKeyById.get(unit.evidence_unit_id),
+        coverage_row_intent_id: mappedCoverageRowId,
+        evidence_role: unit.evidence_role,
+        literature_ref: unit.literature_ref,
+        source_refs: unit.source_refs,
+        locator: unit.locator,
+        source_attribution_kind: unit.source_attribution_kind,
+        source_statement: unit.source_statement,
+        normalized_statement: unit.normalized_statement ?? null,
+        interpretation_payload: unit.interpretation_payload,
+        extraction_confidence: unit.extraction_confidence ?? null,
+        review_status: unit.review_status,
+      };
+    });
+    const structureInput: TopicSelectionCreateEvidenceMapFromSearchRunInput = {
+      workspace_id: input.workspace_id ?? predecessor.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      search_run_id: searchRun.search_run_id,
+      evidence_units: [...preservedInputs, ...materialAdmissions],
+      typed_links: predecessorLinks.map((link) => ({
+        link_type: link.link_type,
+        source_unit_key: this.requirePredecessorUnitKey(predecessorUnitKeyById, link.source_unit_ref.ref_id),
+        target_unit_key: this.requirePredecessorUnitKey(predecessorUnitKeyById, link.target_unit_ref.ref_id),
+        rationale: link.rationale ?? null,
+        confidence: link.confidence ?? null,
+      })),
+      clusters: predecessorClusters.map((cluster) => ({
+        cluster_type: cluster.cluster_type,
+        cluster_key: cluster.cluster_key,
+        unit_keys: cluster.unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        label: cluster.label,
+        rationale: cluster.rationale ?? null,
+        confidence: cluster.confidence ?? null,
+      })),
+      patterns: predecessorPatterns.map((pattern) => ({
+        pattern_type: pattern.pattern_type,
+        evidence_role: pattern.evidence_role,
+        unit_keys: pattern.unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        pattern_statement: pattern.pattern_statement,
+        confidence: pattern.confidence ?? null,
+      })),
+      conflict_sets: predecessorConflicts.map((conflict) => ({
+        conflict_type: conflict.conflict_type,
+        severity: conflict.severity,
+        support_unit_keys: conflict.support_unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        challenge_unit_keys: conflict.challenge_unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        baseline_unit_keys: conflict.baseline_unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        context_unit_keys: conflict.context_unit_refs.map((unitRef) => (
+          this.requirePredecessorUnitKey(predecessorUnitKeyById, unitRef.ref_id)
+        )),
+        issue_codes: conflict.issue_codes,
+      })),
+      digest_payload: {
+        ...predecessor.digest_payload,
+        evidence_convergence: {
+          predecessor_evidence_map_ref: predecessorRef,
+          search_run_ref: this.ref('search_run', searchRun.search_run_id, input.title_card_id),
+          admitted_claim_count: materialAdmissions.length,
+        },
+      },
+      created_by: input.created_by ?? 'system',
+      policy_version_id: input.policy_version_id ?? null,
+    };
+    const allowedRefs = this.buildAllowedEvidenceRefs(
+      searchRun,
+      coverageBindings.filter((binding) => binding.search_run_id === searchRun.search_run_id),
+    );
+    await this.validateEvidenceUnitInputs(structureInput.evidence_units, coverageRows, allowedRefs);
+
+    const evidenceMapId = this.idFactory('evidence_map');
+    const evidenceMapVersion = this.versionFromId(evidenceMapId);
+    const evidenceMapRef = this.ref('evidence_map', evidenceMapId, input.title_card_id, evidenceMapVersion);
+    const searchRunRef = this.ref('search_run', searchRun.search_run_id, input.title_card_id);
+    const searchPlanRef = this.ref('search_plan', searchPlan.search_plan_id, input.title_card_id, searchPlan.plan_version);
+    const literatureSnapshotRef = searchRun.literature_snapshot_ref;
+    const createdAt = this.now();
+    const unitKeyToRef = new Map<string, TopicSelectionFunctionalRef>();
+    const evidenceUnits = structureInput.evidence_units.map<TopicSelectionEvidenceUnitRecord>((unitInput, index) => {
+      const unitId = this.idFactory('evidence_unit');
+      const unitRef = this.ref('evidence_unit', unitId, input.title_card_id, evidenceMapVersion);
+      unitKeyToRef.set(unitInput.client_unit_key ?? String(index), unitRef);
+      const abstractOnly = unitInput.locator.locator_type === 'abstract';
+      return {
+        evidence_unit_id: unitId,
+        workspace_id: structureInput.workspace_id ?? null,
+        title_card_id: input.title_card_id,
+        evidence_map_id: evidenceMapId,
+        evidence_map_version: evidenceMapVersion,
+        search_run_ref: searchRunRef,
+        search_plan_ref: searchPlanRef,
+        literature_snapshot_ref: literatureSnapshotRef,
+        coverage_row_intent_ref: unitInput.coverage_row_intent_id
+          ? this.ref('coverage_row_intent', unitInput.coverage_row_intent_id, input.title_card_id)
+          : null,
+        literature_ref: unitInput.literature_ref,
+        source_refs: this.evidenceUnitSourceRefs(unitInput),
+        locator: unitInput.locator,
+        evidence_role: unitInput.evidence_role,
+        source_attribution_kind: unitInput.source_attribution_kind ?? 'source_claim',
+        source_statement: unitInput.source_statement,
+        normalized_statement: unitInput.normalized_statement ?? null,
+        interpretation_payload: unitInput.interpretation_payload ?? {},
+        extraction_confidence: unitInput.extraction_confidence ?? null,
+        abstract_only: abstractOnly,
+        review_status: unitInput.review_status ?? 'machine_checked',
+        freshness_status: 'current',
+        issue_codes: abstractOnly && unitInput.evidence_role === 'support' ? ['ABSTRACT_ONLY_SUPPORT'] : [],
+        created_by: input.created_by ?? 'system',
+        created_at: createdAt,
+      };
+    });
+    const admittedRefs = materialAdmissions.map((admission) => (
+      this.requireUnitKey(unitKeyToRef, admission.client_unit_key!)
+    ));
+    const evidenceDelta: TopicSelectionEvidenceDeltaArtifact = {
+      schema_version: TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+      issue_refs: [input.issue_ref],
+      predecessor_evidence_map_ref: predecessorRef,
+      admitted_evidence_unit_refs: admittedRefs,
+      changed_claim_refs: admittedRefs,
+      negative_coverage_changes: [],
+      source_health_changes: [],
+      conflict_changes: [],
+      decision_relevance: input.decision_relevance.trim(),
+      material: true,
+    };
+    const deltaArtifact = await this.recordEvidenceDelta(input, predecessor, searchRun, evidenceDelta);
+    const deltaRef = this.artifactRef(deltaArtifact, input.title_card_id);
+    const typedLinks = this.buildTypedLinks(structureInput, evidenceMapId, evidenceMapVersion, unitKeyToRef, createdAt);
+    const clusters = this.buildClusters(structureInput, evidenceMapId, evidenceMapVersion, unitKeyToRef, createdAt);
+    const patterns = this.buildPatterns(structureInput, evidenceMapId, evidenceMapVersion, unitKeyToRef, createdAt);
+    const conflictSets = this.buildConflictSets(structureInput, evidenceMapId, evidenceMapVersion, unitKeyToRef, createdAt);
+    const inputSnapshot = await this.controlPlane.compileInputSnapshot({
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      target_ref: evidenceMapRef,
+      source_refs: this.uniqueRefs([
+        predecessorRef,
+        searchRunRef,
+        searchPlanRef,
+        literatureSnapshotRef,
+        deltaRef,
+        routeRef,
+        ...evidenceUnits.map((unit) => unit.literature_ref),
+        ...evidenceUnits.flatMap((unit) => unit.source_refs),
+      ]),
+      payload: {
+        predecessor_evidence_map_ref: predecessorRef,
+        material_evidence_delta_ref: deltaRef,
+        search_run_ref: searchRunRef,
+        evidence_unit_refs: evidenceUnits.map((unit) => (
+          this.ref('evidence_unit', unit.evidence_unit_id, input.title_card_id, evidenceMapVersion)
+        )),
+        digest_payload: structureInput.digest_payload ?? {},
+      },
+      policy_version: input.policy_version_id ?? null,
+      created_by: input.created_by ?? 'system',
+    });
+    const workflow = await this.controlPlane.recordWorkflowRun({
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      workflow_key: 'topic-selection.evidence-convergence-successor',
+      workflow_profile_key: 'deterministic-claim-admission',
+      input_snapshot_id: inputSnapshot.input_snapshot_id,
+      output_summary: {
+        admitted_claim_count: admittedRefs.length,
+        total_unit_count: evidenceUnits.length,
+      },
+      created_by: input.created_by ?? 'system',
+    });
+    const blockers = this.evidenceMapBlockers(evidenceUnits);
+    const gate = await this.controlPlane.runDeterministicGate({
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      gate_key: 'topic-selection.evidence-convergence-claim-admission',
+      target_ref: evidenceMapRef,
+      input_snapshot_id: inputSnapshot.input_snapshot_id,
+      workflow_run_id: workflow.workflow_run.workflow_run_id,
+      policy_version_id: input.policy_version_id ?? null,
+      blockers,
+    });
+    const transition = await this.controlPlane.attemptTransition({
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      transition_key: 'search-run-to-evidence-map-successor',
+      source_ref: searchRunRef,
+      target_ref: evidenceMapRef,
+      gate_result_id: gate.readiness_gate_result_id,
+      workflow_run_id: workflow.workflow_run.workflow_run_id,
+      input_snapshot_id: inputSnapshot.input_snapshot_id,
+      policy_version_id: input.policy_version_id ?? null,
+      actor: { actor_type: input.created_by ?? 'system' },
+      state_write_intents: [this.stateWriteIntent(evidenceMapRef, 'execution', 'evidence_map', 'ready')],
+      created_authority_refs: [evidenceMapRef, ...admittedRefs],
+    });
+    this.assertTransitionPassed(transition.result, 'EvidenceMap successor');
+    const [runLineage, predecessorLineage] = await Promise.all([
+      this.controlPlane.linkLineage({
+        workspace_id: structureInput.workspace_id ?? null,
+        title_card_id: input.title_card_id,
+        source_ref: searchRunRef,
+        target_ref: evidenceMapRef,
+        relation_type: 'derived_from',
+        artifact_refs: [deltaRef, routeRef],
+        created_by: input.created_by ?? 'system',
+      }),
+      this.controlPlane.linkLineage({
+        workspace_id: structureInput.workspace_id ?? null,
+        title_card_id: input.title_card_id,
+        source_ref: predecessorRef,
+        target_ref: evidenceMapRef,
+        relation_type: 'supersedes',
+        artifact_refs: [deltaRef],
+        created_by: input.created_by ?? 'system',
+      }),
+    ]);
+    const trace = await this.controlPlane.buildTraceSnapshot({
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      target_ref: evidenceMapRef,
+      object_refs: [evidenceMapRef, predecessorRef, searchRunRef, searchPlanRef, literatureSnapshotRef, ...admittedRefs],
+      lineage_link_refs: [runLineage, predecessorLineage].map((lineage) => (
+        this.ref('functional_lineage_link', lineage.functional_lineage_link_id, input.title_card_id)
+      )),
+      artifact_refs: [deltaRef, routeRef],
+      transition_attempt_refs: [
+        this.ref('chain_transition_attempt', transition.chain_transition_attempt_id, input.title_card_id),
+      ],
+      payload: { material_evidence_delta_ref: deltaRef, admitted_claim_count: admittedRefs.length },
+      created_by: input.created_by ?? 'system',
+    });
+    const roleCounts = this.roleCounts(evidenceUnits);
+    const successorRecord: TopicSelectionEvidenceMapRecord = {
+      evidence_map_id: evidenceMapId,
+      workspace_id: structureInput.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      evidence_map_version: evidenceMapVersion,
+      status: 'ready',
+      review_status: 'machine_checked',
+      freshness_status: 'current',
+      search_run_ref: searchRunRef,
+      search_plan_ref: searchPlanRef,
+      literature_snapshot_ref: literatureSnapshotRef,
+      unit_count: evidenceUnits.length,
+      support_unit_count: roleCounts.support_unit_count,
+      challenge_unit_count: roleCounts.challenge_unit_count,
+      baseline_unit_count: roleCounts.baseline_unit_count,
+      context_unit_count: roleCounts.context_unit_count,
+      digest_payload: structureInput.digest_payload ?? {},
+      stale_reason_codes: [],
+      input_snapshot_id: inputSnapshot.input_snapshot_id,
+      workflow_run_id: workflow.workflow_run.workflow_run_id,
+      gate_result_id: gate.readiness_gate_result_id,
+      transition_attempt_id: transition.chain_transition_attempt_id,
+      trace_snapshot_id: trace.trace_snapshot_id,
+      artifact_refs: [deltaRef, routeRef],
+      predecessor_evidence_map_ref: predecessorRef,
+      successor_evidence_map_ref: null,
+      material_evidence_delta_ref: deltaRef,
+      lineage_revision: 0,
+      created_by: input.created_by ?? 'system',
+      created_at: createdAt,
+    };
+    let successor: TopicSelectionEvidenceMapCreateRecords;
+    try {
+      successor = await this.repository.publishEvidenceMapSuccessorWithRecords({
+        expected_predecessor_id: predecessor.evidence_map_id,
+        expected_lineage_revision: predecessor.lineage_revision ?? 0,
+        material_evidence_delta_ref: deltaRef,
+        successor_records: {
+          evidence_map: successorRecord,
+          evidence_units: evidenceUnits,
+          typed_links: typedLinks,
+          clusters,
+          patterns,
+          conflict_sets: conflictSets,
+        },
+      });
+    } catch (error) {
+      throw new AppError(409, 'VERSION_CONFLICT', error instanceof Error ? error.message : 'EvidenceMap successor publication failed.');
+    }
+    const assessmentIdentity = sha256Text(stableStringify({
+      search_run_id: searchRun.search_run_id,
+      coverage_row_intent_id: issueRow.coverage_row_intent_id,
+      admitted_evidence_unit_refs: admittedRefs,
+    }));
+    const assessmentId = `coverage_assessment_${assessmentIdentity.slice(0, 24)}`;
+    if (!coverageAssessments.some((assessment) => assessment.coverage_assessment_id === assessmentId)) {
+      await this.searchResources.createCoverageAssessment({
+        coverage_assessment_id: assessmentId,
+        search_plan_id: searchPlan.search_plan_id,
+        coverage_row_intent_id: issueRow.coverage_row_intent_id,
+        verdict: 'satisfied',
+        issue_codes: [],
+        confidence: Math.min(...materialAdmissions.map((admission) => admission.extraction_confidence ?? 1)),
+        assessed_by: input.created_by ?? 'system',
+        created_at: this.now(),
+      });
+    }
+    const latestAssessments = await this.searchResources.listCoverageAssessmentsBySearchPlanId(
+      searchPlan.search_plan_id,
+    );
+    const checkpoint = this.checkpointControl
+      ? await this.checkpointControl.materializeEvidenceLandscapeCheckpoint({
+          evidence_map: successor.evidence_map,
+          evidence_units: successor.evidence_units,
+          conflict_sets: successor.conflict_sets,
+          coverage_row_intents: coverageRows,
+          coverage_assessments: latestAssessments,
+          policy_version_id: input.policy_version_id ?? null,
+        })
+      : null;
+    return {
+      status: 'successor_published',
+      evidence_delta: evidenceDelta,
+      evidence_delta_ref: deltaRef,
+      resolution_route: resolutionRoute,
+      resolution_route_ref: routeRef,
+      successor,
+      checkpoint,
+    };
+  }
+
   async getNeedValidationEvidenceBundle(evidenceMapId: string): Promise<TopicSelectionNeedValidationEvidenceBundle> {
     const evidenceMap = await this.requireEvidenceMap(evidenceMapId);
     const units = await this.repository.listEvidenceUnitsByEvidenceMapId(evidenceMapId);
@@ -598,6 +1126,159 @@ export class TopicSelectionEvidenceMapService {
       input.stale_reason_codes,
       input.freshness_status ?? 'recheck_required',
     );
+  }
+
+  private persistedEvidenceConvergenceHits(
+    searchRun: TopicSelectionSearchRunRecord,
+  ): PersistedEvidenceConvergenceHit[] {
+    return searchRun.query_provenance.flatMap((entry) => {
+      const hits = entry.hits;
+      if (!Array.isArray(hits)) return [];
+      return hits.filter((value): value is PersistedEvidenceConvergenceHit => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+        const hit = value as Partial<PersistedEvidenceConvergenceHit>;
+        return typeof hit.query === 'string'
+          && typeof hit.embedding_version_id === 'string'
+          && typeof hit.chunk_hash === 'string'
+          && typeof hit.source_text === 'string'
+          && typeof hit.rank === 'number'
+          && Boolean(hit.literature_ref)
+          && Boolean(hit.chunk_ref);
+      });
+    });
+  }
+
+  private assertEvidenceConvergenceAdmission(
+    admission: TopicSelectionEvidenceConvergenceClaimAdmission,
+    input: TopicSelectionPublishEvidenceConvergenceSuccessorInput,
+    recheckRequestRef: TopicSelectionFunctionalRef | null | undefined,
+    searchRun: TopicSelectionSearchRunRecord,
+    issueRow: TopicSelectionCoverageRowIntentRecord,
+    persistedHits: PersistedEvidenceConvergenceHit[],
+  ): void {
+    if (admission.schema_version !== TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION
+      || admission.request_ref.ref_type !== 'search_plan_recheck_request'
+      || admission.search_run_ref.ref_type !== 'search_run'
+      || admission.literature_ref.ref_type !== 'literature_record'
+      || admission.request_ref.title_card_id !== input.title_card_id
+      || admission.search_run_ref.title_card_id !== input.title_card_id
+      || admission.literature_ref.title_card_id !== input.title_card_id
+      || admission.chunk_ref.title_card_id !== input.title_card_id
+      || admission.request_ref.ref_id !== recheckRequestRef?.ref_id
+      || admission.search_run_ref.ref_id !== searchRun.search_run_id
+      || admission.evidence_role !== issueRow.expected_evidence_role
+      || !admission.query.trim()
+      || !admission.source_statement.trim()) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Claim admission does not match the exact request, run, issue row, and title lineage.');
+    }
+    const hit = persistedHits.find((candidate) => (
+      candidate.query === admission.query
+      && this.refKey(candidate.literature_ref) === this.refKey(admission.literature_ref)
+      && this.refKey(candidate.chunk_ref) === this.refKey(admission.chunk_ref)
+      && candidate.chunk_hash === admission.chunk_hash
+    ));
+    const sourceText = hit?.source_text.trim().replace(/\s+/gu, ' ');
+    const statement = admission.source_statement.trim().replace(/\s+/gu, ' ');
+    if (!hit || sha256Text(hit.source_text) !== admission.chunk_hash
+      || !sourceText?.includes(statement)) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Claim admission is not an exact quote-bearing persisted retrieval hit.');
+    }
+  }
+
+  private evidenceConvergenceAdmissionUnitInput(
+    admission: TopicSelectionEvidenceConvergenceClaimAdmission,
+    issueRow: TopicSelectionCoverageRowIntentRecord,
+    clientUnitKey: string,
+  ): TopicSelectionEvidenceMapEvidenceUnitInput {
+    const locatorType = this.evidenceConvergenceLocatorType(admission.chunk_ref.ref_type);
+    return {
+      client_unit_key: clientUnitKey,
+      coverage_row_intent_id: issueRow.coverage_row_intent_id,
+      evidence_role: admission.evidence_role,
+      literature_ref: admission.literature_ref,
+      source_refs: [admission.chunk_ref],
+      locator: {
+        locator_type: locatorType,
+        locator_ref: admission.chunk_ref,
+        literature_ref: admission.literature_ref,
+        source_ref: admission.chunk_ref,
+        content_ref: admission.chunk_ref,
+        document_ref: null,
+        section_ref: locatorType === 'section' ? admission.chunk_ref : null,
+        paragraph_ref: locatorType === 'paragraph' ? admission.chunk_ref : null,
+        anchor_ref: locatorType === 'anchor' ? admission.chunk_ref : null,
+        manual_label: null,
+        quote_hash: admission.chunk_hash,
+        start_offset: null,
+        end_offset: null,
+        page_number: null,
+      },
+      source_attribution_kind: admission.evidence_role === 'challenge' ? 'counter_evidence' : 'source_claim',
+      source_statement: admission.source_statement.trim(),
+      normalized_statement: admission.normalized_statement,
+      interpretation_payload: admission.interpretation_payload,
+      extraction_confidence: admission.extraction_confidence,
+      review_status: 'machine_checked',
+    };
+  }
+
+  private evidenceConvergenceLocatorType(
+    refType: string,
+  ): Extract<TopicSelectionEvidenceSourceLocator['locator_type'], 'abstract' | 'section' | 'paragraph' | 'anchor'> {
+    const byRefType = {
+      literature_abstract: 'abstract',
+      fulltext_section: 'section',
+      fulltext_paragraph: 'paragraph',
+      fulltext_anchor: 'anchor',
+    } as const;
+    const locatorType = byRefType[refType as keyof typeof byRefType];
+    if (!locatorType) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', `Unsupported convergence claim locator ${refType}.`);
+    }
+    return locatorType;
+  }
+
+  private evidenceClaimKey(input: Pick<
+    TopicSelectionEvidenceMapEvidenceUnitInput,
+    'evidence_role' | 'literature_ref' | 'locator' | 'source_statement' | 'normalized_statement'
+  >): string {
+    return sha256Text(stableStringify({
+      evidence_role: input.evidence_role,
+      literature_ref: input.literature_ref,
+      locator_ref: input.locator.locator_ref,
+      statement: (input.normalized_statement ?? input.source_statement).trim().replace(/\s+/gu, ' ').toLocaleLowerCase('en-US'),
+    }));
+  }
+
+  private requirePredecessorUnitKey(keys: Map<string, string>, evidenceUnitId: string): string {
+    const key = keys.get(evidenceUnitId);
+    if (!key) {
+      throw new AppError(409, 'VERSION_CONFLICT', `Predecessor evidence structure references missing unit ${evidenceUnitId}.`);
+    }
+    return key;
+  }
+
+  private async recordEvidenceDelta(
+    input: TopicSelectionPublishEvidenceConvergenceSuccessorInput,
+    predecessor: TopicSelectionEvidenceMapRecord,
+    searchRun: TopicSelectionSearchRunRecord,
+    evidenceDelta: TopicSelectionEvidenceDeltaArtifact,
+  ) {
+    return this.controlPlane.recordEvidenceConvergenceArtifact({
+      workspace_id: input.workspace_id ?? predecessor.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      workflow_run_id: searchRun.workflow_run_id ?? null,
+      input_snapshot_id: searchRun.input_snapshot_id ?? null,
+      artifact_type: 'evidence_delta',
+      payload: evidenceDelta,
+    });
+  }
+
+  private artifactRef(
+    artifact: Awaited<ReturnType<TopicSelectionControlPlaneService['recordEvidenceConvergenceArtifact']>>,
+    titleCardId: string,
+  ): TopicSelectionFunctionalRef {
+    return this.ref('artifact_ref', artifact.artifact_ref_id, titleCardId, artifact.checksum);
   }
 
   private buildTypedLinks(

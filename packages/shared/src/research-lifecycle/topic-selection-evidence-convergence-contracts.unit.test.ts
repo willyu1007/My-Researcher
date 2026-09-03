@@ -4,11 +4,13 @@ import Fastify from 'fastify';
 import type { TopicSelectionFunctionalRef } from './topic-selection-control-plane-contracts.js';
 import {
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION,
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION,
   TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
   TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
   canonicalizeEvidenceConvergenceRequest,
   evaluateEvidenceConvergenceBoundary,
+  topicSelectionEvidenceConvergenceClaimAdmissionSchema,
   topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
   topicSelectionEvidenceConvergenceRoundLinkSchema,
   type TopicSelectionEvidenceDeltaArtifact,
@@ -114,6 +116,37 @@ test('role ingress rejects coordinator identities and linked rounds require both
     supersedes_arena_session_ref: ref('research_arena_session', 'arena_1'),
     evidence_delta_ref: ref('artifact_ref', 'delta_1'),
     evidence_delta_hash: 'delta-hash-1',
+  }), false);
+});
+
+test('claim admission requires exact request, run, source hash, and closed claim fields', async () => {
+  const admission = {
+    schema_version: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION,
+    request_ref: ref('search_plan_recheck_request', 'request_1'),
+    search_run_ref: ref('search_run', 'run_1'),
+    query: 'direct counter evidence',
+    literature_ref: ref('literature_record', 'lit_1'),
+    chunk_ref: ref('fulltext_paragraph', 'paragraph_1'),
+    chunk_hash: 'a'.repeat(64),
+    evidence_role: 'challenge',
+    source_statement: 'The reported failure persists under distribution shift.',
+    normalized_statement: null,
+    interpretation_payload: {},
+    extraction_confidence: 0.9,
+  };
+
+  assert.equal(await validates(topicSelectionEvidenceConvergenceClaimAdmissionSchema, admission), true);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceClaimAdmissionSchema, {
+    ...admission,
+    request_key: 'role-authored-key',
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceClaimAdmissionSchema, {
+    ...admission,
+    chunk_hash: 'not-a-sha256',
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceClaimAdmissionSchema, {
+    ...admission,
+    search_run_ref: ref('artifact_ref', 'run_1'),
   }), false);
 });
 

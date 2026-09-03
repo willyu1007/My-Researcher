@@ -9,6 +9,8 @@ export const TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION = 'TopicSelectionEvid
 export const TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION = 'TopicSelectionResolutionRoute@v1' as const;
 export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION =
   'TopicSelectionEvidenceConvergenceRoundLink@v1' as const;
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION =
+  'TopicSelectionEvidenceConvergenceClaimAdmission@v1' as const;
 
 export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY = Object.freeze({
   schema_version: 'TopicSelectionEvidenceConvergenceExecutionPolicy@v1' as const,
@@ -84,6 +86,22 @@ export interface TopicSelectionEvidenceDeltaArtifact {
   conflict_changes: TopicSelectionFunctionalRef[];
   decision_relevance: string;
   material: boolean;
+}
+
+/** A claim admitted only from one exact, already-persisted retrieval hit. */
+export interface TopicSelectionEvidenceConvergenceClaimAdmission {
+  schema_version: typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION;
+  request_ref: TopicSelectionFunctionalRef;
+  search_run_ref: TopicSelectionFunctionalRef;
+  query: string;
+  literature_ref: TopicSelectionFunctionalRef;
+  chunk_ref: TopicSelectionFunctionalRef;
+  chunk_hash: string;
+  evidence_role: 'support' | 'challenge' | 'baseline' | 'context';
+  source_statement: string;
+  normalized_statement: string | null;
+  interpretation_payload: Record<string, unknown>;
+  extraction_confidence: number | null;
 }
 
 export const TOPIC_SELECTION_RESOLUTION_ROUTE_KINDS = ['retrieve_and_recheck'] as const;
@@ -220,6 +238,10 @@ const titleScopedTypedFunctionalRefSchema = (refType: string) => ({
   },
 }) as const;
 const researchArenaSessionRefSchema = titleScopedTypedFunctionalRefSchema('research_arena_session');
+const searchPlanRecheckRequestRefSchema = titleScopedTypedFunctionalRefSchema(
+  'search_plan_recheck_request',
+);
+const searchRunRefSchema = titleScopedTypedFunctionalRefSchema('search_run');
 const literatureCorpusManifestRefSchema = titleScopedTypedFunctionalRefSchema(
   'literature_resource_pool_snapshot',
 );
@@ -302,6 +324,32 @@ export const topicSelectionEvidenceConvergenceRoundLinkSchema = {
     parent_transcript_hash: stringValue,
     evidence_delta_ref: topicSelectionFunctionalRefSchema,
     evidence_delta_hash: stringValue,
+  },
+} as const;
+
+export const topicSelectionEvidenceConvergenceClaimAdmissionSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'request_ref', 'search_run_ref', 'query', 'literature_ref', 'chunk_ref',
+    'chunk_hash', 'evidence_role', 'source_statement', 'normalized_statement',
+    'interpretation_payload', 'extraction_confidence',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION },
+    request_ref: searchPlanRecheckRequestRefSchema,
+    search_run_ref: searchRunRefSchema,
+    query: stringValue,
+    literature_ref: titleScopedTypedFunctionalRefSchema('literature_record'),
+    chunk_ref: titleScopedFunctionalRefSchema,
+    chunk_hash: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    evidence_role: { enum: ['support', 'challenge', 'baseline', 'context'] },
+    source_statement: stringValue,
+    normalized_statement: { anyOf: [stringValue, { type: 'null' }] },
+    interpretation_payload: { type: 'object', additionalProperties: true },
+    extraction_confidence: {
+      anyOf: [{ type: 'number', minimum: 0, maximum: 1 }, { type: 'null' }],
+    },
   },
 } as const;
 

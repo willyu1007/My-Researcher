@@ -94,8 +94,10 @@ role-authored intents, applies the standing boundary before new work, deduplicat
 requests, executes the exact managed-library manifest, persists the child SearchPlan/SearchRun and
 raw query provenance, and redistributes the durable execution to every requesting role. The child
 plan preserves the parent coverage rows and the SearchRun carries predecessor locator authorities,
-so the next slice can construct a successor without weakening lineage. Admission, EvidenceDelta,
-successor publication, linked-round execution, and fresh checkpoint recheck are not yet claimed.
+so successor construction does not weaken lineage. The next slice now also admits only exact
+quote-bearing persisted hits, records material and non-material EvidenceDelta artifacts, publishes
+material successor maps through the existing compare-and-swap transition, and materializes a fresh
+instance of the same checkpoint. Linked-round execution and the bounded end-to-end pilot remain.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.

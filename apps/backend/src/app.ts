@@ -1904,6 +1904,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       },
       evidenceMapReader: topicSelectionEvidenceMapRepository,
     }),
+    topicSelectionEvidenceMapService,
   );
   const literatureClusterService = new LiteratureClusterService(literatureRepository);
   const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService, {

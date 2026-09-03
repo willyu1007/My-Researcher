@@ -59,6 +59,8 @@ export type TopicSelectionEvidenceConvergenceRetrievalHit = {
   embedding_version_id: string;
   chunk_ref: TopicSelectionFunctionalRef;
   chunk_hash: string;
+  /** Persisted so later claim admission can verify the exact quoted retrieval chunk. */
+  source_text?: string;
   rank: number;
 };
 
@@ -410,6 +412,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         embedding_version_id: item.embedding_version_id,
         chunk_ref: this.chunkRef(chunk, titleCardId),
         chunk_hash: sha256Text(chunk.text),
+        source_text: chunk.text,
         rank: ++rank,
       }))));
   }
