@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
+  TopicSelectionEvidenceConflictSetRecord,
   TopicSelectionEvidenceMapRecord,
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
@@ -312,6 +313,75 @@ test('human and LLM stage views share one current manifest while keeping differe
   assert.deepEqual(currentPacket.packet_payload.nearest_work, [
     { title: 'Closest baseline' },
   ]);
+});
+
+test('pending evidence Human view presents substantive evidence and exact unresolved gate risks', async () => {
+  const { service } = createService();
+  const rows = [
+    coverageRow('coverage_support', 'support'),
+    coverageRow('coverage_challenge', 'challenge'),
+    coverageRow('coverage_baseline', 'baseline'),
+  ];
+  const units = [
+    evidenceUnit('support', 'support'),
+    evidenceUnit('challenge', 'challenge'),
+    evidenceUnit('baseline', 'baseline'),
+    evidenceUnit('context', 'context'),
+  ];
+  const conflict: TopicSelectionEvidenceConflictSetRecord = {
+    evidence_conflict_set_id: 'conflict_material',
+    workspace_id: null,
+    title_card_id: 'title_1',
+    evidence_map_id: 'evidence_map_1',
+    evidence_map_version: 'v1',
+    conflict_type: 'claim_conflict',
+    severity: 'material',
+    support_unit_refs: [{ ref_type: 'evidence_unit', ref_id: 'support', title_card_id: 'title_1', version_id: 'v1' }],
+    challenge_unit_refs: [{ ref_type: 'evidence_unit', ref_id: 'challenge', title_card_id: 'title_1', version_id: 'v1' }],
+    baseline_unit_refs: [],
+    context_unit_refs: [],
+    issue_codes: ['DIRECT_PRIOR_ART_PRESSURE'],
+    created_at: NOW,
+  };
+  await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: {
+      ...evidenceMap(),
+      digest_payload: {
+        working_claim: 'Adaptive retrieval should improve calibrated evidence use.',
+        mechanism: 'Allocate retrieval depth from uncertainty.',
+        falsification_condition: 'No gain over a fixed-depth baseline.',
+        claim_ceiling: 'Evidence supports calibration, not universal accuracy gains.',
+      },
+    },
+    evidence_units: units,
+    conflict_sets: [conflict],
+    coverage_row_intents: rows,
+    coverage_assessments: [
+      coverageAssessment('assessment_support', 'coverage_support', 'satisfied', NOW),
+      coverageAssessment('assessment_challenge', 'coverage_challenge', 'missing', NOW),
+      coverageAssessment('assessment_baseline', 'coverage_baseline', 'satisfied', NOW),
+    ],
+  });
+
+  const view = await service.getStageView('title_1', 'evidence_landscape', 'human');
+
+  assert.match(view.markdown, /Adaptive retrieval should improve calibrated evidence use\./u);
+  assert.match(view.markdown, /支持：support claim/u);
+  assert.match(view.markdown, /反证：challenge claim/u);
+  assert.match(view.markdown, /基线：baseline claim/u);
+  assert.match(view.markdown, /背景：context claim/u);
+  assert.match(view.markdown, /Allocate retrieval depth from uncertainty\./u);
+  assert.match(view.markdown, /No gain over a fixed-depth baseline\./u);
+  assert.match(view.markdown, /Evidence supports calibration, not universal accuracy gains\./u);
+  assert.match(view.markdown, /challenge coverage/u);
+  assert.match(view.markdown, /NO_DIRECT_EVIDENCE/u);
+  assert.match(view.markdown, /实质证据冲突/u);
+  assert.match(view.markdown, /DIRECT_PRIOR_ART_PRESSURE/u);
+  assert.match(view.markdown, /接受并推进/u);
+  assert.match(view.markdown, /回环补强/u);
+  assert.match(view.markdown, /拒绝当前结果/u);
+  assert.match(view.markdown, /暂缓决定/u);
+  assert.doesNotMatch(view.markdown, /## 开放风险\n- 暂无/u);
 });
 
 test('continuation envelope advances routine local work only until the next human boundary', async () => {
@@ -939,7 +1009,7 @@ function coverageAssessment(
 
 function evidenceUnit(
   id: string,
-  role: 'support' | 'challenge' | 'baseline',
+  role: 'support' | 'challenge' | 'baseline' | 'context',
   abstractOnly = false,
 ): TopicSelectionEvidenceUnitRecord {
   return {
@@ -1211,6 +1281,10 @@ test('required missing coverage advances only through exact persisted Human acce
   const decision = await service.recordDecision(checkpoint.research_checkpoint_id, acceptedInput);
   assert.deepEqual(decision.review_payload, acceptedInput.review_payload);
   assert.deepEqual((await service.getPacket(checkpoint.research_checkpoint_id)).decision, decision);
+  const acceptedView = await service.getStageView('title_1', 'evidence_landscape', 'human');
+  assert.match(acceptedView.markdown, /人工已接受未解决覆盖风险/u);
+  assert.match(acceptedView.markdown, /coverage_challenge、coverage_baseline|coverage_baseline、coverage_challenge/u);
+  assert.match(acceptedView.markdown, /Accept both exact current missing rows while retaining their risk downstream\./u);
   assert.deepEqual((await service.getCheckpoint(checkpoint.research_checkpoint_id)).required_action_refs, []);
   await service.assertTransitionAllowed({
     title_card_id: 'title_1',

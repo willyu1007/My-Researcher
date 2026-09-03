@@ -4,8 +4,8 @@ This register preserves the distinct observations from the 2026-09-01 real topic
 
 | ID | Observation | Initial severity | Proposed disposition |
 |---|---|---|---|
-| FIND-001 | The human evidence-landscape view exposes mostly roles and IDs instead of the evidence statements, mechanism, falsifiers, and claim ceiling needed for a decision. | high | In scope: improve the canonical human projection. |
-| FIND-002 | The human view reports no open risks while the checkpoint packet includes a material conflict set and disconfirming evidence. | high | In scope after confirming the intended conflict/risk semantics. |
+| FIND-001 | The human evidence-landscape view exposed mostly roles and IDs instead of the evidence statements, mechanism, falsifiers, and claim ceiling needed for a decision. | high | Fixed and focused-verified: the frozen checkpoint packet now carries decision-relevant evidence content and the Human projection renders working claim, mechanism, role-labeled evidence, falsification boundary, claim ceiling, and available actions. |
+| FIND-002 | The human view reported no open risks while the checkpoint packet included a material conflict set and disconfirming evidence. | high | Fixed and focused-verified: material conflict details and exact missing-coverage outcomes are frozen into the packet and rendered as open risks; accepted coverage remains visible with its Human rationale. |
 | FIND-003 | The public EvidenceMap request schema does not describe material fields and enums accepted and validated by the runtime route. | medium | In scope after confirming the intended public surface. |
 | FIND-004 | A dev-backend exit caused one checkpoint decision request to lose its response; read-before-replay recovered safely through the decision key. | medium, unconfirmed | Reproduce and classify before assigning product work. |
 | FIND-005 | Backup/restore readiness could not be demonstrated during preflight. | medium | Adjacent operational gap; propose a separate owner if still material. |
