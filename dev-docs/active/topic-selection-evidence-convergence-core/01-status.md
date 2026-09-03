@@ -5,8 +5,8 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 authorized after the repaired Phase 1 checkpoint passed on 2026-09-03
-- Next step: Implement the Phase 2 retrieval-native evidence loop from role request through durable retrieval, evidence admission, successor map, linked round, and same-gate recheck.
+- Current phase: Phase 2 in progress; the role-request through durable retrieval/distribution slice is implemented and focused-verified on 2026-09-03
+- Next step: Consume the persisted retrieval hits through explicit claim-level admission, then publish the material successor map, linked round, and fresh same-gate checkpoint.
 - Blocker: none. Phase 2 is authorized through its defined exit; Phase 3 remains outside the current authorization.
 
 ## Phase 1 checkpoint
@@ -19,6 +19,14 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] ECK-07 has a typed immutable ResolutionRoute artifact whose authority boundary remains deterministic-gate then strict-Human.
 - [ ] ECK-06 remains a Phase 2 end-to-end pilot outcome.
 - [ ] ECK-08 remains Phase 3 failure/replay/real-flow proof.
+
+## Phase 2 implementation checkpoint
+
+- [x] Equivalent role-authored requests converge on one coordinator-derived durable request and one execution; each requesting role receives the same persisted SearchRun authority.
+- [x] Full managed-library execution uses the unscoped retriever, strict Human subsets use the bounded snapshot retriever, and every returned hit is filtered back through exact manifest membership.
+- [x] The coordinator creates a child SearchPlan that preserves the parent coverage matrix, records query results and raw provenance before distribution, carries predecessor EvidenceMap locator authorities forward, and closes only exact request/plan/run lineage.
+- [x] Zero-hit executions remain durable succeeded SearchRuns and halt unresolved; standing-policy exhaustion occurs before new durable work and cannot become gate success.
+- [ ] Claim-level admission, EvidenceDelta materialization, successor publication, linked round execution, and fresh same-gate checkpoint recheck remain the next Phase 2 slice.
 
 ## Done when
 - [ ] ECK-01: Every accessible indexed, evidence-ready literature record is eligible for retrieval by default unless an explicit Human scope narrows the corpus.

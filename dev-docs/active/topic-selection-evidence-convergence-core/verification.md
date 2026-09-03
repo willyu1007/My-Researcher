@@ -19,6 +19,7 @@
 | Linked frozen rounds (ECK-04) | Validate a closed round-link schema and reject a link missing the parent transcript or EvidenceDelta hash | passed for Phase 1 | The contract is frozen; Phase 2 still owns creating the successor Arena session and distributing its frozen input. |
 | EvidenceMap successor compare-and-swap (ECK-05) | Exercise direct-create/supersession bypasses, child-identity failure, malicious successor revision, and stale competing writers in memory and on disposable PostgreSQL | passed | Initial creation and ordinary freshness updates cannot claim successor state; successor revision is coordinator-owned zero; child conflicts leave the predecessor current; Prisma updates the predecessor and creates the successor records in one transaction. |
 | Typed immutable resolution support (ECK-07) | Persist and replay content-addressed EvidenceDelta and ResolutionRoute artifacts within and across title/lineage boundaries | passed for Phase 1 | Identical artifacts deduplicate only inside the same title/workspace/workflow/input-snapshot authority; the route declares evidence-landscape ownership and deterministic-gate/strict-Human authority. Route execution remains Phase 2. |
+| Phase 2 role request → durable retrieval/distribution | Submit equivalent intents from two roles, execute two canonical queries, inspect call order and stored request/plan/run lineage, replay, exercise zero hits and the standing step boundary, and validate strict HTTP ingress | passed for the first Phase 2 slice | One coordinator execution is persisted before both role distributions; replay performs no retrieval; child coverage rows preserve the parent matrix; predecessor EvidenceMap authorities are carried into the SearchRun; zero hits persist and stop unresolved; exhausted work creates no new request. Claim admission and successor/round/checkpoint behavior remain pending. |
 | ECK-06 and ECK-08 | Run the complete pilot and later real-flow/failure proof | not run | ECK-06 is now authorized for Phase 2 implementation. ECK-08 remains the Phase 3 proof and is outside the current authorization. No result in this checkpoint claims end-to-end convergence. |
 
 ## Phase 1 repaired checkpoint — 2026-09-03
@@ -45,7 +46,7 @@ FIND-029 through FIND-031 are reproduced defects. RetrievalRequest, linked round
 
 ## Outstanding verification
 
-- Implement and verify the Phase 2 coordinator without importing Arena-specific participant authority or downstream question/value/promotion semantics.
+- Extend the now-verified Phase 2 retrieval coordinator through admission and the successor/round/checkpoint boundary without importing downstream question/value/promotion semantics.
 - Admit retrieved hits through claim-level evidence review before publishing a successor map, then create the linked Arena round and fresh instance of the same checkpoint.
 - Account for orchestration steps, linked rounds, elapsed time, and accumulated retrieval cost at runtime and prove boundary exhaustion remains unresolved.
 - Verify the Phase 2 seam against T-148's typed required-coverage issue without importing T-148 presentation or downstream Debate policy.

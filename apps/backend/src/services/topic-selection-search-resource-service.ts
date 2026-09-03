@@ -206,6 +206,14 @@ type ResolveSearchPlanRecheckRequestResult = {
   follow_up_search_run?: TopicSelectionSearchRunRecord;
 };
 
+type CompleteEvidenceConvergenceRecheckRequestInput = {
+  request_id: string;
+  resulting_search_plan_id: string;
+  resulting_search_run_id: string;
+  decision_summary: string;
+  supporting_artifact_refs?: TopicSelectionFunctionalRef[];
+};
+
 const CONSUMABLE_SEARCH_RUN_STATUSES = new Set<TopicSelectionSearchRunStatus>(['succeeded', 'partial']);
 const SEARCH_RUN_LOCATOR_PROVENANCE_REF_TYPES = new Set([
   'literature_abstract',
@@ -555,6 +563,16 @@ export class TopicSelectionSearchResourceService {
 
   async getSearchPlanById(searchPlanId: string): Promise<TopicSelectionSearchPlanRecord | null> {
     return this.repository.findSearchPlanById(searchPlanId);
+  }
+
+  async getSearchRunById(searchRunId: string): Promise<TopicSelectionSearchRunRecord | null> {
+    return this.repository.findSearchRunById(searchRunId);
+  }
+
+  async getSearchPlanRecheckRequestById(
+    requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    return this.repository.findSearchPlanRecheckRequestById(requestId);
   }
 
   async createSearchPlan(input: CreateSearchPlanInput): Promise<{
@@ -1031,6 +1049,61 @@ export class TopicSelectionSearchResourceService {
     };
   }
 
+  async completeEvidenceConvergenceRecheckRequest(
+    input: CompleteEvidenceConvergenceRecheckRequestInput,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
+    const request = await this.requireRecheckRequest(input.request_id);
+    if (!request.request_key || !request.strategy_key || !request.corpus_manifest_ref
+      || !request.corpus_manifest_hash || !request.retrieval_intent || !request.execution_policy) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Only a complete evidence-convergence request can bind an automatic execution.',
+      );
+    }
+    const [searchPlan, searchRun] = await Promise.all([
+      this.requireSearchPlan(input.resulting_search_plan_id),
+      this.requireSearchRun(input.resulting_search_run_id),
+    ]);
+    const exactLineage = searchPlan.title_card_id === request.title_card_id
+      && searchPlan.parent_search_plan_ref?.ref_id === request.target_search_plan_ref.ref_id
+      && searchPlan.recheck_request_ref?.ref_id === request.search_plan_recheck_request_id
+      && searchPlan.literature_snapshot_ref.ref_id === request.corpus_manifest_ref.ref_id
+      && searchRun.title_card_id === request.title_card_id
+      && searchRun.search_plan_ref.ref_id === searchPlan.search_plan_id
+      && searchRun.literature_snapshot_ref.ref_id === request.corpus_manifest_ref.ref_id;
+    if (!exactLineage) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence execution does not match the request, child plan, and corpus lineage.',
+      );
+    }
+    if (request.status === 'materialized') {
+      if (request.resulting_search_plan_ref?.ref_id !== searchPlan.search_plan_id
+        || request.resulting_search_run_ref?.ref_id !== searchRun.search_run_id) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence request already resolved to different work.');
+      }
+      return request;
+    }
+    if (request.status !== 'open') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence request is not open for execution.');
+    }
+    return this.repository.updateSearchPlanRecheckRequest(request.search_plan_recheck_request_id, {
+      status: 'materialized',
+      decision_summary: input.decision_summary,
+      supporting_artifact_refs: this.sortedRefs(input.supporting_artifact_refs ?? []),
+      resulting_search_plan_ref: this.ref(
+        'search_plan',
+        searchPlan.search_plan_id,
+        searchPlan.title_card_id,
+        searchPlan.plan_version,
+      ),
+      resulting_search_run_ref: this.ref('search_run', searchRun.search_run_id, searchRun.title_card_id),
+      resolved_at: this.now(),
+    });
+  }
+
   private normalizeCoverageIntents(
     queryIntents: string[],
     coverageIntents: CoverageIntentInput[] | undefined,
@@ -1098,7 +1171,9 @@ export class TopicSelectionSearchResourceService {
       blockers.push(this.blocker('SEARCH_RUN_SOURCE_HEALTH_REQUIRED', 'SearchRun requires source-health summary.'));
     }
     const status = input.run_status ?? 'succeeded';
-    if (this.isConsumableSearchRunStatus(status) && input.evidence_map_input_refs.length === 0) {
+    if (this.isConsumableSearchRunStatus(status)
+      && input.result_accounting.total_result_count > 0
+      && input.evidence_map_input_refs.length === 0) {
       blockers.push(this.blocker('SEARCH_RUN_STABLE_INPUT_REFS_REQUIRED', 'Consumable SearchRun requires stable EvidenceMap input refs.'));
     }
     blockers.push(...this.searchRunAuthorityRefBlockers(input, literatureSnapshot));
@@ -1527,6 +1602,14 @@ export class TopicSelectionSearchResourceService {
     return record;
   }
 
+  private async requireSearchRun(searchRunId: string): Promise<TopicSelectionSearchRunRecord> {
+    const record = await this.repository.findSearchRunById(searchRunId);
+    if (!record) {
+      throw new AppError(404, 'NOT_FOUND', `SearchRun ${searchRunId} not found.`);
+    }
+    return record;
+  }
+
   private async requireRecheckRequest(requestId: string): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
     const record = await this.repository.findSearchPlanRecheckRequestById(requestId);
     if (!record) {
@@ -1575,6 +1658,14 @@ export class TopicSelectionSearchResourceService {
       version_id: versionId,
       title_card_id: titleCardId,
     };
+  }
+
+  private sortedRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {
+    return [...refs].sort((left, right) => this.refKey(left).localeCompare(this.refKey(right)));
+  }
+
+  private refKey(ref: TopicSelectionFunctionalRef): string {
+    return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
   }
 
   private blocker(code: string, message: string): TopicSelectionGateIssue {

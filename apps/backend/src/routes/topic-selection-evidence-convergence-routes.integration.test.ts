@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import Fastify from 'fastify';
+import { TopicSelectionEvidenceConvergenceController } from '../controllers/topic-selection-evidence-convergence-controller.js';
+import type { TopicSelectionEvidenceConvergenceCoordinatorService } from '../services/topic-selection-evidence-convergence-coordinator-service.js';
+import { registerTopicSelectionEvidenceConvergenceRoutes } from './topic-selection-evidence-convergence-routes.js';
+
+test('evidence-convergence retrieval route keeps role intent and accounting ingress closed', async () => {
+  let calls = 0;
+  const service = {
+    executeRoleRetrievalRequests: async () => {
+      calls += 1;
+      return {
+        status: 'boundary_exhausted_unresolved' as const,
+        reason_codes: ['MAX_ORCHESTRATION_STEPS_EXHAUSTED'],
+        requests: [],
+        executions: [],
+        role_distributions: [],
+      };
+    },
+  } as unknown as TopicSelectionEvidenceConvergenceCoordinatorService;
+  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
+  await registerTopicSelectionEvidenceConvergenceRoutes(
+    app,
+    new TopicSelectionEvidenceConvergenceController(service),
+  );
+  const payload = {
+    title_card_id: 'title_1',
+    target_search_plan_id: 'plan_1',
+    predecessor_evidence_map_id: 'map_1',
+    role_requests: [{
+      participant_role: 'prior_art_topic_killer',
+      intent: {
+        issue_ref: { ref_type: 'coverage_row_intent', ref_id: 'coverage_1', title_card_id: 'title_1' },
+        originating_arena_session_ref: {
+          ref_type: 'research_arena_session',
+          ref_id: 'arena_1',
+          title_card_id: 'title_1',
+        },
+        search_intent: 'Find direct challenge evidence.',
+        candidate_queries: ['failure mode evidence'],
+        expected_decision_effect: 'Recheck missing challenge coverage.',
+        corpus_manifest_ref: {
+          ref_type: 'literature_resource_pool_snapshot',
+          ref_id: 'manifest_1',
+          title_card_id: 'title_1',
+        },
+        corpus_manifest_hash: 'manifest-hash',
+      },
+    }],
+    accounting: {
+      orchestration_steps: 8,
+      linked_rounds: 0,
+      elapsed_ms: 0,
+      accumulated_cost_microusd: 0,
+    },
+  };
+  const response = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/evidence-convergence/retrieval-executions',
+    payload,
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().status, 'boundary_exhausted_unresolved');
+  assert.equal(calls, 1);
+
+  const invalid = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/evidence-convergence/retrieval-executions',
+    payload: { ...payload, human_decision: 'advance' },
+  });
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(calls, 1);
+  await app.close();
+});

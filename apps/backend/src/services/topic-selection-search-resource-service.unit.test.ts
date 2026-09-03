@@ -1326,3 +1326,125 @@ test('evidence-convergence recheck requests derive coordinator identities and re
   );
   assert.equal(materialized.request.resulting_search_run_ref?.ref_id, materialized.follow_up_search_run?.search_run_id);
 });
+
+test('evidence-convergence execution persists a zero-hit SearchRun and closes only exact child lineage', async () => {
+  const ctx = await createBasePlan({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [{
+          embedding_version_id: 'embedding_1',
+          literature_id: 'lit_001',
+          input_checksum: 'input-1',
+          index_artifact_checksum: 'index-1',
+        }],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const manifest = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+  const issueRef = ref(
+    'coverage_row_intent',
+    ctx.plan.coverage_row_intents[0]!.coverage_row_intent_id,
+    ctx.titleCard.title_card_id,
+  );
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: issueRef,
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Resolve required coverage.',
+    evidence_convergence_intent: {
+      issue_ref: issueRef,
+      originating_arena_session_ref: ref(
+        'research_arena_session',
+        'arena_1',
+        ctx.titleCard.title_card_id,
+      ),
+      search_intent: 'Find missing support evidence',
+      candidate_queries: ['missing support evidence'],
+      expected_decision_effect: 'Recheck required support coverage',
+      corpus_manifest_ref: {
+        ref_type: 'literature_resource_pool_snapshot',
+        ref_id: manifest.literature_resource_pool_snapshot_id,
+        title_card_id: ctx.titleCard.title_card_id,
+        version_id: manifest.snapshot_version,
+      },
+      corpus_manifest_hash: manifest.snapshot_hash,
+    },
+  });
+  const child = await ctx.service.createSearchPlan({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
+    query_intents: ['missing support evidence'],
+    parent_search_plan_ref: request.target_search_plan_ref,
+    recheck_request_ref: ref(
+      'search_plan_recheck_request',
+      request.search_plan_recheck_request_id,
+      ctx.titleCard.title_card_id,
+    ),
+  });
+  const zeroHitRun = await ctx.service.recordSearchRun({
+    title_card_id: ctx.titleCard.title_card_id,
+    search_plan_id: child.search_plan.search_plan_id,
+    literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
+    run_kind: 'recheck_followup',
+    run_status: 'succeeded',
+    result_accounting: {
+      total_result_count: 0,
+      unique_literature_count: 0,
+      duplicate_result_count: 0,
+      failed_source_count: 0,
+      skipped_source_count: 0,
+    },
+    source_health_summary: { warning_codes: [] },
+    evidence_map_input_refs: [],
+    coverage_observations: child.coverage_row_intents.map((row) => ({
+      coverage_row_intent_id: row.coverage_row_intent_id,
+      status: 'succeeded',
+      result_count: 0,
+      source_count: 0,
+      missing_reason_codes: ['NO_RETRIEVAL_HITS'],
+    })),
+  });
+
+  const completed = await ctx.service.completeEvidenceConvergenceRecheckRequest({
+    request_id: request.search_plan_recheck_request_id,
+    resulting_search_plan_id: child.search_plan.search_plan_id,
+    resulting_search_run_id: zeroHitRun.search_run.search_run_id,
+    decision_summary: 'Persisted an exact zero-hit execution.',
+  });
+  assert.equal(completed.status, 'materialized');
+  assert.equal(completed.resulting_search_run_ref?.ref_id, zeroHitRun.search_run.search_run_id);
+  assert.equal(
+    (await ctx.service.completeEvidenceConvergenceRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      resulting_search_plan_id: child.search_plan.search_plan_id,
+      resulting_search_run_id: zeroHitRun.search_run.search_run_id,
+      decision_summary: 'Exact replay.',
+    })).resulting_search_run_ref?.ref_id,
+    zeroHitRun.search_run.search_run_id,
+  );
+});

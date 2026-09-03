@@ -89,6 +89,14 @@ Phase 1 landed the managed-library manifest on `LiteratureResourcePoolSnapshot`,
 - Verification: Focused service/contract tests plus one bounded local end-to-end pilot.
 - Recovery: Disable pilot routing, retain durable request/SearchRun/round artifacts, and preserve every prior map and decision.
 
+Phase 2 is in progress. The first runtime slice now exposes a strict pilot endpoint that accepts
+role-authored intents, applies the standing boundary before new work, deduplicates equivalent
+requests, executes the exact managed-library manifest, persists the child SearchPlan/SearchRun and
+raw query provenance, and redistributes the durable execution to every requesting role. The child
+plan preserves the parent coverage rows and the SearchRun carries predecessor locator authorities,
+so the next slice can construct a successor without weakening lineage. Admission, EvidenceDelta,
+successor publication, linked-round execution, and fresh checkpoint recheck are not yet claimed.
+
 ### Phase 3 — Prove the kernel and stop before broad rollout
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
 - Approach: Exercise duplicate requests, alternative strategies, negative retrieval, budget boundaries, stale sources, successor races, and strict-human barriers without adding another scenario.
