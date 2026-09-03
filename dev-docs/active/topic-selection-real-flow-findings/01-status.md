@@ -6,8 +6,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 ## Progress
 - State: in-progress
 - Current phase: Phase 1 evidence-landscape Human-view truth implemented and focused-verified
-- Next step: After the coordinated T-150 Phase 1 checkpoint, resume the independent research-question and current-authority projection work for TSRF-09 and TSRF-12.
-- Blocker: none. T-150 may now consume the typed required-coverage issue at its own evidence-convergence boundary; its retrieval-native implementation remains outside T-148. T-149 remains a separate completed task.
+- Next step: Resume the independent research-question and current-authority projection work for TSRF-09 and TSRF-12 when T-148 continues.
+- Blocker: none. T-150 Phase 2 may consume the typed required-coverage issue at its own evidence-convergence boundary; its retrieval-native implementation remains outside T-148. T-149 remains a separate completed task.
 
 ## Done when
 - [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
