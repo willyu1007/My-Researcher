@@ -39,6 +39,18 @@ export const TOPIC_SELECTION_RESOURCE_SAMPLING_INVOCATION_SLOT_IDS = {
   literature_classification_batch: 'resource_classification.batch',
 } as const;
 
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CONTEXT_RUNTIME_PROFILE_IDS = {
+  opportunity_scout: 'topic-selection.evidence-convergence.opportunity-scout.context-runtime@v1',
+  empirical_skeptic: 'topic-selection.evidence-convergence.empirical-skeptic.context-runtime@v1',
+  synthesis_arbiter: 'topic-selection.evidence-convergence.synthesis-arbiter.context-runtime@v1',
+} as const;
+
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_INVOCATION_SLOT_IDS = {
+  opportunity_scout: 'evidence_convergence.opportunity_scout',
+  empirical_skeptic: 'evidence_convergence.empirical_skeptic',
+  synthesis_arbiter: 'evidence_convergence.synthesis_arbiter',
+} as const;
+
 export const TOPIC_SELECTION_V1A_N5_CONTEXT_RUNTIME_PROFILE_IDS = {
   evidence_extraction:
     'topic-selection.v1a.n5.evidence-extraction.context-runtime@v1',
@@ -661,6 +673,27 @@ const DEFAULT_TOPIC_SELECTION_CONTEXT_POLICY_PROFILE_REGISTRY:
           'authority_boundary',
         ],
       }),
+      ...(['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'] as const).map((role) => (
+        contextPolicyProfile({
+          context_policy_profile_id:
+            TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CONTEXT_RUNTIME_PROFILE_IDS[role],
+          invocation_slot_id: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_INVOCATION_SLOT_IDS[role],
+          functional_template: 'support_only_semantic',
+          context_family: 'evidence_landscape_convergence',
+          estimated_input_token_target: 12000,
+          estimated_output_token_budget: 1200,
+          post_reuse_gates: [
+            'schema_validation',
+            'claim_ref_boundary',
+            'human_authority_boundary',
+          ],
+          post_cache_gates: [
+            'schema_validation',
+            'claim_ref_boundary',
+            'human_authority_boundary',
+          ],
+        })
+      )),
       contextPolicyProfile({
         context_policy_profile_id:
           TOPIC_SELECTION_V1A_N5_CONTEXT_RUNTIME_PROFILE_IDS.evidence_extraction,

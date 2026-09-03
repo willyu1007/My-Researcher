@@ -28,6 +28,7 @@ export const TOPIC_SELECTION_PROMPT_TEMPLATE_IDS = new Set<string>([
   // research arena independent first-pass roles
   'topic-selection-research-arena-opportunity-scout',
   'topic-selection-research-arena-prior-art-topic-killer',
+  'topic-selection.evidence-convergence.runtime-role',
   // resource sampling
   'topic-selection-resource-sampling-classification',
   // v1b harness runtime slots
@@ -67,6 +68,7 @@ export const TOPIC_SELECTION_OUTPUT_SCHEMA_NAMES = new Set<string>([
   'topic_selection_need_discovery_debate_issue_frame',
   'TopicSelectionEvidenceMapExtractionDraft@v1',
   'TopicSelectionResearchArenaRoleOutput@v1',
+  'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1',
   // resource sampling
   'topic_selection_resource_sampling_classification',
   'topic_selection_resource_sampling_canary',

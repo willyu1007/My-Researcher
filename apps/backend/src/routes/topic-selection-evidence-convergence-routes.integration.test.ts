@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import { TopicSelectionEvidenceConvergenceController } from '../controllers/topic-selection-evidence-convergence-controller.js';
 import type { TopicSelectionEvidenceConvergenceCoordinatorService } from '../services/topic-selection-evidence-convergence-coordinator-service.js';
 import type { TopicSelectionEvidenceMapService } from '../services/topic-selection-evidence-map-service.js';
+import type { TopicSelectionEvidenceConvergenceRoundService } from '../services/topic-selection-evidence-convergence-round-service.js';
 import { registerTopicSelectionEvidenceConvergenceRoutes } from './topic-selection-evidence-convergence-routes.js';
 
 test('evidence-convergence retrieval route keeps role intent and accounting ingress closed', async () => {
@@ -134,6 +135,105 @@ test('evidence-convergence successor route accepts only closed claim admissions'
     payload: {
       ...payload,
       claim_admissions: [{ ...payload.claim_admissions[0], request_key: 'role-authored-key' }],
+    },
+  });
+  assert.equal(rejected.statusCode, 400);
+  assert.equal(calls, 1);
+  await app.close();
+});
+
+test('evidence-convergence linked-round route rejects gate or Human authority fields', async () => {
+  let calls = 0;
+  const coordinator = {
+    executeRoleRetrievalRequests: async () => ({
+      status: 'saturated_unresolved' as const,
+      reason_codes: [],
+      requests: [],
+      executions: [],
+      role_distributions: [],
+    }),
+  } as unknown as TopicSelectionEvidenceConvergenceCoordinatorService;
+  const rounds = {
+    runLinkedRound: async () => {
+      calls += 1;
+      return {
+        status: 'boundary_exhausted_unresolved' as const,
+        reason_codes: ['MAX_LINKED_ROUNDS_EXHAUSTED'],
+        accounting: {
+          orchestration_steps: 1,
+          linked_rounds: 4,
+          elapsed_ms: 0,
+          accumulated_cost_microusd: 0,
+        },
+      };
+    },
+  } as unknown as Pick<TopicSelectionEvidenceConvergenceRoundService, 'runLinkedRound'>;
+  const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
+  await registerTopicSelectionEvidenceConvergenceRoutes(
+    app,
+    new TopicSelectionEvidenceConvergenceController(coordinator, undefined, rounds),
+  );
+  const scopedRef = (ref_type: string, ref_id: string) => ({
+    ref_type,
+    ref_id,
+    title_card_id: 'title_1',
+  });
+  const issueRef = scopedRef('coverage_row_intent', 'coverage_1');
+  const mapRef = scopedRef('evidence_map', 'map_2');
+  const deltaRef = scopedRef('artifact_ref', 'delta_1');
+  const roles = ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'] as const;
+  const payload = {
+    title_card_id: 'title_1',
+    predecessor_arena_session_id: 'arena_1',
+    successor_evidence_map_id: 'map_2',
+    evidence_delta_ref: deltaRef,
+    issue_ref: issueRef,
+    execution_mode: 'mocked_llm',
+    role_inputs: roles.map((role) => ({
+      participant_role: role,
+      evidence_packet_artifact_ref: scopedRef('artifact_ref', `packet_${role}`),
+      structured_output: {
+        schema_version: 'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1',
+        participant_role: role,
+        issue_ref: issueRef,
+        evidence_map_ref: mapRef,
+        evidence_delta_ref: deltaRef,
+        semantic_position: {
+          summary: 'Recheck the same deterministic gate.',
+          recommended_disposition: 'recheck_same_gate',
+          confidence: 0.8,
+        },
+        cited_evidence_unit_refs: [scopedRef('evidence_unit', 'unit_1')],
+        unresolved_issue_codes: [],
+        support_only: true,
+      },
+      fixture_id: `fixture_${role}`,
+      operator_label: null,
+    })),
+    accounting: {
+      orchestration_steps: 1,
+      linked_rounds: 4,
+      elapsed_ms: 0,
+      accumulated_cost_microusd: 0,
+    },
+  };
+
+  const accepted = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/evidence-convergence/linked-rounds',
+    payload,
+  });
+  assert.equal(accepted.statusCode, 200, accepted.body);
+  assert.equal(calls, 1);
+
+  const rejected = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/evidence-convergence/linked-rounds',
+    payload: {
+      ...payload,
+      role_inputs: payload.role_inputs.map((roleInput, index) => index === 2
+        ? { ...roleInput, structured_output: { ...roleInput.structured_output, human_decision: 'advance' } }
+        : roleInput),
     },
   });
   assert.equal(rejected.statusCode, 400);

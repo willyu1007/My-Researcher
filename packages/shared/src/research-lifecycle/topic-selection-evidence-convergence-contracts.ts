@@ -9,6 +9,8 @@ export const TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION = 'TopicSelectionEvid
 export const TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION = 'TopicSelectionResolutionRoute@v1' as const;
 export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION =
   'TopicSelectionEvidenceConvergenceRoundLink@v1' as const;
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLE_OUTPUT_SCHEMA_VERSION =
+  'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1' as const;
 export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION =
   'TopicSelectionEvidenceConvergenceClaimAdmission@v1' as const;
 
@@ -125,6 +127,38 @@ export interface TopicSelectionEvidenceConvergenceRoundLink {
   parent_transcript_hash: string;
   evidence_delta_ref: TopicSelectionFunctionalRef;
   evidence_delta_hash: string;
+}
+
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLES = [
+  'opportunity_scout',
+  'empirical_skeptic',
+  'synthesis_arbiter',
+] as const;
+export type TopicSelectionEvidenceConvergenceRoundRole =
+  (typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLES)[number];
+
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_DISPOSITIONS = [
+  'recheck_same_gate',
+  'remain_unresolved',
+] as const;
+export type TopicSelectionEvidenceConvergenceRoundDisposition =
+  (typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_DISPOSITIONS)[number];
+
+/** Support-only role output: it may recommend a recheck, but can never author a gate or Human decision. */
+export interface TopicSelectionEvidenceConvergenceRoundRoleOutput extends Record<string, unknown> {
+  schema_version: typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLE_OUTPUT_SCHEMA_VERSION;
+  participant_role: TopicSelectionEvidenceConvergenceRoundRole;
+  issue_ref: TopicSelectionFunctionalRef;
+  evidence_map_ref: TopicSelectionFunctionalRef;
+  evidence_delta_ref: TopicSelectionFunctionalRef;
+  semantic_position: {
+    summary: string;
+    recommended_disposition: TopicSelectionEvidenceConvergenceRoundDisposition;
+    confidence: number;
+  };
+  cited_evidence_unit_refs: TopicSelectionFunctionalRef[];
+  unresolved_issue_codes: string[];
+  support_only: true;
 }
 
 function normalizeText(value: string): string {
@@ -324,6 +358,42 @@ export const topicSelectionEvidenceConvergenceRoundLinkSchema = {
     parent_transcript_hash: stringValue,
     evidence_delta_ref: topicSelectionFunctionalRefSchema,
     evidence_delta_hash: stringValue,
+  },
+} as const;
+
+export const topicSelectionEvidenceConvergenceRoundRoleOutputSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'schema_version', 'participant_role', 'issue_ref', 'evidence_map_ref', 'evidence_delta_ref',
+    'semantic_position', 'cited_evidence_unit_refs', 'unresolved_issue_codes', 'support_only',
+  ],
+  properties: {
+    schema_version: { const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLE_OUTPUT_SCHEMA_VERSION },
+    participant_role: { enum: [...TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLES] },
+    issue_ref: titleScopedTypedFunctionalRefSchema('coverage_row_intent'),
+    evidence_map_ref: titleScopedTypedFunctionalRefSchema('evidence_map'),
+    evidence_delta_ref: titleScopedTypedFunctionalRefSchema('artifact_ref'),
+    semantic_position: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['summary', 'recommended_disposition', 'confidence'],
+      properties: {
+        summary: stringValue,
+        recommended_disposition: {
+          enum: [...TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_DISPOSITIONS],
+        },
+        confidence: { type: 'number', minimum: 0, maximum: 1 },
+      },
+    },
+    cited_evidence_unit_refs: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 12,
+      items: titleScopedTypedFunctionalRefSchema('evidence_unit'),
+    },
+    unresolved_issue_codes: { type: 'array', maxItems: 24, items: stringValue },
+    support_only: { const: true },
   },
 } as const;
 

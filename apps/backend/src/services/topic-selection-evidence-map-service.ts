@@ -152,9 +152,8 @@ export type TopicSelectionPublishEvidenceConvergenceSuccessorResult = {
   resolution_route: TopicSelectionResolutionRouteArtifact;
   resolution_route_ref: TopicSelectionFunctionalRef;
   successor: TopicSelectionEvidenceMapCreateRecords | null;
-  checkpoint: Awaited<ReturnType<
-    TopicSelectionResearchCheckpointService['materializeEvidenceLandscapeCheckpoint']
-  >> | null;
+  /** Linked-round orchestration materializes the fresh checkpoint after Debate completes. */
+  checkpoint: null;
 };
 
 type PersistedEvidenceConvergenceHit = {
@@ -912,19 +911,6 @@ export class TopicSelectionEvidenceMapService {
         created_at: this.now(),
       });
     }
-    const latestAssessments = await this.searchResources.listCoverageAssessmentsBySearchPlanId(
-      searchPlan.search_plan_id,
-    );
-    const checkpoint = this.checkpointControl
-      ? await this.checkpointControl.materializeEvidenceLandscapeCheckpoint({
-          evidence_map: successor.evidence_map,
-          evidence_units: successor.evidence_units,
-          conflict_sets: successor.conflict_sets,
-          coverage_row_intents: coverageRows,
-          coverage_assessments: latestAssessments,
-          policy_version_id: input.policy_version_id ?? null,
-        })
-      : null;
     return {
       status: 'successor_published',
       evidence_delta: evidenceDelta,
@@ -932,7 +918,7 @@ export class TopicSelectionEvidenceMapService {
       resolution_route: resolutionRoute,
       resolution_route_ref: routeRef,
       successor,
-      checkpoint,
+      checkpoint: null,
     };
   }
 

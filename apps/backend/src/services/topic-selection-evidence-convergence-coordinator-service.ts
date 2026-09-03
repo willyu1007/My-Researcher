@@ -58,9 +58,14 @@ export type TopicSelectionEvidenceConvergenceRetrievalHit = {
   literature_ref: TopicSelectionFunctionalRef;
   embedding_version_id: string;
   chunk_ref: TopicSelectionFunctionalRef;
+  chunk_id?: string;
   chunk_hash: string;
   /** Persisted so later claim admission can verify the exact quoted retrieval chunk. */
   source_text?: string;
+  hybrid_score?: number;
+  vector_score?: number;
+  lexical_score?: number;
+  is_stale?: boolean;
   rank: number;
 };
 
@@ -411,8 +416,13 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         literature_ref: this.ref('literature_record', item.literature_id, titleCardId),
         embedding_version_id: item.embedding_version_id,
         chunk_ref: this.chunkRef(chunk, titleCardId),
+        chunk_id: chunk.chunk_id,
         chunk_hash: sha256Text(chunk.text),
         source_text: chunk.text,
+        hybrid_score: chunk.hybrid_score,
+        vector_score: chunk.vector_score,
+        lexical_score: chunk.lexical_score,
+        is_stale: item.is_stale,
         rank: ++rank,
       }))));
   }

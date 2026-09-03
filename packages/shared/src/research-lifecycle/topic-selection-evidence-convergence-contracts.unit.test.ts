@@ -6,6 +6,7 @@ import {
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_CLAIM_ADMISSION_SCHEMA_VERSION,
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION,
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLE_OUTPUT_SCHEMA_VERSION,
   TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
   TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
   canonicalizeEvidenceConvergenceRequest,
@@ -13,6 +14,7 @@ import {
   topicSelectionEvidenceConvergenceClaimAdmissionSchema,
   topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
   topicSelectionEvidenceConvergenceRoundLinkSchema,
+  topicSelectionEvidenceConvergenceRoundRoleOutputSchema,
   type TopicSelectionEvidenceDeltaArtifact,
   type TopicSelectionEvidenceConvergenceRetrievalRequestIntent,
   type TopicSelectionEvidenceConvergenceRoundLink,
@@ -147,6 +149,34 @@ test('claim admission requires exact request, run, source hash, and closed claim
   assert.equal(await validates(topicSelectionEvidenceConvergenceClaimAdmissionSchema, {
     ...admission,
     search_run_ref: ref('artifact_ref', 'run_1'),
+  }), false);
+});
+
+test('linked-round role output is support-only and cannot author Human or gate state', async () => {
+  const output = {
+    schema_version: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_ROLE_OUTPUT_SCHEMA_VERSION,
+    participant_role: 'synthesis_arbiter',
+    issue_ref: ref('coverage_row_intent', 'coverage_challenge'),
+    evidence_map_ref: ref('evidence_map', 'map_2'),
+    evidence_delta_ref: ref('artifact_ref', 'delta_1'),
+    semantic_position: {
+      summary: 'The new claim is relevant enough to re-run the same deterministic gate.',
+      recommended_disposition: 'recheck_same_gate',
+      confidence: 0.8,
+    },
+    cited_evidence_unit_refs: [ref('evidence_unit', 'unit_2')],
+    unresolved_issue_codes: [],
+    support_only: true,
+  };
+
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRoundRoleOutputSchema, output), true);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRoundRoleOutputSchema, {
+    ...output,
+    human_decision: 'advance',
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRoundRoleOutputSchema, {
+    ...output,
+    semantic_position: { ...output.semantic_position, recommended_disposition: 'pass_gate' },
   }), false);
 });
 

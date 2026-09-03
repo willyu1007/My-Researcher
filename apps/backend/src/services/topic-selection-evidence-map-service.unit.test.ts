@@ -454,7 +454,7 @@ test('EvidenceMap checkpoint materialization receives persisted coverage assessm
   }]);
 });
 
-test('claim admission publishes a material successor and fresh same-gate checkpoint', async () => {
+test('claim admission publishes a material successor for the linked same-gate round', async () => {
   const checkpoints: MaterializeEvidenceLandscapeCheckpointInput[] = [];
   const ctx = await createEvidenceMapFixture({
     materializeEvidenceLandscapeCheckpoint: async (input) => {
@@ -608,12 +608,8 @@ test('claim admission publishes a material successor and fresh same-gate checkpo
     matrix.rows.find((row) => row.coverage_row_intent.coverage_key === 'counter-evidence')?.latest_assessment?.verdict,
     'satisfied',
   );
-  assert.equal(checkpoints.length, 1);
-  assert.equal(checkpoints[0]?.evidence_map.evidence_map_id, result.successor?.evidence_map.evidence_map_id);
-  assert.equal(checkpoints[0]?.coverage_assessments.some((assessment) => (
-    assessment.coverage_row_intent_id === childChallengeRow.coverage_row_intent_id
-    && assessment.verdict === 'satisfied'
-  )), true);
+  assert.equal(result.checkpoint, null);
+  assert.equal(checkpoints.length, 0, 'the fresh checkpoint must wait for the linked Debate round');
 });
 
 test('EvidenceUnit locator provenance keeps section, paragraph, anchor, and manual refs traceable', async () => {
