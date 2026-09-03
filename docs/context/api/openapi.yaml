@@ -4424,7 +4424,7 @@ paths:
   /topic-selection/v1a/literature-resource-pool-snapshots:
     post:
       operationId: createTopicSelectionV1aLiteratureResourcePoolSnapshot
-      summary: Create a v1a literature resource pool snapshot from the title-card evidence basket.
+      summary: Create a v1a literature resource pool snapshot from the title basket or managed library.
       tags: [topic-selection-v1a]
       requestBody:
         required: true
@@ -11810,7 +11810,18 @@ components:
         snapshot_version: { type: string }
         source_scope:
           type: string
-          enum: [title_card_evidence_basket, manual_selection, search_result]
+          enum: [title_card_evidence_basket, managed_library, manual_selection, search_result]
+        human_corpus_constraint_ref:
+          allOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: object
+              required: [ref_type, ref_id, title_card_id]
+              properties:
+                ref_type: { type: string, enum: [human_confirmed_decision] }
+                title_card_id: { type: string, minLength: 1 }
+          description: >-
+            Optional strict Human-confirmed scope for managed_library snapshots. The ref must
+            identify a Human confirmation whose resulting authorities are the selected literature records.
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
 
@@ -11909,6 +11920,51 @@ components:
         gap_codes:
           type: array
           items: { type: string }
+        evidence_convergence_intent:
+          $ref: '#/components/schemas/TopicSelectionEvidenceConvergenceRetrievalRequestIntent'
+
+    TopicSelectionEvidenceConvergenceRetrievalRequestIntent:
+      type: object
+      additionalProperties: false
+      required:
+        - issue_ref
+        - originating_arena_session_ref
+        - search_intent
+        - candidate_queries
+        - expected_decision_effect
+        - corpus_manifest_ref
+        - corpus_manifest_hash
+      properties:
+        issue_ref:
+          allOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: object
+              required: [title_card_id]
+              properties:
+                title_card_id: { type: string, minLength: 1 }
+        originating_arena_session_ref:
+          allOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: object
+              required: [title_card_id]
+              properties:
+                ref_type: { type: string, enum: [research_arena_session] }
+                title_card_id: { type: string, minLength: 1 }
+        search_intent: { type: string, minLength: 1 }
+        candidate_queries:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        expected_decision_effect: { type: string, minLength: 1 }
+        corpus_manifest_ref:
+          allOf:
+            - $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+            - type: object
+              required: [title_card_id]
+              properties:
+                ref_type: { type: string, enum: [literature_resource_pool_snapshot] }
+                title_card_id: { type: string, minLength: 1 }
+        corpus_manifest_hash: { type: string, minLength: 1 }
 
     TopicSelectionV1aResolveSearchPlanRecheckRequest:
       type: object

@@ -27,6 +27,7 @@ function makeService(options: ConstructorParameters<typeof TopicSelectionSearchR
     { idFactory, now, ...options },
   );
   return {
+    controlPlane,
     controlPlaneRepository,
     literature,
     searchResourceRepository,
@@ -347,6 +348,16 @@ test('managed-library snapshot includes every retrieval-eligible member without 
           freshness_policy: 'current_only',
           retrieval_policy_version: 'literature-retrieval.v1',
           reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
         },
       }),
     },
@@ -367,6 +378,24 @@ test('managed-library snapshot includes every retrieval-eligible member without 
       updatedAt: '2026-05-13T00:00:00.000Z',
     });
   }
+  await ctx.literature.upsertLiteratureSource({
+    id: 'source_z',
+    literatureId: 'lit_001',
+    provider: 'manual',
+    sourceItemId: 'source-z',
+    sourceUrl: 'file://source-z.pdf',
+    rawPayload: {},
+    fetchedAt: '2026-05-13T00:00:00.000Z',
+  });
+  await ctx.literature.upsertLiteratureSource({
+    id: 'source_a',
+    literatureId: 'lit_001',
+    provider: 'manual',
+    sourceItemId: 'source-a',
+    sourceUrl: 'file://source-a.pdf',
+    rawPayload: {},
+    fetchedAt: '2026-05-13T00:00:00.000Z',
+  });
   const seed = await ctx.service.createTopicSeedFromTitleCard({
     title_card_id: titleCard.title_card_id,
   });
@@ -383,6 +412,119 @@ test('managed-library snapshot includes every retrieval-eligible member without 
     'embedding_2',
   ]);
   assert.equal(snapshot.retrieval_stack_identity?.freshness_policy, 'current_only');
+  assert.deepEqual(snapshot.content_source_refs.map((item) => item.ref_id), ['source_a', 'source_z']);
+});
+
+test('managed-library corpus can narrow only through a strict Human-confirmed scope', async () => {
+  const ctx = makeService({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: ['lit_001', 'lit_002'].map((literatureId, index) => ({
+          embedding_version_id: `embedding_${index + 1}`,
+          literature_id: literatureId,
+          input_checksum: `input-${index + 1}`,
+          index_artifact_checksum: `index-${index + 1}`,
+        })),
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const titleCard = await ctx.titleCards.createTitleCard({
+    working_title: 'Human-scoped managed corpus',
+    brief: 'Preserve an explicit Human corpus constraint without accepting an implicit basket.',
+  });
+  for (const literatureId of ['lit_001', 'lit_002']) {
+    await ctx.literature.createLiterature(makeLiterature(literatureId));
+    await ctx.literature.upsertPipelineState({
+      id: `pipeline_${literatureId}`,
+      literatureId,
+      citationComplete: true,
+      abstractReady: true,
+      keyContentReady: true,
+      dedupStatus: 'unique',
+      updatedAt: '2026-05-13T00:00:00.000Z',
+    });
+  }
+  const seed = await ctx.service.createTopicSeedFromTitleCard({ title_card_id: titleCard.title_card_id });
+  const scopeTarget = ref('managed_library_corpus_scope', 'scope_001', titleCard.title_card_id);
+  const confirmed = await ctx.controlPlane.recordHumanDecision({
+    title_card_id: titleCard.title_card_id,
+    target_ref: scopeTarget,
+    decision_type: 'confirm',
+    actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    resulting_authority_refs: [ref('literature_record', 'lit_002', titleCard.title_card_id)],
+  });
+  const createSnapshot = ctx.service.createLiteratureResourcePoolSnapshot.bind(ctx.service) as (
+    input: Parameters<typeof ctx.service.createLiteratureResourcePoolSnapshot>[0] & {
+      human_corpus_constraint_ref: TopicSelectionFunctionalRef;
+    },
+  ) => ReturnType<typeof ctx.service.createLiteratureResourcePoolSnapshot>;
+
+  const snapshot = await createSnapshot({
+    title_card_id: titleCard.title_card_id,
+    topic_seed_id: seed.topic_seed_id,
+    source_scope: 'managed_library',
+    human_corpus_constraint_ref: ref(
+      'human_confirmed_decision',
+      confirmed.human_confirmed_decision_id,
+      titleCard.title_card_id,
+    ),
+  });
+
+  assert.deepEqual(snapshot.literature_refs.map((item) => item.ref_id), ['lit_002']);
+  assert.deepEqual(
+    (snapshot.retrieval_stack_identity as unknown as {
+      corpus_scope: { mode: string; human_confirmation_ref: TopicSelectionFunctionalRef | null };
+    }).corpus_scope,
+    {
+      mode: 'human_confirmed_subset',
+      human_confirmation_ref: ref(
+        'human_confirmed_decision',
+        confirmed.human_confirmed_decision_id,
+        titleCard.title_card_id,
+      ),
+    },
+  );
+
+  const nonHuman = await ctx.controlPlane.recordHumanDecision({
+    title_card_id: titleCard.title_card_id,
+    target_ref: ref('managed_library_corpus_scope', 'scope_002', titleCard.title_card_id),
+    decision_type: 'confirm',
+    actor: { actor_type: 'llm', actor_id: 'model_001' },
+    resulting_authority_refs: [ref('literature_record', 'lit_001', titleCard.title_card_id)],
+  });
+  await assert.rejects(
+    () => createSnapshot({
+      title_card_id: titleCard.title_card_id,
+      topic_seed_id: seed.topic_seed_id,
+      source_scope: 'managed_library',
+      human_corpus_constraint_ref: ref(
+        'human_confirmed_decision',
+        nonHuman.human_confirmed_decision_id,
+        titleCard.title_card_id,
+      ),
+    }),
+    /strict Human confirmation/u,
+  );
 });
 
 test('LiteratureResourcePoolSnapshot hash changes when policy version changes', async () => {
@@ -994,6 +1136,16 @@ test('evidence-convergence recheck requests derive coordinator identities and re
           freshness_policy: 'current_only',
           retrieval_policy_version: 'literature-retrieval.v1',
           reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
         },
       }),
     },
@@ -1036,25 +1188,102 @@ test('evidence-convergence recheck requests derive coordinator identities and re
       && error.errorCode === 'INVALID_PAYLOAD',
   );
 
-  const first = await ctx.service.createSearchPlanRecheckRequest({
-    title_card_id: ctx.titleCard.title_card_id,
-    source_ref: intent.issue_ref,
-    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
-    reason: 'Resolve missing challenge coverage.',
-    evidence_convergence_intent: intent,
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'A generic ref cannot masquerade as the corpus manifest authority.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: {
+          ...intent.corpus_manifest_ref,
+          ref_type: 'artifact_ref',
+        },
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'A stale manifest version ref cannot authorize replay.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: {
+          ...intent.corpus_manifest_ref,
+          version_id: 'stale-manifest-version',
+        },
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Arena origin must remain in the same title-scoped authority.',
+      evidence_convergence_intent: {
+        ...intent,
+        originating_arena_session_ref: ref('artifact_ref', 'arena_1', 'different_title'),
+      },
+    }),
+    /title-scoped issue and Arena session/u,
+  );
+
+  const incompleteManifest = await ctx.searchResourceRepository.createLiteratureResourcePoolSnapshot({
+    ...manifest,
+    literature_resource_pool_snapshot_id: 'manifest_incomplete',
+    snapshot_version: 'incomplete',
+    corpus_manifest_members: [],
+    retrieval_stack_identity: null,
+    snapshot_hash: 'incomplete-manifest-hash',
   });
-  const replay = await ctx.service.createSearchPlanRecheckRequest({
-    title_card_id: ctx.titleCard.title_card_id,
-    source_ref: intent.issue_ref,
-    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
-    reason: 'Equivalent wording should reuse the durable request.',
-    evidence_convergence_intent: {
-      ...intent,
-      search_intent: ' find   direct counter evidence ',
-      candidate_queries: ['direct counter evidence', 'failure mode', 'failure mode'],
-      expected_decision_effect: ' recheck required challenge coverage ',
-    },
-  });
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Incomplete legacy manifests are not replay authorities.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: ref(
+          'literature_resource_pool_snapshot',
+          incompleteManifest.literature_resource_pool_snapshot_id,
+          ctx.titleCard.title_card_id,
+        ),
+        corpus_manifest_hash: incompleteManifest.snapshot_hash,
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  const [first, replay] = await Promise.all([
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Resolve missing challenge coverage.',
+      evidence_convergence_intent: intent,
+    }),
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Equivalent wording should reuse the durable request.',
+      evidence_convergence_intent: {
+        ...intent,
+        search_intent: ' find   direct counter evidence ',
+        candidate_queries: ['direct counter evidence', 'failure mode', 'failure mode'],
+        expected_decision_effect: ' recheck required challenge coverage ',
+      },
+    }),
+  ]);
 
   assert.equal(replay.search_plan_recheck_request_id, first.search_plan_recheck_request_id);
   assert.match(first.request_key ?? '', /^[a-f0-9]{64}$/u);
@@ -1062,6 +1291,12 @@ test('evidence-convergence recheck requests derive coordinator identities and re
   assert.equal(first.issue_ref?.ref_id, 'coverage_challenge');
   assert.equal(first.execution_policy?.policy_key, 'evidence-landscape-convergence.v1');
   assert.deepEqual(first.supporting_artifact_refs, []);
+  assert.equal(
+    (await ctx.searchResourceRepository.listSearchPlanRecheckRequestsByTitleCardId(
+      ctx.titleCard.title_card_id,
+    )).length,
+    1,
+  );
 
   const materialized = await ctx.service.resolveSearchPlanRecheckRequest({
     request_id: first.search_plan_recheck_request_id,

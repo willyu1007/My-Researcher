@@ -176,6 +176,37 @@ function searchRunInputRefsHash(searchRunHandoff: any): string {
   return new TopicSelectionEvidenceMapMaterializationService().inputRefsHashForSearchRunHandoff(searchRunHandoff);
 }
 
+test('topic-selection v1a rejects malformed evidence-convergence authority refs at HTTP ingress', async () => {
+  const app = buildApp();
+  try {
+    const titleCardId = uniqueId('route-contract-title');
+    const issueRef = ref('coverage_row_intent', 'coverage_challenge', titleCardId);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/search-plan-recheck-requests',
+      payload: {
+        title_card_id: titleCardId,
+        source_ref: issueRef,
+        target_search_plan_id: 'missing-plan',
+        reason: 'Malformed authority refs must fail before service execution.',
+        evidence_convergence_intent: {
+          issue_ref: issueRef,
+          originating_arena_session_ref: ref('artifact_ref', 'arena_1', titleCardId),
+          search_intent: 'Find direct counter evidence.',
+          candidate_queries: ['direct counter evidence'],
+          expected_decision_effect: 'Recheck required challenge coverage.',
+          corpus_manifest_ref: ref('literature_resource_pool_snapshot', 'manifest_1', titleCardId),
+          corpus_manifest_hash: 'manifest-hash',
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 400, response.body);
+  } finally {
+    await app.close();
+  }
+});
+
 function buildNativeEvidenceMapDraft(input: {
   titleCardId: string;
   searchRunHandoff: any;

@@ -22,6 +22,16 @@ export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY = Object.free
 export type TopicSelectionEvidenceConvergenceExecutionPolicy =
   typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY;
 
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS = Object.freeze({
+  profile: 'topic_exploration' as const,
+  top_k: 10,
+  evidence_per_literature: 3,
+  include_stale: false,
+});
+
+export type TopicSelectionEvidenceConvergenceRetrievalParameters =
+  typeof TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS;
+
 /** Role-authored intent. Coordinator-owned request and strategy keys are deliberately absent. */
 export interface TopicSelectionEvidenceConvergenceRetrievalRequestIntent {
   issue_ref: TopicSelectionFunctionalRef;
@@ -38,6 +48,7 @@ export interface TopicSelectionEvidenceConvergenceStrategyIdentityPayload {
   candidate_queries: string[];
   corpus_manifest_ref: TopicSelectionFunctionalRef;
   corpus_manifest_hash: string;
+  retrieval_parameters: TopicSelectionEvidenceConvergenceRetrievalParameters;
 }
 
 export interface TopicSelectionEvidenceConvergenceRequestIdentityPayload {
@@ -121,6 +132,7 @@ export function canonicalizeEvidenceConvergenceRequest(
     candidate_queries: [...new Set(input.candidate_queries.map(normalizeText).filter(Boolean))].sort(),
     corpus_manifest_ref: normalizeRef(input.corpus_manifest_ref),
     corpus_manifest_hash: input.corpus_manifest_hash.trim(),
+    retrieval_parameters: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS,
   };
   return {
     strategy_identity_payload: strategyIdentityPayload,
@@ -192,6 +204,25 @@ export function evaluateEvidenceConvergenceBoundary(
 
 const stringValue = { type: 'string', minLength: 1 } as const;
 const functionalRefArray = { type: 'array', items: topicSelectionFunctionalRefSchema } as const;
+const titleScopedFunctionalRefSchema = {
+  ...topicSelectionFunctionalRefSchema,
+  required: ['ref_type', 'ref_id', 'title_card_id'],
+  properties: {
+    ...topicSelectionFunctionalRefSchema.properties,
+    title_card_id: stringValue,
+  },
+} as const;
+const titleScopedTypedFunctionalRefSchema = (refType: string) => ({
+  ...titleScopedFunctionalRefSchema,
+  properties: {
+    ...titleScopedFunctionalRefSchema.properties,
+    ref_type: { const: refType },
+  },
+}) as const;
+const researchArenaSessionRefSchema = titleScopedTypedFunctionalRefSchema('research_arena_session');
+const literatureCorpusManifestRefSchema = titleScopedTypedFunctionalRefSchema(
+  'literature_resource_pool_snapshot',
+);
 
 export const topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema = {
   type: 'object',
@@ -201,13 +232,41 @@ export const topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema = {
     'expected_decision_effect', 'corpus_manifest_ref', 'corpus_manifest_hash',
   ],
   properties: {
-    issue_ref: topicSelectionFunctionalRefSchema,
-    originating_arena_session_ref: topicSelectionFunctionalRefSchema,
+    issue_ref: titleScopedFunctionalRefSchema,
+    originating_arena_session_ref: researchArenaSessionRefSchema,
     search_intent: stringValue,
     candidate_queries: { type: 'array', minItems: 1, items: stringValue },
     expected_decision_effect: stringValue,
-    corpus_manifest_ref: topicSelectionFunctionalRefSchema,
+    corpus_manifest_ref: literatureCorpusManifestRefSchema,
     corpus_manifest_hash: stringValue,
+  },
+} as const;
+
+export const topicSelectionEvidenceConvergenceStrategyIdentityPayloadSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'search_intent', 'candidate_queries', 'corpus_manifest_ref', 'corpus_manifest_hash',
+    'retrieval_parameters',
+  ],
+  properties: {
+    search_intent: stringValue,
+    candidate_queries: { type: 'array', minItems: 1, items: stringValue },
+    corpus_manifest_ref: literatureCorpusManifestRefSchema,
+    corpus_manifest_hash: stringValue,
+    retrieval_parameters: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['profile', 'top_k', 'evidence_per_literature', 'include_stale'],
+      properties: {
+        profile: { const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS.profile },
+        top_k: { const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS.top_k },
+        evidence_per_literature: {
+          const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS.evidence_per_literature,
+        },
+        include_stale: { const: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_RETRIEVAL_PARAMETERS.include_stale },
+      },
+    },
   },
 } as const;
 

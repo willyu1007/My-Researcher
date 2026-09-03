@@ -28,6 +28,7 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
   private readonly coverageRiskAcceptances = new Map<string, TopicSelectionCoverageRiskAcceptanceRecord>();
   private readonly searchRuns = new Map<string, TopicSelectionSearchRunRecord>();
   private readonly recheckRequests = new Map<string, TopicSelectionSearchPlanRecheckRequestRecord>();
+  private readonly recheckRequestIdsByRequestKey = new Map<string, string>();
 
   async createTopicSeed(record: TopicSelectionTopicSeedRecord): Promise<TopicSelectionTopicSeedRecord> {
     this.topicSeeds.set(record.topic_seed_id, record);
@@ -167,8 +168,10 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
     record: TopicSelectionSearchPlanRecheckRequestRecord,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
     if (record.request_key) {
-      const replay = await this.findSearchPlanRecheckRequestByRequestKey(record.request_key);
+      const replayId = this.recheckRequestIdsByRequestKey.get(record.request_key);
+      const replay = replayId ? this.recheckRequests.get(replayId) : undefined;
       if (replay) return replay;
+      this.recheckRequestIdsByRequestKey.set(record.request_key, record.search_plan_recheck_request_id);
     }
     this.recheckRequests.set(record.search_plan_recheck_request_id, record);
     return record;
@@ -183,7 +186,8 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
   async findSearchPlanRecheckRequestByRequestKey(
     requestKey: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
-    return [...this.recheckRequests.values()].find((record) => record.request_key === requestKey) ?? null;
+    const requestId = this.recheckRequestIdsByRequestKey.get(requestKey);
+    return requestId ? this.recheckRequests.get(requestId) ?? null : null;
   }
 
   async listSearchPlanRecheckRequestsByTitleCardId(

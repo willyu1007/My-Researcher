@@ -5,6 +5,7 @@ import type {
   LiteratureRetrieveProfileId,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
+  LiteratureRetrievalCandidateWindowSettingsDTO,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import type {
   TopicSelectionRetrievalStackIdentity,
@@ -85,15 +86,7 @@ type LiteratureWorkIdentityMaps = {
   directIdentityKeysByLiteratureId: Map<string, Set<string>>;
 };
 
-type LiteratureRetrievalCandidateWindowSettings = {
-  floor: number;
-  unscoped_ceiling: number;
-  scoped_ceiling: number;
-  profile_multipliers: Record<LiteratureRetrieveProfileId, number>;
-  per_literature_cap_min: number;
-  per_literature_cap_max: number;
-  query_timeout_ms: number;
-};
+type LiteratureRetrievalCandidateWindowSettings = LiteratureRetrievalCandidateWindowSettingsDTO;
 
 type ManagedLibraryCandidateUniverse = {
   activeProfile: ActiveEmbeddingProfileConfig;
@@ -218,7 +211,11 @@ export class LiteratureRetrievalService {
 
   /** The full-library manifest uses this same resolver as unscoped retrieval. */
   async resolveManagedLibraryEligibility(): Promise<LiteratureManagedLibraryEligibility> {
-    const universe = await this.resolveManagedLibraryCandidateUniverse();
+    const [universe, candidateWindow] = await Promise.all([
+      this.resolveManagedLibraryCandidateUniverse(),
+      this.settingsService?.resolveRetrievalCandidateWindowSettings?.()
+        ?? Promise.resolve(DEFAULT_PGVECTOR_CANDIDATE_WINDOW),
+    ]);
     return {
       eligible_embedding_versions: universe.eligibleVersions
         .map((version) => ({
@@ -237,6 +234,14 @@ export class LiteratureRetrievalService {
         freshness_policy: 'current_only',
         retrieval_policy_version: LITERATURE_RETRIEVAL_POLICY_VERSION,
         reranker_policy_version: LITERATURE_RERANKER_POLICY_VERSION,
+        candidate_window: {
+          ...candidateWindow,
+          profile_multipliers: { ...candidateWindow.profile_multipliers },
+        },
+        corpus_scope: {
+          mode: 'full_managed_library',
+          human_confirmation_ref: null,
+        },
       },
     };
   }

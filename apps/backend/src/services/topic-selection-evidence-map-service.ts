@@ -40,6 +40,7 @@ import type { LiteratureRepository } from '../repositories/literature-repository
 import type {
   TopicSelectionEvidenceMapCreateRecords,
   TopicSelectionEvidenceMapRepository,
+  TopicSelectionInitialEvidenceMapRecord,
 } from '../repositories/topic-selection-evidence-map.repository.js';
 import type { TopicSelectionSearchResourceRepository } from '../repositories/topic-selection-search-resource.repository.js';
 import {
@@ -146,7 +147,7 @@ type AssessEvidenceStrengthInput = {
 type MarkStaleInput = {
   evidence_map_id: string;
   stale_reason_codes: string[];
-  freshness_status?: TopicSelectionEvidenceFreshnessStatus;
+  freshness_status?: Extract<TopicSelectionEvidenceFreshnessStatus, 'stale' | 'recheck_required'>;
 };
 
 const CONSUMABLE_SEARCH_RUN_STATUSES = new Set<TopicSelectionSearchRunRecord['run_status']>(['succeeded', 'partial']);
@@ -360,7 +361,7 @@ export class TopicSelectionEvidenceMapService {
     });
 
     const roleCounts = this.roleCounts(evidenceUnits);
-    const evidenceMap: TopicSelectionEvidenceMapRecord = {
+    const evidenceMap: TopicSelectionInitialEvidenceMapRecord = {
       evidence_map_id: evidenceMapId,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,

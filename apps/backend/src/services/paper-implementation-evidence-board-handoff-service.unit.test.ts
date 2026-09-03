@@ -23,7 +23,7 @@ import type {
   TraceLineageBundle,
 } from '@paper-engineering-assistant/shared/research-lifecycle/paper-implementation-trace-contracts';
 import type {
-  TopicSelectionEvidenceMapCreateRecords,
+  TopicSelectionInitialEvidenceMapCreateRecords,
 } from '../repositories/topic-selection-evidence-map.repository.js';
 import type {
   TopicSelectionFunctionalRef,
@@ -322,7 +322,7 @@ function admittedMotive(traceManifestId: string): CoreMotiveDraftResponse {
   };
 }
 
-function evidenceMap(): TopicSelectionEvidenceMapCreateRecords {
+function evidenceMap(): TopicSelectionInitialEvidenceMapCreateRecords {
   const searchRunRef = ref('search_run', 'search_run_t141');
   const searchPlanRef = ref('search_plan', 'search_plan_t141');
   const literatureSnapshotRef = ref('literature_snapshot', 'literature_snapshot_t141');

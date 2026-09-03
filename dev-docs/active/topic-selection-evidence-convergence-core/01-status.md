@@ -5,17 +5,17 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 contract freeze implemented and verified on 2026-09-03
-- Next step: Obtain a new implementation authorization before starting Phase 2's retrieval-native evidence loop.
-- Blocker: Phase 2 is outside the current implementation authorization. There is no technical blocker in the completed Phase 1 boundary.
+- Current phase: Phase 2 authorized after the repaired Phase 1 checkpoint passed on 2026-09-03
+- Next step: Implement the Phase 2 retrieval-native evidence loop from role request through durable retrieval, evidence admission, successor map, linked round, and same-gate recheck.
+- Blocker: none. Phase 2 is authorized through its defined exit; Phase 3 remains outside the current authorization.
 
 ## Phase 1 checkpoint
 
-- [x] ECK-01 has an executable managed-library eligibility and corpus-manifest contract that shares the unscoped retriever's candidate-universe resolver.
-- [x] ECK-02 has canonical role-intent, coordinator identity, durable recheck-request reuse, corpus binding, and recoverable SearchRun-lineage contracts.
+- [x] ECK-01 has an executable managed-library eligibility and corpus-manifest contract that shares the unscoped retriever's candidate-universe resolver, captures candidate-window identity, defaults to the full eligible corpus, and accepts narrowing only through exact Human authority.
+- [x] ECK-02 has strict HTTP/persisted role-intent schemas, coordinator identity, atomic durable recheck-request reuse, exact corpus binding, and recoverable SearchRun-lineage contracts.
 - [x] ECK-03 has fixed step/round/time/cost policy defaults and a pure boundary evaluator whose terminal outcomes cannot pass a gate.
 - [x] ECK-04 has a closed linked-round contract requiring prior transcript and EvidenceDelta hashes; Phase 2 still owns runtime round creation.
-- [x] ECK-05 has additive successor fields and one transactional EvidenceMap compare-and-swap repository transition with in-memory and Prisma race coverage.
+- [x] ECK-05 has additive successor fields and one transactional EvidenceMap compare-and-swap repository transition with in-memory and Prisma race coverage; direct creation, ordinary freshness updates, nonzero successor revisions, and child-identity conflicts cannot bypass it.
 - [x] ECK-07 has a typed immutable ResolutionRoute artifact whose authority boundary remains deterministic-gate then strict-Human.
 - [ ] ECK-06 remains a Phase 2 end-to-end pilot outcome.
 - [ ] ECK-08 remains Phase 3 failure/replay/real-flow proof.

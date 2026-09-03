@@ -69,6 +69,15 @@ test('coordinator canonicalization makes equivalent retrieval intents share requ
     'direct counter evidence',
     'failure mode',
   ]);
+  assert.deepEqual(
+    (canonical.strategy_identity_payload as unknown as Record<string, unknown>).retrieval_parameters,
+    {
+      profile: 'topic_exploration',
+      top_k: 10,
+      evidence_per_literature: 3,
+      include_stale: false,
+    },
+  );
   assert.equal('request_key' in input, false, 'role-authored input must not carry coordinator identities');
 });
 
@@ -86,6 +95,18 @@ test('role ingress rejects coordinator identities and linked rounds require both
   assert.equal(await validates(topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema, {
     ...intent,
     request_key: 'role-authored-key',
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema, {
+    ...intent,
+    corpus_manifest_ref: ref('artifact_ref', 'manifest_1'),
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema, {
+    ...intent,
+    originating_arena_session_ref: ref('artifact_ref', 'arena_1'),
+  }), false);
+  assert.equal(await validates(topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema, {
+    ...intent,
+    issue_ref: { ref_type: 'coverage_row_intent', ref_id: 'coverage_challenge' },
   }), false);
   assert.equal(await validates(topicSelectionEvidenceConvergenceRoundLinkSchema, {
     schema_version: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION,

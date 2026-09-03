@@ -85,6 +85,56 @@ test('evidence delta and resolution route use immutable deduplicated control-pla
   assert.match(route.stable_key ?? '', /^resolution_route:[a-f0-9]{64}$/u);
 });
 
+test('evidence-convergence artifact deduplication is scoped to its title card', async () => {
+  const { service } = makeService();
+  const unscopedRef = (refType: string, refId: string): TopicSelectionFunctionalRef => ({
+    ref_type: refType,
+    ref_id: refId,
+  });
+  const payload: TopicSelectionEvidenceDeltaArtifact = {
+    schema_version: TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+    issue_refs: [unscopedRef('coverage_row_intent', 'coverage_challenge')],
+    predecessor_evidence_map_ref: unscopedRef('evidence_map', 'map_1'),
+    admitted_evidence_unit_refs: [],
+    changed_claim_refs: [],
+    negative_coverage_changes: [],
+    source_health_changes: [],
+    conflict_changes: [],
+    decision_relevance: 'The same payload text may exist under separate title authorities.',
+    material: false,
+  };
+
+  const firstTitle = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_001',
+    artifact_type: 'evidence_delta',
+    payload,
+  });
+  const secondTitle = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_002',
+    artifact_type: 'evidence_delta',
+    payload,
+  });
+  const secondTitleReplay = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_002',
+    artifact_type: 'evidence_delta',
+    payload,
+  });
+
+  assert.notEqual(secondTitle.artifact_ref_id, firstTitle.artifact_ref_id);
+  assert.notEqual(secondTitle.stable_key, firstTitle.stable_key);
+  assert.equal(secondTitleReplay.artifact_ref_id, secondTitle.artifact_ref_id);
+
+  const newInputLineage = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_002',
+    input_snapshot_id: 'input_snapshot_new_lineage',
+    workflow_run_id: 'workflow_new_lineage',
+    artifact_type: 'evidence_delta',
+    payload,
+  });
+  assert.notEqual(newInputLineage.artifact_ref_id, secondTitle.artifact_ref_id);
+  assert.notEqual(newInputLineage.stable_key, secondTitle.stable_key);
+});
+
 test('fake v1a workflow records snapshot, workflow run, artifacts, transition attempt, and trace', async () => {
   const { repository, service } = makeService();
   const targetRef = ref('topic_seed', 'seed_1');

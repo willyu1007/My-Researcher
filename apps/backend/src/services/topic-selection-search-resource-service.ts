@@ -83,6 +83,7 @@ type CreateLiteratureResourcePoolSnapshotInput = {
   topic_seed_id: string;
   snapshot_version?: string;
   source_scope?: TopicSelectionResourcePoolSource;
+  human_corpus_constraint_ref?: TopicSelectionFunctionalRef | null;
   resource_sample_set_provenance_ref?: TopicSelectionFunctionalRef | null;
   created_by?: TopicSelectionActorType;
   policy_version_id?: string | null;
@@ -335,6 +336,20 @@ export class TopicSelectionSearchResourceService {
     }
 
     const sourceScope = input.source_scope ?? 'title_card_evidence_basket';
+    if (input.human_corpus_constraint_ref && sourceScope !== 'managed_library') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'A Human corpus constraint applies only to a managed-library snapshot.',
+      );
+    }
+    const humanCorpusConstraint = input.human_corpus_constraint_ref
+      ? await this.resolveHumanCorpusConstraint(
+        input.human_corpus_constraint_ref,
+        input.title_card_id,
+        input.workspace_id ?? null,
+      )
+      : null;
     const basket = sourceScope === 'managed_library'
       ? null
       : await this.titleCards.getEvidenceBasket(input.title_card_id);
@@ -351,7 +366,7 @@ export class TopicSelectionSearchResourceService {
     const managedEligibility = sourceScope === 'managed_library'
       ? await this.managedLibraryEligibilityResolver!.resolveManagedLibraryEligibility()
       : null;
-    const corpusManifestMembers: TopicSelectionCorpusManifestMember[] = managedEligibility
+    const eligibleManifestMembers: TopicSelectionCorpusManifestMember[] = managedEligibility
       ? managedEligibility.eligible_embedding_versions
         .map((version) => ({
           literature_ref: this.ref('literature_record', version.literature_id, input.title_card_id),
@@ -366,6 +381,21 @@ export class TopicSelectionSearchResourceService {
             : left.embedding_version_ref.ref_id.localeCompare(right.embedding_version_ref.ref_id);
         })
       : [];
+    const selectedLiteratureIds = humanCorpusConstraint?.literature_ids ?? null;
+    const corpusManifestMembers = selectedLiteratureIds
+      ? eligibleManifestMembers.filter((member) => selectedLiteratureIds.has(member.literature_ref.ref_id))
+      : eligibleManifestMembers;
+    if (selectedLiteratureIds && (
+      corpusManifestMembers.length === 0
+      || new Set(corpusManifestMembers.map((member) => member.literature_ref.ref_id)).size
+        !== selectedLiteratureIds.size
+    )) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Every Human-constrained literature ref must be eligible in the managed library.',
+      );
+    }
     const literatureIds = managedEligibility
       ? [...new Set(corpusManifestMembers.map((member) => member.literature_ref.ref_id))]
       : basket!.items.map((item) => item.literature_id);
@@ -383,6 +413,10 @@ export class TopicSelectionSearchResourceService {
       sourceCount += sources.length;
       contentSourceRefs.push(...sources.map((source) => this.ref('literature_source', source.id, input.title_card_id)));
     }
+    contentSourceRefs.sort((left, right) => {
+      const typeOrder = left.ref_type.localeCompare(right.ref_type);
+      return typeOrder !== 0 ? typeOrder : left.ref_id.localeCompare(right.ref_id);
+    });
 
     const missingLiteratureIds = literatureIds.filter((literatureId) => !literatureById.has(literatureId));
     const topicSeedRef = this.ref('topic_seed', topicSeed.topic_seed_id, input.title_card_id, topicSeed.seed_version);
@@ -396,10 +430,24 @@ export class TopicSelectionSearchResourceService {
     const literatureRefs = literatureIds
       .filter((literatureId) => literatureById.has(literatureId))
       .map((literatureId) => this.ref('literature_record', literatureId, input.title_card_id));
+    const retrievalStackIdentity = managedEligibility
+      ? {
+        ...managedEligibility.retrieval_stack_identity,
+        corpus_scope: humanCorpusConstraint
+          ? {
+            mode: 'human_confirmed_subset' as const,
+            human_confirmation_ref: input.human_corpus_constraint_ref!,
+          }
+          : {
+            mode: 'full_managed_library' as const,
+            human_confirmation_ref: null,
+          },
+      }
+      : null;
     const managedManifestHashPayload = managedEligibility
       ? {
         corpus_manifest_members: corpusManifestMembers,
-        retrieval_stack_identity: managedEligibility.retrieval_stack_identity,
+        retrieval_stack_identity: retrievalStackIdentity,
       }
       : {};
     const snapshotHashPayload = {
@@ -433,6 +481,7 @@ export class TopicSelectionSearchResourceService {
       source_refs: [
         topicSeedRef,
         ...(input.resource_sample_set_provenance_ref ? [input.resource_sample_set_provenance_ref] : []),
+        ...(input.human_corpus_constraint_ref ? [input.human_corpus_constraint_ref] : []),
         ...literatureRefs,
         ...contentSourceRefs,
       ],
@@ -484,7 +533,7 @@ export class TopicSelectionSearchResourceService {
       content_source_refs: contentSourceRefs,
       source_health_summary: sourceHealthSummary,
       corpus_manifest_members: corpusManifestMembers,
-      retrieval_stack_identity: managedEligibility?.retrieval_stack_identity ?? null,
+      retrieval_stack_identity: retrievalStackIdentity,
       snapshot_hash: snapshotHash,
       input_snapshot_id: inputSnapshot.input_snapshot_id,
       gate_result_id: gate.readiness_gate_result_id,
@@ -803,15 +852,32 @@ export class TopicSelectionSearchResourceService {
     if (convergenceIntent && (
       convergenceIntent.issue_ref.ref_type !== input.source_ref.ref_type
       || convergenceIntent.issue_ref.ref_id !== input.source_ref.ref_id
+      || convergenceIntent.issue_ref.title_card_id !== input.title_card_id
+      || input.source_ref.title_card_id !== input.title_card_id
+      || convergenceIntent.originating_arena_session_ref.ref_type !== 'research_arena_session'
+      || convergenceIntent.originating_arena_session_ref.title_card_id !== input.title_card_id
     )) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence issue must match the recheck source ref.');
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence request requires a matching title-scoped issue and Arena session.',
+      );
     }
     const convergenceManifest = convergenceIntent
       ? await this.requireLiteratureSnapshot(convergenceIntent.corpus_manifest_ref.ref_id)
       : null;
     if (convergenceIntent && (
-      convergenceManifest?.title_card_id !== input.title_card_id
+      convergenceIntent.corpus_manifest_ref.ref_type !== 'literature_resource_pool_snapshot'
+      || convergenceIntent.corpus_manifest_ref.title_card_id !== input.title_card_id
+      || convergenceManifest?.title_card_id !== input.title_card_id
+      || (
+        convergenceIntent.corpus_manifest_ref.version_id != null
+        && convergenceIntent.corpus_manifest_ref.version_id !== convergenceManifest.snapshot_version
+      )
       || convergenceManifest.source_scope !== 'managed_library'
+      || !convergenceManifest.corpus_manifest_members?.length
+      || !convergenceManifest.retrieval_stack_identity?.candidate_window
+      || !convergenceManifest.retrieval_stack_identity.corpus_scope
       || convergenceManifest.snapshot_hash !== convergenceIntent.corpus_manifest_hash
     )) {
       throw new AppError(
@@ -1331,6 +1397,37 @@ export class TopicSelectionSearchResourceService {
         `Coverage records reference rows outside SearchPlan: ${invalidRowIds.join(', ')}.`,
       );
     }
+  }
+
+  private async resolveHumanCorpusConstraint(
+    confirmationRef: TopicSelectionFunctionalRef,
+    titleCardId: string,
+    workspaceId: string | null,
+  ): Promise<{ literature_ids: Set<string> }> {
+    const decision = confirmationRef.ref_type === 'human_confirmed_decision'
+      ? await this.controlPlane.getHumanDecision(confirmationRef.ref_id)
+      : null;
+    const workspaceMatches = (decision?.workspace_id ?? null) === workspaceId;
+    const authorityRefs = decision?.resulting_authority_refs ?? [];
+    const valid = decision
+      && decision.actor.actor_type === 'human'
+      && decision.decision_type === 'confirm'
+      && decision.title_card_id === titleCardId
+      && confirmationRef.title_card_id === titleCardId
+      && decision.target_ref.ref_type === 'managed_library_corpus_scope'
+      && decision.target_ref.title_card_id === titleCardId
+      && workspaceMatches
+      && authorityRefs.length > 0
+      && authorityRefs.every((ref) =>
+        ref.ref_type === 'literature_record' && ref.title_card_id === titleCardId);
+    if (!valid) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Managed-library narrowing requires a strict Human confirmation with exact literature authority refs.',
+      );
+    }
+    return { literature_ids: new Set(authorityRefs.map((ref) => ref.ref_id)) };
   }
 
   private buildLiteratureSourceHealthSummary(

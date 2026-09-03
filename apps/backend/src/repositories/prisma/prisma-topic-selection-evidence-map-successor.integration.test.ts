@@ -6,6 +6,10 @@ import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/s
 import type { TopicSelectionEvidenceMapRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type { TopicSelectionSearchPlanRecheckRequestRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import { PrismaTopicSelectionEvidenceMapRepository } from './prisma-topic-selection-evidence-map-repository.js';
+import type {
+  TopicSelectionEvidenceMapRecords,
+  TopicSelectionInitialEvidenceMapRecord,
+} from '../topic-selection-evidence-map.repository.js';
 import { PrismaTopicSelectionSearchResourceRepository } from './prisma-topic-selection-search-resource-repository.js';
 
 const RUN_PRISMA = process.env.TOPIC_SELECTION_EVIDENCE_CONVERGENCE_PRISMA === '1'
@@ -28,7 +32,7 @@ test('Prisma EvidenceMap successor publication is one transactional compare-and-
     ref_id: refId,
     title_card_id: titleCardId,
   });
-  const map = (id: string): TopicSelectionEvidenceMapRecord => ({
+  const map = (id: string): TopicSelectionInitialEvidenceMapRecord => ({
     evidence_map_id: `${id}_${suffix}`,
     title_card_id: titleCardId,
     evidence_map_version: `${id}_${suffix}`,
@@ -53,7 +57,9 @@ test('Prisma EvidenceMap successor publication is one transactional compare-and-
     created_by: 'system',
     created_at: '2026-09-03T00:00:00.000Z',
   });
-  const records = (evidenceMap: TopicSelectionEvidenceMapRecord) => ({
+  const records = <Map extends TopicSelectionEvidenceMapRecord>(
+    evidenceMap: Map,
+  ): TopicSelectionEvidenceMapRecords<Map> => ({
     evidence_map: evidenceMap,
     evidence_units: [],
     typed_links: [],
@@ -74,12 +80,14 @@ test('Prisma EvidenceMap successor publication is one transactional compare-and-
         ...map('map_2'),
         predecessor_evidence_map_ref: ref('evidence_map', predecessor.evidence_map_id),
         material_evidence_delta_ref: deltaRef,
+        lineage_revision: 42,
       }),
     });
 
     const advanced = await repository.findEvidenceMapById(predecessor.evidence_map_id);
     assert.equal(advanced?.freshness_status, 'superseded');
     assert.equal(advanced?.lineage_revision, 1);
+    assert.equal((await repository.findEvidenceMapById(`map_2_${suffix}`))?.lineage_revision, 0);
     await assert.rejects(
       () => repository.publishEvidenceMapSuccessorWithRecords({
         expected_predecessor_id: predecessor.evidence_map_id,

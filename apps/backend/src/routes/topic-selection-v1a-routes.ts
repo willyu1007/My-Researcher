@@ -44,6 +44,9 @@ import {
   TOPIC_SELECTION_ACCEPTED_RISK_SOURCE_TYPES,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-recheck-risk-memory-contracts';
 import {
+  topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
+import {
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_SOURCES,
   TOPIC_SELECTION_OFFLINE_EVALUATION_DATASET_STATUSES,
   TOPIC_SELECTION_V1A_OFFLINE_EVALUATION_CASE_TYPES,
@@ -210,6 +213,14 @@ const typedFunctionalRef = (refType: string, options: { requireVersion?: boolean
 }) as const;
 const concreteSearchPlanRef = typedFunctionalRef('search_plan', { requireVersion: true });
 const concreteLiteratureSnapshotRef = typedFunctionalRef('literature_resource_pool_snapshot', { requireVersion: true });
+const humanConfirmedCorpusConstraintRef = {
+  ...typedFunctionalRef('human_confirmed_decision'),
+  required: ['ref_type', 'ref_id', 'title_card_id'],
+  properties: {
+    ...typedFunctionalRef('human_confirmed_decision').properties,
+    title_card_id: stringId,
+  },
+} as const;
 const searchRunLocatorProvenanceRef = {
   anyOf: [
     typedFunctionalRef('literature_abstract'),
@@ -268,6 +279,7 @@ const literatureSnapshotBody = bodySchema(['title_card_id', 'topic_seed_id'], {
   topic_seed_id: stringId,
   snapshot_version: stringId,
   source_scope: { enum: [...TOPIC_SELECTION_RESOURCE_POOL_SOURCES] },
+  human_corpus_constraint_ref: humanConfirmedCorpusConstraintRef,
   created_by: actorType,
   policy_version_id: nullableStringId,
 });
@@ -411,6 +423,7 @@ const searchPlanRecheckBody = bodySchema(['title_card_id', 'source_ref', 'target
   gap_codes: stringArray,
   requested_by: actorType,
   policy_version_id: nullableStringId,
+  evidence_convergence_intent: topicSelectionEvidenceConvergenceRetrievalRequestIntentSchema,
 });
 
 const resolveSearchPlanRecheckBody = bodyAndParamsSchema(['outcome', 'decision_summary'], {
@@ -544,7 +557,7 @@ const evidenceStrengthBody = bodySchema([
 
 const markEvidenceMapStaleBody = bodyAndParamsSchema(['stale_reason_codes'], {
   stale_reason_codes: stringArray,
-  freshness_status: { enum: ['stale', 'recheck_required', 'superseded'] },
+  freshness_status: { enum: ['stale', 'recheck_required'] },
 }, { evidenceMapId: stringId });
 
 const needCandidateBody = bodySchema(['title_card_id', 'evidence_map_id', 'candidate_need'], {

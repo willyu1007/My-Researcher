@@ -264,8 +264,16 @@ export class TopicSelectionControlPlaneService {
   ): Promise<TopicSelectionArtifactRefRecord> {
     const payload = input.payload as unknown as Record<string, unknown>;
     const checksum = sha256Text(stableStringify(payload));
+    const stableIdentity = sha256Text(stableStringify({
+      artifact_type: input.artifact_type,
+      checksum,
+      input_snapshot_id: input.input_snapshot_id ?? null,
+      title_card_id: input.title_card_id,
+      workflow_run_id: input.workflow_run_id ?? null,
+      workspace_id: input.workspace_id ?? null,
+    }));
     return this.recordArtifactRef({
-      stable_key: `${input.artifact_type}:${checksum}`,
+      stable_key: `${input.artifact_type}:${stableIdentity}`,
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
       artifact_kind: 'structured_output',

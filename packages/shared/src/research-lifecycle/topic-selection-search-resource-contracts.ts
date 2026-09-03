@@ -5,10 +5,15 @@ import {
   type TopicSelectionActorType,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
-import type {
-  TopicSelectionEvidenceConvergenceExecutionPolicy,
-  TopicSelectionEvidenceConvergenceStrategyIdentityPayload,
+import {
+  topicSelectionEvidenceConvergenceExecutionPolicySchema,
+  topicSelectionEvidenceConvergenceStrategyIdentityPayloadSchema,
+  type TopicSelectionEvidenceConvergenceExecutionPolicy,
+  type TopicSelectionEvidenceConvergenceStrategyIdentityPayload,
 } from './topic-selection-evidence-convergence-contracts.js';
+import type {
+  LiteratureRetrievalCandidateWindowSettingsDTO,
+} from './literature-contracts.js';
 
 export const TOPIC_SELECTION_SEED_KINDS = ['title_card', 'manual', 'imported'] as const;
 export type TopicSelectionSeedKind = (typeof TOPIC_SELECTION_SEED_KINDS)[number];
@@ -175,6 +180,10 @@ export interface TopicSelectionRetrievalStackIdentity {
   freshness_policy: 'current_only';
   retrieval_policy_version: string;
   reranker_policy_version: string;
+  candidate_window: LiteratureRetrievalCandidateWindowSettingsDTO;
+  corpus_scope:
+    | { mode: 'full_managed_library'; human_confirmation_ref: null }
+    | { mode: 'human_confirmed_subset'; human_confirmation_ref: TopicSelectionFunctionalRef };
 }
 
 export interface TopicSelectionLiteratureResourcePoolSnapshotRecord {
@@ -503,6 +512,15 @@ const booleanValue = { type: 'boolean' } as const;
 const stringArray = { type: 'array', items: stringId } as const;
 const nonEmptyStringArray = { type: 'array', minItems: 1, items: stringId } as const;
 const objectPayload = { type: 'object', additionalProperties: true } as const;
+const humanConfirmedDecisionRefSchema = {
+  ...topicSelectionFunctionalRefSchema,
+  required: ['ref_type', 'ref_id', 'title_card_id'],
+  properties: {
+    ...topicSelectionFunctionalRefSchema.properties,
+    ref_type: { const: 'human_confirmed_decision' },
+    title_card_id: stringId,
+  },
+} as const;
 const functionalRefArray = { type: 'array', items: topicSelectionFunctionalRefSchema } as const;
 const recordArray = { type: 'array', items: objectPayload } as const;
 const typedFunctionalRefSchema = (refType: string, options: { requireVersion?: boolean } = {}) => ({
@@ -713,6 +731,19 @@ export const topicSelectionTopicSeedRecordSchema = {
 export const topicSelectionLiteratureResourcePoolSnapshotRecordSchema = {
   type: 'object',
   additionalProperties: false,
+  allOf: [{
+    if: {
+      required: ['source_scope'],
+      properties: { source_scope: { const: 'managed_library' } },
+    },
+    then: {
+      required: ['corpus_manifest_members', 'retrieval_stack_identity'],
+      properties: {
+        corpus_manifest_members: { type: 'array', minItems: 1 },
+        retrieval_stack_identity: { type: 'object' },
+      },
+    },
+  }],
   required: [
     'literature_resource_pool_snapshot_id',
     'title_card_id',
@@ -757,16 +788,63 @@ export const topicSelectionLiteratureResourcePoolSnapshotRecordSchema = {
         required: [
           'index_kind', 'embedding_profile_id', 'embedding_provider', 'embedding_model',
           'embedding_dimension', 'freshness_policy', 'retrieval_policy_version', 'reranker_policy_version',
+          'candidate_window', 'corpus_scope',
         ],
         properties: {
           index_kind: { const: 'pgvector' },
           embedding_profile_id: stringId,
           embedding_provider: stringId,
           embedding_model: stringId,
-          embedding_dimension: numberValue,
+          embedding_dimension: { type: 'integer', minimum: 1 },
           freshness_policy: { const: 'current_only' },
           retrieval_policy_version: stringId,
           reranker_policy_version: stringId,
+          candidate_window: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'floor', 'unscoped_ceiling', 'scoped_ceiling', 'profile_multipliers',
+              'per_literature_cap_min', 'per_literature_cap_max', 'query_timeout_ms',
+            ],
+            properties: {
+              floor: { type: 'integer', minimum: 1 },
+              unscoped_ceiling: { type: 'integer', minimum: 1 },
+              scoped_ceiling: { type: 'integer', minimum: 1 },
+              profile_multipliers: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['general', 'topic_exploration', 'writing_evidence', 'paper_management'],
+                properties: {
+                  general: { type: 'integer', minimum: 1 },
+                  topic_exploration: { type: 'integer', minimum: 1 },
+                  writing_evidence: { type: 'integer', minimum: 1 },
+                  paper_management: { type: 'integer', minimum: 1 },
+                },
+              },
+              per_literature_cap_min: { type: 'integer', minimum: 1 },
+              per_literature_cap_max: { type: 'integer', minimum: 1 },
+              query_timeout_ms: { type: 'integer', minimum: 1 },
+            },
+          },
+          corpus_scope: {
+            anyOf: [{
+              type: 'object',
+              additionalProperties: false,
+              required: ['mode', 'human_confirmation_ref'],
+              properties: {
+                mode: { const: 'full_managed_library' },
+                human_confirmation_ref: { type: 'null' },
+              },
+            }, {
+              type: 'object',
+              additionalProperties: false,
+              required: ['mode', 'human_confirmation_ref'],
+              properties: {
+                mode: { const: 'human_confirmed_subset' },
+                human_confirmation_ref: humanConfirmedDecisionRefSchema,
+              },
+            }],
+          },
         },
       }, { type: 'null' }],
     },
@@ -1266,9 +1344,11 @@ export const topicSelectionSearchPlanRecheckRequestRecordSchema = {
     strategy_key: nullableStringId,
     issue_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
     originating_arena_session_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
-    retrieval_intent: { anyOf: [objectPayload, { type: 'null' }] },
+    retrieval_intent: {
+      anyOf: [topicSelectionEvidenceConvergenceStrategyIdentityPayloadSchema, { type: 'null' }],
+    },
     expected_decision_effect: nullableStringId,
-    execution_policy: { anyOf: [objectPayload, { type: 'null' }] },
+    execution_policy: { anyOf: [topicSelectionEvidenceConvergenceExecutionPolicySchema, { type: 'null' }] },
     corpus_manifest_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
     corpus_manifest_hash: nullableStringId,
     supporting_artifact_refs: functionalRefArray,
@@ -1284,6 +1364,48 @@ export const topicSelectionSearchPlanRecheckRequestRecordSchema = {
     created_at: stringId,
     resolved_at: nullableStringId,
   },
+  allOf: [{
+    if: {
+      anyOf: [
+        { required: ['request_key'], properties: { request_key: stringId } },
+        { required: ['strategy_key'], properties: { strategy_key: stringId } },
+        { required: ['issue_ref'], properties: { issue_ref: { type: 'object' } } },
+        {
+          required: ['originating_arena_session_ref'],
+          properties: { originating_arena_session_ref: { type: 'object' } },
+        },
+        { required: ['retrieval_intent'], properties: { retrieval_intent: { type: 'object' } } },
+        {
+          required: ['expected_decision_effect'],
+          properties: { expected_decision_effect: stringId },
+        },
+        { required: ['execution_policy'], properties: { execution_policy: { type: 'object' } } },
+        { required: ['corpus_manifest_ref'], properties: { corpus_manifest_ref: { type: 'object' } } },
+        { required: ['corpus_manifest_hash'], properties: { corpus_manifest_hash: stringId } },
+      ],
+    },
+    then: {
+      required: [
+        'target_literature_snapshot_ref', 'request_key', 'strategy_key', 'issue_ref',
+        'originating_arena_session_ref', 'retrieval_intent', 'expected_decision_effect',
+        'execution_policy', 'corpus_manifest_ref', 'corpus_manifest_hash',
+        'supporting_artifact_refs',
+      ],
+      properties: {
+        target_literature_snapshot_ref: topicSelectionFunctionalRefSchema,
+        request_key: stringId,
+        strategy_key: stringId,
+        issue_ref: topicSelectionFunctionalRefSchema,
+        originating_arena_session_ref: topicSelectionFunctionalRefSchema,
+        retrieval_intent: topicSelectionEvidenceConvergenceStrategyIdentityPayloadSchema,
+        expected_decision_effect: stringId,
+        execution_policy: topicSelectionEvidenceConvergenceExecutionPolicySchema,
+        corpus_manifest_ref: topicSelectionFunctionalRefSchema,
+        corpus_manifest_hash: stringId,
+        supporting_artifact_refs: functionalRefArray,
+      },
+    },
+  }],
 } as const;
 
 export const topicSelectionSearchPlanCoverageMatrixSchema = {
