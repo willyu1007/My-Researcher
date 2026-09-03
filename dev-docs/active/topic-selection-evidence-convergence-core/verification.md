@@ -13,7 +13,22 @@
 | Current Debate core is one frozen role walk | Inspect `TopicSelectionBoundedDebateCoreService.runLoop` and need-discovery `round_index` validation | observed | The core hashes one fixed role-order transcript. `max_rounds` limits an index but supplies no parent-transcript or evidence-delta link. |
 | EvidenceMap lacks successor lifecycle | Inspect shared EvidenceMap record, Prisma model, freshness update route, and repository update | observed | No predecessor/successor field exists. Freshness/superseded can be written directly without binding a successor transition. Mutable lifecycle metadata is not itself the defect; missing enforceable successor lineage is. |
 | T-148 scope split | Compare T-148 findings, `dde23f76`, and the approved split with this bundle | passed for the exchanged contract | FIND-029 through FIND-031 supply discovery evidence; T-148 retains presentation and strict-Human acceptance while `REQUIRED_COVERAGE_MISSING` with exact row refs is now available for this pilot. T-150 remains limited to evidence-landscape convergence. |
-| ECK-01 through ECK-08 | Execute the focused contract, service, failure, replay, concurrency, and real-flow checks identified by the revised plan | Phase 1 authorized; not-run | The approved implementation boundary ends after the Phase 1 contract/repository checkpoint. Phase 2 execution and ECK-06 end-to-end proof require a later authorization. |
+| Managed-library manifest and exact candidate universe (ECK-01) | Compare unscoped retrieval and manifest eligibility through the same resolver; create a manifest without a title basket | passed | Focused retrieval/search-resource tests prove evidence readiness, active-profile compatibility, current-index filtering, sorted version membership, and retrieval-stack identity. Existing non-pilot snapshot defaults remain unchanged. |
+| Coordinator request identity and SearchRun lineage (ECK-02) | Canonicalize equivalent inputs, reject role-authored keys/empty strategy, reuse the durable recheck request, materialize a revised plan and follow-up SearchRun | passed | In-memory service tests and the gated Prisma unique-key race prove replay. Phase 2 still owns automatic execution and result interpretation. |
+| Saturation and execution boundaries (ECK-03) | Exercise no-delta unchanged strategy and each named standing-policy boundary in pure contract tests | passed for Phase 1 | The only terminal results are `saturated_unresolved` and `boundary_exhausted_unresolved`; neither exposes a pass result. Runtime accounting belongs to Phase 2. |
+| Linked frozen rounds (ECK-04) | Validate a closed round-link schema and reject a link missing the parent transcript or EvidenceDelta hash | passed for Phase 1 | The contract is frozen; Phase 2 still owns creating the successor Arena session and distributing its frozen input. |
+| EvidenceMap successor compare-and-swap (ECK-05) | Race a stale successor writer against the advanced head in memory and on disposable PostgreSQL | passed | The Prisma transition updates the predecessor and creates the successor plus child records in one transaction; the losing writer creates no orphan map. |
+| Typed immutable resolution support (ECK-07) | Persist and replay content-addressed EvidenceDelta and ResolutionRoute artifacts | passed for Phase 1 | Stable keys and checksums deduplicate identical artifacts; the route declares evidence-landscape ownership and deterministic-gate/strict-Human authority. Route execution remains Phase 2. |
+| ECK-06 and ECK-08 | Run the complete pilot and later real-flow/failure proof | not run — outside authorization | Phase 2 and Phase 3 require a new authorization. No result in this checkpoint claims end-to-end convergence. |
+
+## Phase 1 verification run — 2026-09-03
+
+- Shared contract suite: 449 passed.
+- Focused backend retrieval, search-resource, control-plane, EvidenceMap, and Arena retrieval suites: 63 passed.
+- Gated disposable-PostgreSQL successor/request race suite: 1 passed; the disposable database was deleted afterward.
+- Shared and backend TypeScript checks: passed.
+- Prisma validate/generate, disposable-schema drift check, DB context constraint check, and `git diff --check`: passed.
+- Repository build was not run because the project instructions reserve build commands for explicit requests.
 
 ## Source-to-acceptance traceability
 
@@ -29,9 +44,9 @@ FIND-029 through FIND-031 are reproduced defects. RetrievalRequest, linked round
 
 ## Outstanding verification
 
-- Confirm whether the Arena retrieval/provenance implementation can be extracted without importing Arena-specific snapshot or participant semantics.
-- Inventory the exact SearchPlan/SearchRun change needed to admit full-library hits while preserving a canonical corpus manifest and retrieval-stack identity.
-- Select concrete defaults and configuration ownership for per-issue orchestration steps/rounds, elapsed time, and accumulated retrieval cost.
+- Implement and verify the Phase 2 coordinator without importing Arena-specific participant authority or downstream question/value/promotion semantics.
+- Admit retrieved hits through claim-level evidence review before publishing a successor map, then create the linked Arena round and fresh instance of the same checkpoint.
+- Account for orchestration steps, linked rounds, elapsed time, and accumulated retrieval cost at runtime and prove boundary exhaustion remains unresolved.
 - Verify the Phase 2 seam against T-148's typed required-coverage issue without importing T-148 presentation or downstream Debate policy.
-- Define the transactional EvidenceMap successor/head invariant and its in-memory/Prisma test seam.
 - Verify that downstream evidence changes create visible obligations without mutating existing Human decisions.
+- Complete ECK-06 and ECK-08 with one bounded local pilot and Human-reviewed real-flow packet after separate authorization.

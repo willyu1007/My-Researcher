@@ -6,14 +6,21 @@ import type {
   TopicSelectionGateIssue,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+  canonicalizeEvidenceConvergenceRequest,
+  type TopicSelectionEvidenceConvergenceRetrievalRequestIntent,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import type {
   TopicSelectionCoverageAssessmentVerdict,
   TopicSelectionCoverageBindingKind,
   TopicSelectionCoverageExecutionStatus,
   TopicSelectionCoverageIntentType,
   TopicSelectionCoverageRowIntentRecord,
+  TopicSelectionCorpusManifestMember,
   TopicSelectionEvidenceRole,
   TopicSelectionLiteratureResourcePoolSnapshotRecord,
+  TopicSelectionRetrievalStackIdentity,
   TopicSelectionResourcePoolSource,
   TopicSelectionSearchPlanBlueprint,
   TopicSelectionSearchPlanCoverageMatrix,
@@ -46,6 +53,17 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  managedLibraryEligibilityResolver?: {
+    resolveManagedLibraryEligibility(): Promise<{
+      eligible_embedding_versions: Array<{
+        embedding_version_id: string;
+        literature_id: string;
+        input_checksum: string | null;
+        index_artifact_checksum: string | null;
+      }>;
+      retrieval_stack_identity: TopicSelectionRetrievalStackIdentity;
+    }>;
+  };
 };
 
 type CreateTopicSeedFromTitleCardInput = {
@@ -169,6 +187,7 @@ type CreateSearchPlanRecheckRequestInput = {
   gap_codes?: string[];
   requested_by?: TopicSelectionActorType;
   policy_version_id?: string | null;
+  evidence_convergence_intent?: TopicSelectionEvidenceConvergenceRetrievalRequestIntent;
 };
 
 type ResolveSearchPlanRecheckRequestInput = {
@@ -203,6 +222,7 @@ const SEARCH_RUN_COVERAGE_RISK_REF_TYPES = new Set([
 export class TopicSelectionSearchResourceService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly managedLibraryEligibilityResolver: ServiceOptions['managedLibraryEligibilityResolver'];
 
   constructor(
     private readonly repository: TopicSelectionSearchResourceRepository,
@@ -213,6 +233,7 @@ export class TopicSelectionSearchResourceService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.managedLibraryEligibilityResolver = options.managedLibraryEligibilityResolver;
   }
 
   async createTopicSeedFromTitleCard(
@@ -313,12 +334,44 @@ export class TopicSelectionSearchResourceService {
       throw new AppError(409, 'VERSION_CONFLICT', 'TopicSeed belongs to a different title card.');
     }
 
-    const basket = await this.titleCards.getEvidenceBasket(input.title_card_id);
-    if (basket.items.length === 0) {
+    const sourceScope = input.source_scope ?? 'title_card_evidence_basket';
+    const basket = sourceScope === 'managed_library'
+      ? null
+      : await this.titleCards.getEvidenceBasket(input.title_card_id);
+    if (basket && basket.items.length === 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Literature snapshot requires at least one basket item.');
     }
-
-    const literatureIds = basket.items.map((item) => item.literature_id);
+    if (sourceScope === 'managed_library' && !this.managedLibraryEligibilityResolver) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Managed-library snapshot requires the canonical retrieval eligibility resolver.',
+      );
+    }
+    const managedEligibility = sourceScope === 'managed_library'
+      ? await this.managedLibraryEligibilityResolver!.resolveManagedLibraryEligibility()
+      : null;
+    const corpusManifestMembers: TopicSelectionCorpusManifestMember[] = managedEligibility
+      ? managedEligibility.eligible_embedding_versions
+        .map((version) => ({
+          literature_ref: this.ref('literature_record', version.literature_id, input.title_card_id),
+          embedding_version_ref: this.ref('literature_embedding_version', version.embedding_version_id, input.title_card_id),
+          input_checksum: version.input_checksum,
+          index_artifact_checksum: version.index_artifact_checksum,
+        }))
+        .sort((left, right) => {
+          const literatureOrder = left.literature_ref.ref_id.localeCompare(right.literature_ref.ref_id);
+          return literatureOrder !== 0
+            ? literatureOrder
+            : left.embedding_version_ref.ref_id.localeCompare(right.embedding_version_ref.ref_id);
+        })
+      : [];
+    const literatureIds = managedEligibility
+      ? [...new Set(corpusManifestMembers.map((member) => member.literature_ref.ref_id))]
+      : basket!.items.map((item) => item.literature_id);
+    if (literatureIds.length === 0) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Literature snapshot requires at least one eligible resource.');
+    }
     const literatures = await this.literature.listLiteraturesByIds(literatureIds);
     const literatureById = new Map(literatures.map((item) => [item.id, item]));
     const pipelineStates = await this.literature.listPipelineStatesByLiteratureIds(literatureIds);
@@ -332,7 +385,6 @@ export class TopicSelectionSearchResourceService {
     }
 
     const missingLiteratureIds = literatureIds.filter((literatureId) => !literatureById.has(literatureId));
-    const sourceScope = input.source_scope ?? 'title_card_evidence_basket';
     const topicSeedRef = this.ref('topic_seed', topicSeed.topic_seed_id, input.title_card_id, topicSeed.seed_version);
     const sourceHealthSummary = this.buildLiteratureSourceHealthSummary(
       literatureIds,
@@ -344,15 +396,22 @@ export class TopicSelectionSearchResourceService {
     const literatureRefs = literatureIds
       .filter((literatureId) => literatureById.has(literatureId))
       .map((literatureId) => this.ref('literature_record', literatureId, input.title_card_id));
+    const managedManifestHashPayload = managedEligibility
+      ? {
+        corpus_manifest_members: corpusManifestMembers,
+        retrieval_stack_identity: managedEligibility.retrieval_stack_identity,
+      }
+      : {};
     const snapshotHashPayload = {
       title_card_id: input.title_card_id,
       topic_seed_ref: topicSeedRef,
       source_scope: sourceScope,
-      basket_updated_at: basket.updated_at,
+      basket_updated_at: basket?.updated_at ?? null,
       literature_refs: literatureRefs,
       content_source_refs: contentSourceRefs,
       source_health_summary: sourceHealthSummary,
       policy_version_id: input.policy_version_id ?? null,
+      ...managedManifestHashPayload,
     };
     const inputSnapshotPayload = {
       ...snapshotHashPayload,
@@ -424,6 +483,8 @@ export class TopicSelectionSearchResourceService {
       literature_refs: literatureRefs,
       content_source_refs: contentSourceRefs,
       source_health_summary: sourceHealthSummary,
+      corpus_manifest_members: corpusManifestMembers,
+      retrieval_stack_identity: managedEligibility?.retrieval_stack_identity ?? null,
       snapshot_hash: snapshotHash,
       input_snapshot_id: inputSnapshot.input_snapshot_id,
       gate_result_id: gate.readiness_gate_result_id,
@@ -738,13 +799,87 @@ export class TopicSelectionSearchResourceService {
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
     const searchPlan = await this.requireSearchPlan(input.target_search_plan_id);
     this.assertSameTitleCard(input.title_card_id, searchPlan.title_card_id, 'SearchPlan');
+    const convergenceIntent = input.evidence_convergence_intent;
+    if (convergenceIntent && (
+      convergenceIntent.issue_ref.ref_type !== input.source_ref.ref_type
+      || convergenceIntent.issue_ref.ref_id !== input.source_ref.ref_id
+    )) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence issue must match the recheck source ref.');
+    }
+    const convergenceManifest = convergenceIntent
+      ? await this.requireLiteratureSnapshot(convergenceIntent.corpus_manifest_ref.ref_id)
+      : null;
+    if (convergenceIntent && (
+      convergenceManifest?.title_card_id !== input.title_card_id
+      || convergenceManifest.source_scope !== 'managed_library'
+      || convergenceManifest.snapshot_hash !== convergenceIntent.corpus_manifest_hash
+    )) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence request requires the exact managed-library corpus manifest.',
+      );
+    }
+    const canonical = input.evidence_convergence_intent
+      ? canonicalizeEvidenceConvergenceRequest(input.evidence_convergence_intent)
+      : null;
+    if (canonical && (
+      !canonical.strategy_identity_payload.search_intent
+      || canonical.strategy_identity_payload.candidate_queries.length === 0
+      || !canonical.request_identity_payload.expected_decision_effect
+    )) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Evidence-convergence intent requires a search intent, candidate query, and expected decision effect.',
+      );
+    }
+    const strategyKey = canonical
+      ? sha256Text(stableStringify(canonical.strategy_identity_payload))
+      : null;
+    const requestKey = canonical
+      ? sha256Text(stableStringify({
+        ...canonical.request_identity_payload,
+        strategy_key: strategyKey,
+      }))
+      : null;
+    if (requestKey) {
+      const replay = await this.repository.findSearchPlanRecheckRequestByRequestKey(requestKey);
+      if (replay) {
+        return replay;
+      }
+    }
     return this.repository.createSearchPlanRecheckRequest({
       search_plan_recheck_request_id: this.idFactory('search_recheck'),
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
       source_ref: input.source_ref,
       target_search_plan_ref: this.ref('search_plan', searchPlan.search_plan_id, input.title_card_id, searchPlan.plan_version),
-      target_literature_snapshot_ref: searchPlan.literature_snapshot_ref,
+      target_literature_snapshot_ref: convergenceManifest
+        ? this.ref(
+          'literature_resource_pool_snapshot',
+          convergenceManifest.literature_resource_pool_snapshot_id,
+          convergenceManifest.title_card_id,
+          convergenceManifest.snapshot_version,
+        )
+        : searchPlan.literature_snapshot_ref,
+      request_key: requestKey,
+      strategy_key: strategyKey,
+      issue_ref: input.evidence_convergence_intent?.issue_ref ?? null,
+      originating_arena_session_ref: input.evidence_convergence_intent?.originating_arena_session_ref ?? null,
+      retrieval_intent: canonical?.strategy_identity_payload ?? null,
+      expected_decision_effect: canonical?.request_identity_payload.expected_decision_effect ?? null,
+      execution_policy: canonical ? TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY : null,
+      corpus_manifest_ref: convergenceManifest
+        ? this.ref(
+          'literature_resource_pool_snapshot',
+          convergenceManifest.literature_resource_pool_snapshot_id,
+          convergenceManifest.title_card_id,
+          convergenceManifest.snapshot_version,
+        )
+        : null,
+      corpus_manifest_hash: convergenceManifest?.snapshot_hash ?? null,
+      supporting_artifact_refs: [],
       reason: input.reason,
       gap_codes: input.gap_codes ?? [],
       requested_by: input.requested_by ?? 'system',
@@ -785,12 +920,14 @@ export class TopicSelectionSearchResourceService {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Materialized recheck requires a revised SearchPlan.');
     }
     const targetPlan = await this.requireSearchPlan(request.target_search_plan_ref.ref_id);
+    const targetLiteratureSnapshotId = request.target_literature_snapshot_ref?.ref_id
+      ?? targetPlan.literature_snapshot_ref.ref_id;
     const revised = await this.createSearchPlan({
       ...input.revised_search_plan,
       workspace_id: input.revised_search_plan.workspace_id ?? request.workspace_id ?? null,
       title_card_id: request.title_card_id,
       topic_seed_id: targetPlan.topic_seed_ref.ref_id,
-      literature_resource_pool_snapshot_id: targetPlan.literature_snapshot_ref.ref_id,
+      literature_resource_pool_snapshot_id: targetLiteratureSnapshotId,
       parent_search_plan_ref: request.target_search_plan_ref,
       recheck_request_ref: this.ref('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id),
     });
@@ -800,7 +937,7 @@ export class TopicSelectionSearchResourceService {
           workspace_id: input.follow_up_search_run.workspace_id ?? request.workspace_id ?? null,
           title_card_id: request.title_card_id,
           search_plan_id: revised.search_plan.search_plan_id,
-          literature_resource_pool_snapshot_id: targetPlan.literature_snapshot_ref.ref_id,
+          literature_resource_pool_snapshot_id: targetLiteratureSnapshotId,
           run_kind: 'recheck_followup',
         })
       : null;

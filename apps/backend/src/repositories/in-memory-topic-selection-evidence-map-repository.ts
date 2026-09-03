@@ -11,6 +11,7 @@ import type {
 import type {
   TopicSelectionEvidenceMapCreateRecords,
   TopicSelectionEvidenceMapRepository,
+  TopicSelectionEvidenceMapSuccessorPublication,
 } from './topic-selection-evidence-map.repository.js';
 
 export class InMemoryTopicSelectionEvidenceMapRepository implements TopicSelectionEvidenceMapRepository {
@@ -42,6 +43,58 @@ export class InMemoryTopicSelectionEvidenceMapRepository implements TopicSelecti
       this.conflictSets.set(conflictSet.evidence_conflict_set_id, conflictSet);
     }
     return records;
+  }
+
+  async publishEvidenceMapSuccessorWithRecords(
+    publication: TopicSelectionEvidenceMapSuccessorPublication,
+  ): Promise<TopicSelectionEvidenceMapCreateRecords> {
+    const predecessor = this.evidenceMaps.get(publication.expected_predecessor_id);
+    const successor = publication.successor_records.evidence_map;
+    const revision = predecessor?.lineage_revision ?? 0;
+    const valid = predecessor
+      && predecessor.freshness_status !== 'superseded'
+      && !predecessor.successor_evidence_map_ref
+      && revision === publication.expected_lineage_revision
+      && successor.title_card_id === predecessor.title_card_id
+      && successor.predecessor_evidence_map_ref?.ref_id === predecessor.evidence_map_id
+      && successor.material_evidence_delta_ref?.ref_id === publication.material_evidence_delta_ref.ref_id
+      && !this.evidenceMaps.has(successor.evidence_map_id);
+    if (!valid) {
+      throw new Error('EvidenceMap successor compare-and-swap failed.');
+    }
+    const successorRef = {
+      ref_type: 'evidence_map',
+      ref_id: successor.evidence_map_id,
+      title_card_id: successor.title_card_id,
+      version_id: successor.evidence_map_version,
+    };
+    this.evidenceMaps.set(predecessor.evidence_map_id, {
+      ...predecessor,
+      status: 'stale',
+      freshness_status: 'superseded',
+      stale_reason_codes: [...new Set([
+        ...predecessor.stale_reason_codes,
+        'MATERIAL_EVIDENCE_SUCCESSOR_PUBLISHED',
+      ])],
+      successor_evidence_map_ref: successorRef,
+      material_evidence_delta_ref: publication.material_evidence_delta_ref,
+      lineage_revision: revision + 1,
+    });
+    return this.createEvidenceMapWithRecords({
+      ...publication.successor_records,
+      evidence_map: {
+        ...successor,
+        predecessor_evidence_map_ref: {
+          ref_type: 'evidence_map',
+          ref_id: predecessor.evidence_map_id,
+          title_card_id: predecessor.title_card_id,
+          version_id: predecessor.evidence_map_version,
+        },
+        successor_evidence_map_ref: null,
+        material_evidence_delta_ref: publication.material_evidence_delta_ref,
+        lineage_revision: successor.lineage_revision ?? 0,
+      },
+    });
   }
 
   async findEvidenceMapById(evidenceMapId: string): Promise<TopicSelectionEvidenceMapRecord | null> {

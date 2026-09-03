@@ -4,6 +4,11 @@ import type {
   TopicSelectionFunctionalRef,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+  TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
+  type TopicSelectionEvidenceDeltaArtifact,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import { AppError } from '../errors/app-error.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
@@ -35,6 +40,50 @@ function stateWriteIntent(targetRef: TopicSelectionFunctionalRef): TopicSelectio
     reason: 'fake v1a harness transition',
   };
 }
+
+test('evidence delta and resolution route use immutable deduplicated control-plane artifacts', async () => {
+  const { service } = makeService();
+  const delta: TopicSelectionEvidenceDeltaArtifact = {
+    schema_version: TOPIC_SELECTION_EVIDENCE_DELTA_SCHEMA_VERSION,
+    issue_refs: [ref('coverage_row_intent', 'coverage_challenge')],
+    predecessor_evidence_map_ref: ref('evidence_map', 'map_1'),
+    admitted_evidence_unit_refs: [ref('evidence_unit', 'unit_2')],
+    changed_claim_refs: [],
+    negative_coverage_changes: [],
+    source_health_changes: [],
+    conflict_changes: [],
+    decision_relevance: 'May satisfy the missing challenge row.',
+    material: true,
+  };
+  const first = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_t048',
+    artifact_type: 'evidence_delta',
+    payload: delta,
+  });
+  const replay = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_t048',
+    artifact_type: 'evidence_delta',
+    payload: delta,
+  });
+  const route = await service.recordEvidenceConvergenceArtifact({
+    title_card_id: 'title_card_t048',
+    artifact_type: 'resolution_route',
+    payload: {
+      schema_version: TOPIC_SELECTION_RESOLUTION_ROUTE_SCHEMA_VERSION,
+      issue_ref: ref('coverage_row_intent', 'coverage_challenge'),
+      owning_stage: 'evidence_landscape',
+      route_kind: 'retrieve_and_recheck',
+      target_ref: ref('search_plan', 'plan_1'),
+      required_delta: 'Admit direct counter evidence.',
+      recheck_gate_key: 'topic-selection.evidence-landscape-ready',
+      authority_boundary: 'deterministic_gate_then_strict_human',
+    },
+  });
+
+  assert.equal(replay.artifact_ref_id, first.artifact_ref_id);
+  assert.match(first.stable_key ?? '', /^evidence_delta:[a-f0-9]{64}$/u);
+  assert.match(route.stable_key ?? '', /^resolution_route:[a-f0-9]{64}$/u);
+});
 
 test('fake v1a workflow records snapshot, workflow run, artifacts, transition attempt, and trace', async () => {
   const { repository, service } = makeService();

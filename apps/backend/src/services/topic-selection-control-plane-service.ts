@@ -27,6 +27,10 @@ import type {
   TopicSelectionTransitionResult,
   TopicSelectionWorkflowRunStatus,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type {
+  TopicSelectionEvidenceDeltaArtifact,
+  TopicSelectionResolutionRouteArtifact,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionControlPlaneRepository } from '../repositories/topic-selection-control-plane.repository.js';
 
@@ -65,6 +69,16 @@ type ArtifactInput = {
   input_snapshot_id?: string | null;
   created_by?: TopicSelectionActorType;
 };
+
+type EvidenceConvergenceArtifactInput = {
+  workspace_id?: string | null;
+  title_card_id: string;
+  workflow_run_id?: string | null;
+  input_snapshot_id?: string | null;
+} & (
+  | { artifact_type: 'evidence_delta'; payload: TopicSelectionEvidenceDeltaArtifact }
+  | { artifact_type: 'resolution_route'; payload: TopicSelectionResolutionRouteArtifact }
+);
 
 type RecordWorkflowRunInput = {
   workspace_id?: string | null;
@@ -243,6 +257,26 @@ export class TopicSelectionControlPlaneService {
       throw new Error(`ArtifactRef stable key ${requested.stable_key} already identifies different content.`);
     }
     return persisted;
+  }
+
+  async recordEvidenceConvergenceArtifact(
+    input: EvidenceConvergenceArtifactInput,
+  ): Promise<TopicSelectionArtifactRefRecord> {
+    const payload = input.payload as unknown as Record<string, unknown>;
+    const checksum = sha256Text(stableStringify(payload));
+    return this.recordArtifactRef({
+      stable_key: `${input.artifact_type}:${checksum}`,
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      artifact_kind: 'structured_output',
+      storage_kind: 'inline',
+      payload,
+      checksum,
+      mime_type: 'application/json',
+      workflow_run_id: input.workflow_run_id ?? null,
+      input_snapshot_id: input.input_snapshot_id ?? null,
+      created_by: 'system',
+    });
   }
 
   /** Public workflow-harness ingress cannot mint server-owned identities or human provenance. */

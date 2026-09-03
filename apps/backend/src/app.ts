@@ -1068,6 +1068,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     })
     : null;
   const topicSelectionControlPlaneService = new TopicSelectionControlPlaneService(topicSelectionControlPlaneRepository);
+  const llmConfig = defaultLlmConfig();
+  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
+    applicationSettingsRepository,
+    llmConfig,
+  );
+  const llmGateway = new BackendLlmGateway({
+    settingsService: literatureContentProcessingSettingsService,
+    llmConfig,
+  });
+  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
+  const literatureRetrievalService = new LiteratureRetrievalService(
+    literatureRepository,
+    literatureContentProcessingSettingsService,
+    llmGateway,
+    literatureEvidenceActivationService,
+  );
   const topicSelectionResearchArenaService = new TopicSelectionResearchArenaService({
     arenaRepository: topicSelectionResearchArenaRepository,
     controlPlaneRepository: topicSelectionControlPlaneRepository,
@@ -1080,7 +1096,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         controlPlane: topicSelectionControlPlaneService,
       }),
     );
-  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
     topicSelectionResearchCheckpointRepository,
     topicSelectionControlPlaneService,
@@ -1118,6 +1133,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionControlPlaneService,
     titleCardManagementRepository,
     literatureRepository,
+    { managedLibraryEligibilityResolver: literatureRetrievalService },
   );
   const topicSelectionEvidenceMapService = new TopicSelectionEvidenceMapService(
     topicSelectionEvidenceMapRepository,
@@ -1155,15 +1171,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         advisoryReviewHistoryReader: topicSelectionResearchCheckpointService,
       }),
     );
-  const llmConfig = defaultLlmConfig();
-  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
-    applicationSettingsRepository,
-    llmConfig,
-  );
-  const llmGateway = new BackendLlmGateway({
-    settingsService: literatureContentProcessingSettingsService,
-    llmConfig,
-  });
   const hasSemanticV2Composition = (
     hasDefaultDurableExperimentV2Composition
     && options.paperImplementationExperimentLineageV2Repository === undefined
@@ -1828,6 +1835,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     literatureContentProcessingSettingsService,
     {
       literatureFlowService,
+      literatureRetrievalService,
+      evidenceActivationService: literatureEvidenceActivationService,
       literatureAcquisitionSettingsService,
       llmGateway,
     },

@@ -5,12 +5,17 @@ import {
   type TopicSelectionActorType,
   type TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
+import type {
+  TopicSelectionEvidenceConvergenceExecutionPolicy,
+  TopicSelectionEvidenceConvergenceStrategyIdentityPayload,
+} from './topic-selection-evidence-convergence-contracts.js';
 
 export const TOPIC_SELECTION_SEED_KINDS = ['title_card', 'manual', 'imported'] as const;
 export type TopicSelectionSeedKind = (typeof TOPIC_SELECTION_SEED_KINDS)[number];
 
 export const TOPIC_SELECTION_RESOURCE_POOL_SOURCES = [
   'title_card_evidence_basket',
+  'managed_library',
   'manual_selection',
   'search_result',
 ] as const;
@@ -154,6 +159,24 @@ export interface TopicSelectionSourceHealthSummary {
   warning_codes: string[];
 }
 
+export interface TopicSelectionCorpusManifestMember {
+  literature_ref: TopicSelectionFunctionalRef;
+  embedding_version_ref: TopicSelectionFunctionalRef;
+  input_checksum: string | null;
+  index_artifact_checksum: string | null;
+}
+
+export interface TopicSelectionRetrievalStackIdentity {
+  index_kind: 'pgvector';
+  embedding_profile_id: string;
+  embedding_provider: string;
+  embedding_model: string;
+  embedding_dimension: number;
+  freshness_policy: 'current_only';
+  retrieval_policy_version: string;
+  reranker_policy_version: string;
+}
+
 export interface TopicSelectionLiteratureResourcePoolSnapshotRecord {
   literature_resource_pool_snapshot_id: string;
   workspace_id?: string | null;
@@ -164,6 +187,8 @@ export interface TopicSelectionLiteratureResourcePoolSnapshotRecord {
   literature_refs: TopicSelectionFunctionalRef[];
   content_source_refs: TopicSelectionFunctionalRef[];
   source_health_summary: TopicSelectionSourceHealthSummary;
+  corpus_manifest_members?: TopicSelectionCorpusManifestMember[];
+  retrieval_stack_identity?: TopicSelectionRetrievalStackIdentity | null;
   snapshot_hash: string;
   input_snapshot_id?: string | null;
   gate_result_id?: string | null;
@@ -425,6 +450,16 @@ export interface TopicSelectionSearchPlanRecheckRequestRecord {
   source_ref: TopicSelectionFunctionalRef;
   target_search_plan_ref: TopicSelectionFunctionalRef;
   target_literature_snapshot_ref?: TopicSelectionFunctionalRef | null;
+  request_key?: string | null;
+  strategy_key?: string | null;
+  issue_ref?: TopicSelectionFunctionalRef | null;
+  originating_arena_session_ref?: TopicSelectionFunctionalRef | null;
+  retrieval_intent?: TopicSelectionEvidenceConvergenceStrategyIdentityPayload | null;
+  expected_decision_effect?: string | null;
+  execution_policy?: TopicSelectionEvidenceConvergenceExecutionPolicy | null;
+  corpus_manifest_ref?: TopicSelectionFunctionalRef | null;
+  corpus_manifest_hash?: string | null;
+  supporting_artifact_refs?: TopicSelectionFunctionalRef[];
   reason: string;
   gap_codes: string[];
   requested_by: TopicSelectionActorType;
@@ -701,6 +736,40 @@ export const topicSelectionLiteratureResourcePoolSnapshotRecordSchema = {
     literature_refs: functionalRefArray,
     content_source_refs: functionalRefArray,
     source_health_summary: topicSelectionSourceHealthSummarySchema,
+    corpus_manifest_members: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['literature_ref', 'embedding_version_ref', 'input_checksum', 'index_artifact_checksum'],
+        properties: {
+          literature_ref: topicSelectionFunctionalRefSchema,
+          embedding_version_ref: topicSelectionFunctionalRefSchema,
+          input_checksum: nullableStringId,
+          index_artifact_checksum: nullableStringId,
+        },
+      },
+    },
+    retrieval_stack_identity: {
+      anyOf: [{
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'index_kind', 'embedding_profile_id', 'embedding_provider', 'embedding_model',
+          'embedding_dimension', 'freshness_policy', 'retrieval_policy_version', 'reranker_policy_version',
+        ],
+        properties: {
+          index_kind: { const: 'pgvector' },
+          embedding_profile_id: stringId,
+          embedding_provider: stringId,
+          embedding_model: stringId,
+          embedding_dimension: numberValue,
+          freshness_policy: { const: 'current_only' },
+          retrieval_policy_version: stringId,
+          reranker_policy_version: stringId,
+        },
+      }, { type: 'null' }],
+    },
     snapshot_hash: stringId,
     input_snapshot_id: nullableStringId,
     gate_result_id: nullableStringId,
@@ -1193,6 +1262,16 @@ export const topicSelectionSearchPlanRecheckRequestRecordSchema = {
     source_ref: topicSelectionFunctionalRefSchema,
     target_search_plan_ref: topicSelectionFunctionalRefSchema,
     target_literature_snapshot_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    request_key: nullableStringId,
+    strategy_key: nullableStringId,
+    issue_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    originating_arena_session_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    retrieval_intent: { anyOf: [objectPayload, { type: 'null' }] },
+    expected_decision_effect: nullableStringId,
+    execution_policy: { anyOf: [objectPayload, { type: 'null' }] },
+    corpus_manifest_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    corpus_manifest_hash: nullableStringId,
+    supporting_artifact_refs: functionalRefArray,
     reason: stringId,
     gap_codes: stringArray,
     requested_by: { enum: ['human', 'llm', 'system', 'hybrid'] },

@@ -8,6 +8,9 @@ import type {
   TopicSelectionEvidenceTypedLinkRecord,
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
 export type TopicSelectionEvidenceMapCreateRecords = {
   evidence_map: TopicSelectionEvidenceMapRecord;
@@ -18,9 +21,19 @@ export type TopicSelectionEvidenceMapCreateRecords = {
   conflict_sets: TopicSelectionEvidenceConflictSetRecord[];
 };
 
+export type TopicSelectionEvidenceMapSuccessorPublication = {
+  expected_predecessor_id: string;
+  expected_lineage_revision: number;
+  material_evidence_delta_ref: TopicSelectionFunctionalRef;
+  successor_records: TopicSelectionEvidenceMapCreateRecords;
+};
+
 export interface TopicSelectionEvidenceMapRepository {
   createEvidenceMapWithRecords(
     records: TopicSelectionEvidenceMapCreateRecords,
+  ): Promise<TopicSelectionEvidenceMapCreateRecords>;
+  publishEvidenceMapSuccessorWithRecords(
+    publication: TopicSelectionEvidenceMapSuccessorPublication,
   ): Promise<TopicSelectionEvidenceMapCreateRecords>;
 
   findEvidenceMapById(evidenceMapId: string): Promise<TopicSelectionEvidenceMapRecord | null>;

@@ -166,6 +166,10 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
   async createSearchPlanRecheckRequest(
     record: TopicSelectionSearchPlanRecheckRequestRecord,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
+    if (record.request_key) {
+      const replay = await this.findSearchPlanRecheckRequestByRequestKey(record.request_key);
+      if (replay) return replay;
+    }
     this.recheckRequests.set(record.search_plan_recheck_request_id, record);
     return record;
   }
@@ -174,6 +178,12 @@ export class InMemoryTopicSelectionSearchResourceRepository implements TopicSele
     requestId: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
     return this.recheckRequests.get(requestId) ?? null;
+  }
+
+  async findSearchPlanRecheckRequestByRequestKey(
+    requestKey: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    return [...this.recheckRequests.values()].find((record) => record.request_key === requestKey) ?? null;
   }
 
   async listSearchPlanRecheckRequestsByTitleCardId(

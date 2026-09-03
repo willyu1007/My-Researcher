@@ -5,9 +5,20 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 contract freeze authorized after the T-148 required-coverage issue contract landed
-- Next step: After the T-148 evidence-view atomic checkpoint, implement Phase 1 through the existing resource-pool snapshot, search recheck, Arena-session, control-plane artifact, and EvidenceMap repository owners.
-- Blocker: none for the authorized Phase 1 boundary. T-148's typed issue dependency landed in `dde23f76`; Phase 2 remains outside the current implementation authorization.
+- Current phase: Phase 1 contract freeze implemented and verified on 2026-09-03
+- Next step: Obtain a new implementation authorization before starting Phase 2's retrieval-native evidence loop.
+- Blocker: Phase 2 is outside the current implementation authorization. There is no technical blocker in the completed Phase 1 boundary.
+
+## Phase 1 checkpoint
+
+- [x] ECK-01 has an executable managed-library eligibility and corpus-manifest contract that shares the unscoped retriever's candidate-universe resolver.
+- [x] ECK-02 has canonical role-intent, coordinator identity, durable recheck-request reuse, corpus binding, and recoverable SearchRun-lineage contracts.
+- [x] ECK-03 has fixed step/round/time/cost policy defaults and a pure boundary evaluator whose terminal outcomes cannot pass a gate.
+- [x] ECK-04 has a closed linked-round contract requiring prior transcript and EvidenceDelta hashes; Phase 2 still owns runtime round creation.
+- [x] ECK-05 has additive successor fields and one transactional EvidenceMap compare-and-swap repository transition with in-memory and Prisma race coverage.
+- [x] ECK-07 has a typed immutable ResolutionRoute artifact whose authority boundary remains deterministic-gate then strict-Human.
+- [ ] ECK-06 remains a Phase 2 end-to-end pilot outcome.
+- [ ] ECK-08 remains Phase 3 failure/replay/real-flow proof.
 
 ## Done when
 - [ ] ECK-01: Every accessible indexed, evidence-ready literature record is eligible for retrieval by default unless an explicit Human scope narrows the corpus.
@@ -18,3 +29,5 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [ ] ECK-06: One evidence-landscape convergence Debate pilot can request full-library retrieval, bind the execution to a replayable corpus manifest, admit claim-level evidence, publish any required successor map, run a linked round, materialize a fresh checkpoint, and recheck the same deterministic gate contract.
 - [ ] ECK-07: The pilot's material gate issue exposes one typed resolution route with an owning stage, required delta, and recheck condition; downstream Human decisions are never automatically overturned.
 - [ ] ECK-08: Focused failure, replay, no-delta, budget-boundary, and real-flow checks prove the pilot without introducing parallel authority or temporary dual routes.
+
+The Done-when criteria stay unchecked until their runtime behavior is proven. The Phase 1 checkpoint above records contract/executable-spec coverage only and does not claim completion of the retrieval-native pilot.

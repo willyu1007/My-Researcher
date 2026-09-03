@@ -10,7 +10,7 @@ import type { LiteratureRecord } from '../repositories/literature-repository.js'
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
-function makeService() {
+function makeService(options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {}) {
   let sequence = 0;
   const now = () => '2026-05-13T00:00:00.000Z';
   const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
@@ -24,7 +24,7 @@ function makeService() {
     controlPlane,
     titleCards,
     literature,
-    { idFactory, now },
+    { idFactory, now, ...options },
   );
   return {
     controlPlaneRepository,
@@ -63,8 +63,10 @@ function makeLiterature(id: string): LiteratureRecord {
   };
 }
 
-async function seedTitleCardWithLiterature() {
-  const ctx = makeService();
+async function seedTitleCardWithLiterature(
+  options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {},
+) {
+  const ctx = makeService(options);
   const titleCard = await ctx.titleCards.createTitleCard({
     working_title: 'Robust evidence retrieval',
     brief: 'Find unmet needs in evidence-grounded literature retrieval.',
@@ -94,8 +96,10 @@ async function seedTitleCardWithLiterature() {
   return { ...ctx, titleCard };
 }
 
-async function createBasePlan() {
-  const ctx = await seedTitleCardWithLiterature();
+async function createBasePlan(
+  options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {},
+) {
+  const ctx = await seedTitleCardWithLiterature(options);
   const seed = await ctx.service.createTopicSeedFromTitleCard({
     title_card_id: ctx.titleCard.title_card_id,
     created_by: 'system',
@@ -314,6 +318,71 @@ test('LiteratureResourcePoolSnapshot records maturity warnings without blocking 
   ]);
   assert.equal(first.snapshot_hash, second.snapshot_hash);
   assert.notEqual(first.literature_resource_pool_snapshot_id, second.literature_resource_pool_snapshot_id);
+});
+
+test('managed-library snapshot includes every retrieval-eligible member without requiring a title basket', async () => {
+  const ctx = makeService({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [
+          {
+            embedding_version_id: 'embedding_2',
+            literature_id: 'lit_002',
+            input_checksum: 'input-2',
+            index_artifact_checksum: 'index-2',
+          },
+          {
+            embedding_version_id: 'embedding_1',
+            literature_id: 'lit_001',
+            input_checksum: 'input-1',
+            index_artifact_checksum: 'index-1',
+          },
+        ],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+        },
+      }),
+    },
+  });
+  const titleCard = await ctx.titleCards.createTitleCard({
+    working_title: 'Managed library manifest',
+    brief: 'Use the full evidence-ready managed library.',
+  });
+  for (const literatureId of ['lit_001', 'lit_002']) {
+    await ctx.literature.createLiterature(makeLiterature(literatureId));
+    await ctx.literature.upsertPipelineState({
+      id: `pipeline_${literatureId}`,
+      literatureId,
+      citationComplete: true,
+      abstractReady: true,
+      keyContentReady: true,
+      dedupStatus: 'unique',
+      updatedAt: '2026-05-13T00:00:00.000Z',
+    });
+  }
+  const seed = await ctx.service.createTopicSeedFromTitleCard({
+    title_card_id: titleCard.title_card_id,
+  });
+
+  const snapshot = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: titleCard.title_card_id,
+    topic_seed_id: seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+
+  assert.deepEqual(snapshot.literature_refs.map((item) => item.ref_id), ['lit_001', 'lit_002']);
+  assert.deepEqual(snapshot.corpus_manifest_members?.map((item) => item.embedding_version_ref.ref_id), [
+    'embedding_1',
+    'embedding_2',
+  ]);
+  assert.equal(snapshot.retrieval_stack_identity?.freshness_policy, 'current_only');
 });
 
 test('LiteratureResourcePoolSnapshot hash changes when policy version changes', async () => {
@@ -904,4 +973,121 @@ test('SearchPlanRecheckRequest accepted, reject, accepted-risk, and materialized
   assert.equal(materializedResult.revised_search_plan?.recheck_request_ref?.ref_id, materialized.search_plan_recheck_request_id);
   assert.equal(materializedResult.follow_up_search_run?.run_kind, 'recheck_followup');
   assert.equal(materializedResult.follow_up_search_run?.run_status, 'failed');
+});
+
+test('evidence-convergence recheck requests derive coordinator identities and reuse equivalent durable work', async () => {
+  const ctx = await createBasePlan({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [{
+          embedding_version_id: 'embedding_1',
+          literature_id: 'lit_001',
+          input_checksum: 'input-1',
+          index_artifact_checksum: 'index-1',
+        }],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+        },
+      }),
+    },
+  });
+  const manifest = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+  const intent = {
+    issue_ref: ref('coverage_row_intent', 'coverage_challenge', ctx.titleCard.title_card_id),
+    originating_arena_session_ref: ref('research_arena_session', 'arena_1', ctx.titleCard.title_card_id),
+    search_intent: 'Find direct counter evidence',
+    candidate_queries: ['failure mode', 'direct counter evidence'],
+    expected_decision_effect: 'Recheck required challenge coverage',
+    corpus_manifest_ref: ref(
+      'literature_resource_pool_snapshot',
+      manifest.literature_resource_pool_snapshot_id,
+      ctx.titleCard.title_card_id,
+    ),
+    corpus_manifest_hash: manifest.snapshot_hash,
+  };
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'An empty strategy must not become durable work.',
+      evidence_convergence_intent: {
+        ...intent,
+        search_intent: '   ',
+        candidate_queries: ['  '],
+        expected_decision_effect: '   ',
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+
+  const first = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: intent.issue_ref,
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Resolve missing challenge coverage.',
+    evidence_convergence_intent: intent,
+  });
+  const replay = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: intent.issue_ref,
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Equivalent wording should reuse the durable request.',
+    evidence_convergence_intent: {
+      ...intent,
+      search_intent: ' find   direct counter evidence ',
+      candidate_queries: ['direct counter evidence', 'failure mode', 'failure mode'],
+      expected_decision_effect: ' recheck required challenge coverage ',
+    },
+  });
+
+  assert.equal(replay.search_plan_recheck_request_id, first.search_plan_recheck_request_id);
+  assert.match(first.request_key ?? '', /^[a-f0-9]{64}$/u);
+  assert.match(first.strategy_key ?? '', /^[a-f0-9]{64}$/u);
+  assert.equal(first.issue_ref?.ref_id, 'coverage_challenge');
+  assert.equal(first.execution_policy?.policy_key, 'evidence-landscape-convergence.v1');
+  assert.deepEqual(first.supporting_artifact_refs, []);
+
+  const materialized = await ctx.service.resolveSearchPlanRecheckRequest({
+    request_id: first.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Persist the replayable execution lineage.',
+    revised_search_plan: {
+      query_intents: ['direct counter evidence'],
+      created_by: 'system',
+    },
+    follow_up_search_run: {
+      run_status: 'failed',
+      result_accounting: {
+        total_result_count: 0,
+        unique_literature_count: 0,
+        duplicate_result_count: 0,
+        failed_source_count: 1,
+        skipped_source_count: 0,
+      },
+      source_health_summary: { error_codes: ['FIXTURE_FAILURE'] },
+      evidence_map_input_refs: [],
+      created_by: 'system',
+    },
+  });
+  assert.equal(
+    materialized.revised_search_plan?.literature_snapshot_ref.ref_id,
+    manifest.literature_resource_pool_snapshot_id,
+  );
+  assert.equal(materialized.request.resulting_search_run_ref?.ref_id, materialized.follow_up_search_run?.search_run_id);
 });

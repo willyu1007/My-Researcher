@@ -59,6 +59,7 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 ## Implementation plan
 
 ### Phase 1 — Freeze the evidence-landscape pilot contracts
+- Status: completed and verified on 2026-09-03; the additions remain dormant until Phase 2 selects the pilot route.
 - Outcome: One implementation-ready vertical slice has exact request, delta, round, successor, and resolution identities.
 - Approach: Start from the existing global retriever and evidence-landscape SearchPlan/SearchRun/checkpoint seams, then add only fields required to replay one evidence issue.
 - Planned changes:
@@ -71,6 +72,8 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 - Exit criteria: ECK-01 through ECK-05 and ECK-07 have contract tests or approved executable specifications.
 - Verification: Schema validation, hash/replay fixtures, transition truth tables, and a no-new-authority dry run.
 - Recovery: Keep all additions dormant and leave existing Debate and EvidenceMap routes unchanged.
+
+Phase 1 landed the managed-library manifest on `LiteratureResourcePoolSnapshot`, coordinator identities and execution lineage on `SearchPlanRecheckRequest`, immutable EvidenceDelta/ResolutionRoute artifacts on the control plane, a closed linked-round schema, and the only new persisted lifecycle primitive: EvidenceMap successor compare-and-swap. No downstream question/value/promotion route was changed.
 
 ### Phase 2 — Execute one retrieval-native evidence loop
 - Outcome: One unresolved evidence-landscape issue can gather managed-library evidence and return to a fresh instance of the same checkpoint gate through a successor evidence result and linked Debate round.
@@ -107,6 +110,8 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 - [x] Design: the minimal contracts and authority boundaries are reflected in `02-architecture.md`.
 - [x] Route: the pilot extends the existing SearchPlan → SearchRun → EvidenceMap → checkpoint lineage and does not cross the downstream frozen question bundle.
 - [x] Verification: success, reuse, no-delta, boundary, race, replay, and Human-authority checks are identified in `verification.md`.
+
+Phase 1's exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 and ECK-08 remain pending by design, and the authorized boundary still stops before Phase 2.
 
 ## Risks and recovery
 

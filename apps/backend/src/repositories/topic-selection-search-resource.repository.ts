@@ -83,6 +83,9 @@ export interface TopicSelectionSearchResourceRepository {
   findSearchPlanRecheckRequestById(
     requestId: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
+  findSearchPlanRecheckRequestByRequestKey(
+    requestKey: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
   /**
    * T-087 Phase 2.2 read-only projection — list SearchPlanRecheckRequests
    * under a title-card so the reviewer workbench v1a SearchPlan surface can
