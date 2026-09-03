@@ -11,6 +11,10 @@ import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
+import type {
+  MaterializeEvidenceLandscapeCheckpointInput,
+  TopicSelectionResearchCheckpointService,
+} from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
 function ref(refType: string, refId: string, titleCardId = 'title_card_1'): TopicSelectionFunctionalRef {
@@ -113,7 +117,9 @@ function makeFulltextBundle(literatureId: string): LiteratureFulltextExtractionB
   };
 }
 
-function makeContext() {
+function makeContext(
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+) {
   let sequence = 0;
   const now = () => '2026-05-13T00:00:00.000Z';
   const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
@@ -135,7 +141,7 @@ function makeContext() {
     controlPlane,
     searchResourceRepository,
     literature,
-    { idFactory, now },
+    { idFactory, now, checkpointControl },
   );
   return {
     evidenceRepository,
@@ -147,8 +153,11 @@ function makeContext() {
   };
 }
 
-async function createSearchRunFixture(runStatus: 'succeeded' | 'partial' | 'failed' = 'succeeded') {
-  const ctx = makeContext();
+async function createSearchRunFixture(
+  runStatus: 'succeeded' | 'partial' | 'failed' = 'succeeded',
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+) {
+  const ctx = makeContext(checkpointControl);
   const titleCard = await ctx.titleCards.createTitleCard({
     working_title: 'Robust evidence retrieval',
     brief: 'Find unmet needs in evidence-grounded literature retrieval.',
@@ -392,6 +401,55 @@ test('fake slice creates EvidenceMap, role-separated bundle, and demand-driven s
   assert.equal(bundle.context_units.length, 1);
   assert.equal(assessment.strength_verdict, 'mixed');
   assert.equal(assessment.target_ref.ref_id, 'need_001');
+});
+
+test('EvidenceMap checkpoint materialization receives persisted coverage assessments', async () => {
+  const captured: MaterializeEvidenceLandscapeCheckpointInput[] = [];
+  const ctx = await createSearchRunFixture('succeeded', {
+    materializeEvidenceLandscapeCheckpoint: async (input) => {
+      captured.push(input);
+      return { research_checkpoint_id: 'captured_checkpoint' } as Awaited<
+        ReturnType<TopicSelectionResearchCheckpointService['materializeEvidenceLandscapeCheckpoint']>
+      >;
+    },
+  });
+  const titleCardId = ctx.titleCard.title_card_id;
+  const supportRow = ctx.plan.coverage_row_intents[0]!;
+  await ctx.searchResourceRepository.createCoverageAssessment({
+    coverage_assessment_id: 'coverage_assessment_persisted',
+    search_plan_id: ctx.plan.search_plan.search_plan_id,
+    coverage_row_intent_id: supportRow.coverage_row_intent_id,
+    verdict: 'missing',
+    issue_codes: ['NO_DIRECT_EVIDENCE'],
+    confidence: 0.8,
+    assessed_by: 'system',
+    created_at: '2026-05-13T01:00:00.000Z',
+  });
+
+  await ctx.evidenceService.createEvidenceMapFromSearchRun({
+    title_card_id: titleCardId,
+    search_run_id: ctx.searchRun.search_run_id,
+    evidence_units: [{
+      coverage_row_intent_id: supportRow.coverage_row_intent_id,
+      evidence_role: 'support',
+      literature_ref: ref('literature_record', 'lit_001', titleCardId),
+      source_refs: [ref('literature_source', 'source_001', titleCardId)],
+      locator: locator('section', ref('fulltext_section', 'section_001', titleCardId), titleCardId),
+      source_statement: 'Robust retrieval evidence remains brittle.',
+    }],
+    created_by: 'system',
+  });
+
+  assert.deepEqual(captured[0]?.coverage_assessments, [{
+    coverage_assessment_id: 'coverage_assessment_persisted',
+    search_plan_id: ctx.plan.search_plan.search_plan_id,
+    coverage_row_intent_id: supportRow.coverage_row_intent_id,
+    verdict: 'missing',
+    issue_codes: ['NO_DIRECT_EVIDENCE'],
+    confidence: 0.8,
+    assessed_by: 'system',
+    created_at: '2026-05-13T01:00:00.000Z',
+  }]);
 });
 
 test('EvidenceUnit locator provenance keeps section, paragraph, anchor, and manual refs traceable', async () => {

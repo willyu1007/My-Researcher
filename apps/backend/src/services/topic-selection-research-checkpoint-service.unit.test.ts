@@ -6,7 +6,10 @@ import type {
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import type { TopicSelectionNeedCandidateRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
-import type { TopicSelectionCoverageRowIntentRecord } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import type {
+  TopicSelectionCoverageAssessmentRecord,
+  TopicSelectionCoverageRowIntentRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import type {
   TopicSelectionPackageTraceBoundaryCheckRecord,
   TopicSelectionTopicPackageReadinessAssessmentRecord,
@@ -916,6 +919,24 @@ function coverageRow(id: string, role: 'support' | 'challenge' | 'baseline'): To
   };
 }
 
+function coverageAssessment(
+  id: string,
+  rowId: string,
+  verdict: TopicSelectionCoverageAssessmentRecord['verdict'],
+  createdAt: string,
+): TopicSelectionCoverageAssessmentRecord {
+  return {
+    coverage_assessment_id: id,
+    search_plan_id: 'search_plan_1',
+    coverage_row_intent_id: rowId,
+    verdict,
+    issue_codes: verdict === 'missing' ? ['NO_DIRECT_EVIDENCE'] : [],
+    confidence: 0.9,
+    assessed_by: 'system',
+    created_at: createdAt,
+  };
+}
+
 function evidenceUnit(
   id: string,
   role: 'support' | 'challenge' | 'baseline',
@@ -1023,6 +1044,7 @@ test('evidence policy blocks abstract-only core, missing neighbor, and missing d
     ],
     conflict_sets: [],
     coverage_row_intents: rows,
+    coverage_assessments: [],
   });
   assert.equal(abstractCheckpoint.allowed_actions.includes('advance'), false);
   assert.equal(abstractCheckpoint.required_action_refs.length > 0, true);
@@ -1033,10 +1055,193 @@ test('evidence policy blocks abstract-only core, missing neighbor, and missing d
     evidence_units: [evidenceUnit('support', 'support')],
     conflict_sets: [],
     coverage_row_intents: rows,
+    coverage_assessments: [],
   });
   const packet = await missingContext.service.getPacket(missingCheckpoint.research_checkpoint_id);
   const issueCodes = (packet.packet_payload.policy_issues as Array<{ code: string }>).map((issue) => issue.code);
   assert.deepEqual(issueCodes, ['DIRECT_NEIGHBOR_COVERAGE_REQUIRED', 'DISCONFIRMING_EVIDENCE_REQUIRED']);
+});
+
+test('evidence policy emits exact required-row refs from the latest missing coverage assessments', async () => {
+  const { service } = createService();
+  const rows = [
+    coverageRow('coverage_support', 'support'),
+    coverageRow('coverage_challenge', 'challenge'),
+    coverageRow('coverage_baseline', 'baseline'),
+  ];
+  const checkpoint = await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: evidenceMap(),
+    evidence_units: [
+      evidenceUnit('support', 'support'),
+      evidenceUnit('challenge', 'challenge'),
+      evidenceUnit('baseline', 'baseline'),
+    ],
+    conflict_sets: [],
+    coverage_row_intents: rows,
+    coverage_assessments: [
+      coverageAssessment('assessment_support_old', 'coverage_support', 'missing', '2026-08-25T09:00:00.000Z'),
+      coverageAssessment('assessment_challenge', 'coverage_challenge', 'missing', '2026-08-25T10:00:00.000Z'),
+      coverageAssessment('assessment_support_latest', 'coverage_support', 'satisfied', '2026-08-25T11:00:00.000Z'),
+    ],
+  });
+
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+  assert.deepEqual(packet.packet_payload.policy_issues, [{
+    code: 'REQUIRED_COVERAGE_MISSING',
+    message: 'Every required missing coverage row needs exact Human acceptance before advancement.',
+    refs: [{ ref_type: 'coverage_row_intent', ref_id: 'coverage_challenge', title_card_id: 'title_1' }],
+  }]);
+  assert.deepEqual(packet.packet_payload.latest_coverage_assessments, [
+    {
+      coverage_assessment_ref: {
+        ref_type: 'coverage_assessment',
+        ref_id: 'assessment_support_latest',
+        title_card_id: 'title_1',
+      },
+      coverage_row_intent_ref: {
+        ref_type: 'coverage_row_intent',
+        ref_id: 'coverage_support',
+        title_card_id: 'title_1',
+      },
+      verdict: 'satisfied',
+      issue_codes: [],
+      confidence: 0.9,
+      assessed_by: 'system',
+      created_at: '2026-08-25T11:00:00.000Z',
+    },
+    {
+      coverage_assessment_ref: {
+        ref_type: 'coverage_assessment',
+        ref_id: 'assessment_challenge',
+        title_card_id: 'title_1',
+      },
+      coverage_row_intent_ref: {
+        ref_type: 'coverage_row_intent',
+        ref_id: 'coverage_challenge',
+        title_card_id: 'title_1',
+      },
+      verdict: 'missing',
+      issue_codes: ['NO_DIRECT_EVIDENCE'],
+      confidence: 0.9,
+      assessed_by: 'system',
+      created_at: '2026-08-25T10:00:00.000Z',
+    },
+  ]);
+  assert.equal(checkpoint.allowed_actions.includes('advance'), true);
+  assert.equal(checkpoint.required_action_refs.length, 1);
+});
+
+test('required missing coverage advances only through exact persisted Human acceptance', async () => {
+  const { service } = createService();
+  const rows = [
+    coverageRow('coverage_support', 'support'),
+    coverageRow('coverage_challenge', 'challenge'),
+    coverageRow('coverage_baseline', 'baseline'),
+  ];
+  const checkpoint = await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: evidenceMap(),
+    evidence_units: [
+      evidenceUnit('support', 'support'),
+      evidenceUnit('challenge', 'challenge'),
+      evidenceUnit('baseline', 'baseline'),
+    ],
+    conflict_sets: [],
+    coverage_row_intents: rows,
+    coverage_assessments: [
+      coverageAssessment('assessment_support', 'coverage_support', 'satisfied', NOW),
+      coverageAssessment('assessment_challenge', 'coverage_challenge', 'missing', NOW),
+      coverageAssessment('assessment_baseline', 'coverage_baseline', 'missing', NOW),
+    ],
+  });
+  const challengeRef = {
+    ref_type: 'coverage_row_intent',
+    ref_id: 'coverage_challenge',
+    title_card_id: 'title_1',
+  };
+  const baselineRef = {
+    ref_type: 'coverage_row_intent',
+    ref_id: 'coverage_baseline',
+    title_card_id: 'title_1',
+  };
+
+  await assert.rejects(
+    service.recordDecision(checkpoint.research_checkpoint_id, advancingDecision(checkpoint.target_snapshot_hash)),
+    /requires exact Human acceptance/u,
+  );
+  await assert.rejects(
+    service.recordDecision(checkpoint.research_checkpoint_id, {
+      ...advancingDecision(checkpoint.target_snapshot_hash),
+      decision_key: 'decision_incomplete_coverage',
+      review_payload: {
+        ...advancingDecision(checkpoint.target_snapshot_hash).review_payload,
+        accepted_coverage: {
+          coverage_row_refs: [challengeRef],
+          rationale: 'Accept only one of two rows.',
+        },
+      },
+    }),
+    /exact current missing coverage rows/u,
+  );
+  await assert.rejects(
+    service.recordDecision(checkpoint.research_checkpoint_id, {
+      ...advancingDecision(checkpoint.target_snapshot_hash),
+      decision_key: 'decision_stale_coverage',
+      review_payload: {
+        ...advancingDecision(checkpoint.target_snapshot_hash).review_payload,
+        accepted_coverage: {
+          coverage_row_refs: [{ ...challengeRef, version_id: 'stale' }, baselineRef],
+          rationale: 'This includes a stale row representation.',
+        },
+      },
+    }),
+    /exact current missing coverage rows/u,
+  );
+
+  const acceptedInput = {
+    ...advancingDecision(checkpoint.target_snapshot_hash),
+    decision_key: 'decision_exact_coverage',
+    review_payload: {
+      ...advancingDecision(checkpoint.target_snapshot_hash).review_payload,
+      accepted_coverage: {
+        coverage_row_refs: [challengeRef, baselineRef],
+        rationale: 'Accept both exact current missing rows while retaining their risk downstream.',
+      },
+    },
+  };
+  const decision = await service.recordDecision(checkpoint.research_checkpoint_id, acceptedInput);
+  assert.deepEqual(decision.review_payload, acceptedInput.review_payload);
+  assert.deepEqual((await service.getPacket(checkpoint.research_checkpoint_id)).decision, decision);
+  assert.deepEqual((await service.getCheckpoint(checkpoint.research_checkpoint_id)).required_action_refs, []);
+  await service.assertTransitionAllowed({
+    title_card_id: 'title_1',
+    checkpoint_kind: 'evidence_landscape',
+    target_snapshot_hash: checkpoint.target_snapshot_hash,
+  });
+  const gapCheckpoint = await service.materializeGapSelectionCheckpoint({
+    title_card_id: 'title_1',
+    evidence_map_ref: checkpoint.target_ref,
+    candidates: [],
+  });
+  assert.ok(gapCheckpoint.source_refs.some((ref) =>
+    ref.ref_type === 'research_checkpoint_decision'
+    && ref.ref_id === decision.research_checkpoint_decision_id));
+  assert.equal(
+    (await service.recordDecision(checkpoint.research_checkpoint_id, acceptedInput)).research_checkpoint_decision_id,
+    decision.research_checkpoint_decision_id,
+  );
+  await assert.rejects(
+    service.recordDecision(checkpoint.research_checkpoint_id, {
+      ...acceptedInput,
+      review_payload: {
+        ...acceptedInput.review_payload,
+        accepted_coverage: {
+          ...acceptedInput.review_payload.accepted_coverage,
+          rationale: 'Changed after the decision was recorded.',
+        },
+      },
+    }),
+    /different decision content/u,
+  );
 });
 
 test('qualified evidence and a genuinely distinct candidate arena advance through bound human review', async () => {
@@ -1050,6 +1255,7 @@ test('qualified evidence and a genuinely distinct candidate arena advance throug
     ],
     conflict_sets: [],
     coverage_row_intents: [coverageRow('coverage_support', 'support'), coverageRow('coverage_challenge', 'challenge'), coverageRow('coverage_baseline', 'baseline')],
+    coverage_assessments: [],
   });
   assert.equal(evidenceCheckpoint.allowed_actions.includes('advance'), true);
 

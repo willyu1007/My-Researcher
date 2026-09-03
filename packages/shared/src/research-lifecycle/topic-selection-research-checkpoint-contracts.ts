@@ -167,12 +167,18 @@ export interface TopicSelectionResearchCheckpointRecord {
   superseded_at?: string | null;
 }
 
+export interface TopicSelectionRequiredCoverageAcceptance {
+  coverage_row_refs: TopicSelectionFunctionalRef[];
+  rationale: string;
+}
+
 export interface TopicSelectionEvidenceLandscapeReviewPayload {
   review_kind: 'evidence_landscape';
   nearest_work_reviewed: boolean;
   disconfirming_evidence_reviewed: boolean;
   source_quality_reviewed: boolean;
   limitations: string[];
+  accepted_coverage?: TopicSelectionRequiredCoverageAcceptance | null;
 }
 
 export interface TopicSelectionTopicQuestionReviewPayload {
@@ -740,6 +746,16 @@ export const topicSelectionResearchArenaAdvisoryReviewHistorySchema = {
   },
 } as const;
 
+export const topicSelectionRequiredCoverageAcceptanceSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['coverage_row_refs', 'rationale'],
+  properties: {
+    coverage_row_refs: { ...functionalRefArray, minItems: 1, uniqueItems: true },
+    rationale: stringId,
+  },
+} as const;
+
 export const topicSelectionEvidenceLandscapeReviewPayloadSchema = {
   type: 'object',
   additionalProperties: false,
@@ -756,6 +772,9 @@ export const topicSelectionEvidenceLandscapeReviewPayloadSchema = {
     disconfirming_evidence_reviewed: { type: 'boolean' },
     source_quality_reviewed: { type: 'boolean' },
     limitations: stringArray,
+    accepted_coverage: {
+      anyOf: [topicSelectionRequiredCoverageAcceptanceSchema, { type: 'null' }],
+    },
   },
 } as const;
 

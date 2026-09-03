@@ -78,6 +78,7 @@
 - Exit criteria: TSRF-01, TSRF-02, TSRF-06, TSRF-08, TSRF-09, and TSRF-12 pass.
 - Verification: Projection truth tables plus focused required-missing, material-conflict, answerable-with-risk, resolved-warning, and rejection scenarios.
 - Recovery: Revert projections or assessment binding while preserving canonical packets, coverage records, and decisions.
+- Phase progress: planned change 2 is implemented and focused-verified; remaining Phase 1 work is the Human-view and current-authority projection set.
 
 ### Phase 2 — Close public contract and local composition gaps
 - Outcome: Contract-correct callers can execute the existing workflow without undocumented aliases, node-invalid fields, or missing public routes.

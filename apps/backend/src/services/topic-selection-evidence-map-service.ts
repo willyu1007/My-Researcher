@@ -199,8 +199,12 @@ export class TopicSelectionEvidenceMapService {
       throw new AppError(409, 'VERSION_CONFLICT', 'SearchRun literature snapshot does not match SearchPlan lineage.');
     }
 
-    const coverageRows = await this.searchResources.listCoverageRowIntentsBySearchPlanId(searchPlan.search_plan_id);
-    const coverageBindings = (await this.searchResources.listCoverageEvidenceBindingsBySearchPlanId(searchPlan.search_plan_id))
+    const [coverageRows, coverageAssessments, allCoverageBindings] = await Promise.all([
+      this.searchResources.listCoverageRowIntentsBySearchPlanId(searchPlan.search_plan_id),
+      this.searchResources.listCoverageAssessmentsBySearchPlanId(searchPlan.search_plan_id),
+      this.searchResources.listCoverageEvidenceBindingsBySearchPlanId(searchPlan.search_plan_id),
+    ]);
+    const coverageBindings = allCoverageBindings
       .filter((binding) => binding.search_run_id === searchRun.search_run_id);
     const allowedRefs = this.buildAllowedEvidenceRefs(searchRun, coverageBindings);
     await this.validateEvidenceUnitInputs(input.evidence_units, coverageRows, allowedRefs);
@@ -397,6 +401,7 @@ export class TopicSelectionEvidenceMapService {
       evidence_units: persisted.evidence_units,
       conflict_sets: persisted.conflict_sets,
       coverage_row_intents: coverageRows,
+      coverage_assessments: coverageAssessments,
       policy_version_id: input.policy_version_id ?? null,
     });
     return persisted;
