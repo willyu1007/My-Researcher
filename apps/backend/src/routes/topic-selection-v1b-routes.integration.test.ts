@@ -3087,12 +3087,19 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     });
     dumpUnless(afterN7.steps.length === 2, 'COORD_DEBUG_AFTER_N7', { steps: afterN7.steps, halt: afterN7.halt });
     assert.deepEqual(afterN7.steps.map((step) => step.node_id), [N6_ID, N7_ID]);
-    assert.equal(afterN7.halt.reason, 'model_input_required');
-    assert.equal(afterN7.halt.node_id, N8_ID);
+    assert.equal(afterN7.halt.reason, 'no_frontier');
+    assert.equal(afterN7.halt.node_id, null);
 
     // 7) N8 draft from the materialized contract → chain completes through N9/N10/N11
     await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
-    const n8Input = await v1bHarnessN8Request(app, fabricateResult(afterN7.run_state, N7_ID), suffix);
+    const afterQuestionReview = await advance({});
+    assert.equal(afterQuestionReview.halt.reason, 'model_input_required');
+    assert.equal(afterQuestionReview.halt.node_id, N8_ID);
+    const n8Input = await v1bHarnessN8Request(
+      app,
+      fabricateResult(afterQuestionReview.run_state, N7_ID),
+      suffix,
+    );
     const finalReport = await advance({
       node_inputs: {
         [N8_ID]: { draft_payload: v1bHarnessN8ValueDraft(n8Input) as unknown as Record<string, unknown> },
@@ -3198,11 +3205,15 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
     const stateAfterN5 = (await advance({})).run_state;
     const n6Input = await v1bHarnessN6Request(app, fabricate(stateAfterN5, N5_ID), suffix);
     const afterN7 = await advance({ node_inputs: { [N6_ID]: { draft_payload: v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown> } } });
-    assert.equal(afterN7.halt.node_id, N8_ID);
+    assert.equal(afterN7.halt.reason, 'no_frontier');
+    assert.equal(afterN7.halt.node_id, null);
 
     // First N8 eval with a borderline draft -> T1 first-pass loopback.
     await advanceQuestionCheckpoint(app, bundleResult.v1bInputBundle.title_card_id);
-    const n8Input = await v1bHarnessN8Request(app, fabricate(afterN7.run_state, N7_ID), suffix);
+    const afterQuestionReview = await advance({});
+    assert.equal(afterQuestionReview.halt.reason, 'model_input_required');
+    assert.equal(afterQuestionReview.halt.node_id, N8_ID);
+    const n8Input = await v1bHarnessN8Request(app, fabricate(afterQuestionReview.run_state, N7_ID), suffix);
     const loopbackReport = await advance({ node_inputs: { [N8_ID]: { draft_payload: borderline(v1bHarnessN8ValueDraft(n8Input) as unknown as Record<string, unknown>) } } });
     assert.equal(loopbackReport.halt.reason, 'harness_loopback');
     assert.equal(loopbackReport.run_state.nodes.find((n) => n.node_id === N8_ID)!.latest!.route_decision, 'loopback');
