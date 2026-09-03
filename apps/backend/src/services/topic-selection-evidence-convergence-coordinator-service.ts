@@ -8,6 +8,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import {
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+  canonicalizeEvidenceConvergenceRequest,
   evaluateEvidenceConvergenceBoundary,
   type TopicSelectionEvidenceConvergenceRetrievalRequestIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
@@ -27,7 +28,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import { AppError } from '../errors/app-error.js';
 import type { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
-import { sha256Text } from './literature-content-processing-utils.js';
+import { sha256Text, stableStringify } from './literature-content-processing-utils.js';
 
 type SearchResources = Pick<TopicSelectionSearchResourceService,
   | 'createSearchPlanRecheckRequest'
@@ -39,6 +40,7 @@ type SearchResources = Pick<TopicSelectionSearchResourceService,
   | 'completeEvidenceConvergenceRecheckRequest'
   | 'getSearchRunById'
   | 'getSearchPlanRecheckRequestById'
+  | 'listSearchPlanRecheckRequestsByTitleCardId'
 >;
 
 export type TopicSelectionEvidenceConvergenceRoleRetrievalRequest = {
@@ -154,35 +156,43 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     const predecessor = await this.dependencies.evidenceMapReader.findEvidenceMapById(
       input.predecessor_evidence_map_id,
     );
+    const currentPredecessor = predecessor?.status === 'ready'
+      && predecessor.freshness_status === 'current'
+      && !predecessor.successor_evidence_map_ref;
+    const replayableHistoricalPredecessor = predecessor?.status === 'stale'
+      && predecessor.freshness_status === 'superseded'
+      && Boolean(predecessor.successor_evidence_map_ref);
     if (!predecessor || predecessor.title_card_id !== input.title_card_id
       || predecessor.search_plan_ref.ref_id !== input.target_search_plan_id
-      || predecessor.freshness_status !== 'current'
-      || predecessor.status !== 'ready') {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence requires the current predecessor EvidenceMap.');
+      || (!currentPredecessor && !replayableHistoricalPredecessor)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence requires a current predecessor or an exact durable replay.');
     }
     if (input.workspace_id !== undefined
       && (input.workspace_id ?? null) !== (predecessor.workspace_id ?? null)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence workspace scope does not match the predecessor EvidenceMap.');
     }
+    const workspaceId = input.workspace_id ?? predecessor.workspace_id ?? null;
     const predecessorUnits = await this.dependencies.evidenceMapReader.listEvidenceUnitsByEvidenceMapId(
       predecessor.evidence_map_id,
     );
     const startedAt = (this.dependencies.nowMs ?? Date.now)();
 
-    const requestByRole = await Promise.all(input.role_requests.map(async (roleRequest) => ({
-      participant_role: roleRequest.participant_role,
-      request: await this.dependencies.searchResources.createSearchPlanRecheckRequest({
-        workspace_id: input.workspace_id ?? null,
-        title_card_id: input.title_card_id,
-        source_ref: roleRequest.intent.issue_ref,
-        target_search_plan_id: input.target_search_plan_id,
-        reason: `Resolve evidence-landscape issue ${roleRequest.intent.issue_ref.ref_id}.`,
-        gap_codes: ['REQUIRED_COVERAGE_MISSING'],
-        requested_by: 'system',
-        policy_version_id: input.policy_version_id ?? null,
-        evidence_convergence_intent: roleRequest.intent,
-      }),
-    })));
+    const requestByRole = predecessor.freshness_status === 'superseded'
+      ? await this.historicalRequestReplays(input, workspaceId)
+      : await Promise.all(input.role_requests.map(async (roleRequest) => ({
+          participant_role: roleRequest.participant_role,
+          request: await this.dependencies.searchResources.createSearchPlanRecheckRequest({
+            workspace_id: workspaceId,
+            title_card_id: input.title_card_id,
+            source_ref: roleRequest.intent.issue_ref,
+            target_search_plan_id: input.target_search_plan_id,
+            reason: `Resolve evidence-landscape issue ${roleRequest.intent.issue_ref.ref_id}.`,
+            gap_codes: ['REQUIRED_COVERAGE_MISSING'],
+            requested_by: 'system',
+            policy_version_id: input.policy_version_id ?? null,
+            evidence_convergence_intent: roleRequest.intent,
+          }),
+        })));
     const uniqueRequests = [...new Map(requestByRole.map(({ request }) => [
       request.search_plan_recheck_request_id,
       request,
@@ -246,6 +256,45 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       accounting,
       role_distributions: roleDistributions,
     };
+  }
+
+  private async historicalRequestReplays(
+    input: TopicSelectionExecuteEvidenceConvergenceRetrievalInput,
+    workspaceId: string | null,
+  ): Promise<Array<{
+    participant_role: TopicSelectionResearchArenaParticipantRole;
+    request: TopicSelectionSearchPlanRecheckRequestRecord;
+  }>> {
+    const persisted = await this.dependencies.searchResources
+      .listSearchPlanRecheckRequestsByTitleCardId(input.title_card_id);
+    return input.role_requests.map((roleRequest) => {
+      const canonical = canonicalizeEvidenceConvergenceRequest(roleRequest.intent);
+      const request = persisted.find((candidate) => candidate.status === 'materialized'
+        && Boolean(candidate.resulting_search_plan_ref)
+        && Boolean(candidate.resulting_search_run_ref)
+        && candidate.target_search_plan_ref.ref_id === input.target_search_plan_id
+        && (candidate.workspace_id ?? null) === workspaceId
+        && stableStringify({
+          issue_ref: candidate.issue_ref,
+          originating_arena_session_ref: candidate.originating_arena_session_ref,
+          expected_decision_effect: candidate.expected_decision_effect,
+          strategy_identity_payload: candidate.retrieval_intent ? {
+            search_intent: candidate.retrieval_intent.search_intent,
+            candidate_queries: candidate.retrieval_intent.candidate_queries,
+            corpus_manifest_ref: candidate.retrieval_intent.corpus_manifest_ref,
+            corpus_manifest_hash: candidate.retrieval_intent.corpus_manifest_hash,
+            retrieval_parameters: candidate.retrieval_intent.retrieval_parameters,
+          } : null,
+        }) === stableStringify(canonical.request_identity_payload));
+      if (!request) {
+        throw new AppError(
+          409,
+          'VERSION_CONFLICT',
+          'A superseded predecessor permits only an exact materialized retrieval replay.',
+        );
+      }
+      return { participant_role: roleRequest.participant_role, request };
+    });
   }
 
   private async executeOrReuseRequest(
@@ -357,7 +406,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         strategy_key: request.strategy_key,
         query,
         retrieval_meta: response.meta,
-        hits: this.hits([{ query, response, coverageRow: childIssueRow }], request.title_card_id),
+        hits: hits.filter((hit) => hit.query === query),
       })),
       result_accounting: {
         total_result_count: queryExecutions.reduce((total, item) => total + item.response.items.length, 0),

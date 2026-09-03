@@ -18,6 +18,9 @@ import type {
 import type {
   TopicSelectionResearchArenaSessionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
+import type {
+  TopicSelectionResearchCheckpointDecisionInput,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-checkpoint-contracts';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
 import { InMemoryTitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
@@ -33,7 +36,10 @@ import { TopicSelectionAgentOrchestratorService } from './topic-selection-agent-
 import { TopicSelectionBoundedDebateCoreService } from './topic-selection-bounded-debate-core-service.js';
 import { TopicSelectionContextPolicyProfileRegistryService } from './topic-selection-context-policy-profile-registry-service.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
-import { TopicSelectionEvidenceConvergenceCoordinatorService } from './topic-selection-evidence-convergence-coordinator-service.js';
+import {
+  TopicSelectionEvidenceConvergenceCoordinatorService,
+  type TopicSelectionExecuteEvidenceConvergenceRetrievalInput,
+} from './topic-selection-evidence-convergence-coordinator-service.js';
 import {
   TopicSelectionEvidenceConvergenceRoundService,
   type TopicSelectionRunEvidenceConvergenceRoundInput,
@@ -508,6 +514,12 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     created_by: 'system',
   });
   const initialMap = initialMapResult.evidence_map;
+  const initialMapRef = ref(
+    'evidence_map',
+    initialMap.evidence_map_id,
+    titleCardId,
+    initialMap.evidence_map_version,
+  );
   const initialCheckpoint = await checkpointRepository.findCurrentCheckpoint(
     titleCardId,
     'evidence_landscape',
@@ -515,13 +527,29 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   assert.ok(initialCheckpoint);
   const initialCheckpointPacket = await checkpointService.getPacket(initialCheckpoint.research_checkpoint_id);
   assert.equal(initialCheckpointPacket.packet_payload.policy_result, 'loopback_required');
-
-  const initialMapRef = ref(
-    'evidence_map',
-    initialMap.evidence_map_id,
-    titleCardId,
-    initialMap.evidence_map_version,
+  const humanLoopbackInput = {
+    decision_key: 'bounded-convergence-pilot-human-loopback-v1',
+    decision: 'loopback',
+    actor: { actor_type: 'human', actor_id: 'pilot-reviewer' },
+    confirmed_snapshot_hash: initialCheckpoint.target_snapshot_hash,
+    rationale: 'The required distribution-shift challenge row needs direct claim-bearing evidence.',
+    review_payload: {
+      review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true,
+      disconfirming_evidence_reviewed: true,
+      source_quality_reviewed: true,
+      limitations: ['Direct challenge evidence is missing from the current frozen map.'],
+    },
+    required_action_refs: initialCheckpoint.required_action_refs,
+    loopback_target: 'evidence_landscape',
+    loopback_refs: [initialMapRef],
+  } satisfies TopicSelectionResearchCheckpointDecisionInput;
+  const humanLoopbackDecision = await checkpointService.recordDecision(
+    initialCheckpoint.research_checkpoint_id,
+    humanLoopbackInput,
   );
+  assert.equal(humanLoopbackDecision.actor.actor_type, 'human');
+  assert.equal(humanLoopbackDecision.decision, 'loopback');
   const parentSnapshot = await controlPlane.compileInputSnapshot({
     title_card_id: titleCardId,
     target_ref: initialMapRef,
@@ -625,7 +653,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
     ),
     corpus_manifest_hash: manifest.snapshot_hash,
   };
-  const retrieval = await coordinator.executeRoleRetrievalRequests({
+  const retrievalInput = {
     title_card_id: titleCardId,
     target_search_plan_id: initialPlan.search_plan.search_plan_id,
     predecessor_evidence_map_id: initialMap.evidence_map_id,
@@ -640,7 +668,8 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
       elapsed_ms: 10,
       accumulated_cost_microusd: 0,
     },
-  });
+  } satisfies TopicSelectionExecuteEvidenceConvergenceRetrievalInput;
+  const retrieval = await coordinator.executeRoleRetrievalRequests(retrievalInput);
   assert.equal(retrieval.status, 'retrieval_ready');
   assert.equal(retrieval.requests.length, 1, 'equivalent role requests must share one durable execution');
   assert.equal(retrieval.executions.length, 1);
@@ -658,6 +687,95 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   const hit = execution.retrieval_hits[0]!;
   assert.equal(hit.source_text, CHALLENGE_STATEMENT);
   assert.equal(hit.chunk_ref.ref_id, CHALLENGE_PARAGRAPH_ID);
+  assert.notEqual(execution.request_ref.ref_id, execution.search_run_ref.ref_id);
+  const persistedRetrievalRun = await searchService.getSearchRunById(execution.search_run_ref.ref_id);
+  assert.ok(persistedRetrievalRun);
+  assert.equal(persistedRetrievalRun.query_provenance.length, 2);
+  assert.ok(persistedRetrievalRun.query_provenance.every((entry) => {
+    const retrievalMeta = entry.retrieval_meta as LiteratureRetrieveResponse['meta'] | undefined;
+    return entry.request_key === retrieval.requests[0]?.request_key
+      && entry.strategy_key === retrieval.requests[0]?.strategy_key
+      && retrievalMeta?.query_embedding_telemetry?.provider_id === 'pilot-provider';
+  }));
+  const retrievalLogArtifacts = await controlPlane.listArtifactRefsByWorkflowRunId(
+    persistedRetrievalRun.workflow_run_id!,
+  );
+  assert.ok(retrievalLogArtifacts.some((artifact) => (
+    artifact.payload?.schema_version === 'TopicSelectionEvidenceConvergenceRetrievalLog@v1'
+  )));
+  const retrievalReplay = await coordinator.executeRoleRetrievalRequests(retrievalInput);
+  assert.equal(retrievalReplay.status, 'retrieval_ready');
+  assert.equal(retrievalReplay.executions[0]?.request_ref.ref_id, execution.request_ref.ref_id);
+  assert.equal(retrievalReplay.executions[0]?.search_run_ref.ref_id, execution.search_run_ref.ref_id);
+  assert.deepEqual(retrievalReplay.executions[0]?.retrieval_hits, execution.retrieval_hits);
+  assert.equal(retrievalReplay.executions[0]?.reused, true);
+  assert.ok(retrievalReplay.role_distributions.every((distribution) => distribution.reused));
+  assert.deepEqual(retrievalReplay.accounting, {
+    orchestration_steps: 0,
+    linked_rounds: 0,
+    elapsed_ms: 25,
+    accumulated_cost_microusd: 0,
+  });
+  assert.equal(retrievalCalls.length, 2, 'retrieval replay must not call the provider again');
+
+  const noHitCoordinator = new TopicSelectionEvidenceConvergenceCoordinatorService({
+    searchResources: searchService,
+    evidenceMapReader: evidenceRepository,
+    retriever: {
+      retrieve: async (request) => ({ ...retrievalResponse(request.query), items: [] }),
+    },
+    scopedRetriever: {
+      retrieve: async () => { throw new Error('unexpected narrowed retrieval'); },
+    },
+    nowMs: () => 200,
+  });
+  const noHit = await noHitCoordinator.executeRoleRetrievalRequests({
+    ...retrievalInput,
+    role_requests: [{
+      participant_role: 'empirical_skeptic',
+      intent: {
+        ...requestIntent,
+        search_intent: 'Try a distinct invariance-failure strategy.',
+        candidate_queries: ['invariance counterexample', 'shift brittleness boundary'],
+      },
+    }],
+  });
+  assert.equal(noHit.status, 'saturated_unresolved');
+  assert.deepEqual(noHit.reason_codes, ['UNCHANGED_STRATEGY_NO_RETRIEVAL_HITS']);
+  assert.equal(noHit.executions[0]?.retrieval_hit_count, 0);
+  assert.notEqual(noHit.requests[0]?.request_key, retrieval.requests[0]?.request_key);
+  assert.notEqual(noHit.requests[0]?.strategy_key, retrieval.requests[0]?.strategy_key);
+
+  let staleRetrievalCalls = 0;
+  const staleCoordinator = new TopicSelectionEvidenceConvergenceCoordinatorService({
+    searchResources: searchService,
+    evidenceMapReader: evidenceRepository,
+    retriever: {
+      retrieve: async (request) => {
+        staleRetrievalCalls += 1;
+        const response = retrievalResponse(request.query);
+        return {
+          ...response,
+          items: response.items.map((item) => ({ ...item, is_stale: true })),
+        };
+      },
+    },
+    scopedRetriever: {
+      retrieve: async () => { throw new Error('unexpected narrowed retrieval'); },
+    },
+  });
+  await assert.rejects(staleCoordinator.executeRoleRetrievalRequests({
+    ...retrievalInput,
+    role_requests: [{
+      participant_role: 'opportunity_scout',
+      intent: {
+        ...requestIntent,
+        search_intent: 'Test a distinct stale-source recovery strategy.',
+        candidate_queries: ['historical shift failure evidence'],
+      },
+    }],
+  }), /returned stale evidence/u);
+  assert.equal(staleRetrievalCalls, 1);
 
   const successor = await evidenceService.publishEvidenceConvergenceSuccessor({
     title_card_id: titleCardId,
@@ -746,7 +864,7 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
       return current;
     },
   });
-  const round = await roundService.runLinkedRound({
+  const roundInput = {
     title_card_id: titleCardId,
     predecessor_arena_session_id: parentArena.arena_session_id,
     successor_evidence_map_id: successorMap.evidence_map_id,
@@ -767,7 +885,8 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
       operator_label: null,
     })),
     accounting: retrieval.accounting,
-  } satisfies TopicSelectionRunEvidenceConvergenceRoundInput);
+  } satisfies TopicSelectionRunEvidenceConvergenceRoundInput;
+  const round = await roundService.runLinkedRound(roundInput);
 
   assert.equal(round.status, 'linked_round_completed');
   assert.equal(round.arena_session.status, 'synthesized');
@@ -785,8 +904,48 @@ test('bounded local pilot completes retrieval -> admission -> successor -> linke
   assert.equal(round.checkpoint.checkpoint_kind, initialCheckpoint.checkpoint_kind);
   assert.equal(round.checkpoint.current_checkpoint_key, initialCheckpoint.current_checkpoint_key);
   assert.equal(round.checkpoint.target_ref.ref_id, successorMap.evidence_map_id);
+  assert.notEqual(execution.request_ref.ref_id, successor.evidence_delta_ref.ref_id);
+  assert.notEqual(successor.evidence_delta_ref.ref_id, round.round_link_ref.ref_id);
+  assert.notEqual(round.round_link_ref.ref_id, round.transcript_ref.ref_id);
+  const roundReplay = await roundService.runLinkedRound(roundInput);
+  assert.deepEqual(roundReplay, round);
+  assert.equal(
+    (await arenaRepository.listRoleExecutionsBySessionId(round.arena_session.arena_session_id)).length,
+    3,
+  );
   assert.equal(
     (await checkpointService.getCheckpoint(initialCheckpoint.research_checkpoint_id)).status,
     'superseded',
   );
+  const preservedHumanPacket = await checkpointService.getPacket(
+    initialCheckpoint.research_checkpoint_id,
+  );
+  assert.deepEqual(preservedHumanPacket.decision, humanLoopbackDecision);
+  assert.equal(finalCheckpointPacket.decision, null);
+  assert.deepEqual(
+    await checkpointService.recordDecision(initialCheckpoint.research_checkpoint_id, humanLoopbackInput),
+    humanLoopbackDecision,
+    'an exact Human-decision replay must remain available after successor checkpoint publication',
+  );
+  const completedRetrievalReplay = await coordinator.executeRoleRetrievalRequests(retrievalInput);
+  assert.equal(completedRetrievalReplay.status, 'retrieval_ready');
+  assert.equal(completedRetrievalReplay.executions[0]?.reused, true);
+  assert.equal(
+    completedRetrievalReplay.executions[0]?.search_run_ref.ref_id,
+    execution.search_run_ref.ref_id,
+    'the durable retrieval must remain replayable after its predecessor map is superseded',
+  );
+  assert.equal(retrievalCalls.length, 2);
+  await assert.rejects(coordinator.executeRoleRetrievalRequests({
+    ...retrievalInput,
+    role_requests: [{
+      participant_role: 'opportunity_scout',
+      intent: {
+        ...requestIntent,
+        search_intent: 'A new strategy cannot start from historical evidence.',
+        candidate_queries: ['new historical-map query'],
+      },
+    }],
+  }), /superseded predecessor permits only an exact materialized retrieval replay/u);
+  assert.equal(retrievalCalls.length, 2);
 });

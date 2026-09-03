@@ -1238,7 +1238,7 @@
     {
       "id": "T-150",
       "slug": "topic-selection-evidence-convergence-core",
-      "status": "in-progress",
+      "status": "done",
       "updated": "2026-09-03",
       "dev_docs_path": "dev-docs/active/topic-selection-evidence-convergence-core",
       "feature_id": "F-001"

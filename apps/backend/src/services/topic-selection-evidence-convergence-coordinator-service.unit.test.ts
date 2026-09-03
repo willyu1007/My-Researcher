@@ -340,6 +340,7 @@ test('coordinator merges equivalent role requests, persists execution before dis
       },
       getSearchRunById: async () => run,
       getSearchPlanRecheckRequestById: async () => durableRequest,
+      listSearchPlanRecheckRequestsByTitleCardId: async () => [durableRequest],
     },
     retriever: {
       retrieve: async (request: LiteratureRetrieveRequest) => {
@@ -481,6 +482,7 @@ test('coordinator halts exhausted work unresolved before retrieval', async () =>
       completeEvidenceConvergenceRecheckRequest: async () => { throw new Error('unreachable'); },
       getSearchRunById: async () => null,
       getSearchPlanRecheckRequestById: async () => null,
+      listSearchPlanRecheckRequestsByTitleCardId: async () => [],
     },
     retriever: { retrieve: async () => { throw new Error('unreachable'); } },
     scopedRetriever: { retrieve: async () => { throw new Error('unreachable'); } },

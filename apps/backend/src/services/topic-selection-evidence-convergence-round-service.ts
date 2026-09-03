@@ -414,7 +414,9 @@ export class TopicSelectionEvidenceConvergenceRoundService {
     arena: Pick<
       TopicSelectionResearchArenaService,
       | 'getSession'
+      | 'getSessionByKey'
       | 'getCurrentSession'
+      | 'listRoleExecutions'
       | 'openSession'
       | 'recordRoleExecution'
       | 'synthesizeEvidenceLandscapeSession'
@@ -483,13 +485,9 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       || searchRun.search_run_id !== evidenceMap.search_run_ref.ref_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Successor EvidenceMap SearchRun is unavailable.');
     }
-    const [evidenceUnits, currentArena] = await Promise.all([
-      this.dependencies.evidenceMaps.listEvidenceUnitsByEvidenceMapId(evidenceMap.evidence_map_id),
-      this.dependencies.arena.getCurrentSession(input.title_card_id, 'evidence_landscape'),
-    ]);
-    if (currentArena?.arena_session_id !== parentSession.arena_session_id) {
-      throw new AppError(409, 'VERSION_CONFLICT', 'Requested parent arena is not the current evidence-landscape round.');
-    }
+    const evidenceUnits = await this.dependencies.evidenceMaps.listEvidenceUnitsByEvidenceMapId(
+      evidenceMap.evidence_map_id,
+    );
     if (evidenceUnits.some((unit) => (unit.workspace_id ?? null) !== (evidenceMap.workspace_id ?? null))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Successor EvidenceMap units cross the workspace scope.');
     }
@@ -506,6 +504,25 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       support_only: true,
     };
     const planHash = sha256Text(stableStringify(planPayload));
+    const sessionKey = `evidence-convergence:${sha256Text(stableStringify({
+      predecessor_arena_session_id: parentSession.arena_session_id,
+      parent_transcript_hash: parentSession.loop_transcript_hash,
+      evidence_delta_hash: evidenceDeltaHash,
+      evidence_map_ref: this.evidenceMapRef(evidenceMap),
+      input_snapshot_hash: snapshot.snapshot_hash,
+    }))}`;
+    const requestIdentityHash = this.requestIdentityHash(input);
+    const existingSession = await this.dependencies.arena.getSessionByKey(sessionKey);
+    if (!existingSession) {
+      const currentArena = await this.dependencies.arena.getCurrentSession(
+        input.title_card_id,
+        'evidence_landscape',
+      );
+      if (parentSession.status !== 'synthesized'
+        || currentArena?.arena_session_id !== parentSession.arena_session_id) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Requested parent arena is not the current synthesized evidence-landscape round.');
+      }
+    }
     const planArtifact = await this.dependencies.controlPlane.recordArtifactRef({
       stable_key: `evidence-convergence-round-plan:${planHash}`,
       workspace_id: input.workspace_id ?? evidenceMap.workspace_id ?? null,
@@ -519,13 +536,6 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       mime_type: 'application/json',
       created_by: 'system',
     });
-    const sessionKey = `evidence-convergence:${sha256Text(stableStringify({
-      predecessor_arena_session_id: parentSession.arena_session_id,
-      parent_transcript_hash: parentSession.loop_transcript_hash,
-      evidence_delta_hash: evidenceDeltaHash,
-      evidence_map_ref: this.evidenceMapRef(evidenceMap),
-      input_snapshot_hash: snapshot.snapshot_hash,
-    }))}`;
     const session = await this.dependencies.arena.openSession({
       session_key: sessionKey,
       workspace_id: input.workspace_id ?? evidenceMap.workspace_id ?? null,
@@ -542,6 +552,17 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       }],
       created_by: 'system',
     });
+    if (existingSession) {
+      return this.replayCompletedRound({
+        input,
+        evidenceMap,
+        evidenceUnits,
+        parentSession,
+        session,
+        requestIdentityHash,
+        evidenceDeltaHash,
+      });
+    }
     if (session.supersedes_arena_session_id !== parentSession.arena_session_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Linked round did not supersede the requested parent arena.');
     }
@@ -627,6 +648,8 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       schema_version: 'TopicSelectionEvidenceConvergenceRoundTranscript@v1',
       arena_session_id: session.arena_session_id,
       input_snapshot_id: snapshot.input_snapshot_id,
+      request_identity_hash: requestIdentityHash,
+      result_accounting: accounting,
       core_loop_transcript_hash: loop.loop_transcript_hash,
       independent_first_pass: firstPasses.map((execution) => this.transcriptExecutionIdentity(execution)),
       synthesis_execution: this.transcriptExecutionIdentity(synthesis),
@@ -685,6 +708,8 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       coverage_assessments: coverage.rows.flatMap((row) => row.latest_assessment ? [row.latest_assessment] : []),
       policy_version_id: input.policy_version_id ?? null,
     });
+    const roundLinkRef = this.artifactRef(roundLinkArtifact, input.title_card_id);
+    const transcriptRef = this.artifactRef(transcriptArtifact, input.title_card_id);
     return {
       status: 'linked_round_completed',
       reason_codes: [],
@@ -692,10 +717,130 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       arena_session: synthesized,
       role_executions: roleExecutions,
       round_link: roundLink,
-      round_link_ref: this.artifactRef(roundLinkArtifact, input.title_card_id),
-      transcript_ref: this.artifactRef(transcriptArtifact, input.title_card_id),
+      round_link_ref: roundLinkRef,
+      transcript_ref: transcriptRef,
       checkpoint,
     };
+  }
+
+  private async replayCompletedRound(args: {
+    input: TopicSelectionRunEvidenceConvergenceRoundInput;
+    evidenceMap: TopicSelectionEvidenceMapRecord;
+    evidenceUnits: TopicSelectionEvidenceUnitRecord[];
+    parentSession: TopicSelectionResearchArenaSessionRecord;
+    session: TopicSelectionResearchArenaSessionRecord;
+    requestIdentityHash: string;
+    evidenceDeltaHash: string;
+  }): Promise<TopicSelectionRunEvidenceConvergenceRoundResult> {
+    const session = args.session;
+    if (session.supersedes_arena_session_id !== args.parentSession.arena_session_id
+      || args.parentSession.superseded_by_arena_session_id !== session.arena_session_id
+      || !['synthesized', 'superseded'].includes(session.status)
+      || !session.loop_transcript_ref
+      || !session.loop_transcript_hash
+      || session.loop_transcript_hash !== session.loop_transcript_ref.version_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Completed linked round no longer matches the synthesized Arena lineage.');
+    }
+    const transcriptArtifact = await this.requireArtifact(
+      session.loop_transcript_ref,
+      args.input.title_card_id,
+    );
+    const transcript = transcriptArtifact.payload;
+    const accounting = transcript?.result_accounting;
+    if (transcriptArtifact.input_snapshot_id !== args.evidenceMap.input_snapshot_id
+      || (transcriptArtifact.workspace_id ?? null) !== (args.evidenceMap.workspace_id ?? null)
+      || transcript?.schema_version !== 'TopicSelectionEvidenceConvergenceRoundTranscript@v1'
+      || transcript.arena_session_id !== session.arena_session_id
+      || transcript.input_snapshot_id !== session.input_snapshot_id
+      || transcript.request_identity_hash !== args.requestIdentityHash
+      || !this.isRuntimeAccounting(accounting)
+      || this.requireChecksum(transcriptArtifact, 'Completed linked-round transcript')
+        !== session.loop_transcript_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Completed linked-round transcript identifies a different request or accounting result.');
+    }
+    const roundLink: TopicSelectionEvidenceConvergenceRoundLink = {
+      schema_version: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION,
+      arena_session_ref: this.ref('research_arena_session', session.arena_session_id, args.input.title_card_id),
+      supersedes_arena_session_ref: this.ref(
+        'research_arena_session',
+        args.parentSession.arena_session_id,
+        args.input.title_card_id,
+      ),
+      parent_transcript_hash: args.parentSession.loop_transcript_hash!,
+      evidence_delta_ref: args.input.evidence_delta_ref,
+      evidence_delta_hash: args.evidenceDeltaHash,
+    };
+    const roundLinkHash = sha256Text(stableStringify(roundLink));
+    const roundLinkArtifact = await this.dependencies.controlPlane.getArtifactRefByStableKey(
+      `evidence-convergence-round-link:${roundLinkHash}`,
+    );
+    if (!roundLinkArtifact
+      || roundLinkArtifact.input_snapshot_id !== args.evidenceMap.input_snapshot_id
+      || (roundLinkArtifact.workspace_id ?? null) !== (args.evidenceMap.workspace_id ?? null)
+      || this.requireChecksum(roundLinkArtifact, 'Completed linked-round link') !== roundLinkHash
+      || stableStringify(roundLinkArtifact.payload) !== stableStringify(roundLink)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Completed linked round has no exact durable round link.');
+    }
+    const roundLinkRef = this.artifactRef(roundLinkArtifact, args.input.title_card_id);
+    const synthesized = await this.dependencies.arena.synthesizeEvidenceLandscapeSession({
+      arena_session_id: session.arena_session_id,
+      loop_transcript_artifact_ref: session.loop_transcript_ref,
+      round_link_artifact_ref: roundLinkRef,
+    });
+    const [roleExecutions, conflicts, coverage] = await Promise.all([
+      this.dependencies.arena.listRoleExecutions(session.arena_session_id),
+      this.dependencies.evidenceMaps.listConflictSetsByEvidenceMapId(args.evidenceMap.evidence_map_id),
+      this.dependencies.searchResources.getCoverageMatrix(args.evidenceMap.search_plan_ref.ref_id),
+    ]);
+    if (roleExecutions.length !== ROLE_ORDER.length
+      || ROLE_ORDER.some((role) => !roleExecutions.some((execution) => execution.participant_role === role))) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Completed linked round no longer matches its role executions.');
+    }
+    const checkpoint = await this.dependencies.checkpoints.materializeEvidenceLandscapeCheckpoint({
+      evidence_map: args.evidenceMap,
+      evidence_units: args.evidenceUnits,
+      conflict_sets: conflicts,
+      coverage_row_intents: coverage.rows.map((row) => row.coverage_row_intent),
+      coverage_assessments: coverage.rows.flatMap((row) => row.latest_assessment ? [row.latest_assessment] : []),
+      policy_version_id: args.input.policy_version_id ?? null,
+    });
+    return {
+      status: 'linked_round_completed',
+      reason_codes: [],
+      accounting,
+      arena_session: synthesized,
+      role_executions: roleExecutions,
+      round_link: roundLink,
+      round_link_ref: roundLinkRef,
+      transcript_ref: session.loop_transcript_ref,
+      checkpoint,
+    };
+  }
+
+  private requestIdentityHash(input: TopicSelectionRunEvidenceConvergenceRoundInput): string {
+    return sha256Text(stableStringify({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      predecessor_arena_session_id: input.predecessor_arena_session_id,
+      successor_evidence_map_id: input.successor_evidence_map_id,
+      evidence_delta_ref: input.evidence_delta_ref,
+      issue_ref: input.issue_ref,
+      execution_mode: input.execution_mode,
+      role_inputs: input.role_inputs,
+      accounting: input.accounting,
+      policy_version_id: input.policy_version_id ?? null,
+    }));
+  }
+
+  private isRuntimeAccounting(value: unknown): value is RuntimeAccounting {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    const accounting = value as Partial<RuntimeAccounting>;
+    return [
+      accounting.orchestration_steps,
+      accounting.linked_rounds,
+      accounting.elapsed_ms,
+      accounting.accumulated_cost_microusd,
+    ].every((candidate) => typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0);
   }
 
   private assertInput(input: TopicSelectionRunEvidenceConvergenceRoundInput): void {
@@ -740,7 +885,7 @@ export class TopicSelectionEvidenceConvergenceRoundService {
       || !this.isSameRefValue(delta.predecessor_evidence_map_ref, evidenceMap.predecessor_evidence_map_ref)
       || parentSession.title_card_id !== input.title_card_id
       || parentSession.arena_kind !== 'evidence_landscape'
-      || parentSession.status !== 'synthesized'
+      || !['synthesized', 'superseded'].includes(parentSession.status)
       || !parentSession.loop_transcript_ref
       || !parentSession.loop_transcript_hash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Linked round workspace scope, material successor, or synthesized parent arena lineage is invalid.');

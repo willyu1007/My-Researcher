@@ -37,8 +37,21 @@ Phase 1 realized these shapes through the smallest existing owners: `LiteratureR
 
 Canonical request identity normalizes whitespace and case in semantic text, sorts and deduplicates candidate queries, normalizes absent versus explicit-null functional-ref version fields, and includes the coordinator-owned retrieval parameters. Roles cannot supply `request_key` or `strategy_key`; the coordinator hashes the normalized strategy and request payloads. Equivalent concurrent writes converge on one request through a synchronous in-memory key index or the Prisma unique request key. EvidenceDelta and ResolutionRoute artifact keys include content plus title, workspace, workflow, and input-snapshot lineage so reuse cannot cross authority boundaries.
 
+Phase 3 keeps replay inside those same authorities. Once a predecessor EvidenceMap is superseded, the
+coordinator permits only lookup of an exact already-materialized request with its existing SearchPlan
+and SearchRun; a changed strategy cannot execute against historical state. A completed linked round is
+reconstructed from its Arena session, immutable transcript, role executions, content-addressed round
+link, successor EvidenceMap, and idempotent checkpoint. The transcript binds the canonical request
+identity and returned accounting, and replay revalidates each durable input before returning. There is
+no separate completion receipt, aggregate pilot record, or mutable resume authority.
+
 ## Migration and operation
 
 The pilot is an additive composition of the canonical runtime services rather than a new aggregate authority or public orchestration endpoint. It creates a new SearchRun, successor EvidenceMap, linked Debate round, and fresh evidence checkpoint instead of mutating a frozen downstream bundle. Coordinator output carries orchestration-step, elapsed-time, and query-embedding-cost accounting into the linked round; equivalent durable retrieval reuse adds no retrieval cost. T-148 owns the typed required-coverage issue and Human acceptance contract consumed here; T-150 does not duplicate it. Existing SearchPlans, SearchRuns, EvidenceMaps, Debate artifacts, and Human decisions remain readable. A rollback disables the pilot coordinator while retaining its durable support artifacts; it never deletes a map or decision.
 
 Managed-library retrieval is the only corpus boundary in this task. A new external acquisition source, provider activation, environment change, destructive effect, or Human decision remains a separate authorization boundary. Safe starts or restarts of the same local backend do not require repeated authorization during one already authorized implementation/replay operation.
+
+Adoption by another Debate scenario requires a separately accepted owner and outcome plus an exact
+managed-corpus/request identity, immutable successor route, linked-round replay seam, and deterministic
+gate followed by strict-Human authority. T-150 proves those conditions only for evidence-landscape
+convergence and deliberately stops there.

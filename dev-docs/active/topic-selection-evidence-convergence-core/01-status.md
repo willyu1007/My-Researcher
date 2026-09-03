@@ -4,10 +4,10 @@
 Resolve the evidence-convergence problems exposed by T-148 and implement the process changes agreed during that real-flow review: use the managed literature library as retrieval fuel, let Debate request evidence as needed, turn material evidence change into traceable successor results and linked rounds, and route unresolved gate failures without rewriting prior Human decisions.
 
 ## Progress
-- State: in-progress
-- Current phase: Phase 2 completed on 2026-09-03; one bounded local pilot composes retrieval, admission, successor publication, a linked round, and the fresh deterministic checkpoint with carried runtime accounting
-- Next step: Await authorization for Phase 3's replay, observability, and Human-reviewed real-flow proof.
-- Blocker: none for the authorized work. Phase 3 remains outside the current authorization.
+- State: done
+- Current phase: Phase 3 completed and verified on 2026-09-03
+- Next step: Keep the proven kernel limited to evidence-landscape convergence; open separately accepted follow-up work before adopting it in another Debate scenario.
+- Blocker: none.
 
 ## Phase 1 checkpoint
 
@@ -18,7 +18,7 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] ECK-05 has additive successor fields and one transactional EvidenceMap compare-and-swap repository transition with in-memory and Prisma race coverage; direct creation, ordinary freshness updates, nonzero successor revisions, and child-identity conflicts cannot bypass it.
 - [x] ECK-07 has a typed immutable ResolutionRoute artifact whose authority boundary remains deterministic-gate then strict-Human.
 - [x] ECK-06 is proven by the composed bounded local pilot.
-- [ ] ECK-08 remains Phase 3 failure/replay/real-flow proof.
+- [x] ECK-08 is proven by the Phase 3 failure/replay/provenance/strict-Human pilot matrix.
 
 ## Phase 2 implementation checkpoint
 
@@ -31,6 +31,15 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] The quality checkpoint closes cross-workspace and unrelated-parent substitution, regenerates packets from current evidence authority, revalidates round-link and synthesis artifacts on first execution and replay, preserves unresolved synthesis disposition, isolates durable linked-round counts by issue, and prevents a failed coverage assessment from advancing the EvidenceMap head.
 - [x] One composed bounded local pilot crosses retrieval → admission → successor → linked round → deterministic checkpoint using the canonical runtime owners and no aggregate authority.
 
+## Phase 3 implementation checkpoint
+
+- [x] Exact durable retrieval replay survives predecessor EvidenceMap supersession, preserves query-local hit ranks, performs no provider call, and adds no retrieval step or cost; a new strategy cannot start from a historical map.
+- [x] Negative retrieval terminates as `saturated_unresolved`, a stale source fails closed, and the existing standing budget tests continue to terminate unresolved rather than passing a gate.
+- [x] Request, SearchRun, EvidenceDelta, round-link, transcript, and checkpoint identities remain distinct; SearchRun query provenance carries coordinator request/strategy keys and provider telemetry, and the raw retrieval log remains recoverable.
+- [x] Exact linked-round replay revalidates the frozen transcript, request identity, stored accounting, role executions, round link, successor evidence, and checkpoint input without new role calls or duplicate durable records. Replay remains valid after a later Arena round supersedes it.
+- [x] The pilot records one strict-Human loopback against the original checkpoint, preserves that decision after successor publication, and leaves the fresh checkpoint undecided. Exact Human-decision replay remains idempotent; no coordinator, Debate role, or replay path authors Human authority.
+- [x] No completion receipt, aggregate pilot record, temporary dual route, or additional Debate-scenario adoption was introduced.
+
 ## Done when
 - [x] ECK-01: Every accessible indexed, evidence-ready literature record is eligible for retrieval by default unless an explicit Human scope narrows the corpus.
 - [x] ECK-02: A typed RetrievalRequest binds an unresolved issue and intended decision effect to coordinator-derived request/strategy identities and a durable, deduplicated retrieval execution with recoverable SearchRun provenance.
@@ -39,6 +48,6 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] ECK-05: Material evidence change publishes a successor EvidenceMap while preserving predecessor content, checkpoint history, and Human decisions.
 - [x] ECK-06: One evidence-landscape convergence Debate pilot can request full-library retrieval, bind the execution to a replayable corpus manifest, admit claim-level evidence, publish any required successor map, run a linked round, materialize a fresh checkpoint, and recheck the same deterministic gate contract.
 - [x] ECK-07: The pilot's material gate issue exposes one typed resolution route with an owning stage, required delta, and recheck condition; downstream Human decisions are never automatically overturned.
-- [ ] ECK-08: Focused failure, replay, no-delta, budget-boundary, and real-flow checks prove the pilot without introducing parallel authority or temporary dual routes.
+- [x] ECK-08: Focused failure, replay, no-delta, budget-boundary, and real-flow checks prove the pilot without introducing parallel authority or temporary dual routes.
 
-Done-when criteria are checked only after their runtime behavior is proven. ECK-01 through ECK-07 and the Phase 2 exit are now proven; ECK-08 and task completion remain reserved for Phase 3.
+All done-when criteria are proven. T-150 is complete at the single evidence-landscape pilot boundary; broader adoption remains separately authorized follow-up work.

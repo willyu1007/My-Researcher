@@ -322,8 +322,9 @@ test('material successor runs one linked frozen Arena round before the fresh che
     return { role, artifact, packet };
   }));
   const checkpoints: unknown[] = [];
+  const checkpointRepository = new InMemoryTopicSelectionResearchCheckpointRepository();
   const checkpointService = new TopicSelectionResearchCheckpointService(
-    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    checkpointRepository,
     controlPlane,
     {
       idFactory: (prefix) => `${prefix}_${++sequence}`,
@@ -504,4 +505,51 @@ test('material successor runs one linked frozen Arena round before the fresh che
   assert.equal(checkpointPacket.packet_payload.policy_result, 'eligible_for_human_review');
   assert.deepEqual(checkpointPacket.packet_payload.policy_issues, []);
   assert.equal((await arenaRepository.findSessionById(parent.arena_session_id))?.status, 'superseded');
+
+  const replay = await service.runLinkedRound(runInput);
+  assert.deepEqual(replay, result, 'an exact replay must reuse the completed linked round and its accounting');
+  assert.equal(checkpoints.length, 2, 'an exact replay must re-evaluate the canonical checkpoint input');
+  assert.equal(
+    (await checkpointRepository.listCheckpointsByTitleCardId(TITLE_CARD_ID)).length,
+    1,
+    'checkpoint materialization must remain durably idempotent',
+  );
+  assert.equal(
+    (await arenaRepository.listRoleExecutionsBySessionId(result.arena_session.arena_session_id)).length,
+    3,
+    'an exact replay must not execute or persist the three roles again',
+  );
+  await arenaRepository.replaceCurrentSession({
+    ...result.arena_session,
+    arena_session_id: 'arena_later_round',
+    session_key: 'later-round-key',
+    supersedes_arena_session_id: result.arena_session.arena_session_id,
+    superseded_by_arena_session_id: null,
+  });
+  const historicalReplay = await service.runLinkedRound(runInput);
+  assert.equal(historicalReplay.status, 'linked_round_completed');
+  assert.equal(historicalReplay.arena_session.status, 'superseded');
+  assert.deepEqual(historicalReplay.accounting, result.accounting);
+  assert.equal(historicalReplay.checkpoint.research_checkpoint_id, result.checkpoint.research_checkpoint_id);
+  assert.equal(checkpoints.length, 3);
+  await assert.rejects(service.runLinkedRound({
+    ...runInput,
+    role_inputs: runInput.role_inputs.map((roleInput, index) => index === 0
+      ? {
+          ...roleInput,
+          structured_output: {
+            ...roleInput.structured_output,
+            semantic_position: {
+              ...roleInput.structured_output.semantic_position,
+              summary: 'A changed output must not inherit the completed round transcript.',
+            },
+          },
+        }
+      : roleInput),
+  }), /transcript identifies a different request/u);
+  assert.equal(checkpoints.length, 3);
+  assert.equal(
+    (await arenaRepository.listRoleExecutionsBySessionId(result.arena_session.arena_session_id)).length,
+    3,
+  );
 });

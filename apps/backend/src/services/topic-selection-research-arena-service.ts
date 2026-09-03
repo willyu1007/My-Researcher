@@ -209,11 +209,22 @@ export class TopicSelectionResearchArenaService {
     return session;
   }
 
+  async getSessionByKey(sessionKey: string): Promise<TopicSelectionResearchArenaSessionRecord | null> {
+    return this.dependencies.arenaRepository.findSessionByKey(sessionKey);
+  }
+
   async getCurrentSession(
     titleCardId: string,
     arenaKind: TopicSelectionResearchArenaKind,
   ): Promise<TopicSelectionResearchArenaSessionRecord | null> {
     return this.dependencies.arenaRepository.findCurrentSession(titleCardId, arenaKind);
+  }
+
+  async listRoleExecutions(
+    arenaSessionId: string,
+  ): Promise<TopicSelectionResearchArenaRoleExecutionRecord[]> {
+    await this.getSession(arenaSessionId);
+    return this.dependencies.arenaRepository.listRoleExecutionsBySessionId(arenaSessionId);
   }
 
   async recordRoleExecution(
@@ -438,7 +449,7 @@ export class TopicSelectionResearchArenaService {
       snapshot,
     );
     const transcriptHash = this.requireArtifactHash(transcriptArtifact, 'Evidence-convergence transcript');
-    const synthesizedReplay = session.status === 'synthesized';
+    const synthesizedReplay = session.status === 'synthesized' || session.status === 'superseded';
     if (synthesizedReplay && (!session.loop_transcript_ref
       || !this.sameRef(session.loop_transcript_ref, input.loop_transcript_artifact_ref)
       || session.loop_transcript_hash !== transcriptHash)) {

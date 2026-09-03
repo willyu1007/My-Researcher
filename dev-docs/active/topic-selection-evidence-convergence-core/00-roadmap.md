@@ -112,6 +112,7 @@ same deterministic evidence-landscape checkpoint. It moves the checkpoint policy
 downstream question/value/promotion semantics.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout
+- Status: completed and verified on 2026-09-03.
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
 - Approach: Exercise duplicate requests, alternative strategies, negative retrieval, budget boundaries, stale sources, successor races, and strict-human barriers without adding another scenario.
 - Planned changes:
@@ -124,16 +125,29 @@ downstream question/value/promotion semantics.
 - Verification: Targeted regression suite, provenance audit, and one Human-reviewed real-flow packet.
 - Recovery: Return to the last trustworthy map/gate and leave additional scenario adoption unstarted.
 
+Phase 3 completed without adopting a second Debate scenario. Exact retrieval replay now remains
+available after the predecessor EvidenceMap is superseded, while a changed strategy against that
+historical map fails before provider execution. Exact linked-round replay reconstructs its result from
+the existing Arena transcript, role executions, round link, and idempotent checkpoint; it performs no
+new role calls and creates no completion receipt or parallel round authority. The bounded pilot also
+proves negative retrieval, stale-source failure, distinct provenance identities, and preservation of a
+strict-Human loopback decision across successor checkpoint publication.
+
+Another scenario may adopt the kernel only after it has an independently accepted outcome and owner,
+an exact managed-corpus/request identity, an immutable successor route, a linked-round replay seam,
+and the same deterministic-gate then strict-Human authority boundary. That adoption is follow-up work,
+not an extension of T-150.
+
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: through phase 2, authorized after the repaired Phase 1 checkpoint review on 2026-09-03.
+- Authorized boundary: through phase 3, authorized by the user on 2026-09-03 after the bounded Phase 2 pilot passed.
 - [x] Decisions: the linked-round model, evidence-landscape pilot, coordinator-owned saturation identity, corpus manifest identity, and project placement were confirmed on 2026-09-03.
 - [x] Design: the minimal contracts and authority boundaries are reflected in `02-architecture.md`.
 - [x] Route: the pilot extends the existing SearchPlan → SearchRun → EvidenceMap → checkpoint lineage and does not cross the downstream frozen question bundle.
 - [x] Verification: success, reuse, no-delta, boundary, race, replay, and Human-authority checks are identified in `verification.md`.
 
-Phase 1's repaired exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 and the Phase 2 runtime outcome are verified; ECK-08 and Phase 3 remain pending and unauthorized by design.
+Phase 1's repaired exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 and the Phase 2 runtime outcome are verified; Phase 3 closes ECK-08 and the task without broad rollout.
 
 ## Risks and recovery
 
