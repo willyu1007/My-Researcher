@@ -236,13 +236,30 @@ function response(query: string): LiteratureRetrieveResponse {
       freshness_warnings: [],
       profiles_used: [],
       skipped_profiles: [],
-      query_embedding_telemetry: null,
+      query_embedding_telemetry: {
+        provider_id: 'pilot-provider',
+        model_id: 'pilot-embedding',
+        profile_id: 'default',
+        prompt_template_id: null,
+        prompt_template_version: null,
+        elapsed_ms: 5,
+        request_count: 1,
+        retry_count: 0,
+        timeout_count: 0,
+        rate_limit_count: 0,
+        input_tokens: null,
+        output_tokens: null,
+        embedding_input_tokens: 10,
+        total_tokens: 10,
+        cost_usd: 0.00025,
+      },
     },
   };
 }
 
 test('coordinator merges equivalent role requests, persists execution before distribution, and reuses it', async () => {
   const calls: string[] = [];
+  let runtimeNowMs = 100;
   let durableRequest = requestRecord();
   const run: TopicSelectionSearchRunRecord = {
     search_run_id: 'run_1',
@@ -348,6 +365,11 @@ test('coordinator merges equivalent role requests, persists execution before dis
       }),
       listEvidenceUnitsByEvidenceMapId: async () => [],
     },
+    nowMs: () => {
+      const current = runtimeNowMs;
+      runtimeNowMs += 25;
+      return current;
+    },
   });
 
   const roleRequests = [
@@ -395,6 +417,12 @@ test('coordinator merges equivalent role requests, persists execution before dis
   assert.equal(first.executions[0]?.retrieval_hit_count, 2);
   assert.equal(first.role_distributions.length, 2);
   assert.equal(first.requests[0]?.status, 'materialized');
+  assert.deepEqual(first.accounting, {
+    orchestration_steps: 1,
+    linked_rounds: 0,
+    elapsed_ms: 25,
+    accumulated_cost_microusd: 500,
+  });
   assert.deepEqual(calls, [
     'retrieve:direct challenge evidence',
     'retrieve:failure mode evidence',
@@ -408,15 +436,32 @@ test('coordinator merges equivalent role requests, persists execution before dis
     target_search_plan_id: 'plan_1',
     predecessor_evidence_map_id: 'map_1',
     role_requests: roleRequests,
-    accounting: {
-      orchestration_steps: 1,
-      linked_rounds: 0,
-      elapsed_ms: 100,
-      accumulated_cost_microusd: 0,
-    },
+    accounting: first.accounting,
   });
   assert.equal(replay.status, 'retrieval_ready');
   assert.equal(replay.executions[0]?.reused, true);
+  assert.deepEqual(replay.accounting, {
+    orchestration_steps: 1,
+    linked_rounds: 0,
+    elapsed_ms: 50,
+    accumulated_cost_microusd: 500,
+  });
+  assert.deepEqual(calls, []);
+
+  const exhaustedAfterReplay = await service.executeRoleRetrievalRequests({
+    title_card_id: 'title_1',
+    target_search_plan_id: 'plan_1',
+    predecessor_evidence_map_id: 'map_1',
+    role_requests: roleRequests,
+    accounting: {
+      ...replay.accounting,
+      elapsed_ms: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY.max_elapsed_ms_per_issue - 25,
+    },
+  });
+  assert.equal(exhaustedAfterReplay.status, 'boundary_exhausted_unresolved');
+  assert.deepEqual(exhaustedAfterReplay.reason_codes, ['MAX_ELAPSED_TIME_EXHAUSTED']);
+  assert.equal(exhaustedAfterReplay.accounting.orchestration_steps, 1);
+  assert.equal(exhaustedAfterReplay.accounting.accumulated_cost_microusd, 500);
   assert.deepEqual(calls, []);
 });
 

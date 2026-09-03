@@ -89,10 +89,12 @@ Phase 1 landed the managed-library manifest on `LiteratureResourcePoolSnapshot`,
 - Verification: Focused service/contract tests plus one bounded local end-to-end pilot.
 - Recovery: Disable pilot routing, retain durable request/SearchRun/round artifacts, and preserve every prior map and decision.
 
-Phase 2 is in progress. The retrieval slice accepts role-authored intents, applies the standing
+Phase 2 completed on 2026-09-03. The retrieval slice accepts role-authored intents, applies the standing
 boundary before new work, deduplicates equivalent requests, executes the exact managed-library
 manifest, persists the child SearchPlan/SearchRun and raw query provenance, and redistributes the
-durable execution to every requesting role. The child plan preserves the parent coverage rows and
+durable execution to every requesting role. It returns carried runtime accounting for actual new
+orchestration work, elapsed time, and query-embedding cost; durable reuse does not charge retrieval
+cost again, and a reached post-execution boundary remains unresolved. The child plan preserves the parent coverage rows and
 the SearchRun carries predecessor locator authorities, so successor construction does not weaken
 lineage. Exact quote-bearing persisted hits can then produce immutable material or non-material
 EvidenceDelta artifacts; only a material delta publishes a successor through the existing
@@ -103,7 +105,11 @@ The quality checkpoint additionally derives workspace and parent-map scope from 
 regenerates every packet before use, revalidates round-link and synthesis artifacts on replay, keeps
 `remain_unresolved` distinct from a ready recommendation, counts linked rounds per durable issue, and
 orders coverage assessment persistence before the EvidenceMap head compare-and-swap.
-One composed bounded local pilot across all of these verified seams remains before Phase 2 exits.
+One bounded local integration pilot composes the canonical services across full managed-library
+retrieval → exact claim admission → material successor → linked frozen round → fresh instance of the
+same deterministic evidence-landscape checkpoint. It moves the checkpoint policy result from
+`loopback_required` to `eligible_for_human_review` without introducing a second authority or touching
+downstream question/value/promotion semantics.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
@@ -127,7 +133,7 @@ One composed bounded local pilot across all of these verified seams remains befo
 - [x] Route: the pilot extends the existing SearchPlan → SearchRun → EvidenceMap → checkpoint lineage and does not cross the downstream frozen question bundle.
 - [x] Verification: success, reuse, no-delta, boundary, race, replay, and Human-authority checks are identified in `verification.md`.
 
-Phase 1's repaired exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 remains the authorized Phase 2 runtime outcome, while ECK-08 and Phase 3 remain pending by design.
+Phase 1's repaired exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 and the Phase 2 runtime outcome are verified; ECK-08 and Phase 3 remain pending and unauthorized by design.
 
 ## Risks and recovery
 

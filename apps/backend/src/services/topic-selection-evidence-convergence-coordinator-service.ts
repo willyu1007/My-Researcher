@@ -75,6 +75,7 @@ export type TopicSelectionEvidenceConvergenceRetrievalExecution = {
   search_run_ref: TopicSelectionFunctionalRef;
   retrieval_hit_count: number;
   retrieval_hits: TopicSelectionEvidenceConvergenceRetrievalHit[];
+  retrieval_cost_microusd: number;
   reused: boolean;
 };
 
@@ -83,6 +84,7 @@ export type TopicSelectionEvidenceConvergenceRetrievalResult = {
   reason_codes: string[];
   requests: TopicSelectionSearchPlanRecheckRequestRecord[];
   executions: TopicSelectionEvidenceConvergenceRetrievalExecution[];
+  accounting: TopicSelectionEvidenceConvergenceRuntimeAccounting;
   role_distributions: Array<{
     participant_role: TopicSelectionResearchArenaParticipantRole;
     request_ref: TopicSelectionFunctionalRef;
@@ -121,6 +123,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       findEvidenceMapById(evidenceMapId: string): Promise<TopicSelectionEvidenceMapRecord | null>;
       listEvidenceUnitsByEvidenceMapId(evidenceMapId: string): Promise<TopicSelectionEvidenceUnitRecord[]>;
     };
+    nowMs?: () => number;
   }) {}
 
   async executeRoleRetrievalRequests(
@@ -143,6 +146,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         reason_codes: boundary.reason_codes,
         requests: [],
         executions: [],
+        accounting: input.accounting,
         role_distributions: [],
       };
     }
@@ -163,6 +167,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     const predecessorUnits = await this.dependencies.evidenceMapReader.listEvidenceUnitsByEvidenceMapId(
       predecessor.evidence_map_id,
     );
+    const startedAt = (this.dependencies.nowMs ?? Date.now)();
 
     const requestByRole = await Promise.all(input.role_requests.map(async (roleRequest) => ({
       participant_role: roleRequest.participant_role,
@@ -209,11 +214,36 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       return completed;
     }));
     const hasHits = executions.some((execution) => execution.retrieval_hit_count > 0);
+    const accounting = {
+      ...input.accounting,
+      orchestration_steps: input.accounting.orchestration_steps
+        + (executions.some((execution) => !execution.reused) ? 1 : 0),
+      elapsed_ms: input.accounting.elapsed_ms + Math.max(
+        0,
+        (this.dependencies.nowMs ?? Date.now)() - startedAt,
+      ),
+      accumulated_cost_microusd: input.accounting.accumulated_cost_microusd
+        + executions.reduce((total, execution) => (
+          total + (execution.reused ? 0 : execution.retrieval_cost_microusd)
+        ), 0),
+    };
+    const completedBoundary = evaluateEvidenceConvergenceBoundary({
+      policy: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+      ...accounting,
+      execution_completed: false,
+      material_delta: false,
+      strategy_changed: false,
+    });
     return {
-      status: hasHits ? 'retrieval_ready' : 'saturated_unresolved',
-      reason_codes: hasHits ? [] : ['UNCHANGED_STRATEGY_NO_RETRIEVAL_HITS'],
+      status: completedBoundary.disposition === 'boundary_exhausted_unresolved'
+        ? 'boundary_exhausted_unresolved'
+        : hasHits ? 'retrieval_ready' : 'saturated_unresolved',
+      reason_codes: completedBoundary.disposition === 'boundary_exhausted_unresolved'
+        ? completedBoundary.reason_codes
+        : hasHits ? [] : ['UNCHANGED_STRATEGY_NO_RETRIEVAL_HITS'],
       requests: completedRequests,
       executions,
+      accounting,
       role_distributions: roleDistributions,
     };
   }
@@ -231,7 +261,13 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         || run.search_plan_ref.ref_id !== request.resulting_search_plan_ref?.ref_id) {
         throw new AppError(409, 'VERSION_CONFLICT', 'Reusable retrieval execution has broken SearchRun lineage.');
       }
-      return this.executionResult(request, run, this.readPersistedHits(run), true);
+      return this.executionResult(
+        request,
+        run,
+        this.readPersistedHits(run),
+        this.persistedRetrievalCostMicrousd(run),
+        true,
+      );
     }
     if (request.status !== 'open' || !request.retrieval_intent || !request.corpus_manifest_ref
       || !request.issue_ref || !request.request_key) {
@@ -384,7 +420,13 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       resulting_search_run_id: runResult.search_run.search_run_id,
       decision_summary: 'Coordinator persisted the replayable managed-library retrieval execution.',
     });
-    return this.executionResult(completed, runResult.search_run, hits, false);
+    return this.executionResult(
+      completed,
+      runResult.search_run,
+      hits,
+      this.retrievalCostMicrousd(queryExecutions),
+      false,
+    );
   }
 
   private async retrieve(
@@ -559,6 +601,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
     request: TopicSelectionSearchPlanRecheckRequestRecord,
     run: TopicSelectionSearchRunRecord,
     hits: TopicSelectionEvidenceConvergenceRetrievalHit[],
+    retrievalCostMicrousd: number,
     reused: boolean,
   ): TopicSelectionEvidenceConvergenceRetrievalExecution {
     return {
@@ -571,8 +614,31 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       search_run_ref: this.ref('search_run', run.search_run_id, run.title_card_id),
       retrieval_hit_count: hits.length,
       retrieval_hits: hits,
+      retrieval_cost_microusd: retrievalCostMicrousd,
       reused,
     };
+  }
+
+  private retrievalCostMicrousd(executions: QueryExecution[]): number {
+    return executions.reduce((total, execution) => (
+      total + this.costMicrousd(execution.response.meta.query_embedding_telemetry?.cost_usd)
+    ), 0);
+  }
+
+  private persistedRetrievalCostMicrousd(run: TopicSelectionSearchRunRecord): number {
+    return run.query_provenance.reduce((total, entry) => {
+      const retrievalMeta = entry.retrieval_meta;
+      if (!retrievalMeta || typeof retrievalMeta !== 'object' || Array.isArray(retrievalMeta)) return total;
+      const telemetry = (retrievalMeta as { query_embedding_telemetry?: unknown }).query_embedding_telemetry;
+      if (!telemetry || typeof telemetry !== 'object' || Array.isArray(telemetry)) return total;
+      return total + this.costMicrousd((telemetry as { cost_usd?: unknown }).cost_usd);
+    }, 0);
+  }
+
+  private costMicrousd(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? Math.round(value * 1_000_000)
+      : 0;
   }
 
   private uniqueRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {
