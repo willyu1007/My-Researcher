@@ -5,9 +5,9 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Evidence-landscape pilot replanned after frozen-lineage review; implementation has not started
-- Next step: Select a new implementation boundary, then begin Phase 1 by tracing the canonical search recheck, SearchRun, EvidenceMap, and evidence-checkpoint owners.
-- Blocker: none for planning or Phase 1 contract discovery. Implementation authorization is reset because the pilot moved out of the downstream frozen question lineage; Phase 2 additionally waits for T-148's typed required-coverage issue contract.
+- Current phase: Phase 1 contract freeze authorized after the T-148 required-coverage issue contract landed
+- Next step: After the T-148 evidence-view atomic checkpoint, implement Phase 1 through the existing resource-pool snapshot, search recheck, Arena-session, control-plane artifact, and EvidenceMap repository owners.
+- Blocker: none for the authorized Phase 1 boundary. T-148's typed issue dependency landed in `dde23f76`; Phase 2 remains outside the current implementation authorization.
 
 ## Done when
 - [ ] ECK-01: Every accessible indexed, evidence-ready literature record is eligible for retrieval by default unless an explicit Human scope narrows the corpus.

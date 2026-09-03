@@ -53,7 +53,7 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 
 | Task | Relationship from this task | Owned boundary / exchanged contract | Coordination condition |
 |---|---|---|---|
-| T-148 | derived-from / narrow dependency | T-148 retains real-flow defects, presentation, the concrete coverage gate and Human acceptance contract, regular frozen-evidence Debate policy, condition mapping, and terminology; this task owns retrieval-native evidence convergence. | T-150 Phase 1 contract work may proceed independently. Its Phase 2 pilot consumes T-148's typed required-coverage issue after that narrow gate contract lands; it does not alter T-148's downstream question-Debate route. |
+| T-148 | derived-from / narrow dependency | T-148 retains real-flow defects, presentation, the concrete coverage gate and Human acceptance contract, regular frozen-evidence Debate policy, condition mapping, and terminology; this task owns retrieval-native evidence convergence. | The typed required-coverage issue landed in `dde23f76`. T-148 next closes its evidence Human-view seam, then this task implements Phase 1; the later pilot consumes the issue without altering T-148's downstream question-Debate route. |
 | T-149 | depends-on | T-149 owns durable native-vector materialization; this task consumes an indexed, evidence-ready managed library. | The pilot requires T-149's verified persistence behavior, not its uncommitted task files or implementation changes. |
 
 ## Implementation plan
@@ -62,9 +62,10 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 - Outcome: One implementation-ready vertical slice has exact request, delta, round, successor, and resolution identities.
 - Approach: Start from the existing global retriever and evidence-landscape SearchPlan/SearchRun/checkpoint seams, then add only fields required to replay one evidence issue.
 - Planned changes:
-  1. Inventory the reusable retriever, SearchPlan/SearchRun, Debate-core, EvidenceMap, search recheck, and evidence-checkpoint seams and reject any premise that full-library search itself must be rebuilt.
-  2. Specify coordinator-derived `request_key` and `strategy_key`, the corpus manifest ref/hash and retrieval-stack identity, material evidence delta, DebateRound lineage, EvidenceMap successor transition, and the pilot ResolutionRoute.
-  3. Name the standing policy fields and defaults for maximum per-issue orchestration steps/rounds, elapsed time, and accumulated retrieval cost; prove that exhaustion cannot become gate success.
+  1. Reuse `LiteratureResourcePoolSnapshot` as the corpus-manifest authority by adding a managed-library source and retrieval-stack membership derived through the same eligibility resolver as retrieval.
+  2. Extend the existing search-recheck lifecycle with coordinator-derived `request_key` and `strategy_key`; represent `EvidenceDelta` and `ResolutionRoute` as typed immutable control-plane artifacts and reuse Arena-session supersession as linked-round lineage.
+  3. Add only the missing EvidenceMap predecessor/current-head/successor contract and transactional compare-and-swap transition; do not create parallel corpus, round, delta, or route stores.
+  4. Name and snapshot the standing maximum per-issue orchestration steps/rounds, elapsed time, and accumulated retrieval cost; prove through pure contract tests that exhaustion cannot become gate success.
 - Affected boundaries / entry points: Literature retrieval, Arena retrieval primitives, SearchPlan/SearchRun, shared Debate core, EvidenceMap lifecycle, evidence-landscape checkpoint and recheck routes.
 - Dependencies: Existing retriever, evidence-landscape, and Debate seams plus the approved pilot and round/convergence decisions.
 - Exit criteria: ECK-01 through ECK-05 and ECK-07 have contract tests or approved executable specifications.
@@ -101,7 +102,7 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: none; the pilot moved to the evidence-landscape boundary after the prior implementation authorization, so execution requires a new boundary.
+- Authorized boundary: through phase 1, after the T-148 evidence-landscape Human-view atomic checkpoint; Phase 2 requires a new implementation authorization.
 - [x] Decisions: the linked-round model, evidence-landscape pilot, coordinator-owned saturation identity, corpus manifest identity, and project placement were confirmed on 2026-09-03.
 - [x] Design: the minimal contracts and authority boundaries are reflected in `02-architecture.md`.
 - [x] Route: the pilot extends the existing SearchPlan → SearchRun → EvidenceMap → checkpoint lineage and does not cross the downstream frozen question bundle.

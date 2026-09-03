@@ -33,7 +33,7 @@ The current planning candidates are:
 - `EvidenceMap` successor transition: predecessor and successor refs, material delta ref, atomic head transition, and monotonic supersession metadata while predecessor content remains unchanged.
 - `ResolutionRoute`: issue identity, owning evidence-landscape stage, route kind, target, required delta, recheck gate, and execution/Human boundary. The pilot receives one such route; existing unrelated loopbacks are not migrated.
 
-These shapes are the approved planning direction. Their exact fields become implementation authority only through Phase 1 contract verification, and they must reuse existing functional refs, SearchRun authority, hash utilities, and gate results rather than creating parallel stores.
+These shapes are the approved planning direction. Phase 1 realizes them through the smallest existing owners: `LiteratureResourcePoolSnapshot` becomes the managed-library corpus manifest; the search-recheck lifecycle owns normalized request/strategy identity and resulting SearchPlan/SearchRun refs; immutable control-plane artifacts carry `EvidenceDelta` and `ResolutionRoute`; Arena-session supersession carries linked-round lineage. Only EvidenceMap successor/head state requires a new persisted transition and compare-and-swap repository method. Exact fields remain subject to Phase 1 red/green contract verification, and a new store is justified only if those tests prove an existing owner cannot preserve the required identity or concurrency invariant.
 
 ## Migration and operation
 
