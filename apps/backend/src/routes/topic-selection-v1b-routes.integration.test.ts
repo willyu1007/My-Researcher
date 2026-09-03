@@ -2761,7 +2761,9 @@ test('topic-selection v1b offline replay HTTP routes calculate metrics and expos
   }
 });
 
-test('T-054 Prisma HTTP smoke requires DATABASE_URL and drives v1b harness HTTP routes against Prisma repositories', async () => {
+test('T-054 Prisma HTTP smoke drives v1b harness HTTP routes against Prisma repositories', {
+  skip: process.env.DATABASE_URL ? false : 'set DATABASE_URL to run the T-054 Prisma HTTP smoke test',
+}, async () => {
   await assertPrismaHttpSmokeDatabaseReady();
   const previousEnv = {
     TITLE_CARD_REPOSITORY: process.env.TITLE_CARD_REPOSITORY,
