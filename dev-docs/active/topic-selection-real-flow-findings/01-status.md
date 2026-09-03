@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 required-coverage checkpoint issue and strict-Human acceptance contract implemented and focused-verified
-- Next step: Continue Phase 1 with evidence/question Human-view and current-authority projection truth (TSRF-01, TSRF-02, TSRF-06, TSRF-09, and TSRF-12).
+- Current phase: Phase 1 required-coverage contract verified; evidence-landscape Human-view truth is the authorized next atomic unit
+- Next step: Project substantive evidence, material conflicts, exact missing-coverage rows, and any Human acceptance from the frozen evidence checkpoint packet without creating a second authority.
 - Blocker: none. T-150 may now consume the typed required-coverage issue at its own evidence-convergence boundary; its retrieval-native implementation remains outside T-148. T-149 remains a separate completed task.
 
 ## Done when
