@@ -361,6 +361,21 @@ test('coordinator merges equivalent role requests, persists execution before dis
       },
     },
   ];
+  await assert.rejects(service.executeRoleRetrievalRequests({
+    workspace_id: 'workspace_other',
+    title_card_id: 'title_1',
+    target_search_plan_id: 'plan_1',
+    predecessor_evidence_map_id: 'map_1',
+    role_requests: roleRequests,
+    accounting: {
+      orchestration_steps: 0,
+      linked_rounds: 0,
+      elapsed_ms: 0,
+      accumulated_cost_microusd: 0,
+    },
+  }), /workspace scope/u);
+  assert.deepEqual(calls, []);
+
   const first = await service.executeRoleRetrievalRequests({
     title_card_id: 'title_1',
     target_search_plan_id: 'plan_1',

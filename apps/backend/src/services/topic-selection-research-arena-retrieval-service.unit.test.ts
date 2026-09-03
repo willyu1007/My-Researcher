@@ -93,12 +93,15 @@ function fixture(
   snapshotTitleCardId = 'title_1',
   includeUnrelatedCurrentMap = false,
   frozenEvidenceMapRef = ref('evidence_map', 'map_1', 'v1'),
+  evidenceMapWorkspaceId: string | null = null,
 ) {
   const recordedSearchRuns: Array<Record<string, unknown>> = [];
   const recordedArtifacts: Array<Record<string, unknown>> = [];
   const resolverInputs: Array<Record<string, unknown>> = [];
   const map = currentMap();
   const unit = evidenceUnit();
+  map.workspace_id = evidenceMapWorkspaceId;
+  unit.workspace_id = evidenceMapWorkspaceId;
   const service = new TopicSelectionResearchArenaRetrievalService({
     snapshotReader: {
       getInputSnapshot: async () => ({
@@ -297,6 +300,20 @@ test('role retrieval rejects a current EvidenceMap outside the frozen Arena snap
     'title_1',
     false,
     ref('evidence_map', 'map_superseded', 'v0'),
+  );
+  await assert.rejects(
+    () => service.prepare(request),
+    (error: unknown) => error instanceof Error && /frozen Arena snapshot lineage/u.test(error.message),
+  );
+});
+
+test('role retrieval rejects a current EvidenceMap outside the frozen workspace scope', async () => {
+  const { service } = fixture(
+    retrieval(),
+    'title_1',
+    false,
+    ref('evidence_map', 'map_1', 'v1'),
+    'workspace_other',
   );
   await assert.rejects(
     () => service.prepare(request),

@@ -156,6 +156,10 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       || predecessor.status !== 'ready') {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence requires the current predecessor EvidenceMap.');
     }
+    if (input.workspace_id !== undefined
+      && (input.workspace_id ?? null) !== (predecessor.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence workspace scope does not match the predecessor EvidenceMap.');
+    }
     const predecessorUnits = await this.dependencies.evidenceMapReader.listEvidenceUnitsByEvidenceMapId(
       predecessor.evidence_map_id,
     );
@@ -223,6 +227,7 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
         request.resulting_search_run_ref.ref_id,
       );
       if (!run || run.title_card_id !== request.title_card_id
+        || (run.workspace_id ?? null) !== (request.workspace_id ?? null)
         || run.search_plan_ref.ref_id !== request.resulting_search_plan_ref?.ref_id) {
         throw new AppError(409, 'VERSION_CONFLICT', 'Reusable retrieval execution has broken SearchRun lineage.');
       }
@@ -239,7 +244,9 @@ export class TopicSelectionEvidenceConvergenceCoordinatorService {
       ),
       this.dependencies.searchResources.getCoverageMatrix(request.target_search_plan_ref.ref_id),
     ]);
-    if (!parentPlan || !manifest || manifest.snapshot_hash !== request.corpus_manifest_hash) {
+    if (!parentPlan || !manifest || manifest.snapshot_hash !== request.corpus_manifest_hash
+      || (parentPlan.workspace_id ?? null) !== (request.workspace_id ?? null)
+      || (manifest.workspace_id ?? null) !== (request.workspace_id ?? null)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence plan or corpus authority is missing.');
     }
     const issueRow = coverage.rows.find((row) =>

@@ -10,6 +10,7 @@ import type {
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import type {
   TopicSelectionResearchArenaSessionRecord,
+  TopicSelectionResearchArenaRoleExecutionRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { TopicSelectionResearchArenaConflictError } from '../repositories/topic-selection-research-arena.repository.js';
@@ -495,6 +496,11 @@ test('arena replaces the current stage only when a recorded loop delta explains 
     participant_roles: ['opportunity_scout', 'prior_art_topic_killer'] as const,
     execution_plan_ref: ref('artifact_ref', 'plan_1'),
   };
+  await assert.rejects(service.openSession({
+    ...input,
+    session_key: 'workspace-mismatch',
+    workspace_id: 'workspace_other',
+  }), /workspace scope/u);
   const first = await service.openSession(input);
   assert.equal(first.current_arena_key, 'title_1:gap_portfolio');
 
@@ -547,6 +553,364 @@ test('arena replaces the current stage only when a recorded loop delta explains 
     }),
     (error) => error instanceof AppError && error.errorCode === 'GATE_CONSTRAINT_FAILED',
   );
+});
+
+async function evidenceLandscapeSynthesisFixture(options: {
+  tamperRoundLinkHash?: boolean;
+  synthesisDisposition?: 'recheck_same_gate' | 'remain_unresolved';
+} = {}) {
+  const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+  const mapRef = ref('evidence_map', 'map_2');
+  const predecessorMapRef = ref('evidence_map', 'map_1');
+  const deltaRef = { ...ref('artifact_ref', 'delta_1'), version_id: '' };
+  const parentSnapshot: TopicSelectionInputSnapshotRecord = {
+    input_snapshot_id: 'snapshot_parent', workspace_id: null, title_card_id: 'title_1',
+    target_ref: predecessorMapRef, context_policy_version_id: null, policy_version: null,
+    snapshot_hash: '1'.repeat(64), source_refs: [], permission_refs: [], payload: {},
+    created_by: 'system', created_at: NOW,
+  };
+  const snapshot: TopicSelectionInputSnapshotRecord = {
+    ...parentSnapshot,
+    input_snapshot_id: 'snapshot_current',
+    target_ref: mapRef,
+    snapshot_hash: '2'.repeat(64),
+    source_refs: [deltaRef],
+  };
+  const parentTranscriptPayload = { schema_version: 'ParentTranscript@v1', support_only: true };
+  const parentTranscriptHash = sha256Text(stableStringify(parentTranscriptPayload));
+  const parentTranscriptRef = {
+    ...ref('artifact_ref', 'parent_transcript'),
+    version_id: parentTranscriptHash,
+  };
+  const parent = {
+    schema_version: 'TopicSelectionResearchArenaSession@v1', arena_session_id: 'arena_parent',
+    session_key: 'parent', current_arena_key: 'title_1:evidence_landscape', workspace_id: null,
+    title_card_id: 'title_1', arena_kind: 'evidence_landscape', target_ref: predecessorMapRef,
+    input_snapshot_id: parentSnapshot.input_snapshot_id, input_snapshot_hash: parentSnapshot.snapshot_hash,
+    participant_plan_hash: '3'.repeat(64),
+    participant_roles: ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'],
+    execution_plan_ref: ref('artifact_ref', 'parent_plan'), status: 'synthesized',
+    termination_reason: 'recommendation_ready', loop_transcript_ref: parentTranscriptRef,
+    loop_transcript_hash: parentTranscriptHash, loop_delta_refs: [], support_only: true,
+    supersedes_arena_session_id: null, superseded_by_arena_session_id: null, created_by: 'system',
+    created_at: NOW, updated_at: NOW, synthesized_at: NOW, superseded_at: null,
+  } satisfies TopicSelectionResearchArenaSessionRecord;
+  await arenaRepository.replaceCurrentSession(parent);
+  const current = {
+    ...parent,
+    arena_session_id: 'arena_current',
+    session_key: 'current',
+    target_ref: mapRef,
+    input_snapshot_id: snapshot.input_snapshot_id,
+    input_snapshot_hash: snapshot.snapshot_hash,
+    status: 'open',
+    termination_reason: null,
+    loop_transcript_ref: null,
+    loop_transcript_hash: null,
+    loop_delta_refs: [{ delta_type: 'evidence' as const, ref: deltaRef, rationale: 'Material delta.' }],
+    synthesized_at: null,
+  } satisfies TopicSelectionResearchArenaSessionRecord;
+  const persistedCurrent = await arenaRepository.replaceCurrentSession(current);
+
+  const execution = (
+    participantRole: 'opportunity_scout' | 'empirical_skeptic' | 'synthesis_arbiter',
+    passKind: 'first_pass' | 'synthesis',
+  ) => ({
+    arena_role_execution_id: `execution_${participantRole}`,
+    participant_role: participantRole,
+    pass_kind: passKind,
+    evidence_packet_artifact_ref: ref('artifact_ref', `packet_${participantRole}`),
+    evidence_packet_hash: '4'.repeat(64),
+    exposure_set_hash: '5'.repeat(64),
+    output_artifact_ref: ref('artifact_ref', `output_${participantRole}`),
+    output_artifact_hash: '6'.repeat(64),
+    agent_invocation_audit_artifact_ref: ref('artifact_ref', `audit_${participantRole}`),
+    agent_invocation_audit_artifact_hash: '7'.repeat(64),
+    execution_provenance_hash: '8'.repeat(64),
+    prior_role_hashes: [],
+  }) as unknown as TopicSelectionResearchArenaRoleExecutionRecord;
+  const executions = [
+    execution('opportunity_scout', 'first_pass'),
+    execution('empirical_skeptic', 'first_pass'),
+    execution('synthesis_arbiter', 'synthesis'),
+  ];
+  arenaRepository.listRoleExecutionsBySessionId = async () => executions;
+  const identity = (item: TopicSelectionResearchArenaRoleExecutionRecord) => ({
+    arena_role_execution_id: item.arena_role_execution_id,
+    participant_role: item.participant_role,
+    evidence_packet_artifact_ref: item.evidence_packet_artifact_ref,
+    evidence_packet_hash: item.evidence_packet_hash,
+    exposure_set_hash: item.exposure_set_hash,
+    output_artifact_ref: item.output_artifact_ref,
+    output_artifact_hash: item.output_artifact_hash,
+    agent_invocation_audit_artifact_ref: item.agent_invocation_audit_artifact_ref,
+    agent_invocation_audit_artifact_hash: item.agent_invocation_audit_artifact_hash,
+    execution_provenance_hash: item.execution_provenance_hash,
+    prior_role_hashes: item.prior_role_hashes,
+  });
+  const transcriptPayload = {
+    schema_version: 'TopicSelectionEvidenceConvergenceRoundTranscript@v1',
+    arena_session_id: persistedCurrent.arena_session_id,
+    input_snapshot_id: snapshot.input_snapshot_id,
+    independent_first_pass: executions.slice(0, 2).map(identity),
+    synthesis_execution: identity(executions[2]!),
+    support_only: true,
+  };
+  const transcriptHash = sha256Text(stableStringify(transcriptPayload));
+  const transcriptRef = { ...ref('artifact_ref', 'transcript_current'), version_id: transcriptHash };
+  const evidenceDeltaPayload = {
+    schema_version: 'TopicSelectionEvidenceDelta@v1',
+    issue_refs: [ref('coverage_row_intent', 'issue_1')],
+    material: true,
+  };
+  const evidenceDeltaHash = sha256Text(stableStringify(evidenceDeltaPayload));
+  deltaRef.version_id = evidenceDeltaHash;
+  snapshot.source_refs = [deltaRef];
+  const roundLinkPayload = {
+    schema_version: 'TopicSelectionEvidenceConvergenceRoundLink@v1',
+    arena_session_ref: ref('research_arena_session', persistedCurrent.arena_session_id),
+    supersedes_arena_session_ref: ref('research_arena_session', parent.arena_session_id),
+    parent_transcript_hash: parentTranscriptHash,
+    evidence_delta_ref: deltaRef,
+    evidence_delta_hash: evidenceDeltaHash,
+  };
+  const roundLinkHash = sha256Text(stableStringify(roundLinkPayload));
+  const roundLinkRef = {
+    ...ref('artifact_ref', 'round_link'),
+    version_id: options.tamperRoundLinkHash ? '9'.repeat(64) : roundLinkHash,
+  };
+  const synthesisOutput = {
+    schema_version: 'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1',
+    participant_role: 'synthesis_arbiter',
+    issue_ref: ref('coverage_row_intent', 'issue_1'),
+    evidence_map_ref: mapRef,
+    evidence_delta_ref: deltaRef,
+    semantic_position: {
+      summary: 'Bounded support-only recommendation.',
+      recommended_disposition: options.synthesisDisposition ?? 'recheck_same_gate',
+      confidence: 0.8,
+    },
+    cited_evidence_unit_refs: [],
+    unresolved_issue_codes: [],
+    support_only: true,
+  };
+  const synthesisOutputHash = sha256Text(stableStringify(synthesisOutput));
+  executions[2] = {
+    ...executions[2]!,
+    output_artifact_hash: synthesisOutputHash,
+  };
+  transcriptPayload.synthesis_execution = identity(executions[2]);
+  const finalTranscriptHash = sha256Text(stableStringify(transcriptPayload));
+  transcriptRef.version_id = finalTranscriptHash;
+  const artifacts = new Map<string, TopicSelectionArtifactRefRecord>([
+    ['parent_transcript', {
+      artifact_ref_id: 'parent_transcript', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: parentTranscriptPayload,
+      checksum: parentTranscriptHash, input_snapshot_id: parentSnapshot.input_snapshot_id,
+      created_by: 'system', created_at: NOW,
+    }],
+    ['transcript_current', {
+      artifact_ref_id: 'transcript_current', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: transcriptPayload,
+      checksum: finalTranscriptHash, input_snapshot_id: snapshot.input_snapshot_id,
+      created_by: 'system', created_at: NOW,
+    }],
+    ['delta_1', {
+      artifact_ref_id: 'delta_1', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: evidenceDeltaPayload,
+      checksum: evidenceDeltaHash, input_snapshot_id: snapshot.input_snapshot_id,
+      created_by: 'system', created_at: NOW,
+    }],
+    ['round_link', {
+      artifact_ref_id: 'round_link', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: roundLinkPayload,
+      checksum: options.tamperRoundLinkHash ? '9'.repeat(64) : roundLinkHash,
+      input_snapshot_id: snapshot.input_snapshot_id, created_by: 'system', created_at: NOW,
+    }],
+    ['output_synthesis_arbiter', {
+      artifact_ref_id: 'output_synthesis_arbiter', workspace_id: null, title_card_id: 'title_1',
+      artifact_kind: 'structured_output', storage_kind: 'inline', payload: synthesisOutput,
+      checksum: synthesisOutputHash, input_snapshot_id: snapshot.input_snapshot_id,
+      created_by: 'system', created_at: NOW,
+    }],
+  ]);
+  const service = new TopicSelectionResearchArenaService({
+    arenaRepository,
+    controlPlaneRepository: {
+      findInputSnapshotById: async (id) => id === snapshot.input_snapshot_id
+        ? snapshot
+        : id === parentSnapshot.input_snapshot_id ? parentSnapshot : null,
+      findArtifactRefById: async (id) => artifacts.get(id) ?? null,
+    },
+  }, { now: () => NOW });
+  return { service, arenaSessionId: persistedCurrent.arena_session_id, transcriptRef, roundLinkRef };
+}
+
+test('evidence-landscape synthesis rejects a self-consistent-looking but tampered round link', async () => {
+  const fixture = await evidenceLandscapeSynthesisFixture({ tamperRoundLinkHash: true });
+  await assert.rejects(fixture.service.synthesizeEvidenceLandscapeSession({
+    arena_session_id: fixture.arenaSessionId,
+    loop_transcript_artifact_ref: fixture.transcriptRef,
+    round_link_artifact_ref: fixture.roundLinkRef,
+  }), /round link artifact checksum/u);
+});
+
+test('evidence-landscape synthesis preserves an unresolved synthesis disposition', async () => {
+  const fixture = await evidenceLandscapeSynthesisFixture({ synthesisDisposition: 'remain_unresolved' });
+  const result = await fixture.service.synthesizeEvidenceLandscapeSession({
+    arena_session_id: fixture.arenaSessionId,
+    loop_transcript_artifact_ref: fixture.transcriptRef,
+    round_link_artifact_ref: fixture.roundLinkRef,
+  });
+  assert.equal(result.termination_reason, 'evidence_expansion_required');
+});
+
+test('evidence-landscape synthesis replay revalidates the round-link authority', async () => {
+  const fixture = await evidenceLandscapeSynthesisFixture();
+  await fixture.service.synthesizeEvidenceLandscapeSession({
+    arena_session_id: fixture.arenaSessionId,
+    loop_transcript_artifact_ref: fixture.transcriptRef,
+    round_link_artifact_ref: fixture.roundLinkRef,
+  });
+  await assert.rejects(fixture.service.synthesizeEvidenceLandscapeSession({
+    arena_session_id: fixture.arenaSessionId,
+    loop_transcript_artifact_ref: fixture.transcriptRef,
+    round_link_artifact_ref: ref('artifact_ref', 'missing_round_link'),
+  }), /missing_round_link was not found/u);
+});
+
+async function evidenceLandscapeRetryFixture(nextIssueId: string) {
+  const arenaRepository = new InMemoryTopicSelectionResearchArenaRepository();
+  const artifacts = new Map<string, TopicSelectionArtifactRefRecord>();
+  const snapshots = new Map<string, TopicSelectionInputSnapshotRecord>();
+  for (let index = 0; index <= 4; index += 1) {
+    const deltaId = `historical_delta_${index}`;
+    const deltaPayload = {
+      schema_version: 'TopicSelectionEvidenceDelta@v1',
+      issue_refs: [ref('coverage_row_intent', 'issue_a')],
+      material: true,
+    };
+    const deltaHash = sha256Text(stableStringify(deltaPayload));
+    const historicalDeltaRef = { ...ref('artifact_ref', deltaId), version_id: deltaHash };
+    if (index > 0) {
+      artifacts.set(deltaId, {
+        artifact_ref_id: deltaId, workspace_id: null, title_card_id: 'title_1',
+        artifact_kind: 'structured_output', storage_kind: 'inline', payload: deltaPayload,
+        checksum: deltaHash, input_snapshot_id: `search_run_snapshot_${index}`,
+        created_by: 'system', created_at: NOW,
+      });
+    }
+    snapshots.set(`historical_snapshot_${index}`, {
+      input_snapshot_id: `historical_snapshot_${index}`,
+      workspace_id: null,
+      title_card_id: 'title_1',
+      target_ref: ref('evidence_map', `map_${index}`),
+      context_policy_version_id: null,
+      policy_version: null,
+      snapshot_hash: String(index + 1).repeat(64),
+      source_refs: index === 0 ? [] : [historicalDeltaRef],
+      permission_refs: [],
+      payload: {},
+      created_by: 'system',
+      created_at: NOW,
+    });
+    await arenaRepository.replaceCurrentSession({
+      schema_version: 'TopicSelectionResearchArenaSession@v1',
+      arena_session_id: `historical_arena_${index}`,
+      session_key: `historical-${index}`,
+      current_arena_key: 'title_1:evidence_landscape',
+      workspace_id: null,
+      title_card_id: 'title_1',
+      arena_kind: 'evidence_landscape',
+      target_ref: ref('evidence_map', `map_${index}`),
+      input_snapshot_id: `historical_snapshot_${index}`,
+      input_snapshot_hash: String(index + 1).repeat(64),
+      participant_plan_hash: 'a'.repeat(64),
+      participant_roles: ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'],
+      execution_plan_ref: ref('artifact_ref', `historical_plan_${index}`),
+      status: 'synthesized',
+      termination_reason: 'recommendation_ready',
+      loop_transcript_ref: ref('artifact_ref', `historical_transcript_${index}`),
+      loop_transcript_hash: 'b'.repeat(64),
+      loop_delta_refs: index === 0 ? [] : [{
+        delta_type: 'evidence',
+        ref: historicalDeltaRef,
+        rationale: 'Historical issue A evidence delta.',
+      }],
+      support_only: true,
+      supersedes_arena_session_id: null,
+      superseded_by_arena_session_id: null,
+      created_by: 'system',
+      created_at: NOW,
+      updated_at: NOW,
+      synthesized_at: NOW,
+      superseded_at: null,
+    });
+  }
+  const nextDeltaPayload = {
+    schema_version: 'TopicSelectionEvidenceDelta@v1',
+    issue_refs: [ref('coverage_row_intent', nextIssueId)],
+    material: true,
+  };
+  const nextDeltaHash = sha256Text(stableStringify(nextDeltaPayload));
+  const nextDeltaRef = { ...ref('artifact_ref', 'next_delta'), version_id: nextDeltaHash };
+  const targetRef = ref('evidence_map', 'map_next');
+  const snapshot: TopicSelectionInputSnapshotRecord = {
+    input_snapshot_id: 'snapshot_next', workspace_id: null, title_card_id: 'title_1',
+    target_ref: targetRef, context_policy_version_id: null, policy_version: null,
+    snapshot_hash: 'f'.repeat(64), source_refs: [nextDeltaRef], permission_refs: [], payload: {},
+    created_by: 'system', created_at: NOW,
+  };
+  const planPayload = { schema_version: 'Plan@v1', issue_ref: ref('coverage_row_intent', nextIssueId) };
+  const planHash = sha256Text(stableStringify(planPayload));
+  artifacts.set('next_delta', {
+    artifact_ref_id: 'next_delta', workspace_id: null, title_card_id: 'title_1',
+    artifact_kind: 'structured_output', storage_kind: 'inline', payload: nextDeltaPayload,
+    checksum: nextDeltaHash, input_snapshot_id: snapshot.input_snapshot_id,
+    created_by: 'system', created_at: NOW,
+  });
+  artifacts.set('next_plan', {
+    artifact_ref_id: 'next_plan', workspace_id: null, title_card_id: 'title_1',
+    artifact_kind: 'structured_output', storage_kind: 'inline', payload: planPayload,
+    checksum: planHash, input_snapshot_id: snapshot.input_snapshot_id,
+    created_by: 'system', created_at: NOW,
+  });
+  const service = new TopicSelectionResearchArenaService({
+    arenaRepository,
+    controlPlaneRepository: {
+      findInputSnapshotById: async (id) => id === snapshot.input_snapshot_id
+        ? snapshot
+        : snapshots.get(id) ?? null,
+      findArtifactRefById: async (id) => artifacts.get(id) ?? null,
+    },
+  }, { now: () => NOW });
+  return {
+    service,
+    input: {
+      session_key: `next-${nextIssueId}`,
+      title_card_id: 'title_1',
+      arena_kind: 'evidence_landscape' as const,
+      target_ref: targetRef,
+      input_snapshot_id: snapshot.input_snapshot_id,
+      participant_roles: ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'] as const,
+      execution_plan_ref: { ...ref('artifact_ref', 'next_plan'), version_id: planHash },
+      loop_delta_refs: [{
+        delta_type: 'evidence' as const,
+        ref: nextDeltaRef,
+        rationale: `New evidence for ${nextIssueId}.`,
+      }],
+    },
+  };
+}
+
+test('evidence-landscape linked-round limit is isolated by durable issue lineage', async () => {
+  const differentIssue = await evidenceLandscapeRetryFixture('issue_b');
+  const admitted = await differentIssue.service.openSession(differentIssue.input);
+  assert.equal(admitted.status, 'open');
+
+  const exhaustedIssue = await evidenceLandscapeRetryFixture('issue_a');
+  await assert.rejects(exhaustedIssue.service.openSession(exhaustedIssue.input),
+    /linked-round boundary is exhausted/u);
 });
 
 test('first-pass role execution records chunk provenance and rejects evidence-free or peer-contaminated exposure', async () => {

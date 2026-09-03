@@ -1917,6 +1917,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         agentOrchestrator: topicSelectionV1aAgentOrchestratorService,
       }),
       contextProfiles: topicSelectionContextPolicyProfileRegistryService,
+      evidencePacketResolver: topicSelectionResearchEvidencePacketService,
       checkpoints: topicSelectionResearchCheckpointService,
     });
   const topicSelectionEvidenceConvergenceController = new TopicSelectionEvidenceConvergenceController(

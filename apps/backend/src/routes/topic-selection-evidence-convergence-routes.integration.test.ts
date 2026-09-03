@@ -139,6 +139,14 @@ test('evidence-convergence successor route accepts only closed claim admissions'
   });
   assert.equal(rejected.statusCode, 400);
   assert.equal(calls, 1);
+
+  const impersonated = await app.inject({
+    method: 'POST',
+    url: '/topic-selection/evidence-convergence/evidence-map-successors',
+    payload: { ...payload, created_by: 'human' },
+  });
+  assert.equal(impersonated.statusCode, 400);
+  assert.equal(calls, 1);
   await app.close();
 });
 

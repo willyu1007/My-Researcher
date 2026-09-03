@@ -216,11 +216,19 @@ test('material successor runs one linked frozen Arena round before the fresh che
     support_only: true,
   };
   const parentTranscriptHash = sha256Text(stableStringify(parentTranscriptPayload));
+  const parentSnapshot = await controlPlane.compileInputSnapshot({
+    title_card_id: TITLE_CARD_ID,
+    target_ref: predecessorMapRef,
+    source_refs: [ref('search_run', 'run_1')],
+    payload: { evidence_map_ref: predecessorMapRef },
+    created_by: 'system',
+  });
   const parentTranscriptArtifact = await controlPlane.recordArtifactRef({
     title_card_id: TITLE_CARD_ID,
     artifact_kind: 'structured_output',
     storage_kind: 'inline',
     workflow_run_id: 'workflow_parent',
+    input_snapshot_id: parentSnapshot.input_snapshot_id,
     payload: parentTranscriptPayload,
     checksum: parentTranscriptHash,
     mime_type: 'application/json',
@@ -235,8 +243,8 @@ test('material successor runs one linked frozen Arena round before the fresh che
     title_card_id: TITLE_CARD_ID,
     arena_kind: 'evidence_landscape',
     target_ref: predecessorMapRef,
-    input_snapshot_id: 'parent_snapshot',
-    input_snapshot_hash: 'b'.repeat(64),
+    input_snapshot_id: parentSnapshot.input_snapshot_id,
+    input_snapshot_hash: parentSnapshot.snapshot_hash,
     participant_plan_hash: 'c'.repeat(64),
     participant_roles: ['opportunity_scout', 'empirical_skeptic', 'synthesis_arbiter'],
     execution_plan_ref: ref('artifact_ref', 'parent_plan'),
@@ -379,6 +387,13 @@ test('material successor runs one linked frozen Arena round before the fresh che
       agentOrchestrator: orchestrator,
     }),
     contextProfiles: new TopicSelectionContextPolicyProfileRegistryService(),
+    evidencePacketResolver: {
+      resolve: async (request) => {
+        const packet = packets.find(({ role }) => role === request.participant_role)?.packet;
+        if (!packet) throw new Error(`Missing packet fixture for ${request.participant_role}.`);
+        return packet;
+      },
+    },
     checkpoints: {
       materializeEvidenceLandscapeCheckpoint: async (input) => {
         checkpoints.push(input);
@@ -411,6 +426,59 @@ test('material successor runs one linked frozen Arena round before the fresh che
       accumulated_cost_microusd: 0,
     },
   } satisfies TopicSelectionRunEvidenceConvergenceRoundInput;
+  await assert.rejects(service.runLinkedRound({
+    ...runInput,
+    workspace_id: 'workspace_other',
+  }), /workspace scope/u);
+  assert.equal(checkpoints.length, 0);
+
+  const getSession = arena.getSession.bind(arena);
+  arena.getSession = async (sessionId) => ({
+    ...await getSession(sessionId),
+    target_ref: ref('evidence_map', 'unrelated_map', 'unrelated_version'),
+  });
+  await assert.rejects(service.runLinkedRound(runInput), /parent arena lineage is invalid/u);
+  arena.getSession = getSession;
+  assert.equal(checkpoints.length, 0);
+
+  const { packet_hash: _packetHash, ...firstPacketBody } = packets[0]!.packet;
+  const forgedPacketBody = {
+    ...firstPacketBody,
+    items: firstPacketBody.items.map((item) => ({
+      ...item,
+      source_statement: 'A forged statement that was never admitted.',
+    })),
+  };
+  const forgedPacket = {
+    ...forgedPacketBody,
+    packet_hash: sha256Text(stableStringify(forgedPacketBody)),
+  };
+  const forgedPacketArtifact = await controlPlane.recordArtifactRef({
+    title_card_id: TITLE_CARD_ID,
+    artifact_kind: 'structured_output',
+    storage_kind: 'inline',
+    input_snapshot_id: snapshot.input_snapshot_id,
+    workflow_run_id: 'workflow_1',
+    payload: forgedPacket,
+    checksum: forgedPacket.packet_hash,
+    mime_type: 'application/json',
+    created_by: 'system',
+  });
+  await assert.rejects(service.runLinkedRound({
+    ...runInput,
+    role_inputs: runInput.role_inputs.map((roleInput, index) => index === 0
+      ? {
+          ...roleInput,
+          evidence_packet_artifact_ref: ref(
+            'artifact_ref',
+            forgedPacketArtifact.artifact_ref_id,
+            forgedPacketArtifact.checksum!,
+          ),
+        }
+      : roleInput),
+  }), /packet .*authority/u);
+  assert.equal(checkpoints.length, 0);
+
   const exhausted = await service.runLinkedRound({
     ...runInput,
     accounting: {

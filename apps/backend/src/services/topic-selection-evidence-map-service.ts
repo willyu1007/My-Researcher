@@ -152,8 +152,6 @@ export type TopicSelectionPublishEvidenceConvergenceSuccessorResult = {
   resolution_route: TopicSelectionResolutionRouteArtifact;
   resolution_route_ref: TopicSelectionFunctionalRef;
   successor: TopicSelectionEvidenceMapCreateRecords | null;
-  /** Linked-round orchestration materializes the fresh checkpoint after Debate completes. */
-  checkpoint: null;
 };
 
 type PersistedEvidenceConvergenceHit = {
@@ -463,6 +461,10 @@ export class TopicSelectionEvidenceMapService {
     }
     const predecessor = await this.requireEvidenceMap(input.predecessor_evidence_map_id);
     this.assertSameTitleCard(input.title_card_id, predecessor.title_card_id, 'predecessor EvidenceMap');
+    if (input.workspace_id !== undefined
+      && (input.workspace_id ?? null) !== (predecessor.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence workspace scope does not match the predecessor EvidenceMap.');
+    }
     if (predecessor.status !== 'ready' || predecessor.freshness_status !== 'current'
       || predecessor.successor_evidence_map_ref) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence requires the current predecessor EvidenceMap head.');
@@ -474,10 +476,16 @@ export class TopicSelectionEvidenceMapService {
 
     const searchRun = await this.requireSearchRun(input.search_run_id);
     this.assertSameTitleCard(input.title_card_id, searchRun.title_card_id, 'SearchRun');
+    if ((searchRun.workspace_id ?? null) !== (predecessor.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence SearchRun is outside the predecessor workspace scope.');
+    }
     if (!CONSUMABLE_SEARCH_RUN_STATUSES.has(searchRun.run_status)) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Evidence convergence requires a consumable SearchRun.');
     }
     const searchPlan = await this.requireSearchPlan(searchRun.search_plan_ref.ref_id);
+    if ((searchPlan.workspace_id ?? null) !== (predecessor.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence convergence SearchPlan is outside the predecessor workspace scope.');
+    }
     if (searchPlan.parent_search_plan_ref?.ref_id !== predecessor.search_plan_ref.ref_id) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Successor SearchRun does not extend the predecessor SearchPlan.');
     }
@@ -582,7 +590,6 @@ export class TopicSelectionEvidenceMapService {
         resolution_route: resolutionRoute,
         resolution_route_ref: routeRef,
         successor: null,
-        checkpoint: null,
       };
     }
 
@@ -875,6 +882,26 @@ export class TopicSelectionEvidenceMapService {
       created_by: input.created_by ?? 'system',
       created_at: createdAt,
     };
+    const assessmentIdentity = sha256Text(stableStringify({
+      search_run_id: searchRun.search_run_id,
+      coverage_row_intent_id: issueRow.coverage_row_intent_id,
+      admitted_evidence_unit_refs: admittedRefs,
+    }));
+    const assessmentId = `coverage_assessment_${assessmentIdentity.slice(0, 24)}`;
+    // Coverage belongs to the child SearchPlan/SearchRun; keep the EvidenceMap head CAS last so
+    // a failed adjunct write cannot strand a published successor that the caller cannot retry.
+    if (!coverageAssessments.some((assessment) => assessment.coverage_assessment_id === assessmentId)) {
+      await this.searchResources.createCoverageAssessment({
+        coverage_assessment_id: assessmentId,
+        search_plan_id: searchPlan.search_plan_id,
+        coverage_row_intent_id: issueRow.coverage_row_intent_id,
+        verdict: 'satisfied',
+        issue_codes: [],
+        confidence: Math.min(...materialAdmissions.map((admission) => admission.extraction_confidence ?? 1)),
+        assessed_by: input.created_by ?? 'system',
+        created_at: this.now(),
+      });
+    }
     let successor: TopicSelectionEvidenceMapCreateRecords;
     try {
       successor = await this.repository.publishEvidenceMapSuccessorWithRecords({
@@ -893,24 +920,6 @@ export class TopicSelectionEvidenceMapService {
     } catch (error) {
       throw new AppError(409, 'VERSION_CONFLICT', error instanceof Error ? error.message : 'EvidenceMap successor publication failed.');
     }
-    const assessmentIdentity = sha256Text(stableStringify({
-      search_run_id: searchRun.search_run_id,
-      coverage_row_intent_id: issueRow.coverage_row_intent_id,
-      admitted_evidence_unit_refs: admittedRefs,
-    }));
-    const assessmentId = `coverage_assessment_${assessmentIdentity.slice(0, 24)}`;
-    if (!coverageAssessments.some((assessment) => assessment.coverage_assessment_id === assessmentId)) {
-      await this.searchResources.createCoverageAssessment({
-        coverage_assessment_id: assessmentId,
-        search_plan_id: searchPlan.search_plan_id,
-        coverage_row_intent_id: issueRow.coverage_row_intent_id,
-        verdict: 'satisfied',
-        issue_codes: [],
-        confidence: Math.min(...materialAdmissions.map((admission) => admission.extraction_confidence ?? 1)),
-        assessed_by: input.created_by ?? 'system',
-        created_at: this.now(),
-      });
-    }
     return {
       status: 'successor_published',
       evidence_delta: evidenceDelta,
@@ -918,7 +927,6 @@ export class TopicSelectionEvidenceMapService {
       resolution_route: resolutionRoute,
       resolution_route_ref: routeRef,
       successor,
-      checkpoint: null,
     };
   }
 

@@ -5,7 +5,7 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 in progress; durable retrieval, exact claim admission/successor publication, and the linked frozen Arena round through post-synthesis same-gate checkpoint are implemented and focused-verified on 2026-09-03
+- Current phase: Phase 2 in progress; the retrieval, admission/successor, linked-round, and post-synthesis checkpoint slices are implemented, quality-hardened, residue-scanned, and repository-wide verified on 2026-09-03
 - Next step: Compose the verified retrieval, admission, successor, linked-round, and deterministic-checkpoint seams in one bounded local pilot before closing Phase 2.
 - Blocker: none. Phase 2 is authorized through its defined exit; Phase 3 remains outside the current authorization.
 
@@ -28,6 +28,7 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 - [x] Zero-hit executions remain durable succeeded SearchRuns and halt unresolved; standing-policy exhaustion occurs before new durable work and cannot become gate success.
 - [x] Exact quote-bearing persisted hits can be admitted at claim level; duplicate claims produce a durable non-material delta without a successor, while material claims publish the EvidenceMap head by compare-and-swap. Checkpoint publication is deliberately deferred until the linked Debate round is synthesized.
 - [x] A material successor can run one frozen support-only Arena round with two independent first passes and one synthesis arbiter; exact successor packets, SearchRun chunk provenance, parent transcript, EvidenceDelta, output audits, and round link are revalidated before the original deterministic checkpoint is materialized.
+- [x] The quality checkpoint closes cross-workspace and unrelated-parent substitution, regenerates packets from current evidence authority, revalidates round-link and synthesis artifacts on first execution and replay, preserves unresolved synthesis disposition, isolates durable linked-round counts by issue, and prevents a failed coverage assessment from advancing the EvidenceMap head.
 - [ ] One composed bounded local pilot across retrieval → admission → successor → linked round → deterministic checkpoint remains before the Phase 2 exit can be claimed.
 
 ## Done when

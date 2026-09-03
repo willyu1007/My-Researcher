@@ -124,6 +124,10 @@ export class TopicSelectionResearchArenaRetrievalService {
     const evidenceMap = await this.requireCurrentEvidenceMap(input);
     this.assertFrozenEvidenceLineage(input, arenaSnapshot, evidenceMap);
     const literatureSnapshot = await this.requireLiteratureSnapshot(input);
+    if ((literatureSnapshot.workspace_id ?? null) !== (arenaSnapshot.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Literature snapshot belongs to a different workspace scope.');
+    }
+    const workspaceId = evidenceMap.workspace_id ?? null;
     const retrievalRequest = {
       query: input.query_intent.query,
       profile: 'topic_exploration',
@@ -157,6 +161,9 @@ export class TopicSelectionResearchArenaRetrievalService {
     const units = await this.dependencies.evidenceMapRepository.listEvidenceUnitsByEvidenceMapId(
       evidenceMap.evidence_map_id,
     );
+    if (units.some((unit) => (unit.workspace_id ?? null) !== workspaceId)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'EvidenceMap units cross the frozen workspace scope.');
+    }
     const selectedUnits = this.selectUnits(units, response, input.participant_role);
     const selectedLiteratureIds = new Set(selectedUnits.map((unit) => unit.literature_ref.ref_id));
     const evidenceUnitRefs = selectedUnits.slice(0, 12).map((unit) => this.ref(
@@ -187,6 +194,7 @@ export class TopicSelectionResearchArenaRetrievalService {
       response,
       provenanceBody.hits,
       evidenceMapInputRefs,
+      workspaceId,
       {
         requiresEvidenceMaterialization: unresolvedLiteratureRefs.length > 0,
         retrievalDegraded: response.meta.degraded_mode
@@ -235,7 +243,7 @@ export class TopicSelectionResearchArenaRetrievalService {
       evidence_unit_refs: evidenceUnitRefs,
     });
     const artifact = await this.dependencies.artifactRecorder.recordArtifactRef({
-      workspace_id: input.workspace_id ?? null,
+      workspace_id: workspaceId,
       title_card_id: input.title_card_id,
       artifact_kind: 'structured_output',
       storage_kind: 'inline',
@@ -304,6 +312,7 @@ export class TopicSelectionResearchArenaRetrievalService {
       && (ref.title_card_id ?? null) === (evidenceMapRef.title_card_id ?? null)
     );
     if (!exactEvidenceMapBound
+      || (evidenceMap.workspace_id ?? null) !== (snapshot.workspace_id ?? null)
       || evidenceMap.search_plan_ref.ref_id !== input.search_plan_id
       || evidenceMap.literature_snapshot_ref.ref_id !== input.literature_snapshot_id) {
       throw new AppError(
@@ -334,6 +343,7 @@ export class TopicSelectionResearchArenaRetrievalService {
     response: LiteratureRetrieveResponse,
     hits: TopicSelectionResearchRetrievalProvenance['hits'],
     evidenceMapInputRefs: TopicSelectionFunctionalRef[],
+    workspaceId: string | null,
     partialReasons: {
       requiresEvidenceMaterialization: boolean;
       retrievalDegraded: boolean;
@@ -344,7 +354,7 @@ export class TopicSelectionResearchArenaRetrievalService {
       ? 'partial'
       : 'succeeded';
     const record = await this.dependencies.searchRunRecorder.recordSearchRun({
-      workspace_id: input.workspace_id ?? null,
+      workspace_id: workspaceId,
       title_card_id: input.title_card_id,
       search_plan_id: input.search_plan_id,
       literature_resource_pool_snapshot_id: input.literature_snapshot_id,

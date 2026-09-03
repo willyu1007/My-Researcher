@@ -99,6 +99,10 @@ EvidenceDelta artifacts; only a material delta publishes a successor through the
 compare-and-swap transition. The linked-round slice freezes that successor into a new support-only
 Arena round, revalidates the parent transcript, EvidenceDelta, packets, role audits, and round link,
 then materializes the original deterministic evidence-landscape checkpoint only after synthesis.
+The quality checkpoint additionally derives workspace and parent-map scope from durable authorities,
+regenerates every packet before use, revalidates round-link and synthesis artifacts on replay, keeps
+`remain_unresolved` distinct from a ready recommendation, counts linked rounds per durable issue, and
+orders coverage assessment persistence before the EvidenceMap head compare-and-swap.
 One composed bounded local pilot across all of these verified seams remains before Phase 2 exits.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout

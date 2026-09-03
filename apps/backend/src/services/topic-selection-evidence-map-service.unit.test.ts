@@ -571,6 +571,12 @@ test('claim admission publishes a material successor for the linked same-gate ro
     && error.statusCode === 422
     && error.errorCode === 'GATE_CONSTRAINT_FAILED');
 
+  await assert.rejects(ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    workspace_id: 'workspace_other',
+    claim_admissions: [materialAdmission],
+  }), /workspace scope/u);
+
   const noDelta = await ctx.evidenceService.publishEvidenceConvergenceSuccessor({
     ...baseInput,
     claim_admissions: [{
@@ -585,6 +591,23 @@ test('claim admission publishes a material successor for the linked same-gate ro
   assert.equal(noDelta.successor, null);
   assert.equal((await ctx.evidenceRepository.findEvidenceMapById(ctx.evidenceMap.evidence_map_id))?.freshness_status, 'current');
   assert.equal(checkpoints.length, 0);
+
+  const createCoverageAssessment = ctx.searchResourceRepository.createCoverageAssessment.bind(
+    ctx.searchResourceRepository,
+  );
+  ctx.searchResourceRepository.createCoverageAssessment = async () => {
+    throw new Error('simulated assessment persistence failure');
+  };
+  await assert.rejects(ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    claim_admissions: [materialAdmission],
+  }), /simulated assessment persistence failure/u);
+  assert.equal(
+    (await ctx.evidenceRepository.findEvidenceMapById(ctx.evidenceMap.evidence_map_id))?.freshness_status,
+    'current',
+    'a failed coverage assessment must not advance the EvidenceMap head',
+  );
+  ctx.searchResourceRepository.createCoverageAssessment = createCoverageAssessment;
 
   const result = await ctx.evidenceService.publishEvidenceConvergenceSuccessor({
     ...baseInput,
@@ -608,7 +631,6 @@ test('claim admission publishes a material successor for the linked same-gate ro
     matrix.rows.find((row) => row.coverage_row_intent.coverage_key === 'counter-evidence')?.latest_assessment?.verdict,
     'satisfied',
   );
-  assert.equal(result.checkpoint, null);
   assert.equal(checkpoints.length, 0, 'the fresh checkpoint must wait for the linked Debate round');
 });
 

@@ -88,7 +88,6 @@ const publishSuccessorBody = {
       maxItems: 24,
       items: topicSelectionEvidenceConvergenceClaimAdmissionSchema,
     },
-    created_by: { enum: ['human', 'llm', 'system', 'hybrid'] },
     policy_version_id: { anyOf: [stringId, { type: 'null' }] },
   },
 } as const;

@@ -7,6 +7,7 @@ import {
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
   TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION,
   type TopicSelectionEvidenceConvergenceRoundLink,
+  type TopicSelectionEvidenceConvergenceRoundRoleOutput,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import type {
   TopicSelectionArtifactRefRecord,
@@ -103,6 +104,10 @@ export class TopicSelectionResearchArenaService {
     const replay = await this.dependencies.arenaRepository.findSessionByKey(input.session_key);
     this.assertSessionInput(input);
     const snapshot = await this.requireSnapshot(input.input_snapshot_id, input.title_card_id);
+    if (input.workspace_id !== undefined
+      && (input.workspace_id ?? null) !== (snapshot.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Arena workspace scope does not match the bound InputSnapshot.');
+    }
     if (!this.sameRef(snapshot.target_ref, input.target_ref)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Arena target does not match the bound InputSnapshot target.');
     }
@@ -433,15 +438,13 @@ export class TopicSelectionResearchArenaService {
       snapshot,
     );
     const transcriptHash = this.requireArtifactHash(transcriptArtifact, 'Evidence-convergence transcript');
-    if (session.status === 'synthesized') {
-      if (session.loop_transcript_ref
-        && this.sameRef(session.loop_transcript_ref, input.loop_transcript_artifact_ref)
-        && session.loop_transcript_hash === transcriptHash) {
-        return session;
-      }
+    const synthesizedReplay = session.status === 'synthesized';
+    if (synthesizedReplay && (!session.loop_transcript_ref
+      || !this.sameRef(session.loop_transcript_ref, input.loop_transcript_artifact_ref)
+      || session.loop_transcript_hash !== transcriptHash)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Synthesized evidence-convergence arena has a different transcript.');
     }
-    if (session.status !== 'open' || !session.current_arena_key) {
+    if (!synthesizedReplay && (session.status !== 'open' || !session.current_arena_key)) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Only the current open evidence-convergence arena can be synthesized.');
     }
 
@@ -479,12 +482,14 @@ export class TopicSelectionResearchArenaService {
       session.title_card_id,
       snapshot,
     );
+    this.requireArtifactHash(roundLinkArtifact, 'Evidence-convergence round link');
     const roundLink = roundLinkArtifact.payload as unknown as TopicSelectionEvidenceConvergenceRoundLink;
     const parentSessionId = session.supersedes_arena_session_id;
     const parent = parentSessionId
       ? await this.dependencies.arenaRepository.findSessionById(parentSessionId)
       : null;
     if (!parent || !parent.loop_transcript_hash
+      || !parent.loop_transcript_ref
       || roundLink.schema_version !== TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_LINK_SCHEMA_VERSION
       || roundLink.arena_session_ref.ref_type !== 'research_arena_session'
       || roundLink.arena_session_ref.ref_id !== session.arena_session_id
@@ -495,6 +500,15 @@ export class TopicSelectionResearchArenaService {
       || !session.loop_delta_refs.some((delta) => this.sameRef(delta.ref, roundLink.evidence_delta_ref))) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence round link does not match the parent transcript and session lineage.');
     }
+    const parentTranscriptArtifact = await this.requireLineageArtifact(
+      parent.loop_transcript_ref,
+      parent,
+      'Parent arena transcript',
+    );
+    if (this.requireArtifactHash(parentTranscriptArtifact, 'Parent arena transcript')
+      !== parent.loop_transcript_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Parent arena transcript no longer matches its frozen hash.');
+    }
     const deltaArtifact = await this.requireSnapshotSourceArtifact(
       roundLink.evidence_delta_ref,
       session.title_card_id,
@@ -503,13 +517,46 @@ export class TopicSelectionResearchArenaService {
     if (this.requireArtifactHash(deltaArtifact, 'EvidenceDelta') !== roundLink.evidence_delta_hash) {
       throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence round link carries a different EvidenceDelta hash.');
     }
+    const synthesisExecution = synthesisExecutions[0]!;
+    const synthesisArtifact = await this.requireArtifact(
+      synthesisExecution.output_artifact_ref,
+      session.title_card_id,
+      snapshot,
+    );
+    const synthesisOutput = synthesisArtifact.payload as unknown as TopicSelectionEvidenceConvergenceRoundRoleOutput;
+    const issueRefs = Array.isArray(deltaArtifact.payload?.issue_refs)
+      ? deltaArtifact.payload.issue_refs
+      : [];
+    if (this.requireArtifactHash(synthesisArtifact, 'Evidence-convergence synthesis output')
+        !== synthesisExecution.output_artifact_hash
+      || synthesisOutput.schema_version !== 'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1'
+      || synthesisOutput.participant_role !== 'synthesis_arbiter'
+      || synthesisOutput.support_only !== true
+      || !this.sameRef(synthesisOutput.evidence_map_ref, session.target_ref)
+      || !this.sameRef(synthesisOutput.evidence_delta_ref, roundLink.evidence_delta_ref)
+      || !issueRefs.some((issueRef) => this.isSameRefValue(issueRef, synthesisOutput.issue_ref))
+      || !['recheck_same_gate', 'remain_unresolved'].includes(
+        synthesisOutput.semantic_position?.recommended_disposition,
+      )) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence synthesis output is outside the frozen round authority.');
+    }
+    const terminationReason: TopicSelectionResearchArenaTerminationReason =
+      synthesisOutput.semantic_position.recommended_disposition === 'recheck_same_gate'
+        ? 'recommendation_ready'
+        : 'evidence_expansion_required';
+    if (synthesizedReplay) {
+      if (session.termination_reason !== terminationReason) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Synthesized evidence-convergence arena has a different disposition.');
+      }
+      return session;
+    }
 
     const now = this.now();
     try {
       return await this.dependencies.arenaRepository.updateSession({
         ...session,
         status: 'synthesized',
-        termination_reason: 'recommendation_ready',
+        termination_reason: terminationReason,
         loop_transcript_ref: input.loop_transcript_artifact_ref,
         loop_transcript_hash: transcriptHash,
         updated_at: now,
@@ -716,21 +763,36 @@ export class TopicSelectionResearchArenaService {
       );
     }
     if (current.arena_kind === 'evidence_landscape') {
-      let linkedRoundCount = 0;
+      const incomingIssueKeys = await this.evidenceDeltaIssueKeys(
+        loopDeltaRefs,
+        snapshot,
+      );
+      const linkedRoundCounts = new Map([...incomingIssueKeys].map((key) => [key, 0]));
       let cursor: TopicSelectionResearchArenaSessionRecord | null = current;
       const visited = new Set<string>();
-      while (cursor?.supersedes_arena_session_id) {
+      while (cursor) {
         if (visited.has(cursor.arena_session_id)) {
           throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence arena lineage contains a cycle.');
         }
         visited.add(cursor.arena_session_id);
-        linkedRoundCount += 1;
-        cursor = await this.dependencies.arenaRepository.findSessionById(cursor.supersedes_arena_session_id);
-        if (!cursor) {
+        const roundIssueKeys = await this.persistedEvidenceDeltaIssueKeys(cursor);
+        for (const issueKey of incomingIssueKeys) {
+          if (roundIssueKeys.has(issueKey)) {
+            linkedRoundCounts.set(issueKey, (linkedRoundCounts.get(issueKey) ?? 0) + 1);
+          }
+        }
+        if (!cursor.supersedes_arena_session_id) break;
+        const parent = await this.dependencies.arenaRepository.findSessionById(
+          cursor.supersedes_arena_session_id,
+        );
+        if (!parent) {
           throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence arena lineage has a missing parent.');
         }
+        cursor = parent;
       }
-      if (linkedRoundCount >= TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY.max_linked_rounds_per_issue) {
+      if ([...linkedRoundCounts.values()].some((count) => (
+        count >= TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY.max_linked_rounds_per_issue
+      ))) {
         throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'Evidence-convergence linked-round boundary is exhausted.');
       }
     }
@@ -751,6 +813,67 @@ export class TopicSelectionResearchArenaService {
         'Every retry delta ref must be present in the changed InputSnapshot.',
       );
     }
+  }
+
+  private async evidenceDeltaIssueKeys(
+    loopDeltaRefs: TopicSelectionResearchArenaLoopDeltaRef[],
+    snapshot: TopicSelectionInputSnapshotRecord,
+  ): Promise<Set<string>> {
+    if (!snapshot.title_card_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence InputSnapshot has no title-card scope.');
+    }
+    const issueKeys = new Set<string>();
+    for (const delta of loopDeltaRefs.filter((candidate) => candidate.delta_type === 'evidence')) {
+      const artifact = await this.requireSnapshotSourceArtifact(delta.ref, snapshot.title_card_id, snapshot);
+      this.requireArtifactHash(artifact, 'EvidenceDelta');
+      for (const issueRef of this.readEvidenceDeltaIssueRefs(artifact)) {
+        issueKeys.add(this.refKey(issueRef));
+      }
+    }
+    if (issueKeys.size === 0) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'An evidence-convergence retry requires a material EvidenceDelta with at least one issue ref.',
+      );
+    }
+    return issueKeys;
+  }
+
+  private async persistedEvidenceDeltaIssueKeys(
+    session: TopicSelectionResearchArenaSessionRecord,
+  ): Promise<Set<string>> {
+    const snapshot = await this.requireSnapshot(session.input_snapshot_id, session.title_card_id);
+    if ((snapshot.workspace_id ?? null) !== (session.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Historical evidence-convergence snapshot crossed workspace scope.');
+    }
+    const issueKeys = new Set<string>();
+    for (const delta of session.loop_delta_refs.filter((candidate) => candidate.delta_type === 'evidence')) {
+      const artifact = await this.requireSnapshotSourceArtifact(
+        delta.ref,
+        session.title_card_id,
+        snapshot,
+      );
+      this.requireArtifactHash(artifact, 'Historical EvidenceDelta');
+      for (const issueRef of this.readEvidenceDeltaIssueRefs(artifact)) {
+        issueKeys.add(this.refKey(issueRef));
+      }
+    }
+    return issueKeys;
+  }
+
+  private readEvidenceDeltaIssueRefs(
+    artifact: TopicSelectionArtifactRefRecord,
+  ): TopicSelectionFunctionalRef[] {
+    const payload = artifact.payload;
+    if (payload?.schema_version !== 'TopicSelectionEvidenceDelta@v1'
+      || payload.material !== true
+      || !Array.isArray(payload.issue_refs)
+      || payload.issue_refs.length === 0
+      || payload.issue_refs.some((value) => !this.isRef(value, 'coverage_row_intent'))) {
+      throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'EvidenceDelta issue lineage is malformed or non-material.');
+    }
+    return payload.issue_refs as unknown as TopicSelectionFunctionalRef[];
   }
 
   private transcriptExecutionIdentity(execution: TopicSelectionResearchArenaRoleExecutionRecord) {
@@ -788,7 +911,9 @@ export class TopicSelectionResearchArenaService {
     }
     const artifact = await this.dependencies.controlPlaneRepository.findArtifactRefById(ref.ref_id);
     if (!artifact) throw new AppError(404, 'NOT_FOUND', `ArtifactRef ${ref.ref_id} was not found.`);
-    if (artifact.title_card_id !== titleCardId || artifact.input_snapshot_id !== snapshot.input_snapshot_id) {
+    if (artifact.title_card_id !== titleCardId
+      || (artifact.workspace_id ?? null) !== (snapshot.workspace_id ?? null)
+      || artifact.input_snapshot_id !== snapshot.input_snapshot_id) {
       throw new AppError(409, 'VERSION_CONFLICT', `ArtifactRef ${ref.ref_id} is outside the bound arena snapshot.`);
     }
     if (ref.version_id && artifact.checksum !== ref.version_id) {
@@ -808,11 +933,31 @@ export class TopicSelectionResearchArenaService {
     }
     const artifact = await this.dependencies.controlPlaneRepository.findArtifactRefById(ref.ref_id);
     if (!artifact) throw new AppError(404, 'NOT_FOUND', `ArtifactRef ${ref.ref_id} was not found.`);
-    if (artifact.title_card_id !== titleCardId) {
+    if (artifact.title_card_id !== titleCardId
+      || (artifact.workspace_id ?? null) !== (snapshot.workspace_id ?? null)) {
       throw new AppError(409, 'VERSION_CONFLICT', `ArtifactRef ${ref.ref_id} is outside the arena title card.`);
     }
     if (ref.version_id && artifact.checksum !== ref.version_id) {
       throw new AppError(409, 'VERSION_CONFLICT', `ArtifactRef ${ref.ref_id} no longer matches its referenced version.`);
+    }
+    return artifact;
+  }
+
+  private async requireLineageArtifact(
+    ref: TopicSelectionFunctionalRef,
+    session: TopicSelectionResearchArenaSessionRecord,
+    label: string,
+  ): Promise<TopicSelectionArtifactRefRecord> {
+    if (ref.ref_type !== 'artifact_ref') {
+      throw new AppError(409, 'VERSION_CONFLICT', `${label} is not an artifact ref.`);
+    }
+    const artifact = await this.dependencies.controlPlaneRepository.findArtifactRefById(ref.ref_id);
+    if (!artifact) throw new AppError(404, 'NOT_FOUND', `ArtifactRef ${ref.ref_id} was not found.`);
+    if (artifact.title_card_id !== session.title_card_id
+      || (artifact.workspace_id ?? null) !== (session.workspace_id ?? null)
+      || artifact.input_snapshot_id !== session.input_snapshot_id
+      || (ref.version_id && artifact.checksum !== ref.version_id)) {
+      throw new AppError(409, 'VERSION_CONFLICT', `${label} is outside its arena lineage.`);
     }
     return artifact;
   }
@@ -831,6 +976,14 @@ export class TopicSelectionResearchArenaService {
       }
     }
     return artifact.checksum;
+  }
+
+  private isSameRefValue(value: unknown, expected: TopicSelectionFunctionalRef): boolean {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+      && 'ref_type' in value && value.ref_type === expected.ref_type
+      && 'ref_id' in value && value.ref_id === expected.ref_id
+      && 'title_card_id' in value && value.title_card_id === expected.title_card_id
+      && ('version_id' in value ? value.version_id : undefined) === expected.version_id);
   }
 
   private readInvocationAudit(
