@@ -310,7 +310,7 @@ const N9_REFINEMENT_UPDATE_KEYS = [
 
 function isN9QuestionRefinementPayload(value: unknown): boolean {
   if (!isRecord(value)
-    || !hasOnlyKeys(value, ['schema_version', 'refinement_id', 'actor', 'rationale', 'updates'])
+    || !hasOnlyKeys(value, ['schema_version', 'refinement_id', 'actor', 'rationale', 'updates', 'resolved_review_triggers'])
     || value.schema_version !== TOPIC_SELECTION_V1B_N9_QUESTION_REFINEMENT_SCHEMA_VERSION
     || typeof value.refinement_id !== 'string'
     || !value.refinement_id.trim()
@@ -326,7 +326,8 @@ function isN9QuestionRefinementPayload(value: unknown): boolean {
     || Object.keys(value.updates).length === 0) {
     return false;
   }
-  for (const [key, update] of Object.entries(value.updates)) {
+  const updates = value.updates;
+  for (const [key, update] of Object.entries(updates)) {
     const isArrayField = [
       'metrics',
       'baselines',
@@ -347,6 +348,21 @@ function isN9QuestionRefinementPayload(value: unknown): boolean {
           update as (typeof TOPIC_SELECTION_TOPIC_QUESTION_TYPES)[number],
         ))) {
       return false;
+    }
+  }
+  if (value.resolved_review_triggers !== undefined) {
+    if (!Array.isArray(value.resolved_review_triggers)) return false;
+    const triggers = new Set<string>();
+    for (const resolution of value.resolved_review_triggers) {
+      if (!isRecord(resolution)
+        || !hasOnlyKeys(resolution, ['trigger', 'resolved_by_fields', 'rationale'])
+        || typeof resolution.trigger !== 'string' || !resolution.trigger.trim()
+        || typeof resolution.rationale !== 'string' || !resolution.rationale.trim()
+        || !isStringArray(resolution.resolved_by_fields) || resolution.resolved_by_fields.length === 0
+        || new Set(resolution.resolved_by_fields).size !== resolution.resolved_by_fields.length
+        || resolution.resolved_by_fields.some((field) => !Object.hasOwn(updates, field))
+        || triggers.has(resolution.trigger)) return false;
+      triggers.add(resolution.trigger);
     }
   }
   return true;

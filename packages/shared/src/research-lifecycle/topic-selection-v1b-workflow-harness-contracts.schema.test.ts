@@ -353,6 +353,26 @@ function canonicalN9QuestionRefinementPayload() {
   } as const;
 }
 
+test('Human question refinement accepts exact trigger resolutions with bounded field references', async () => {
+  const resolution = {
+    trigger: 'Choose the primary metrics.',
+    resolved_by_fields: ['metrics'],
+    rationale: 'The Human confirms the explicit primary metric selection.',
+  };
+  const payload = { ...canonicalN9QuestionRefinementPayload(), resolved_review_triggers: [resolution] };
+  assert.equal(await validatesBody(topicSelectionV1bN9QuestionRefinementPayloadSchema, payload), true);
+  for (const invalid of [
+    { ...resolution, resolved_by_fields: [] },
+    { ...resolution, resolved_by_fields: ['metrics', 'metrics'] },
+    { ...resolution, resolved_by_fields: ['unregistered_field'] },
+    { ...resolution, rationale: '' },
+  ]) {
+    assert.equal(await validatesBody(topicSelectionV1bN9QuestionRefinementPayloadSchema, {
+      ...payload, resolved_review_triggers: [invalid],
+    }), false);
+  }
+});
+
 function canonicalN8ToN7FeedbackPayload(
   overrides: Partial<TopicSelectionV1bN8ToN7FeedbackPayload> = {},
 ): TopicSelectionV1bN8ToN7FeedbackPayload {

@@ -194,6 +194,7 @@ export type MaterializeQuestionContractCheckpointInput = {
   contract: TopicSelectionTopicQuestionContractRecord;
   question: TopicSelectionTopicQuestionRecord;
   candidate: TopicSelectionTopicQuestionCandidateRecord;
+  human_review_triggers?: string[];
   question_frame: TopicSelectionQuestionFrameRecord;
   answerability_plan: TopicSelectionTopicQuestionAnswerabilityPlanRecord;
   evidence_refs: TopicSelectionTopicQuestionEvidenceRefRecord[];
@@ -873,6 +874,8 @@ export class TopicSelectionResearchCheckpointService {
         note: record.note,
       })),
       answerability_verdict: plan.answerability_verdict,
+      risk_notes: this.uniqueStrings([...candidate.risk_notes, ...contract.risk_notes]),
+      human_review_triggers: input.human_review_triggers ?? candidate.human_review_triggers,
       policy_result: issueCodes.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
       policy_issue_codes: issueCodes,
       policy_issues: policyIssues,
@@ -2529,6 +2532,7 @@ export class TopicSelectionResearchCheckpointService {
           ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
           ...valueRisks,
           ...this.stringArrayField(payload, 'risk_notes'),
+          ...this.stringArrayField(payload, 'human_review_triggers'),
           ...(!Array.isArray(payload.risk_notes) ? this.stringArrayField(legacyContract, 'risk_notes') : []),
           ...this.stringArrayField(payload, 'dependency_risks'),
           ...this.stringArrayField(evaluation, 'open_dependencies').map((item) => `待解决依赖：${item}`),

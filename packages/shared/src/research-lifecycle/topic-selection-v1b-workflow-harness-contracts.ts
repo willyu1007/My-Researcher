@@ -2062,6 +2062,12 @@ export interface TopicSelectionV1bN9QuestionRefinementPayload {
   };
   rationale: string;
   updates: TopicSelectionV1bN9QuestionRefinementUpdates;
+  /** Exact Human confirmations, bound to fields explicitly supplied in this refinement. */
+  resolved_review_triggers?: Array<{
+    trigger: string;
+    resolved_by_fields: Array<keyof TopicSelectionV1bN9QuestionRefinementUpdates>;
+    rationale: string;
+  }>;
 }
 
 export interface TopicSelectionV1bN7HarnessRefinementFrozenInputPayload
@@ -3123,6 +3129,28 @@ export const topicSelectionV1bN9QuestionRefinementPayloadSchema = {
       },
     },
     rationale: stringId,
+    resolved_review_triggers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['trigger', 'resolved_by_fields', 'rationale'],
+        properties: {
+          trigger: stringId,
+          rationale: stringId,
+          resolved_by_fields: {
+            type: 'array',
+            minItems: 1,
+            uniqueItems: true,
+            items: { enum: [
+              'main_question', 'contribution_hypothesis', 'expected_claim', 'fallback_claim',
+              'evaluation_setting', 'metrics', 'baselines', 'ablations_or_comparisons',
+              'dependency_risks', 'open_dependencies', 'known_gaps', 'risk_notes',
+            ] },
+          },
+        },
+      },
+    },
     updates: {
       type: 'object',
       additionalProperties: false,

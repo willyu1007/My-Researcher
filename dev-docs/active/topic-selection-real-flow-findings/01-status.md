@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 evidence/question Human views and current value projections implemented and focused-verified
-- Next step: Reconcile replacement-contract warnings under FIND-023, then verify unresolved recent-work risk visibility under TSRF-06 before the remaining contract and decision-support phases.
+- Current phase: Phase 1 evidence/question Human views, current value projections, and FIND-023 Human review-trigger and risk reconciliation implemented and focused-verified
+- Next step: Verify unresolved recent-work risk visibility under TSRF-06, then reconcile rejected-topic disposition before the remaining contract and decision-support phases.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when

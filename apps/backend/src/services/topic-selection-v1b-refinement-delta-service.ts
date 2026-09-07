@@ -2,6 +2,10 @@ import type {
   TopicSelectionV1bN9QuestionRefinementPayload,
   TopicSelectionV1bN9QuestionRefinementUpdates,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
+import type {
+  TopicSelectionTopicQuestionContractRecord,
+  TopicSelectionTopicQuestionAnswerabilityPlanRecord,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-topic-question-contracts';
 
 import { AppError } from '../errors/app-error.js';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
@@ -25,6 +29,26 @@ export type TopicSelectionV1bRefinementSemanticField =
   (typeof TOPIC_SELECTION_V1B_REFINEMENT_SEMANTIC_FIELDS)[number];
 
 export type TopicSelectionV1bRefinementBaseline = Required<TopicSelectionV1bN9QuestionRefinementUpdates>;
+
+export function topicSelectionV1bRefinementBaseline(
+  contract: TopicSelectionTopicQuestionContractRecord,
+  plan: TopicSelectionTopicQuestionAnswerabilityPlanRecord,
+): TopicSelectionV1bRefinementBaseline {
+  return {
+    main_question: contract.main_question,
+    contribution_hypothesis: contract.contribution_hypothesis,
+    expected_claim: contract.expected_claim,
+    fallback_claim: contract.fallback_claim,
+    evaluation_setting: plan.evaluation_setting,
+    metrics: plan.metrics,
+    baselines: plan.baselines,
+    ablations_or_comparisons: plan.ablations_or_comparisons,
+    dependency_risks: plan.dependency_risks,
+    open_dependencies: plan.open_dependencies,
+    known_gaps: plan.known_gaps,
+    risk_notes: contract.risk_notes,
+  };
+}
 
 export type TopicSelectionV1bRefinementDeltaClassification = {
   kind: 'substantive' | 'canonical_no_op';

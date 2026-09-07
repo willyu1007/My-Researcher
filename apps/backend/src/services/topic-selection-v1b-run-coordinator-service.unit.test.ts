@@ -360,6 +360,11 @@ test('coordinator consumes N9 refinement into a new N7 pass and rewinds the fron
       main_question: 'How does abstaining recalibration behave at fixed coverage under replacement shift?',
       metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
     },
+    resolved_review_triggers: [{
+      trigger: 'Choose the primary calibration and harmful-routing metrics before N8 value assessment.',
+      resolved_by_fields: ['metrics'],
+      rationale: 'The Human selected both primary metrics at fixed coverage.',
+    }],
   };
   const report = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,

@@ -2165,6 +2165,11 @@ test('topic-selection v1b advance route validates N9-to-N7 human refinement payl
         main_question: 'How does abstaining recalibration behave under replacement shift?',
         metrics: ['Brier Score', 'harmful-routing rate at fixed coverage'],
       },
+      resolved_review_triggers: [{
+        trigger: 'Choose the primary calibration and harmful-routing metrics before N8 value assessment.',
+        resolved_by_fields: ['metrics'],
+        rationale: 'The Human selected both primary metrics at fixed coverage.',
+      }],
     };
     const advance = (refinementPayload: unknown) => app.inject({
       method: 'POST',
@@ -2183,6 +2188,10 @@ test('topic-selection v1b advance route validates N9-to-N7 human refinement payl
       actor: { actor_type: 'system', actor_id: 'runtime' },
     })).statusCode, 400);
     assert.equal((await advance({ ...refinement, updates: {} })).statusCode, 400);
+    assert.equal((await advance({
+      ...refinement,
+      resolved_review_triggers: [{ ...refinement.resolved_review_triggers[0], resolved_by_fields: ['unknown_field'] }],
+    })).statusCode, 400);
     assert.notEqual((await advance(refinement)).statusCode, 400);
   } finally {
     await app.close();

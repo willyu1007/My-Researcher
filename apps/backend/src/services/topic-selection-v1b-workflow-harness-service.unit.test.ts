@@ -7218,9 +7218,33 @@ test('v1b workflow harness N9 rejects material N8 narrative when stable findings
 
 test('v1b workflow harness N9 refine_question prevents package creation and emits N7 recovery handoff', async () => {
   const ctx = await seedHarnessV1aBundle();
-  const { n6 } = await runReadyN6(ctx);
+  const { n5 } = await runReadyN5(ctx);
+  const n6Input = await n6Request(ctx, n5);
+  const candidateDraft = await n6Draft(ctx, n6Input);
+  const resolvedReviewTriggers = [
+    'Choose the primary calibration and harmful-routing metrics before N8 value assessment.',
+    'Confirm whether task-quality improvement is required or only non-worsening.',
+  ];
+  const independentRisks = [
+    'Benchmark construction may dominate the project scope.',
+    'Calibration drift may be too small for a meaningful repair claim.',
+    'The contribution may collapse to a well-tuned calibration baseline.',
+  ];
+  const reviewTrigger = 'Review benchmark validity before advancement.';
+  candidateDraft.candidates[0]!.risk_notes = independentRisks;
+  candidateDraft.candidates[0]!.human_review_triggers = [...resolvedReviewTriggers, reviewTrigger];
+  const n6 = await ctx.service.invokeNode({
+    ...n6Input,
+    semantic_artifacts: [await recordN6DraftArtifact(ctx, n6Input, candidateDraft)],
+  });
   const initialN7Input = await n7Request(ctx, n6);
   const n7 = await ctx.service.invokeNode(initialN7Input);
+  for (const trigger of resolvedReviewTriggers) {
+    assert.ok(n7.warnings.some((warning) => warning.code === trigger));
+  }
+  for (const risk of independentRisks) {
+    assert.ok(n7.warnings.some((warning) => warning.message === risk));
+  }
   const n8Input = await n8Request(ctx, n7);
   const draft = n8ValueDraft(n8Input, {
     readiness_status: 'needs_refinement',
@@ -7280,6 +7304,11 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
       actor_id: 'researcher_phase_5',
     },
     rationale: 'Freeze the accepted calibration and harmful-routing constraints before reassessment.',
+    resolved_review_triggers: resolvedReviewTriggers.map((trigger) => ({
+      trigger,
+      resolved_by_fields: ['metrics', 'risk_notes'],
+      rationale: 'The Human confirms the explicit metric choices and non-inferiority margin in these fields.',
+    })),
     updates: {
       main_question: 'How can low-label recalibration with abstention preserve calibration while limiting harmful routing under replacement shifts?',
       contribution_hypothesis: 'method',
@@ -7367,6 +7396,27 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   });
   assert.equal(unauthorized.gate_status, 'blocked');
   assert.equal(unauthorized.error_code, 'N7_REFINEMENT_HUMAN_ACTOR_REQUIRED');
+  for (const [suffix, resolutions, expectedCode] of [
+    ['unknown', [{ ...refinementPayload.resolved_review_triggers![0]!, trigger: 'Unrelated trigger.' }], 'N7_REFINEMENT_REVIEW_TRIGGER_MISMATCH'],
+    ['duplicate', [refinementPayload.resolved_review_triggers![0]!, refinementPayload.resolved_review_triggers![0]!], 'N7_REFINEMENT_PAYLOAD_INVALID'],
+    ['unsupplied_field', [{ ...refinementPayload.resolved_review_triggers![0]!, resolved_by_fields: ['open_dependencies'] }], 'N7_REFINEMENT_PAYLOAD_INVALID'],
+    ['empty_rationale', [{ ...refinementPayload.resolved_review_triggers![0]!, rationale: ' ' }], 'N7_REFINEMENT_PAYLOAD_INVALID'],
+  ] as const) {
+    const invalidResolution = await ctx.service.invokeNode(request({
+      ...refinementRequest,
+      node_attempt_id: `node_attempt_v1b_n7_refinement_${suffix}`,
+      frozen_input: {
+        ...refinementRequest.frozen_input,
+        frozen_input_hash: undefined,
+        payload: {
+          ...refinementRequest.frozen_input.payload,
+          question_refinement: { ...refinementPayload, resolved_review_triggers: resolutions },
+        },
+      },
+    }));
+    assert.equal(invalidResolution.error_code, expectedCode, invalidResolution.error_message ?? undefined);
+    assert.equal(invalidResolution.authority_ref, null);
+  }
   assert.equal(
     (await ctx.topicQuestionRepository.findTopicQuestionContractById(previousContract.topic_question_contract_id))?.status,
     'active',
@@ -7383,6 +7433,19 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   assert.equal(refinedContract?.expected_claim, refinementPayload.updates.expected_claim);
   assert.equal(refinedContract?.evaluation_route, refinementPayload.updates.evaluation_setting);
   assert.deepEqual(refinedContract?.risk_notes, refinementPayload.updates.risk_notes);
+  assert.equal(refinedN7.warnings.some((warning) => resolvedReviewTriggers.includes(warning.code)), false);
+  for (const risk of independentRisks) {
+    assert.ok(refinedN7.warnings.some((warning) => warning.message === risk));
+  }
+  assert.deepEqual(
+    refinedN7.warnings.filter((warning) => warning.code === 'N7_ACTIVE_CONTRACT_RISK_NOTE')
+      .map((warning) => ({ message: warning.message, refs: warning.refs })),
+    refinementPayload.updates.risk_notes!.map((message) => ({ message, refs: [refinedN7.authority_ref] })),
+  );
+  assert.ok(refinedN7.warnings.some((warning) => warning.code === reviewTrigger));
+  const refinedDecision = await ctx.topicQuestionRepository.findSelectionDecisionById(refinedContract!.selection_decision_id);
+  assert.deepEqual(refinedDecision?.human_review_triggers, [reviewTrigger]);
+  assert.deepEqual(refinedDecision?.admission_review.resolved_review_triggers, refinementPayload.resolved_review_triggers);
   const refinedAnswerability = await ctx.topicQuestionRepository.findAnswerabilityPlanByContractId(
     refinedN7.authority_ref!.ref_id,
   );
@@ -7400,6 +7463,34 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   const replay = await ctx.service.invokeNode(refinementRequest);
   assert.equal(replay.authority_ref?.ref_id, refinedN7.authority_ref?.ref_id);
   assert.equal(replay.replay_provenance?.replayed, true);
+  assert.deepEqual(replay.warnings, refinedN7.warnings);
+  const historicalReplay = await ctx.service.invokeNode(initialN7Input);
+  assert.equal(historicalReplay.replay_provenance?.replayed, true);
+  assert.deepEqual(historicalReplay.warnings, n7.warnings);
+  const feedbackInput = await n7FeedbackRequest(ctx, initialN7Input, refinedN7, 'gate_rejected');
+  const readmitted = await ctx.service.invokeNode({
+    ...feedbackInput,
+    semantic_artifacts: [await recordN7SupportArtifact(ctx, feedbackInput, {
+      allowed_effect: 'support_only',
+      output_contract: 'N8DebateAdmissionReviewSupport@v1',
+      profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.n7_n8_debate_admission_support,
+      slot_id: 'n7_n8_debate_admission_review',
+    }, n7DebateAdmissionPayload({
+      debate_level: 'provider_diverse_deep_debate',
+      rationale: 'Reassess the same refined contract with the required debate support.',
+      risk_signal_codes: ['debate_admission_too_weak'],
+    }) as unknown as Record<string, unknown>)],
+  });
+  assert.equal(readmitted.error_code, null, readmitted.error_message ?? undefined);
+  assert.deepEqual(readmitted.authority_ref, refinedN7.authority_ref);
+  assert.deepEqual(
+    readmitted.warnings.filter((warning) => warning.code === 'N7_ACTIVE_CONTRACT_RISK_NOTE'),
+    refinedN7.warnings.filter((warning) => warning.code === 'N7_ACTIVE_CONTRACT_RISK_NOTE'),
+  );
+  assert.equal(readmitted.warnings.some((warning) => resolvedReviewTriggers.includes(warning.code)), false);
+  for (const risk of independentRisks) {
+    assert.ok(readmitted.warnings.some((warning) => warning.message === risk));
+  }
   const staleRetry = await ctx.service.invokeNode(request({
     ...refinementRequest,
     workflow_run_id: 'workflow_run_v1b_n7_refinement_stale_retry',
@@ -7417,6 +7508,20 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
     'question_contract',
   );
   assert.ok(currentCheckpoint);
+  const packetBeforeView = await ctx.researchCheckpointService.getPacket(currentCheckpoint.research_checkpoint_id);
+  const viewService = new TopicSelectionResearchCheckpointService(ctx.researchCheckpointRepository, ctx.controlPlane, {
+    stageProjectionSources: {
+      questionRepository: ctx.topicQuestionRepository,
+      valueAssessmentRepository: ctx.valueAssessmentRepository,
+      topicPackageRepository: ctx.topicPackageRepository,
+    },
+  });
+  const human = await viewService.getStageView(TITLE_CARD_ID, 'research_question', 'human');
+  for (const risk of independentRisks) assert.ok(human.markdown.includes(risk));
+  assert.ok(human.markdown.includes(reviewTrigger));
+  assert.ok(human.markdown.includes('Task-quality degradation must remain within one percentage point.'));
+  assert.equal(resolvedReviewTriggers.some((trigger) => human.markdown.includes(trigger)), false);
+  assert.deepEqual(await viewService.getPacket(currentCheckpoint.research_checkpoint_id), packetBeforeView);
   const checkpointDecision = await ctx.researchCheckpointService.recordDecision(
     currentCheckpoint.research_checkpoint_id,
     {
@@ -7588,6 +7693,77 @@ test('v1b workflow harness N9 refine_question prevents package creation and emit
   assert.ok(reopenedCheckpoint);
   assert.notEqual(reopenedCheckpoint.research_checkpoint_id, currentCheckpoint.research_checkpoint_id);
   assert.equal(reopenedCheckpoint.status, 'pending');
+  const reopenedPacket = await viewService.getPacket(reopenedCheckpoint.research_checkpoint_id);
+  assert.deepEqual(reopenedPacket.packet_payload.human_review_triggers, [reviewTrigger]);
+  for (const risk of independentRisks) assert.ok(reviewedN7.warnings.some((warning) => warning.message === risk));
+
+  async function refineAgain(
+    sourceN7: typeof reviewedN7,
+    suffix: string,
+    updates: TopicSelectionV1bN9QuestionRefinementPayload['updates'],
+  ) {
+    const secondN8Input = await n8Request(ctx, sourceN7, {
+      workflow_run_id: `${suffix}_run_n8`,
+      node_attempt_id: `${suffix}_attempt_n8`,
+    });
+    const secondDraft = n8ValueDraft(secondN8Input, {
+      readiness_status: 'needs_refinement',
+      recommended_disposition: 'refine_question',
+      reasoning_memo: { ...n8ValueDraft(secondN8Input).reasoning_memo, recommendation: 'refine_question' },
+      total_score: 58,
+    });
+    const secondN8 = await ctx.service.invokeNode({
+      ...secondN8Input,
+      semantic_artifacts: [await recordN8ValueDraftArtifact(ctx, secondN8Input, secondDraft)],
+    });
+    const secondN9 = await ctx.service.invokeNode(await n9Request(ctx, secondN8, {
+      workflow_run_id: `${suffix}_run_n9`,
+      node_attempt_id: `${suffix}_attempt_n9`,
+    }));
+    assert.equal(secondN9.gate_status, 'terminal_no_advance');
+    const secondHandoff = (await ctx.controlPlane.getArtifactRef(secondN9.handoff_ref!.ref_id))!
+      .payload as unknown as typeof handoff;
+    return ctx.service.invokeNode(request({
+      ...refinementRequest,
+      node_attempt_id: `${suffix}_attempt_n7`,
+      frozen_input: {
+        ...refinementRequest.frozen_input,
+        frozen_input_hash: undefined,
+        source_refs: [...initialN7Input.frozen_input.source_refs, secondN9.handoff_ref!, ...secondHandoff.required_refs],
+        payload: {
+          ...initialPayload,
+          ...secondHandoff.payload,
+          input_mode: 'refinement_from_n9',
+          n9_handoff_hash: secondN9.hashes.handoff_hash,
+          question_refinement: {
+            schema_version: 'TopicSelectionV1bN9QuestionRefinement@v1',
+            refinement_id: suffix,
+            actor: refinementPayload.actor,
+            rationale: 'Tighten the fallback claim while preserving the accepted experiment design and reviews.',
+            updates,
+          },
+        },
+      },
+    }));
+  }
+  const secondRefined = await refineAgain(reviewedN7, 'claim_only', {
+    fallback_claim: 'The claim remains limited to the two tested replacement environments.',
+  });
+  assert.equal(secondRefined.error_code, null, secondRefined.error_message ?? undefined);
+  const secondContract = await ctx.topicQuestionRepository.findTopicQuestionContractById(secondRefined.authority_ref!.ref_id);
+  const secondPlan = await ctx.topicQuestionRepository.findAnswerabilityPlanByContractId(secondRefined.authority_ref!.ref_id);
+  assert.deepEqual(secondPlan?.metrics, refinementPayload.updates.metrics);
+  assert.deepEqual(secondContract?.risk_notes, refinementPayload.updates.risk_notes);
+  assert.equal(secondRefined.warnings.some((warning) => resolvedReviewTriggers.includes(warning.code)), false);
+  const secondDecision = await ctx.topicQuestionRepository.findSelectionDecisionById(secondContract!.selection_decision_id);
+  assert.deepEqual(secondDecision?.admission_review.resolved_review_triggers, refinementPayload.resolved_review_triggers);
+  const changedMetrics = await refineAgain(secondRefined, 'changed_metrics', { metrics: ['NLL only'] });
+  assert.equal(changedMetrics.error_code, null, changedMetrics.error_message ?? undefined);
+  for (const trigger of resolvedReviewTriggers) {
+    assert.ok(changedMetrics.warnings.some((warning) => warning.code === trigger));
+  }
+  for (const risk of independentRisks) assert.ok(changedMetrics.warnings.some((warning) => warning.message === risk));
+
 });
 
 test('v1b workflow harness N11 publishes v1c input bundle and closes N1-N11 service-level E2E', async () => {
