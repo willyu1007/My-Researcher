@@ -1200,6 +1200,7 @@ export const TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES = [
     execution_kind: 'model_like',
     deterministic_gate_required: true,
     input_contract: 'N5ToN6Handoff@v1',
+    // Stable snapshot label; source_refs consume N5's persisted slice_selection_decision ref.
     required_frozen_snapshot_kind: 'research_slice_selection_decision',
     authority_kind: 'TopicQuestionCandidateSet',
     output_handoff_kind: 'N6ToN7Handoff',

@@ -142,13 +142,6 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
   /** Runtime-context projection artifact (recorded by the upstream node) to reference in source_refs. */
   required_projection_kind?: string;
   /**
-   * Opt-in ONLY for nodes whose predecessor authority is documented to BE the required
-   * snapshot persisted under a different ref_type (N6: N5's selection decision). The
-   * harness snapshot-kind gate is a ref_type string match — a blanket retype would
-   * silently nullify it for every node, masking real recipe wiring errors.
-   */
-  retype_authority_as_snapshot?: boolean;
-  /**
    * Upstream feedback re-entry (T-123 DP-3.6). When this node is re-entered because a
    * downstream node looped back to it (the N8 -> N7 debate-trigger loopback), the
    * coordinator builds the SAME forward (initial) recipe but overrides input_mode and
@@ -200,7 +193,6 @@ const HANDOFF_BUILDER_TABLE: Record<string, {
   },
   'topic-selection.v1b.generate-topic-question-candidates.v1': {
     handoff_hash_key: 'n5_handoff_hash',
-    retype_authority_as_snapshot: true,
   },
   'topic-selection.v1b.materialize-topic-question-contract.v1': {
     handoff_hash_key: 'n6_handoff_hash',
@@ -2271,20 +2263,6 @@ export class TopicSelectionV1bRunCoordinatorService {
       });
     }
     const snapshotKind = targetPolicy.required_frozen_snapshot_kind;
-    // Policy gate requires a source ref whose ref_type matches snapshot_kind. Strictly
-    // per-node opt-in: only nodes whose predecessor authority is documented to BE the
-    // snapshot under a different ref_type (N6 ← N5's selection decision). For every
-    // other node a missing match must surface as a harness blocker, not be papered over.
-    if (recipe.retype_authority_as_snapshot
-      && !sourceRefs.some((item) => item.ref_type === snapshotKind)
-      && prev.authority_ref) {
-      sourceRefs.unshift({
-        ref_type: snapshotKind,
-        ref_id: prev.authority_ref.ref_id,
-        title_card_id: prev.authority_ref.title_card_id ?? null,
-        version_id: prev.authority_ref.version_id ?? null,
-      });
-    }
     const frozenInput = {
       input_contract: refinementReentry
         ? 'N9ToN7RefinementHandoff@v1'

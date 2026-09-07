@@ -1285,7 +1285,7 @@ test('drives the full N1..N11 chain to stop_v1b_complete and reports run complet
     node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } },
   });
   assert.equal(n4Report.halt.node_id, N5);
-  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  const n5 = await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
 
   // The N8 recipe requires N7's N7->N8 context projection artifact (required_projection_kind);
   // the real N7 runner records it — simulate that so the N8 request can be assembled.
@@ -1311,6 +1311,13 @@ test('drives the full N1..N11 chain to stop_v1b_complete and reports run complet
   assert.equal(report.run_state.run_complete, true);
   assert.equal(report.run_state.last_completed_node_id, N11);
   assert.equal(report.run_state.next_node_id, null);
+
+  const n6Request = harness.invocations.find((request) => request.node_id === N6)!;
+  assert.deepEqual(
+    n6Request.frozen_input.source_refs.filter((sourceRef) => sourceRef.ref_id === n5.authority_ref?.ref_id),
+    [n5.authority_ref],
+    'N6 carries the predecessor authority unchanged without an invented snapshot alias',
+  );
 
   // N11 was auto-driven exactly once and assembled its frozen input from the N10 handoff hash —
   // exercising the W-02 recipe entry (handoff_hash_key: 'n10_handoff_hash').

@@ -652,16 +652,11 @@ async function v1bHarnessN6Request(
     ...(handoff.payload as TopicSelectionV1bN6HarnessFrozenInputPayload),
     n5_handoff_hash: n5Result.hashes.handoff_hash,
   };
-  const selectionSnapshotRef = ref(
-    'research_slice_selection_decision',
-    n5Result.authority_ref.ref_id,
-    n5Result.authority_ref.title_card_id ?? 'title_card_v1b_harness_http',
-    n5Result.authority_ref.version_id ?? null,
-  );
+  assert.equal(n5Result.authority_ref.ref_type, 'slice_selection_decision');
   const frozenInput: TopicSelectionV1bWorkflowHarnessRunRequest['frozen_input'] = {
     input_contract: 'N5ToN6Handoff@v1',
     snapshot_kind: 'research_slice_selection_decision',
-    source_refs: [selectionSnapshotRef, n5Result.handoff_ref, ...handoff.required_refs],
+    source_refs: uniqueRefs([n5Result.authority_ref, n5Result.handoff_ref, ...handoff.required_refs]),
     payload: payload as unknown as Record<string, unknown>,
   };
   return {

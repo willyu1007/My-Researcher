@@ -2056,10 +2056,19 @@ export class TopicSelectionV1bWorkflowHarnessService {
         message: 'frozen_input.snapshot_kind does not match the invoked node policy.',
       };
     }
-    if (!input.frozen_input.source_refs.some((sourceRef) => sourceRef.ref_type === input.frozen_input.snapshot_kind)) {
+    // N6's stable frozen snapshot label differs from N5's persisted ref kind. Accept the exact
+    // N5 ref without rewriting the frozen input; retain the old alias for replay.
+    // N6's lineage gate still verifies the selection ref, handoff and authority hashes.
+    const sourceRefKind = policy.node_id === 'topic-selection.v1b.generate-topic-question-candidates.v1'
+      ? 'slice_selection_decision'
+      : policy.required_frozen_snapshot_kind;
+    if (!input.frozen_input.source_refs.some((sourceRef) => (
+      sourceRef.ref_type === sourceRefKind
+      || sourceRef.ref_type === policy.required_frozen_snapshot_kind
+    ))) {
       return {
         code: 'FROZEN_INPUT_SOURCE_REF_KIND_MISMATCH',
-        message: 'frozen_input.source_refs must include a ref matching frozen_input.snapshot_kind.',
+        message: `frozen_input.source_refs must include a ${sourceRefKind} ref for ${policy.node_id}.`,
       };
     }
     if (!policy.execution_spec_allowed && input.execution_spec) {
@@ -9518,6 +9527,16 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return {
         code: 'N6_SELECTION_DECISION_REF_MISMATCH',
         message: 'N6 frozen selection decision ref does not match the persisted selection decision.',
+      };
+    }
+    if (!input.frozen_input.source_refs.some((sourceRef) => (
+      refsEqual(sourceRef, selectionRef)
+      || (sourceRef.ref_type === 'research_slice_selection_decision'
+        && refsEqual({ ...sourceRef, ref_type: 'slice_selection_decision' }, selectionRef))
+    ))) {
+      return {
+        code: 'N6_SELECTION_DECISION_SOURCE_REF_MISMATCH',
+        message: 'N6 source_refs must include the exact persisted N5 selection decision (canonical ref or legacy alias).',
       };
     }
     const handoffPayload = handoff.value.payload as TopicSelectionV1bN5ToN6HandoffPayload;

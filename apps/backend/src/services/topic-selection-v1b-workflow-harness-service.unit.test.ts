@@ -943,12 +943,6 @@ async function n6Request(
     ...(handoff.payload as Omit<TopicSelectionV1bN6HarnessFrozenInputPayload, 'n5_handoff_hash'>),
     n5_handoff_hash: n5Result.hashes.handoff_hash,
   };
-  const selectionSnapshotRef = ref(
-    'research_slice_selection_decision',
-    n5Result.authority_ref.ref_id,
-    n5Result.authority_ref.title_card_id ?? TITLE_CARD_ID,
-    n5Result.authority_ref.version_id ?? null,
-  );
   return request({
     workflow_run_id: 'workflow_run_v1b_n6',
     node_attempt_id: 'node_attempt_v1b_n6',
@@ -960,7 +954,7 @@ async function n6Request(
     frozen_input: {
       input_contract: 'N5ToN6Handoff@v1',
       snapshot_kind: 'research_slice_selection_decision',
-      source_refs: [selectionSnapshotRef, n5Result.handoff_ref, ...handoff.required_refs],
+      source_refs: uniqueRefs([n5Result.authority_ref, n5Result.handoff_ref, ...handoff.required_refs]),
       payload: payload as unknown as Record<string, unknown>,
     },
     ...overrides,
@@ -3780,19 +3774,23 @@ test('v1b workflow harness N5 blocks option hash drift and high-risk selection w
   assert.equal(highRiskResult.handoff_ref, null);
 });
 
-test('v1b workflow harness N6 creates candidate set from frozen semantic draft artifact', async () => {
+test('v1b workflow harness N6 consumes exact N5 refs without a caller-synthesized alias', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);
   const input = await n6Request(ctx, n5);
+  assert.equal(n5.authority_ref?.ref_type, 'slice_selection_decision');
+  assert.deepEqual(input.frozen_input.source_refs[0], n5.authority_ref);
+  assert.deepEqual(input.frozen_input.payload.research_slice_selection_ref, n5.authority_ref);
+  assert.equal(input.frozen_input.source_refs.some((sourceRef) => sourceRef.ref_type === 'research_slice_selection_decision'), false);
   const draft = await n6Draft(ctx, input);
   const result = await ctx.service.invokeNode({
     ...input,
     semantic_artifacts: [await recordN6DraftArtifact(ctx, input, draft)],
   });
 
+  assert.equal(result.error_code, null);
   assert.equal(result.gate_status, 'admitted');
   assert.equal(result.route_decision, 'invoke_next');
-  assert.equal(result.error_code, null);
   assert.equal(result.authority_ref?.ref_type, 'topic_question_candidate_set');
   assert.equal(result.handoff_ref?.ref_type, 'artifact_ref');
   assert.match(result.hashes.authority_hash ?? '', /^[a-f0-9]{64}$/);
@@ -3821,6 +3819,68 @@ test('v1b workflow harness N6 creates candidate set from frozen semantic draft a
     transitionRecord?.created_authority_refs.some((authorityRef) => authorityRef.ref_type === 'topic_question_contract') ?? false,
     false,
   );
+});
+
+test('v1b workflow harness N6 canonical refs still require exact N5 lineage', async () => {
+  const ctx = await seedHarnessV1aBundle();
+  const { n5 } = await runReadyN5(ctx);
+  const input = await n6Request(ctx, n5);
+  const payload = input.frozen_input.payload as unknown as TopicSelectionV1bN6HarnessFrozenInputPayload;
+  const draft = await n6Draft(ctx, input);
+  const variants = [
+    [{ research_slice_selection_ref: { ...payload.research_slice_selection_ref, ref_id: 'missing_selection' } }, 'N6_FROZEN_AUTHORITY_NOT_FOUND'],
+    [{ research_slice_selection_ref: { ...payload.research_slice_selection_ref, title_card_id: 'other_title' } }, 'N6_SELECTION_DECISION_REF_MISMATCH'],
+    [{ research_slice_selection_ref: { ...payload.research_slice_selection_ref, version_id: 'other_version' } }, 'N6_SELECTION_DECISION_REF_MISMATCH'],
+    [{ research_slice_selection_hash: '0'.repeat(64) }, 'N6_N5_HANDOFF_PAYLOAD_MISMATCH'],
+    [{ n5_handoff_hash: '0'.repeat(64) }, 'N6_N5_HANDOFF_HASH_MISMATCH'],
+  ] as const;
+  for (const [index, [patch, code]] of variants.entries()) {
+    const frozenInput = { ...input.frozen_input, payload: { ...payload, ...patch } };
+    const invalid = {
+      ...input,
+      node_attempt_id: `node_attempt_n6_bad_lineage_${index}`,
+      frozen_input: { ...frozenInput, frozen_input_hash: frozenInputHash(frozenInput) },
+    };
+    const result = await ctx.service.invokeNode({
+      ...invalid,
+      semantic_artifacts: [await recordN6DraftArtifact(ctx, invalid, draft)],
+    });
+    assert.equal(result.error_code, code);
+    assert.equal(result.authority_ref, null);
+    assert.equal(result.handoff_ref, null);
+  }
+  const frozenInput = {
+    ...input.frozen_input,
+    source_refs: input.frozen_input.source_refs.filter((sourceRef) => sourceRef.ref_type !== 'slice_selection_decision'),
+  };
+  const missing = { ...input, node_attempt_id: 'node_attempt_n6_missing_selection_ref',
+    frozen_input: { ...frozenInput, frozen_input_hash: frozenInputHash(frozenInput) } };
+  const result = await ctx.service.invokeNode({
+    ...missing, semantic_artifacts: [await recordN6DraftArtifact(ctx, missing, draft)],
+  });
+  assert.equal(result.error_code, 'FROZEN_INPUT_SOURCE_REF_KIND_MISMATCH');
+  assert.equal(result.authority_ref, null);
+
+  for (const ref_type of ['slice_selection_decision', 'research_slice_selection_decision']) {
+    for (const [field, value] of [['ref_id', 'different_selection'], ['title_card_id', 'other_title'], ['version_id', 'other_version']] as const) {
+      const wrongSourceFrozenInput = {
+        ...input.frozen_input,
+        source_refs: input.frozen_input.source_refs.map((sourceRef) => sourceRef.ref_type === 'slice_selection_decision'
+          ? { ...sourceRef, ref_type, [field]: value } : sourceRef),
+      };
+      const wrongSourceInput = {
+        ...input,
+        node_attempt_id: `node_attempt_n6_wrong_source_${ref_type}_${field}`,
+        frozen_input: { ...wrongSourceFrozenInput, frozen_input_hash: frozenInputHash(wrongSourceFrozenInput) },
+      };
+      const wrongSource = await ctx.service.invokeNode({
+        ...wrongSourceInput, semantic_artifacts: [await recordN6DraftArtifact(ctx, wrongSourceInput, draft)],
+      });
+      assert.equal(wrongSource.error_code, 'N6_SELECTION_DECISION_SOURCE_REF_MISMATCH');
+      assert.equal(wrongSource.authority_ref, null);
+      assert.equal(wrongSource.handoff_ref, null);
+    }
+  }
 });
 
 test('v1b workflow harness N6 successfully stops an evidence-grounded no-viable portfolio without candidate authority', async () => {
@@ -4593,13 +4653,18 @@ test('v1b workflow harness N6 runtime loopback triage drift and fixture product 
   assert.equal(fixtureResult.handoff_ref, null);
 });
 
-test('v1b workflow harness N6 carries warnings and detects replay drift', async () => {
+test('v1b workflow harness N6 preserves legacy alias requests and detects replay drift', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);
   const input = await n6Request(ctx, n5, {
     workflow_run_id: 'workflow_run_v1b_n6_replay',
     node_attempt_id: 'node_attempt_v1b_n6_replay',
   });
+  // Previously callers prepended this synthetic alias to N5's unchanged required refs.
+  input.frozen_input.source_refs.unshift({
+    ...n5.authority_ref!, ref_type: 'research_slice_selection_decision',
+  });
+  input.frozen_input.frozen_input_hash = frozenInputHash(input.frozen_input);
   const draft = await n6Draft(ctx, input, {
     human_review_triggers: ['review candidate risk note'],
   });
@@ -4621,6 +4686,18 @@ test('v1b workflow harness N6 carries warnings and detects replay drift', async 
   });
   assert.equal(replay.replay_provenance?.replayed, true);
   assert.equal(replay.authority_ref?.ref_id, first.authority_ref?.ref_id);
+
+  assert.deepEqual(replay.hashes, first.hashes);
+  const canonicalFrozenInput = { ...input.frozen_input,
+    source_refs: input.frozen_input.source_refs.filter((sourceRef) => sourceRef.ref_type !== 'research_slice_selection_decision') };
+  const changedRefs = await ctx.service.invokeNode({
+    ...input,
+    frozen_input: { ...canonicalFrozenInput, frozen_input_hash: frozenInputHash(canonicalFrozenInput) },
+    semantic_artifacts: [semanticArtifactRef],
+  });
+  assert.equal(changedRefs.gate_status, 'blocked');
+  assert.match(changedRefs.error_code ?? '', /^REPLAY_/);
+  assert.equal(changedRefs.authority_ref, null);
 
   const driftDraft = await n6Draft(ctx, input, {
     generation_notes: ['Changed semantic artifact should drift replay identity.'],

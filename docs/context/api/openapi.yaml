@@ -10607,6 +10607,13 @@ components:
 
     TopicSelectionV1bWorkflowHarnessFrozenInput:
       type: object
+      description: >-
+        For N6, keep input_contract=N5ToN6Handoff@v1 and the stable snapshot_kind
+        research_slice_selection_decision, but pass N5's exact persisted slice_selection_decision
+        authority ref and handoff required_refs in source_refs. Do not manufacture a same-ID alias.
+        N6 verifies the selection ref, title/version, N5 handoff and authority hashes before candidate
+        writes. Legacy alias-bearing requests remain supported; frozen input and replay hashes are
+        never normalized or rewritten. Other nodes still require their own snapshot ref kind.
       required: [input_contract, snapshot_kind, source_refs, payload]
       additionalProperties: false
       properties:
