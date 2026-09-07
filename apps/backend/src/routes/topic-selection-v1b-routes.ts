@@ -226,6 +226,7 @@ const codexAssistedInvocationSchema = {
             ],
           },
           operator_label: stringId,
+          model_hint: nullableStringId,
           response_hash: nullableStringId,
           prompt_packet_hash: nullableStringId,
         },

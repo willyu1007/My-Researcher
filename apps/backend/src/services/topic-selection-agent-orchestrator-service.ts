@@ -103,6 +103,8 @@ export type TopicSelectionMockedAgentOutput<T> = {
 export type TopicSelectionCodexAssistedAgentOutput<T> = {
   output: T;
   operator_label: string;
+  /** Advisory only: which model the operator ran. Never hashed, gated, or metered. */
+  model_hint?: string | null;
   response_hash?: string | null;
   prompt_packet_hash?: string | null;
   operator_approval_ref?: TopicSelectionFunctionalRef | null;
@@ -574,6 +576,7 @@ export class TopicSelectionAgentOrchestratorService {
           response_reuse_ref: responseReuseRef,
           ...this.runtimeCompressionProvenance(input),
           operator_label: input.codex_response.operator_label,
+          model_hint: input.codex_response.model_hint?.trim() || null,
           operator_approval_ref: input.codex_response.operator_approval_ref ?? null,
           local_approval_setting_ref: localApprovalSettingRef,
           response_source: responseSource,
@@ -1372,6 +1375,7 @@ export class TopicSelectionAgentOrchestratorService {
         } : {}),
         ...(sourceKind === 'codex_response' && input.codex_response ? {
           operator_label: input.codex_response.operator_label,
+          model_hint: input.codex_response.model_hint?.trim() || null,
           operator_approval_ref: input.codex_response.operator_approval_ref ?? null,
           local_approval_setting_ref: input.codex_response.local_approval_setting_ref?.trim() || null,
           response_source: input.codex_response.response_source ?? 'operator_supplied',
