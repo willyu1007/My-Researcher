@@ -48,6 +48,8 @@ export const LITERATURE_FULLTEXT_ACQUISITION_NON_RETRYABLE_ERROR_CODES = [
   'UNPAYWALL_NOT_CONFIGURED',
   'UNPAYWALL_NO_OA_PDF',
   'DOWNLOAD_REJECTED',
+  'DOWNLOAD_SIZE_LIMIT_EXCEEDED',
+  'DOWNLOAD_PDF_SIGNATURE_LIMIT',
 ] as const;
 
 export const LITERATURE_BACKFILL_NON_RETRYABLE_ERROR_CODES = [
@@ -574,6 +576,13 @@ export interface LiteratureAcquisitionSettingsDTO {
     external_endpoint_configured: boolean;
   };
   updated_at: string;
+}
+
+export interface LiteratureDownloaderPolicyDTO {
+  configured: LiteratureAcquisitionSettingsDTO['downloader'];
+  repository_defaults: LiteratureAcquisitionSettingsDTO['downloader'];
+  field_sources: Record<keyof LiteratureAcquisitionSettingsDTO['downloader'], 'repository_default' | 'persisted_setting'>;
+  settings_updated_at: string | null;
 }
 
 export interface LiteratureFulltextParserHealthDTO {
@@ -1123,6 +1132,8 @@ export interface LiteratureContentProcessingCleanupDryRunResponse {
 export interface LiteratureFulltextAcquisitionExplicitUrl {
   literature_id: string;
   source_url: string;
+  /** Caller-known size for this exact URL; a local preflight constraint, not a remote probe. */
+  expected_byte_size?: number;
 }
 
 export interface LiteratureFulltextAcquisitionWorkset {
@@ -1177,6 +1188,12 @@ export interface LiteratureFulltextAcquisitionDryRunEstimateDTO {
   options: Required<Pick<LiteratureFulltextAcquisitionOptions, 'max_parallel_downloads' | 'force_refresh'>> & {
     provider_call_budget: number | null;
     max_byte_size: number;
+  };
+  /** Planning-time policy snapshot; absent on historical jobs. Runtime re-reads current settings. */
+  downloader_policy?: LiteratureDownloaderPolicyDTO & {
+    requested_max_byte_size: number | null;
+    effective_max_byte_size: number;
+    network_verified: false;
   };
   total_literatures: number;
   selected_count: number;
@@ -2182,6 +2199,7 @@ const literatureFulltextAcquisitionExplicitUrlSchema = {
   properties: {
     literature_id: { type: 'string', minLength: 1 },
     source_url: { type: 'string', minLength: 1 },
+    expected_byte_size: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
   },
   additionalProperties: false,
 } as const;

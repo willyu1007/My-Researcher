@@ -495,7 +495,9 @@ test('literature fulltext acquisition dry-run caps request size by persisted dow
     url: '/settings/literature-acquisition',
     payload: {
       downloader: {
-        max_byte_size: 8,
+        max_byte_size: 1024,
+        timeout_ms: 5000,
+        max_redirects: 1,
       },
     },
   });
@@ -530,12 +532,39 @@ test('literature fulltext acquisition dry-run caps request size by persisted dow
         literature_ids: [literatureId],
       },
       options: {
-        max_byte_size: 1024,
+        max_byte_size: 2048,
       },
     },
   });
   assert.equal(dryRunRes.statusCode, 200);
-  assert.equal(dryRunRes.json().estimate.options.max_byte_size, 8);
+  assert.equal(dryRunRes.json().estimate.options.max_byte_size, 1024);
+  const policy = dryRunRes.json().estimate.downloader_policy;
+  assert.deepEqual(policy.configured, { max_byte_size: 1024, timeout_ms: 5000, max_redirects: 1, require_pdf_signature: true });
+  assert.equal(policy.repository_defaults.max_byte_size, 104857600);
+  assert.equal(policy.field_sources.max_byte_size, 'persisted_setting');
+  assert.equal(policy.requested_max_byte_size, 2048);
+  assert.equal(policy.effective_max_byte_size, 1024);
+  assert.equal(policy.network_verified, false);
+  assert.equal(dryRunRes.json().estimate.blocked_count, 0);
+
+  const explicitUrl = { literature_id: literatureId, source_url: 'https://arxiv.org/pdf/2601.00002', expected_byte_size: 1025 };
+  const oversized = await app.inject({
+    method: 'POST', url: '/literature/fulltext-acquisition/dry-runs',
+    payload: { workset: { literature_ids: [literatureId], explicit_urls: [explicitUrl] } },
+  });
+  assert.equal(oversized.statusCode, 200);
+  assert.equal(oversized.json().estimate.blocked_count, 1);
+  assert.equal(oversized.json().estimate.blockers[0].reason_code, 'DOWNLOAD_SIZE_LIMIT_EXCEEDED');
+  assert.equal(oversized.json().estimate.estimated_provider_calls.download_calls, 0);
+  assert.deepEqual(oversized.json().estimate.workset.explicit_urls, [explicitUrl]);
+  for (const expectedSize of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const invalid = await app.inject({
+      method: 'POST', url: '/literature/fulltext-acquisition/dry-runs',
+      payload: { workset: { literature_ids: [literatureId], explicit_urls: [{ ...explicitUrl, expected_byte_size: expectedSize }] } },
+    });
+    assert.equal(invalid.statusCode, 400);
+    assert.match(invalid.body, /expected_byte_size/);
+  }
 
   await app.close();
 });

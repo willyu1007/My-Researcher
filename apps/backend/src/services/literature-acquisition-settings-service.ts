@@ -1,5 +1,6 @@
 import type {
   LiteratureAcquisitionSettingsDTO,
+  LiteratureDownloaderPolicyDTO,
   UpdateLiteratureAcquisitionSettingsRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
 import { AppError } from '../errors/app-error.js';
@@ -166,6 +167,25 @@ export class LiteratureAcquisitionSettingsService {
     return (await this.getSettings()).downloader;
   }
 
+  async resolveDownloaderPolicy(): Promise<LiteratureDownloaderPolicyDTO> {
+    const setting = await this.repository.findSetting(SETTINGS_NAMESPACE, SETTINGS_KEY);
+    const raw = this.readRecord(setting?.value.downloader);
+    const numberSource = (value: unknown) => typeof value === 'number' && Number.isFinite(value)
+      ? 'persisted_setting' as const
+      : 'repository_default' as const;
+    return {
+      configured: this.readSettings(setting?.value).downloader,
+      repository_defaults: { ...this.defaultSettings.downloader },
+      field_sources: {
+        max_byte_size: numberSource(raw.max_byte_size),
+        timeout_ms: numberSource(raw.timeout_ms),
+        max_redirects: numberSource(raw.max_redirects),
+        require_pdf_signature: typeof raw.require_pdf_signature === 'boolean' ? 'persisted_setting' : 'repository_default',
+      },
+      settings_updated_at: setting?.updatedAt ?? null,
+    };
+  }
+
   async resolveSourceThrottle(
     source: LiteratureAcquisitionThrottleSource,
   ): Promise<LiteratureAcquisitionSettingsDTO['source_throttle'][LiteratureAcquisitionThrottleSource]> {
@@ -188,9 +208,18 @@ export class LiteratureAcquisitionSettingsService {
         email: this.readString(unpaywall.email) ?? this.defaultSettings.unpaywall.email,
       },
       downloader: {
-        max_byte_size: this.readNumber(downloader.max_byte_size, this.defaultSettings.downloader.max_byte_size),
-        timeout_ms: this.readNumber(downloader.timeout_ms, this.defaultSettings.downloader.timeout_ms),
-        max_redirects: this.readNumber(downloader.max_redirects, this.defaultSettings.downloader.max_redirects),
+        max_byte_size: this.clampInteger(
+          this.readNumber(downloader.max_byte_size, this.defaultSettings.downloader.max_byte_size),
+          this.defaultSettings.downloader.max_byte_size, 1, 500 * 1024 * 1024,
+        ),
+        timeout_ms: this.clampInteger(
+          this.readNumber(downloader.timeout_ms, this.defaultSettings.downloader.timeout_ms),
+          this.defaultSettings.downloader.timeout_ms, 1_000, 300_000,
+        ),
+        max_redirects: this.clampInteger(
+          this.readNumber(downloader.max_redirects, this.defaultSettings.downloader.max_redirects),
+          this.defaultSettings.downloader.max_redirects, 0, 10,
+        ),
         require_pdf_signature: typeof downloader.require_pdf_signature === 'boolean'
           ? downloader.require_pdf_signature
           : this.defaultSettings.downloader.require_pdf_signature,

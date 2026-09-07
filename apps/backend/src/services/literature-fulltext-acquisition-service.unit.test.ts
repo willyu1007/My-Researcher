@@ -3,10 +3,12 @@ import test from 'node:test';
 
 import { AppError } from '../errors/app-error.js';
 import { InMemoryLiteratureRepository } from '../repositories/in-memory-literature-repository.js';
+import { InMemoryApplicationSettingsRepository } from '../repositories/in-memory-application-settings-repository.js';
+import { InMemoryResearchLifecycleRepository } from '../repositories/in-memory-research-lifecycle-repository.js';
 import type { LiteratureRecord } from '../repositories/literature-repository.js';
-import type { LiteratureAcquisitionSettingsService } from './literature-acquisition-settings-service.js';
+import { LiteratureAcquisitionSettingsService } from './literature-acquisition-settings-service.js';
 import { LiteratureFulltextAcquisitionService } from './literature-fulltext-acquisition-service.js';
-import type { LiteratureService } from './literature-service.js';
+import { LiteratureService } from './literature-service.js';
 
 // T-130 W-07 (L-07): the 9-state job/item machine had zero direct tests. These pin the
 // state machine's core paths: planning/blockers, budget gate, happy path, failure
@@ -52,11 +54,14 @@ function makeSettingsStub(options: { unpaywallEnabled?: boolean; unpaywallEmail?
   const stub = {
     isUnpaywallEnabled: async () => options.unpaywallEnabled ?? false,
     resolveUnpaywallEmail: async () => options.unpaywallEmail ?? null,
-    resolveDownloaderOptions: async () => ({
-      max_byte_size: 10_000_000,
-      timeout_ms: 30_000,
-      max_redirects: 5,
-      require_pdf_signature: true,
+    resolveDownloaderPolicy: async () => ({
+      configured: { max_byte_size: 10_000_000, timeout_ms: 30_000, max_redirects: 5, require_pdf_signature: true },
+      repository_defaults: { max_byte_size: 104857600, timeout_ms: 60000, max_redirects: 5, require_pdf_signature: true },
+      field_sources: {
+        max_byte_size: 'persisted_setting', timeout_ms: 'persisted_setting',
+        max_redirects: 'persisted_setting', require_pdf_signature: 'persisted_setting',
+      },
+      settings_updated_at: NOW,
     }),
     resolveSourceThrottle: async () => ({ min_interval_ms: 0, concurrency: 2 }),
   };
@@ -127,6 +132,126 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
   });
   return { promise, resolve, reject };
 }
+
+function makePreflightContext() {
+  const repository = new InMemoryLiteratureRepository();
+  const settingsRepository = new InMemoryApplicationSettingsRepository();
+  const settings = new LiteratureAcquisitionSettingsService(settingsRepository);
+  const literature = new LiteratureService(repository, new InMemoryResearchLifecycleRepository(), undefined, {
+    literatureAcquisitionSettingsService: settings,
+  });
+  return {
+    repository, settingsRepository, settings,
+    service: new LiteratureFulltextAcquisitionService(repository, literature, settings),
+  };
+}
+
+test('dry run exposes the downloader defaults, persisted field sources and request ceiling', async () => {
+  const ctx = makePreflightContext();
+  await seedLiterature(ctx.repository, { id: 'LIT-POLICY', arxivId: '2401.00001' });
+  const request = { workset: { literature_ids: ['LIT-POLICY'] } };
+  const initial = await ctx.service.dryRun(request);
+  assert.deepEqual(initial.estimate.downloader_policy, {
+    configured: { max_byte_size: 104857600, timeout_ms: 60000, max_redirects: 5, require_pdf_signature: true },
+    repository_defaults: { max_byte_size: 104857600, timeout_ms: 60000, max_redirects: 5, require_pdf_signature: true },
+    field_sources: {
+      max_byte_size: 'repository_default', timeout_ms: 'repository_default',
+      max_redirects: 'repository_default', require_pdf_signature: 'repository_default',
+    },
+    settings_updated_at: null,
+    requested_max_byte_size: null,
+    effective_max_byte_size: 104857600,
+    network_verified: false,
+  });
+  await ctx.settings.updateSettings({ downloader: { max_byte_size: 1024, timeout_ms: 5000, max_redirects: 1 } });
+  const persisted = await ctx.service.dryRun({ ...request, options: { max_byte_size: 2048 } });
+  const policy = persisted.estimate.downloader_policy;
+  assert.deepEqual(policy?.configured, { max_byte_size: 1024, timeout_ms: 5000, max_redirects: 1, require_pdf_signature: true });
+  assert.equal(policy?.repository_defaults.max_byte_size, 104857600);
+  assert.equal(policy?.field_sources.max_byte_size, 'persisted_setting');
+  assert.ok(policy?.settings_updated_at);
+  assert.equal(policy?.requested_max_byte_size, 2048);
+  assert.equal(policy?.effective_max_byte_size, 1024);
+  assert.equal(persisted.estimate.options.max_byte_size, 1024);
+  assert.equal(persisted.estimate.blocked_count, 0);
+  assert.equal(policy?.network_verified, false);
+  assert.equal((await ctx.repository.listFulltextAcquisitionJobs(10)).length, 0);
+
+  await ctx.settingsRepository.upsertSetting({
+    id: 'literature_acquisition:settings', namespace: 'literature_acquisition', key: 'settings',
+    value: { downloader: { max_byte_size: 0, timeout_ms: 'invalid', max_redirects: 99 } },
+    secretValue: null, createdAt: NOW, updatedAt: NOW,
+  });
+  const partial = await ctx.settings.resolveDownloaderPolicy();
+  assert.deepEqual(partial.configured, { max_byte_size: 1, timeout_ms: 60000, max_redirects: 10, require_pdf_signature: true });
+  assert.deepEqual(partial.field_sources, {
+    max_byte_size: 'persisted_setting', timeout_ms: 'repository_default',
+    max_redirects: 'persisted_setting', require_pdf_signature: 'repository_default',
+  });
+  assert.deepEqual(await ctx.settings.resolveDownloaderOptions(), partial.configured);
+});
+
+test('known oversized assets are blocked before download while exact-limit and unknown sizes remain planned', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Unexpected preflight network call.'); });
+  const ctx = makePreflightContext();
+  for (const id of ['LIT-LARGE', 'LIT-EXACT', 'LIT-UNKNOWN']) {
+    await seedLiterature(ctx.repository, { id, arxivId: '2401.00001' });
+  }
+  await ctx.settings.updateSettings({ downloader: { max_byte_size: 1024, timeout_ms: 5000, max_redirects: 1 } });
+  const largeUrl = { literature_id: 'LIT-LARGE', source_url: 'https://example.org/large.pdf', expected_byte_size: 1025 };
+  const { estimate } = await ctx.service.dryRun({ workset: {
+    literature_ids: ['LIT-LARGE', 'LIT-EXACT', 'LIT-UNKNOWN'],
+    explicit_urls: [largeUrl, { literature_id: 'LIT-EXACT', source_url: 'https://example.org/exact.pdf', expected_byte_size: 1024 }],
+  } });
+  assert.equal(estimate.blocked_count, 1);
+  assert.equal(estimate.planned_item_count, 2);
+  assert.equal(estimate.estimated_provider_calls.download_calls, 2);
+  assert.equal(estimate.blockers[0]?.reason_code, 'DOWNLOAD_SIZE_LIMIT_EXCEEDED');
+  assert.match(estimate.blockers[0]!.reason_message, /1025.*1024/);
+  assert.match(estimate.blockers[0]!.reason_message, /settings\/literature-acquisition/);
+  assert.equal(estimate.blockers[0]?.retryable, false);
+  assert.deepEqual(estimate.workset.explicit_urls?.[0], largeUrl);
+
+  const request = { workset: { literature_ids: ['LIT-LARGE'], explicit_urls: [largeUrl] } };
+  const created = await ctx.service.createJob(request);
+  await waitForJobStatus(ctx.repository, created.job.job_id, ['FAILED']);
+  const historical = await ctx.service.getJob(created.job.job_id);
+  assert.equal(historical.job.items?.[0]?.status, 'BLOCKED');
+  assert.equal(historical.job.items?.[0]?.attempt_count, 0);
+  assert.equal(historical.job.dry_run_estimate.estimated_provider_calls.download_calls, 0);
+  assert.deepEqual(historical.job.source_health.map((source) => source.last_request_at), [null, null, null, null]);
+  await ctx.settings.updateSettings({ downloader: { max_byte_size: 104857600, timeout_ms: 60000, max_redirects: 5 } });
+  assert.equal((await ctx.service.dryRun(request)).estimate.blocked_count, 0);
+  assert.deepEqual((await ctx.service.getJob(created.job.job_id)).job.dry_run_estimate, historical.job.dry_run_estimate);
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('preflight rejects a ceiling too small for the required PDF signature without guessing network feasibility', async () => {
+  const ctx = makePreflightContext();
+  await seedLiterature(ctx.repository, { id: 'LIT-SIGNATURE', arxivId: '2401.00001' });
+  const request = { workset: { literature_ids: ['LIT-SIGNATURE'] }, options: { max_byte_size: 4 } };
+  const blocked = await ctx.service.dryRun(request);
+  assert.equal(blocked.estimate.blockers[0]?.reason_code, 'DOWNLOAD_PDF_SIGNATURE_LIMIT');
+  assert.equal(blocked.estimate.estimated_provider_calls.download_calls, 0);
+  const boundary = await ctx.service.dryRun({ ...request, options: { max_byte_size: 5 } });
+  assert.equal(boundary.estimate.blocked_count, 0);
+  assert.equal(boundary.estimate.downloader_policy?.network_verified, false);
+  const tooShort = await ctx.service.dryRun({ workset: {
+    literature_ids: ['LIT-SIGNATURE'],
+    explicit_urls: [{ literature_id: 'LIT-SIGNATURE', source_url: 'https://example.org/short.pdf', expected_byte_size: 4 }],
+  } });
+  assert.equal(tooShort.estimate.blockers[0]?.reason_code, 'DOWNLOAD_PDF_SIGNATURE_LIMIT');
+  await seedLiterature(ctx.repository, { id: 'LIT-SIGNATURE-DOI', doiNormalized: '10.1000/signature' });
+  await ctx.settings.updateSettings({ unpaywall: { enabled: true, email: 'preflight@example.org' } });
+  const resolverBlocked = await ctx.service.dryRun({
+    workset: { literature_ids: ['LIT-SIGNATURE-DOI'] }, options: { max_byte_size: 4 },
+  });
+  assert.equal(resolverBlocked.estimate.plan_items[0]?.selected_source_kind, 'unpaywall');
+  assert.equal(resolverBlocked.estimate.blocked_count, 1);
+  assert.deepEqual(resolverBlocked.estimate.estimated_provider_calls, { unpaywall_calls: 0, download_calls: 0 });
+  await ctx.settings.updateSettings({ downloader: { require_pdf_signature: false } });
+  assert.equal((await ctx.service.dryRun(request)).estimate.blocked_count, 0);
+});
 
 test('dry run classifies blockers and picks sources by explicit > arxiv > unpaywall priority', async () => {
   const repository = new InMemoryLiteratureRepository();

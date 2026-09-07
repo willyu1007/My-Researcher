@@ -9,6 +9,7 @@ import type {
   LiteratureFulltextAcquisitionDryRunEstimateDTO,
   LiteratureFulltextAcquisitionDryRunRequest,
   LiteratureFulltextAcquisitionDryRunResponse,
+  LiteratureFulltextAcquisitionExplicitUrl,
   LiteratureFulltextAcquisitionHealthSourceKind,
   LiteratureFulltextAcquisitionItemDTO,
   LiteratureFulltextAcquisitionJobDTO,
@@ -258,12 +259,13 @@ export class LiteratureFulltextAcquisitionService {
     request: LiteratureFulltextAcquisitionDryRunRequest,
   ): Promise<LiteratureFulltextAcquisitionDryRunEstimateDTO> {
     const workset = this.normalizeWorkset(request.workset);
-    const options = await this.normalizeOptions(request.options);
+    const downloaderPolicy = await this.settingsService.resolveDownloaderPolicy();
+    const options = await this.normalizeOptions(request.options, downloaderPolicy.configured);
     const selectedLiteratures = await this.selectLiteratures(workset);
     const planItems: PlannedFulltextItem[] = [];
     let skippedExistingAssetCount = 0;
     const explicitUrlByLiterature = new Map(
-      (workset.explicit_urls ?? []).map((item) => [item.literature_id, item.source_url]),
+      (workset.explicit_urls ?? []).map((item) => [item.literature_id, item]),
     );
 
     for (const literature of selectedLiteratures) {
@@ -274,7 +276,10 @@ export class LiteratureFulltextAcquisitionService {
         skippedExistingAssetCount += 1;
         continue;
       }
-      planItems.push(await this.planLiterature(literature, explicitUrlByLiterature.get(literature.id)));
+      planItems.push(await this.planLiterature(
+        literature, explicitUrlByLiterature.get(literature.id),
+        options.max_byte_size, downloaderPolicy.configured.require_pdf_signature,
+      ));
     }
 
     const blockers = planItems
@@ -287,7 +292,7 @@ export class LiteratureFulltextAcquisitionService {
         retryable: item.retryable,
       }));
     const sourceCounts = this.computeSourceCounts(planItems);
-    const unpaywallCalls = planItems.filter((item) => item.selected_source_kind === 'unpaywall').length;
+    const unpaywallCalls = planItems.filter((item) => !item.blocked && item.selected_source_kind === 'unpaywall').length;
     const downloadCalls = planItems.filter((item) => !item.blocked).length;
 
     return {
@@ -295,6 +300,12 @@ export class LiteratureFulltextAcquisitionService {
       generated_at: new Date().toISOString(),
       workset,
       options,
+      downloader_policy: {
+        ...downloaderPolicy,
+        requested_max_byte_size: request.options?.max_byte_size ?? null,
+        effective_max_byte_size: options.max_byte_size,
+        network_verified: false,
+      },
       total_literatures: selectedLiteratures.length,
       selected_count: planItems.length,
       planned_item_count: planItems.filter((item) => !item.blocked).length,
@@ -346,7 +357,9 @@ export class LiteratureFulltextAcquisitionService {
 
   private async planLiterature(
     literature: LiteratureRecord,
-    explicitUrl: string | undefined,
+    explicitUrl: LiteratureFulltextAcquisitionExplicitUrl | undefined,
+    maxByteSize: number,
+    requirePdfSignature: boolean,
   ): Promise<PlannedFulltextItem> {
     if (literature.rightsClass === 'RESTRICTED') {
       return this.blockedPlanItem(literature, 'RIGHTS_RESTRICTED', 'Restricted literature cannot be downloaded automatically.', false);
@@ -359,9 +372,12 @@ export class LiteratureFulltextAcquisitionService {
     if (explicitUrl) {
       candidates.push({
         source_kind: 'explicit_url',
-        source_url: explicitUrl,
+        source_url: explicitUrl.source_url,
         requires_resolution: false,
-        provenance: { source: 'workset.explicit_urls' },
+        provenance: {
+          source: 'workset.explicit_urls',
+          ...(explicitUrl.expected_byte_size !== undefined ? { expected_byte_size: explicitUrl.expected_byte_size } : {}),
+        },
       });
     }
     if (literature.arxivId) {
@@ -392,6 +408,19 @@ export class LiteratureFulltextAcquisitionService {
     }
 
     const selected = candidates[0]!;
+    const expectedByteSize = selected.source_kind === 'explicit_url' ? explicitUrl?.expected_byte_size : undefined;
+    const oversized = expectedByteSize !== undefined && expectedByteSize > maxByteSize;
+    const blocker = oversized
+      ? {
+          code: 'DOWNLOAD_SIZE_LIMIT_EXCEEDED',
+          message: `Known asset size ${expectedByteSize} exceeds effective max_byte_size ${maxByteSize}. Check options.max_byte_size and /settings/literature-acquisition, then create a new plan.`,
+        }
+      : requirePdfSignature && Math.min(maxByteSize, expectedByteSize ?? maxByteSize) < 5
+        ? {
+            code: 'DOWNLOAD_PDF_SIGNATURE_LIMIT',
+            message: `Effective max_byte_size ${maxByteSize} or known asset size ${expectedByteSize ?? 'unknown'} cannot contain the required five-byte %PDF- signature. Check expected_byte_size, options.max_byte_size and /settings/literature-acquisition, then create a new plan.`,
+          }
+        : null;
     return {
       literature_id: literature.id,
       title: literature.title,
@@ -399,10 +428,10 @@ export class LiteratureFulltextAcquisitionService {
       selected_source_kind: selected.source_kind,
       source_url: selected.source_url,
       candidates,
-      blocked: false,
-      blocker_code: null,
-      blocker_message: null,
-      retryable: true,
+      blocked: blocker !== null,
+      blocker_code: blocker?.code ?? null,
+      blocker_message: blocker?.message ?? null,
+      retryable: blocker === null,
     };
   }
 
@@ -772,6 +801,12 @@ export class LiteratureFulltextAcquisitionService {
   }
 
   private normalizeWorkset(workset: LiteratureFulltextAcquisitionWorkset | undefined): LiteratureFulltextAcquisitionWorkset {
+    for (const item of workset?.explicit_urls ?? []) {
+      if (item.expected_byte_size !== undefined
+        && (!Number.isSafeInteger(item.expected_byte_size) || item.expected_byte_size < 1)) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'explicit_urls.expected_byte_size must be a positive safe integer.');
+      }
+    }
     return {
       ...(workset?.topic_id ? { topic_id: workset.topic_id.trim() } : {}),
       ...(workset?.paper_id ? { paper_id: workset.paper_id.trim() } : {}),
@@ -783,6 +818,7 @@ export class LiteratureFulltextAcquisitionService {
             explicit_urls: workset.explicit_urls.map((item) => ({
               literature_id: item.literature_id.trim(),
               source_url: item.source_url.trim(),
+              ...(item.expected_byte_size !== undefined ? { expected_byte_size: item.expected_byte_size } : {}),
             })),
           }
         : {}),
@@ -791,8 +827,10 @@ export class LiteratureFulltextAcquisitionService {
     };
   }
 
-  private async normalizeOptions(options: LiteratureFulltextAcquisitionDryRunRequest['options']): Promise<NormalizedOptions> {
-    const downloader = await this.settingsService.resolveDownloaderOptions();
+  private async normalizeOptions(
+    options: LiteratureFulltextAcquisitionDryRunRequest['options'],
+    downloader: LiteratureAcquisitionSettingsDTO['downloader'],
+  ): Promise<NormalizedOptions> {
     const downloadThrottle = await this.settingsService.resolveSourceThrottle('download');
     const maxDownloadConcurrency = Math.min(4, downloadThrottle.concurrency);
     return {

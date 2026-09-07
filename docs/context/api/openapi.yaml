@@ -1964,6 +1964,18 @@ paths:
     post:
       operationId: createLiteratureFulltextAcquisitionDryRun
       summary: Plan a durable fulltext acquisition job without resolver calls, downloads, or writes.
+      description: >-
+        Returns a planning-time downloader_policy snapshot: configured limits, repository defaults,
+        per-field persisted/default origins, and the request's effective byte ceiling. Persisted
+        settings may include test overrides; the original writer cannot be inferred from their value.
+        No remote size, latency or redirect probe occurs, so network_verified is always false.
+        A caller-known expected_byte_size on an explicit URL above the effective ceiling produces
+        DOWNLOAD_SIZE_LIMIT_EXCEEDED; a ceiling or known asset size below the required five-byte PDF signature produces
+        DOWNLOAD_PDF_SIGNATURE_LIMIT. These items are blocked and contribute zero resolver/download
+        calls. Unknown sizes and merely low timeout/redirect limits are not proof of failure.
+        Correct options.max_byte_size or PATCH /settings/literature-acquisition and create a fresh
+        plan/job; retry-failed does not replan these non-retryable items. Runtime downloads still
+        enforce current settings, and historical job estimates are not rewritten.
       tags: [literature]
       requestBody:
         required: true
@@ -15715,6 +15727,11 @@ components:
         source_url:
           type: string
           minLength: 1
+        expected_byte_size:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Caller-known size for this exact URL; used for local preflight, not remotely verified.
       additionalProperties: false
 
     LiteratureFulltextAcquisitionWorkset:
@@ -15898,6 +15915,29 @@ components:
           type: boolean
       additionalProperties: false
 
+    LiteratureFulltextAcquisitionDownloaderPolicy:
+      type: object
+      required: [configured, repository_defaults, field_sources, settings_updated_at, requested_max_byte_size, effective_max_byte_size, network_verified]
+      properties:
+        configured:
+          $ref: '#/components/schemas/LiteratureAcquisitionDownloaderSettings'
+        repository_defaults:
+          $ref: '#/components/schemas/LiteratureAcquisitionDownloaderSettings'
+        field_sources:
+          type: object
+          required: [max_byte_size, timeout_ms, max_redirects, require_pdf_signature]
+          properties:
+            max_byte_size: { type: string, enum: [repository_default, persisted_setting] }
+            timeout_ms: { type: string, enum: [repository_default, persisted_setting] }
+            max_redirects: { type: string, enum: [repository_default, persisted_setting] }
+            require_pdf_signature: { type: string, enum: [repository_default, persisted_setting] }
+          additionalProperties: false
+        settings_updated_at: { type: [string, 'null'], format: date-time }
+        requested_max_byte_size: { type: [integer, 'null'], minimum: 1 }
+        effective_max_byte_size: { type: integer, minimum: 1 }
+        network_verified: { type: boolean, enum: [false] }
+      additionalProperties: false
+
     LiteratureFulltextAcquisitionDryRunEstimate:
       type: object
       required:
@@ -15924,6 +15964,10 @@ components:
           $ref: '#/components/schemas/LiteratureFulltextAcquisitionWorkset'
         options:
           $ref: '#/components/schemas/LiteratureFulltextAcquisitionEffectiveOptions'
+        downloader_policy:
+          description: Planning-time policy snapshot; absent on historical job estimates. Runtime re-reads current settings.
+          allOf:
+            - $ref: '#/components/schemas/LiteratureFulltextAcquisitionDownloaderPolicy'
         total_literatures:
           type: integer
           minimum: 0
