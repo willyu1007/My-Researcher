@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 started; FIND-003 / TSRF-03 EvidenceMap public contract and nullable-number preservation implemented and focused-verified
-- Next step: Continue Phase 2 with FIND-022 workflow-run state/advance documentation and FIND-015 node-specific invocation constraints; preserve the existing coordinator and N9→N7 recovery authority.
+- Current phase: Phase 2; FIND-003 / TSRF-03 and FIND-022 / FIND-015 public contracts implemented and focused-verified
+- Next step: Continue Phase 2 with FIND-016 N5→N6 selection-decision ref-kind alignment, then FIND-010 equivalent scoped/unscoped source refs and FIND-009 effective downloader settings; preserve existing provenance and Human authority.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when

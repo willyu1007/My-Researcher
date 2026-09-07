@@ -2999,8 +2999,24 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     });
     assert.equal(badBudget.statusCode, 400);
 
-    // 1) bootstrap N1 → halt at the N2 human decision point
-    const afterN1 = await advance({ bootstrap_request: n1Input });
+    // Invalid N1 runtime fields must fail before either ingress records a durable attempt.
+    for (const fields of [
+      { run_mode: 'product' },
+      { profile_id: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent },
+    ]) {
+      for (const [url, payload] of [
+        [`/topic-selection/v1b/workflow-harness/nodes/${n1Input.node_id}/invocations`, { ...n1Input, ...fields }],
+        [`/topic-selection/v1b/workflow-runs/${runId}/advance`, { bootstrap_request: { ...n1Input, ...fields } }],
+      ] as const) {
+        const invalid = await app.inject({ method: 'POST', url, payload });
+        assert.equal(invalid.statusCode, 400, invalid.body);
+        const unchanged = await app.inject({ method: 'GET', url: `/topic-selection/v1b/workflow-runs/${runId}/state` });
+        assert.equal(unchanged.statusCode, 404, 'schema rejection must not create a blocked attempt');
+      }
+    }
+
+    // 1) bootstrap the same N1 attempt with null runtime fields → halt at N2.
+    const afterN1 = await advance({ bootstrap_request: { ...n1Input, run_mode: null, profile_id: null } });
     assert.deepEqual(afterN1.steps.map((step) => step.node_id), [n1Input.node_id]);
     dumpUnless(afterN1.halt.reason === 'human_node', 'COORD_DEBUG_AFTER_N1', afterN1);
     assert.equal(afterN1.halt.reason, 'human_node');

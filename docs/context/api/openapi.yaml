@@ -5355,6 +5355,92 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /topic-selection/v1b/workflow-runs/{workflowRunId}/state:
+    get:
+      operationId: getTopicSelectionV1bWorkflowRunState
+      summary: Read the recorded research-design workflow frontier.
+      description: >-
+        Projects recorded node attempts and the current strict-Human recovery frontier. This is
+        the coordinator frontier; research-status.next_authorized_transition is a checkpoint grant
+        and does not identify the next executable node. A run without recorded attempts returns 404.
+        Reading state performs no node invocation or authority write.
+      tags: [topic-selection-v1b]
+      parameters:
+        - name: workflowRunId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Current coordinator projection, including retained admitted lineage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1bWorkflowRunState'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /topic-selection/v1b/workflow-runs/{workflowRunId}/advance:
+    post:
+      operationId: advanceTopicSelectionV1bWorkflowRun
+      summary: Advance the research-design workflow until its next halt.
+      description: >-
+        Drives the existing coordinator and returns a report, including for blocked or empty runs.
+        An omitted body is treated as {}. Without traces or bootstrap_request the report halts at
+        no_frontier. N2 and N5 stop at human_node: submit through their Human routes with the same
+        workflow_run_id, then advance again. Normal re-advance does not repeat admitted work;
+        explicit retries create fresh attempts and remain subject to loopback budgets.
+        For an N9 refine_question loopback, set retry_node_id to
+        topic-selection.v1b.materialize-topic-question-contract.v1 (N7), and supply that exact
+        node_inputs key with refinement_payload containing the researcher's approved changes.
+        Retrying N9 alone does not apply a refinement. A substantive change subsequently requires
+        the exact question-checkpoint Human loopback and one n6_refinement_delta Debate at the
+        reported recovery_frontier; that recovery accepts only node_inputs[N7].debate and recovers
+        the Human payload from the persisted N7 trace. N8 is not executable until readmission.
+        Mechanical changes can reuse authority without Debate. Neither advance nor role output
+        grants a Human decision, bypasses a checkpoint, or rewrites historical authority.
+      tags: [topic-selection-v1b]
+      parameters:
+        - name: workflowRunId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1bWorkflowRunAdvanceRequest'
+            examples:
+              resume:
+                value: {}
+              refineQuestion:
+                summary: Apply the exact Human refinement after an N9 refine_question disposition.
+                value:
+                  retry_node_id: topic-selection.v1b.materialize-topic-question-contract.v1
+                  node_inputs:
+                    topic-selection.v1b.materialize-topic-question-contract.v1:
+                      refinement_payload:
+                        schema_version: TopicSelectionV1bN9QuestionRefinement@v1
+                        refinement_id: researcher-refinement-001
+                        actor: { actor_type: human, actor_id: researcher-001 }
+                        rationale: Use the approved fixed-coverage evaluation constraint.
+                        updates:
+                          metrics: [Brier Score, harmful-routing rate at fixed coverage]
+      responses:
+        '200':
+          description: Advance steps, halt reason and current run state; a halt is not an HTTP error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1bWorkflowRunAdvanceReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /topic-selection/v1b/workflow-harness/nodes/{nodeId}/invocations:
     post:
       operationId: invokeTopicSelectionV1bWorkflowHarnessNode
@@ -10536,46 +10622,520 @@ components:
           type: string
           nullable: true
 
+    TopicSelectionV1bWorkflowRunAdvanceRequest:
+      type: object
+      additionalProperties: true
+      properties:
+        retry_node_id:
+          anyOf:
+            - {type: string, minLength: 1}
+            - {type: 'null'}
+          description: >-
+            Explicit retry of the pending blocked/retryable/loopback source or its supported target, on the
+            first step only. N9 refine_question requires the full N7 node id plus
+            node_inputs[N7].refinement_payload. Unmatched retries leave the pending halt unchanged.
+        bootstrap_request:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationRequest'}
+            - {type: 'null'}
+          description: >-
+            Used only when the run has no traces. Normally targets N1; workflow_run_id must match the URL.
+            Omit N1 run_mode/profile_id or set them to null, even when advance.run_mode is product.
+        node_inputs:
+          anyOf:
+            - type: object
+              additionalProperties: {$ref: '#/components/schemas/TopicSelectionV1bCoordinatorNodeInput'}
+            - {type: 'null'}
+        max_steps: {type: integer, minimum: 1, maximum: 100, default: 12}
+        loopback_budget_per_node:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 2
+          description: >-
+            Effective budget is max(call budget, recorded per-node raise). On ordinary frontiers, a
+            loopback count at or above this budget halts before invocation. Bootstrap and checkpoint
+            refinement-delta recovery run before this check. Audited raise records have their own cap of 5.
+        node_timeout_ms:
+          type: integer
+          minimum: 1000
+          maximum: 3600000
+          default: 120000
+          description: >-
+            A timed-out invocation may still be in flight. Inspect state and halt before retrying; timeout
+            is not proof of cancellation.
+        run_timeout_ms: {type: integer, minimum: 1000, maximum: 7200000, default: 600000}
+        created_by:
+          enum: [human, llm, system, hybrid]
+        run_mode:
+          anyOf:
+            - enum: [test, acceptance, product]
+            - {type: 'null'}
+          description: >-
+            Defaults to acceptance for coordinator-recorded drafts. Caller draft_payload is fixture_replay
+            and cannot authorize product admission; use the runtime-verified Codex-assisted harness route
+            for product drafts. Deterministic-only harness requests do not receive this field.
+
+    TopicSelectionV1bCoordinatorNodeInput:
+      type: object
+      additionalProperties: false
+      properties:
+        execution_spec:
+          anyOf:
+            - type: object
+              additionalProperties: false
+              required: [execution_mode]
+              properties:
+                execution_mode:
+                  enum: [mocked_llm, codex_assisted, provider_llm]
+                model_option_id:
+                  anyOf:
+                    - {type: string, minLength: 1}
+                    - {type: 'null'}
+            - {type: 'null'}
+          description: >-
+            Reserved: a non-null value is rejected with 400 INVALID_PAYLOAD when this node is driven; no
+            provider generation consumer is wired here.
+        draft_payload:
+          anyOf:
+            - type: object
+              additionalProperties: true
+            - {type: 'null'}
+          description: >-
+            N4/N6/N8 caller draft, or N7 n7_n8_debate_admission_review support on N8 feedback re-entry.
+            Recorded as codex_assisted fixture_replay; product rejects this provenance. Mutually exclusive
+            with execution_spec and debate.
+        refinement_payload:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bN9QuestionRefinementPayload'}
+            - {type: 'null'}
+          description: >-
+            N7 only, on an N9 refine_question re-entry. Supply exact Human-approved changes; the harness
+            validates current lineage and decision authority.
+        debate:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bCoordinatorDebateInput'}
+            - {type: 'null'}
+        operator_debate_request:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bOperatorDebateRequest'}
+            - {type: 'null'}
+          description: >-
+            N8 submission-time request only. On a first pass it arms the N8-to-N7 Debate loopback; it does
+            not itself execute Debate.
+
+    TopicSelectionV1bCoordinatorDebateInput:
+      type: object
+      additionalProperties: true
+      allOf:
+        - if:
+            required: [kind]
+            properties:
+              kind: {const: n6_divergent}
+          then:
+            properties:
+              execution_plan:
+                anyOf:
+                  - {$ref: '#/components/schemas/TopicSelectionV1bN6DebateExecutionPlan'}
+                  - {type: 'null'}
+            required: [generation_mode]
+        - if:
+            required: [kind]
+            properties:
+              kind: {const: n8_bounded}
+          then:
+            properties:
+              execution_plan:
+                anyOf:
+                  - {$ref: '#/components/schemas/TopicSelectionV1bN8DebateExecutionPlan'}
+                  - {type: 'null'}
+      description: >-
+        N6 divergent and N8 bounded Debate are opt-in at matching loopback frontiers. Refinement-delta
+        Debate is required for substantive Human refinement recovery at N7. Role outputs are support
+        only; provider execution remains runtime gated. Plan enum/type errors reject at HTTP ingress;
+        unknown plan/role keys are stripped by Fastify before the coordinator sees them.
+      required: [kind, execution_mode, role_outputs]
+      properties:
+        kind:
+          enum: [n6_divergent, n8_bounded, n6_refinement_delta]
+        execution_mode:
+          enum: [mocked_llm, codex_assisted, provider_llm]
+        run_mode:
+          anyOf:
+            - enum: [test, acceptance, product]
+            - {type: 'null'}
+        generation_mode:
+          enum: [initial_from_n5, regeneration_after_n7_loopback, regeneration_after_n6_gate_failure]
+          description: Required for n6_divergent; must match the escalation-source mode. Not consumed by the other kinds.
+        role_outputs:
+          $ref: '#/components/schemas/JsonObject'
+          description: >-
+            Per-role codex_response/mocked_output envelopes, validated against each role output contract.
+            n6_divergent uses arrays per n6_debate_explorer/critic/arbiter slot; n8_bounded uses one
+            envelope per n8_debate_assessor_draft/value_critic/assessor_repair/synthesizer_final slot;
+            n6_refinement_delta uses one envelope per n6_refinement_delta_explorer/critic/arbiter slot.
+        execution_plan:
+          description: Optional named plan for n6_divergent or n8_bounded only; not consumed by refinement-delta recovery.
+
+    TopicSelectionV1bN6DebateExecutionPlan:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          enum: [codex_assisted, provider_compact, provider_diverse]
+        default:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            - {type: 'null'}
+        roles:
+          type: object
+          additionalProperties: false
+          properties:
+            n6_debate_explorer: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            n6_debate_critic: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            n6_debate_arbiter: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+
+    TopicSelectionV1bN8DebateExecutionPlan:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          enum: [codex_assisted, provider_compact, provider_diverse]
+        default:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            - {type: 'null'}
+        roles:
+          type: object
+          additionalProperties: false
+          properties:
+            n8_debate_assessor_draft: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            n8_debate_value_critic: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            n8_debate_assessor_repair: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+            n8_debate_synthesizer_final: {$ref: '#/components/schemas/TopicSelectionV1bDebateRoleExecutionSpec'}
+
+    TopicSelectionV1bDebateRoleExecutionSpec:
+      type: object
+      additionalProperties: false
+      required: [execution_mode]
+      properties:
+        execution_mode:
+          enum: [mocked_llm, provider_llm, codex_assisted]
+        model_option_id:
+          anyOf:
+            - {type: string, minLength: 1}
+            - {type: 'null'}
+
+    TopicSelectionV1bOperatorDebateRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, requested_by]
+      properties:
+        reason: {type: string, minLength: 1}
+        requested_by: {type: string, minLength: 1}
+
+    TopicSelectionV1bN9QuestionRefinementPayload:
+      type: object
+      additionalProperties: false
+      required: [schema_version, refinement_id, actor, rationale, updates]
+      properties:
+        schema_version: {const: TopicSelectionV1bN9QuestionRefinement@v1}
+        refinement_id: {type: string, minLength: 1}
+        actor:
+          type: object
+          additionalProperties: false
+          required: [actor_type, actor_id]
+          properties:
+            actor_type: {const: human}
+            actor_id:
+              anyOf:
+                - {type: string, minLength: 1}
+                - {type: 'null'}
+        rationale: {type: string, minLength: 1}
+        resolved_review_triggers:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [trigger, resolved_by_fields, rationale]
+            properties:
+              trigger: {type: string, minLength: 1}
+              rationale: {type: string, minLength: 1}
+              resolved_by_fields:
+                type: array
+                minItems: 1
+                uniqueItems: true
+                items:
+                  enum: [main_question, contribution_hypothesis, expected_claim, fallback_claim, evaluation_setting, metrics, baselines, ablations_or_comparisons, dependency_risks, open_dependencies, known_gaps, risk_notes]
+        updates:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            main_question: {type: string, minLength: 1}
+            contribution_hypothesis:
+              enum: [method, benchmark, analysis, resource, system]
+            expected_claim: {type: string, minLength: 1}
+            fallback_claim: {type: string, minLength: 1}
+            evaluation_setting: {type: string, minLength: 1}
+            metrics:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            baselines:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            ablations_or_comparisons:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            dependency_risks:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            open_dependencies:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            known_gaps:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+            risk_notes:
+              type: array
+              items: {type: string, minLength: 1}
+              minItems: 1
+
+    TopicSelectionV1bWorkflowRunState:
+      type: object
+      required: [workflow_run_id, nodes, last_completed_node_id, next_node_id, run_complete, recovery_frontier]
+      additionalProperties: false
+      properties:
+        workflow_run_id: {type: string}
+        nodes:
+          type: array
+          items: {$ref: '#/components/schemas/TopicSelectionV1bRunNodeState'}
+        last_completed_node_id:
+          anyOf:
+            - {type: string}
+            - {type: 'null'}
+        next_node_id:
+          anyOf:
+            - {type: string}
+            - {type: 'null'}
+          description: >-
+            Projected next node, subject to checkpoint and pending-halt checks. advance.halt explains
+            executability; retry_node_id is needed for an explicit pending retry.
+        run_complete:
+          type: boolean
+          description: N11 workflow completion only; does not grant downstream Human promotion acceptance.
+        recovery_frontier:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bRunRecoveryFrontier'}
+            - {type: 'null'}
+
+    TopicSelectionV1bRunNodeState:
+      type: object
+      required: [node_id, node_index, attempt_count, loopback_count, latest, latest_admitted, latest_provisional_tripwire]
+      additionalProperties: false
+      properties:
+        node_id: {type: string}
+        node_index: {type: integer, minimum: 1, maximum: 11}
+        attempt_count: {type: integer, minimum: 0}
+        loopback_count: {type: integer, minimum: 0}
+        latest:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bRunNodeAttempt'}
+            - {type: 'null'}
+        latest_admitted:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bRunNodeAttempt'}
+            - {type: 'null'}
+          description: >-
+            Latest admitted invoke_next/stop attempt, retained across later blocked attempts as downstream
+            lineage.
+        latest_provisional_tripwire:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bRunNodeAttempt'}
+            - {type: 'null'}
+          description: Historical provisional-threshold warning anchor; the advance-side sign-off requirement is retired.
+
+    TopicSelectionV1bRunNodeAttempt:
+      type: object
+      required: [node_attempt_id, gate_status, route_decision, authority_ref, handoff_ref, trace_snapshot_ref, authority_hash, handoff_hash, replayed, created_at, seq, blockers, warnings]
+      additionalProperties: false
+      properties:
+        node_attempt_id: {type: string}
+        gate_status: {type: string}
+        route_decision: {type: string}
+        authority_ref:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+            - {type: 'null'}
+        handoff_ref:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+            - {type: 'null'}
+        trace_snapshot_ref:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+            - {type: 'null'}
+        authority_hash:
+          anyOf:
+            - {type: string}
+            - {type: 'null'}
+        handoff_hash:
+          anyOf:
+            - {type: string}
+            - {type: 'null'}
+        replayed: {type: boolean}
+        created_at: {type: string}
+        seq:
+          type: integer
+          minimum: 0
+          description: Trace ordinal in the run artifact list; orders events even when timestamps tie.
+        blockers:
+          type: array
+          items:
+            type: object
+            required: [code, message]
+            additionalProperties: false
+            properties:
+              code: {type: string}
+              message: {type: string}
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [code, message]
+            additionalProperties: false
+            properties:
+              code: {type: string}
+              message: {type: string}
+
+    TopicSelectionV1bRunRecoveryFrontier:
+      type: object
+      required: [kind, target_node_id, source, source_decision_ref, checkpoint_ref, target_contract_ref]
+      additionalProperties: false
+      properties:
+        kind: {const: n6_refinement_delta_debate}
+        target_node_id: {const: topic-selection.v1b.materialize-topic-question-contract.v1}
+        source: {const: question_checkpoint_loopback}
+        source_decision_ref: {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+        checkpoint_ref: {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+        target_contract_ref: {$ref: '#/components/schemas/TopicSelectionFunctionalRef'}
+
+    TopicSelectionV1bWorkflowRunAdvanceReport:
+      type: object
+      required: [workflow_run_id, steps, halt, run_state]
+      additionalProperties: false
+      properties:
+        workflow_run_id: {type: string}
+        steps:
+          type: array
+          items:
+            type: object
+            required: [node_id, node_attempt_id, gate_status, route_decision, replayed]
+            additionalProperties: false
+            properties:
+              node_id: {type: string}
+              node_attempt_id: {type: string}
+              gate_status: {type: string}
+              route_decision: {type: string}
+              replayed: {type: boolean}
+        halt:
+          type: object
+          required: [reason, node_id, message, blockers]
+          additionalProperties: false
+          properties:
+            reason:
+              enum: [run_complete, human_node, model_input_required, harness_blocked, harness_wait, harness_requires_human_review, harness_retryable_failure, harness_loopback, loopback_budget_exhausted, node_in_flight, node_timeout, upstream_blocked, feedback_artifact_missing, debate_not_applicable, debate_blocked, delta_debate_required, sign_off_required, run_timeout, max_steps_reached, no_frontier]
+              description: sign_off_required is retained in the type for history; its advance-side enforcement is retired.
+            node_id:
+              anyOf:
+                - {type: string}
+                - {type: 'null'}
+            message: {type: string}
+            blockers:
+              type: array
+              items:
+                type: object
+                required: [code, message]
+                additionalProperties: false
+                properties:
+                  code: {type: string}
+                  message: {type: string}
+        run_state: {$ref: '#/components/schemas/TopicSelectionV1bWorkflowRunState'}
+
     TopicSelectionV1bWorkflowHarnessNodeInvocationRequest:
       type: object
       required: [schema_version, workflow_run_id, node_attempt_id, node_id, policy_version, frozen_input]
       additionalProperties: false
       properties:
-        schema_version:
+        schema_version: {type: string, const: TopicSelectionV1bWorkflowHarnessRunRequest@v1}
+        workspace_id:
           type: string
-          const: TopicSelectionV1bWorkflowHarnessRunRequest@v1
-        workspace_id: { type: string, nullable: true }
-        title_card_id: { type: string, nullable: true }
-        workflow_run_id: { type: string, minLength: 1 }
-        node_attempt_id: { type: string, minLength: 1 }
-        node_id:
-          $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeId'
-        attempt_family_key: { type: string, nullable: true }
-        policy_version: { type: string, minLength: 1 }
-        frozen_input:
-          $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessFrozenInput'
-        run_mode:
-          type: string
-          enum: [test, acceptance, product]
           nullable: true
-        profile_id: { type: string, nullable: true }
+        title_card_id:
+          type: string
+          nullable: true
+        workflow_run_id: {type: string, minLength: 1}
+        node_attempt_id: {type: string, minLength: 1}
+        node_id: {$ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeId'}
+        attempt_family_key:
+          type: string
+          nullable: true
+        policy_version: {type: string, minLength: 1}
+        frozen_input: {$ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessFrozenInput'}
+        run_mode:
+          anyOf:
+            - enum: [test, acceptance, product]
+            - {type: 'null'}
+        profile_id:
+          anyOf:
+            - enum: [topic-selection.v1b.constraint-profile-support.codex.v1, topic-selection.v1b.intake-readiness-support.codex.v1, topic-selection.v1b.research-slice-options.single-agent.v1, topic-selection.v1b.slice-selection-support.codex.v1, topic-selection.v1b.topic-question-candidates.single-agent.v1, topic-selection.v1b.n6-loopback-triage-support.codex.v1, topic-selection.v1b.candidate-grouping-support.codex.v1, topic-selection.v1b.failed-trial-synthesis-support.codex.v1, topic-selection.v1b.n8-debate-admission-support.codex.v1, topic-selection.v1b.n6-refinement-delta-admission.v1, topic-selection.v1b.topic-value-assessment.single-agent.v1, topic-selection.v1b.n8-bounded-debate.v1]
+            - {type: 'null'}
         execution_spec:
           anyOf:
-            - $ref: '#/components/schemas/JsonObject'
-            - type: 'null'
+            - {$ref: '#/components/schemas/JsonObject'}
+            - {type: 'null'}
         semantic_artifacts:
           anyOf:
             - type: array
-              items:
-                $ref: '#/components/schemas/JsonObject'
-            - type: 'null'
+              items: {$ref: '#/components/schemas/JsonObject'}
+            - {type: 'null'}
         actor:
           anyOf:
-            - $ref: '#/components/schemas/TopicSelectionActorRef'
-            - type: 'null'
+            - {$ref: '#/components/schemas/TopicSelectionActorRef'}
+            - {type: 'null'}
         created_by:
           type: string
           enum: [human, llm, system, hybrid]
+        operator_debate_request:
+          anyOf:
+            - {$ref: '#/components/schemas/TopicSelectionV1bOperatorDebateRequest'}
+            - {type: 'null'}
+          description: N8 only; other nodes reject a non-null request.
+      description: >-
+        Node runtime policy: N1/N9/N10/N11 accept only absent or null run_mode/profile_id (HTTP 400
+        before recording an attempt). N2/N3/N5/N7 accept non-null runtime fields only alongside an
+        admitted semantic support artifact. Non-model nodes reject execution_spec; deterministic-only
+        nodes reject semantic artifacts. N4/N6/N8 require runtime-admitted model drafts and matching
+        provenance. Structural validation does not replace the harness admission gate or rewrite
+        historical blocked attempts.
+      allOf:
+        - if:
+            required: [node_id]
+            properties:
+              node_id:
+                enum: [topic-selection.v1b.create-intake-snapshot.v1, topic-selection.v1b.decide-value-disposition.v1, topic-selection.v1b.create-draft-topic-package.v1, topic-selection.v1b.publish-v1c-input-bundle.v1]
+          then:
+            properties:
+              run_mode: {type: 'null'}
+              profile_id: {type: 'null'}
 
     TopicSelectionV1bCodexAssistedInvocationRequest:
       oneOf:

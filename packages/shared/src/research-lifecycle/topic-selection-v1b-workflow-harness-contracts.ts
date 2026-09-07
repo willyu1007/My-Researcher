@@ -4619,6 +4619,25 @@ export const topicSelectionV1bWorkflowHarnessFrozenInputSchema = {
 export const topicSelectionV1bWorkflowHarnessRunRequestSchema = {
   type: 'object',
   additionalProperties: false,
+  // Match runtime admission before HTTP callers create a preventable blocked attempt.
+  allOf: [{
+    if: {
+      required: ['node_id'],
+      properties: {
+        node_id: {
+          enum: TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_NODE_POLICIES
+            .filter((policy) => policy.execution_kind === 'deterministic' && policy.semantic_support_slots.length === 0)
+            .map((policy) => policy.node_id),
+        },
+      },
+    },
+    then: {
+      properties: {
+        run_mode: { type: 'null' },
+        profile_id: { type: 'null' },
+      },
+    },
+  }],
   required: [
     'schema_version',
     'workflow_run_id',

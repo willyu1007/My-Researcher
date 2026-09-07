@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { buildApp } from '../app.js';
+import {
+  topicSelectionV1bWorkflowHarnessRunRequestSchema,
+  topicSelectionV1bN9QuestionRefinementPayloadSchema,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../../../');
 const routePath = path.join(repoRoot, 'apps/backend/src/routes/topic-selection-v1b-routes.ts');
@@ -29,6 +34,96 @@ function extractOperationBlock(source: string, operationId: string): string {
   const candidates = [nextOperation, nextPath].filter((index) => index !== -1);
   return source.slice(start, candidates.length > 0 ? Math.min(...candidates) : source.length);
 }
+
+test('workflow state/advance and deterministic invocation restrictions stay aligned with the public contract', async () => {
+  type Schema = {
+    properties?: Record<string, Schema>;
+    required?: readonly string[];
+    anyOf?: Schema[];
+    additionalProperties?: Schema | boolean;
+    type?: string;
+    minimum?: number;
+    maximum?: number;
+  };
+  const app = buildApp();
+  let advance: Schema | undefined;
+  let stateRegistered = false;
+  app.addHook('onRoute', (route) => {
+    if (route.url === '/topic-selection/v1b/workflow-runs/:workflowRunId/advance' && route.method === 'POST') {
+      advance = route.schema?.body as Schema;
+    }
+    if (route.url === '/topic-selection/v1b/workflow-runs/:workflowRunId/state' && route.method === 'GET') {
+      stateRegistered = true;
+    }
+  });
+  try {
+    await app.ready();
+    assert.ok(stateRegistered);
+    assert.ok(advance);
+    const source = fs.readFileSync(openapiPath, 'utf8');
+    const stateOperation = extractOperationBlock(source, 'getTopicSelectionV1bWorkflowRunState');
+    assert.match(stateOperation, /TopicSelectionV1bWorkflowRunState/);
+    assert.match(stateOperation, /'404':/);
+    const advanceOperation = extractOperationBlock(source, 'advanceTopicSelectionV1bWorkflowRun');
+    assert.match(advanceOperation, /TopicSelectionV1bWorkflowRunAdvanceRequest/);
+    assert.match(advanceOperation, /TopicSelectionV1bWorkflowRunAdvanceReport/);
+    assert.match(advanceOperation, /retry_node_id: topic-selection\.v1b\.materialize-topic-question-contract\.v1/);
+    const nodeInput = advance.properties?.node_inputs?.anyOf?.[0]?.additionalProperties;
+    assert.ok(nodeInput && typeof nodeInput === 'object');
+    for (const [name, schema] of [
+      ['TopicSelectionV1bWorkflowRunAdvanceRequest', advance],
+      ['TopicSelectionV1bCoordinatorNodeInput', nodeInput],
+      ['TopicSelectionV1bN9QuestionRefinementPayload', topicSelectionV1bN9QuestionRefinementPayloadSchema],
+      ['TopicSelectionV1bWorkflowHarnessNodeInvocationRequest', topicSelectionV1bWorkflowHarnessRunRequestSchema],
+    ] as const) {
+      const block = extractSchemaBlock(source, name);
+      const fields = [...block.matchAll(/^        (\w+):/gm)].map((match) => match[1]);
+      assert.deepEqual(fields.sort(), Object.keys(schema.properties ?? {}).sort(), `${name} fields`);
+      const required = block.match(/^      required: \[([^\]]*)\]/m)?.[1]?.split(',').map((field) => field.trim()) ?? [];
+      assert.deepEqual(required.sort(), [...(schema.required ?? [])].sort(), `${name} required`);
+    }
+    const advanceBlock = extractSchemaBlock(source, 'TopicSelectionV1bWorkflowRunAdvanceRequest');
+    for (const field of ['max_steps', 'loopback_budget_per_node', 'node_timeout_ms', 'run_timeout_ms']) {
+      const property = advance.properties?.[field];
+      const block = advanceBlock.split(`        ${field}:`)[1]?.split(/\n        \w+:/)[0];
+      assert.ok(block?.includes(`minimum: ${property?.minimum}`), `${field} minimum`);
+      assert.ok(block?.includes(`maximum: ${property?.maximum}`), `${field} maximum`);
+    }
+    const invocation = extractSchemaBlock(source, 'TopicSelectionV1bWorkflowHarnessNodeInvocationRequest');
+    const conditional = invocation.split('      allOf:')[1];
+    assert.ok(conditional);
+    const nodes = [...conditional.matchAll(/topic-selection\.v1b\.[\w-]+\.v1/g)].map((match) => match[0]);
+    assert.deepEqual(nodes, topicSelectionV1bWorkflowHarnessRunRequestSchema.allOf[0].if.properties.node_id.enum);
+    for (const field of ['run_mode', 'profile_id']) {
+      assert.match(conditional, new RegExp(`${field}: \\{type: ['"]?null['"]?\\}`));
+    }
+    const coordinator = fs.readFileSync(path.join(repoRoot,
+      'apps/backend/src/services/topic-selection-v1b-run-coordinator-service.ts'), 'utf8');
+    for (const [schemaName, typeName] of [
+      ['TopicSelectionV1bWorkflowRunState', 'TopicSelectionV1bRunStateProjection'],
+      ['TopicSelectionV1bRunNodeState', 'TopicSelectionV1bRunNodeState'],
+      ['TopicSelectionV1bRunNodeAttempt', 'TopicSelectionV1bRunNodeAttemptSnapshot'],
+      ['TopicSelectionV1bRunRecoveryFrontier', 'TopicSelectionV1bRunRecoveryFrontier'],
+      ['TopicSelectionV1bWorkflowRunAdvanceReport', 'TopicSelectionV1bRunAdvanceReport'],
+    ]) {
+      const type = coordinator.split(`export type ${typeName} = {\n`)[1]?.split('\n};')[0];
+      assert.ok(type, `${typeName} runtime type`);
+      const fields = [...type.matchAll(/^  (\w+):/gm)].map((match) => match[1]).sort();
+      const block = extractSchemaBlock(source, schemaName);
+      const documented = [...block.matchAll(/^        (\w+):/gm)].map((match) => match[1]).sort();
+      assert.deepEqual(documented, fields, `${schemaName} response fields`);
+      const required = block.match(/^      required: \[([^\]]*)\]/m)?.[1]?.split(',').map((field) => field.trim()).sort();
+      assert.deepEqual(required, fields, `${schemaName} required response fields`);
+    }
+    const haltType = coordinator.split('export type TopicSelectionV1bRunCoordinatorHaltReason =')[1]?.split('\nexport type ')[0];
+    assert.ok(haltType);
+    const reasons = [...haltType.matchAll(/^  \| '([^']+)'/gm)].map((match) => match[1]);
+    assert.ok(extractSchemaBlock(source, 'TopicSelectionV1bWorkflowRunAdvanceReport')
+      .includes(`enum: [${reasons.join(', ')}]`), 'Every coordinator halt reason is documented.');
+  } finally {
+    await app.close();
+  }
+});
 
 test('v1b human N2 constraint-profile runtime route is fully documented in OpenAPI', () => {
   const routeSource = fs.readFileSync(routePath, 'utf8');

@@ -1085,6 +1085,27 @@ function canonicalN7RuntimeContextProjection(
   };
 }
 
+test('deterministic-only invocation nodes accept absent/null runtime fields and reject non-null values', async () => {
+  const base = canonicalRequest();
+  for (const node_id of [
+    'topic-selection.v1b.create-intake-snapshot.v1',
+    'topic-selection.v1b.decide-value-disposition.v1',
+    'topic-selection.v1b.create-draft-topic-package.v1',
+    'topic-selection.v1b.publish-v1c-input-bundle.v1',
+  ]) {
+    const request = { ...base, node_id, run_mode: null, profile_id: null };
+    assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, request), true);
+    const { run_mode: _mode, profile_id: _profile, ...withoutRuntime } = request;
+    assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, withoutRuntime), true);
+    for (const fields of [{ run_mode: 'product' }, { profile_id: base.profile_id }]) {
+      assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, {
+        ...request, ...fields,
+      }), false, `${node_id} rejects ${Object.keys(fields)[0]}`);
+    }
+  }
+  assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, base), true);
+});
+
 test('topic-selection v1b workflow harness schemas accept canonical request and result envelopes', async () => {
   assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunRequestSchema, canonicalRequest()), true);
   assert.equal(await validatesBody(topicSelectionV1bWorkflowHarnessRunResultSchema, canonicalResult()), true);
