@@ -438,40 +438,6 @@ test('agent orchestrator blocks invalid structured output without mode-specific 
   assert.equal(result.validation.valid, false);
 });
 
-test('codex model_hint is advisory: recorded in provenance, absent from every hash', async () => {
-  const { orchestrator } = makeOrchestrator();
-  const withoutHint = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
-    ...baseInvocation(),
-    execution_mode: 'codex_assisted',
-    codex_response: {
-      output: output(),
-      operator_label: 'codex-local',
-    },
-  });
-  const withHint = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
-    ...baseInvocation(),
-    execution_mode: 'codex_assisted',
-    codex_response: {
-      output: output(),
-      operator_label: 'codex-local',
-      model_hint: '  gpt-6-astra  ',
-    },
-  });
-
-  assert.equal(withoutHint.status, 'succeeded');
-  assert.equal(withHint.status, 'succeeded');
-  assert.equal(withoutHint.provenance.model_hint, null);
-  assert.equal(withHint.provenance.model_hint, 'gpt-6-astra');
-  // The hint stays out of the authority chain: same output, byte-identical hashes.
-  assert.equal(withHint.provenance.response_hash, withoutHint.provenance.response_hash);
-  assert.equal(withHint.provenance.structured_output_hash, withoutHint.provenance.structured_output_hash);
-  assert.equal(withHint.provenance.prompt_packet_hash, withoutHint.provenance.prompt_packet_hash);
-  // It is a note, not a metered model identity.
-  assert.equal(withHint.provenance.model_option_id, null);
-  assert.equal(withHint.provenance.model_id ?? null, null);
-  assert.equal(withHint.provenance.non_provider, true);
-});
-
 test('agent orchestrator binds compression identity into prompt packet hash and provenance', async () => {
   const { orchestrator } = makeOrchestrator();
   const compressionReportRef = {

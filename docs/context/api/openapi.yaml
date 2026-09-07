@@ -11238,7 +11238,6 @@ components:
         output:
           $ref: '#/components/schemas/TopicSelectionV1bResearchSliceOptionSetDraft'
         operator_label: { type: string, minLength: 1 }
-        model_hint: { type: string, nullable: true }
         response_hash: { type: string, nullable: true }
         prompt_packet_hash: { type: string, nullable: true }
 
@@ -11326,7 +11325,6 @@ components:
             synthesized_candidate_set:
               $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionCandidateSetDraft'
         operator_label: { type: string, minLength: 1 }
-        model_hint: { type: string, nullable: true }
         response_hash: { type: string, nullable: true }
         prompt_packet_hash: { type: string, nullable: true }
 
@@ -11348,7 +11346,6 @@ components:
         output:
           $ref: '#/components/schemas/TopicSelectionV1bTopicValueAssessmentDraft'
         operator_label: { type: string, minLength: 1 }
-        model_hint: { type: string, nullable: true }
         response_hash: { type: string, nullable: true }
         prompt_packet_hash: { type: string, nullable: true }
 

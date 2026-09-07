@@ -141,9 +141,6 @@ export interface TopicSelectionAgentInvocationProvenance {
   operator_approval_ref?: TopicSelectionFunctionalRef | null;
   local_approval_setting_ref?: string | null;
   response_source?: 'operator_supplied' | 'cached_exact_invocation' | null;
-  /** Codex path only: advisory note of which model the operator ran. Never enters a hash, a gate,
-   *  or the authority chain — provider_id/model_id stay the metered provider identity. */
-  model_hint?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
   telemetry: TopicSelectionAgentInvocationTelemetrySummary | null;
@@ -350,7 +347,6 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
         { type: 'null' },
       ],
     },
-    model_hint: nullableStringId,
     provider_id: nullableStringId,
     model_id: nullableStringId,
     telemetry: {
@@ -374,7 +370,6 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
           model_id: stringId,
           model_option_id: stringId,
           normalized_params_hash: hashString,
-          model_hint: { const: null },
         },
       },
     },
@@ -390,7 +385,6 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
           fixture_id: stringId,
           model_option_id: { const: null },
           normalized_params_hash: { const: null },
-          model_hint: { const: null },
         },
       },
     },
