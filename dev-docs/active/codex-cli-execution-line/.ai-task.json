@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task_id": "T-151",
+  "slug": "codex-cli-execution-line",
+  "keywords": [
+    "codex-cli",
+    "fourth-execution-line",
+    "mcp-tool-surface",
+    "trace-as-evidence",
+    "thread-lifecycle",
+    "runtime-budget-enforcement",
+    "agent-runner"
+  ]
+}

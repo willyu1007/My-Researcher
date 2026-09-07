@@ -54,6 +54,15 @@
 | T-146 llm-config-ui-style-conformance | archived | dev-docs/archive/llm-config-ui-style-conformance |
 | T-149 literature-embedding-vector-persistence | archived | dev-docs/archive/literature-embedding-vector-persistence |
 
+### F-003 Agent Execution Lines & Tool Surface
+
+- Status: planned
+- Description: Own how research-lifecycle agent invocations are executed: the execution lines (provider LLM, operator-assisted Codex, product-driven Codex CLI, mocked fixtures), the product-owned tool surfaces they may use, and the provenance, budget and isolation guarantees each line carries.
+
+| Task | Status | Dev Docs |
+| --- | --- | --- |
+| T-151 codex-cli-execution-line | planned | dev-docs/active/codex-cli-execution-line |
+
 ## M-001 LLM Research Lifecycle v1
 
 - Status: in-progress

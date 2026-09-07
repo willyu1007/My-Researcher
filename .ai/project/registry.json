@@ -35,6 +35,13 @@
       "milestone_id": "M-001",
       "status": "in-progress",
       "description": "Build Electron desktop shell with React/Vite renderer and brand-aligned UI theme system."
+    },
+    {
+      "id": "F-003",
+      "title": "Agent Execution Lines & Tool Surface",
+      "milestone_id": "M-000",
+      "status": "planned",
+      "description": "Own how research-lifecycle agent invocations are executed: the execution lines (provider LLM, operator-assisted Codex, product-driven Codex CLI, mocked fixtures), the product-owned tool surfaces they may use, and the provenance, budget and isolation guarantees each line carries."
     }
   ],
   "ideas": [
@@ -1242,6 +1249,14 @@
       "updated": "2026-09-03",
       "dev_docs_path": "dev-docs/active/topic-selection-evidence-convergence-core",
       "feature_id": "F-001"
+    },
+    {
+      "id": "T-151",
+      "slug": "codex-cli-execution-line",
+      "status": "planned",
+      "updated": "2026-09-07",
+      "dev_docs_path": "dev-docs/active/codex-cli-execution-line",
+      "feature_id": "F-003"
     }
   ]
 }
