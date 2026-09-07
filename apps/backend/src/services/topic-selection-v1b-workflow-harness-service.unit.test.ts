@@ -1129,6 +1129,36 @@ async function generateN6RuntimeDraftArtifact(
   return generated.semantic_artifact;
 }
 
+async function generateN6RegularDebateDraftArtifact(
+  ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>,
+  input: TopicSelectionV1bWorkflowHarnessRunRequest,
+  draft: TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
+): Promise<TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef> {
+  const role = (slot: TopicSelectionV1bN6DivergentDebateRoleSlotId, body: Record<string, unknown>, index = 0): V1bN6DebateInputs => ({
+    instance_index: index, mocked_output: null,
+    codex_response: {
+      operator_label: 'unit-test-regular-debate',
+      output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: slot, ...body },
+    },
+  });
+  const result = await new TopicSelectionV1bN6DivergentDebateRuntimeService(ctx.controlPlane).runDivergentDebate({
+    request: input, generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted',
+    run_mode: input.run_mode ?? 'acceptance',
+    role_outputs: {
+      n6_debate_explorer: [0, 1].map((index) => role('n6_debate_explorer', {
+        candidate_seeds: [{ seed_id: `seed-${index}`, question_framing: `Evidence-bounded framing ${index}`, evidence_refs: [] }],
+      }, index)),
+      n6_debate_critic: [role('n6_debate_critic', {
+        critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'Check evidence traceability.' }],
+      })],
+      n6_debate_arbiter: [role('n6_debate_arbiter', { synthesized_candidate_set: draft })],
+    },
+  });
+  assert.equal(result.status, 'completed');
+  if (result.status !== 'completed' || result.gate_draft.status !== 'succeeded') throw new Error('Expected the regular N6 Debate to produce a draft.');
+  return result.gate_draft.semantic_artifact;
+}
+
 async function runReadyN6(
   ctx: Awaited<ReturnType<typeof seedHarnessV1aBundle>>,
   draftOverrides: Partial<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload> = {},
@@ -4537,7 +4567,7 @@ test('v1b workflow harness N6 admits runtime-verified loopback triage in product
     answerability_verdict: 'not_answerable',
     main_question: 'How can AI improve research?',
   };
-  const draftArtifact = await generateN6RuntimeDraftArtifact(ctx, input, failedDraft);
+  const draftArtifact = await generateN6RegularDebateDraftArtifact(ctx, input, failedDraft);
   const draftHash = sha256Text(stableStringify(failedDraft));
   const triageArtifact = await generateN6RuntimeLoopbackTriageArtifact(
     ctx,
@@ -4595,7 +4625,7 @@ test('v1b workflow harness N6 runtime loopback triage drift and fixture product 
     answerability_verdict: 'not_answerable',
     main_question: 'How can AI improve research?',
   };
-  const driftDraftArtifact = await generateN6RuntimeDraftArtifact(driftCtx, driftInput, driftFailedDraft);
+  const driftDraftArtifact = await generateN6RegularDebateDraftArtifact(driftCtx, driftInput, driftFailedDraft);
   const driftDraftHash = sha256Text(stableStringify(driftFailedDraft));
   const driftTriageArtifact = await generateN6RuntimeLoopbackTriageArtifact(
     driftCtx,
@@ -4636,7 +4666,7 @@ test('v1b workflow harness N6 runtime loopback triage drift and fixture product 
     answerability_verdict: 'not_answerable',
     main_question: 'How can AI improve research?',
   };
-  const fixtureDraftArtifact = await generateN6RuntimeDraftArtifact(fixtureCtx, fixtureInput, fixtureFailedDraft);
+  const fixtureDraftArtifact = await generateN6RegularDebateDraftArtifact(fixtureCtx, fixtureInput, fixtureFailedDraft);
   const fixtureTriageArtifact = await recordN6LoopbackTriageArtifact(
     fixtureCtx,
     fixtureInput,
@@ -4710,7 +4740,7 @@ test('v1b workflow harness N6 preserves legacy alias requests and detects replay
   assert.equal(drift.error_code, 'REPLAY_SEMANTIC_ARTIFACT_HASH_MISMATCH');
 });
 
-test('v1b workflow harness N6 admits runtime-verified Codex draft in product mode', async () => {
+test('FIND-018 product N6 rejects an unreviewed runtime draft before candidate authority', async () => {
   const ctx = await seedHarnessV1aBundle();
   const { n5 } = await runReadyN5(ctx);
   const input = await n6Request(ctx, n5, {
@@ -4751,9 +4781,24 @@ test('v1b workflow harness N6 admits runtime-verified Codex draft in product mod
     ...input,
     semantic_artifacts: [generated.semantic_artifact],
   });
-  assert.equal(result.gate_status, 'admitted');
-  assert.equal(result.route_decision, 'invoke_next');
-  assert.equal(result.authority_ref?.ref_type, 'topic_question_candidate_set');
+  assert.equal(result.gate_status, 'blocked');
+  assert.equal(result.error_code, 'N6_REGULAR_DEBATE_REQUIRED');
+  assert.equal(result.authority_ref, null);
+  assert.equal(result.handoff_ref, null);
+  for (const runMode of [undefined, null]) {
+    const variant = { ...input, node_attempt_id: `${input.node_attempt_id}_${String(runMode)}`, run_mode: runMode };
+    const unreviewed = await runtime.generateDraftArtifact({
+      request: variant, generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted', run_mode: 'product',
+      codex_response: { output: draft, operator_label: 'test-runtime' },
+    });
+    assert.equal(unreviewed.status, 'succeeded');
+    if (unreviewed.status !== 'succeeded') throw new Error('Expected the low-level draft primitive to remain available.');
+    const blocked = await ctx.service.invokeNode({ ...variant, semantic_artifacts: [unreviewed.semantic_artifact] });
+    assert.equal(blocked.error_code, 'N6_REGULAR_DEBATE_REQUIRED');
+    assert.equal(blocked.authority_ref, null);
+    assert.equal(blocked.handoff_ref, null);
+  }
+
 });
 
 // ---- T-127 W-07 loop closure (the SINGLE spanning end-to-end test): the v1b N6 divergent debate is
@@ -4954,7 +4999,7 @@ test('v1b workflow harness N6 runtime draft cannot bypass deterministic candidat
       },
     }],
   };
-  const semanticArtifact = await generateN6RuntimeDraftArtifact(ctx, input, invalidDraft);
+  const semanticArtifact = await generateN6RegularDebateDraftArtifact(ctx, input, invalidDraft);
   const blocked = await ctx.service.invokeNode({
     ...input,
     semantic_artifacts: [semanticArtifact],
@@ -6752,7 +6797,7 @@ test('v1b workflow harness N6 admits runtime regeneration from N6 gate-failure r
     answerability_verdict: 'not_answerable',
     main_question: 'How can AI improve research?',
   };
-  const failedDraftArtifact = await generateN6RuntimeDraftArtifact(ctx, failedInput, failedDraft);
+  const failedDraftArtifact = await generateN6RegularDebateDraftArtifact(ctx, failedInput, failedDraft);
   const failedDraftHash = sha256Text(stableStringify(failedDraft));
   const failed = await ctx.service.invokeNode({
     ...failedInput,

@@ -15,6 +15,30 @@ separates the immediate rehearsal from a later product integration.
   writing-center work, direct database access, and a parallel workflow state file are outside this
   path.
 
+## Regular N6 question candidates
+
+A fresh N5 selection now receives one bounded review: two Explorer responses, one Critic response,
+and one Arbiter response over the same frozen N5 evidence. The Arbiter supplies
+`synthesized_candidate_set`; the existing deterministic N6 gate still owns candidate admission.
+
+- Through coordinator `advance`, use `node_inputs[N6].debate` with `kind: n6_divergent`,
+  `generation_mode: initial_from_n5`, `execution_mode: codex_assisted` and `role_outputs`.
+  A bare initial `draft_payload` halts before recording a candidate attempt.
+- Through `/topic-selection/v1b/workflow-harness/nodes/{nodeId}/codex-assisted-invocations`,
+  N6 accepts `{ request, role_outputs }`. The three keys are `n6_debate_explorer` (two items),
+  `n6_debate_critic` (one) and `n6_debate_arbiter` (one). Each item carries `codex_response`
+  with `output` and `operator_label`; `output.role_slot` matches its key and
+  `output.schema_version` is `TopicSelectionV1bN6DivergentDebateRoleOutput@v1`.
+- Reuse the exact attempt, frozen input, execution settings and role responses for replay.
+  A completed receipt retains all four role audits, the transcript and the gate-facing draft;
+  changed input under that attempt conflicts. Correct a blocked review before retrying.
+
+The four role audits and existing draft-bridge audit are non-provider work; they do not claim
+retrieval or provider calls. Provider Debate remains dormant. N7 still stops at the question Human
+checkpoint, and role responses cannot author a Human decision. Regeneration/escalation and
+refinement delta retain their existing recovery contracts. Low-level acceptance/test draft fixtures
+and historical harness replay remain available; new initial product drafts require a Debate receipt.
+
 ## Current rehearsal
 
 The first small real-project rehearsal uses one fresh lineage and the maintained SciFact assets.

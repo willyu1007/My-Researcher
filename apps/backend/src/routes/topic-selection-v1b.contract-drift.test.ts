@@ -247,9 +247,9 @@ test('v1b N4/N6/N8 Codex-assisted product runtime route is fully documented in O
     openapiSource,
     'TopicSelectionV1bN6CodexAssistedInvocationRequest',
   );
-  assert.match(n6RequestBlock, /required: \[request, codex_response\]/);
+  assert.match(n6RequestBlock, /required: \[request, role_outputs\]/);
   assert.match(n6RequestBlock, /TopicSelectionV1bWorkflowHarnessNodeInvocationRequest/);
-  assert.match(n6RequestBlock, /TopicSelectionV1bN6CodexAssistedResponse/);
+  assert.match(n6RequestBlock, /TopicSelectionV1bN6CodexDebateRoleInput/);
 
   const n6ResponseBlock = extractSchemaBlock(
     openapiSource,

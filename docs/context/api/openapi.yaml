@@ -5494,7 +5494,7 @@ paths:
   /topic-selection/v1b/workflow-harness/nodes/{nodeId}/codex-assisted-invocations:
     post:
       operationId: invokeTopicSelectionV1bCodexAssisted
-      summary: Generate a runtime-verified Codex-assisted N4, initial N6, or initial N8 draft and submit it to the v1b harness.
+      summary: Submit a Codex-assisted N4/N8 draft or regular initial N6 bounded Debate to the existing v1b gate.
       tags: [topic-selection-v1b]
       parameters:
         - name: nodeId
@@ -10726,7 +10726,7 @@ components:
               additionalProperties: true
             - {type: 'null'}
           description: >-
-            N4/N6/N8 caller draft, or N7 n7_n8_debate_admission_review support on N8 feedback re-entry.
+            N4/N8 caller draft, N6 recovery draft, or N7 n7_n8_debate_admission_review support on N8 feedback re-entry. Fresh N6 requires debate.
             Recorded as codex_assisted fixture_replay; product rejects this provenance. Mutually exclusive
             with execution_spec and debate.
         refinement_payload:
@@ -10774,7 +10774,7 @@ components:
                   - {$ref: '#/components/schemas/TopicSelectionV1bN8DebateExecutionPlan'}
                   - {type: 'null'}
       description: >-
-        N6 divergent and N8 bounded Debate are opt-in at matching loopback frontiers. Refinement-delta
+        Regular initial N6 requires one divergent Debate; N6 escalation and N8 bounded Debate remain opt-in at matching loopback frontiers. Refinement-delta
         Debate is required for substantive Human refinement recovery at N7. Role outputs are support
         only; provider execution remains runtime gated. Plan enum/type errors reject at HTTP ingress;
         unknown plan/role keys are stripped by Fastify before the coordinator sees them.
@@ -10790,12 +10790,12 @@ components:
             - {type: 'null'}
         generation_mode:
           enum: [initial_from_n5, regeneration_after_n7_loopback, regeneration_after_n6_gate_failure]
-          description: Required for n6_divergent; must match the escalation-source mode. Not consumed by the other kinds.
+          description: Required for n6_divergent; initial_from_n5 for the regular initial frontier, regeneration_after_n6_gate_failure for an escalation frontier. Not consumed by the other kinds.
         role_outputs:
           $ref: '#/components/schemas/JsonObject'
           description: >-
             Per-role codex_response/mocked_output envelopes, validated against each role output contract.
-            n6_divergent uses arrays per n6_debate_explorer/critic/arbiter slot; n8_bounded uses one
+            n6_divergent uses arrays per n6_debate_explorer/critic/arbiter slot (initial review requires exactly 2/1/1); n8_bounded uses one
             envelope per n8_debate_assessor_draft/value_critic/assessor_repair/synthesizer_final slot;
             n6_refinement_delta uses one envelope per n6_refinement_delta_explorer/critic/arbiter slot.
         execution_plan:
@@ -11191,11 +11191,68 @@ components:
 
     TopicSelectionV1bN6CodexAssistedInvocationRequest:
       type: object
-      required: [request, codex_response]
+      required: [request, role_outputs]
       additionalProperties: false
+      description: >-
+        Product/Codex-only regular initial N6 Debate over frozen N5 lineage. Requires exactly
+        two Explorer, one Critic and one Arbiter responses. The existing deterministic gate
+        consumes the Arbiter draft. Completed exact retries reuse the original receipt;
+        changed input or responses under the same attempt return 409 VERSION_CONFLICT.
       properties:
         request:
           $ref: '#/components/schemas/TopicSelectionV1bWorkflowHarnessNodeInvocationRequest'
+        role_outputs:
+          type: object
+          additionalProperties: false
+          required: [n6_debate_explorer, n6_debate_critic, n6_debate_arbiter]
+          properties:
+            n6_debate_explorer:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/TopicSelectionV1bN6CodexDebateRoleInput'
+                  - properties:
+                      codex_response:
+                        properties:
+                          output:
+                            properties:
+                              role_slot: {const: n6_debate_explorer}
+            n6_debate_critic:
+              type: array
+              minItems: 1
+              maxItems: 1
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/TopicSelectionV1bN6CodexDebateRoleInput'
+                  - properties:
+                      codex_response:
+                        properties:
+                          output:
+                            properties:
+                              role_slot: {const: n6_debate_critic}
+            n6_debate_arbiter:
+              type: array
+              minItems: 1
+              maxItems: 1
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/TopicSelectionV1bN6CodexDebateRoleInput'
+                  - properties:
+                      codex_response:
+                        properties:
+                          output:
+                            properties:
+                              role_slot: {const: n6_debate_arbiter}
+
+    TopicSelectionV1bN6CodexDebateRoleInput:
+      type: object
+      required: [codex_response]
+      additionalProperties: false
+      properties:
+        instance_index: {type: integer, minimum: 0, description: Optional index; must match the position in the role array.}
+        mocked_output: {type: 'null'}
         codex_response:
           $ref: '#/components/schemas/TopicSelectionV1bN6CodexAssistedResponse'
 
@@ -11205,7 +11262,16 @@ components:
       additionalProperties: false
       properties:
         output:
-          $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionCandidateSetDraft'
+          type: object
+          additionalProperties: true
+          required: [schema_version, role_slot]
+          properties:
+            schema_version: {const: TopicSelectionV1bN6DivergentDebateRoleOutput@v1}
+            role_slot: {enum: [n6_debate_explorer, n6_debate_critic, n6_debate_arbiter]}
+            candidate_seeds: {type: array, items: {type: object, additionalProperties: true}}
+            critic_findings: {type: array, items: {type: object, additionalProperties: true}}
+            synthesized_candidate_set:
+              $ref: '#/components/schemas/TopicSelectionV1bTopicQuestionCandidateSetDraft'
         operator_label: { type: string, minLength: 1 }
         model_hint: { type: string, nullable: true }
         response_hash: { type: string, nullable: true }

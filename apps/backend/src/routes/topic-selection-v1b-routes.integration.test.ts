@@ -674,6 +674,25 @@ async function v1bHarnessN6Request(
   };
 }
 
+function n6CodexDebateRoles(draft: ReturnType<typeof v1bHarnessN6Draft>) {
+  const codexRole = (role: string, output: Record<string, unknown>, index = 0) => ({
+    instance_index: index,
+    codex_response: {
+      operator_label: 'route-integration-codex',
+      output: { schema_version: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1', role_slot: role, ...output },
+    },
+  });
+  return {
+    n6_debate_explorer: [0, 1].map((index) => codexRole('n6_debate_explorer', {
+      candidate_seeds: [{ seed_id: `seed-${index}`, question_framing: `Evidence-bounded framing ${index}`, evidence_refs: [] }],
+    }, index)),
+    n6_debate_critic: [codexRole('n6_debate_critic', {
+      critic_findings: [{ finding_code: 'weak_topic_question_candidate_set', severity: 'note', statement: 'Verify the evidence boundary.' }],
+    })],
+    n6_debate_arbiter: [codexRole('n6_debate_arbiter', { synthesized_candidate_set: draft })],
+  };
+}
+
 function v1bHarnessN6Draft(
   bundle: TopicSelectionV1aToV1bInputBundleRecord,
   input: TopicSelectionV1bWorkflowHarnessRunRequest,
@@ -2349,7 +2368,7 @@ test('topic-selection v1b N4 Codex-assisted product route records runtime-verifi
   }
 });
 
-test('topic-selection v1b N6 Codex-assisted product route records runtime-verified draft and invokes the harness', async () => {
+test('FIND-018 N6 Codex-assisted product route admits one regular Debate and replays without new work', async () => {
   const app = buildApp({
     topicSelectionV1aLlmGateway: new FakeTopicSelectionV1aLlmGateway(),
   });
@@ -2382,10 +2401,7 @@ test('topic-selection v1b N6 Codex-assisted product route records runtime-verifi
     );
     const request = await v1bHarnessN6Request(app, n5, suffix);
     const routeUrl = `/topic-selection/v1b/workflow-harness/nodes/${encodeURIComponent(request.node_id)}/codex-assisted-invocations`;
-    const codexResponse = {
-      output: v1bHarnessN6Draft(bundleResult.v1bInputBundle, request),
-      operator_label: 'route-integration-codex',
-    };
+    const roleOutputs = n6CodexDebateRoles(v1bHarnessN6Draft(bundleResult.v1bInputBundle, request));
 
     const providerAttempt = await app.inject({
       method: 'POST',
@@ -2395,7 +2411,7 @@ test('topic-selection v1b N6 Codex-assisted product route records runtime-verifi
           ...request,
           execution_spec: { execution_mode: 'provider_llm', model_option_id: 'forbidden-provider-option' },
         },
-        codex_response: codexResponse,
+        role_outputs: roleOutputs,
       },
     });
     assert.equal(providerAttempt.statusCode, 400);
@@ -2404,10 +2420,16 @@ test('topic-selection v1b N6 Codex-assisted product route records runtime-verifi
       /does not accept provider or mocked execution/,
     );
 
+    const unreviewed = await app.inject({
+      method: 'POST', url: routeUrl,
+      payload: { request, codex_response: { output: v1bHarnessN6Draft(bundleResult.v1bInputBundle, request), operator_label: 'unreviewed' } },
+    });
+    assert.equal(unreviewed.statusCode, 400);
+
     const response = await app.inject({
       method: 'POST',
       url: routeUrl,
-      payload: { request, codex_response: codexResponse },
+      payload: { request, role_outputs: roleOutputs },
     });
     assertStatus(response, 201);
     const result = response.json() as WorkflowHarnessHttpResult;
@@ -2430,6 +2452,20 @@ test('topic-selection v1b N6 Codex-assisted product route records runtime-verifi
     assert.match(n6Payloads, /"run_mode":"product"/);
     assert.match(n6Payloads, /TopicSelectionV1bN6DraftRuntimeContextPacket@v1/);
     assert.doesNotMatch(n6Payloads, /fixture_replay/);
+    assert.match(n6Payloads, /TopicSelectionV1bN6DebateReceipt@v1/);
+    for (const slot of ['n6_debate_explorer', 'n6_debate_critic', 'n6_debate_arbiter']) assert.match(n6Payloads, new RegExp(slot));
+    const replay = await app.inject({ method: 'POST', url: routeUrl, payload: { request, role_outputs: roleOutputs } });
+    assertStatus(replay, 201);
+    const replayResult = replay.json() as WorkflowHarnessHttpResult;
+    assert.deepEqual(replayResult.authority_ref, result.authority_ref);
+    assert.deepEqual(replayResult.handoff_ref, result.handoff_ref);
+    const after = await app.inject({ method: 'GET', url: `/topic-selection/v1b/workflow-runs/${encodeURIComponent(request.workflow_run_id)}/artifacts` });
+    assert.equal((after.json() as { items: unknown[] }).items.length, artifacts.items.length);
+    const changed = structuredClone(roleOutputs);
+    changed.n6_debate_arbiter[0]!.codex_response.operator_label = 'different-response';
+    const drift = await app.inject({ method: 'POST', url: routeUrl, payload: { request, role_outputs: changed } });
+    assertStatus(drift, 409);
+
   } finally {
     await app.close();
   }
@@ -3097,13 +3133,13 @@ test('v1b run coordinator advances N1→N11 with human halts, caller drafts, and
     assert.equal(lateN5Body.error.code, 'VERSION_CONFLICT');
     assert.match(lateN5Body.error.message, /is not awaiting/);
 
-    // 6) advance with the N6 draft → N6 + mechanical N7 run, halt at N8
+    // 6) advance with the regular N6 Debate → N6 + mechanical N7 run, halt at N8
     const stateAfterN5 = (await advance({})).run_state; // surfaces fresh projection (halts at N6 input)
     const n6Input = await v1bHarnessN6Request(app, fabricateResult(stateAfterN5, N5_ID), suffix);
     const afterN7 = await advance({
       node_inputs: {
         [N6_ID]: {
-          draft_payload: v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown>,
+          debate: { kind: 'n6_divergent', generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted', role_outputs: n6CodexDebateRoles(v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input)) },
         },
       },
     });
@@ -3209,7 +3245,7 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
       rationale: 'Borderline total_score warrants a compact value debate.',
     };
 
-    // Drive N1 -> N7 frontier (N2/N5 human, N4/N6 drafts).
+    // Drive N1 -> N7 frontier (N2/N5 human, N4 draft, regular N6 Debate).
     const afterN1 = await advance({ bootstrap_request: n1Input });
     const intakeSnapshotId = afterN1.run_state.nodes.find((n) => n.node_id === n1Input.node_id)!.latest!.authority_ref!.ref_id;
     assertStatus(await app.inject({
@@ -3226,7 +3262,7 @@ test('v1b run coordinator drives the full N8 debate loop: borderline T1 loopback
     }), 201);
     const stateAfterN5 = (await advance({})).run_state;
     const n6Input = await v1bHarnessN6Request(app, fabricate(stateAfterN5, N5_ID), suffix);
-    const afterN7 = await advance({ node_inputs: { [N6_ID]: { draft_payload: v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input) as unknown as Record<string, unknown> } } });
+    const afterN7 = await advance({ node_inputs: { [N6_ID]: { debate: { kind: 'n6_divergent', generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted', role_outputs: n6CodexDebateRoles(v1bHarnessN6Draft(bundleResult.v1bInputBundle, n6Input)) } } } });
     assert.equal(afterN7.halt.reason, 'no_frontier');
     assert.equal(afterN7.halt.node_id, null);
 

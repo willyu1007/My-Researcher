@@ -1,3 +1,4 @@
+import type { GenerateTopicSelectionV1bN6DivergentDebateInput } from '../services/topic-selection-v1b-n6-divergent-debate-runtime-service.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppError } from '../errors/app-error.js';
 import { TopicSelectionControlPlaneService } from '../services/topic-selection-control-plane-service.js';
@@ -23,7 +24,6 @@ import type {
 import type {
   TopicSelectionV1bResearchSliceOptionSetDraftPayload,
   TopicSelectionV1bTopicValueAssessmentDraftPayload,
-  TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   TopicSelectionV1bWorkflowHarnessRunRequest,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import type { TopicSelectionCodexAssistedAgentOutput } from '../services/topic-selection-agent-orchestrator-service.js';
@@ -75,7 +75,7 @@ type N4CodexAssistedInvocationBody = {
 
 type N6CodexAssistedInvocationBody = {
   request: TopicSelectionV1bWorkflowHarnessRunRequest & { node_id: typeof N6_CODEX_ASSISTED_NODE_ID };
-  codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>;
+  role_outputs: GenerateTopicSelectionV1bN6DivergentDebateInput['role_outputs'];
 };
 
 type N8CodexAssistedInvocationBody = {

@@ -210,9 +210,41 @@ const codexAssistedInvocationSchema = {
   body: {
     type: 'object',
     additionalProperties: false,
-    required: ['request', 'codex_response'],
+    required: ['request'],
+    allOf: [{
+      if: { properties: { request: { type: 'object', properties: { node_id: { const: n6CodexAssistedNodeId } } } } },
+      then: { required: ['role_outputs'], properties: { codex_response: false } },
+      else: { required: ['codex_response'], properties: { role_outputs: false } },
+    }],
     properties: {
       request: topicSelectionV1bWorkflowHarnessRunRequestSchema,
+      role_outputs: {
+        type: 'object', additionalProperties: false,
+        required: [...TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER],
+        properties: Object.fromEntries(TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER.map((slot) => [slot, {
+          type: 'array', minItems: slot === 'n6_debate_explorer' ? 2 : 1, maxItems: slot === 'n6_debate_explorer' ? 2 : 1,
+          items: {
+            type: 'object', additionalProperties: false, required: ['codex_response'],
+            properties: {
+              instance_index: { type: 'integer', minimum: 0 },
+              mocked_output: { type: 'null' },
+              codex_response: {
+                type: 'object', additionalProperties: false, required: ['output', 'operator_label'],
+                properties: {
+                  output: {
+                    type: 'object', additionalProperties: true, required: ['schema_version', 'role_slot'],
+                    properties: {
+                      schema_version: { const: 'TopicSelectionV1bN6DivergentDebateRoleOutput@v1' }, role_slot: { const: slot },
+                    },
+                  },
+                  operator_label: stringId, model_hint: nullableStringId, response_hash: nullableStringId, prompt_packet_hash: nullableStringId,
+                },
+              },
+            },
+          },
+        }])),
+      },
+
       codex_response: {
         type: 'object',
         additionalProperties: false,

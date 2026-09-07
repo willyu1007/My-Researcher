@@ -1030,7 +1030,7 @@ async function driveToN8DebateLoopback(): Promise<{
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
   const loopbackReport = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
-    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 66 } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT }, [N8]: { draft_payload: { total_score: 66 } } },
   });
   assert.equal(loopbackReport.halt.reason, 'harness_loopback');
   assert.equal(loopbackReport.halt.node_id, N8);
@@ -1299,7 +1299,7 @@ test('drives the full N1..N11 chain to stop_v1b_complete and reports run complet
   const report = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     node_inputs: {
-      [N6]: { draft_payload: { candidates: ['c'] } },
+      [N6]: { debate: N6_INITIAL_DEBATE_INPUT },
       [N8]: { draft_payload: { total_score: 80 } },
     },
   });
@@ -1347,7 +1347,7 @@ test('W-04: a missing required upstream projection halts with upstream_blocked, 
   // Deliberately DO NOT record the N7->N8 runtime projection the N8 recipe requires.
   const report = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
-    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 80 } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT }, [N8]: { draft_payload: { total_score: 80 } } },
   });
 
   assert.equal(report.halt.reason, 'upstream_blocked');
@@ -1435,6 +1435,10 @@ const N6_DEBATE_INPUT = {
   role_outputs: {},
 };
 
+const N6_INITIAL_DEBATE_INPUT = {
+  ...N6_DEBATE_INPUT, generation_mode: 'initial_from_n5' as const, execution_mode: 'codex_assisted' as const,
+};
+
 const N8_DEBATE_INPUT = {
   kind: 'n8_bounded' as const,
   execution_mode: 'mocked_llm' as const,
@@ -1491,6 +1495,55 @@ function routeN6OnTriage(harness: StubHarness): void {
  *  latest attempt is a loopback-to-self carrying the escalation warning. The coordinator reaches that
  *  frontier by recording + attaching the caller's n6_loopback_triage support (the production path), not
  *  by a hard-coded harness script. Mirrors driveToN8DebateLoopback's N1..N5 driving. */
+async function driveToN6Initial(): Promise<ReturnType<typeof makeSubject>> {
+  const subject = makeSubject();
+  const { harness, coordinator } = subject;
+  harness.on(N1, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N1ToN2Handoff' });
+  harness.on(N2, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N2ToN3Handoff' });
+  harness.on(N3, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N3ToN4Handoff' });
+  harness.on(N4, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N4ToN5Handoff' });
+  harness.on(N5, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N5ToN6Handoff' });
+  harness.on(N6, { gate_status: 'admitted', route_decision: 'invoke_next', handoff_kind_for_test: 'N6ToN7Handoff' });
+
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, bootstrap_request: bootstrapRequest() });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
+  await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
+  return subject;
+}
+
+test('FIND-018 normal N6 requires a bounded Debate and admits its draft through the existing gate', async () => {
+  const { coordinator, harness, n6DivergentDebateRuntime, controlPlane } = await driveToN6Initial();
+  for (const nodeInput of [undefined, { draft_payload: { candidates: ['unreviewed'] } }]) {
+    const before = controlPlane.artifacts.size;
+    const result = await coordinator.advanceUntilBlocked({
+      workflow_run_id: RUN,
+      node_inputs: nodeInput ? { [N6]: nodeInput } : {},
+    });
+    assert.equal(result.halt.reason, 'model_input_required');
+    assert.match(result.halt.message, /bounded Debate/);
+    assert.equal(harness.invocations.filter((r) => r.node_id === N6).length, 0);
+    assert.equal(controlPlane.artifacts.size, before);
+  }
+  await assert.rejects(coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN, node_inputs: { [N6]: { debate: N6_DEBATE_INPUT } },
+  }), /generation_mode must match the current initial_from_n5 frontier/);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 0);
+  const result = await coordinator.advanceUntilBlocked({
+    workflow_run_id: RUN,
+    max_steps: 1,
+    node_inputs: { [N6]: { debate: { ...N6_DEBATE_INPUT, generation_mode: 'initial_from_n5' } } },
+  });
+  assert.equal(result.steps.length, 1);
+  assert.equal(result.steps[0]!.node_id, N6);
+  assert.equal(n6DivergentDebateRuntime.calls.length, 1);
+  const call = n6DivergentDebateRuntime.calls[0]!;
+  assert.equal(call.generation_mode, 'initial_from_n5');
+  assert.equal(call.request.frozen_input.source_refs.some((r) => r.ref_id.includes('retry')), false);
+  assert.equal(harness.invocations.filter((r) => r.node_id === N6).length, 1);
+  assert.equal(harness.invocations.at(-1)!.semantic_artifacts?.[0]?.runtime_provenance_class, 'runtime_verified');
+});
+
 async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {
   const subject = makeSubject();
   const { harness, coordinator, controlPlane } = subject;
@@ -1512,7 +1565,7 @@ async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {
   // draft would route 'blocked', never reaching the triage. The harness E2E test exercises that real draft.
   const blocked = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
-    node_inputs: { [N6]: { draft_payload: { candidates: [] }, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
   });
   assert.equal(blocked.halt.reason, 'harness_loopback');
   assert.equal(blocked.halt.node_id, N6);
@@ -1525,6 +1578,7 @@ async function driveToN6Escalation(): Promise<ReturnType<typeof makeSubject>> {
     workflow_run_id: RUN,
     payload: { projection_kind: 'v1b_n6_gate_failure_retry_context', loopback_target_code: 'n6_debate_escalation' },
   });
+  subject.n6DivergentDebateRuntime.calls.length = 0; // Subsequent assertions count recovery work only.
   return subject;
 }
 
@@ -1584,7 +1638,7 @@ test('coordinator propagates run_mode=product onto the recorded triage (so the h
   await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     run_mode: 'product',
-    node_inputs: { [N6]: { draft_payload: { candidates: [] }, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT, support_payloads: { n6_loopback_triage: N6_TRIAGE_ESCALATION_SUPPORT } } },
   });
 
   const n6Request = harness.invocations.find((request) => request.node_id === N6)!;
@@ -2082,7 +2136,7 @@ async function driveToN6RegenerateFailure(): Promise<ReturnType<typeof makeSubje
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
   const blocked = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
-    node_inputs: { [N6]: { draft_payload: { candidates: [] } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT } },
   });
   assert.equal(blocked.halt.reason, 'harness_loopback');
   assert.equal(blocked.halt.node_id, N6);
@@ -2225,7 +2279,7 @@ test('a fresh N6 entry after an N5 re-drive does NOT attach the stale regenerate
 
   const report = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
-    node_inputs: { [N6]: { draft_payload: { candidates: ['fresh-after-rollback'] } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT } },
     max_steps: 1,
   });
   assert.equal(report.steps[0]!.node_id, N6);
@@ -2293,7 +2347,7 @@ async function driveToWarnedN8(warned = true): Promise<ReturnType<typeof makeSub
   const toN8 = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     max_steps: 3,
-    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 82 } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT }, [N8]: { draft_payload: { total_score: 82 } } },
   });
   assert.deepEqual(toN8.steps.map((step) => step.node_id), [N6, N7, N8]);
   return subject;
@@ -2408,7 +2462,7 @@ test('W-15 O-2: an audited budget raise lifts the exhausted halt (and the halt n
   await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
   // Two blocked loopback attempts consume the default budget of 2.
-  const first = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  const first = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT } } });
   assert.equal(first.halt.reason, 'harness_loopback');
   const second = await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
   assert.equal(second.halt.reason, 'harness_loopback');
@@ -2495,7 +2549,7 @@ test('D-30 N6 arm: the escalation-loopback tripwire no longer gates; sign-off re
   const loopback = await coordinator.advanceUntilBlocked({
     workflow_run_id: RUN,
     run_mode: 'product',
-    node_inputs: { [N6]: { draft_payload: { candidates: [] } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT } },
   });
   assert.equal(loopback.halt.reason, 'harness_loopback');
   const tripwireAttemptId = (await coordinator.getRunState(RUN))
@@ -2564,7 +2618,7 @@ test('D-30: a warned N8 admit no longer interrupts the same advance', async () =
     workflow_run_id: RUN,
     run_mode: 'product',
     max_steps: 3,
-    node_inputs: { [N6]: { draft_payload: { candidates: ['c'] } }, [N8]: { draft_payload: { total_score: 82 } } },
+    node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT }, [N8]: { draft_payload: { total_score: 82 } } },
   });
   assert.deepEqual(report.steps.map((step) => step.node_id), [N6, N7, N8], 'the warned N8 step itself completes');
   assert.notEqual(report.halt.reason, 'sign_off_required', 'no mid-advance sign-off halt survives D-30');
@@ -2583,7 +2637,7 @@ test('W-15 O-2: multiple raises take the max (not the most recent)', async () =>
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N2, node_attempt_id: 'node_attempt_n2_human' });
   await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N4]: { draft_payload: { slice: 'opt' } } } });
   await harness.invokeNode({ ...bootstrapRequest(), node_id: N5, node_attempt_id: 'node_attempt_n5_human' });
-  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
+  await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, node_inputs: { [N6]: { debate: N6_INITIAL_DEBATE_INPUT } } });
   await coordinator.advanceUntilBlocked({ workflow_run_id: RUN, retry_node_id: N6, node_inputs: { [N6]: { draft_payload: { candidates: [] } } } });
 
   const raise = (id: string, to: number) => coordinator.recordLoopbackBudgetRaise({

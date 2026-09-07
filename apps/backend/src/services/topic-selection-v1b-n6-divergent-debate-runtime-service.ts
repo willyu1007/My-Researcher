@@ -1,15 +1,7 @@
-// T-127 W-07 (step f4) — v1b N6 DIVERGENT topic-question candidate debate STRATEGY. Concrete
-// DivergentDebateStrategy for the shared bounded-debate core: 3 fan-out roles (explorer -> critic ->
-// arbiter), driven by core.runDivergentLoop. Mirrors the shipped N8 bounded-debate strategy hook-for-hook
-// but uses the N6 candidate-generation context (frozen N6 payload + mode-context projection, NOT N8's
-// N7->N8 value-assessment projection), has variable fan-out arity, and folds priorRoleArtifactHashesAll +
-// instance_index so the two same-slot explorer workers are individually addressable.
-//
-// This file ships the STRATEGY + constants + handoff/inputs types only. The runtime ENTRY
-// (runDivergentDebate + arbiter unwrap + gate bridge) and the shared N6 context resolver are step f5.
-// The deterministic admission is step f3 (topic-selection-v1b-n6-divergent-debate-admission-service.ts),
-// whose RoleArtifact / AdmissionExpectedIdentity types this strategy returns. Prompts are SKELETON (D1);
-// product-grade authoring is deferred to T-128.
+// N6 candidate review uses the existing bounded core: two Explorers, one Critic and one Arbiter.
+// Role admission produces a non-authority draft for the existing N6 candidate gate. A completed
+// receipt binds the frozen input, role audits, transcript and bridge draft for exact replay.
+// Provider execution remains dormant; .ai/llm owns the configured prompts and model routes.
 
 import { AppError } from '../errors/app-error.js';
 import type {
@@ -46,6 +38,7 @@ import {
   type TopicSelectionV1bN6HarnessFrozenInputPayload,
   type TopicSelectionV1bTopicQuestionCandidateSetDraftPayload,
   type TopicSelectionV1bWorkflowHarnessRunRequest,
+  type TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1b-workflow-harness-contracts';
 import { TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_POLICY_ID } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-debate-scenario-contracts';
 import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
@@ -627,7 +620,38 @@ export type TopicSelectionV1bN6DivergentDebateRunResult =
     loop_transcript_hash: string;
   };
 
+type NonProviderN6DebateInput = GenerateTopicSelectionV1bN6DivergentDebateInput & {
+  execution_mode: 'codex_assisted' | 'mocked_llm';
+};
+
+type CompletedN6Debate = Extract<TopicSelectionV1bN6DivergentDebateRunResult, { status: 'completed' }>;
+type N6DebateReceipt = {
+  schema_version: 'TopicSelectionV1bN6DebateReceipt@v1';
+  request_hash: string;
+  input_hash: string;
+  generation_mode: TopicSelectionV1bN6DraftGenerationMode;
+  role_artifacts: TopicSelectionV1bN6DivergentDebateRoleArtifact[];
+  result: CompletedN6Debate;
+};
+
+function debateReceiptKey(request: TopicSelectionV1bWorkflowHarnessRunRequest): string {
+  return `topic-selection.v1b.n6-debate.${canonicalHash([request.workflow_run_id, request.node_id, request.node_attempt_id])}`;
+}
+
+function debateRequestHash(request: TopicSelectionV1bWorkflowHarnessRunRequest): string {
+  return canonicalHash({
+    workflow_run_id: request.workflow_run_id, node_id: request.node_id,
+    node_attempt_id: request.node_attempt_id, policy_version: request.policy_version,
+    workspace_id: request.workspace_id ?? null, title_card_id: request.title_card_id ?? null,
+    frozen_input: request.frozen_input,
+  });
+}
+
 export class TopicSelectionV1bN6DivergentDebateRuntimeService {
+  private static readonly activeRuns = new WeakMap<TopicSelectionControlPlaneService, Map<string, {
+    inputHash: string;
+    result: Promise<TopicSelectionV1bN6DivergentDebateRunResult>;
+  }>>();
   private readonly contextPolicyProfileRegistry: TopicSelectionContextPolicyProfileRegistryService;
   private readonly modelProfileRegistry: TopicSelectionModelProfileRegistryService;
   private readonly promptPacketRuntime: TopicSelectionPromptPacketRuntimeService;
@@ -683,27 +707,96 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
   async runDivergentDebate(
     input: GenerateTopicSelectionV1bN6DivergentDebateInput,
   ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
-    // T-128 W-14 dormancy gate — FIRST, before any resolution or control-plane write. Without it the
-    // provider path is live end-to-end today (route enum admits provider_llm, debate profiles default
-    // provider-eligible, null model_option_id falls back to a default provider option) and every
-    // fan-out role instance would spend real provider calls on still-skeleton debate prompts. Both
-    // branch paths throw (fail-closed): flipping the const WITHOUT wiring the live path hits the 500
-    // below — W-19 owes live role outputs, the gate-bridge provenance, and the provider runMode default.
+    // Fail closed before replay or writes until the provider path has its live output/bridge wiring.
     if (input.execution_mode === 'provider_llm') {
       this.assertProviderDebatePathOpen();
       throw new AppError(500, 'INTERNAL_ERROR',
         'provider_llm N6 divergent-debate turn-on (W-19) must wire live role outputs, the gate-bridge provenance, and the runMode default before lifting the dormancy guard.');
     }
-    // T-127 W-09 pre-provider_llm hardening: the named execution_plan is the SOLE per-family override
-    // channel, so it cannot be co-supplied with the legacy per-loop model_option_id. This legacy channel has
-    // NO producing caller today — the coordinator's debate input type (Pick<>) structurally excludes
-    // model_option_id, so the guard is unreachable via the only production path; it guards a FUTURE direct
-    // caller separately wired to populate model_option_id (a live provider_llm path landing does not by
-    // itself populate it).
     const mixingError = debateExecutionPlanMixingError(input.execution_plan ?? null, input.model_option_id);
-    if (mixingError) {
-      throw new AppError(400, 'INVALID_PAYLOAD', mixingError);
+    if (mixingError) throw new AppError(400, 'INVALID_PAYLOAD', mixingError);
+    if (input.generation_mode === 'initial_from_n5') {
+      const slots = TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_ROLE_ORDER;
+      if (!input.role_outputs || Object.keys(input.role_outputs).some((slot) => !slots.some((known) => known === slot))) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Regular N6 Debate requires the configured Explorer/Critic/Arbiter outputs.');
+      }
+      for (const slot of slots) {
+        const outputs = input.role_outputs[slot];
+        if (!Array.isArray(outputs) || outputs.length !== TOPIC_SELECTION_V1B_N6_DIVERGENT_DEBATE_DEFAULT_INSTANCE_COUNTS[slot]
+          || outputs.some((output, index) => !output || (output.instance_index != null && output.instance_index !== index)
+            || (input.execution_mode === 'codex_assisted'
+              ? !output.codex_response || output.mocked_output != null
+              : input.execution_mode !== 'mocked_llm' || !output.mocked_output || output.codex_response != null))) {
+          throw new AppError(400, 'INVALID_PAYLOAD', `Regular N6 Debate ${slot} requires its exact bounded instance count and matching ${input.execution_mode} responses.`);
+        }
+      }
     }
+    const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
+    const inputHash = canonicalHash({
+      request_hash: debateRequestHash(input.request),
+      generation_mode: input.generation_mode, execution_mode: input.execution_mode, run_mode: runMode,
+      profile_id: input.request.profile_id ?? null,
+      execution_spec: input.request.execution_spec ?? null,
+      execution_plan: input.execution_plan ?? null, model_option_id: input.model_option_id ?? null,
+      role_outputs: input.role_outputs,
+    });
+    const key = debateReceiptKey(input.request);
+    let active = TopicSelectionV1bN6DivergentDebateRuntimeService.activeRuns.get(this.controlPlane);
+    if (!active) {
+      active = new Map();
+      TopicSelectionV1bN6DivergentDebateRuntimeService.activeRuns.set(this.controlPlane, active);
+    }
+    const pending = active.get(key);
+    if (pending) {
+      if (pending.inputHash !== inputHash) throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate attempt is executing different frozen input or role outputs.');
+      return pending.result;
+    }
+    const result = this.resumeOrRun({ ...input, execution_mode: input.execution_mode }, inputHash);
+    active.set(key, { inputHash, result });
+    try { return await result; } finally { active.delete(key); }
+  }
+
+  private async readReceipt(request: TopicSelectionV1bWorkflowHarnessRunRequest): Promise<N6DebateReceipt | null> {
+    const artifact = await this.controlPlane.getArtifactRefByStableKey(debateReceiptKey(request));
+    if (!artifact) return null;
+    const receipt = artifact.payload as N6DebateReceipt | null;
+    if (!receipt || receipt.schema_version !== 'TopicSelectionV1bN6DebateReceipt@v1'
+      || artifact.artifact_kind !== 'diagnostic' || artifact.workflow_run_id !== request.workflow_run_id
+      || artifact.checksum !== canonicalHash(receipt)
+      || receipt.request_hash !== debateRequestHash(request)
+      || receipt.result?.status !== 'completed' || receipt.result.gate_draft.status !== 'succeeded') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate receipt does not match the frozen attempt.');
+    }
+    return receipt;
+  }
+
+  /** The existing product gate uses this support-only receipt to bind regular review to its exact draft. */
+  async hasInitialDebateDraft(
+    request: TopicSelectionV1bWorkflowHarnessRunRequest,
+    draft: TopicSelectionV1bWorkflowHarnessSemanticSupportArtifactRef,
+  ): Promise<boolean> {
+    const receipt = await this.readReceipt(request);
+    return receipt?.generation_mode === 'initial_from_n5'
+      && receipt.result.gate_draft.status === 'succeeded'
+      && canonicalHash(receipt.result.gate_draft.semantic_artifact) === canonicalHash(draft);
+  }
+
+  private async resumeOrRun(
+    input: NonProviderN6DebateInput,
+    inputHash: string,
+  ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
+    const receipt = await this.readReceipt(input.request);
+    if (receipt) {
+      if (receipt.input_hash !== inputHash) throw new AppError(409, 'VERSION_CONFLICT', 'N6 Debate replay requires the original frozen input, execution settings and role outputs.');
+      return receipt.result;
+    }
+    return this.executeDebate(input, inputHash);
+  }
+
+  private async executeDebate(
+    input: NonProviderN6DebateInput,
+    inputHash: string,
+  ): Promise<TopicSelectionV1bN6DivergentDebateRunResult> {
     const runMode = input.run_mode ?? input.request.run_mode ?? (input.execution_mode === 'mocked_llm' ? 'test' : 'acceptance');
     // Shared N6 context resolved via the SAME public resolver the single-agent draft path uses
     // (resolveSharedN6RuntimeContext — DMP-10 one resolution method). The gate bridge below re-invokes
@@ -800,11 +893,28 @@ export class TopicSelectionV1bN6DivergentDebateRuntimeService {
         : null,
       created_by: input.created_by ?? input.request.created_by ?? 'system',
     });
-    return {
+    const result: CompletedN6Debate = {
       status: 'completed',
       admission: admissionResult,
       gate_draft: gateDraft,
       loop_transcript_hash: loop.loop_transcript_hash,
     };
+    if (gateDraft.status === 'succeeded') {
+      const receipt: N6DebateReceipt = {
+        schema_version: 'TopicSelectionV1bN6DebateReceipt@v1',
+        request_hash: debateRequestHash(input.request), input_hash: inputHash,
+        generation_mode: input.generation_mode,
+        role_artifacts: loop.ordered_role_artifacts,
+        result,
+      };
+      await this.controlPlane.recordArtifactRef({
+        stable_key: debateReceiptKey(input.request),
+        workspace_id: input.request.workspace_id ?? null, title_card_id: input.request.title_card_id ?? null,
+        workflow_run_id: input.request.workflow_run_id, artifact_kind: 'diagnostic', storage_kind: 'inline',
+        payload: receipt as unknown as Record<string, unknown>, checksum: canonicalHash(receipt),
+        created_by: input.created_by ?? input.request.created_by ?? 'system',
+      });
+    }
+    return result;
   }
 }

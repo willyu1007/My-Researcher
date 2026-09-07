@@ -272,8 +272,8 @@ export const TOPIC_SELECTION_V1B_NODE_SEMANTIC_SUPPLEMENT_POLICIES = [
     node_index: 6,
     node_id: 'topic-selection.v1b.generate-topic-question-candidates.v1',
     provider_required: 'no',
-    debate_allowed: 'conditional',
-    // Implemented T-127 W-07: explorer/critic/arbiter fan-out, caller-side execution.
+    debate_allowed: 'yes',
+    // T-148 FIND-018: regular initial review; existing recovery escalation stays conditional.
     debate_primitive: 'divergent_loop',
     human_review_required: 'no',
   },

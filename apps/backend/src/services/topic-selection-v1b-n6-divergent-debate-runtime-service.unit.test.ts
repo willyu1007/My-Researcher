@@ -387,7 +387,7 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
   });
   const runtime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
 
-  const result = await runtime.runDivergentDebate({
+  const input: Parameters<typeof runtime.runDivergentDebate>[0] = {
     request: e2eRequest(),
     generation_mode: 'initial_from_n5',
     execution_mode: 'mocked_llm',
@@ -405,7 +405,14 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
       ],
     },
     created_by: 'system',
-  });
+  };
+  await assert.rejects(runtime.runDivergentDebate({ ...input, role_outputs: {} }), /exact bounded instance count/);
+  assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(input.request.workflow_run_id)).length, 0);
+  const [result, concurrent] = await Promise.all([
+    runtime.runDivergentDebate(input),
+    new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane).runDivergentDebate(input),
+  ]);
+  assert.deepEqual(concurrent, result);
 
   assert.equal(result.status, 'completed');
   if (result.status !== 'completed') return;
@@ -421,6 +428,19 @@ test('f5 runtime: a mocked_llm fan-out debate runs through core + admission + ga
   // Byte pass-through: the bridged gate draft IS the arbiter's exact synthesized draft (not a substitute).
   assert.deepEqual(result.gate_draft.structured_output, result.admission.synthesized_candidate_set);
   assert.deepEqual(result.gate_draft.structured_output, e2eCandidateSetDraft());
+  const before = await controlPlane.listArtifactRefsByWorkflowRunId(input.request.workflow_run_id);
+  const recoveredRuntime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane);
+  assert.deepEqual(await recoveredRuntime.runDivergentDebate(input), result);
+  assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(input.request.workflow_run_id)).length, before.length,
+    'completed replay after runtime reconstruction performs no role or bridge work');
+  const changed = structuredClone(input);
+  changed.role_outputs.n6_debate_arbiter![0]!.mocked_output!.output.synthesized_candidate_set = {
+    ...e2eCandidateSetDraft(), generation_notes: ['Changed response under an existing attempt'],
+  };
+  await assert.rejects(recoveredRuntime.runDivergentDebate(changed),
+    (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT');
+  assert.equal((await controlPlane.listArtifactRefsByWorkflowRunId(input.request.workflow_run_id)).length, before.length);
+
 });
 
 test('f5 runtime: a W-09 execution_plan with no per-role override is byte-identical (no-plan === empty-plan)', async () => {

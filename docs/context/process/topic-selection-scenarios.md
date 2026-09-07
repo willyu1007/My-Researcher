@@ -248,11 +248,11 @@ scenario_type: debate
 execution_modes: [codex_assisted, mocked_llm, provider_llm]
 covered_nodes:
   - topic-selection.v1b.generate-topic-question-candidates.v1
-fixtures_or_data_source: controlled research-slice selection with candidate-quality tension triggering the n6_debate_escalation loopback
-assertion_scope: debate trigger via deterministic gate codes, caller-side runtime execution, divergent loop `v1b_n6_divergent_candidate_debate` role fan-out, deterministic admission, arbiter draft funnel into the existing N6 gate, provisional-threshold tripwire emission, and loopback re-entry projection attachment
-artifact_expectations: role outputs, arbiter draft batch, admission report, gate-failure retry-context projection refs, and harness trace refs
+fixtures_or_data_source: controlled frozen N5 selection for regular initial review, plus candidate-quality failure fixtures for conditional n6_debate_escalation recovery
+assertion_scope: required initial-path Debate in coordinator and Codex product HTTP, exact receipt replay and drift rejection, conditional recovery via deterministic gate codes, caller-side runtime execution, divergent loop `v1b_n6_divergent_candidate_debate` role fan-out, deterministic admission, arbiter draft funnel into the existing N6 gate, no unreviewed initial product admission, and loopback re-entry projection attachment
+artifact_expectations: four role outputs/audits, arbiter draft batch, input-bound Debate receipt with admission/transcript/gate draft, conditional gate-failure retry-context projection refs, and harness trace refs
 business_semantics_source: docs/context/process/topic-selection-workflow-matrix.md + 07-node-policies.md
-implementation_note: runtime implemented T-127 W-07 (2026-06-20, caller-side debate + runDivergentLoop; JD D-T127-02); provider_llm debate path product-gated by W-14 dormancy (release owned by T-129 C-3); gated prompt bodies are T-129 C-2 scope. Registered 2026-07-05 (T-089 slice ③) because the SSOT matrix N6 row references this scenario id.
+implementation_note: regular bounded initial path implemented T-148 FIND-018; runtime implemented T-127 W-07 (2026-06-20, caller-side debate + runDivergentLoop; JD D-T127-02); provider_llm debate path product-gated by W-14 dormancy (release owned by T-129 C-3); gated prompt bodies are T-129 C-2 scope. Registered 2026-07-05 (T-089 slice ③) because the SSOT matrix N6 row references this scenario id.
 ```
 
 ### `topic-selection.debate.v1b-value-tension.v1`

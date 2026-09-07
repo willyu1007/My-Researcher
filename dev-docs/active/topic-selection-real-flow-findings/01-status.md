@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2 local contract, reference-composition and FIND-009 downloader-preflight repairs implemented and focused-verified; Phase 3 is next
-- Next step: Start Phase 3 with FIND-018 / TSRF-10: route normal research-question candidate generation through the existing bounded Debate and deterministic admission gate; preserve frozen evidence, cost/provenance and Human authority.
+- Current phase: Phase 3 regular N6 bounded Debate (FIND-018 / TSRF-10) implemented and focused-verified; promotion support remains
+- Next step: Continue Phase 3 with FIND-027 / TSRF-15: apply the confirmed material-risk trigger policy to promotion Debate support, preserving deterministic promotion admission and exact Human authority. FIND-028 condition grouping follows.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when
@@ -19,7 +19,7 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-07: The real-flow record distinguishes retriever operations from provider calls and captures query intent, mode, hits/evidence delta, and decision effect at every literature-dependent step without turning zero-call materialization into retrieval.
 - [x] TSRF-08: Evidence-landscape eligibility consumes required SearchPlan coverage outcomes; a required `missing` row emits a typed issue and cannot advance unless the exact current row refs and rationale are accepted by the Human, persisted in the checkpoint decision, and preserved in downstream lineage.
 - [x] TSRF-09: The human research-question view presents the actual main question and its decision-relevant warnings, gaps, dependencies, and risks; an `answerable_with_risk` contract cannot be rendered as having no open risks.
-- [ ] TSRF-10: Research-question candidate generation uses a bounded Debate as a regular convergence component while preserving the existing deterministic admission gate and replayable provenance.
+- [x] TSRF-10: Research-question candidate generation uses a bounded Debate as a regular convergence component while preserving the existing deterministic admission gate and replayable provenance.
 - [x] TSRF-11: A non-advance research-value disposition such as `refine_question` exposes a supported, replay-safe recovery route to the owning upstream boundary instead of leaving the workflow stranded.
 - [x] TSRF-12: Current value assessments, material risk findings, and dispositions are reflected in research status and the human stage view instead of stale checkpoint-era language.
 - [x] TSRF-13: A substantive question refinement receives exactly one bounded delta Debate over changed question/claim/metric/evaluation fields before contract rematerialization; mechanical changes may bypass it without minting duplicate authority.

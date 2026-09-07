@@ -253,8 +253,7 @@ export type TopicSelectionV1bRunCoordinatorHaltReason =
   // ref/hash (or the artifact itself) is missing — named so the operator can locate it.
   | 'feedback_artifact_missing'
   // T-127 W-07 item (a): node_inputs[...].debate was supplied but this node is not at a debate
-  // frontier (N6 needs an n6_debate_escalation loopback; N8 runs the bounded debate only on the
-  // post-N7 re-entry). The debate is opt-in — a frontier ALLOWS it, a non-frontier rejects it.
+  // frontier (N6 regular initial review or escalation; N8 only on post-N7 re-entry).
   | 'debate_not_applicable'
   // T-127 W-07 item (a): the caller-side debate runtime did not reach `completed`
   // (a role turn or the deterministic admission blocked) — surfaced so the operator can fix fixtures.
@@ -330,10 +329,10 @@ export type TopicSelectionV1bRunRecoveryFrontier = {
 
 /**
  * T-127 W-07 item (a): per-role debate fixtures the coordinator forwards to the caller-side debate
- * runtime when the harness routes a debate escalation/re-entry. The harness request has NO per-role
+ * runtime for regular N6 review or a harness-routed escalation/re-entry. The harness request has NO per-role
  * debate-fixture slot (the role outputs are non-authority support, resolved before the gate), so the
  * fixtures arrive here. A per-node discriminated union: N6 carries the fan-out role_outputs (arrays
- * per slot) + the re-entry generation_mode (caller contract — the escalation-source mode), N8 carries
+ * per slot) + the frontier-bound generation_mode, N8 carries
  * the 4-role role_outputs, and the refinement recovery carries its support-only Explorer/Critic/Arbiter
  * outputs. execution_mode/run_mode mirror the runtime inputs; the refinement provider path is dormant.
  */
@@ -404,7 +403,8 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    */
   execution_spec?: TopicSelectionAgentExecutionSpec | null;
   /**
-   * Caller-supplied model draft for N4/N6/N8 (acceptance / codex-assisted operation).
+   * Caller-supplied model draft for N4/N8 or N6 recovery (acceptance / codex-assisted operation).
+   * A fresh N6 frontier requires debate instead.
    * The coordinator records the support/normalized/provenance artifacts and attaches the
    * semantic-artifact ref exactly like the acceptance suite does (fixture_replay class).
    * Mutually exclusive with execution_spec: the recorded artifact pins
@@ -412,7 +412,7 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
    */
   draft_payload?: Record<string, unknown> | null;
   /**
-   * Per-role debate fixtures for an N6 divergent / N8 bounded / refinement-delta debate frontier. Mutually exclusive
+   * Per-role outputs for regular N6 review or an N6 divergent / N8 bounded / refinement-delta recovery frontier. Mutually exclusive
    * with draft_payload/execution_spec: on a debate frontier the coordinator runs the debate runtime
    * (which mints the gate-facing draft itself) instead of recording a caller draft.
    */
@@ -420,7 +420,7 @@ export type TopicSelectionV1bRunCoordinatorNodeInput = {
   /**
    * T-127 W-07 item (a) follow-up: caller-supplied support_only artifacts to record under named
    * semantic-support slots and ATTACH to the node's harness invocation ALONGSIDE the draft_payload
-   * (additive — not mutually exclusive with it). Generalizes the feedback re-entry's single required
+   * (also accepted beside a regular initial N6 Debate). Generalizes the feedback re-entry's single required
    * support: each entry is recorded exactly like recordDraftSemanticArtifact's targetSlotId path
    * (one structured_output artifact backing the support/normalized refs, runtime_provenance_class
    * fixture_replay, run_mode from the request). The slot's allowed_effect MUST be support_only — a
@@ -493,9 +493,10 @@ export type AdvanceTopicSelectionV1bRunInput = {
    * which the harness rejects under run_mode='product' — the product path requires a
    * dedicated human-curated provenance class (recorded decision, T-123 Phase 3/5).
    * Current product-legal caller shape (validated by the W-15 S4 product run): generate the
-   * draft through the node's RUNTIME service (codex_assisted → runtime_verified) and invoke
+   * N4/N8 draft through the node's RUNTIME service (codex_assisted → runtime_verified) and invoke
    * the harness node directly with the artifact attached, on the SAME workflow_run_id — the
-   * projection folds those traces like any human-route invocation. node_inputs.execution_spec is
+   * projection folds those traces like any human-route invocation. Regular N6 uses node_inputs.debate
+   * or its Codex HTTP role_outputs bridge. node_inputs.execution_spec is
    * reserved-rejected up front (T-128 W-14) until the W-19 provider turn-on wires it.
    */
   run_mode?: TopicSelectionAgentRunMode | null;
@@ -921,17 +922,15 @@ export class TopicSelectionV1bRunCoordinatorService {
           `${nextNodeId}: provide at most one of draft_payload, execution_spec, or debate — a recorded draft pins execution_mode=codex_assisted (mismatches a provider execution_spec at admission), and a debate frontier mints its own gate draft.`,
         );
       }
-      if (nodeInput?.support_payloads && (nodeInput.debate || nodeInput.execution_spec)) {
-        // support_payloads is additive to draft_payload ONLY (the escalation-triggering attempt carries
-        // the failing model draft + the triage). It cannot ride a debate frontier (which mints its own
-        // gate draft and overwrites semantic_artifacts, silently dropping the supports), nor an
-        // execution_spec (the support is recorded codex_assisted/fixture_replay, which the harness
-        // runtime-admission gate rejects against a provider/mocked execution_spec —
-        // RUNTIME_ADMISSION_ARTIFACT_MISMATCH; reject here for a clean 400 instead of that deep blocker).
+      if (nodeInput?.support_payloads && (nodeInput.execution_spec
+        || (nodeInput.debate && !(nextNodeId === N6_NODE_ID && nodeInput.debate.kind === 'n6_divergent'
+          && nodeInput.debate.generation_mode === 'initial_from_n5')))) {
+        // Recovery supports accompany caller drafts; regular N6 may attach triage beside
+        // its reviewed draft. Provider execution specs cannot consume fixture provenance.
         throw new AppError(
           400,
           'INVALID_PAYLOAD',
-          `${nextNodeId}: support_payloads can only accompany draft_payload, not ${nodeInput.debate ? 'debate' : 'execution_spec'} — supply the support alongside the model draft on the escalation-triggering attempt.`,
+          `${nextNodeId}: support_payloads can only accompany draft_payload, not ${nodeInput.debate ? 'debate' : 'execution_spec'} — supply the support alongside a caller draft or the regular initial N6 Debate.`,
         );
       }
       if (nodeInput?.execution_spec) {
@@ -948,21 +947,28 @@ export class TopicSelectionV1bRunCoordinatorService {
         );
       }
 
-      // T-127 W-07 item (a): a harness-routed debate frontier (N6 n6_debate_escalation loopback / N8
-      // post-N7 bounded-debate re-entry). The debate is OPT-IN: a frontier ALLOWS the caller to drive
-      // the debate runtime caller-side; if they instead supply a draft_payload (or nothing) the
-      // existing single-agent path runs unchanged (the harness admits either — it downgraded the
-      // triggers to warnings). So the debate branch fires only when node_inputs.debate is present.
+      // A fresh N5 handoff gets one regular bounded Debate. Existing regeneration and
+      // feedback frontiers keep their separate recovery contracts.
+      const n6Escalation = nextNodeId === N6_NODE_ID && this.pendingN6DebateEscalation(projection);
+      const regularN6 = nextNodeId === N6_NODE_ID
+        && !n6Escalation
+        && !this.pendingN6RegenerateLoopback(projection)
+        && !this.pendingFeedbackLoopback(projection, N6_NODE_ID);
       const debateFrontier: TopicSelectionV1bRunCoordinatorDebateInput['kind'] | null =
-        (nextNodeId === N6_NODE_ID && this.pendingN6DebateEscalation(projection)) ? 'n6_divergent'
+        (regularN6 || n6Escalation) ? 'n6_divergent'
           : (nextNodeId === N8_NODE_ID && this.pendingN8BoundedDebate(projection)) ? 'n8_bounded'
             : null;
+      if (regularN6 && !nodeInput?.debate) {
+        return halt('model_input_required', nextNodeId,
+          `${nextNodeId} requires one bounded Debate before candidate admission; supply node_inputs[...].debate with kind=n6_divergent, generation_mode=initial_from_n5 and two Explorer, one Critic and one Arbiter outputs.`,
+          [], projection);
+      }
       if (nodeInput?.debate) {
         if (!debateFrontier) {
           return halt(
             'debate_not_applicable',
             nextNodeId,
-            `${nextNodeId}: node_inputs.debate was supplied but this node is not at a debate frontier (N6 needs an n6_debate_escalation loopback; N8 runs the bounded debate only on the post-N7 re-entry). Supply draft_payload for a normal pass.`,
+            `${nextNodeId}: node_inputs.debate was supplied but this node is not at a debate frontier (N6 accepts a regular initial pass or n6_debate_escalation; N8 runs the bounded debate only on the post-N7 re-entry).`,
             [],
             projection,
           );
@@ -974,17 +980,21 @@ export class TopicSelectionV1bRunCoordinatorService {
             `${nextNodeId}: node_inputs.debate.kind=${nodeInput.debate.kind} does not match this node's debate kind (${debateFrontier}).`,
           );
         }
+        if (nodeInput.debate.kind === 'n6_divergent'
+          && nodeInput.debate.generation_mode !== (regularN6 ? 'initial_from_n5' : 'regeneration_after_n6_gate_failure')) {
+          throw new AppError(400, 'INVALID_PAYLOAD',
+            `${nextNodeId}: debate.generation_mode must match the current ${regularN6 ? 'initial_from_n5' : 'regeneration_after_n6_gate_failure'} frontier.`);
+        }
         // T-127 W-09 pre-provider_llm hardening: structurally validate the (optional) execution_plan against
         // THIS debate kind's role slot ids before forwarding it to the runtime (gap closes the harness W-09
         // review's contract-tightness note). Absent plan -> no-op -> byte-identical to today.
         this.assertDebateExecutionPlanValid(nextNodeId, nodeInput.debate);
         let debateRequest: TopicSelectionV1bWorkflowHarnessRunRequest;
         try {
-          // The N6 divergent debate re-runs in regeneration_after_n6_gate_failure mode, which (in the
-          // runtime AND the harness gate) requires the gate-failure retry projection in source_refs.
-          // The harness records it on the escalation loopback; thread it here. N8 needs no extra.
+          // Only escalation requires the recorded gate-failure projection. Regular N6
+          // uses the frozen N5 handoff without a fabricated failure context.
           debateRequest = await this.buildNextRequest(input, projection, nextNodeId,
-            debateFrontier === 'n6_divergent'
+            n6Escalation
               ? {
                 extraProjectionKind: N6_GATE_FAILURE_PROJECTION_KIND,
                 // Pin the escalation-route projection — the regenerate route shares its projection_kind.
@@ -999,6 +1009,7 @@ export class TopicSelectionV1bRunCoordinatorService {
         }
         let debateOutcome: DebateOutcome;
         try {
+          debateRequest.run_mode = input.run_mode ?? debateRequest.run_mode;
           debateOutcome = await this.runDebateForFrontier(debateRequest, nodeInput.debate);
         } catch (error) {
           // A runtime context-resolution failure (e.g. the N6 regeneration_after_n6_gate_failure mode
@@ -1021,6 +1032,11 @@ export class TopicSelectionV1bRunCoordinatorService {
         }
         // Attach the debate's gate-facing draft (NOT re-recorded — it is already runtime_verified).
         debateRequest.semantic_artifacts = [debateOutcome.gateDraftArtifact];
+        if (nodeInput.support_payloads) {
+          debateRequest.semantic_artifacts.push(...await this.recordSupportSemanticArtifacts(
+            debateRequest, nextNodeId, nodeInput.support_payloads, input.created_by,
+          ));
+        }
         const debateResult = await this.invokeWithTimeout(debateRequest, nodeTimeoutMs);
         if (debateResult.kind === 'timeout') {
           return halt('node_timeout', nextNodeId, debateResult.message);
@@ -1551,7 +1567,9 @@ export class TopicSelectionV1bRunCoordinatorService {
     if (!latest || latest.route_decision !== 'loopback') {
       return false;
     }
-    return latest.warnings.some((warning) => warning.code === N6_DEBATE_ESCALATION_WARNING_CODE);
+    const n5Admitted = projection.nodes.find((node) => node.node_id === N5_NODE_ID)?.latest_admitted;
+    return !(n5Admitted && n5Admitted.seq > latest.seq)
+      && latest.warnings.some((warning) => warning.code === N6_DEBATE_ESCALATION_WARNING_CODE);
   }
 
   /**
@@ -1647,7 +1665,10 @@ export class TopicSelectionV1bRunCoordinatorService {
     // The attached gate-draft artifact carries this run_mode; the harness invoke must agree.
     request.run_mode = runMode;
 
-    const reused = await this.findRecordedGateDraftForAttempt(
+    const regularN6 = debate.kind === 'n6_divergent' && debate.generation_mode === 'initial_from_n5';
+    // Regular N6 replays through the runtime's input-bound receipt. The legacy marker is
+    // retained only for existing recovery frontiers.
+    const reused = regularN6 ? null : await this.findRecordedGateDraftForAttempt(
       request.workflow_run_id,
       request.node_id,
       request.node_attempt_id,
@@ -1694,8 +1715,8 @@ export class TopicSelectionV1bRunCoordinatorService {
       );
     }
 
-    // One inert diagnostic marker so a re-advance after a harness rejection reuses this descriptor.
-    await this.deps.controlPlane.recordArtifactRef({
+    // One inert diagnostic marker for the legacy recovery paths.
+    if (!regularN6) await this.deps.controlPlane.recordArtifactRef({
       workspace_id: request.workspace_id ?? null,
       title_card_id: request.title_card_id ?? null,
       artifact_kind: 'diagnostic',

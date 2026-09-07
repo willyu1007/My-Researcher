@@ -8,12 +8,16 @@ Evidence/question Human projections now retain substantive decision inputs, answ
 
 - Public EvidenceMap and run-coordinator request/response contracts now describe registered ingress, node runtime policy and supported recovery. Deterministic-only invocation runtime fields are rejected before HTTP persistence.
 - N5→N6 selection-decision refs compose directly. SearchRun/EvidenceMap admission accepts equivalent optional title scopes while preserving concrete reference identity and provenance.
-- Regular research-question candidate generation does not use its implemented bounded Debate unless failure escalation occurs.
+- Regular research-question generation now uses one existing 2-Explorer/1-Critic/1-Arbiter Debate in coordinator and Codex product HTTP. The existing product N6 gate requires the exact reviewed draft, using the semantic artifact's effective run mode even when the request omits it.
 - Promotion support has an implemented bounded Debate outside the documented regular path, and conditional-promotion support exposes flat risk refs rather than decision-ready condition groups.
 - Fulltext acquisition preflight exposes the effective downloader policy and its origins, blocks deterministically impossible plans locally, and leaves network feasibility unverified.
 - User-facing operation still relies on opaque internal version/node labels.
 
 T-150 now owns the independent evidence-convergence capability: full-library evidence onboarding, typed RetrievalRequests, linked Debate rounds, successor EvidenceMaps, and one evidence-landscape ResolutionRoute pilot. Those contracts are no longer part of this task's implementation plan. T-148 still owns the concrete evidence-checkpoint truth and Human acceptance contract on which that later convergence path relies.
+
+Regular N6 accepts `initial_from_n5` role outputs over the frozen N5 lineage. The coordinator halts before draft/attempt writes when that review is absent; a fresh N5 selection also starts a fresh regular review without stale failure projections. The Codex product bridge accepts `{ request, role_outputs }` with fixed 2/1/1 arity. Failed candidate quality can still use the existing triage/regeneration/escalation routes; refinement delta remains separately bound to Human-approved changes.
+
+The N6 runtime records a support-only receipt with the canonical request/execution/response hash, role descriptors and audit refs, transcript/admission and gate-facing draft. Exact completed replay survives runtime reconstruction, reuses the original artifacts and rejects changed input. Concurrent calls sharing the local control-plane service use single-flight. This is not a cross-process execution claim or incomplete-run recovery kernel. Four role audits and the existing draft-bridge audit retain non-provider provenance and configured budgets. No provider path or prompt body is enabled/changed. Historical harness exact replay remains ahead of new admission checks; low-level acceptance/test fixtures remain supported.
 
 ## Settled design and boundaries
 

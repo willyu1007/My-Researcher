@@ -196,6 +196,10 @@ import {
   type TopicSelectionV1bEarlySemanticSupportPayload,
   type TopicSelectionV1bIntakeReadinessClassificationSupportPayload,
 } from './topic-selection-v1b-early-semantic-support-runtime-service.js';
+import {
+  TopicSelectionV1bN6DivergentDebateRuntimeService,
+  type GenerateTopicSelectionV1bN6DivergentDebateInput,
+} from './topic-selection-v1b-n6-divergent-debate-runtime-service.js';
 import { TopicSelectionV1bN6LoopbackTriageAdmissionService } from './topic-selection-v1b-n6-loopback-triage-admission-service.js';
 import { TopicSelectionV1bN6LoopbackTriageRuntimeService } from './topic-selection-v1b-n6-loopback-triage-runtime-service.js';
 import {
@@ -773,6 +777,7 @@ export class TopicSelectionV1bWorkflowHarnessService {
   private readonly earlySemanticSupportRuntime: TopicSelectionV1bEarlySemanticSupportRuntimeService;
   private readonly n6DraftAdmission = new TopicSelectionV1bN6DraftAdmissionService();
   private readonly n6DraftRuntime: TopicSelectionV1bN6DraftRuntimeService;
+  private readonly n6DebateRuntime: TopicSelectionV1bN6DivergentDebateRuntimeService;
   private readonly n6LoopbackTriageAdmission = new TopicSelectionV1bN6LoopbackTriageAdmissionService();
   private readonly n6LoopbackTriageRuntime: TopicSelectionV1bN6LoopbackTriageRuntimeService;
   private readonly n7SupportAdmission = new TopicSelectionV1bN7SupportAdmissionService();
@@ -801,6 +806,9 @@ export class TopicSelectionV1bWorkflowHarnessService {
     });
     this.n6DraftRuntime = new TopicSelectionV1bN6DraftRuntimeService(controlPlane, {
       modelProfileRegistry: this.modelProfileRegistry,
+    });
+    this.n6DebateRuntime = new TopicSelectionV1bN6DivergentDebateRuntimeService(controlPlane, {
+      modelProfileRegistry: this.modelProfileRegistry, singleAgentRuntime: this.n6DraftRuntime,
     });
     this.n6LoopbackTriageRuntime = new TopicSelectionV1bN6LoopbackTriageRuntimeService(controlPlane, {
       modelProfileRegistry: this.modelProfileRegistry,
@@ -901,13 +909,13 @@ export class TopicSelectionV1bWorkflowHarnessService {
   }
 
   /**
-   * Product HTTP bridge for the initial N6 non-authority draft. The frozen N5 lineage is checked
+   * Product HTTP bridge for the initial N6 bounded Debate. The frozen N5 lineage is checked
    * before runtime artifacts are recorded; the route then pins product/Codex provenance and sends
-   * the resulting runtime_verified draft through the existing deterministic N6 gate.
+   * the Arbiter's runtime_verified draft through the existing deterministic N6 gate.
    */
   async invokeN6CodexAssisted(input: {
     request: TopicSelectionV1bWorkflowHarnessRunRequest;
-    codex_response: TopicSelectionCodexAssistedAgentOutput<TopicSelectionV1bTopicQuestionCandidateSetDraftPayload>;
+    role_outputs: GenerateTopicSelectionV1bN6DivergentDebateInput['role_outputs'];
   }): Promise<TopicSelectionV1bWorkflowHarnessRunResult> {
     const nodeId = 'topic-selection.v1b.generate-topic-question-candidates.v1' as const;
     const profileId = TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.topic_question_candidates_single_agent;
@@ -947,30 +955,17 @@ export class TopicSelectionV1bWorkflowHarnessService {
         blocker_code: prepared.code,
       });
     }
-    const generated = await this.n6DraftRuntime.generateDraftArtifact({
-      request,
-      generation_mode: 'initial_from_n5',
-      execution_mode: 'codex_assisted',
-      run_mode: 'product',
-      codex_response: input.codex_response,
-      created_by: request.created_by ?? 'system',
+    const generated = await this.n6DebateRuntime.runDivergentDebate({
+      request, generation_mode: 'initial_from_n5', execution_mode: 'codex_assisted', run_mode: 'product',
+      role_outputs: input.role_outputs, created_by: request.created_by ?? 'system',
     });
-    if (generated.status !== 'succeeded') {
-      throw new AppError(
-        409,
-        'GATE_CONSTRAINT_FAILED',
-        'The Codex-assisted N6 runtime did not produce an admissible topic-question candidate draft.',
-        {
-          blocker_codes: generated.invocation_result.blocker_codes,
-          context_packet_ref: generated.context_packet_ref,
-          context_packet_hash: generated.context_packet_hash,
-          error_code: generated.invocation_result.error_code,
-        },
-      );
+    if (generated.status !== 'completed' || generated.gate_draft.status !== 'succeeded') {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        'The regular N6 Debate did not produce an admissible topic-question candidate draft.', { debate_status: generated.status });
     }
     return this.invokeNode({
       ...request,
-      semantic_artifacts: [generated.semantic_artifact],
+      semantic_artifacts: [generated.gate_draft.semantic_artifact],
     });
   }
 
@@ -9795,6 +9790,11 @@ export class TopicSelectionV1bWorkflowHarnessService {
         code: admission.blocker.code,
         message: admission.blocker.message,
       };
+    }
+    if (semanticArtifact.run_mode === 'product' && generationMode.value === 'initial_from_n5'
+      && !await this.n6DebateRuntime.hasInitialDebateDraft(input, semanticArtifact)) {
+      return { ok: false, code: 'N6_REGULAR_DEBATE_REQUIRED',
+        message: 'Initial product N6 candidates require the exact draft from a completed bounded Debate.' };
     }
     return {
       ok: true,
