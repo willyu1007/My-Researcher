@@ -6121,7 +6121,10 @@ paths:
         per-role budgets; this endpoint performs zero provider calls and no automatic retry/fallback.
         Deterministic admission requires all material finding refs in the final semantic layer's
         material_risk_acknowledgements.risk_refs, alongside accepted-risk/recheck coverage and critic
-        resolution. The dossier records support_policy and debate_execution with admission identity
+        resolution. Final condition_candidates cover every material, accepted-risk, memory and recheck
+        ref exactly once, with identical group/action refs and nonblank early checks. They are advisory;
+        the Human assigns owners and edits/confirms exact N4 conditions. Missing or invalid groups fail
+        before support publication. The dossier records support_policy and debate_execution with admission identity
         and all four role artifacts. Exact completed input replay reuses support; changed input under
         the same snapshot/workflow/attempt conflicts. Same-process concurrent replay shares execution.
         N3 gate checking and the exact N4 Human decision remain separate authorities.
@@ -6158,6 +6161,9 @@ paths:
       summary: Create N3 promotion gate check from existing support.
       description: >-
         New gate checks for material-risk input require snapshot-bound bounded-Debate support.
+        New checks also require complete typed condition candidates matching the frozen support draft;
+        existing completed gates replay without reinterpreting historical support. Candidates do not
+        waive recheck gates or replace exact Human conditions at N4.
         Legacy deterministic support without this evidence returns 409 PROMOTION_SUPPORT_DEBATE_REQUIRED.
         Completed historical gate replay retains the original result. Compatibility creation from
         promotion_input_snapshot_id obeys the same N2 trigger and cannot bypass required Debate.
@@ -6196,7 +6202,7 @@ paths:
             minLength: 1
       responses:
         '200':
-          description: PromotionDecisionSupport record.
+          description: PromotionDecisionSupport record; LLM draft payload retains advisory condition_candidates.
           content:
             application/json:
               schema:
@@ -6218,7 +6224,7 @@ paths:
             minLength: 1
       responses:
         '200':
-          description: PromotionDossier record.
+          description: PromotionDossier record; dossier_payload.condition_candidates exposes the advisory groups for Human editing.
           content:
             application/json:
               schema:
@@ -12137,15 +12143,69 @@ components:
         handoff:
           $ref: '#/components/schemas/TopicSelectionV1cRecord'
 
+    TopicSelectionV1cPromotionConditionCandidate:
+      type: object
+      additionalProperties: false
+      description: >-
+        Advisory group only. The Human supplies owner and confirms exact conditions at N4.
+        IDs, codes and action codes are unique across groups. Every frozen material finding,
+        accepted risk, memory suggestion and recheck ref belongs to exactly one group; group
+        and action refs have identical full identities. Other refs are not allowed here.
+      required: [condition_id, condition_code, required_action, refs, early_check_obligations]
+      properties:
+        condition_id: { type: string, pattern: '\S' }
+        condition_code: { type: string, pattern: '\S' }
+        refs:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+        required_action:
+          type: object
+          additionalProperties: false
+          required: [action_code, severity, loopback_target, refs, reason]
+          properties:
+            action_code: { type: string, pattern: '\S' }
+            severity: { type: string, enum: [info, warning, blocking] }
+            loopback_target: { type: string, enum: [none, package, value, question, slice, evidence_or_search, park] }
+            refs:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/TopicSelectionFunctionalRef' }
+            reason: { type: string, pattern: '\S' }
+        early_check_obligations:
+          type: array
+          minItems: 1
+          items: { type: string, pattern: '\S' }
+        verification_note: { type: string, pattern: '\S', nullable: true }
+
     TopicSelectionV1cPromotionDecisionSupportResponse:
       type: object
       required: [promotion_decision_support, promotion_dossier]
       additionalProperties: true
       properties:
         promotion_decision_support:
-          $ref: '#/components/schemas/TopicSelectionV1cRecord'
+          type: object
+          additionalProperties: true
+          properties:
+            llm_draft_payload:
+              type: object
+              nullable: true
+              additionalProperties: true
+              properties:
+                condition_candidates:
+                  type: array
+                  items: { $ref: '#/components/schemas/TopicSelectionV1cPromotionConditionCandidate' }
         promotion_dossier:
-          $ref: '#/components/schemas/TopicSelectionV1cRecord'
+          type: object
+          additionalProperties: true
+          properties:
+            dossier_payload:
+              type: object
+              additionalProperties: true
+              properties:
+                condition_candidates:
+                  type: array
+                  items: { $ref: '#/components/schemas/TopicSelectionV1cPromotionConditionCandidate' }
 
     TopicSelectionV1cHumanPromotionDecisionResponse:
       type: object
@@ -12284,7 +12344,13 @@ components:
             n2_bounded_micro_debate.promotion_supporter_draft: { type: object, additionalProperties: true }
             n2_bounded_micro_debate.reviewer_critic_review: { type: object, additionalProperties: true }
             n2_bounded_micro_debate.promotion_supporter_repair: { type: object, additionalProperties: true }
-            n2_bounded_micro_debate.synthesizer_final: { type: object, additionalProperties: true }
+            n2_bounded_micro_debate.synthesizer_final:
+              type: object
+              additionalProperties: true
+              properties:
+                condition_candidates:
+                  type: array
+                  items: { $ref: '#/components/schemas/TopicSelectionV1cPromotionConditionCandidate' }
 
     TopicSelectionV1cPromotionGateSupportRequest:
       type: object

@@ -1,3 +1,6 @@
+import type { TopicSelectionFunctionalRef } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionPromotionConditionCandidate } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
+import { promotionSupportRiskFindingRefs } from '../topic-selection-v1c-promotion-support-policy.js';
 import type { TopicSelectionPromotionInputSnapshotHandoff } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
@@ -62,6 +65,7 @@ function roleOutput(
     reviewer_questions: ['Are selected evidence refs still current before outline lock?'],
     risk_notes: handoff.accepted_risk_refs.map((risk_ref) => ({ risk_ref, note: 'Accepted risk preserved.' })),
     recheck_notes: handoff.recheck_request_refs.map((recheck_ref) => ({ recheck_ref, note: 'Recheck preserved without automatic loopback.' })),
+    condition_candidates: promotionConditionCandidates([...promotionSupportRiskFindingRefs(handoff), ...handoff.accepted_risk_refs, ...handoff.memory_suggestion_refs, ...handoff.recheck_request_refs]),
     n3_semantic_layer: {
       claim_ceiling_alignment: { status: 'addressed', summary: 'Correlation and mechanism claims only.', source_refs: [handoff.topic_package_ref] },
       contribution_summary: { status: 'addressed', summary: 'A focused contribution summary.', source_refs: [handoff.topic_package_ref] },
@@ -90,4 +94,20 @@ export function promotionDebateRoleOutputs(handoff: TopicSelectionPromotionInput
     'n2_bounded_micro_debate.promotion_supporter_repair': roleOutput('n2_bounded_micro_debate.promotion_supporter_repair', handoff),
     'n2_bounded_micro_debate.synthesizer_final': roleOutput('n2_bounded_micro_debate.synthesizer_final', handoff),
   };
+}
+
+export function promotionConditionCandidates(refs: TopicSelectionFunctionalRef[]): TopicSelectionPromotionConditionCandidate[] {
+  return refs.length === 0 ? [] : [{
+    condition_id: 'condition_verify_evidence',
+    condition_code: 'verify_evidence_boundary',
+    refs,
+    required_action: {
+      action_code: 'verify_evidence_boundary',
+      severity: 'warning',
+      loopback_target: 'none',
+      refs,
+      reason: 'Verify the carried evidence boundary before relying on these findings.',
+    },
+    early_check_obligations: ['Before outline lock, compare each finding with the selected evidence and record any unresolved limitation.'],
+  }];
 }

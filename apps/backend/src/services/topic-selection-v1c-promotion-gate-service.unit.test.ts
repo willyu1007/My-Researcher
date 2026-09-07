@@ -1,3 +1,4 @@
+import { promotionConditionCandidates } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -421,7 +422,7 @@ test('accepted risks are warnings and do not block promote handoff', async () =>
 
   const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
     promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
-    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.' } }),
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.', condition_candidates: promotionConditionCandidates([...handoff.accepted_risk_refs, ...(handoff.risk_finding_refs ?? [])]) } }),
   });
   const result = await service.createPromotionGateCheckFromSupport({
     promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
@@ -452,7 +453,7 @@ test('material risk findings remain exact warnings through deterministic gate an
 
   const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
     promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
-    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.' } }),
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.', condition_candidates: promotionConditionCandidates([...handoff.accepted_risk_refs, ...(handoff.risk_finding_refs ?? [])]) } }),
   });
   const result = await service.createPromotionGateCheckFromSupport({
     promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
@@ -766,7 +767,7 @@ test('legacy support cannot create a new material-risk gate; an existing gate re
     const { service, repository } = makeSubject({ handoff });
     const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
       promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
-      verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted support.' } }),
+      verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted support.', condition_candidates: promotionConditionCandidates(handoff.accepted_risk_refs) } }),
     });
     const input = { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id };
     const gate = completed ? await service.createPromotionGateCheckFromSupport(input) : null;
@@ -997,7 +998,7 @@ class FakePromotionGatePrismaClient {
 }
 
 const PROMOTION_DECISION_SUPPORT_SYSTEM_BODY_GOLDEN =
-  '0eefd9f06d5cc4cecc5fd1d2dc586ef1b87155da1d14dc7b2eac7a1071165e0f';
+  '841c44c09f52c8035f4a7e4c2769a61e2bd2aacfb6f7c5e19ebb2c09ec72d475';
 
 test('v1c promotion-decision-support system prompt is product-grade and byte-stable (golden anchor)', () => {
   const body = buildV1cPromotionDecisionSupportSystemContent();
@@ -1006,11 +1007,11 @@ test('v1c promotion-decision-support system prompt is product-grade and byte-sta
 
   assert.match(body, /TopicSelectionPromotionDecisionSupportLlmDraft@v1/);
 
-  for (const field of ['summary', 'reviewer_questions', 'risk_notes', 'recheck_notes', 'dossier_markdown']) {
+  for (const field of ['summary', 'reviewer_questions', 'risk_notes', 'recheck_notes', 'dossier_markdown', 'condition_candidates']) {
     assert.ok(body.includes(field), `system prompt must mirror schema field ${field}`);
   }
 
-  assert.match(body, /Every field is optional; populate only the fields the handoff supports and omit the rest/);
+  assert.match(body, /Prose fields are optional; populate only the fields the handoff supports and omit the rest/);
 
   assert.match(body, /Do not decide the gate disposition/);
   assert.match(body, /authorize or recommend promotion/);
@@ -1019,4 +1020,57 @@ test('v1c promotion-decision-support system prompt is product-grade and byte-sta
   assert.match(body, /PaperProjectBridge/);
 
   assert.match(body, /never invent refs, hashes/);
+});
+
+test('FIND-028: new N3 gates reject incomplete legacy proposals while completed gate replay remains available', async () => {
+  for (const completed of [false, true]) {
+    const handoff = makeHandoff({ accepted_risk_refs: [ref('accepted_risk', 'risk_condition_001')] });
+    const { service, repository } = makeSubject({ handoff });
+    const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
+      promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+      verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Reviewed risk.', condition_candidates: promotionConditionCandidates(handoff.accepted_risk_refs) } }),
+    });
+    const input = { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id };
+    const gate = completed ? await service.createPromotionGateCheckFromSupport(input) : null;
+    delete support.promotion_dossier.dossier_payload.condition_candidates;
+    delete support.promotion_decision_support.llm_draft_payload!.condition_candidates;
+    if (gate) {
+      assert.deepEqual(await service.createPromotionGateCheckFromSupport(input), gate);
+    } else {
+      await assert.rejects(service.createPromotionGateCheckFromSupport(input),
+        (error: unknown) => error instanceof AppError && error.details?.blocker_code === 'PROMOTION_CONDITION_CANDIDATES_INVALID');
+      assert.equal(await repository.findGateCheckBundleBySupportRunKey(support.promotion_decision_support.support_run_key), null);
+    }
+  }
+});
+
+test('FIND-028: deterministic memory/recheck proposals remain advisory and cannot waive the recheck gate', async () => {
+  const handoff = makeHandoff({ memory_suggestion_refs: [ref('memory_suggestion', 'memory_001')],
+    recheck_request_refs: [ref('recheck_request', 'recheck_001')] });
+  const { service } = makeSubject({ handoff });
+  const result = await service.createPromotionGateSupport({ promotion_input_snapshot_id: handoff.promotion_input_snapshot_id });
+  const groups = result.promotion_dossier.dossier_payload.condition_candidates as TopicSelectionPromotionDecisionSupportLlmDraft['condition_candidates'];
+  assert.deepEqual(groups?.map((group) => group.refs), [handoff.memory_suggestion_refs, handoff.recheck_request_refs]);
+  assert.ok(groups?.every((group) => group.early_check_obligations.length > 0 && !('owner' in group)));
+  assert.equal(result.promotion_gate_check.disposition, 'recheck_required');
+  assert.equal(result.promotion_gate_check.promote_allowed, false);
+});
+
+test('FIND-028: Prisma JSON persistence retains the admitted condition groups without schema changes', async () => {
+  const fake = new FakePromotionGatePrismaClient();
+  const handoff = makeHandoff({ accepted_risk_refs: [ref('accepted_risk', 'risk_condition_001')] });
+  const repository = new PrismaTopicSelectionV1cPromotionGateRepository(fake.client);
+  const options = { repository, promotionInputService: new StubPromotionInputService(handoff), idFactory: makeIdFactory(), now: () => NOW };
+  const service = new TopicSelectionV1cPromotionGateService(options);
+  const groups = promotionConditionCandidates(handoff.accepted_risk_refs);
+  const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
+    promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Reviewed risk.', condition_candidates: groups } }),
+  });
+  const restored = new TopicSelectionV1cPromotionGateService(options);
+  const read = await restored.getPromotionDecisionSupport(support.promotion_decision_support.promotion_decision_support_id);
+  assert.deepEqual(read.llm_draft_payload?.condition_candidates, groups);
+  const gate = await restored.createPromotionGateCheckFromSupport({ promotion_decision_support_id: read.promotion_decision_support_id });
+  assert.deepEqual(gate.handoff.dossier.dossier_payload.condition_candidates, groups);
+  assert.equal(gate.handoff.disposition, 'ready_for_human_decision');
 });

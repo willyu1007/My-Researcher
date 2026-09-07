@@ -1,3 +1,5 @@
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import type { TopicSelectionPromotionConditionCandidate } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import { promotionDebateRoleOutputs } from '../services/test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -756,6 +758,7 @@ type V1cRouteHarness = {
   offlineReplayService: TopicSelectionOfflineEvaluationReplayService;
   paperProjectGateway: RecordingPaperProjectGateway;
   promotionInputService: TopicSelectionV1cPromotionInputService;
+  humanPromotionRepository: InMemoryTopicSelectionV1cHumanPromotionDecisionRepository;
 };
 
 async function makeV1cRouteApp(
@@ -799,8 +802,9 @@ async function makeV1cRouteHarness(
     promotionInputService,
     now: () => NOW,
   });
+  const humanPromotionRepository = new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository();
   const humanPromotionDecisionService = new TopicSelectionV1cHumanPromotionDecisionService({
-    repository: new InMemoryTopicSelectionV1cHumanPromotionDecisionRepository(),
+    repository: humanPromotionRepository,
     promotionGateService,
     checkpointControl,
     now: () => NOW,
@@ -852,7 +856,7 @@ async function makeV1cRouteHarness(
     n4DelegatedPromotionDecisionService,
   );
   await registerTopicSelectionV1cRoutes(app, controller);
-  return { app, offlineReplayService, paperProjectGateway, promotionInputService };
+  return { app, offlineReplayService, paperProjectGateway, promotionInputService, humanPromotionRepository };
 }
 
 async function seedAdvancingResearchCheckpoints(
@@ -2661,6 +2665,85 @@ test('buildApp registers topic-selection v1c routes', async () => {
     });
     assertStatus(res, 201);
     assert.equal((res.json() as { dataset: { stage: string } }).dataset.stage, 'v1c');
+  } finally {
+    await app.close();
+  }
+});
+
+test('FIND-028: HTTP Human edits grouped conditions; N4 rejects omitted findings without partial decision authority', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('condition-groups'));
+  const findings = Array.from({ length: 25 }, (_, index) => ref(
+    'artifact_ref', `condition_risk_${index + 1}`, repository.topicPackage.title_card_id,
+    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
+  ));
+  repository.v1cInputBundle.risk_finding_refs = findings;
+  repository.topicPackage.risk_finding_refs = findings;
+  repository.traceBoundaryCheck.risk_finding_refs = findings;
+  repository.readinessAssessment.risk_finding_refs = findings;
+  const checkpointControl = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository(), { now: () => NOW }),
+    { now: () => NOW },
+  );
+  await seedAdvancingResearchCheckpoints(checkpointControl, repository);
+  const { app, promotionInputService, humanPromotionRepository } = await makeV1cRouteHarness(repository, checkpointControl);
+  try {
+    const snapshotResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-input-snapshots',
+      payload: { v1b_to_v1c_input_bundle_id: repository.v1cInputBundle.v1b_to_v1c_input_bundle_id } });
+    assertStatus(snapshotResponse, 201);
+    const snapshotId = snapshotResponse.json().promotion_input_snapshot_id as string;
+    const handoff = await promotionInputService.getPromotionInputHandoff(snapshotId);
+    const outputs = promotionDebateRoleOutputs(handoff);
+    const final = outputs['n2_bounded_micro_debate.synthesizer_final'];
+    const groups: TopicSelectionPromotionConditionCandidate[] = Array.from({ length: 5 }, (_, index) => ({
+      condition_id: `condition_${index + 1}`,
+      condition_code: `verify_group_${index + 1}`,
+      refs: findings.slice(index * 5, index * 5 + 5),
+      required_action: {
+        action_code: `verify_group_${index + 1}`, severity: 'warning', loopback_target: 'none',
+        refs: findings.slice(index * 5, index * 5 + 5), reason: `Verify group ${index + 1} against the evidence boundary.`,
+      },
+      early_check_obligations: [`Before outline lock, verify the evidence for group ${index + 1}.`],
+    }));
+    final.condition_candidates = groups;
+    final.n3_semantic_layer = { ...final.n3_semantic_layer as Record<string, unknown>,
+      material_risk_acknowledgements: { status: 'addressed', risk_refs: findings } };
+    const supportPayload = { promotion_input_snapshot_id: snapshotId, workflow_run_id: 'workflow_conditions',
+      node_attempt_id: 'attempt_conditions', debate_role_outputs: outputs };
+    const supportResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decision-support/bounded-debate', payload: supportPayload });
+    assertStatus(supportResponse, 201);
+    const support = supportResponse.json();
+    assert.deepEqual(support.promotion_dossier.dossier_payload.condition_candidates, groups);
+    assert.deepEqual(support.promotion_decision_support.llm_draft_payload.condition_candidates, groups);
+    const gateResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-gate-checks',
+      payload: { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id } });
+    assertStatus(gateResponse, 201);
+    const gate = gateResponse.json().promotion_gate_check;
+    assert.equal(gate.disposition, 'ready_for_human_decision');
+    assert.equal(await humanPromotionRepository.findCurrentBundleByPromotionInputSnapshotId(snapshotId), null);
+    const conditions = groups.map((group, index) => ({ ...group,
+      owner: { actor_type: 'human' as const, actor_id: `human-owner-${index + 1}` },
+      early_check_obligations: [`Human edit: run group ${index + 1} checks before the first experiment.`],
+    }));
+    const decisionPayload = { promotion_gate_check_id: gate.promotion_gate_check_id, decision: 'promote_with_conditions',
+      human_actor: { actor_type: 'human', actor_id: 'route-reviewer' },
+      rationale: 'Confirm the edited checks and exact risk mappings.',
+      confirmed_snapshot_hash: gate.promotion_input_snapshot_hash, conditions };
+    const incomplete = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions',
+      payload: { ...decisionPayload, conditions: conditions.slice(0, 4) } });
+    assertStatus(incomplete, 422);
+    assert.ok(incomplete.json().error.details.policy_issue_codes.includes('UNMAPPED_PASS_WITH_RISK_FINDING'));
+    assert.equal(await humanPromotionRepository.findCurrentBundleByPromotionInputSnapshotId(snapshotId), null);
+    const decisionResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions', payload: decisionPayload });
+    assertStatus(decisionResponse, 201);
+    const decision = decisionResponse.json();
+    assert.deepEqual(decision.promotion_commitment_profile.conditions, conditions);
+    const replay = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decisions', payload: decisionPayload });
+    assertStatus(replay, 201);
+    assert.deepEqual(replay.json(), decision);
+    const supportReplay = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-decision-support/bounded-debate', payload: supportPayload });
+    assertStatus(supportReplay, 201);
+    assert.deepEqual(supportReplay.json(), support);
   } finally {
     await app.close();
   }

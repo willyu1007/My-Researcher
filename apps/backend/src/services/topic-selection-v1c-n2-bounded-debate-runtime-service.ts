@@ -1,3 +1,4 @@
+import { topicSelectionPromotionConditionCandidateSchema } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-gate-contracts';
 import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 import type {
   TopicSelectionFunctionalRef,
@@ -193,6 +194,7 @@ const ROLE_OUTPUT_SCHEMA = {
   properties: {
     schema_version: { type: 'string', minLength: 1 },
     role_slot: { enum: [...TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER] },
+    condition_candidates: { type: 'array', items: topicSelectionPromotionConditionCandidateSchema },
   },
 } as const;
 

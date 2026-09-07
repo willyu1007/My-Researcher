@@ -1,3 +1,4 @@
+import { validatePromotionConditionCandidates } from './topic-selection-v1c-promotion-condition-support.js';
 import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 import type {
   TopicSelectionFunctionalRef,
@@ -100,6 +101,7 @@ export interface TopicSelectionV1cN2BoundedDebateAdmissionExpectedIdentity {
 }
 
 export type TopicSelectionV1cN2BoundedDebateAdmissionBlockerCode =
+  | 'N2_BOUNDED_DEBATE_CONDITION_CANDIDATES_INVALID'
   | 'N2_BOUNDED_DEBATE_REQUIRED_ROLE_MISSING'
   | 'N2_BOUNDED_DEBATE_ROLE_ORDER_INVALID'
   | 'N2_BOUNDED_DEBATE_ROLE_OUTPUT_MISMATCH'
@@ -334,6 +336,10 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       return finalLayerCheck;
     }
 
+    const conditions = validatePromotionConditionCandidates(final.structured_output.condition_candidates, input.handoff);
+    if (!conditions.valid) {
+      return this.block('N2_BOUNDED_DEBATE_CONDITION_CANDIDATES_INVALID', conditions.reason);
+    }
     const admissionIdentity = this.buildAdmissionIdentity(input, {
       supporterDraft,
       critic,
@@ -344,7 +350,10 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       admitted: true,
       final_artifact: final.artifact,
       final_output: final.structured_output,
-      promotion_support_draft: this.toPromotionSupportDraft(final.structured_output),
+      promotion_support_draft: {
+        ...this.toPromotionSupportDraft(final.structured_output),
+        condition_candidates: conditions.candidates,
+      },
       admission_identity: admissionIdentity,
       admission_identity_hash: this.hash(admissionIdentity),
       warnings: [],

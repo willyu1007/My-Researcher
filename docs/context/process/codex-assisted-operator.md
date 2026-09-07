@@ -63,6 +63,23 @@ accepted risks, recheck obligations and critic resolutions, plus every material 
 `material_risk_acknowledgements.risk_refs`. These acknowledgements do not resolve findings or
 confirm promotion conditions.
 
+The final also supplies `condition_candidates`, covering the exact union of material findings,
+accepted risks, memory suggestions and recheck refs. Group related refs under concrete typed
+verification actions; every ref belongs to exactly one group. Each candidate has `condition_id`,
+`condition_code`, `refs`, `required_action` (`action_code`, `severity`, `loopback_target`, `refs`,
+`reason`), nonempty `early_check_obligations`, and optional `verification_note`. IDs/codes/actions
+must be unique; the group and its action carry identical exact refs, with no invented or stale refs.
+Place supporting evidence context in the semantic layer. Each early check names what to inspect
+and when. No candidate contains an `owner` or Human confirmation.
+
+Read the groups from `promotion_dossier.dossier_payload.condition_candidates`; LLM support also
+retains them in `promotion_decision_support.llm_draft_payload.condition_candidates`. They remain
+advisory in the N3 handoff. The Human edits the groups, assigns each `owner` and submits the exact
+`conditions` at N4. N4 does not copy candidates automatically: omitted risk mappings still fail
+with `UNMAPPED_PASS_WITH_RISK_FINDING`, before PromotionDecision/commitment persistence. A condition
+cannot waive an unresolved recheck gate. The deterministic fast path offers mechanical memory and
+recheck proposals when these are carried; an input with no such refs returns an empty group list.
+
 The endpoint records four product `codex_assisted` role audits under existing per-role budgets,
 with zero backend provider calls and no automatic retry/fallback. External authoring cost remains
 external; a zero-provider audit does not claim that authoring was free. The dossier exposes
@@ -76,7 +93,9 @@ cannot be bypassed through ordinary support, single-agent support or the combine
 gate-create request. Legacy support lacking Debate evidence cannot create a new material-risk gate;
 existing gate replay stays historical. N3 owns deterministic readiness, and N4 still requires the
 exact Human decision. Correct rejected role output before retrying; never infer Human consent from
-admitted support. Provider activation and automatic condition grouping remain separate work.
+admitted support. New N3 checks also reject missing/inconsistent condition coverage; regenerate support
+under a new attempt after a legacy support refusal. Completed gate replay stays historical.
+Provider activation remains separate work.
 
 ## Current rehearsal
 

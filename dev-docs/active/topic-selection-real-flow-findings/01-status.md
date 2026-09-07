@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 3 regular N6 and material-risk promotion Debate (FIND-018 / FIND-027) implemented and focused-verified; condition grouping remains
-- Next step: Continue Phase 3 with FIND-028 / TSRF-16: generate complete typed risk-to-condition groups and early-check candidates while preserving exact Human confirmation and the deterministic unmapped-risk guard. Phase 4 real-flow acceptance follows.
+- Current phase: Phase 3 implemented and focused-verified, including FIND-028 condition grouping; ready for Phase 4 bounded real-flow acceptance
+- Next step: Begin Phase 4: prepare the bounded real-flow re-read for rejection/replacement, evidence/question views, refinement and conditional promotion; audit research-stage wording and disposition adjacent findings. Preserve exact Human decisions and separate provider/DB follow-up boundaries.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when
@@ -25,5 +25,5 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [x] TSRF-13: A substantive question refinement receives exactly one bounded delta Debate over changed question/claim/metric/evaluation fields before contract rematerialization; mechanical changes may bypass it without minting duplicate authority.
 - [x] TSRF-14: A draft topic package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; recovery supersedes stale packages and bundles.
 - [x] TSRF-15: The regular promotion-review support path has an explicit bounded-Debate policy, and runtime routing, OpenAPI, operator guidance, support provenance, and the deterministic gate agree with it.
-- [ ] TSRF-16: Conditional-promotion support presents a grouped mapping that covers every pass-with-risk finding and early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
+- [x] TSRF-16: Conditional-promotion support presents a grouped mapping that covers every pass-with-risk finding and early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
 - [ ] TSRF-22: User-facing workflow surfaces and operating guidance use human-readable research-stage names instead of internal version labels, while technical diagnostics retain exact node and API identities.

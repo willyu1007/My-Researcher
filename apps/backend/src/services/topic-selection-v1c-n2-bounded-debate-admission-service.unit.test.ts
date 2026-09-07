@@ -1,3 +1,4 @@
+import { promotionConditionCandidates } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 // T-127 P1 / W-05 — falsifiable unit coverage for the v1c N2 bounded-debate admission byte-match.
 // The orchestrator-driven runtime test computes the expected identity as f(handoff) on both sides, so it
 // cannot fail the drift/structural guards. This test feeds the admission service a CONTROLLED expected-
@@ -126,6 +127,7 @@ function structuredOutputFor(slot: TopicSelectionV1cN2BoundedDebateRoleSlotId): 
       final_support_summary: 'Synthesis resolves the critic finding.',
       dossier_markdown: '# Dossier\n\nReady for human review.',
       n3_semantic_layer: finalSemanticLayer(),
+      condition_candidates: promotionConditionCandidates([ref('risk_1'), ref('recheck_1')]),
       reviewer_questions: ['Is the evaluation plan adequate?'],
       risk_notes: ['Residual scope risk accepted.'],
       recheck_notes: ['Re-check evidence after refresh.'],
@@ -427,6 +429,7 @@ const outputNegatives: Array<{
         final_support_summary: 'Synthesis resolves the critic finding.',
         dossier_markdown: '# Dossier\n\nReady for human review.',
         n3_semantic_layer: finalSemanticLayer(),
+        condition_candidates: promotionConditionCandidates([ref('risk_1'), ref('recheck_1')]),
       } as unknown as TopicSelectionV1cN2BoundedDebateRoleOutput,
     },
   },

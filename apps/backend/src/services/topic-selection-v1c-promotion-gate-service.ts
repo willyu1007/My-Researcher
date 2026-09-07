@@ -1,3 +1,4 @@
+import { deterministicPromotionConditionCandidates, validatePromotionConditionCandidates } from './topic-selection-v1c-promotion-condition-support.js';
 import crypto from 'node:crypto';
 import { PROMOTION_SUPPORT_DEBATE_POLICY, promotionSupportDebateRequired, promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 
@@ -314,6 +315,9 @@ export class TopicSelectionV1cPromotionGateService {
 	          runtimeIdentityHash: null,
 	          fallbackWarning: null,
 	        });
+    const conditionCandidates = this.assertConditionCandidates(
+      llmDraft.draft ? llmDraft.draft.condition_candidates : deterministicPromotionConditionCandidates(handoff), handoff,
+    );
     const sourceRefs = this.compileSourceRefs(handoff);
     const riskFindingRefs = this.riskFindingRefs(handoff);
     const supportArtifactRef = this.ref('artifact_ref', supportArtifactId, handoff.snapshot.title_card_id, null);
@@ -362,6 +366,7 @@ export class TopicSelectionV1cPromotionGateService {
       reviewer_packet_artifact_ref: dossierArtifactRef,
       dossier_payload: {
         ...this.buildDossierPayload(handoff, support, llmDraft.draft),
+        condition_candidates: conditionCandidates,
         support_policy: {
           policy_id: PROMOTION_SUPPORT_DEBATE_POLICY,
           debate_required: promotionSupportDebateRequired(handoff),
@@ -473,6 +478,14 @@ export class TopicSelectionV1cPromotionGateService {
           required_endpoint: '/topic-selection/v1c/promotion-decision-support/bounded-debate',
         });
       }
+    }
+
+    this.assertConditionCandidates(dossier.dossier_payload.condition_candidates, handoff);
+    if (support.llm_draft_payload && stableStringify(support.llm_draft_payload.condition_candidates ?? [])
+      !== stableStringify(dossier.dossier_payload.condition_candidates ?? [])) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Condition candidates differ from the frozen N2 draft.', {
+        blocker_code: 'PROMOTION_CONDITION_CANDIDATES_INVALID',
+      });
     }
 
     const createdBy = input.created_by ?? support.created_by;
@@ -1602,6 +1615,17 @@ export class TopicSelectionV1cPromotionGateService {
       ...handoff.recheck_request_refs,
       ...handoff.readiness_check_refs,
     ]);
+  }
+
+  private assertConditionCandidates(value: unknown, handoff: TopicSelectionPromotionInputSnapshotHandoff) {
+    const result = validatePromotionConditionCandidates(value, handoff);
+    if (!result.valid) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', result.reason, {
+        blocker_code: 'PROMOTION_CONDITION_CANDIDATES_INVALID',
+        recovery: 'Generate complete promotion support with a new node attempt before creating a new N3 gate.',
+      });
+    }
+    return result.candidates;
   }
 
   private compileSupportWarnings(

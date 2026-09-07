@@ -281,8 +281,8 @@ execution_modes: [codex_assisted]
 covered_nodes:
   - topic-selection.v1c.generate-promotion-support.v1
 fixtures_or_data_source: frozen PromotionInputSnapshot; in-memory runtime and HTTP fixtures with typed risks and a risk-free deterministic control
-assertion_scope: required-risk trigger, risk-free fast path, four ordered product role audits, material-risk and accepted-risk coverage, deterministic N3 authority, exact replay and conflicting input, legacy support refusal and historical gate replay
-artifact_expectations: support and dossier with support_policy, admission identity and debate_execution containing four role artifacts; zero backend provider calls; no N4 decision
+assertion_scope: required-risk trigger, risk-free fast path, four ordered product role audits, material-risk and accepted-risk coverage, complete typed condition groups and early checks, Human-edited exact mappings and unmapped-risk rejection without partial decision writes, deterministic N3 authority, exact replay and conflicting input, legacy support refusal and historical gate replay
+artifact_expectations: support and dossier with support_policy, condition_candidates, admission identity and debate_execution containing four role artifacts; zero backend provider calls; N2/N3 author no N4 decision; explicit Human conditions alone reach the existing N4 authority
 business_semantics_source: topic-selection-workflow-matrix.md + T-148 roadmap material-risk policy
-implementation_note: T-148 FIND-027; fixed bounded micro-debate caller, no scenario-registry dispatch, provider activation or FIND-028 condition grouping
+implementation_note: T-148 FIND-027 / FIND-028; fixed bounded micro-debate caller, complete advisory risk-to-condition groups, unchanged strict Human gate; no scenario-registry dispatch or provider activation
 ```

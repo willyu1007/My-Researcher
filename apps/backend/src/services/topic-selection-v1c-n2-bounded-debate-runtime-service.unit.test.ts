@@ -1,3 +1,4 @@
+import { promotionConditionCandidates } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
@@ -237,6 +238,7 @@ function roleOutput(
     reviewer_questions: ['Are selected evidence refs still current before outline lock?'],
     risk_notes: [{ risk_ref: riskRef, note: 'Accepted risk preserved.' }],
     recheck_notes: [{ recheck_ref: recheckRef, note: 'Recheck preserved without automatic loopback.' }],
+    condition_candidates: promotionConditionCandidates([...handoff.accepted_risk_refs, ...handoff.memory_suggestion_refs, ...handoff.recheck_request_refs]),
     n3_semantic_layer: {
       claim_ceiling_alignment: {
         status: 'addressed',

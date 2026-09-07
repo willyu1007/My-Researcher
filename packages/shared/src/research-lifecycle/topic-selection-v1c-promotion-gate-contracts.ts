@@ -73,6 +73,16 @@ export interface TopicSelectionPromotionGateLoopbackHint {
   refs: TopicSelectionFunctionalRef[];
 }
 
+// Advisory N2 draft. The Human supplies the owner when submitting an exact N4 condition.
+export interface TopicSelectionPromotionConditionCandidate {
+  condition_id: string;
+  condition_code: string;
+  required_action: TopicSelectionPromotionGateRequiredAction;
+  refs: TopicSelectionFunctionalRef[];
+  early_check_obligations: string[];
+  verification_note?: string | null;
+}
+
 export interface TopicSelectionPromotionDecisionSupportLlmDraft {
   summary?: string | null;
   reviewer_questions?: string[];
@@ -80,6 +90,7 @@ export interface TopicSelectionPromotionDecisionSupportLlmDraft {
   recheck_notes?: string[];
   dossier_markdown?: string | null;
   n3_semantic_layer?: Record<string, unknown> | null;
+  condition_candidates?: TopicSelectionPromotionConditionCandidate[];
 }
 
 export interface TopicSelectionPromotionDecisionSupportRecord {
@@ -270,6 +281,29 @@ export const topicSelectionPromotionGateLoopbackHintSchema = {
   },
 } as const;
 
+const nonblankText = { type: 'string', pattern: '\\S' } as const;
+export const topicSelectionPromotionConditionCandidateSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['condition_id', 'condition_code', 'required_action', 'refs', 'early_check_obligations'],
+  properties: {
+    condition_id: nonblankText,
+    condition_code: nonblankText,
+    required_action: {
+      ...topicSelectionPromotionGateRequiredActionSchema,
+      properties: {
+        ...topicSelectionPromotionGateRequiredActionSchema.properties,
+        action_code: nonblankText,
+        reason: nonblankText,
+        refs: { ...functionalRefArray, minItems: 1 },
+      },
+    },
+    refs: { ...functionalRefArray, minItems: 1 },
+    early_check_obligations: { type: 'array', minItems: 1, items: nonblankText },
+    verification_note: { anyOf: [nonblankText, { type: 'null' }] },
+  },
+} as const;
+
 export const topicSelectionPromotionDecisionSupportLlmDraftSchema = {
   type: 'object',
   additionalProperties: false,
@@ -279,6 +313,7 @@ export const topicSelectionPromotionDecisionSupportLlmDraftSchema = {
     risk_notes: stringArray,
     recheck_notes: stringArray,
     dossier_markdown: nullableStringId,
+    condition_candidates: { type: 'array', items: topicSelectionPromotionConditionCandidateSchema },
     n3_semantic_layer: {
       anyOf: [objectPayload, { type: 'null' }],
     },

@@ -1,4 +1,4 @@
-import { promotionDebateRoleOutputs as allRoleOutputs } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
+import { promotionDebateRoleOutputs as allRoleOutputs, promotionConditionCandidates } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
@@ -307,4 +307,88 @@ test('v1c N2 coordinator: a missing role output is rejected with INVALID_PAYLOAD
     },
   );
   assert.deepEqual(await controlPlane.listArtifactRefsByWorkflowRunId(baseInput(handoff).workflow_run_id), []);
+});
+
+test('FIND-028: 25 material findings retain five editable condition groups and early checks through N2/N3', async () => {
+  const { coordinator, handoff, gateService } = makeSubject();
+  handoff.accepted_risk_refs = [];
+  handoff.memory_suggestion_refs = [];
+  handoff.recheck_request_refs = [];
+  handoff.blocker_refs = [];
+  const findings = Array.from({ length: 25 }, (_, index) =>
+    ref('artifact_ref', `risk_finding_${index + 1}`, TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION));
+  handoff.snapshot.source_bundle_snapshot.risk_finding_refs = findings;
+  const groups = Array.from({ length: 5 }, (_, index) => ({
+    condition_id: `condition_${index + 1}`,
+    condition_code: `verify_risk_group_${index + 1}`,
+    refs: findings.slice(index * 5, index * 5 + 5),
+    required_action: {
+      action_code: `check_risk_group_${index + 1}`,
+      severity: 'warning',
+      loopback_target: 'none',
+      refs: findings.slice(index * 5, index * 5 + 5),
+      reason: `Validate the evidence boundary for risk group ${index + 1}.`,
+    },
+    early_check_obligations: [`Before outline lock, verify group ${index + 1} against the selected evidence.`],
+    verification_note: 'Human must assign the owner and confirm this check.',
+  }));
+  const input = baseInput(handoff);
+  const final = input.debate_role_outputs['n2_bounded_micro_debate.synthesizer_final'];
+  final.condition_candidates = groups;
+  final.n3_semantic_layer = {
+    ...final.n3_semantic_layer as Record<string, unknown>,
+    material_risk_acknowledgements: { status: 'addressed', risk_refs: findings },
+  };
+  const support = await coordinator.createPromotionDecisionSupportFromBoundedDebate(input);
+  assert.deepEqual(support.promotion_dossier.dossier_payload.condition_candidates, groups);
+  assert.deepEqual(support.promotion_decision_support.llm_draft_payload?.condition_candidates, groups);
+  const gate = await gateService.createPromotionGateCheckFromSupport({
+    promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
+  });
+  assert.equal(gate.handoff.disposition, 'ready_for_human_decision');
+  assert.deepEqual(gate.handoff.dossier.dossier_payload.condition_candidates, groups);
+  assert.deepEqual(await coordinator.createPromotionDecisionSupportFromBoundedDebate(input), support);
+});
+
+test('FIND-028: N2 rejects an incomplete condition mapping before support publication', async () => {
+  const { coordinator, handoff } = makeSubject();
+  const input = baseInput(handoff);
+  input.debate_role_outputs['n2_bounded_micro_debate.synthesizer_final'].condition_candidates = [];
+  await assert.rejects(coordinator.createPromotionDecisionSupportFromBoundedDebate(input),
+    (error: unknown) => error instanceof AppError
+      && error.details?.blocker_code === 'N2_BOUNDED_DEBATE_CONDITION_CANDIDATES_INVALID');
+});
+
+test('FIND-028: invalid, ambiguous and incomplete condition proposals never publish N2 support', async (t) => {
+  const changes = [
+    ['missing memory group', (groups: ReturnType<typeof promotionConditionCandidates>) => {
+      groups[0]!.refs = groups[0]!.refs.filter((item) => item.ref_type !== 'memory_suggestion');
+      groups[0]!.required_action.refs = groups[0]!.refs;
+    }],
+    ['missing recheck group', (groups: ReturnType<typeof promotionConditionCandidates>) => {
+      groups[0]!.refs = groups[0]!.refs.filter((item) => item.ref_type !== 'recheck_request');
+      groups[0]!.required_action.refs = groups[0]!.refs;
+    }],
+    ['mismatched action refs', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups[0]!.required_action.refs = [groups[0]!.refs[0]!]; }],
+    ['duplicate groups', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups.push(structuredClone(groups[0]!)); }],
+    ['overlapping groups', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups.push({ ...structuredClone(groups[0]!), condition_id: 'other', condition_code: 'other', required_action: { ...groups[0]!.required_action, action_code: 'other' } }); }],
+    ['empty early checks', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups[0]!.early_check_obligations = []; }],
+    ['blank action', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups[0]!.required_action.reason = '   '; }],
+    ['stale risk version', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups[0]!.refs[0]!.version_id = 'stale'; }],
+    ['invented ref', (groups: ReturnType<typeof promotionConditionCandidates>) => { groups[0]!.refs[0]!.ref_id = 'invented'; }],
+    ['model assigns owner', (groups: ReturnType<typeof promotionConditionCandidates>) => { Object.assign(groups[0]!, { owner: { actor_type: 'human', actor_id: 'invented-owner' } }); }],
+  ] as const;
+  for (const [label, change] of changes) {
+    await t.test(label, async () => {
+      const { coordinator, handoff, gateService } = makeSubject();
+      const input = baseInput(handoff);
+      const groups = promotionConditionCandidates(structuredClone([...handoff.accepted_risk_refs, ...handoff.memory_suggestion_refs, ...handoff.recheck_request_refs]));
+      change(groups);
+      input.debate_role_outputs['n2_bounded_micro_debate.synthesizer_final'].condition_candidates = groups;
+      await assert.rejects(coordinator.createPromotionDecisionSupportFromBoundedDebate(input),
+        (error: unknown) => error instanceof AppError && error.statusCode === 422);
+      await assert.rejects(gateService.getPromotionDecisionSupport('promotion_decision_support_001'),
+        (error: unknown) => error instanceof AppError && error.statusCode === 404);
+    });
+  }
 });
