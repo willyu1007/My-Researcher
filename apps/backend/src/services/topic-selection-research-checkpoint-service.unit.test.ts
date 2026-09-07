@@ -316,6 +316,108 @@ test('human and LLM stage views share one current manifest while keeping differe
   ]);
 });
 
+test('current Human rejection is terminal in research views and supersession clears only its projection', async () => {
+  const { service } = createService();
+  const checkpoint = await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: evidenceMap(),
+    evidence_units: [evidenceUnit('support', 'support'), evidenceUnit('baseline', 'baseline'), evidenceUnit('challenge', 'challenge')],
+    conflict_sets: [], coverage_row_intents: [], coverage_assessments: [],
+  });
+  const input = {
+    ...advancingDecision(checkpoint.target_snapshot_hash), decision: 'reject' as const,
+    rationale: 'The nearest work already solves this topic.',
+  };
+  const decision = await service.recordDecision(checkpoint.research_checkpoint_id, input);
+  const rejected = (await service.getResearchStatus('title_1')).research_rejection;
+  assert.equal(rejected?.checkpoint_ref.ref_id, checkpoint.research_checkpoint_id);
+  assert.equal(rejected?.decision_ref.ref_id, decision.research_checkpoint_decision_id);
+  assert.equal(rejected?.rationale, input.rationale);
+  assert.equal((await service.getResearchStatus('title_1')).next_authorized_transition, null);
+  const manifest = await service.getStageManifest('title_1');
+  assert.equal(manifest.stages[0]?.status, 'rejected');
+  assert.equal(manifest.next_human_decision_stage, null);
+  const envelope = await service.getContinuationEnvelope('title_1');
+  assert.equal(envelope.boundary_reached, true);
+  assert.equal((await service.evaluateContinuationEnvelope('title_1', {
+    schema_version: 'TopicSelectionResearchContinuationEnvelopeEvaluationInput@v1',
+    envelope_hash: envelope.envelope_hash, manifest_hash: envelope.manifest_hash,
+    proposed_effects: ['deterministic_local_write'],
+  })).decision, 'stop_for_human');
+  for (const stage of ['overview', 'evidence_landscape', 'research_gap', 'research_question', 'value_feasibility', 'topic_package', 'promotion_review'] as const) {
+    const view = await service.getStageView('title_1', stage, 'human');
+    assert.match(view.markdown, /研究已拒绝/u);
+    assert.match(view.markdown, /The nearest work already solves this topic/u);
+    assert.match(view.markdown, /本轮研究已停止/u);
+    assert.doesNotMatch(view.markdown, /请审阅本阶段并选择/u);
+  }
+  const frozen = await service.getPacket(checkpoint.research_checkpoint_id);
+  await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: { ...evidenceMap(), evidence_map_id: 'new_evidence_map', evidence_map_version: 'v2' },
+    evidence_units: [], conflict_sets: [], coverage_row_intents: [], coverage_assessments: [],
+  });
+  assert.equal((await service.getResearchStatus('title_1')).research_rejection, null);
+  assert.equal((await service.getStageManifest('title_1')).stages[0]?.status, 'in_progress');
+  assert.deepEqual((await service.getPacket(checkpoint.research_checkpoint_id)).decision, frozen.decision);
+  assert.deepEqual(await service.recordDecision(checkpoint.research_checkpoint_id, input), decision);
+});
+
+test('question rejection requires the connected current upstream chain and clears after upstream replacement', async () => {
+  const { service } = createService();
+  const evidence = await materialize(service);
+  await service.recordDecision(evidence.research_checkpoint_id, advancingDecision());
+  const gap = await service.materializeCheckpoint({
+    title_card_id: 'title_1', checkpoint_kind: 'gap_selection',
+    target_ref: { ref_type: 'validated_need', ref_id: 'need_1', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_B, allowed_actions: ['advance'], packet_payload: {},
+  });
+  await service.adaptExistingStageDecision(gap.research_checkpoint_id, {
+    decision_authority_ref: { ref_type: 'human_confirmed_decision', ref_id: 'gap_decision', title_card_id: 'title_1' },
+    confirmed_snapshot_hash: HASH_B,
+  });
+  const question = await service.materializeCheckpoint({
+    title_card_id: 'title_1', checkpoint_kind: 'question_contract',
+    target_ref: { ref_type: 'topic_question_contract', ref_id: 'question_1', title_card_id: 'title_1' },
+    target_snapshot_hash: HASH_C, allowed_actions: ['reject'], packet_payload: {},
+  });
+  const rejection = await service.recordDecision(question.research_checkpoint_id, {
+    decision_key: 'reject_question', decision: 'reject',
+    actor: { actor_type: 'human', actor_id: 'reviewer_1' },
+    confirmed_snapshot_hash: HASH_C, rationale: 'The question cannot distinguish the proposed mechanism.',
+    review_payload: {
+      review_kind: 'question_contract', mechanism_identifiable: true, proxy_operationalized: true,
+      confounds_reviewed: true, falsification_reviewed: true, claim_ceiling_reviewed: true,
+      objections_reviewed: true, review_notes: [],
+    },
+  });
+  assert.equal((await service.getResearchRejection('title_1'))?.decision_ref.ref_id, rejection.research_checkpoint_decision_id);
+  assert.equal((await service.getResearchStatus('title_1')).next_authorized_transition, null);
+  const gapView = await service.getStageView('title_1', 'research_gap', 'llm');
+  assert.match(gapView.working_set.human_summary.recommendation, /本轮研究已停止/u);
+  assert.equal(gapView.working_set.human_summary.decision_requested, '当前没有待确认的人工决定。');
+  const successor = await materialize(service, HASH_D);
+  await service.recordDecision(successor.research_checkpoint_id, advancingDecision(HASH_D));
+  assert.equal((await service.getCheckpoint(question.research_checkpoint_id)).status, 'decided');
+  assert.equal(await service.getResearchRejection('title_1'), null);
+  assert.equal((await service.getResearchStatus('title_1')).research_rejection, null);
+});
+
+for (const disposition of ['hold', 'loopback'] as const) {
+  test(`${disposition} does not become a terminal research rejection`, async () => {
+    const { service } = createService();
+    const checkpoint = await service.materializeCheckpoint({
+      title_card_id: 'title_1', checkpoint_kind: 'evidence_landscape',
+      target_ref: { ref_type: 'evidence_map', ref_id: 'evidence_1', title_card_id: 'title_1' },
+      target_snapshot_hash: HASH_A, allowed_actions: [disposition], packet_payload: {},
+    });
+    await service.recordDecision(checkpoint.research_checkpoint_id, {
+      ...advancingDecision(), decision: disposition,
+      ...(disposition === 'loopback' ? { loopback_target: 'evidence_landscape' as const } : {}),
+    });
+    assert.equal(await service.getResearchRejection('title_1'), null);
+    assert.notEqual((await service.getStageManifest('title_1')).stages[0]?.status, 'rejected');
+  });
+}
+
 test('question Human view preserves the question, design boundaries, and answerability risks', async () => {
   const { service } = createService();
   const checkpoint = await service.materializeCheckpoint({

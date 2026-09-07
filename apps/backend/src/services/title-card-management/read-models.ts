@@ -11,27 +11,32 @@ import type {
 } from '../../repositories/title-card-management.repository.js';
 import type { TitleCardManagementReferenceGateway } from './support.js';
 import { isPipelineReady } from './support.js';
+import type { TopicSelectionResearchCheckpointService } from '../topic-selection-research-checkpoint-service.js';
 
 type ReadModelDeps = {
   repository: TitleCardManagementRepository;
   references: TitleCardManagementReferenceGateway;
+  researchCheckpoints?: Pick<TopicSelectionResearchCheckpointService, 'getResearchRejection'>;
 };
 
 export function createTitleCardManagementReadModels({
   repository,
   references,
+  researchCheckpoints,
 }: ReadModelDeps) {
   async function hydrateTitleCard(card: StoredTitleCard): Promise<TitleCardDTO> {
-    const [basket, needs, questions, values, packages, decisions] = await Promise.all([
+    const [basket, needs, questions, values, packages, decisions, researchRejection] = await Promise.all([
       repository.getEvidenceBasket(card.title_card_id),
       repository.listNeedReviews(card.title_card_id),
       repository.listResearchQuestions(card.title_card_id),
       repository.listValueAssessments(card.title_card_id),
       repository.listPackages(card.title_card_id),
       repository.listPromotionDecisions(card.title_card_id),
+      researchCheckpoints?.getResearchRejection(card.title_card_id) ?? null,
     ]);
     return {
       ...card,
+      research_rejection: researchRejection,
       evidence_count: basket.items.length,
       need_count: needs.length,
       research_question_count: questions.length,

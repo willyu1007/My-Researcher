@@ -426,6 +426,14 @@ export interface TopicSelectionResearchObjectionResolutionInput {
   output_refs: TopicSelectionFunctionalRef[];
 }
 
+export interface TopicSelectionResearchRejection {
+  checkpoint_kind: 'evidence_landscape' | 'question_contract';
+  checkpoint_ref: TopicSelectionFunctionalRef;
+  decision_ref: TopicSelectionFunctionalRef;
+  rationale: string;
+  rejected_at: string;
+}
+
 export interface TopicSelectionResearchStatusProjection {
   title_card_id: string;
   contract_version: typeof TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION;
@@ -438,6 +446,8 @@ export interface TopicSelectionResearchStatusProjection {
   material_risk_finding_refs: TopicSelectionFunctionalRef[];
   /** Read-only value stage for the current question; never an execution authorization. */
   current_value?: TopicSelectionResearchStageManifestEntry | null;
+  /** Derived from an exact Human reject on the current checkpoint lineage. */
+  research_rejection?: TopicSelectionResearchRejection | null;
   legacy_provenance: boolean;
 }
 

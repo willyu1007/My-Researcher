@@ -49,6 +49,9 @@ export function SeedOverviewCard({
 
   const hasAnyV1aAuthority = activeSearchPlan || activeEvidenceMap || openNeedCandidates.length > 0;
   const verdictHint = (() => {
+    if (titleCard.research_rejection) {
+      return `研究已拒绝：${titleCard.research_rejection.rationale}`;
+    }
     if (!hasAnyV1aAuthority) {
       return '该题目卡的 v1a 决策链还没有任何 authority/workflow 记录。';
     }
@@ -65,8 +68,11 @@ export function SeedOverviewCard({
     <ReviewerCard
       kind="TitleCard / TopicSeed"
       subjectId={titleCard.title_card_id}
-      status={{ label: titleCard.status, tone: 'info' }}
+      status={titleCard.research_rejection
+        ? { label: '研究已拒绝', tone: 'warning' }
+        : { label: `管理状态：${titleCard.status}`, tone: 'info' }}
       chips={[
+        ...(titleCard.research_rejection ? [{ label: `管理状态：${titleCard.status}`, tone: 'neutral' as const }] : []),
         { label: `SearchPlan ${searchPlans.length}`, tone: searchPlans.length > 0 ? 'info' : 'neutral' },
         { label: `EvidenceMap ${evidenceMaps.length}`, tone: evidenceMaps.length > 0 ? 'info' : 'neutral' },
         {
@@ -101,7 +107,7 @@ export function SeedOverviewCard({
             ) : null}
           </div>
         ) : (
-          <ReviewerCardEmpty label="还没有 SearchPlan。进入 SearchPlan 标签创建。" />
+          <ReviewerCardEmpty label={titleCard.research_rejection ? '还没有 SearchPlan。' : '还没有 SearchPlan。进入 SearchPlan 标签创建。'} />
         )
       }
       challenge={
@@ -151,7 +157,9 @@ export function SeedOverviewCard({
       }
       nextActions={
         <div data-ui="stack" data-direction="col" data-gap="1">
-          {!activeSearchPlan ? (
+          {titleCard.research_rejection ? (
+            <p data-ui="text" data-variant="caption" data-tone="primary">本轮研究已停止，可查看历史证据与决定。重新研究需形成新的检查点并接受人审。</p>
+          ) : !activeSearchPlan ? (
             <p data-ui="text" data-variant="caption" data-tone="primary">→ 进入 SearchPlan 标签创建首版 plan。</p>
           ) : !activeEvidenceMap ? (
             <p data-ui="text" data-variant="caption" data-tone="primary">→ 进入 EvidenceMap 标签从 SearchRun 构建 evidence map。</p>

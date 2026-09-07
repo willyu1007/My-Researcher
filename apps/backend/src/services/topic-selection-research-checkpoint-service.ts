@@ -84,6 +84,7 @@ import {
   type TopicSelectionResearchObjectionResolutionRecord,
   type TopicSelectionResearchRoutineEffectClass,
   type TopicSelectionResearchStatusProjection,
+  type TopicSelectionResearchRejection,
   type TopicSelectionResearchStageManifest,
   type TopicSelectionResearchStageManifestEntry,
   type TopicSelectionResearchStageHumanSummary,
@@ -1841,6 +1842,44 @@ export class TopicSelectionResearchCheckpointService {
     return checkpoint;
   }
 
+  async getResearchRejection(titleCardId: string): Promise<TopicSelectionResearchRejection | null> {
+    return this.projectResearchRejection(await this.repository.listCheckpointsByTitleCardId(titleCardId));
+  }
+
+  private async projectResearchRejection(
+    records: TopicSelectionResearchCheckpointRecord[],
+  ): Promise<TopicSelectionResearchRejection | null> {
+    const current = new Map(records.filter((record) => record.current_checkpoint_key != null)
+      .map((record) => [record.checkpoint_kind, record]));
+    let predecessor: TopicSelectionResearchCheckpointRecord | null = null;
+    for (const kind of TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS) {
+      const checkpoint = current.get(kind);
+      if (!checkpoint || checkpoint.status !== 'decided' || !checkpoint.decision_authority_ref) return null;
+      const predecessorRef = predecessor ? this.checkpointRef(predecessor) : null;
+      if (predecessorRef && !checkpoint.source_refs.some((ref) => this.refsEqual(ref, predecessorRef))) return null;
+      const decision = await this.repository.findDecisionByCheckpointId(checkpoint.research_checkpoint_id);
+      if (decision?.decision === 'reject'
+        && decision.actor.actor_type === 'human'
+        && decision.title_card_id === checkpoint.title_card_id
+        && decision.research_checkpoint_id === checkpoint.research_checkpoint_id
+        && decision.checkpoint_kind === checkpoint.checkpoint_kind
+        && decision.confirmed_snapshot_hash === checkpoint.target_snapshot_hash
+        && this.refsEqual(checkpoint.decision_authority_ref,
+          this.ref('research_checkpoint_decision', decision.research_checkpoint_decision_id, checkpoint.title_card_id))) {
+        return {
+          checkpoint_kind: decision.checkpoint_kind,
+          checkpoint_ref: this.checkpointRef(checkpoint),
+          decision_ref: checkpoint.decision_authority_ref,
+          rationale: decision.rationale,
+          rejected_at: decision.created_at,
+        };
+      }
+      if (decision && decision.decision !== 'advance') return null;
+      predecessor = checkpoint;
+    }
+    return null;
+  }
+
   async getResearchStatus(titleCardId: string): Promise<TopicSelectionResearchStatusProjection> {
     const allRecords = await this.repository.listCheckpointsByTitleCardId(titleCardId);
     const currentByKind = new Map(
@@ -1888,6 +1927,7 @@ export class TopicSelectionResearchCheckpointService {
       const nextIndex = TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS.indexOf(kind) + 1;
       requiredCheckpointKind = TOPIC_SELECTION_RESEARCH_CHECKPOINT_KINDS[nextIndex] ?? null;
     }
+    const researchRejection = await this.projectResearchRejection(checkpointChain);
     return {
       title_card_id: titleCardId,
       contract_version: TOPIC_SELECTION_RESEARCH_CHECKPOINT_CONTRACT_VERSION,
@@ -1895,7 +1935,8 @@ export class TopicSelectionResearchCheckpointService {
       current_checkpoint: currentCheckpoint,
       current_packet: currentPacket,
       required_checkpoint_kind: requiredCheckpointKind,
-      next_authorized_transition: nextAuthorizedTransition,
+      next_authorized_transition: researchRejection ? null : nextAuthorizedTransition,
+      research_rejection: researchRejection,
       open_blocking_objection_count: openBlockingObjectionCount,
       material_risk_finding_refs: materialRiskFindingRefs,
       current_value: valueStage.entry,
@@ -2035,7 +2076,8 @@ export class TopicSelectionResearchCheckpointService {
       checkpoint_ref: null,
       supersedes_ref: null,
       snapshot_hash: this.hash(projectedStages),
-      status: researchStatus.required_checkpoint_kind === null ? 'complete' : 'in_progress',
+      status: researchStatus.research_rejection ? 'rejected'
+        : researchStatus.required_checkpoint_kind === null ? 'complete' : 'in_progress',
       source_refs: this.uniqueRefs(currentAuthorityRefs),
       artifact_refs: this.uniqueRefs(projectedStages.flatMap((stage) => stage.artifact_refs)),
       issue_codes: [],
@@ -2048,7 +2090,7 @@ export class TopicSelectionResearchCheckpointService {
       schema_version: 'TopicSelectionResearchStageManifest@v1' as const,
       title_card_id: titleCardId,
       current_stage: currentStage,
-      next_human_decision_stage: researchStatus.required_checkpoint_kind
+      next_human_decision_stage: researchStatus.required_checkpoint_kind && !researchStatus.research_rejection
         ? STAGE_BY_CHECKPOINT_KIND[researchStatus.required_checkpoint_kind]
         : null,
       stages,
@@ -2071,8 +2113,8 @@ export class TopicSelectionResearchCheckpointService {
     titleCardId: string,
   ): Promise<TopicSelectionResearchContinuationEnvelope> {
     const manifest = await this.getStageManifest(titleCardId);
-    const boundaryReached = manifest.current_stage !== null
-      && manifest.current_stage === manifest.next_human_decision_stage;
+    const boundaryReached = manifest.stages[0]?.status === 'rejected'
+      || (manifest.current_stage !== null && manifest.current_stage === manifest.next_human_decision_stage);
     const body = {
       schema_version: 'TopicSelectionResearchContinuationEnvelope@v1' as const,
       intent: 'advance_to_next_human_decision' as const,
@@ -2349,9 +2391,15 @@ export class TopicSelectionResearchCheckpointService {
       related_records: relatedRecords,
       artifact_route_template: '/topic-selection/artifacts/{artifactRefId}' as const,
     };
+    const humanSummary = this.buildHumanStageSummary(manifest, stage, workingSetWithoutSummary);
+    if (researchStatus.research_rejection) {
+      humanSummary.conclusions.unshift(`研究已拒绝：${researchStatus.research_rejection.rationale}`);
+      humanSummary.recommendation = '本轮研究已停止，可查看历史证据与决定。重新研究需形成新的检查点并接受人审。';
+      humanSummary.decision_requested = '当前没有待确认的人工决定。';
+    }
     return {
       ...workingSetWithoutSummary,
-      human_summary: this.buildHumanStageSummary(manifest, stage, workingSetWithoutSummary),
+      human_summary: humanSummary,
     };
   }
 

@@ -12,33 +12,13 @@
 import type {
   TitleCardPrimaryTabKey,
 } from '../../../literature/shared/types';
+import type {
+  TitleCardDTO,
+  TitleCardListResponse,
+} from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
 
-export type TitleCardWorkbenchSummary = {
-  title_card_id: string;
-  working_title: string;
-  brief: string;
-  status: string;
-  evidence_count: number;
-  need_count: number;
-  research_question_count: number;
-  value_assessment_count: number;
-  package_count: number;
-  promotion_decision_count: number;
-  latest_paper_id?: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type TitleCardWorkbenchListPayload = {
-  items: TitleCardWorkbenchSummary[];
-  summary: {
-    total_title_cards: number;
-    active_title_cards: number;
-    promoted_title_cards: number;
-    total_evidence_items: number;
-    pending_promotion_cards: number;
-  };
-};
+export type TitleCardWorkbenchSummary = TitleCardDTO;
+export type TitleCardWorkbenchListPayload = TitleCardListResponse;
 
 export type TopicWorkbenchModuleProps = {
   /** Active title-card id (D5: lifted to App.tsx). */

@@ -32,4 +32,6 @@ Confidence and scores are supporting signals only. They cannot be the sole gate.
 
 ## Authority
 
+TitleCard management status (`draft`, `active`, `promoted`, `parked`) remains separate from the current research outcome. The list, selection detail, Seed overview, and sidebar selector consume the backend's read-only `research_rejection` projection and show “研究已拒绝” with the decision rationale where space permits. Active and pending-promotion counts exclude these cards; historical stage navigation remains available. Only a Human rejection on the connected current checkpoint chain supplies this projection. A superseding checkpoint clears the stale rejection without rewriting the historical decision or changing management status.
+
 The implementation under `apps/desktop/src/renderer/modules/topic-workbench/**` owns the current component composition. This document preserves only stable interaction and styling boundaries. Historical design rationale remains attributable to T-042 and T-087 without being a runtime dependency on their task bundles.

@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 decision views, warning reconciliation, and TSRF-06 literature-risk visibility implemented and focused-verified
-- Next step: Reconcile rejected-topic disposition under FIND-011 before the remaining contract and decision-support phases.
+- Current phase: Phase 1 implementation complete, including FIND-011 rejected-topic disposition; focused verification passed
+- Next step: Start Phase 2 with FIND-003 / TSRF-03: align the public EvidenceMap request contract with the existing runtime fields and enums, then address the workflow-run route contracts.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when

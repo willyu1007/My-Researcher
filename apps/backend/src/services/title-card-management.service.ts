@@ -29,6 +29,7 @@ import { AppError } from '../errors/app-error.js';
 import type { TitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { createTitleCardManagementGuardrails } from './title-card-management/guardrails.js';
 import { createTitleCardManagementReadModels } from './title-card-management/read-models.js';
+import type { TopicSelectionResearchCheckpointService } from './topic-selection-research-checkpoint-service.js';
 import {
   type PaperProjectGateway,
   type TitleCardManagementReferenceGateway,
@@ -46,9 +47,10 @@ export class TitleCardManagementService {
     private readonly repository: TitleCardManagementRepository,
     _paperProjects: PaperProjectGateway,
     references: TitleCardManagementReferenceGateway,
+    researchCheckpoints?: Pick<TopicSelectionResearchCheckpointService, 'getResearchRejection'>,
   ) {
     this.guardrails = createTitleCardManagementGuardrails({ repository, references });
-    this.readModels = createTitleCardManagementReadModels({ repository, references });
+    this.readModels = createTitleCardManagementReadModels({ repository, references, researchCheckpoints });
   }
 
   async listTitleCards(): Promise<TitleCardListResponse> {
@@ -56,11 +58,11 @@ export class TitleCardManagementService {
     const hydrated = await Promise.all(cards.map((card) => this.readModels.hydrateTitleCard(card)));
     const summary = {
       total_title_cards: hydrated.length,
-      active_title_cards: hydrated.filter((card) => card.status === 'active').length,
+      active_title_cards: hydrated.filter((card) => card.status === 'active' && !card.research_rejection).length,
       promoted_title_cards: hydrated.filter((card) => card.status === 'promoted').length,
       total_evidence_items: hydrated.reduce((sum, card) => sum + card.evidence_count, 0),
       pending_promotion_cards: hydrated.filter(
-        (card) => card.package_count > 0 && !card.latest_paper_id,
+        (card) => card.package_count > 0 && !card.latest_paper_id && !card.research_rejection,
       ).length,
     };
 

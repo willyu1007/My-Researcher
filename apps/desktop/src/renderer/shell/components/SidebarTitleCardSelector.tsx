@@ -57,6 +57,7 @@ export function SidebarTitleCardSelector({
           {items.map((item) => (
             <option key={item.title_card_id} value={item.title_card_id}>
               {item.working_title || item.title_card_id}
+              {item.research_rejection ? '（研究已拒绝）' : ''}
             </option>
           ))}
         </select>

@@ -1,3 +1,5 @@
+import type { TopicSelectionResearchRejection } from './topic-selection-research-checkpoint-contracts.js';
+
 export const RESEARCH_RECORD_STATUSES = ['draft', 'completed', 'superseded', 'archived'] as const;
 export type ResearchRecordStatus = (typeof RESEARCH_RECORD_STATUSES)[number];
 
@@ -49,6 +51,8 @@ export interface TitleCardDTO {
   working_title: string;
   brief: string;
   status: TitleCardStatus;
+  /** Read-only research outcome; does not change the card's management status. */
+  research_rejection?: TopicSelectionResearchRejection | null;
   evidence_count: number;
   need_count: number;
   research_question_count: number;

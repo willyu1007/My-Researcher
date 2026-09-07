@@ -86,6 +86,9 @@ export function OverviewView({
                     <span data-ui="stack" data-direction="col" data-gap="0" data-align="start">
                       <span data-ui="text" data-variant="body" data-tone="primary">{item.working_title || item.title_card_id}</span>
                       <span data-ui="text" data-variant="caption" data-tone="muted">{item.title_card_id}</span>
+                      {item.research_rejection ? (
+                        <span data-ui="text" data-variant="caption" data-tone="warning">研究已拒绝</span>
+                      ) : null}
                     </span>
                   </button>
                 );
@@ -102,11 +105,17 @@ export function OverviewView({
                 <p data-ui="text" data-variant="h3" data-tone="primary">{activeCard.working_title}</p>
                 <p data-ui="text" data-variant="body" data-tone="muted">{activeCard.brief}</p>
                 <div data-ui="stack" data-direction="row" data-gap="2" data-wrap="wrap">
-                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">状态：{activeCard.status}</span>
+                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">管理状态：{activeCard.status}</span>
+                  {activeCard.research_rejection ? (
+                    <span data-ui="badge" data-variant="subtle" data-tone="warning">研究已拒绝</span>
+                  ) : null}
                   {activeCard.latest_paper_id ? (
                     <span data-ui="badge" data-variant="subtle" data-tone="info">Paper: {activeCard.latest_paper_id}</span>
                   ) : null}
                 </div>
+                {activeCard.research_rejection ? (
+                  <p data-ui="text" data-variant="body" data-tone="muted">拒绝理由：{activeCard.research_rejection.rationale}</p>
+                ) : null}
                 <div data-ui="grid" data-cols="3" data-gap="2">
                   <article data-ui="card" data-padding="sm">
                     <p data-ui="text" data-variant="caption" data-tone="muted">Evidence</p>

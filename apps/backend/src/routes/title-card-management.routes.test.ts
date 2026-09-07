@@ -8,6 +8,13 @@ import { InMemoryLiteratureRepository } from '../repositories/in-memory-literatu
 import { InMemoryTitleCardManagementRepository } from '../repositories/title-card-management.repository.js';
 import { registerTitleCardManagementRoutes } from './title-card-management.js';
 import { TitleCardManagementService } from '../services/title-card-management.service.js';
+import type { TitleCardListResponse } from '@paper-engineering-assistant/shared/research-lifecycle/title-card-management-contracts';
+import { TopicSelectionResearchCheckpointController } from '../controllers/topic-selection-research-checkpoint-controller.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import { InMemoryTopicSelectionResearchCheckpointRepository } from '../repositories/in-memory-topic-selection-research-checkpoint-repository.js';
+import { TopicSelectionControlPlaneService } from '../services/topic-selection-control-plane-service.js';
+import { TopicSelectionResearchCheckpointService } from '../services/topic-selection-research-checkpoint-service.js';
+import { registerTopicSelectionResearchCheckpointRoutes } from './topic-selection-research-checkpoint-routes.js';
 
 async function makeApp() {
   const repository = new InMemoryTitleCardManagementRepository();
@@ -37,16 +44,21 @@ async function makeApp() {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
+  const checkpoints = new TopicSelectionResearchCheckpointService(
+    new InMemoryTopicSelectionResearchCheckpointRepository(),
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository()),
+  );
   const service = new TitleCardManagementService(repository, paperProjects, {
     findLiteratureById: (literatureId) => literatureRepository.findLiteratureById(literatureId),
     listLiteratures: () => literatureRepository.listLiteratures(),
     listSourcesByLiteratureId: (literatureId) => literatureRepository.listSourcesByLiteratureId(literatureId),
     listPipelineStatesByLiteratureIds: (literatureIds) => literatureRepository.listPipelineStatesByLiteratureIds(literatureIds),
-  });
+  }, checkpoints);
   const controller = new TitleCardManagementController(service);
   const app = Fastify();
   await registerTitleCardManagementRoutes(app, controller);
-  return { app, repository, paperCalls, service };
+  await registerTopicSelectionResearchCheckpointRoutes(app, new TopicSelectionResearchCheckpointController(checkpoints));
+  return { app, repository, paperCalls, service, checkpoints };
 }
 
 function needPayload() {
@@ -94,6 +106,73 @@ test('GET /title-cards/:titleCardId rejects short id', async () => {
   const response = await app.inject({ method: 'GET', url: '/title-cards/ab' });
   assert.equal(response.statusCode, 400);
   await app.close();
+});
+
+test('Human checkpoint rejection is shared by title list, detail and research status without affecting a replacement card', async () => {
+  const { app, checkpoints, repository } = await makeApp();
+  try {
+    const create = async (workingTitle: string) => {
+      const response = await app.inject({ method: 'POST', url: '/title-cards', payload: {
+        working_title: workingTitle, brief: 'Rejection and replacement fixture', status: 'active',
+      } });
+      assert.equal(response.statusCode, 201, response.body);
+      return response.json<{ title_card_id: string }>().title_card_id;
+    };
+    const rejectedId = await create('Rejected research');
+    await repository.createPackage(rejectedId, {
+      research_question_id: 'historical_question', value_assessment_id: 'historical_value',
+      title_candidates: ['Historical package'], research_background: 'Existing management record',
+      contribution_summary: 'Prior proposal', candidate_methods: [], evaluation_plan: 'Prior plan',
+      selected_literature_evidence_ids: [],
+    });
+    assert.equal((await app.inject({ method: 'GET', url: '/title-cards' })).json().summary.pending_promotion_cards, 1);
+    const checkpoint = await checkpoints.materializeCheckpoint({
+      title_card_id: rejectedId,
+      checkpoint_kind: 'evidence_landscape',
+      target_ref: { ref_type: 'evidence_map', ref_id: 'evidence_rejected', title_card_id: rejectedId },
+      target_snapshot_hash: 'a'.repeat(64),
+      allowed_actions: ['advance', 'reject', 'hold', 'loopback'],
+      packet_payload: {},
+    });
+    const rejectRequest = {
+      method: 'POST' as const,
+      url: `/topic-selection/checkpoints/${checkpoint.research_checkpoint_id}/decisions`,
+      payload: {
+        decision_key: 'reject_original_topic', decision: 'reject',
+        actor: { actor_type: 'human', actor_id: 'reviewer_1' },
+        confirmed_snapshot_hash: checkpoint.target_snapshot_hash,
+        rationale: 'Existing work already answers this question.',
+        review_payload: {
+          review_kind: 'evidence_landscape', nearest_work_reviewed: true,
+          disconfirming_evidence_reviewed: true, source_quality_reviewed: true, limitations: [],
+        },
+      },
+    };
+    const decision = await app.inject(rejectRequest);
+    assert.equal(decision.statusCode, 201, decision.body);
+    const replacementId = await create('Independent replacement research');
+    const detail = await app.inject({ method: 'GET', url: `/title-cards/${rejectedId}` });
+    const list = await app.inject({ method: 'GET', url: '/title-cards' });
+    const status = await app.inject({ method: 'GET', url: `/topic-selection/title-cards/${rejectedId}/research-status` });
+    for (const response of [detail, list, status]) assert.equal(response.statusCode, 200, response.body);
+    const rejection = detail.json().research_rejection;
+    assert.equal(rejection.decision_ref.ref_id, decision.json().research_checkpoint_decision_id);
+    assert.equal(rejection.rationale, rejectRequest.payload.rationale);
+    assert.deepEqual(status.json().research_rejection, rejection);
+    const body = list.json<TitleCardListResponse>();
+    assert.deepEqual(body.items.find((item) => item.title_card_id === rejectedId)?.research_rejection, rejection);
+    assert.equal(body.items.find((item) => item.title_card_id === replacementId)?.research_rejection, null);
+    assert.equal(body.summary.active_title_cards, 1);
+    assert.equal(body.summary.total_title_cards, 2);
+    assert.equal(body.summary.pending_promotion_cards, 0);
+    assert.equal(detail.json().package_count, 1);
+    assert.equal(detail.json().status, 'active');
+    assert.equal((await repository.getTitleCard(rejectedId))?.status, 'active');
+    assert.deepEqual((await app.inject(rejectRequest)).json(), decision.json());
+    assert.equal((await checkpoints.listCheckpoints(replacementId)).length, 0);
+  } finally {
+    await app.close();
+  }
 });
 
 test('GET evidence candidates returns items array', async () => {

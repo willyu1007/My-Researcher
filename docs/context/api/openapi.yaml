@@ -8909,6 +8909,22 @@ components:
             - type: 'null'
         packet_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
 
+    TopicSelectionResearchRejection:
+      type: object
+      additionalProperties: false
+      description: Read-only Human rejection on the current connected checkpoint chain. Superseded or disconnected historical decisions do not reject current research or change TitleCard management status.
+      required: [checkpoint_kind, checkpoint_ref, decision_ref, rationale, rejected_at]
+      properties:
+        checkpoint_kind:
+          type: string
+          enum: [evidence_landscape, question_contract]
+        checkpoint_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        decision_ref:
+          $ref: '#/components/schemas/TopicSelectionFunctionalRef'
+        rationale: { type: string }
+        rejected_at: { type: string, format: date-time }
+
     TopicSelectionResearchStatus:
       type: object
       additionalProperties: false
@@ -8932,6 +8948,11 @@ components:
           type: [string, 'null']
           enum: [evidence_landscape, gap_selection, question_contract, promotion, null]
         next_authorized_transition: { type: [string, 'null'] }
+        research_rejection:
+          readOnly: true
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchRejection'
+            - type: 'null'
         open_blocking_objection_count: { type: integer, minimum: 0 }
         material_risk_finding_refs:
           type: array
@@ -17280,6 +17301,11 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/TitleCardStatus'
+        research_rejection:
+          readOnly: true
+          anyOf:
+            - $ref: '#/components/schemas/TopicSelectionResearchRejection'
+            - type: 'null'
         evidence_count:
           type: integer
           minimum: 0
@@ -17316,6 +17342,7 @@ components:
           type: integer
           minimum: 0
         active_title_cards:
+          description: Cards with active management status and no current research rejection.
           type: integer
           minimum: 0
         promoted_title_cards:
@@ -17325,6 +17352,7 @@ components:
           type: integer
           minimum: 0
         pending_promotion_cards:
+          description: Cards awaiting promotion, excluding cards with a current research rejection.
           type: integer
           minimum: 0
 

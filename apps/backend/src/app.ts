@@ -743,6 +743,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     listLiteratures: () => literatureRepository.listLiteratures(),
     listSourcesByLiteratureId: (literatureId) => literatureRepository.listSourcesByLiteratureId(literatureId),
     listPipelineStatesByLiteratureIds: (literatureIds) => literatureRepository.listPipelineStatesByLiteratureIds(literatureIds),
+  }, {
+    getResearchRejection: (titleCardId) => topicSelectionResearchCheckpointService.getResearchRejection(titleCardId),
   });
   const titleCardManagementController = new TitleCardManagementController(titleCardManagementService);
   const experimentFoundationService = new ExperimentFoundationService(experimentFoundationRepository);
