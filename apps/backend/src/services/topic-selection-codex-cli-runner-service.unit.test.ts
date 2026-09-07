@@ -9,6 +9,7 @@ import test from 'node:test';
 
 import {
   TopicSelectionCodexCliRunnerService,
+  createTopicSelectionCodexCliRunnerFromEnv,
   buildCodexConfigToml,
   parseCodexEventStream,
   type TopicSelectionCodexCliSpawn,
@@ -51,6 +52,10 @@ function recordingSpawn(result: Partial<TopicSelectionCodexCliSpawnResult> = {})
 } {
   const calls: Recorded[] = [];
   const spawn: TopicSelectionCodexCliSpawn = async (args, options) => {
+    // The runner resolves the binary's own version once; that probe is not an invocation.
+    if (args[0] === '--version') {
+      return { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false };
+    }
     calls.push({ args: [...args], env: options.env, stdin: options.stdin, cwd: options.cwd });
     return {
       stdout: SUCCESS_STDOUT, stderr: '', exit_code: 0, timed_out: false, ...result,
@@ -127,6 +132,8 @@ void test('codex_cli runner returns the artifact, the usage and the trace on suc
   assert.equal(outcome.status, 'succeeded');
   if (outcome.status !== 'succeeded') { return; }
   assert.equal(outcome.thread_id, 'thread_001');
+  // Observed from the binary, not declared in configuration.
+  assert.equal(outcome.runner_version, 'codex-cli 0.153.4');
   assert.equal(outcome.final_message, '{"verdict":"supported"}');
   assert.equal(outcome.usage?.input_tokens, 21520);
   assert.equal(outcome.usage?.reasoning_output_tokens, 47);
@@ -157,4 +164,28 @@ void test('codex_cli event parsing drops malformed lines without losing the run'
   assert.equal(parsed.threadId, 'thread_001');
   assert.equal(parsed.finalMessage, '{"verdict":"supported"}');
   assert.equal(parsed.events.length, 6);
+});
+
+void test('codex_cli deployment config stays unavailable rather than half-configured', () => {
+  assert.equal(createTopicSelectionCodexCliRunnerFromEnv({}), null);
+  assert.equal(createTopicSelectionCodexCliRunnerFromEnv({ TOPIC_SELECTION_CODEX_HOME: '/srv/codex' }), null);
+  assert.equal(createTopicSelectionCodexCliRunnerFromEnv({ TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra' }), null);
+
+  const configured = createTopicSelectionCodexCliRunnerFromEnv({
+    TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
+    TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
+  });
+  assert.equal(configured?.model_id, 'gpt-6-astra');
+  assert.ok(configured?.runner instanceof TopicSelectionCodexCliRunnerService);
+
+  assert.throws(() => createTopicSelectionCodexCliRunnerFromEnv({
+    TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
+    TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
+    TOPIC_SELECTION_CODEX_REASONING_EFFORT: 'ultra',
+  }), /REASONING_EFFORT/);
+  assert.throws(() => createTopicSelectionCodexCliRunnerFromEnv({
+    TOPIC_SELECTION_CODEX_HOME: '/srv/codex',
+    TOPIC_SELECTION_CODEX_MODEL: 'gpt-6-astra',
+    TOPIC_SELECTION_CODEX_TIMEOUT_MS: '0',
+  }), /TIMEOUT_MS/);
 });

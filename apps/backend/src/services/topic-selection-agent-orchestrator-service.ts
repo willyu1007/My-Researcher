@@ -11,6 +11,7 @@ import type {
   TopicSelectionAgentExecutionMode,
   TopicSelectionArtifactFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
+import { TOPIC_SELECTION_AGENT_EXECUTION_MODES } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-need-validation-contracts';
 import {
   TOPIC_SELECTION_AGENT_RUN_MODES,
   type TopicSelectionAgentExecutionSpec,
@@ -39,6 +40,10 @@ import {
   topicSelectionAgentInvocationAuditSnapshotSchema,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-agent-invocation-contracts';
 import { AppError } from '../errors/app-error.js';
+import type {
+  TopicSelectionCodexCliRunOutcome,
+  TopicSelectionCodexCliRunnerService,
+} from './topic-selection-codex-cli-runner-service.js';
 import {
   BackendLlmGateway,
   LlmGatewayError,
@@ -242,8 +247,12 @@ export class TopicSelectionAgentOrchestratorService {
     compressionRuntime?: TopicSelectionCompressionRuntimeService;
     promptPacketRuntime?: TopicSelectionPromptPacketRuntimeService;
     promptPacketCache?: TopicSelectionPromptPacketCacheService | null;
+    codexCliRunner?: TopicSelectionCodexCliRunnerService | null;
+    codexCliModelId?: string | null;
     now?: () => string;
   } = {}) {
+    this.codexCliRunner = options.codexCliRunner ?? null;
+    this.codexCliModelId = options.codexCliModelId ?? null;
     this.llmGateway = options.llmGateway ?? new BackendLlmGateway();
     this.controlPlane = options.controlPlane ?? null;
     this.modelProfileRegistry = options.modelProfileRegistry ?? new TopicSelectionModelProfileRegistryService();
@@ -257,6 +266,10 @@ export class TopicSelectionAgentOrchestratorService {
   }
 
   private readonly controlPlane: TopicSelectionControlPlaneService | null;
+
+  private readonly codexCliRunner: TopicSelectionCodexCliRunnerService | null;
+
+  private readonly codexCliModelId: string | null;
 
   async invokeStructuredOutput<T>(
     input: TopicSelectionAgentInvocationRequest<T>,
@@ -581,6 +594,10 @@ export class TopicSelectionAgentOrchestratorService {
           ...this.debateExtensionProvenance(input),
         },
       };
+    }
+
+    if (input.execution_mode === 'codex_cli') {
+      return this.executeCodexCli(input, resolvedProfile, promptPacketHash, preparedPromptPacket, invocationAttemptId);
     }
 
     const model = this.modelRefForResolvedProfile(resolvedProfile);
@@ -917,6 +934,143 @@ export class TopicSelectionAgentOrchestratorService {
       'INTERNAL_ERROR',
       `Agent invocation audit snapshot violated shared contract: ${message}`,
     );
+  }
+
+  /** T-151 codex_cli line. The product runs the model itself, keeps the schema-constrained artifact,
+   *  and persists the event stream as the provenance of record — including on failure, because a
+   *  failed run's trace is evidence too. */
+  private async executeCodexCli<T>(
+    input: TopicSelectionAgentInvocationRequest<T>,
+    resolvedProfile: TopicSelectionResolvedModelProfile,
+    promptPacketHash: string,
+    preparedPromptPacket: PreparedPromptPacket,
+    invocationAttemptId: string,
+  ): Promise<SourceExecution<T>> {
+    if (!this.codexCliRunner || !this.codexCliModelId) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'The codex_cli execution line is not configured in this deployment.');
+    }
+    if (!this.controlPlane) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'The codex_cli line requires a control plane to persist its trace.');
+    }
+
+    const outcome = await this.codexCliRunner.run({
+      prompt: this.codexPromptText(input),
+      output_schema: this.providerCompatibleSchema(input.schema) as unknown as Record<string, unknown>,
+      invocation_attempt_id: invocationAttemptId,
+    });
+    const trace = await this.recordCodexCliTrace(input, invocationAttemptId, outcome);
+    const packetOptions = {
+      promptQualityReportRef: preparedPromptPacket.promptQualityReportRef,
+      redactedPromptArtifactRef: preparedPromptPacket.redactedPromptArtifactRef,
+      promptPacketCacheStatus: preparedPromptPacket.promptPacketCacheStatus,
+      promptPacketCacheResultRef: preparedPromptPacket.promptPacketCacheResultRef,
+      promptPacketCacheResultHash: preparedPromptPacket.promptPacketCacheResultHash,
+      codexCli: {
+        model_id: this.codexCliModelId,
+        runner_version: outcome.runner_version,
+        thread_id: outcome.thread_id,
+        trace_artifact_ref: trace.ref,
+        trace_artifact_hash: trace.hash,
+      },
+    };
+
+    if (outcome.status === 'failed') {
+      return this.blockedSource(
+        input, resolvedProfile, outcome.error_code, 'codex_cli_response', promptPacketHash, packetOptions,
+      );
+    }
+
+    let parsed: T;
+    try {
+      parsed = JSON.parse(outcome.final_message) as T;
+    } catch {
+      // --output-schema constrains the shape, so unparsable text means the run did not honour it.
+      return this.blockedSource(
+        input, resolvedProfile, 'CODEX_CLI_UNPARSABLE_OUTPUT', 'codex_cli_response', promptPacketHash, packetOptions,
+      );
+    }
+
+    const responseHash = this.hash(parsed);
+    return {
+      output: parsed,
+      provenance: {
+        workflow_run_id: input.workflow_run_id,
+        node_id: input.node_id,
+        node_attempt_id: input.node_attempt_id,
+        invocation_attempt_id: invocationAttemptId,
+        execution_mode: input.execution_mode,
+        executor_kind: input.executor_kind,
+        source_kind: 'codex_cli_response',
+        // "not the provider_llm gateway path", which this is not, even though a live model ran.
+        non_provider: true,
+        run_mode: input.run_mode,
+        profile_id: input.profile_id,
+        profile_version: resolvedProfile.profile.profile_version,
+        profile_hash: resolvedProfile.profile_hash,
+        model_option_id: null,
+        normalized_params_hash: null,
+        capability_degraded: false,
+        capability_degrade_reason: null,
+        output_contract: input.output_contract,
+        prompt_template_id: input.prompt.promptTemplateId,
+        prompt_template_version: input.prompt.version,
+        schema_name: input.schema_name,
+        prompt_packet_hash: promptPacketHash,
+        ...this.runtimePromptPacketProvenance(preparedPromptPacket),
+        response_hash: responseHash,
+        structured_output_hash: responseHash,
+        cache_status: 'not_applicable',
+        response_reuse_ref: null,
+        ...this.runtimeCompressionProvenance(input),
+        provider_id: 'codex',
+        model_id: this.codexCliModelId,
+        runner_version: outcome.runner_version,
+        thread_id: outcome.thread_id,
+        trace_artifact_ref: trace.ref,
+        trace_artifact_hash: trace.hash,
+        telemetry: null,
+        ...this.debateExtensionProvenance(input),
+      },
+    };
+  }
+
+  /** The CLI takes one prompt on stdin, so the packet's messages are flattened with their roles
+   *  kept legible. */
+  private codexPromptText<T>(input: TopicSelectionAgentInvocationRequest<T>): string {
+    return input.messages
+      .map((message) => `[${message.role}]\n${message.content}`)
+      .join('\n\n');
+  }
+
+  private async recordCodexCliTrace<T>(
+    input: TopicSelectionAgentInvocationRequest<T>,
+    invocationAttemptId: string,
+    outcome: TopicSelectionCodexCliRunOutcome,
+  ): Promise<{ ref: TopicSelectionFunctionalRef; hash: string }> {
+    const payload = {
+      schema_version: 'topic-selection-codex-cli-trace-v1',
+      invocation_attempt_id: invocationAttemptId,
+      status: outcome.status,
+      runner_version: outcome.runner_version,
+      thread_id: outcome.thread_id,
+      usage: outcome.usage,
+      tool_calls: outcome.tool_calls,
+      events: outcome.trace_events,
+    };
+    const artifact = await this.controlPlane!.recordArtifactRef({
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id ?? null,
+      artifact_kind: 'diagnostic',
+      storage_kind: 'inline',
+      payload: payload as unknown as Record<string, unknown>,
+      workflow_run_id: input.workflow_run_id,
+      input_snapshot_id: input.input_snapshot_id ?? null,
+      created_by: input.created_by ?? 'system',
+    });
+    if (!artifact) {
+      throw new AppError(500, 'INTERNAL_ERROR', 'The codex_cli trace artifact could not be recorded.');
+    }
+    return { ref: this.toArtifactFunctionalRef(artifact), hash: this.hash(payload) };
   }
 
   private async recordAuditArtifact(
@@ -1313,6 +1467,13 @@ export class TopicSelectionAgentOrchestratorService {
       promptPacketCacheStatus?: TopicSelectionRuntimeCacheResult | null;
       promptPacketCacheResultRef?: TopicSelectionFunctionalRef | null;
       promptPacketCacheResultHash?: string | null;
+      codexCli?: {
+        model_id: string;
+        runner_version: string;
+        thread_id: string | null;
+        trace_artifact_ref: TopicSelectionFunctionalRef;
+        trace_artifact_hash: string;
+      };
     } = {},
   ): SourceExecution<T> {
     const model = this.modelRefForResolvedProfile(resolvedProfile);
@@ -1369,6 +1530,14 @@ export class TopicSelectionAgentOrchestratorService {
           fixture_id: input.mocked_output.fixture_id,
           fixture_hash: input.mocked_output.fixture_hash?.trim() || mockResponseHash,
           mock_profile: input.mocked_output.mock_profile ?? null,
+        } : {}),
+        ...(sourceKind === 'codex_cli_response' && options.codexCli ? {
+          provider_id: 'codex',
+          model_id: options.codexCli.model_id,
+          runner_version: options.codexCli.runner_version,
+          thread_id: options.codexCli.thread_id,
+          trace_artifact_ref: options.codexCli.trace_artifact_ref,
+          trace_artifact_hash: options.codexCli.trace_artifact_hash,
         } : {}),
         ...(sourceKind === 'codex_response' && input.codex_response ? {
           operator_label: input.codex_response.operator_label,
@@ -2037,7 +2206,7 @@ export class TopicSelectionAgentOrchestratorService {
       this.assertNonEmpty(input.prompt_variant_key, 'prompt_variant_key');
     }
     this.assertNonEmpty(input.schema_name, 'schema_name');
-    if (!['mocked_llm', 'codex_assisted', 'provider_llm'].includes(input.execution_mode)) {
+    if (!TOPIC_SELECTION_AGENT_EXECUTION_MODES.includes(input.execution_mode)) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'execution_mode is not supported.');
     }
     if (!TOPIC_SELECTION_AGENT_EXECUTOR_KINDS.includes(input.executor_kind)) {

@@ -14,7 +14,16 @@
 | `--ignore-user-config` is insufficient for isolation. | Inspect the command executions in a probe run's trace. | failed as isolation (2026-09-07) | The agent read `~/.codex/skills/research/SKILL.md` and changed behaviour, despite `--ignore-user-config --ignore-rules`. Drives D-7. `probe-evidence.md` §5. |
 | D-3: `model_hint` currently enters hashes it was documented not to enter. | Inspect every hash site that consumes the invocation provenance or the `codex_response` object. | confirmed (2026-09-07) | Six sites: `topic-selection-research-arena-service.ts:244` hashes the whole provenance into `runtime_identity_hash`; the audit snapshot embeds provenance and its artifact hash feeds the same identity; `topic-selection-workflow-harness-service.ts` hashes the whole `codex_response` at four replay-input sites. No caller sets the field today, so no live hash has changed. |
 
+| Phase 1: the line runs end to end and its trace persists, without disturbing the other three lines. | Full suites plus targeted contract, runner and orchestrator tests, with the Codex invocation injected. | passed (2026-09-08) | shared 455/455; backend 3004 tests with 2930 passing. The two failures are not this task's: `FIND-028` is T-148's in-flight uncommitted work, and `T-054 Prisma HTTP smoke` is pre-existing and reproduces at HEAD. Replay-identity golden hash guards stayed green, so the new optional provenance fields changed no frozen hash. |
+| Phase 1: the line is inert until a profile admits it. | Invoke `codex_cli` against the shipped registry. | passed (2026-09-08) | Rejected; a companion test passes only with a registry that explicitly opens the line. |
+
 ## Outstanding verification
+
+- The Phase 1 live check: one real `codex exec` invocation through the runner. It needs an
+  authenticated product-owned `CODEX_HOME`, which an operator must provision because that directory
+  is where the Codex credential lives. Until then the line is verified with an injected invocation,
+  and the live smoke should follow the repository's existing convention of an env-gated test that
+  skips by default.
 
 - Phase 4's in-flow human confirmation is blocked by a client-side gap, not an unknown. MCP
   `2026-07-28` defines the correct shape — Multi Round-Trip Requests returning

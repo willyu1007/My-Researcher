@@ -98,6 +98,16 @@
   the regression check for the `model_hint` removal.
 - Recovery: the line is unreferenced by any node, so reverting the phase removes it without touching
   the other three lines.
+- Phase progress: complete and deterministically verified. `model_hint` is gone (`43adb231`); the
+  execution mode, output source kind and provenance branch are in (`fc8c63b2`); the runner and its
+  deployment configuration are in (`3936f10b`); the orchestrator branch persists the trace as the
+  provenance of record on success and on failure alike. `runner_version` is read from the binary
+  that actually ran rather than declared, so it cannot drift from reality. Two latent problems
+  surfaced and were fixed on the way: a hardcoded execution-mode allowlist in the orchestrator that
+  had drifted from the enum beside it, and a stale committed SlotParameterManifest snapshot. The
+  line is inert — no profile admits it and no node routes to it, which a test pins. The remaining
+  Phase 1 item is the live check, which needs an authenticated product `CODEX_HOME` that only an
+  operator can provision.
 
 ### Phase 2 — A scoped, budgeted tool surface Codex can actually reach
 - Outcome: a research-role tool scope that an agent can use to select rather than enumerate, that

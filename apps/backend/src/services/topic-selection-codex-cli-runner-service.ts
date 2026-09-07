@@ -53,6 +53,7 @@ export type TopicSelectionCodexCliRunOutcome =
     status: 'failed';
     error_code: TopicSelectionCodexCliErrorCode;
     message: string;
+    runner_version: string;
     thread_id: string | null;
     usage: TopicSelectionCodexCliUsage | null;
     tool_calls: TopicSelectionCodexCliToolCall[];
@@ -61,6 +62,8 @@ export type TopicSelectionCodexCliRunOutcome =
   };
 
 export interface TopicSelectionCodexCliRunResult {
+  /** Observed, not declared: read from the binary that actually ran, so it cannot drift. */
+  runner_version: string;
   thread_id: string;
   /** Raw text of the final agent message; the caller parses it against its own output contract. */
   final_message: string;
@@ -230,6 +233,8 @@ export class TopicSelectionCodexCliRunnerService {
     private readonly spawnCodex: TopicSelectionCodexCliSpawn = defaultSpawn,
   ) {}
 
+  private cachedRunnerVersion: string | null = null;
+
   /** One invocation attempt, one fresh Codex thread. There is deliberately no resume or fork. */
   async run(input: TopicSelectionCodexCliRunInput): Promise<TopicSelectionCodexCliRunOutcome> {
     const servers = input.mcp_servers ?? [];
@@ -258,6 +263,7 @@ export class TopicSelectionCodexCliRunnerService {
       timeoutMs: this.config.timeout_ms ?? DEFAULT_TIMEOUT_MS,
     });
 
+    const runnerVersion = await this.runnerVersion();
     const parsed = parseCodexEventStream(result.stdout);
     const failure = (
       errorCode: TopicSelectionCodexCliErrorCode,
@@ -266,6 +272,7 @@ export class TopicSelectionCodexCliRunnerService {
       status: 'failed',
       error_code: errorCode,
       message,
+      runner_version: runnerVersion,
       thread_id: parsed.threadId,
       usage: parsed.usage,
       tool_calls: parsed.toolCalls,
@@ -285,12 +292,28 @@ export class TopicSelectionCodexCliRunnerService {
 
     return {
       status: 'succeeded',
+      runner_version: runnerVersion,
       thread_id: parsed.threadId,
       final_message: parsed.finalMessage,
       usage: parsed.usage,
       tool_calls: parsed.toolCalls,
       trace_events: parsed.events,
     };
+  }
+
+  /** The version of the binary that actually ran, resolved once per service instance. Declaring it
+   *  in configuration would let it drift from reality, and the provenance claims it is authoritative. */
+  private async runnerVersion(): Promise<string> {
+    if (this.cachedRunnerVersion === null) {
+      const probe = await this.spawnCodex(['--version'], {
+        cwd: this.config.codex_home,
+        env: this.buildEnv(),
+        stdin: '',
+        timeoutMs: 30_000,
+      });
+      this.cachedRunnerVersion = probe.stdout.trim() || 'unknown';
+    }
+    return this.cachedRunnerVersion;
   }
 
   /** A deliberately small environment: the runner inherits nothing that could change what the
@@ -306,4 +329,49 @@ export class TopicSelectionCodexCliRunnerService {
     }
     return env;
   }
+}
+
+/** Deployment configuration for the codex_cli line.
+ *
+ *  These are environment variables rather than `.ai/llm/**` routing config on purpose: CODEX_HOME
+ *  has to be provisioned by whoever runs the process, because it is where the Codex credential
+ *  lives, and the line is deliberately not a provider route.
+ *
+ *    TOPIC_SELECTION_CODEX_HOME              product-owned CODEX_HOME; absent disables the line
+ *    TOPIC_SELECTION_CODEX_MODEL             model slug, e.g. gpt-6-astra
+ *    TOPIC_SELECTION_CODEX_REASONING_EFFORT  low | medium | high | xhigh | max (default high)
+ *    TOPIC_SELECTION_CODEX_BINARY            optional path to the codex binary
+ *    TOPIC_SELECTION_CODEX_TIMEOUT_MS        optional per-invocation timeout
+ *
+ *  Returns null when the line is not configured, which leaves it unavailable rather than
+ *  half-configured. */
+export function createTopicSelectionCodexCliRunnerFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): { runner: TopicSelectionCodexCliRunnerService; model_id: string } | null {
+  const codexHome = env.TOPIC_SELECTION_CODEX_HOME?.trim();
+  const model = env.TOPIC_SELECTION_CODEX_MODEL?.trim();
+  if (!codexHome || !model) {
+    return null;
+  }
+  const effortRaw = env.TOPIC_SELECTION_CODEX_REASONING_EFFORT?.trim() ?? 'high';
+  const efforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+  const effort = efforts.find((candidate) => candidate === effortRaw);
+  if (!effort) {
+    throw new Error(`TOPIC_SELECTION_CODEX_REASONING_EFFORT must be one of ${efforts.join(', ')}.`);
+  }
+  const timeoutRaw = env.TOPIC_SELECTION_CODEX_TIMEOUT_MS?.trim();
+  const timeoutMs = timeoutRaw ? Number.parseInt(timeoutRaw, 10) : undefined;
+  if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)) {
+    throw new Error('TOPIC_SELECTION_CODEX_TIMEOUT_MS must be a positive integer.');
+  }
+  return {
+    runner: new TopicSelectionCodexCliRunnerService({
+      codex_home: codexHome,
+      model,
+      reasoning_effort: effort,
+      binary: env.TOPIC_SELECTION_CODEX_BINARY?.trim() || undefined,
+      timeout_ms: timeoutMs,
+    }),
+    model_id: model,
+  };
 }

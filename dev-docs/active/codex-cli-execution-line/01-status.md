@@ -7,10 +7,10 @@ provenance of record.
 
 ## Progress
 - State: in-progress
-- Current phase: Planned. All nine decisions are closed and the route is three phases; Phase 1 has
-  not started.
-- Next step: Start Phase 1 by removing the advisory `model_hint` field and its test as a manual
-  edit, then add the execution mode and output source kind for the new line.
+- Current phase: Phase 1 is implemented and deterministically verified. The line exists as a
+  contract, a runner and a persisted trace; no node routes to it and no profile admits it.
+- Next step: Decide whether to open Phase 2 (the scoped tool surface) or first provision an
+  authenticated product CODEX_HOME so the Phase 1 live check can run.
 - Blocker: none. T-148 shares this worktree; stage explicit paths and preserve its changes.
 
 ## Done when
@@ -21,6 +21,6 @@ provenance of record.
       tool outside its scope, proven by a negative test rather than by building a second scope.
 - [ ] A runtime read budget is enforced inside the product's MCP server and its refusal is visible
       in the recorded trace.
-- [ ] The session rule holds in code: one fresh Codex thread per invocation attempt, with no reuse
+- [x] The session rule holds in code: one fresh Codex thread per invocation attempt, with no reuse
       across roles, attempts, nodes or runs.
-- [ ] The advisory `model_hint` field (commit `0f5a3d39`) is removed and the contract reflects it.
+- [x] The advisory `model_hint` field (commit `0f5a3d39`) is removed and the contract reflects it.

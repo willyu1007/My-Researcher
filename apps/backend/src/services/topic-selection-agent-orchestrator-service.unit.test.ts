@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import type {
   LlmCallTelemetry,
@@ -19,7 +22,12 @@ import {
   TOPIC_SELECTION_V1A_N6_INVOCATION_SLOT_IDS,
   TopicSelectionContextPolicyProfileRegistryService,
 } from './topic-selection-context-policy-profile-registry-service.js';
-import { TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID } from './topic-selection-model-profile-registry-service.js';
+import {
+  TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID,
+  TopicSelectionModelProfileRegistryService,
+  createDefaultTopicSelectionModelProfileRegistry,
+} from './topic-selection-model-profile-registry-service.js';
+import { TopicSelectionCodexCliRunnerService } from './topic-selection-codex-cli-runner-service.js';
 import type { LookupTopicSelectionPromptPacketCacheInput } from './topic-selection-prompt-packet-cache-service.js';
 
 type CandidateDraftBatch = {
@@ -107,6 +115,9 @@ class DriftedPromptPacketCache {
 function makeOrchestrator(options: {
   llmGateway?: TopicSelectionAgentOrchestratorLlmGateway;
   promptPacketCache?: TopicSelectionPromptPacketCacheService | null;
+  modelProfileRegistry?: TopicSelectionModelProfileRegistryService;
+  codexCliRunner?: TopicSelectionCodexCliRunnerService | null;
+  codexCliModelId?: string | null;
 } = {}) {
   const repository = new InMemoryTopicSelectionControlPlaneRepository();
   let sequence = 0;
@@ -118,6 +129,9 @@ function makeOrchestrator(options: {
     controlPlane,
     llmGateway: options.llmGateway,
     promptPacketCache: options.promptPacketCache,
+    modelProfileRegistry: options.modelProfileRegistry,
+    codexCliRunner: options.codexCliRunner,
+    codexCliModelId: options.codexCliModelId,
     now: () => '2026-05-19T00:00:00.000Z',
   });
   return { orchestrator, repository };
@@ -1266,4 +1280,85 @@ test('agent orchestrator audit artifact stores hashes and provenance but not ful
   assert.equal(serialized.includes('invocation_attempt_id'), true);
   assert.equal(serialized.includes('response_hash'), true);
   assert.equal(serialized.includes('fixture_generate_need_candidate_happy_path'), true);
+});
+
+const CODEX_TRACE_STDOUT = [
+  { type: 'thread.started', thread_id: 'thread_codex_001' },
+  { type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(output()) } },
+  {
+    type: 'turn.completed',
+    usage: {
+      input_tokens: 21520, cached_input_tokens: 0, cache_write_input_tokens: 0,
+      output_tokens: 90, reasoning_output_tokens: 47,
+    },
+  },
+].map((event) => JSON.stringify(event)).join('\n');
+
+function codexCliRunner(): TopicSelectionCodexCliRunnerService {
+  return new TopicSelectionCodexCliRunnerService(
+    {
+      codex_home: mkdtempSync(join(tmpdir(), 'orchestrator-codex-')),
+      model: 'gpt-6-astra',
+      reasoning_effort: 'high',
+    },
+    async (args) => (args[0] === '--version'
+      ? { stdout: 'codex-cli 0.153.4\n', stderr: '', exit_code: 0, timed_out: false }
+      : { stdout: CODEX_TRACE_STDOUT, stderr: '', exit_code: 0, timed_out: false }),
+  );
+}
+
+/** Only a profile that opens the line makes it reachable; every shipped profile declares
+ *  codex_cli ineligible, which is what keeps T-151 Phase 1 inert in the product. */
+function registryOpeningCodexCli(): TopicSelectionModelProfileRegistryService {
+  const registry = createDefaultTopicSelectionModelProfileRegistry();
+  for (const profile of registry.profiles) {
+    if (profile.profile_id === TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_SINGLE_AGENT_PROFILE_ID) {
+      profile.allowed_execution_modes = [...profile.allowed_execution_modes, 'codex_cli'];
+      profile.run_mode_eligibility.codex_cli = ['acceptance'];
+    }
+  }
+  return new TopicSelectionModelProfileRegistryService({ registry });
+}
+
+void test('codex_cli line carries an authoritative runner identity and persists its trace', async () => {
+  const { orchestrator } = makeOrchestrator({
+    modelProfileRegistry: registryOpeningCodexCli(),
+    codexCliRunner: codexCliRunner(),
+    codexCliModelId: 'gpt-6-astra',
+  });
+
+  const result = await orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+    ...baseInvocation(),
+    execution_mode: 'codex_cli',
+  });
+
+  assert.equal(result.status, 'succeeded');
+  const provenance = result.provenance;
+  assert.equal(provenance.source_kind, 'codex_cli_response');
+  // An authoritative runner identity, which is what model_hint could never be.
+  assert.equal(provenance.provider_id, 'codex');
+  assert.equal(provenance.model_id, 'gpt-6-astra');
+  assert.equal(provenance.runner_version, 'codex-cli 0.153.4');
+  assert.equal(provenance.thread_id, 'thread_codex_001');
+  // ...but not a metered gateway identity.
+  assert.equal(provenance.model_option_id, null);
+  assert.equal(provenance.normalized_params_hash, null);
+  assert.equal(provenance.non_provider, true);
+  // The trace is the line's evidence of record.
+  assert.equal(provenance.trace_artifact_ref?.ref_type, 'artifact_ref');
+  assert.match(provenance.trace_artifact_hash ?? '', /^[a-f0-9]{64}$/);
+});
+
+void test('codex_cli line stays inert while no profile admits it', async () => {
+  const { orchestrator } = makeOrchestrator({
+    codexCliRunner: codexCliRunner(),
+    codexCliModelId: 'gpt-6-astra',
+  });
+
+  await assert.rejects(
+    orchestrator.invokeStructuredOutput<CandidateDraftBatch>({
+      ...baseInvocation(),
+      execution_mode: 'codex_cli',
+    }),
+  );
 });
