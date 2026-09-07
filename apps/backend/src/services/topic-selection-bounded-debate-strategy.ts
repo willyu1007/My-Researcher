@@ -53,6 +53,7 @@ export interface BoundedDebateRoleContext<THandoff, TRole extends string, TArtif
 export interface BoundedDebateContextArtifactInput {
   workspace_id: string | null;
   title_card_id: string | null;
+  input_snapshot_id?: string | null;
 }
 
 /** The orchestrator request fields the version owns; the core merges in the loop-owned fields

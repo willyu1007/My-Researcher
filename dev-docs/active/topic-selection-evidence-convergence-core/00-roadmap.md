@@ -53,23 +53,27 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 
 | Task | Relationship from this task | Owned boundary / exchanged contract | Coordination condition |
 |---|---|---|---|
-| T-148 | derived-from / narrow dependency | T-148 retains real-flow defects, presentation, the concrete coverage gate and Human acceptance contract, regular frozen-evidence Debate policy, condition mapping, and terminology; this task owns retrieval-native evidence convergence. | T-150 Phase 1 contract work may proceed independently. Its Phase 2 pilot consumes T-148's typed required-coverage issue after that narrow gate contract lands; it does not alter T-148's downstream question-Debate route. |
+| T-148 | derived-from / narrow dependency | T-148 retains real-flow defects, presentation, the concrete coverage gate and Human acceptance contract, regular frozen-evidence Debate policy, condition mapping, and terminology; this task owns retrieval-native evidence convergence. | T-148's Phase 1 Human view and typed required-coverage issue are implemented and focused-verified. Phase 2 may consume that issue without altering T-148's downstream question-Debate route. |
 | T-149 | depends-on | T-149 owns durable native-vector materialization; this task consumes an indexed, evidence-ready managed library. | The pilot requires T-149's verified persistence behavior, not its uncommitted task files or implementation changes. |
 
 ## Implementation plan
 
 ### Phase 1 — Freeze the evidence-landscape pilot contracts
+- Status: completed, repaired, and re-verified on 2026-09-03; the additions remain dormant until Phase 2 selects the pilot route.
 - Outcome: One implementation-ready vertical slice has exact request, delta, round, successor, and resolution identities.
 - Approach: Start from the existing global retriever and evidence-landscape SearchPlan/SearchRun/checkpoint seams, then add only fields required to replay one evidence issue.
 - Planned changes:
-  1. Inventory the reusable retriever, SearchPlan/SearchRun, Debate-core, EvidenceMap, search recheck, and evidence-checkpoint seams and reject any premise that full-library search itself must be rebuilt.
-  2. Specify coordinator-derived `request_key` and `strategy_key`, the corpus manifest ref/hash and retrieval-stack identity, material evidence delta, DebateRound lineage, EvidenceMap successor transition, and the pilot ResolutionRoute.
-  3. Name the standing policy fields and defaults for maximum per-issue orchestration steps/rounds, elapsed time, and accumulated retrieval cost; prove that exhaustion cannot become gate success.
+  1. Reuse `LiteratureResourcePoolSnapshot` as the corpus-manifest authority by adding a managed-library source and retrieval-stack membership derived through the same eligibility resolver as retrieval.
+  2. Extend the existing search-recheck lifecycle with coordinator-derived `request_key` and `strategy_key`; represent `EvidenceDelta` and `ResolutionRoute` as typed immutable control-plane artifacts and reuse Arena-session supersession as linked-round lineage.
+  3. Add only the missing EvidenceMap predecessor/current-head/successor contract and transactional compare-and-swap transition; do not create parallel corpus, round, delta, or route stores.
+  4. Name and snapshot the standing maximum per-issue orchestration steps/rounds, elapsed time, and accumulated retrieval cost; prove through pure contract tests that exhaustion cannot become gate success.
 - Affected boundaries / entry points: Literature retrieval, Arena retrieval primitives, SearchPlan/SearchRun, shared Debate core, EvidenceMap lifecycle, evidence-landscape checkpoint and recheck routes.
 - Dependencies: Existing retriever, evidence-landscape, and Debate seams plus the approved pilot and round/convergence decisions.
 - Exit criteria: ECK-01 through ECK-05 and ECK-07 have contract tests or approved executable specifications.
 - Verification: Schema validation, hash/replay fixtures, transition truth tables, and a no-new-authority dry run.
 - Recovery: Keep all additions dormant and leave existing Debate and EvidenceMap routes unchanged.
+
+Phase 1 landed the managed-library manifest on `LiteratureResourcePoolSnapshot`, including the exact candidate-window identity and either the full eligible corpus or a strict Human-confirmed subset. It placed coordinator identities and execution lineage on `SearchPlanRecheckRequest`, immutable EvidenceDelta/ResolutionRoute artifacts on the control plane, and a closed linked-round schema. EvidenceMap successor compare-and-swap is the only new persisted lifecycle primitive: initial creation and ordinary freshness updates cannot manufacture successor state, and both in-memory and Prisma implementations enforce the same lineage boundary. The repaired checkpoint also scopes artifact idempotency to title/workspace/lineage, closes the HTTP and persisted schemas, and makes in-memory request reuse atomic. No downstream question/value/promotion route was changed.
 
 ### Phase 2 — Execute one retrieval-native evidence loop
 - Outcome: One unresolved evidence-landscape issue can gather managed-library evidence and return to a fresh instance of the same checkpoint gate through a successor evidence result and linked Debate round.
@@ -85,7 +89,30 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 - Verification: Focused service/contract tests plus one bounded local end-to-end pilot.
 - Recovery: Disable pilot routing, retain durable request/SearchRun/round artifacts, and preserve every prior map and decision.
 
+Phase 2 completed on 2026-09-03. The retrieval slice accepts role-authored intents, applies the standing
+boundary before new work, deduplicates equivalent requests, executes the exact managed-library
+manifest, persists the child SearchPlan/SearchRun and raw query provenance, and redistributes the
+durable execution to every requesting role. It returns carried runtime accounting for actual new
+orchestration work, elapsed time, and query-embedding cost; durable reuse does not charge retrieval
+cost again, and a reached post-execution boundary remains unresolved. The child plan preserves the parent coverage rows and
+the SearchRun carries predecessor locator authorities, so successor construction does not weaken
+lineage. Exact quote-bearing persisted hits can then produce immutable material or non-material
+EvidenceDelta artifacts; only a material delta publishes a successor through the existing
+compare-and-swap transition. The linked-round slice freezes that successor into a new support-only
+Arena round, revalidates the parent transcript, EvidenceDelta, packets, role audits, and round link,
+then materializes the original deterministic evidence-landscape checkpoint only after synthesis.
+The quality checkpoint additionally derives workspace and parent-map scope from durable authorities,
+regenerates every packet before use, revalidates round-link and synthesis artifacts on replay, keeps
+`remain_unresolved` distinct from a ready recommendation, counts linked rounds per durable issue, and
+orders coverage assessment persistence before the EvidenceMap head compare-and-swap.
+One bounded local integration pilot composes the canonical services across full managed-library
+retrieval → exact claim admission → material successor → linked frozen round → fresh instance of the
+same deterministic evidence-landscape checkpoint. It moves the checkpoint policy result from
+`loopback_required` to `eligible_for_human_review` without introducing a second authority or touching
+downstream question/value/promotion semantics.
+
 ### Phase 3 — Prove the kernel and stop before broad rollout
+- Status: completed and verified on 2026-09-03; concurrency and historical-replay quality repair verified on 2026-09-07.
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
 - Approach: Exercise duplicate requests, alternative strategies, negative retrieval, budget boundaries, stale sources, successor races, and strict-human barriers without adding another scenario.
 - Planned changes:
@@ -98,14 +125,40 @@ T-150 is the implementation owner for the evidence-convergence problems exposed 
 - Verification: Targeted regression suite, provenance audit, and one Human-reviewed real-flow packet.
 - Recovery: Return to the last trustworthy map/gate and leave additional scenario adoption unstarted.
 
+Phase 3 completed without adopting a second Debate scenario. Exact retrieval replay remains available
+after predecessor EvidenceMap supersession, while a changed historical strategy fails before provider
+execution. The post-completion quality repair adds an atomic request execution claim, makes stale or
+provider-failed retrieval a durable audit-only SearchRun, recovers already-persisted execution lineage,
+and refuses to repeat ambiguous interrupted provider work. Human resolution and automatic completion
+use storage-level expected-status transitions, and the internal `executing` state is not a public outcome.
+Manual materialization also persists its canonical input hash and planned SearchPlan/SearchRun refs in
+that same claim before any control-plane side effect, but only after closed deterministic preflight.
+An interrupted infrastructure attempt therefore resumes only the same input against the same targets
+after restart; a changed retry fails closed, while concurrent exact executors converge on the winning
+claim instead of minting parallel authorities. A deterministic failure discovered after claim terminates
+as traced `materialization_failed` work so a corrected input can use a new request. Coordinator-owned
+evidence-convergence requests cannot enter this manual path.
+Linked rounds now atomically claim the Arena session, prevent an active session from being superseded,
+recover unclaimed open sessions, persist blocked terminal transcripts, and freeze checkpoint
+inputs inside the existing round transcript. Completed historical replay therefore survives later
+coverage changes and real EvidenceMap/Arena supersession without changing checkpoint identity. No
+completion receipt, parallel round authority, or second Debate scenario was introduced.
+
+Another scenario may adopt the kernel only after it has an independently accepted outcome and owner,
+an exact managed-corpus/request identity, an immutable successor route, a linked-round replay seam,
+and the same deterministic-gate then strict-Human authority boundary. That adoption is follow-up work,
+not an extension of T-150.
+
 ## Kickoff gate
 
 - Status: ready
-- Authorized boundary: none; the pilot moved to the evidence-landscape boundary after the prior implementation authorization, so execution requires a new boundary.
+- Authorized boundary: through phase 3, authorized by the user on 2026-09-03 after the bounded Phase 2 pilot passed.
 - [x] Decisions: the linked-round model, evidence-landscape pilot, coordinator-owned saturation identity, corpus manifest identity, and project placement were confirmed on 2026-09-03.
 - [x] Design: the minimal contracts and authority boundaries are reflected in `02-architecture.md`.
 - [x] Route: the pilot extends the existing SearchPlan → SearchRun → EvidenceMap → checkpoint lineage and does not cross the downstream frozen question bundle.
 - [x] Verification: success, reuse, no-delta, boundary, race, replay, and Human-authority checks are identified in `verification.md`.
+
+Phase 1's repaired exit is verified for ECK-01 through ECK-05 and ECK-07 at the contract or executable-repository-specification boundary. ECK-06 and the Phase 2 runtime outcome are verified; Phase 3 closes ECK-08 and the task without broad rollout.
 
 ## Risks and recovery
 

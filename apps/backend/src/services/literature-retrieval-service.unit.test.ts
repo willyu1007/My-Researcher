@@ -682,6 +682,54 @@ test('retrieve uses only the configured active embedding profile when active ver
   }
 });
 
+test('managed-library eligibility exposes the exact candidate universe used by unscoped retrieval', async () => {
+  const repository = new InMemoryLiteratureRepository();
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-MANIFEST-ELIGIBLE',
+    title: 'Eligible manifest member',
+    versionId: 'EV-MANIFEST-ELIGIBLE',
+    chunkText: 'eligible claim evidence',
+  });
+  await seedLocalLiterature(repository, {
+    literatureId: 'LIT-MANIFEST-WRONG-PROFILE',
+    title: 'Wrong profile member',
+    versionId: 'EV-MANIFEST-WRONG-PROFILE',
+    chunkText: 'profile mismatch evidence',
+    profileId: 'economy',
+    model: 'text-embedding-3-small',
+  });
+  const candidateWindow = {
+    floor: 123,
+    unscoped_ceiling: 456,
+    scoped_ceiling: 789,
+    profile_multipliers: {
+      general: 7,
+      topic_exploration: 8,
+      writing_evidence: 9,
+      paper_management: 10,
+    },
+    per_literature_cap_min: 3,
+    per_literature_cap_max: 11,
+    query_timeout_ms: 4321,
+  };
+  const settingsService = createEmbeddingSettingsService();
+  settingsService.resolveRetrievalCandidateWindowSettings = async () => candidateWindow;
+  const service = new LiteratureRetrievalService(repository, settingsService);
+
+  const eligibility = await service.resolveManagedLibraryEligibility();
+
+  assert.deepEqual(
+    eligibility.eligible_embedding_versions.map((version) => version.embedding_version_id),
+    ['EV-MANIFEST-ELIGIBLE'],
+  );
+  assert.equal(eligibility.retrieval_stack_identity.embedding_profile_id, 'default');
+  assert.equal(eligibility.retrieval_stack_identity.freshness_policy, 'current_only');
+  assert.deepEqual(
+    (eligibility.retrieval_stack_identity as unknown as { candidate_window: unknown }).candidate_window,
+    candidateWindow,
+  );
+});
+
 test('retrieve excludes stale indexes by default and can include them for diagnostics', async () => {
   const repository = new InMemoryLiteratureRepository();
   const service = createRetrievalService(repository);

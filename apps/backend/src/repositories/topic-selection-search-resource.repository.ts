@@ -27,6 +27,11 @@ export type TopicSelectionSearchRunWithCoverageRecordsResult = {
   search_run: TopicSelectionSearchRunRecord;
 } & TopicSelectionSearchRunCoverageRecords;
 
+export type TopicSelectionSearchPlanRecheckRequestPatch = Partial<Omit<
+  TopicSelectionSearchPlanRecheckRequestRecord,
+  'search_plan_recheck_request_id' | 'workspace_id' | 'title_card_id' | 'source_ref' | 'target_search_plan_ref' | 'created_at'
+>>;
+
 export interface TopicSelectionSearchResourceRepository {
   createTopicSeed(record: TopicSelectionTopicSeedRecord): Promise<TopicSelectionTopicSeedRecord>;
   findTopicSeedById(topicSeedId: string): Promise<TopicSelectionTopicSeedRecord | null>;
@@ -43,6 +48,7 @@ export interface TopicSelectionSearchResourceRepository {
     coverageRowIntents: TopicSelectionCoverageRowIntentRecord[],
   ): Promise<TopicSelectionSearchPlanWithCoverageIntentsResult>;
   findSearchPlanById(searchPlanId: string): Promise<TopicSelectionSearchPlanRecord | null>;
+  findSearchPlanByRecheckRequestId(requestId: string): Promise<TopicSelectionSearchPlanRecord | null>;
   /**
    * T-087 D1 read-only projection — list SearchPlans under a title-card.
    * Reverse-chronological order; powers the reviewer workbench v1a
@@ -76,12 +82,16 @@ export interface TopicSelectionSearchResourceRepository {
     coverageRecords: TopicSelectionSearchRunCoverageRecords,
   ): Promise<TopicSelectionSearchRunWithCoverageRecordsResult>;
   findSearchRunById(searchRunId: string): Promise<TopicSelectionSearchRunRecord | null>;
+  findSearchRunBySearchPlanId(searchPlanId: string): Promise<TopicSelectionSearchRunRecord | null>;
 
   createSearchPlanRecheckRequest(
     record: TopicSelectionSearchPlanRecheckRequestRecord,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord>;
   findSearchPlanRecheckRequestById(
     requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
+  findSearchPlanRecheckRequestByRequestKey(
+    requestKey: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
   /**
    * T-087 Phase 2.2 read-only projection — list SearchPlanRecheckRequests
@@ -91,11 +101,12 @@ export interface TopicSelectionSearchResourceRepository {
   listSearchPlanRecheckRequestsByTitleCardId(
     titleCardId: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord[]>;
-  updateSearchPlanRecheckRequest(
+  claimSearchPlanRecheckRequestExecution(
     requestId: string,
-    patch: Partial<Omit<
-      TopicSelectionSearchPlanRecheckRequestRecord,
-      'search_plan_recheck_request_id' | 'workspace_id' | 'title_card_id' | 'source_ref' | 'target_search_plan_ref' | 'created_at'
-    >>,
-  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord>;
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
+  transitionSearchPlanRecheckRequest(
+    requestId: string,
+    expectedStatus: TopicSelectionSearchPlanRecheckRequestRecord['status'],
+    patch: TopicSelectionSearchPlanRecheckRequestPatch,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null>;
 }

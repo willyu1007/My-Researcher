@@ -218,6 +218,10 @@ export interface TopicSelectionEvidenceMapRecord {
   transition_attempt_id?: string | null;
   trace_snapshot_id?: string | null;
   artifact_refs: TopicSelectionFunctionalRef[];
+  predecessor_evidence_map_ref?: TopicSelectionFunctionalRef | null;
+  successor_evidence_map_ref?: TopicSelectionFunctionalRef | null;
+  material_evidence_delta_ref?: TopicSelectionFunctionalRef | null;
+  lineage_revision?: number;
   created_by: TopicSelectionActorType;
   created_at: string;
 }
@@ -1015,6 +1019,10 @@ export const topicSelectionEvidenceMapRecordSchema = {
     transition_attempt_id: nullableStringId,
     trace_snapshot_id: nullableStringId,
     artifact_refs: functionalRefArray,
+    predecessor_evidence_map_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    successor_evidence_map_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    material_evidence_delta_ref: { anyOf: [topicSelectionFunctionalRefSchema, { type: 'null' }] },
+    lineage_revision: numberValue,
     created_by: { enum: ['human', 'llm', 'system', 'hybrid'] },
     created_at: stringId,
   },

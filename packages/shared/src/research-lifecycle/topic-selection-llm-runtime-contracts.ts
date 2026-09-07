@@ -61,6 +61,7 @@ export const TOPIC_SELECTION_CONTEXT_FAMILIES = [
   'v1a_n6_arbiter',
   'v1a_n7_need_adjudication_support',
   'v1a_n8_human_confirmation_semantic_review',
+  'evidence_landscape_convergence',
   'v1b_constraint_profile_context',
   'v1b_intake_readiness_context',
   'v1b_n4_research_slice_option_generation',

@@ -4,7 +4,7 @@
 
 `POST /literature/retrieve` already searches all active, evidence-ready embedding versions when neither `topic_id` nor `paper_id` is supplied. Topic-selection SearchPlans and SearchRuns remain bound to a literature resource snapshot, and consumable evidence refs outside that snapshot are rejected. The current Arena role-evidence service demonstrates global retrieval plus durable SearchRun recording, but returns hits outside the current EvidenceMap as unresolved literature refs rather than admitting them as new evidence.
 
-Current Debate runtimes consume frozen evidence and expose no typed RetrievalRequest. The shared Debate core performs one fixed-order, append-only role walk and hashes one transcript; the existing `max_rounds` field only bounds a caller-supplied round index and does not link transcript or evidence-delta history. EvidenceMap content is created from one SearchRun lineage, while its freshness can be updated directly and the persisted schema has no predecessor/successor relationship.
+Current non-pilot Debate runtimes consume frozen evidence and expose no typed RetrievalRequest. The shared Debate core performs one fixed-order, append-only role walk and hashes one transcript; the evidence-convergence runtime composes new frozen Arena sessions around that primitive instead of mutating a round. Before Phase 1, EvidenceMap content was created from one SearchRun lineage and could be marked superseded without a successor. Phase 1 added predecessor/current-head/successor metadata and made compare-and-swap publication the only path to supersession; Phase 2 now publishes runtime successors only after exact claim admission and defers the fresh checkpoint until the linked round is synthesized.
 
 The downstream research-question candidate workflow is not a valid first host for mutable evidence convergence. Its intake bundle freezes `evidence_map_ref` and related search authorities, its current-evidence guard requires that frozen lineage to remain current, and its evidence-expansion route returns to intake rather than handing a successor map back to the same candidate gate. The evidence-landscape workflow already owns SearchPlan, SearchRun, EvidenceMap, checkpoint, recheck, and child-plan lineage, so the pilot remains on that side of the frozen handoff.
 
@@ -16,15 +16,15 @@ These facts came from the T-148 real-flow review. T-148 retains the concrete pre
 - EvidenceMap is a result authority, not a live retrieval workspace. RetrievalRequests, SearchRuns, candidate evidence, and Debate rounds represent the process.
 - RetrievalRequest count is not a convergence rule. Equivalent requests reuse durable results; execution remains subject to one standing time/cost/environment policy.
 - Roles state an issue, search intent, candidate queries, and expected decision effect. Only the coordinator derives normalized request and strategy identities and decides whether work is equivalent, changed, or saturated.
-- Each full-library execution binds a canonical corpus-manifest ref and hash plus index, embedding, freshness, retrieval-policy, and reranker identities. A hash without a reconstructable manifest is insufficient replay provenance.
+- Each full-library execution binds a canonical corpus-manifest ref and hash plus index, embedding, candidate-window, fixed query-parameter, freshness, retrieval-policy, and reranker identities. A hash without a reconstructable manifest is insufficient replay provenance. The default manifest contains the full eligible managed library; a subset must carry an exact strict-Human confirmation whose resulting authorities are the selected literature records.
 - The standing execution policy has named maximum orchestration steps/rounds per issue, elapsed time, and accumulated retrieval cost. Reaching any boundary yields an unresolved or Human-escalation result and never satisfies a semantic gate.
 - Existing deterministic gates and strict-human checkpoints remain authoritative. Retrieval and Debate produce support and obligations, not Human decisions.
 - Historical map content, checkpoint packets, and Human decisions are preserved. A material evidence change must create explicit successor lineage.
-- The first implementation is limited to evidence-landscape convergence before the downstream question bundle is frozen. Linked rounds, coordinator-owned strategy saturation, replayable corpus identity, the single-pilot boundary, and F-001 placement were approved on 2026-09-03; detailed field shapes and policy defaults still require Phase 1 contract verification before implementation.
+- The first implementation is limited to evidence-landscape convergence before the downstream question bundle is frozen. Linked rounds, coordinator-owned strategy saturation, replayable corpus identity, the single-pilot boundary, and F-001 placement were approved on 2026-09-03. Phase 1 froze the execution policy at 8 orchestration steps, 4 linked rounds, 300,000 elapsed milliseconds, and 1,000,000 accumulated micro-USD per issue; exhausting any one boundary remains unresolved and cannot pass a gate.
 
 ## Interfaces and contracts
 
-The current planning candidates are:
+The settled Phase 1 contracts are:
 
 - `RetrievalRequest`: issue-bound search intent, candidate queries, corpus/index and freshness requirements, expected decision effect, and originating Debate-round identity. It carries coordinator-derived `request_key` and `strategy_key`; roles cannot author either classification.
 - `CorpusManifest`: the canonical membership/version artifact for the eligible managed-library universe, referenced and hashed by every SearchRun together with the retrieval-stack identity required to replay ranking.
@@ -33,10 +33,47 @@ The current planning candidates are:
 - `EvidenceMap` successor transition: predecessor and successor refs, material delta ref, atomic head transition, and monotonic supersession metadata while predecessor content remains unchanged.
 - `ResolutionRoute`: issue identity, owning evidence-landscape stage, route kind, target, required delta, recheck gate, and execution/Human boundary. The pilot receives one such route; existing unrelated loopbacks are not migrated.
 
-These shapes are the approved planning direction. Their exact fields become implementation authority only through Phase 1 contract verification, and they must reuse existing functional refs, SearchRun authority, hash utilities, and gate results rather than creating parallel stores.
+Phase 1 realized these shapes through the smallest existing owners: `LiteratureResourcePoolSnapshot` is the managed-library corpus manifest and stores sorted embedding-version membership, candidate-window configuration, and retrieval-stack/corpus-scope identity; the search-recheck lifecycle owns normalized `request_key`/`strategy_key`, exact title-scoped issue/session intent, corpus identity, fixed retrieval parameters, execution policy, and resulting SearchPlan/SearchRun refs; immutable control-plane artifacts carry `EvidenceDelta` and `ResolutionRoute`; the closed round-link contract binds a successor Arena session to prior transcript and EvidenceDelta hashes. Only EvidenceMap successor/head state required a new persisted transition and compare-and-swap repository method. Initial-map creation accepts no lineage, normal freshness updates accept only stale/recheck-required, successor revision starts at zero, and a failed child identity preflight leaves the predecessor current. No parallel corpus, request, round, delta, or route store was introduced.
+
+Canonical request identity normalizes whitespace and case in semantic text, sorts and deduplicates candidate queries, normalizes absent versus explicit-null functional-ref version fields, and includes the coordinator-owned retrieval parameters. Roles cannot supply `request_key` or `strategy_key`; the coordinator hashes the normalized strategy and request payloads. Equivalent concurrent writes converge on one request through a synchronous in-memory key index or the Prisma unique request key. EvidenceDelta and ResolutionRoute artifact keys include content plus title, workspace, workflow, and input-snapshot lineage so reuse cannot cross authority boundaries.
+
+Phase 3 keeps replay inside those same authorities. A recheck request moves atomically from `open` to
+`executing`; one local single-flight shares concurrent exact calls, while the persisted claim fences
+other executors. Human terminal resolution is an `open` compare-and-set, while automatic completion is
+an `executing` compare-and-set; the HTTP contract exposes neither claim ownership nor `executing` as a
+caller-authored outcome. A retry recovers an already-persisted child SearchPlan/SearchRun and closes the request;
+an ambiguous interrupted claim does not repeat provider work. Stale or failed provider output becomes
+an audit-only failed SearchRun bound to the request, so exact replay returns the same unresolved result.
+Once a predecessor EvidenceMap is superseded, only an exact materialized request can replay and a changed
+strategy cannot execute against historical state.
+
+The public manual-materialization path first closes its nested HTTP payload and runs deterministic plan,
+run, workspace, snapshot, accounting, timestamp, coverage-key, and plan-version checks. Only then does it
+record a canonical input hash plus planned SearchPlan/SearchRun refs in the `executing` request before
+compiling any control-plane snapshot. SearchPlan and SearchRun creation reuse those target IDs. If an
+infrastructure write fails or the process stops, a later process accepts only the same hashed input,
+reconciles any already-persisted target, and continues the missing target; concurrent exact attempts
+converge on the same records. A deterministic conflict after claim preserves the planned refs and closes
+as `materialization_failed`, rather than becoming a permanently executing poison. Coordinator-keyed
+requests reject the manual path, and the coordinator reads result refs only from a materialized request.
+
+A linked round likewise claims its existing ArenaSession before role work. An unclaimed `open` session
+can resume, an ambiguous `executing` session fails closed, and a role failure records a content-addressed
+blocked transcript on the same session. The completed transcript freezes request accounting plus the
+conflict and coverage inputs used by the checkpoint. Historical replay revalidates the Arena lineage,
+role executions, round link, transcript, successor-map identity, and frozen checkpoint input; it accepts
+a verified superseded successor and reuses the original idempotent checkpoint even if live coverage has
+changed. Both in-memory and Prisma replacement paths refuse to supersede a current `open` or `executing`
+session, so a second session cannot revoke the execution fence. There is no separate completion receipt,
+aggregate pilot record, or mutable resume authority.
 
 ## Migration and operation
 
-The pilot is additive and dormant until its route is explicitly selected. It creates a new SearchRun, successor EvidenceMap, linked Debate round, and fresh evidence checkpoint instead of mutating a frozen downstream bundle. T-148 owns the typed required-coverage issue and Human acceptance contract that Phase 2 consumes; T-150 does not duplicate it. Existing SearchPlans, SearchRuns, EvidenceMaps, Debate artifacts, and Human decisions remain readable. A rollback disables the pilot coordinator while retaining its durable support artifacts; it never deletes a map or decision.
+The pilot is an additive composition of the canonical runtime services rather than a new aggregate authority or public orchestration endpoint. It creates a new SearchRun, successor EvidenceMap, linked Debate round, and fresh evidence checkpoint instead of mutating a frozen downstream bundle. Coordinator output carries orchestration-step, elapsed-time, and query-embedding-cost accounting into the linked round; equivalent durable retrieval reuse adds no retrieval cost. T-148 owns the typed required-coverage issue and Human acceptance contract consumed here; T-150 does not duplicate it. Existing SearchPlans, SearchRuns, EvidenceMaps, Debate artifacts, and Human decisions remain readable. A rollback disables the pilot coordinator while retaining its durable support artifacts; it never deletes a map or decision.
 
 Managed-library retrieval is the only corpus boundary in this task. A new external acquisition source, provider activation, environment change, destructive effect, or Human decision remains a separate authorization boundary. Safe starts or restarts of the same local backend do not require repeated authorization during one already authorized implementation/replay operation.
+
+Adoption by another Debate scenario requires a separately accepted owner and outcome plus an exact
+managed-corpus/request identity, immutable successor route, linked-round replay seam, and deterministic
+gate followed by strict-Human authority. T-150 proves those conditions only for evidence-landscape
+convergence and deliberately stops there.

@@ -5,19 +5,19 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Retained repair plan refined after coverage-authority and pilot-lineage review
-- Next step: Begin Phase 1 with the evidence-checkpoint issue and accepted-coverage decision contract.
-- Blocker: none. T-150 owns retrieval-native evidence-landscape convergence; T-148 independently owns visible coverage risk and its strict-Human acceptance path. T-149 remains a separate completed task.
+- Current phase: Phase 1 evidence-landscape Human-view truth implemented and focused-verified
+- Next step: Resume the independent research-question and current-authority projection work for TSRF-09 and TSRF-12 when T-148 continues.
+- Blocker: none. T-150 Phase 2 may consume the typed required-coverage issue at its own evidence-convergence boundary; its retrieval-native implementation remains outside T-148. T-149 remains a separate completed task.
 
 ## Done when
-- [ ] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
-- [ ] TSRF-02: Human-visible risk and conflict summaries remain semantically consistent with the checkpoint packet; a material conflict cannot be rendered as “no open risks.”
+- [x] TSRF-01: The human evidence-landscape view presents the working claim, mechanism, support, challenge, baseline, context, falsifiers, claim ceiling, and available decisions in decision-ready language rather than primarily exposing record IDs.
+- [x] TSRF-02: Human-visible risk and conflict summaries remain semantically consistent with the checkpoint packet; a material conflict cannot be rendered as “no open risks.”
 - [ ] TSRF-03: The public EvidenceMap request contract documents the runtime-supported evidence-unit, locator, review-status, relationship, conflict, and digest fields and their enums.
 - [ ] TSRF-04: A focused real-flow verification covers topic rejection and replacement, fresh lineage, paragraph-level evidence locators, strict-human checkpoint blocking, and idempotent decision recovery.
 - [ ] TSRF-05: Operational and experiment-asset findings that are not topic-selection defects receive an explicit disposition and, when still material, a separately owned follow-up proposal.
 - [ ] TSRF-06: Before an evidence-landscape checkpoint is eligible to advance, the workflow either covers directly overlapping recent work or visibly records the unresolved literature-freshness and near-duplicate risk for an exact Human decision; systematic retrieval and evidence onboarding remain T-150 work and do not block this visibility repair.
 - [ ] TSRF-07: The real-flow record distinguishes retriever operations from provider calls and captures query intent, mode, hits/evidence delta, and decision effect at every literature-dependent step without turning zero-call materialization into retrieval.
-- [ ] TSRF-08: Evidence-landscape eligibility consumes required SearchPlan coverage outcomes; a required `missing` row emits a typed issue and cannot advance unless the exact current row refs and rationale are accepted by the Human, persisted in the checkpoint decision, and preserved in downstream lineage.
+- [x] TSRF-08: Evidence-landscape eligibility consumes required SearchPlan coverage outcomes; a required `missing` row emits a typed issue and cannot advance unless the exact current row refs and rationale are accepted by the Human, persisted in the checkpoint decision, and preserved in downstream lineage.
 - [ ] TSRF-09: The human research-question view presents the actual main question and its decision-relevant warnings, gaps, dependencies, and risks; an `answerable_with_risk` contract cannot be rendered as having no open risks.
 - [ ] TSRF-10: Research-question candidate generation uses a bounded Debate as a regular convergence component while preserving the existing deterministic admission gate and replayable provenance.
 - [x] TSRF-11: A non-advance research-value disposition such as `refine_question` exposes a supported, replay-safe recovery route to the owning upstream boundary instead of leaving the workflow stranded.

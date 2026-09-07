@@ -153,6 +153,7 @@ import { registerTopicSelectionV1cRoutes } from './routes/topic-selection-v1c-ro
 import { registerTopicSelectionResearchCheckpointRoutes } from './routes/topic-selection-research-checkpoint-routes.js';
 import { registerTopicSelectionResearchEvidencePacketRoutes } from './routes/topic-selection-research-evidence-packet-routes.js';
 import { registerTopicSelectionResearchArenaRetrievalRoutes } from './routes/topic-selection-research-arena-retrieval-routes.js';
+import { registerTopicSelectionEvidenceConvergenceRoutes } from './routes/topic-selection-evidence-convergence-routes.js';
 import { registerTopicSelectionResearchArenaRetrySnapshotRoutes } from './routes/topic-selection-research-arena-retry-snapshot-routes.js';
 import { registerTopicSelectionResearchArenaShadowRoutes } from './routes/topic-selection-research-arena-shadow-routes.js';
 import { registerTopicSelectionResearchArenaRoutes } from './routes/topic-selection-research-arena-routes.js';
@@ -329,6 +330,7 @@ import {
   TopicSelectionResearchArenaRetrievalService,
 } from './services/topic-selection-research-arena-retrieval-service.js';
 import { TopicSelectionResearchArenaRetrievalController } from './controllers/topic-selection-research-arena-retrieval-controller.js';
+import { TopicSelectionEvidenceConvergenceController } from './controllers/topic-selection-evidence-convergence-controller.js';
 import { TopicSelectionResearchArenaService } from './services/topic-selection-research-arena-service.js';
 import { TopicSelectionResearchGapProjectionService } from './services/topic-selection-research-gap-projection-service.js';
 import { TopicSelectionResearchArenaRetrySnapshotService } from './services/topic-selection-research-arena-retry-snapshot-service.js';
@@ -358,6 +360,9 @@ import { TopicSelectionRankedCandidateDraftBatchValidatorService } from './servi
 import { TopicSelectionRecheckRiskMemoryService } from './services/topic-selection-recheck-risk-memory-service.js';
 import { TopicSelectionResourceSamplingService } from './services/topic-selection-resource-sampling-service.js';
 import { TopicSelectionSearchResourceService } from './services/topic-selection-search-resource-service.js';
+import { TopicSelectionEvidenceConvergenceCoordinatorService } from './services/topic-selection-evidence-convergence-coordinator-service.js';
+import { TopicSelectionEvidenceConvergenceRoundService } from './services/topic-selection-evidence-convergence-round-service.js';
+import { TopicSelectionBoundedDebateCoreService } from './services/topic-selection-bounded-debate-core-service.js';
 import { TopicSelectionWorkflowHarnessService } from './services/topic-selection-workflow-harness-service.js';
 import { TopicSelectionV1bResearchSliceService } from './services/topic-selection-v1b-research-slice-service.js';
 import { TopicSelectionV1bTopicPackageService } from './services/topic-selection-v1b-topic-package-service.js';
@@ -1068,6 +1073,22 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     })
     : null;
   const topicSelectionControlPlaneService = new TopicSelectionControlPlaneService(topicSelectionControlPlaneRepository);
+  const llmConfig = defaultLlmConfig();
+  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
+    applicationSettingsRepository,
+    llmConfig,
+  );
+  const llmGateway = new BackendLlmGateway({
+    settingsService: literatureContentProcessingSettingsService,
+    llmConfig,
+  });
+  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
+  const literatureRetrievalService = new LiteratureRetrievalService(
+    literatureRepository,
+    literatureContentProcessingSettingsService,
+    llmGateway,
+    literatureEvidenceActivationService,
+  );
   const topicSelectionResearchArenaService = new TopicSelectionResearchArenaService({
     arenaRepository: topicSelectionResearchArenaRepository,
     controlPlaneRepository: topicSelectionControlPlaneRepository,
@@ -1080,7 +1101,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         controlPlane: topicSelectionControlPlaneService,
       }),
     );
-  const literatureEvidenceActivationService = new LiteratureEvidenceActivationService(literatureRepository);
   const topicSelectionResearchCheckpointService = new TopicSelectionResearchCheckpointService(
     topicSelectionResearchCheckpointRepository,
     topicSelectionControlPlaneService,
@@ -1118,6 +1138,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     topicSelectionControlPlaneService,
     titleCardManagementRepository,
     literatureRepository,
+    { managedLibraryEligibilityResolver: literatureRetrievalService },
   );
   const topicSelectionEvidenceMapService = new TopicSelectionEvidenceMapService(
     topicSelectionEvidenceMapRepository,
@@ -1155,15 +1176,6 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
         advisoryReviewHistoryReader: topicSelectionResearchCheckpointService,
       }),
     );
-  const llmConfig = defaultLlmConfig();
-  const literatureContentProcessingSettingsService = new LiteratureContentProcessingSettingsService(
-    applicationSettingsRepository,
-    llmConfig,
-  );
-  const llmGateway = new BackendLlmGateway({
-    settingsService: literatureContentProcessingSettingsService,
-    llmConfig,
-  });
   const hasSemanticV2Composition = (
     hasDefaultDurableExperimentV2Composition
     && options.paperImplementationExperimentLineageV2Repository === undefined
@@ -1828,6 +1840,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     literatureContentProcessingSettingsService,
     {
       literatureFlowService,
+      literatureRetrievalService,
+      evidenceActivationService: literatureEvidenceActivationService,
       literatureAcquisitionSettingsService,
       llmGateway,
     },
@@ -1867,6 +1881,50 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   const topicSelectionResearchArenaRetrievalController =
     new TopicSelectionResearchArenaRetrievalController(topicSelectionResearchArenaRetrievalService);
+  const topicSelectionEvidenceConvergenceCoordinatorService =
+    new TopicSelectionEvidenceConvergenceCoordinatorService({
+      searchResources: topicSelectionSearchResourceService,
+      retriever: { retrieve: (request) => literatureService.retrieveLiterature(request) },
+      scopedRetriever: {
+        retrieve: async (request, literatureIds) => {
+          const candidateVersions = await literatureRepository
+            .listActiveEmbeddingVersionsByLiteratureIds(literatureIds);
+          const chunks = await literatureRepository.listEmbeddingChunksByEmbeddingVersionIds(
+            candidateVersions.map((version) => version.id),
+          );
+          const response = await localSnapshotLiteratureRetrievalService.retrieveFromPgvectorCandidates(request, {
+            candidateVersions,
+            candidates: chunks.map((chunk) => ({
+              ...chunk,
+              vectorScore: 0,
+              negativeInnerProduct: 0,
+            })),
+            queryEmbeddingTelemetry: null,
+          });
+          return filterLocalSnapshotLexicalMatches(response);
+        },
+      },
+      evidenceMapReader: topicSelectionEvidenceMapRepository,
+    });
+  const topicSelectionEvidenceConvergenceRoundService =
+    new TopicSelectionEvidenceConvergenceRoundService({
+      controlPlane: topicSelectionControlPlaneService,
+      evidenceMaps: topicSelectionEvidenceMapRepository,
+      searchResources: topicSelectionSearchResourceService,
+      arena: topicSelectionResearchArenaService,
+      debateCore: new TopicSelectionBoundedDebateCoreService({
+        controlPlane: topicSelectionControlPlaneService,
+        agentOrchestrator: topicSelectionV1aAgentOrchestratorService,
+      }),
+      contextProfiles: topicSelectionContextPolicyProfileRegistryService,
+      evidencePacketResolver: topicSelectionResearchEvidencePacketService,
+      checkpoints: topicSelectionResearchCheckpointService,
+    });
+  const topicSelectionEvidenceConvergenceController = new TopicSelectionEvidenceConvergenceController(
+    topicSelectionEvidenceConvergenceCoordinatorService,
+    topicSelectionEvidenceMapService,
+    topicSelectionEvidenceConvergenceRoundService,
+  );
   const literatureClusterService = new LiteratureClusterService(literatureRepository);
   const literatureBackfillService = new LiteratureBackfillService(literatureRepository, literatureFlowService, {
     resolvePreferredKeyContentMethod: () => literatureContentProcessingSettingsService.resolvePreferredKeyContentMethod(),
@@ -2025,6 +2083,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     await registerTopicSelectionResearchArenaRetrievalRoutes(
       instance,
       topicSelectionResearchArenaRetrievalController,
+    );
+    await registerTopicSelectionEvidenceConvergenceRoutes(
+      instance,
+      topicSelectionEvidenceConvergenceController,
     );
     await registerTopicSelectionResearchArenaRoutes(
       instance,

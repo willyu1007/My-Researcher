@@ -15,8 +15,10 @@ import type {
   TopicSelectionSearchRunRecord,
   TopicSelectionTopicSeedRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
+import { AppError } from '../../errors/app-error.js';
 import type {
   TopicSelectionSearchPlanWithCoverageIntentsResult,
+  TopicSelectionSearchPlanRecheckRequestPatch,
   TopicSelectionSearchResourceRepository,
   TopicSelectionSearchRunCoverageRecords,
   TopicSelectionSearchRunWithCoverageRecordsResult,
@@ -120,6 +122,8 @@ function toLiteratureSnapshotRecord(row: {
   literatureRefs: Prisma.JsonValue;
   contentSourceRefs: Prisma.JsonValue;
   sourceHealthSummary: Prisma.JsonValue;
+  corpusManifestMembers: Prisma.JsonValue;
+  retrievalStackIdentity: Prisma.JsonValue | null;
   snapshotHash: string;
   inputSnapshotId: string | null;
   gateResultId: string | null;
@@ -137,6 +141,14 @@ function toLiteratureSnapshotRecord(row: {
     literature_refs: asArray<TopicSelectionFunctionalRef>(row.literatureRefs),
     content_source_refs: asArray<TopicSelectionFunctionalRef>(row.contentSourceRefs),
     source_health_summary: asRecord(row.sourceHealthSummary) as unknown as TopicSelectionLiteratureResourcePoolSnapshotRecord['source_health_summary'],
+    corpus_manifest_members: asArray<
+      NonNullable<TopicSelectionLiteratureResourcePoolSnapshotRecord['corpus_manifest_members']>[number]
+    >(row.corpusManifestMembers),
+    retrieval_stack_identity: row.retrievalStackIdentity === null
+      ? null
+      : asRecord(row.retrievalStackIdentity) as unknown as NonNullable<
+        TopicSelectionLiteratureResourcePoolSnapshotRecord['retrieval_stack_identity']
+      >,
     snapshot_hash: row.snapshotHash,
     input_snapshot_id: row.inputSnapshotId,
     gate_result_id: row.gateResultId,
@@ -375,6 +387,16 @@ function toRecheckRequestRecord(row: {
   sourceRef: Prisma.JsonValue;
   targetSearchPlanRef: Prisma.JsonValue;
   targetLiteratureSnapshotRef: Prisma.JsonValue | null;
+  requestKey: string | null;
+  strategyKey: string | null;
+  issueRef: Prisma.JsonValue | null;
+  originatingArenaSessionRef: Prisma.JsonValue | null;
+  retrievalIntent: Prisma.JsonValue | null;
+  expectedDecisionEffect: string | null;
+  executionPolicy: Prisma.JsonValue | null;
+  corpusManifestRef: Prisma.JsonValue | null;
+  corpusManifestHash: string | null;
+  supportingArtifactRefs: Prisma.JsonValue;
   reason: string;
   gapCodes: string[];
   requestedBy: string;
@@ -396,6 +418,26 @@ function toRecheckRequestRecord(row: {
     target_literature_snapshot_ref: row.targetLiteratureSnapshotRef === null
       ? null
       : asFunctionalRef(row.targetLiteratureSnapshotRef),
+    request_key: row.requestKey,
+    strategy_key: row.strategyKey,
+    issue_ref: row.issueRef === null ? null : asFunctionalRef(row.issueRef),
+    originating_arena_session_ref: row.originatingArenaSessionRef === null
+      ? null
+      : asFunctionalRef(row.originatingArenaSessionRef),
+    retrieval_intent: row.retrievalIntent === null
+      ? null
+      : asRecord(row.retrievalIntent) as unknown as NonNullable<
+        TopicSelectionSearchPlanRecheckRequestRecord['retrieval_intent']
+      >,
+    expected_decision_effect: row.expectedDecisionEffect,
+    execution_policy: row.executionPolicy === null
+      ? null
+      : asRecord(row.executionPolicy) as unknown as NonNullable<
+        TopicSelectionSearchPlanRecheckRequestRecord['execution_policy']
+      >,
+    corpus_manifest_ref: row.corpusManifestRef === null ? null : asFunctionalRef(row.corpusManifestRef),
+    corpus_manifest_hash: row.corpusManifestHash,
+    supporting_artifact_refs: asArray<TopicSelectionFunctionalRef>(row.supportingArtifactRefs),
     reason: row.reason,
     gap_codes: row.gapCodes,
     requested_by: row.requestedBy as TopicSelectionSearchPlanRecheckRequestRecord['requested_by'],
@@ -458,6 +500,10 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
         literatureRefs: toJsonValue(record.literature_refs),
         contentSourceRefs: toJsonValue(record.content_source_refs),
         sourceHealthSummary: toJsonValue(record.source_health_summary),
+        corpusManifestMembers: toJsonValue(record.corpus_manifest_members ?? []),
+        retrievalStackIdentity: record.retrieval_stack_identity
+          ? toJsonValue(record.retrieval_stack_identity)
+          : Prisma.JsonNull,
         totalLiteratureCount: sourceHealth.total_literature_count,
         missingLiteratureCount: sourceHealth.missing_literature_ids.length,
         sourceCount: sourceHealth.source_count,
@@ -489,25 +535,40 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     searchPlan: TopicSelectionSearchPlanRecord,
     coverageRowIntents: TopicSelectionCoverageRowIntentRecord[],
   ): Promise<TopicSelectionSearchPlanWithCoverageIntentsResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const planRow = await tx.topicSelectionSearchPlan.create({
-        data: this.toSearchPlanCreateInput(searchPlan),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const planRow = await tx.topicSelectionSearchPlan.create({
+          data: this.toSearchPlanCreateInput(searchPlan),
+        });
+        const intentRows = [];
+        for (const intent of coverageRowIntents) {
+          intentRows.push(await tx.topicSelectionCoverageRowIntent.create({
+            data: this.toCoverageRowIntentCreateInput(intent),
+          }));
+        }
+        return {
+          search_plan: toSearchPlanRecord(planRow),
+          coverage_row_intents: intentRows.map(toCoverageRowIntentRecord),
+        };
       });
-      const intentRows = [];
-      for (const intent of coverageRowIntents) {
-        intentRows.push(await tx.topicSelectionCoverageRowIntent.create({
-          data: this.toCoverageRowIntentCreateInput(intent),
-        }));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlan identity or coverage key already exists.');
       }
-      return {
-        search_plan: toSearchPlanRecord(planRow),
-        coverage_row_intents: intentRows.map(toCoverageRowIntentRecord),
-      };
-    });
+      throw error;
+    }
   }
 
   async findSearchPlanById(searchPlanId: string): Promise<TopicSelectionSearchPlanRecord | null> {
     const row = await this.prisma.topicSelectionSearchPlan.findUnique({ where: { id: searchPlanId } });
+    return row ? toSearchPlanRecord(row) : null;
+  }
+
+  async findSearchPlanByRecheckRequestId(requestId: string): Promise<TopicSelectionSearchPlanRecord | null> {
+    const row = await this.prisma.topicSelectionSearchPlan.findFirst({
+      where: { recheckRequestId: requestId },
+      orderBy: { createdAt: 'asc' },
+    });
     return row ? toSearchPlanRecord(row) : null;
   }
 
@@ -650,49 +711,89 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     return row ? toSearchRunRecord(row) : null;
   }
 
+  async findSearchRunBySearchPlanId(searchPlanId: string): Promise<TopicSelectionSearchRunRecord | null> {
+    const row = await this.prisma.topicSelectionSearchRun.findFirst({
+      where: { searchPlanId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return row ? toSearchRunRecord(row) : null;
+  }
+
   async createSearchPlanRecheckRequest(
     record: TopicSelectionSearchPlanRecheckRequestRecord,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
-    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.create({
-      data: {
-        id: record.search_plan_recheck_request_id,
-        workspaceId: record.workspace_id ?? null,
-        titleCardId: record.title_card_id,
-        sourceRefType: record.source_ref.ref_type,
-        sourceRefId: record.source_ref.ref_id,
-        targetSearchPlanId: record.target_search_plan_ref.ref_id,
-        targetLiteratureSnapshotId: record.target_literature_snapshot_ref?.ref_id ?? null,
-        resultingSearchPlanId: record.resulting_search_plan_ref?.ref_id ?? null,
-        resultingSearchRunId: record.resulting_search_run_ref?.ref_id ?? null,
-        sourceRef: toJsonValue(record.source_ref),
-        targetSearchPlanRef: toJsonValue(record.target_search_plan_ref),
-        targetLiteratureSnapshotRef: record.target_literature_snapshot_ref
-          ? toJsonValue(record.target_literature_snapshot_ref)
-          : Prisma.JsonNull,
-        reason: record.reason,
-        gapCodes: record.gap_codes,
-        requestedBy: record.requested_by,
-        status: record.status,
-        decisionSummary: record.decision_summary ?? null,
-        policyVersionId: record.policy_version_id ?? null,
-        acceptedRiskRefs: toJsonValue(record.accepted_risk_refs),
-        resultingSearchPlanRef: record.resulting_search_plan_ref
-          ? toJsonValue(record.resulting_search_plan_ref)
-          : Prisma.JsonNull,
-        resultingSearchRunRef: record.resulting_search_run_ref
-          ? toJsonValue(record.resulting_search_run_ref)
-          : Prisma.JsonNull,
-        createdAt: new Date(record.created_at),
-        resolvedAt: parseDate(record.resolved_at),
-      },
-    });
-    return toRecheckRequestRecord(row);
+    try {
+      const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.create({
+        data: {
+          id: record.search_plan_recheck_request_id,
+          workspaceId: record.workspace_id ?? null,
+          titleCardId: record.title_card_id,
+          sourceRefType: record.source_ref.ref_type,
+          sourceRefId: record.source_ref.ref_id,
+          targetSearchPlanId: record.target_search_plan_ref.ref_id,
+          targetLiteratureSnapshotId: record.target_literature_snapshot_ref?.ref_id ?? null,
+          resultingSearchPlanId: record.resulting_search_plan_ref?.ref_id ?? null,
+          resultingSearchRunId: record.resulting_search_run_ref?.ref_id ?? null,
+          sourceRef: toJsonValue(record.source_ref),
+          targetSearchPlanRef: toJsonValue(record.target_search_plan_ref),
+          targetLiteratureSnapshotRef: record.target_literature_snapshot_ref
+            ? toJsonValue(record.target_literature_snapshot_ref)
+            : Prisma.JsonNull,
+          requestKey: record.request_key ?? null,
+          strategyKey: record.strategy_key ?? null,
+          issueRef: record.issue_ref ? toJsonValue(record.issue_ref) : Prisma.JsonNull,
+          originatingArenaSessionRef: record.originating_arena_session_ref
+            ? toJsonValue(record.originating_arena_session_ref)
+            : Prisma.JsonNull,
+          retrievalIntent: record.retrieval_intent ? toJsonValue(record.retrieval_intent) : Prisma.JsonNull,
+          expectedDecisionEffect: record.expected_decision_effect ?? null,
+          executionPolicy: record.execution_policy ? toJsonValue(record.execution_policy) : Prisma.JsonNull,
+          corpusManifestRef: record.corpus_manifest_ref ? toJsonValue(record.corpus_manifest_ref) : Prisma.JsonNull,
+          corpusManifestHash: record.corpus_manifest_hash ?? null,
+          supportingArtifactRefs: toJsonValue(record.supporting_artifact_refs ?? []),
+          reason: record.reason,
+          gapCodes: record.gap_codes,
+          requestedBy: record.requested_by,
+          status: record.status,
+          decisionSummary: record.decision_summary ?? null,
+          policyVersionId: record.policy_version_id ?? null,
+          acceptedRiskRefs: toJsonValue(record.accepted_risk_refs),
+          resultingSearchPlanRef: record.resulting_search_plan_ref
+            ? toJsonValue(record.resulting_search_plan_ref)
+            : Prisma.JsonNull,
+          resultingSearchRunRef: record.resulting_search_run_ref
+            ? toJsonValue(record.resulting_search_run_ref)
+            : Prisma.JsonNull,
+          createdAt: new Date(record.created_at),
+          resolvedAt: parseDate(record.resolved_at),
+        },
+      });
+      return toRecheckRequestRecord(row);
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError)
+        || error.code !== 'P2002'
+        || !record.request_key) {
+        throw error;
+      }
+      const replay = await this.findSearchPlanRecheckRequestByRequestKey(record.request_key);
+      if (!replay) {
+        throw error;
+      }
+      return replay;
+    }
   }
 
   async findSearchPlanRecheckRequestById(
     requestId: string,
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
     const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUnique({ where: { id: requestId } });
+    return row ? toRecheckRequestRecord(row) : null;
+  }
+
+  async findSearchPlanRecheckRequestByRequestKey(
+    requestKey: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUnique({ where: { requestKey } });
     return row ? toRecheckRequestRecord(row) : null;
   }
 
@@ -706,15 +807,13 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
     return rows.map(toRecheckRequestRecord);
   }
 
-  async updateSearchPlanRecheckRequest(
+  async transitionSearchPlanRecheckRequest(
     requestId: string,
-    patch: Partial<Omit<
-      TopicSelectionSearchPlanRecheckRequestRecord,
-      'search_plan_recheck_request_id' | 'workspace_id' | 'title_card_id' | 'source_ref' | 'target_search_plan_ref' | 'created_at'
-    >>,
-  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
-    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.update({
-      where: { id: requestId },
+    expectedStatus: TopicSelectionSearchPlanRecheckRequestRecord['status'],
+    patch: TopicSelectionSearchPlanRecheckRequestPatch,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const transitioned = await this.prisma.topicSelectionSearchPlanRecheckRequest.updateMany({
+      where: { id: requestId, status: expectedStatus },
       data: {
         targetLiteratureSnapshotRef: patch.target_literature_snapshot_ref === undefined
           ? undefined
@@ -730,6 +829,30 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
         status: patch.status,
         decisionSummary: patch.decision_summary,
         policyVersionId: patch.policy_version_id,
+        requestKey: patch.request_key,
+        strategyKey: patch.strategy_key,
+        issueRef: patch.issue_ref === undefined
+          ? undefined
+          : patch.issue_ref ? toJsonValue(patch.issue_ref) : Prisma.JsonNull,
+        originatingArenaSessionRef: patch.originating_arena_session_ref === undefined
+          ? undefined
+          : patch.originating_arena_session_ref
+            ? toJsonValue(patch.originating_arena_session_ref)
+            : Prisma.JsonNull,
+        retrievalIntent: patch.retrieval_intent === undefined
+          ? undefined
+          : patch.retrieval_intent ? toJsonValue(patch.retrieval_intent) : Prisma.JsonNull,
+        expectedDecisionEffect: patch.expected_decision_effect,
+        executionPolicy: patch.execution_policy === undefined
+          ? undefined
+          : patch.execution_policy ? toJsonValue(patch.execution_policy) : Prisma.JsonNull,
+        corpusManifestRef: patch.corpus_manifest_ref === undefined
+          ? undefined
+          : patch.corpus_manifest_ref ? toJsonValue(patch.corpus_manifest_ref) : Prisma.JsonNull,
+        corpusManifestHash: patch.corpus_manifest_hash,
+        supportingArtifactRefs: patch.supporting_artifact_refs === undefined
+          ? undefined
+          : toJsonValue(patch.supporting_artifact_refs),
         acceptedRiskRefs: patch.accepted_risk_refs === undefined ? undefined : toJsonValue(patch.accepted_risk_refs),
         resultingSearchPlanRef: patch.resulting_search_plan_ref === undefined
           ? undefined
@@ -749,6 +872,24 @@ export class PrismaTopicSelectionSearchResourceRepository implements TopicSelect
           : patch.resulting_search_run_ref?.ref_id ?? null,
         resolvedAt: patch.resolved_at === undefined ? undefined : parseDate(patch.resolved_at),
       },
+    });
+    if (transitioned.count !== 1) return null;
+    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUniqueOrThrow({
+      where: { id: requestId },
+    });
+    return toRecheckRequestRecord(row);
+  }
+
+  async claimSearchPlanRecheckRequestExecution(
+    requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const claimed = await this.prisma.topicSelectionSearchPlanRecheckRequest.updateMany({
+      where: { id: requestId, status: 'open' },
+      data: { status: 'executing' },
+    });
+    if (claimed.count !== 1) return null;
+    const row = await this.prisma.topicSelectionSearchPlanRecheckRequest.findUniqueOrThrow({
+      where: { id: requestId },
     });
     return toRecheckRequestRecord(row);
   }

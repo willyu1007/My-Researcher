@@ -8,9 +8,19 @@ import type {
   TopicSelectionEvidenceTypedLinkRecord,
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
+import type {
+  TopicSelectionFunctionalRef,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 
-export type TopicSelectionEvidenceMapCreateRecords = {
-  evidence_map: TopicSelectionEvidenceMapRecord;
+export type TopicSelectionEvidenceMapStaleStatus = Extract<
+  TopicSelectionEvidenceFreshnessStatus,
+  'stale' | 'recheck_required'
+>;
+
+export type TopicSelectionEvidenceMapRecords<
+  EvidenceMap extends TopicSelectionEvidenceMapRecord = TopicSelectionEvidenceMapRecord,
+> = {
+  evidence_map: EvidenceMap;
   evidence_units: TopicSelectionEvidenceUnitRecord[];
   typed_links: TopicSelectionEvidenceTypedLinkRecord[];
   clusters: TopicSelectionEvidenceClusterRecord[];
@@ -18,9 +28,47 @@ export type TopicSelectionEvidenceMapCreateRecords = {
   conflict_sets: TopicSelectionEvidenceConflictSetRecord[];
 };
 
+export type TopicSelectionEvidenceMapCreateRecords = TopicSelectionEvidenceMapRecords;
+
+export type TopicSelectionInitialEvidenceMapRecord = Omit<
+  TopicSelectionEvidenceMapRecord,
+  'predecessor_evidence_map_ref' | 'successor_evidence_map_ref' | 'material_evidence_delta_ref' | 'lineage_revision'
+> & {
+  predecessor_evidence_map_ref?: null;
+  successor_evidence_map_ref?: null;
+  material_evidence_delta_ref?: null;
+  lineage_revision?: 0;
+};
+
+export type TopicSelectionInitialEvidenceMapCreateRecords = TopicSelectionEvidenceMapRecords<
+  TopicSelectionInitialEvidenceMapRecord
+>;
+
+export function assertInitialEvidenceMapCreateRecords(
+  records: TopicSelectionEvidenceMapCreateRecords,
+): asserts records is TopicSelectionInitialEvidenceMapCreateRecords {
+  const map = records.evidence_map;
+  if (map.predecessor_evidence_map_ref
+    || map.successor_evidence_map_ref
+    || map.material_evidence_delta_ref
+    || (map.lineage_revision ?? 0) !== 0) {
+    throw new Error('EvidenceMap initial creation cannot carry successor lineage.');
+  }
+}
+
+export type TopicSelectionEvidenceMapSuccessorPublication = {
+  expected_predecessor_id: string;
+  expected_lineage_revision: number;
+  material_evidence_delta_ref: TopicSelectionFunctionalRef;
+  successor_records: TopicSelectionEvidenceMapCreateRecords;
+};
+
 export interface TopicSelectionEvidenceMapRepository {
   createEvidenceMapWithRecords(
-    records: TopicSelectionEvidenceMapCreateRecords,
+    records: TopicSelectionInitialEvidenceMapCreateRecords,
+  ): Promise<TopicSelectionInitialEvidenceMapCreateRecords>;
+  publishEvidenceMapSuccessorWithRecords(
+    publication: TopicSelectionEvidenceMapSuccessorPublication,
   ): Promise<TopicSelectionEvidenceMapCreateRecords>;
 
   findEvidenceMapById(evidenceMapId: string): Promise<TopicSelectionEvidenceMapRecord | null>;
@@ -32,7 +80,7 @@ export interface TopicSelectionEvidenceMapRepository {
   listEvidenceMapsByTitleCardId(titleCardId: string): Promise<TopicSelectionEvidenceMapRecord[]>;
   updateEvidenceMapFreshness(
     evidenceMapId: string,
-    freshnessStatus: TopicSelectionEvidenceFreshnessStatus,
+    freshnessStatus: TopicSelectionEvidenceMapStaleStatus,
     staleReasonCodes: string[],
   ): Promise<TopicSelectionEvidenceMapRecord>;
 

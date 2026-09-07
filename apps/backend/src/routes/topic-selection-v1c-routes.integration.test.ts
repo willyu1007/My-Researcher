@@ -2420,7 +2420,9 @@ test('topic-selection v1c offline replay routes force v1c stage and reject incom
   }
 });
 
-test('T-067 Prisma HTTP smoke requires DATABASE_URL and drives v1c routes against Prisma repositories', async () => {
+test('T-067 Prisma HTTP smoke drives v1c routes against Prisma repositories', {
+  skip: process.env.DATABASE_URL ? false : 'set DATABASE_URL to run the T-067 Prisma HTTP smoke test',
+}, async () => {
   await assertPrismaHttpSmokeDatabaseReady();
   const suffix = uniqueId('v1c-prisma');
   const prisma = new PrismaClient();

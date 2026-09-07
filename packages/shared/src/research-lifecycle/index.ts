@@ -18,6 +18,7 @@ export * from './paper-implementation-experiment-lineage-v2-contracts.js';
 export * from './paper-implementation-semantic-retrieval-v2-contracts.js';
 export * from './paper-implementation-closure-preparation-v2-contracts.js';
 export * from './topic-selection-control-plane-contracts.js';
+export * from './topic-selection-evidence-convergence-contracts.js';
 export * from './topic-selection-research-checkpoint-contracts.js';
 export * from './topic-selection-research-arena-contracts.js';
 export * from './topic-selection-research-arena-calibration-contracts.js';

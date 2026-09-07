@@ -66,6 +66,18 @@ test('research stage manifest and artifact resolver routes stay aligned with Ope
   );
   assert.match(reviewBlock, /human_confirm_need_intent:/);
   assert.match(reviewBlock, /TopicSelectionHumanConfirmNeedIntent/);
+  const evidenceReviewBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionEvidenceLandscapeReview',
+  );
+  assert.match(evidenceReviewBlock, /accepted_coverage:/);
+  assert.match(evidenceReviewBlock, /TopicSelectionRequiredCoverageAcceptance/);
+  const coverageAcceptanceBlock = extractSchemaBlock(
+    openapiSource,
+    'TopicSelectionRequiredCoverageAcceptance',
+  );
+  assert.match(coverageAcceptanceBlock, /required: \[coverage_row_refs, rationale\]/);
+  assert.match(coverageAcceptanceBlock, /minItems: 1/);
   assert.match(openapiSource, /minItems: 7/);
   assert.match(openapiSource, /maxItems: 7/);
 });

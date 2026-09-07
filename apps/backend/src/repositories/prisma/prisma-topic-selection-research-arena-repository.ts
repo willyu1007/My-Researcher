@@ -170,6 +170,9 @@ implements TopicSelectionResearchArenaRepository {
           where: { currentArenaKey: currentKey },
         });
         if (previous) {
+          if (previous.status === 'open' || previous.status === 'executing') {
+            throw new TopicSelectionResearchArenaConflictError('An active arena cannot be superseded.');
+          }
           await transaction.topicSelectionResearchArenaSession.update({
             where: { id: previous.id },
             data: {
@@ -231,6 +234,47 @@ implements TopicSelectionResearchArenaRepository {
       },
     });
     if (claimed.count !== 1) throw new TopicSelectionResearchArenaConflictError('Arena changed concurrently.');
+    const row = await this.prisma.topicSelectionResearchArenaSession.findUniqueOrThrow({
+      where: { id: record.arena_session_id },
+    });
+    return toSession(row);
+  }
+
+  async claimSessionExecution(
+    sessionId: string,
+  ): Promise<TopicSelectionResearchArenaSessionRecord | null> {
+    const claimed = await this.prisma.topicSelectionResearchArenaSession.updateMany({
+      where: { id: sessionId, currentArenaKey: { not: null }, status: 'open' },
+      data: { status: 'executing' },
+    });
+    if (claimed.count !== 1) return null;
+    const row = await this.prisma.topicSelectionResearchArenaSession.findUniqueOrThrow({
+      where: { id: sessionId },
+    });
+    return toSession(row);
+  }
+
+  async completeClaimedSession(
+    record: TopicSelectionResearchArenaSessionRecord,
+  ): Promise<TopicSelectionResearchArenaSessionRecord> {
+    const completed = await this.prisma.topicSelectionResearchArenaSession.updateMany({
+      where: {
+        id: record.arena_session_id,
+        currentArenaKey: record.current_arena_key,
+        status: 'executing',
+      },
+      data: {
+        status: record.status,
+        terminationReason: record.termination_reason,
+        loopTranscriptRef: record.loop_transcript_ref ? toJson(record.loop_transcript_ref) : Prisma.DbNull,
+        loopTranscriptHash: record.loop_transcript_hash,
+        updatedAt: new Date(record.updated_at),
+        synthesizedAt: record.synthesized_at ? new Date(record.synthesized_at) : null,
+      },
+    });
+    if (completed.count !== 1) {
+      throw new TopicSelectionResearchArenaConflictError('Claimed arena changed concurrently.');
+    }
     const row = await this.prisma.topicSelectionResearchArenaSession.findUniqueOrThrow({
       where: { id: record.arena_session_id },
     });
@@ -299,16 +343,26 @@ implements TopicSelectionResearchArenaRepository {
   ): Promise<TopicSelectionResearchArenaRoleExecutionRecord> {
     try {
       const row = await this.prisma.$transaction(async (transaction) => {
-        const claimed = await transaction.topicSelectionResearchArenaSession.updateMany({
+        let claimed = await transaction.topicSelectionResearchArenaSession.updateMany({
           where: {
             id: record.arena_session_id,
             currentArenaKey: { not: null },
-            status: 'open',
+            status: 'executing',
           },
-          data: { status: 'open' },
+          data: { status: 'executing' },
         });
+        if (claimed.count === 0) {
+          claimed = await transaction.topicSelectionResearchArenaSession.updateMany({
+            where: {
+              id: record.arena_session_id,
+              currentArenaKey: { not: null },
+              status: 'open',
+            },
+            data: { status: 'open' },
+          });
+        }
         if (claimed.count !== 1) {
-          throw new TopicSelectionResearchArenaConflictError('Arena is not current and open.');
+          throw new TopicSelectionResearchArenaConflictError('Arena is not current and executable.');
         }
         return transaction.topicSelectionResearchArenaRoleExecution.create({ data: {
           id: record.arena_role_execution_id,

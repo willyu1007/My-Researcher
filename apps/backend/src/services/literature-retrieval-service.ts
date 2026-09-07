@@ -5,7 +5,11 @@ import type {
   LiteratureRetrieveProfileId,
   LiteratureRetrieveRequest,
   LiteratureRetrieveResponse,
+  LiteratureRetrievalCandidateWindowSettingsDTO,
 } from '@paper-engineering-assistant/shared/research-lifecycle/literature-contracts';
+import type {
+  TopicSelectionRetrievalStackIdentity,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import { AppError } from '../errors/app-error.js';
 import type {
   LiteratureClusterGraphRecord,
@@ -82,14 +86,24 @@ type LiteratureWorkIdentityMaps = {
   directIdentityKeysByLiteratureId: Map<string, Set<string>>;
 };
 
-type LiteratureRetrievalCandidateWindowSettings = {
-  floor: number;
-  unscoped_ceiling: number;
-  scoped_ceiling: number;
-  profile_multipliers: Record<LiteratureRetrieveProfileId, number>;
-  per_literature_cap_min: number;
-  per_literature_cap_max: number;
-  query_timeout_ms: number;
+type LiteratureRetrievalCandidateWindowSettings = LiteratureRetrievalCandidateWindowSettingsDTO;
+
+type ManagedLibraryCandidateUniverse = {
+  activeProfile: ActiveEmbeddingProfileConfig;
+  candidateVersions: LiteratureEmbeddingVersionRecord[];
+  eligibleVersions: LiteratureEmbeddingVersionRecord[];
+  freshnessWarnings: LiteratureRetrieveResponse['meta']['freshness_warnings'];
+  skippedProfiles: LiteratureRetrieveResponse['meta']['skipped_profiles'];
+};
+
+export type LiteratureManagedLibraryEligibility = {
+  eligible_embedding_versions: Array<{
+    embedding_version_id: string;
+    literature_id: string;
+    input_checksum: string | null;
+    index_artifact_checksum: string | null;
+  }>;
+  retrieval_stack_identity: TopicSelectionRetrievalStackIdentity;
 };
 
 const RETRIEVAL_STOPWORDS = new Set([
@@ -113,6 +127,9 @@ const RETRIEVAL_STOPWORDS = new Set([
   'using',
   'with',
 ]);
+
+const LITERATURE_RETRIEVAL_POLICY_VERSION = 'literature-retrieval.v1';
+const LITERATURE_RERANKER_POLICY_VERSION = 'hybrid-reranker.v1';
 
 const RETRIEVAL_PROFILE_CONFIGS: Record<LiteratureRetrieveProfileId, RetrievalProfileConfig> = {
   general: {
@@ -192,6 +209,43 @@ export class LiteratureRetrievalService {
     return result.response;
   }
 
+  /** The full-library manifest uses this same resolver as unscoped retrieval. */
+  async resolveManagedLibraryEligibility(): Promise<LiteratureManagedLibraryEligibility> {
+    const [universe, candidateWindow] = await Promise.all([
+      this.resolveManagedLibraryCandidateUniverse(),
+      this.settingsService?.resolveRetrievalCandidateWindowSettings?.()
+        ?? Promise.resolve(DEFAULT_PGVECTOR_CANDIDATE_WINDOW),
+    ]);
+    return {
+      eligible_embedding_versions: universe.eligibleVersions
+        .map((version) => ({
+          embedding_version_id: version.id,
+          literature_id: version.literatureId,
+          input_checksum: version.inputChecksum,
+          index_artifact_checksum: version.indexArtifactChecksum,
+        }))
+        .sort((left, right) => left.literature_id.localeCompare(right.literature_id)),
+      retrieval_stack_identity: {
+        index_kind: 'pgvector',
+        embedding_profile_id: universe.activeProfile.profileId,
+        embedding_provider: universe.activeProfile.provider,
+        embedding_model: universe.activeProfile.model,
+        embedding_dimension: universe.activeProfile.dimensions ?? universe.eligibleVersions[0]?.dimension ?? 0,
+        freshness_policy: 'current_only',
+        retrieval_policy_version: LITERATURE_RETRIEVAL_POLICY_VERSION,
+        reranker_policy_version: LITERATURE_RERANKER_POLICY_VERSION,
+        candidate_window: {
+          ...candidateWindow,
+          profile_multipliers: { ...candidateWindow.profile_multipliers },
+        },
+        corpus_scope: {
+          mode: 'full_managed_library',
+          human_confirmation_ref: null,
+        },
+      },
+    };
+  }
+
   private async retrieveFromPgvector(
     request: LiteratureRetrieveRequest,
     candidateWindowSettings: LiteratureRetrievalCandidateWindowSettings,
@@ -207,12 +261,15 @@ export class LiteratureRetrievalService {
     const profileId = this.normalizeProfile(request.profile);
     const topK = this.normalizeRange(request.top_k, 10, 1, 30);
     const evidencePerLiterature = this.normalizeRange(request.evidence_per_literature, 3, 1, 5);
-    const activeEmbeddingProfile = await this.resolveActiveEmbeddingProfile();
-    const resolvedVersions = await this.resolveCandidateVersions(request);
-    const { compatibleVersions: candidateVersions, skippedProfiles } = this.filterVersionsByActiveProfile(
-      resolvedVersions,
-      activeEmbeddingProfile,
-    );
+    const unscoped = !request.topic_id?.trim() && !request.paper_id?.trim();
+    const managedUniverse = unscoped ? await this.resolveManagedLibraryCandidateUniverse() : null;
+    const activeEmbeddingProfile = managedUniverse?.activeProfile ?? await this.resolveActiveEmbeddingProfile();
+    const resolvedVersions = managedUniverse ? [] : await this.resolveCandidateVersions(request);
+    const scopedCandidates = managedUniverse
+      ? null
+      : this.filterVersionsByActiveProfile(resolvedVersions, activeEmbeddingProfile);
+    const candidateVersions = managedUniverse?.candidateVersions ?? scopedCandidates!.compatibleVersions;
+    const skippedProfiles = managedUniverse?.skippedProfiles ?? scopedCandidates!.skippedProfiles;
     if (candidateVersions.length === 0) {
       return {
         response: await this.retrieveFromPgvectorCandidates(request, {
@@ -234,7 +291,9 @@ export class LiteratureRetrievalService {
     }
 
     const literatureIds = [...new Set(candidateVersions.map((version) => version.literatureId))];
-    const staleWarnings = await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
+    const staleWarnings = managedUniverse
+      ? managedUniverse.freshnessWarnings
+      : await this.resolveFreshnessWarnings(literatureIds, candidateVersions);
     const staleVersionIds = new Set(staleWarnings.map((warning) => warning.embedding_version_id));
     const includeStale = request.include_stale === true;
     const eligibleVersions = includeStale
@@ -500,6 +559,29 @@ export class LiteratureRetrievalService {
       return [];
     }
     return this.filterEvidenceReadyVersions(await this.repository.listActiveEmbeddingVersionsByLiteratureIds(finalIds));
+  }
+
+  private async resolveManagedLibraryCandidateUniverse(): Promise<ManagedLibraryCandidateUniverse> {
+    const activeProfile = await this.resolveActiveEmbeddingProfile();
+    const evidenceReadyVersions = await this.filterEvidenceReadyVersions(
+      await this.repository.listActiveEmbeddingVersions(),
+    );
+    const { compatibleVersions, skippedProfiles } = this.filterVersionsByActiveProfile(
+      evidenceReadyVersions,
+      activeProfile,
+    );
+    const staleWarnings = await this.resolveFreshnessWarnings(
+      [...new Set(compatibleVersions.map((version) => version.literatureId))],
+      compatibleVersions,
+    );
+    const staleVersionIds = new Set(staleWarnings.map((warning) => warning.embedding_version_id));
+    return {
+      activeProfile,
+      candidateVersions: compatibleVersions,
+      eligibleVersions: compatibleVersions.filter((version) => !staleVersionIds.has(version.id)),
+      freshnessWarnings: staleWarnings,
+      skippedProfiles,
+    };
   }
 
   private async filterEvidenceReadyVersions(

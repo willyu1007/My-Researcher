@@ -11,6 +11,10 @@ import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
+import type {
+  MaterializeEvidenceLandscapeCheckpointInput,
+  TopicSelectionResearchCheckpointService,
+} from './topic-selection-research-checkpoint-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
 function ref(refType: string, refId: string, titleCardId = 'title_card_1'): TopicSelectionFunctionalRef {
@@ -113,7 +117,9 @@ function makeFulltextBundle(literatureId: string): LiteratureFulltextExtractionB
   };
 }
 
-function makeContext() {
+function makeContext(
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+) {
   let sequence = 0;
   const now = () => '2026-05-13T00:00:00.000Z';
   const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
@@ -135,7 +141,7 @@ function makeContext() {
     controlPlane,
     searchResourceRepository,
     literature,
-    { idFactory, now },
+    { idFactory, now, checkpointControl },
   );
   return {
     evidenceRepository,
@@ -147,8 +153,11 @@ function makeContext() {
   };
 }
 
-async function createSearchRunFixture(runStatus: 'succeeded' | 'partial' | 'failed' = 'succeeded') {
-  const ctx = makeContext();
+async function createSearchRunFixture(
+  runStatus: 'succeeded' | 'partial' | 'failed' = 'succeeded',
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+) {
+  const ctx = makeContext(checkpointControl);
   const titleCard = await ctx.titleCards.createTitleCard({
     working_title: 'Robust evidence retrieval',
     brief: 'Find unmet needs in evidence-grounded literature retrieval.',
@@ -306,8 +315,10 @@ function locator(
   };
 }
 
-async function createEvidenceMapFixture() {
-  const ctx = await createSearchRunFixture();
+async function createEvidenceMapFixture(
+  checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+) {
+  const ctx = await createSearchRunFixture('succeeded', checkpointControl);
   const titleCardId = ctx.titleCard.title_card_id;
   const [supportRow, challengeRow, baselineRow, contextRow] = ctx.plan.coverage_row_intents;
   const map = await ctx.evidenceService.createEvidenceMapFromSearchRun({
@@ -392,6 +403,235 @@ test('fake slice creates EvidenceMap, role-separated bundle, and demand-driven s
   assert.equal(bundle.context_units.length, 1);
   assert.equal(assessment.strength_verdict, 'mixed');
   assert.equal(assessment.target_ref.ref_id, 'need_001');
+});
+
+test('EvidenceMap checkpoint materialization receives persisted coverage assessments', async () => {
+  const captured: MaterializeEvidenceLandscapeCheckpointInput[] = [];
+  const ctx = await createSearchRunFixture('succeeded', {
+    materializeEvidenceLandscapeCheckpoint: async (input) => {
+      captured.push(input);
+      return { research_checkpoint_id: 'captured_checkpoint' } as Awaited<
+        ReturnType<TopicSelectionResearchCheckpointService['materializeEvidenceLandscapeCheckpoint']>
+      >;
+    },
+  });
+  const titleCardId = ctx.titleCard.title_card_id;
+  const supportRow = ctx.plan.coverage_row_intents[0]!;
+  await ctx.searchResourceRepository.createCoverageAssessment({
+    coverage_assessment_id: 'coverage_assessment_persisted',
+    search_plan_id: ctx.plan.search_plan.search_plan_id,
+    coverage_row_intent_id: supportRow.coverage_row_intent_id,
+    verdict: 'missing',
+    issue_codes: ['NO_DIRECT_EVIDENCE'],
+    confidence: 0.8,
+    assessed_by: 'system',
+    created_at: '2026-05-13T01:00:00.000Z',
+  });
+
+  await ctx.evidenceService.createEvidenceMapFromSearchRun({
+    title_card_id: titleCardId,
+    search_run_id: ctx.searchRun.search_run_id,
+    evidence_units: [{
+      coverage_row_intent_id: supportRow.coverage_row_intent_id,
+      evidence_role: 'support',
+      literature_ref: ref('literature_record', 'lit_001', titleCardId),
+      source_refs: [ref('literature_source', 'source_001', titleCardId)],
+      locator: locator('section', ref('fulltext_section', 'section_001', titleCardId), titleCardId),
+      source_statement: 'Robust retrieval evidence remains brittle.',
+    }],
+    created_by: 'system',
+  });
+
+  assert.deepEqual(captured[0]?.coverage_assessments, [{
+    coverage_assessment_id: 'coverage_assessment_persisted',
+    search_plan_id: ctx.plan.search_plan.search_plan_id,
+    coverage_row_intent_id: supportRow.coverage_row_intent_id,
+    verdict: 'missing',
+    issue_codes: ['NO_DIRECT_EVIDENCE'],
+    confidence: 0.8,
+    assessed_by: 'system',
+    created_at: '2026-05-13T01:00:00.000Z',
+  }]);
+});
+
+test('claim admission publishes a material successor for the linked same-gate round', async () => {
+  const checkpoints: MaterializeEvidenceLandscapeCheckpointInput[] = [];
+  const ctx = await createEvidenceMapFixture({
+    materializeEvidenceLandscapeCheckpoint: async (input) => {
+      checkpoints.push(input);
+      return { research_checkpoint_id: `checkpoint_${checkpoints.length}` } as Awaited<
+        ReturnType<TopicSelectionResearchCheckpointService['materializeEvidenceLandscapeCheckpoint']>
+      >;
+    },
+  });
+  checkpoints.length = 0;
+  const titleCardId = ctx.titleCard.title_card_id;
+  const parentChallengeRow = ctx.plan.coverage_row_intents.find((row) => row.coverage_key === 'counter-evidence')!;
+  const childPlan = await ctx.searchService.createSearchPlan({
+    title_card_id: titleCardId,
+    topic_seed_id: ctx.plan.search_plan.topic_seed_ref.ref_id,
+    literature_resource_pool_snapshot_id: ctx.snapshot.literature_resource_pool_snapshot_id,
+    query_intents: ['new direct counter evidence'],
+    coverage_intents: ctx.plan.coverage_row_intents.map((row) => ({
+      coverage_key: row.coverage_key,
+      intent_type: row.intent_type,
+      query: row.query,
+      rationale: row.rationale,
+      required: row.required,
+      priority: row.priority,
+      target_source_types: row.target_source_types,
+      expected_evidence_role: row.expected_evidence_role,
+      refs: row.refs,
+    })),
+    parent_search_plan_ref: ref('search_plan', ctx.plan.search_plan.search_plan_id, titleCardId),
+    recheck_request_ref: ref('search_plan_recheck_request', 'request_1', titleCardId),
+    created_by: 'system',
+  });
+  const childChallengeRow = childPlan.coverage_row_intents.find((row) => row.coverage_key === 'counter-evidence')!;
+  const paragraphRef = ref('fulltext_paragraph', 'paragraph_001', titleCardId);
+  const chunkText = 'Robust retrieval evidence remains brittle.';
+  const childRun = await ctx.searchService.recordSearchRun({
+    title_card_id: titleCardId,
+    search_plan_id: childPlan.search_plan.search_plan_id,
+    run_kind: 'recheck_followup',
+    run_status: 'succeeded',
+    query_provenance: [{
+      query: 'new direct counter evidence',
+      hits: [{
+        query: 'new direct counter evidence',
+        literature_ref: ref('literature_record', 'lit_001', titleCardId),
+        embedding_version_id: 'embedding_001',
+        chunk_ref: paragraphRef,
+        chunk_hash: '1db8210e0d2d5bdee76f1973bfac7863de581d94695f524aa0fcae9521f64df1',
+        source_text: chunkText,
+        rank: 1,
+      }, {
+        query: 'new direct counter evidence',
+        literature_ref: ref('literature_record', 'lit_001', titleCardId),
+        embedding_version_id: 'embedding_001',
+        chunk_ref: paragraphRef,
+        chunk_hash: 'd12329d83f07ef9e1f15fb7c0487c9143ccea49920cfa5ea7ed35876418891bc',
+        source_text: 'A counter example reports stable retrieval under curated sources.',
+        rank: 2,
+      }],
+    }],
+    result_accounting: {
+      total_result_count: 1,
+      unique_literature_count: 1,
+      duplicate_result_count: 0,
+      failed_source_count: 0,
+      skipped_source_count: 0,
+    },
+    source_health_summary: { warning_codes: [] },
+    evidence_map_input_refs: [
+      ref('literature_record', 'lit_001', titleCardId),
+      ref('literature_source', 'source_001', titleCardId),
+      ref('fulltext_section', 'section_001', titleCardId),
+      paragraphRef,
+      ref('fulltext_anchor', 'anchor_001', titleCardId),
+      ref('manual_locator', 'manual_001', titleCardId),
+    ],
+    evidence_bindings: [{
+      coverage_row_intent_id: childChallengeRow.coverage_row_intent_id,
+      literature_ref: ref('literature_record', 'lit_001', titleCardId),
+      source_refs: [paragraphRef],
+      binding_kind: 'retrieval_hit',
+      result_rank: 1,
+    }],
+    created_by: 'system',
+  });
+
+  const baseInput = {
+    title_card_id: titleCardId,
+    predecessor_evidence_map_id: ctx.evidenceMap.evidence_map_id,
+    search_run_id: childRun.search_run.search_run_id,
+    issue_ref: ref('coverage_row_intent', parentChallengeRow.coverage_row_intent_id, titleCardId),
+    decision_relevance: 'The admitted counter-claim resolves the missing challenge row.',
+    created_by: 'system' as const,
+  };
+  const materialAdmission = {
+      schema_version: 'TopicSelectionEvidenceConvergenceClaimAdmission@v1',
+      request_ref: ref('search_plan_recheck_request', 'request_1', titleCardId),
+      search_run_ref: ref('search_run', childRun.search_run.search_run_id, titleCardId),
+      query: 'new direct counter evidence',
+      literature_ref: ref('literature_record', 'lit_001', titleCardId),
+      chunk_ref: paragraphRef,
+      chunk_hash: '1db8210e0d2d5bdee76f1973bfac7863de581d94695f524aa0fcae9521f64df1',
+      evidence_role: 'challenge',
+      source_statement: chunkText,
+      normalized_statement: 'Retrieval remains brittle under the tested conditions.',
+      interpretation_payload: { admission_reason: 'Direct counter evidence for the required row.' },
+      extraction_confidence: 0.95,
+  } as const;
+
+  await assert.rejects(ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    claim_admissions: [{ ...materialAdmission, source_statement: 'A tampered quote.' }],
+  }), (error: unknown) => error instanceof AppError
+    && error.statusCode === 422
+    && error.errorCode === 'GATE_CONSTRAINT_FAILED');
+
+  await assert.rejects(ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    workspace_id: 'workspace_other',
+    claim_admissions: [materialAdmission],
+  }), /workspace scope/u);
+
+  const noDelta = await ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    claim_admissions: [{
+      ...materialAdmission,
+      chunk_hash: 'd12329d83f07ef9e1f15fb7c0487c9143ccea49920cfa5ea7ed35876418891bc',
+      source_statement: 'A counter example reports stable retrieval under curated sources.',
+      normalized_statement: null,
+    }],
+  });
+  assert.equal(noDelta.status, 'no_material_delta');
+  assert.equal(noDelta.evidence_delta.material, false);
+  assert.equal(noDelta.successor, null);
+  assert.equal((await ctx.evidenceRepository.findEvidenceMapById(ctx.evidenceMap.evidence_map_id))?.freshness_status, 'current');
+  assert.equal(checkpoints.length, 0);
+
+  const createCoverageAssessment = ctx.searchResourceRepository.createCoverageAssessment.bind(
+    ctx.searchResourceRepository,
+  );
+  ctx.searchResourceRepository.createCoverageAssessment = async () => {
+    throw new Error('simulated assessment persistence failure');
+  };
+  await assert.rejects(ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    claim_admissions: [materialAdmission],
+  }), /simulated assessment persistence failure/u);
+  assert.equal(
+    (await ctx.evidenceRepository.findEvidenceMapById(ctx.evidenceMap.evidence_map_id))?.freshness_status,
+    'current',
+    'a failed coverage assessment must not advance the EvidenceMap head',
+  );
+  ctx.searchResourceRepository.createCoverageAssessment = createCoverageAssessment;
+
+  const result = await ctx.evidenceService.publishEvidenceConvergenceSuccessor({
+    ...baseInput,
+    claim_admissions: [materialAdmission],
+  });
+
+  assert.equal(result.status, 'successor_published');
+  assert.equal(result.evidence_delta.material, true);
+  assert.equal(result.evidence_delta.admitted_evidence_unit_refs.length, 1);
+  assert.equal(result.successor?.evidence_map.predecessor_evidence_map_ref?.ref_id, ctx.evidenceMap.evidence_map_id);
+  assert.equal(result.successor?.evidence_map.material_evidence_delta_ref?.ref_id, result.evidence_delta_ref.ref_id);
+  assert.equal(result.successor?.evidence_units.length, ctx.evidenceUnits.length + 1);
+  assert.equal(
+    result.successor?.evidence_units.some((unit) => unit.normalized_statement === 'Retrieval remains brittle under the tested conditions.'),
+    true,
+  );
+  const predecessor = await ctx.evidenceRepository.findEvidenceMapById(ctx.evidenceMap.evidence_map_id);
+  assert.equal(predecessor?.freshness_status, 'superseded');
+  const matrix = await ctx.searchService.getCoverageMatrix(childPlan.search_plan.search_plan_id);
+  assert.equal(
+    matrix.rows.find((row) => row.coverage_row_intent.coverage_key === 'counter-evidence')?.latest_assessment?.verdict,
+    'satisfied',
+  );
+  assert.equal(checkpoints.length, 0, 'the fresh checkpoint must wait for the linked Debate round');
 });
 
 test('EvidenceUnit locator provenance keeps section, paragraph, anchor, and manual refs traceable', async () => {

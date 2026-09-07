@@ -180,6 +180,10 @@
     "topic-selection-research-arena-prior-art-topic-killer": {
       "version": "v2",
       "system": "prompts/research-arena/prior-art-topic-killer/system.md"
+    },
+    "topic-selection.evidence-convergence.runtime-role": {
+      "version": "v1",
+      "system": "prompts/evidence-convergence/system.md"
     }
   }
 }

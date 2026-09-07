@@ -5,6 +5,9 @@ import type {
   TopicSelectionFunctionalRef,
 } from './topic-selection-control-plane-contracts.js';
 import {
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+} from './topic-selection-evidence-convergence-contracts.js';
+import {
   TOPIC_SELECTION_SEARCH_PLAN_BLUEPRINT_SCHEMA_VERSION,
   TOPIC_SELECTION_SEARCH_RUN_HANDOFF_SCHEMA_VERSION,
   TOPIC_SELECTION_SEARCH_RUN_LOOPBACK_SIGNAL_SCHEMA_VERSION,
@@ -13,7 +16,9 @@ import {
   type TopicSelectionSearchRunHandoff,
   type TopicSelectionSearchRunLoopbackSignal,
   type TopicSelectionSearchRunRecordBundle,
+  topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
   topicSelectionSearchPlanBlueprintSchema,
+  topicSelectionSearchPlanRecheckRequestRecordSchema,
   topicSelectionSearchRunHandoffSchema,
   topicSelectionSearchRunLoopbackSignalSchema,
   topicSelectionSearchRunRecordBundleSchema,
@@ -163,6 +168,97 @@ function validLoopbackSignal(): TopicSelectionSearchRunLoopbackSignal {
   };
 }
 
+function validManagedLibrarySnapshot(): Record<string, unknown> {
+  return {
+    literature_resource_pool_snapshot_id: 'manifest_001',
+    title_card_id: 'title_card_001',
+    snapshot_version: 'v1',
+    source_scope: 'managed_library',
+    topic_seed_ref: ref('topic_seed', 'topic_seed_001', 'v1'),
+    literature_refs: [ref('literature_record', 'lit_001')],
+    content_source_refs: [ref('literature_source', 'source_001')],
+    source_health_summary: {
+      total_literature_count: 1,
+      missing_literature_ids: [],
+      rights_class_counts: { OA: 1 },
+      pipeline_ready_count: 1,
+      abstract_ready_count: 1,
+      key_content_ready_count: 1,
+      fulltext_ready_count: 1,
+      source_count: 1,
+      stale_count: 0,
+      blocked_count: 0,
+      warning_codes: [],
+    },
+    corpus_manifest_members: [{
+      literature_ref: ref('literature_record', 'lit_001'),
+      embedding_version_ref: ref('literature_embedding_version', 'embedding_001'),
+      input_checksum: 'input-checksum',
+      index_artifact_checksum: 'index-checksum',
+    }],
+    retrieval_stack_identity: {
+      index_kind: 'pgvector',
+      embedding_profile_id: 'default',
+      embedding_provider: 'openai',
+      embedding_model: 'text-embedding-3-large',
+      embedding_dimension: 3072,
+      freshness_policy: 'current_only',
+      retrieval_policy_version: 'literature-retrieval.v1',
+      reranker_policy_version: 'hybrid-reranker.v1',
+      candidate_window: {
+        floor: 200,
+        unscoped_ceiling: 1200,
+        scoped_ceiling: 2000,
+        profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+        per_literature_cap_min: 4,
+        per_literature_cap_max: 12,
+        query_timeout_ms: 5000,
+      },
+      corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+    },
+    snapshot_hash: 'manifest-hash-001',
+    created_by: 'system',
+    created_at: '2026-09-03T00:00:00.000Z',
+  };
+}
+
+function validEvidenceConvergenceRecheckRequest(): Record<string, unknown> {
+  return {
+    search_plan_recheck_request_id: 'recheck_001',
+    title_card_id: 'title_card_001',
+    source_ref: ref('coverage_row_intent', 'coverage_challenge'),
+    target_search_plan_ref: ref('search_plan', 'search_plan_001', 'v1'),
+    target_literature_snapshot_ref: ref('literature_resource_pool_snapshot', 'manifest_001', 'v1'),
+    request_key: 'request-key-001',
+    strategy_key: 'strategy-key-001',
+    issue_ref: ref('coverage_row_intent', 'coverage_challenge'),
+    originating_arena_session_ref: ref('research_arena_session', 'arena_001'),
+    retrieval_intent: {
+      search_intent: 'find direct counter evidence',
+      candidate_queries: ['direct counter evidence'],
+      corpus_manifest_ref: ref('literature_resource_pool_snapshot', 'manifest_001', 'v1'),
+      corpus_manifest_hash: 'manifest-hash-001',
+      retrieval_parameters: {
+        profile: 'topic_exploration',
+        top_k: 10,
+        evidence_per_literature: 3,
+        include_stale: false,
+      },
+    },
+    expected_decision_effect: 'Recheck missing challenge coverage.',
+    execution_policy: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+    corpus_manifest_ref: ref('literature_resource_pool_snapshot', 'manifest_001', 'v1'),
+    corpus_manifest_hash: 'manifest-hash-001',
+    supporting_artifact_refs: [],
+    reason: 'Resolve missing challenge coverage.',
+    gap_codes: ['REQUIRED_COVERAGE_MISSING'],
+    requested_by: 'system',
+    status: 'open',
+    accepted_risk_refs: [],
+    created_at: '2026-09-03T00:00:00.000Z',
+  };
+}
+
 async function validatesBody(schema: Record<string, unknown>, body: unknown): Promise<boolean> {
   const app = Fastify();
   app.post('/validate', { schema: { body: schema } }, async () => ({ ok: true }));
@@ -259,4 +355,86 @@ test('topic-selection SearchRun loopback schema rejects unknown target actions',
   signal.target_actions = ['node5'];
 
   assert.equal(await validatesBody(topicSelectionSearchRunLoopbackSignalSchema, signal), false);
+});
+
+test('managed-library snapshot schema requires reconstructable corpus and retrieval identities', async () => {
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    validManagedLibrarySnapshot(),
+  ), true);
+
+  const withoutManifest = validManagedLibrarySnapshot();
+  delete withoutManifest.corpus_manifest_members;
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    withoutManifest,
+  ), false);
+
+  const withoutStackIdentity = validManagedLibrarySnapshot();
+  delete withoutStackIdentity.retrieval_stack_identity;
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    withoutStackIdentity,
+  ), false);
+
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    { ...validManagedLibrarySnapshot(), corpus_manifest_members: [] },
+  ), false);
+
+  const invalidWindow = structuredClone(validManagedLibrarySnapshot());
+  const stack = invalidWindow.retrieval_stack_identity as {
+    candidate_window: { floor: number };
+  };
+  stack.candidate_window.floor = 0;
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    invalidWindow,
+  ), false);
+
+  const invalidHumanScopeRef = structuredClone(validManagedLibrarySnapshot());
+  const scopedStack = invalidHumanScopeRef.retrieval_stack_identity as {
+    corpus_scope: Record<string, unknown>;
+  };
+  scopedStack.corpus_scope = {
+    mode: 'human_confirmed_subset',
+    human_confirmation_ref: ref('artifact_ref', 'not-a-human-decision'),
+  };
+  assert.equal(await validatesBody(
+    topicSelectionLiteratureResourcePoolSnapshotRecordSchema,
+    invalidHumanScopeRef,
+  ), false);
+});
+
+test('keyed convergence recheck schema requires the complete exact contract', async () => {
+  assert.equal(await validatesBody(
+    topicSelectionSearchPlanRecheckRequestRecordSchema,
+    validEvidenceConvergenceRecheckRequest(),
+  ), true);
+
+  const incomplete = validEvidenceConvergenceRecheckRequest();
+  delete incomplete.strategy_key;
+  delete incomplete.issue_ref;
+  delete incomplete.execution_policy;
+  assert.equal(await validatesBody(topicSelectionSearchPlanRecheckRequestRecordSchema, incomplete), false);
+
+  const looseIntent = validEvidenceConvergenceRecheckRequest();
+  looseIntent.retrieval_intent = { invented_field: true };
+  assert.equal(await validatesBody(topicSelectionSearchPlanRecheckRequestRecordSchema, looseIntent), false);
+
+  const partialWithoutKey = {
+    ...validEvidenceConvergenceRecheckRequest(),
+    request_key: null,
+    strategy_key: null,
+    issue_ref: null,
+    originating_arena_session_ref: null,
+    retrieval_intent: null,
+    execution_policy: null,
+    corpus_manifest_ref: null,
+    corpus_manifest_hash: null,
+  };
+  assert.equal(await validatesBody(
+    topicSelectionSearchPlanRecheckRequestRecordSchema,
+    partialWithoutKey,
+  ), false);
 });

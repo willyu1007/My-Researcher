@@ -181,6 +181,52 @@ test('research checkpoint decision schema accepts complete strict-human evidence
   assert.equal(response.statusCode, 200, response.body);
 });
 
+test('research checkpoint decision schema accepts typed required-coverage acceptance', async () => {
+  const response = await inject(topicSelectionResearchCheckpointDecisionInputSchema, {
+    decision_key: 'decision_coverage_1',
+    decision: 'advance',
+    actor,
+    confirmed_snapshot_hash: HASH,
+    rationale: 'Advance while explicitly retaining the unresolved required coverage risk.',
+    review_payload: {
+      review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true,
+      disconfirming_evidence_reviewed: true,
+      source_quality_reviewed: true,
+      limitations: ['The direct overlap remains unresolved.'],
+      accepted_coverage: {
+        coverage_row_refs: [{
+          ref_type: 'coverage_row_intent',
+          ref_id: 'coverage_row_missing_1',
+          title_card_id: 'title_1',
+        }],
+        rationale: 'The researcher accepts this exact current gap for the bounded next stage.',
+      },
+    },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+
+  const emptyAcceptance = await inject(topicSelectionResearchCheckpointDecisionInputSchema, {
+    decision_key: 'decision_coverage_empty',
+    decision: 'advance',
+    actor,
+    confirmed_snapshot_hash: HASH,
+    rationale: 'This must not accept an unspecified gap.',
+    review_payload: {
+      review_kind: 'evidence_landscape',
+      nearest_work_reviewed: true,
+      disconfirming_evidence_reviewed: true,
+      source_quality_reviewed: true,
+      limitations: [],
+      accepted_coverage: {
+        coverage_row_refs: [],
+        rationale: 'No row identified.',
+      },
+    },
+  });
+  assert.equal(emptyAcceptance.statusCode, 400, emptyAcceptance.body);
+});
+
 test('Arena advisory review schemas bind one strict-human label to the exact gap review', async () => {
   const candidateRef = {
     ref_type: 'need_candidate',

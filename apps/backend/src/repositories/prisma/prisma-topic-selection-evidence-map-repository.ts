@@ -18,7 +18,11 @@ import type {
 import type {
   TopicSelectionEvidenceMapCreateRecords,
   TopicSelectionEvidenceMapRepository,
+  TopicSelectionEvidenceMapStaleStatus,
+  TopicSelectionEvidenceMapSuccessorPublication,
+  TopicSelectionInitialEvidenceMapCreateRecords,
 } from '../topic-selection-evidence-map.repository.js';
+import { assertInitialEvidenceMapCreateRecords } from '../topic-selection-evidence-map.repository.js';
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
@@ -71,6 +75,10 @@ function toEvidenceMapRecord(row: {
   transitionAttemptId: string | null;
   traceSnapshotId: string | null;
   artifactRefs: Prisma.JsonValue;
+  predecessorEvidenceMapRef: Prisma.JsonValue | null;
+  successorEvidenceMapRef: Prisma.JsonValue | null;
+  materialEvidenceDeltaRef: Prisma.JsonValue | null;
+  lineageRevision: number;
   createdBy: string;
   createdAt: Date;
 }): TopicSelectionEvidenceMapRecord {
@@ -98,6 +106,10 @@ function toEvidenceMapRecord(row: {
     transition_attempt_id: row.transitionAttemptId,
     trace_snapshot_id: row.traceSnapshotId,
     artifact_refs: asArray<TopicSelectionFunctionalRef>(row.artifactRefs),
+    predecessor_evidence_map_ref: asNullableFunctionalRef(row.predecessorEvidenceMapRef),
+    successor_evidence_map_ref: asNullableFunctionalRef(row.successorEvidenceMapRef),
+    material_evidence_delta_ref: asNullableFunctionalRef(row.materialEvidenceDeltaRef),
+    lineage_revision: row.lineageRevision,
     created_by: row.createdBy as TopicSelectionEvidenceMapRecord['created_by'],
     created_at: row.createdAt.toISOString(),
   };
@@ -343,8 +355,9 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
   constructor(private readonly prisma: PrismaClient) {}
 
   async createEvidenceMapWithRecords(
-    records: TopicSelectionEvidenceMapCreateRecords,
-  ): Promise<TopicSelectionEvidenceMapCreateRecords> {
+    records: TopicSelectionInitialEvidenceMapCreateRecords,
+  ): Promise<TopicSelectionInitialEvidenceMapCreateRecords> {
+    assertInitialEvidenceMapCreateRecords(records);
     return this.prisma.$transaction(async (tx) => {
       const evidenceMap = await tx.topicSelectionEvidenceMap.create({
         data: this.toEvidenceMapCreateInput(records.evidence_map),
@@ -379,6 +392,101 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
           data: this.toConflictSetCreateInput(conflictSet),
         }));
       }
+      const createdRecords = {
+        evidence_map: toEvidenceMapRecord(evidenceMap),
+        evidence_units: units.map(toEvidenceUnitRecord),
+        typed_links: links.map(toTypedLinkRecord),
+        clusters: clusters.map(toClusterRecord),
+        patterns: patterns.map(toPatternRecord),
+        conflict_sets: conflictSets.map(toConflictSetRecord),
+      };
+      assertInitialEvidenceMapCreateRecords(createdRecords);
+      return createdRecords;
+    });
+  }
+
+  async publishEvidenceMapSuccessorWithRecords(
+    publication: TopicSelectionEvidenceMapSuccessorPublication,
+  ): Promise<TopicSelectionEvidenceMapCreateRecords> {
+    const successorRecord = publication.successor_records.evidence_map;
+    if (successorRecord.predecessor_evidence_map_ref?.ref_id !== publication.expected_predecessor_id
+      || successorRecord.material_evidence_delta_ref?.ref_id !== publication.material_evidence_delta_ref.ref_id) {
+      throw new Error('EvidenceMap successor compare-and-swap failed.');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const predecessor = await tx.topicSelectionEvidenceMap.findUnique({
+        where: { id: publication.expected_predecessor_id },
+      });
+      if (!predecessor || predecessor.titleCardId !== successorRecord.title_card_id) {
+        throw new Error('EvidenceMap successor compare-and-swap failed.');
+      }
+      const successorRef: TopicSelectionFunctionalRef = {
+        ref_type: 'evidence_map',
+        ref_id: successorRecord.evidence_map_id,
+        title_card_id: successorRecord.title_card_id,
+        version_id: successorRecord.evidence_map_version,
+      };
+      const claimed = await tx.topicSelectionEvidenceMap.updateMany({
+        where: {
+          id: publication.expected_predecessor_id,
+          lineageRevision: publication.expected_lineage_revision,
+          successorEvidenceMapId: null,
+          freshnessStatus: { not: 'superseded' },
+        },
+        data: {
+          status: 'stale',
+          freshnessStatus: 'superseded',
+          staleReasonCodes: [...new Set([
+            ...predecessor.staleReasonCodes,
+            'MATERIAL_EVIDENCE_SUCCESSOR_PUBLISHED',
+          ])],
+          successorEvidenceMapId: successorRecord.evidence_map_id,
+          successorEvidenceMapRef: toJsonValue(successorRef),
+          materialEvidenceDeltaRef: toJsonValue(publication.material_evidence_delta_ref),
+          lineageRevision: { increment: 1 },
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new Error('EvidenceMap successor compare-and-swap failed.');
+      }
+
+      const normalizedSuccessor: TopicSelectionEvidenceMapRecord = {
+        ...successorRecord,
+        predecessor_evidence_map_ref: {
+          ref_type: 'evidence_map',
+          ref_id: predecessor.id,
+          title_card_id: predecessor.titleCardId,
+          version_id: predecessor.evidenceMapVersion,
+        },
+        successor_evidence_map_ref: null,
+        material_evidence_delta_ref: publication.material_evidence_delta_ref,
+        lineage_revision: 0,
+      };
+      const evidenceMap = await tx.topicSelectionEvidenceMap.create({
+        data: this.toEvidenceMapCreateInput(normalizedSuccessor),
+      });
+      const units = [];
+      for (const unit of publication.successor_records.evidence_units) {
+        units.push(await tx.topicSelectionEvidenceUnit.create({ data: this.toEvidenceUnitCreateInput(unit) }));
+      }
+      const links = [];
+      for (const link of publication.successor_records.typed_links) {
+        links.push(await tx.topicSelectionEvidenceTypedLink.create({ data: this.toTypedLinkCreateInput(link) }));
+      }
+      const clusters = [];
+      for (const cluster of publication.successor_records.clusters) {
+        clusters.push(await tx.topicSelectionEvidenceCluster.create({ data: this.toClusterCreateInput(cluster) }));
+      }
+      const patterns = [];
+      for (const pattern of publication.successor_records.patterns) {
+        patterns.push(await tx.topicSelectionEvidencePattern.create({ data: this.toPatternCreateInput(pattern) }));
+      }
+      const conflictSets = [];
+      for (const conflictSet of publication.successor_records.conflict_sets) {
+        conflictSets.push(await tx.topicSelectionEvidenceConflictSet.create({
+          data: this.toConflictSetCreateInput(conflictSet),
+        }));
+      }
       return {
         evidence_map: toEvidenceMapRecord(evidenceMap),
         evidence_units: units.map(toEvidenceUnitRecord),
@@ -407,9 +515,12 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
 
   async updateEvidenceMapFreshness(
     evidenceMapId: string,
-    freshnessStatus: TopicSelectionEvidenceFreshnessStatus,
+    freshnessStatus: TopicSelectionEvidenceMapStaleStatus,
     staleReasonCodes: string[],
   ): Promise<TopicSelectionEvidenceMapRecord> {
+    if ((freshnessStatus as TopicSelectionEvidenceFreshnessStatus) === 'superseded') {
+      throw new Error('EvidenceMap supersession requires successor compare-and-swap.');
+    }
     const current = await this.prisma.topicSelectionEvidenceMap.findUnique({ where: { id: evidenceMapId } });
     if (!current) {
       throw new Error(`EvidenceMap ${evidenceMapId} not found.`);
@@ -419,7 +530,7 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
       where: { id: evidenceMapId },
       data: {
         freshnessStatus,
-        status: freshnessStatus === 'current' ? current.status : 'stale',
+        status: 'stale',
         staleReasonCodes: nextReasonCodes,
       },
     });
@@ -547,6 +658,18 @@ export class PrismaTopicSelectionEvidenceMapRepository implements TopicSelection
       transitionAttemptId: record.transition_attempt_id ?? null,
       traceSnapshotId: record.trace_snapshot_id ?? null,
       artifactRefs: toJsonValue(record.artifact_refs),
+      predecessorEvidenceMapId: record.predecessor_evidence_map_ref?.ref_id ?? null,
+      predecessorEvidenceMapRef: record.predecessor_evidence_map_ref
+        ? toJsonValue(record.predecessor_evidence_map_ref)
+        : Prisma.JsonNull,
+      successorEvidenceMapId: record.successor_evidence_map_ref?.ref_id ?? null,
+      successorEvidenceMapRef: record.successor_evidence_map_ref
+        ? toJsonValue(record.successor_evidence_map_ref)
+        : Prisma.JsonNull,
+      materialEvidenceDeltaRef: record.material_evidence_delta_ref
+        ? toJsonValue(record.material_evidence_delta_ref)
+        : Prisma.JsonNull,
+      lineageRevision: record.lineage_revision ?? 0,
       createdBy: record.created_by,
       createdAt: new Date(record.created_at),
     };

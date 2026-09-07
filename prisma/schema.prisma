@@ -1653,6 +1653,8 @@ model TopicSelectionLiteratureResourcePoolSnapshot {
   literatureRefs         Json     @default("[]")
   contentSourceRefs      Json     @default("[]")
   sourceHealthSummary    Json     @default("{}")
+  corpusManifestMembers  Json     @default("[]")
+  retrievalStackIdentity Json?
   totalLiteratureCount   Int      @default(0)
   missingLiteratureCount Int      @default(0)
   sourceCount            Int      @default(0)
@@ -1949,6 +1951,16 @@ model TopicSelectionSearchPlanRecheckRequest {
   acceptedRiskRefs            Json      @default("[]")
   resultingSearchPlanRef      Json?
   resultingSearchRunRef       Json?
+  requestKey                  String?   @unique(map: "tsprr_request_key_key")
+  strategyKey                 String?
+  issueRef                    Json?
+  originatingArenaSessionRef  Json?
+  retrievalIntent             Json?
+  expectedDecisionEffect      String?
+  executionPolicy             Json?
+  corpusManifestRef           Json?
+  corpusManifestHash          String?
+  supportingArtifactRefs      Json      @default("[]")
   createdAt                   DateTime  @db.Timestamptz(6)
   resolvedAt                  DateTime? @db.Timestamptz(6)
 
@@ -1960,39 +1972,48 @@ model TopicSelectionSearchPlanRecheckRequest {
   @@index([resultingSearchRunId])
   @@index([status])
   @@index([policyVersionId])
+  @@index([strategyKey], map: "tsprr_strategy_key_idx")
+  @@index([corpusManifestHash], map: "tsprr_manifest_hash_idx")
 }
 
 model TopicSelectionEvidenceMap {
-  id                    String   @id
-  workspaceId           String?
-  titleCardId           String
-  evidenceMapVersion    String
-  status                String
-  reviewStatus          String
-  freshnessStatus       String
-  searchRunId           String
-  searchPlanId          String
-  literatureSnapshotId  String
-  searchRunRef          Json     @default("{}")
-  searchPlanRef         Json     @default("{}")
-  literatureSnapshotRef Json     @default("{}")
-  unitCount             Int      @default(0)
-  supportUnitCount      Int      @default(0)
-  challengeUnitCount    Int      @default(0)
-  baselineUnitCount     Int      @default(0)
-  contextUnitCount      Int      @default(0)
-  digestPayload         Json     @default("{}")
-  staleReasonCodes      String[] @default([])
-  inputSnapshotId       String?
-  workflowRunId         String?
-  gateResultId          String?
-  transitionAttemptId   String?
-  traceSnapshotId       String?
-  artifactRefs          Json     @default("[]")
-  createdBy             String
-  createdAt             DateTime @db.Timestamptz(6)
+  id                        String   @id
+  workspaceId               String?
+  titleCardId               String
+  evidenceMapVersion        String
+  status                    String
+  reviewStatus              String
+  freshnessStatus           String
+  searchRunId               String
+  searchPlanId              String
+  literatureSnapshotId      String
+  searchRunRef              Json     @default("{}")
+  searchPlanRef             Json     @default("{}")
+  literatureSnapshotRef     Json     @default("{}")
+  unitCount                 Int      @default(0)
+  supportUnitCount          Int      @default(0)
+  challengeUnitCount        Int      @default(0)
+  baselineUnitCount         Int      @default(0)
+  contextUnitCount          Int      @default(0)
+  digestPayload             Json     @default("{}")
+  staleReasonCodes          String[] @default([])
+  inputSnapshotId           String?
+  workflowRunId             String?
+  gateResultId              String?
+  transitionAttemptId       String?
+  traceSnapshotId           String?
+  artifactRefs              Json     @default("[]")
+  predecessorEvidenceMapId  String?
+  predecessorEvidenceMapRef Json?
+  successorEvidenceMapId    String?  @unique(map: "tsem_successor_id_key")
+  successorEvidenceMapRef   Json?
+  materialEvidenceDeltaRef  Json?
+  lineageRevision           Int      @default(0)
+  createdBy                 String
+  createdAt                 DateTime @db.Timestamptz(6)
 
   @@unique([searchRunId, evidenceMapVersion])
+  @@unique([predecessorEvidenceMapId], map: "tsem_predecessor_id_key")
   @@index([titleCardId, createdAt(sort: Desc)])
   @@index([searchRunId])
   @@index([searchPlanId])
@@ -2001,6 +2022,7 @@ model TopicSelectionEvidenceMap {
   @@index([freshnessStatus])
   @@index([inputSnapshotId])
   @@index([workflowRunId])
+  @@index([titleCardId, successorEvidenceMapId], map: "tsem_title_successor_idx")
 }
 
 model TopicSelectionEvidenceUnit {

@@ -32,6 +32,7 @@ import {
   type TopicSelectionResearchArenaAdvisorySynthesis,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-research-arena-contracts';
 import type {
+  TopicSelectionCoverageAssessmentRecord,
   TopicSelectionCoverageRowIntentRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-search-resource-contracts';
 import type {
@@ -170,6 +171,7 @@ export type MaterializeEvidenceLandscapeCheckpointInput = {
   evidence_units: TopicSelectionEvidenceUnitRecord[];
   conflict_sets: TopicSelectionEvidenceConflictSetRecord[];
   coverage_row_intents: TopicSelectionCoverageRowIntentRecord[];
+  coverage_assessments: TopicSelectionCoverageAssessmentRecord[];
   policy_version_id?: string | null;
 };
 
@@ -287,6 +289,12 @@ const HUMAN_ACTION_LABELS = {
   reject: '拒绝当前结果',
   hold: '暂缓决定',
 } as const satisfies Record<TopicSelectionResearchCheckpointAction, string>;
+const HUMAN_EVIDENCE_ROLE_LABELS = {
+  support: '支持',
+  challenge: '反证',
+  baseline: '基线',
+  context: '背景',
+} as const;
 const ROUTINE_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_ROUTINE_EFFECT_CLASSES);
 const CONFIRMATION_EFFECT_CLASS_SET = new Set<string>(TOPIC_SELECTION_RESEARCH_CONFIRMATION_EFFECT_CLASSES);
 const ARENA_OUTCOME_SET = new Set<string>(TOPIC_SELECTION_CANDIDATE_PORTFOLIO_OUTCOMES);
@@ -326,9 +334,17 @@ export class TopicSelectionResearchCheckpointService {
     const predecessor = predecessorKind
       ? await this.repository.findCurrentCheckpoint(input.title_card_id, predecessorKind)
       : null;
+    const predecessorDecision = predecessor?.decision_authority_ref
+      ? await this.repository.findDecisionByCheckpointId(predecessor.research_checkpoint_id)
+      : null;
+    const acceptedCoverageDecisionRef = predecessorDecision?.review_payload.review_kind === 'evidence_landscape'
+      && predecessorDecision.review_payload.accepted_coverage
+      ? predecessor?.decision_authority_ref ?? null
+      : null;
     const sourceRefs = this.uniqueRefs([
       ...(input.source_refs ?? []),
       ...(predecessor ? [this.checkpointRef(predecessor)] : []),
+      ...(acceptedCoverageDecisionRef ? [acceptedCoverageDecisionRef] : []),
     ]);
     const requiredActionRefs = this.uniqueRefs(input.required_action_refs ?? []);
     const allowedActions = [...new Set(input.allowed_actions)].sort();
@@ -416,6 +432,23 @@ export class TopicSelectionResearchCheckpointService {
       row.required && (row.intent_type === 'baseline' || row.expected_evidence_role === 'baseline'));
     const requiredChallengeRows = input.coverage_row_intents.filter((row) =>
       row.required && (row.intent_type === 'challenge' || row.expected_evidence_role === 'challenge'));
+    const currentRowIds = new Set(input.coverage_row_intents.map((row) => row.coverage_row_intent_id));
+    const latestAssessmentByRowId = new Map<string, TopicSelectionCoverageAssessmentRecord>();
+    for (const assessment of input.coverage_assessments) {
+      if (assessment.search_plan_id !== evidenceMap.search_plan_ref.ref_id
+        || !currentRowIds.has(assessment.coverage_row_intent_id)) continue;
+      const current = latestAssessmentByRowId.get(assessment.coverage_row_intent_id);
+      if (!current || assessment.created_at > current.created_at
+        || (assessment.created_at === current.created_at
+          && assessment.coverage_assessment_id > current.coverage_assessment_id)) {
+        latestAssessmentByRowId.set(assessment.coverage_row_intent_id, assessment);
+      }
+    }
+    const latestCoverageAssessments = input.coverage_row_intents
+      .map((row) => latestAssessmentByRowId.get(row.coverage_row_intent_id))
+      .filter((assessment): assessment is TopicSelectionCoverageAssessmentRecord => Boolean(assessment));
+    const missingRequiredCoverageRows = input.coverage_row_intents.filter((row) =>
+      row.required && latestAssessmentByRowId.get(row.coverage_row_intent_id)?.verdict === 'missing');
     const claimBearing = (unit: TopicSelectionEvidenceUnitRecord): boolean =>
       !unit.abstract_only
       && unit.freshness_status === 'current'
@@ -456,6 +489,14 @@ export class TopicSelectionResearchCheckpointService {
         refs: missingChallengeRows.map((row) => this.ref('coverage_row_intent', row.coverage_row_intent_id, evidenceMap.title_card_id)),
       });
     }
+    if (missingRequiredCoverageRows.length > 0) {
+      issues.push({
+        code: 'REQUIRED_COVERAGE_MISSING',
+        message: 'Every required missing coverage row needs exact Human acceptance before advancement.',
+        refs: missingRequiredCoverageRows.map((row) =>
+          this.ref('coverage_row_intent', row.coverage_row_intent_id, evidenceMap.title_card_id)),
+      });
+    }
     const abstractCoreRefs = coreUnits.filter((unit) => unit.abstract_only).map((unit) => this.evidenceUnitRef(unit));
     if (abstractCoreRefs.length > 0) {
       issues.push({
@@ -494,12 +535,16 @@ export class TopicSelectionResearchCheckpointService {
     const snapshotPayload = {
       evidence_map_ref: evidenceMapRef,
       evidence_map_freshness_status: evidenceMap.freshness_status,
+      evidence_map_digest: evidenceMap.digest_payload,
       evidence_units: input.evidence_units.map((unit) => ({
         evidence_unit_ref: this.evidenceUnitRef(unit),
         literature_ref: unit.literature_ref,
         coverage_row_intent_ref: unit.coverage_row_intent_ref ?? null,
         evidence_role: unit.evidence_role,
         source_attribution_kind: unit.source_attribution_kind,
+        source_statement: unit.source_statement,
+        normalized_statement: unit.normalized_statement ?? null,
+        interpretation_payload: unit.interpretation_payload,
         locator: unit.locator,
         abstract_only: unit.abstract_only,
         review_status: unit.review_status,
@@ -514,13 +559,51 @@ export class TopicSelectionResearchCheckpointService {
         expected_evidence_role: row.expected_evidence_role,
         rationale: row.rationale,
       })),
+      latest_coverage_assessments: latestCoverageAssessments.map((assessment) => ({
+        coverage_assessment_ref: this.ref(
+          'coverage_assessment',
+          assessment.coverage_assessment_id,
+          evidenceMap.title_card_id,
+        ),
+        coverage_row_intent_ref: this.ref(
+          'coverage_row_intent',
+          assessment.coverage_row_intent_id,
+          evidenceMap.title_card_id,
+        ),
+        verdict: assessment.verdict,
+        issue_codes: assessment.issue_codes,
+        confidence: assessment.confidence ?? null,
+        assessed_by: assessment.assessed_by,
+        created_at: assessment.created_at,
+      })),
       nearest_work_unit_refs: nearestWorkUnits.map((unit) => this.evidenceUnitRef(unit)),
       disconfirming_unit_refs: disconfirmingUnits.map((unit) => this.evidenceUnitRef(unit)),
       claim_bearing_support_unit_refs: supportUnits.filter(claimBearing).map((unit) => this.evidenceUnitRef(unit)),
       material_conflict_refs: input.conflict_sets
         .filter((conflict) => conflict.severity === 'material' || conflict.severity === 'blocking')
         .map((conflict) => this.ref('evidence_conflict_set', conflict.evidence_conflict_set_id, evidenceMap.title_card_id)),
-      policy_result: issues.length === 0 ? 'eligible_for_human_review' : 'loopback_required',
+      material_conflicts: input.conflict_sets
+        .filter((conflict) => conflict.severity === 'material' || conflict.severity === 'blocking')
+        .map((conflict) => ({
+          conflict_ref: this.ref(
+            'evidence_conflict_set',
+            conflict.evidence_conflict_set_id,
+            evidenceMap.title_card_id,
+            conflict.evidence_map_version,
+          ),
+          conflict_type: conflict.conflict_type,
+          severity: conflict.severity,
+          support_unit_refs: conflict.support_unit_refs,
+          challenge_unit_refs: conflict.challenge_unit_refs,
+          baseline_unit_refs: conflict.baseline_unit_refs,
+          context_unit_refs: conflict.context_unit_refs,
+          issue_codes: conflict.issue_codes,
+        })),
+      policy_result: issues.length === 0
+        ? 'eligible_for_human_review'
+        : issues.every((issue) => issue.code === 'REQUIRED_COVERAGE_MISSING')
+          ? 'human_acceptance_required'
+          : 'loopback_required',
       policy_issues: issues,
       policy_note: 'Counts are diagnostic only; role, source authority, currentness, and inspectability govern eligibility.',
     };
@@ -536,9 +619,14 @@ export class TopicSelectionResearchCheckpointService {
         evidenceMap.search_run_ref,
         evidenceMap.search_plan_ref,
         evidenceMap.literature_snapshot_ref,
+        ...latestCoverageAssessments.map((assessment) => this.ref(
+          'coverage_assessment',
+          assessment.coverage_assessment_id,
+          evidenceMap.title_card_id,
+        )),
         ...input.evidence_units.flatMap((unit) => [this.evidenceUnitRef(unit), unit.literature_ref, ...unit.source_refs]),
       ]),
-      allowed_actions: issues.length === 0
+      allowed_actions: issues.every((issue) => issue.code === 'REQUIRED_COVERAGE_MISSING')
         ? ['advance', 'loopback', 'reject', 'hold']
         : ['loopback', 'reject', 'hold'],
       required_action_refs: issues.map((issue) => this.requiredActionRef(evidenceMap.title_card_id, evidenceMapRef, issue.code)),
@@ -1310,6 +1398,7 @@ export class TopicSelectionResearchCheckpointService {
       );
     }
     this.assertReviewPayload(checkpoint.checkpoint_kind, input);
+    await this.assertRequiredCoverageAcceptance(checkpoint, input);
     if (input.decision === 'advance') {
       const objections = await this.listOpenObjectionsForTitleCard(checkpoint.title_card_id);
       if (this.blockingObjectionsForCheckpoint(objections, checkpoint.checkpoint_kind).length > 0) {
@@ -2244,6 +2333,113 @@ export class TopicSelectionResearchCheckpointService {
       };
     }
 
+    if (stage === 'evidence_landscape') {
+      const payload = packet?.packet_payload ?? {};
+      const digest = this.asRecord(payload.evidence_map_digest);
+      const evidenceUnits = Array.isArray(payload.evidence_units)
+        ? payload.evidence_units.map((value) => this.asRecord(value)).filter(
+            (value): value is Record<string, unknown> => value !== null,
+          )
+        : [];
+      const coverageRows = Array.isArray(payload.coverage_row_intents)
+        ? payload.coverage_row_intents.map((value) => this.asRecord(value)).filter(
+            (value): value is Record<string, unknown> => value !== null,
+          )
+        : [];
+      const coverageRowById = new Map(coverageRows.flatMap((row) => {
+        const rowId = this.stringField(row, 'coverage_row_intent_id');
+        return rowId ? [[rowId, row] as const] : [];
+      }));
+      const coverageAssessments = Array.isArray(payload.latest_coverage_assessments)
+        ? payload.latest_coverage_assessments.map((value) => this.asRecord(value)).filter(
+            (value): value is Record<string, unknown> => value !== null,
+          )
+        : [];
+      const missingCoverage = coverageAssessments.filter(
+        (assessment) => this.stringField(assessment, 'verdict') === 'missing',
+      );
+      const materialConflicts = Array.isArray(payload.material_conflicts)
+        ? payload.material_conflicts.map((value) => this.asRecord(value)).filter(
+            (value): value is Record<string, unknown> => value !== null,
+          )
+        : [];
+      const policyIssues = Array.isArray(payload.policy_issues)
+        ? payload.policy_issues.map((value) => this.asRecord(value)).filter(
+            (value): value is Record<string, unknown> => value !== null,
+          )
+        : [];
+      const acceptance = packet?.decision?.review_payload.review_kind === 'evidence_landscape'
+        ? packet.decision.review_payload.accepted_coverage ?? null
+        : null;
+      const evidenceItems = evidenceUnits.flatMap((unit) => {
+        const role = this.stringField(unit, 'evidence_role');
+        const statement = this.stringField(unit, 'source_statement');
+        const label = role && role in HUMAN_EVIDENCE_ROLE_LABELS
+          ? HUMAN_EVIDENCE_ROLE_LABELS[role as keyof typeof HUMAN_EVIDENCE_ROLE_LABELS]
+          : '证据';
+        return statement ? [`${label}：${statement}`] : [];
+      });
+      const missingCoverageItems = missingCoverage.map((assessment) => {
+        const rowRef = this.asRecord(assessment.coverage_row_intent_ref);
+        const rowId = this.stringField(rowRef, 'ref_id');
+        const row = rowId ? coverageRowById.get(rowId) ?? null : null;
+        const rationale = this.stringField(row, 'rationale') || rowId || '未知覆盖行';
+        const issueCodes = this.stringArrayField(assessment, 'issue_codes');
+        return `必要覆盖缺失：${rationale}${rowId ? `（${rowId}）` : ''}${issueCodes.length > 0 ? `；${issueCodes.join('、')}` : ''}`;
+      });
+      const conflictItems = materialConflicts.map((conflict) => {
+        const conflictRef = this.asRecord(conflict.conflict_ref);
+        const conflictId = this.stringField(conflictRef, 'ref_id');
+        const issueCodes = this.stringArrayField(conflict, 'issue_codes');
+        const severity = this.stringField(conflict, 'severity');
+        return `${severity === 'blocking' ? '阻断性' : '实质'}证据冲突：${this.stringField(conflict, 'conflict_type') || '未分类'}${conflictId ? `（${conflictId}）` : ''}${issueCodes.length > 0 ? `；${issueCodes.join('、')}` : ''}`;
+      });
+      const acceptedCoverageItem = acceptance
+        ? [`人工已接受未解决覆盖风险：${acceptance.coverage_row_refs.map((ref) => ref.ref_id).join('、')}。理由：${acceptance.rationale}`]
+        : [];
+      const structuredRisks = this.uniqueStrings([
+        ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
+        ...missingCoverageItems,
+        ...conflictItems,
+        ...acceptedCoverageItem,
+        ...policyIssues
+          .filter((issue) => this.stringField(issue, 'code') !== 'REQUIRED_COVERAGE_MISSING')
+          .flatMap((issue) => {
+            const message = this.stringField(issue, 'message');
+            const code = this.stringField(issue, 'code');
+            return message ? [`${message}${code ? `（${code}）` : ''}`] : [];
+          }),
+      ]);
+      return {
+        conclusions: this.uniqueStrings([
+          ...this.payloadItems(digest ?? {}, ['working_claim', 'summary', 'mechanism', 'recommendation']),
+          ...(!digest
+            ? this.payloadItems(payload, ['summary', 'question', 'gap', 'mechanism', 'recommendation', 'contribution'])
+            : []),
+          `${label}已有当前版本，状态为 ${entry.status ?? 'current'}。`,
+        ]),
+        evidence_and_counterevidence: evidenceItems.length > 0
+          ? this.uniqueStrings(evidenceItems)
+          : this.payloadItems(payload, ['evidence', 'nearest', 'counter', 'disconfirm', 'conflict', 'source']).slice(0, 12),
+        alternatives_and_rejections: [],
+        claim_and_falsification_boundaries: this.payloadItems(
+          digest ?? payload,
+          ['claim', 'falsif', 'ceiling', 'boundary', 'mechanism'],
+        ).slice(0, 12),
+        open_risks: structuredRisks.length > 0
+          ? structuredRisks
+          : this.payloadItems(payload, ['risk', 'objection', 'blocker', 'warning', 'issue']).slice(0, 12),
+        recommendation: packet?.decision
+          ? `已记录人工决定：${HUMAN_ACTION_LABELS[packet.decision.decision]}。${packet.decision.rationale}`
+          : missingCoverage.length > 0
+            ? '优先补齐必要覆盖；如决定承担当前缺口，接受并推进时必须确认上列精确覆盖行并说明理由。'
+            : policyIssues.length > 0
+              ? '先处理当前证据问题，再决定是否推进。'
+              : '当前材料可进入严格人工审阅；也可选择回环、拒绝或暂缓。',
+        decision_requested: this.stageDecisionRequest(manifest, stage, packet),
+      };
+    }
+
     if (stage === 'value_feasibility') {
       const assessment = this.asRecord(workingSet.canonical_owner);
       const memo = this.asRecord(workingSet.related_records.reasoning_memo);
@@ -2975,6 +3171,72 @@ export class TopicSelectionResearchCheckpointService {
         && payload.objections_reviewed;
     if (!complete) {
       throw new AppError(422, 'GATE_CONSTRAINT_FAILED', 'An advancing decision requires every semantic review check to pass.');
+    }
+  }
+
+  private async assertRequiredCoverageAcceptance(
+    checkpoint: TopicSelectionResearchCheckpointRecord,
+    input: TopicSelectionResearchCheckpointDecisionInput,
+  ): Promise<void> {
+    const acceptance = input.review_payload.review_kind === 'evidence_landscape'
+      ? input.review_payload.accepted_coverage ?? null
+      : null;
+    if (checkpoint.checkpoint_kind !== 'evidence_landscape') {
+      if (acceptance) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Accepted coverage applies only to evidence-landscape decisions.');
+      }
+      return;
+    }
+    if (input.decision !== 'advance') {
+      if (acceptance) {
+        throw new AppError(400, 'INVALID_PAYLOAD', 'Only an advancing evidence decision can accept missing coverage.');
+      }
+      return;
+    }
+
+    const packet = await this.getPacket(checkpoint.research_checkpoint_id);
+    const rawIssues = packet.packet_payload.policy_issues;
+    const missingCoverageRefs = Array.isArray(rawIssues)
+      ? rawIssues.flatMap((rawIssue) => {
+          const issue = this.asRecord(rawIssue);
+          if (issue?.code !== 'REQUIRED_COVERAGE_MISSING') return [];
+          const refs = this.functionalRefs(issue.refs);
+          if (!refs || refs.some((ref) =>
+            ref.ref_type !== 'coverage_row_intent'
+            || ref.title_card_id !== checkpoint.title_card_id)) {
+            throw new AppError(409, 'VERSION_CONFLICT', 'Required coverage issue contains invalid current row refs.');
+          }
+          return refs;
+        })
+      : [];
+    const expectedRefs = this.uniqueRefs(missingCoverageRefs);
+    if (expectedRefs.length === 0) {
+      if (acceptance) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Accepted coverage identifies no current required missing coverage rows.');
+      }
+      return;
+    }
+    if (!acceptance) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'An advancing evidence decision requires exact Human acceptance of every current missing coverage row.',
+      );
+    }
+    if (!acceptance.rationale.trim()) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Accepted coverage requires a Human rationale.');
+    }
+    const acceptedRefs = this.uniqueRefs(acceptance.coverage_row_refs);
+    const exact = acceptedRefs.length === acceptance.coverage_row_refs.length
+      && acceptedRefs.length === expectedRefs.length
+      && acceptedRefs.every((ref, index) => this.refKey(ref) === this.refKey(expectedRefs[index]!));
+    if (!exact) {
+      throw new AppError(
+        422,
+        'GATE_CONSTRAINT_FAILED',
+        'Accepted coverage must identify the exact current missing coverage rows.',
+        { expected_coverage_row_refs: expectedRefs },
+      );
     }
   }
 

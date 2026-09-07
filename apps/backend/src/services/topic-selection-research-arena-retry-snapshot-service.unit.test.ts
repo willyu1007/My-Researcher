@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
-  TopicSelectionEvidenceMapRecord,
   TopicSelectionEvidenceUnitRecord,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-map-contracts';
 import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
+import type { TopicSelectionInitialEvidenceMapRecord } from '../repositories/topic-selection-evidence-map.repository.js';
 import { InMemoryTopicSelectionEvidenceMapRepository } from '../repositories/in-memory-topic-selection-evidence-map-repository.js';
 import { InMemoryTopicSelectionResearchArenaRepository } from '../repositories/in-memory-topic-selection-research-arena-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
@@ -79,7 +79,7 @@ test('retry snapshot binds repaired evidence, canonical candidates, and a provid
     status: 'ready',
     review_status: 'machine_checked',
     freshness_status: 'current',
-  } as TopicSelectionEvidenceMapRecord;
+  } as TopicSelectionInitialEvidenceMapRecord;
   const evidenceUnit = {
     evidence_unit_id: 'evidence-unit-repaired',
     title_card_id: TITLE_CARD_ID,

@@ -6,14 +6,21 @@ import type {
   TopicSelectionGateIssue,
   TopicSelectionStateWriteIntent,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import {
+  TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY,
+  canonicalizeEvidenceConvergenceRequest,
+  type TopicSelectionEvidenceConvergenceRetrievalRequestIntent,
+} from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-evidence-convergence-contracts';
 import type {
   TopicSelectionCoverageAssessmentVerdict,
   TopicSelectionCoverageBindingKind,
   TopicSelectionCoverageExecutionStatus,
   TopicSelectionCoverageIntentType,
   TopicSelectionCoverageRowIntentRecord,
+  TopicSelectionCorpusManifestMember,
   TopicSelectionEvidenceRole,
   TopicSelectionLiteratureResourcePoolSnapshotRecord,
+  TopicSelectionRetrievalStackIdentity,
   TopicSelectionResourcePoolSource,
   TopicSelectionSearchPlanBlueprint,
   TopicSelectionSearchPlanCoverageMatrix,
@@ -46,6 +53,17 @@ type IdFactory = (prefix: string) => string;
 type ServiceOptions = {
   idFactory?: IdFactory;
   now?: () => string;
+  managedLibraryEligibilityResolver?: {
+    resolveManagedLibraryEligibility(): Promise<{
+      eligible_embedding_versions: Array<{
+        embedding_version_id: string;
+        literature_id: string;
+        input_checksum: string | null;
+        index_artifact_checksum: string | null;
+      }>;
+      retrieval_stack_identity: TopicSelectionRetrievalStackIdentity;
+    }>;
+  };
 };
 
 type CreateTopicSeedFromTitleCardInput = {
@@ -65,6 +83,7 @@ type CreateLiteratureResourcePoolSnapshotInput = {
   topic_seed_id: string;
   snapshot_version?: string;
   source_scope?: TopicSelectionResourcePoolSource;
+  human_corpus_constraint_ref?: TopicSelectionFunctionalRef | null;
   resource_sample_set_provenance_ref?: TopicSelectionFunctionalRef | null;
   created_by?: TopicSelectionActorType;
   policy_version_id?: string | null;
@@ -169,6 +188,7 @@ type CreateSearchPlanRecheckRequestInput = {
   gap_codes?: string[];
   requested_by?: TopicSelectionActorType;
   policy_version_id?: string | null;
+  evidence_convergence_intent?: TopicSelectionEvidenceConvergenceRetrievalRequestIntent;
 };
 
 type ResolveSearchPlanRecheckRequestInput = {
@@ -186,6 +206,24 @@ type ResolveSearchPlanRecheckRequestResult = {
   follow_up_search_run?: TopicSelectionSearchRunRecord;
 };
 
+type ManualMaterializationFlight = {
+  input_hash: string;
+  promise: Promise<ResolveSearchPlanRecheckRequestResult>;
+};
+
+type ManualMaterializationAttemptMarker = {
+  schema_version: 'TopicSelectionManualMaterializationAttempt@v1';
+  input_hash: string;
+};
+
+type CompleteEvidenceConvergenceRecheckRequestInput = {
+  request_id: string;
+  resulting_search_plan_id: string;
+  resulting_search_run_id: string;
+  decision_summary: string;
+  supporting_artifact_refs?: TopicSelectionFunctionalRef[];
+};
+
 const CONSUMABLE_SEARCH_RUN_STATUSES = new Set<TopicSelectionSearchRunStatus>(['succeeded', 'partial']);
 const SEARCH_RUN_LOCATOR_PROVENANCE_REF_TYPES = new Set([
   'literature_abstract',
@@ -199,10 +237,23 @@ const SEARCH_RUN_COVERAGE_RISK_REF_TYPES = new Set([
   'accepted_risk',
   'search_coverage_risk',
 ]);
+const MANUAL_MATERIALIZATION_ATTEMPT_PREFIX = 'manual-materialization-attempt:';
+const MANUAL_MATERIALIZATION_ATTEMPT_SCHEMA_VERSION = 'TopicSelectionManualMaterializationAttempt@v1';
+const POSTGRES_INT_MAX = 2_147_483_647;
+const SEARCH_RUN_STATUS_VALUES = new Set<TopicSelectionSearchRunStatus>([
+  'queued',
+  'running',
+  'succeeded',
+  'partial',
+  'failed',
+  'blocked',
+]);
 
 export class TopicSelectionSearchResourceService {
   private readonly idFactory: IdFactory;
   private readonly now: () => string;
+  private readonly managedLibraryEligibilityResolver: ServiceOptions['managedLibraryEligibilityResolver'];
+  private readonly manualMaterializationFlights = new Map<string, ManualMaterializationFlight>();
 
   constructor(
     private readonly repository: TopicSelectionSearchResourceRepository,
@@ -213,6 +264,7 @@ export class TopicSelectionSearchResourceService {
   ) {
     this.idFactory = options.idFactory ?? ((prefix) => `${prefix}_${crypto.randomUUID()}`);
     this.now = options.now ?? (() => new Date().toISOString());
+    this.managedLibraryEligibilityResolver = options.managedLibraryEligibilityResolver;
   }
 
   async createTopicSeedFromTitleCard(
@@ -313,12 +365,73 @@ export class TopicSelectionSearchResourceService {
       throw new AppError(409, 'VERSION_CONFLICT', 'TopicSeed belongs to a different title card.');
     }
 
-    const basket = await this.titleCards.getEvidenceBasket(input.title_card_id);
-    if (basket.items.length === 0) {
+    const sourceScope = input.source_scope ?? 'title_card_evidence_basket';
+    if (input.human_corpus_constraint_ref && sourceScope !== 'managed_library') {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'A Human corpus constraint applies only to a managed-library snapshot.',
+      );
+    }
+    const humanCorpusConstraint = input.human_corpus_constraint_ref
+      ? await this.resolveHumanCorpusConstraint(
+        input.human_corpus_constraint_ref,
+        input.title_card_id,
+        input.workspace_id ?? null,
+      )
+      : null;
+    const basket = sourceScope === 'managed_library'
+      ? null
+      : await this.titleCards.getEvidenceBasket(input.title_card_id);
+    if (basket && basket.items.length === 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Literature snapshot requires at least one basket item.');
     }
-
-    const literatureIds = basket.items.map((item) => item.literature_id);
+    if (sourceScope === 'managed_library' && !this.managedLibraryEligibilityResolver) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Managed-library snapshot requires the canonical retrieval eligibility resolver.',
+      );
+    }
+    const managedEligibility = sourceScope === 'managed_library'
+      ? await this.managedLibraryEligibilityResolver!.resolveManagedLibraryEligibility()
+      : null;
+    const eligibleManifestMembers: TopicSelectionCorpusManifestMember[] = managedEligibility
+      ? managedEligibility.eligible_embedding_versions
+        .map((version) => ({
+          literature_ref: this.ref('literature_record', version.literature_id, input.title_card_id),
+          embedding_version_ref: this.ref('literature_embedding_version', version.embedding_version_id, input.title_card_id),
+          input_checksum: version.input_checksum,
+          index_artifact_checksum: version.index_artifact_checksum,
+        }))
+        .sort((left, right) => {
+          const literatureOrder = left.literature_ref.ref_id.localeCompare(right.literature_ref.ref_id);
+          return literatureOrder !== 0
+            ? literatureOrder
+            : left.embedding_version_ref.ref_id.localeCompare(right.embedding_version_ref.ref_id);
+        })
+      : [];
+    const selectedLiteratureIds = humanCorpusConstraint?.literature_ids ?? null;
+    const corpusManifestMembers = selectedLiteratureIds
+      ? eligibleManifestMembers.filter((member) => selectedLiteratureIds.has(member.literature_ref.ref_id))
+      : eligibleManifestMembers;
+    if (selectedLiteratureIds && (
+      corpusManifestMembers.length === 0
+      || new Set(corpusManifestMembers.map((member) => member.literature_ref.ref_id)).size
+        !== selectedLiteratureIds.size
+    )) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Every Human-constrained literature ref must be eligible in the managed library.',
+      );
+    }
+    const literatureIds = managedEligibility
+      ? [...new Set(corpusManifestMembers.map((member) => member.literature_ref.ref_id))]
+      : basket!.items.map((item) => item.literature_id);
+    if (literatureIds.length === 0) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Literature snapshot requires at least one eligible resource.');
+    }
     const literatures = await this.literature.listLiteraturesByIds(literatureIds);
     const literatureById = new Map(literatures.map((item) => [item.id, item]));
     const pipelineStates = await this.literature.listPipelineStatesByLiteratureIds(literatureIds);
@@ -330,9 +443,12 @@ export class TopicSelectionSearchResourceService {
       sourceCount += sources.length;
       contentSourceRefs.push(...sources.map((source) => this.ref('literature_source', source.id, input.title_card_id)));
     }
+    contentSourceRefs.sort((left, right) => {
+      const typeOrder = left.ref_type.localeCompare(right.ref_type);
+      return typeOrder !== 0 ? typeOrder : left.ref_id.localeCompare(right.ref_id);
+    });
 
     const missingLiteratureIds = literatureIds.filter((literatureId) => !literatureById.has(literatureId));
-    const sourceScope = input.source_scope ?? 'title_card_evidence_basket';
     const topicSeedRef = this.ref('topic_seed', topicSeed.topic_seed_id, input.title_card_id, topicSeed.seed_version);
     const sourceHealthSummary = this.buildLiteratureSourceHealthSummary(
       literatureIds,
@@ -344,15 +460,36 @@ export class TopicSelectionSearchResourceService {
     const literatureRefs = literatureIds
       .filter((literatureId) => literatureById.has(literatureId))
       .map((literatureId) => this.ref('literature_record', literatureId, input.title_card_id));
+    const retrievalStackIdentity = managedEligibility
+      ? {
+        ...managedEligibility.retrieval_stack_identity,
+        corpus_scope: humanCorpusConstraint
+          ? {
+            mode: 'human_confirmed_subset' as const,
+            human_confirmation_ref: input.human_corpus_constraint_ref!,
+          }
+          : {
+            mode: 'full_managed_library' as const,
+            human_confirmation_ref: null,
+          },
+      }
+      : null;
+    const managedManifestHashPayload = managedEligibility
+      ? {
+        corpus_manifest_members: corpusManifestMembers,
+        retrieval_stack_identity: retrievalStackIdentity,
+      }
+      : {};
     const snapshotHashPayload = {
       title_card_id: input.title_card_id,
       topic_seed_ref: topicSeedRef,
       source_scope: sourceScope,
-      basket_updated_at: basket.updated_at,
+      basket_updated_at: basket?.updated_at ?? null,
       literature_refs: literatureRefs,
       content_source_refs: contentSourceRefs,
       source_health_summary: sourceHealthSummary,
       policy_version_id: input.policy_version_id ?? null,
+      ...managedManifestHashPayload,
     };
     const inputSnapshotPayload = {
       ...snapshotHashPayload,
@@ -374,6 +511,7 @@ export class TopicSelectionSearchResourceService {
       source_refs: [
         topicSeedRef,
         ...(input.resource_sample_set_provenance_ref ? [input.resource_sample_set_provenance_ref] : []),
+        ...(input.human_corpus_constraint_ref ? [input.human_corpus_constraint_ref] : []),
         ...literatureRefs,
         ...contentSourceRefs,
       ],
@@ -424,6 +562,8 @@ export class TopicSelectionSearchResourceService {
       literature_refs: literatureRefs,
       content_source_refs: contentSourceRefs,
       source_health_summary: sourceHealthSummary,
+      corpus_manifest_members: corpusManifestMembers,
+      retrieval_stack_identity: retrievalStackIdentity,
       snapshot_hash: snapshotHash,
       input_snapshot_id: inputSnapshot.input_snapshot_id,
       gate_result_id: gate.readiness_gate_result_id,
@@ -447,7 +587,56 @@ export class TopicSelectionSearchResourceService {
     return this.repository.findSearchPlanById(searchPlanId);
   }
 
+  async getSearchRunById(searchRunId: string): Promise<TopicSelectionSearchRunRecord | null> {
+    return this.repository.findSearchRunById(searchRunId);
+  }
+
+  async getSearchPlanRecheckRequestById(
+    requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    return this.repository.findSearchPlanRecheckRequestById(requestId);
+  }
+
+  async claimEvidenceConvergenceRecheckRequestExecution(
+    requestId: string,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord | null> {
+    const request = await this.requireRecheckRequest(requestId);
+    if (!request.request_key || !request.strategy_key || !request.corpus_manifest_ref
+      || !request.corpus_manifest_hash || !request.retrieval_intent || !request.execution_policy) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Only a complete evidence-convergence request can claim automatic execution.',
+      );
+    }
+    return this.repository.claimSearchPlanRecheckRequestExecution(requestId);
+  }
+
+  async findEvidenceConvergenceExecution(
+    requestId: string,
+  ): Promise<{
+    search_plan: TopicSelectionSearchPlanRecord;
+    search_run: TopicSelectionSearchRunRecord | null;
+  } | null> {
+    const searchPlan = await this.repository.findSearchPlanByRecheckRequestId(requestId);
+    if (!searchPlan) return null;
+    return {
+      search_plan: searchPlan,
+      search_run: await this.repository.findSearchRunBySearchPlanId(searchPlan.search_plan_id),
+    };
+  }
+
   async createSearchPlan(input: CreateSearchPlanInput): Promise<{
+    search_plan: TopicSelectionSearchPlanRecord;
+    coverage_row_intents: TopicSelectionCoverageRowIntentRecord[];
+  }> {
+    return this.createSearchPlanWithId(input, this.idFactory('search_plan'));
+  }
+
+  private async createSearchPlanWithId(
+    input: CreateSearchPlanInput,
+    searchPlanId: string,
+  ): Promise<{
     search_plan: TopicSelectionSearchPlanRecord;
     coverage_row_intents: TopicSelectionCoverageRowIntentRecord[];
   }> {
@@ -459,7 +648,6 @@ export class TopicSelectionSearchResourceService {
       throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlan snapshot does not trace to the requested TopicSeed.');
     }
 
-    const searchPlanId = this.idFactory('search_plan');
     const planVersion = input.plan_version ?? this.versionFromId(searchPlanId);
     const searchPlanRef = this.ref('search_plan', searchPlanId, input.title_card_id, planVersion);
     const topicSeedRef = this.ref('topic_seed', topicSeed.topic_seed_id, input.title_card_id, topicSeed.seed_version);
@@ -576,6 +764,13 @@ export class TopicSelectionSearchResourceService {
   }
 
   async recordSearchRun(input: RecordSearchRunInput): Promise<TopicSelectionSearchRunWithCoverageRecordsResult> {
+    return this.recordSearchRunWithId(input, this.idFactory('search_run'));
+  }
+
+  private async recordSearchRunWithId(
+    input: RecordSearchRunInput,
+    searchRunId: string,
+  ): Promise<TopicSelectionSearchRunWithCoverageRecordsResult> {
     const searchPlan = await this.requireSearchPlan(input.search_plan_id);
     this.assertSameTitleCard(input.title_card_id, searchPlan.title_card_id, 'SearchPlan');
     const snapshotId = input.literature_resource_pool_snapshot_id ?? searchPlan.literature_snapshot_ref.ref_id;
@@ -588,7 +783,6 @@ export class TopicSelectionSearchResourceService {
     const coverageRowIntents = await this.repository.listCoverageRowIntentsBySearchPlanId(searchPlan.search_plan_id);
     this.assertCoverageRecordsBelongToSearchPlan(input, coverageRowIntents);
 
-    const searchRunId = this.idFactory('search_run');
     const searchRunRef = this.ref('search_run', searchRunId, input.title_card_id);
     const searchPlanRef = this.ref('search_plan', searchPlan.search_plan_id, input.title_card_id, searchPlan.plan_version);
     const literatureSnapshotRef = this.ref(
@@ -738,13 +932,104 @@ export class TopicSelectionSearchResourceService {
   ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
     const searchPlan = await this.requireSearchPlan(input.target_search_plan_id);
     this.assertSameTitleCard(input.title_card_id, searchPlan.title_card_id, 'SearchPlan');
+    const convergenceIntent = input.evidence_convergence_intent;
+    if (convergenceIntent && (
+      convergenceIntent.issue_ref.ref_type !== input.source_ref.ref_type
+      || convergenceIntent.issue_ref.ref_id !== input.source_ref.ref_id
+      || convergenceIntent.issue_ref.title_card_id !== input.title_card_id
+      || input.source_ref.title_card_id !== input.title_card_id
+      || convergenceIntent.originating_arena_session_ref.ref_type !== 'research_arena_session'
+      || convergenceIntent.originating_arena_session_ref.title_card_id !== input.title_card_id
+    )) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence request requires a matching title-scoped issue and Arena session.',
+      );
+    }
+    const convergenceManifest = convergenceIntent
+      ? await this.requireLiteratureSnapshot(convergenceIntent.corpus_manifest_ref.ref_id)
+      : null;
+    if (convergenceIntent && (
+      convergenceIntent.corpus_manifest_ref.ref_type !== 'literature_resource_pool_snapshot'
+      || convergenceIntent.corpus_manifest_ref.title_card_id !== input.title_card_id
+      || convergenceManifest?.title_card_id !== input.title_card_id
+      || (
+        convergenceIntent.corpus_manifest_ref.version_id != null
+        && convergenceIntent.corpus_manifest_ref.version_id !== convergenceManifest.snapshot_version
+      )
+      || convergenceManifest.source_scope !== 'managed_library'
+      || !convergenceManifest.corpus_manifest_members?.length
+      || !convergenceManifest.retrieval_stack_identity?.candidate_window
+      || !convergenceManifest.retrieval_stack_identity.corpus_scope
+      || convergenceManifest.snapshot_hash !== convergenceIntent.corpus_manifest_hash
+    )) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence request requires the exact managed-library corpus manifest.',
+      );
+    }
+    const canonical = input.evidence_convergence_intent
+      ? canonicalizeEvidenceConvergenceRequest(input.evidence_convergence_intent)
+      : null;
+    if (canonical && (
+      !canonical.strategy_identity_payload.search_intent
+      || canonical.strategy_identity_payload.candidate_queries.length === 0
+      || !canonical.request_identity_payload.expected_decision_effect
+    )) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Evidence-convergence intent requires a search intent, candidate query, and expected decision effect.',
+      );
+    }
+    const strategyKey = canonical
+      ? sha256Text(stableStringify(canonical.strategy_identity_payload))
+      : null;
+    const requestKey = canonical
+      ? sha256Text(stableStringify({
+        ...canonical.request_identity_payload,
+        strategy_key: strategyKey,
+      }))
+      : null;
+    if (requestKey) {
+      const replay = await this.repository.findSearchPlanRecheckRequestByRequestKey(requestKey);
+      if (replay) {
+        return replay;
+      }
+    }
     return this.repository.createSearchPlanRecheckRequest({
       search_plan_recheck_request_id: this.idFactory('search_recheck'),
       workspace_id: input.workspace_id ?? null,
       title_card_id: input.title_card_id,
       source_ref: input.source_ref,
       target_search_plan_ref: this.ref('search_plan', searchPlan.search_plan_id, input.title_card_id, searchPlan.plan_version),
-      target_literature_snapshot_ref: searchPlan.literature_snapshot_ref,
+      target_literature_snapshot_ref: convergenceManifest
+        ? this.ref(
+          'literature_resource_pool_snapshot',
+          convergenceManifest.literature_resource_pool_snapshot_id,
+          convergenceManifest.title_card_id,
+          convergenceManifest.snapshot_version,
+        )
+        : searchPlan.literature_snapshot_ref,
+      request_key: requestKey,
+      strategy_key: strategyKey,
+      issue_ref: input.evidence_convergence_intent?.issue_ref ?? null,
+      originating_arena_session_ref: input.evidence_convergence_intent?.originating_arena_session_ref ?? null,
+      retrieval_intent: canonical?.strategy_identity_payload ?? null,
+      expected_decision_effect: canonical?.request_identity_payload.expected_decision_effect ?? null,
+      execution_policy: canonical ? TOPIC_SELECTION_EVIDENCE_CONVERGENCE_EXECUTION_POLICY : null,
+      corpus_manifest_ref: convergenceManifest
+        ? this.ref(
+          'literature_resource_pool_snapshot',
+          convergenceManifest.literature_resource_pool_snapshot_id,
+          convergenceManifest.title_card_id,
+          convergenceManifest.snapshot_version,
+        )
+        : null,
+      corpus_manifest_hash: convergenceManifest?.snapshot_hash ?? null,
+      supporting_artifact_refs: [],
       reason: input.reason,
       gap_codes: input.gap_codes ?? [],
       requested_by: input.requested_by ?? 'system',
@@ -763,69 +1048,642 @@ export class TopicSelectionSearchResourceService {
     input: ResolveSearchPlanRecheckRequestInput,
   ): Promise<ResolveSearchPlanRecheckRequestResult> {
     const request = await this.requireRecheckRequest(input.request_id);
-    if (request.status !== 'open') {
-      throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlanRecheckRequest has already been resolved.');
-    }
     if (input.outcome === 'accepted_risk' && (input.accepted_risk_refs ?? []).length === 0) {
       throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Accepted-risk recheck outcome requires risk refs.');
     }
 
     if (input.outcome !== 'materialized') {
+      if (request.status !== 'open') {
+        throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlanRecheckRequest has already been resolved.');
+      }
+      const resolved = await this.repository.transitionSearchPlanRecheckRequest(input.request_id, 'open', {
+        status: input.outcome,
+        decision_summary: input.decision_summary,
+        accepted_risk_refs: input.accepted_risk_refs ?? [],
+        resolved_at: this.now(),
+      });
+      if (!resolved) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlanRecheckRequest changed while it was being resolved.');
+      }
       return {
-        request: await this.repository.updateSearchPlanRecheckRequest(input.request_id, {
-          status: input.outcome,
-          decision_summary: input.decision_summary,
-          accepted_risk_refs: input.accepted_risk_refs ?? [],
-          resolved_at: this.now(),
-        }),
+        request: resolved,
       };
     }
 
     if (!input.revised_search_plan) {
       throw new AppError(400, 'INVALID_PAYLOAD', 'Materialized recheck requires a revised SearchPlan.');
     }
+    if (request.request_key) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Coordinator-owned evidence-convergence requests cannot use manual materialization.',
+      );
+    }
+    const inputHash = this.manualMaterializationInputHash(input);
+    const active = this.manualMaterializationFlights.get(input.request_id);
+    if (active) {
+      if (active.input_hash !== inputHash) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'A different materialization input is already executing.');
+      }
+      return active.promise;
+    }
+    const promise = this.resolveManualMaterialization(input, inputHash);
+    const flight = { input_hash: inputHash, promise };
+    this.manualMaterializationFlights.set(input.request_id, flight);
+    try {
+      return await promise;
+    } finally {
+      if (this.manualMaterializationFlights.get(input.request_id) === flight) {
+        this.manualMaterializationFlights.delete(input.request_id);
+      }
+    }
+  }
+
+  async completeEvidenceConvergenceRecheckRequest(
+    input: CompleteEvidenceConvergenceRecheckRequestInput,
+  ): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
+    const request = await this.requireRecheckRequest(input.request_id);
+    if (!request.request_key || !request.strategy_key || !request.corpus_manifest_ref
+      || !request.corpus_manifest_hash || !request.retrieval_intent || !request.execution_policy) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Only a complete evidence-convergence request can bind an automatic execution.',
+      );
+    }
+    const [searchPlan, searchRun] = await Promise.all([
+      this.requireSearchPlan(input.resulting_search_plan_id),
+      this.requireSearchRun(input.resulting_search_run_id),
+    ]);
+    const exactLineage = searchPlan.title_card_id === request.title_card_id
+      && searchPlan.parent_search_plan_ref?.ref_id === request.target_search_plan_ref.ref_id
+      && searchPlan.recheck_request_ref?.ref_id === request.search_plan_recheck_request_id
+      && searchPlan.literature_snapshot_ref.ref_id === request.corpus_manifest_ref.ref_id
+      && searchRun.title_card_id === request.title_card_id
+      && searchRun.search_plan_ref.ref_id === searchPlan.search_plan_id
+      && searchRun.literature_snapshot_ref.ref_id === request.corpus_manifest_ref.ref_id;
+    if (!exactLineage) {
+      throw new AppError(
+        409,
+        'VERSION_CONFLICT',
+        'Evidence-convergence execution does not match the request, child plan, and corpus lineage.',
+      );
+    }
+    if (request.status === 'materialized') {
+      if (request.resulting_search_plan_ref?.ref_id !== searchPlan.search_plan_id
+        || request.resulting_search_run_ref?.ref_id !== searchRun.search_run_id) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence request already resolved to different work.');
+      }
+      return request;
+    }
+    if (request.status !== 'executing') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Evidence-convergence request is not claimed for execution.');
+    }
+    const completed = await this.repository.transitionSearchPlanRecheckRequest(
+      request.search_plan_recheck_request_id,
+      'executing',
+      {
+        status: 'materialized',
+        decision_summary: input.decision_summary,
+        supporting_artifact_refs: this.sortedRefs(input.supporting_artifact_refs ?? []),
+        resulting_search_plan_ref: this.ref(
+          'search_plan',
+          searchPlan.search_plan_id,
+          searchPlan.title_card_id,
+          searchPlan.plan_version,
+        ),
+        resulting_search_run_ref: this.ref('search_run', searchRun.search_run_id, searchRun.title_card_id),
+        resolved_at: this.now(),
+      },
+    );
+    if (completed) return completed;
+    const replay = await this.requireRecheckRequest(request.search_plan_recheck_request_id);
+    if (replay.status === 'materialized'
+      && replay.resulting_search_plan_ref?.ref_id === searchPlan.search_plan_id
+      && replay.resulting_search_run_ref?.ref_id === searchRun.search_run_id) {
+      return replay;
+    }
+    throw new AppError(409, 'VERSION_CONFLICT', 'Claimed evidence-convergence request changed before completion.');
+  }
+
+  private async resolveManualMaterialization(
+    input: ResolveSearchPlanRecheckRequestInput,
+    inputHash: string,
+  ): Promise<ResolveSearchPlanRecheckRequestResult> {
+    let request = await this.requireRecheckRequest(input.request_id);
+    if (request.status === 'open') {
+      await this.preflightManualMaterialization(request, input, null);
+      const plannedSearchPlanId = this.idFactory('search_plan');
+      const planVersion = input.revised_search_plan?.plan_version ?? this.versionFromId(plannedSearchPlanId);
+      const plannedSearchRunId = input.follow_up_search_run ? this.idFactory('search_run') : null;
+      const claimed = await this.repository.transitionSearchPlanRecheckRequest(input.request_id, 'open', {
+        status: 'executing',
+        decision_summary: this.manualMaterializationAttemptMarker(inputHash),
+        accepted_risk_refs: this.sortedRefs(input.accepted_risk_refs ?? []),
+        resulting_search_plan_ref: this.ref(
+          'search_plan',
+          plannedSearchPlanId,
+          request.title_card_id,
+          planVersion,
+        ),
+        resulting_search_run_ref: plannedSearchRunId
+          ? this.ref('search_run', plannedSearchRunId, request.title_card_id)
+          : null,
+        resolved_at: null,
+      });
+      request = claimed ?? await this.requireRecheckRequest(input.request_id);
+    }
+
+    if (request.status === 'materialized') {
+      throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlanRecheckRequest has already been resolved.');
+    }
+    this.assertPendingManualMaterialization(request, input, inputHash);
+
+    try {
+      await this.preflightManualMaterialization(
+        request,
+        input,
+        request.resulting_search_plan_ref!.ref_id,
+      );
+    } catch (error) {
+      await this.terminalizeDeterministicManualMaterializationFailure(request, error);
+      throw error;
+    }
+
+    const plannedSearchPlanRef = request.resulting_search_plan_ref!;
     const targetPlan = await this.requireSearchPlan(request.target_search_plan_ref.ref_id);
-    const revised = await this.createSearchPlan({
-      ...input.revised_search_plan,
-      workspace_id: input.revised_search_plan.workspace_id ?? request.workspace_id ?? null,
+    const targetLiteratureSnapshotId = request.target_literature_snapshot_ref?.ref_id
+      ?? targetPlan.literature_snapshot_ref.ref_id;
+    const revisedSearchPlanInput: CreateSearchPlanInput = {
+      ...input.revised_search_plan!,
+      workspace_id: input.revised_search_plan!.workspace_id ?? request.workspace_id ?? null,
       title_card_id: request.title_card_id,
       topic_seed_id: targetPlan.topic_seed_ref.ref_id,
-      literature_resource_pool_snapshot_id: targetPlan.literature_snapshot_ref.ref_id,
+      literature_resource_pool_snapshot_id: targetLiteratureSnapshotId,
+      plan_version: plannedSearchPlanRef.version_id!,
       parent_search_plan_ref: request.target_search_plan_ref,
-      recheck_request_ref: this.ref('search_plan_recheck_request', request.search_plan_recheck_request_id, request.title_card_id),
-    });
-    const followUpRun = input.follow_up_search_run
-      ? await this.recordSearchRun({
+      recheck_request_ref: this.ref(
+        'search_plan_recheck_request',
+        request.search_plan_recheck_request_id,
+        request.title_card_id,
+      ),
+    };
+    let revisedSearchPlan: TopicSelectionSearchPlanRecord;
+    try {
+      revisedSearchPlan = await this.findOrCreateManualSearchPlan(
+        plannedSearchPlanRef.ref_id,
+        revisedSearchPlanInput,
+      );
+    } catch (error) {
+      await this.terminalizeDeterministicManualMaterializationFailure(request, error);
+      throw error;
+    }
+
+    const followUpSearchRunInput: RecordSearchRunInput | null = input.follow_up_search_run
+      ? {
           ...input.follow_up_search_run,
           workspace_id: input.follow_up_search_run.workspace_id ?? request.workspace_id ?? null,
           title_card_id: request.title_card_id,
-          search_plan_id: revised.search_plan.search_plan_id,
-          literature_resource_pool_snapshot_id: targetPlan.literature_snapshot_ref.ref_id,
+          search_plan_id: revisedSearchPlan.search_plan_id,
+          literature_resource_pool_snapshot_id: targetLiteratureSnapshotId,
           run_kind: 'recheck_followup',
-        })
+        }
       : null;
+    let followUpSearchRun: TopicSelectionSearchRunRecord | null = null;
+    try {
+      followUpSearchRun = followUpSearchRunInput
+        ? await this.findOrCreateManualSearchRun(
+            request.resulting_search_run_ref!.ref_id,
+            followUpSearchRunInput,
+          )
+        : null;
+    } catch (error) {
+      await this.terminalizeDeterministicManualMaterializationFailure(request, error);
+      throw error;
+    }
 
-    const resolvedRequest = await this.repository.updateSearchPlanRecheckRequest(input.request_id, {
+    const resolvedRequest = await this.repository.transitionSearchPlanRecheckRequest(input.request_id, 'executing', {
       status: 'materialized',
       decision_summary: input.decision_summary,
-      accepted_risk_refs: input.accepted_risk_refs ?? [],
+      accepted_risk_refs: this.sortedRefs(input.accepted_risk_refs ?? []),
       resulting_search_plan_ref: this.ref(
         'search_plan',
-        revised.search_plan.search_plan_id,
-        revised.search_plan.title_card_id,
-        revised.search_plan.plan_version,
+        revisedSearchPlan.search_plan_id,
+        revisedSearchPlan.title_card_id,
+        revisedSearchPlan.plan_version,
       ),
-      resulting_search_run_ref: followUpRun
-        ? this.ref('search_run', followUpRun.search_run.search_run_id, followUpRun.search_run.title_card_id)
+      resulting_search_run_ref: followUpSearchRun
+        ? this.ref('search_run', followUpSearchRun.search_run_id, followUpSearchRun.title_card_id)
         : null,
       resolved_at: this.now(),
     });
-
+    if (!resolvedRequest) {
+      const replay = await this.requireRecheckRequest(input.request_id);
+      if (replay.status !== 'materialized'
+        || replay.decision_summary !== input.decision_summary
+        || replay.resulting_search_plan_ref?.ref_id !== revisedSearchPlan.search_plan_id
+        || replay.resulting_search_run_ref?.ref_id !== followUpSearchRun?.search_run_id
+        || stableStringify(replay.accepted_risk_refs) !== stableStringify(this.sortedRefs(input.accepted_risk_refs ?? []))) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Claimed SearchPlanRecheckRequest changed before completion.');
+      }
+      return {
+        request: replay,
+        revised_search_plan: revisedSearchPlan,
+        follow_up_search_run: followUpSearchRun ?? undefined,
+      };
+    }
     return {
       request: resolvedRequest,
-      revised_search_plan: revised.search_plan,
-      follow_up_search_run: followUpRun?.search_run,
+      revised_search_plan: revisedSearchPlan,
+      follow_up_search_run: followUpSearchRun ?? undefined,
     };
+  }
+
+  private assertPendingManualMaterialization(
+    request: TopicSelectionSearchPlanRecheckRequestRecord,
+    input: ResolveSearchPlanRecheckRequestInput,
+    inputHash: string,
+  ): void {
+    const marker = this.parseManualMaterializationAttemptMarker(request.decision_summary);
+    const acceptedRiskRefs = this.sortedRefs(input.accepted_risk_refs ?? []);
+    if (request.status !== 'executing'
+      || marker?.input_hash !== inputHash
+      || !request.resulting_search_plan_ref
+      || request.resulting_search_plan_ref.ref_type !== 'search_plan'
+      || !request.resulting_search_plan_ref.version_id
+      || request.resulting_search_plan_ref.title_card_id !== request.title_card_id
+      || Boolean(request.resulting_search_run_ref) !== Boolean(input.follow_up_search_run)
+      || request.resulting_search_run_ref?.ref_type !== (input.follow_up_search_run ? 'search_run' : undefined)
+      || request.resulting_search_run_ref?.title_card_id !== (input.follow_up_search_run ? request.title_card_id : undefined)
+      || stableStringify(request.accepted_risk_refs) !== stableStringify(acceptedRiskRefs)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'SearchPlanRecheckRequest is executing a different operation.');
+    }
+  }
+
+  private async preflightManualMaterialization(
+    request: TopicSelectionSearchPlanRecheckRequestRecord,
+    input: ResolveSearchPlanRecheckRequestInput,
+    plannedSearchPlanId: string | null,
+  ): Promise<void> {
+    const revised = input.revised_search_plan;
+    if (!revised
+      || !Array.isArray(revised.query_intents)
+      || revised.query_intents.some((query) => typeof query !== 'string')) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Manual materialization requires string query intents.');
+    }
+    if (typeof revised.workspace_id === 'string'
+      && revised.workspace_id !== (request.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Revised SearchPlan workspace does not match its request.');
+    }
+    if (revised.plan_version !== undefined && revised.plan_version.trim().length === 0) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Revised SearchPlan plan_version cannot be empty.');
+    }
+    if (revised.coverage_intents !== undefined && (
+      !Array.isArray(revised.coverage_intents)
+      || revised.coverage_intents.some((intent) => (
+        !intent
+        || typeof intent !== 'object'
+        || typeof intent.query !== 'string'
+        || (intent.coverage_key !== undefined && typeof intent.coverage_key !== 'string')
+        || (intent.priority !== undefined && !this.isPostgresInt(intent.priority))
+      ))
+    )) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Revised SearchPlan coverage intents are malformed.');
+    }
+
+    const targetPlan = await this.requireSearchPlan(request.target_search_plan_ref.ref_id);
+    const targetLiteratureSnapshotId = request.target_literature_snapshot_ref?.ref_id
+      ?? targetPlan.literature_snapshot_ref.ref_id;
+    const literatureSnapshot = await this.requireLiteratureSnapshot(targetLiteratureSnapshotId);
+    const coverageInputs = this.normalizeCoverageIntents(revised.query_intents, revised.coverage_intents);
+    const planBlockers = this.searchPlanBlockers(revised.query_intents, coverageInputs);
+    if (planBlockers.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Revised SearchPlan failed deterministic preflight.',
+        { blocker_codes: planBlockers.map((item) => item.code) },
+      );
+    }
+    const planVersion = request.status === 'executing'
+      ? request.resulting_search_plan_ref?.version_id
+      : revised.plan_version;
+    if (planVersion) {
+      const collision = (await this.repository.listSearchPlansByTitleCardId(request.title_card_id))
+        .find((candidate) => (
+          candidate.plan_version === planVersion
+          && candidate.search_plan_id !== plannedSearchPlanId
+        ));
+      if (collision) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Revised SearchPlan plan_version already exists.');
+      }
+    }
+
+    const followUp = input.follow_up_search_run;
+    if (!followUp) return;
+    const rawFollowUp = followUp as unknown as Record<string, unknown>;
+    if (!this.isPlainRecord(rawFollowUp.result_accounting)
+      || !this.isPlainRecord(rawFollowUp.source_health_summary)
+      || !Array.isArray(rawFollowUp.evidence_map_input_refs)
+      || (rawFollowUp.query_provenance !== undefined && !Array.isArray(rawFollowUp.query_provenance))) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Follow-up SearchRun is missing required structured fields.');
+    }
+    if (typeof followUp.workspace_id === 'string'
+      && followUp.workspace_id !== (request.workspace_id ?? null)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Follow-up SearchRun workspace does not match its request.');
+    }
+    if (followUp.run_status !== undefined && !SEARCH_RUN_STATUS_VALUES.has(followUp.run_status)) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Follow-up SearchRun status is invalid.');
+    }
+    const countValues = Object.values(followUp.result_accounting);
+    if (countValues.some((value) => !this.isPostgresInt(value))) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Follow-up SearchRun counts must be PostgreSQL integers.');
+    }
+    if ((followUp.coverage_observations ?? []).length > 0
+      || (followUp.evidence_bindings ?? []).length > 0
+      || (followUp.coverage_assessments ?? []).length > 0
+      || (followUp.coverage_risk_acceptances ?? []).length > 0) {
+      throw new AppError(
+        400,
+        'INVALID_PAYLOAD',
+        'Manual follow-up coverage records cannot reference server-created revised-plan rows.',
+      );
+    }
+    if ((followUp.started_at !== undefined && !this.isValidTimestamp(followUp.started_at))
+      || (followUp.finished_at != null && !this.isValidTimestamp(followUp.finished_at))) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Follow-up SearchRun timestamps are invalid.');
+    }
+    if (followUp.search_plan_ref) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Follow-up SearchRun cannot predeclare its server-owned SearchPlan ref.');
+    }
+    if (followUp.literature_resource_pool_snapshot_ref) {
+      this.assertConcreteRefMatches(followUp.literature_resource_pool_snapshot_ref, {
+        refType: 'literature_resource_pool_snapshot',
+        refId: literatureSnapshot.literature_resource_pool_snapshot_id,
+        titleCardId: request.title_card_id,
+        versionId: literatureSnapshot.snapshot_version,
+        label: 'Follow-up SearchRun literature snapshot ref',
+      });
+    }
+    if (followUp.expected_literature_snapshot_hash !== undefined
+      && followUp.expected_literature_snapshot_hash !== literatureSnapshot.snapshot_hash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Follow-up SearchRun snapshot hash does not match its request.');
+    }
+    const runInput: RecordSearchRunInput = {
+      ...followUp,
+      workspace_id: followUp.workspace_id ?? request.workspace_id ?? null,
+      title_card_id: request.title_card_id,
+      search_plan_id: plannedSearchPlanId ?? 'manual_materialization_preflight',
+      literature_resource_pool_snapshot_id: targetLiteratureSnapshotId,
+      run_kind: 'recheck_followup',
+    };
+    const runBlockers = this.searchRunBlockers(runInput, literatureSnapshot);
+    if (runBlockers.length > 0) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Follow-up SearchRun failed deterministic preflight.',
+        { blocker_codes: runBlockers.map((item) => item.code) },
+      );
+    }
+  }
+
+  private async terminalizeDeterministicManualMaterializationFailure(
+    request: TopicSelectionSearchPlanRecheckRequestRecord,
+    error: unknown,
+  ): Promise<void> {
+    if (!(error instanceof AppError) || error.statusCode >= 500) return;
+    await this.repository.transitionSearchPlanRecheckRequest(
+      request.search_plan_recheck_request_id,
+      'executing',
+      {
+        status: 'materialization_failed',
+        resolved_at: this.now(),
+      },
+    );
+  }
+
+  private isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  private isPostgresInt(value: unknown): value is number {
+    return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= POSTGRES_INT_MAX;
+  }
+
+  private isValidTimestamp(value: string): boolean {
+    return Number.isFinite(Date.parse(value));
+  }
+
+  private async findOrCreateManualSearchPlan(
+    searchPlanId: string,
+    input: CreateSearchPlanInput,
+  ): Promise<TopicSelectionSearchPlanRecord> {
+    const existing = await this.repository.findSearchPlanById(searchPlanId);
+    if (existing) {
+      await this.assertManualSearchPlanMatches(existing, input);
+      return existing;
+    }
+    try {
+      return (await this.createSearchPlanWithId(input, searchPlanId)).search_plan;
+    } catch (error) {
+      const raced = await this.repository.findSearchPlanById(searchPlanId);
+      if (!raced) throw error;
+      await this.assertManualSearchPlanMatches(raced, input);
+      return raced;
+    }
+  }
+
+  private async findOrCreateManualSearchRun(
+    searchRunId: string,
+    input: RecordSearchRunInput,
+  ): Promise<TopicSelectionSearchRunRecord> {
+    const searchPlan = await this.requireSearchPlan(input.search_plan_id);
+    const existing = await this.repository.findSearchRunById(searchRunId);
+    if (existing) {
+      this.assertManualSearchRunMatches(existing, input, searchPlan);
+      return existing;
+    }
+    try {
+      return (await this.recordSearchRunWithId(input, searchRunId)).search_run;
+    } catch (error) {
+      const raced = await this.repository.findSearchRunById(searchRunId);
+      if (!raced) throw error;
+      this.assertManualSearchRunMatches(raced, input, searchPlan);
+      return raced;
+    }
+  }
+
+  private manualMaterializationInputHash(input: ResolveSearchPlanRecheckRequestInput): string {
+    return sha256Text(stableStringify({
+      accepted_risk_refs: this.sortedRefs(input.accepted_risk_refs ?? []),
+      decision_summary: input.decision_summary,
+      follow_up_search_run: input.follow_up_search_run ?? null,
+      outcome: input.outcome,
+      request_id: input.request_id,
+      revised_search_plan: input.revised_search_plan ?? null,
+      schema_version: MANUAL_MATERIALIZATION_ATTEMPT_SCHEMA_VERSION,
+    }));
+  }
+
+  private manualMaterializationAttemptMarker(inputHash: string): string {
+    const marker: ManualMaterializationAttemptMarker = {
+      schema_version: MANUAL_MATERIALIZATION_ATTEMPT_SCHEMA_VERSION,
+      input_hash: inputHash,
+    };
+    return `${MANUAL_MATERIALIZATION_ATTEMPT_PREFIX}${stableStringify(marker)}`;
+  }
+
+  private parseManualMaterializationAttemptMarker(
+    value: string | null | undefined,
+  ): ManualMaterializationAttemptMarker | null {
+    if (!value?.startsWith(MANUAL_MATERIALIZATION_ATTEMPT_PREFIX)) return null;
+    try {
+      const parsed: unknown = JSON.parse(value.slice(MANUAL_MATERIALIZATION_ATTEMPT_PREFIX.length));
+      if (!parsed || typeof parsed !== 'object') return null;
+      const candidate = parsed as Record<string, unknown>;
+      if (candidate.schema_version !== MANUAL_MATERIALIZATION_ATTEMPT_SCHEMA_VERSION
+        || typeof candidate.input_hash !== 'string') {
+        return null;
+      }
+      return {
+        schema_version: MANUAL_MATERIALIZATION_ATTEMPT_SCHEMA_VERSION,
+        input_hash: candidate.input_hash,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async assertManualSearchPlanMatches(
+    actual: TopicSelectionSearchPlanRecord,
+    input: CreateSearchPlanInput,
+  ): Promise<void> {
+    const [topicSeed, literatureSnapshot, coverageRows] = await Promise.all([
+      this.requireTopicSeed(input.topic_seed_id),
+      this.requireLiteratureSnapshot(input.literature_resource_pool_snapshot_id),
+      this.repository.listCoverageRowIntentsBySearchPlanId(actual.search_plan_id),
+    ]);
+    const coverageInputs = this.normalizeCoverageIntents(input.query_intents, input.coverage_intents);
+    const expected = {
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      plan_version: input.plan_version ?? this.versionFromId(actual.search_plan_id),
+      status: 'ready',
+      topic_seed_ref: this.ref('topic_seed', topicSeed.topic_seed_id, input.title_card_id, topicSeed.seed_version),
+      literature_snapshot_ref: this.ref(
+        'literature_resource_pool_snapshot',
+        literatureSnapshot.literature_resource_pool_snapshot_id,
+        input.title_card_id,
+        literatureSnapshot.snapshot_version,
+      ),
+      parent_search_plan_ref: input.parent_search_plan_ref ?? null,
+      recheck_request_ref: input.recheck_request_ref ?? null,
+      query_intents: input.query_intents,
+      must_check_constraints: input.must_check_constraints ?? [],
+      exclusion_rules: input.exclusion_rules ?? [],
+      coverage_strategy: this.searchPlanCoverageStrategy(
+        input.coverage_strategy ?? {},
+        input.search_plan_blueprint ?? null,
+      ),
+      created_by: input.created_by ?? 'system',
+      coverage_rows: coverageInputs.map((coverageInput, index) => ({
+        workspace_id: input.workspace_id ?? null,
+        title_card_id: input.title_card_id,
+        coverage_key: coverageInput.coverage_key ?? `query-${index + 1}`,
+        intent_type: coverageInput.intent_type ?? 'support',
+        query: coverageInput.query,
+        rationale: coverageInput.rationale ?? 'Derived from SearchPlan query intent.',
+        required: coverageInput.required ?? true,
+        priority: coverageInput.priority ?? index,
+        target_source_types: coverageInput.target_source_types ?? [],
+        expected_evidence_role: coverageInput.expected_evidence_role ?? 'support',
+        refs: coverageInput.refs ?? [],
+      })).sort((left, right) => (
+        left.priority - right.priority || left.coverage_key.localeCompare(right.coverage_key)
+      )),
+    };
+    const observed = {
+      workspace_id: actual.workspace_id ?? null,
+      title_card_id: actual.title_card_id,
+      plan_version: actual.plan_version,
+      status: actual.status,
+      topic_seed_ref: actual.topic_seed_ref,
+      literature_snapshot_ref: actual.literature_snapshot_ref,
+      parent_search_plan_ref: actual.parent_search_plan_ref ?? null,
+      recheck_request_ref: actual.recheck_request_ref ?? null,
+      query_intents: actual.query_intents,
+      must_check_constraints: actual.must_check_constraints,
+      exclusion_rules: actual.exclusion_rules,
+      coverage_strategy: actual.coverage_strategy,
+      created_by: actual.created_by,
+      coverage_rows: coverageRows.map((row) => ({
+        workspace_id: row.workspace_id ?? null,
+        title_card_id: row.title_card_id ?? null,
+        coverage_key: row.coverage_key,
+        intent_type: row.intent_type,
+        query: row.query,
+        rationale: row.rationale,
+        required: row.required,
+        priority: row.priority,
+        target_source_types: row.target_source_types,
+        expected_evidence_role: row.expected_evidence_role,
+        refs: row.refs,
+      })),
+    };
+    if (stableStringify(observed) !== stableStringify(expected)) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Planned SearchPlan identity already contains different work.');
+    }
+  }
+
+  private assertManualSearchRunMatches(
+    actual: TopicSelectionSearchRunRecord,
+    input: RecordSearchRunInput,
+    searchPlan: TopicSelectionSearchPlanRecord,
+  ): void {
+    const expected = {
+      workspace_id: input.workspace_id ?? null,
+      title_card_id: input.title_card_id,
+      search_plan_ref: this.ref(
+        'search_plan',
+        searchPlan.search_plan_id,
+        input.title_card_id,
+        searchPlan.plan_version,
+      ),
+      literature_snapshot_ref: searchPlan.literature_snapshot_ref,
+      run_kind: input.run_kind ?? 'planned_search',
+      run_status: input.run_status ?? 'succeeded',
+      query_provenance: input.query_provenance ?? [],
+      result_accounting: input.result_accounting,
+      source_health_summary: input.source_health_summary,
+      dedup_summary: input.dedup_summary ?? {},
+      evidence_map_input_refs: input.evidence_map_input_refs,
+      started_at: input.started_at ?? actual.started_at,
+      finished_at: input.finished_at === undefined ? (actual.finished_at ?? null) : input.finished_at,
+      created_by: input.created_by ?? 'system',
+    };
+    const observed = {
+      workspace_id: actual.workspace_id ?? null,
+      title_card_id: actual.title_card_id,
+      search_plan_ref: actual.search_plan_ref,
+      literature_snapshot_ref: actual.literature_snapshot_ref,
+      run_kind: actual.run_kind,
+      run_status: actual.run_status,
+      query_provenance: actual.query_provenance,
+      result_accounting: actual.result_accounting,
+      source_health_summary: actual.source_health_summary,
+      dedup_summary: actual.dedup_summary,
+      evidence_map_input_refs: actual.evidence_map_input_refs,
+      started_at: actual.started_at,
+      finished_at: actual.finished_at ?? null,
+      created_by: actual.created_by,
+    };
+    const rawLogRefMatches = !input.raw_log_artifact_ref
+      || actual.artifact_refs.some((item) => this.refKey(item) === this.refKey(input.raw_log_artifact_ref!));
+    if (stableStringify(observed) !== stableStringify(expected) || !rawLogRefMatches) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Planned SearchRun identity already contains different work.');
+    }
   }
 
   private normalizeCoverageIntents(
@@ -873,11 +1731,15 @@ export class TopicSelectionSearchResourceService {
     coverageInputs: CoverageIntentInput[],
   ): TopicSelectionGateIssue[] {
     const blockers: TopicSelectionGateIssue[] = [];
-    if (queryIntents.length === 0 || queryIntents.every((query) => query.trim().length === 0)) {
+    if (queryIntents.length === 0 || queryIntents.some((query) => query.trim().length === 0)) {
       blockers.push(this.blocker('SEARCH_PLAN_QUERY_INTENT_REQUIRED', 'SearchPlan requires at least one query intent.'));
     }
     if (coverageInputs.length === 0 || coverageInputs.some((intent) => intent.query.trim().length === 0)) {
       blockers.push(this.blocker('COVERAGE_ROW_QUERY_REQUIRED', 'Coverage row intents require non-empty queries.'));
+    }
+    const coverageKeys = coverageInputs.map((intent, index) => intent.coverage_key ?? `query-${index + 1}`);
+    if (new Set(coverageKeys).size !== coverageKeys.length) {
+      blockers.push(this.blocker('COVERAGE_ROW_KEY_DUPLICATE', 'Coverage row intent keys must be unique within a SearchPlan.'));
     }
     return blockers;
   }
@@ -895,7 +1757,9 @@ export class TopicSelectionSearchResourceService {
       blockers.push(this.blocker('SEARCH_RUN_SOURCE_HEALTH_REQUIRED', 'SearchRun requires source-health summary.'));
     }
     const status = input.run_status ?? 'succeeded';
-    if (this.isConsumableSearchRunStatus(status) && input.evidence_map_input_refs.length === 0) {
+    if (this.isConsumableSearchRunStatus(status)
+      && input.result_accounting.total_result_count > 0
+      && input.evidence_map_input_refs.length === 0) {
       blockers.push(this.blocker('SEARCH_RUN_STABLE_INPUT_REFS_REQUIRED', 'Consumable SearchRun requires stable EvidenceMap input refs.'));
     }
     blockers.push(...this.searchRunAuthorityRefBlockers(input, literatureSnapshot));
@@ -1196,6 +2060,37 @@ export class TopicSelectionSearchResourceService {
     }
   }
 
+  private async resolveHumanCorpusConstraint(
+    confirmationRef: TopicSelectionFunctionalRef,
+    titleCardId: string,
+    workspaceId: string | null,
+  ): Promise<{ literature_ids: Set<string> }> {
+    const decision = confirmationRef.ref_type === 'human_confirmed_decision'
+      ? await this.controlPlane.getHumanDecision(confirmationRef.ref_id)
+      : null;
+    const workspaceMatches = (decision?.workspace_id ?? null) === workspaceId;
+    const authorityRefs = decision?.resulting_authority_refs ?? [];
+    const valid = decision
+      && decision.actor.actor_type === 'human'
+      && decision.decision_type === 'confirm'
+      && decision.title_card_id === titleCardId
+      && confirmationRef.title_card_id === titleCardId
+      && decision.target_ref.ref_type === 'managed_library_corpus_scope'
+      && decision.target_ref.title_card_id === titleCardId
+      && workspaceMatches
+      && authorityRefs.length > 0
+      && authorityRefs.every((ref) =>
+        ref.ref_type === 'literature_record' && ref.title_card_id === titleCardId);
+    if (!valid) {
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        'Managed-library narrowing requires a strict Human confirmation with exact literature authority refs.',
+      );
+    }
+    return { literature_ids: new Set(authorityRefs.map((ref) => ref.ref_id)) };
+  }
+
   private buildLiteratureSourceHealthSummary(
     literatureIds: string[],
     literatureById: Map<string, { rightsClass: string; abstractText: string | null; keyContentDigest: string | null }>,
@@ -1293,6 +2188,14 @@ export class TopicSelectionSearchResourceService {
     return record;
   }
 
+  private async requireSearchRun(searchRunId: string): Promise<TopicSelectionSearchRunRecord> {
+    const record = await this.repository.findSearchRunById(searchRunId);
+    if (!record) {
+      throw new AppError(404, 'NOT_FOUND', `SearchRun ${searchRunId} not found.`);
+    }
+    return record;
+  }
+
   private async requireRecheckRequest(requestId: string): Promise<TopicSelectionSearchPlanRecheckRequestRecord> {
     const record = await this.repository.findSearchPlanRecheckRequestById(requestId);
     if (!record) {
@@ -1341,6 +2244,14 @@ export class TopicSelectionSearchResourceService {
       version_id: versionId,
       title_card_id: titleCardId,
     };
+  }
+
+  private sortedRefs(refs: TopicSelectionFunctionalRef[]): TopicSelectionFunctionalRef[] {
+    return [...refs].sort((left, right) => this.refKey(left).localeCompare(this.refKey(right)));
+  }
+
+  private refKey(ref: TopicSelectionFunctionalRef): string {
+    return `${ref.ref_type}:${ref.ref_id}:${ref.version_id ?? ''}:${ref.title_card_id ?? ''}`;
   }
 
   private blocker(code: string, message: string): TopicSelectionGateIssue {

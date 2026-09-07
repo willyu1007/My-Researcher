@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-30T12:00:00.000Z",
+  "updatedAt": "2026-09-03T01:11:03.000Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -43978,6 +43978,17 @@
           "unique": false
         },
         {
+          "name": "lineageRevision",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "literatureSnapshotId",
           "type": "String",
           "nullable": false,
@@ -43996,6 +44007,39 @@
           "dbName": null,
           "dbType": null,
           "default": "\"{}\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "materialEvidenceDeltaRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "predecessorEvidenceMapId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "name": "predecessorEvidenceMapRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -44069,6 +44113,28 @@
           "name": "status",
           "type": "String",
           "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "successorEvidenceMapId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "name": "successorEvidenceMapRef",
+          "type": "Json",
+          "nullable": true,
           "list": false,
           "dbName": null,
           "dbType": null,
@@ -44220,6 +44286,31 @@
           ],
           "name": null,
           "map": null
+        },
+        {
+          "type": "index",
+          "fields": [
+            "titleCardId",
+            "successorEvidenceMapId"
+          ],
+          "name": null,
+          "map": "tsem_title_successor_idx"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "predecessorEvidenceMapId"
+          ],
+          "name": null,
+          "map": "tsem_predecessor_id_key"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "successorEvidenceMapId"
+          ],
+          "name": null,
+          "map": "tsem_successor_id_key"
         },
         {
           "type": "unique",
@@ -47284,6 +47375,17 @@
           "unique": false
         },
         {
+          "name": "corpusManifestMembers",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "createdAt",
           "type": "DateTime",
           "nullable": false,
@@ -47379,6 +47481,17 @@
           "dbName": null,
           "dbType": null,
           "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "retrievalStackIdentity",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -59854,6 +59967,28 @@
           "unique": false
         },
         {
+          "name": "corpusManifestHash",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "corpusManifestRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "createdAt",
           "type": "DateTime",
           "nullable": false,
@@ -59866,6 +60001,28 @@
         },
         {
           "name": "decisionSummary",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionPolicy",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "expectedDecisionEffect",
           "type": "String",
           "nullable": true,
           "list": false,
@@ -59895,6 +60052,28 @@
           "dbType": null,
           "default": null,
           "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "issueRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "originatingArenaSessionRef",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
           "unique": false
         },
         {
@@ -59929,6 +60108,17 @@
           "default": null,
           "primaryKey": false,
           "unique": false
+        },
+        {
+          "name": "requestKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
         },
         {
           "name": "resolvedAt",
@@ -59986,6 +60176,17 @@
           "unique": false
         },
         {
+          "name": "retrievalIntent",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "sourceRef",
           "type": "Json",
           "nullable": false,
@@ -60026,6 +60227,28 @@
           "dbName": null,
           "dbType": null,
           "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "strategyKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "supportingArtifactRefs",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"[]\"",
           "primaryKey": false,
           "unique": false
         },
@@ -60101,6 +60324,14 @@
         {
           "type": "index",
           "fields": [
+            "corpusManifestHash"
+          ],
+          "name": null,
+          "map": "tsprr_manifest_hash_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
             "policyVersionId"
           ],
           "name": null,
@@ -60142,6 +60373,14 @@
         {
           "type": "index",
           "fields": [
+            "strategyKey"
+          ],
+          "name": null,
+          "map": "tsprr_strategy_key_idx"
+        },
+        {
+          "type": "index",
+          "fields": [
             "targetLiteratureSnapshotId"
           ],
           "name": null,
@@ -60163,6 +60402,14 @@
           ],
           "name": null,
           "map": null
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "requestKey"
+          ],
+          "name": null,
+          "map": "tsprr_request_key_key"
         }
       ]
     },

@@ -18,7 +18,7 @@ next step here.
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 150 (planned: 2, in-progress: 2, blocked: 0, done: 0, archived: 146)
+- Tasks: 150 (planned: 2, in-progress: 1, blocked: 0, done: 1, archived: 146)
 
 ## Recently registered or status-changed tasks
 
@@ -26,7 +26,7 @@ next step here.
 | --- | --- | --- | --- |
 | T-148 topic-selection-real-flow-findings | in-progress | F-001 | dev-docs/active/topic-selection-real-flow-findings |
 | T-149 literature-embedding-vector-persistence | archived | F-000 | dev-docs/archive/literature-embedding-vector-persistence |
-| T-150 topic-selection-evidence-convergence-core | in-progress | F-001 | dev-docs/active/topic-selection-evidence-convergence-core |
+| T-150 topic-selection-evidence-convergence-core | done | F-001 | dev-docs/active/topic-selection-evidence-convergence-core |
 | T-147 topic-selection-research-checkpoint-control-plane | archived | F-001 | dev-docs/archive/topic-selection-research-checkpoint-control-plane |
 | T-068 topic-selection-backend-decision-chain-acceptance | archived | F-001 | dev-docs/archive/topic-selection-backend-decision-chain-acceptance |
 | T-069 experiment-foundation-design-review-sync | archived | F-001 | dev-docs/archive/experiment-foundation-design-review-sync |

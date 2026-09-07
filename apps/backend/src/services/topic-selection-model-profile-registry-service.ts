@@ -165,6 +165,11 @@ export const TOPIC_SELECTION_RESEARCH_ARENA_OPPORTUNITY_SCOUT_PROFILE_ID =
   'topic-selection.research-arena.opportunity-scout.v1' as const;
 export const TOPIC_SELECTION_RESEARCH_ARENA_PRIOR_ART_TOPIC_KILLER_PROFILE_ID =
   'topic-selection.research-arena.prior-art-topic-killer.v1' as const;
+export const TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS = {
+  opportunity_scout: 'topic-selection.evidence-convergence.opportunity-scout.v1',
+  empirical_skeptic: 'topic-selection.evidence-convergence.empirical-skeptic.v1',
+  synthesis_arbiter: 'topic-selection.evidence-convergence.synthesis-arbiter.v1',
+} as const;
 export const TOPIC_SELECTION_V1B_RESEARCH_SLICE_OPTIONS_SINGLE_AGENT_PROFILE_ID =
   TOPIC_SELECTION_V1B_WORKFLOW_HARNESS_PROFILE_IDS.research_slice_options_single_agent;
 export const TOPIC_SELECTION_V1B_TOPIC_QUESTION_CANDIDATES_SINGLE_AGENT_PROFILE_ID =
@@ -585,6 +590,25 @@ const DEFAULT_TOPIC_SELECTION_MODEL_PROFILE_REGISTRY: TopicSelectionModelProfile
       output_contract: 'TopicSelectionResearchArenaRoleOutput@v1',
       model_options: [],
     }),
+    ...([
+      ['opportunity_scout', 'explorer'],
+      ['empirical_skeptic', 'deep_critic'],
+      ['synthesis_arbiter', 'arbiter'],
+    ] as const).map(([role, roleFamily]) => profileBase({
+      profile_id: TOPIC_SELECTION_EVIDENCE_CONVERGENCE_ROUND_PROFILE_IDS[role],
+      profile_function: `evidence_convergence_${role}`,
+      role_family: roleFamily,
+      stage_family: 'evidence_landscape_convergence_round',
+      quality_objectives: [
+        'assess_only_the_frozen_successor_evidence',
+        'cite_admitted_evidence_units',
+        'recommend_recheck_or_unresolved_without_authoring_gate_state',
+      ],
+      allowed_execution_modes: ['mocked_llm', 'codex_assisted'],
+      run_mode_eligibility: SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY,
+      output_contract: 'TopicSelectionEvidenceConvergenceRoundRoleOutput@v1',
+      model_options: [],
+    })),
     profileBase({
       profile_id: TOPIC_SELECTION_NEED_DISCOVERY_ARBITER_FRAMING_PROFILE_ID,
       profile_function: 'need_discovery_arbiter_issue_framing',

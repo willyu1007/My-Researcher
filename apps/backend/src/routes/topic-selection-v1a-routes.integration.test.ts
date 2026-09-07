@@ -176,6 +176,37 @@ function searchRunInputRefsHash(searchRunHandoff: any): string {
   return new TopicSelectionEvidenceMapMaterializationService().inputRefsHashForSearchRunHandoff(searchRunHandoff);
 }
 
+test('topic-selection v1a rejects malformed evidence-convergence authority refs at HTTP ingress', async () => {
+  const app = buildApp();
+  try {
+    const titleCardId = uniqueId('route-contract-title');
+    const issueRef = ref('coverage_row_intent', 'coverage_challenge', titleCardId);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/topic-selection/v1a/search-plan-recheck-requests',
+      payload: {
+        title_card_id: titleCardId,
+        source_ref: issueRef,
+        target_search_plan_id: 'missing-plan',
+        reason: 'Malformed authority refs must fail before service execution.',
+        evidence_convergence_intent: {
+          issue_ref: issueRef,
+          originating_arena_session_ref: ref('artifact_ref', 'arena_1', titleCardId),
+          search_intent: 'Find direct counter evidence.',
+          candidate_queries: ['direct counter evidence'],
+          expected_decision_effect: 'Recheck required challenge coverage.',
+          corpus_manifest_ref: ref('literature_resource_pool_snapshot', 'manifest_1', titleCardId),
+          corpus_manifest_hash: 'manifest-hash',
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 400, response.body);
+  } finally {
+    await app.close();
+  }
+});
+
 function buildNativeEvidenceMapDraft(input: {
   titleCardId: string;
   searchRunHandoff: any;
@@ -1079,6 +1110,39 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     };
     assert.ok(recheckList.items.length > 0);
     assert.ok(recheckList.items.every((item) => item.title_card_id === titleCardId));
+
+    const invalidMaterializationPlanRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1a/search-plan-recheck-requests/${encodeURIComponent(recheckAdjudication.adjudication_result.output_searchplan_recheck_request_ref.ref_id)}/resolve`,
+      payload: {
+        outcome: 'materialized',
+        decision_summary: 'An empty query list must fail before claim.',
+        revised_search_plan: { query_intents: [] },
+      },
+    });
+    assertStatus(invalidMaterializationPlanRes, 400);
+
+    const incompleteMaterializationRunRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1a/search-plan-recheck-requests/${encodeURIComponent(recheckAdjudication.adjudication_result.output_searchplan_recheck_request_ref.ref_id)}/resolve`,
+      payload: {
+        outcome: 'materialized',
+        decision_summary: 'An incomplete follow-up run must fail before claim.',
+        revised_search_plan: { query_intents: ['counter evidence'] },
+        follow_up_search_run: {},
+      },
+    });
+    assertStatus(incompleteMaterializationRunRes, 400);
+
+    const illegalExecutingOutcomeRes = await app.inject({
+      method: 'POST',
+      url: `/topic-selection/v1a/search-plan-recheck-requests/${encodeURIComponent(recheckAdjudication.adjudication_result.output_searchplan_recheck_request_ref.ref_id)}/resolve`,
+      payload: {
+        outcome: 'executing',
+        decision_summary: 'Internal execution state must not be accepted as a public resolution.',
+      },
+    });
+    assertStatus(illegalExecutingOutcomeRes, 400);
 
     const memoryRes = await app.inject({
       method: 'POST',

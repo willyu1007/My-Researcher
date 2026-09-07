@@ -10,7 +10,7 @@ import type { LiteratureRecord } from '../repositories/literature-repository.js'
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { TopicSelectionSearchResourceService } from './topic-selection-search-resource-service.js';
 
-function makeService() {
+function makeService(options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {}) {
   let sequence = 0;
   const now = () => '2026-05-13T00:00:00.000Z';
   const idFactory = (prefix: string) => `${prefix}_${++sequence}`;
@@ -24,9 +24,10 @@ function makeService() {
     controlPlane,
     titleCards,
     literature,
-    { idFactory, now },
+    { idFactory, now, ...options },
   );
   return {
+    controlPlane,
     controlPlaneRepository,
     literature,
     searchResourceRepository,
@@ -63,8 +64,10 @@ function makeLiterature(id: string): LiteratureRecord {
   };
 }
 
-async function seedTitleCardWithLiterature() {
-  const ctx = makeService();
+async function seedTitleCardWithLiterature(
+  options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {},
+) {
+  const ctx = makeService(options);
   const titleCard = await ctx.titleCards.createTitleCard({
     working_title: 'Robust evidence retrieval',
     brief: 'Find unmet needs in evidence-grounded literature retrieval.',
@@ -94,8 +97,10 @@ async function seedTitleCardWithLiterature() {
   return { ...ctx, titleCard };
 }
 
-async function createBasePlan() {
-  const ctx = await seedTitleCardWithLiterature();
+async function createBasePlan(
+  options: ConstructorParameters<typeof TopicSelectionSearchResourceService>[4] = {},
+) {
+  const ctx = await seedTitleCardWithLiterature(options);
   const seed = await ctx.service.createTopicSeedFromTitleCard({
     title_card_id: ctx.titleCard.title_card_id,
     created_by: 'system',
@@ -314,6 +319,212 @@ test('LiteratureResourcePoolSnapshot records maturity warnings without blocking 
   ]);
   assert.equal(first.snapshot_hash, second.snapshot_hash);
   assert.notEqual(first.literature_resource_pool_snapshot_id, second.literature_resource_pool_snapshot_id);
+});
+
+test('managed-library snapshot includes every retrieval-eligible member without requiring a title basket', async () => {
+  const ctx = makeService({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [
+          {
+            embedding_version_id: 'embedding_2',
+            literature_id: 'lit_002',
+            input_checksum: 'input-2',
+            index_artifact_checksum: 'index-2',
+          },
+          {
+            embedding_version_id: 'embedding_1',
+            literature_id: 'lit_001',
+            input_checksum: 'input-1',
+            index_artifact_checksum: 'index-1',
+          },
+        ],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const titleCard = await ctx.titleCards.createTitleCard({
+    working_title: 'Managed library manifest',
+    brief: 'Use the full evidence-ready managed library.',
+  });
+  for (const literatureId of ['lit_001', 'lit_002']) {
+    await ctx.literature.createLiterature(makeLiterature(literatureId));
+    await ctx.literature.upsertPipelineState({
+      id: `pipeline_${literatureId}`,
+      literatureId,
+      citationComplete: true,
+      abstractReady: true,
+      keyContentReady: true,
+      dedupStatus: 'unique',
+      updatedAt: '2026-05-13T00:00:00.000Z',
+    });
+  }
+  await ctx.literature.upsertLiteratureSource({
+    id: 'source_z',
+    literatureId: 'lit_001',
+    provider: 'manual',
+    sourceItemId: 'source-z',
+    sourceUrl: 'file://source-z.pdf',
+    rawPayload: {},
+    fetchedAt: '2026-05-13T00:00:00.000Z',
+  });
+  await ctx.literature.upsertLiteratureSource({
+    id: 'source_a',
+    literatureId: 'lit_001',
+    provider: 'manual',
+    sourceItemId: 'source-a',
+    sourceUrl: 'file://source-a.pdf',
+    rawPayload: {},
+    fetchedAt: '2026-05-13T00:00:00.000Z',
+  });
+  const seed = await ctx.service.createTopicSeedFromTitleCard({
+    title_card_id: titleCard.title_card_id,
+  });
+
+  const snapshot = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: titleCard.title_card_id,
+    topic_seed_id: seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+
+  assert.deepEqual(snapshot.literature_refs.map((item) => item.ref_id), ['lit_001', 'lit_002']);
+  assert.deepEqual(snapshot.corpus_manifest_members?.map((item) => item.embedding_version_ref.ref_id), [
+    'embedding_1',
+    'embedding_2',
+  ]);
+  assert.equal(snapshot.retrieval_stack_identity?.freshness_policy, 'current_only');
+  assert.deepEqual(snapshot.content_source_refs.map((item) => item.ref_id), ['source_a', 'source_z']);
+});
+
+test('managed-library corpus can narrow only through a strict Human-confirmed scope', async () => {
+  const ctx = makeService({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: ['lit_001', 'lit_002'].map((literatureId, index) => ({
+          embedding_version_id: `embedding_${index + 1}`,
+          literature_id: literatureId,
+          input_checksum: `input-${index + 1}`,
+          index_artifact_checksum: `index-${index + 1}`,
+        })),
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const titleCard = await ctx.titleCards.createTitleCard({
+    working_title: 'Human-scoped managed corpus',
+    brief: 'Preserve an explicit Human corpus constraint without accepting an implicit basket.',
+  });
+  for (const literatureId of ['lit_001', 'lit_002']) {
+    await ctx.literature.createLiterature(makeLiterature(literatureId));
+    await ctx.literature.upsertPipelineState({
+      id: `pipeline_${literatureId}`,
+      literatureId,
+      citationComplete: true,
+      abstractReady: true,
+      keyContentReady: true,
+      dedupStatus: 'unique',
+      updatedAt: '2026-05-13T00:00:00.000Z',
+    });
+  }
+  const seed = await ctx.service.createTopicSeedFromTitleCard({ title_card_id: titleCard.title_card_id });
+  const scopeTarget = ref('managed_library_corpus_scope', 'scope_001', titleCard.title_card_id);
+  const confirmed = await ctx.controlPlane.recordHumanDecision({
+    title_card_id: titleCard.title_card_id,
+    target_ref: scopeTarget,
+    decision_type: 'confirm',
+    actor: { actor_type: 'human', actor_id: 'reviewer_001' },
+    resulting_authority_refs: [ref('literature_record', 'lit_002', titleCard.title_card_id)],
+  });
+  const createSnapshot = ctx.service.createLiteratureResourcePoolSnapshot.bind(ctx.service) as (
+    input: Parameters<typeof ctx.service.createLiteratureResourcePoolSnapshot>[0] & {
+      human_corpus_constraint_ref: TopicSelectionFunctionalRef;
+    },
+  ) => ReturnType<typeof ctx.service.createLiteratureResourcePoolSnapshot>;
+
+  const snapshot = await createSnapshot({
+    title_card_id: titleCard.title_card_id,
+    topic_seed_id: seed.topic_seed_id,
+    source_scope: 'managed_library',
+    human_corpus_constraint_ref: ref(
+      'human_confirmed_decision',
+      confirmed.human_confirmed_decision_id,
+      titleCard.title_card_id,
+    ),
+  });
+
+  assert.deepEqual(snapshot.literature_refs.map((item) => item.ref_id), ['lit_002']);
+  assert.deepEqual(
+    (snapshot.retrieval_stack_identity as unknown as {
+      corpus_scope: { mode: string; human_confirmation_ref: TopicSelectionFunctionalRef | null };
+    }).corpus_scope,
+    {
+      mode: 'human_confirmed_subset',
+      human_confirmation_ref: ref(
+        'human_confirmed_decision',
+        confirmed.human_confirmed_decision_id,
+        titleCard.title_card_id,
+      ),
+    },
+  );
+
+  const nonHuman = await ctx.controlPlane.recordHumanDecision({
+    title_card_id: titleCard.title_card_id,
+    target_ref: ref('managed_library_corpus_scope', 'scope_002', titleCard.title_card_id),
+    decision_type: 'confirm',
+    actor: { actor_type: 'llm', actor_id: 'model_001' },
+    resulting_authority_refs: [ref('literature_record', 'lit_001', titleCard.title_card_id)],
+  });
+  await assert.rejects(
+    () => createSnapshot({
+      title_card_id: titleCard.title_card_id,
+      topic_seed_id: seed.topic_seed_id,
+      source_scope: 'managed_library',
+      human_corpus_constraint_ref: ref(
+        'human_confirmed_decision',
+        nonHuman.human_confirmed_decision_id,
+        titleCard.title_card_id,
+      ),
+    }),
+    /strict Human confirmation/u,
+  );
 });
 
 test('LiteratureResourcePoolSnapshot hash changes when policy version changes', async () => {
@@ -904,4 +1115,744 @@ test('SearchPlanRecheckRequest accepted, reject, accepted-risk, and materialized
   assert.equal(materializedResult.revised_search_plan?.recheck_request_ref?.ref_id, materialized.search_plan_recheck_request_id);
   assert.equal(materializedResult.follow_up_search_run?.run_kind, 'recheck_followup');
   assert.equal(materializedResult.follow_up_search_run?.run_status, 'failed');
+});
+
+test('SearchPlanRecheckRequest claim and human resolution have one atomic winner', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_race', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise the execution-claim race.',
+  });
+
+  const [claimed, resolved] = await Promise.all([
+    ctx.searchResourceRepository.claimSearchPlanRecheckRequestExecution(
+      request.search_plan_recheck_request_id,
+    ),
+    ctx.searchResourceRepository.transitionSearchPlanRecheckRequest(
+      request.search_plan_recheck_request_id,
+      'open',
+      {
+        status: 'accepted',
+        decision_summary: 'Human resolution won the race.',
+        resolved_at: '2026-09-07T00:00:00.000Z',
+      },
+    ),
+  ]);
+
+  assert.equal(Number(claimed !== null) + Number(resolved !== null), 1);
+  const persisted = await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+    request.search_plan_recheck_request_id,
+  );
+  assert.ok(persisted?.status === 'executing' || persisted?.status === 'accepted');
+});
+
+test('manual materialization rejects deterministic plan errors before claim and permits corrected input', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_invalid_materialization', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise pre-claim validation.',
+  });
+
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'This invalid attempt must not poison the request.',
+      revised_search_plan: {
+        query_intents: ['first query', 'second query'],
+        coverage_intents: [
+          { coverage_key: 'duplicate', query: 'first query' },
+          { coverage_key: 'duplicate', query: 'second query' },
+        ],
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'GATE_CONSTRAINT_FAILED',
+  );
+  assert.equal(
+    (await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+      request.search_plan_recheck_request_id,
+    ))?.status,
+    'open',
+  );
+
+  const corrected = await ctx.service.resolveSearchPlanRecheckRequest({
+    request_id: request.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Corrected materialization succeeds.',
+    revised_search_plan: {
+      query_intents: ['first query', 'second query'],
+      coverage_intents: [
+        { coverage_key: 'first', query: 'first query' },
+        { coverage_key: 'second', query: 'second query' },
+      ],
+    },
+  });
+  assert.equal(corrected.request.status, 'materialized');
+});
+
+test('in-memory SearchPlan persistence mirrors Prisma title-version and coverage-key uniqueness', async () => {
+  const ctx = await createBasePlan();
+  await assert.rejects(
+    ctx.searchResourceRepository.createSearchPlanWithCoverageIntents({
+      ...ctx.plan.search_plan,
+      search_plan_id: 'search_plan_duplicate_version',
+    }, []),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+
+  const searchPlanId = 'search_plan_duplicate_coverage_key';
+  const firstRow = ctx.plan.coverage_row_intents[0]!;
+  await assert.rejects(
+    ctx.searchResourceRepository.createSearchPlanWithCoverageIntents({
+      ...ctx.plan.search_plan,
+      search_plan_id: searchPlanId,
+      plan_version: 'unique-coverage-key-check',
+    }, [
+      {
+        ...firstRow,
+        coverage_row_intent_id: 'coverage_intent_duplicate_1',
+        search_plan_id: searchPlanId,
+        coverage_key: 'duplicate-key',
+      },
+      {
+        ...firstRow,
+        coverage_row_intent_id: 'coverage_intent_duplicate_2',
+        search_plan_id: searchPlanId,
+        coverage_key: 'duplicate-key',
+      },
+    ]),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(await ctx.searchResourceRepository.findSearchPlanById(searchPlanId), null);
+});
+
+test('manual materialization resumes exact planned targets after SearchPlan persistence failure', async () => {
+  const planFailure = await createBasePlan();
+  const planFailureRequest = await planFailure.service.createSearchPlanRecheckRequest({
+    title_card_id: planFailure.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_plan_failure', planFailure.titleCard.title_card_id),
+    target_search_plan_id: planFailure.plan.search_plan.search_plan_id,
+    reason: 'Exercise plan materialization recovery.',
+  });
+  const resolveInput: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: planFailureRequest.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Attempt a revised plan.',
+    revised_search_plan: {
+      plan_version: 'plan-failure-v1',
+      query_intents: ['recovery query'],
+    },
+  };
+  const persistPlan = planFailure.searchResourceRepository.createSearchPlanWithCoverageIntents.bind(
+    planFailure.searchResourceRepository,
+  );
+  let failPlanPersistence = true;
+  planFailure.searchResourceRepository.createSearchPlanWithCoverageIntents = async (...args) => {
+    if (failPlanPersistence) {
+      failPlanPersistence = false;
+      throw new Error('simulated SearchPlan persistence failure');
+    }
+    return persistPlan(...args);
+  };
+  await assert.rejects(
+    planFailure.service.resolveSearchPlanRecheckRequest(resolveInput),
+    /simulated SearchPlan persistence failure/u,
+  );
+  const pending = await planFailure.searchResourceRepository.findSearchPlanRecheckRequestById(
+    planFailureRequest.search_plan_recheck_request_id,
+  );
+  assert.equal(pending?.status, 'executing');
+  assert.match(pending?.decision_summary ?? '', /^manual-materialization-attempt:/u);
+  assert.ok(pending?.resulting_search_plan_ref);
+  assert.equal(pending?.resulting_search_run_ref, null);
+  assert.equal(pending?.resolved_at, null);
+
+  const restartedService = new TopicSelectionSearchResourceService(
+    planFailure.searchResourceRepository,
+    planFailure.controlPlane,
+    planFailure.titleCards,
+    planFailure.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  await assert.rejects(
+    restartedService.resolveSearchPlanRecheckRequest({
+      ...resolveInput,
+      revised_search_plan: {
+        ...resolveInput.revised_search_plan!,
+        query_intents: ['different recovery query'],
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  const resumed = await restartedService.resolveSearchPlanRecheckRequest(resolveInput);
+  assert.equal(resumed.request.status, 'materialized');
+  assert.equal(resumed.revised_search_plan?.search_plan_id, pending?.resulting_search_plan_ref?.ref_id);
+  assert.equal(resumed.request.decision_summary, resolveInput.decision_summary);
+  await assert.rejects(
+    restartedService.resolveSearchPlanRecheckRequest(resolveInput),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+});
+
+test('manual materialization terminalizes deterministic failures after its durable claim', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_terminal_failure', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise deterministic failure settlement after claim.',
+  });
+  ctx.searchResourceRepository.createSearchPlanWithCoverageIntents = async () => {
+    throw new AppError(409, 'VERSION_CONFLICT', 'simulated deterministic SearchPlan conflict');
+  };
+
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'Attempt deterministic conflict.',
+      revised_search_plan: { query_intents: ['deterministic conflict query'] },
+    }),
+    /simulated deterministic SearchPlan conflict/u,
+  );
+  const failed = await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+    request.search_plan_recheck_request_id,
+  );
+  assert.equal(failed?.status, 'materialization_failed');
+  assert.ok(failed?.resulting_search_plan_ref);
+  assert.match(failed?.decision_summary ?? '', /^manual-materialization-attempt:/u);
+  assert.ok(failed?.resolved_at);
+});
+
+test('manual materialization resumes the same SearchPlan and planned SearchRun after restart', async () => {
+  const runFailure = await createBasePlan();
+  const runFailureRequest = await runFailure.service.createSearchPlanRecheckRequest({
+    title_card_id: runFailure.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_run_failure', runFailure.titleCard.title_card_id),
+    target_search_plan_id: runFailure.plan.search_plan.search_plan_id,
+    reason: 'Exercise follow-up SearchRun materialization recovery.',
+  });
+  const resolveInput: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: runFailureRequest.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Attempt a revised plan and follow-up run.',
+    revised_search_plan: {
+      plan_version: 'run-failure-v1',
+      query_intents: ['recovery query'],
+    },
+    follow_up_search_run: {
+      run_status: 'failed',
+      result_accounting: {
+        total_result_count: 0,
+        unique_literature_count: 0,
+        duplicate_result_count: 0,
+        failed_source_count: 1,
+        skipped_source_count: 0,
+      },
+      source_health_summary: { warning_codes: ['SEARCH_PROVIDER_FAILED'] },
+      evidence_map_input_refs: [],
+    },
+  };
+  const persistRun = runFailure.searchResourceRepository.createSearchRunWithCoverageRecords.bind(
+    runFailure.searchResourceRepository,
+  );
+  let failRunPersistence = true;
+  runFailure.searchResourceRepository.createSearchRunWithCoverageRecords = async (...args) => {
+    if (failRunPersistence) {
+      failRunPersistence = false;
+      throw new Error('simulated SearchRun persistence failure');
+    }
+    return persistRun(...args);
+  };
+  await assert.rejects(
+    runFailure.service.resolveSearchPlanRecheckRequest(resolveInput),
+    /simulated SearchRun persistence failure/u,
+  );
+  const pending = await runFailure.searchResourceRepository.findSearchPlanRecheckRequestById(
+    runFailureRequest.search_plan_recheck_request_id,
+  );
+  assert.equal(pending?.status, 'executing');
+  assert.ok(pending?.resulting_search_plan_ref);
+  assert.ok(pending?.resulting_search_run_ref);
+
+  const restartedService = new TopicSelectionSearchResourceService(
+    runFailure.searchResourceRepository,
+    runFailure.controlPlane,
+    runFailure.titleCards,
+    runFailure.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  const resumed = await restartedService.resolveSearchPlanRecheckRequest(resolveInput);
+  assert.equal(resumed.request.status, 'materialized');
+  assert.equal(resumed.revised_search_plan?.search_plan_id, pending?.resulting_search_plan_ref?.ref_id);
+  assert.equal(resumed.follow_up_search_run?.search_run_id, pending?.resulting_search_run_ref?.ref_id);
+  const revisedPlans = (await runFailure.searchResourceRepository.listSearchPlansByTitleCardId(
+    runFailure.titleCard.title_card_id,
+  )).filter((item) => item.recheck_request_ref?.ref_id === runFailureRequest.search_plan_recheck_request_id);
+  assert.equal(revisedPlans.length, 1);
+});
+
+test('concurrent manual materialization converges on one persisted plan and run', async () => {
+  const ctx = await createBasePlan();
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: ref('need_candidate', 'need_candidate_concurrent_materialization', ctx.titleCard.title_card_id),
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Exercise cross-service exact materialization convergence.',
+  });
+  const peerService = new TopicSelectionSearchResourceService(
+    ctx.searchResourceRepository,
+    ctx.controlPlane,
+    ctx.titleCards,
+    ctx.literature,
+    { now: () => '2026-05-13T00:00:00.000Z' },
+  );
+  const input: Parameters<TopicSelectionSearchResourceService['resolveSearchPlanRecheckRequest']>[0] = {
+    request_id: request.search_plan_recheck_request_id,
+    outcome: 'materialized',
+    decision_summary: 'Converge concurrent materialization.',
+    revised_search_plan: {
+      plan_version: 'concurrent-v1',
+      query_intents: ['concurrent recovery query'],
+    },
+    follow_up_search_run: {
+      run_status: 'failed',
+      result_accounting: {
+        total_result_count: 0,
+        unique_literature_count: 0,
+        duplicate_result_count: 0,
+        failed_source_count: 1,
+        skipped_source_count: 0,
+      },
+      source_health_summary: { error_codes: ['SEARCH_PROVIDER_FAILED'] },
+      evidence_map_input_refs: [],
+    },
+  };
+
+  const [left, right] = await Promise.all([
+    ctx.service.resolveSearchPlanRecheckRequest(input),
+    peerService.resolveSearchPlanRecheckRequest(input),
+  ]);
+  assert.equal(left.revised_search_plan?.search_plan_id, right.revised_search_plan?.search_plan_id);
+  assert.equal(left.follow_up_search_run?.search_run_id, right.follow_up_search_run?.search_run_id);
+  const revisedPlans = (await ctx.searchResourceRepository.listSearchPlansByTitleCardId(
+    ctx.titleCard.title_card_id,
+  )).filter((item) => item.recheck_request_ref?.ref_id === request.search_plan_recheck_request_id);
+  assert.equal(revisedPlans.length, 1);
+});
+
+test('concurrent manual requests deterministically settle a shared SearchPlan version loser', async () => {
+  const ctx = await createBasePlan();
+  const [leftRequest, rightRequest] = await Promise.all([
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: ref('need_candidate', 'need_candidate_version_race_left', ctx.titleCard.title_card_id),
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Race an explicit SearchPlan version.',
+    }),
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: ref('need_candidate', 'need_candidate_version_race_right', ctx.titleCard.title_card_id),
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Race the same explicit SearchPlan version.',
+    }),
+  ]);
+  const persistPlan = ctx.searchResourceRepository.createSearchPlanWithCoverageIntents.bind(
+    ctx.searchResourceRepository,
+  );
+  let arrivals = 0;
+  let releaseBoth!: () => void;
+  const bothArrived = new Promise<void>((resolve) => {
+    releaseBoth = resolve;
+  });
+  ctx.searchResourceRepository.createSearchPlanWithCoverageIntents = async (...args) => {
+    arrivals += 1;
+    if (arrivals === 2) {
+      releaseBoth();
+    }
+    await bothArrived;
+    return persistPlan(...args);
+  };
+  const resolve = (requestId: string) => ctx.service.resolveSearchPlanRecheckRequest({
+    request_id: requestId,
+    outcome: 'materialized',
+    decision_summary: 'Materialize a shared explicit SearchPlan version.',
+    revised_search_plan: {
+      plan_version: 'shared-version-race-v1',
+      query_intents: ['shared version race query'],
+    },
+  });
+
+  const results = await Promise.allSettled([
+    resolve(leftRequest.search_plan_recheck_request_id),
+    resolve(rightRequest.search_plan_recheck_request_id),
+  ]);
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+  const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+  assert.ok(rejected);
+  assert.ok(rejected.reason instanceof AppError);
+  assert.equal(rejected.reason.statusCode, 409);
+  assert.equal(rejected.reason.errorCode, 'VERSION_CONFLICT');
+
+  const requests = await Promise.all([
+    ctx.searchResourceRepository.findSearchPlanRecheckRequestById(leftRequest.search_plan_recheck_request_id),
+    ctx.searchResourceRepository.findSearchPlanRecheckRequestById(rightRequest.search_plan_recheck_request_id),
+  ]);
+  assert.deepEqual(requests.map((request) => request?.status).sort(), ['materialization_failed', 'materialized']);
+  const matchingPlans = (await ctx.searchResourceRepository.listSearchPlansByTitleCardId(
+    ctx.titleCard.title_card_id,
+  )).filter((plan) => plan.plan_version === 'shared-version-race-v1');
+  assert.equal(matchingPlans.length, 1);
+});
+
+test('evidence-convergence recheck requests derive coordinator identities and reuse equivalent durable work', async () => {
+  const ctx = await createBasePlan({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [{
+          embedding_version_id: 'embedding_1',
+          literature_id: 'lit_001',
+          input_checksum: 'input-1',
+          index_artifact_checksum: 'index-1',
+        }],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const manifest = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+  const intent = {
+    issue_ref: ref('coverage_row_intent', 'coverage_challenge', ctx.titleCard.title_card_id),
+    originating_arena_session_ref: ref('research_arena_session', 'arena_1', ctx.titleCard.title_card_id),
+    search_intent: 'Find direct counter evidence',
+    candidate_queries: ['failure mode', 'direct counter evidence'],
+    expected_decision_effect: 'Recheck required challenge coverage',
+    corpus_manifest_ref: ref(
+      'literature_resource_pool_snapshot',
+      manifest.literature_resource_pool_snapshot_id,
+      ctx.titleCard.title_card_id,
+    ),
+    corpus_manifest_hash: manifest.snapshot_hash,
+  };
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'An empty strategy must not become durable work.',
+      evidence_convergence_intent: {
+        ...intent,
+        search_intent: '   ',
+        candidate_queries: ['  '],
+        expected_decision_effect: '   ',
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 400
+      && error.errorCode === 'INVALID_PAYLOAD',
+  );
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'A generic ref cannot masquerade as the corpus manifest authority.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: {
+          ...intent.corpus_manifest_ref,
+          ref_type: 'artifact_ref',
+        },
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'A stale manifest version ref cannot authorize replay.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: {
+          ...intent.corpus_manifest_ref,
+          version_id: 'stale-manifest-version',
+        },
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Arena origin must remain in the same title-scoped authority.',
+      evidence_convergence_intent: {
+        ...intent,
+        originating_arena_session_ref: ref('artifact_ref', 'arena_1', 'different_title'),
+      },
+    }),
+    /title-scoped issue and Arena session/u,
+  );
+
+  const incompleteManifest = await ctx.searchResourceRepository.createLiteratureResourcePoolSnapshot({
+    ...manifest,
+    literature_resource_pool_snapshot_id: 'manifest_incomplete',
+    snapshot_version: 'incomplete',
+    corpus_manifest_members: [],
+    retrieval_stack_identity: null,
+    snapshot_hash: 'incomplete-manifest-hash',
+  });
+  await assert.rejects(
+    () => ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Incomplete legacy manifests are not replay authorities.',
+      evidence_convergence_intent: {
+        ...intent,
+        corpus_manifest_ref: ref(
+          'literature_resource_pool_snapshot',
+          incompleteManifest.literature_resource_pool_snapshot_id,
+          ctx.titleCard.title_card_id,
+        ),
+        corpus_manifest_hash: incompleteManifest.snapshot_hash,
+      },
+    }),
+    /exact managed-library corpus manifest/u,
+  );
+
+  const [first, replay] = await Promise.all([
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Resolve missing challenge coverage.',
+      evidence_convergence_intent: intent,
+    }),
+    ctx.service.createSearchPlanRecheckRequest({
+      title_card_id: ctx.titleCard.title_card_id,
+      source_ref: intent.issue_ref,
+      target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+      reason: 'Equivalent wording should reuse the durable request.',
+      evidence_convergence_intent: {
+        ...intent,
+        search_intent: ' find   direct counter evidence ',
+        candidate_queries: ['direct counter evidence', 'failure mode', 'failure mode'],
+        expected_decision_effect: ' recheck required challenge coverage ',
+      },
+    }),
+  ]);
+
+  assert.equal(replay.search_plan_recheck_request_id, first.search_plan_recheck_request_id);
+  assert.match(first.request_key ?? '', /^[a-f0-9]{64}$/u);
+  assert.match(first.strategy_key ?? '', /^[a-f0-9]{64}$/u);
+  assert.equal(first.issue_ref?.ref_id, 'coverage_challenge');
+  assert.equal(first.execution_policy?.policy_key, 'evidence-landscape-convergence.v1');
+  assert.deepEqual(first.supporting_artifact_refs, []);
+  assert.equal(
+    (await ctx.searchResourceRepository.listSearchPlanRecheckRequestsByTitleCardId(
+      ctx.titleCard.title_card_id,
+    )).length,
+    1,
+  );
+
+  await assert.rejects(
+    ctx.service.resolveSearchPlanRecheckRequest({
+      request_id: first.search_plan_recheck_request_id,
+      outcome: 'materialized',
+      decision_summary: 'The manual path cannot claim coordinator-owned work.',
+      revised_search_plan: {
+        query_intents: ['direct counter evidence'],
+        created_by: 'system',
+      },
+    }),
+    (error: unknown) =>
+      error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === 'VERSION_CONFLICT',
+  );
+  assert.equal(
+    (await ctx.searchResourceRepository.findSearchPlanRecheckRequestById(
+      first.search_plan_recheck_request_id,
+    ))?.status,
+    'open',
+  );
+});
+
+test('evidence-convergence execution persists a zero-hit SearchRun and closes only exact child lineage', async () => {
+  const ctx = await createBasePlan({
+    managedLibraryEligibilityResolver: {
+      resolveManagedLibraryEligibility: async () => ({
+        eligible_embedding_versions: [{
+          embedding_version_id: 'embedding_1',
+          literature_id: 'lit_001',
+          input_checksum: 'input-1',
+          index_artifact_checksum: 'index-1',
+        }],
+        retrieval_stack_identity: {
+          index_kind: 'pgvector',
+          embedding_profile_id: 'default',
+          embedding_provider: 'openai',
+          embedding_model: 'text-embedding-3-small',
+          embedding_dimension: 1536,
+          freshness_policy: 'current_only',
+          retrieval_policy_version: 'literature-retrieval.v1',
+          reranker_policy_version: 'hybrid-reranker.v1',
+          candidate_window: {
+            floor: 200,
+            unscoped_ceiling: 1200,
+            scoped_ceiling: 2000,
+            profile_multipliers: { general: 8, topic_exploration: 10, writing_evidence: 10, paper_management: 12 },
+            per_literature_cap_min: 4,
+            per_literature_cap_max: 12,
+            query_timeout_ms: 5000,
+          },
+          corpus_scope: { mode: 'full_managed_library', human_confirmation_ref: null },
+        },
+      }),
+    },
+  });
+  const manifest = await ctx.service.createLiteratureResourcePoolSnapshot({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    source_scope: 'managed_library',
+  });
+  const issueRef = ref(
+    'coverage_row_intent',
+    ctx.plan.coverage_row_intents[0]!.coverage_row_intent_id,
+    ctx.titleCard.title_card_id,
+  );
+  const request = await ctx.service.createSearchPlanRecheckRequest({
+    title_card_id: ctx.titleCard.title_card_id,
+    source_ref: issueRef,
+    target_search_plan_id: ctx.plan.search_plan.search_plan_id,
+    reason: 'Resolve required coverage.',
+    evidence_convergence_intent: {
+      issue_ref: issueRef,
+      originating_arena_session_ref: ref(
+        'research_arena_session',
+        'arena_1',
+        ctx.titleCard.title_card_id,
+      ),
+      search_intent: 'Find missing support evidence',
+      candidate_queries: ['missing support evidence'],
+      expected_decision_effect: 'Recheck required support coverage',
+      corpus_manifest_ref: {
+        ref_type: 'literature_resource_pool_snapshot',
+        ref_id: manifest.literature_resource_pool_snapshot_id,
+        title_card_id: ctx.titleCard.title_card_id,
+        version_id: manifest.snapshot_version,
+      },
+      corpus_manifest_hash: manifest.snapshot_hash,
+    },
+  });
+  const child = await ctx.service.createSearchPlan({
+    title_card_id: ctx.titleCard.title_card_id,
+    topic_seed_id: ctx.seed.topic_seed_id,
+    literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
+    query_intents: ['missing support evidence'],
+    parent_search_plan_ref: request.target_search_plan_ref,
+    recheck_request_ref: ref(
+      'search_plan_recheck_request',
+      request.search_plan_recheck_request_id,
+      ctx.titleCard.title_card_id,
+    ),
+  });
+  const zeroHitRun = await ctx.service.recordSearchRun({
+    title_card_id: ctx.titleCard.title_card_id,
+    search_plan_id: child.search_plan.search_plan_id,
+    literature_resource_pool_snapshot_id: manifest.literature_resource_pool_snapshot_id,
+    run_kind: 'recheck_followup',
+    run_status: 'succeeded',
+    result_accounting: {
+      total_result_count: 0,
+      unique_literature_count: 0,
+      duplicate_result_count: 0,
+      failed_source_count: 0,
+      skipped_source_count: 0,
+    },
+    source_health_summary: { warning_codes: [] },
+    evidence_map_input_refs: [],
+    coverage_observations: child.coverage_row_intents.map((row) => ({
+      coverage_row_intent_id: row.coverage_row_intent_id,
+      status: 'succeeded',
+      result_count: 0,
+      source_count: 0,
+      missing_reason_codes: ['NO_RETRIEVAL_HITS'],
+    })),
+  });
+
+  assert.equal(
+    (await ctx.service.claimEvidenceConvergenceRecheckRequestExecution(
+      request.search_plan_recheck_request_id,
+    ))?.status,
+    'executing',
+  );
+
+  const completed = await ctx.service.completeEvidenceConvergenceRecheckRequest({
+    request_id: request.search_plan_recheck_request_id,
+    resulting_search_plan_id: child.search_plan.search_plan_id,
+    resulting_search_run_id: zeroHitRun.search_run.search_run_id,
+    decision_summary: 'Persisted an exact zero-hit execution.',
+  });
+  assert.equal(completed.status, 'materialized');
+  assert.equal(completed.resulting_search_run_ref?.ref_id, zeroHitRun.search_run.search_run_id);
+  assert.equal(
+    (await ctx.service.completeEvidenceConvergenceRecheckRequest({
+      request_id: request.search_plan_recheck_request_id,
+      resulting_search_plan_id: child.search_plan.search_plan_id,
+      resulting_search_run_id: zeroHitRun.search_run.search_run_id,
+      decision_summary: 'Exact replay.',
+    })).resulting_search_run_ref?.ref_id,
+    zeroHitRun.search_run.search_run_id,
+  );
 });
