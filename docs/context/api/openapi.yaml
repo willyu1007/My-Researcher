@@ -6082,7 +6082,13 @@ paths:
   /topic-selection/v1c/promotion-decision-support:
     post:
       operationId: createTopicSelectionV1cPromotionDecisionSupport
-      summary: Create N2 promotion decision support and dossier.
+      summary: Create risk-free N2 promotion decision support and dossier.
+      description: >-
+        The deterministic default is the fast path when the frozen input has no accepted_risk_refs
+        and no material RiskFinding refs (including snapshot and legacy bundle artifact refs).
+        Either signal requires one bounded Debate via the bounded-debate endpoint; deterministic
+        and single-agent llm_draft requests return 409 PROMOTION_SUPPORT_DEBATE_REQUIRED before
+        generation or support writes. Plain package risk prose does not classify material findings.
       tags: [topic-selection-v1c]
       requestBody:
         required: true
@@ -6104,10 +6110,57 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /topic-selection/v1c/promotion-decision-support/bounded-debate:
+    post:
+      operationId: createTopicSelectionV1cPromotionDecisionSupportFromBoundedDebate
+      summary: Create promotion support through one four-role bounded Debate.
+      description: >-
+        Required for accepted risks or material RiskFinding refs; also available for risk-free input.
+        Executes supporter draft, critic review, supporter repair and final synthesis in order as
+        product codex_assisted work. Four non-provider role audits preserve provenance and existing
+        per-role budgets; this endpoint performs zero provider calls and no automatic retry/fallback.
+        Deterministic admission requires all material finding refs in the final semantic layer's
+        material_risk_acknowledgements.risk_refs, alongside accepted-risk/recheck coverage and critic
+        resolution. The dossier records support_policy and debate_execution with admission identity
+        and all four role artifacts. Exact completed input replay reuses support; changed input under
+        the same snapshot/workflow/attempt conflicts. Same-process concurrent replay shares execution.
+        N3 gate checking and the exact N4 Human decision remain separate authorities.
+      tags: [topic-selection-v1c]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicSelectionV1cPromotionSupportBoundedDebateRequest'
+      responses:
+        '201':
+          description: Admitted promotion support and dossier created or replayed; no gate or Human decision written.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSelectionV1cPromotionDecisionSupportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Role execution or deterministic support admission failed; no support or decision authority created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /topic-selection/v1c/promotion-gate-checks:
     post:
       operationId: createTopicSelectionV1cPromotionGateCheck
       summary: Create N3 promotion gate check from existing support.
+      description: >-
+        New gate checks for material-risk input require snapshot-bound bounded-Debate support.
+        Legacy deterministic support without this evidence returns 409 PROMOTION_SUPPORT_DEBATE_REQUIRED.
+        Completed historical gate replay retains the original result. Compatibility creation from
+        promotion_input_snapshot_id obeys the same N2 trigger and cannot bypass required Debate.
       tags: [topic-selection-v1c]
       requestBody:
         required: true
@@ -12204,6 +12257,37 @@ components:
         workspace_id: { type: string, nullable: true }
         created_by: { type: string, enum: [human, llm, system, hybrid] }
         policy_version_id: { type: string, nullable: true }
+
+    TopicSelectionV1cPromotionSupportBoundedDebateRequest:
+      type: object
+      additionalProperties: true
+      required: [promotion_input_snapshot_id, workflow_run_id, node_attempt_id, debate_role_outputs]
+      properties:
+        promotion_input_snapshot_id: { type: string, minLength: 1 }
+        workspace_id: { type: string, minLength: 1, nullable: true }
+        created_by: { type: string, enum: [human, llm, system, hybrid] }
+        policy_version_id: { type: string, minLength: 1, nullable: true }
+        workflow_run_id: { type: string, minLength: 1 }
+        node_attempt_id: { type: string, minLength: 1 }
+        operator_label: { type: string }
+        debate_role_outputs:
+          type: object
+          additionalProperties: false
+          description: >-
+            Each object carries its matching role_slot. The first three use schema_version
+            topic-selection-v1c-n2-bounded-micro-debate-role.v1; synthesizer final uses
+            topic-selection-v1c-n2-bounded-micro-debate-final.v1. Runtime admission validates
+            the full role contract, refs, risk coverage and support-only authority boundary.
+          required:
+            - n2_bounded_micro_debate.promotion_supporter_draft
+            - n2_bounded_micro_debate.reviewer_critic_review
+            - n2_bounded_micro_debate.promotion_supporter_repair
+            - n2_bounded_micro_debate.synthesizer_final
+          properties:
+            n2_bounded_micro_debate.promotion_supporter_draft: { type: object, additionalProperties: true }
+            n2_bounded_micro_debate.reviewer_critic_review: { type: object, additionalProperties: true }
+            n2_bounded_micro_debate.promotion_supporter_repair: { type: object, additionalProperties: true }
+            n2_bounded_micro_debate.synthesizer_final: { type: object, additionalProperties: true }
 
     TopicSelectionV1cPromotionGateSupportRequest:
       type: object

@@ -1,3 +1,4 @@
+import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -585,6 +586,13 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       );
     }
 
+    const materialRiskLayer = this.asRecord(layer.material_risk_acknowledgements);
+    const materialRiskKeys = new Set(this.asArray(materialRiskLayer?.risk_refs).map((ref) => this.refKey(ref)));
+    const missingMaterialRisks = promotionSupportRiskFindingRefs(handoff).filter((ref) => !materialRiskKeys.has(this.refKey(ref)));
+    if (missingMaterialRisks.length > 0) {
+      return this.block('N2_BOUNDED_DEBATE_REQUIRED_REF_DROPPED',
+        'N2 synthesizer final dropped material risk findings.', { missing_risk_refs: missingMaterialRisks });
+    }
     const recheckLayer = this.asRecord(layer.recheck_obligation_summary);
     const recheckRefKeys = new Set(this.asArray(recheckLayer?.recheck_refs).map((ref) => this.refKey(ref)));
     const missingRecheckRefs = handoff.recheck_request_refs.filter((ref) => !recheckRefKeys.has(this.refKey(ref)));
@@ -636,6 +644,7 @@ export class TopicSelectionV1cN2BoundedDebateAdmissionService {
       ...handoff.validated_need_refs,
       ...handoff.evidence_refs.map((item) => item.evidence_ref),
       ...handoff.accepted_risk_refs,
+      ...promotionSupportRiskFindingRefs(handoff),
       ...handoff.blocker_refs,
       ...handoff.memory_suggestion_refs,
       ...handoff.recheck_request_refs,

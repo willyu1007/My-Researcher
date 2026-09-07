@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER } from '../services/topic-selection-v1c-n2-bounded-debate-admission-service.js';
 import {
   TOPIC_SELECTION_ACTOR_TYPES,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -90,8 +91,7 @@ const promotionGateSupportBody = bodySchema(['promotion_input_snapshot_id'], {
   model: recordPayload,
 });
 
-// T-128 W-13: v1c-N2 bounded-debate support. debate_role_outputs is a passthrough object (4 operator-supplied
-// codex_assisted role outputs); the runtime + admission do the deep per-role validation, so no nested schema here.
+// Four operator-supplied role outputs; admission owns their semantic/ref/authority checks.
 const promotionDecisionSupportBoundedDebateBody = bodySchema(
   ['promotion_input_snapshot_id', 'workflow_run_id', 'node_attempt_id', 'debate_role_outputs'],
   {
@@ -102,7 +102,12 @@ const promotionDecisionSupportBoundedDebateBody = bodySchema(
     workflow_run_id: stringId,
     node_attempt_id: stringId,
     operator_label: { type: 'string' },
-    debate_role_outputs: recordPayload,
+    debate_role_outputs: {
+      type: 'object',
+      additionalProperties: false,
+      required: [...TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER],
+      properties: Object.fromEntries(TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.map((slot) => [slot, recordPayload])),
+    },
   },
 );
 

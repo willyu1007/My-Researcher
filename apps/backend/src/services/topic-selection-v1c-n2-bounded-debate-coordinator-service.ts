@@ -1,24 +1,6 @@
-/**
- * T-128 W-13 — v1c-N2 bounded micro-debate PRODUCTION caller.
- *
- * The node audit (wf_034f15eb) confirmed the v1c-N2 bounded-debate runtime + admission classes had NO production
- * caller: only the provider canary self-proved them, and it did so by calling the orchestrator INLINE, bypassing
- * the admission class entirely — exactly where the per-role schema_version pin + forbidden-authority / ref-bounds /
- * critic-resolution / final-semantic-layer checks live.
- *
- * This coordinator is the real caller. It sits ABOVE the gate service (it does NOT add a control-plane/runtime
- * dependency to the gate), mirroring the wired N8 bounded-debate caller shape:
- *   handoff -> for each role slot (in order): runtime.generateRoleArtifact (execution_mode 'codex_assisted',
- *   operator-supplied output, prior artifacts threaded append-only) -> collect candidate -> admission.admit
- *   (the load-bearing verification — NEVER short-circuited) -> on admit, feed the EXISTING verified-runtime-draft
- *   gate entry createPromotionDecisionSupportFromVerifiedRuntimeDraft, which persists exactly like the single-agent
- *   support path. It stops at support persistence (the existing POST /promotion-gate-checks runs the gate check).
- *
- * codex_assisted is the honest non-provider path: the operator hands each role's structured output in the request
- * body and the orchestrator returns it verbatim (no LLM call) — so callers/tests need no provider. The 4 role
- * outputs must satisfy admission's deep checks; a bad output yields an admit blocker (surfaced as an AppError),
- * never silent persistence.
- */
+/** Four ordered non-provider roles produce admitted support; N3 and Human authority stay separate. */
+import { canonicalHash } from './topic-selection-v1b-harness-authority-hash.js';
+import type { TopicSelectionPromotionInputSnapshotHandoff } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-v1c-promotion-input-contracts';
 import { AppError } from '../errors/app-error.js';
 import {
   TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER,
@@ -71,13 +53,63 @@ if (FINAL_SLOT !== 'n2_bounded_micro_debate.synthesizer_final') {
   throw new Error(`N2 bounded-debate ROLE_ORDER must end with synthesizer_final; got ${FINAL_SLOT}.`);
 }
 
+type ActiveDebate = { requestHash: string; result: Promise<TopicSelectionV1cPromotionDecisionSupportCreationResult> };
+const activeDebates = new WeakMap<TopicSelectionV1cPromotionGateService, Map<string, ActiveDebate>>();
+
 export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
   constructor(private readonly deps: TopicSelectionV1cN2BoundedDebateCoordinatorDeps) {}
 
   async createPromotionDecisionSupportFromBoundedDebate(
     input: CreatePromotionDecisionSupportFromBoundedDebateInput,
   ): Promise<TopicSelectionV1cPromotionDecisionSupportCreationResult> {
-    const handoff = await this.deps.promotionInputService.getPromotionInputHandoff(input.promotion_input_snapshot_id);
+    input = structuredClone(input);
+    const handoff = structuredClone(await this.deps.promotionInputService.getPromotionInputHandoff(input.promotion_input_snapshot_id));
+    if (input.workspace_id && input.workspace_id !== handoff.snapshot.workspace_id) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Promotion Debate workspace does not match its input snapshot.');
+    }
+    const slots = Object.keys(input.debate_role_outputs);
+    if (slots.length !== TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.length
+      || TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER.some((slot) => !input.debate_role_outputs[slot])) {
+      throw new AppError(400, 'INVALID_PAYLOAD', 'Promotion Debate requires exactly the four role outputs.');
+    }
+    const supportRunKey = canonicalHash(['v1c-n2-bounded-debate-v1', input.promotion_input_snapshot_id,
+      input.workflow_run_id, input.node_attempt_id]);
+    const requestHash = canonicalHash({
+      ...input,
+      workspace_id: input.workspace_id ?? null,
+      policy_version_id: input.policy_version_id ?? null,
+      created_by: input.created_by ?? 'system',
+      operator_label: input.operator_label ?? 'operator-supplied-bounded-debate',
+      handoff,
+    });
+    let active = activeDebates.get(this.deps.gateService);
+    if (!active) {
+      active = new Map();
+      activeDebates.set(this.deps.gateService, active);
+    }
+    const flight = active.get(supportRunKey);
+    if (flight) {
+      if (flight.requestHash !== requestHash) {
+        throw new AppError(409, 'VERSION_CONFLICT', 'Promotion Debate attempt is executing different input.');
+      }
+      return flight.result;
+    }
+    const result = this.deps.gateService.findBoundedDebateReplay(supportRunKey, requestHash)
+      .then((existing) => existing ?? this.execute(input, handoff, supportRunKey, requestHash));
+    active.set(supportRunKey, { requestHash, result });
+    try {
+      return await result;
+    } finally {
+      active.delete(supportRunKey);
+    }
+  }
+
+  private async execute(
+    input: CreatePromotionDecisionSupportFromBoundedDebateInput,
+    handoff: TopicSelectionPromotionInputSnapshotHandoff,
+    supportRunKey: string,
+    requestHash: string,
+  ): Promise<TopicSelectionV1cPromotionDecisionSupportCreationResult> {
     const operatorLabel = input.operator_label ?? 'operator-supplied-bounded-debate';
 
     const priorArtifacts: TopicSelectionV1cN2BoundedDebateRoleArtifact[] = [];
@@ -86,9 +118,6 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
 
     for (const slot of TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_ORDER) {
       const output = input.debate_role_outputs[slot];
-      if (!output) {
-        throw new AppError(400, 'INVALID_PAYLOAD', `Missing debate role output for slot ${slot}.`, { slot });
-      }
       const generated = await this.deps.runtime.generateRoleArtifact({
         handoff,
         slot_id: slot,
@@ -96,7 +125,7 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
         workflow_run_id: input.workflow_run_id,
         node_attempt_id: input.node_attempt_id,
         execution_mode: 'codex_assisted',
-        run_mode: 'acceptance',
+        run_mode: 'product',
         model_option_id: null,
         codex_response: { output, operator_label: operatorLabel },
         created_by: 'system',
@@ -142,6 +171,11 @@ export class TopicSelectionV1cN2BoundedDebateCoordinatorService {
         audit_snapshot: finalGeneration.invocation_result.audit_snapshot,
         admission_identity: admitted.admission_identity,
         admission_identity_hash: admitted.admission_identity_hash,
+        execution: {
+          support_run_key: supportRunKey,
+          request_hash: requestHash,
+          role_artifacts: priorArtifacts,
+        },
       },
     });
   }

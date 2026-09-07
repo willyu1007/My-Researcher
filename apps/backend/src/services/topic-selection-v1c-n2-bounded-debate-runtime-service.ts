@@ -1,3 +1,4 @@
+import { promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
@@ -93,6 +94,7 @@ export interface TopicSelectionV1cN2BoundedDebateContextPacket {
   evaluation_plan: string | null;
   selected_evidence_refs: TopicSelectionFunctionalRef[];
   accepted_risk_refs: TopicSelectionFunctionalRef[];
+  risk_finding_refs: TopicSelectionFunctionalRef[];
   blocker_refs: TopicSelectionFunctionalRef[];
   recheck_request_refs: TopicSelectionFunctionalRef[];
   memory_suggestion_refs: TopicSelectionFunctionalRef[];
@@ -515,6 +517,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       evaluation_plan: this.stringFromPath(handoff.snapshot.package_snapshot, ['evaluation_plan']),
       selected_evidence_refs: selectedEvidenceRefs,
       accepted_risk_refs: handoff.accepted_risk_refs,
+      risk_finding_refs: promotionSupportRiskFindingRefs(handoff),
       blocker_refs: handoff.blocker_refs,
       recheck_request_refs: handoff.recheck_request_refs,
       memory_suggestion_refs: handoff.memory_suggestion_refs,
@@ -578,6 +581,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
         this.stringFromPath(handoff.snapshot.package_snapshot, ['evaluation_plan']),
       ),
       accepted_risk_refs_hash: this.hash(handoff.accepted_risk_refs),
+      risk_finding_refs_hash: this.hash(promotionSupportRiskFindingRefs(handoff)),
       blocker_refs_hash: this.hash(handoff.blocker_refs),
       recheck_request_refs_hash: this.hash(handoff.recheck_request_refs),
       memory_suggestion_refs_hash: this.hash(handoff.memory_suggestion_refs),
@@ -695,6 +699,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       contribution_summary: this.factIds(sourceHashes.contribution_summary_hash),
       evaluation_plan: this.factIds(sourceHashes.evaluation_plan_hash),
       accepted_risk: this.factIds(sourceHashes.accepted_risk_refs_hash),
+      material_risk: this.factIds(sourceHashes.risk_finding_refs_hash),
       blocker: this.factIds(sourceHashes.blocker_refs_hash),
       recheck_hint: this.factIds(sourceHashes.recheck_request_refs_hash),
       recheck_obligation: this.factIds(sourceHashes.recheck_request_refs_hash),
@@ -911,6 +916,7 @@ class V1cN2BoundedDebateStrategy implements BoundedDebateStrategy<
       ...handoff.validated_need_refs,
       ...handoff.evidence_refs.map((item) => item.evidence_ref),
       ...handoff.accepted_risk_refs,
+      ...promotionSupportRiskFindingRefs(handoff),
       ...handoff.blocker_refs,
       ...handoff.memory_suggestion_refs,
       ...handoff.recheck_request_refs,

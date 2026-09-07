@@ -138,7 +138,7 @@ class RecordingRecheckSink {
   }
 }
 
-function makePromotionInputService(graph = createTopicSelectionV1cAcceptanceGraph()) {
+function makePromotionInputService(graph = createTopicSelectionV1cAcceptanceGraph({ packageOverrides: { accepted_risk_refs: [] } })) {
   return new TopicSelectionV1cPromotionInputService({
     repository: new InMemoryTopicSelectionV1cPromotionInputRepository(),
     topicPackageRepository: new TopicSelectionV1cAcceptanceTopicPackageRepository(graph),
@@ -147,7 +147,7 @@ function makePromotionInputService(graph = createTopicSelectionV1cAcceptanceGrap
   });
 }
 
-async function createGateSubject(graph = createTopicSelectionV1cAcceptanceGraph()) {
+async function createGateSubject(graph = createTopicSelectionV1cAcceptanceGraph({ packageOverrides: { accepted_risk_refs: [] } })) {
   const promotionInputService = makePromotionInputService(graph);
   const snapshot = await promotionInputService.createPromotionInputSnapshot({
     v1b_to_v1c_input_bundle_id: graph.bundle.v1b_to_v1c_input_bundle_id,
@@ -179,6 +179,7 @@ async function createSplitGateCheck(subject: Awaited<ReturnType<typeof createGat
 test('T-108 N2/N3 deterministic support creates structured semantic layer and ready gate handoff', async () => {
   const subject = await createGateSubject(createTopicSelectionV1cAcceptanceGraph({
     packageOverrides: {
+      accepted_risk_refs: [],
       package_payload: {
         claim_ceiling: 'Correlation and mechanism claims only.',
       },
@@ -240,6 +241,7 @@ test('T-108 N2 LLM draft mode fails closed without fallback or partial persisten
 test('T-108 N3 mini-check gaps produce typed action_required gate output', async () => {
   const subject = await createGateSubject(createTopicSelectionV1cAcceptanceGraph({
     packageOverrides: {
+      accepted_risk_refs: [],
       contribution_summary: '',
       package_payload: {
         claim_ceiling: 'Correlation and mechanism claims only.',
@@ -268,6 +270,7 @@ test('T-108 N3 mini-check gaps produce typed action_required gate output', async
 test('T-108 N4 ready gate creates promotion authority while action-required gate cannot promote', async () => {
   const readySubject = await createGateSubject(createTopicSelectionV1cAcceptanceGraph({
     packageOverrides: {
+      accepted_risk_refs: [],
       package_payload: {
         claim_ceiling: 'Correlation and mechanism claims only.',
       },
@@ -300,6 +303,7 @@ test('T-108 N4 ready gate creates promotion authority while action-required gate
 
   const actionSubject = await createGateSubject(createTopicSelectionV1cAcceptanceGraph({
     packageOverrides: {
+      accepted_risk_refs: [],
       contribution_summary: '',
       package_payload: {
         claim_ceiling: 'Correlation and mechanism claims only.',

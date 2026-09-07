@@ -78,7 +78,7 @@ function makeHandoff(): TopicSelectionPromotionInputSnapshotHandoff {
       package_draft_input_snapshot_hash: 'draft_hash',
       promotion_input_snapshot_hash: 'p'.repeat(64),
     },
-    snapshot: {} as never,
+    snapshot: { source_bundle_snapshot: {} } as never,
   } as unknown as TopicSelectionPromotionInputSnapshotHandoff;
 }
 

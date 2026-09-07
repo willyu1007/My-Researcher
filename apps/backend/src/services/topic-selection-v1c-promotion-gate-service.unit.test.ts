@@ -389,6 +389,26 @@ test('N2 decision support persists without N3 gate artifacts until gate check co
   assert.equal(promotionInputService.calls, 2);
 });
 
+test('material-risk support requires Debate before deterministic or single-agent work and writes', async () => {
+  const riskRef = ref('artifact_ref', 'material_risk_001', TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION);
+  for (const risk of ['accepted', 'finding'] as const) {
+    const handoff = makeHandoff(risk === 'accepted'
+      ? { accepted_risk_refs: [ref('accepted_risk', 'accepted_risk_001')] }
+      : { snapshot: { source_bundle_snapshot: { artifact_refs: [riskRef] } } as never });
+    const { service, repository } = makeSubject({ handoff });
+    for (const mode of ['deterministic', 'llm_draft'] as const) {
+      await assert.rejects(service.createPromotionGateSupport({
+        promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+        support_generation_mode: mode,
+      }), (error: unknown) => error instanceof AppError
+        && error.statusCode === 409
+        && error.details?.blocker_code === 'PROMOTION_SUPPORT_DEBATE_REQUIRED');
+    }
+    assert.equal(await repository.findLatestBundleByPromotionInputSnapshotId(handoff.promotion_input_snapshot_id), null);
+    assert.equal(await repository.findDecisionSupportById('promotion_decision_support_001'), null);
+  }
+});
+
 test('accepted risks are warnings and do not block promote handoff', async () => {
   const acceptedRiskRef = ref('accepted_risk', 'accepted_risk_001');
   const handoff = makeHandoff({
@@ -399,8 +419,12 @@ test('accepted risks are warnings and do not block promote handoff', async () =>
   });
   const { service } = makeSubject({ handoff });
 
-  const result = await service.createPromotionGateSupport({
+  const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
     promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.' } }),
+  });
+  const result = await service.createPromotionGateCheckFromSupport({
+    promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
   });
 
   assert.equal(result.promotion_gate_check.disposition, 'ready_for_human_decision');
@@ -426,8 +450,12 @@ test('material risk findings remain exact warnings through deterministic gate an
   });
   const { service } = makeSubject({ handoff });
 
-  const result = await service.createPromotionGateSupport({
+  const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
     promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted risk review.' } }),
+  });
+  const result = await service.createPromotionGateCheckFromSupport({
+    promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
   });
 
   assert.equal(result.promotion_gate_check.disposition, 'ready_for_human_decision');
@@ -582,19 +610,8 @@ test('same support run key returns existing gate support idempotently', async ()
   assert.equal(second.promotion_gate_check.promotion_gate_check_id, first.promotion_gate_check.promotion_gate_check_id);
 });
 
-test('LLM draft success stores draft prose while deterministic gate remains authoritative', async () => {
-  const riskFindingRef = ref(
-    'artifact_ref',
-    'risk_finding_model_path_001',
-    TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION,
-  );
-  const handoff = makeHandoff({
-    risk_finding_refs: [riskFindingRef],
-    snapshot: {
-      risk_finding_refs: [riskFindingRef],
-      source_bundle_snapshot: { artifact_refs: [riskFindingRef] },
-    } as never,
-  });
+test('risk-free LLM draft success stores prose while deterministic gate remains authoritative', async () => {
+  const handoff = makeHandoff();
   const draft: TopicSelectionPromotionDecisionSupportLlmDraft = {
     summary: 'LLM drafted reviewer summary.',
     reviewer_questions: ['What is the strongest evidence ref?'],
@@ -645,7 +662,7 @@ test('LLM draft success stores draft prose while deterministic gate remains auth
   assert.equal(result.promotion_decision_support.summary, draft.summary);
   assert.deepEqual(result.promotion_decision_support.llm_draft_payload, draft);
   assert.equal(result.promotion_gate_check.disposition, 'ready_for_human_decision');
-  assert.deepEqual(result.promotion_gate_check.risk_finding_refs, [riskFindingRef]);
+  assert.deepEqual(result.promotion_gate_check.risk_finding_refs, []);
   assert.equal(gatewayCalls.length, 1);
   assert.equal(gatewayCalls[0]?.model.profileId, 'topic-selection-promotion-decision-support');
   assert.equal(gatewayCalls[0]?.prompt.promptTemplateId, 'topic-selection-promotion-decision-support');
@@ -741,6 +758,39 @@ test('verified runtime draft run key is bound to admitted runtime identity', asy
     first.promotion_decision_support.promotion_decision_support_id,
   );
   assert.equal(second.promotion_decision_support.summary, secondDraft.summary);
+});
+
+test('legacy support cannot create a new material-risk gate; an existing gate remains historical', async () => {
+  for (const completed of [false, true]) {
+    const handoff = makeHandoff({ accepted_risk_refs: [ref('accepted_risk', 'accepted_risk_001')] });
+    const { service, repository } = makeSubject({ handoff });
+    const support = await service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
+      promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+      verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Admitted support.' } }),
+    });
+    const input = { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id };
+    const gate = completed ? await service.createPromotionGateCheckFromSupport(input) : null;
+    // Seed the legacy persisted shape, which predated policy provenance.
+    delete support.promotion_dossier.dossier_payload.support_policy;
+    if (gate) {
+      assert.deepEqual(await service.createPromotionGateCheckFromSupport(input), gate);
+    } else {
+      await assert.rejects(service.createPromotionGateCheckFromSupport(input),
+        (error: unknown) => error instanceof AppError && error.details?.blocker_code === 'PROMOTION_SUPPORT_DEBATE_REQUIRED');
+      assert.equal(await repository.findGateCheckBundleBySupportRunKey(support.promotion_decision_support.support_run_key), null);
+    }
+  }
+});
+
+test('admitted Debate cannot be attached to a different frozen promotion input', async () => {
+  const handoff = makeHandoff();
+  handoff.snapshot_hashes.promotion_input_snapshot_hash = 'successor_snapshot_hash';
+  const { service, repository } = makeSubject({ handoff });
+  await assert.rejects(service.createPromotionDecisionSupportFromVerifiedRuntimeDraft({
+    promotion_input_snapshot_id: handoff.promotion_input_snapshot_id,
+    verified_runtime_draft: makeVerifiedRuntimeDraft({ draft: { summary: 'Stale admitted support.' } }),
+  }), (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT');
+  assert.equal(await repository.findDecisionSupportById('promotion_decision_support_001'), null);
 });
 
 test('verified runtime draft rejects missing audit/provenance identity', async () => {

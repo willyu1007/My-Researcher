@@ -1,8 +1,10 @@
+import { promotionDebateRoleOutputs as allRoleOutputs } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
   TopicSelectionFunctionalRef,
 } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
+import { TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION } from '@paper-engineering-assistant/shared/research-lifecycle/topic-selection-control-plane-contracts';
 import type {
   TopicSelectionPromotionInputSnapshotHandoff,
   TopicSelectionPromotionInputSnapshotRecord,
@@ -12,8 +14,6 @@ import { InMemoryTopicSelectionV1cPromotionGateRepository } from '../repositorie
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
 import { AppError } from '../errors/app-error.js';
 import {
-  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
-  TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
   TopicSelectionV1cN2BoundedDebateAdmissionService,
   type TopicSelectionV1cN2BoundedDebateRoleOutput,
   type TopicSelectionV1cN2BoundedDebateRoleSlotId,
@@ -146,85 +146,6 @@ function makeHandoff(): TopicSelectionPromotionInputSnapshotHandoff {
   };
 }
 
-function roleOutput(
-  slot: TopicSelectionV1cN2BoundedDebateRoleSlotId,
-  handoff: TopicSelectionPromotionInputSnapshotHandoff,
-): TopicSelectionV1cN2BoundedDebateRoleOutput {
-  const evidenceRef = handoff.evidence_refs[0]!.evidence_ref;
-  const riskRef = handoff.accepted_risk_refs[0]!;
-  const recheckRef = handoff.recheck_request_refs[0]!;
-  if (slot === 'n2_bounded_micro_debate.promotion_supporter_draft') {
-    return {
-      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
-      role_slot: slot,
-      support_summary: 'Support draft preserves bounded claim and source refs.',
-      support_points: [{
-        point_id: 'support_point_001',
-        point: 'The topic package has selected evidence and bounded evaluation plan.',
-        source_refs: [handoff.topic_package_ref, evidenceRef],
-      }],
-      risk_acknowledgements: [{ risk_ref: riskRef, handling: 'Carry forward.' }],
-      recheck_obligations: [{ recheck_ref: recheckRef, handling: 'Carry forward.' }],
-    };
-  }
-  if (slot === 'n2_bounded_micro_debate.reviewer_critic_review') {
-    return {
-      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
-      role_slot: slot,
-      critic_findings: [{
-        finding_id: 'critic_finding_001',
-        severity: 'warning',
-        issue: 'Final support must preserve claim ceiling, accepted risk, and recheck refs.',
-        required_resolution: 'Address in final semantic layer.',
-        source_refs: [handoff.topic_package_ref, evidenceRef],
-      }],
-      required_repairs: ['Preserve accepted risk and recheck refs.'],
-    };
-  }
-  if (slot === 'n2_bounded_micro_debate.promotion_supporter_repair') {
-    return {
-      schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_ROLE_OUTPUT_SCHEMA_VERSION,
-      role_slot: slot,
-      repaired_summary: 'Repair addresses critic finding.',
-      accepted_findings: ['critic_finding_001'],
-      rebutted_findings: [],
-      repair_actions: [{
-        finding_id: 'critic_finding_001',
-        resolution_status: 'accepted_and_repaired',
-        repair_note: 'Added final semantic layer coverage.',
-        source_refs: [handoff.topic_package_ref, evidenceRef],
-      }],
-    };
-  }
-  return {
-    schema_version: TOPIC_SELECTION_V1C_N2_BOUNDED_DEBATE_FINAL_OUTPUT_SCHEMA_VERSION,
-    role_slot: slot,
-    final_support_summary: 'Final support is ready for N3 deterministic gate review.',
-    dossier_markdown: 'Dossier preserves claim ceiling, selected evidence, accepted risk, and recheck obligations.',
-    reviewer_questions: ['Are selected evidence refs still current before outline lock?'],
-    risk_notes: [{ risk_ref: riskRef, note: 'Accepted risk preserved.' }],
-    recheck_notes: [{ recheck_ref: recheckRef, note: 'Recheck preserved without automatic loopback.' }],
-    n3_semantic_layer: {
-      claim_ceiling_alignment: { status: 'addressed', summary: 'Correlation and mechanism claims only.', source_refs: [handoff.topic_package_ref] },
-      contribution_summary: { status: 'addressed', summary: 'A focused contribution summary.', source_refs: [handoff.topic_package_ref] },
-      evaluation_plan_summary: { status: 'addressed', summary: 'A bounded evaluation plan.', source_refs: [handoff.topic_package_ref] },
-      evidence_support_map: { status: 'addressed', evidence_refs: [evidenceRef] },
-      accepted_risk_acknowledgements: { status: 'addressed', risk_refs: [riskRef] },
-      recheck_obligation_summary: { status: 'addressed', recheck_refs: [recheckRef] },
-      critic_finding_resolution_map: [{
-        finding_id: 'critic_finding_001',
-        resolution_status: 'accepted_and_repaired',
-        resolution_note: 'Handled in final semantic layer.',
-        source_refs: [handoff.topic_package_ref, evidenceRef],
-      }],
-      readiness_coverage_items: [
-        { slot: 'claim_ceiling', status: 'addressed', source_refs: [handoff.topic_package_ref] },
-        { slot: 'selected_evidence', status: 'addressed', source_refs: [evidenceRef] },
-      ],
-    },
-  };
-}
-
 function makeIdFactory(): (prefix: string) => string {
   const counts = new Map<string, number>();
   return (prefix: string) => {
@@ -264,16 +185,7 @@ function makeSubject() {
     gateService,
     promotionInputService,
   });
-  return { coordinator, handoff, promotionInputService };
-}
-
-function allRoleOutputs(handoff: TopicSelectionPromotionInputSnapshotHandoff): Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleOutput> {
-  return {
-    'n2_bounded_micro_debate.promotion_supporter_draft': roleOutput('n2_bounded_micro_debate.promotion_supporter_draft', handoff),
-    'n2_bounded_micro_debate.reviewer_critic_review': roleOutput('n2_bounded_micro_debate.reviewer_critic_review', handoff),
-    'n2_bounded_micro_debate.promotion_supporter_repair': roleOutput('n2_bounded_micro_debate.promotion_supporter_repair', handoff),
-    'n2_bounded_micro_debate.synthesizer_final': roleOutput('n2_bounded_micro_debate.synthesizer_final', handoff),
-  };
+  return { coordinator, handoff, promotionInputService, gateService, controlPlane, runtime, admission };
 }
 
 function baseInput(handoff: TopicSelectionPromotionInputSnapshotHandoff) {
@@ -297,6 +209,51 @@ test('v1c N2 coordinator: 4 codex_assisted role outputs -> admitted -> persists 
   assert.ok(result.promotion_decision_support.support_run_key, 'support_run_key minted');
   // the coordinator pre-fetched the handoff (proves it reached the runtime/admit path, not a bypass).
   assert.ok(promotionInputService.calls >= 1);
+});
+
+test('material findings must be covered by Debate before support can reach the deterministic gate', async () => {
+  const { coordinator, handoff, gateService } = makeSubject();
+  const finding = ref('artifact_ref', 'risk_finding_001', TOPIC_SELECTION_RISK_FINDING_CONTRACT_VERSION);
+  handoff.snapshot.source_bundle_snapshot.risk_finding_refs = [finding];
+  const input = baseInput(handoff);
+  await assert.rejects(coordinator.createPromotionDecisionSupportFromBoundedDebate(input),
+    (error: unknown) => error instanceof AppError
+      && error.details?.blocker_code === 'N2_BOUNDED_DEBATE_REQUIRED_REF_DROPPED');
+  const final = input.debate_role_outputs['n2_bounded_micro_debate.synthesizer_final'];
+  final.n3_semantic_layer = {
+    ...final.n3_semantic_layer as Record<string, unknown>,
+    material_risk_acknowledgements: { status: 'addressed', risk_refs: [finding] },
+  };
+  const support = await coordinator.createPromotionDecisionSupportFromBoundedDebate(input);
+  assert.deepEqual(support.promotion_decision_support.risk_finding_refs, [finding]);
+  const gate = await gateService.createPromotionGateCheckFromSupport({
+    promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id,
+  });
+  assert.deepEqual(gate.handoff.risk_finding_refs, [finding]);
+  assert.equal(gate.promotion_gate_check.promote_allowed, false, 'Debate cannot override existing blockers');
+});
+
+test('completed Debate replays one support and four product role audits; changed attempt input conflicts', async () => {
+  const { coordinator, handoff, controlPlane, gateService, promotionInputService, runtime, admission } = makeSubject();
+  const input = baseInput(handoff);
+  const [first, concurrent] = await Promise.all([
+    coordinator.createPromotionDecisionSupportFromBoundedDebate(input),
+    coordinator.createPromotionDecisionSupportFromBoundedDebate(input),
+  ]);
+  assert.deepEqual(concurrent, first);
+  const artifacts = await controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id);
+  const restored = new TopicSelectionV1cN2BoundedDebateCoordinatorService({ runtime, admission, gateService, promotionInputService });
+  const replay = await restored.createPromotionDecisionSupportFromBoundedDebate(input);
+  assert.deepEqual(replay, first);
+  assert.deepEqual(await controlPlane.listArtifactRefsByWorkflowRunId(input.workflow_run_id), artifacts);
+  const execution = first.promotion_dossier.dossier_payload.debate_execution as {
+    role_artifacts: Array<{ execution_mode: string; run_mode: string }>;
+  };
+  assert.equal(execution.role_artifacts.length, 4);
+  assert.ok(execution.role_artifacts.every((role) => role.execution_mode === 'codex_assisted' && role.run_mode === 'product'));
+  await assert.rejects(coordinator.createPromotionDecisionSupportFromBoundedDebate({
+    ...input, operator_label: 'changed-input',
+  }), (error: unknown) => error instanceof AppError && error.errorCode === 'VERSION_CONFLICT');
 });
 
 test('v1c N2 coordinator: a role output with a wrong schema_version is REJECTED at admit (proves admit is reached — the canary bypassed it)', async () => {
@@ -337,7 +294,7 @@ test('v1c N2 coordinator: a forbidden authority field in a role output is REJECT
 });
 
 test('v1c N2 coordinator: a missing role output is rejected with INVALID_PAYLOAD before any runtime call', async () => {
-  const { coordinator, handoff } = makeSubject();
+  const { coordinator, handoff, controlPlane } = makeSubject();
   const outputs = allRoleOutputs(handoff);
   delete (outputs as Partial<Record<TopicSelectionV1cN2BoundedDebateRoleSlotId, TopicSelectionV1cN2BoundedDebateRoleOutput>>)['n2_bounded_micro_debate.reviewer_critic_review'];
 
@@ -349,4 +306,5 @@ test('v1c N2 coordinator: a missing role output is rejected with INVALID_PAYLOAD
       return true;
     },
   );
+  assert.deepEqual(await controlPlane.listArtifactRefsByWorkflowRunId(baseInput(handoff).workflow_run_id), []);
 });

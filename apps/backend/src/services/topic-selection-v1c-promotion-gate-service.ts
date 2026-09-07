@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { PROMOTION_SUPPORT_DEBATE_POLICY, promotionSupportDebateRequired, promotionSupportRiskFindingRefs } from './topic-selection-v1c-promotion-support-policy.js';
 
 import {
   topicSelectionRiskFindingRefs,
@@ -74,6 +75,7 @@ import {
 } from './topic-selection-model-profile-registry-service.js';
 import type {
   TopicSelectionV1cN2BoundedDebateAdmissionIdentity,
+  TopicSelectionV1cN2BoundedDebateRoleArtifact,
 } from './topic-selection-v1c-n2-bounded-debate-admission-service.js';
 
 const WORKFLOW_KEY = 'topic-selection.v1c-promotion-gate-support';
@@ -109,6 +111,11 @@ export type CreatePromotionDecisionSupportFromVerifiedRuntimeDraftInput =
       audit_snapshot: TopicSelectionAgentInvocationAuditSnapshot;
       admission_identity: TopicSelectionV1cN2BoundedDebateAdmissionIdentity;
       admission_identity_hash: string;
+      execution?: {
+        support_run_key: string;
+        request_hash: string;
+        role_artifacts: TopicSelectionV1cN2BoundedDebateRoleArtifact[];
+      };
     };
   };
 
@@ -167,6 +174,7 @@ type GateEvaluation = {
 };
 
 type LlmDraftResult = {
+  execution?: CreatePromotionDecisionSupportFromVerifiedRuntimeDraftInput['verified_runtime_draft']['execution'];
   draft: TopicSelectionPromotionDecisionSupportLlmDraft | null;
   raw: Record<string, unknown> | null;
   telemetry: TopicSelectionAgentInvocationTelemetrySummary | null;
@@ -234,6 +242,7 @@ export class TopicSelectionV1cPromotionGateService {
         runtimeIdentity: input.verified_runtime_draft.admission_identity,
         runtimeIdentityHash: input.verified_runtime_draft.admission_identity_hash,
         fallbackWarning: null,
+        execution: input.verified_runtime_draft.execution,
       },
     );
   }
@@ -247,11 +256,27 @@ export class TopicSelectionV1cPromotionGateService {
     );
     this.assertWorkspace(input.workspace_id ?? null, handoff);
 
+    if (promotionSupportDebateRequired(handoff) && !verifiedRuntimeDraft) {
+      throw new AppError(409, 'GATE_CONSTRAINT_FAILED',
+        'Promotion input carries material risk; submit the four bounded-Debate role outputs before N3.', {
+          blocker_code: 'PROMOTION_SUPPORT_DEBATE_REQUIRED',
+          required_endpoint: '/topic-selection/v1c/promotion-decision-support/bounded-debate',
+          accepted_risk_refs: handoff.accepted_risk_refs,
+          risk_finding_refs: promotionSupportRiskFindingRefs(handoff),
+        });
+    }
+    if (verifiedRuntimeDraft?.runtimeIdentity && (
+      verifiedRuntimeDraft.runtimeIdentity.promotion_input_snapshot_id !== handoff.promotion_input_snapshot_id
+      || verifiedRuntimeDraft.runtimeIdentity.promotion_input_snapshot_hash !== handoff.snapshot_hashes.promotion_input_snapshot_hash
+    )) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'Bounded-Debate admission belongs to a different promotion input snapshot.');
+    }
+
     const mode = input.support_generation_mode ?? 'deterministic';
     const promptTemplateVersion = input.prompt_template_version ?? DEFAULT_PROMPT_TEMPLATE_VERSION;
     const workflowProfileVersion = input.workflow_profile_version ?? DEFAULT_WORKFLOW_PROFILE_VERSION;
     const model = input.model ?? this.defaultPromotionSupportModel();
-    const supportRunKey = this.computeSupportRunKey({
+    const supportRunKey = verifiedRuntimeDraft?.execution?.support_run_key ?? this.computeSupportRunKey({
       promotionInputSnapshotId: handoff.promotion_input_snapshot_id,
       promotionInputSnapshotHash: handoff.snapshot_hashes.promotion_input_snapshot_hash,
       policyVersionId: input.policy_version_id ?? null,
@@ -263,6 +288,9 @@ export class TopicSelectionV1cPromotionGateService {
     });
     const existing = await this.repository.findSupportBundleBySupportRunKey(supportRunKey);
     if (existing) {
+      if (verifiedRuntimeDraft?.execution) {
+        this.assertDebateReplay(existing, verifiedRuntimeDraft.execution.request_hash);
+      }
       return existing;
     }
 
@@ -332,7 +360,17 @@ export class TopicSelectionV1cPromotionGateService {
       package_version: handoff.package_version,
       summary: this.resolveDossierSummary(handoff, support),
       reviewer_packet_artifact_ref: dossierArtifactRef,
-      dossier_payload: this.buildDossierPayload(handoff, support, llmDraft.draft),
+      dossier_payload: {
+        ...this.buildDossierPayload(handoff, support, llmDraft.draft),
+        support_policy: {
+          policy_id: PROMOTION_SUPPORT_DEBATE_POLICY,
+          debate_required: promotionSupportDebateRequired(handoff),
+          path: llmDraft.runtimeIdentity ? 'bounded_debate' : mode,
+          admission_identity: llmDraft.runtimeIdentity,
+          admission_identity_hash: llmDraft.runtimeIdentityHash,
+        },
+        ...(llmDraft.execution ? { debate_execution: llmDraft.execution } : {}),
+      },
       source_refs: sourceRefs,
       risk_finding_refs: riskFindingRefs,
       artifact_refs: [dossierArtifactRef],
@@ -357,11 +395,26 @@ export class TopicSelectionV1cPromotionGateService {
       now,
     });
 
-    return this.repository.createSupportBundle({
+    const persisted = await this.repository.createSupportBundle({
       promotion_decision_support: support,
       promotion_dossier: dossier,
       control_plane: controlPlane,
     });
+    if (llmDraft.execution) this.assertDebateReplay(persisted, llmDraft.execution.request_hash);
+    return persisted;
+  }
+
+  async findBoundedDebateReplay(supportRunKey: string, requestHash: string) {
+    const existing = await this.repository.findSupportBundleBySupportRunKey(supportRunKey);
+    if (existing) this.assertDebateReplay(existing, requestHash);
+    return existing;
+  }
+
+  private assertDebateReplay(bundle: TopicSelectionV1cPromotionSupportRecordBundle, requestHash: string): void {
+    const execution = this.asRecord(bundle.promotion_dossier.dossier_payload.debate_execution);
+    if (execution.request_hash !== requestHash) {
+      throw new AppError(409, 'VERSION_CONFLICT', 'This promotion Debate attempt already belongs to different input.');
+    }
   }
 
   async createPromotionGateCheckFromSupport(
@@ -405,6 +458,21 @@ export class TopicSelectionV1cPromotionGateService {
         'VERSION_CONFLICT',
         'PromotionDecisionSupport snapshot hash does not match the current PromotionInputSnapshot handoff.',
       );
+    }
+
+    if (promotionSupportDebateRequired(handoff)) {
+      const policy = this.asRecord(dossier.dossier_payload.support_policy);
+      const identity = this.asRecord(policy.admission_identity);
+      if (policy.policy_id !== PROMOTION_SUPPORT_DEBATE_POLICY
+        || policy.path !== 'bounded_debate'
+        || identity.promotion_input_snapshot_id !== handoff.promotion_input_snapshot_id
+        || identity.promotion_input_snapshot_hash !== handoff.snapshot_hashes.promotion_input_snapshot_hash
+        || policy.admission_identity_hash !== sha256Text(stableStringify(identity))) {
+        throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'Material-risk N3 requires snapshot-bound bounded-Debate support.', {
+          blocker_code: 'PROMOTION_SUPPORT_DEBATE_REQUIRED',
+          required_endpoint: '/topic-selection/v1c/promotion-decision-support/bounded-debate',
+        });
+      }
     }
 
     const createdBy = input.created_by ?? support.created_by;
@@ -1964,12 +2032,7 @@ export class TopicSelectionV1cPromotionGateService {
   private riskFindingRefs(
     handoff: TopicSelectionPromotionInputSnapshotHandoff,
   ): TopicSelectionFunctionalRef[] {
-    return topicSelectionRiskFindingRefs([
-      ...(handoff.risk_finding_refs ?? []),
-      ...(handoff.snapshot.risk_finding_refs ?? []),
-      ...(handoff.snapshot.source_bundle_snapshot.risk_finding_refs ?? []),
-      ...(handoff.snapshot.source_bundle_snapshot.artifact_refs ?? []),
-    ]);
+    return promotionSupportRiskFindingRefs(handoff);
   }
 
   private uniqueStrings(values: string[]): string[] {

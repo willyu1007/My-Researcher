@@ -1,3 +1,9 @@
+import { promotionDebateRoleOutputs } from './test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
+import { TopicSelectionV1cN2BoundedDebateCoordinatorService } from './topic-selection-v1c-n2-bounded-debate-coordinator-service.js';
+import { TopicSelectionV1cN2BoundedDebateRuntimeService } from './topic-selection-v1c-n2-bounded-debate-runtime-service.js';
+import { TopicSelectionV1cN2BoundedDebateAdmissionService } from './topic-selection-v1c-n2-bounded-debate-admission-service.js';
+import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
+import { InMemoryTopicSelectionControlPlaneRepository } from '../repositories/in-memory-topic-selection-control-plane-repository.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -259,8 +265,17 @@ async function createSplitGateSupport(
   subject: ReturnType<typeof createWorkflowSubject>,
   promotionInputSnapshotId: string,
 ) {
-  const supportBundle = await subject.promotionGateService.createPromotionDecisionSupport({
+  const runtime = new TopicSelectionV1cN2BoundedDebateRuntimeService(
+    new TopicSelectionControlPlaneService(new InMemoryTopicSelectionControlPlaneRepository()));
+  const coordinator = new TopicSelectionV1cN2BoundedDebateCoordinatorService({
+    runtime, admission: new TopicSelectionV1cN2BoundedDebateAdmissionService(runtime),
+    gateService: subject.promotionGateService, promotionInputService: subject.promotionInputService,
+  });
+  const handoff = await subject.promotionInputService.getPromotionInputHandoff(promotionInputSnapshotId);
+  const supportBundle = await coordinator.createPromotionDecisionSupportFromBoundedDebate({
     promotion_input_snapshot_id: promotionInputSnapshotId,
+    workflow_run_id: 'workflow_run_n2_cross_node', node_attempt_id: 'node_attempt_n2_cross_node',
+    debate_role_outputs: promotionDebateRoleOutputs(handoff),
   });
   return subject.promotionGateService.createPromotionGateCheckFromSupport({
     promotion_decision_support_id: supportBundle.promotion_decision_support.promotion_decision_support_id,

@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 3 regular N6 bounded Debate (FIND-018 / TSRF-10) implemented and focused-verified; promotion support remains
-- Next step: Continue Phase 3 with FIND-027 / TSRF-15: apply the confirmed material-risk trigger policy to promotion Debate support, preserving deterministic promotion admission and exact Human authority. FIND-028 condition grouping follows.
+- Current phase: Phase 3 regular N6 and material-risk promotion Debate (FIND-018 / FIND-027) implemented and focused-verified; condition grouping remains
+- Next step: Continue Phase 3 with FIND-028 / TSRF-16: generate complete typed risk-to-condition groups and early-check candidates while preserving exact Human confirmation and the deterministic unmapped-risk guard. Phase 4 real-flow acceptance follows.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when
@@ -24,6 +24,6 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [x] TSRF-12: Current value assessments, material risk findings, and dispositions are reflected in research status and the human stage view instead of stale checkpoint-era language.
 - [x] TSRF-13: A substantive question refinement receives exactly one bounded delta Debate over changed question/claim/metric/evaluation fields before contract rematerialization; mechanical changes may bypass it without minting duplicate authority.
 - [x] TSRF-14: A draft topic package cannot become promotion-review-ready unless it has bounded title-shaped candidates, canonical non-duplicated non-goals, and normalized sentence punctuation; recovery supersedes stale packages and bundles.
-- [ ] TSRF-15: The regular promotion-review support path has an explicit bounded-Debate policy, and runtime routing, OpenAPI, operator guidance, support provenance, and the deterministic gate agree with it.
+- [x] TSRF-15: The regular promotion-review support path has an explicit bounded-Debate policy, and runtime routing, OpenAPI, operator guidance, support provenance, and the deterministic gate agree with it.
 - [ ] TSRF-16: Conditional-promotion support presents a grouped mapping that covers every pass-with-risk finding and early check; the human confirms the exact conditions, and any unmapped finding still fails closed without a partial authority write.
 - [ ] TSRF-22: User-facing workflow surfaces and operating guidance use human-readable research-stage names instead of internal version labels, while technical diagnostics retain exact node and API identities.

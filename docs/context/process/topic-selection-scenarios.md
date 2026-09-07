@@ -274,14 +274,15 @@ implementation_note: 状态对齐 2026-07-06（T-089 ④ 复核确认项,原 sta
 ### `topic-selection.debate.v1c-promotion-support-risk.v1`
 ```yaml
 scenario_id: topic-selection.debate.v1c-promotion-support-risk.v1
-status: planned_after_node_policy
-purpose: Verify bounded debate can evaluate accepted-risk tension before deterministic promotion gate execution.
+status: implemented
+purpose: Require one bounded Debate for accepted risks or material RiskFinding refs before a new deterministic promotion gate.
 scenario_type: debate
-execution_modes: [codex_assisted, provider_llm, mocked_llm]
+execution_modes: [codex_assisted]
 covered_nodes:
   - topic-selection.v1c.generate-promotion-support.v1
-fixtures_or_data_source: controlled PromotionInputSnapshot with accepted risks and promotion-readiness tension
-assertion_scope: debate trigger, promotion advocate output, blocker reviewer output, support arbiter output, accepted-risk carry-forward, and gate-advisory boundary
-artifact_expectations: role outputs, arbiter summary, accepted-risk coverage table, validation report, and support audit refs
-business_semantics_source: 06-workflow-matrix.md + 07-node-policies.md
+fixtures_or_data_source: frozen PromotionInputSnapshot; in-memory runtime and HTTP fixtures with typed risks and a risk-free deterministic control
+assertion_scope: required-risk trigger, risk-free fast path, four ordered product role audits, material-risk and accepted-risk coverage, deterministic N3 authority, exact replay and conflicting input, legacy support refusal and historical gate replay
+artifact_expectations: support and dossier with support_policy, admission identity and debate_execution containing four role artifacts; zero backend provider calls; no N4 decision
+business_semantics_source: topic-selection-workflow-matrix.md + T-148 roadmap material-risk policy
+implementation_note: T-148 FIND-027; fixed bounded micro-debate caller, no scenario-registry dispatch, provider activation or FIND-028 condition grouping
 ```

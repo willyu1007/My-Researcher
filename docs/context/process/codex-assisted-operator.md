@@ -39,6 +39,45 @@ checkpoint, and role responses cannot author a Human decision. Regeneration/esca
 refinement delta retain their existing recovery contracts. Low-level acceptance/test draft fixtures
 and historical harness replay remain available; new initial product drafts require a Debate receipt.
 
+## Promotion review support
+
+For the frozen promotion input, either `accepted_risk_refs` or material `RiskFinding` refs requires
+one bounded N2 Debate. Material refs include the snapshot and source bundle's `risk_finding_refs`
+and legacy bundle artifact refs. Free-text package risks are displayed but do not classify material
+findings. With neither typed signal, `POST /topic-selection/v1c/promotion-decision-support` defaults
+to deterministic support with no role/provider work; its optional single-agent mode remains explicit.
+
+For risk-bearing input, submit `POST /topic-selection/v1c/promotion-decision-support/bounded-debate`
+with `promotion_input_snapshot_id`, stable `workflow_run_id`, `node_attempt_id` and `debate_role_outputs`.
+The four keys, in execution order, are:
+
+1. `n2_bounded_micro_debate.promotion_supporter_draft`
+2. `n2_bounded_micro_debate.reviewer_critic_review`
+3. `n2_bounded_micro_debate.promotion_supporter_repair`
+4. `n2_bounded_micro_debate.synthesizer_final`
+
+Each output uses its matching `role_slot`. The first three use schema version
+`topic-selection-v1c-n2-bounded-micro-debate-role.v1`; the final uses
+`topic-selection-v1c-n2-bounded-micro-debate-final.v1`. Final `n3_semantic_layer` must preserve
+accepted risks, recheck obligations and critic resolutions, plus every material finding under
+`material_risk_acknowledgements.risk_refs`. These acknowledgements do not resolve findings or
+confirm promotion conditions.
+
+The endpoint records four product `codex_assisted` role audits under existing per-role budgets,
+with zero backend provider calls and no automatic retry/fallback. External authoring cost remains
+external; a zero-provider audit does not claim that authoring was free. The dossier exposes
+`support_policy` and `debate_execution`, including the admitted identity and four role artifacts.
+Reuse exact frozen input and request for completed replay; changed input under the same attempt
+returns 409. Concurrent callers sharing the gate service share one execution; this is not a
+cross-process claim or interrupted-provider recovery protocol.
+
+Submit the returned support ID to `POST /topic-selection/v1c/promotion-gate-checks`. Required Debate
+cannot be bypassed through ordinary support, single-agent support or the combined compatibility
+gate-create request. Legacy support lacking Debate evidence cannot create a new material-risk gate;
+existing gate replay stays historical. N3 owns deterministic readiness, and N4 still requires the
+exact Human decision. Correct rejected role output before retrying; never infer Human consent from
+admitted support. Provider activation and automatic condition grouping remain separate work.
+
 ## Current rehearsal
 
 The first small real-project rehearsal uses one fresh lineage and the maintained SciFact assets.

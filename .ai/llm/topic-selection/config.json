@@ -134,7 +134,7 @@
       "system": "prompts/v1b/n8-bounded-micro-debate/system.md"
     },
     "topic-selection-v1c-promotion-support-bounded-micro-debate": {
-      "version": "1",
+      "version": "2",
       "system": "prompts/v1c/n2-bounded-micro-debate/system.md"
     },
     "topic-selection-promotion-decision-support": {

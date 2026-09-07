@@ -1,3 +1,4 @@
+import { promotionDebateRoleOutputs } from '../services/test-fixtures/topic-selection-v1c-promotion-debate.fixture.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -251,7 +252,7 @@ async function assertPrismaHttpSmokeDatabaseReady(): Promise<void> {
   }
 }
 
-function makeSeededTopicPackageRepository(suffix: string): SeededTopicPackageRepository {
+function makeSeededTopicPackageRepository(suffix: string, withRisk = false): SeededTopicPackageRepository {
   const titleCardId = `title_card_${suffix}`;
   const topicPackageId = `topic_package_${suffix}`;
   const packageVersion = 'v1';
@@ -310,7 +311,7 @@ function makeSeededTopicPackageRepository(suffix: string): SeededTopicPackageRep
     validated_need_refs: validatedNeedRefs,
     evidence_refs: evidenceRefs,
     selected_evidence_refs: [evidenceFunctionalRef],
-    accepted_risk_refs: [],
+    accepted_risk_refs: withRisk ? [ref('accepted_risk', `accepted_risk_${suffix}`, titleCardId)] : [],
     blocker_refs: [],
     memory_suggestion_refs: [],
     recheck_request_refs: [],
@@ -361,7 +362,7 @@ function makeSeededTopicPackageRepository(suffix: string): SeededTopicPackageRep
     research_slice_ref: researchSliceRef,
     validated_need_refs: validatedNeedRefs,
     evidence_refs: [evidenceFunctionalRef],
-    accepted_risk_refs: [],
+    accepted_risk_refs: withRisk ? [ref('accepted_risk', `accepted_risk_${suffix}`, titleCardId)] : [],
     blocker_refs: [],
     recheck_request_refs: [],
     missing_ref_codes: [],
@@ -390,7 +391,7 @@ function makeSeededTopicPackageRepository(suffix: string): SeededTopicPackageRep
     blockers: [],
     warnings: [],
     required_actions: [],
-    accepted_risk_refs: [],
+    accepted_risk_refs: withRisk ? [ref('accepted_risk', `accepted_risk_${suffix}`, titleCardId)] : [],
     blocker_refs: [],
     recheck_request_refs: [],
     input_snapshot_id: `input_snapshot_readiness_${suffix}`,
@@ -428,7 +429,7 @@ function makeSeededTopicPackageRepository(suffix: string): SeededTopicPackageRep
     research_slice_ref: researchSliceRef,
     validated_need_refs: validatedNeedRefs,
     evidence_refs: evidenceRefs,
-    accepted_risk_refs: [],
+    accepted_risk_refs: withRisk ? [ref('accepted_risk', `accepted_risk_${suffix}`, titleCardId)] : [],
     blocker_refs: [],
     memory_suggestion_refs: [],
     recheck_request_refs: [],
@@ -754,6 +755,7 @@ type V1cRouteHarness = {
   app: FastifyInstance;
   offlineReplayService: TopicSelectionOfflineEvaluationReplayService;
   paperProjectGateway: RecordingPaperProjectGateway;
+  promotionInputService: TopicSelectionV1cPromotionInputService;
 };
 
 async function makeV1cRouteApp(
@@ -850,7 +852,7 @@ async function makeV1cRouteHarness(
     n4DelegatedPromotionDecisionService,
   );
   await registerTopicSelectionV1cRoutes(app, controller);
-  return { app, offlineReplayService, paperProjectGateway };
+  return { app, offlineReplayService, paperProjectGateway, promotionInputService };
 }
 
 async function seedAdvancingResearchCheckpoints(
@@ -961,6 +963,48 @@ test('POST /promotion-decisions validates the required human actor identity at t
       (nonHumanActor.json() as { error: { message: string } }).error.message,
       /human_actor.*actor_type.*constant/i,
     );
+  } finally {
+    await app.close();
+  }
+});
+
+test('material-risk HTTP support requires bounded Debate, replays it, and stops before Human authority', async () => {
+  const repository = makeSeededTopicPackageRepository(uniqueId('required-debate'), true);
+  const { app, promotionInputService } = await makeV1cRouteHarness(repository);
+  try {
+    const snapshotResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-input-snapshots',
+      payload: { v1b_to_v1c_input_bundle_id: repository.v1cInputBundle.v1b_to_v1c_input_bundle_id } });
+    assertStatus(snapshotResponse, 201);
+    const snapshotId = snapshotResponse.json().promotion_input_snapshot_id as string;
+    for (const url of ['/topic-selection/v1c/promotion-decision-support', '/topic-selection/v1c/promotion-gate-checks']) {
+      const blocked = await app.inject({ method: 'POST', url, payload: { promotion_input_snapshot_id: snapshotId } });
+      assertStatus(blocked, 409);
+      assert.equal(blocked.json().error.details.blocker_code, 'PROMOTION_SUPPORT_DEBATE_REQUIRED');
+    }
+    const handoff = await promotionInputService.getPromotionInputHandoff(snapshotId);
+    const payload = {
+      promotion_input_snapshot_id: snapshotId,
+      workflow_run_id: 'workflow_run_required_debate_http', node_attempt_id: 'node_attempt_required_debate_http',
+      debate_role_outputs: promotionDebateRoleOutputs(handoff),
+    };
+    const url = '/topic-selection/v1c/promotion-decision-support/bounded-debate';
+    const incomplete = structuredClone(payload);
+    Reflect.deleteProperty(incomplete.debate_role_outputs, 'n2_bounded_micro_debate.synthesizer_final');
+    assertStatus(await app.inject({ method: 'POST', url, payload: incomplete }), 400);
+    const response = await app.inject({ method: 'POST', url, payload });
+    assertStatus(response, 201);
+    const support = response.json();
+    assert.equal(support.promotion_dossier.dossier_payload.support_policy.debate_required, true);
+    assert.equal(support.promotion_dossier.dossier_payload.debate_execution.role_artifacts.length, 4);
+    const replay = await app.inject({ method: 'POST', url, payload });
+    assertStatus(replay, 201);
+    assert.deepEqual(replay.json(), support);
+    assertStatus(await app.inject({ method: 'POST', url, payload: { ...payload, operator_label: 'changed' } }), 409);
+    const gateResponse = await app.inject({ method: 'POST', url: '/topic-selection/v1c/promotion-gate-checks',
+      payload: { promotion_decision_support_id: support.promotion_decision_support.promotion_decision_support_id } });
+    assertStatus(gateResponse, 201);
+    assert.equal(gateResponse.json().promotion_gate_check.disposition, 'ready_for_human_decision');
+    assert.equal(gateResponse.json().promotion_decision, undefined);
   } finally {
     await app.close();
   }
