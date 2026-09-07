@@ -8,7 +8,7 @@ provenance of record.
 ## Progress
 - State: planned
 - Current phase: Opening and design alignment — probe evidence collected, route not yet authorized
-- Next step: Confirm D-9, resolve D-6 against Codex documentation, then plan the task. Phase 1 is additive and no longer blocked; the D-8 slice still waits on a stable T-148 N6 Debate contract.
+- Next step: Confirm D-7, then plan the task. Phase 1 is additive and unblocked; the D-8 slice waits on a stable T-148 N6 Debate contract, and the tool-surface phases wait on Codex adopting MCP 2026-07-28.
 - Blocker: none
 
 ## Done when

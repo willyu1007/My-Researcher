@@ -10,6 +10,7 @@
 | The product's MCP tool surface is reachable and observable from a product-driven run. | Run `codex exec` against a minimal stdio MCP server exposing two research tools. | passed (2026-09-07) | Tool calls appear as first-class `mcp_tool_call` events. Required `--approve-for-me`; every other authorization route tried was refused. `probe-evidence.md` §4, §5. |
 | Index quality, not tool count, decides whether the agent selects or enumerates. | Run the same role prompt against a flat index and against an index carrying the field the question discriminates on. | passed (2026-09-07) | Flat index: 41 calls, whole corpus read, 456,890 input tokens. Discriminating index: 7 calls hitting exactly the 6 relevant units, 104,314 input tokens. `probe-evidence.md` §6. |
 | The line's cost relative to a bundle-fed provider call. | Compare four variants at gpt-6-astra list prices. | measured (2026-09-07) | Best tool-using variant ≈ $0.55 versus ≈ $0.22 bundle-fed: about 2.5x. Batching cut wall clock by half but barely moved tokens, contradicting a round-trip-driven cost model. `probe-evidence.md` §6. |
+| A product MCP server can be granted without loosening the sandbox. | Run a tool-using invocation under `-s read-only` with a granular approval policy and a per-server approval mode, without `--approve-for-me`. | passed (2026-09-08) | `approval_policy = { granular = { sandbox_approval = false, rules = false, mcp_elicitations = false } }` plus `default_tools_approval_mode = "approve"` completed the tool call. `auto` and an unset mode both failed, so the mode name is not a reliable guide. Closes D-6. `probe-evidence.md` §7. |
 | `--ignore-user-config` is insufficient for isolation. | Inspect the command executions in a probe run's trace. | failed as isolation (2026-09-07) | The agent read `~/.codex/skills/research/SKILL.md` and changed behaviour, despite `--ignore-user-config --ignore-rules`. Drives D-7. `probe-evidence.md` §5. |
 | D-3: `model_hint` currently enters hashes it was documented not to enter. | Inspect every hash site that consumes the invocation provenance or the `codex_response` object. | confirmed (2026-09-07) | Six sites: `topic-selection-research-arena-service.ts:244` hashes the whole provenance into `runtime_identity_hash`; the audit snapshot embeds provenance and its artifact hash feeds the same identity; `topic-selection-workflow-harness-service.ts` hashes the whole `codex_response` at four replay-input sites. No caller sets the field today, so no live hash has changed. |
 
@@ -21,8 +22,14 @@
   superseded server-initiated `elicitation/create`. Re-check when Codex adopts a newer revision;
   until then Phase 4 must either use the old elicitation knowingly or break out to a separate
   surface.
-- Does Codex expose any per-server or per-tool approval allowlist? If not, D-6 is settled by absence
-  and the line depends entirely on `CODEX_HOME` isolation for its safety story.
+- When will a Codex build speak MCP `2026-07-28`? D-9 targets that revision with no compatibility
+  path, and Codex 0.153.4 — the latest published build as of 2026-09-08 — negotiates `2025-06-18`.
+  Until that changes, the tool-surface phases cannot run against Codex. Check the negotiated
+  revision on each Codex upgrade.
+- Does the granular approval configuration behave the same when supplied through a product-owned
+  `CODEX_HOME` config file rather than `-c` overrides? The `-c` path was verified; the file path is
+  what the runner will actually use, and `-c` could not express the `granular` policy until every
+  required field was supplied.
 - Does a shared thread prefix reduce role diversity? A single fork run produced identical evidence
   selections for two roles that differed under independent invocation. One observation only; it does
   not affect the current route because D-4 already forbids cross-role reuse, but it would matter if

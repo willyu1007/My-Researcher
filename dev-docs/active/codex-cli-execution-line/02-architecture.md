@@ -121,13 +121,14 @@ environment under stdio, or carried as a per-attempt token under Streamable HTTP
   tool, arguments, status and error, and `turn.completed` with a `usage` object reporting
   `input_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `output_tokens` and
   `reasoning_output_tokens`.
-- **MCP**: the current specification revision is `2026-07-28`, which is stateless — no
-  `initialize` handshake, no `Mcp-Session-Id`, per-request protocol version and client capabilities
-  in `_meta`, a mandatory `server/discover` RPC, and cross-call state carried by server-minted
-  handles passed as tool arguments. Codex 0.153.4 negotiates `2025-06-18` as `codex-mcp-client`,
-  two revisions behind, and advertises an `elicitation` capability with `form` and `url` variants.
-  The product server targets `2026-07-28` with backward compatibility to the handshake-based
-  revisions Codex still speaks.
+- **MCP**: the product server targets specification revision `2026-07-28` only, with no
+  compatibility path to the handshake-based revisions. That revision is stateless — no `initialize`
+  handshake, no `Mcp-Session-Id`, per-request protocol version and client capabilities in `_meta`,
+  a mandatory `server/discover` RPC, and cross-call state carried by server-minted handles passed
+  as tool arguments. Codex 0.153.4, the latest published build as of 2026-09-08, negotiates
+  `2025-06-18` as `codex-mcp-client`, two revisions behind, and therefore cannot talk to this
+  server. The tool-surface phases wait on Codex adopting a newer revision; the runner and the line's
+  contract do not.
 - **Human confirmation in flow**: `2026-07-28` replaces every server-initiated request, including
   `elicitation/create`, with the Multi Round-Trip Requests pattern: the server returns an
   `InputRequiredResult` carrying `inputRequests`, and the client supplies `inputResponses` on a
@@ -140,9 +141,12 @@ environment under stdio, or carried as a per-attempt token under Streamable HTTP
   `~/.codex/skills/research/SKILL.md` and changed behaviour accordingly. A product-owned `CODEX_HOME`
   is therefore required, not optional, for reproducible runs.
 - **Authorization**: in non-interactive `codex exec`, MCP tool calls are refused under the default
-  approval policy. `--approve-for-me` was the only observed way to allow them, and it loosens the
-  sandbox to workspace-write and routes each approval through an extra `codex-auto-review` model
-  call. No per-server or per-tool allowlist was found.
+  `approval_policy = "never"`. The line grants its own server, and only its own server, with a
+  granular policy plus a per-server approval mode:
+  `approval_policy = { granular = { sandbox_approval = false, rules = false, mcp_elicitations = false } }`
+  and `mcp_servers.<name>.default_tools_approval_mode = "approve"`. The sandbox stays `read-only`
+  and no `codex-auto-review` call is added. The working value is `approve`; `auto` was observed to
+  fail, so do not infer the mode from its name.
 - **Cost**: every invocation carries roughly 17K tokens of Codex scaffolding before any content.
   Prompt caching was observed only *within* a turn, never across separate invocations. Even with a
   perfectly selective agent and batched reads, the line cost about 2.5x the equivalent bundle-fed

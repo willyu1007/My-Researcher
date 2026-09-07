@@ -153,6 +153,52 @@ the tool path cost about 2.5x the stuffed path. The reason to pay it is capabili
 `followup_months` field at all. The verdict differing between variants reflects the corpus, not the
 method.
 
+## 7. Per-server tool approval, and how to discover config shapes
+
+`--approve-for-me` is **not** the right way to grant a product MCP server. A granular approval
+policy plus a per-server approval mode grants exactly one server while leaving the sandbox at
+`read-only` and adding no `codex-auto-review` call:
+
+```toml
+approval_policy = { granular = { sandbox_approval = false, rules = false, mcp_elicitations = false } }
+
+[mcp_servers.research]
+default_tools_approval_mode = "approve"
+```
+
+Measured under `-s read-only`, without `--approve-for-me`:
+
+| `default_tools_approval_mode` | tool call |
+|---|---|
+| `"approve"` | **completed** |
+| `"auto"` | failed — `MCP tool call requires approval` |
+| unset | failed — same |
+
+**The working value is `approve`, not `auto`.** Secondary write-ups describe `auto` as "approve
+everything silently" and `approve` as "block unless pre-approved"; for 0.153.4 the observed
+behaviour is the reverse. Do not infer these modes from their names or from blog posts.
+
+### Discovering config shapes without spending model calls
+
+`--strict-config` validates `config.toml` — not `-c` overrides — and its errors enumerate the valid
+values. Point `CODEX_HOME` at a scratch directory holding only a `config.toml`; the parse happens
+before any model call and before authentication, so an unauthenticated scratch home is enough:
+
+```bash
+CODEX_HOME=/tmp/probe codex exec --strict-config --skip-git-repo-check "x"
+```
+
+Values recovered this way for 0.153.4:
+
+- `approval_policy`: `untrusted`, `on-failure`, `on-request`, `granular`, `never`. `granular` is a
+  newtype variant requiring three booleans: `sandbox_approval`, `rules`, `mcp_elicitations`.
+- `mcp_servers.<name>.default_tools_approval_mode`: `auto`, `prompt`, `writes`, `approve`.
+
+Two cautions. `-c` overrides bypass `--strict-config` entirely — a deliberately invalid key passed
+with `-c` produced no error at all — so key names cannot be validated that way. And unknown fields
+*inside* the `granular` table are ignored rather than rejected, so only the top-level key names are
+actually checked.
+
 ## Reproduction
 
 The probe MCP server was ~110 lines of dependency-free Node implementing JSON-RPC over stdio
