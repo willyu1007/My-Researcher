@@ -1372,7 +1372,8 @@ export class TopicSelectionEvidenceMapService {
     allowedRefs: Set<string>,
   ): Promise<void> {
     const coverageRowIds = new Set(coverageRows.map((row) => row.coverage_row_intent_id));
-    for (const unit of units) {
+    for (const [unitIndex, unit] of units.entries()) {
+      const unitPath = `evidence_units[${unitIndex}]`;
       if (!EVIDENCE_AUTHORITY_ATTRIBUTION_KINDS.has(unit.source_attribution_kind ?? 'source_claim')) {
         throw new AppError(409, 'GATE_CONSTRAINT_FAILED', 'LLM inference cannot be stored as an EvidenceUnit source claim.');
       }
@@ -1392,23 +1393,20 @@ export class TopicSelectionEvidenceMapService {
           `EvidenceUnit references coverage row outside SearchPlan: ${unit.coverage_row_intent_id}.`,
         );
       }
-      this.assertAllowedEvidenceRef(unit.literature_ref, allowedRefs, 'literature_ref');
-      for (const sourceRef of unit.source_refs ?? []) {
-        this.assertAllowedEvidenceRef(sourceRef, allowedRefs, 'source_ref');
+      this.assertAllowedEvidenceRef(unit.literature_ref, allowedRefs, `${unitPath}.literature_ref`);
+      this.assertAllowedEvidenceRef(unit.locator.literature_ref, allowedRefs, `${unitPath}.locator.literature_ref`);
+      for (const [sourceIndex, sourceRef] of (unit.source_refs ?? []).entries()) {
+        this.assertAllowedEvidenceRef(sourceRef, allowedRefs, `${unitPath}.source_refs[${sourceIndex}]`);
       }
-      this.assertAllowedEvidenceRef(unit.locator.source_ref, allowedRefs, 'locator.source_ref');
+      this.assertAllowedEvidenceRef(unit.locator.source_ref, allowedRefs, `${unitPath}.locator.source_ref`);
       const primaryContentRef = this.primaryLocatorContentRef(unit.locator);
       if (primaryContentRef) {
-        this.assertAllowedEvidenceRef(primaryContentRef, allowedRefs, 'locator.locator_ref');
+        this.assertAllowedEvidenceRef(primaryContentRef, allowedRefs, `${unitPath}.locator.locator_ref`);
       }
-      for (const locatorRef of [
-        unit.locator.content_ref,
-        unit.locator.section_ref,
-        unit.locator.paragraph_ref,
-        unit.locator.anchor_ref,
-      ]) {
+      for (const field of ['content_ref', 'section_ref', 'paragraph_ref', 'anchor_ref'] as const) {
+        const locatorRef = unit.locator[field];
         if (locatorRef) {
-          this.assertAllowedEvidenceRef(locatorRef, allowedRefs, 'locator content ref');
+          this.assertAllowedEvidenceRef(locatorRef, allowedRefs, `${unitPath}.locator.${field}`);
         }
       }
       if (unit.locator.literature_ref.ref_id !== unit.literature_ref.ref_id) {
@@ -1522,19 +1520,31 @@ export class TopicSelectionEvidenceMapService {
     searchRun: TopicSelectionSearchRunRecord,
     coverageBindings: TopicSelectionCoverageEvidenceBindingRecord[],
   ): Set<string> {
-    const refs = new Set(searchRun.evidence_map_input_refs.map((ref) => this.refKey(ref)));
-    for (const binding of coverageBindings) {
-      refs.add(this.refKey(binding.literature_ref));
-      for (const sourceRef of binding.source_refs) {
-        refs.add(this.refKey(sourceRef));
+    const refs = new Set<string>();
+    const inputRefs = [
+      ...searchRun.evidence_map_input_refs,
+      ...coverageBindings.flatMap((binding) => [binding.literature_ref, ...binding.source_refs]),
+    ];
+    for (const ref of inputRefs) {
+      // Only optional title scope is equivalent at this admission boundary. Keep type,
+      // ID and version exact, exclude foreign scopes, and never rewrite persisted refs.
+      if (ref.title_card_id != null && ref.title_card_id !== searchRun.title_card_id) {
+        continue;
       }
+      refs.add(this.refKey({ ...ref, title_card_id: null }));
+      refs.add(this.refKey({ ...ref, title_card_id: searchRun.title_card_id }));
     }
     return refs;
   }
 
   private assertAllowedEvidenceRef(ref: TopicSelectionFunctionalRef, allowedRefs: Set<string>, label: string): void {
     if (!allowedRefs.has(this.refKey(ref))) {
-      throw new AppError(409, 'GATE_CONSTRAINT_FAILED', `EvidenceUnit ${label} is outside SearchRun EvidenceMap input refs.`);
+      throw new AppError(
+        409,
+        'GATE_CONSTRAINT_FAILED',
+        `${label} is outside SearchRun EvidenceMap input refs: ${JSON.stringify(ref)}.`,
+        { field: label, rejected_ref: ref },
+      );
     }
   }
 

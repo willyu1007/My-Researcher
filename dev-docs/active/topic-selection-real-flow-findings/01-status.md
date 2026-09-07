@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 2; FIND-003 / TSRF-03, FIND-022 / FIND-015 and FIND-016 N5→N6 reference composition implemented and focused-verified
-- Next step: Continue Phase 2 with FIND-010 equivalent scoped/unscoped source refs at the SearchRun/EvidenceMap boundary, then FIND-009 effective downloader settings; preserve existing provenance and Human authority.
+- Current phase: Phase 2; FIND-003 / TSRF-03, FIND-022 / FIND-015, FIND-016 N5→N6 composition and FIND-010 SearchRun/EvidenceMap reference equivalence implemented and focused-verified
+- Next step: Continue Phase 2 with FIND-009 effective downloader settings and preflight for knowably impossible planned assets; preserve the local acquisition boundary and existing Human authority.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when

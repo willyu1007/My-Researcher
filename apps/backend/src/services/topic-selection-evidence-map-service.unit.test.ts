@@ -10,7 +10,10 @@ import { InMemoryTopicSelectionEvidenceMapRepository } from '../repositories/in-
 import { InMemoryTopicSelectionSearchResourceRepository } from '../repositories/in-memory-topic-selection-search-resource-repository.js';
 import type { LiteratureFulltextExtractionBundle, LiteratureRecord } from '../repositories/literature-repository.js';
 import { TopicSelectionControlPlaneService } from './topic-selection-control-plane-service.js';
-import { TopicSelectionEvidenceMapService } from './topic-selection-evidence-map-service.js';
+import {
+  TopicSelectionEvidenceMapService,
+  type TopicSelectionEvidenceMapEvidenceUnitInput,
+} from './topic-selection-evidence-map-service.js';
 import type {
   MaterializeEvidenceLandscapeCheckpointInput,
   TopicSelectionResearchCheckpointService,
@@ -156,6 +159,7 @@ function makeContext(
 async function createSearchRunFixture(
   runStatus: 'succeeded' | 'partial' | 'failed' = 'succeeded',
   checkpointControl?: Pick<TopicSelectionResearchCheckpointService, 'materializeEvidenceLandscapeCheckpoint'>,
+  scopeEvidenceRefs = true,
 ) {
   const ctx = makeContext(checkpointControl);
   const titleCard = await ctx.titleCards.createTitleCard({
@@ -163,6 +167,11 @@ async function createSearchRunFixture(
     brief: 'Find unmet needs in evidence-grounded literature retrieval.',
   });
   const titleCardId = titleCard.title_card_id;
+  const evidenceRef = (refType: string, refId: string): TopicSelectionFunctionalRef => ({
+    ref_type: refType,
+    ref_id: refId,
+    ...(scopeEvidenceRefs ? { title_card_id: titleCardId } : {}),
+  });
   await ctx.literature.createLiterature(makeLiterature('lit_001'));
   await ctx.literature.upsertLiteratureSource({
     id: 'source_001',
@@ -234,9 +243,9 @@ async function createSearchRunFixture(
     created_by: 'system',
   });
   const contentRefs = [
-    ref('fulltext_section', 'section_001', titleCardId),
-    ref('fulltext_paragraph', 'paragraph_001', titleCardId),
-    ref('fulltext_anchor', 'anchor_001', titleCardId),
+    evidenceRef('fulltext_section', 'section_001'),
+    evidenceRef('fulltext_paragraph', 'paragraph_001'),
+    evidenceRef('fulltext_anchor', 'anchor_001'),
   ];
   const isFailedRun = runStatus === 'failed';
   const searchRun = await ctx.searchService.recordSearchRun({
@@ -270,22 +279,22 @@ async function createSearchRunFixture(
           warning_codes: [],
         },
     dedup_summary: {
-      canonical_work_refs: [ref('literature_record', 'lit_001', titleCardId)],
+      canonical_work_refs: [evidenceRef('literature_record', 'lit_001')],
     },
     evidence_map_input_refs: isFailedRun
       ? []
       : [
-          ref('literature_record', 'lit_001', titleCardId),
-          ref('literature_source', 'source_001', titleCardId),
+          evidenceRef('literature_record', 'lit_001'),
+          evidenceRef('literature_source', 'source_001'),
           ...contentRefs,
         ],
     evidence_bindings: isFailedRun
       ? []
       : plan.coverage_row_intents.map((intent) => ({
           coverage_row_intent_id: intent.coverage_row_intent_id,
-          literature_ref: ref('literature_record', 'lit_001', titleCardId),
+          literature_ref: evidenceRef('literature_record', 'lit_001'),
           source_refs: [
-            ref('literature_source', 'source_001', titleCardId),
+            evidenceRef('literature_source', 'source_001'),
             ...contentRefs,
           ],
           binding_kind: 'retrieval_hit' as const,
@@ -403,6 +412,151 @@ test('fake slice creates EvidenceMap, role-separated bundle, and demand-driven s
   assert.equal(bundle.context_units.length, 1);
   assert.equal(assessment.strength_verdict, 'mixed');
   assert.equal(assessment.target_ref.ref_id, 'need_001');
+});
+
+test('EvidenceMap accepts equivalent title-scoped and unscoped SearchRun evidence refs without rewriting them', async () => {
+  for (const scopeSearchRefs of [false, true]) {
+    const ctx = await createSearchRunFixture('succeeded', undefined, scopeSearchRefs);
+    const originalRun = structuredClone(ctx.searchRun);
+    const titleCardId = ctx.titleCard.title_card_id;
+    const literatureRef: TopicSelectionFunctionalRef = {
+      ref_type: 'literature_record', ref_id: 'lit_001',
+      title_card_id: scopeSearchRefs ? null : titleCardId,
+    };
+    const paragraphRef: TopicSelectionFunctionalRef = {
+      ref_type: 'fulltext_paragraph', ref_id: 'paragraph_001',
+      ...(scopeSearchRefs ? {} : { title_card_id: titleCardId }),
+    };
+    const sourceLocator: TopicSelectionEvidenceSourceLocator = {
+      locator_type: 'paragraph',
+      literature_ref: literatureRef,
+      source_ref: paragraphRef,
+      locator_ref: paragraphRef,
+      content_ref: paragraphRef,
+      paragraph_ref: paragraphRef,
+    };
+    const result = await ctx.evidenceService.createEvidenceMapFromSearchRun({
+      title_card_id: titleCardId,
+      search_run_id: ctx.searchRun.search_run_id,
+      evidence_units: [{
+        literature_ref: literatureRef,
+        source_refs: [paragraphRef],
+        locator: sourceLocator,
+        evidence_role: 'support',
+        source_statement: 'Robust retrieval evidence remains brittle.',
+      }],
+    });
+    assert.deepEqual(result.evidence_units[0]?.literature_ref, literatureRef);
+    assert.deepEqual(result.evidence_units[0]?.source_refs, [paragraphRef]);
+    assert.deepEqual(result.evidence_units[0]?.locator, sourceLocator);
+    assert.deepEqual(await ctx.searchResourceRepository.findSearchRunById(ctx.searchRun.search_run_id), originalRun);
+  }
+});
+
+test('EvidenceMap reports the rejected evidence field and preserves type, ID, version and title scope', async () => {
+  const ctx = await createSearchRunFixture('succeeded', undefined, false);
+  const titleCardId = ctx.titleCard.title_card_id;
+  const literatureRef = ref('literature_record', 'lit_001', titleCardId);
+  const paragraphRef = ref('fulltext_paragraph', 'paragraph_001', titleCardId);
+  const unit: TopicSelectionEvidenceMapEvidenceUnitInput = {
+    literature_ref: literatureRef,
+    source_refs: [paragraphRef],
+    locator: {
+      locator_type: 'paragraph', literature_ref: literatureRef,
+      source_ref: paragraphRef, locator_ref: paragraphRef,
+    },
+    evidence_role: 'support',
+    source_statement: 'Robust retrieval evidence remains brittle.',
+  };
+  const fields: Array<{
+    path: string;
+    original: TopicSelectionFunctionalRef;
+    replace: (rejected: TopicSelectionFunctionalRef) => TopicSelectionEvidenceMapEvidenceUnitInput;
+  }> = [
+    { path: 'literature_ref', original: literatureRef, replace: (rejected) => ({ ...unit, literature_ref: rejected }) },
+    { path: 'source_refs[0]', original: paragraphRef, replace: (rejected) => ({ ...unit, source_refs: [rejected] }) },
+    ...(['literature_ref', 'source_ref', 'locator_ref', 'content_ref', 'section_ref', 'paragraph_ref', 'anchor_ref'] as const)
+      .map((field) => ({
+        path: `locator.${field}`,
+        original: field === 'literature_ref' ? literatureRef : paragraphRef,
+        replace: (rejected: TopicSelectionFunctionalRef) => ({ ...unit, locator: { ...unit.locator, [field]: rejected } }),
+      })),
+  ];
+  for (const field of fields) {
+    for (const mutation of [
+      { title_card_id: 'another_title_card' },
+      { version_id: 'unadmitted_version' },
+      { ref_id: 'unadmitted_id' },
+      { ref_type: 'unadmitted_type' },
+    ]) {
+      const rejectedRef = { ...field.original, ...mutation };
+      await assert.rejects(
+        () => ctx.evidenceService.createEvidenceMapFromSearchRun({
+          title_card_id: titleCardId,
+          search_run_id: ctx.searchRun.search_run_id,
+          evidence_units: [field.replace(rejectedRef)],
+        }),
+        (error: unknown) => {
+          assert.ok(error instanceof AppError);
+          assert.equal(error.statusCode, 409);
+          assert.equal(error.errorCode, 'GATE_CONSTRAINT_FAILED');
+          assert.deepEqual(error.details, {
+            field: `evidence_units[0].${field.path}`,
+            rejected_ref: rejectedRef,
+          });
+          return true;
+        },
+      );
+    }
+  }
+  assert.deepEqual(await ctx.evidenceService.listEvidenceMapsByTitleCardId(titleCardId), []);
+});
+
+test('EvidenceMap cannot borrow another run binding or erase an explicitly foreign admitted scope', async () => {
+  const ctx = await createSearchRunFixture('succeeded', undefined, false);
+  const titleCardId = ctx.titleCard.title_card_id;
+  const literatureRef = ref('literature_record', 'lit_001', titleCardId);
+  const foreignParagraphRef = ref('fulltext_paragraph', 'paragraph_001', 'another_title_card');
+  const currentRun = await ctx.searchService.recordSearchRun({
+    title_card_id: titleCardId,
+    search_plan_id: ctx.plan.search_plan.search_plan_id,
+    result_accounting: {
+      total_result_count: 1, unique_literature_count: 1, duplicate_result_count: 0,
+      failed_source_count: 0, skipped_source_count: 0,
+    },
+    source_health_summary: { source_count: 1 },
+    dedup_summary: { canonical_work_refs: [literatureRef] },
+    evidence_map_input_refs: [literatureRef, foreignParagraphRef],
+    evidence_bindings: [{
+      coverage_row_intent_id: ctx.plan.coverage_row_intents[0]!.coverage_row_intent_id,
+      literature_ref: literatureRef,
+      source_refs: [foreignParagraphRef],
+      binding_kind: 'retrieval_hit',
+    }],
+  });
+  for (const scope of [null, titleCardId, 'another_title_card']) {
+    const paragraphRef = { ...foreignParagraphRef, title_card_id: scope };
+    await assert.rejects(
+      () => ctx.evidenceService.createEvidenceMapFromSearchRun({
+        title_card_id: titleCardId,
+        search_run_id: currentRun.search_run.search_run_id,
+        evidence_units: [{
+          literature_ref: literatureRef,
+          source_refs: [paragraphRef],
+          locator: {
+            locator_type: 'paragraph', literature_ref: literatureRef,
+            source_ref: paragraphRef, locator_ref: paragraphRef,
+          },
+          evidence_role: 'support',
+          source_statement: 'Robust retrieval evidence remains brittle.',
+        }],
+      }),
+      (error: unknown) => error instanceof AppError
+        && error.errorCode === 'GATE_CONSTRAINT_FAILED'
+        && error.details?.field === 'evidence_units[0].source_refs[0]',
+    );
+  }
+  assert.deepEqual(await ctx.evidenceService.listEvidenceMapsByTitleCardId(titleCardId), []);
 });
 
 test('EvidenceMap checkpoint materialization receives persisted coverage assessments', async () => {

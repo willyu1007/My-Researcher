@@ -4620,7 +4620,12 @@ paths:
       description: >-
         Direct materialization consumes an existing succeeded or partial SearchRun for the same
         title card. Literature, source, and content refs must match the SearchRun's admitted
-        evidence refs; coverage rows must belong to its SearchPlan. Section, paragraph, and
+        evidence refs by ref_type, ref_id and version_id. Only optional title_card_id scoping
+        is equivalent: absent/null and this SearchRun's title card are interchangeable on
+        admitted refs; an explicit foreign title scope is never accepted. This comparison
+        does not rewrite supplied or persisted refs or hashes. A rejected evidence ref returns
+        409 GATE_CONSTRAINT_FAILED with details.field (including the evidence-unit index) and
+        details.rejected_ref. Coverage rows must belong to its SearchPlan. Section, paragraph, and
         anchor locators require existing fulltext records. Structural unit keys resolve within
         this request. This operation does not invoke retrieval or accept automatic workflow-harness
         invocation markers; automated work uses the native workflow-harness invocation route.

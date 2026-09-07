@@ -662,6 +662,8 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     assert.ok(baselineRow);
     assert.ok(contextRow);
 
+    const unscopedLiteratureRef = { ...literatureRef, title_card_id: null };
+    const unscopedSourceRef = { ...sourceRef, title_card_id: null };
     const runRes = await app.inject({
       method: 'POST',
       url: '/topic-selection/v1a/search-runs',
@@ -682,7 +684,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
         dedup_summary: {
           canonical_work_refs: [literatureRef],
         },
-        evidence_map_input_refs: [literatureRef, sourceRef],
+        evidence_map_input_refs: [unscopedLiteratureRef, unscopedSourceRef],
         coverage_observations: plan.coverage_row_intents.map((row) => ({
           coverage_row_intent_id: row.coverage_row_intent_id,
           status: 'succeeded',
@@ -691,8 +693,8 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
         })),
         evidence_bindings: plan.coverage_row_intents.map((row, index) => ({
           coverage_row_intent_id: row.coverage_row_intent_id,
-          literature_ref: literatureRef,
-          source_refs: [sourceRef],
+          literature_ref: unscopedLiteratureRef,
+          source_refs: [unscopedSourceRef],
           binding_kind: 'retrieval_hit',
           result_rank: index + 1,
         })),
@@ -707,6 +709,7 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     });
     assertStatus(runRes, 201);
     const run = runRes.json() as { search_run: { search_run_id: string } };
+    assert.deepEqual(runRes.json().search_run.evidence_map_input_refs, [unscopedLiteratureRef, unscopedSourceRef]);
 
     const matrixRes = await app.inject({
       method: 'GET',
@@ -811,6 +814,19 @@ test('topic-selection v1a HTTP routes drive evidence-to-need validation through 
     });
     assertStatus(inference, 409);
     assert.equal(inference.json().error.code, 'GATE_CONSTRAINT_FAILED');
+    const rejectedRef = { ...sourceRef, title_card_id: 'another_title_card' };
+    const outsideScope = await app.inject({
+      method: 'POST', url: '/topic-selection/v1a/evidence-maps',
+      payload: { ...evidenceMapPayload, evidence_units: [{
+        ...evidenceMapPayload.evidence_units[0],
+        locator: { ...evidenceMapPayload.evidence_units[0].locator, source_ref: rejectedRef },
+      }] },
+    });
+    assertStatus(outsideScope, 409);
+    assert.equal(outsideScope.json().error.code, 'GATE_CONSTRAINT_FAILED');
+    assert.deepEqual(outsideScope.json().error.details, {
+      field: 'evidence_units[0].locator.source_ref', rejected_ref: rejectedRef,
+    });
     const before = await app.inject({ method: 'GET', url: `/topic-selection/v1a/title-cards/${titleCardId}/evidence-maps` });
     assertStatus(before, 200);
     assert.equal(before.json().items.length, 0);
