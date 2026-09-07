@@ -385,6 +385,7 @@ import {
 } from './topic-selection-v1b-harness-n8.js';
 import {
   earlyRuntimeAuditDrift,
+  isHarnessExecutionMode,
   isRegistryExecutionMode,
   legacyValueVerdict,
   n10CarryForwardCodes,
@@ -1809,10 +1810,15 @@ export class TopicSelectionV1bWorkflowHarnessService {
       return null;
     }
 
-    const runMode = effectiveRunMode(input.run_mode ?? null, input.execution_spec.execution_mode);
+    const executionMode = input.execution_spec.execution_mode;
+    if (!isHarnessExecutionMode(executionMode)) {
+      // Rejected upstream by the node policy's allowed_execution_modes check.
+      return null;
+    }
+    const runMode = effectiveRunMode(input.run_mode ?? null, executionMode);
     const profileId = input.profile_id ?? requiredSlot.default_profile_id;
     return this.resolveSlotProfileAdmission(requiredSlot, {
-      executionMode: input.execution_spec.execution_mode,
+      executionMode,
       modelOptionId: input.execution_spec.model_option_id ?? null,
       outputContract: requiredSlot.output_contract,
       profileId,
@@ -2086,7 +2092,8 @@ export class TopicSelectionV1bWorkflowHarnessService {
     }
     if (
       input.execution_spec
-      && !policy.allowed_execution_modes.includes(input.execution_spec.execution_mode)
+      && (!isHarnessExecutionMode(input.execution_spec.execution_mode)
+        || !policy.allowed_execution_modes.includes(input.execution_spec.execution_mode))
     ) {
       return {
         code: 'INVALID_NODE_EXECUTION_MODE',

@@ -389,6 +389,7 @@ test('model profile registry keeps PaperImplementation product mode provider-onl
     assert.deepEqual(productProvider.profile.run_mode_eligibility, {
       mocked_llm: ['test', 'acceptance'],
       codex_assisted: ['test', 'acceptance'],
+      codex_cli: [],
       provider_llm: ['acceptance', 'product'],
     });
     assert.equal(productProvider.selected_model_option?.provider_id, 'openai');

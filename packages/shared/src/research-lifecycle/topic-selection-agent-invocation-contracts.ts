@@ -37,6 +37,7 @@ export type TopicSelectionAgentInvocationStatus =
 export const TOPIC_SELECTION_AGENT_OUTPUT_SOURCE_KINDS = [
   'mock_fixture',
   'codex_response',
+  'codex_cli_response',
   'provider_response',
 ] as const;
 export type TopicSelectionAgentOutputSourceKind =
@@ -141,6 +142,13 @@ export interface TopicSelectionAgentInvocationProvenance {
   operator_approval_ref?: TopicSelectionFunctionalRef | null;
   local_approval_setting_ref?: string | null;
   response_source?: 'operator_supplied' | 'cached_exact_invocation' | null;
+  /** codex_cli line only. The product ran the model itself, so the identity is authoritative rather
+   *  than advisory, but it is a runner identity, not a metered gateway identity: there is no model
+   *  option and no normalized parameters. The trace is the line's evidence of what happened. */
+  runner_version?: string | null;
+  thread_id?: string | null;
+  trace_artifact_ref?: TopicSelectionFunctionalRef | null;
+  trace_artifact_hash?: string | null;
   provider_id?: string | null;
   model_id?: string | null;
   telemetry: TopicSelectionAgentInvocationTelemetrySummary | null;
@@ -347,6 +355,10 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
         { type: 'null' },
       ],
     },
+    runner_version: nullableStringId,
+    thread_id: nullableStringId,
+    trace_artifact_ref: nullableFunctionalRef,
+    trace_artifact_hash: nullableHashString,
     provider_id: nullableStringId,
     model_id: nullableStringId,
     telemetry: {
@@ -398,6 +410,26 @@ export const topicSelectionAgentInvocationProvenanceSchema = {
         properties: {
           non_provider: { const: true },
           operator_label: stringId,
+          model_option_id: { const: null },
+          normalized_params_hash: { const: null },
+        },
+      },
+    },
+    {
+      if: {
+        properties: { source_kind: { const: 'codex_cli_response' } },
+        required: ['source_kind'],
+      },
+      then: {
+        required: ['provider_id', 'model_id', 'runner_version', 'trace_artifact_ref'],
+        properties: {
+          // `non_provider` means "not the provider_llm gateway path", which this line is not,
+          // even though the product did run a live model through the Codex CLI.
+          non_provider: { const: true },
+          provider_id: { const: 'codex' },
+          model_id: stringId,
+          runner_version: stringId,
+          trace_artifact_ref: topicSelectionFunctionalRefSchema,
           model_option_id: { const: null },
           normalized_params_hash: { const: null },
         },

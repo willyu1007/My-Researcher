@@ -262,6 +262,7 @@ export type TopicSelectionCandidateMemorySuggestionStatus =
 export const TOPIC_SELECTION_AGENT_EXECUTION_MODES = [
   'mocked_llm',
   'codex_assisted',
+  'codex_cli',
   'provider_llm',
 ] as const;
 export type TopicSelectionAgentExecutionMode = (typeof TOPIC_SELECTION_AGENT_EXECUTION_MODES)[number];

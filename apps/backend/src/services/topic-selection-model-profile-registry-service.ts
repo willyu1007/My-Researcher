@@ -109,24 +109,28 @@ const PROVIDER_OVERRIDE_ALLOWED_KEYS: Record<RegisteredProviderId, ReadonlySet<s
 const DEFAULT_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
   mocked_llm: ['test', 'acceptance'],
   codex_assisted: ['acceptance', 'product'],
+  codex_cli: [],
   provider_llm: ['acceptance', 'product'],
 };
 
 const SUPPORT_PROFILE_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
   mocked_llm: ['test', 'acceptance'],
   codex_assisted: ['acceptance', 'product'],
+  codex_cli: [],
   provider_llm: [],
 };
 
 const PROVIDER_ONLY_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
   mocked_llm: [],
   codex_assisted: [],
+  codex_cli: [],
   provider_llm: ['acceptance', 'product'],
 };
 
 const PAPER_IMPLEMENTATION_RUNTIME_RUN_MODE_ELIGIBILITY: TopicSelectionModelProfileRunModeEligibility = {
   mocked_llm: ['test', 'acceptance'],
   codex_assisted: ['test', 'acceptance'],
+  codex_cli: [],
   provider_llm: ['acceptance', 'product'],
 };
 

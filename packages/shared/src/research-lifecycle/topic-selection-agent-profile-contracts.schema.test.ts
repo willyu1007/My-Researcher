@@ -23,6 +23,7 @@ function validRegistry(): TopicSelectionModelProfileRegistry {
         run_mode_eligibility: {
           mocked_llm: ['test', 'acceptance'],
           codex_assisted: ['acceptance', 'product'],
+          codex_cli: [],
           provider_llm: ['acceptance', 'product'],
         },
         required_capabilities: ['structured_output', 'json_schema'],

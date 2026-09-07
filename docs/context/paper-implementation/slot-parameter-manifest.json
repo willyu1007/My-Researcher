@@ -48,6 +48,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -265,6 +266,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -482,6 +484,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -699,6 +702,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -916,6 +920,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -1133,6 +1138,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -1349,6 +1355,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -1567,6 +1574,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -1783,6 +1791,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -1999,6 +2008,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -2216,6 +2226,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -2433,6 +2444,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -2649,6 +2661,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"
@@ -2915,6 +2928,7 @@
             "test",
             "acceptance"
           ],
+          "codex_cli": [],
           "provider_llm": [
             "acceptance",
             "product"

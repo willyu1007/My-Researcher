@@ -190,6 +190,7 @@ test('topic-selection need-validation schemas load through direct and aggregate 
   assert.deepEqual([...topicSelectionNeedValidationContracts.TOPIC_SELECTION_AGENT_EXECUTION_MODES], [
     'mocked_llm',
     'codex_assisted',
+    'codex_cli',
     'provider_llm',
   ]);
   assert.deepEqual([...topicSelectionNeedValidationContracts.TOPIC_SELECTION_GENERATE_NEED_CANDIDATE_ARTIFACT_KEYS], [
@@ -228,6 +229,7 @@ test('topic-selection agent invocation schemas load through direct and aggregate
   assert.deepEqual([...topicSelectionAgentInvocationContracts.TOPIC_SELECTION_AGENT_OUTPUT_SOURCE_KINDS], [
     'mock_fixture',
     'codex_response',
+    'codex_cli_response',
     'provider_response',
   ]);
   assert.ok(researchLifecycleContracts.topicSelectionAgentInvocationProvenanceSchema);
