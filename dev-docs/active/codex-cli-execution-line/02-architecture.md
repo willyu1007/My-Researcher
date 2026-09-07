@@ -121,14 +121,19 @@ environment under stdio, or carried as a per-attempt token under Streamable HTTP
   tool, arguments, status and error, and `turn.completed` with a `usage` object reporting
   `input_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `output_tokens` and
   `reasoning_output_tokens`.
-- **MCP**: the product server targets specification revision `2026-07-28` only, with no
-  compatibility path to the handshake-based revisions. That revision is stateless — no `initialize`
-  handshake, no `Mcp-Session-Id`, per-request protocol version and client capabilities in `_meta`,
-  a mandatory `server/discover` RPC, and cross-call state carried by server-minted handles passed
-  as tool arguments. Codex 0.153.4, the latest published build as of 2026-09-08, negotiates
-  `2025-06-18` as `codex-mcp-client`, two revisions behind, and therefore cannot talk to this
-  server. The tool-surface phases wait on Codex adopting a newer revision; the runner and the line's
-  contract do not.
+- **MCP**: the product server is a `2026-07-28` server with a compatibility shim at its transport
+  edge. The native model is the current revision — stateless, no `initialize` handshake, no
+  `Mcp-Session-Id`, per-request protocol version and client capabilities in `_meta`, a mandatory
+  `server/discover` RPC, and cross-call state carried by server-minted handles passed as ordinary
+  tool arguments. Codex 0.153.4, the latest published build as of 2026-09-08, negotiates
+  `2025-06-18` as `codex-mcp-client`, so the shim accepts the handshake those revisions require and
+  maps their request envelopes onto the same tool implementations.
+
+  The shim translates transport and envelope only. It never reintroduces protocol-level session
+  state: attempt scope always arrives as a handle in the tool arguments, which is revision-agnostic,
+  so a tool behaves identically whether it was reached natively or through the shim. The shim is
+  deletable, and its removal condition is that the Codex build the product runs negotiates
+  `2026-07-28`.
 - **Human confirmation in flow**: `2026-07-28` replaces every server-initiated request, including
   `elicitation/create`, with the Multi Round-Trip Requests pattern: the server returns an
   `InputRequiredResult` carrying `inputRequests`, and the client supplies `inputResponses` on a

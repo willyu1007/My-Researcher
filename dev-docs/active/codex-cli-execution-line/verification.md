@@ -22,10 +22,12 @@
   superseded server-initiated `elicitation/create`. Re-check when Codex adopts a newer revision;
   until then Phase 4 must either use the old elicitation knowingly or break out to a separate
   surface.
-- When will a Codex build speak MCP `2026-07-28`? D-9 targets that revision with no compatibility
-  path, and Codex 0.153.4 — the latest published build as of 2026-09-08 — negotiates `2025-06-18`.
-  Until that changes, the tool-surface phases cannot run against Codex. Check the negotiated
-  revision on each Codex upgrade.
+- Does a tool behave identically through the compatibility shim and on the native `2026-07-28`
+  path? This is the shim's whole contract and the check that keeps handshake-era assumptions out of
+  the server. Run the same tool both ways and compare results and recorded scope.
+- When can the shim be deleted? Its removal condition is the Codex build the product runs
+  negotiating `2026-07-28`; 0.153.4, the latest published build as of 2026-09-08, negotiates
+  `2025-06-18`. Re-check the negotiated revision on each Codex upgrade.
 - Does the granular approval configuration behave the same when supplied through a product-owned
   `CODEX_HOME` config file rather than `-c` overrides? The `-c` path was verified; the file path is
   what the runner will actually use, and `-c` could not express the `granular` policy until every
