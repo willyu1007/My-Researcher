@@ -5,8 +5,8 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 
 ## Progress
 - State: in-progress
-- Current phase: Phase 1 evidence/question Human views, current value projections, and FIND-023 Human review-trigger and risk reconciliation implemented and focused-verified
-- Next step: Verify unresolved recent-work risk visibility under TSRF-06, then reconcile rejected-topic disposition before the remaining contract and decision-support phases.
+- Current phase: Phase 1 decision views, warning reconciliation, and TSRF-06 literature-risk visibility implemented and focused-verified
+- Next step: Reconcile rejected-topic disposition under FIND-011 before the remaining contract and decision-support phases.
 - Blocker: none. Retrieval-native convergence and external canaries remain separately owned follow-up boundaries.
 
 ## Done when
@@ -15,7 +15,7 @@ Make topic selection trustworthy in real use by closing the decision-presentatio
 - [ ] TSRF-03: The public EvidenceMap request contract documents the runtime-supported evidence-unit, locator, review-status, relationship, conflict, and digest fields and their enums.
 - [ ] TSRF-04: A focused real-flow verification covers topic rejection and replacement, fresh lineage, paragraph-level evidence locators, strict-human checkpoint blocking, and idempotent decision recovery.
 - [ ] TSRF-05: Operational and experiment-asset findings that are not topic-selection defects receive an explicit disposition and, when still material, a separately owned follow-up proposal.
-- [ ] TSRF-06: Before an evidence-landscape checkpoint is eligible to advance, the workflow either covers directly overlapping recent work or visibly records the unresolved literature-freshness and near-duplicate risk for an exact Human decision; systematic retrieval and evidence onboarding remain T-150 work and do not block this visibility repair.
+- [x] TSRF-06: Before an evidence-landscape checkpoint is eligible to advance, the workflow either covers directly overlapping recent work or visibly records the unresolved literature-freshness and near-duplicate risk for an exact Human decision; systematic retrieval and evidence onboarding remain T-150 work and do not block this visibility repair.
 - [ ] TSRF-07: The real-flow record distinguishes retriever operations from provider calls and captures query intent, mode, hits/evidence delta, and decision effect at every literature-dependent step without turning zero-call materialization into retrieval.
 - [x] TSRF-08: Evidence-landscape eligibility consumes required SearchPlan coverage outcomes; a required `missing` row emits a typed issue and cannot advance unless the exact current row refs and rationale are accepted by the Human, persisted in the checkpoint decision, and preserved in downstream lineage.
 - [x] TSRF-09: The human research-question view presents the actual main question and its decision-relevant warnings, gaps, dependencies, and risks; an `answerable_with_risk` contract cannot be rendered as having no open risks.

@@ -280,6 +280,18 @@ const CHECKPOINT_KIND_BY_STAGE = {
   research_question: 'question_contract',
   promotion_review: 'promotion',
 } as const satisfies Partial<Record<TopicSelectionResearchStageViewStage, TopicSelectionResearchCheckpointKind>>;
+// Record currentness and coverage-row satisfaction do not establish literature-wide recency or novelty.
+const EVIDENCE_LITERATURE_COVERAGE_LIMITATIONS = [
+  {
+    code: 'RECENT_LITERATURE_COVERAGE_UNVERIFIED',
+    message: '当前证据快照未验证近期直接重叠研究的覆盖情况；请核对检索时段、来源范围及相关工作。',
+  },
+  {
+    code: 'NEAR_DUPLICATE_RISK_UNRESOLVED',
+    message: '已有基线与反证不能排除遗漏近重复工作；选题的新颖性仍需结合近期相关研究判断。',
+  },
+] as const;
+
 const HUMAN_STAGE_LABELS = {
   overview: '选题总览',
   evidence_landscape: '证据版图',
@@ -374,6 +386,20 @@ export class TopicSelectionResearchCheckpointService {
     const checkpointKey = this.hash(packetIdentity);
     const existing = await this.repository.findCheckpointByKey(checkpointKey);
     if (existing) return existing;
+
+    // Older linked rounds replay the same evidence inputs without these additive limitations.
+    // Match their complete original identity before creating a checkpoint or replacing the current head.
+    if (input.checkpoint_kind === 'evidence_landscape'
+      && Object.hasOwn(packetIdentity.packet_payload, 'literature_coverage_limitations')
+      && input.target_snapshot_hash === this.hash(packetIdentity.packet_payload)) {
+      const { literature_coverage_limitations: _limitations, ...legacyPayload } = packetIdentity.packet_payload;
+      const legacy = await this.repository.findCheckpointByKey(this.hash({
+        ...packetIdentity,
+        packet_payload: legacyPayload,
+        target_snapshot_hash: this.hash(legacyPayload),
+      }));
+      if (legacy) return legacy;
+    }
 
     const inputSnapshot = await this.controlPlane.compileInputSnapshot({
       input_snapshot_id: `input_snapshot_research_checkpoint_${checkpointKey}`,
@@ -542,6 +568,10 @@ export class TopicSelectionResearchCheckpointService {
       evidence_map_ref: evidenceMapRef,
       evidence_map_freshness_status: evidenceMap.freshness_status,
       evidence_map_digest: evidenceMap.digest_payload,
+      literature_coverage_limitations: EVIDENCE_LITERATURE_COVERAGE_LIMITATIONS.map((limitation) => ({
+        ...limitation,
+        refs: [evidenceMap.literature_snapshot_ref, evidenceMap.search_plan_ref, evidenceMap.search_run_ref],
+      })),
       evidence_units: input.evidence_units.map((unit) => ({
         evidence_unit_ref: this.evidenceUnitRef(unit),
         literature_ref: unit.literature_ref,
@@ -2447,6 +2477,15 @@ export class TopicSelectionResearchCheckpointService {
       const acceptedCoverageItem = acceptance
         ? [`人工已接受未解决覆盖风险：${acceptance.coverage_row_refs.map((ref) => ref.ref_id).join('、')}。理由：${acceptance.rationale}`]
         : [];
+      const literatureLimitations = Array.isArray(payload.literature_coverage_limitations)
+        ? payload.literature_coverage_limitations.flatMap((item) => {
+            const message = this.stringField(this.asRecord(item), 'message');
+            return message ? [message] : [];
+          })
+        : ['原审阅快照未记录近期文献覆盖验证，无法据此排除近期直接重叠研究及近重复风险。'];
+      const humanLimitations = packet?.decision?.review_payload.review_kind === 'evidence_landscape'
+        ? packet.decision.review_payload.limitations.map((item) => `人工记录的审阅限制：${item}`)
+        : [];
       const structuredRisks = this.uniqueStrings([
         ...(packet?.open_objections.map((objection) => objection.summary) ?? []),
         ...missingCoverageItems,
@@ -2476,16 +2515,20 @@ export class TopicSelectionResearchCheckpointService {
           digest ?? payload,
           ['claim', 'falsif', 'ceiling', 'boundary', 'mechanism'],
         ).slice(0, 12),
-        open_risks: structuredRisks.length > 0
-          ? structuredRisks
-          : this.payloadItems(payload, ['risk', 'objection', 'blocker', 'warning', 'issue']).slice(0, 12),
+        open_risks: this.uniqueStrings([
+          ...(structuredRisks.length > 0
+            ? structuredRisks
+            : this.payloadItems(payload, ['risk', 'objection', 'blocker', 'warning', 'issue']).slice(0, 12)),
+          ...literatureLimitations,
+          ...humanLimitations,
+        ]),
         recommendation: packet?.decision
           ? `已记录人工决定：${HUMAN_ACTION_LABELS[packet.decision.decision]}。${packet.decision.rationale}`
           : missingCoverage.length > 0
             ? '优先补齐必要覆盖；如决定承担当前缺口，接受并推进时必须确认上列精确覆盖行并说明理由。'
             : policyIssues.length > 0
               ? '先处理当前证据问题，再决定是否推进。'
-              : '当前材料可进入严格人工审阅；也可选择回环、拒绝或暂缓。',
+              : '审阅近期相关工作及近重复风险，并在审阅限制中记录检索边界，再决定推进、回环、拒绝或暂缓。',
         decision_requested: this.stageDecisionRequest(manifest, stage, packet),
       };
     }

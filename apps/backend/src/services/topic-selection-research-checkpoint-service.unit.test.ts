@@ -1493,6 +1493,86 @@ test('required missing coverage advances only through exact persisted Human acce
   );
 });
 
+test('current evidence with satisfied rows still exposes unverified recent literature at exact Human review', async () => {
+  const { service } = createService();
+  const rows = [coverageRow('coverage_support', 'support'), coverageRow('coverage_challenge', 'challenge'), coverageRow('coverage_baseline', 'baseline')];
+  const checkpoint = await service.materializeEvidenceLandscapeCheckpoint({
+    evidence_map: evidenceMap(),
+    evidence_units: [evidenceUnit('support', 'support'), evidenceUnit('challenge', 'challenge'), evidenceUnit('baseline', 'baseline')],
+    conflict_sets: [],
+    coverage_row_intents: rows,
+    coverage_assessments: rows.map((row) => coverageAssessment(`assessment_${row.coverage_key}`, row.coverage_row_intent_id, 'satisfied', NOW)),
+  });
+  const packet = await service.getPacket(checkpoint.research_checkpoint_id);
+  assert.deepEqual(packet.packet_payload.policy_issues, []);
+  const limitations = packet.packet_payload.literature_coverage_limitations as Array<{ code: string; message: string; refs: unknown[] }>;
+  assert.deepEqual(limitations?.map((item) => item.code), ['RECENT_LITERATURE_COVERAGE_UNVERIFIED', 'NEAR_DUPLICATE_RISK_UNRESOLVED']);
+  assert.deepEqual(limitations[0]?.refs, [evidenceMap().literature_snapshot_ref, evidenceMap().search_plan_ref, evidenceMap().search_run_ref]);
+  const human = await service.getStageView('title_1', 'evidence_landscape', 'human');
+  assert.match(human.markdown, /近期直接重叠研究/u);
+  assert.match(human.markdown, /近重复/u);
+  assert.equal(human.source_snapshot_hash, checkpoint.target_snapshot_hash);
+  const llm = await service.getStageView('title_1', 'evidence_landscape', 'llm');
+  assert.deepEqual(llm.working_set.current_packet?.packet_payload.literature_coverage_limitations, limitations);
+  assert.deepEqual(await service.getPacket(checkpoint.research_checkpoint_id), packet);
+  assert.equal((await service.getResearchStatus('title_1')).next_authorized_transition, null);
+  await assert.rejects(service.recordDecision(checkpoint.research_checkpoint_id, advancingDecision(HASH_A)), /snapshot/u);
+  await assert.rejects(service.recordDecision(checkpoint.research_checkpoint_id, {
+    ...advancingDecision(checkpoint.target_snapshot_hash),
+    review_payload: { ...advancingDecision().review_payload, nearest_work_reviewed: false },
+  }), /semantic review/u);
+  const input = {
+    ...advancingDecision(checkpoint.target_snapshot_hash),
+    review_payload: {
+      ...advancingDecision().review_payload,
+      limitations: ['近期检索仍局限于当前资料库，保留直接重叠研究遗漏风险。'],
+    },
+  };
+  const decision = await service.recordDecision(checkpoint.research_checkpoint_id, input);
+  assert.deepEqual(decision.review_payload, input.review_payload);
+  assert.equal((await service.recordDecision(checkpoint.research_checkpoint_id, input)).research_checkpoint_decision_id, decision.research_checkpoint_decision_id);
+  const decidedView = await service.getStageView('title_1', 'evidence_landscape', 'human');
+  assert.match(decidedView.markdown, /近期检索仍局限于当前资料库/u);
+  assert.match(decidedView.markdown, /近重复/u);
+  assert.deepEqual((await service.getPacket(checkpoint.research_checkpoint_id)).packet_payload, packet.packet_payload);
+});
+
+test('legacy evidence replay preserves a superseded checkpoint and shows unrecorded literature limits without rewriting history', async () => {
+  const input = {
+    evidence_map: evidenceMap(),
+    evidence_units: [evidenceUnit('support', 'support'), evidenceUnit('challenge', 'challenge'), evidenceUnit('baseline', 'baseline')],
+    conflict_sets: [], coverage_row_intents: [], coverage_assessments: [],
+  };
+  const fixture = createService();
+  const current = await fixture.service.materializeEvidenceLandscapeCheckpoint(input);
+  const currentPacket = await fixture.service.getPacket(current.research_checkpoint_id);
+  const { literature_coverage_limitations: _limitations, ...legacyPayload } = currentPacket.packet_payload;
+  const { service } = createService();
+  const legacy = await service.materializeCheckpoint({
+    title_card_id: 'title_1', checkpoint_kind: 'evidence_landscape', target_ref: current.target_ref,
+    target_snapshot_hash: sha256Text(stableStringify(legacyPayload)),
+    source_refs: current.source_refs, allowed_actions: current.allowed_actions,
+    required_action_refs: current.required_action_refs, policy_version_id: current.policy_version_id,
+    packet_payload: legacyPayload,
+  });
+  const decisionInput = advancingDecision(legacy.target_snapshot_hash);
+  await service.recordDecision(legacy.research_checkpoint_id, decisionInput);
+  const human = await service.getStageView('title_1', 'evidence_landscape', 'human');
+  assert.match(human.markdown, /原审阅快照未记录近期文献覆盖验证/u);
+  const historicalPacket = await service.getPacket(legacy.research_checkpoint_id);
+  assert.equal('literature_coverage_limitations' in historicalPacket.packet_payload, false);
+  const successor = await service.materializeEvidenceLandscapeCheckpoint({
+    ...input, evidence_map: { ...input.evidence_map, evidence_map_id: 'evidence_map_successor', evidence_map_version: 'v2' },
+  });
+  const replay = await service.materializeEvidenceLandscapeCheckpoint(input);
+  assert.equal(replay.research_checkpoint_id, legacy.research_checkpoint_id);
+  assert.equal(replay.status, 'superseded');
+  assert.deepEqual((await service.getPacket(legacy.research_checkpoint_id)).packet_payload, historicalPacket.packet_payload);
+  assert.equal((await service.getStageManifest('title_1')).stages.find((stage) => stage.stage === 'evidence_landscape')?.authority_ref?.ref_id, successor.target_ref.ref_id);
+  assert.equal((await service.listCheckpoints('title_1')).length, 2);
+  assert.deepEqual((await service.getPacket(legacy.research_checkpoint_id)).decision, historicalPacket.decision);
+});
+
 test('qualified evidence and a genuinely distinct candidate arena advance through bound human review', async () => {
   const { service } = createService();
   const evidenceCheckpoint = await service.materializeEvidenceLandscapeCheckpoint({
