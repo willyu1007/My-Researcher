@@ -1514,6 +1514,7 @@ model TopicSelectionResearchArenaSession {
   participantPlanHash        String
   participantRoles           String[]                                   @default([])
   executionPlanRef           Json                                       @default("{}")
+  /// open/executing/blocked/synthesized/superseded; SQL tsras_* checks bind currentness and transcript state.
   status                     String
   terminationReason          String?
   loopTranscriptRef          Json?

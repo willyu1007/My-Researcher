@@ -112,7 +112,7 @@ same deterministic evidence-landscape checkpoint. It moves the checkpoint policy
 downstream question/value/promotion semantics.
 
 ### Phase 3 — Prove the kernel and stop before broad rollout
-- Status: completed and verified on 2026-09-03; concurrency and historical-replay quality repair verified on 2026-09-07.
+- Status: completed and verified on 2026-09-03; concurrency/historical replay and the additive Arena database-constraint repair were verified on 2026-09-07, including three disposable PostgreSQL test rounds.
 - Outcome: The pilot is replay-safe and provides enough evidence to decide whether another Debate scenario should adopt the kernel.
 - Approach: Exercise duplicate requests, alternative strategies, negative retrieval, budget boundaries, stale sources, successor races, and strict-human barriers without adding another scenario.
 - Planned changes:

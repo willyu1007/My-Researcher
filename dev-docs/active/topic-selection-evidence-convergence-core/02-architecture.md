@@ -69,6 +69,14 @@ aggregate pilot record, or mutable resume authority.
 
 ## Migration and operation
 
+Arena status remains a Prisma String with SQL CHECK constraints enforcing its lifecycle. Migration
+`20260907100843_align_arena_execution_state_constraints` adds the existing `executing` and `blocked`
+states to those constraints. Both retain the current Arena key; executing records carry no completion
+fields, and blocked records carry a termination reason with either a complete transcript ref/hash pair
+or neither, without a synthesis timestamp. The original synthesized/superseded invariants remain.
+This migration must be deployed to a target database before using the persisted claim/blocked paths;
+the supplemental verification applied it only to disposable databases.
+
 The pilot is an additive composition of the canonical runtime services rather than a new aggregate authority or public orchestration endpoint. It creates a new SearchRun, successor EvidenceMap, linked Debate round, and fresh evidence checkpoint instead of mutating a frozen downstream bundle. Coordinator output carries orchestration-step, elapsed-time, and query-embedding-cost accounting into the linked round; equivalent durable retrieval reuse adds no retrieval cost. T-148 owns the typed required-coverage issue and Human acceptance contract consumed here; T-150 does not duplicate it. Existing SearchPlans, SearchRuns, EvidenceMaps, Debate artifacts, and Human decisions remain readable. A rollback disables the pilot coordinator while retaining its durable support artifacts; it never deletes a map or decision.
 
 Managed-library retrieval is the only corpus boundary in this task. A new external acquisition source, provider activation, environment change, destructive effect, or Human decision remains a separate authorization boundary. Safe starts or restarts of the same local backend do not require repeated authorization during one already authorized implementation/replay operation.

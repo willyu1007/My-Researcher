@@ -1,5 +1,16 @@
 # Verification
 
+## Supplemental disposable PostgreSQL verification — 2026-09-07
+
+- The user approved direct bounded verification without a separate task package. The uncommitted T-151 draft and its registry/generated projections were withdrawn through governance prune; no new task or scenario adoption is required for this check.
+- Baseline: replaying 81 migrations on PostgreSQL 17.7 / pgvector 0.8.1 passed migration status, but the real Arena test failed at `tsras_current_chk`. The persisted CHECK constraints still recognized only `open`, `synthesized`, and `superseded`, while the existing runtime also uses `executing` and `blocked`.
+- Repair: additive migration `20260907100843_align_arena_execution_state_constraints` aligns the three state/currentness/synthesis CHECK constraints with the existing lifecycle. Current-key and supersession requirements remain intact; executing sessions cannot contain completion data; blocked sessions require a termination reason and paired transcript ref/hash without a synthesis timestamp. A blocked record may omit both transcript fields, but cannot persist only one. Historical migration files and product database data were not changed.
+- Real verification: a fresh nonce-named local database replayed **82 migrations with zero unfinished migrations**. The existing successor/request and Arena integration tests passed **three consecutive rounds, 6 passed / 0 failed / 0 skipped**, using explicit `DATABASE_URL`, `TOPIC_SELECTION_EVIDENCE_CONVERGENCE_PRISMA=1`, and `TOPIC_SELECTION_RESEARCH_ARENA_PRISMA=1`.
+- Covered: durable request deduplication and competing Human/claim transitions; stale successor CAS; Arena supersession and active-session fence; concurrent single-winner execution claim; audited blocked-result persistence and rejection of malformed completion data; concurrent gap-projection recovery. The Arena fixture exercises shared repository invariants, not adoption of another scenario into the convergence kernel. Its stale error-message matcher was aligned with the existing `not current and executable` rejection.
+- Migration status was up to date before and after the final tests. Migration replay versus `prisma/schema.prisma` returned an empty diff with exit code 0. The checked Arena/request/EvidenceMap fixture tables had zero remaining rows, and all three session-owned disposable databases were removed after their respective attempts.
+- Additional verification: focused coordinator/round/pilot/Arena/search-resource **48/48**, root `pnpm typecheck` (including Prisma generation and DB-context constraints), independent review **Clear**, and `git diff --check` passed.
+- Limits: this verifies the named relational seams, not full coordinator crash recovery across processes or a live provider. The incremental migration was applied only to disposable databases; the normal product database has not been migrated. No build or new Human research decision ran. The bounded T-150 outcome remains unchanged.
+
 ## Evidence
 
 | Claim / reference | Check / procedure | Latest result | Evidence / limitation |
@@ -95,5 +106,5 @@ FIND-029 through FIND-031 are reproduced defects. RetrievalRequest, linked round
 ## Follow-up boundary
 
 - T-150 has no outstanding acceptance verification at its bounded local pilot scope.
-- Live external provider and relational database canaries remain environment-gated and were not claimed by this checkpoint.
+- The named relational seams now have the supplemental disposable PostgreSQL evidence above. Live external provider verification remains unexecuted and requires a concrete input, route, and budget; skips do not imply success.
 - Keep downstream question/value/promotion adoption out of scope until a separately accepted outcome and owner satisfy the recorded adoption criteria.

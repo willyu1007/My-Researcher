@@ -5,8 +5,8 @@ Resolve the evidence-convergence problems exposed by T-148 and implement the pro
 
 ## Progress
 - State: done
-- Current phase: Phase 3 completed; post-completion quality repair verified on 2026-09-07
-- Next step: Keep the proven kernel limited to evidence-landscape convergence; open separately accepted follow-up work before adopting it in another Debate scenario.
+- Current phase: Phase 3 completed; Arena database-constraint repair and disposable PostgreSQL verification passed on 2026-09-07
+- Next step: Deploy the verified Arena constraint migration only to an explicitly selected target before persisted use; keep adoption by another Debate scenario separately authorized.
 - Blocker: none.
 
 ## Phase 1 checkpoint

@@ -97,7 +97,15 @@ test('Prisma arena repository enforces execution identity and concurrent gap pro
       loop_delta_refs: [],
       supersedes_arena_session_id: null,
     });
-    assert.equal((await repository.claimSessionExecution(activeFence.arena_session_id))?.status, 'executing');
+    const claims = await Promise.all([
+      repository.claimSessionExecution(activeFence.arena_session_id),
+      repository.claimSessionExecution(activeFence.arena_session_id),
+    ]);
+    assert.equal(claims.filter((claim) => claim?.status === 'executing').length, 1);
+    await assert.rejects(prisma.topicSelectionResearchArenaSession.update({
+      where: { id: activeFence.arena_session_id },
+      data: { terminationReason: 'policy_blocked' },
+    }), /tsras_synthesis_chk/u);
     await assert.rejects(
       repository.replaceCurrentSession({
         ...activeFence,
@@ -113,6 +121,21 @@ test('Prisma arena repository enforces execution identity and concurrent gap pro
       (await repository.findCurrentSession(titleCardId, 'comparative_value'))?.arena_session_id,
       activeFence.arena_session_id,
     );
+    const blocked = await repository.completeClaimedSession({
+      ...activeFence,
+      status: 'blocked',
+      termination_reason: 'policy_blocked',
+      loop_transcript_ref: artifactRef('blocked_transcript'),
+      loop_transcript_hash: HASH,
+    });
+    assert.equal(blocked.status, 'blocked');
+    assert.equal(blocked.synthesized_at, null);
+    assert.equal((await repository.findSessionById(blocked.arena_session_id))?.loop_transcript_hash, HASH);
+    await assert.rejects(prisma.topicSelectionResearchArenaSession.update({
+      where: { id: blocked.arena_session_id },
+      data: { loopTranscriptHash: null },
+    }), /tsras_synthesis_chk/u);
+    await assert.rejects(repository.completeClaimedSession(blocked), /changed concurrently/u);
 
     const role: TopicSelectionResearchArenaRoleExecutionRecord = {
       schema_version: 'TopicSelectionResearchArenaRoleExecution@v1',
@@ -361,7 +384,7 @@ test('Prisma arena repository enforces execution identity and concurrent gap pro
       participant_role: 'prior_art_topic_killer',
       runtime_identity_hash: '9'.repeat(64),
       semantic_position_hash: 'a'.repeat(64),
-    }), /not current and open/u);
+    }), /not current and executable/u);
 
     const controlPlane = new TopicSelectionControlPlaneService(controlPlaneRepository);
     const checkpointService = new TopicSelectionResearchCheckpointService(
